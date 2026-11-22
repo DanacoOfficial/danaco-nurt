@@ -6216,6 +6216,7 @@ dependencies = [
  "nurt-git-ops",
  "nurt-help",
  "nurt-journal",
+ "nurt-lspclient",
  "nurt-net",
  "nurt-plan",
  "nurt-proc",

@@ -26,6 +26,7 @@ nurt-contracts = { workspace = true }
 nurt-catalog = { workspace = true }
 nurt-exec = { workspace = true }
 nurt-ext = { workspace = true }
+nurt-lspclient = { workspace = true }
 nurt-syntax = { workspace = true }
 nurt-bind = { workspace = true }
 nurt-correct = { workspace = true }

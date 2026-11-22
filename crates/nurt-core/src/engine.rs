@@ -50,6 +50,7 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::{Record, RecordKind};
 use nurt_exec::{ExecEnv, Executor, OperationOutcome, Outcome, ResultData};
+use nurt_lspclient::provider::LspProvider;
 use nurt_plan::{CheckSummary, Plan, PlanOptions};
 use nurt_report::assemble::{ReportBuilder, ReportContext, TargetChange};
 use nurt_report::rules::PathContext;
@@ -66,7 +67,7 @@ use crate::events::{EventListener, Sequencer};
 use crate::extensions;
 use crate::frontend::{Compiled, Corrected, Frontend, UnavailableFrontend};
 use crate::readcache::ReadCache;
-use crate::registry::registry_with;
+use crate::registry::{ProcessComponents, registry_with};
 use crate::session::{SessionId, Sessions};
 use crate::state::{StateArea, StateDir, write_atomic};
 use crate::system::{SystemClock, SystemHost};
@@ -184,7 +185,8 @@ impl EngineConfig {
     }
 
     /// The commands of the extensions installed for the account are added to
-    /// the command registry when the engine opens.
+    /// the command registry when the engine opens, and the code commands use
+    /// language servers for semantic analysis.
     #[must_use]
     pub fn with_process_components(mut self) -> Self {
         self.process_components = true;
@@ -514,13 +516,20 @@ impl Engine {
         let loader = ConfigLoader::new(&config.sources, config.host.as_ref())?;
         let project = loader.project_for(None);
         let loaded = Arc::new(loader.load(project.as_deref())?);
-        let installed = if config.process_components {
-            extensions::locations(config.host.as_ref(), &loaded.config().ext)
-                .map_err(|error| EngineError::registry(&error))?
+        let components = if config.process_components {
+            ProcessComponents {
+                extensions: extensions::locations(config.host.as_ref(), &loaded.config().ext)
+                    .map_err(|error| EngineError::registry(&error))?,
+                semantic: Some(Arc::new(LspProvider::new(
+                    nurt_proc::process_host(),
+                    Arc::clone(&config.clock),
+                    &loaded.config().code,
+                ))),
+            }
         } else {
-            None
+            ProcessComponents::default()
         };
-        let registry = registry_with(&config.stages, installed)
+        let registry = registry_with(&config.stages, components)
             .map(Arc::new)
             .map_err(|error| EngineError::registry(&error))?;
         let catalog_rev = registry

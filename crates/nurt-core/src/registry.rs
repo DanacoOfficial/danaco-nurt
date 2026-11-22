@@ -12,6 +12,7 @@
 use std::sync::Arc;
 
 use nurt_catalog::Registry;
+use nurt_code::semantic::SemanticProvider;
 use nurt_contracts::error::Error;
 use nurt_contracts::stage::StageImpl;
 use nurt_ext::locations::ExtLocations;
@@ -50,24 +51,34 @@ pub fn standard_registry() -> Result<Registry, Error> {
 /// implementation names a command that is not in the catalog or overlaps
 /// another implementation of its command.
 pub fn standard_registry_with(extra: &[Arc<dyn StageImpl>]) -> Result<Registry, Error> {
-    registry_with(extra, None)
+    registry_with(extra, ProcessComponents::default())
 }
 
-/// Builds the registry of this build, then adds the commands of the
-/// extensions installed in `extensions`.
+/// Components that only a running process provides.
+#[derive(Default)]
+pub(crate) struct ProcessComponents {
+    /// Directory of the installed extensions.
+    pub(crate) extensions: Option<ExtLocations>,
+    /// Provider of semantic code analysis backed by language servers.
+    pub(crate) semantic: Option<Arc<dyn SemanticProvider>>,
+}
+
+/// Builds the registry of this build with the components of the process: the
+/// code stages use the semantic provider, and the commands of the installed
+/// extensions are added.
 ///
 /// An extension that cannot be loaded or registered is left out, so that the
 /// other commands stay available.
 pub(crate) fn registry_with(
     extra: &[Arc<dyn StageImpl>],
-    extensions: Option<ExtLocations>,
+    components: ProcessComponents,
 ) -> Result<Registry, Error> {
     let mut registry = Registry::load_embedded()?;
     nurt_exec::stages::register(&mut registry)?;
     nurt_journal::register(&mut registry)?;
     nurt_files::register(&mut registry)?;
     nurt_doc::register(&mut registry)?;
-    nurt_code::register(&mut registry)?;
+    nurt_code::register_with(&mut registry, components.semantic)?;
     nurt_proc::register(&mut registry)?;
     nurt_verify::register(&mut registry)?;
     nurt_syslog::register(&mut registry)?;
@@ -80,7 +91,7 @@ pub(crate) fn registry_with(
     for stage in extra {
         registry.register_impl(Arc::clone(stage))?;
     }
-    if let Some(locations) = extensions {
+    if let Some(locations) = components.extensions {
         crate::extensions::register_installed(&mut registry, locations)?;
     }
     Ok(registry)

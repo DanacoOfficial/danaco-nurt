@@ -27,4 +27,4 @@ pub mod structural;
 pub mod symbols;
 pub mod syntax_check;
 
-pub use commands::register;
+pub use commands::{register, register_with};
