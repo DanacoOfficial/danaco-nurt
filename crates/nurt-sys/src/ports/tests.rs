@@ -282,8 +282,8 @@ mod procnet_tree {
     use std::net::{IpAddr, Ipv4Addr};
 
     use super::*;
+    use crate::common::SysRoot;
     use crate::ports::procnet::{ProcNet, parse_endpoint, parse_table, tcp_state};
-    use crate::processes::sysroot::SysRoot;
     use crate::processes::testing::write;
 
     const HEADER: &str = "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when \

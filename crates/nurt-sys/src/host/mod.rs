@@ -35,7 +35,6 @@ mod macos;
 #[cfg(any(target_os = "linux", test))]
 pub(crate) mod procfs;
 mod service_state;
-mod sysroot;
 #[cfg(test)]
 pub(crate) mod test_support;
 #[cfg(test)]
@@ -57,8 +56,8 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::{self, Instant, Size};
 
-pub use self::sysroot::SysRoot;
-pub(crate) use self::sysroot::{REQUIRED_PRIVILEGE, canonical_path, source_error};
+use crate::common::canonical_path;
+pub use crate::common::sysroot::SysRoot;
 
 /// Name of the command.
 const COMMAND: &str = "host";

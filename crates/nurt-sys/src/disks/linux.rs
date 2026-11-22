@@ -12,7 +12,7 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use super::classify::{case_sensitive, classify, is_pseudo};
 use super::mountinfo::{self, Mount};
 use super::{Volume, VolumeList, VolumeSource};
-use crate::processes::sysroot::SysRoot;
+use crate::common::SysRoot;
 
 /// Mount option of read-only mounts.
 const READ_ONLY: &str = "ro";

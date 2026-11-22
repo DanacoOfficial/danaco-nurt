@@ -30,13 +30,11 @@ mod cpu;
 mod filter;
 #[cfg(target_os = "macos")]
 pub(crate) mod macos;
-mod model;
+pub(crate) mod model;
 #[cfg(any(target_os = "macos", test))]
 pub(crate) mod procargs;
 #[cfg(any(target_os = "linux", all(test, unix)))]
 pub(crate) mod procfs;
-#[cfg(any(target_os = "linux", all(test, unix)))]
-pub(crate) mod sysroot;
 #[cfg(test)]
 pub(crate) mod testing;
 #[cfg(test)]
@@ -62,6 +60,7 @@ use nurt_contracts::value::Record;
 use self::cpu::{CpuMeter, CpuMode};
 use self::filter::Filter;
 use self::model::{ProcessInfo, ProcessReader, ProcessSource, ReadRequest};
+use crate::common::SysRoot;
 
 /// Name of the command in the catalog.
 pub const COMMAND: &str = "processes";
@@ -135,6 +134,24 @@ fn system_source() -> Arc<dyn ProcessSource> {
 #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
 fn system_source() -> Arc<dyn ProcessSource> {
     Arc::new(Unsupported)
+}
+
+/// Process table of the system whose files lie under `root`.
+///
+/// Only the Linux reader resolves its paths against the root; the readers of
+/// other systems use the system calls of the running system.
+#[cfg(target_os = "linux")]
+pub(crate) fn source_under(root: &SysRoot) -> Arc<dyn ProcessSource> {
+    Arc::new(procfs::ProcFs::with_root(root.clone()))
+}
+
+/// Process table of the system whose files lie under `root`.
+///
+/// Only the Linux reader resolves its paths against the root; the readers of
+/// other systems use the system calls of the running system.
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn source_under(_root: &SysRoot) -> Arc<dyn ProcessSource> {
+    system_source()
 }
 
 /// Source of systems without a process reader.

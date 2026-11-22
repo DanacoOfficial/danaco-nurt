@@ -215,8 +215,8 @@ fn disks_unreadable_volumes_noted() {
 #[cfg(unix)]
 mod mount_table {
     use super::*;
+    use crate::common::SysRoot;
     use crate::disks::linux::{MountTable, decode_label};
-    use crate::processes::sysroot::SysRoot;
     use crate::processes::testing::write;
 
     #[test]

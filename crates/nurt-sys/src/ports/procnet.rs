@@ -17,7 +17,7 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::record::{PortState, Protocol};
 
 use super::{ProtocolFilter, SocketEntry, SocketSource, SocketTable, remote_endpoint};
-use crate::processes::sysroot::SysRoot;
+use crate::common::SysRoot;
 
 /// Hexadecimal digits of one 32-bit address word.
 const WORD_DIGITS: usize = 8;
