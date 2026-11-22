@@ -14,3 +14,26 @@
 A host that sends a document with a newer minor version than the console supports receives a language error naming the unsupported field; a newer major version is rejected as unsupported. Hosts pin the major version of the formats they use and test with the conformance suite `nurt-conformance`.
 
 Implementations and integrations that pass the mandatory tests of `nurt-conformance` may use the name "Danaco Nurt Compatible".
+
+The first request of a session is `initialize`; the result lists the protocol, the versions of the formats, the features and the limits:
+
+<!-- schema: rpc -->
+```json
+{"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"protocol": "nurt-rpc/1", "client": {"name": "example-host", "version": "1.0.0"}, "capabilities": {"events": true}}}
+```
+
+<!-- schema: rpc#/$defs/initialize_result -->
+```json
+{
+  "protocol": "nurt-rpc/1",
+  "version": "1.0.0",
+  "abi": 65536,
+  "language": "1.0",
+  "ast": "1.0",
+  "report": "1.0",
+  "catalog_rev": "1.0",
+  "features": ["events", "preview"],
+  "groups": ["core"],
+  "limits": {"max_inflight": 4, "max_message_bytes": 16777216}
+}
+```
