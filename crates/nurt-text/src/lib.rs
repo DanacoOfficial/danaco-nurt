@@ -12,6 +12,7 @@
 #![forbid(unsafe_code)]
 
 pub mod codec;
+pub mod detect;
 pub mod diff;
 pub mod edit_plan;
 pub mod eol;

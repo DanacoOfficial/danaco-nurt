@@ -13,4 +13,5 @@
 #![forbid(unsafe_code)]
 
 pub mod fuzzy;
+pub mod read;
 pub mod walk;
