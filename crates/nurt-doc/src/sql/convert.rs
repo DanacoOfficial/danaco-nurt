@@ -80,7 +80,7 @@ fn out_of_range(label: &str, type_name: &str) -> Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nurt_contracts::value::{Duration, Size};
+    use nurt_contracts::value::{Date, DateKind, Duration, Fields, Instant, Regex, Size};
 
     #[test]
     fn binds_scalars_by_storage_class() {
@@ -133,6 +133,103 @@ mod tests {
         assert_eq!(
             from_sqlite(ValueRef::Text(&[0xff, 0x00])),
             Value::Bytes(Bytes::new(vec![0xff, 0x00]))
+        );
+    }
+
+    #[test]
+    fn binds_null_int_number_and_bytes() {
+        assert_eq!(to_sqlite(&Value::Null, "1").ok(), Some(SqlValue::Null));
+        assert_eq!(
+            to_sqlite(&Value::Int(-7), "1").ok(),
+            Some(SqlValue::Integer(-7))
+        );
+        assert_eq!(
+            to_sqlite(&Value::Number(2.5), "1").ok(),
+            Some(SqlValue::Real(2.5))
+        );
+        assert_eq!(
+            to_sqlite(&Value::Bool(false), "1").ok(),
+            Some(SqlValue::Integer(0))
+        );
+        assert_eq!(
+            to_sqlite(&Value::Bytes(Bytes::new(vec![0, 1, 2])), "1").ok(),
+            Some(SqlValue::Blob(vec![0, 1, 2]))
+        );
+    }
+
+    #[test]
+    fn binds_text_like_values_as_text() {
+        let cases = [
+            Value::Text("a".to_owned()),
+            Value::Path("a".to_owned()),
+            Value::Glob("a".to_owned()),
+            Value::Key("a".to_owned()),
+            Value::Enum("a".to_owned()),
+        ];
+        for value in cases {
+            assert_eq!(
+                to_sqlite(&value, "1").ok(),
+                Some(SqlValue::Text("a".to_owned())),
+                "{}",
+                value.type_name()
+            );
+        }
+    }
+
+    #[test]
+    fn binds_instant_date_and_regex_as_text() {
+        let instant = Instant::UNIX_EPOCH;
+        assert_eq!(
+            to_sqlite(&Value::Instant(instant), "1").ok(),
+            Some(SqlValue::Text(instant.to_string()))
+        );
+        let date = Date {
+            kind: DateKind::LocalDate,
+            text: "2026-11-21".to_owned(),
+        };
+        assert_eq!(
+            to_sqlite(&Value::Date(date), "1").ok(),
+            Some(SqlValue::Text("2026-11-21".to_owned()))
+        );
+        let regex = Regex::new("^a+$", "i").ok();
+        assert!(regex.is_some());
+        if let Some(regex) = regex {
+            assert_eq!(
+                to_sqlite(&Value::Regex(regex), "1").ok(),
+                Some(SqlValue::Text("^a+$".to_owned()))
+            );
+        }
+    }
+
+    #[test]
+    fn reports_parameter_type_problem_with_label() {
+        let error = to_sqlite(&Value::Map(Fields::default()), "3").err();
+        assert_eq!(
+            error.as_ref().and_then(|error| error.problem.as_deref()),
+            Some("parameter_type")
+        );
+        assert!(
+            error
+                .as_ref()
+                .is_some_and(|error| error.message.contains("parameter 3 has type"))
+        );
+    }
+
+    #[test]
+    fn maps_scalar_results() {
+        assert_eq!(from_sqlite(ValueRef::Null), Value::Null);
+        assert_eq!(
+            from_sqlite(ValueRef::Integer(i64::MIN)),
+            Value::Int(i64::MIN)
+        );
+        assert_eq!(from_sqlite(ValueRef::Real(1.5)), Value::Number(1.5));
+        assert_eq!(
+            from_sqlite(ValueRef::Text("zażółć".as_bytes())),
+            Value::Text("zażółć".to_owned())
+        );
+        assert_eq!(
+            from_sqlite(ValueRef::Blob(&[9, 8])),
+            Value::Bytes(Bytes::new(vec![9, 8]))
         );
     }
 }
