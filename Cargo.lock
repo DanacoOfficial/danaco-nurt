@@ -6055,6 +6055,7 @@ name = "nurt-files"
 version = "0.1.0"
 dependencies = [
  "encoding_rs",
+ "fancy-regex",
  "globset",
  "ignore",
  "image",
@@ -6070,6 +6071,7 @@ dependencies = [
  "nurt-text",
  "nurt-types",
  "pdf-extract",
+ "regex",
  "serde",
  "serde_json",
  "tempfile",

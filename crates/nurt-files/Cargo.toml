@@ -27,6 +27,8 @@ nurt-text = { workspace = true }
 nurt-archive = { workspace = true }
 nurt-notebook = { workspace = true }
 serde_json = { workspace = true }
+regex = { workspace = true }
+fancy-regex = { workspace = true }
 ignore = { workspace = true }
 globset = { workspace = true }
 memmap2 = { workspace = true }
