@@ -69,7 +69,9 @@ impl RemoteStatus {
             format!("`{command}` ended on the server with signal {signal}{detail}")
         } else {
             match self.exit_status {
-                Some(code) if code != 0 => format!("`{command}` failed on the server with exit status {code}{detail}"),
+                Some(code) if code != 0 => {
+                    format!("`{command}` failed on the server with exit status {code}{detail}")
+                }
                 _ => return None,
             }
         };
@@ -98,7 +100,9 @@ pub(crate) struct Status(Arc<Mutex<RemoteStatus>>);
 impl Status {
     /// Locks the status; a poisoned lock still yields the data.
     pub(crate) fn lock(&self) -> MutexGuard<'_, RemoteStatus> {
-        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
 
@@ -191,17 +195,34 @@ pub(crate) async fn open(
     limits: Limits,
 ) -> nurt_contracts::error::Result<(ChannelReader, ChannelWriter)> {
     let failed = |err: russh::Error| {
-        Error::new(ErrorCode::Network, format!("cannot start `{command}` over ssh: {err}")).with_problem("ssh_channel")
+        Error::new(
+            ErrorCode::Network,
+            format!("cannot start `{command}` over ssh: {err}"),
+        )
+        .with_problem("ssh_channel")
     };
     let channel = session.channel_open_session().await.map_err(failed)?;
     if let Some(value) = protocol {
-        channel.set_env(false, "GIT_PROTOCOL", value).await.map_err(failed)?;
+        channel
+            .set_env(false, "GIT_PROTOCOL", value)
+            .await
+            .map_err(failed)?;
     }
-    channel.exec(true, command.as_bytes()).await.map_err(failed)?;
+    channel
+        .exec(true, command.as_bytes())
+        .await
+        .map_err(failed)?;
     let (read_half, write_half) = channel.split();
     let (incoming_tx, incoming_rx) = mpsc::channel(QUEUE_DEPTH);
     let (outgoing_tx, outgoing_rx) = mpsc::channel(QUEUE_DEPTH);
-    tokio::spawn(pump(read_half, write_half, incoming_tx, outgoing_rx, status.clone(), limits));
+    tokio::spawn(pump(
+        read_half,
+        write_half,
+        incoming_tx,
+        outgoing_rx,
+        status.clone(),
+        limits,
+    ));
     Ok((
         ChannelReader {
             queue: incoming_rx,
@@ -236,7 +257,11 @@ async fn pump(
     }
 }
 
-async fn receive(read_half: &mut ChannelReadHalf, incoming: &mpsc::Sender<Vec<u8>>, status: &Status) {
+async fn receive(
+    read_half: &mut ChannelReadHalf,
+    incoming: &mpsc::Sender<Vec<u8>>,
+    status: &Status,
+) {
     while let Some(message) = read_half.wait().await {
         match message {
             ChannelMsg::Data { data } => {
@@ -250,7 +275,10 @@ async fn receive(read_half: &mut ChannelReadHalf, incoming: &mpsc::Sender<Vec<u8
                 signal_name,
                 error_message,
                 ..
-            } => status.lock().signal = Some(format!("{signal_name:?} {error_message}").trim().to_owned()),
+            } => {
+                status.lock().signal =
+                    Some(format!("{signal_name:?} {error_message}").trim().to_owned())
+            }
             ChannelMsg::Failure => {
                 status.lock().refused = true;
                 return;
@@ -264,7 +292,10 @@ async fn receive(read_half: &mut ChannelReadHalf, incoming: &mpsc::Sender<Vec<u8
 /// Forwards written data; after the writer is dropped it sends end of file
 /// and stays pending, so that reading continues until the server closes
 /// the channel.
-async fn send(write_half: &ChannelWriteHalf<russh::client::Msg>, outgoing: &mut mpsc::Receiver<Vec<u8>>) {
+async fn send(
+    write_half: &ChannelWriteHalf<russh::client::Msg>,
+    outgoing: &mut mpsc::Receiver<Vec<u8>>,
+) {
     while let Some(data) = outgoing.recv().await {
         if write_half.data_bytes(data).await.is_err() {
             return;
@@ -297,7 +328,10 @@ mod tests {
         status.push_stderr(b"fatal: '/srv/none.git' does not appear to be a git repository\n");
         let error = status.failure("git-upload-pack '/srv/none.git'").unwrap();
         assert_eq!(error.code(), ErrorCode::GitProtocol);
-        assert_eq!(error.data().problem.as_deref(), Some("repository_not_found"));
+        assert_eq!(
+            error.data().problem.as_deref(),
+            Some("repository_not_found")
+        );
         assert!(error.to_string().contains("exit status 128"));
         assert!(error.to_string().contains("does not appear"));
     }
@@ -308,8 +342,11 @@ mod tests {
             refused: true,
             ..RemoteStatus::default()
         };
-        status.push_stderr(b"Permission denied to alice.\n");
-        assert_eq!(status.failure("git-receive-pack 'r'").unwrap().code(), ErrorCode::GitAuth);
+        status.push_stderr(b"Permission denied to user.\n");
+        assert_eq!(
+            status.failure("git-receive-pack 'r'").unwrap().code(),
+            ErrorCode::GitAuth
+        );
     }
 
     #[test]
@@ -318,13 +355,22 @@ mod tests {
             signal: Some("KILL".into()),
             ..RemoteStatus::default()
         };
-        assert!(status.failure("c").unwrap().to_string().contains("signal KILL"));
+        assert!(
+            status
+                .failure("c")
+                .unwrap()
+                .to_string()
+                .contains("signal KILL")
+        );
         let status = RemoteStatus {
             aborted: Some(Error::new(ErrorCode::Timeout, "late")),
             ..RemoteStatus::default()
         };
         assert_eq!(status.failure("c").unwrap().code(), ErrorCode::Timeout);
-        assert_eq!(io_error(&Error::new(ErrorCode::Cancelled, "x")).kind(), io::ErrorKind::Interrupted);
+        assert_eq!(
+            io_error(&Error::new(ErrorCode::Cancelled, "x")).kind(),
+            io::ErrorKind::Interrupted
+        );
     }
 
     #[test]
@@ -377,7 +423,10 @@ mod tests {
             queue: tx,
             status: Status::default(),
         };
-        assert_eq!(writer.write(b"x").unwrap_err().kind(), io::ErrorKind::BrokenPipe);
+        assert_eq!(
+            writer.write(b"x").unwrap_err().kind(),
+            io::ErrorKind::BrokenPipe
+        );
         assert_eq!(writer.write(b"").unwrap(), 0);
         writer.flush().unwrap();
     }

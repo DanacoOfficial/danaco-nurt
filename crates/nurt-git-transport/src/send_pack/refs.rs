@@ -40,7 +40,11 @@ impl LogPolicy {
     #[must_use]
     pub fn of(repo: &gix::Repository) -> Self {
         let config = repo.config_snapshot();
-        match config.string("core.logAllRefUpdates").as_deref().map(|value| value.as_bytes()) {
+        match config
+            .string("core.logAllRefUpdates")
+            .as_deref()
+            .map(|value| value.as_bytes())
+        {
             Some(b"always") => Self::Always,
             Some(_) => match config.boolean("core.logAllRefUpdates") {
                 Some(true) => Self::Standard,
@@ -87,7 +91,13 @@ impl Identity {
         out.extend_from_slice(b" <");
         out.extend_from_slice(&self.email);
         out.extend_from_slice(
-            format!("> {} {sign}{:02}{:02}", self.seconds, minutes / 60, minutes % 60).as_bytes(),
+            format!(
+                "> {} {sign}{:02}{:02}",
+                self.seconds,
+                minutes / 60,
+                minutes % 60
+            )
+            .as_bytes(),
         );
         out
     }
@@ -160,7 +170,7 @@ pub fn plan_ref_edits(
                 plan.replace_locked(git_dir, &path, content)?;
                 let line = identity.reflog_line(edit.old.unwrap_or(zero), new, &edit.message);
                 append_log(git_dir, &edit.name, &line, policy, plan)?;
-                if head_target.as_deref() == Some(edit.name.as_bytes()) {
+                if head_target.as_ref() == Some(&edit.name) {
                     append_log(git_dir, b"HEAD", &line, policy, plan)?;
                 }
             }
@@ -203,7 +213,10 @@ fn add_value_check(git_dir: &Path, edit: &RefEdit, plan: &mut FilePlan) {
                 name.as_bstr()
             ),
         )
-        .with_detail("ref", serde_json::Value::String(name.to_str_lossy().into_owned())))
+        .with_detail(
+            "ref",
+            serde_json::Value::String(name.to_str_lossy().into_owned()),
+        ))
     }));
 }
 
@@ -293,7 +306,11 @@ fn packed_value(git_dir: &Path, name: &[u8]) -> Result<Option<ObjectId>> {
     };
     Ok(bytes.lines().find_map(|line| {
         let (id, ref_name) = line.split_once_str(b" ")?;
-        (ref_name == name).then(|| ObjectId::from_hex(id).ok())?
+        if ref_name == name {
+            ObjectId::from_hex(id).ok()
+        } else {
+            None
+        }
     }))
 }
 
@@ -381,7 +398,8 @@ mod tests {
         let line = identity().reflog_line(id(A), id(B), "update by push");
         assert_eq!(
             line,
-            format!("{A} {B} Ada <ada@example.com> 1700000000 -0130\tupdate by push\n").into_bytes()
+            format!("{A} {B} Ada <ada@example.com> 1700000000 -0130\tupdate by push\n")
+                .into_bytes()
         );
     }
 
@@ -409,7 +427,9 @@ mod tests {
     #[test]
     fn skips_logs_for_bare_policy_and_deletes_packed_refs() {
         let (_dir, git) = git_dir();
-        let packed = format!("# pack-refs with: peeled fully-peeled sorted \n{A} refs/tags/v1\n^{B}\n{B} refs/tags/v2\n");
+        let packed = format!(
+            "# pack-refs with: peeled fully-peeled sorted \n{A} refs/tags/v1\n^{B}\n{B} refs/tags/v2\n"
+        );
         std::fs::write(git.join(PACKED_REFS), &packed).unwrap();
         std::fs::create_dir_all(git.join("logs/refs/tags")).unwrap();
         std::fs::write(git.join("logs/refs/tags/v1"), b"x\n").unwrap();
@@ -445,7 +465,10 @@ mod tests {
         assert!(!git.join("logs/refs/tags/v1").exists());
         assert!(!git.join("logs/refs/tags/v3").exists());
         tx.undo();
-        assert_eq!(std::fs::read_to_string(git.join(PACKED_REFS)).unwrap(), packed);
+        assert_eq!(
+            std::fs::read_to_string(git.join(PACKED_REFS)).unwrap(),
+            packed
+        );
         assert_eq!(read_ref(&git, b"refs/heads/topic").unwrap(), Some(id(A)));
     }
 
@@ -471,7 +494,12 @@ mod tests {
     #[test]
     fn rejects_invalid_and_symbolic_references() {
         let (_dir, git) = git_dir();
-        for name in [&b"main"[..], b"refs/heads/a..b", b"refs/heads/x y", b"refs/heads/"] {
+        for name in [
+            &b"main"[..],
+            b"refs/heads/a..b",
+            b"refs/heads/x y",
+            b"refs/heads/",
+        ] {
             assert_eq!(
                 validate_name(name).unwrap_err().problem.as_deref(),
                 Some("invalid_name")

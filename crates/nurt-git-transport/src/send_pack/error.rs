@@ -10,11 +10,6 @@ pub(crate) fn protocol_error(problem: &str, message: impl Into<String>) -> Error
     Error::new(ErrorCode::GitProtocol, message).with_problem(problem)
 }
 
-/// Error `E_IO` for a failed read or write of the repository.
-pub(crate) fn io_error(context: &str, error: &dyn std::fmt::Display) -> Error {
-    Error::new(ErrorCode::Io, format!("{context}: {error}"))
-}
-
 /// Error `E_INTERNAL` for an unexpected library failure.
 pub(crate) fn library_error(context: &str, error: &dyn std::fmt::Display) -> Error {
     Error::new(ErrorCode::Internal, format!("{context}: {error}"))
@@ -26,12 +21,18 @@ pub(crate) fn transport_error(error: &gix_transport::client::Error) -> Error {
     use gix_transport::client::Error as Transport;
     let text = error.to_string();
     match error {
-        Transport::AuthenticationUnsupported | Transport::AuthenticationRefused(_) => {
-            Error::new(ErrorCode::GitAuth, format!("the remote refused the credentials: {text}"))
-                .with_problem("rejected")
+        Transport::AuthenticationUnsupported | Transport::AuthenticationRefused(_) => Error::new(
+            ErrorCode::GitAuth,
+            format!("the remote refused the credentials: {text}"),
+        )
+        .with_problem("rejected"),
+        Transport::Io(_) => {
+            Error::new(ErrorCode::Network, format!("the connection failed: {text}"))
         }
-        Transport::Io(_) => Error::new(ErrorCode::Network, format!("the connection failed: {text}")),
-        _ => protocol_error("transport", format!("the remote broke the protocol: {text}")),
+        _ => protocol_error(
+            "transport",
+            format!("the remote broke the protocol: {text}"),
+        ),
     }
 }
 
@@ -70,7 +71,6 @@ mod tests {
         assert_eq!(transport_error(&refused).code(), ErrorCode::GitAuth);
         let io = gix_transport::client::Error::Io(std::io::Error::other("reset"));
         assert_eq!(transport_error(&io).code(), ErrorCode::Network);
-        assert_eq!(io_error("write", &"denied").code(), ErrorCode::Io);
         assert_eq!(library_error("pack", &"broken").code(), ErrorCode::Internal);
     }
 }

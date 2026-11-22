@@ -25,7 +25,8 @@ use std::sync::atomic::AtomicBool;
 
 use bstr::{BString, ByteSlice};
 use gix::ObjectId;
-use gix_transport::client::git::{ConnectMode, Connection};
+use gix_transport::client::git::ConnectMode;
+use gix_transport::client::git::blocking_io::Connection;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::AbsPath;
 use nurt_contracts::journal::{ExemptWrite, MutationTx};
@@ -182,7 +183,7 @@ pub struct CommandResult {
 }
 
 /// Outcome of one request.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ReceiveSummary {
     /// Commands with their outcome, in request order.
     pub commands: Vec<CommandResult>,
@@ -254,17 +255,15 @@ impl ReceivePack {
     ///
     /// Fails with `E_GIT_NOT_REPOSITORY` when `path` is not a repository.
     pub fn open(path: &Path, options: ReceiveOptions) -> Result<Self> {
-        let repo = gix::open_opts(path, gix::open::Options::isolated())
-            .map_err(|error| {
-                Error::new(
-                    ErrorCode::GitNotRepository,
-                    format!(
-                        "`{}` is not a git repository: {error}; check the remote URL",
-                        path.display()
-                    ),
-                )
-            })?
-            .to_thread_local();
+        let repo = gix::open_opts(path, gix::open::Options::isolated()).map_err(|error| {
+            Error::new(
+                ErrorCode::GitNotRepository,
+                format!(
+                    "`{}` is not a git repository: {error}; check the remote URL",
+                    path.display()
+                ),
+            )
+        })?;
         let git_dir = repo.git_dir().to_path_buf();
         let policy = read_policy(&repo, &git_dir);
         Ok(Self {
@@ -405,7 +404,7 @@ impl ReceivePack {
         let mut refs = Vec::new();
         for reference in all {
             let mut reference =
-                reference.map_err(|error| io_failure("reading references failed", &*error))?;
+                reference.map_err(|error| io_failure("reading references failed", &error))?;
             let name = BString::from(reference.name().as_bstr());
             if self.is_hidden(&name) {
                 continue;
@@ -526,10 +525,9 @@ impl ReceivePack {
                 command.new.to_string(),
             ];
             if !self.run_hook("update", &args, &[], requested, hooks, summary)? {
-                summary.messages.push(format!(
-                    "error: hook declined to update {}",
-                    command.name
-                ));
+                summary
+                    .messages
+                    .push(format!("error: hook declined to update {}", command.name));
                 *error = Some("hook declined".to_owned());
             }
         }
@@ -543,7 +541,7 @@ impl ReceivePack {
         };
         let expected = (!command.old.is_null()).then_some(command.old);
         let is_checked_out =
-            !self.repo.is_bare() && self.head_branch().as_deref() == Some(command.name.as_bytes());
+            !self.repo.is_bare() && self.head_branch().as_ref() == Some(&command.name);
         if command.is_delete() {
             if self.policy.deny_deletes && command.name.starts_with(b"refs/heads/") {
                 summary
@@ -594,7 +592,7 @@ impl ReceivePack {
     fn is_ancestor(&self, old: ObjectId, new: ObjectId) -> bool {
         self.repo
             .merge_base(old, new)
-            .is_ok_and(|base| base.detach() == old)
+            .is_ok_and(|base| base.is_some_and(|base| base.detach() == old))
     }
 
     fn head_branch(&self) -> Option<BString> {
@@ -631,12 +629,20 @@ impl ReceivePack {
             .collect();
         let mut plan = FilePlan::new();
         let policy = LogPolicy::of(&self.repo);
-        let result = plan_ref_edits(&self.git_dir, &edits, &self.options.identity, policy, &mut plan)
-            .and_then(|()| {
-                let commands: Vec<RefCommand> =
-                    accepted.iter().map(|(_, command)| (*command).clone()).collect();
-                sink.apply(&plan, &commands)
-            });
+        let result = plan_ref_edits(
+            &self.git_dir,
+            &edits,
+            &self.options.identity,
+            policy,
+            &mut plan,
+        )
+        .and_then(|()| {
+            let commands: Vec<RefCommand> = accepted
+                .iter()
+                .map(|(_, command)| (*command).clone())
+                .collect();
+            sink.apply(&plan, &commands)
+        });
         if let Err(error) = result {
             summary.messages.push(format!("error: {}", error.message));
             for (position, _) in &accepted {
@@ -742,12 +748,13 @@ fn read_policy(repo: &gix::Repository, git_dir: &Path) -> Policy {
     }
     let hooks_dir = config
         .trusted_path("core.hooksPath")
-        .and_then(Result::ok)
+        .ok()
+        .flatten()
         .map_or_else(
             || git_dir.join("hooks"),
             |path| {
                 let base = repo.workdir().unwrap_or(git_dir);
-                base.join(path.as_ref())
+                base.join(path)
             },
         );
     Policy {
@@ -808,10 +815,14 @@ fn read_request(input: &mut dyn Read) -> Result<Option<(Vec<RefCommand>, Request
 fn parse_command(line: &[u8]) -> Result<RefCommand> {
     let mut parts = line.splitn_str(3, b" ");
     let (Some(old), Some(new), Some(name)) = (parts.next(), parts.next(), parts.next()) else {
-        return Err(malformed(&format!("malformed command `{}`", line.as_bstr())));
+        return Err(malformed(&format!(
+            "malformed command `{}`",
+            line.as_bstr()
+        )));
     };
     let parse = |hex: &[u8]| {
-        ObjectId::from_hex(hex).map_err(|_| malformed(&format!("malformed command `{}`", line.as_bstr())))
+        ObjectId::from_hex(hex)
+            .map_err(|_| malformed(&format!("malformed command `{}`", line.as_bstr())))
     };
     Ok(RefCommand {
         old: parse(old)?,
@@ -830,7 +841,11 @@ fn hook_input<'a>(commands: impl Iterator<Item = &'a RefCommand>) -> Vec<u8> {
     stdin
 }
 
-fn write_report(out: &mut dyn Write, summary: &ReceiveSummary, requested: &Requested) -> io::Result<()> {
+fn write_report(
+    out: &mut dyn Write,
+    summary: &ReceiveSummary,
+    requested: &Requested,
+) -> io::Result<()> {
     let report_status = requested.has("report-status") || requested.has("report-status-v2");
     let side_band = requested.has("side-band-64k") || requested.has("side-band");
     let mut report = Vec::new();
@@ -922,9 +937,12 @@ impl Session<'_> {
     fn respond(&mut self) {
         let request = std::mem::take(&mut self.request);
         let mut response = Vec::new();
-        let result = self
-            .service
-            .serve(&mut request.as_slice(), &mut response, self.hooks, self.sink);
+        let result = self.service.serve(
+            &mut request.as_slice(),
+            &mut response,
+            self.hooks,
+            self.sink,
+        );
         self.response = response;
         self.position = 0;
         self.phase = Phase::Responding;
@@ -1112,7 +1130,12 @@ mod tests {
         tx: RecordingTx,
     }
 
-    fn push(local: &Fixture, remote: &Fixture, commands: &[RefCommand], send_options: &SendOptions) -> Outcome {
+    fn push(
+        local: &Fixture,
+        remote: &Fixture,
+        commands: &[RefCommand],
+        send_options: &SendOptions,
+    ) -> Outcome {
         let host = ScriptHost::default();
         let cancel = CancelToken::new();
         let hooks = ProcessHooks::new(&host, &cancel);
@@ -1120,7 +1143,8 @@ mod tests {
         let (send_outcome, summary) = {
             let mut sink = TxSink::new(&mut tx);
             let service = ReceivePack::open(remote.root(), options()).unwrap();
-            let (mut transport, session) = connect(service, "file:///remote", Some(&hooks), &mut sink).unwrap();
+            let (mut transport, session) =
+                connect(service, "file:///remote", Some(&hooks), &mut sink).unwrap();
             let advertisement = discover(&mut transport).unwrap();
             let outcome = send(
                 &mut transport,
@@ -1168,13 +1192,24 @@ mod tests {
         let local = Fixture::new();
         let tip = local.commit("main", &[("a.txt", "one\n")], &[]);
         let remote = Fixture::bare();
-        let mut outcome = push(&local, &remote, &[command(None, Some(tip), "refs/heads/main")], &SendOptions::default());
-        assert_eq!(statuses(&outcome), [("refs/heads/main".to_owned(), RefStatus::Ok)]);
+        let mut outcome = push(
+            &local,
+            &remote,
+            &[command(None, Some(tip), "refs/heads/main")],
+            &SendOptions::default(),
+        );
+        assert_eq!(
+            statuses(&outcome),
+            [("refs/heads/main".to_owned(), RefStatus::Ok)]
+        );
         assert_eq!(remote.ref_value("refs/heads/main"), Some(tip));
         assert!(remote.repo().has_object(tip));
         let summary = outcome.summary.unwrap();
         assert_eq!(summary.objects_received, 3);
-        assert!(!remote.git_dir().join("logs/refs/heads/main").exists(), "bare: no reflog");
+        assert!(
+            !remote.git_dir().join("logs/refs/heads/main").exists(),
+            "bare: no reflog"
+        );
         assert_eq!(outcome.tx.exempt.len(), 1);
         assert!(outcome.send.pack.is_some());
         outcome.tx.undo();
@@ -1188,10 +1223,30 @@ mod tests {
         let next = local.commit("main", &[("a.txt", "two\n")], &[base]);
         let remote = Fixture::new();
         remote.config("[receive]\n\tdenyCurrentBranch = ignore\n");
-        let first = push(&local, &remote, &[command(None, Some(base), "refs/heads/main"), command(None, Some(base), "refs/heads/old")], &SendOptions::default());
+        let first = push(
+            &local,
+            &remote,
+            &[
+                command(None, Some(base), "refs/heads/main"),
+                command(None, Some(base), "refs/heads/old"),
+            ],
+            &SendOptions::default(),
+        );
         assert_eq!(first.summary.unwrap().commands.len(), 2);
-        let second = push(&local, &remote, &[command(Some(base), Some(next), "refs/heads/main"), command(Some(base), None, "refs/heads/old")], &SendOptions::default());
-        assert!(statuses(&second).iter().all(|(_, status)| *status == RefStatus::Ok));
+        let second = push(
+            &local,
+            &remote,
+            &[
+                command(Some(base), Some(next), "refs/heads/main"),
+                command(Some(base), None, "refs/heads/old"),
+            ],
+            &SendOptions::default(),
+        );
+        assert!(
+            statuses(&second)
+                .iter()
+                .all(|(_, status)| *status == RefStatus::Ok)
+        );
         assert_eq!(remote.ref_value("refs/heads/main"), Some(next));
         assert_eq!(remote.ref_value("refs/heads/old"), None);
         let log = std::fs::read_to_string(remote.git_dir().join("logs/refs/heads/main")).unwrap();
@@ -1204,15 +1259,32 @@ mod tests {
         let local = Fixture::new();
         let tip = local.commit("main", &[("a.txt", "one\n")], &[]);
         let remote = Fixture::new();
-        let outcome = push(&local, &remote, &[command(None, Some(tip), "refs/heads/main"), command(None, Some(tip), "refs/heads/side")], &SendOptions::default());
+        let outcome = push(
+            &local,
+            &remote,
+            &[
+                command(None, Some(tip), "refs/heads/main"),
+                command(None, Some(tip), "refs/heads/side"),
+            ],
+            &SendOptions::default(),
+        );
         assert_eq!(
             statuses(&outcome),
             [
-                ("refs/heads/main".to_owned(), RefStatus::Rejected("branch is currently checked out".to_owned())),
+                (
+                    "refs/heads/main".to_owned(),
+                    RefStatus::Rejected("branch is currently checked out".to_owned())
+                ),
                 ("refs/heads/side".to_owned(), RefStatus::Ok),
             ]
         );
-        assert!(outcome.send.remote_messages.iter().any(|line| line.contains("refusing to update checked out branch")));
+        assert!(
+            outcome
+                .send
+                .remote_messages
+                .iter()
+                .any(|line| line.contains("refusing to update checked out branch"))
+        );
     }
 
     #[test]
@@ -1221,22 +1293,66 @@ mod tests {
         let base = local.commit("main", &[("a.txt", "one\n")], &[]);
         let other = local.commit("other", &[("a.txt", "other\n")], &[]);
         let remote = Fixture::bare();
-        push(&local, &remote, &[command(None, Some(base), "refs/heads/main"), command(None, Some(base), "refs/heads/gone")], &SendOptions::default());
+        push(
+            &local,
+            &remote,
+            &[
+                command(None, Some(base), "refs/heads/main"),
+                command(None, Some(base), "refs/heads/gone"),
+            ],
+            &SendOptions::default(),
+        );
         remote.config("[receive]\n\tdenyNonFastForwards = true\n\tdenyDeletes = true\n");
-        let outcome = push(&local, &remote, &[command(Some(base), Some(other), "refs/heads/main"), command(Some(base), None, "refs/heads/gone")], &SendOptions::default());
+        let outcome = push(
+            &local,
+            &remote,
+            &[
+                command(Some(base), Some(other), "refs/heads/main"),
+                command(Some(base), None, "refs/heads/gone"),
+            ],
+            &SendOptions::default(),
+        );
         assert_eq!(
             statuses(&outcome),
             [
-                ("refs/heads/main".to_owned(), RefStatus::Rejected("non-fast-forward".to_owned())),
-                ("refs/heads/gone".to_owned(), RefStatus::Rejected("deletion prohibited".to_owned())),
+                (
+                    "refs/heads/main".to_owned(),
+                    RefStatus::Rejected("non-fast-forward".to_owned())
+                ),
+                (
+                    "refs/heads/gone".to_owned(),
+                    RefStatus::Rejected("deletion prohibited".to_owned())
+                ),
             ]
         );
-        let atomic = SendOptions { atomic: true, ..SendOptions::default() };
-        let outcome = push(&local, &remote, &[command(Some(base), Some(other), "refs/heads/main"), command(None, Some(other), "refs/heads/new")], &atomic);
-        assert_eq!(statuses(&outcome)[1].1, RefStatus::Rejected("atomic push failure".to_owned()));
+        let atomic = SendOptions {
+            atomic: true,
+            ..SendOptions::default()
+        };
+        let outcome = push(
+            &local,
+            &remote,
+            &[
+                command(Some(base), Some(other), "refs/heads/main"),
+                command(None, Some(other), "refs/heads/new"),
+            ],
+            &atomic,
+        );
+        assert_eq!(
+            statuses(&outcome)[1].1,
+            RefStatus::Rejected("atomic push failure".to_owned())
+        );
         assert_eq!(remote.ref_value("refs/heads/new"), None);
-        let stale = push(&local, &remote, &[command(Some(other), Some(base), "refs/heads/main")], &SendOptions::default());
-        assert_eq!(statuses(&stale)[0].1, RefStatus::Rejected("failed to update ref".to_owned()));
+        let stale = push(
+            &local,
+            &remote,
+            &[command(Some(other), Some(base), "refs/heads/main")],
+            &SendOptions::default(),
+        );
+        assert_eq!(
+            statuses(&stale)[0].1,
+            RefStatus::Rejected("failed to update ref".to_owned())
+        );
     }
 
     #[cfg(unix)]
@@ -1246,14 +1362,36 @@ mod tests {
         let tip = local.commit("main", &[("a.txt", "one\n")], &[]);
         let remote = Fixture::bare();
         remote.hook("pre-receive", "#!/bin/sh\necho no way >&2\nexit 1\n");
-        let outcome = push(&local, &remote, &[command(None, Some(tip), "refs/heads/main")], &SendOptions::default());
-        assert_eq!(statuses(&outcome)[0].1, RefStatus::Rejected("pre-receive hook declined".to_owned()));
+        let outcome = push(
+            &local,
+            &remote,
+            &[command(None, Some(tip), "refs/heads/main")],
+            &SendOptions::default(),
+        );
+        assert_eq!(
+            statuses(&outcome)[0].1,
+            RefStatus::Rejected("pre-receive hook declined".to_owned())
+        );
         assert_eq!(outcome.send.remote_messages, ["no way"]);
         std::fs::remove_file(remote.git_dir().join("hooks/pre-receive")).unwrap();
-        remote.hook("update", "#!/bin/sh\n[ \"$1\" = refs/heads/b2 ] && exit 1\nexit 0\n");
+        remote.hook(
+            "update",
+            "#!/bin/sh\n[ \"$1\" = refs/heads/b2 ] && exit 1\nexit 0\n",
+        );
         remote.hook("post-receive", "#!/bin/sh\ncat > post-receive.out\n");
-        let outcome = push(&local, &remote, &[command(None, Some(tip), "refs/heads/main"), command(None, Some(tip), "refs/heads/b2")], &SendOptions::default());
-        assert_eq!(statuses(&outcome)[1].1, RefStatus::Rejected("hook declined".to_owned()));
+        let outcome = push(
+            &local,
+            &remote,
+            &[
+                command(None, Some(tip), "refs/heads/main"),
+                command(None, Some(tip), "refs/heads/b2"),
+            ],
+            &SendOptions::default(),
+        );
+        assert_eq!(
+            statuses(&outcome)[1].1,
+            RefStatus::Rejected("hook declined".to_owned())
+        );
         let post = std::fs::read_to_string(remote.git_dir().join("post-receive.out")).unwrap();
         assert!(post.ends_with(" refs/heads/main\n"));
     }
@@ -1267,19 +1405,49 @@ mod tests {
         remote.config("[receive]\n\thideRefs = refs/hidden\n");
         let mut tx = RecordingTx::new();
         let mut sink = TxSink::new(&mut tx);
-        let mut service = ReceivePack::open(remote.root(), ReceiveOptions { run_hooks: false, ..options() }).unwrap();
+        let mut service = ReceivePack::open(
+            remote.root(),
+            ReceiveOptions {
+                run_hooks: false,
+                ..options()
+            },
+        )
+        .unwrap();
         let mut request = Vec::new();
-        let commands = [command(None, Some(tip), "refs/heads/main"), command(None, Some(tip), "refs/hidden/x"), command(None, Some(tip), "HEAD")];
-        let negotiated = crate::send_pack::Negotiated { words: vec!["report-status".to_owned()], report_status: true, ..Default::default() };
+        let commands = [
+            command(None, Some(tip), "refs/heads/main"),
+            command(None, Some(tip), "refs/hidden/x"),
+            command(None, Some(tip), "HEAD"),
+        ];
+        let negotiated = crate::send_pack::Negotiated {
+            words: vec!["report-status".to_owned()],
+            report_status: true,
+            ..Default::default()
+        };
         crate::send_pack::write_commands(&mut request, &commands, &negotiated, &[]).unwrap();
-        crate::send_pack::write_pack(&local.repo(), crate::send_pack::objects_to_send(&local.repo(), &[tip], &[], &AtomicBool::new(false)).unwrap(), &mut request, &AtomicBool::new(false)).unwrap();
+        crate::send_pack::write_pack(
+            &local.repo(),
+            crate::send_pack::objects_to_send(&local.repo(), &[tip], &[], &AtomicBool::new(false))
+                .unwrap(),
+            &mut request,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         let mut response = Vec::new();
-        let summary = service.serve(&mut request.as_slice(), &mut response, None, &mut sink).unwrap();
+        let summary = service
+            .serve(&mut request.as_slice(), &mut response, None, &mut sink)
+            .unwrap();
         assert!(summary.hooks_skipped);
         let report = crate::send_pack::parse_report(&response).unwrap();
         assert_eq!(report.refs[0].status, RefStatus::Ok);
-        assert_eq!(report.refs[1].status, RefStatus::Rejected("deny updating a hidden ref".to_owned()));
-        assert_eq!(report.refs[2].status, RefStatus::Rejected("funny refname".to_owned()));
+        assert_eq!(
+            report.refs[1].status,
+            RefStatus::Rejected("deny updating a hidden ref".to_owned())
+        );
+        assert_eq!(
+            report.refs[2].status,
+            RefStatus::Rejected("funny refname".to_owned())
+        );
         let mut advertisement = Vec::new();
         service.advertise(&mut advertisement).unwrap();
         assert!(!advertisement.contains_str("refs/hidden"));
@@ -1293,28 +1461,71 @@ mod tests {
         let mut tx = RecordingTx::new();
         let mut sink = TxSink::new(&mut tx);
         let mut service = ReceivePack::open(remote.root(), options()).unwrap();
-        let negotiated = crate::send_pack::Negotiated { words: vec!["report-status".to_owned()], report_status: true, ..Default::default() };
+        let negotiated = crate::send_pack::Negotiated {
+            words: vec!["report-status".to_owned()],
+            report_status: true,
+            ..Default::default()
+        };
         let mut request = Vec::new();
-        crate::send_pack::write_commands(&mut request, &[command(None, Some(tip), "refs/heads/main")], &negotiated, &[]).unwrap();
-        crate::send_pack::write_pack(&local.repo(), Vec::new(), &mut request, &AtomicBool::new(false)).unwrap();
+        crate::send_pack::write_commands(
+            &mut request,
+            &[command(None, Some(tip), "refs/heads/main")],
+            &negotiated,
+            &[],
+        )
+        .unwrap();
+        crate::send_pack::write_pack(
+            &local.repo(),
+            Vec::new(),
+            &mut request,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         let mut response = Vec::new();
-        service.serve(&mut request.as_slice(), &mut response, None, &mut sink).unwrap();
+        service
+            .serve(&mut request.as_slice(), &mut response, None, &mut sink)
+            .unwrap();
         let report = crate::send_pack::parse_report(&response).unwrap();
-        assert_eq!(report.refs[0].status, RefStatus::Rejected("missing necessary objects".to_owned()));
+        assert_eq!(
+            report.refs[0].status,
+            RefStatus::Rejected("missing necessary objects".to_owned())
+        );
 
         let mut request = Vec::new();
-        crate::send_pack::write_commands(&mut request, &[command(None, Some(tip), "refs/heads/main")], &negotiated, &[]).unwrap();
+        crate::send_pack::write_commands(
+            &mut request,
+            &[command(None, Some(tip), "refs/heads/main")],
+            &negotiated,
+            &[],
+        )
+        .unwrap();
         request.extend_from_slice(b"JUNKJUNKJUNKJUNK");
         let mut response = Vec::new();
-        let summary = service.serve(&mut request.as_slice(), &mut response, None, &mut sink).unwrap();
+        let summary = service
+            .serve(&mut request.as_slice(), &mut response, None, &mut sink)
+            .unwrap();
         assert!(summary.unpack_error.is_some());
 
         for bad in [&b"0010not a command"[..], b"0009abcde", b"0001"] {
-            let error = service.serve(&mut &bad[..], &mut Vec::new(), None, &mut sink).unwrap_err();
+            let error = service
+                .serve(&mut &bad[..], &mut Vec::new(), None, &mut sink)
+                .unwrap_err();
             assert_eq!(error.code(), ErrorCode::GitProtocol);
         }
-        assert!(service.serve(&mut &b""[..], &mut Vec::new(), None, &mut sink).unwrap().commands.is_empty());
-        assert!(service.serve(&mut &b"0000"[..], &mut Vec::new(), None, &mut sink).unwrap().commands.is_empty());
+        assert!(
+            service
+                .serve(&mut &b""[..], &mut Vec::new(), None, &mut sink)
+                .unwrap()
+                .commands
+                .is_empty()
+        );
+        assert!(
+            service
+                .serve(&mut &b"0000"[..], &mut Vec::new(), None, &mut sink)
+                .unwrap()
+                .commands
+                .is_empty()
+        );
     }
 
     #[test]
@@ -1328,13 +1539,24 @@ mod tests {
         remote.tag("v1", tip);
         let mut tx = RecordingTx::new();
         let mut sink = TxSink::new(&mut tx);
-        let service = ReceivePack::open(remote.root(), ReceiveOptions { report_status_v2: false, ..options() }).unwrap();
-        let (mut transport, _session) = connect(service, "file:///remote", None, &mut sink).unwrap();
+        let service = ReceivePack::open(
+            remote.root(),
+            ReceiveOptions {
+                report_status_v2: false,
+                ..options()
+            },
+        )
+        .unwrap();
+        let (mut transport, _session) =
+            connect(service, "file:///remote", None, &mut sink).unwrap();
         let advertisement = discover(&mut transport).unwrap();
         assert_eq!(advertisement.refs().len(), 2);
         assert!(!advertisement.supports("report-status-v2"));
         assert_eq!(advertisement.capability("agent"), Some("nurt/test"));
         assert!(ReceivePack::open(Path::new("/nonexistent/repository"), options()).is_err());
-        assert!(format!("{:?}", ReceivePack::open(remote.root(), options()).unwrap()).contains("ReceivePack"));
+        assert!(
+            format!("{:?}", ReceivePack::open(remote.root(), options()).unwrap())
+                .contains("ReceivePack")
+        );
     }
 }

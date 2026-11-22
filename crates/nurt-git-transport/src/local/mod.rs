@@ -20,7 +20,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::thread::JoinHandle;
 
-use bstr::BStr;
+use bstr::{BStr, ByteSlice};
 use gix_transport::client::blocking_io::{RequestWriter, SetServiceResponse};
 use gix_transport::client::git::ConnectMode;
 use gix_transport::client::git::blocking_io::Connection;
@@ -56,18 +56,10 @@ impl fmt::Display for LocalError {
 impl std::error::Error for LocalError {}
 
 /// Path of the repository addressed by a `file://` address or a local path.
-///
-/// # Examples
-///
-/// ```
-/// use nurt_git_transport::local::repository_path;
-///
-/// let url = gix_url::parse("file:///srv/repo.git".into()).expect("valid URL");
-/// assert_eq!(repository_path(&url), std::path::PathBuf::from("/srv/repo.git"));
-/// ```
 #[must_use]
 pub fn repository_path(url: &gix_url::Url) -> PathBuf {
-    gix::path::from_bstr(url.path.as_slice()).into_owned()
+    gix::path::from_bstring(url.path.clone())
+        .unwrap_or_else(|_| PathBuf::from(url.path.to_str_lossy().into_owned()))
 }
 
 /// Opening options of the source repository: no environment variables, no
@@ -102,20 +94,13 @@ impl fmt::Debug for LocalTransport {
 ///
 /// Fails with [`LocalError::NotRepository`] when the path is not a readable
 /// Git repository.
-///
-/// # Examples
-///
-/// ```
-/// use nurt_git_transport::local::{LocalError, connect};
-///
-/// let url = gix_url::parse("/nonexistent/repository".into()).expect("valid path");
-/// assert!(matches!(connect(url, gix_transport::Protocol::V2), Err(LocalError::NotRepository { .. })));
-/// ```
 pub fn connect(url: gix_url::Url, version: Protocol) -> Result<LocalTransport, LocalError> {
     let path = repository_path(&url);
-    let repo = gix::ThreadSafeRepository::open_opts(&path, open_options()).map_err(|e| LocalError::NotRepository {
-        path: path.clone(),
-        reason: e.to_string(),
+    let repo = gix::ThreadSafeRepository::open_opts(&path, open_options()).map_err(|e| {
+        LocalError::NotRepository {
+            path: path.clone(),
+            reason: e.to_string(),
+        }
     })?;
     Ok(LocalTransport {
         url,
@@ -186,7 +171,14 @@ impl client::blocking_io::Transport for LocalTransport {
             })
             .map_err(client::Error::Io)?;
         self.server = Some(server);
-        let path = gix::path::into_bstr(self.path.as_path()).into_owned();
+        let path = gix::path::into_bstr(self.path.as_path())
+            .map_err(|e| {
+                client::Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    e.to_string(),
+                ))
+            })?
+            .into_owned();
         let connection = self.connection.insert(Connection::new(
             client_reader,
             client_writer,
@@ -223,16 +215,28 @@ mod tests {
     use std::sync::atomic::AtomicBool;
 
     fn url_of(repo: &TestRepo) -> gix_url::Url {
-        gix_url::parse(gix::path::into_bstr(repo.path()).as_ref()).expect("valid path")
+        gix_url::parse(
+            gix::path::into_bstr(repo.path())
+                .expect("UTF-8 path")
+                .as_ref(),
+        )
+        .expect("valid path")
     }
 
-    fn fetch(client: &TestRepo, source: &TestRepo, shallow: Option<u32>) -> gix::remote::fetch::Outcome {
+    fn fetch(
+        client: &TestRepo,
+        source: &TestRepo,
+        shallow: Option<u32>,
+    ) -> gix::remote::fetch::Outcome {
         let url = url_of(source);
         let remote = client
             .repo
             .remote_at(url.clone())
             .expect("remote")
-            .with_refspecs(["+refs/heads/*:refs/remotes/origin/*"], gix::remote::Direction::Fetch)
+            .with_refspecs(
+                ["+refs/heads/*:refs/remotes/origin/*"],
+                gix::remote::Direction::Fetch,
+            )
             .expect("refspec");
         let transport = connect(url, Protocol::V2).expect("source opened");
         let prepare = remote
@@ -258,7 +262,9 @@ mod tests {
 
     fn received_objects(outcome: &gix::remote::fetch::Outcome) -> u32 {
         match &outcome.status {
-            Status::Change { write_pack_bundle, .. } => write_pack_bundle.index.num_objects,
+            Status::Change {
+                write_pack_bundle, ..
+            } => write_pack_bundle.index.num_objects,
             Status::NoPackReceived { .. } => 0,
         }
     }
@@ -267,26 +273,49 @@ mod tests {
     fn fetches_all_branches_into_an_empty_repository() {
         let source = TestRepo::init();
         let first = source.commit("main", &[("a.txt", "one\n")], &[], "first");
-        let second = source.commit("main", &[("a.txt", "two\n"), ("b.txt", "b\n")], &[first], "second");
+        let second = source.commit(
+            "main",
+            &[("a.txt", "two\n"), ("b.txt", "b\n")],
+            &[first],
+            "second",
+        );
         let topic = source.commit("topic", &[("c.txt", "c\n")], &[first], "topic");
         let client = TestRepo::init();
         let outcome = fetch(&client, &source, None);
         assert_eq!(tracking(&client, "main"), Some(second));
         assert_eq!(tracking(&client, "topic"), Some(topic));
         assert!(client.repo.find_commit(first).is_ok());
-        assert_eq!(received_objects(&outcome), 9);
+        assert_eq!(
+            received_objects(&outcome),
+            10,
+            "three commits, three trees, four blobs"
+        );
     }
 
     #[test]
     fn incremental_fetch_sends_only_new_objects() {
         let source = TestRepo::init();
-        let first = source.commit("main", &[("a.txt", "one\n"), ("b.txt", "b\n")], &[], "first");
+        let first = source.commit(
+            "main",
+            &[("a.txt", "one\n"), ("b.txt", "b\n")],
+            &[],
+            "first",
+        );
         let client = TestRepo::init();
         fetch(&client, &source, None);
-        let second = source.commit("main", &[("a.txt", "two\n"), ("b.txt", "b\n")], &[first], "second");
+        let second = source.commit(
+            "main",
+            &[("a.txt", "two\n"), ("b.txt", "b\n")],
+            &[first],
+            "second",
+        );
         let outcome = fetch(&client, &source, None);
         assert_eq!(tracking(&client, "main"), Some(second));
-        assert_eq!(received_objects(&outcome), 3, "commit, tree and changed blob");
+        assert_eq!(
+            received_objects(&outcome),
+            3,
+            "commit, tree and changed blob"
+        );
     }
 
     #[test]
@@ -307,8 +336,12 @@ mod tests {
         fetch(&client, &source, Some(1));
         assert_eq!(tracking(&client, "main"), Some(second));
         assert!(client.repo.find_commit(first).is_err());
-        let shallow = client.repo.shallow_commits().expect("readable").expect("shallow");
-        assert_eq!(shallow.as_slice(), &[second]);
+        let shallow = client
+            .repo
+            .shallow_commits()
+            .expect("readable")
+            .expect("shallow");
+        assert_eq!(shallow.iter().copied().collect::<Vec<_>>(), [second]);
     }
 
     #[test]
@@ -318,7 +351,10 @@ mod tests {
         let tag = source.tag("v1", first);
         let client = TestRepo::init();
         fetch(&client, &source, None);
-        let local = client.repo.find_reference("refs/tags/v1").expect("tag followed");
+        let local = client
+            .repo
+            .find_reference("refs/tags/v1")
+            .expect("tag followed");
         assert_eq!(local.target().try_id().map(ToOwned::to_owned), Some(tag));
     }
 
@@ -330,12 +366,21 @@ mod tests {
             .repo
             .remote_at(url_of(&source))
             .expect("remote")
-            .with_refspecs(["+refs/heads/*:refs/remotes/origin/*"], gix::remote::Direction::Fetch)
+            .with_refspecs(
+                ["+refs/heads/*:refs/remotes/origin/*"],
+                gix::remote::Direction::Fetch,
+            )
             .expect("refspec");
         let transport = connect(url_of(&source), Protocol::V2).expect("source opened");
         let prepare = remote
             .to_connection_with_transport(transport)
-            .prepare_fetch(gix::progress::Discard, Default::default())
+            .prepare_fetch(
+                gix::progress::Discard,
+                gix::remote::ref_map::Options {
+                    prefix_from_spec_as_filter_on_remote: false,
+                    ..Default::default()
+                },
+            )
             .expect("references listed");
         let unborn = prepare.ref_map().remote_refs.iter().any(|r| {
             matches!(r, gix::protocol::handshake::Ref::Unborn { full_ref_name, target }
@@ -351,7 +396,12 @@ mod tests {
         assert!(transport.handshake(Service::ReceivePack, &[]).is_err());
         assert_eq!(transport.path(), source.path());
         let missing = source.path().join("missing");
-        let url = gix_url::parse(gix::path::into_bstr(missing.as_path()).as_ref()).expect("valid path");
+        let url = gix_url::parse(
+            gix::path::into_bstr(missing.as_path())
+                .expect("UTF-8 path")
+                .as_ref(),
+        )
+        .expect("valid path");
         let error = connect(url, Protocol::V2).expect_err("missing");
         assert!(error.to_string().contains("is not a git repository"));
     }

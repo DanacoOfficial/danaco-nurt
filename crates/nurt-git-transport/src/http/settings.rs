@@ -152,47 +152,13 @@ impl HttpSections<'_> {
     /// Value of `http.<key>` from the most specific matching section; later
     /// sections win ties.
     fn value(&self, key: &str) -> Option<String> {
-        let mut best: Option<(Option<_>, String)> = None;
-        for section in self.config.sections_by_name("http").into_iter().flatten() {
-            let score = match section.header().subsection_name() {
-                None => None,
-                Some(pattern) => {
-                    let pattern = UrlParts::parse(&pattern.to_str_lossy());
-                    let url = UrlParts::parse(&self.url);
-                    match pattern.zip(url).and_then(|(p, u)| p.matches(&u)) {
-                        Some(score) => Some(score),
-                        None => continue,
-                    }
-                }
-            };
-            if let Some(value) = section.value(key) {
-                if best.as_ref().is_none_or(|(current, _)| score >= *current) {
-                    best = Some((score, value.to_str_lossy().into_owned()));
-                }
-            }
-        }
-        best.map(|(_, value)| value)
+        urlmatch::best_value(self.config, "http", key, &self.url)
     }
 
     /// All values of `http.<key>` from matching sections in configuration
     /// order; an empty value clears the values before it.
     fn values(&self, key: &str) -> Vec<String> {
-        let mut out = Vec::new();
-        for section in self.config.sections_by_name("http").into_iter().flatten() {
-            if let Some(pattern) = section.header().subsection_name() {
-                if !urlmatch::matches(&pattern.to_str_lossy(), &self.url) {
-                    continue;
-                }
-            }
-            for value in section.values(key) {
-                if value.is_empty() {
-                    out.clear();
-                } else {
-                    out.push(value.to_str_lossy().into_owned());
-                }
-            }
-        }
-        out
+        urlmatch::all_values(self.config, "http", key, &self.url)
     }
 }
 
@@ -233,7 +199,10 @@ fn normalize_proxy(proxy: &str) -> String {
 
 /// Whether `host` is excluded from proxying by a `NO_PROXY` list.
 fn no_proxy_matches(list: &str, host: &str) -> bool {
-    let host = host.trim_start_matches('[').trim_end_matches(']').to_ascii_lowercase();
+    let host = host
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .to_ascii_lowercase();
     list.split([',', ' '])
         .map(str::trim)
         .filter(|entry| !entry.is_empty())
@@ -317,12 +286,14 @@ impl HttpSettings {
         }
         let limit = env("GIT_HTTP_LOW_SPEED_LIMIT").or_else(|| sections.value("lowSpeedLimit"));
         if let Some(value) = limit {
-            let parsed = parse_size(&value).ok_or_else(|| invalid(url, "http.lowSpeedLimit", &value))?;
+            let parsed =
+                parse_size(&value).ok_or_else(|| invalid(url, "http.lowSpeedLimit", &value))?;
             self.low_speed_limit = u32::try_from(parsed).unwrap_or(u32::MAX);
         }
         let time = env("GIT_HTTP_LOW_SPEED_TIME").or_else(|| sections.value("lowSpeedTime"));
         if let Some(value) = time {
-            let seconds = parse_size(&value).ok_or_else(|| invalid(url, "http.lowSpeedTime", &value))?;
+            let seconds =
+                parse_size(&value).ok_or_else(|| invalid(url, "http.lowSpeedTime", &value))?;
             self.low_speed_time = Duration::from_secs(seconds);
         }
         if let Some(agent) = env("GIT_HTTP_USER_AGENT").or_else(|| sections.value("userAgent")) {
@@ -338,7 +309,8 @@ impl HttpSettings {
         env: &dyn Fn(&str) -> Option<String>,
     ) -> Result<(), NetworkFailure> {
         if let Some(value) = sections.value("sslVerify") {
-            self.ssl_verify = parse_bool(&value).ok_or_else(|| invalid(url, "http.sslVerify", &value))?;
+            self.ssl_verify =
+                parse_bool(&value).ok_or_else(|| invalid(url, "http.sslVerify", &value))?;
         }
         if env("GIT_SSL_NO_VERIFY").is_some() {
             self.ssl_verify = false;
@@ -379,7 +351,9 @@ impl HttpSettings {
                 return Err(NetworkFailure::new(
                     NetworkProblem::Proxy,
                     url,
-                    format!("proxy authentication method '{method}' is not supported; set http.proxyAuthMethod to basic"),
+                    format!(
+                        "proxy authentication method '{method}' is not supported; set http.proxyAuthMethod to basic"
+                    ),
                 ));
             }
         }
@@ -401,7 +375,9 @@ impl HttpSettings {
             Some(value) => Some(value),
             None => from_env(),
         };
-        let host = UrlParts::parse(url).map(|_| host_of(url)).unwrap_or_default();
+        let host = UrlParts::parse(url)
+            .map(|_| host_of(url))
+            .unwrap_or_default();
         let excluded = env("no_proxy")
             .or_else(|| env("NO_PROXY"))
             .is_some_and(|list| no_proxy_matches(&list, &host));
@@ -440,9 +416,17 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    fn resolve(config: &str, url: &str, remote: Option<&str>, env: &[(&str, &str)]) -> Result<HttpSettings, NetworkFailure> {
+    fn resolve(
+        config: &str,
+        url: &str,
+        remote: Option<&str>,
+        env: &[(&str, &str)],
+    ) -> Result<HttpSettings, NetworkFailure> {
         let config: gix::config::File = config.parse().expect("valid configuration");
-        let env: HashMap<String, String> = env.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect();
+        let env: HashMap<String, String> = env
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect();
         HttpSettings::resolve(&config, url, remote, &|name| env.get(name).cloned())
     }
 
@@ -469,24 +453,73 @@ mod tests {
         let config = "[http]\n\tproxy = http://p:1\n[remote \"origin\"]\n\tproxy = http://r:2\n";
         let settings = resolve(config, "https://h/r", Some("origin"), &[]).expect("valid");
         assert_eq!(settings.proxy.as_deref(), Some("http://r:2"));
-        let settings = resolve("[http]\n\tproxy =\n", "https://h/r", None, &[("https_proxy", "e:3")]).expect("valid");
+        let settings = resolve(
+            "[http]\n\tproxy =\n",
+            "https://h/r",
+            None,
+            &[("https_proxy", "e:3")],
+        )
+        .expect("valid");
         assert_eq!(settings.proxy, None);
     }
 
     #[test]
     fn environment_proxy_respects_scheme_and_no_proxy() {
-        let env = [("https_proxy", "s:1"), ("http_proxy", "p:2"), ("ALL_PROXY", "a:3")];
-        assert_eq!(resolve("", "https://h/r", None, &env).expect("valid").proxy.as_deref(), Some("http://s:1"));
-        assert_eq!(resolve("", "http://h/r", None, &env).expect("valid").proxy.as_deref(), Some("http://p:2"));
+        let env = [
+            ("https_proxy", "s:1"),
+            ("http_proxy", "p:2"),
+            ("ALL_PROXY", "a:3"),
+        ];
+        assert_eq!(
+            resolve("", "https://h/r", None, &env)
+                .expect("valid")
+                .proxy
+                .as_deref(),
+            Some("http://s:1")
+        );
+        assert_eq!(
+            resolve("", "http://h/r", None, &env)
+                .expect("valid")
+                .proxy
+                .as_deref(),
+            Some("http://p:2")
+        );
         let only_all = [("ALL_PROXY", "a:3"), ("NO_PROXY", "example.com")];
-        assert_eq!(resolve("", "https://h/r", None, &only_all).expect("valid").proxy.as_deref(), Some("http://a:3"));
-        assert_eq!(resolve("", "https://git.example.com/r", None, &only_all).expect("valid").proxy, None);
-        assert_eq!(resolve("", "https://h/r", None, &[("ALL_PROXY", "a:3"), ("no_proxy", "*")]).expect("valid").proxy, None);
+        assert_eq!(
+            resolve("", "https://h/r", None, &only_all)
+                .expect("valid")
+                .proxy
+                .as_deref(),
+            Some("http://a:3")
+        );
+        assert_eq!(
+            resolve("", "https://git.example.com/r", None, &only_all)
+                .expect("valid")
+                .proxy,
+            None
+        );
+        assert_eq!(
+            resolve(
+                "",
+                "https://h/r",
+                None,
+                &[("ALL_PROXY", "a:3"), ("no_proxy", "*")]
+            )
+            .expect("valid")
+            .proxy,
+            None
+        );
     }
 
     #[test]
     fn rejects_unsupported_proxy_authentication() {
-        let error = resolve("[http]\n\tproxyAuthMethod = ntlm\n", "https://h/r", None, &[]).err();
+        let error = resolve(
+            "[http]\n\tproxyAuthMethod = ntlm\n",
+            "https://h/r",
+            None,
+            &[],
+        )
+        .err();
         assert_eq!(error.map(|e| e.problem()), Some(NetworkProblem::Proxy));
     }
 
@@ -500,27 +533,60 @@ mod tests {
     #[test]
     fn environment_overrides_tls_and_speed_options() {
         let config = "[http]\n\tsslCAInfo = /c.pem\n\tlowSpeedLimit = 10\n\tlowSpeedTime = 20\n";
-        let env = [("GIT_SSL_NO_VERIFY", "1"), ("GIT_SSL_CAINFO", "/e.pem"), ("GIT_HTTP_LOW_SPEED_TIME", "5")];
+        let env = [
+            ("GIT_SSL_NO_VERIFY", "1"),
+            ("GIT_SSL_CAINFO", "/e.pem"),
+            ("GIT_HTTP_LOW_SPEED_TIME", "5"),
+        ];
         let settings = resolve(config, "https://h/r", None, &env).expect("valid");
         assert!(!settings.ssl_verify);
         assert_eq!(settings.notes, [HttpNote::TlsVerificationDisabled]);
         assert_eq!(settings.ca_info, Some(PathBuf::from("/e.pem")));
-        assert_eq!((settings.low_speed_limit, settings.low_speed_time), (10, Duration::from_secs(5)));
+        assert_eq!(
+            (settings.low_speed_limit, settings.low_speed_time),
+            (10, Duration::from_secs(5))
+        );
     }
 
     #[test]
     fn parses_redirect_policy_and_reports_invalid_values() {
-        let all = resolve("[http]\n\tfollowRedirects = true\n", "https://h/r", None, &[]).expect("valid");
+        let all = resolve(
+            "[http]\n\tfollowRedirects = true\n",
+            "https://h/r",
+            None,
+            &[],
+        )
+        .expect("valid");
         assert_eq!(all.follow_redirects, FollowRedirects::All);
-        let none = resolve("[http]\n\tfollowRedirects = false\n", "https://h/r", None, &[]).expect("valid");
+        let none = resolve(
+            "[http]\n\tfollowRedirects = false\n",
+            "https://h/r",
+            None,
+            &[],
+        )
+        .expect("valid");
         assert_eq!(none.follow_redirects, FollowRedirects::None);
-        assert!(resolve("[http]\n\tfollowRedirects = sometimes\n", "https://h/r", None, &[]).is_err());
+        assert!(
+            resolve(
+                "[http]\n\tfollowRedirects = sometimes\n",
+                "https://h/r",
+                None,
+                &[]
+            )
+            .is_err()
+        );
         assert!(resolve("[http]\n\tpostBuffer = lots\n", "https://h/r", None, &[]).is_err());
     }
 
     #[test]
     fn reports_options_without_effect() {
-        let settings = resolve("[http]\n\tsslCert = /c\n\tversion = HTTP/2\n", "https://h/r", None, &[]).expect("valid");
+        let settings = resolve(
+            "[http]\n\tsslCert = /c\n\tversion = HTTP/2\n",
+            "https://h/r",
+            None,
+            &[],
+        )
+        .expect("valid");
         let keys: Vec<_> = settings
             .notes
             .iter()

@@ -21,7 +21,9 @@ pub(crate) fn sign_error(problem: &str, message: impl Into<String>) -> Error {
 pub(crate) fn unsupported_format(format: SignatureFormat) -> Error {
     sign_error(
         UNSUPPORTED_FORMAT,
-        format!("signature format `{format}` is not supported; set `gpg.format` to `openpgp` or `ssh`"),
+        format!(
+            "signature format `{format}` is not supported; set `gpg.format` to `openpgp` or `ssh`"
+        ),
     )
     .with_detail("format", Value::String(format.as_str().to_owned()))
 }

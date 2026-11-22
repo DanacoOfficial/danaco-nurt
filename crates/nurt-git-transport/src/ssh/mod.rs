@@ -90,7 +90,7 @@ pub struct SshOptions {
     /// Cancellation of the operation.
     pub cancel: CancelToken,
     /// Call to repeat with an accepted fingerprint, used in the fix of
-    /// unknown host errors, for example `git.fetch "/home/alice/repo"`.
+    /// unknown host errors, for example `git.fetch "/home/user/repo"`.
     pub retry_command: Option<String>,
 }
 
@@ -118,7 +118,13 @@ impl SshOptions {
     pub fn from_ctx(ctx: &ExecCtx) -> Self {
         let info = ctx.host().info();
         let env = |name: &str| ctx.host().env_var(name);
-        let mut options = Self::for_host(info.home.clone(), info.user.clone(), info.hostname.clone(), info.os, &env);
+        let mut options = Self::for_host(
+            info.home.clone(),
+            info.user.clone(),
+            info.hostname.clone(),
+            info.os,
+            &env,
+        );
         options.apply_git_config(&ctx.config().git);
         options.timeout = match (options.timeout, ctx.remaining()) {
             (Some(configured), Some(remaining)) => Some(configured.min(remaining)),
@@ -128,8 +134,18 @@ impl SshOptions {
         options
     }
 
-    fn for_host(home: PathBuf, local_user: String, local_host: String, os: Os, env: &dyn Fn(&str) -> Option<OsString>) -> Self {
-        let path = |name: &str| env(name).filter(|value| !value.is_empty()).map(PathBuf::from);
+    fn for_host(
+        home: PathBuf,
+        local_user: String,
+        local_host: String,
+        os: Os,
+        env: &dyn Fn(&str) -> Option<OsString>,
+    ) -> Self {
+        let path = |name: &str| {
+            env(name)
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from)
+        };
         let ignored_ssh_command = ["GIT_SSH_COMMAND", "GIT_SSH"]
             .into_iter()
             .filter(|name| path(name).is_some())
@@ -190,7 +206,10 @@ fn product_config_dir(os: Os, home: &Path, path: &dyn Fn(&str) -> Option<PathBuf
         Os::Windows => path("APPDATA")
             .unwrap_or_else(|| home.join("AppData").join("Roaming"))
             .join("Nurt"),
-        Os::Macos => home.join("Library").join("Application Support").join("Nurt"),
+        Os::Macos => home
+            .join("Library")
+            .join("Application Support")
+            .join("Nurt"),
         _ => path("XDG_CONFIG_HOME")
             .filter(|dir| dir.is_absolute())
             .unwrap_or_else(|| home.join(".config"))
@@ -233,7 +252,9 @@ impl SshNotice {
         match self {
             Self::SshCommandIgnored { source } => {
                 let mut entry = NotableEntry::new(Notable::SshCommandIgnored);
-                entry.detail = Some(format!("{source} is not run; the built-in SSH client is used"));
+                entry.detail = Some(format!(
+                    "{source} is not run; the built-in SSH client is used"
+                ));
                 Some(entry)
             }
             Self::MatchExecIgnored { .. } | Self::HostKeyUnverified { .. } => None,
@@ -258,31 +279,65 @@ mod options_tests {
     fn linux_defaults_follow_xdg_and_etc() {
         let env = env_of(&[
             ("SSH_AUTH_SOCK", "/run/user/1000/agent.sock"),
-            ("XDG_CONFIG_HOME", "/home/alice/.cfg"),
+            ("XDG_CONFIG_HOME", "/home/user/.cfg"),
             ("GIT_SSH_COMMAND", "ssh -i key"),
             ("GIT_SSH", ""),
         ]);
-        let options = SshOptions::for_host("/home/alice".into(), "alice".into(), "box".into(), Os::Linux, &env);
-        assert_eq!(options.auth_sock, Some(PathBuf::from("/run/user/1000/agent.sock")));
-        assert_eq!(options.nurt_known_hosts, Some(PathBuf::from("/home/alice/.cfg/nurt/known_hosts")));
+        let options = SshOptions::for_host(
+            "/home/user".into(),
+            "user".into(),
+            "box".into(),
+            Os::Linux,
+            &env,
+        );
+        assert_eq!(
+            options.auth_sock,
+            Some(PathBuf::from("/run/user/1000/agent.sock"))
+        );
+        assert_eq!(
+            options.nurt_known_hosts,
+            Some(PathBuf::from("/home/user/.cfg/nurt/known_hosts"))
+        );
         assert_eq!(options.system_dir, Some(PathBuf::from("/etc/ssh")));
-        assert_eq!(options.user_config, Some(PathBuf::from("/home/alice/.ssh/config")));
+        assert_eq!(
+            options.user_config,
+            Some(PathBuf::from("/home/user/.ssh/config"))
+        );
         assert_eq!(options.ignored_ssh_command, ["GIT_SSH_COMMAND"]);
         assert_eq!(options.connect_timeout, DEFAULT_CONNECT_TIMEOUT);
     }
 
     #[test]
     fn macos_and_windows_use_their_directories() {
-        let options = SshOptions::for_host("/Users/alice".into(), "alice".into(), String::new(), Os::Macos, &|_| None);
-        assert_eq!(
-            options.nurt_known_hosts,
-            Some(PathBuf::from("/Users/alice/Library/Application Support/Nurt/known_hosts"))
+        let options = SshOptions::for_host(
+            "/Users/user".into(),
+            "user".into(),
+            String::new(),
+            Os::Macos,
+            &|_| None,
         );
-        let env = env_of(&[("APPDATA", "C:/Users/alice/AppData/Roaming"), ("PROGRAMDATA", "D:/Data")]);
-        let options = SshOptions::for_host("C:/Users/alice".into(), "alice".into(), String::new(), Os::Windows, &env);
         assert_eq!(
             options.nurt_known_hosts,
-            Some(PathBuf::from("C:/Users/alice/AppData/Roaming/Nurt/known_hosts"))
+            Some(PathBuf::from(
+                "/Users/user/Library/Application Support/Nurt/known_hosts"
+            ))
+        );
+        let env = env_of(&[
+            ("APPDATA", "C:/Users/user/AppData/Roaming"),
+            ("PROGRAMDATA", "D:/Data"),
+        ]);
+        let options = SshOptions::for_host(
+            "C:/Users/user".into(),
+            "user".into(),
+            String::new(),
+            Os::Windows,
+            &env,
+        );
+        assert_eq!(
+            options.nurt_known_hosts,
+            Some(PathBuf::from(
+                "C:/Users/user/AppData/Roaming/Nurt/known_hosts"
+            ))
         );
         assert_eq!(options.system_dir, Some(PathBuf::from("D:/Data/ssh")));
     }
@@ -290,13 +345,22 @@ mod options_tests {
     #[test]
     fn relative_xdg_directory_is_ignored() {
         let env = env_of(&[("XDG_CONFIG_HOME", "relative")]);
-        let options = SshOptions::for_host("/home/alice".into(), "alice".into(), String::new(), Os::Linux, &env);
-        assert_eq!(options.nurt_known_hosts, Some(PathBuf::from("/home/alice/.config/nurt/known_hosts")));
+        let options = SshOptions::for_host(
+            "/home/user".into(),
+            "user".into(),
+            String::new(),
+            Os::Linux,
+            &env,
+        );
+        assert_eq!(
+            options.nurt_known_hosts,
+            Some(PathBuf::from("/home/user/.config/nurt/known_hosts"))
+        );
     }
 
     #[test]
     fn git_config_sets_policy_keys_and_timeout() {
-        let mut options = SshOptions::new("/home/alice", "alice");
+        let mut options = SshOptions::new("/home/user", "user");
         let mut git = GitConfig::default();
         git.ssh.known_hosts = KnownHosts::AcceptNew;
         git.ssh.identity_files = vec!["~/.ssh/deploy".into(), "/keys/ci".into()];
@@ -304,7 +368,10 @@ mod options_tests {
         assert_eq!(options.known_hosts, KnownHosts::AcceptNew);
         assert_eq!(
             options.identity_files,
-            [PathBuf::from("/home/alice/.ssh/deploy"), PathBuf::from("/keys/ci")]
+            [
+                PathBuf::from("/home/user/.ssh/deploy"),
+                PathBuf::from("/keys/ci")
+            ]
         );
         assert_eq!(options.timeout, Some(git.network.timeout.as_std()));
     }
@@ -314,7 +381,14 @@ mod options_tests {
         let notice = SshNotice::SshCommandIgnored {
             source: "GIT_SSH".into(),
         };
-        assert!(notice.notable().unwrap().detail.unwrap().contains("GIT_SSH"));
+        assert!(
+            notice
+                .notable()
+                .unwrap()
+                .detail
+                .unwrap()
+                .contains("GIT_SSH")
+        );
         let notice = SshNotice::HostKeyUnverified {
             host: "h".into(),
             fingerprint: "SHA256:x".into(),

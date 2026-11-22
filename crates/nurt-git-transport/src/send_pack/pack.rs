@@ -101,12 +101,16 @@ pub fn write_pack(
         repo.object_hash(),
     );
     for written in writer {
-        summary.bytes += written.map_err(|error| library_error("writing the pack failed", &error))?;
+        summary.bytes +=
+            written.map_err(|error| library_error("writing the pack failed", &error))?;
     }
     Ok(summary)
 }
 
-fn missing_or_library(context: &str, error: &dyn std::fmt::Display) -> nurt_contracts::error::Error {
+fn missing_or_library(
+    context: &str,
+    error: &dyn std::fmt::Display,
+) -> nurt_contracts::error::Error {
     let text = error.to_string();
     if text.contains("not found") || text.contains("could not be found") {
         return nurt_contracts::error::Error::new(
@@ -146,7 +150,13 @@ mod tests {
         let fixture = Fixture::new();
         fixture.commit("main", &[("a.txt", "one\n")], &[]);
         let mut pack = Vec::new();
-        let summary = write_pack(&fixture.repo(), Vec::new(), &mut pack, &AtomicBool::new(false)).unwrap();
+        let summary = write_pack(
+            &fixture.repo(),
+            Vec::new(),
+            &mut pack,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         assert_eq!(summary.objects, 0);
         assert_eq!(pack.len(), 32, "header and trailer");
     }
@@ -156,8 +166,13 @@ mod tests {
         let fixture = Fixture::new();
         fixture.commit("main", &[("a.txt", "one\n")], &[]);
         let unknown = ObjectId::from_bytes_or_panic(&[9; 20]);
-        let error = write_pack(&fixture.repo(), vec![unknown], &mut Vec::new(), &AtomicBool::new(false))
-            .unwrap_err();
+        let error = write_pack(
+            &fixture.repo(),
+            vec![unknown],
+            &mut Vec::new(),
+            &AtomicBool::new(false),
+        )
+        .unwrap_err();
         assert!(matches!(
             error.code(),
             nurt_contracts::error::ErrorCode::Io | nurt_contracts::error::ErrorCode::Internal

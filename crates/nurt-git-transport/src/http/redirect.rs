@@ -40,7 +40,11 @@ pub(crate) fn same_authority(a: &str, b: &str) -> bool {
 
 /// Repository base after a redirect of `url` (which is `base_url` followed by
 /// a tail) to `redirect`.
-pub(crate) fn base_url(redirect: &str, base_url: &str, url: &str) -> Result<String, NetworkFailure> {
+pub(crate) fn base_url(
+    redirect: &str,
+    base_url: &str,
+    url: &str,
+) -> Result<String, NetworkFailure> {
     let refuse = || {
         NetworkFailure::new(
             NetworkProblem::Redirect,
@@ -104,7 +108,11 @@ mod tests {
             "https://original/b/other",
         ] {
             let error = base_url(redirect, "https://original/a", ORIGINAL).err();
-            assert_eq!(error.map(|e| e.problem()), Some(NetworkProblem::Redirect), "{redirect}");
+            assert_eq!(
+                error.map(|e| e.problem()),
+                Some(NetworkProblem::Redirect),
+                "{redirect}"
+            );
         }
     }
 
@@ -118,7 +126,13 @@ mod tests {
 
     #[test]
     fn swaps_base_only_after_a_redirect() {
-        assert_eq!(swap_tails(None, "https://o/a", "https://o/a/x"), "https://o/a/x");
-        assert_eq!(swap_tails(Some("https://r/b"), "https://o/a", "https://o/a/x"), "https://r/b/x");
+        assert_eq!(
+            swap_tails(None, "https://o/a", "https://o/a/x"),
+            "https://o/a/x"
+        );
+        assert_eq!(
+            swap_tails(Some("https://r/b"), "https://o/a", "https://o/a/x"),
+            "https://r/b/x"
+        );
     }
 }

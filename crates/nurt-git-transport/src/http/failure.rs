@@ -127,10 +127,12 @@ impl NetworkFailure {
             if let Some(found) = error.downcast_ref::<Self>() {
                 return Some(found);
             }
-            if let Some(inner) = error.downcast_ref::<io::Error>().and_then(io::Error::get_ref) {
-                if let Some(found) = Self::find(inner) {
-                    return Some(found);
-                }
+            if let Some(inner) = error
+                .downcast_ref::<io::Error>()
+                .and_then(io::Error::get_ref)
+                && let Some(found) = Self::find(inner)
+            {
+                return Some(found);
             }
             current = error.source();
         }
@@ -193,7 +195,10 @@ mod tests {
     fn finds_failure_nested_in_io_errors_and_sources() {
         let failure = NetworkFailure::status("https://h/r", 503);
         let nested = io::Error::other(io::Error::other(failure.clone()));
-        assert_eq!(NetworkFailure::find(&nested).and_then(NetworkFailure::http_status), Some(503));
+        assert_eq!(
+            NetworkFailure::find(&nested).and_then(NetworkFailure::http_status),
+            Some(503)
+        );
         assert_eq!(failure.problem().as_str(), "http_status");
     }
 

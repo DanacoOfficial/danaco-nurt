@@ -51,9 +51,15 @@ impl Limits {
     /// The error to report when the operation must stop now.
     pub(crate) fn exceeded(&self) -> Option<Error> {
         if self.cancel.is_cancelled() {
-            return Some(Error::new(ErrorCode::Cancelled, "ssh operation was cancelled"));
+            return Some(Error::new(
+                ErrorCode::Cancelled,
+                "ssh operation was cancelled",
+            ));
         }
-        if self.deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+        if self
+            .deadline
+            .is_some_and(|deadline| Instant::now() >= deadline)
+        {
             return Some(
                 Error::new(ErrorCode::Timeout, "ssh operation exceeded its time limit")
                     .with_help("git.network"),
@@ -88,7 +94,10 @@ impl Runtime {
         let thread = std::thread::Builder::new()
             .name("nurt-ssh".to_owned())
             .spawn(move || {
-                let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
+                let runtime = match tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                {
                     Ok(runtime) => runtime,
                     Err(err) => {
                         let _ = ready_tx.send(Err(err));
@@ -135,7 +144,10 @@ impl Runtime {
                     }
                 }
                 Err(RecvTimeoutError::Disconnected) => {
-                    return Err(Error::new(ErrorCode::Internal, "ssh runtime stopped during an operation"));
+                    return Err(Error::new(
+                        ErrorCode::Internal,
+                        "ssh runtime stopped during an operation",
+                    ));
                 }
             }
         }
@@ -154,7 +166,10 @@ impl Drop for Runtime {
 }
 
 fn runtime_error(err: &std::io::Error) -> Error {
-    Error::new(ErrorCode::Internal, format!("cannot start the ssh runtime: {err}"))
+    Error::new(
+        ErrorCode::Internal,
+        format!("cannot start the ssh runtime: {err}"),
+    )
 }
 
 /// Client callbacks of `russh`: the host key check.
@@ -166,7 +181,10 @@ pub(crate) struct ClientHandler {
 impl client::Handler for ClientHandler {
     type Error = russh::Error;
 
-    async fn check_server_key(&mut self, key: &PublicKeyOrCertificate) -> std::result::Result<bool, Self::Error> {
+    async fn check_server_key(
+        &mut self,
+        key: &PublicKeyOrCertificate,
+    ) -> std::result::Result<bool, Self::Error> {
         let decision = self.check.decide(&key.public_key());
         let accepted = matches!(decision, Decision::Accept { .. });
         if let Ok(mut slot) = self.decision.lock() {
@@ -201,7 +219,11 @@ pub(crate) struct Established {
 /// or `E_GIT_UNSUPPORTED` when authentication fails, with `E_NETWORK` for
 /// connection failures and with `E_TIMEOUT` when a hop does not answer in
 /// time.
-pub(crate) async fn establish(hops: Vec<HopPlan>, auth: AuthInput, connect_timeout: Duration) -> Result<Established> {
+pub(crate) async fn establish(
+    hops: Vec<HopPlan>,
+    auth: AuthInput,
+    connect_timeout: Duration,
+) -> Result<Established> {
     let mut established = Established {
         sessions: Vec::with_capacity(hops.len()),
         additions: Vec::new(),
@@ -215,7 +237,8 @@ pub(crate) async fn establish(hops: Vec<HopPlan>, auth: AuthInput, connect_timeo
             decision: Arc::clone(&decision),
         };
         let previous = established.sessions.last().cloned();
-        let opened = tokio::time::timeout(timeout, open_hop(&hop, previous.as_deref(), handler)).await;
+        let opened =
+            tokio::time::timeout(timeout, open_hop(&hop, previous.as_deref(), handler)).await;
         let decision = decision.lock().ok().and_then(|mut slot| slot.take());
         let mut handle = match (opened, decision) {
             (_, Some(Decision::Reject(error))) => return Err(error),
@@ -234,7 +257,11 @@ pub(crate) async fn establish(hops: Vec<HopPlan>, auth: AuthInput, connect_timeo
     Ok(established)
 }
 
-async fn open_hop(hop: &HopPlan, previous: Option<&SessionHandle>, handler: ClientHandler) -> Result<SessionHandle> {
+async fn open_hop(
+    hop: &HopPlan,
+    previous: Option<&SessionHandle>,
+    handler: ClientHandler,
+) -> Result<SessionHandle> {
     let host = hop.config.host_name.as_str();
     let port = hop.config.port;
     let config = client_config(hop);
@@ -250,7 +277,12 @@ async fn open_hop(hop: &HopPlan, previous: Option<&SessionHandle>, handler: Clie
             let channel = jump
                 .channel_open_direct_tcpip(host, u32::from(port), ORIGINATOR_ADDRESS, 0)
                 .await
-                .map_err(|err| network_error(&hop.config, &format!("jump host refused the forwarding: {err}")))?;
+                .map_err(|err| {
+                    network_error(
+                        &hop.config,
+                        &format!("jump host refused the forwarding: {err}"),
+                    )
+                })?;
             client::connect_stream(config, channel.into_stream(), handler).await
         }
     };
@@ -260,13 +292,19 @@ async fn open_hop(hop: &HopPlan, previous: Option<&SessionHandle>, handler: Clie
 fn client_config(hop: &HopPlan) -> Arc<client::Config> {
     let known = hop.check.known.algorithms_for(&hop.check.name);
     let preferred = Preferred {
-        key: Cow::Owned(host_key_algorithms(hop.config.host_key_algorithms.as_deref(), &known)),
+        key: Cow::Owned(host_key_algorithms(
+            hop.config.host_key_algorithms.as_deref(),
+            &known,
+        )),
         ..Preferred::default()
     };
     Arc::new(client::Config {
         preferred,
         keepalive_interval: hop.config.server_alive_interval,
-        keepalive_max: hop.config.server_alive_count_max.unwrap_or(DEFAULT_ALIVE_MAX),
+        keepalive_max: hop
+            .config
+            .server_alive_count_max
+            .unwrap_or(DEFAULT_ALIVE_MAX),
         nodelay: true,
         ..client::Config::default()
     })
@@ -293,11 +331,15 @@ pub(crate) fn host_key_algorithms(spec: Option<&str>, known: &[Algorithm]) -> Ve
     let is_known = |algorithm: &Algorithm| {
         known
             .iter()
-            .any(|known| known == algorithm || (known.is_rsa() && algorithm.is_rsa()))
+            .any(|known| known == algorithm || (is_rsa(known) && is_rsa(algorithm)))
     };
     let (mut first, rest): (Vec<Algorithm>, Vec<Algorithm>) = list.into_iter().partition(is_known);
     first.extend(rest);
     first
+}
+
+fn is_rsa(algorithm: &Algorithm) -> bool {
+    matches!(algorithm, Algorithm::Rsa { .. })
 }
 
 fn apply_algorithm_filter(defaults: Vec<Algorithm>, spec: &str) -> Vec<Algorithm> {
@@ -320,7 +362,11 @@ fn apply_algorithm_filter(defaults: Vec<Algorithm>, spec: &str) -> Vec<Algorithm
         let patterns: Vec<&str> = removed.split(',').map(str::trim).collect();
         defaults
             .into_iter()
-            .filter(|algorithm| !patterns.iter().any(|pattern| wildcard_match(pattern, algorithm.as_str())))
+            .filter(|algorithm| {
+                !patterns
+                    .iter()
+                    .any(|pattern| wildcard_match(pattern, algorithm.as_str()))
+            })
             .collect()
     } else if let Some(prepended) = spec.strip_prefix('^') {
         merge(names(prepended), defaults)
@@ -330,7 +376,11 @@ fn apply_algorithm_filter(defaults: Vec<Algorithm>, spec: &str) -> Vec<Algorithm
 }
 
 /// Signature hash for RSA keys; `None` when RSA keys cannot be used.
-async fn rsa_hash(handle: &SessionHandle, identities: &Identities, config: &HostConfig) -> Option<Option<HashAlg>> {
+async fn rsa_hash(
+    handle: &SessionHandle,
+    identities: &Identities,
+    config: &HostConfig,
+) -> Option<Option<HashAlg>> {
     let has_rsa = identities
         .credentials
         .iter()
@@ -360,7 +410,11 @@ struct Attempts {
     publickey_refused: bool,
 }
 
-async fn authenticate(handle: &mut SessionHandle, config: &HostConfig, auth: &AuthInput) -> Result<()> {
+async fn authenticate(
+    handle: &mut SessionHandle,
+    config: &HostConfig,
+    auth: &AuthInput,
+) -> Result<()> {
     let mut agent = identity::connect_agent(&config.agent, auth.auth_sock.as_deref()).await;
     let agent_keys = match agent.as_mut() {
         Some(agent) => identity::agent_keys(agent).await,
@@ -380,22 +434,27 @@ async fn authenticate(handle: &mut SessionHandle, config: &HostConfig, auth: &Au
             (false, _) => None,
             (true, Some(hash)) => hash,
             (true, None) => {
-                attempts
-                    .tried
-                    .push(format!("{} (server accepts only ssh-rsa signatures)", credential.describe()));
+                attempts.tried.push(format!(
+                    "{} (server accepts only ssh-rsa signatures)",
+                    credential.describe()
+                ));
                 continue;
             }
         };
         match offer(handle, &config.user, credential, hash, agent.as_mut()).await {
             Ok(AuthResult::Success) => return Ok(()),
-            Ok(AuthResult::Failure { remaining_methods, .. }) => {
+            Ok(AuthResult::Failure {
+                remaining_methods, ..
+            }) => {
                 attempts.tried.push(credential.describe());
                 if !remaining_methods.contains(&MethodKind::PublicKey) {
                     attempts.publickey_refused = true;
                     break;
                 }
             }
-            Err(reason) => attempts.tried.push(format!("{} ({reason})", credential.describe())),
+            Err(reason) => attempts
+                .tried
+                .push(format!("{} ({reason})", credential.describe())),
         }
     }
     Err(auth_error(config, &identities, &attempts))
@@ -451,8 +510,13 @@ fn auth_error(config: &HostConfig, identities: &Identities, attempts: &Attempts)
         .with_problem("missing_credentials")
         .with_next_step("run [\"ssh-keygen\", \"-t\", \"ed25519\"]")
     } else {
-        Error::new(ErrorCode::GitAuth, format!("`{account}` rejected every offered ssh key; register one of them with the server"))
-            .with_problem("rejected")
+        Error::new(
+            ErrorCode::GitAuth,
+            format!(
+                "`{account}` rejected every offered ssh key; register one of them with the server"
+            ),
+        )
+        .with_problem("rejected")
     };
     for tried in &attempts.tried {
         error = error.with_sample(tried.clone());
@@ -466,7 +530,10 @@ fn auth_error(config: &HostConfig, identities: &Identities, attempts: &Attempts)
 fn network_error(config: &HostConfig, reason: &str) -> Error {
     Error::new(
         ErrorCode::Network,
-        format!("cannot connect to `{}:{}` over ssh: {reason}", config.host_name, config.port),
+        format!(
+            "cannot connect to `{}:{}` over ssh: {reason}",
+            config.host_name, config.port
+        ),
     )
     .with_problem("ssh_connect")
 }
@@ -501,8 +568,8 @@ mod tests {
     #[test]
     fn known_algorithms_are_preferred() {
         let list = host_key_algorithms(None, &[Algorithm::Rsa { hash: None }]);
-        assert!(list[0].is_rsa());
-        assert!(list[1].is_rsa());
+        assert!(is_rsa(&list[0]));
+        assert!(is_rsa(&list[1]));
         assert_eq!(list[2], Algorithm::Ed25519);
     }
 
@@ -511,7 +578,11 @@ mod tests {
         let appended = host_key_algorithms(Some("+ssh-rsa"), &[]);
         assert_eq!(appended.last(), Some(&Algorithm::Rsa { hash: None }));
         let removed = host_key_algorithms(Some("-ecdsa-*,rsa-sha2-256"), &[]);
-        assert!(removed.iter().all(|algorithm| !algorithm.as_str().starts_with("ecdsa")));
+        assert!(
+            removed
+                .iter()
+                .all(|algorithm| !algorithm.as_str().starts_with("ecdsa"))
+        );
         assert!(!removed.contains(&Algorithm::Rsa {
             hash: Some(HashAlg::Sha256)
         }));
@@ -522,8 +593,14 @@ mod tests {
                 hash: Some(HashAlg::Sha512)
             }
         );
-        assert_eq!(host_key_algorithms(Some("ssh-ed25519"), &[]), [Algorithm::Ed25519]);
-        assert_eq!(host_key_algorithms(Some("no-such-algorithm"), &[])[0], Algorithm::Ed25519);
+        assert_eq!(
+            host_key_algorithms(Some("ssh-ed25519"), &[]),
+            [Algorithm::Ed25519]
+        );
+        assert_eq!(
+            host_key_algorithms(Some("no-such-algorithm"), &[])[0],
+            Algorithm::Ed25519
+        );
     }
 
     #[test]
@@ -534,7 +611,9 @@ mod tests {
             deadline: None,
         };
         assert_eq!(runtime.run(async { Ok(7) }, &limits).unwrap(), 7);
-        limits.cancel.cancel(nurt_contracts::stage::CancelReason::User);
+        limits
+            .cancel
+            .cancel(nurt_contracts::stage::CancelReason::Requested);
         let error = runtime
             .run(
                 async {

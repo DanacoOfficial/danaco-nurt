@@ -143,7 +143,10 @@ impl UreqHttp {
     }
 
     fn set_base(&self, base: String) {
-        *self.redirected_base.lock().unwrap_or_else(PoisonError::into_inner) = Some(base);
+        *self
+            .redirected_base
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = Some(base);
     }
 
     fn request_headers<I, S>(&self, headers: I) -> Vec<(String, String)>
@@ -157,10 +160,20 @@ impl UreqHttp {
             .filter(|(name, _)| !name.eq_ignore_ascii_case("user-agent"))
             .collect();
         out.push(("User-Agent".to_owned(), self.settings.user_agent.clone()));
-        out.extend(self.settings.extra_headers.iter().filter_map(|line| split_header(line)));
-        let has_authorization = out.iter().any(|(name, _)| name.eq_ignore_ascii_case("authorization"));
+        out.extend(
+            self.settings
+                .extra_headers
+                .iter()
+                .filter_map(|line| split_header(line)),
+        );
+        let has_authorization = out
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case("authorization"));
         if let (Some(token), false) = (&self.settings.bearer, has_authorization) {
-            out.push(("Authorization".to_owned(), format!("Bearer {}", token.expose())));
+            out.push((
+                "Authorization".to_owned(),
+                format!("Bearer {}", token.expose()),
+            ));
         }
         out
     }
@@ -190,7 +203,9 @@ impl UreqHttp {
             for (name, value) in &headers {
                 request = request.header(name.as_str(), value.as_str());
             }
-            let response = request.call().map_err(|e| classify(&current, e).into_io())?;
+            let response = request
+                .call()
+                .map_err(|e| classify(&current, e).into_io())?;
             let status = response.status().as_u16();
             if is_redirect(status) {
                 let next = self.redirect_target(&response, &current, &tail, may_follow)?;
@@ -201,7 +216,8 @@ impl UreqHttp {
                 continue;
             }
             if current != effective {
-                let base = redirect::base_url(&current, base_url, url).map_err(NetworkFailure::into_io)?;
+                let base =
+                    redirect::base_url(&current, base_url, url).map_err(NetworkFailure::into_io)?;
                 self.set_base(base);
             }
             check_status(&response, &current)?;
@@ -219,12 +235,18 @@ impl UreqHttp {
         tail: &str,
         may_follow: bool,
     ) -> io::Result<String> {
-        let refuse = |message: &str| NetworkFailure::new(NetworkProblem::Redirect, current, message).into_io();
+        let refuse = |message: &str| {
+            NetworkFailure::new(NetworkProblem::Redirect, current, message).into_io()
+        };
         if !may_follow {
-            return Err(refuse("redirect not followed; set http.followRedirects to true to allow it"));
+            return Err(refuse(
+                "redirect not followed; set http.followRedirects to true to allow it",
+            ));
         }
         if !self.settings.extra_headers.is_empty() {
-            return Err(refuse("refusing to follow a redirect while http.extraHeader is set"));
+            return Err(refuse(
+                "refusing to follow a redirect while http.extraHeader is set",
+            ));
         }
         let location = response
             .headers()
@@ -239,7 +261,9 @@ impl UreqHttp {
             return Err(refuse("refusing redirect to an insecure scheme"));
         }
         if !redirect::same_authority(&next, current) && !next.ends_with(tail) {
-            return Err(refuse("refusing redirect to another server with a different request path"));
+            return Err(refuse(
+                "refusing redirect to another server with a different request path",
+            ));
         }
         Ok(next)
     }
@@ -339,10 +363,17 @@ struct PostJob {
 }
 
 impl PostJob {
-    fn run(self, mut post: pipe::Reader, headers: &SyncSender<io::Result<Vec<u8>>>, mut body: pipe::Writer) {
+    fn run(
+        self,
+        mut post: pipe::Reader,
+        headers: &SyncSender<io::Result<Vec<u8>>>,
+        mut body: pipe::Writer,
+    ) {
         let response = self.send(&mut post);
         drop(post);
-        let response = match response.and_then(|response| check_status(&response, &self.url).map(|()| response)) {
+        let response = match response
+            .and_then(|response| check_status(&response, &self.url).map(|()| response))
+        {
             Ok(response) => response,
             Err(error) => {
                 headers.send(Err(error)).ok();
@@ -352,7 +383,11 @@ impl PostJob {
         if headers.send(Ok(header_lines(&response))).is_err() {
             return;
         }
-        let mut reader = LowSpeed::new(response.into_body().into_reader(), &self.settings, &self.url);
+        let mut reader = LowSpeed::new(
+            response.into_body().into_reader(),
+            &self.settings,
+            &self.url,
+        );
         if let Err(error) = io::copy(&mut reader, &mut body) {
             body.channel.send(Err(error)).ok();
         }
@@ -360,7 +395,9 @@ impl PostJob {
 
     fn send(&self, post: &mut pipe::Reader) -> io::Result<ureq::http::Response<ureq::Body>> {
         let mut prefix = Vec::new();
-        let probe = u64::try_from(self.buffer_limit).unwrap_or(u64::MAX).saturating_add(1);
+        let probe = u64::try_from(self.buffer_limit)
+            .unwrap_or(u64::MAX)
+            .saturating_add(1);
         post.by_ref().take(probe).read_to_end(&mut prefix)?;
         let mut request = self.agent.post(&self.url);
         for (name, value) in &self.headers {
@@ -370,7 +407,9 @@ impl PostJob {
             request.send(&prefix[..])
         } else {
             let rest = std::mem::replace(post, pipe::unidirectional(0).1);
-            request.send(ureq::SendBody::from_owned_reader(Cursor::new(prefix).chain(rest)))
+            request.send(ureq::SendBody::from_owned_reader(
+                Cursor::new(prefix).chain(rest),
+            ))
         };
         result.map_err(|error| classify(&self.url, error).into_io())
     }
@@ -403,9 +442,12 @@ impl<R: Read> LowSpeed<R> {
 impl<R: Read> Read for LowSpeed<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let read = self.inner.read(buf).map_err(|error| match error.kind() {
-            io::ErrorKind::TimedOut => {
-                NetworkFailure::new(NetworkProblem::Timeout, &self.url, "the server stopped sending data").into_io()
-            }
+            io::ErrorKind::TimedOut => NetworkFailure::new(
+                NetworkProblem::Timeout,
+                &self.url,
+                "the server stopped sending data",
+            )
+            .into_io(),
             _ => error,
         })?;
         if self.limit > 0 && !self.window.is_zero() {
@@ -479,9 +521,10 @@ fn classify(url: &str, error: ureq::Error) -> NetworkFailure {
     let problem = match &error {
         ureq::Error::HostNotFound => NetworkProblem::Dns,
         ureq::Error::Timeout(_) => NetworkProblem::Timeout,
-        ureq::Error::Tls(_) | ureq::Error::Pem(_) | ureq::Error::Rustls(_) | ureq::Error::TlsRequired => {
-            NetworkProblem::Tls
-        }
+        ureq::Error::Tls(_)
+        | ureq::Error::Pem(_)
+        | ureq::Error::Rustls(_)
+        | ureq::Error::TlsRequired => NetworkProblem::Tls,
         ureq::Error::InvalidProxyUrl => NetworkProblem::Proxy,
         ureq::Error::Io(io_error) => classify_io(io_error),
         other if other.to_string().to_ascii_lowercase().contains("proxy") => NetworkProblem::Proxy,
@@ -515,7 +558,13 @@ fn build_agent(settings: &HttpSettings, url: &str) -> Result<ureq::Agent, Networ
         .as_deref()
         .map(ureq::Proxy::new)
         .transpose()
-        .map_err(|error| NetworkFailure::new(NetworkProblem::Proxy, url, format!("invalid proxy address: {error}")))?;
+        .map_err(|error| {
+            NetworkFailure::new(
+                NetworkProblem::Proxy,
+                url,
+                format!("invalid proxy address: {error}"),
+            )
+        })?;
     let read_timeout = (settings.low_speed_limit > 0 && !settings.low_speed_time.is_zero())
         .then_some(settings.low_speed_time);
     let config = ureq::Agent::config_builder()
@@ -536,7 +585,8 @@ fn root_certificates(settings: &HttpSettings) -> Result<ureq::tls::RootCerts, St
         read_pem(file, &mut certificates)?;
     }
     if let Some(dir) = &settings.ca_path {
-        let entries = std::fs::read_dir(dir).map_err(|e| format!("cannot read http.sslCAPath '{}': {e}", dir.display()))?;
+        let entries = std::fs::read_dir(dir)
+            .map_err(|e| format!("cannot read http.sslCAPath '{}': {e}", dir.display()))?;
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() {
@@ -560,7 +610,8 @@ fn root_certificates(settings: &HttpSettings) -> Result<ureq::tls::RootCerts, St
 }
 
 fn read_pem(path: &Path, out: &mut Vec<ureq::tls::Certificate<'static>>) -> Result<(), String> {
-    let bytes = std::fs::read(path).map_err(|e| format!("cannot read certificate file '{}': {e}", path.display()))?;
+    let bytes = std::fs::read(path)
+        .map_err(|e| format!("cannot read certificate file '{}': {e}", path.display()))?;
     for item in ureq::tls::parse_pem(&bytes) {
         if let Ok(ureq::tls::PemItem::Certificate(certificate)) = item {
             out.push(certificate);
@@ -586,7 +637,12 @@ mod tests {
     }
 
     fn get(http: &mut UreqHttp, url: &str, base: &str) -> (io::Result<String>, Vec<u8>) {
-        let GetResponse { mut headers, mut body } = http.get(url, base, ["Git-Protocol: version=2"]).expect("request started");
+        let GetResponse {
+            mut headers,
+            mut body,
+        } = http
+            .get(url, base, ["Git-Protocol: version=2"])
+            .expect("request started");
         let headers = read_headers(&mut headers);
         let mut bytes = Vec::new();
         body.read_to_end(&mut bytes).ok();
@@ -598,7 +654,13 @@ mod tests {
         let server = TestServer::start(|request: &Request| {
             let agent = request.header("user-agent").unwrap_or_default();
             let extra = request.header("x-extra").unwrap_or_default();
-            Reply::ok("text/plain", format!("{agent}|{extra}|{}", request.header("git-protocol").unwrap_or_default()))
+            Reply::ok(
+                "text/plain",
+                format!(
+                    "{agent}|{extra}|{}",
+                    request.header("git-protocol").unwrap_or_default()
+                ),
+            )
         });
         let mut http = UreqHttp::new(HttpSettings {
             extra_headers: vec!["X-Extra: yes".to_owned()],
@@ -606,18 +668,27 @@ mod tests {
             ..settings()
         });
         let (headers, body) = get(&mut http, &server.url("/r/info/refs"), &server.url("/r"));
-        assert!(headers.expect("success").to_ascii_lowercase().contains("content-type: text/plain"));
+        assert!(
+            headers
+                .expect("success")
+                .to_ascii_lowercase()
+                .contains("content-type: text/plain")
+        );
         assert_eq!(String::from_utf8_lossy(&body), "git/test|yes|version=2");
     }
 
     #[test]
     fn unauthorized_response_asks_for_credentials() {
-        let server = TestServer::start(|_: &Request| Reply::status(401).with_header("WWW-Authenticate", "Basic realm=\"r\""));
+        let server = TestServer::start(|_: &Request| {
+            Reply::status(401).with_header("WWW-Authenticate", "Basic realm=\"r\"")
+        });
         let mut http = UreqHttp::new(settings());
         let (headers, _) = get(&mut http, &server.url("/r/info/refs"), &server.url("/r"));
         let error = headers.expect_err("authentication required");
         assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
-        let required = error.get_ref().and_then(|e| e.downcast_ref::<AuthenticationRequired>());
+        let required = error
+            .get_ref()
+            .and_then(|e| e.downcast_ref::<AuthenticationRequired>());
         assert_eq!(required.map(|r| r.www_authenticate.len()), Some(1));
     }
 
@@ -628,7 +699,10 @@ mod tests {
         let (headers, _) = get(&mut http, &server.url("/r/info/refs"), &server.url("/r"));
         let error = headers.expect_err("not found");
         let failure = NetworkFailure::find(&error).expect("classified");
-        assert_eq!((failure.problem(), failure.http_status()), (NetworkProblem::HttpStatus, Some(404)));
+        assert_eq!(
+            (failure.problem(), failure.http_status()),
+            (NetworkProblem::HttpStatus, Some(404))
+        );
     }
 
     #[test]
@@ -639,7 +713,11 @@ mod tests {
             _ => Reply::status(404),
         });
         let mut http = UreqHttp::new(settings());
-        let (headers, body) = get(&mut http, &server.url("/old/info/refs"), &server.url("/old"));
+        let (headers, body) = get(
+            &mut http,
+            &server.url("/old/info/refs"),
+            &server.url("/old"),
+        );
         assert!(headers.is_ok());
         assert_eq!(body, b"moved");
         assert_eq!(http.redirected_base_url(), Some(server.url("/new")));
@@ -652,23 +730,41 @@ mod tests {
             _ => Reply::ok("text/plain", "ok".to_owned()),
         });
         let mut http = UreqHttp::new(settings());
-        assert!(get(&mut http, &server.url("/c/x"), &server.url("/c")).0.is_ok());
-        let error = get(&mut http, &server.url("/a/x"), &server.url("/a")).0.expect_err("second request");
-        assert_eq!(NetworkFailure::find(&error).map(NetworkFailure::problem), Some(NetworkProblem::Redirect));
+        assert!(
+            get(&mut http, &server.url("/c/x"), &server.url("/c"))
+                .0
+                .is_ok()
+        );
+        let error = get(&mut http, &server.url("/a/x"), &server.url("/a"))
+            .0
+            .expect_err("second request");
+        assert_eq!(
+            NetworkFailure::find(&error).map(NetworkFailure::problem),
+            Some(NetworkProblem::Redirect)
+        );
 
         let mut http = UreqHttp::new(HttpSettings {
             extra_headers: vec!["Authorization: Bearer t".to_owned()],
             ..settings()
         });
-        let error = get(&mut http, &server.url("/a/x"), &server.url("/a")).0.expect_err("extra header");
+        let error = get(&mut http, &server.url("/a/x"), &server.url("/a"))
+            .0
+            .expect_err("extra header");
         assert!(error.to_string().contains("http.extraHeader"));
     }
 
     #[test]
     fn post_sends_small_bodies_with_length_and_large_ones_chunked() {
         let server = TestServer::start(|request: &Request| {
-            let mode = if request.header("transfer-encoding").is_some() { "chunked" } else { "length" };
-            Reply::ok("application/x-git-upload-pack-result", format!("{mode}:{}", request.body.len()))
+            let mode = if request.header("transfer-encoding").is_some() {
+                "chunked"
+            } else {
+                "length"
+            };
+            Reply::ok(
+                "application/x-git-upload-pack-result",
+                format!("{mode}:{}", request.body.len()),
+            )
         });
         for (size, expected) in [(10, "length:10"), (100, "chunked:100")] {
             let mut http = UreqHttp::new(HttpSettings {
@@ -680,9 +776,16 @@ mod tests {
                 mut headers,
                 mut body,
             } = http
-                .post(&server.url("/r/git-upload-pack"), &server.url("/r"), ["Content-Type: x"], PostBodyDataKind::Unbounded)
+                .post(
+                    &server.url("/r/git-upload-pack"),
+                    &server.url("/r"),
+                    ["Content-Type: x"],
+                    PostBodyDataKind::Unbounded,
+                )
                 .expect("request started");
-            post_body.write_all(&vec![b'a'; size]).expect("body written");
+            post_body
+                .write_all(&vec![b'a'; size])
+                .expect("body written");
             drop(post_body);
             assert!(read_headers(&mut headers).is_ok());
             let mut text = String::new();
@@ -694,15 +797,25 @@ mod tests {
     #[test]
     fn bearer_token_is_sent_without_basic_credentials() {
         let server = TestServer::start(|request: &Request| {
-            Reply::ok("text/plain", request.header("authorization").unwrap_or_default())
+            Reply::ok(
+                "text/plain",
+                request.header("authorization").unwrap_or_default(),
+            )
         });
         let mut http = UreqHttp::new(HttpSettings {
             bearer: Some(super::super::settings::BearerToken::new("tok")),
             ..settings()
         });
-        assert_eq!(get(&mut http, &server.url("/r/x"), &server.url("/r")).1, b"Bearer tok");
+        assert_eq!(
+            get(&mut http, &server.url("/r/x"), &server.url("/r")).1,
+            b"Bearer tok"
+        );
         let GetResponse { mut body, .. } = http
-            .get(&server.url("/r/x"), &server.url("/r"), ["Authorization: Basic abc"])
+            .get(
+                &server.url("/r/x"),
+                &server.url("/r"),
+                ["Authorization: Basic abc"],
+            )
             .expect("request started");
         let mut text = String::new();
         body.read_to_string(&mut text).expect("body read");
@@ -713,8 +826,13 @@ mod tests {
     fn refused_connection_is_a_connect_failure() {
         let url = TestServer::closed_url();
         let mut http = UreqHttp::new(settings());
-        let error = get(&mut http, &format!("{url}/r/x"), &format!("{url}/r")).0.expect_err("refused");
-        assert_eq!(NetworkFailure::find(&error).map(NetworkFailure::problem), Some(NetworkProblem::Connect));
+        let error = get(&mut http, &format!("{url}/r/x"), &format!("{url}/r"))
+            .0
+            .expect_err("refused");
+        assert_eq!(
+            NetworkFailure::find(&error).map(NetworkFailure::problem),
+            Some(NetworkProblem::Connect)
+        );
     }
 
     #[test]
@@ -738,14 +856,22 @@ mod tests {
             ..settings()
         };
         let mut reader = LowSpeed::new(io::repeat(0).take(10), &settings, "https://h");
-        reader.started = Instant::now().checked_sub(Duration::from_secs(1)).unwrap_or_else(Instant::now);
+        reader.started = Instant::now()
+            .checked_sub(Duration::from_secs(1))
+            .unwrap_or_else(Instant::now);
         let error = reader.read(&mut [0; 4]).expect_err("too slow");
-        assert_eq!(NetworkFailure::find(&error).map(NetworkFailure::problem), Some(NetworkProblem::Timeout));
+        assert_eq!(
+            NetworkFailure::find(&error).map(NetworkFailure::problem),
+            Some(NetworkProblem::Timeout)
+        );
     }
 
     #[test]
     fn splits_header_lines_and_detects_redirect_statuses() {
-        assert_eq!(split_header("A: b c"), Some(("A".to_owned(), "b c".to_owned())));
+        assert_eq!(
+            split_header("A: b c"),
+            Some(("A".to_owned(), "b c".to_owned()))
+        );
         assert_eq!(split_header("no colon"), None);
         assert!(is_redirect(308) && !is_redirect(304));
     }

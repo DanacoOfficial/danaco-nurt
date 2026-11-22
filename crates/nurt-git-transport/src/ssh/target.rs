@@ -48,7 +48,9 @@ impl Target {
         }
         let path = gix_url::expand_path::for_shell(url.path.clone());
         if path.trim().first() == Some(&b'-') {
-            return Err(invalid_url("repository path of the ssh url starts with `-`"));
+            return Err(invalid_url(
+                "repository path of the ssh url starts with `-`",
+            ));
         }
         if path.is_empty() {
             return Err(invalid_url("ssh url has no repository path"));
@@ -83,7 +85,7 @@ mod tests {
     use super::*;
 
     fn target(url: &str) -> Result<Target> {
-        let url = gix_url::parse(url.into()).map_err(|err| invalid_url(&err.to_string()))?;
+        let url = gix_url::parse(BStr::new(url)).map_err(|err| invalid_url(&err.to_string()))?;
         Target::from_url(&url)
     }
 
@@ -107,8 +109,14 @@ mod tests {
 
     #[test]
     fn keeps_home_prefix_for_the_server() {
-        assert_eq!(target("ssh://example.com/~/repo.git").unwrap().path, "~/repo.git");
-        assert_eq!(target("ssh://example.com/~alice/repo.git").unwrap().path, "~alice/repo.git");
+        assert_eq!(
+            target("ssh://example.com/~/repo.git").unwrap().path,
+            "~/repo.git"
+        );
+        assert_eq!(
+            target("ssh://example.com/~user/repo.git").unwrap().path,
+            "~user/repo.git"
+        );
     }
 
     #[test]

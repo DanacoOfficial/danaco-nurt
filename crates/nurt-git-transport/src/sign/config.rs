@@ -11,7 +11,7 @@ use nurt_contracts::env::Os;
 use nurt_contracts::error::Result;
 use nurt_contracts::stage::ExecCtx;
 
-use super::error::{sign_error, UNSUPPORTED_FORMAT};
+use super::error::{UNSUPPORTED_FORMAT, sign_error};
 use super::{OpenPgpSource, SignatureFormat, SigningConfig, VerifyConfig};
 
 const NANOS_PER_SECOND: i128 = 1_000_000_000;
@@ -80,11 +80,7 @@ impl SigningConfig {
     ///
     /// `E_GIT_SIGN` with the problem `unsupported_format` when `gpg.format`
     /// is not `openpgp`, `ssh` or `x509`.
-    pub fn resolve(
-        git: &gix::config::File<'_>,
-        ctx: &ExecCtx,
-        identity: Option<&str>,
-    ) -> Result<Self> {
+    pub fn resolve(git: &gix::config::File, ctx: &ExecCtx, identity: Option<&str>) -> Result<Self> {
         let format = format_of(git)?;
         let env = Env::new(ctx);
         let mut config = Self::new(format, now_seconds(ctx));
@@ -123,7 +119,7 @@ impl VerifyConfig {
     /// configuration, `GNUPGHOME` from the host of `ctx` and the UTC offset
     /// of the host time zone at the current time.
     #[must_use]
-    pub fn resolve(git: &gix::config::File<'_>, ctx: &ExecCtx) -> Self {
+    pub fn resolve(git: &gix::config::File, ctx: &ExecCtx) -> Self {
         let env = Env::new(ctx);
         let path_of = |key: &str| {
             git.string(key)
@@ -150,7 +146,7 @@ impl VerifyConfig {
     }
 }
 
-fn format_of(git: &gix::config::File<'_>) -> Result<SignatureFormat> {
+fn format_of(git: &gix::config::File) -> Result<SignatureFormat> {
     let Some(value) = git.string("gpg.format") else {
         return Ok(SignatureFormat::Openpgp);
     };
@@ -230,7 +226,8 @@ impl<'a> Env<'a> {
 
     fn ssh_auth_sock(&self) -> Option<PathBuf> {
         self.path(ENV_SSH_AUTH_SOCK).or_else(|| {
-            (self.ctx.host().info().os == Os::Windows).then(|| PathBuf::from(WINDOWS_SSH_AGENT_PIPE))
+            (self.ctx.host().info().os == Os::Windows)
+                .then(|| PathBuf::from(WINDOWS_SSH_AGENT_PIPE))
         })
     }
 }

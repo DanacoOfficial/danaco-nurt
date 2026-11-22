@@ -21,9 +21,6 @@ pub(crate) const BAND_DATA: u8 = 1;
 /// Side band carrying progress and messages.
 pub(crate) const BAND_PROGRESS: u8 = 2;
 
-/// Side band carrying a fatal error.
-pub(crate) const BAND_ERROR: u8 = 3;
-
 /// One decoded packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Packet {
@@ -113,7 +110,8 @@ pub(crate) fn trim_newline(data: &[u8]) -> &[u8] {
 }
 
 fn decode_length(prefix: &[u8; PREFIX]) -> io::Result<usize> {
-    let text = std::str::from_utf8(prefix).map_err(|_| invalid("packet length is not hexadecimal"))?;
+    let text =
+        std::str::from_utf8(prefix).map_err(|_| invalid("packet length is not hexadecimal"))?;
     let length =
         usize::from_str_radix(text, 16).map_err(|_| invalid("packet length is not hexadecimal"))?;
     if length > MAX_DATA + PREFIX {

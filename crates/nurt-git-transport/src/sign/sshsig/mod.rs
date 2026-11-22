@@ -22,12 +22,12 @@ mod allowed;
 use std::path::{Path, PathBuf};
 
 use nurt_contracts::error::{Error, Result};
-use russh::keys::ssh_key::{HashAlg, LineEnding, PrivateKey, PublicKey, SshSig};
+use ssh_key::{HashAlg, LineEnding, PrivateKey, PublicKey, SshSig};
 
 use super::config::expand_home;
 use super::error::{
-    is_problem, key_locked, no_key, sign_error, with_path, AGENT_UNAVAILABLE, NO_KEY,
-    UNSUPPORTED_FORMAT,
+    AGENT_UNAVAILABLE, NO_KEY, UNSUPPORTED_FORMAT, is_problem, key_locked, no_key, sign_error,
+    with_path,
 };
 use super::openpgp::read_passphrase;
 use super::{
@@ -47,7 +47,9 @@ pub(crate) fn sign(payload: &[u8], config: &SigningConfig) -> Result<Signature> 
     };
     if let Some(literal) = spec.strip_prefix(LITERAL_PREFIX) {
         let public = PublicKey::from_openssh(literal.trim()).map_err(|error| {
-            no_key(format!("`user.signingKey` holds an invalid SSH public key literal: {error}"))
+            no_key(format!(
+                "`user.signingKey` holds an invalid SSH public key literal: {error}"
+            ))
         })?;
         return sign_with_agent(&public, payload, config);
     }
@@ -108,7 +110,11 @@ fn sign_with_private(
     config: &SigningConfig,
 ) -> Result<Signature> {
     if !private.is_encrypted() {
-        return finish(private.sign(NAMESPACE, HashAlg::Sha512, payload), private.public_key(), KeySource::KeyFile);
+        return finish(
+            private.sign(NAMESPACE, HashAlg::Sha512, payload),
+            private.public_key(),
+            KeySource::KeyFile,
+        );
     }
     let through_agent = sign_with_agent(private.public_key(), payload, config);
     match through_agent {
@@ -146,7 +152,11 @@ fn sign_with_private(
     )
 }
 
-fn sign_with_agent(public: &PublicKey, payload: &[u8], config: &SigningConfig) -> Result<Signature> {
+fn sign_with_agent(
+    public: &PublicKey,
+    payload: &[u8],
+    config: &SigningConfig,
+) -> Result<Signature> {
     let Some(socket) = &config.ssh_auth_sock else {
         return Err(sign_error(
             AGENT_UNAVAILABLE,
@@ -157,7 +167,12 @@ fn sign_with_agent(public: &PublicKey, payload: &[u8], config: &SigningConfig) -
         .map_err(|error| unsupported(&error.to_string()))?;
     let signature = agent::sign(socket, public, &data)?;
     finish(
-        SshSig::new(public.key_data().clone(), NAMESPACE, HashAlg::Sha512, signature),
+        SshSig::new(
+            public.key_data().clone(),
+            NAMESPACE,
+            HashAlg::Sha512,
+            signature,
+        ),
         public,
         KeySource::Agent,
     )
@@ -166,12 +181,14 @@ fn sign_with_agent(public: &PublicKey, payload: &[u8], config: &SigningConfig) -
 fn unsupported(detail: &str) -> Error {
     sign_error(
         UNSUPPORTED_FORMAT,
-        format!("the SSH key cannot create a signature: {detail}; use an Ed25519, ECDSA or RSA key"),
+        format!(
+            "the SSH key cannot create a signature: {detail}; use an Ed25519, ECDSA or RSA key"
+        ),
     )
 }
 
 fn finish(
-    signature: std::result::Result<SshSig, russh::keys::ssh_key::Error>,
+    signature: std::result::Result<SshSig, ssh_key::Error>,
     public: &PublicKey,
     source: KeySource,
 ) -> Result<Signature> {
@@ -210,10 +227,10 @@ pub(crate) fn verify(
     if sshsig.namespace() != NAMESPACE || public.verify(NAMESPACE, payload, &sshsig).is_err() {
         return Ok(result);
     }
-    if let Some(path) = &config.revocation_file {
-        if allowed::is_revoked(path, &public)? {
-            return Ok(result);
-        }
+    if let Some(path) = &config.revocation_file
+        && allowed::is_revoked(path, &public)?
+    {
+        return Ok(result);
     }
     let principal = match &config.allowed_signers_file {
         Some(path) => allowed::find_principal(path, &public, config.signed_at, config.utc_offset)?,
@@ -234,8 +251,8 @@ pub(crate) mod fixtures {
     //! A key derived from a fixed seed, and signatures `ssh-keygen -Y sign
     //! -n git` made with the same key.
 
-    use russh::keys::ssh_key::private::{Ed25519Keypair, KeypairData};
-    use russh::keys::ssh_key::{LineEnding, PrivateKey};
+    use ssh_key::private::{Ed25519Keypair, KeypairData};
+    use ssh_key::{LineEnding, PrivateKey};
 
     pub(crate) const SEED: [u8; 32] = [7; 32];
 
@@ -253,12 +270,18 @@ m57YtcbtaNVlMDgmcxfAk=
 ";
 
     pub(crate) fn private_key() -> PrivateKey {
-        PrivateKey::new(KeypairData::from(Ed25519Keypair::from_seed(&SEED)), "test@example.test")
-            .expect("fixture key")
+        PrivateKey::new(
+            KeypairData::from(Ed25519Keypair::from_seed(&SEED)),
+            "test@example.test",
+        )
+        .expect("fixture key")
     }
 
     pub(crate) fn private_key_pem() -> String {
-        private_key().to_openssh(LineEnding::LF).expect("encode").to_string()
+        private_key()
+            .to_openssh(LineEnding::LF)
+            .expect("encode")
+            .to_string()
     }
 }
 
@@ -282,7 +305,10 @@ mod tests {
         let key = dir.path().join("id_ed25519");
         std::fs::write(&key, private_key_pem()).expect("write");
         let signature = sign(PAYLOAD, &config_for(&key)).expect("signed");
-        assert_eq!(String::from_utf8(signature.armored).expect("utf-8"), PAYLOAD_SIGNATURE);
+        assert_eq!(
+            String::from_utf8(signature.armored).expect("utf-8"),
+            PAYLOAD_SIGNATURE
+        );
         assert_eq!(signature.key, FINGERPRINT);
         assert_eq!(signature.source, KeySource::KeyFile);
     }
@@ -304,13 +330,17 @@ mod tests {
         let public = dir.path().join("id_ed25519.pub");
         std::fs::write(&public, format!("{PUBLIC}\n")).expect("write");
         let signature = sign(PAYLOAD, &config_for(&public)).expect("signed");
-        assert_eq!(String::from_utf8(signature.armored).expect("utf-8"), PAYLOAD_SIGNATURE);
+        assert_eq!(
+            String::from_utf8(signature.armored).expect("utf-8"),
+            PAYLOAD_SIGNATURE
+        );
     }
 
     #[test]
     fn reports_missing_key_and_agent() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let error = sign(PAYLOAD, &SigningConfig::new(SignatureFormat::Ssh, CREATED)).expect_err("no key");
+        let error =
+            sign(PAYLOAD, &SigningConfig::new(SignatureFormat::Ssh, CREATED)).expect_err("no key");
         assert_eq!(error.data().problem.as_deref(), Some(NO_KEY));
         let error = sign(PAYLOAD, &config_for(&dir.path().join("absent"))).expect_err("no file");
         assert_eq!(error.data().problem.as_deref(), Some(NO_KEY));
@@ -333,21 +363,34 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().expect("tempdir");
         let mut rng = rand::rng();
-        let encrypted = private_key().encrypt(&mut rng, "correct horse").expect("encrypt");
+        let encrypted = private_key()
+            .encrypt(&mut rng, "correct horse")
+            .expect("encrypt");
         let key = dir.path().join("id_ed25519");
-        std::fs::write(&key, encrypted.to_openssh(LineEnding::LF).expect("encode").as_bytes()).expect("write");
+        std::fs::write(
+            &key,
+            encrypted
+                .to_openssh(LineEnding::LF)
+                .expect("encode")
+                .as_bytes(),
+        )
+        .expect("write");
         let mut config = config_for(&key);
         let error = sign(PAYLOAD, &config).expect_err("locked");
         assert_eq!(error.data().problem.as_deref(), Some("key_locked"));
         let passphrase = dir.path().join("passphrase");
         std::fs::write(&passphrase, "wrong\n").expect("write");
-        std::fs::set_permissions(&passphrase, std::fs::Permissions::from_mode(0o600)).expect("chmod");
+        std::fs::set_permissions(&passphrase, std::fs::Permissions::from_mode(0o600))
+            .expect("chmod");
         config.ssh_passphrase_file = Some(passphrase.clone());
         let error = sign(PAYLOAD, &config).expect_err("wrong passphrase");
         assert_eq!(error.data().problem.as_deref(), Some("key_locked"));
         std::fs::write(&passphrase, "correct horse\n").expect("write");
         let signature = sign(PAYLOAD, &config).expect("signed");
-        assert_eq!(String::from_utf8(signature.armored).expect("utf-8"), PAYLOAD_SIGNATURE);
+        assert_eq!(
+            String::from_utf8(signature.armored).expect("utf-8"),
+            PAYLOAD_SIGNATURE
+        );
     }
 
     fn allowed_config(dir: &Path, line: &str) -> VerifyConfig {
@@ -363,7 +406,10 @@ mod tests {
     #[test]
     fn verifies_ssh_keygen_signature_against_allowed_signers() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let config = allowed_config(dir.path(), &format!("tester@example.test namespaces=\"git\" {PUBLIC}\n"));
+        let config = allowed_config(
+            dir.path(),
+            &format!("tester@example.test namespaces=\"git\" {PUBLIC}\n"),
+        );
         let result = verify(PAYLOAD, PAYLOAD_SIGNATURE.as_bytes(), &config).expect("verify");
         assert_eq!(result.status, SignatureStatus::Good);
         assert_eq!(result.signer.as_deref(), Some("tester@example.test"));
@@ -373,10 +419,19 @@ mod tests {
     #[test]
     fn classifies_unknown_bad_and_revoked_signatures() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let unknown = verify(PAYLOAD, PAYLOAD_SIGNATURE.as_bytes(), &VerifyConfig::default()).expect("verify");
+        let unknown = verify(
+            PAYLOAD,
+            PAYLOAD_SIGNATURE.as_bytes(),
+            &VerifyConfig::default(),
+        )
+        .expect("verify");
         assert_eq!(unknown.status, SignatureStatus::UnknownKey);
-        let other_namespace = allowed_config(dir.path(), &format!("tester@example.test namespaces=\"file\" {PUBLIC}\n"));
-        let result = verify(PAYLOAD, PAYLOAD_SIGNATURE.as_bytes(), &other_namespace).expect("verify");
+        let other_namespace = allowed_config(
+            dir.path(),
+            &format!("tester@example.test namespaces=\"file\" {PUBLIC}\n"),
+        );
+        let result =
+            verify(PAYLOAD, PAYLOAD_SIGNATURE.as_bytes(), &other_namespace).expect("verify");
         assert_eq!(result.status, SignatureStatus::UnknownKey);
         let config = allowed_config(dir.path(), &format!("tester@example.test {PUBLIC}\n"));
         let bad = verify(b"changed", PAYLOAD_SIGNATURE.as_bytes(), &config).expect("verify");
@@ -387,7 +442,8 @@ mod tests {
         config.revocation_file = Some(revoked);
         let result = verify(PAYLOAD, PAYLOAD_SIGNATURE.as_bytes(), &config).expect("verify");
         assert_eq!(result.status, SignatureStatus::Bad);
-        let garbage = verify(PAYLOAD, b"-----BEGIN SSH SIGNATURE-----\nAAAA\n", &config).expect("verify");
+        let garbage =
+            verify(PAYLOAD, b"-----BEGIN SSH SIGNATURE-----\nAAAA\n", &config).expect("verify");
         assert_eq!(garbage.status, SignatureStatus::Bad);
     }
 }

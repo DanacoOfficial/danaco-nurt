@@ -2,12 +2,17 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Repositories for tests, built with `gix` in temporary directories.
+//!
+//! References are written as loose reference files, so that no reflog and
+//! therefore no committer identity is needed.
 
 use gix::ObjectId;
-use gix::refs::transaction::PreviousValue;
 
 /// Fixed time of all test commits, so that object identifiers are stable.
 const COMMIT_TIME: i64 = 1_700_000_000;
+
+/// Identity for the reflog entries written by fetches into test repositories.
+const IDENTITY: &str = "[user]\n\tname = Test\n\temail = test@example.com\n";
 
 /// Repository in a temporary directory.
 pub(crate) struct TestRepo {
@@ -18,7 +23,12 @@ pub(crate) struct TestRepo {
 impl TestRepo {
     pub(crate) fn init() -> Self {
         let dir = tempfile::tempdir().expect("temporary directory");
-        let repo = gix::init(dir.path()).expect("initialized repository");
+        let initialized = gix::init(dir.path()).expect("initialized repository");
+        let config = initialized.git_dir().join("config");
+        let mut text = std::fs::read_to_string(&config).expect("configuration read");
+        text.push_str(IDENTITY);
+        std::fs::write(&config, text).expect("configuration written");
+        let repo = gix::open(dir.path()).expect("opened repository");
         let this = Self { dir, repo };
         this.set_head("main");
         this
@@ -32,30 +42,47 @@ impl TestRepo {
         }
     }
 
+    /// Path of the working tree.
+    pub(crate) fn path(&self) -> &std::path::Path {
+        self.dir.path()
+    }
+
     /// Points `HEAD` at `refs/heads/<branch>`.
     pub(crate) fn set_head(&self, branch: &str) {
-        let target: gix::refs::FullName = format!("refs/heads/{branch}").try_into().expect("valid name");
-        self.repo
-            .edit_reference(gix::refs::transaction::RefEdit {
-                change: gix::refs::transaction::Change::Update {
-                    log: gix::refs::transaction::LogChange::default(),
-                    expected: PreviousValue::Any,
-                    new: gix::refs::Target::Symbolic(target),
-                },
-                name: "HEAD".try_into().expect("valid name"),
-                deref: false,
-            })
-            .expect("HEAD updated");
+        std::fs::write(
+            self.repo.git_dir().join("HEAD"),
+            format!("ref: refs/heads/{branch}\n"),
+        )
+        .expect("HEAD written");
+    }
+
+    /// Writes the loose reference `name` with `id`.
+    pub(crate) fn write_ref(&self, name: &str, id: ObjectId) {
+        let path = self.repo.git_dir().join(name);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).expect("reference directory");
+        }
+        std::fs::write(path, format!("{id}\n")).expect("reference written");
     }
 
     /// Writes a commit with `files` on `branch` and returns its identifier.
-    pub(crate) fn commit(&self, branch: &str, files: &[(&str, &str)], parents: &[ObjectId], message: &str) -> ObjectId {
+    pub(crate) fn commit(
+        &self,
+        branch: &str,
+        files: &[(&str, &str)],
+        parents: &[ObjectId],
+        message: &str,
+    ) -> ObjectId {
         let mut entries: Vec<gix::objs::tree::Entry> = files
             .iter()
             .map(|(name, content)| gix::objs::tree::Entry {
                 mode: gix::objs::tree::EntryKind::Blob.into(),
                 filename: (*name).into(),
-                oid: self.repo.write_blob(content.as_bytes()).expect("blob written").detach(),
+                oid: self
+                    .repo
+                    .write_blob(content.as_bytes())
+                    .expect("blob written")
+                    .detach(),
             })
             .collect();
         entries.sort_by(|a, b| a.filename.cmp(&b.filename));
@@ -73,10 +100,12 @@ impl TestRepo {
             message: format!("{message}\n").into(),
             extra_headers: Vec::new(),
         };
-        let id = self.repo.write_object(&commit).expect("commit written").detach();
-        self.repo
-            .reference(format!("refs/heads/{branch}"), id, PreviousValue::Any, "test")
-            .expect("branch updated");
+        let id = self
+            .repo
+            .write_object(&commit)
+            .expect("commit written")
+            .detach();
+        self.write_ref(&format!("refs/heads/{branch}"), id);
         id
     }
 
@@ -88,16 +117,10 @@ impl TestRepo {
             name: name.into(),
             tagger: Some(Self::signature()),
             message: "release\n".into(),
-            pgp_signature: None,
+            signature: None,
         };
         let id = self.repo.write_object(&tag).expect("tag written").detach();
-        self.repo
-            .reference(format!("refs/tags/{name}"), id, PreviousValue::Any, "test")
-            .expect("tag reference written");
+        self.write_ref(&format!("refs/tags/{name}"), id);
         id
-    }
-
-    pub(crate) fn path(&self) -> &std::path::Path {
-        self.dir.path()
     }
 }

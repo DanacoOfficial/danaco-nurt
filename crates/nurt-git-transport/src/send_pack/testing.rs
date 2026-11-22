@@ -7,8 +7,14 @@
 //! The module is compiled for tests and with the `testutil` feature only.
 
 // Test support fails loudly on setup errors and on misuse of the journal
-// protocol, so the panicking helpers are intended.
-#![allow(clippy::expect_used, clippy::panic, clippy::missing_panics_doc)]
+// protocol, so the panicking helpers are intended. The process host of the
+// tests starts hook scripts as programs, which production code never does.
+#![allow(
+    clippy::expect_used,
+    clippy::panic,
+    clippy::missing_panics_doc,
+    clippy::disallowed_methods
+)]
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -20,11 +26,13 @@ use gix::objs::tree::EntryKind;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::{
     AfterState, Applied, BeforeState, ExemptWrite, ExternalChange, Mutation, MutationTx, OpHandle,
-    OpId, OpKind, Preserved, PreserveMode, RollbackReason, RollbackReport, TargetAction,
+    OpId, OpKind, PreserveMode, Preserved, RollbackReason, RollbackReport, TargetAction,
     TargetIndex, TargetPath, TargetSpec,
 };
 use nurt_contracts::report::IrreversibleEntry;
-use nurt_contracts::services::{ProcessHost, ProgramInput, ProgramOutcome, ProgramSpec, ServiceChild, ServiceSpawnSpec};
+use nurt_contracts::services::{
+    ProcessHost, ProgramInput, ProgramOutcome, ProgramSpec, ServiceChild, ServiceSpawnSpec,
+};
 use nurt_contracts::stage::CancelToken;
 
 use super::refs::content_hash;
@@ -99,13 +107,20 @@ impl Fixture {
 
     /// Writes a blob and returns its identifier.
     pub fn write_blob(&self, content: &str) -> ObjectId {
-        self.repo().write_blob(content.as_bytes()).expect("blob").detach()
+        self.repo()
+            .write_blob(content.as_bytes())
+            .expect("blob")
+            .detach()
     }
 
     /// Identifier of a blob with `content`.
     pub fn blob_id(&self, content: &str) -> ObjectId {
-        gix::objs::compute_hash(gix::hash::Kind::Sha1, gix::objs::Kind::Blob, content.as_bytes())
-            .expect("hash")
+        gix::objs::compute_hash(
+            gix::hash::Kind::Sha1,
+            gix::objs::Kind::Blob,
+            content.as_bytes(),
+        )
+        .expect("hash")
     }
 
     /// Commits `files` with `parents` and points `refs/heads/<branch>` at
@@ -146,7 +161,7 @@ impl Fixture {
                 time: gix::date::Time::new(FIXTURE_SECONDS, 0),
             }),
             message: "tag\n".into(),
-            pgp_signature: None,
+            signature: None,
         };
         let id = repo.write_object(&tag).expect("tag").detach();
         self.set_ref(&format!("refs/tags/{name}"), id);
@@ -199,6 +214,12 @@ impl Fixture {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).expect("mode");
         }
+    }
+}
+
+impl Default for Fixture {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -328,7 +349,8 @@ impl RecordingTx {
     fn check_expect(&self, index: TargetIndex, path: &Path) -> Result<()> {
         let expect = &self.targets[index.0 as usize].expect;
         let matches = match expect {
-            nurt_contracts::journal::Expect::Unchecked | nurt_contracts::journal::Expect::Etag(_) => true,
+            nurt_contracts::journal::Expect::Unchecked
+            | nurt_contracts::journal::Expect::Etag(_) => true,
             nurt_contracts::journal::Expect::Absent => !path.exists(),
             nurt_contracts::journal::Expect::Hash(hash) => {
                 std::fs::read(path).is_ok_and(|bytes| content_hash(&bytes) == *hash)
@@ -337,7 +359,10 @@ impl RecordingTx {
         if matches {
             Ok(())
         } else {
-            Err(Error::new(ErrorCode::Stale, format!("{} changed", path.display())))
+            Err(Error::new(
+                ErrorCode::Stale,
+                format!("{} changed", path.display()),
+            ))
         }
     }
 
@@ -368,13 +393,22 @@ impl MutationTx for RecordingTx {
             });
             match &target.action {
                 TargetAction::Create if path.exists() => {
-                    return Err(Error::new(ErrorCode::Exists, format!("{} exists", path.display())));
+                    return Err(Error::new(
+                        ErrorCode::Exists,
+                        format!("{} exists", path.display()),
+                    ));
                 }
                 TargetAction::Delete | TargetAction::Append if !path.exists() => {
-                    return Err(Error::new(ErrorCode::NotFound, format!("{} is missing", path.display())));
+                    return Err(Error::new(
+                        ErrorCode::NotFound,
+                        format!("{} is missing", path.display()),
+                    ));
                 }
                 TargetAction::Rename { .. } if !path.exists() && !created_earlier => {
-                    return Err(Error::new(ErrorCode::NotFound, format!("{} is missing", path.display())));
+                    return Err(Error::new(
+                        ErrorCode::NotFound,
+                        format!("{} is missing", path.display()),
+                    ));
                 }
                 _ => {}
             }

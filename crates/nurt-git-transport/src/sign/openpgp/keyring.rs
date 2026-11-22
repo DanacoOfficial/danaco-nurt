@@ -116,8 +116,11 @@ pub(crate) fn keybox_blocks(bytes: &[u8]) -> Vec<&[u8]> {
         }
         let blob = &bytes[offset..offset + length];
         if blob[KEYBOX_TYPE_OFFSET] == KEYBOX_BLOB_OPENPGP && length >= KEYBOX_HEADER_LEN {
-            let block = read_u32(blob, KEYBOX_BLOCK_OFFSET).zip(read_u32(blob, KEYBOX_BLOCK_LEN_OFFSET));
-            if let Some(block) = block.and_then(|(start, len)| blob.get(start..start.checked_add(len)?)) {
+            let block =
+                read_u32(blob, KEYBOX_BLOCK_OFFSET).zip(read_u32(blob, KEYBOX_BLOCK_LEN_OFFSET));
+            if let Some(block) =
+                block.and_then(|(start, len)| blob.get(start..start.checked_add(len)?))
+            {
                 blocks.push(block);
             }
         }
@@ -132,7 +135,8 @@ fn keyboxd_blocks(path: &Path) -> Vec<Vec<u8>> {
     if !path.is_file() {
         return Vec::new();
     }
-    let flags = rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let flags =
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let Ok(connection) = rusqlite::Connection::open_with_flags(path, flags) else {
         return Vec::new();
     };
@@ -147,8 +151,10 @@ fn keyboxd_blocks(path: &Path) -> Vec<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::fixtures::{ED25519_FINGERPRINT, ED25519_PUBLIC, RSA_FINGERPRINT, RSA_PUBLIC};
     use super::super::fingerprint_hex;
+    use super::super::fixtures::{
+        ED25519_FINGERPRINT, ED25519_PUBLIC, RSA_FINGERPRINT, RSA_PUBLIC,
+    };
     use super::*;
     use pgp::types::KeyDetails;
 
@@ -181,7 +187,11 @@ mod tests {
     #[test]
     fn reads_keys_from_keybox_and_legacy_keyring() {
         let home = tempfile::tempdir().expect("tempdir");
-        std::fs::write(home.path().join(KEYBOX_FILE), keybox(&binary(ED25519_PUBLIC))).expect("write");
+        std::fs::write(
+            home.path().join(KEYBOX_FILE),
+            keybox(&binary(ED25519_PUBLIC)),
+        )
+        .expect("write");
         std::fs::write(home.path().join(LEGACY_KEYRING_FILE), binary(RSA_PUBLIC)).expect("write");
         let fingerprints: Vec<String> = load_gnupg(home.path())
             .iter()
@@ -197,7 +207,9 @@ mod tests {
         std::fs::create_dir(&dir).expect("mkdir");
         let connection = rusqlite::Connection::open(dir.join(KEYBOXD_DATABASE)).expect("open");
         connection
-            .execute_batch("CREATE TABLE pubkey (ubid BLOB PRIMARY KEY, type INTEGER, keyblob BLOB);")
+            .execute_batch(
+                "CREATE TABLE pubkey (ubid BLOB PRIMARY KEY, type INTEGER, keyblob BLOB);",
+            )
             .expect("schema");
         connection
             .execute(
@@ -208,7 +220,10 @@ mod tests {
         drop(connection);
         let certs = load_gnupg(home.path());
         assert_eq!(certs.len(), 1);
-        assert_eq!(fingerprint_hex(&certs[0].primary_key.fingerprint()), RSA_FINGERPRINT);
+        assert_eq!(
+            fingerprint_hex(&certs[0].primary_key.fingerprint()),
+            RSA_FINGERPRINT
+        );
     }
 
     #[test]

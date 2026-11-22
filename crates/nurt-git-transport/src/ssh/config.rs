@@ -157,12 +157,10 @@ pub(crate) struct Query<'a> {
     pub(crate) port: Option<u16>,
 }
 
-/// Configuration of every hop: jump hosts first, the target last.
-///
-/// # Errors
-///
-/// `E_GIT_UNSUPPORTED` when the target uses `ProxyCommand`, `E_ARG` for a
-/// malformed `ProxyJump` and `E_IO` when a configuration file cannot be read.
+/// Returns the configuration of every hop, jump hosts first and the target
+/// last. Fails with `E_GIT_UNSUPPORTED` when the target uses `ProxyCommand`,
+/// with `E_ARG` for a malformed `ProxyJump` and with `E_IO` when a
+/// configuration file cannot be read.
 pub(crate) fn route(sources: &ConfigSources, query: &Query<'_>) -> Result<Vec<HostConfig>> {
     let target = resolve(sources, query)?;
     if target.proxy_jump.is_empty() {
@@ -174,7 +172,10 @@ pub(crate) fn route(sources: &ConfigSources, query: &Query<'_>) -> Result<Vec<Ho
     if target.proxy_jump.len() > MAX_JUMPS {
         return Err(Error::new(
             ErrorCode::GitUnsupported,
-            format!("ProxyJump chain of `{}` has more than {MAX_JUMPS} hosts", target.original_host),
+            format!(
+                "ProxyJump chain of `{}` has more than {MAX_JUMPS} hosts",
+                target.original_host
+            ),
         ));
     }
     let mut hops = Vec::with_capacity(target.proxy_jump.len() + 1);
@@ -193,12 +194,9 @@ pub(crate) fn route(sources: &ConfigSources, query: &Query<'_>) -> Result<Vec<Ho
     Ok(hops)
 }
 
-/// Effective configuration of one host.
-///
-/// # Errors
-///
-/// `E_IO` when a configuration file exists but cannot be read and `E_ARG`
-/// for a malformed `ProxyJump`.
+/// Returns the effective configuration of one host. Fails with `E_IO` when
+/// a configuration file exists but cannot be read and with `E_ARG` for a
+/// malformed `ProxyJump`.
 pub(crate) fn resolve(sources: &ConfigSources, query: &Query<'_>) -> Result<HostConfig> {
     let mut walker = Walker {
         sources,
@@ -325,10 +323,10 @@ impl Walker<'_> {
         let patterns = || value.split(',');
         match criterion {
             "host" => {
-                let host = self
-                    .collected
-                    .first("hostname")
-                    .map_or_else(|| self.query.host.to_owned(), |name| name.replace("%h", self.query.host));
+                let host = self.collected.first("hostname").map_or_else(
+                    || self.query.host.to_owned(),
+                    |name| name.replace("%h", self.query.host),
+                );
                 match_list(&host, patterns())
             }
             "originalhost" => match_list(self.query.host, patterns()),
@@ -347,7 +345,11 @@ impl Walker<'_> {
 
     fn include_files(&self, pattern: &str, base: &Path) -> Vec<PathBuf> {
         let path = expand_tilde(pattern, &self.sources.home);
-        let path = if path.is_absolute() { path } else { base.join(path) };
+        let path = if path.is_absolute() {
+            path
+        } else {
+            base.join(path)
+        };
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             return Vec::new();
         };
@@ -362,7 +364,12 @@ impl Walker<'_> {
         };
         let mut files: Vec<PathBuf> = entries
             .filter_map(|entry| entry.ok())
-            .filter(|entry| entry.file_name().to_str().is_some_and(|file| wildcard_match(name, file)))
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_str()
+                    .is_some_and(|file| wildcard_match(name, file))
+            })
             .map(|entry| entry.path())
             .collect();
         files.sort();
@@ -376,7 +383,9 @@ fn tokenize(line: &str) -> Option<(String, Vec<String>)> {
     if line.is_empty() || line.starts_with('#') {
         return None;
     }
-    let end = line.find(|c: char| c.is_whitespace() || c == '=').unwrap_or(line.len());
+    let end = line
+        .find(|c: char| c.is_whitespace() || c == '=')
+        .unwrap_or(line.len());
     let keyword = line[..end].to_ascii_lowercase();
     let rest = line[end..].trim_start();
     let rest = rest.strip_prefix('=').unwrap_or(rest);
@@ -414,9 +423,10 @@ fn split_args(text: &str) -> Vec<String> {
 
 fn build(sources: &ConfigSources, query: &Query<'_>, collected: Collected) -> Result<HostConfig> {
     let original_host = query.host.to_owned();
-    let host_name = collected
-        .first("hostname")
-        .map_or_else(|| original_host.clone(), |name| name.replace("%h", &original_host));
+    let host_name = collected.first("hostname").map_or_else(
+        || original_host.clone(),
+        |name| name.replace("%h", &original_host),
+    );
     let user = query
         .user
         .map(str::to_owned)
@@ -443,17 +453,25 @@ fn build(sources: &ConfigSources, query: &Query<'_>, collected: Collected) -> Re
             let dir = sources.user_dir();
             vec![dir.join("known_hosts"), dir.join("known_hosts2")]
         }),
-        global_known_hosts: known_hosts_files(collected.get("globalknownhostsfile"), &tokens, || {
-            sources
-                .system_dir
-                .iter()
-                .flat_map(|dir| [dir.join("ssh_known_hosts"), dir.join("ssh_known_hosts2")])
-                .collect()
-        }),
-        strict: collected.first("stricthostkeychecking").and_then(strict_mode),
+        global_known_hosts: known_hosts_files(
+            collected.get("globalknownhostsfile"),
+            &tokens,
+            || {
+                sources
+                    .system_dir
+                    .iter()
+                    .flat_map(|dir| [dir.join("ssh_known_hosts"), dir.join("ssh_known_hosts2")])
+                    .collect()
+            },
+        ),
+        strict: collected
+            .first("stricthostkeychecking")
+            .and_then(strict_mode),
         connect_timeout: seconds(collected.first("connecttimeout")),
         server_alive_interval: seconds(collected.first("serveraliveinterval")),
-        server_alive_count_max: collected.first("serveralivecountmax").and_then(|n| n.parse().ok()),
+        server_alive_count_max: collected
+            .first("serveralivecountmax")
+            .and_then(|n| n.parse().ok()),
         host_key_algorithms: collected.first("hostkeyalgorithms").map(str::to_owned),
         pubkey_algorithms: collected
             .first("pubkeyacceptedalgorithms")
@@ -530,7 +548,11 @@ fn expand_tilde(value: &str, home: &Path) -> PathBuf {
     }
 }
 
-fn identity_files(sources: &ConfigSources, collected: &Collected, tokens: &Tokens<'_>) -> Vec<PathBuf> {
+fn identity_files(
+    sources: &ConfigSources,
+    collected: &Collected,
+    tokens: &Tokens<'_>,
+) -> Vec<PathBuf> {
     let mut files: Vec<PathBuf> = collected
         .identity_files
         .iter()
@@ -568,7 +590,9 @@ fn known_hosts_files(
 }
 
 fn flag(value: Option<&str>) -> bool {
-    value.is_some_and(|value| value.eq_ignore_ascii_case("yes") || value.eq_ignore_ascii_case("true"))
+    value.is_some_and(|value| {
+        value.eq_ignore_ascii_case("yes") || value.eq_ignore_ascii_case("true")
+    })
 }
 
 fn strict_mode(value: &str) -> Option<StrictMode> {
@@ -597,8 +621,11 @@ fn proxy_jump(value: Option<&str>) -> Result<Vec<Jump>> {
 
 fn parse_jump(spec: &str) -> Result<Jump> {
     let invalid = || {
-        Error::new(ErrorCode::Arg, format!("ProxyJump host `{spec}` is malformed; expected `[user@]host[:port]`"))
-            .with_problem("invalid_proxy_jump")
+        Error::new(
+            ErrorCode::Arg,
+            format!("ProxyJump host `{spec}` is malformed; expected `[user@]host[:port]`"),
+        )
+        .with_problem("invalid_proxy_jump")
     };
     let rest = spec.trim();
     let rest = rest.strip_prefix("ssh://").unwrap_or(rest);
@@ -616,7 +643,11 @@ fn parse_jump(spec: &str) -> Result<Jump> {
         }
     };
     let port = port
-        .map(|port| port.trim_end_matches('/').parse::<u16>().map_err(|_| invalid()))
+        .map(|port| {
+            port.trim_end_matches('/')
+                .parse::<u16>()
+                .map_err(|_| invalid())
+        })
         .transpose()?;
     if host.is_empty() || host.starts_with('-') {
         return Err(invalid());
@@ -626,6 +657,36 @@ fn parse_jump(spec: &str) -> Result<Jump> {
         host: host.to_owned(),
         port,
     })
+}
+
+#[cfg(test)]
+pub(crate) mod tests_support {
+    use super::*;
+
+    /// Configuration of `host` as produced by an empty configuration.
+    pub(crate) fn host_config(host: &str) -> HostConfig {
+        HostConfig {
+            original_host: host.to_owned(),
+            host_name: host.to_owned(),
+            user: "user".to_owned(),
+            port: DEFAULT_PORT,
+            identity_files: Vec::new(),
+            identities_only: false,
+            agent: AgentSetting::Default,
+            user_known_hosts: Vec::new(),
+            global_known_hosts: Vec::new(),
+            strict: None,
+            host_key_alias: None,
+            connect_timeout: None,
+            server_alive_interval: None,
+            server_alive_count_max: None,
+            host_key_algorithms: None,
+            pubkey_algorithms: None,
+            proxy_jump: Vec::new(),
+            proxy_command: None,
+            match_exec: Vec::new(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -650,7 +711,7 @@ mod tests {
         let sources = ConfigSources {
             user_file: Some(home.join(".ssh/config")),
             home,
-            local_user: "alice".into(),
+            local_user: "user".into(),
             local_host: "laptop.example.net".into(),
             system_dir: Some(system_dir),
             extra_identities: Vec::new(),
@@ -668,7 +729,10 @@ mod tests {
 
     #[test]
     fn applies_host_block_with_alias() {
-        let f = fixture("Host gh\n  HostName github.com\n  User git\n  Port 2222\n", None);
+        let f = fixture(
+            "Host gh\n  HostName github.com\n  User git\n  Port 2222\n",
+            None,
+        );
         let config = resolve(&f.sources, &query("gh")).unwrap();
         assert_eq!(config.host_name, "github.com");
         assert_eq!(config.user, "git");
@@ -678,7 +742,10 @@ mod tests {
 
     #[test]
     fn first_value_wins_and_url_overrides_config() {
-        let f = fixture("Host *\n  User first\n  Port 2200\nHost example.com\n  User second\n", None);
+        let f = fixture(
+            "Host *\n  User first\n  Port 2200\nHost example.com\n  User second\n",
+            None,
+        );
         let config = resolve(&f.sources, &query("example.com")).unwrap();
         assert_eq!(config.user, "first");
         let config = resolve(
@@ -699,7 +766,7 @@ mod tests {
     fn defaults_use_local_account_and_standard_files() {
         let f = fixture("", None);
         let config = resolve(&f.sources, &query("example.com")).unwrap();
-        assert_eq!(config.user, "alice");
+        assert_eq!(config.user, "user");
         assert_eq!(config.port, DEFAULT_PORT);
         let names: Vec<_> = config
             .identity_files
@@ -724,7 +791,7 @@ mod tests {
             config.identity_files,
             [
                 home.join(".ssh/git@example.com"),
-                PathBuf::from(format!("{}/keys/alice key", home.display())),
+                PathBuf::from(format!("{}/keys/user key", home.display())),
                 home.join(".ssh/fallback"),
             ]
         );
@@ -733,8 +800,16 @@ mod tests {
     #[test]
     fn negated_host_pattern_skips_block() {
         let f = fixture("Host *.example.com !build.example.com\n  User team\n", None);
-        assert_eq!(resolve(&f.sources, &query("git.example.com")).unwrap().user, "team");
-        assert_eq!(resolve(&f.sources, &query("build.example.com")).unwrap().user, "alice");
+        assert_eq!(
+            resolve(&f.sources, &query("git.example.com")).unwrap().user,
+            "team"
+        );
+        assert_eq!(
+            resolve(&f.sources, &query("build.example.com"))
+                .unwrap()
+                .user,
+            "user"
+        );
     }
 
     #[test]
@@ -758,13 +833,19 @@ mod tests {
 
     #[test]
     fn match_host_uses_host_name_set_earlier() {
-        let f = fixture("Host gh\n  HostName github.com\nMatch host github.com\n  User git\n", None);
+        let f = fixture(
+            "Host gh\n  HostName github.com\nMatch host github.com\n  User git\n",
+            None,
+        );
         assert_eq!(resolve(&f.sources, &query("gh")).unwrap().user, "git");
     }
 
     #[test]
     fn match_exec_is_not_run_and_is_reported() {
-        let f = fixture("Match exec \"test -f /tmp/x\"\n  User exec\nHost *\n  User plain\n", None);
+        let f = fixture(
+            "Match exec \"test -f /tmp/x\"\n  User exec\nHost *\n  User plain\n",
+            None,
+        );
         let config = resolve(&f.sources, &query("example.com")).unwrap();
         assert_eq!(config.user, "plain");
         assert_eq!(config.match_exec.len(), 1);
@@ -779,20 +860,32 @@ mod tests {
         std::fs::write(dir.join("b.conf"), "Host example.com\n  User second\n").unwrap();
         std::fs::write(dir.join("a.conf"), "Host example.com\n  User first\n").unwrap();
         std::fs::write(dir.join("c.txt"), "Host *\n  User ignored\n").unwrap();
-        assert_eq!(resolve(&f.sources, &query("example.com")).unwrap().user, "first");
+        assert_eq!(
+            resolve(&f.sources, &query("example.com")).unwrap().user,
+            "first"
+        );
     }
 
     #[test]
     fn include_inside_inactive_block_is_skipped() {
         let f = fixture("Host other\n  Include extra\n", None);
         std::fs::write(f.sources.home.join(".ssh/extra"), "User included\n").unwrap();
-        assert_eq!(resolve(&f.sources, &query("example.com")).unwrap().user, "alice");
-        assert_eq!(resolve(&f.sources, &query("other")).unwrap().user, "included");
+        assert_eq!(
+            resolve(&f.sources, &query("example.com")).unwrap().user,
+            "user"
+        );
+        assert_eq!(
+            resolve(&f.sources, &query("other")).unwrap().user,
+            "included"
+        );
     }
 
     #[test]
     fn system_file_is_read_after_user_file() {
-        let f = fixture("Host example.com\n  User mine\n", Some("Host *\n  User system\n  Port 2022\n"));
+        let f = fixture(
+            "Host example.com\n  User mine\n",
+            Some("Host *\n  User system\n  Port 2022\n"),
+        );
         let config = resolve(&f.sources, &query("example.com")).unwrap();
         assert_eq!(config.user, "mine");
         assert_eq!(config.port, 2022);
@@ -800,9 +893,12 @@ mod tests {
 
     #[test]
     fn reads_equals_sign_and_case_insensitive_keywords() {
-        let f = fixture("HOST=example.com\nhostname=10.0.0.5\nSTRICTHOSTKEYCHECKING accept-new\n", None);
+        let f = fixture(
+            "HOST=example.com\nhostname=192.0.2.5\nSTRICTHOSTKEYCHECKING accept-new\n",
+            None,
+        );
         let config = resolve(&f.sources, &query("example.com")).unwrap();
-        assert_eq!(config.host_name, "10.0.0.5");
+        assert_eq!(config.host_name, "192.0.2.5");
         assert_eq!(config.strict, Some(StrictMode::AcceptNew));
     }
 
@@ -822,7 +918,7 @@ mod tests {
     #[test]
     fn route_lists_jump_hosts_before_target() {
         let f = fixture(
-            "Host target\n  ProxyJump admin@bastion:2200,inner\nHost inner\n  HostName 10.1.0.1\n  ProxyJump ignored\n",
+            "Host target\n  ProxyJump admin@bastion:2200,inner\nHost inner\n  HostName 198.51.100.1\n  ProxyJump ignored\n",
             None,
         );
         let hops = route(&f.sources, &query("target")).unwrap();
@@ -830,7 +926,7 @@ mod tests {
         assert_eq!(hops[0].host_name, "bastion");
         assert_eq!(hops[0].user, "admin");
         assert_eq!(hops[0].port, 2200);
-        assert_eq!(hops[1].host_name, "10.1.0.1");
+        assert_eq!(hops[1].host_name, "198.51.100.1");
         assert_eq!(hops[2].original_host, "target");
     }
 
@@ -845,7 +941,10 @@ mod tests {
     #[test]
     fn malformed_proxy_jump_is_an_argument_error() {
         let f = fixture("Host target\n  ProxyJump host:notaport\n", None);
-        assert_eq!(route(&f.sources, &query("target")).unwrap_err().code(), ErrorCode::Arg);
+        assert_eq!(
+            route(&f.sources, &query("target")).unwrap_err().code(),
+            ErrorCode::Arg
+        );
     }
 
     #[test]
