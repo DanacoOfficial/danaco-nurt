@@ -51,6 +51,16 @@ class InstallScriptTest(unittest.TestCase):
         self.assertTrue(self.installed_version_line().startswith("nurt 0.1.0"))
         self.assertIn(f"installed nurt {support.VERSION}", result.stderr)
 
+    def test_falls_back_to_the_glibc_archive_when_the_release_has_no_musl_one(self):
+        if self.target.endswith("apple-darwin"):
+            self.skipTest("macOS has one target")
+        releases = self.root / "glibc-only"
+        glibc = self.target.replace("-musl", "-gnu")
+        support.make_release_tree(releases, targets=(glibc, "x86_64-pc-windows-msvc"))
+        result = self.install(releases=releases)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.installed_version_line().startswith("nurt 0.1.0"))
+
     def test_installs_requested_version(self):
         result = self.install("--version", f"v{support.VERSION}")
         self.assertEqual(result.returncode, 0, result.stderr)

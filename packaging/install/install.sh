@@ -10,7 +10,11 @@
 # The script detects the operating system and the processor architecture,
 # downloads the release archive, verifies its SHA-256 digest against the
 # checksums.txt file of the release and installs the executable. The default
-# installation directory is $HOME/.local/bin; no privileges are needed.
+# installation directory is $HOME/.local/bin; no privileges are needed. For a
+# system-wide installation run the script as root with --bin-dir /usr/local/bin.
+#
+# On Linux the script takes the static musl archive when the release has one
+# and the glibc archive otherwise; a machine with musl takes only the musl one.
 #
 # The checksums.txt file is verified against its detached signature
 # (checksums.txt.asc) when a public key is given and gpg is installed.
@@ -85,7 +89,11 @@ digest_in() {
     ' "$1"
 }
 
-detect_target() {
+# detect_targets sets targets to the release targets of this machine, the
+# preferred one first. A Linux machine with glibc takes the static musl build
+# when the release has one and the glibc build otherwise; a machine with musl
+# takes only the musl build.
+detect_targets() {
     system=$(uname -s)
     machine=$(uname -m)
     case $machine in
@@ -94,8 +102,14 @@ detect_target() {
         *) fail "unsupported architecture: $machine" ;;
     esac
     case $system in
-        Linux) target=$arch-unknown-linux-musl ;;
-        Darwin) target=$arch-apple-darwin ;;
+        Linux)
+            if have ldd && ldd --version 2>&1 | grep -qi musl; then
+                targets=$arch-unknown-linux-musl
+            else
+                targets="$arch-unknown-linux-musl $arch-unknown-linux-gnu"
+            fi
+            ;;
+        Darwin) targets=$arch-apple-darwin ;;
         *) fail "unsupported operating system: $system" ;;
     esac
 }
@@ -143,7 +157,7 @@ if [ -z "$bin_dir" ]; then
     bin_dir=$HOME/.local/bin
 fi
 
-detect_target
+detect_targets
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT INT TERM
@@ -151,19 +165,31 @@ trap 'rm -rf "$work"' EXIT INT TERM
 if [ -z "$version" ]; then
     fetch "$releases_url/latest/download/checksums.txt" "$work/latest.txt" ||
         fail "cannot read the checksums of the latest release"
-    version=$(sed -n "s/^[0-9A-Fa-f]\{64\}  *\**nurt-\(.*\)-$target\.tar\.gz\$/\1/p" "$work/latest.txt" | head -n 1)
-    [ -n "$version" ] || fail "the latest release has no archive for $target"
+    for candidate in $targets; do
+        version=$(sed -n "s/^[0-9A-Fa-f]\{64\}  *\**nurt-\(.*\)-$candidate\.tar\.gz\$/\1/p" "$work/latest.txt" | head -n 1)
+        [ -n "$version" ] && break
+    done
+    [ -n "$version" ] || fail "the latest release has no archive for $targets"
 fi
 
-archive=nurt-$version-$target.tar.gz
 download_url=$releases_url/download/v$version
 
 fetch "$download_url/checksums.txt" "$work/checksums.txt" ||
     fail "cannot read the checksums of version $version"
 verify_signature "$work/checksums.txt"
 
-expected=$(digest_in "$work/checksums.txt" "$archive")
-[ -n "$expected" ] || fail "version $version has no archive for $target"
+target=
+expected=
+for candidate in $targets; do
+    digest=$(digest_in "$work/checksums.txt" "nurt-$version-$candidate.tar.gz")
+    if [ -n "$digest" ]; then
+        target=$candidate
+        expected=$digest
+        break
+    fi
+done
+[ -n "$expected" ] || fail "version $version has no archive for $targets"
+archive=nurt-$version-$target.tar.gz
 
 fetch "$download_url/$archive" "$work/$archive" || fail "cannot download $archive"
 actual=$(sha256_of "$work/$archive")
