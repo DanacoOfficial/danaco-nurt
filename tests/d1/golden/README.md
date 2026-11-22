@@ -16,7 +16,7 @@ keeps its file name here: `task-NN-<name>` and `example-NN-<name>`.
 | `ast/a/<name>.canonical.nurt` | canonical text in word notation (variant A) of the tree `spec/golden/ast/<name>.json` |
 | `ast/b/<name>.nurt` | program text in variant B; its surface tree is `spec/golden/ast/<name>.json` |
 | `ast/c/<name>.nurt` | program text in variant C |
-| `ast/c/<name>.json` | surface tree of `ast/c/<name>.nurt`, with spans |
+| `ast/c/<name>.json` | surface tree of `ast/c/<name>.nurt`, without spans and metadata |
 | `ast/c/<name>.hash` | `ast_hash` of `ast/c/<name>.json` |
 | `bound/<variant>/<name>.json`, `.hash` | bound trees; see [`bound/README.md`](bound/README.md) |
 | `invalid/<case>.json` | documents that are not valid trees, or that only the published schema admits |

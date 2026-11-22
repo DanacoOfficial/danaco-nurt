@@ -48,7 +48,7 @@ use nurt_contracts::ast::{AstDocument, Expr, Span};
 
 use self::expr::{Ctx, Out, PREC_ANY, Printer};
 pub(crate) use self::layout::Segment;
-pub use self::names::{PositionalNames, name_positional};
+pub use self::names::{PositionalForm, PositionalNames, name_positional};
 use crate::parse::Variant;
 
 /// Width of a line, in Unicode scalar values, beyond which pipelines, lists
