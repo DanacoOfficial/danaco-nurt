@@ -3,10 +3,60 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Library of the `nurt` command line interface.
 //!
-//! The [`serve`] module implements the protocol server started by
-//! `nurt serve`.
+//! [`main_with_args`] is the whole executable: it resolves the arguments to a
+//! subcommand or to a program of the language, runs it on an engine and
+//! returns the exit code ([`exit`]). The [`serve`] module implements the
+//! protocol server started by `nurt serve`.
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+use std::ffi::OsString;
+use std::io::{self, IsTerminal, Write};
+use std::process::ExitCode;
+
+pub mod app;
+pub mod args;
+pub mod commands;
+pub mod complete;
+pub mod doctor;
+pub mod exit;
+pub mod integrations;
+pub mod output;
+pub mod repl;
 pub mod serve;
+pub mod system;
+pub mod text;
+
+pub use app::{CliError, Context, EngineSource, Io, SystemEngine, Terminal, run};
+
+/// Runs the command line interface with the arguments that follow the name
+/// of the executable and returns the exit code.
+///
+/// An argument that is not valid UTF-8 is a usage error.
+pub fn main_with_args<I: IntoIterator<Item = OsString>>(args: I) -> ExitCode {
+    let mut words = Vec::new();
+    for argument in args {
+        match argument.into_string() {
+            Ok(word) => words.push(word),
+            Err(_) => {
+                let _ = writeln!(io::stderr(), "nurt: an argument is not valid UTF-8");
+                return ExitCode::from(exit::USAGE);
+            }
+        }
+    }
+    let stdin = io::stdin();
+    let terminal = Terminal {
+        stdin: stdin.is_terminal(),
+        stdout: io::stdout().is_terminal(),
+        stderr: io::stderr().is_terminal(),
+    };
+    let mut input = stdin.lock();
+    let mut io = Io {
+        out: &mut io::stdout(),
+        err: &mut io::stderr(),
+        input: &mut input,
+        terminal,
+    };
+    ExitCode::from(run(&words, &mut io, &SystemEngine))
+}

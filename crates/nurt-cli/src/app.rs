@@ -1,0 +1,214 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//! Entry of the command line: input and output streams, engine source and
+//! the dispatcher of invocations.
+
+use std::io::{self, BufRead, Write};
+use std::sync::Arc;
+
+use nurt_contracts::env::Host;
+use nurt_contracts::error::Error;
+use nurt_core::{Engine, EngineConfig, EngineError};
+
+use crate::args::{self, Invocation};
+use crate::commands;
+use crate::exit;
+use crate::integrations;
+use crate::output::Style;
+use crate::system::{SystemClock, SystemHost};
+use crate::text;
+
+/// Which standard streams are terminals.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Terminal {
+    /// The input is a terminal.
+    pub stdin: bool,
+    /// The output is a terminal.
+    pub stdout: bool,
+    /// The error output is a terminal.
+    pub stderr: bool,
+}
+
+impl Terminal {
+    /// Whether the session is interactive: input and output are terminals.
+    #[must_use]
+    pub fn is_interactive(self) -> bool {
+        self.stdin && self.stdout
+    }
+}
+
+/// Streams of one invocation.
+pub struct Io<'a> {
+    /// Standard output.
+    pub out: &'a mut dyn Write,
+    /// Standard error output.
+    pub err: &'a mut dyn Write,
+    /// Standard input.
+    pub input: &'a mut dyn BufRead,
+    /// Which streams are terminals.
+    pub terminal: Terminal,
+}
+
+/// Provider of the engine and of the host it runs on.
+///
+/// The executable uses [`SystemEngine`]; tests give an engine built from
+/// virtual components. The engine is opened only by the commands that need it.
+pub trait EngineSource {
+    /// Opens an engine.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the engine, for example an invalid configuration.
+    fn open(&self) -> Result<Engine, EngineError>;
+
+    /// The host of the engine.
+    fn host(&self) -> Arc<dyn Host>;
+}
+
+/// Engine of the running process: system clock and host, platform
+/// configuration and the language front end of the build.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SystemEngine;
+
+impl EngineSource for SystemEngine {
+    fn open(&self) -> Result<Engine, EngineError> {
+        Engine::open(
+            EngineConfig::new(Arc::new(SystemClock::new()), self.host())
+                .with_frontend(integrations::frontend()),
+        )
+    }
+
+    fn host(&self) -> Arc<dyn Host> {
+        Arc::new(SystemHost::detect())
+    }
+}
+
+/// Reason a command did not complete.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CliError {
+    /// The command line is invalid.
+    Usage(String),
+    /// The subcommand is not available in this build.
+    Unavailable(String),
+    /// The language, the engine or the journal reported an error.
+    Language(Box<Error>),
+    /// Reading or writing a file or a stream failed.
+    Failure(String),
+}
+
+impl From<Error> for CliError {
+    fn from(error: Error) -> Self {
+        Self::Language(Box::new(error))
+    }
+}
+
+impl From<EngineError> for CliError {
+    fn from(error: EngineError) -> Self {
+        Self::Language(Box::new(error.to_error()))
+    }
+}
+
+impl From<io::Error> for CliError {
+    fn from(error: io::Error) -> Self {
+        Self::Failure(format!("cannot write the output: {error}"))
+    }
+}
+
+/// An engine with the styles of the output streams.
+pub struct Context {
+    /// The engine.
+    pub engine: Engine,
+    /// Styles of the standard output.
+    pub out_style: Style,
+    /// Styles of the error output.
+    pub err_style: Style,
+}
+
+impl Context {
+    /// Opens the engine and chooses the styles from `output.color`, `NO_COLOR`
+    /// and the terminals.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the engine.
+    pub fn open(terminal: Terminal, source: &dyn EngineSource) -> Result<Self, CliError> {
+        let engine = source.open()?;
+        let mode = engine.config().output.color;
+        let no_color = source
+            .host()
+            .env_var("NO_COLOR")
+            .is_some_and(|value| !value.is_empty());
+        Ok(Self {
+            out_style: Style::resolve(mode, terminal.stdout, no_color),
+            err_style: Style::resolve(mode, terminal.stderr, no_color),
+            engine,
+        })
+    }
+}
+
+/// Runs one invocation and returns the exit code.
+///
+/// `args` are the arguments after the name of the executable.
+pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> u8 {
+    match dispatch(args, io, source) {
+        Ok(code) => code,
+        Err(error) => report(&error, io),
+    }
+}
+
+fn dispatch(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8, CliError> {
+    match args::resolve(args) {
+        Invocation::Version { full } => {
+            let text = if full {
+                text::full_version()
+            } else {
+                text::short_version()
+            };
+            writeln!(io.out, "{text}")?;
+            Ok(exit::SUCCESS)
+        }
+        Invocation::Help => {
+            writeln!(io.out, "{}", text::usage())?;
+            Ok(exit::SUCCESS)
+        }
+        Invocation::Subcommand { name, args } => commands::run_subcommand(name, &args, io, source),
+        Invocation::Program { args } => commands::exec(&args, io, source),
+    }
+}
+
+/// Writes the message of an error to the error output and returns its exit
+/// code. A failure to write the message is ignored: nothing else can report
+/// it.
+fn report(error: &CliError, io: &mut Io<'_>) -> u8 {
+    let style = Style::resolve(
+        nurt_contracts::config::ColorMode::Auto,
+        io.terminal.stderr,
+        false,
+    );
+    let (code, lines) = match error {
+        CliError::Usage(message) => (
+            exit::USAGE,
+            vec![
+                format!("nurt: {message}"),
+                "run 'nurt --help' for usage".to_owned(),
+            ],
+        ),
+        CliError::Unavailable(name) => (
+            exit::UNAVAILABLE,
+            vec![format!("nurt: {name} is not available in this build")],
+        ),
+        CliError::Failure(message) => (exit::FAILURE, vec![format!("nurt: {message}")]),
+        CliError::Language(error) => {
+            let mut lines = vec![style.error(&error.to_string())];
+            lines.extend(error.fix.iter().map(|fix| format!("fix: {fix}")));
+            (exit::for_error_code(error.code), lines)
+        }
+    };
+    for line in lines {
+        if writeln!(io.err, "{line}").is_err() {
+            break;
+        }
+    }
+    code
+}
