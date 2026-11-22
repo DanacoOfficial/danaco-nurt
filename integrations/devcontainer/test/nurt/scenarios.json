@@ -1,0 +1,16 @@
+{
+  "major": {
+    "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+    "features": {
+      "nurt": {
+        "version": "1"
+      }
+    }
+  },
+  "alpine": {
+    "image": "alpine:3.20",
+    "features": {
+      "nurt": {}
+    }
+  }
+}

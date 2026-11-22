@@ -1,0 +1,22 @@
+{
+  "id": "nurt",
+  "version": "1.0.0",
+  "name": "Danaco Nurt",
+  "description": "Installs the Danaco Nurt command console and the Danaco Nurt VS Code extension.",
+  "documentationURL": "https://github.com/DanacoOfficial/nurt/tree/main/integrations/devcontainer",
+  "licenseURL": "https://github.com/DanacoOfficial/nurt/blob/main/LICENSE",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "latest",
+      "proposals": ["latest", "1"],
+      "description": "Version to install: latest, an exact version such as 1.4.2, or a major or minor prefix such as 1 or 1.4."
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["danaco.nurt"]
+    }
+  },
+  "installsAfter": ["ghcr.io/devcontainers/features/common-utils"]
+}

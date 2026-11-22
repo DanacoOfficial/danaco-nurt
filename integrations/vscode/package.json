@@ -1,0 +1,158 @@
+{
+  "name": "nurt",
+  "displayName": "Danaco Nurt",
+  "description": "Language support for Danaco Nurt programs: syntax highlighting, diagnostics and completion from nurt lsp, and the Run File and Format File commands.",
+  "version": "0.1.0",
+  "publisher": "danaco",
+  "license": "Apache-2.0",
+  "homepage": "https://nurt.danaco-group.pl",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DanacoOfficial/nurt.git",
+    "directory": "integrations/vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/DanacoOfficial/nurt/issues",
+    "email": "support@danaco-group.pl"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters"
+  ],
+  "keywords": [
+    "nurt",
+    "danaco",
+    "shell",
+    "console"
+  ],
+  "main": "./out/src/extension.js",
+  "activationEvents": [
+    "onLanguage:nurt"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Running files and starting the language server execute the program set in nurt.path; both are disabled in untrusted workspaces.",
+      "restrictedConfigurations": [
+        "nurt.path"
+      ]
+    }
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "nurt",
+        "aliases": [
+          "Danaco Nurt",
+          "nurt"
+        ],
+        "extensions": [
+          ".nurt"
+        ],
+        "firstLine": "^#!.*\\bnurt\\b",
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "nurt",
+        "scopeName": "source.nurt",
+        "path": "./syntaxes/nurt.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Danaco Nurt",
+      "properties": {
+        "nurt.path": {
+          "type": "string",
+          "default": "nurt",
+          "scope": "machine-overridable",
+          "markdownDescription": "Path of the `nurt` executable. A bare name is looked up in the `PATH`. `${workspaceFolder}` and a leading `~` are expanded."
+        },
+        "nurt.lsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Start `nurt lsp` for Danaco Nurt files."
+        },
+        "nurt.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Trace of the messages between the editor and `nurt lsp`, written to the Danaco Nurt output channel."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "nurt.runFile",
+        "title": "Run File",
+        "category": "Danaco Nurt",
+        "icon": "$(play)"
+      },
+      {
+        "command": "nurt.formatFile",
+        "title": "Format File",
+        "category": "Danaco Nurt"
+      },
+      {
+        "command": "nurt.restartServer",
+        "title": "Restart Language Server",
+        "category": "Danaco Nurt"
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "nurt.runFile",
+          "when": "resourceLangId == nurt",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "nurt.runFile",
+          "when": "editorLangId == nurt && isWorkspaceTrusted"
+        },
+        {
+          "command": "nurt.formatFile",
+          "when": "editorLangId == nurt && isWorkspaceTrusted"
+        },
+        {
+          "command": "nurt.restartServer",
+          "when": "isWorkspaceTrusted"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build:grammar": "bash scripts/copy-grammar.sh",
+    "compile": "tsc -p ./",
+    "pretest": "npm run build:grammar && npm run compile",
+    "test:unit": "mocha --ui tdd out/test/unit/*.test.js",
+    "test": "npm run test:unit && node ./out/test/runTest.js",
+    "vscode:prepublish": "npm run build:grammar && npm run compile",
+    "package": "vsce package --no-dependencies --out dist/",
+    "publish:marketplace": "vsce publish --packagePath dist/*.vsix",
+    "publish:openvsx": "ovsx publish dist/*.vsix"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.7",
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^3.0.0",
+    "mocha": "^10.7.0",
+    "ovsx": "^0.10.0",
+    "typescript": "^5.5.0"
+  }
+}
