@@ -16,7 +16,7 @@ use nurt_contracts::error::{Error, ErrorCode};
 
 use super::engine::{self, Parsed};
 use super::lex::Word;
-use super::session::{Session, Variants};
+use super::session::{Session, Variants, is_glob};
 use super::syntax::{Located, Simple};
 use super::table::CommandEntry;
 use super::template::Bound;
@@ -305,7 +305,12 @@ pub(crate) fn grep(
         }
         _ => {}
     }
-    let mut bindings = engine::bind_operands(session, &parsed.operands, false)?;
+    if parsed.has(entry, "r")
+        && let Some(word) = parsed.operands.iter().find(|word| is_glob(&word.value))
+    {
+        return Err(session.pattern_error(word));
+    }
+    let mut bindings = engine::bind_operands(session, &parsed.operands, true)?;
     for include in parsed
         .given
         .iter()
@@ -331,6 +336,7 @@ pub(crate) fn grep(
         let mut expr = reading.expr.clone();
         set_span(&mut expr, span);
         local.set("pattern", vec![Bound::Node(expr.clone())]);
+        local.set("needle", vec![Bound::Node(expr.clone())]);
         local.set("regex", vec![Bound::Node(as_regex(&expr, ignore_case))]);
         let built = engine::build(session, entry, simple, &parsed, &local, input)?;
         pieces.extend(built.0.into_iter().map(|mut piece| {

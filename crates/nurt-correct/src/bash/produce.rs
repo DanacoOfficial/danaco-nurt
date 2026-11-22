@@ -9,14 +9,14 @@ use nurt_contracts::ast::{Expr, Ref, Span, Stage};
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::report::CorrectionClass;
 
-use super::lex::{HereDoc, RedirectOp, Word, lex};
+use super::lex::{HereDoc, RedirectOp, Word, WordPart, lex};
 use super::session::{
     Piece, RunOptions, Session, Variants, named, piece_text, pipeline, positional,
 };
-use super::syntax::{self, Located, Redirection, Simple};
+use super::syntax::{self, Assignment, Command, Located, Redirection, Simple};
 use super::table::CommandEntry;
 use super::template::{Bindings, Bound, Conversion, Convert, fill_pipeline, parse_pipeline};
-use super::tree::print_stage;
+use super::tree::{is_identifier, print_stage};
 
 /// Target of an output redirection.
 pub(crate) struct Output {
@@ -220,14 +220,32 @@ fn write_text(
     simple: &Simple,
     text: String,
 ) -> Result<Variants, Error> {
-    let Some(output) = simple.redirects.iter().rev().find_map(|redirection| {
-        let mode = Session::redirect_kind(redirection.redirect.op)?;
-        Some((mode, redirection.target.clone()?))
-    }) else {
+    let Some(output) = file_output(simple) else {
         return Err(no_file(session, simple, &text));
     };
-    let (mode, target) = output;
-    let path = session.convert(&session.operand(&target)?, Conversion::Path)?;
+    write_file(session, rule, simple.span, &output, text)
+}
+
+/// The file a command writes its text to with `>` or `>>`.
+fn file_output(simple: &Simple) -> Option<Output> {
+    simple.redirects.iter().rev().find_map(|redirection| {
+        Some(Output {
+            mode: Session::redirect_kind(redirection.redirect.op)?,
+            target: redirection.target.clone()?,
+            span: redirection.span,
+        })
+    })
+}
+
+fn write_file(
+    session: &Session<'_>,
+    rule: &str,
+    span: Span,
+    output: &Output,
+    text: String,
+) -> Result<Variants, Error> {
+    let mode = output.mode;
+    let path = session.convert(&session.operand(&output.target)?, Conversion::Path)?;
     let stage = Stage {
         name: "write".to_owned(),
         args: vec![
@@ -244,12 +262,12 @@ fn write_text(
                 },
             ),
         ],
-        span: Some(simple.span),
+        span: Some(span),
     };
     session.record(
         rule,
         CorrectionClass::Certain,
-        simple.span,
+        span,
         print_stage(&stage),
         "habit",
     );
@@ -290,7 +308,54 @@ pub(crate) fn content_without_file(
 
 fn content(session: &Session<'_>, simple: &Simple) -> Result<Variants, Error> {
     let text = text_of(session, simple)?;
+    if file_output(simple).is_none() {
+        return Ok(evaluated(session, simple.span, &text));
+    }
     write_text(session, "B19", simple, text)
+}
+
+/// `echo` or `printf` without a file: the text is the value of `evaluate`.
+fn evaluated(session: &Session<'_>, span: Span, text: &str) -> Variants {
+    let stage = Stage {
+        name: "evaluate".to_owned(),
+        args: vec![positional(Expr::Text {
+            v: text.strip_suffix('\n').unwrap_or(text).to_owned(),
+            span: None,
+        })],
+        span: Some(span),
+    };
+    session.record(
+        "B19",
+        CorrectionClass::Certain,
+        span,
+        print_stage(&stage),
+        "habit",
+    );
+    Variants::one(vec![stage], "other")
+}
+
+/// `echo TEXT | tee [-a] FILE`: the text is written to the file.
+pub(crate) fn echo_into_tee(
+    session: &Session<'_>,
+    pipe: &syntax::Pipe,
+) -> Option<Result<Variants, Error>> {
+    let [Command::Simple(head), Command::Simple(tail)] = pipe.commands.as_slice() else {
+        return None;
+    };
+    let is_tee = tail
+        .words
+        .first()
+        .and_then(|word| word.value.literal())
+        .is_some_and(|name| name == "tee");
+    let plain = head.redirects.is_empty() && head.assignments.is_empty();
+    if pipe.negated || !is_tee || !plain || !is_content(head) {
+        return None;
+    }
+    Some(tee_output(session, tail).and_then(|mut output| {
+        output.span = pipe.span;
+        let text = text_of(session, head)?;
+        write_file(session, "B19", pipe.span, &output, text)
+    }))
 }
 
 fn text_of(session: &Session<'_>, simple: &Simple) -> Result<String, Error> {
@@ -613,22 +678,7 @@ pub(crate) fn substitution(
             &[],
         )
     };
-    let tokens = lex(body).map_err(|_| failure())?;
-    let script = syntax::parse(&tokens).map_err(|_| failure())?;
-    let [item] = script.items.as_slice() else {
-        return Err(failure());
-    };
-    if !item.rest.is_empty() {
-        return Err(failure());
-    }
-    let inner = Session::new(session.table, session.context, body);
-    let variants = inner.with_directory(session.directory(), || {
-        inner.pipe(&item.first, &RunOptions::default())
-    })?;
-    let piece = variants.primary();
-    if session.has_effect(piece) {
-        return Err(failure());
-    }
+    let piece = substituted(session, body, word.span)?;
     let field = session
         .table
         .value_str("substitution_field", &piece.kind)
@@ -649,6 +699,77 @@ pub(crate) fn substitution(
     );
     session.assume("B26", "word_splitting");
     Ok(Bound::Node(Expr::Ref(reference)))
+}
+
+/// The assignment of a statement that consists only of `NAME=$(CMD)`.
+pub(crate) fn assignment_of(simple: &Simple) -> Option<(&Assignment, &str)> {
+    let [assignment] = simple.assignments.as_slice() else {
+        return None;
+    };
+    if !simple.words.is_empty() || !simple.redirects.is_empty() {
+        return None;
+    }
+    let mut parts = assignment
+        .value
+        .parts
+        .iter()
+        .filter(|part| !matches!(part, WordPart::Literal { text, .. } if text.is_empty()));
+    match (parts.next(), parts.next()) {
+        (
+            Some(WordPart::Substitution {
+                body,
+                arithmetic: false,
+                ..
+            }),
+            None,
+        ) => Some((assignment, body)),
+        _ => None,
+    }
+}
+
+/// `NAME=$(CMD)`: a named result `let name = CMD'`.
+pub(crate) fn assignment(
+    session: &Session<'_>,
+    simple: &Simple,
+    found: (&Assignment, &str),
+) -> Result<(), Error> {
+    let (assignment, body) = found;
+    let name = assignment.name.to_ascii_lowercase();
+    if !is_identifier(&name) || session.is_named(&name) {
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "invalid_value",
+            assignment.span,
+            &[("value", &assignment.name)],
+        ));
+    }
+    let piece = substituted(session, body, assignment.span)?;
+    let text = session.bind_named_let(&name, pipeline(&piece.stages));
+    session.record("B26", CorrectionClass::Certain, simple.span, text, "ref");
+    Ok(())
+}
+
+/// Translates the command of a substitution; the command must not change
+/// anything.
+fn substituted(session: &Session<'_>, body: &str, span: Span) -> Result<Piece, Error> {
+    let failure = || session.error(ErrorCode::Uncorrectable, "command_substitution", span, &[]);
+    let tokens = lex(body).map_err(|_| failure())?;
+    let script = syntax::parse(&tokens).map_err(|_| failure())?;
+    let [item] = script.items.as_slice() else {
+        return Err(failure());
+    };
+    if !item.rest.is_empty() {
+        return Err(failure());
+    }
+    let inner = Session::new(session.table, session.context, body);
+    let variants = inner.with_directory(session.directory(), || {
+        inner.pipe(&item.first, &RunOptions::default())
+    })?;
+    let piece = variants.primary();
+    if session.has_effect(piece) {
+        return Err(failure());
+    }
+    Ok(piece.clone())
 }
 
 /// `A | xargs CMD`: the entries of `A` become the input of `CMD`.
@@ -802,6 +923,11 @@ pub(crate) fn tee(
     simple: &Simple,
     previous: Variants,
 ) -> Result<Variants, Error> {
+    let output = tee_output(session, simple)?;
+    write_from(session, &output, previous)
+}
+
+fn tee_output(session: &Session<'_>, simple: &Simple) -> Result<Output, Error> {
     let mut mode = "overwrite";
     let mut files = Vec::new();
     for word in &simple.words[1..] {
@@ -831,12 +957,11 @@ pub(crate) fn tee(
             &[("slot", "file"), ("command", "tee")],
         ));
     };
-    let output = Output {
+    Ok(Output {
         mode,
         target: target.clone(),
         span: simple.span,
-    };
-    write_from(session, &output, previous)
+    })
 }
 
 /// `at TIME CMD`: a scheduled program at an absolute time.

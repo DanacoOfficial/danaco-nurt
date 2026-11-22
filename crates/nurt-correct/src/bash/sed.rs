@@ -167,8 +167,56 @@ pub(crate) fn translate(
             "delete",
             &readings,
         ),
+        Script::Delete(address @ (Address::Line(_) | Address::Range(..)))
+            if !in_place && !quiet =>
+        {
+            without_lines(session, simple, &mut bindings, &address)
+        }
         _ => Err(unsupported()),
     }
+}
+
+/// `sed 'Nd' FILE` without `-i`: the lines that remain are read.
+fn without_lines(
+    session: &Session<'_>,
+    simple: &Simple,
+    bindings: &mut Bindings,
+    address: &Address,
+) -> Result<Variants, Error> {
+    let number = |v: i64| Bound::Node(Expr::Int { v, span: None });
+    let key = match address {
+        Address::Line(line) => {
+            bindings.set("lo", vec![number(*line)]);
+            "view_line"
+        }
+        Address::Range(lo, Some(hi)) => {
+            bindings.set("lo", vec![number(*lo)]);
+            bindings.set("hi", vec![number(*hi)]);
+            "view_range"
+        }
+        Address::Range(lo, None) => {
+            bindings.set("lo", vec![number(*lo)]);
+            "view_from"
+        }
+        Address::Last | Address::Match(_) => {
+            return Err(session.error(
+                ErrorCode::Uncorrectable,
+                "unsupported_sed_script",
+                simple.span,
+                &[("script", "d")],
+            ));
+        }
+    };
+    let stages = value_template(session, "sed", key, bindings, simple.span)?;
+    let variants = Variants::one(stages, "line");
+    session.record(
+        "B17",
+        CorrectionClass::Certain,
+        simple.span,
+        piece_text(variants.primary()),
+        "habit",
+    );
+    Ok(variants)
 }
 
 fn substitute(

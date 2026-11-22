@@ -284,9 +284,12 @@ fn choose(
         let mut choice = base(
             stages,
             &entry.rule,
-            entry.class,
+            stage.class.unwrap_or(entry.class),
             &output,
-            entry.assumption.clone(),
+            stage
+                .assumption
+                .clone()
+                .or_else(|| entry.assumption.clone()),
         );
         choice.options = stage.options;
         return Ok(choice);
@@ -840,6 +843,12 @@ fn hook(
             Ok(directory)
         }
         Some("archive") => archive(session, entry, parsed, bindings),
+        Some("lsof") => {
+            if parsed.has(entry, "i") {
+                listening_port(session, parsed, bindings)?;
+            }
+            Ok(directory)
+        }
         Some("curl") => {
             headers(session, entry, parsed, bindings)?;
             if let Some(url) = parsed
@@ -867,6 +876,37 @@ fn hook(
         }
         _ => Ok(directory),
     }
+}
+
+/// `lsof -i :PORT`: binds the port number written after the colon.
+fn listening_port(
+    session: &Session<'_>,
+    parsed: &Parsed,
+    bindings: &mut Bindings,
+) -> Result<(), Error> {
+    let Some(word) = parsed.operands.first() else {
+        return Ok(());
+    };
+    let text = word.value.literal().unwrap_or_default();
+    let port = text
+        .strip_prefix(':')
+        .and_then(|digits| digits.parse::<i64>().ok());
+    let Some(port) = port else {
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "invalid_value",
+            word.span,
+            &[("value", &text)],
+        ));
+    };
+    bindings.set(
+        "port",
+        vec![Bound::Node(Expr::Int {
+            v: port,
+            span: Some(word.span),
+        })],
+    );
+    Ok(())
 }
 
 fn chown(parsed: &Parsed, bindings: &mut Bindings) {
@@ -963,7 +1003,7 @@ fn archive(
         );
     }
     let extracting = (entry.words[0] == "tar" && parsed.has(entry, "x"))
-        || (entry.words[0] == "unzip" && !parsed.has(entry, "d"));
+        || (entry.words[0] == "unzip" && !parsed.has(entry, "d") && !parsed.has(entry, "l"));
     if extracting && directory.is_none() {
         let span = parsed.operands.first().map_or_else(
             || parsed.given.first().map_or(EMPTY, |g| g.span),

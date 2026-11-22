@@ -126,6 +126,8 @@ pub(crate) struct StageEntry {
     pub(crate) when: When,
     pub(crate) template: Vec<TemplateStage>,
     pub(crate) output: Option<String>,
+    pub(crate) class: Option<CorrectionClass>,
+    pub(crate) assumption: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -284,6 +286,10 @@ struct RawStage {
     template: String,
     #[serde(default)]
     output: Option<String>,
+    #[serde(default)]
+    class: Option<String>,
+    #[serde(default)]
+    assumption: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -548,6 +554,12 @@ fn compile_command(raw: RawCommand) -> Result<CommandEntry, TableError> {
                     when: stage.when,
                     template: stages(&format!("|> {}", stage.template), &place)?,
                     output: stage.output,
+                    class: stage
+                        .class
+                        .as_deref()
+                        .map(|c| parse_class(c, &place))
+                        .transpose()?,
+                    assumption: stage.assumption,
                 })
             })
             .collect::<Result<_, _>>()?,

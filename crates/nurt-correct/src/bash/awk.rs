@@ -59,6 +59,9 @@ pub(crate) fn translate(
             )
             .with_help(format!("help {}", entry.help))
     };
+    if let Some(line) = line_program(&text) {
+        return numbered_line(session, simple, input, files, line);
+    }
     let program = parse_program(&text).ok_or_else(unsupported)?;
     if let Some(regex) = &program.regex
         && regex::Regex::new(regex).is_err()
@@ -110,6 +113,65 @@ pub(crate) fn translate(
         "habit",
     );
     Ok(Variants(vec![piece]))
+}
+
+/// `awk 'NR==N' FILE`: the line `N` of the file.
+fn numbered_line(
+    session: &Session<'_>,
+    simple: &Simple,
+    input: Option<&str>,
+    files: &[Located<Word>],
+    line: i64,
+) -> Result<Variants, Error> {
+    let [_] = files else {
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "unsupported_stage",
+            simple.span,
+            &[("command", "awk")],
+        ));
+    };
+    if input.is_some() {
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "unsupported_stage",
+            simple.span,
+            &[("command", "awk")],
+        ));
+    }
+    let mut bindings = engine::bind_operands(session, files, false)?;
+    bindings.set(
+        "range",
+        vec![Bound::Node(Expr::Range {
+            lo: Some(line),
+            hi: Some(line),
+            span: None,
+        })],
+    );
+    let stages = value_template(session, "awk", "line", &bindings, simple.span)?;
+    let variants = Variants::one(stages, "line");
+    session.record(
+        "B18",
+        CorrectionClass::Certain,
+        simple.span,
+        piece_text(variants.primary()),
+        "habit",
+    );
+    Ok(variants)
+}
+
+/// The number of a program that selects one line, `NR==N`.
+fn line_program(text: &str) -> Option<i64> {
+    let digits = text
+        .trim()
+        .strip_prefix("NR")?
+        .trim_start()
+        .strip_prefix("==")?;
+    let digits = digits.trim();
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse().ok().filter(|line| *line > 0)
 }
 
 fn body(
