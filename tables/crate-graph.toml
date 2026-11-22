@@ -373,7 +373,7 @@ deps = ["nurt-contracts", "nurt-types", "nurt-fs", "nurt-journal", "nurt-space",
 layer = "interface"
 area = "runtime"
 summary = "C ABI of the library."
-deps = ["nurt-contracts", "nurt-core"]
+deps = ["nurt-contracts", "nurt-core", "nurt-catalog"]
 
 [crate.nurt-mcp]
 layer = "interface"
