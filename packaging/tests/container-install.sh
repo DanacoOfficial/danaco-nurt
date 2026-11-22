@@ -35,7 +35,7 @@ esac
 
 first_line=$(nurt version | head -n 1)
 case $first_line in
-    "Danaco Nurt"*) ;;
+    "nurt "[0-9]*) ;;
     *)
         echo "unexpected first line of 'nurt version': $first_line" >&2
         exit 1

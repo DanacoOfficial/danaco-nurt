@@ -207,7 +207,7 @@ jobs:
             runner: ubuntu-latest
             run: |
               curl -fsSL https://nurt.danaco-group.pl/install.sh | NURT_INSTALL_DIR="$RUNNER_TEMP/bin" sh
-              "$RUNNER_TEMP/bin/nurt" version | head -n 1 | grep -q '^Danaco Nurt'
+              "$RUNNER_TEMP/bin/nurt" version | head -n 1 | grep -q '^nurt [0-9]'
           - name: Homebrew
             runner: macos-latest
             run: |
@@ -226,7 +226,7 @@ jobs:
                   -o /etc/apt/sources.list.d/nurt.sources
                 apt-get update -qq
                 apt-get install -y -qq nurt
-                nurt version | head -n 1 | grep -q "^Danaco Nurt"
+                nurt version | head -n 1 | grep -q "^nurt [0-9]"
               '
     steps:
       - name: Install and run

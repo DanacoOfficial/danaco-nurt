@@ -18,6 +18,8 @@ Placeholders:
   @CHOCO_VERSION@    NuGet form: separators removed from the pre-release part
   @DATE@             release date, YYYY-MM-DD, from SOURCE_DATE_EPOCH
   @RPM_DATE@         release date in the form of RPM changelog entries
+  @DESCRIPTION@      product description, the constant TAGLINE of
+                     crates/nurt-contracts/src/product.rs
   @SHA256:<name>@    SHA-256 of the release file "nurt-<version>-<name>.tar.gz"
                      or "nurt-<version>-<name>.zip", read from checksums.txt
 
@@ -27,7 +29,7 @@ characters of separation and a file name per line.
 Usage:
 
   render.py --checksums checksums.txt --output DIR [--source DIR]
-            [--version VERSION] [--epoch SECONDS]
+            [--product-source FILE] [--version VERSION] [--epoch SECONDS]
 """
 
 import argparse
@@ -46,6 +48,8 @@ SEMVER = re.compile(
     r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 )
 DIGEST_LINE = re.compile(r"^([0-9a-fA-F]{64}) [ *](\S.*)$")
+TAGLINE = re.compile(r'pub const TAGLINE:\s*&str\s*=\s*"([^"]*)"\s*;')
+DEFAULT_PRODUCT_SOURCE = Path(__file__).resolve().parents[2] / "crates" / "nurt-contracts" / "src" / "product.rs"
 PLACEHOLDER = re.compile(r"@([A-Z][A-Z0-9_]*)(?::([A-Za-z0-9_.-]+))?@")
 
 
@@ -96,10 +100,19 @@ def parse_version(version):
     return core, match.group(4)
 
 
-def release_values(version, epoch):
+def read_tagline(product_source):
+    """Return the value of the constant TAGLINE from the product texts source."""
+    match = TAGLINE.search(product_source.read_text(encoding="utf-8"))
+    if match is None:
+        raise RenderError(f"{product_source} does not define TAGLINE")
+    return match.group(1)
+
+
+def release_values(version, epoch, description):
     """Return the mapping of the plain placeholders for a release."""
     core, pre = parse_version(version)
     values = {
+        "DESCRIPTION": description,
         "VERSION": version,
         "DEB_VERSION": core + ("~" + pre if pre else ""),
         "RPM_VERSION": core,
@@ -146,9 +159,9 @@ def render_text(text, values, digests, version, origin):
     return PLACEHOLDER.sub(substitute, text)
 
 
-def render_tree(source, output, digests, version, epoch):
+def render_tree(source, output, digests, version, epoch, description):
     """Render all templates below source into output; return written paths."""
-    values = release_values(version, epoch)
+    values = release_values(version, epoch, description)
     templates = sorted(
         path for path in source.rglob("*") if path.is_file() and path.name.endswith(TEMPLATE_SUFFIX)
     )
@@ -181,6 +194,12 @@ def build_parser():
         default=Path(__file__).resolve().parent.parent,
         help="directory searched for templates (default: the packaging directory)",
     )
+    parser.add_argument(
+        "--product-source",
+        type=Path,
+        default=DEFAULT_PRODUCT_SOURCE,
+        help="Rust source that defines TAGLINE (default: crates/nurt-contracts/src/product.rs)",
+    )
     parser.add_argument("--version", help="release version (default: taken from checksums)")
     parser.add_argument(
         "--epoch",
@@ -198,7 +217,8 @@ def main(argv=None):
         epoch = args.epoch
         if epoch is None and os.environ.get("SOURCE_DATE_EPOCH"):
             epoch = int(os.environ["SOURCE_DATE_EPOCH"])
-        written = render_tree(args.source, args.output, digests, version, epoch)
+        description = read_tagline(args.product_source)
+        written = render_tree(args.source, args.output, digests, version, epoch, description)
     except (RenderError, OSError, ValueError) as error:
         print(f"render.py: {error}", file=sys.stderr)
         return 1

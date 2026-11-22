@@ -1,6 +1,6 @@
 {
     "version": "@VERSION@",
-    "description": "Command shell and language where every change can be undone",
+    "description": "@DESCRIPTION@",
     "homepage": "https://nurt.danaco-group.pl",
     "license": "Apache-2.0",
     "architecture": {

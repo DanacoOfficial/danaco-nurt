@@ -11,6 +11,7 @@ import hashlib
 import io
 import os
 import platform
+import re
 import stat
 import tarfile
 import zipfile
@@ -18,10 +19,11 @@ from pathlib import Path
 
 PACKAGING = Path(__file__).resolve().parent.parent
 VERSION = "0.1.0"
+PRODUCT_SOURCE = PACKAGING.parent / "crates" / "nurt-contracts" / "src" / "product.rs"
 
 MOCK_EXECUTABLE = """#!/bin/sh
 if [ "$1" = version ]; then
-    echo "Danaco Nurt 0.1.0"
+    echo "nurt 0.1.0"
     exit 0
 fi
 exit 2
@@ -48,6 +50,14 @@ TARGETS = (
     "x86_64-pc-windows-msvc",
     "aarch64-pc-windows-msvc",
 )
+
+
+def product_tagline():
+    """Return the value of the constant TAGLINE read from the product texts source."""
+    match = re.search(r'pub const TAGLINE:\s*&str\s*=\s*"([^"]*)"\s*;', PRODUCT_SOURCE.read_text(encoding="utf-8"))
+    if match is None:
+        raise RuntimeError(f"{PRODUCT_SOURCE} does not define TAGLINE")
+    return match.group(1)
 
 
 def host_target():
