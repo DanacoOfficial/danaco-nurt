@@ -451,7 +451,7 @@ fn select(
         Selector::Symbol(name) => {
             return symbol_content(ctx, source, lines, name, options).map(boxed);
         }
-        Selector::Lines(ranges) => select::range_spans(lines, ranges),
+        Selector::Lines(ranges) => select::range_spans(lines, ranges)?,
         Selector::Last(count) => select::last_spans(lines, *count),
         Selector::Around(searcher) => select::around_spans(lines, searcher, options.context),
         Selector::Section(path) => vec![select::section_span(
@@ -970,13 +970,18 @@ fn notebook_content(
     if let Some(wanted) = cell
         && cells.is_empty()
     {
+        let code = match wanted {
+            CellRef::Index(_) => ErrorCode::OutOfRange,
+            CellRef::Id(_) | CellRef::IndexAndId(..) => ErrorCode::KeyNotFound,
+        };
         return Err(Error::new(
-            ErrorCode::KeyNotFound,
+            code,
             format!(
                 "`{shown}` has no cell {}: the notebook has {total} cells, from index 0",
                 describe_cell(wanted)
             ),
-        ));
+        )
+        .with_actual(serde_json::json!(total)));
     }
     let mut text = String::new();
     for data in &cells {
@@ -1897,7 +1902,41 @@ mod tests {
             &ReadOptions::default(),
         )
         .unwrap_err();
-        assert_eq!(missing.code(), ErrorCode::KeyNotFound);
+        assert_eq!(missing.code(), ErrorCode::OutOfRange);
+        assert_eq!(missing.actual, Some(serde_json::json!(2)));
+        let unknown_id = read_with(
+            &test,
+            &ctx,
+            &path,
+            &Selector::Cell(CellRef::Id("absent".to_owned())),
+            &ReadOptions::default(),
+        )
+        .unwrap_err();
+        assert_eq!(unknown_id.code(), ErrorCode::KeyNotFound);
+    }
+
+    #[test]
+    fn lines_beyond_the_end_are_out_of_range() {
+        let (test, path) = with_file("/data/a.txt", b"a\nb\nc\n");
+        let ctx = test.ctx();
+        let error = read_with(
+            &test,
+            &ctx,
+            &path,
+            &lines_selector(&[(4, 9)]),
+            &ReadOptions::default(),
+        )
+        .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::OutOfRange);
+        let clipped = one(read_with(
+            &test,
+            &ctx,
+            &path,
+            &lines_selector(&[(2, 9)]),
+            &ReadOptions::default(),
+        )
+        .unwrap());
+        assert_eq!(clipped.text, "b\nc\n");
     }
 
     #[test]

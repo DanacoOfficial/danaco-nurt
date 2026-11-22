@@ -444,17 +444,34 @@ impl<'t> Lines<'t> {
 }
 
 /// Lines of `ranges` that exist in the text, in the order given; ranges
-/// that overlap are merged into the place of the first of them.
-pub(crate) fn range_spans(lines: &Lines<'_>, ranges: &[Range]) -> Vec<LineSpan> {
+/// that overlap are merged into the place of the first of them. The end of a
+/// range beyond the last line is clipped to the last line.
+///
+/// # Errors
+///
+/// Fails with `E_OUT_OF_RANGE` for a range that starts after the last line,
+/// including every range of an empty text.
+pub(crate) fn range_spans(lines: &Lines<'_>, ranges: &[Range]) -> Result<Vec<LineSpan>> {
     let total = lines.total();
-    let clipped = ranges.iter().filter_map(|range| {
+    let mut clipped = Vec::with_capacity(ranges.len());
+    for range in ranges {
         let first = range.start().map_or(1, |start| start.unsigned_abs());
         let last = range
             .end()
             .map_or(total, |end| end.unsigned_abs().min(total));
-        (first <= last).then(|| LineSpan::new(first, last))
-    });
-    merge_overlapping(clipped)
+        if first > last {
+            return Err(Error::new(
+                ErrorCode::OutOfRange,
+                format!(
+                    "lines {range} are beyond the end of the file, which has {total} lines: select lines up to {total}, or use `last`"
+                ),
+            )
+            .with_found(range.to_string())
+            .with_actual(serde_json::json!(total)));
+        }
+        clipped.push(LineSpan::new(first, last));
+    }
+    Ok(merge_overlapping(clipped))
 }
 
 fn merge_overlapping(spans: impl IntoIterator<Item = LineSpan>) -> Vec<LineSpan> {
@@ -742,7 +759,8 @@ mod tests {
         let lines = Lines::new("");
         assert_eq!(lines.total(), 0);
         assert_eq!(lines.whole(), None);
-        assert!(range_spans(&lines, &[range(1, 5)]).is_empty());
+        let error = range_spans(&lines, &[range(1, 5)]).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::OutOfRange);
         assert!(last_spans(&lines, 3).is_empty());
     }
 
@@ -757,25 +775,34 @@ mod tests {
     fn ranges_are_clipped_to_the_text() {
         let text = numbered(10);
         let lines = Lines::new(&text);
-        assert_eq!(range_spans(&lines, &[range(8, 20)]), spans(&[(8, 10)]));
-        assert!(range_spans(&lines, &[range(11, 20)]).is_empty());
-        assert_eq!(
-            range_spans(&lines, &[Range::from_start(9)]),
-            spans(&[(9, 10)])
-        );
-        assert_eq!(range_spans(&lines, &[Range::up_to(2)]), spans(&[(1, 2)]));
-        assert_eq!(range_spans(&lines, &[Range::full()]), spans(&[(1, 10)]));
+        let spans_of = |ranges: &[Range]| range_spans(&lines, ranges).unwrap();
+        assert_eq!(spans_of(&[range(8, 20)]), spans(&[(8, 10)]));
+        assert_eq!(spans_of(&[Range::from_start(9)]), spans(&[(9, 10)]));
+        assert_eq!(spans_of(&[Range::up_to(2)]), spans(&[(1, 2)]));
+        assert_eq!(spans_of(&[Range::full()]), spans(&[(1, 10)]));
+    }
+
+    #[test]
+    fn ranges_after_the_last_line_are_out_of_range() {
+        let text = numbered(10);
+        let lines = Lines::new(&text);
+        for beyond in [range(11, 20), Range::single(11), Range::from_start(11)] {
+            let error = range_spans(&lines, &[range(1, 2), beyond]).unwrap_err();
+            assert_eq!(error.code(), ErrorCode::OutOfRange);
+            assert_eq!(error.found, Some(beyond.to_string()));
+            assert_eq!(error.actual, Some(serde_json::json!(10)));
+        }
     }
 
     #[test]
     fn overlapping_ranges_merge_in_the_order_given() {
         let text = numbered(30);
         let lines = Lines::new(&text);
-        let merged = range_spans(&lines, &[range(20, 25), range(1, 3), range(22, 28)]);
+        let merged = range_spans(&lines, &[range(20, 25), range(1, 3), range(22, 28)]).unwrap();
         assert_eq!(merged, spans(&[(20, 28), (1, 3)]));
-        let chained = range_spans(&lines, &[range(1, 3), range(10, 12), range(2, 11)]);
+        let chained = range_spans(&lines, &[range(1, 3), range(10, 12), range(2, 11)]).unwrap();
         assert_eq!(chained, spans(&[(1, 12)]));
-        let touching = range_spans(&lines, &[range(1, 3), range(4, 5)]);
+        let touching = range_spans(&lines, &[range(1, 3), range(4, 5)]).unwrap();
         assert_eq!(touching, spans(&[(1, 3), (4, 5)]));
     }
 

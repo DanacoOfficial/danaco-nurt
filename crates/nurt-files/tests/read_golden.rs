@@ -8,6 +8,7 @@
 
 use std::sync::Arc;
 
+use nurt_contracts::error::ErrorCode;
 use nurt_contracts::fs::AbsPath;
 use nurt_contracts::record::Content;
 use nurt_contracts::stage::{ArgValue, BoundArgs, StageData, StageImpl, StageInput};
@@ -171,4 +172,68 @@ fn last_lines_of_a_log() {
     assert_eq!(read[0].text, "request 2\nstop");
     assert_eq!(read[0].range, Some(range(3, 4)));
     assert_eq!(read[0].total_lines, Some(4));
+}
+
+fn read_code(test: &TestContext, path: &AbsPath, params: Vec<(&str, Value)>) -> ErrorCode {
+    let args = params.into_iter().fold(
+        BoundArgs::new("read").with(
+            "path",
+            ArgValue::Value(Value::Path(path.to_language_string())),
+            false,
+        ),
+        |args, (name, value)| args.with(name, ArgValue::Value(value), false),
+    );
+    let stage = read_stage();
+    let ctx = test.ctx();
+    let output =
+        stage
+            .as_read()
+            .expect("read is a read stage")
+            .execute(&args, StageInput::none(), &ctx);
+    let error = match output {
+        Err(error) => error,
+        Ok(output) => match output.data {
+            StageData::Records(stream) => stream.filter_map(Result::err).next(),
+            _ => None,
+        }
+        .expect("the read fails"),
+    };
+    error.code()
+}
+
+#[test]
+fn lines_beyond_the_end_of_the_file_are_out_of_range() {
+    let test = TestContext::new();
+    let path = file(&test, "/srv/app/notes.txt", "one\ntwo\nthree\n");
+    for lines in [
+        Value::Int(4),
+        Value::Range(range(4, 9)),
+        Value::List(vec![Value::Range(range(1, 2)), Value::Int(10)]),
+    ] {
+        assert_eq!(
+            read_code(&test, &path, vec![("lines", lines)]),
+            ErrorCode::OutOfRange
+        );
+    }
+    let clipped = read(&test, &path, vec![("lines", Value::Range(range(3, 9)))]);
+    assert_eq!(clipped[0].text, "three\n");
+}
+
+#[test]
+fn cell_index_beyond_the_notebook_is_out_of_range() {
+    let test = TestContext::new();
+    let notebook = r##"{"cells": [{"cell_type": "markdown", "id": "intro", "metadata": {}, "source": "# Title"}], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}"##;
+    let path = file(&test, "/srv/app/analysis.ipynb", notebook);
+    assert_eq!(
+        read_code(&test, &path, vec![("cell", Value::Int(3))]),
+        ErrorCode::OutOfRange
+    );
+    assert_eq!(
+        read_code(
+            &test,
+            &path,
+            vec![("cell", Value::Text("absent".to_owned()))]
+        ),
+        ErrorCode::KeyNotFound
+    );
 }
