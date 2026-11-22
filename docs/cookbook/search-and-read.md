@@ -387,11 +387,11 @@ grep -rnw 'id' /home/user/app/src
 Count the lines that contain a pattern in every file.
 
 ```nurt example
-search /TODO/ "/home/user/app/src" output: counts
+search /deprecated/ "/home/user/app/src" output: counts
 ```
 
 ```json fs-before
-{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/src/a.go","type":"file","content_utf8":"// TODO a\n// TODO b\n"}]}
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/src/a.go","type":"file","content_utf8":"// deprecated a\n// deprecated b\n"}]}
 ```
 
 ```text expected
@@ -399,7 +399,7 @@ search /TODO/ "/home/user/app/src" output: counts
 ```
 
 ```bash
-grep -rc 'TODO' /home/user/app/src
+grep -rc 'deprecated' /home/user/app/src
 ```
 
 ## List the files without a pattern
