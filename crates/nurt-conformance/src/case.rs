@@ -51,6 +51,8 @@ mod file {
     pub(super) const AST_HASH: &str = "ast.hash";
     pub(super) const BOUND: &str = "bound.json";
     pub(super) const BOUND_HASH: &str = "bound.hash";
+    pub(super) const C_AST: &str = "c.json";
+    pub(super) const C_AST_HASH: &str = "c.hash";
 }
 
 /// Kind of a case.
@@ -238,6 +240,32 @@ pub struct Golden {
     pub bound: Option<Value>,
     /// Recorded `ast_hash` of the bound tree.
     pub bound_hash: Option<String>,
+    /// Surface tree of the program in variant C, which keeps every argument
+    /// name and therefore differs from `ast`.
+    pub c_ast: Option<Value>,
+    /// Recorded `ast_hash` of the surface tree in variant C.
+    pub c_ast_hash: Option<String>,
+}
+
+impl Golden {
+    /// Expected surface tree of a program in the given syntax variant.
+    ///
+    /// Variants A and B share `ast`. Variant C has its own tree, `c_ast`;
+    /// without it no surface tree of variant C is expected.
+    #[must_use]
+    pub fn surface(&self, variant: &str) -> Option<&Value> {
+        if variant == protocol::VARIANT_C {
+            self.c_ast.as_ref()
+        } else {
+            Some(&self.ast)
+        }
+    }
+
+    /// Surface tree that the printer receives for the given syntax variant.
+    #[must_use]
+    pub fn printed_tree(&self, variant: &str) -> &Value {
+        self.surface(variant).unwrap_or(&self.ast)
+    }
 }
 
 /// Calls of a case.
@@ -291,6 +319,7 @@ impl Case {
                 .collect(),
             Plan::Golden(golden) => std::iter::once(&golden.ast)
                 .chain(golden.bound.as_ref())
+                .chain(golden.c_ast.as_ref())
                 .collect(),
         }
     }
@@ -771,6 +800,8 @@ fn golden(dir: &Path) -> Result<Golden, Error> {
         ast_hash: hash(file::AST_HASH)?,
         bound: optional_json(&dir.join(file::BOUND))?,
         bound_hash: hash(file::BOUND_HASH)?,
+        c_ast: optional_json(&dir.join(file::C_AST))?,
+        c_ast_hash: hash(file::C_AST_HASH)?,
     })
 }
 

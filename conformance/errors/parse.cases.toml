@@ -9,7 +9,7 @@ kind = "error"
 code = "E_LEXICAL"
 summary = "An unterminated text is a lexical error and changes nothing."
 program = 'find "src'
-expect = { report = { status = "failed", error = { code = "E_LEXICAL", stage = "0" } } }
+expect = { report = { status = "failed", error = { code = "E_LEXICAL", at = { stage = "0" } } } }
 fs_after = "unchanged"
 
 [[case]]
@@ -27,7 +27,7 @@ kind = "error"
 code = "E_SYNTAX"
 summary = "An unclosed list is a syntax error with a position."
 program = 'find "src" glob: ["*.go"'
-expect = { report = { status = "failed", error = { code = "E_SYNTAX", stage = "0" } } }
+expect = { report = { status = "failed", error = { code = "E_SYNTAX", at = { stage = "0" } } } }
 fs_after = "unchanged"
 
 [[case]]

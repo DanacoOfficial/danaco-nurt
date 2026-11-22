@@ -52,7 +52,10 @@ pub struct RunOptions {
     pub kinds: Vec<Kind>,
     /// Number of cases run in parallel.
     pub jobs: usize,
-    /// Time limit of one case.
+    /// Time limit of the start of a server process and of its answer to
+    /// `initialize`.
+    pub startup_timeout: Duration,
+    /// Time limit of one case, counted from the answer to `initialize`.
     pub timeout: Duration,
 }
 
@@ -78,13 +81,14 @@ pub fn run(options: &RunOptions) -> Result<ConformanceReport, Error> {
     let schemas = SchemaSet::new()?;
     let suite = Suite::load(&options.cases, &schemas)?;
     let selected = suite.select(&options.filters, &options.kinds);
-    let probe = probe(&command, options.timeout)?;
+    let probe = probe(&command, options.startup_timeout, options.timeout)?;
     let volatile = Context::response_volatile_paths(&schemas);
     let shared = Shared {
         command: &command,
         schemas: &schemas,
         volatile: &volatile,
         probe: &probe,
+        startup_timeout: options.startup_timeout,
         timeout: options.timeout,
     };
     let results = run_parallel(&selected, &shared, options.jobs.max(1));
@@ -170,13 +174,13 @@ fn initialize(connection: &mut ProcessConnection) -> Result<Value, String> {
         .map_err(|error| format!("initialize: {error}"))
 }
 
-fn probe(command: &CommandLine, timeout: Duration) -> Result<Probe, Error> {
+fn probe(command: &CommandLine, startup: Duration, timeout: Duration) -> Result<Probe, Error> {
     let sandbox = Sandbox::new(None).map_err(Error::Invalid)?;
-    let deadline = Instant::now() + timeout;
-    let mut connection = ProcessConnection::spawn(command, &sandbox.env, deadline)
+    let mut connection = ProcessConnection::spawn(command, &sandbox.env, Instant::now() + startup)
         .map_err(|e| Error::Invalid(format!("the implementation does not start: {e}")))?;
     let initialized = initialize(&mut connection)
         .map_err(|e| Error::Invalid(format!("the implementation does not answer {e}")))?;
+    connection.set_deadline(Instant::now() + timeout);
     let info = connection.call(method::INFO, &serde_json::json!({})).ok();
     connection.shutdown();
     let features = initialized
@@ -209,6 +213,7 @@ struct Shared<'a> {
     schemas: &'a SchemaSet,
     volatile: &'a VolatilePaths,
     probe: &'a Probe,
+    startup_timeout: Duration,
     timeout: Duration,
 }
 
@@ -287,14 +292,15 @@ fn execute_case(case: &Case, shared: &Shared<'_>) -> Vec<Failure> {
         Ok(sandbox) => sandbox,
         Err(message) => return vec![Failure::new(message)],
     };
-    let deadline = Instant::now() + shared.timeout;
-    let mut connection = match ProcessConnection::spawn(shared.command, &sandbox.env, deadline) {
+    let startup = Instant::now() + shared.startup_timeout;
+    let mut connection = match ProcessConnection::spawn(shared.command, &sandbox.env, startup) {
         Ok(connection) => connection,
         Err(error) => return vec![Failure::new(error.to_string())],
     };
     if let Err(message) = initialize(&mut connection) {
         return vec![Failure::new(message)];
     }
+    connection.set_deadline(Instant::now() + shared.timeout);
     let context = Context {
         schemas: shared.schemas,
         response_volatile: shared.volatile,
@@ -440,6 +446,7 @@ mod tests {
             filters: Vec::new(),
             kinds: Vec::new(),
             jobs: 1,
+            startup_timeout: Duration::from_secs(5),
             timeout: Duration::from_secs(5),
         };
         assert!(

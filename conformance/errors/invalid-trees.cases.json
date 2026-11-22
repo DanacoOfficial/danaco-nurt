@@ -1,0 +1,484 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "errors/ast/bound-members",
+      "kind": "error",
+      "code": "E_AST_SCHEMA",
+      "summary": "A syntax tree is rejected: surface tree with the root members of a bound tree.",
+      "params": {
+        "nurt": "1.0",
+        "ast": {
+          "nurt": "1.0",
+          "program": {
+            "statements": [
+              {
+                "t": "pipeline",
+                "head": {
+                  "t": "stage",
+                  "name": "count",
+                  "args": []
+                },
+                "stages": []
+              }
+            ]
+          },
+          "bound": "1.0",
+          "catalog_rev": "c",
+          "corr_rev": "c"
+        }
+      },
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_AST_SCHEMA"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "errors/ast/bound-stage-member",
+      "kind": "error",
+      "code": "E_AST_SCHEMA",
+      "summary": "A syntax tree is rejected: surface stage with the member effect.",
+      "params": {
+        "nurt": "1.0",
+        "ast": {
+          "nurt": "1.0",
+          "program": {
+            "statements": [
+              {
+                "t": "pipeline",
+                "head": {
+                  "t": "stage",
+                  "name": "count",
+                  "args": [],
+                  "effect": "read"
+                },
+                "stages": []
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_AST_SCHEMA"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "errors/ast/empty-program",
+      "kind": "error",
+      "code": "E_AST_SCHEMA",
+      "summary": "A syntax tree is rejected: program without statements.",
+      "params": {
+        "nurt": "1.0",
+        "ast": {
+          "nurt": "1.0",
+          "program": {
+            "statements": []
+          }
+        }
+      },
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_AST_SCHEMA"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "errors/ast/flags-order",
+      "kind": "error",
+      "code": "E_AST_SCHEMA",
+      "summary": "A syntax tree is rejected: regular expression flags not in the order imsx.",
+      "params": {
+        "nurt": "1.0",
+        "ast": {
+          "nurt": "1.0",
+          "program": {
+            "statements": [
+              {
+                "t": "pipeline",
+                "head": {
+                  "t": "stage",
+                  "name": "search",
+                  "args": [
+                    {
+                      "value": {
+                        "t": "regex",
+                        "v": "a",
+                        "flags": "mi"
+                      }
+                    }
+                  ]
+                },
+                "stages": []
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_AST_SCHEMA"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "errors/ast/keyword-ident",
+      "kind": "error",
+      "code": "E_AST_SCHEMA",
+      "summary": "A syntax tree is rejected: reserved word as an identifier.",
+      "params": {
+        "nurt": "1.0",
+        "ast": {
+          "nurt": "1.0",
+          "program": {
+            "statements": [
+              {
+                "t": "pipeline",
+                "head": {
+                  "t": "stage",
+                  "name": "filter",
+                  "args": [
+                    {
+                      "value": {
+                        "t": "ident",
+                        "v": "and"
+                      }
+                    }
+                  ]
+                },
+                "stages": []
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_AST_SCHEMA"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "errors/ast/negative-int",
+      "kind": "error",
+      "code": "E_AST_SCHEMA",
+      "summary": "A syntax tree is rejected: negative integer literal.",
+      "params": {
+        "nurt": "1.0",
+        "ast": {
+          "nurt": "1.0",
+          "program": {
+            "statements": [
+              {
+                "t": "pipeline",
+                "head": {
+                  "t": "stage",
+                  "name": "first",
+                  "args": [
+                    {
+                      "value": {
+                        "t": "int",
+                        "v": -1
+                      }
+                    }
+                  ]
+                },
+                "stages": []
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_AST_SCHEMA"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "errors/ast/newer-minor",
+      "kind": "error",
+      "code": "E_AST_VERSION",
+      "summary": "A syntax tree is rejected: newer minor version with an unknown node kind.",
+      "params": {
+        "nurt": "1.0",
+        "ast": {
+          "nurt": "1.7",
+          "program": {
+            "statements": [
+              {
+                "t": "pipeline",
+                "head": {
+                  "t": "stage",
+                  "name": "first",
+                  "args": [
+                    {
+                      "value": {
+                        "t": "duration_set",
+                        "v": 1
+                      }
+                    }
+                  ]
+                },
+                "stages": []
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_AST_VERSION"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "errors/ast/other-major",
+      "kind": "error",
+      "code": "E_AST_VERSION",
+      "summary": "A syntax tree is rejected: unsupported major version.",
+      "params": {
+        "nurt": "1.0",
+        "ast": {
+          "nurt": "2.0",
+          "program": {
+            "statements": [
+              {
+                "t": "pipeline",
+                "head": {
+                  "t": "stage",
+                  "name": "count",
+                  "args": []
+                },
+                "stages": []
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_AST_VERSION"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "errors/ast/path-node",
+      "kind": "error",
+      "code": "E_AST_SCHEMA",
+      "summary": "A syntax tree is rejected: node kind of the bound tree in a surface tree.",
+      "params": {
+        "nurt": "1.0",
+        "ast": {
+          "nurt": "1.0",
+          "program": {
+            "statements": [
+              {
+                "t": "pipeline",
+                "head": {
+                  "t": "stage",
+                  "name": "list",
+                  "args": [
+                    {
+                      "value": {
+                        "t": "path",
+                        "v": "/srv"
+                      }
+                    }
+                  ]
+                },
+                "stages": []
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_AST_SCHEMA"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "errors/ast/spread-outside-list",
+      "kind": "error",
+      "code": "E_AST_SCHEMA",
+      "summary": "A syntax tree is rejected: spread outside a list.",
+      "params": {
+        "nurt": "1.0",
+        "ast": {
+          "nurt": "1.0",
+          "program": {
+            "statements": [
+              {
+                "t": "pipeline",
+                "head": {
+                  "t": "stage",
+                  "name": "info",
+                  "args": [
+                    {
+                      "value": {
+                        "t": "spread",
+                        "x": {
+                          "t": "ref",
+                          "name": "x",
+                          "fields": [
+                            "path"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                "stages": []
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_AST_SCHEMA"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "errors/ast/unknown-member",
+      "kind": "error",
+      "code": "E_AST_SCHEMA",
+      "summary": "A syntax tree is rejected: unknown member of a node.",
+      "params": {
+        "nurt": "1.0",
+        "ast": {
+          "nurt": "1.0",
+          "program": {
+            "statements": [
+              {
+                "t": "pipeline",
+                "head": {
+                  "t": "stage",
+                  "name": "find",
+                  "args": [
+                    {
+                      "value": {
+                        "t": "text",
+                        "v": "/srv/app/build",
+                        "quoted": true
+                      }
+                    },
+                    {
+                      "name": "glob",
+                      "value": {
+                        "t": "text",
+                        "v": "**/*.tmp"
+                      }
+                    }
+                  ]
+                },
+                "stages": [
+                  {
+                    "t": "stage",
+                    "name": "remove",
+                    "args": []
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_AST_SCHEMA"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "errors/ast/unsafe-int",
+      "kind": "error",
+      "code": "E_AST_SCHEMA",
+      "summary": "A syntax tree is rejected: integer above 2^53 - 1.",
+      "params": {
+        "nurt": "1.0",
+        "ast": {
+          "nurt": "1.0",
+          "program": {
+            "statements": [
+              {
+                "t": "pipeline",
+                "head": {
+                  "t": "stage",
+                  "name": "first",
+                  "args": [
+                    {
+                      "value": {
+                        "t": "int",
+                        "v": 9007199254740992
+                      }
+                    }
+                  ]
+                },
+                "stages": []
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_AST_SCHEMA"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    }
+  ]
+}

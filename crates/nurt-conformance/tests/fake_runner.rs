@@ -5,6 +5,11 @@
 //! The runner against the fake server: every mandatory case passes on the
 //! conforming fake server, and every deviation of the fake server makes a
 //! mandatory case fail.
+//!
+//! Every fake server process loads the whole suite before it answers
+//! `initialize`, which takes long on a loaded machine. The limits of the start
+//! and of the cases are therefore large; only the hanging fake server runs
+//! with a short case limit, because reaching that limit is the checked result.
 
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -22,6 +27,25 @@ use nurt_conformance::schemas::SchemaSet;
 
 const BIN: &str = env!("CARGO_BIN_EXE_nurt-conformance");
 
+/// Time limit of the start of a fake server process and of `initialize`.
+const STARTUP_LIMIT: Duration = Duration::from_secs(300);
+
+/// Time limit of a case whose result does not depend on the limit.
+const CASE_LIMIT: Duration = Duration::from_secs(120);
+
+/// Time limit of a case against the hanging fake server.
+const HANG_LIMIT: Duration = Duration::from_secs(2);
+
+/// Values of `--startup-timeout` and `--timeout` for the program.
+const STARTUP_ARG: &str = "300s";
+const CASE_ARG: &str = "120s";
+
+/// Number of cases run in parallel by the complete run.
+const JOBS: usize = 4;
+
+/// Failure message of a call that reached the case limit.
+const TIME_LIMIT: &str = "time limit reached";
+
 fn conformance() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance")
 }
@@ -38,6 +62,7 @@ fn run(
     kinds: Vec<Kind>,
     filters: Vec<String>,
     deviation: Option<Break>,
+    jobs: usize,
     timeout: Duration,
 ) -> Result<ConformanceReport, Error> {
     runner::run(&RunOptions {
@@ -45,7 +70,8 @@ fn run(
         cases: conformance(),
         filters,
         kinds,
-        jobs: 4,
+        jobs,
+        startup_timeout: STARTUP_LIMIT,
         timeout,
     })
 }
@@ -56,7 +82,8 @@ fn every_mandatory_case_passes_on_the_fake_server() {
         vec![Kind::Golden, Kind::Bind, Kind::Error],
         Vec::new(),
         None,
-        Duration::from_secs(30),
+        JOBS,
+        CASE_LIMIT,
     )
     .unwrap();
     let failed: Vec<String> = report
@@ -101,26 +128,36 @@ fn every_deviation_of_the_fake_server_is_detected() {
         (Break::Hang, "golden/task-04-"),
     ];
     for (deviation, filter) in probes {
-        let outcome = run(
+        let name = deviation.name();
+        let hangs = deviation == Break::Hang;
+        let limit = if hangs { HANG_LIMIT } else { CASE_LIMIT };
+        match run(
             Vec::new(),
             vec![filter.to_owned()],
             Some(deviation),
-            Duration::from_secs(3),
-        );
-        match outcome {
+            1,
+            limit,
+        ) {
             Ok(report) => {
-                assert_eq!(report.results.len(), 1, "{}: {filter}", deviation.name());
+                assert_eq!(report.results.len(), 1, "{name}: {filter}");
                 assert!(
                     report.summary.mandatory.failed == 1 && !report.mandatory_passed(),
-                    "{} not detected: {:?}",
-                    deviation.name(),
+                    "{name} not detected: {:?}",
+                    report.results
+                );
+                let timed_out = report.results[0]
+                    .failures
+                    .iter()
+                    .any(|failure| failure.message.contains(TIME_LIMIT));
+                assert_eq!(
+                    timed_out, hangs,
+                    "{name}: the case limit decides only the hanging server: {:?}",
                     report.results
                 );
             }
             Err(error) => assert!(
-                deviation == Break::Protocol,
-                "{}: unexpected error {error}",
-                deviation.name()
+                deviation == Break::Protocol && error.to_string().contains("protocol violation"),
+                "{name}: unexpected error {error}"
             ),
         }
     }
@@ -140,6 +177,10 @@ fn the_program_reports_through_its_exit_code() {
             "golden/task-01-",
             "--jobs",
             "1",
+            "--startup-timeout",
+            STARTUP_ARG,
+            "--timeout",
+            CASE_ARG,
             "--quiet",
         ])
         .arg("--cases")
@@ -164,8 +205,10 @@ fn the_program_reports_through_its_exit_code() {
             &command(Some(Break::Tree)),
             "--filter",
             "golden/task-01-",
+            "--startup-timeout",
+            STARTUP_ARG,
             "--timeout",
-            "10s",
+            CASE_ARG,
         ])
         .arg("--cases")
         .arg(&cases)
@@ -177,6 +220,7 @@ fn the_program_reports_through_its_exit_code() {
     for args in [
         vec!["run", "--impl", "x", "--kind", "other"],
         vec!["run", "--impl", "x", "--timeout", "soon"],
+        vec!["run", "--impl", "x", "--startup-timeout", "soon"],
         vec!["fake-serve", "--break", "everything"],
     ] {
         let output = Command::new(BIN)

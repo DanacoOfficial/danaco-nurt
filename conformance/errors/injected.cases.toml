@@ -765,6 +765,57 @@ expect = { report = { status = "failed", error = { code = "E_GIT_UNSUPPORTED" } 
 fs_after = "unchanged"
 
 [[case]]
+id = "errors/injected/git-hunk"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_HUNK"
+summary = "An unknown hunk identifier stops staging and changes nothing."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_GIT_HUNK" }
+expect = {}
+
+[[case.step]]
+program = 'git.stage "." action: add hunks: ["a.txt#9"]'
+expect = { report = { status = "failed", error = { code = "E_GIT_HUNK" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/git-checkpoint"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_CHECKPOINT"
+summary = "A checkpoint without a saved index cannot be restored and nothing changes."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_GIT_CHECKPOINT" }
+expect = {}
+
+[[case.step]]
+program = 'git.checkpoint "." action: restore checkpoint_id: "no-such-checkpoint"'
+expect = { report = { status = "failed", error = { code = "E_GIT_CHECKPOINT" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/git-worktree"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_WORKTREE"
+summary = "Removing an unknown worktree is reported and changes nothing."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_GIT_WORKTREE" }
+expect = {}
+
+[[case.step]]
+program = 'git.worktree "." action: remove path: "no-such-worktree"'
+expect = { report = { status = "failed", error = { code = "E_GIT_WORKTREE" } } }
+fs_after = "unchanged"
+
+[[case]]
 id = "errors/injected/internal"
 kind = "error"
 class = "optional:testkit"

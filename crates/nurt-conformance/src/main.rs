@@ -60,7 +60,10 @@ enum Command {
         /// Number of cases run in parallel [default: number of processors].
         #[arg(long)]
         jobs: Option<usize>,
-        /// Time limit of one case, for example 30s or 500ms.
+        /// Time limit of the start of a server process and of its answer to initialize.
+        #[arg(long, default_value = "30s")]
+        startup_timeout: String,
+        /// Time limit of one case after initialize, for example 30s or 500ms.
         #[arg(long, default_value = "30s")]
         timeout: String,
         /// Write the report nurt-conformance-report/1 to the file.
@@ -94,6 +97,7 @@ fn main() -> ExitCode {
             filter,
             kind,
             jobs,
+            startup_timeout,
             timeout,
             report,
             quiet,
@@ -103,6 +107,7 @@ fn main() -> ExitCode {
             filter,
             kind,
             jobs,
+            startup_timeout,
             timeout,
             report,
             quiet,
@@ -126,6 +131,7 @@ struct RunArgs {
     filter: Vec<String>,
     kind: Vec<String>,
     jobs: Option<usize>,
+    startup_timeout: String,
     timeout: String,
     report: Option<PathBuf>,
     quiet: bool,
@@ -147,6 +153,7 @@ fn run(args: RunArgs) -> Result<ExitCode, Error> {
         filters: args.filter,
         kinds,
         jobs: args.jobs.unwrap_or_else(runner::default_jobs),
+        startup_timeout: runner::parse_duration(&args.startup_timeout)?,
         timeout: runner::parse_duration(&args.timeout)?,
     };
     let report = runner::run(&options)?;

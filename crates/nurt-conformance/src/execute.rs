@@ -295,7 +295,7 @@ impl CaseRun<'_, '_> {
             let result = self.call(
                 None,
                 method::PRINT,
-                protocol::print_params(&golden.ast, variant),
+                protocol::print_params(golden.printed_tree(variant), variant),
             )?;
             let Some(text) = result.get(member::TEXT).and_then(Value::as_str) else {
                 self.fail(None, &format!("print {variant}"), "the result has no text");
@@ -303,7 +303,7 @@ impl CaseRun<'_, '_> {
             };
             let text = text.to_owned();
             self.golden_parse(golden, variant, &text, "print and parse")?;
-            if variant == "c"
+            if variant == protocol::VARIANT_C
                 && let Some(bound) = &golden.bound
             {
                 self.golden_check(golden, bound, variant, &text)?;
@@ -326,9 +326,8 @@ impl CaseRun<'_, '_> {
             return Ok(());
         };
         self.check_schema(None, "ast", "/ast", tree);
-        // Variant C writes every argument by name, so only its bound tree is compared.
-        if variant != "c" {
-            self.compare_tree(&check, &golden.ast, tree);
+        if let Some(expected) = golden.surface(variant) {
+            self.compare_tree(&check, expected, tree);
         }
         Ok(())
     }
@@ -637,6 +636,8 @@ mod tests {
             ast_hash: None,
             bound: Some(bound.clone()),
             bound_hash: Some(bound_hash.clone()),
+            c_ast: None,
+            c_ast_hash: None,
         };
         let case = case(Plan::Golden(Box::new(golden)));
         let parsed = Ok(json!({"ast": ast}));
@@ -671,6 +672,36 @@ mod tests {
     }
 
     #[test]
+    fn variant_c_surface_trees_are_compared_with_their_own_tree() {
+        let base = tempfile::tempdir().unwrap();
+        let c_ast = golden_tree("named");
+        let golden = Golden {
+            texts: vec![("c".to_owned(), "count".to_owned())],
+            ast: golden_tree("count"),
+            ast_hash: None,
+            bound: None,
+            bound_hash: None,
+            c_ast: Some(c_ast.clone()),
+            c_ast_hash: None,
+        };
+        let case = case(Plan::Golden(Box::new(golden)));
+        let mut connection = scripted(vec![
+            Ok(json!({"ast": golden_tree("count")})),
+            Ok(json!({"text": "count"})),
+            Ok(json!({"ast": c_ast.clone()})),
+        ]);
+        let failures = run(&case, &mut connection, base.path());
+        let checks: Vec<&str> = failures
+            .iter()
+            .filter_map(|f| f.check.as_deref())
+            .filter(|check| !check.starts_with("schema"))
+            .collect();
+        assert_eq!(checks, ["parse c"]);
+        assert_eq!(connection.calls[1].0, "print");
+        assert_eq!(connection.calls[1].1["ast"], c_ast);
+    }
+
+    #[test]
     fn golden_results_without_trees_are_failures() {
         let base = tempfile::tempdir().unwrap();
         let golden = Golden {
@@ -679,6 +710,8 @@ mod tests {
             ast_hash: None,
             bound: Some(json!({})),
             bound_hash: None,
+            c_ast: None,
+            c_ast_hash: None,
         };
         let case = case(Plan::Golden(Box::new(golden.clone())));
         let mut connection = scripted(vec![

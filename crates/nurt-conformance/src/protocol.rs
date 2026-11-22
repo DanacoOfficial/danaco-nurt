@@ -95,7 +95,10 @@ pub mod code {
 }
 
 /// Syntax variants of program text.
-pub const VARIANTS: [&str; 3] = ["a", "b", "c"];
+pub const VARIANTS: [&str; 3] = ["a", "b", VARIANT_C];
+
+/// Syntax variant that writes every argument by name.
+pub const VARIANT_C: &str = "c";
 
 /// Default syntax variant.
 pub const DEFAULT_VARIANT: &str = "a";

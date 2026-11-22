@@ -4,7 +4,8 @@
 
 //! Checks of the case files of the `conformance/` directory: every error code
 //! has a case, golden cases are copies of the golden files of the
-//! specification, and the binding cases cover the whole interface.
+//! specification, every invalid surface tree of the specification has an
+//! error case, and the binding cases cover the whole interface.
 
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -19,6 +20,15 @@ use nurt_conformance::compare::ast_hash;
 use nurt_conformance::schemas::SchemaSet;
 use nurt_contracts::error::ErrorCode;
 use serde_json::Value;
+
+/// Generated schema of a golden directory; not a golden case.
+const GENERATED_SCHEMA: &str = "schema.generated.json";
+
+/// Directory of the documents a reader rejects.
+const INVALID_DIR: &str = "invalid";
+
+/// Table of the rejected documents and their error codes.
+const INVALID_TABLE: &str = "expected.tsv";
 
 fn conformance() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance")
@@ -84,37 +94,48 @@ fn every_error_code_has_an_error_case_that_expects_it() {
     );
 }
 
+/// Golden files of one format of the specification, without the generated
+/// schema and the directory of invalid documents.
 fn spec_files(format: &str) -> Vec<PathBuf> {
     let mut files: Vec<PathBuf> = fs::read_dir(spec_golden().join(format))
         .unwrap()
         .map(|entry| entry.unwrap().path())
-        .filter(|path| !path.to_string_lossy().ends_with("schema.generated.json"))
+        .filter(|path| path.is_file() && !path.ends_with(GENERATED_SCHEMA))
         .collect();
     files.sort();
     files
 }
 
-fn copy_name(format: &str, extension: &str) -> &'static str {
-    match (format, extension) {
-        ("ast", "nurt") => "a.nurt",
-        ("ast", "json") => "ast.json",
-        ("ast", "hash") => "ast.hash",
-        ("bound", "json") => "bound.json",
-        ("bound", "hash") => "bound.hash",
-        _ => panic!("unexpected golden file {format}/*.{extension}"),
-    }
+/// Name of the golden case and file of the case directory that hold a copy
+/// of a golden file of the specification.
+fn copy_of(format: &str, file_name: &str) -> (String, &'static str) {
+    const COPIES: [(&str, &str, &str); 9] = [
+        ("ast", ".b.nurt", "b.nurt"),
+        ("ast", ".c.nurt", "c.nurt"),
+        ("ast", ".c.json", "c.json"),
+        ("ast", ".c.hash", "c.hash"),
+        ("ast", ".nurt", "a.nurt"),
+        ("ast", ".json", "ast.json"),
+        ("ast", ".hash", "ast.hash"),
+        ("bound", ".json", "bound.json"),
+        ("bound", ".hash", "bound.hash"),
+    ];
+    COPIES
+        .iter()
+        .find_map(|(copy_format, suffix, copy)| {
+            let name = file_name.strip_suffix(suffix)?;
+            (*copy_format == format).then(|| (name.to_owned(), *copy))
+        })
+        .unwrap_or_else(|| panic!("unexpected golden file {format}/{file_name}"))
 }
 
 #[test]
 fn golden_cases_are_copies_of_the_specification_files() {
     for format in ["ast", "bound"] {
         for source in spec_files(format) {
-            let stem = source.file_stem().unwrap().to_string_lossy().into_owned();
-            let extension = source.extension().unwrap().to_string_lossy().into_owned();
-            let copy = conformance()
-                .join("golden")
-                .join(&stem)
-                .join(copy_name(format, &extension));
+            let file_name = source.file_name().unwrap().to_string_lossy().into_owned();
+            let (name, file) = copy_of(format, &file_name);
+            let copy = conformance().join("golden").join(name).join(file);
             let expected = fs::read(&source).unwrap();
             let actual = fs::read(&copy).unwrap_or_else(|e| panic!("{}: {e}", copy.display()));
             assert_eq!(
@@ -142,12 +163,50 @@ fn golden_hashes_match_their_trees() {
         if let (Some(bound), Some(hash)) = (&golden.bound, &golden.bound_hash) {
             assert_eq!(&ast_hash(bound).unwrap(), hash, "{}", case.id);
         }
+        if let (Some(tree), Some(hash)) = (&golden.c_ast, &golden.c_ast_hash) {
+            assert_eq!(&ast_hash(tree).unwrap(), hash, "{} variant c", case.id);
+        }
         checked += 1;
     }
+    let programs = spec_files("ast")
+        .iter()
+        .map(|path| path.file_name().unwrap().to_string_lossy().into_owned())
+        .filter(|name| name.ends_with(".json") && !name.ends_with(".c.json"))
+        .count();
     assert!(
-        checked >= spec_files("ast").len() / 3,
-        "{checked} golden cases"
+        checked >= programs,
+        "{checked} golden cases, {programs} trees"
     );
+}
+
+#[test]
+fn invalid_surface_trees_of_the_specification_have_error_cases() {
+    let suite = suite();
+    let directory = spec_golden().join("ast").join(INVALID_DIR);
+    let table = fs::read_to_string(directory.join(INVALID_TABLE)).unwrap();
+    let rows: Vec<Vec<&str>> = table
+        .lines()
+        .skip(1)
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| line.split('\t').collect())
+        .collect();
+    assert!(!rows.is_empty());
+    for row in rows {
+        let (file, code) = (row[0], row[1]);
+        let document: Value =
+            serde_json::from_str(&fs::read_to_string(directory.join(file)).unwrap()).unwrap();
+        let covered = suite.cases.iter().any(|case| {
+            let Plan::Steps(steps) = &case.plan else {
+                return false;
+            };
+            case.kind == Kind::Error
+                && case.code.as_deref() == Some(code)
+                && steps
+                    .iter()
+                    .any(|step| step.params.get("ast") == Some(&document))
+        });
+        assert!(covered, "{file}: no error case sends this tree with {code}");
+    }
 }
 
 #[test]
@@ -165,6 +224,7 @@ fn golden_tasks_are_written_in_all_three_variants() {
         };
         let variants: Vec<&str> = golden.texts.iter().map(|(v, _)| v.as_str()).collect();
         assert_eq!(variants, ["a", "b", "c"], "{}", case.id);
+        assert!(golden.c_ast.is_some(), "{}: no variant c tree", case.id);
     }
 }
 

@@ -235,7 +235,6 @@ impl FakeServer {
     }
 
     fn add_golden(&mut self, golden: &Golden) {
-        let parsed = Answer::result(json!({member::AST: golden.ast}));
         let checked = golden.bound.as_ref().map(|bound| {
             let hash = golden
                 .bound_hash
@@ -251,14 +250,15 @@ impl FakeServer {
             }
         }
         for (variant, text) in &texts {
+            let tree = golden.printed_tree(variant);
             self.add(
                 method::PARSE,
                 &protocol::text_params(text, variant),
-                parsed.clone(),
+                Answer::result(json!({member::AST: tree})),
             );
             self.add(
                 method::PRINT,
-                &protocol::print_params(&golden.ast, variant),
+                &protocol::print_params(tree, variant),
                 Answer::result(json!({member::TEXT: text})),
             );
             if let Some(checked) = &checked {
@@ -918,12 +918,18 @@ mod tests {
         let tree = json!({"nurt": "1.0", "program": {"statements": [{"t": "pipeline",
             "head": {"t": "stage", "name": "count", "args": [{"name": "x", "value": {"t": "int", "v": 1}, "default": true}]},
             "stages": []}]}});
+        let c_tree = json!({"nurt": "1.0", "program": {"statements": []}});
         let golden = Golden {
-            texts: vec![("a".to_owned(), "count".to_owned())],
+            texts: vec![
+                ("a".to_owned(), "count".to_owned()),
+                ("c".to_owned(), "count named".to_owned()),
+            ],
             ast: tree.clone(),
             ast_hash: None,
             bound: Some(tree.clone()),
             bound_hash: None,
+            c_ast: Some(c_tree.clone()),
+            c_ast_hash: None,
         };
         let run = step(
             "run",
@@ -937,6 +943,16 @@ mod tests {
         let parse = request(2, "parse", json!({"program": "count", "variant": "a"}));
         let check = request(3, "check", json!({"nurt": "1.0", "program": "count"}));
         let run = request(4, "run", json!({"nurt": "1.0", "program": "count"}));
+
+        let mut fake = server(cases.clone(), None);
+        let parse_c = request(
+            7,
+            "parse",
+            json!({"program": "count named", "variant": "c"}),
+        );
+        assert_eq!(result_of(&fake.handle(&parse_c))["ast"], c_tree);
+        let print_c = request(8, "print", json!({"ast": c_tree, "variant": "c"}));
+        assert_eq!(result_of(&fake.handle(&print_c))["text"], "count named");
 
         let mut fake = server(cases.clone(), Some(Break::Tree));
         let reply = fake.handle(&parse);

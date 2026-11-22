@@ -27,7 +27,8 @@ nurt-conformance run --impl "<command that starts the server>" [options]
 | `--filter` | text, repeatable | none | Runs only cases whose identifier contains one of the given texts, or whose identifier matches the pattern when the text contains `*`. |
 | `--kind` | text, repeatable | all | Runs only cases of the given kinds. |
 | `--jobs` | integer | number of processors | Number of cases run in parallel. |
-| `--timeout` | duration | `30s` | Time limit of one case, including the start of the server. |
+| `--startup-timeout` | duration | `30s` | Time limit of the start of a server process and of its answer to `initialize`. |
+| `--timeout` | duration | `30s` | Time limit of one case, counted from the answer to `initialize`. |
 | `--report` | path | none | Writes the result in the format `nurt-conformance-report/1`. |
 | `--quiet` | flag | off | Prints only the summary. |
 
@@ -149,28 +150,43 @@ from the files of the directory:
 
 | Kind | Files | Calls |
 |---|---|---|
-| `golden` | `a.nurt`, `b.nurt`, `c.nurt` (each optional), `ast.json` (required), `ast.hash`, `bound.json`, `bound.hash` | see "Golden cases" |
+| `golden` | `a.nurt`, `b.nurt`, `c.nurt` (each optional), `ast.json` (required), `ast.hash`, `c.json`, `c.hash`, `bound.json`, `bound.hash` | see "Golden cases" |
 | `bind` | `program.nurt`, `bound.json` and/or `expect.json` | `check` of the program; the bound tree is compared as a tree, `expect.json` as a subset of the result; `work` must be unchanged |
 | `error`, `exec`, `journal` | `program.nurt` or `request.json`, `expect.json` or `report.json`, `fs-after.json` | `run` of the program or request; `expect.json` is compared with the response, `report.json` with its member `report`; `fs-after.json` with `work` after the call |
 
 ### Golden cases
 
-The files `ast.json`, `ast.hash`, `bound.json` and `bound.hash` have the
-format of the golden files of `spec/golden/` and are copies of them. The
-runner checks:
+The files of a golden case are copies of the golden files of `spec/golden/`
+and keep their format:
+
+| File of the case | Golden file |
+|---|---|
+| `a.nurt`, `b.nurt`, `c.nurt` | `ast/<name>.nurt`, `ast/<name>.b.nurt`, `ast/<name>.c.nurt` |
+| `ast.json`, `ast.hash` | `ast/<name>.json`, `ast/<name>.hash` |
+| `c.json`, `c.hash` | `ast/<name>.c.json`, `ast/<name>.c.hash` |
+| `bound.json`, `bound.hash` | `bound/<name>.json`, `bound/<name>.hash` |
+
+The runner checks:
 
 1. `parse` of `a.nurt` and of `b.nurt` returns a tree that is valid under the
    schema `nurt-ast/1` and equals `ast.json` as a tree.
-2. `parse` of `c.nurt` returns a valid tree. Variant C writes every argument
-   by name, so its surface tree differs from variant A; its equality is
-   checked on the bound tree.
+2. `parse` of `c.nurt` returns a valid tree that equals `c.json` as a tree.
+   Variant C writes every argument by name, so its surface tree differs from
+   variant A; without `c.json` only its bound tree is compared.
 3. When `bound.json` exists: `check` of every variant returns a bound tree
    valid under `nurt-bound/1` that equals `bound.json` as a tree, and the
    returned `ast_hash`, when present, equals the content of `bound.hash`.
-4. Canonical printer: `print` of `ast.json` in every variant of the case
-   returns a text whose `parse` in the same variant gives a tree equal to
-   `ast.json` (variants A and B) or, for variant C, a valid tree whose bound
-   tree equals `bound.json` when it exists.
+4. Canonical printer: `print` of `ast.json` in variants A and B, and of
+   `c.json` (or `ast.json` when it is absent) in variant C, returns a text
+   whose `parse` in the same variant gives a tree equal to the printed tree;
+   in variant C the bound tree of the text also equals `bound.json` when it
+   exists.
+
+The documents of `spec/golden/ast/invalid/` are error cases of
+`errors/invalid-trees.cases.json`: each case sends the document as the member
+`ast` of a `run` request and expects the error code listed for it in
+`expected.tsv`. The documents of `spec/golden/bound/invalid/` have no case,
+because no method of `nurt-rpc/1` accepts a bound tree.
 
 Two trees are equal as trees when their hash forms are equal: the member
 `meta` of the root and every member `span` removed. The hash form is also the

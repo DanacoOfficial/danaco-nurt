@@ -9,7 +9,7 @@ kind = "error"
 code = "E_UNKNOWN_COMMAND"
 summary = "An unknown command lists the nearest names."
 program = 'zzqx "src"'
-expect = { report = { status = "failed", error = { code = "E_UNKNOWN_COMMAND", stage = "1" } } }
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_COMMAND", at = { stage = "1" } } } }
 fs_after = "unchanged"
 
 [[case]]
@@ -58,6 +58,15 @@ expect = { report = { status = "failed", error = { code = "E_MISSING_PARAM" } } 
 fs_after = "unchanged"
 
 [[case]]
+id = "errors/bind/parameter-conflict"
+kind = "error"
+code = "E_PARAM_CONFLICT"
+summary = "Two parameters of one exclusive group given together are a conflict and read nothing."
+program = 'read "a.txt" targets: [{path: "a.txt"}]'
+expect = { report = { status = "failed", error = { code = "E_PARAM_CONFLICT", at = { stage = "1" } } } }
+fs_after = "unchanged"
+
+[[case]]
 id = "errors/bind/type-of-count"
 kind = "error"
 code = "E_TYPE"
@@ -101,7 +110,7 @@ code = "E_ONE_EFFECT"
 summary = "Two changing stages in one pipeline are split into next steps and nothing is removed."
 program = 'find "." glob: "*.tmp" |> remove |> remove'
 fs_before = { entries = [{ path = "a.tmp", type = "file", content_utf8 = "" }] }
-expect = { report = { status = "failed", error = { code = "E_ONE_EFFECT", stage = "1" } } }
+expect = { report = { status = "failed", error = { code = "E_ONE_EFFECT", at = { stage = "1" } } } }
 fs_after = "unchanged"
 
 [[case]]

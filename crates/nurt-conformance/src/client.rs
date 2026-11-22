@@ -182,7 +182,8 @@ pub struct ProcessConnection {
 impl ProcessConnection {
     /// Starts the server with the given environment variables.
     ///
-    /// Calls fail with [`CallError::Timeout`] once `deadline` has passed.
+    /// Calls fail with [`CallError::Timeout`] once `deadline` has passed;
+    /// [`Self::set_deadline`] replaces it.
     ///
     /// # Errors
     ///
@@ -230,6 +231,12 @@ impl ProcessConnection {
             deadline,
             events: Vec::new(),
         })
+    }
+
+    /// Sets the time after which calls fail with [`CallError::Timeout`] and
+    /// [`Self::shutdown`] stops waiting for the process.
+    pub fn set_deadline(&mut self, deadline: Instant) {
+        self.deadline = deadline;
     }
 
     /// Returns the events received so far.
