@@ -1,0 +1,7 @@
+{
+  "description": "Extension whose manifest does not exist.",
+  "function": "ext_load",
+  "input": "/opt/nurt/ext/missing/nurt-ext.toml",
+  "status": "io",
+  "message": "cannot read the manifest: no such file"
+}

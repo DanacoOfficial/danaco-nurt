@@ -1,0 +1,6 @@
+{
+  "description": "No extension loaded.",
+  "function": "ext_list",
+  "input": null,
+  "output": [{"extensions": []}]
+}

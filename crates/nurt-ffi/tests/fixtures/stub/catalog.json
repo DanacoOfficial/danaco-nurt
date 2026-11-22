@@ -1,0 +1,6 @@
+{
+  "description": "Whole command catalog, reduced to one command.",
+  "function": "catalog",
+  "input": null,
+  "output": [{"catalog_rev": "stub", "commands": [{"name": "find", "group": "files"}]}]
+}
