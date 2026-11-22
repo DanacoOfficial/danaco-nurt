@@ -3,7 +3,7 @@
   "function": "parse",
   "input": {"program": "find \"/srv/app\"", "variant": "a"},
   "output": [
-    {"nurt": "1.0", "pipelines": [{"stages": [{"command": "find", "args": ["/srv/app"]}]}]},
+    {"nurt": "1.0", "program": {"statements": [{"t": "pipeline", "head": {"t": "stage", "name": "find", "args": [{"value": {"t": "text", "v": "/srv/app"}}]}, "stages": []}]}},
     {"diagnostics": []}
   ]
 }

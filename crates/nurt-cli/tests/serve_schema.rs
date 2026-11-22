@@ -165,20 +165,27 @@ fn stub_transcript_conforms_to_the_schemas() {
         .join("tests/fixtures/serve/methods.requests.ndjson");
     let mut requests = read(&std::fs::read(path).unwrap());
     requests[0]["params"]["capabilities"]["events"] = json!(true);
-    for (id, program) in [
-        (100, r#"find "/srv/app" glob: "*.rs""#),
-        (101, r#"find "/srv/panic""#),
-    ] {
-        requests.push(json!({"jsonrpc": "2.0", "id": id, "method": "run", "params": {"nurt": "1.0", "program": program}}));
-    }
     let shutdown = requests
         .iter()
         .position(|r| r["method"] == "shutdown")
         .unwrap();
     let shutdown = requests.remove(shutdown);
-    requests.push(shutdown);
+    requests.push(shutdown.clone());
     let output = converse(rpc_options(), &requests);
     assert_conforms(&requests, &output, &[]);
+    assert!(output.iter().any(|m| m["method"] == "nurt/event"));
+
+    // A separate conversation keeps the runs below the limit of requests in flight.
+    let mut runs = vec![requests[0].clone()];
+    for (id, program) in [
+        (100, r#"find "/srv/app" glob: "*.rs""#),
+        (101, r#"find "/srv/panic""#),
+    ] {
+        runs.push(json!({"jsonrpc": "2.0", "id": id, "method": "run", "params": {"nurt": "1.0", "program": program}}));
+    }
+    runs.push(shutdown);
+    let output = converse(rpc_options(), &runs);
+    assert_conforms(&runs, &output, &[]);
     assert!(output.iter().any(|m| m["method"] == "nurt/event"));
     assert!(
         output

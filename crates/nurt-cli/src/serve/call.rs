@@ -8,11 +8,13 @@
 //! result is then a response `nurt-response/1` whose report has the status
 //! `failed`, the error and, as `kind`, the name of the method.
 
+use nurt_contracts::ast::AstDocument;
 use nurt_contracts::envelope::{Language, Request, Response};
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::kinds::SyntaxVariant;
 use nurt_contracts::report::{Report, ReportStatus};
 use nurt_contracts::schema;
+use nurt_core::CatalogQuery;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -110,20 +112,36 @@ pub(crate) enum Call {
     Describe(DescribeParams),
     Help(HelpParams),
     Schema(SchemaParams),
-    /// Parameters of `catalog`: an object, or `null` for none.
+    /// Selection of `catalog`: `null` or `{"group": name}` or
+    /// `{"command": name}`, the value of `what`.
     Catalog(Value),
-    /// Parameters of `history`: a query object, or `null` for none.
+    /// Query of `history`: a query object, or `null` for none.
     History(Value),
     Space(SpaceParams),
     Info,
+    /// A `run` or `check` whose syntax tree is not a valid `nurt-ast/1`
+    /// tree; answered as a language error of the method, not as invalid
+    /// parameters.
+    Rejected {
+        /// Name of the method.
+        method: &'static str,
+        /// The language error `E_AST_SCHEMA`.
+        error: Box<Error>,
+    },
 }
 
 impl Call {
     /// Reads the parameters of an engine method.
     pub(crate) fn parse(method: &str, params: Option<Value>) -> Result<Self, RpcError> {
         let call = match method {
-            "run" => Self::Run(Box::new(envelope(method, params)?)),
-            "check" => Self::Check(Box::new(envelope(method, params)?)),
+            "run" => match envelope(method, params.clone()) {
+                Ok(request) => Self::Run(Box::new(request)),
+                Err(error) => return rejected("run", params.as_ref(), error),
+            },
+            "check" => match envelope(method, params.clone()) {
+                Ok(request) => Self::Check(Box::new(request)),
+                Err(error) => return rejected("check", params.as_ref(), error),
+            },
             "parse" => Self::Parse(object(method, params)?),
             "print" => Self::Print(object(method, params)?),
             "correct" => Self::Correct(object(method, params)?),
@@ -131,8 +149,8 @@ impl Call {
             "describe" => Self::Describe(object(method, params)?),
             "help" => Self::Help(object(method, params)?),
             "schema" => Self::Schema(object(method, params)?),
-            "catalog" => Self::Catalog(optional_object(method, params)?),
-            "history" => Self::History(optional_object(method, params)?),
+            "catalog" => Self::Catalog(catalog_selection(params)?),
+            "history" => Self::History(history_query(params)?),
             "space" => Self::Space(object(method, params)?),
             "info" => {
                 optional_object(method, params)?;
@@ -159,8 +177,41 @@ impl Call {
             Self::History(_) => "history",
             Self::Space(_) => "space",
             Self::Info => "info",
+            Self::Rejected { method, .. } => method,
         }
     }
+}
+
+/// Outcome of a `run` or `check` whose parameters are not a request
+/// envelope: a language error `E_AST_SCHEMA` when only the syntax tree is
+/// at fault, otherwise the error of the invalid parameters.
+fn rejected(
+    method: &'static str,
+    params: Option<&Value>,
+    invalid: RpcError,
+) -> Result<Call, RpcError> {
+    match params.and_then(ast_schema_error) {
+        Some(error) => Ok(Call::Rejected {
+            method,
+            error: Box::new(error),
+        }),
+        None => Err(invalid),
+    }
+}
+
+/// The error of a request whose only fault is a `ast` member that is not a
+/// syntax tree `nurt-ast/1`.
+fn ast_schema_error(params: &Value) -> Option<Error> {
+    let members = params.as_object()?;
+    let ast = members.get("ast")?;
+    let mut rest = members.clone();
+    rest.remove("ast");
+    serde_json::from_value::<Request>(Value::Object(rest)).ok()?;
+    let fault = serde_json::from_value::<AstDocument>(ast.clone()).err()?;
+    Some(Error::new(
+        ErrorCode::AstSchema,
+        format!("`ast` is not a syntax tree nurt-ast/1: {fault}"),
+    ))
 }
 
 /// Parameters of a method that takes an object; absent parameters are an
@@ -198,6 +249,114 @@ fn optional_object(method: &str, params: Option<Value>) -> Result<Value, RpcErro
         Some(_) => Err(RpcError::invalid_params(format!(
             "the parameters of `{method}` must be an object"
         ))),
+    }
+}
+
+/// Selection of one group or one command in `catalog`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum CatalogSelection {
+    /// The groups with the number of their commands.
+    Summary,
+    /// The commands of one group.
+    Group(String),
+    /// The specification of one command.
+    Command(String),
+}
+
+impl CatalogSelection {
+    /// Reads the member `what` of the parameters of `catalog`: `null` for
+    /// the whole catalog, an object with `group` or with `command`.
+    pub(crate) fn from_value(what: &Value) -> Result<Self, RpcError> {
+        let invalid = |message: String| {
+            RpcError::invalid_params(format!("invalid parameters of `catalog`: {message}"))
+        };
+        let object = match what {
+            Value::Null => return Ok(Self::Summary),
+            Value::Object(object) => object,
+            _ => return Err(invalid("`what` must be an object or null".to_owned())),
+        };
+        let name = |key: &str| match object.get(key) {
+            Some(Value::String(name)) if !name.is_empty() => Ok(Some(name.clone())),
+            Some(_) => Err(invalid(format!("`{key}` must be a non-empty string"))),
+            None => Ok(None),
+        };
+        if let Some(key) = object
+            .keys()
+            .find(|key| !matches!(key.as_str(), "group" | "command"))
+        {
+            return Err(invalid(format!(
+                "unknown member `{key}` of `what`; expected `group` or `command`"
+            )));
+        }
+        match (name("group")?, name("command")?) {
+            (None, None) => Ok(Self::Summary),
+            (Some(group), None) => Ok(Self::Group(group)),
+            (None, Some(command)) => Ok(Self::Command(command)),
+            (Some(_), Some(_)) => Err(invalid(
+                "`what` takes `group` or `command`, not both".to_owned(),
+            )),
+        }
+    }
+
+    /// Query of the engine for this selection.
+    pub(crate) fn query(&self) -> CatalogQuery<'_> {
+        match self {
+            Self::Summary => CatalogQuery::Summary,
+            Self::Group(group) => CatalogQuery::Group(group),
+            Self::Command(command) => CatalogQuery::Command(command),
+        }
+    }
+}
+
+/// Parameters `{what?}` of `catalog`; returns the validated `what`.
+fn catalog_selection(params: Option<Value>) -> Result<Value, RpcError> {
+    let Value::Object(mut object) = optional_object("catalog", params)? else {
+        return Ok(Value::Null);
+    };
+    let what = object.remove("what").unwrap_or(Value::Null);
+    if let Some(key) = object.keys().next() {
+        return Err(RpcError::invalid_params(format!(
+            "unknown parameter `{key}` of `catalog`; expected `what`"
+        )));
+    }
+    CatalogSelection::from_value(&what)?;
+    Ok(if what.as_object().is_some_and(Map::is_empty) {
+        Value::Null
+    } else {
+        what
+    })
+}
+
+/// Parameters `{query?}` of `history`; returns the query object or `null`.
+///
+/// The query is an object, the text of an object or `null`. An object
+/// without the member `query` is itself the query.
+fn history_query(params: Option<Value>) -> Result<Value, RpcError> {
+    let invalid = |message: &str| {
+        RpcError::invalid_params(format!("invalid parameters of `history`: {message}"))
+    };
+    let Value::Object(mut object) = optional_object("history", params)? else {
+        return Ok(Value::Null);
+    };
+    let Some(query) = object.remove("query") else {
+        return Ok(Value::Object(object));
+    };
+    if !object.is_empty() {
+        return Err(invalid("`query` cannot be combined with other members"));
+    }
+    let query = match query {
+        Value::String(text) if text.trim().is_empty() => Value::Null,
+        Value::String(text) => serde_json::from_str(&text)
+            .map_err(|error| invalid(&format!("`query` is not valid JSON text: {error}")))?,
+        other => other,
+    };
+    match query {
+        Value::Null => Ok(Value::Null),
+        Value::Object(object) if object.is_empty() => Ok(Value::Null),
+        Value::Object(object) => Ok(Value::Object(object)),
+        _ => Err(invalid(
+            "`query` must be an object, JSON text of an object or null",
+        )),
     }
 }
 
@@ -396,5 +555,87 @@ mod tests {
         let unknown = schema("nothing").unwrap();
         assert_eq!(unknown["report"]["error"]["code"], "E_UNKNOWN_VALUE");
         assert_eq!(unknown["report"]["kind"], "schema");
+    }
+
+    #[test]
+    fn catalog_takes_the_selection_in_what() {
+        let parse = |params| Call::parse("catalog", params);
+        assert_eq!(
+            parse(Some(json!({"what": null}))).unwrap(),
+            Call::Catalog(Value::Null)
+        );
+        assert_eq!(
+            parse(Some(json!({"what": {"group": "documents"}}))).unwrap(),
+            Call::Catalog(json!({"group": "documents"}))
+        );
+        assert_eq!(
+            parse(Some(json!({"what": {"command": "find"}}))).unwrap(),
+            Call::Catalog(json!({"command": "find"}))
+        );
+        for params in [
+            json!({"what": "find"}),
+            json!({"what": {"group": 1}}),
+            json!({"what": {"group": "a", "command": "b"}}),
+            json!({"what": {"name": "a"}}),
+            json!({"group": "a"}),
+        ] {
+            let error = parse(Some(params.clone())).unwrap_err();
+            assert_eq!(error.code, INVALID_PARAMS, "{params}");
+        }
+    }
+
+    #[test]
+    fn catalog_selection_maps_to_the_engine_query() {
+        let selection = |what: Value| CatalogSelection::from_value(&what).unwrap();
+        assert_eq!(selection(Value::Null).query(), CatalogQuery::Summary);
+        assert_eq!(
+            selection(json!({"group": "g"})).query(),
+            CatalogQuery::Group("g")
+        );
+        assert_eq!(
+            selection(json!({"command": "c"})).query(),
+            CatalogQuery::Command("c")
+        );
+    }
+
+    #[test]
+    fn history_takes_the_query_in_query_or_as_the_object() {
+        let parse = |params| Call::parse("history", Some(params));
+        let expected = Call::History(json!({"limit": 2}));
+        assert_eq!(parse(json!({"limit": 2})).unwrap(), expected);
+        assert_eq!(parse(json!({"query": {"limit": 2}})).unwrap(), expected);
+        assert_eq!(parse(json!({"query": "{\"limit\": 2}"})).unwrap(), expected);
+        for empty in [
+            json!({"query": null}),
+            json!({"query": ""}),
+            json!({"query": {}}),
+        ] {
+            assert_eq!(parse(empty).unwrap(), Call::History(Value::Null));
+        }
+        for params in [
+            json!({"query": 3}),
+            json!({"query": "[1]"}),
+            json!({"query": "not json"}),
+            json!({"query": {}, "limit": 1}),
+        ] {
+            let error = parse(params.clone()).unwrap_err();
+            assert_eq!(error.code, INVALID_PARAMS, "{params}");
+        }
+    }
+
+    #[test]
+    fn a_tree_that_is_not_nurt_ast_is_a_language_error_of_the_method() {
+        let params = json!({"nurt": "1.0", "ast": {"nurt": "1.0", "program": 5}});
+        let Ok(Call::Rejected { method, error }) = Call::parse("run", Some(params)) else {
+            panic!("the tree is not rejected as a language error");
+        };
+        assert_eq!(method, "run");
+        assert_eq!(error.code, ErrorCode::AstSchema);
+    }
+
+    #[test]
+    fn other_invalid_parameters_stay_invalid_parameters() {
+        let params = json!({"nurt": "1.0", "program": 5});
+        assert!(Call::parse("check", Some(params)).is_err());
     }
 }

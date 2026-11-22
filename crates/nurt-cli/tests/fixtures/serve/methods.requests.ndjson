@@ -3,7 +3,7 @@
 {"jsonrpc":"2.0","id":3,"method":"run","params":{"nurt":"1.0","program":"find \"/srv/app\" glob: [\"*.go\""}}
 {"jsonrpc":"2.0","id":4,"method":"check","params":{"nurt":"1.0","program":"find \"/srv/app\" glob: \"*.go\""}}
 {"jsonrpc":"2.0","id":5,"method":"parse","params":{"program":"find \"/srv/app\""}}
-{"jsonrpc":"2.0","id":6,"method":"print","params":{"ast":{"nurt":"1.0","pipelines":[{"stages":[{"command":"find","args":["/srv/app"]}]}]}}}
+{"jsonrpc":"2.0","id":6,"method":"print","params":{"ast":{"nurt":"1.0","program":{"statements":[{"t":"pipeline","head":{"t":"stage","name":"find","args":[{"value":{"t":"text","v":"/srv/app"}}]},"stages":[]}]}}}}
 {"jsonrpc":"2.0","id":7,"method":"correct","params":{"program":"fnd \"/srv/app\"","variant":"a"}}
 {"jsonrpc":"2.0","id":8,"method":"page","params":{"cursor":"c_91fe"}}
 {"jsonrpc":"2.0","id":9,"method":"describe","params":{}}

@@ -45,7 +45,7 @@ const TWO_INPUTS: &CStr = cr#"{"nurt":"1.0","program":"find \"/srv/app\"","curso
 const PROGRAM: &CStr = cr#"find "/srv/app""#;
 const MISSPELT: &CStr = cr#"fnd "/srv/app""#;
 const AST: &CStr =
-    cr#"{"nurt":"1.0","pipelines":[{"stages":[{"command":"find","args":["/srv/app"]}]}]}"#;
+    cr#"{"nurt":"1.0","program":{"statements":[{"t":"pipeline","head":{"t":"stage","name":"find","args":[{"value":{"t":"text","v":"/srv/app"}}]},"stages":[]}]}}"#;
 const EXTENSION: &CStr = c"/opt/nurt/ext/sample/nurt-ext.toml";
 const EXTENSION_FUTURE: &CStr = c"/opt/nurt/ext/future/nurt-ext.toml";
 const EXTENSION_MISSING: &CStr = c"/opt/nurt/ext/missing/nurt-ext.toml";
@@ -682,7 +682,10 @@ fn operations_return_the_results_of_their_cases() {
             ),
             NurtStatus::Ok
         );
-        assert_eq!(first.json()["pipelines"][0]["stages"][0]["command"], "find");
+        assert_eq!(
+            first.json()["program"]["statements"][0]["head"]["name"],
+            "find"
+        );
         assert_eq!(second.json()["diagnostics"], serde_json::json!([]));
         assert_eq!(
             nurt_print(engine.0, AST.as_ptr(), NURT_VARIANT_A, first.ptr()),

@@ -156,7 +156,7 @@ level of the `NURT_CONFIG` file, after that file. The state directory is
 | `nurt_engine_config_get` | The effective configuration `nurt-config/1`. |
 | `nurt_parse` | The syntax tree and `{"diagnostics": []}`. |
 | `nurt_correct` | `{"program": text, "ast": tree, "corrections": [...]}`; `program` is the corrected text, or the given text when nothing was corrected. |
-| `nurt_check` | The bound tree with the targets, network addresses, external programs and the class of the effect, and `{"diagnostics": []}`. |
+| `nurt_check` | The check document `nurt-check/1` (`format`, `effect`, `reversibility`, `operations`, `waits`, `paths`, `network`, `programs`, `groups`, `corrections`, `details`) with the member `bound` holding the bound tree, and `{"diagnostics": []}`. |
 | `nurt_page` | The response of the page; `limit` 0 keeps the limit of the original request. |
 | `nurt_describe` | Text of the subject `name`, else `layer`, else `core`, in `language` or the configured language. Members other than `layer`, `name` and `language` are `NURT_E_ARG`. |
 | `nurt_help` | Text of the topic; `NULL` asks for the index of topics (the empty topic). |
@@ -165,7 +165,7 @@ level of the `NURT_CONFIG` file, after that file. The state directory is
 | `nurt_session_end` | Removes the run-time settings of the session. An identifier that is empty, longer than the limit or with control characters is `NURT_E_ARG`. |
 | `nurt_ext_list` | `{"extensions": [...]}`. |
 | `nurt_ext_load` | `E_UNSUPPORTED` (`NURT_E_ARG`) when the library has no extension host. |
-| `nurt_catalog` | The command catalog, or `{"error": ...}` with `E_UNSUPPORTED` while the engine has no catalog. `what_json` is checked to be an object; the selection is not applied. |
+| `nurt_catalog` | The command catalog, or `{"error": ...}` with `E_UNSUPPORTED` while the engine has no catalog. `what_json` is `null`, `{"group": name}` for the commands of a group or `{"command": name}` for the specification of a command; another member is `NURT_E_ARG`, an unknown name is `{"error": ...}`. |
 
 ## Information
 

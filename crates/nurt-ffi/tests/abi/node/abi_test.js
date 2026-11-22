@@ -24,7 +24,7 @@ const SYNTAX_ERROR = request('find "/srv/app" glob: ["*.go"');
 const TWO_INPUTS = request('find "/srv/app"', { cursor: 'c_91fe' });
 const EVENTS = request('find "/srv/app" glob: "*.rs"');
 const SLOW = request('find "/srv/archive"');
-const AST = JSON.stringify({ nurt: '1.0', pipelines: [{ stages: [{ command: 'find', args: ['/srv/app'] }] }] });
+const AST = JSON.stringify({ nurt: '1.0', program: { statements: [{ t: 'pipeline', head: { t: 'stage', name: 'find', args: [{ value: { t: 'text', v: '/srv/app' } }] }, stages: [] }] } });
 
 const MATRIX = {
   nurt_abi_check: [OK, ABI],

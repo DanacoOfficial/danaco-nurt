@@ -31,7 +31,7 @@ use nurt_contracts::kinds::SyntaxVariant;
 use nurt_contracts::spec::CORE_GROUP;
 use nurt_core::config::ConfigSources;
 use nurt_core::session::SessionId;
-use nurt_core::{Engine, EngineConfig, EngineError, EventListener, ExecHandle};
+use nurt_core::{CatalogQuery, Engine, EngineConfig, EngineError, EventListener, ExecHandle};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
@@ -143,6 +143,15 @@ impl EngineBackend {
         Ok(vec![to_json(&self.engine.page(cursor, &options))?])
     }
 
+    fn catalog(&self, input: &Value) -> Result<Vec<Vec<u8>>, CallError> {
+        let query = catalog_query(input)?;
+        let result = self
+            .engine
+            .catalog_query(&query)
+            .unwrap_or_else(|error| with_error(&error));
+        Ok(vec![to_json(&result)?])
+    }
+
     fn describe(&self, input: &Value) -> Result<Vec<Vec<u8>>, CallError> {
         let query = if input.is_null() {
             DescribeQuery::default()
@@ -240,13 +249,7 @@ impl Backend for EngineBackend {
                 Ok(vec![to_json(&self.run(&request)?)?])
             }
             Function::Page => self.page(input),
-            Function::Catalog => {
-                let result = self
-                    .engine
-                    .catalog()
-                    .unwrap_or_else(|error| with_error(&error));
-                Ok(vec![to_json(&result)?])
-            }
+            Function::Catalog => self.catalog(input),
             Function::Describe => self.describe(input),
             Function::Help => self.help(input),
             Function::History => self.history(input),
@@ -355,6 +358,39 @@ fn program_input(function: Function, input: &Value) -> Result<(&str, SyntaxVaria
 
 /// Query of `nurt_history`: the members given by the caller over the
 /// defaults of the command `history`.
+/// Selection of `nurt_catalog`: `null` or an object with `group` or with
+/// `command`.
+fn catalog_query(input: &Value) -> Result<CatalogQuery<'_>, CallError> {
+    let invalid = |message: String| {
+        CallError::arg(format!("`what_json` is not a catalog selection: {message}"))
+            .with_detail("argument", "what_json")
+    };
+    let object = match input {
+        Value::Null => return Ok(CatalogQuery::Summary),
+        Value::Object(object) => object,
+        _ => return Err(invalid("expected an object or null".to_owned())),
+    };
+    if let Some(key) = object
+        .keys()
+        .find(|key| !matches!(key.as_str(), "group" | "command"))
+    {
+        return Err(invalid(format!(
+            "unknown member `{key}`; expected `group` or `command`"
+        )));
+    }
+    let name = |key: &str| match object.get(key) {
+        Some(Value::String(name)) if !name.is_empty() => Ok(Some(name.as_str())),
+        Some(_) => Err(invalid(format!("`{key}` must be a non-empty string"))),
+        None => Ok(None),
+    };
+    match (name("group")?, name("command")?) {
+        (None, None) => Ok(CatalogQuery::Summary),
+        (Some(group), None) => Ok(CatalogQuery::Group(group)),
+        (None, Some(command)) => Ok(CatalogQuery::Command(command)),
+        (Some(_), Some(_)) => Err(invalid("`group` and `command` are exclusive".to_owned())),
+    }
+}
+
 fn history_query(input: &Value) -> Result<HistoryQuery, CallError> {
     let invalid = |message: String| CallError::arg(message).with_detail("argument", "query_json");
     let Value::Object(given) = input else {
@@ -502,6 +538,81 @@ mod tests {
             json!({"cursor": "c_unknown", "limit": 5}),
         );
         assert_eq!(outputs[0]["report"]["status"], "failed");
+    }
+
+    /// Checks the members of `document` against the required members and
+    /// the simple types of the schema `nurt-check/1`.
+    fn assert_check_document(document: &Value) {
+        let schema: Value = serde_json::from_str(nurt_contracts::schema::CHECK).unwrap();
+        let object = document.as_object().unwrap();
+        for name in schema["required"].as_array().unwrap() {
+            let name = name.as_str().unwrap();
+            assert!(object.contains_key(name), "missing member `{name}`");
+        }
+        for (name, property) in schema["properties"].as_object().unwrap() {
+            let Some(kind) = property["type"].as_str() else {
+                continue;
+            };
+            let member = &object[name];
+            let matches = match kind {
+                "string" => member.is_string(),
+                "integer" => member.is_u64(),
+                "boolean" => member.is_boolean(),
+                "array" => member.is_array(),
+                other => panic!("unexpected type `{other}` of `{name}`"),
+            };
+            assert!(
+                matches,
+                "member `{name}` is not of the type {kind}: {member}"
+            );
+        }
+        assert_eq!(object["format"], "nurt-check/1");
+    }
+
+    #[test]
+    fn check_result_has_the_members_of_the_check_document() {
+        let outputs = call(
+            &listing(),
+            Function::Check,
+            json!({"nurt": "1.0", "program": "list"}),
+        );
+        assert_check_document(&outputs[0]);
+        assert!(outputs[0]["bound"].is_object());
+        assert_eq!(outputs[1], json!({"diagnostics": []}));
+    }
+
+    #[test]
+    fn catalog_applies_the_selection_of_a_group_or_a_command() {
+        let backend = listing();
+        let summary = call(&backend, Function::Catalog, Value::Null);
+        assert!(summary[0]["groups"].is_array());
+        assert_eq!(call(&backend, Function::Catalog, json!({})), summary);
+        let group = summary[0]["groups"][0]["name"].as_str().unwrap().to_owned();
+        let listed = call(&backend, Function::Catalog, json!({"group": group}));
+        assert_eq!(listed[0]["group"]["name"], json!(group));
+        let command = listed[0]["commands"][0]["name"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let specified = call(&backend, Function::Catalog, json!({"command": command}));
+        assert_eq!(specified[0]["command"]["name"], json!(command));
+        let unknown = call(
+            &backend,
+            Function::Catalog,
+            json!({"group": "no-such-group"}),
+        );
+        assert_eq!(unknown[0]["error"]["code"], "E_UNKNOWN_NAME");
+        for input in [
+            json!("find"),
+            json!({"group": 1}),
+            json!({"group": "a", "command": "b"}),
+            json!({"what": "a"}),
+        ] {
+            assert_eq!(
+                failed(&backend, Function::Catalog, input).status(),
+                NurtStatus::Arg
+            );
+        }
     }
 
     #[test]

@@ -15,6 +15,7 @@ use nurt_core::{Frontend, UnavailableFrontend};
 
 use crate::app::CliError;
 
+pub mod mcp;
 pub mod serve;
 
 /// A subcommand implemented outside the command line crate.
@@ -108,11 +109,15 @@ pub fn unavailable(what: &str) -> CliError {
 ///
 /// # Errors
 ///
-/// Returns a usage error for invalid arguments of `serve` and the error
+/// Returns a usage error for invalid arguments of `serve` and `mcp` and the error
 /// "not available in this build" for a component that is not connected.
 pub fn run(name: &str, args: &[String]) -> Result<u8, CliError> {
     match name {
         "serve" => serve::run(args),
+        "mcp" => {
+            let arguments = mcp::parse(args)?;
+            Err(unavailable(arguments.transport.form()))
+        }
         other => Err(unavailable(other)),
     }
 }

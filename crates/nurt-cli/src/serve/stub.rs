@@ -58,10 +58,6 @@ impl StubBackend {
         Catalog::load(dir).map(|catalog| Self { catalog })
     }
 
-    #[expect(
-        clippy::panic,
-        reason = "a case may request a panic to test the boundary of the server"
-    )]
     fn answer(&self, function: Function, input: Value) -> Result<&Case, RpcError> {
         let input = normalize_input(function, input).map_err(RpcError::invalid_params)?;
         let case = self.catalog.lookup(function, &input).ok_or_else(|| {
@@ -73,7 +69,11 @@ impl StubBackend {
             .with_data("input", input.clone())
         })?;
         if let Some(message) = &case.panic {
-            panic!("{message}");
+            return Err(RpcError::status(
+                AbiStatus::Internal,
+                "the server failed while answering the request",
+            )
+            .with_data("panic", message.as_str().into()));
         }
         if case.status != AbiStatus::Ok {
             let message = case
@@ -182,6 +182,7 @@ impl Backend for StubBackend {
             Call::Catalog(params) => self.first(Function::Catalog, params),
             Call::History(params) => self.first(Function::History, params),
             Call::Space(params) => self.first(Function::Space, params.volume.into()),
+            Call::Rejected { method, error } => call::failure(method, *error),
             Call::Info => Ok(json!({
                 "version": env!("CARGO_PKG_VERSION"),
                 "formats": {

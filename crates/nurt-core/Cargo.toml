@@ -20,11 +20,17 @@ workspace = true
 # Language front end answering from `nurt-bound/1` files, for tests of the
 # interfaces built on the engine.
 fixtures = []
+# Stages of the structured commands (`nurt-doc`, `nurt-code`). Enabled by the
+# default set once both crates provide `register` (after the merge of the
+# structured area into the integration branch).
+structured = ["dep:nurt-doc", "dep:nurt-code"]
 
 [dependencies]
 nurt-contracts = { workspace = true }
 nurt-catalog = { workspace = true }
 nurt-exec = { workspace = true }
+nurt-doc = { workspace = true, optional = true }
+nurt-code = { workspace = true, optional = true }
 nurt-plan = { workspace = true }
 nurt-report = { workspace = true }
 schemars = { workspace = true }

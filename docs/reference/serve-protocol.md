@@ -66,8 +66,8 @@ Every message is a JSON-RPC 2.0 object with `"jsonrpc": "2.0"`.
 | Method | Parameters | Result |
 |---|---|---|
 | `initialize` | see [`initialize`](#initialize) | see [`initialize`](#initialize) |
-| `run` | request envelope `nurt-request/1` | response `nurt-response/1` |
-| `check` | request envelope `nurt-request/1` | static check of the request, with `diagnostics` |
+| `run` | request envelope `nurt-request/1` | response `nurt-response/1`; a request whose only fault is an `ast` that is not a tree `nurt-ast/1` is answered with the language error `E_AST_SCHEMA` (report status `failed`), not with `-32602` |
+| `check` | request envelope `nurt-request/1` | check document `nurt-check/1` with the members `bound` (the bound tree), `ast_hash` (hash of the syntax tree the program was bound from, `sha256:<hex>`; absent when the tree is not known) and `diagnostics` |
 | `parse` | `{program: string, variant?: "a" \| "b" \| "c"}` | `{ast: nurt-ast/1, diagnostics: []}` |
 | `print` | `{ast: nurt-ast/1, variant?: "a" \| "b" \| "c"}` | `{text: string}` |
 | `correct` | `{program: string, variant?: "a" \| "b" \| "c"}` | corrected program and its corrections |
@@ -75,16 +75,22 @@ Every message is a JSON-RPC 2.0 object with `"jsonrpc": "2.0"`.
 | `describe` | `{subject?: string, language?: string}` | `{description}` |
 | `help` | `{topic?: string, language?: string}` | `{text: string}` |
 | `schema` | `{name: string}` | the published JSON Schema `name` |
-| `catalog` | object or absent | command catalog |
-| `history` | journal history query, or absent | `{operations: [...]}` |
+| `catalog` | `{what?: object \| null}` or absent | command catalog `nurt-catalog-result/1` |
+| `history` | `{query?: object \| string \| null}` or absent | `{operations: [...]}` |
 | `space` | `{volume?: absolute path}` | `{volumes: [...]}` |
 | `info` | absent | engine description: version, formats, features, system |
 | `cancel` | `{request_id}` or `{job_id}` | `{cancelled: boolean}` |
 | `shutdown` | absent | `null` |
 
 `variant` defaults to the variant of the configuration; `subject` and
-`topic` default to `core`. `schema` accepts `ast`, `bound`, `report`,
-`request`, `config`, `catalog`, `value` and `tool`. A language error of any
+`topic` default to `core`. `schema` accepts `ast`, `bound`, `report`, `request`,
+`response`, `config`, `catalog`, `catalog-result`, `value`, `tool`,
+`fs-snapshot`, `check`, `rpc` and `event`. `what` selects
+`{"group": name}` (the commands of a group) or `{"command": name}` (the
+specification of a command); `null` or absent returns the groups. `query`
+is the query of `history` as an object or as the text of an object; an
+object without `query` is itself the query. A selection or a query of another
+shape is the JSON-RPC error `-32602`. A language error of any
 method is part of the result, not a JSON-RPC error: the result is then a
 response `nurt-response/1` whose report has the status `failed`, the error in
 `report.error` and, as `report.kind`, the name of the method (for `run`, the
