@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.commit <repo: path> message: <text> (staged: true | all: true | paths: <list<path>>) [amend: <bool>] [trailers: <list<text>>] [sign_off: <bool>] [author: <text>] [allow_empty: <bool>] [hooks: <bool>] [sign: <bool>] [exclude: <list<glob>>] [expect_state: <text>]
-git.commit <repo: path> message: <text> amend: true
+git.commit <repo> message: <text> [name: value]...
 ```
 
 ## Description
@@ -81,59 +80,35 @@ not change the result.
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
 | `message` | `text` | required | Commit message. |
-| `staged` | `bool` | `false` | Commit exactly the content of the index; concludes a merge in progress. |
-| `all` | `bool` | `false` | Stage every change of the working tree, untracked files included, before committing. |
 | `paths` | `list<path>` | none | Commit `HEAD` with the working tree content of these files and directories. |
+| `all` | `bool` | `false` | Stage every change of the working tree, untracked files included, before committing. |
+| `staged` | `bool` | `false` | Commit exactly the content of the index; concludes a merge in progress. |
 | `amend` | `bool` | `false` | Replace the last commit; alone, change only its message. |
 | `trailers` | `list<text>` | `[]` | Trailers `Token: value` or `Token=value` appended to the message. |
 | `sign_off` | `bool` | `false` | Append `Signed-off-by` with the committer identity. |
 | `author` | `text` | the repository configuration | Author as `Name <email>`. |
 | `allow_empty` | `bool` | `false` | Allow a commit without changes. |
 | `hooks` | `bool` | `true` | Run the hooks of the repository as user programs. |
-| `sign` | `bool` | `commit.gpgSign` | Sign the commit with the signing key of the repository configuration. |
+| `sign` | `bool` | the setting commit.gpgSign of the repository configuration | Sign the commit with the signing key of the repository configuration. |
 | `exclude` | `list<glob>` | `[]` | Paths to leave out of the commit; a pattern without `/` matches the file name in any directory. |
 | `expect_state` | `text` | none | State token of an earlier `git.commit` effect; nothing changes when the repository state differs. |
 
 ## Input and output
 
-No input. The output is one `effect` record followed by one `commit` record.
-
-The `effect` record has `kind: git.commit`, the changed files in `changes`
-and the repository effect in `git`:
-
-| Field | Type | Description |
+| Form | Input | Output |
 |---|---|---|
-| `git.repo` | `path` | Root of the repository. |
-| `git.state` | `enum` | `completed`. |
-| `git.head_before`, `git.head_after` | `text` | Commit of `HEAD` before and after. |
-| `git.branch` | `text` | Branch the commit was recorded on; absent when `HEAD` is detached. |
-| `git.detached` | `bool` | `HEAD` names a commit directly. |
-| `git.state_token` | `text` | State token after the commit, for `expect_state` of a later call. |
-
-The `commit` record carries `id`, `short_id`, `author`, `author_email`,
-`time`, `committer`, `committer_email`, `commit_time`, `message`, `subject`,
-`parents`, `tree`, `trailers`, `refs` (the branch), `stats` (files, lines
-added and removed) and `files` (path, status, lines added and removed,
-`binary`) against the first parent.
-
-The report notes `history_rewritten` for `amend`, `commit_detached_head`
-for a commit on a detached `HEAD`, `operation_in_progress` when a rebase,
-cherry-pick, revert or bisection is in progress, `excluded` with the number
-of paths left out, `hooks_skipped` when hooks exist and are not run, and
-`signed` for a signed commit.
+| default | `none` | `effect`, `commit` |
 
 ## Effect
 
-Category `change`, effect `local`, reversible. The commit object, its trees
-and blobs are added to the object store, which the journal does not track.
-The index (with `all` or `paths`, or when `pre-commit` changed it),
-`COMMIT_EDITMSG`, the merge state, the branch or `HEAD` and the reflogs
-change in one journal operation. Undo moves the branch and the index back;
-the working tree is not changed and written objects remain. Hooks are user
-programs; their effects are recorded as irreversible.
-
-A lock file of `git` (`index.lock`, `<reference>.lock`) stops the commit
-before any change.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | Undo moves the branch reference back; the working tree is not changed and written objects remain in the repository. |
+| External use | `user_program`; used when `hooks` is given; Runs the pre-commit and commit-msg hooks of the repository as user programs. |
 
 ## Examples
 

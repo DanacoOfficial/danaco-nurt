@@ -13,11 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.checkpoint <repo> action: create [label: <text>] [index: <bool>] [exclude: <list<glob>>]
-git.checkpoint <repo> action: list
-git.checkpoint <repo> action: compare checkpoint_id: <text> [against: <text>] [stat: <bool>] [context: <int>] [paths: <list<path>>]
-git.checkpoint <repo> action: restore checkpoint_id: <text> [paths: <list<path>>] [index: <bool>] [save_current: <bool>] [expect_state: <text>]
-git.checkpoint <repo> action: delete (checkpoint_id: <text | list<text>> | keep: <int>)
+git.checkpoint <repo> action: <enum(create|list|compare|restore|delete)> [name: value]...
 ```
 
 ## Description
@@ -65,7 +61,7 @@ conversion, `ident` and `working-tree-encoding` are applied.
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
 | `action` | `enum(create\|list\|compare\|restore\|delete)` | required | Operation on checkpoints. |
-| `label` | `text` | `checkpoint` | Label of a new checkpoint; only the first line is kept. |
+| `label` | `text` | none | Label of a new checkpoint; only the first line is kept. |
 | `checkpoint_id` | `text \| list<text>` | none | Checkpoint to compare or restore, as `cp-<N>`, or checkpoints to delete. |
 | `against` | `text` | the working tree | With `compare`: checkpoint or revision on the new side. |
 | `stat` | `bool` | `false` | With `compare`: one change per file with added and removed lines instead of hunks. |
@@ -75,33 +71,33 @@ conversion, `ident` and `working-tree-encoding` are applied.
 | `word_diff` | `bool` | `false` | With `compare`: not available for checkpoints; `true` fails with `E_GIT_UNSUPPORTED`. |
 | `ignore_whitespace` | `bool` | `false` | With `compare`: not available for checkpoints; `true` fails with `E_GIT_UNSUPPORTED`. |
 | `ignore_moved` | `bool` | `false` | With `compare`: not available for checkpoints; `true` fails with `E_GIT_UNSUPPORTED`. |
-| `paths` | `list<path>` | all files | With `compare` and `restore`: files or directories, relative to the root of the working tree or absolute inside it. |
+| `paths` | `list<path>` | none | With `compare` and `restore`: files or directories, relative to the root of the working tree or absolute inside it. |
 | `index` | `bool` | `false` | With `create`: also record the index. With `restore`: also restore the recorded index. |
 | `keep` | `int` | none | With `delete`: keep only this many newest checkpoints; excludes `checkpoint_id`. |
 | `save_current` | `bool` | `true` | With `restore`: record the current state as a new checkpoint labelled `before restore of cp-<N>` in the same operation, unless the restore changes nothing. The effect names it in `checkpoint_before`. |
 | `exclude` | `list<glob>` | `[]` | With `create`: patterns of files left out of the checkpoint, tracked or not. The patterns are stored in the commit message as `exclude:` lines; `restore` leaves matching files untouched. The report counts the excluded files (`excluded`). |
+| `expect_state` | `text` | none | State token from an earlier read; nothing changes when the repository state differs. |
 
 ## Input and output
 
-The command takes no input. `create` produces one `git_checkpoint` record,
-`list` produces one `git_checkpoint` record per checkpoint, `compare` produces
-`hunk` records, or `change` records with `stat: true`, and `restore` and
-`delete` produce one `effect` record.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `git_checkpoint`, `hunk`, `effect` |
 
 ## Effect
 
-Category `change`, local effect, reversible; `list` and `compare` only read.
-`create` writes new objects, which are exempt from the journal, and one
-reference by the lock protocol of `git`; `undo` removes the reference.
-`restore` changes every written or removed file and the index in one journal
-entry; `undo` restores their previous content exactly. The report lists the
-number of removed untracked files as `untracked_removed`. `delete` removes the
-loose reference, its line in `packed-refs` and its log; `undo` restores all
-three.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | Restore keeps the exact previous content of every file it changes or removes. |
 
-`restore` writes symbolic links recorded in a checkpoint and sets or clears the
-executable bit of a restored file as the checkpoint recorded it. A directory
-replaced by a file gives a file with the permissions of a plain file.
+| Action | Effect | Reversibility | Note |
+|---|---|---|---|
+| `list` | `read` | `read` |  |
+| `compare` | `read` | `read` |  |
 
 ## Examples
 

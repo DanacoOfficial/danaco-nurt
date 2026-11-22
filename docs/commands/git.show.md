@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.show <repo: path> <revision: text> [revs: <list<text>>] [paths: <list<path>>] [stat: <bool>] [context: <int>] [exclude: <list<glob>>]
-git.show <repo: path> <revision: text> file: <path> [offset: <int>] [limit: <int>]
+git.show <repo> <revision> [name: value]...
 ```
 
 ## Description
@@ -51,10 +50,10 @@ rename, is one hunk without lines. A binary change is one hunk with
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
 | `revision` | `text` | required | Revision to show. |
-| `revs` | `list<text>` | `[]` | Further revisions shown after `revision`. |
+| `revs` | `list<text>` | none | Further revisions shown after `revision`. |
 | `file` | `path` | none | Return the content of this file at the revision instead of the changes. |
 | `paths` | `list<path>` | none | Only changes in these files or directories. |
-| `offset` | `int` | `1` | First line of the content returned with `file`, counted from 1. |
+| `offset` | `int` | none | First line of the content returned with `file`, counted from 1. |
 | `limit` | `int` | none | Largest number of lines of the content returned with `file`. |
 | `stat` | `bool` | `false` | Only changed files with added and removed lines, in the `commit` record; a merge is compared with its first parent. |
 | `context` | `int` | `3` | Unchanged lines around each change. |
@@ -62,30 +61,18 @@ rename, is one hunk without lines. A binary change is one hunk with
 
 ## Input and output
 
-No input. The output is a sequence of `git_tag`, `commit` and `hunk` records,
-or one `content` record with `file`.
-
-| Record | Field | Description |
+| Form | Input | Output |
 |---|---|---|
-| `commit` | as in `git.log` | With `files` and `stats` when `stat` is set. |
-| `hunk` | `path`, `old_path` | Path after the change, relative to the repository root, and the path before a rename. |
-| `hunk` | `old_start`, `old_len`, `new_start`, `new_len` | Line ranges as written after `@@`. |
-| `hunk` | `lines` | Lines with the prefixes `+`, `-` and space; one prefix column per parent for a merge. |
-| `hunk` | `header` | Section heading: the nearest preceding line that starts with a letter, `_` or `$`. |
-| `hunk` | `status` | `added`, `deleted`, `modified`, `renamed` or `binary`. |
-| `hunk` | `old_mode`, `new_mode` | Mode of a deleted or added file, or both modes when the mode changed. |
-| `git_tag` | `name`, `target`, `tagger`, `time`, `message` | Name, tagged object, tagger after `.mailmap`, time and message. |
-| `content` | `text`, `lines`, `total_lines` | Selected lines, their number and the number of lines of the file. |
-| `content` | `range`, `truncated` | Lines returned and whether lines follow them, with `offset` or `limit`. |
-| `content` | `etag`, `revision` | Identifier of the file object and of the commit it was read from. |
-| `content` | `encoding`, `bom`, `line_ending`, `binary`, `size` | `utf-8`, `iso-8859-1` or `binary`; byte order mark; line endings; binary content; size in bytes. |
-
-The report notes `excluded` with the number of changed files left out by
-`exclude`.
+| default | `none` | `commit`, `hunk`, `git_tag`, `content` |
 
 ## Effect
 
-Category `source`, read only. Nothing in the repository changes.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -128,3 +115,7 @@ git.show "/home/user/repo" "HEAD~2" file: "/home/user/repo/src/main.rs" offset: 
 | `E_INVALID_VALUE` | `file` names a directory or a submodule, `file` with `revs`, `paths` or `stat`, `offset` or `limit` without `file`, or `offset: 0`. | Remove the conflicting argument |
 | `E_TYPE` | `exclude` is not a list of patterns. | Give glob patterns |
 | `E_IO` | An object of the repository cannot be read. | Check the repository with `git.status` |
+
+## Related
+
+`git.log`, `git.diff`, `git.blame`, `git.tag`.

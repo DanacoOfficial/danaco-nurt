@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.switch <repo: path> branch: <text> [create: <bool>] [start_point: <text>] [detach: <bool>] [discard_changes: <bool>] [guess: <bool>] [checkpoint: <bool>]
+git.switch <repo> branch: <text> [name: value]...
 ```
 
 ## Description
@@ -47,29 +47,30 @@ from the log of `HEAD`.
 | `repo` | `path` | required | Repository or a path inside it. |
 | `branch` | `text` | required | Branch to switch to; `-` for the previous branch; with `detach` any revision. |
 | `create` | `bool` | `false` | Create the branch at `start_point` first; fails when it exists. The new branch log receives `branch: Created from <start_point>`. |
-| `start_point` | `text` | `HEAD` | Revision at which a created branch starts. |
+| `checkpoint` | `bool` | `false` | Create a checkpoint of the working tree and the index before switching, as `git.checkpoint action: create index: true` does, labelled `before git.switch to <branch>`. |
+| `guess` | `bool` | `false` | When no local branch exists, create one tracking the only remote-tracking branch of that name (`branch.<name>.remote` and `branch.<name>.merge` are added to the configuration). |
+| `start_point` | `text` | none | Revision at which a created branch starts. |
 | `detach` | `bool` | `false` | Point `HEAD` directly at the commit of `branch` instead of a branch. |
 | `discard_changes` | `bool` | `false` | Overwrite local changes of tracked files; untracked files in the way still refuse the switch. |
-| `guess` | `bool` | `false` | When no local branch exists, create one tracking the only remote-tracking branch of that name (`branch.<name>.remote` and `branch.<name>.merge` are added to the configuration). |
-| `checkpoint` | `bool` | `false` | Create a checkpoint of the working tree and the index before switching, as `git.checkpoint action: create index: true` does, labelled `before git.switch to <branch>`. |
 
 `start_point` requires `create: true`; to check out a revision without a
 branch, give it as `branch` with `detach: true`.
 
 ## Input and output
 
-No input. The output is an `effect` record with the `git` part: `head_before`,
-`head_after`, `branch`, `branch_before`, `detached`, `checkpoint_before` (the
-identifier of the checkpoint, with `checkpoint: true`) and the notable effects
-`local_changes_carried`, `detached_head` and `filter_not_applied`.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect` |
 
 ## Effect
 
-Category `change`, local effect, reversible. Every changed working tree file,
-the index, `HEAD`, a created branch with its log, the configuration and the
-reference of the checkpoint are targets of one journal entry; `undo` restores
-them exactly. The log of `HEAD` is restored to its previous length. Only the
-checkpoint writes new objects; they stay in the object database after `undo`.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | The exact previous content of every changed file is kept in the journal. |
 
 ## Examples
 

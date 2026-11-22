@@ -13,10 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.rebase <repo> onto: <text>
-git.rebase <repo> action: continue
-git.rebase <repo> action: skip
-git.rebase <repo> action: abort
+git.rebase <repo> [name: value]...
 ```
 
 ## Description
@@ -79,32 +76,19 @@ and merge driver programs are not started during a rebase.
 
 ## Input and output
 
-The command reads no input. It writes one `effect` record whose `git` field
-describes the repository:
-
-| Field of `effect.git` | Value |
-|---|---|
-| `state` | `completed`, `fast_forward`, `up_to_date`, `conflicts` or `stopped` |
-| `head_before`, `head_after` | Commit of `HEAD` before and after |
-| `branch` | Rebased branch, without `refs/heads/` |
-| `conflicts` | Conflicts left in the working tree |
-| `in_progress` | `rebase` when the rebase stopped, otherwise `none` |
-| `step` | Commands run and commands in total when the rebase stopped |
-| `detached` | `true` while the rebase is stopped or for a detached `HEAD` |
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect`, `git_conflict` |
 
 ## Effect
 
-Category `change`, effect `local`, reversibility `reversible`. Each call is
-one journal operation: the working tree files, the index, the branch,
-`HEAD`, the reference logs, `ORIG_HEAD`, `AUTO_MERGE`, `REBASE_HEAD`,
-`MERGE_MSG` and the files of `rebase-merge/` are changed together, and `undo`
-restores each of them byte for byte. Objects added to the object database
-stay, as they are immutable. The reference logs receive the messages of
-Git: `rebase (start): checkout <onto>`, `rebase (pick): <subject>`,
-`rebase (continue): <subject>`, `rebase (finish): returning to <branch>`,
-`rebase (finish): <branch> onto <commit>` and
-`rebase (abort): returning to <branch>`. The notable effect
-`history_rewritten` marks a branch whose commits were replaced.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | The previous references and the exact previous content of every changed file are kept in the journal. |
 
 ## Examples
 

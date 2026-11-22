@@ -1,7 +1,7 @@
 ---
 command: git.clone
 group: git
-summary: Clone a repository into a new directory.
+summary: Clone a repository over HTTPS or SSH into a new directory.
 since: 0.1.0
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.clone <url> <to> [depth: <int>] [branch: <text>] [bare: <bool>] [accept_host_key: <text>]
+git.clone <url> <to> [name: value]...
 ```
 
 ## Description
@@ -60,28 +60,25 @@ credential stores; credential helpers that are programs are not run.
 | `url` | `text` | required | Address of the repository. |
 | `to` | `path` | required | Directory to create. |
 | `depth` | `int` | none | Limit the history to this many commits; at least 1. |
-| `branch` | `text` | the default branch of the remote | Branch to check out. |
+| `branch` | `text` | none | Branch to check out. |
 | `bare` | `bool` | `false` | Create a repository without a working tree. |
 | `accept_host_key` | `text` | none | SHA-256 fingerprint (`SHA256:<base64>`) of the SSH host key to accept when the host is not known. |
 
 ## Input and output
 
-No input. The output is an `effect` record whose `git` part holds the state,
-`head_after`, `branch`, `ref_updates`, `objects_received` and
-`bytes_received`, followed by one `git_ref_update` record per reference
-created with the status `new`. Notable effects: `shallow_repository`,
-`tls_verification_disabled`, `http_option_ignored` and
-`credential_helper_ignored`.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect`, `git_ref_update` |
 
 ## Effect
 
-Category `change`, effect `external`, reversibility `irreversible`,
-implemented without external programs.
-
-The new directory is one journal target. A failure or a cancellation after
-the directory was created removes it; undoing the operation removes it
-together with its content. The transfer cannot be reversed and is reported
-with the marker `remote_ref_updated`.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `external` |
+| Reversibility | `irreversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | The new directory is removed by undo; the network transfer cannot be reversed. |
 
 ## Examples
 
@@ -120,3 +117,7 @@ git.clone "/srv/git/app.git" "/home/user/app.git" bare: true
 | `E_GIT_PROTOCOL` | The remote answered outside the protocol. | Check that the address names a Git repository. |
 | `E_NETWORK` | The connection failed; the problem is `dns`, `connect`, `tls`, `timeout`, `proxy` or `http_status`. | Check the address, the proxy settings and the network. |
 | `E_CANCELLED`, `E_TIMEOUT` | The transfer was interrupted; the new directory was removed. | Repeat the call. |
+
+## Related
+
+`git.fetch`, `git.switch`, `git.worktree`, `git.status`, `undo`.

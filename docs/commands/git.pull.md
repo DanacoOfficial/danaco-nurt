@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.pull <repo> [remote: <text>] [branch: <text>] [mode: merge|rebase|fast_forward_only] [accept_host_key: <text>]
+git.pull <repo> [name: value]...
 ```
 
 ## Description
@@ -77,26 +77,19 @@ allows them; skipped programs are reported as notable entries.
 
 ## Input and output
 
-Input: none. Output: one `effect` record with `effect.git` (state
-`fast_forward`, `completed`, `up_to_date`, `conflicts`), followed by one
-`git_ref_update` record per updated remote-tracking reference and one
-`git_conflict` record per conflict.
-
-`effect.git` reports `head_before`, `head_after`, `branch`, `ref_updates`,
-`objects_received` and `bytes_received`.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect`, `git_ref_update`, `git_conflict` |
 
 ## Effect
 
-Category `change`, effect `external`, reversibility `irreversible`,
-implemented without external programs.
-
-The transfer and the integration form one journal operation. The
-remote-tracking references, `FETCH_HEAD`, the index, the working tree, the
-current branch, `HEAD` with their reflogs and the merge state files are
-preserved together before the first write; undoing the operation restores
-all of them. Objects added to the object store are not removed by an undo.
-The update of the remote is irreversible and reported as
-`remote_ref_updated`.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `external` |
+| Reversibility | `irreversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | Local changes to the working tree are kept in the journal; the network transfer cannot be reversed. |
 
 ## Examples
 

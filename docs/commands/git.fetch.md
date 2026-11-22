@@ -1,7 +1,7 @@
 ---
 command: git.fetch
 group: git
-summary: Fetch objects and references from a remote.
+summary: Fetch objects and references from a remote over HTTPS or SSH.
 since: 0.1.0
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.fetch <repo> [remote: <text>] [prune: <bool>] [tags: <bool>] [depth: <int>] [accept_host_key: <text>]
+git.fetch <repo> [name: value]...
 ```
 
 ## Description
@@ -62,31 +62,25 @@ address is used for the transfer and never written to the results.
 |---|---|---|---|
 | `repo` | `path` | required | Repository or a path inside it. |
 | `remote` | `text` | `"origin"` | Configured remote or address. |
-| `prune` | `bool` | the repository configuration | Remove remote-tracking references that no longer exist on the remote. |
+| `prune` | `bool` | `false` | Remove remote-tracking references that no longer exist on the remote. |
 | `tags` | `bool` | `false` | Fetch every tag of the remote. |
 | `depth` | `int` | none | Limit the fetched history to this many commits; at least 1. |
 | `accept_host_key` | `text` | none | SHA-256 fingerprint (`SHA256:<base64>`) of the SSH host key to accept when the host is not known. |
 
 ## Input and output
 
-No input. The output is an `effect` record whose `git` part holds the state
-(`completed` or `up_to_date`), `ref_updates`, `objects_received` and
-`bytes_received`, followed by one `git_ref_update` record per reference
-considered with `ref`, `status` (`new`, `updated`, `forced`, `deleted`,
-`up_to_date`, `rejected`), `remote`, `remote_ref`, `old`, `new` and `reason`.
-Notable effects: `shallow_repository`, `tls_verification_disabled`,
-`http_option_ignored` and `credential_helper_ignored`.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect`, `git_ref_update` |
 
 ## Effect
 
-Category `change`, effect `external`, reversibility `irreversible`,
-implemented without external programs.
-
-The updated references, their reflogs, `packed-refs`, `FETCH_HEAD` and
-`shallow` are preserved before the first write; undoing the operation
-restores them. Objects added to the object store are not removed by an undo.
-The operation is reported as irreversible with the marker
-`remote_ref_updated`, because the transfer cannot be reversed.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `external` |
+| Reversibility | `irreversible` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -126,3 +120,7 @@ git.fetch "/home/user/app" depth: 50
 | `E_GIT_PROTOCOL` | The remote answered outside the protocol, or its object format differs. | Check that the address names a Git repository. |
 | `E_NETWORK` | The connection failed; the problem is `dns`, `connect`, `tls`, `timeout`, `proxy` or `http_status`. | Check the address, the proxy settings and the network. |
 | `E_CANCELLED`, `E_TIMEOUT` | The transfer was interrupted; no reference was changed. | Repeat the call. |
+
+## Related
+
+`git.pull`, `git.push`, `git.branch`, `git.clone`, `undo`.

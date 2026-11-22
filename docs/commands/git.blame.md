@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.blame <path: path> [lines: <range>] [revision: <text>] [find_moves: <bool>] [find_copies: <bool>]
+git.blame <path> [name: value]...
 ```
 
 ## Description
@@ -48,29 +48,25 @@ of `text`.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | required | File in a repository. |
-| `lines` | `range` | the whole file | Lines to annotate, counted from 1; an end beyond the file is cut to its last line. |
-| `revision` | `text` | the working tree | Commit whose file is annotated. |
+| `lines` | `range` | none | Lines to annotate, counted from 1; an end beyond the file is cut to its last line. |
+| `revision` | `text` | `"HEAD"` | Commit whose file is annotated. |
 | `find_moves` | `bool` | `false` | Attribute lines moved within the file to the commit that wrote them. |
 | `find_copies` | `bool` | `false` | As `find_moves`, and also lines copied from other files changed by the same commit. |
 
 ## Input and output
 
-No input. The output is one `blame_line` record per annotated line.
-
-| Field | Type | Description |
+| Form | Input | Output |
 |---|---|---|
-| `path` | `text` | File, relative to the repository root. |
-| `no` | `int` | Line number, from 1. |
-| `text` | `text` | Line without its line break. |
-| `commit`, `short_id` | `text` | Commit that last changed the line and its abbreviation. |
-| `author`, `author_email` | `text` | Author of that commit after `.mailmap`. |
-| `time` | `instant` | Author time; the current time for lines not committed yet. |
-| `original_path`, `original_no` | `text`, `int` | Path and line number in that commit. |
-| `boundary` | `bool` | The commit has no parents. |
+| default | `none` | `blame_line` |
 
 ## Effect
 
-Category `source`, read only. Nothing in the repository changes.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -94,7 +90,7 @@ git.blame "/home/user/repo/src/parser.rs" lines: 40..60 revision: "v1.4.0"
 Count the annotated lines per author.
 
 ```nurt example
-git.blame "/home/user/repo/src/parser.rs" revision: "HEAD" | group author | sort count desc
+git.blame "/home/user/repo/src/parser.rs" revision: "HEAD" |> group author |> sort count order: desc
 ```
 
 ## Errors
@@ -106,3 +102,7 @@ git.blame "/home/user/repo/src/parser.rs" revision: "HEAD" | group author | sort
 | `E_NOT_FOUND` | The file does not exist at `revision`, or is neither in `HEAD` nor staged. | Find the file with `git.log` or stage it |
 | `E_INVALID_VALUE` | `path` names a directory, a submodule or the repository root, or `lines` starts before line 1 or after the last line. | Give a file and a range inside it |
 | `E_IO` | An object of the repository cannot be read. | Check the repository with `git.status` |
+
+## Related
+
+`git.log`, `git.show`, `git.diff`.

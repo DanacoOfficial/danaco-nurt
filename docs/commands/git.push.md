@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.push <repo: path> branch: <text> [remote: <text>] [force: <bool | no|lease|yes>] [force_with_lease: <text>] [tags: <bool>] [set_upstream: <bool>] [delete: <bool>]
+git.push <repo> branch: <text> [name: value]...
 ```
 
 ## Description
@@ -75,42 +75,29 @@ transports start programs and are not supported.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `repo` | `path` | required | Repository or a path inside it. |
-| `remote` | `text` | `"origin"` | Configured remote, URL or path. `remote.<name>.pushurl` takes precedence over `remote.<name>.url`. |
 | `branch` | `text` | required | Refspec as described above. |
+| `remote` | `text` | `"origin"` | Configured remote, URL or path. `remote.<name>.pushurl` takes precedence over `remote.<name>.url`. |
 | `force` | `bool \| enum(no\|lease\|yes)` | `false` | `true` and `lease` overwrite only while the remote reference has the value of its remote-tracking reference; `yes` overwrites unconditionally. |
 | `force_with_lease` | `text` | none | Revision the remote reference must still have; implies a lease. |
 | `tags` | `bool` | `false` | Also push every local tag. |
 | `set_upstream` | `bool` | `false` | Record the pushed branch as the upstream of the local branch. |
 | `delete` | `bool` | `false` | Delete the remote reference named by `branch`. |
+| `accept_host_key` | `text` | none | SHA-256 fingerprint (SHA256:<base64>) of the SSH host key to accept when the host is not known. |
 
 ## Input and output
 
-No input. The output is an `effect` record whose `git` part holds
-`ref_updates` and the state (`completed`, `up_to_date`, or `stopped` when
-some updates were rejected and others applied), followed by one
-`git_ref_update` record per update with `ref`, `status` (`new`, `updated`,
-`forced`, `deleted`, `up_to_date`, `rejected`, `error`), `remote`,
-`remote_ref`, `old`, `new` and `reason`. Notable effects: `force_push`,
-`history_rewritten`, `upstream_set`, `hooks_skipped`, `pack_without_deltas`
-(a pack of 8 MiB or more was sent without new delta compression),
-`push_status_unknown` (the remote did not report the outcome of an update),
-`tls_verification_disabled`, `http_option_ignored` and
-`credential_helper_ignored`.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect`, `git_ref_update` |
 
 ## Effect
 
-Category `change`, external effect. For a remote on the local file system the
-references, reflogs and `packed-refs` of the target, the remote-tracking
-references and the configuration are targets of one journal entry; `undo`
-restores them. Objects added to the object stores are kept.
-
-For a remote reached over HTTP or SSH the reference updates accepted by the
-remote are irreversible (`remote_ref_updated`); `undo` restores only the
-remote-tracking references and the configuration of the local repository.
-
-A preview reads the references of the remote and lists the planned updates,
-the number of objects to send and, for a remote reached over HTTP or SSH,
-the irreversible effect.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `external` |
+| Reversibility | `irreversible` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -177,3 +164,5 @@ git.push "/home/user/repo" remote: "https://git.example.com/team/app.git" branch
 ## Related
 
 `git.pull`, `git.fetch`, `git.branch`, `undo`.
+
+.

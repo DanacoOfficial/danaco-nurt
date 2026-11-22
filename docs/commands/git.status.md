@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.status <repo: list<path>> [untracked: normal|all|no] [ignored: <bool>] [limit: <int>] [stat: <bool>] [exclude: <list<glob>>]
+git.status <repo>... [name: value]...
 ```
 
 ## Description
@@ -55,36 +55,24 @@ the built-in conversions (`core.autocrlf`, `eol`, `text`, `ident`,
 | `repo` | `list<path>` | required | Repositories or paths inside them. |
 | `untracked` | `enum(normal\|all\|no)` | `normal` | Untracked files: directories collapsed, every file, or none. |
 | `ignored` | `bool` | `false` | Include ignored files. |
-| `limit` | `int` | `200` (setting `git.status.limit`) | Largest number of entries per repository, from 1 to 5000. |
+| `limit` | `int` | `200` | Largest number of entries per repository, from 1 to 5000. |
 | `stat` | `bool` | `false` | Add the numbers of lines added and removed from `HEAD` to the working tree. |
 | `exclude` | `list<glob>` | `[]` | Paths to leave out; a pattern without `/` matches the file name in any directory. |
 
 ## Input and output
 
-No input. The output is one `git_status` record per entry.
-
-| Field | Type | Description |
+| Form | Input | Output |
 |---|---|---|
-| `path` | `text` | Path relative to the repository root, `/` as separator. |
-| `index` | `enum` | State of the index against `HEAD`: `unmodified`, `modified`, `added`, `deleted`, `renamed`, `copied`, `type_changed`, `unmerged`, `untracked`, `ignored`. |
-| `worktree` | `enum` | State of the working tree against the index, same values. |
-| `kind` | `enum` | `tracked`, `conflict`, `untracked` or `ignored`. |
-| `repo` | `path` | Root of the working tree. |
-| `renamed_from` | `text` | Path in `HEAD` before a rename or copy. |
-| `similarity` | `int` | Similarity of a rename or copy in percent. |
-| `conflict` | `enum` | `both_modified`, `both_added`, `both_deleted`, `added_by_us`, `added_by_them`, `deleted_by_us`, `deleted_by_them`. |
-| `submodule` | `map` | `commit_changed`, `modified`, `untracked`. |
-| `mode_before`, `mode_after` | `text` | Modes in octal when the mode changed between `HEAD` and the working tree. |
-| `added`, `removed` | `int` | Lines added and removed with `stat`; absent for binary content. |
-
-The report notes `excluded` with the number of paths left out by `exclude`
-and, separately, the number of entries beyond `limit`; `detached_head` when
-`HEAD` names a commit directly; `sparse_checkout` when sparse checkout is on.
+| default | `none` | `git_status` |
 
 ## Effect
 
-Category `source`, read only. Nothing in the repository or the working tree
-changes; the index is not refreshed.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -114,7 +102,7 @@ git.status ["/home/user/app", "/home/user/lib"] stat: true exclude: ["*.lock"]
 List only the paths with conflicts after a merge.
 
 ```nurt example
-git.status "/home/user/repo" untracked: no | where kind == "conflict"
+git.status "/home/user/repo" untracked: no |> filter kind == "conflict"
 ```
 
 ## Errors
@@ -125,3 +113,7 @@ git.status "/home/user/repo" untracked: no | where kind == "conflict"
 | `E_INVALID_VALUE` | `untracked` is not `normal`, `all` or `no`, or `limit` is outside 1 to 5000. | Use a listed value |
 | `E_GIT_UNSUPPORTED` | The repository uses a format that is not implemented, such as `reftable`. | Use a repository with the files reference backend |
 | `E_STAGE_FAILED` | The index, an object or a file cannot be read (problem `read_failed`). | Restore the missing objects of the repository |
+
+## Related
+
+`git.diff`, `git.stage`, `git.commit`, `git.review`, `git.checkpoint`, `undo`.

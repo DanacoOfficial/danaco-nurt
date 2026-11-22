@@ -13,11 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.branch <repo: path> [remote: <bool>] [trash: <bool>]
-git.branch <repo: path> create: <text> [from: <text>] [switch: <bool>] [checkpoint: <bool>] [expect_state: <text>]
-git.branch <repo: path> rename: <text> new_name: <text> [check_references: <bool>] [expect_state: <text>]
-git.branch <repo: path> delete: <text | list<text>> [force: <bool>] [check_references: <bool>] [expect_state: <text>]
-git.branch <repo: path> purge: <list<text> | all>
+git.branch <repo> [name: value]...
 ```
 
 ## Description
@@ -74,16 +70,16 @@ protocol through the journal; an existing lock fails with `E_GIT_LOCKED`.
 |---|---|---|---|
 | `repo` | `path` | required | Repository or a path inside it. |
 | `remote` | `bool` | `false` | List remote-tracking branches. |
-| `trash` | `bool` | `false` | List the kept copies of deleted branches instead of the branches. |
 | `create` | `text` | none | Name of a branch to create. |
 | `from` | `text` | `"HEAD"` | Start point of the new branch: a branch, tag, commit or remote-tracking branch. |
-| `switch` | `bool` | `false` | Check out the created branch. Requires `create`. |
-| `checkpoint` | `bool` | `false` | Create a checkpoint of the working tree before switching. Requires `switch`. |
 | `rename` | `text` | none | Branch to rename. |
 | `new_name` | `text` | none | New name of the renamed branch; required with `rename`. |
+| `switch` | `bool` | `false` | Check out the created branch. Requires `create`. |
+| `checkpoint` | `bool` | `false` | Create a checkpoint of the working tree before switching. Requires `switch`. |
 | `delete` | `text \| list<text>` | none | Branches to delete. |
 | `force` | `bool` | `false` | Delete branches that are not merged. |
-| `purge` | `list<text> \| all` | none | Kept copies to remove, by reference, copy name or branch name. |
+| `trash` | `bool` | `false` | List the kept copies of deleted branches instead of the branches. |
+| `purge` | `list<text> \| enum(all)` | none | Kept copies to remove, by reference, copy name or branch name. |
 | `check_references` | `bool` | `true` | After `delete` or `rename`, report other references that still name the old branch. |
 | `expect_state` | `text` | none | State token of an earlier effect; nothing changes when the state differs. |
 
@@ -91,23 +87,26 @@ protocol through the journal; an existing lock fails with `E_GIT_LOCKED`.
 
 ## Input and output
 
-No input. A listing produces `branch` records with the fields `name`,
-`current`, `commit`, `remote`, `upstream`, `ahead`, `behind`,
-`upstream_gone`, `worktree`, `subject` and `time`. `trash: true` produces
-`git_trash_entry` records with the fields `name` (the deleted branch), `kind`
-(`branch`), `ref`, `commit`, `time` (of the deletion) and `subject`. A change
-produces one
-`effect` record with `head_before`, `head_after`, `branch`, `detached`,
-`checkpoint_before` and `state_token`, and the notable effects
-`branch_deleted_unmerged`, `references_left` and `local_changes_carried`.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `branch`, `effect`, `git_trash_entry` |
 
 ## Effect
 
-Without a changing parameter the command only reads. `create`, `rename`,
-`delete` and `purge` are local and reversible: every reference file, reflog,
-`packed-refs`, the configuration and, with `switch`, every changed working
-tree file and the index are targets of one journal entry, and `undo` restores
-them byte for byte. Objects of a checkpoint are added to the object database.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
+| Reversibility conditions | Branch changes are reversible from the journal, which keeps the previous value of each reference. |
+
+| Action | Effect | Reversibility | Note |
+|---|---|---|---|
+| `create` | `local` | `reversible` | Applies when create is given, with or without switch. |
+| `rename` | `local` | `reversible` | Applies when rename is given. |
+| `delete` | `local` | `reversible` | Applies when delete is given. |
+| `purge` | `local` | `reversible` | Applies when purge is given. |
 
 ## Examples
 

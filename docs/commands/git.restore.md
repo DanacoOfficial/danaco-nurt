@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.restore <repo: path> paths: <list<path>> [source: <text>] [staged: <bool>] [worktree: <bool>] [hunks: <list<text>>] [checkpoint: <bool>] [expect_state: <text>]
+git.restore <repo> paths: <list<path>> [name: value]...
 ```
 
 ## Description
@@ -49,7 +49,7 @@ restoration of both sides cannot be combined with `hunks`.
 |---|---|---|---|
 | `repo` | `path` | required | Repository or a path inside it. |
 | `paths` | `list<path>` | required | Files, directories or patterns to restore, relative to the repository root or absolute inside it. |
-| `source` | `text` | the index, or `HEAD` with `staged` | Revision to restore from. |
+| `source` | `text` | the index, or HEAD with staged | Revision to restore from. |
 | `staged` | `bool` | `false` | Restore the index. |
 | `worktree` | `bool` | `true` | Restore the working tree. |
 | `hunks` | `list<text>` | none | Only these hunks, by identifier as in `git.stage`. |
@@ -58,20 +58,19 @@ restoration of both sides cannot be combined with `hunks`.
 
 ## Input and output
 
-No input. The output is an `effect` record listing the restored and removed
-paths, with the `git` part: `head_after`, `branch`, `checkpoint_before` (with
-`checkpoint: true`) and `state_token` for a following call. The state is
-`nothing_to_do` when no working tree file changes and the index is not
-restored.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect` |
 
 ## Effect
 
-Category `change`, local effect, reversible. Every changed working tree file,
-the index and the reference of the checkpoint are targets of one journal
-entry; `undo` restores the previous content exactly, including local changes
-that the restoration overwrote. Other references and their logs are not
-changed. The checkpoint and the content of restored hunks are written as new
-objects, which stay in the object database after `undo`.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | The exact previous content of every changed file is kept in the journal. |
 
 ## Examples
 

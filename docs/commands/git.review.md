@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.review <repo: path> [scope: all|staged|working] [paths: <list<path>>] [base: <text>] [target: <text>] [message: <text>] [checks: <list<check>>] [subject_max: <int>] [conventional: <bool>] [exclude: <list<glob>>]
+git.review <repo> [name: value]...
 ```
 
 ## Description
@@ -84,41 +84,27 @@ The rules of `subject` apply to the first non-blank line of `message`:
 | `scope` | `enum(all\|staged\|working)` | `all` | Staged changes, working tree changes, or both. |
 | `paths` | `list<path>` | none | Only changes in these files or directories. |
 | `base` | `text` | none | Base revision of a range to review instead of uncommitted changes. |
-| `target` | `text` | `HEAD` with `base` | End revision of the range; needs `base`. |
+| `target` | `text` | none | End revision of the range; needs `base`. |
 | `message` | `text` | none | Planned commit message to check. |
-| `checks` | `list<enum>` | every check | Checks to run: `conflict_markers`, `whitespace`, `large_files`, `binary`, `secrets`, `subject`, `tests`, `debug_statements`, `final_newline`. |
+| `checks` | `list<enum(conflict_markers\|whitespace\|large_files\|binary\|secrets\|subject\|tests\|debug_statements\|final_newline)>` | none | Checks to run: `conflict_markers`, `whitespace`, `large_files`, `binary`, `secrets`, `subject`, `tests`, `debug_statements`, `final_newline`. |
 | `subject_max` | `int` | `72` | Longest allowed subject line in characters, at least 20. |
 | `conventional` | `bool` | `false` | Require a Conventional Commits subject line. |
 | `exclude` | `list<glob>` | `[]` | Paths to leave out; a pattern without `/` matches the file name in any directory. |
 
 ## Input and output
 
-No input. The output is a stream of `finding` records: errors first, then
-warnings; within a severity in the order of the checks in the table above,
-and within a check in path and line order.
-
-| Field | Type | Description |
+| Form | Input | Output |
 |---|---|---|
-| `path` | `path` | File relative to the repository root; the repository root for a finding of the message. |
-| `target` | `enum(file\|message)` | What the finding is about. |
-| `kind` | `enum` | `secrets`, `conflict_markers`, `whitespace`, `large_files`, `binary`, `subject`, or `other` for `debug_statements` and `tests`. |
-| `severity` | `enum(error\|warning\|info)` | `error` blocks the commit. |
-| `rule` | `text` | Rule of the table above. |
-| `message` | `text` | Description with the correction. |
-| `line` | `int` | Line of the new content or of the message, from 1; absent for whole-file findings. |
-| `hunk` | `text` | Identifier `path#number:fingerprint` of the hunk with the line, when the difference is the canonical one of `git.stage`: in `staged` and `working`, and in `all` for files whose index equals `HEAD` or whose working tree equals the index. |
-| `count` | `int` | Number of lines of an aggregated finding. |
-| `value`, `threshold` | `number` | Size and limit of `large_files`. |
-
-The report notes `excluded` with the number of files left out by `exclude`,
-`review_skipped` with the number of untracked files beyond the first 300,
-and `source_unavailable` when `secrets` runs without a review rule service
-or a rule of the service has an invalid pattern.
+| default | `none` | `finding` |
 
 ## Effect
 
-Category `source`, effect `read`. The repository and the working tree are
-not changed. Content filters and `textconv` programs are not run.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -142,7 +128,7 @@ git.review "/home/user/repo" scope: working paths: ["src"] checks: [whitespace, 
 Review the commits of a branch against `main`, without generated files.
 
 ```nurt example
-git.review "/home/user/repo" base: main target: topic exclude: ["*.lock", "dist/**"]
+git.review "/home/user/repo" base: "main" target: "topic" exclude: ["*.lock", "dist/**"]
 ```
 
 Check a commit message with a shorter subject limit.

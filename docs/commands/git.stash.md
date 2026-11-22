@@ -13,9 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.stash <repo: path> action: push|pop|apply|list|show|drop|clear [stash: <text>] [message: <text>]
-          [include_untracked: <bool>] [paths: <list<path>>] [exclude: <list<glob>>]
-          [expect_state: <text>]
+git.stash <repo> action: <enum(push|pop|apply|list|show|drop|clear)> [name: value]...
 ```
 
 ## Description
@@ -54,30 +52,33 @@ also accept a commit. Configured filter drivers are not run.
 |---|---|---|---|
 | `repo` | `path` | required | Repository or a path inside it. |
 | `action` | `enum(push\|pop\|apply\|list\|show\|drop\|clear)` | required | Operation on the stash. |
-| `stash` | `text` | `stash@{0}` | Entry for `pop`, `apply`, `show` and `drop`. |
+| `stash` | `text` | the newest entry | Entry for `pop`, `apply`, `show` and `drop`. |
 | `message` | `text` | none | With `push`: message of the new entry. |
 | `include_untracked` | `bool` | `false` | With `push`: also save and remove untracked files. |
-| `paths` | `list<path>` | all paths | With `push`: only changes in these files or directories. |
+| `paths` | `list<path>` | none | With `push`: only changes in these files or directories. |
 | `exclude` | `list<glob>` | `[]` | With `push`: paths to leave out; the report counts the excluded files. |
 | `expect_state` | `text` | none | State token from an earlier read; nothing changes when `HEAD`, the index or the newest entry differ. |
 
 ## Input and output
 
-No input. `list` produces one `git_stash` record per entry, newest first;
-`show` produces the `git_stash` record of the entry. The changing actions
-produce an `effect` record with the written and removed working tree paths
-as changes and `git.state` `completed`, `conflicts` or `nothing_to_do`.
-Notable effects: `conflicts`, `stash_kept` (a `pop` with conflicts) and
-`excluded` (with the number of files left out by `exclude`).
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect`, `git_stash`, `hunk` |
 
 ## Effect
 
-Category `change`, local effect, reversible; `list` and `show` read. For
-`push`, `apply` and `pop` the exact previous content of every changed file,
-the index, `refs/stash`, its reflog and the reflog of `HEAD` are targets of
-one journal entry. For `drop` and `clear` the targets are `refs/stash`, its
-reflog and, when the reference is packed, `packed-refs`. New objects are
-added to the object store, which the journal does not track.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | The exact previous content of changed files and the dropped stash references are kept in the journal. |
+
+| Action | Effect | Reversibility | Note |
+|---|---|---|---|
+| `list` | `read` | `read` |  |
+| `show` | `read` | `read` |  |
 
 ## Examples
 

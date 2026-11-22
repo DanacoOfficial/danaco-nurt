@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.diff <repo: path> [from: <text>] [to: <text>] [staged: <bool>] [path: <list<path>>] [context: <int>] [stat: <bool>] [function_context: <bool>] [symbol: <text>] [word_diff: <bool>] [ignore_whitespace: <bool>] [ignore_moved: <bool>] [exclude: <list<glob>>]
+git.diff <repo> [name: value]...
 ```
 
 ## Description
@@ -73,10 +73,10 @@ no longer matches is rejected.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `repo` | `path` | required | Repository or a path inside it. |
-| `from` | `text` | the index or `HEAD` | Old revision. |
+| `from` | `text` | the index or HEAD | Old revision. |
 | `to` | `text` | the working tree | New revision; needs `from`. |
 | `staged` | `bool` | `false` | Compare the index instead of the working tree; not with `to`. |
-| `path` | `list<path>` | all files | Files and directories, relative to the repository root. |
+| `path` | `list<path>` | none | Files and directories, relative to the repository root. |
 | `context` | `int` | `3` | Context lines around each change, from 0 to 200. |
 | `stat` | `bool` | `false` | One `change` record per file with the numbers of added and removed lines. |
 | `function_context` | `bool` | `false` | Extend each hunk to the whole enclosing function. |
@@ -88,27 +88,18 @@ no longer matches is rejected.
 
 ## Input and output
 
-No input. The output is one `hunk` record per hunk with the fields `path`,
-`old_path`, `status` (`added`, `deleted`, `modified`, `renamed`, `binary`),
-`old_start`, `old_len`, `new_start`, `new_len`, `header`, `lines`,
-`old_mode`, `new_mode`, `binary`, and for the canonical difference `id`,
-`fingerprint` and `staged`. Blocks moved within the compared files are listed
-in `moved`. With `word_diff` the lines are porcelain words and `unit` is
-`words`.
-
-With `stat` the output is one `change` record per file with `path`, `action`
-(`create`, `delete`, `modify`, `rename`), `from`, `added`, `removed`,
-`similarity` and the `flags` `binary`, `lockfile` (dependency lock files) and
-`generated` (minified, generated and vendored files).
-
-With `symbol`, the code service of the session locates the element in the new
-version. Without a code service for the language, whole functions are shown
-and the report notes `semantic_fallback`.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `hunk` |
 
 ## Effect
 
-Category `source`, read only. Nothing in the repository or the working tree
-changes.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -152,3 +143,7 @@ git.diff "/home/user/repo" from: "HEAD~1" path: ["src/parser.rs"] symbol: "parse
 | `E_GIT_NOT_REPOSITORY` | The path is not inside a repository, a path lies outside it, or the working tree is needed in a bare repository. | Give a path inside the working tree |
 | `E_SYMBOL_NOT_FOUND` | `symbol` is not defined in the new version of the file. | Check the name of the element |
 | `E_STAGE_FAILED` | An object, the index or a file cannot be read (problem `read_failed`). | Restore the missing objects of the repository |
+
+## Related
+
+`git.status`, `git.stage`, `git.show`, `git.review`, `git.checkpoint`.

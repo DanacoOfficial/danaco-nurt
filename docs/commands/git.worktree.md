@@ -13,9 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.worktree <repo> action: add path: <path> [branch: <text>] [start_point: <text>] [expect_state: <text>]
-git.worktree <repo> action: list
-git.worktree <repo> action: remove path: <path> [force: <bool>] [checkpoint: <bool>] [expect_state: <text>]
+git.worktree <repo> action: <enum(add|list|remove)> [name: value]...
 ```
 
 ## Description
@@ -55,27 +53,32 @@ deleted.
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
 | `action` | `enum(add\|list\|remove)` | required | Operation on working trees. |
-| `path` | `path` | required for `add` and `remove` | Directory of the working tree; a relative path is taken relative to `repo`. For `add` the directory must not exist or must be empty. |
-| `branch` | `text` | last component of `path` | With `add`: branch checked out in the new working tree. |
-| `start_point` | `text` | `HEAD` | With `add`: revision a new branch starts from; not allowed for an existing branch. Without `branch`: local branch to check out, or revision to check out detached. |
+| `path` | `path` | none | Directory of the working tree; a relative path is taken relative to `repo`. For `add` the directory must not exist or must be empty. |
+| `branch` | `text` | none | With `add`: branch checked out in the new working tree. |
+| `start_point` | `text` | none | With `add`: revision a new branch starts from; not allowed for an existing branch. Without `branch`: local branch to check out, or revision to check out detached. |
 | `force` | `bool` | `false` | With `remove`: remove a working tree that has uncommitted changes or untracked files. |
 | `checkpoint` | `bool` | `false` | With `remove`: record the content of the working tree as a checkpoint (`git.checkpoint`) in the same operation; the effect names it in `checkpoint`. |
 | `expect_state` | `text` | none | State token from an earlier effect. The operation fails with `E_STALE` and problem `state_changed` when `HEAD`, the branches, a registration or a working tree, including the names of its ignored files, changed since. |
 
 ## Input and output
 
-The command takes no input. `add` produces one `git_worktree` record for the
-new working tree, `list` produces one `git_worktree` record per working tree,
-and `remove` produces one `effect` record.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `git_worktree`, `effect` |
 
 ## Effect
 
-Category `change`, local effect, reversible; `list` only reads. `add` creates
-the directory as one journal target whose content is written by the checkout,
-the registration files, and with a new branch the branch reference and its
-log; `undo` removes all of them. `remove` moves the directory of the working
-tree into the journal before the registration is deleted; `undo` restores the
-directory and the registration exactly.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | Remove moves the working tree directory into the journal before unregistering it. |
+
+| Action | Effect | Reversibility | Note |
+|---|---|---|---|
+| `list` | `read` | `read` |  |
 
 ## Examples
 

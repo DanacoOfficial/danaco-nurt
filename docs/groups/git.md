@@ -1,15 +1,14 @@
 ---
 group: git
 summary: Read and change Git repositories in process, without an external program.
-since: 0.1.0
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 
-# git
+# Group git
 
-## Description
+## Scope
 
 The commands of the `git` group read and change Git repositories in the
 console process. No `git` program, credential helper, SSH client or other
@@ -143,28 +142,28 @@ offers the removal of the lock as a fix.
 
 | Command | Purpose |
 |---|---|
-| [`git.status`](git.status.md) | state of the working tree and the index |
-| [`git.diff`](git.diff.md) | differences with hunk identifiers |
-| [`git.log`](git.log.md) | history |
-| [`git.show`](git.show.md) | commit, tag or file at a revision |
-| [`git.blame`](git.blame.md) | origin of lines |
-| [`git.branch`](git.branch.md) | branches |
-| [`git.tag`](git.tag.md) | tags |
-| [`git.stage`](git.stage.md) | index: files, hunks and lines |
-| [`git.commit`](git.commit.md) | commits |
-| [`git.review`](git.review.md) | checks of changes before a commit |
-| [`git.checkpoint`](git.checkpoint.md) | snapshots of the working tree |
-| [`git.worktree`](git.worktree.md) | linked working trees |
-| [`git.clone`](git.clone.md) | copy of a repository |
-| [`git.fetch`](git.fetch.md) | download from a remote |
-| [`git.switch`](git.switch.md) | change of the current branch |
-| [`git.restore`](git.restore.md) | restore files from a revision or the index |
-| [`git.reset`](git.reset.md) | move the current branch |
-| [`git.stash`](git.stash.md) | set changes aside |
-| [`git.merge`](git.merge.md) | merge histories |
-| [`git.rebase`](git.rebase.md) | replay commits |
-| [`git.push`](git.push.md) | upload to a remote |
-| [`git.pull`](git.pull.md) | fetch and integrate |
+| [`git.status`](../commands/git.status.md) | state of the working tree and the index |
+| [`git.diff`](../commands/git.diff.md) | differences with hunk identifiers |
+| [`git.log`](../commands/git.log.md) | history |
+| [`git.show`](../commands/git.show.md) | commit, tag or file at a revision |
+| [`git.blame`](../commands/git.blame.md) | origin of lines |
+| [`git.branch`](../commands/git.branch.md) | branches |
+| [`git.tag`](../commands/git.tag.md) | tags |
+| [`git.stage`](../commands/git.stage.md) | index: files, hunks and lines |
+| [`git.commit`](../commands/git.commit.md) | commits |
+| [`git.review`](../commands/git.review.md) | checks of changes before a commit |
+| [`git.checkpoint`](../commands/git.checkpoint.md) | snapshots of the working tree |
+| [`git.worktree`](../commands/git.worktree.md) | linked working trees |
+| [`git.clone`](../commands/git.clone.md) | copy of a repository |
+| [`git.fetch`](../commands/git.fetch.md) | download from a remote |
+| [`git.switch`](../commands/git.switch.md) | change of the current branch |
+| [`git.restore`](../commands/git.restore.md) | restore files from a revision or the index |
+| [`git.reset`](../commands/git.reset.md) | move the current branch |
+| [`git.stash`](../commands/git.stash.md) | set changes aside |
+| [`git.merge`](../commands/git.merge.md) | merge histories |
+| [`git.rebase`](../commands/git.rebase.md) | replay commits |
+| [`git.push`](../commands/git.push.md) | upload to a remote |
+| [`git.pull`](../commands/git.pull.md) | fetch and integrate |
 
 ## Examples
 

@@ -13,9 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.merge <repo> branch: <text> [fast_forward: auto|only|never] [message: <text>] [no_commit: <bool>]
-git.merge <repo> action: continue [message: <text>]
-git.merge <repo> action: abort
+git.merge <repo> [name: value]...
 ```
 
 ## Description
@@ -75,33 +73,24 @@ The `merge.directoryRenames` setting is not read.
 | `branch` | `text` | none | Branch, tag or commit to merge; required when `action` is `start`. |
 | `action` | `enum(start\|continue\|abort)` | `start` | Start a merge, continue it after resolving conflicts, or abort it. |
 | `fast_forward` | `enum(auto\|only\|never)` | `auto` | Fast-forward when possible, only fast-forward, or always create a merge commit. |
-| `message` | `text` | generated | Message of the merge commit. |
+| `message` | `text` | none | Message of the merge commit. |
 | `no_commit` | `bool` | `false` | Stop before creating the merge commit, as after a conflict. |
 
 ## Input and output
 
-The command reads no input. It produces one `effect.git` record and, when
-the merge stops with conflicts, one `git_conflict` record per conflicting
-path.
-
-| Field of `effect.git` | Value |
-|---|---|
-| `state` | `fast_forward`, `up_to_date`, `completed`, `conflicts` or `stopped` |
-| `head_before`, `head_after` | Commit of `HEAD` before and after |
-| `branch` | Current branch, without `refs/heads/` |
-| `conflicts` | Conflicts left in the working tree |
-| `in_progress` | `merge` when the merge stopped, otherwise `none` |
-| `merge_head` | Merged commit while the merge is stopped |
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect`, `git_conflict` |
 
 ## Effect
 
-Category `change`, effect `local`, reversibility `reversible`. The
-working tree files, the index, the branch, `HEAD`, the reference logs and
-the state files are changed in one journal operation; `undo` restores each
-of them byte for byte. Objects added to the object database stay, as they
-are immutable. The reference logs receive the messages of Git:
-`merge <branch>: Fast-forward`, `merge <branch>: Merge made by the 'ort'
-strategy.`, `commit (merge): <subject>` and `reset: moving to HEAD`.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | The previous references and the exact previous content of every changed file are kept in the journal. |
 
 ## Examples
 

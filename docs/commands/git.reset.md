@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.reset <repo: path> revision: <text> [mode: soft|mixed|hard]
+git.reset <repo> revision: <text> [name: value]...
 ```
 
 ## Description
@@ -48,19 +48,19 @@ ending, `ident` and working tree encoding conversions are applied.
 
 ## Input and output
 
-No input. The output is an `effect` record with `git.head_before`,
-`git.head_after` and `git.branch`, and the written and removed working tree
-paths as changes. Notable effects: `history_rewritten` when the branch moves
-to a commit that does not contain its previous commit, `detached_head` when
-`HEAD` is not on a branch.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect` |
 
 ## Effect
 
-Category `change`, local effect, reversible. The reference, `ORIG_HEAD`,
-the reflogs, the index, the removed state files and every changed working
-tree file are targets of one journal entry; `undo` restores all of them
-exactly, including local changes discarded by `hard`. Objects are not
-removed.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | The previous reference and the exact previous content of every changed file are kept in the journal. |
 
 ## Examples
 

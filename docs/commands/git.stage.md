@@ -13,9 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.stage <repo: path> action: list [paths: <list<path>>] [staged: <bool>] [exclude: <list<glob>>]
-git.stage <repo: path> action: add [paths: <list<path>>] [hunks: <list<text>>] [exclude: <list<glob>>] [intent_to_add: <bool>]
-git.stage <repo: path> action: unstage [paths: <list<path>>] [hunks: <list<text>>]
+git.stage <repo> action: <enum(list|add|unstage)> [name: value]...
 ```
 
 ## Description
@@ -57,10 +55,10 @@ file status, as entries written by `git apply --cached`.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `repo` | `path` | required | Repository or a path inside it. |
-| `action` | `list \| add \| unstage` | required | List changes as hunks, add them to the index, or remove them from it. |
-| `paths` | `list<path>` | `[]` | Files or directories to act on, relative to the working tree root or absolute inside it. |
-| `hunks` | `list<text>` | `[]` | Hunks by identifier, such as `file#2` or `file#2@3-5,8` for selected lines. |
-| `staged` | `bool` | `false` | With `list`: show staged instead of unstaged changes. |
+| `action` | `enum(list\|add\|unstage)` | required | List changes as hunks, add them to the index, or remove them from it. |
+| `paths` | `list<path>` | none | Files or directories to act on, relative to the working tree root or absolute inside it. |
+| `hunks` | `list<text>` | none | Hunks by identifier, such as `file#2` or `file#2@3-5,8` for selected lines. |
+| `staged` | `bool` | none | With `list`: show staged instead of unstaged changes. |
 | `exclude` | `list<glob>` | `[]` | Paths left out of `add`; a pattern without `/` matches the file name in any directory. |
 | `intent_to_add` | `bool` | `false` | With `add`: record the paths in the index without their content. |
 
@@ -68,16 +66,22 @@ file status, as entries written by `git apply --cached`.
 
 ## Input and output
 
-No input. `list` produces `hunk` records. `add` and `unstage` produce one
-`effect` record whose `index` part holds the number of entries of the new
-index and the numbers of added or changed and removed entries; files left out
-by `exclude` are reported as the notable effect `ignored` with their count.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect`, `hunk` |
 
 ## Effect
 
-`list` only reads. `add` and `unstage` are local and reversible: the index is
-the target of one journal entry and `undo` restores it byte for byte. New
-blobs stay in the object database.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+
+| Action | Effect | Reversibility | Note |
+|---|---|---|---|
+| `list` | `read` | `read` |  |
 
 ## Examples
 

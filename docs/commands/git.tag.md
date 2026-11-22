@@ -13,9 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.tag <repo: path>
-git.tag <repo: path> name: <text> [revision: <text>] [message: <text>] [sign: <bool>]
-git.tag <repo: path> delete: <text>
+git.tag <repo> [name: value]...
 ```
 
 ## Description
@@ -55,24 +53,31 @@ with the message `tag: tagging <id> (<subject>, <date>)` of `git tag`.
 | `name` | `text` | none | Name of a tag to create, without `refs/tags/`. |
 | `revision` | `text` | `"HEAD"` | Revision the new tag points to: a commit, tree, blob or tag. |
 | `message` | `text` | none | Message of an annotated tag. |
-| `sign` | `bool` | `tag.gpgSign` | Sign the annotated tag with the signing key of the repository configuration. |
+| `sign` | `bool` | the setting tag.gpgSign of the repository configuration | Sign the annotated tag with the signing key of the repository configuration. |
 | `delete` | `text` | none | Tag to delete. |
 
 `name` and `delete` exclude each other.
 
 ## Input and output
 
-No input. A listing produces `git_tag` records with the fields `name`,
-`target`, `kind` (`lightweight` or `annotated`), `tagger`, `time` and
-`message`. Creating a tag produces the `git_tag` record of the new tag;
-deleting a tag produces one `effect` record.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `git_tag`, `effect` |
 
 ## Effect
 
-Without `name` and `delete` the command only reads. Creating and deleting a
-tag are local and reversible: the reference file, `packed-refs` and a reflog
-are targets of one journal entry and `undo` restores them byte for byte. The
-object of an annotated tag is added to the object database.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
+| Reversibility conditions | Tag changes are reversible from the journal, which keeps the previous value of each reference. |
+
+| Action | Effect | Reversibility | Note |
+|---|---|---|---|
+| `name` | `local` | `reversible` | Applies when name is given; creates the tag. |
+| `delete` | `local` | `reversible` | Applies when delete is given. |
 
 ## Examples
 
