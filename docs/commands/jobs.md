@@ -57,6 +57,20 @@ Finished jobs whose end is older than `output.spool_ttl` are removed with
 their output when jobs are listed and when the supervisor starts. Running
 jobs are never removed.
 
+`remove` on `job` records deletes finished jobs: the entry of each job in
+the job table and its kept output in the state directory. Job entries and
+their output are internal state of the console, not user files, so the
+removal adds no journal entry, cannot be undone and is not marked
+irreversible. Jobs in the states `exited`, `failed`, `stopped`, `timed_out`,
+`stalled`, `limit` and `lost` can be removed; for a `lost` job only the
+entry and the output are deleted, and a program that still runs is not
+signalled. A job in the state `running` or `suspended` is refused with
+`E_JOB_STATE`; `stop` ends it first. The input is checked as a whole before
+the first job is deleted. Each removed job yields one `effect` record with
+`kind` and `action` `remove`, `target` `job:<id>` and the last `job` record.
+A removed identifier is not reused, and a later reference to it fails with
+`E_UNKNOWN_JOB`.
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
@@ -106,12 +120,19 @@ Wait up to one minute for job `j7` and return its final record.
 jobs "j7" view: result wait: 60s
 ```
 
+Remove all jobs that exited with code 0, together with their output.
+
+```nurt example
+jobs state: exited |> remove
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |
 |---|---|---|
 | `E_UNKNOWN_JOB` | No job has the identifier. | Use one of the identifiers in `candidates`. |
 | `E_JOB_STATE` | `view: result` on a job that still runs. | Add `wait:` or read `view: status`. |
+| `E_JOB_STATE` | `remove` on a job that is running or suspended. | End the job with `stop`, then remove it. |
 | `E_CONFIG` | The engine has no state directory. | Configure the state directory of the engine. |
 
 ## Related

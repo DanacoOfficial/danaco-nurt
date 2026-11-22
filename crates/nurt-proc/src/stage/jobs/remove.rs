@@ -2,12 +2,15 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! The `remove` command on job records: deletes finished jobs with their
-//! kept output. The output is not kept in the journal, so the effect is
-//! irreversible.
+//! kept output from the state directory.
+//!
+//! A job entry and its output are internal state of the console, not user
+//! files, so the removal adds nothing to the journal transaction and marks no
+//! irreversible effect. A job that still runs is refused with `E_JOB_STATE`.
 
 use nurt_contracts::error::Result;
 use nurt_contracts::journal::MutationTx;
-use nurt_contracts::report::{Irreversible, IrreversibleEntry};
+use nurt_contracts::record::{Effect, EffectStatus, Job};
 use nurt_contracts::stage::{
     BoundArgs, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, RecordStream,
     StageDescriptor, StageImpl, StageInput, StageOutput,
@@ -15,9 +18,11 @@ use nurt_contracts::stage::{
 use nurt_contracts::value::{Record, RecordKind};
 
 use super::args::input_jobs;
-use super::control::effect;
 use crate::iface::Components;
 use crate::jobs::{Action, JobStore, check_action};
+
+/// Name of the command and of the action of its effect records.
+const REMOVE: &str = "remove";
 
 /// `remove` on job records.
 pub(crate) struct Remove {
@@ -33,7 +38,7 @@ impl Remove {
 impl StageImpl for Remove {
     fn descriptor(&self) -> StageDescriptor {
         StageDescriptor {
-            command: "remove".to_owned(),
+            command: REMOVE.to_owned(),
             source: false,
             input: InputKinds::Only(vec![RecordKind::Job]),
         }
@@ -58,7 +63,6 @@ impl EffectStage for Remove {
             let file = store.get(&job.id)?;
             check_action(file.id(), file.record.state, Action::Remove)?;
             plan.preview.push(Record::from(store.record(&file)));
-            plan.irreversible.push(marker(&job.id));
             ids.push(job.id);
         }
         plan.bulk = ids.len() > 1;
@@ -69,30 +73,30 @@ impl EffectStage for Remove {
         &'a self,
         _args: &'a BoundArgs,
         mut plan: EffectPlan,
-        tx: &mut dyn MutationTx,
+        _tx: &mut dyn MutationTx,
         ctx: &'a ExecCtx,
     ) -> Result<EffectOutcome<'a>> {
         let ids: Vec<String> = plan.take_state().unwrap_or_default();
         let store = JobStore::open(ctx, &self.components)?;
         let mut records = Vec::with_capacity(ids.len());
-        let mut irreversible = Vec::with_capacity(ids.len());
         for id in &ids {
-            let job = store.remove(id)?;
-            let entry = marker(id);
-            tx.mark_irreversible(entry.clone());
-            irreversible.push(entry.clone());
-            records.push(Record::from(effect("remove", job, entry)));
+            records.push(Record::from(removed(store.remove(id)?)));
         }
-        let mut outcome =
-            EffectOutcome::new(StageOutput::records(RecordStream::from_records(records)));
-        outcome.irreversible = irreversible;
-        Ok(outcome)
+        Ok(EffectOutcome::new(StageOutput::records(
+            RecordStream::from_records(records),
+        )))
     }
 }
 
-fn marker(id: &str) -> IrreversibleEntry {
-    IrreversibleEntry {
-        detail: Some(format!("job {id}")),
-        ..IrreversibleEntry::new(Irreversible::JobOutputRemoved)
+/// Effect record of a removed job, holding its last record.
+fn removed(job: Job) -> Effect {
+    Effect {
+        status: EffectStatus::Ok,
+        kind: REMOVE.to_owned(),
+        targets: Some(1),
+        target: Some(format!("job:{}", job.id)),
+        action: Some(REMOVE.to_owned()),
+        job: Some(job),
+        ..Effect::default()
     }
 }

@@ -1533,42 +1533,191 @@ mod jobs_suspend_resume {
 }
 
 mod jobs_remove {
+    use nurt_contracts::fs::WriteHandle;
+    use nurt_contracts::journal::{
+        Applied, ExemptWrite, ExternalChange, Mutation, OpHandle, OpId, Preserved, RollbackReason,
+        RollbackReport, TargetIndex, TargetSpec,
+    };
+    use nurt_contracts::report::IrreversibleEntry;
+
     use super::*;
 
+    /// Transaction that records the name of every call a stage makes on it.
+    #[derive(Default)]
+    struct WatchedTx {
+        calls: Vec<&'static str>,
+    }
+
+    fn journal_refused() -> Error {
+        Error::new(ErrorCode::Unsupported, "the journal is not available")
+    }
+
+    impl MutationTx for WatchedTx {
+        fn op(&self) -> Option<OpId> {
+            None
+        }
+
+        fn preserve(&mut self, _targets: &[TargetSpec]) -> Result<Vec<Preserved>> {
+            self.calls.push("preserve");
+            Err(journal_refused())
+        }
+
+        fn stage(&mut self, _target: TargetIndex) -> Result<Box<dyn WriteHandle>> {
+            self.calls.push("stage");
+            Err(journal_refused())
+        }
+
+        fn apply(&mut self, _target: TargetIndex, _mutation: Mutation) -> Result<Applied> {
+            self.calls.push("apply");
+            Err(journal_refused())
+        }
+
+        fn observe_external(&mut self, _changes: &[ExternalChange]) -> Result<Vec<Applied>> {
+            self.calls.push("observe_external");
+            Err(journal_refused())
+        }
+
+        fn mark_irreversible(&mut self, _marker: IrreversibleEntry) {
+            self.calls.push("mark_irreversible");
+        }
+
+        fn record_exempt(&mut self, _write: ExemptWrite) {
+            self.calls.push("record_exempt");
+        }
+
+        fn commit(self: Box<Self>) -> Result<OpHandle> {
+            Err(journal_refused())
+        }
+
+        fn rollback(self: Box<Self>, _reason: RollbackReason) -> Result<RollbackReport> {
+            Err(journal_refused())
+        }
+    }
+
+    /// What one `remove` call planned, produced and asked of the journal.
+    struct Removal {
+        records: Vec<Effect>,
+        bulk: bool,
+        planned_irreversible: usize,
+        planned_changes: usize,
+        irreversible: usize,
+        changes: usize,
+        journal_calls: Vec<&'static str>,
+    }
+
+    fn remove(components: &Components, ctx: &ExecCtx, jobs: Vec<Job>) -> Result<Removal> {
+        let stage = stage(components, "remove");
+        let effect = stage.as_effect().unwrap();
+        let args = BoundArgs::new("remove");
+        let input = StageInput::records(RecordStream::from_records(
+            jobs.into_iter().map(Record::from).collect(),
+        ));
+        let plan = effect.plan(&args, input, ctx)?;
+        let bulk = plan.bulk;
+        let planned_irreversible = plan.irreversible.len();
+        let planned_changes = plan.changes.len();
+        let mut tx = WatchedTx::default();
+        let outcome = effect.apply(&args, plan, &mut tx, ctx)?;
+        let irreversible = outcome.irreversible.len();
+        let changes = outcome.changes.len();
+        let records = StageInput::from(outcome.output)
+            .into_records()?
+            .map(|record| Effect::try_from(record.unwrap()).unwrap())
+            .collect();
+        Ok(Removal {
+            records,
+            bulk,
+            planned_irreversible,
+            planned_changes,
+            irreversible,
+            changes,
+            journal_calls: tx.calls,
+        })
+    }
+
+    fn finished(ctx: &ExecCtx, components: &Components, dir: &Path) -> Job {
+        let job = background(ctx, components, request(dir, 0, 0, 2));
+        wait_finished(dir, &job.id);
+        job
+    }
+
+    fn assert_outside_the_journal(removal: &Removal) {
+        assert!(
+            removal.journal_calls.is_empty(),
+            "{:?}",
+            removal.journal_calls
+        );
+        assert_eq!(removal.planned_irreversible, 0);
+        assert_eq!(removal.planned_changes, 0);
+        assert_eq!(removal.irreversible, 0);
+        assert_eq!(removal.changes, 0);
+    }
+
+    fn assert_removed_effect(effect: &Effect, job: &Job) {
+        assert_eq!(effect.kind, "remove");
+        assert_eq!(effect.action.as_deref(), Some("remove"));
+        assert_eq!(
+            effect.target.as_deref(),
+            Some(format!("job:{}", job.id).as_str())
+        );
+        assert!(effect.irreversible.is_none());
+        assert_eq!(effect.job.as_ref().unwrap().state, JobState::Exited);
+    }
+
     #[test]
-    fn removes_a_finished_job_with_its_output() {
+    fn removes_a_finished_job_with_its_output_outside_the_journal() {
         let dir = tempfile::tempdir().unwrap();
         let (ctx, _) = context(dir.path());
         let components = components();
-        let job = background(&ctx, &components, request(dir.path(), 0, 0, 2));
-        wait_finished(dir.path(), &job.id);
-        let (records, outcome, marked) = effect_on(
-            &components,
-            &ctx,
-            "remove",
-            &BoundArgs::new("remove"),
-            vec![job.clone()],
-        )
-        .unwrap();
-        assert_eq!(Effect::try_from(records[0].clone()).unwrap().kind, "remove");
-        assert_eq!(
-            outcome.irreversible[0].reason,
-            Irreversible::JobOutputRemoved
-        );
-        assert_eq!(marked, [Irreversible::JobOutputRemoved]);
+        let job = finished(&ctx, &components, dir.path());
         let jobs = dir.path().join("jobs");
+        let stdout = dir.path().join("spool").join(format!("{}.stdout", job.id));
+        assert!(jobs.join(format!("{}.json", job.id)).exists());
+        assert!(stdout.exists());
+        let removal = remove(&components, &ctx, vec![job.clone()]).unwrap();
+        assert_outside_the_journal(&removal);
+        assert!(!removal.bulk);
+        let [effect] = removal.records.as_slice() else {
+            panic!("expected one effect record");
+        };
+        assert_removed_effect(effect, &job);
         assert!(!jobs.join(format!("{}.json", job.id)).exists());
         assert!(!jobs.join(format!("{}.input.json", job.id)).exists());
-        assert!(
-            !dir.path()
-                .join("spool")
-                .join(format!("{}.stdout", job.id))
-                .exists()
-        );
+        assert!(!stdout.exists());
         assert_eq!(
             JobTable::at(jobs).unwrap().get(&job.id).unwrap_err().code,
             ErrorCode::UnknownJob
         );
+    }
+
+    #[test]
+    fn removes_several_finished_jobs_as_one_bulk_operation() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let components = components();
+        let first = finished(&ctx, &components, dir.path());
+        let second = finished(&ctx, &components, dir.path());
+        let removal = remove(&components, &ctx, vec![first.clone(), second.clone()]).unwrap();
+        assert!(removal.bulk);
+        assert!(
+            removal.journal_calls.is_empty(),
+            "{:?}",
+            removal.journal_calls
+        );
+        let targets: Vec<Option<&str>> = removal
+            .records
+            .iter()
+            .map(|effect| effect.target.as_deref())
+            .collect();
+        assert_eq!(
+            targets,
+            [
+                Some(format!("job:{}", first.id).as_str()),
+                Some(format!("job:{}", second.id).as_str())
+            ]
+        );
+        let (jobs, _) = read_jobs(&components, &ctx, &BoundArgs::new("jobs")).unwrap();
+        assert!(jobs.is_empty());
     }
 
     #[test]
@@ -1577,17 +1726,60 @@ mod jobs_remove {
         let (ctx, _) = context(dir.path());
         let components = components();
         let job = background(&ctx, &components, request(dir.path(), 10_000, 0, 0));
-        let error = effect_on(
+        let error = remove(&components, &ctx, vec![job.clone()]).err().unwrap();
+        assert_eq!(error.code, ErrorCode::JobState);
+        assert_eq!(error.found.as_deref(), Some("running"));
+        assert_eq!(error.fix, [format!("jobs \"{}\" |> stop", job.id)]);
+        assert!(
+            dir.path()
+                .join("jobs")
+                .join(format!("{}.json", job.id))
+                .exists()
+        );
+        stop_all(&ctx, &components);
+    }
+
+    #[test]
+    fn refuses_to_remove_a_suspended_job() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let components = components();
+        let job = background(&ctx, &components, gated(dir.path(), 0));
+        effect_on(
             &components,
             &ctx,
-            "remove",
-            &BoundArgs::new("remove"),
+            "suspend",
+            &BoundArgs::new("suspend"),
             vec![job.clone()],
         )
-        .unwrap_err();
+        .unwrap();
+        let error = remove(&components, &ctx, vec![job.clone()]).err().unwrap();
         assert_eq!(error.code, ErrorCode::JobState);
+        assert_eq!(error.found.as_deref(), Some("suspended"));
         assert_eq!(error.fix, [format!("jobs \"{}\" |> stop", job.id)]);
-        stop_all(&ctx, &components);
+        effect_on(
+            &components,
+            &ctx,
+            "resume",
+            &BoundArgs::new("resume"),
+            vec![job.clone()],
+        )
+        .unwrap();
+        release(dir.path());
+        wait_finished(dir.path(), &job.id);
+        let removal = remove(&components, &ctx, vec![job]).unwrap();
+        assert_eq!(removal.records.len(), 1);
+    }
+
+    #[test]
+    fn a_second_removal_reports_an_unknown_job() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let components = components();
+        let job = finished(&ctx, &components, dir.path());
+        remove(&components, &ctx, vec![job.clone()]).unwrap();
+        let error = remove(&components, &ctx, vec![job]).err().unwrap();
+        assert_eq!(error.code, ErrorCode::UnknownJob);
     }
 
     #[test]
