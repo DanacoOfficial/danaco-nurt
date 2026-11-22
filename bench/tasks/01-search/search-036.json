@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-036",
+  "domain": 1,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Write the relative paths of all .go files in the whole tree (recursively) to go-files.txt, one path per line, sorted, with '/' as separator and without a leading './'.",
+  "fs_before": {
+    "fixture": "go-service"
+  },
+  "expect": {
+    "files": {
+      "go-files.txt": {
+        "lines": [
+          "cmd/server/main.go",
+          "internal/handlers/orders.go",
+          "internal/store/store.go",
+          "internal/store/store_test.go"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \".\" glob: \"**/*.go\" type: file sort: name |> select relative |> write \"go-files.txt\" format: lines",
+  "reference_bash": "find . -type f -name '*.go' | sed 's|^\\./||' | LC_ALL=C sort > go-files.txt\n",
+  "reference_pwsh": "$items = Get-ChildItem . -Recurse -File -Filter '*.go' | Where-Object Extension -eq '.go' | ForEach-Object { (Resolve-Path -Relative $_.FullName).Substring(2) -replace '\\\\', '/' }; [string[]]$sorted = @($items); [Array]::Sort($sorted, [StringComparer]::Ordinal); [IO.File]::WriteAllText((Join-Path $PWD 'go-files.txt'), ($sorted -join \"`n\") + \"`n\")\n",
+  "tags": [
+    "find",
+    "write-result"
+  ],
+  "license": "CC-BY-4.0"
+}

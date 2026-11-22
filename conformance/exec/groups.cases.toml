@@ -1,0 +1,1106 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+# documents
+
+[[case]]
+id = "exec/documents/set/json-layout"
+kind = "exec"
+summary = "set changes one key of a JSON document and keeps indentation and key order."
+fs_before = { entries = [{ path = "package.json", type = "file", content_utf8 = "{\n    \"name\": \"app\",\n    \"scripts\": {\n        \"test\": \"jest\"\n    }\n}\n" }] }
+program = 'set "package.json" key: "scripts.test" value: "vitest"'
+fs_after = { entries = [{ path = "package.json", type = "file", content_utf8 = "{\n    \"name\": \"app\",\n    \"scripts\": {\n        \"test\": \"vitest\"\n    }\n}\n" }] }
+expect = { report = { status = "ok", kind = "set" } }
+
+[[case]]
+id = "exec/documents/set/toml-comments"
+kind = "exec"
+summary = "set changes a TOML value and keeps the comments."
+fs_before = { entries = [{ path = "Cargo.toml", type = "file", content_utf8 = "[package]\n# release\nversion = \"0.3.0\" # current\n" }] }
+program = 'set "Cargo.toml" key: "package.version" value: "0.4.0"'
+fs_after = { entries = [{ path = "Cargo.toml", type = "file", content_utf8 = "[package]\n# release\nversion = \"0.4.0\" # current\n" }] }
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/documents/query/jq-filter"
+kind = "exec"
+summary = "query applies a jq filter to a document."
+fs_before = { entries = [{ path = "p.json", type = "file", content_utf8 = "{\"name\": \"app\", \"deps\": [\"a\", \"b\"]}\n" }] }
+program = 'query ".deps | length" path: "p.json"'
+fs_after = "unchanged"
+expect = { report = { status = "ok", kind = "query", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/documents/query/invalid-filter"
+kind = "exec"
+summary = "query with a filter that does not compile fails with E_QUERY."
+fs_before = { entries = [{ path = "p.json", type = "file", content_utf8 = "{}\n" }] }
+program = 'query ".[" path: "p.json"'
+expect = { report = { status = "failed", error = { code = "E_QUERY" } } }
+
+[[case]]
+id = "exec/documents/sql/create-and-select"
+kind = "exec"
+summary = "sql with write true changes a database; a later read-only query returns its rows."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = "sql \"app.db\" \"create table users(id integer, name text); insert into users values (1, 'ann')\" write: true"
+expect = { report = { status = "ok" } }
+
+[[case.step]]
+program = 'sql "app.db" "select id, name from users where id = ?" params: [1]'
+expect = { report = { status = "ok", kind = "sql", records = { type = "row", matched = 1 } } }
+
+[[case]]
+id = "exec/documents/sql/write-without-flag"
+kind = "exec"
+summary = "sql that changes data without write true fails with E_SQL and changes nothing."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'sql "app.db" "create table t(x)" write: true'
+
+[[case.step]]
+program = 'sql "app.db" "insert into t values (1)"'
+expect = { report = { status = "failed", error = { code = "E_SQL" } } }
+
+# text
+
+[[case]]
+id = "exec/text/diff/two-files"
+kind = "exec"
+summary = "diff returns the hunks between two files."
+fs_before = { entries = [
+  { path = "a.txt", type = "file", content_utf8 = "one\ntwo\n" },
+  { path = "b.txt", type = "file", content_utf8 = "one\nTWO\n" },
+] }
+program = 'diff "a.txt" "b.txt"'
+fs_after = "unchanged"
+expect = { report = { status = "ok", kind = "diff", records = { type = "hunk", matched = 1 } } }
+
+[[case]]
+id = "exec/text/diff/identical"
+kind = "exec"
+summary = "diff of identical files returns no hunks."
+fs_before = { entries = [
+  { path = "a.txt", type = "file", content_utf8 = "x\n" },
+  { path = "b.txt", type = "file", content_utf8 = "x\n" },
+] }
+program = 'diff "a.txt" "b.txt"'
+expect = { report = { status = "ok", records = { matched = 0 } } }
+
+[[case]]
+id = "exec/text/patch/apply"
+kind = "exec"
+summary = "patch applies a unified difference under a root."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "one\ntwo\n" }] }
+program = 'patch "--- a/a.txt\n+++ b/a.txt\n@@ -1,2 +1,2 @@\n one\n-two\n+TWO\n" root: "${base}" strip: 1'
+fs_after = { entries = [{ path = "a.txt", type = "file", content_utf8 = "one\nTWO\n" }] }
+expect = { report = { status = "ok", kind = "patch" } }
+
+[[case]]
+id = "exec/text/patch/rejected"
+kind = "exec"
+summary = "A hunk that does not apply fails with E_PATCH_REJECTED and changes nothing."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "one\nthree\n" }] }
+program = 'patch "--- a/a.txt\n+++ b/a.txt\n@@ -1,2 +1,2 @@\n one\n-two\n+TWO\n" root: "${base}" strip: 1'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_PATCH_REJECTED" } } }
+
+[[case]]
+id = "exec/text/hash/sha256"
+kind = "exec"
+summary = "hash computes SHA-256 by default."
+fs_before = { entries = [{ path = "h.txt", type = "file", content_utf8 = "hello\n" }] }
+program = 'hash "h.txt"'
+expect = { report = { status = "ok", kind = "hash", records = { rows = [
+  { kind = "entry", fields = { hash = { t = "text", v = "sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03" } } },
+] } } }
+
+[[case]]
+id = "exec/text/convert/crlf-to-lf"
+kind = "exec"
+summary = "convert changes CRLF line endings to LF and reports it."
+fs_before = { entries = [{ path = "w.txt", type = "file", content_utf8 = "a\r\nb\r\n" }] }
+program = 'convert "w.txt" line_ending: lf'
+fs_after = { entries = [{ path = "w.txt", type = "file", content_utf8 = "a\nb\n" }] }
+expect = { report = { status = "ok", kind = "convert", notable = [{ code = "line_ending_changed" }] } }
+
+[[case]]
+id = "exec/text/convert/cp1250-to-utf8"
+kind = "exec"
+summary = "convert changes a Windows-1250 file to UTF-8."
+fs_before = { entries = [{ path = "l.txt", type = "file", content_base64 = "jmlsaW5hCg==" }] }
+program = 'convert "l.txt" encoding: "utf-8"'
+fs_after = { entries = [{ path = "l.txt", type = "file", content_utf8 = "Žilina\n" }] }
+expect = { report = { status = "ok", notable = [{ code = "encoding_changed" }] } }
+
+[[case]]
+id = "exec/text/convert/unrepresentable"
+kind = "exec"
+summary = "convert to an encoding that cannot hold a character fails with E_ENCODING."
+fs_before = { entries = [{ path = "u.txt", type = "file", content_utf8 = "日本\n" }] }
+program = 'convert "u.txt" encoding: "windows-1250"'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_ENCODING" } } }
+
+[[case]]
+id = "exec/text/evaluate/arithmetic"
+kind = "exec"
+summary = "evaluate computes an expression with sizes."
+fs_before = { entries = [] }
+program = "evaluate 1kib + 24b"
+expect = { report = { status = "ok", kind = "evaluate" } }
+
+[[case]]
+id = "exec/text/group/by-extension"
+kind = "exec"
+summary = "group counts records per value."
+fs_before = { entries = [
+  { path = "a.go", type = "file", content_utf8 = "" },
+  { path = "b.go", type = "file", content_utf8 = "" },
+  { path = "c.md", type = "file", content_utf8 = "" },
+] }
+program = 'find "." |> group extension'
+expect = { report = { status = "ok", records = { type = "group", matched = 2 } } }
+
+[[case]]
+id = "exec/text/summarize/size"
+kind = "exec"
+summary = "summarize computes totals of a field."
+fs_before = { entries = [
+  { path = "a", type = "file", content_utf8 = "xx" },
+  { path = "b", type = "file", content_utf8 = "xxxx" },
+] }
+program = 'find "." |> summarize size'
+expect = { report = { status = "ok", records = { type = "summary", matched = 1 } } }
+
+[[case]]
+id = "exec/text/distinct/lines"
+kind = "exec"
+summary = "distinct keeps one record of each value."
+fs_before = { entries = [{ path = "d.txt", type = "file", content_utf8 = "a\nb\na\n" }] }
+program = 'lines "d.txt" |> distinct text'
+expect = { report = { status = "ok", records = { matched = 2 } } }
+
+[[case]]
+id = "exec/text/describe/entries"
+kind = "exec"
+summary = "describe lists the fields of the input records."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+program = 'find "." |> describe'
+expect = { report = { status = "ok", records = { type = "field_info" } } }
+
+[[case]]
+id = "exec/text/parse/named-groups"
+kind = "exec"
+summary = "parse extracts fields from named groups."
+fs_before = { entries = [{ path = "a.log", type = "file", content_utf8 = "ERROR: disk full\nINFO: ok\n" }] }
+program = 'lines "a.log" |> parse /(?P<level>[A-Z]+): (?P<message>.*)/ |> filter level == "ERROR"'
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/text/split/csv"
+kind = "exec"
+summary = "split divides lines into named columns."
+fs_before = { entries = [{ path = "a.csv", type = "file", content_utf8 = "1,ann\n2,bob\n" }] }
+program = 'lines "a.csv" |> split "," names: ["id", "name"] |> filter name == "bob"'
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+# code
+
+[[case]]
+id = "exec/code/code.symbols/function"
+kind = "exec"
+class = "optional:code"
+summary = "code.symbols finds a function definition by name with syntax analysis."
+fs_before = { entries = [{ path = "src/a.py", type = "file", content_utf8 = "def old_name():\n    return 1\n" }] }
+program = 'code.symbols "old_name" path: ["${base}/src"] source: syntax match: exact'
+expect = { report = { status = "ok", records = { type = "symbol", matched = 1 } } }
+
+[[case]]
+id = "exec/code/code.outline/python"
+kind = "exec"
+class = "optional:code"
+summary = "code.outline lists the symbols of a file."
+fs_before = { entries = [{ path = "a.py", type = "file", content_utf8 = "class A:\n    def m(self):\n        pass\n\ndef f():\n    pass\n" }] }
+program = 'code.outline "a.py"'
+expect = { report = { status = "ok", records = { type = "symbol" } } }
+
+[[case]]
+id = "exec/code/code.definition/by-name"
+kind = "exec"
+class = "optional:code"
+summary = "code.definition finds the definition of a named symbol."
+fs_before = { entries = [{ path = "a.py", type = "file", content_utf8 = "def f():\n    pass\n\nf()\n" }] }
+program = 'code.definition "a.py" symbol: "f" root: "${base}"'
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/code/code.references/position"
+kind = "exec"
+class = "optional:code"
+summary = "code.references lists the references of the symbol at a position."
+fs_before = { entries = [{ path = "a.py", type = "file", content_utf8 = "def f():\n    pass\n\nf()\nf()\n" }] }
+program = 'code.references "a.py" line: 1 column: 5 root: "${base}"'
+expect = { report = { status = "ok", records = { type = "reference" } } }
+
+[[case]]
+id = "exec/code/code.hover/position"
+kind = "exec"
+class = "optional:code"
+summary = "code.hover describes the symbol at a position."
+fs_before = { entries = [{ path = "a.py", type = "file", content_utf8 = "def f(x):\n    \"\"\"Doubles x.\"\"\"\n    return 2 * x\n" }] }
+program = 'code.hover "a.py" line: 1 column: 5 root: "${base}"'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/code/code.diagnostics/syntax-error"
+kind = "exec"
+class = "optional:code"
+summary = "code.diagnostics reports a syntax error."
+fs_before = { entries = [{ path = "a.py", type = "file", content_utf8 = "def f(:\n" }] }
+program = 'code.diagnostics "a.py" source: syntax'
+expect = { report = { status = "ok", records = { type = "diagnostic", matched = 1 } } }
+
+[[case]]
+id = "exec/code/code.rename/across-files"
+kind = "exec"
+class = "optional:code"
+summary = "code.rename renames a function and its references in one operation."
+fs_before = { entries = [
+  { path = "a.py", type = "file", content_utf8 = "def old_name():\n    pass\n" },
+  { path = "b.py", type = "file", content_utf8 = "from a import old_name\nold_name()\n" },
+] }
+program = 'code.symbols "old_name" path: ["${base}"] kind: function source: syntax match: exact |> code.rename "new_name" source: syntax'
+fs_after = { entries = [
+  { path = "a.py", type = "file", content_utf8 = "def new_name():\n    pass\n" },
+  { path = "b.py", type = "file", content_utf8 = "from a import new_name\nnew_name()\n" },
+] }
+expect = { report = { status = "ok", kind = "code.rename" } }
+
+[[case]]
+id = "exec/code/code.languages/list"
+kind = "exec"
+class = "optional:code"
+summary = "code.languages lists the supported languages."
+fs_before = { entries = [] }
+program = "code.languages |> filter name == \"python\""
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/code/code.implementations/interface"
+kind = "exec"
+class = "optional:code"
+summary = "code.implementations lists the types that implement an interface."
+fs_before = { entries = [{ path = "a.go", type = "file", content_utf8 = "package a\n\ntype I interface{ M() }\n\ntype T struct{}\n\nfunc (T) M() {}\n" }] }
+program = 'code.implementations "a.go" symbol: "I" root: "${base}"'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/code/code.type_definition/variable"
+kind = "exec"
+class = "optional:code"
+summary = "code.type_definition finds the type of a variable."
+fs_before = { entries = [{ path = "a.go", type = "file", content_utf8 = "package a\n\ntype T struct{}\n\nvar v T\n" }] }
+program = 'code.type_definition "a.go" symbol: "v" root: "${base}"'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/code/code.call_hierarchy/callers"
+kind = "exec"
+class = "optional:code"
+summary = "code.call_hierarchy lists the callers of a function."
+fs_before = { entries = [{ path = "a.py", type = "file", content_utf8 = "def f():\n    pass\n\ndef g():\n    f()\n" }] }
+program = 'code.call_hierarchy "a.py" symbol: "f" direction: incoming root: "${base}"'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/code/code.actions/line"
+kind = "exec"
+class = "optional:code"
+summary = "code.actions lists the code actions for a line."
+fs_before = { entries = [{ path = "a.py", type = "file", content_utf8 = "import os\n" }] }
+program = 'code.actions "a.py" line: 1 root: "${base}"'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/code/code.profile/commands"
+kind = "exec"
+class = "optional:code"
+summary = "code.profile describes the build and test commands of a repository."
+fs_before = { entries = [{ path = "Makefile", type = "file", content_utf8 = "test:\n\techo test\n" }] }
+program = 'code.profile "${base}" sections: [commands]'
+expect = { report = { status = "ok", records = { type = "profile_entry" } } }
+
+# notebook
+
+[[case]]
+id = "exec/notebook/notebook.cells/outline"
+kind = "exec"
+summary = "notebook.cells lists the cells of a notebook."
+fs_before = { entries = [{ path = "a.ipynb", type = "file", content_utf8 = "{\"cells\": [{\"cell_type\": \"code\", \"id\": \"c1\", \"metadata\": {}, \"execution_count\": null, \"outputs\": [], \"source\": [\"print(1)\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n" }] }
+program = 'notebook.cells "a.ipynb"'
+expect = { report = { status = "ok", records = { type = "cell", matched = 1 } } }
+
+[[case]]
+id = "exec/notebook/notebook.insert/code-cell"
+kind = "exec"
+summary = "notebook.insert adds a cell."
+fs_before = { entries = [{ path = "a.ipynb", type = "file", content_utf8 = "{\"cells\": [], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n" }] }
+
+[[case.step]]
+program = 'notebook.insert "a.ipynb" index: 0 cell_type: code source: "print(2)"'
+expect = { report = { status = "ok", kind = "notebook.insert" } }
+
+[[case.step]]
+program = 'notebook.cells "a.ipynb"'
+expect = { report = { records = { matched = 1 } } }
+
+[[case]]
+id = "exec/notebook/notebook.replace/source"
+kind = "exec"
+summary = "notebook.replace changes the source of a cell."
+fs_before = { entries = [{ path = "a.ipynb", type = "file", content_utf8 = "{\"cells\": [{\"cell_type\": \"code\", \"id\": \"c1\", \"metadata\": {}, \"execution_count\": null, \"outputs\": [], \"source\": [\"print(1)\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n" }] }
+
+[[case.step]]
+program = 'notebook.replace "a.ipynb" id: "c1" source: "print(9)"'
+expect = { report = { status = "ok" } }
+
+[[case.step]]
+program = 'read "a.ipynb" cell: 0'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/notebook/notebook.move/cell"
+kind = "exec"
+summary = "notebook.move moves a cell."
+fs_before = { entries = [{ path = "a.ipynb", type = "file", content_utf8 = "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}, {\"cell_type\": \"markdown\", \"id\": \"n\", \"metadata\": {}, \"source\": [\"# B\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n" }] }
+program = 'notebook.move "a.ipynb" from: 1 to: 0'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/notebook/notebook.copy/cell"
+kind = "exec"
+summary = "notebook.copy duplicates a cell."
+fs_before = { entries = [{ path = "a.ipynb", type = "file", content_utf8 = "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n" }] }
+
+[[case.step]]
+program = 'notebook.copy "a.ipynb" from: 0 to: 1'
+expect = { report = { status = "ok" } }
+
+[[case.step]]
+program = 'notebook.cells "a.ipynb"'
+expect = { report = { records = { matched = 2 } } }
+
+[[case]]
+id = "exec/notebook/notebook.normalize/missing-ids"
+kind = "exec"
+summary = "notebook.normalize adds missing cell identifiers."
+fs_before = { entries = [{ path = "a.ipynb", type = "file", content_utf8 = "{\"cells\": [{\"cell_type\": \"markdown\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 4}\n" }] }
+program = 'notebook.normalize "a.ipynb"'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/notebook/notebook.ops/insert-and-remove"
+kind = "exec"
+summary = "notebook.ops applies several cell operations in one write."
+fs_before = { entries = [{ path = "a.ipynb", type = "file", content_utf8 = "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n" }] }
+program = 'notebook.ops "a.ipynb" changes: [{op: "insert", index: 1, cell_type: "code", source: "x = 1"}, {op: "remove", index: 0}]'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/notebook/notebook.remove/by-id"
+kind = "exec"
+summary = "notebook.remove removes a cell by identifier."
+fs_before = { entries = [{ path = "a.ipynb", type = "file", content_utf8 = "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n" }] }
+
+[[case.step]]
+program = 'notebook.remove "a.ipynb" id: "m"'
+expect = { report = { status = "ok" } }
+
+[[case.step]]
+program = 'notebook.cells "a.ipynb"'
+expect = { report = { records = { matched = 0 } } }
+
+[[case]]
+id = "exec/notebook/notebook.clear_outputs/all"
+kind = "exec"
+summary = "notebook.clear_outputs removes the outputs of the cells."
+fs_before = { entries = [{ path = "a.ipynb", type = "file", content_utf8 = "{\"cells\": [{\"cell_type\": \"code\", \"id\": \"c\", \"metadata\": {}, \"execution_count\": 1, \"outputs\": [{\"output_type\": \"stream\", \"name\": \"stdout\", \"text\": [\"1\\n\"]}], \"source\": [\"print(1)\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n" }] }
+program = 'notebook.clear_outputs "a.ipynb"'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/notebook/notebook.export/script"
+kind = "exec"
+summary = "notebook.export writes the code cells to a new script."
+fs_before = { entries = [{ path = "a.ipynb", type = "file", content_utf8 = "{\"cells\": [{\"cell_type\": \"code\", \"id\": \"c\", \"metadata\": {}, \"execution_count\": null, \"outputs\": [], \"source\": [\"print(1)\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n" }] }
+program = 'notebook.export "a.ipynb" to: "a.py" format: script'
+expect = { report = { status = "ok", summary = { files_created = 1 } } }
+
+# archive
+
+[[case]]
+id = "exec/archive/archive.create/zip"
+kind = "exec"
+summary = "archive.create makes a zip archive of the input entries."
+fs_before = { entries = [{ path = "dist/a.txt", type = "file", content_utf8 = "a" }] }
+program = 'find "dist" |> archive.create "out.zip" base: "${base}/dist"'
+expect = { report = { status = "ok", kind = "archive.create", summary = { files_created = 1 } } }
+
+[[case]]
+id = "exec/archive/archive.list/after-create"
+kind = "exec"
+summary = "archive.list lists the entries of an archive made by archive.create."
+fs_before = { entries = [
+  { path = "dist/a.txt", type = "file", content_utf8 = "a" },
+  { path = "dist/b/c.txt", type = "file", content_utf8 = "c" },
+] }
+
+[[case.step]]
+program = 'find "dist" |> archive.create "out.tar.gz" base: "${base}/dist"'
+
+[[case.step]]
+program = 'archive.list "out.tar.gz"'
+expect = { report = { status = "ok", kind = "archive.list", records = { type = "archive_entry", matched = 2 } } }
+
+[[case]]
+id = "exec/archive/archive.extract/round-trip"
+kind = "exec"
+summary = "archive.extract restores the content written by archive.create."
+fs_before = { entries = [{ path = "dist/a.txt", type = "file", content_utf8 = "alpha\n" }] }
+
+[[case.step]]
+program = 'find "dist" |> archive.create "out.zip" base: "${base}/dist"'
+
+[[case.step]]
+program = 'archive.extract "out.zip" into: "restored"'
+expect = { report = { status = "ok", kind = "archive.extract" } }
+fs_after = { exhaustive = false, entries = [{ path = "restored/a.txt", type = "file", content_utf8 = "alpha\n" }] }
+
+[[case]]
+id = "exec/archive/archive.extract/damaged"
+kind = "exec"
+summary = "archive.extract of a damaged archive fails with E_FORMAT and creates nothing."
+fs_before = { entries = [{ path = "bad.zip", type = "file", content_utf8 = "not an archive" }] }
+program = 'archive.extract "bad.zip" into: "out"'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_FORMAT" } } }
+
+[[case]]
+id = "exec/archive/compress/gzip"
+kind = "exec"
+summary = "compress writes a gzip file next to the original, which is kept."
+fs_before = { entries = [{ path = "a.log", type = "file", content_utf8 = "line\n" }] }
+program = 'compress "a.log"'
+expect = { report = { status = "ok", kind = "compress" } }
+fs_after = { exhaustive = false, entries = [{ path = "a.log", type = "file", content_utf8 = "line\n" }] }
+
+[[case]]
+id = "exec/archive/decompress/gzip"
+kind = "exec"
+summary = "decompress restores the original content."
+fs_before = { entries = [{ path = "a.log.gz", type = "file", content_base64 = "H4sIAAAAAAAC/8vJzEvlAgAORdhmBQAAAA==" }] }
+program = 'decompress "a.log.gz"'
+fs_after = { exhaustive = false, entries = [{ path = "a.log", type = "file", content_utf8 = "line\n" }] }
+expect = { report = { status = "ok", kind = "decompress" } }
+
+# system
+
+[[case]]
+id = "exec/system/processes/some"
+kind = "exec"
+summary = "processes lists at least the running instance."
+fs_before = { entries = [] }
+program = "processes |> assert count: 1.."
+expect = { report = { status = "ok", kind = "processes" } }
+
+[[case]]
+id = "exec/system/ports/listening"
+kind = "exec"
+summary = "ports lists listening ports without failing."
+fs_before = { entries = [] }
+program = "ports state: listen"
+expect = { report = { status = "ok", kind = "ports" } }
+
+[[case]]
+id = "exec/system/disks/mounted"
+kind = "exec"
+summary = "disks lists at least one volume."
+fs_before = { entries = [] }
+program = "disks |> assert count: 1.."
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/system/host/one-record"
+kind = "exec"
+summary = "host describes the computer in one record."
+fs_before = { entries = [] }
+program = "host"
+expect = { report = { status = "ok", kind = "host", records = { type = "host", matched = 1 } } }
+
+[[case]]
+id = "exec/system/environment/path"
+kind = "exec"
+summary = "environment lists the variable PATH of the instance."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+program = 'environment "PATH"'
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/system/open_files/none"
+kind = "exec"
+summary = "open_files of a file nobody holds returns no records."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+program = 'open_files "a.txt"'
+expect = { report = { status = "ok", records = { matched = 0 } } }
+
+[[case]]
+id = "exec/system/accounts/users"
+kind = "exec"
+summary = "accounts lists at least one account."
+fs_before = { entries = [] }
+program = "accounts kind: user |> assert count: 1.."
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/system/sleep/short"
+kind = "exec"
+summary = "sleep waits and changes nothing."
+fs_before = { entries = [] }
+program = "sleep 50ms"
+fs_after = "unchanged"
+expect = { report = { status = "ok", kind = "sleep" } }
+
+[[case]]
+id = "exec/system/sleep/timeout"
+kind = "exec"
+summary = "sleep longer than the time limit of the program ends with E_TIMEOUT."
+fs_before = { entries = [] }
+program = "sleep 10s"
+options = { timeout = "200ms" }
+expect = { report = { status = "failed", error = { code = "E_TIMEOUT" } } }
+
+[[case]]
+id = "exec/system/suspend/job"
+kind = "exec"
+summary = "suspend stops a running job until it is resumed and reports the change of process state."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'run ["sh", "-c", "sleep 30"] cwd: "${base}" background: true'
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" |> suspend'
+expect = { report = { status = "ok", kind = "suspend", irreversible = [{ reason = "process_state_changed" }] } }
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}"'
+expect = { report = { records = { rows = [{ kind = "job", fields = { state = { t = "enum", v = "suspended" } } }] } } }
+
+[[case]]
+id = "exec/system/resume/job"
+kind = "exec"
+summary = "resume continues a suspended job; resuming a running job is not allowed."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'run ["sh", "-c", "sleep 30"] cwd: "${base}" background: true'
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" |> resume'
+expect = { report = { status = "failed", error = { code = "E_JOB_STATE" } } }
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" |> suspend'
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" |> resume'
+expect = { report = { status = "ok", kind = "resume" } }
+
+[[case]]
+id = "exec/system/logs/recent"
+kind = "exec"
+class = "optional:system-logs"
+summary = "logs reads recent events of the system log."
+fs_before = { entries = [] }
+program = "logs limit: 5"
+expect = { report = { status = "ok", kind = "logs" } }
+
+# admin
+
+[[case]]
+id = "exec/admin/services/absent-name"
+kind = "exec"
+class = "optional:services"
+summary = "services with a name that matches no service returns no records."
+fs_before = { entries = [] }
+program = 'services name: "nurt-conformance-absent-service"'
+expect = { report = { status = "ok", records = { matched = 0 } } }
+
+[[case]]
+id = "exec/admin/start/no-input"
+kind = "exec"
+class = "optional:services"
+summary = "start without input services changes nothing and reports that nothing matched."
+fs_before = { entries = [] }
+program = 'services name: "nurt-conformance-absent-service" |> start'
+expect = { report = { status = "ok", notable = [{ code = "nothing_matched" }] } }
+
+[[case]]
+id = "exec/admin/restart/no-input"
+kind = "exec"
+class = "optional:services"
+summary = "restart without input services changes nothing."
+fs_before = { entries = [] }
+program = 'services name: "nurt-conformance-absent-service" |> restart'
+expect = { report = { status = "ok", notable = [{ code = "nothing_matched" }] } }
+
+[[case]]
+id = "exec/admin/enable/no-input"
+kind = "exec"
+class = "optional:services"
+summary = "enable without input services changes nothing."
+fs_before = { entries = [] }
+program = 'services name: "nurt-conformance-absent-service" |> enable'
+expect = { report = { status = "ok", notable = [{ code = "nothing_matched" }] } }
+
+[[case]]
+id = "exec/admin/disable/no-input"
+kind = "exec"
+class = "optional:services"
+summary = "disable without input services changes nothing."
+fs_before = { entries = [] }
+program = 'services name: "nurt-conformance-absent-service" |> disable'
+expect = { report = { status = "ok", notable = [{ code = "nothing_matched" }] } }
+
+[[case]]
+id = "exec/admin/windows.cim/operating-system"
+kind = "exec"
+requires = ["os:windows"]
+summary = "windows.cim returns the instance of Win32_OperatingSystem."
+fs_before = { entries = [] }
+program = 'windows.cim "Win32_OperatingSystem"'
+expect = { report = { status = "ok", records = { type = "cim_object", matched = 1 } } }
+
+[[case]]
+id = "exec/admin/windows.cim/other-system"
+kind = "exec"
+requires = ["os:unix"]
+summary = "windows.cim on another system fails with E_OS_ONLY."
+fs_before = { entries = [] }
+program = 'windows.cim "Win32_OperatingSystem"'
+expect = { report = { status = "failed", error = { code = "E_OS_ONLY" } } }
+
+# package
+
+[[case]]
+id = "exec/package/package.list/absent-name"
+kind = "exec"
+class = "optional:packages"
+summary = "package.list with a name of no installed package returns no records."
+fs_before = { entries = [] }
+program = 'package.list name: "nurt-conformance-absent-package"'
+expect = { report = { status = "ok", records = { matched = 0 } } }
+
+[[case]]
+id = "exec/package/package.search/query"
+kind = "exec"
+class = "optional:packages"
+summary = "package.search searches the repositories."
+fs_before = { entries = [] }
+program = 'package.search "nurt-conformance-absent-package"'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/package/package.install/preview"
+kind = "exec"
+class = "optional:packages"
+summary = "A preview of package.install changes nothing."
+fs_before = { entries = [] }
+program = 'package.install ["curl"]'
+options = { preview = true }
+expect = { report = { status = "planned", kind = "package.install" } }
+
+[[case]]
+id = "exec/package/package.remove/preview"
+kind = "exec"
+class = "optional:packages"
+summary = "A preview of package.remove changes nothing."
+fs_before = { entries = [] }
+program = 'package.remove ["nurt-conformance-absent-package"]'
+options = { preview = true }
+expect = { report = { status = "planned" } }
+
+[[case]]
+id = "exec/package/package.upgrade/preview"
+kind = "exec"
+class = "optional:packages"
+summary = "A preview of package.upgrade changes nothing."
+fs_before = { entries = [] }
+program = "package.upgrade"
+options = { preview = true }
+expect = { report = { status = "planned" } }
+
+# network
+
+[[case]]
+id = "exec/network/http.request/connection-refused"
+kind = "exec"
+summary = "http.request to a closed local port fails with E_NETWORK."
+fs_before = { entries = [] }
+program = 'http.request "http://127.0.0.1:9/" timeout: 2s'
+expect = { report = { status = "failed", error = { code = "E_NETWORK" } } }
+
+[[case]]
+id = "exec/network/http.request/post-preview"
+kind = "exec"
+summary = "A preview of a POST request sends nothing and plans an irreversible effect."
+fs_before = { entries = [] }
+program = 'http.request "http://127.0.0.1:9/items" method: post json: {name: "a"}'
+options = { preview = true }
+expect = { report = { status = "planned", kind = "http.request" } }
+
+[[case]]
+id = "exec/network/http.download/connection-refused"
+kind = "exec"
+summary = "http.download from a closed local port fails and leaves no file."
+fs_before = { entries = [] }
+program = 'http.download "http://127.0.0.1:9/a.tar.gz" "a.tar.gz" timeout: 2s'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_NETWORK" } } }
+
+[[case]]
+id = "exec/network/network.ping/loopback"
+kind = "exec"
+class = "optional:network"
+summary = "network.ping of the loopback address returns a result."
+fs_before = { entries = [] }
+program = 'network.ping "127.0.0.1" count: 1'
+expect = { report = { status = "ok", records = { type = "ping_result" } } }
+
+[[case]]
+id = "exec/network/network.resolve/localhost"
+kind = "exec"
+class = "optional:network"
+summary = "network.resolve resolves localhost."
+fs_before = { entries = [] }
+program = 'network.resolve "localhost"'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/network/network.interfaces/loopback"
+kind = "exec"
+summary = "network.interfaces lists at least the loopback interface."
+fs_before = { entries = [] }
+program = "network.interfaces |> assert count: 1.."
+expect = { report = { status = "ok" } }
+
+# schedule
+
+[[case]]
+id = "exec/schedule/schedule.create/interval"
+kind = "exec"
+summary = "schedule.create creates a schedule that is listed with its next run."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'schedule.create "conformance" every: 1h action: (write "${base}/tick.txt" "t\n" mode: append) enabled: false'
+expect = { report = { status = "ok", kind = "schedule.create" } }
+
+[[case.step]]
+program = 'schedule.list |> filter label == "conformance"'
+expect = { report = { status = "ok", records = { type = "schedule", matched = 1 } } }
+
+[[case]]
+id = "exec/schedule/schedule.create/invalid-cron"
+kind = "exec"
+summary = "schedule.create with an invalid cron expression fails with E_INVALID_VALUE."
+fs_before = { entries = [] }
+program = 'schedule.create "bad" cron: "61 * * * *" action: (sleep 1s)'
+expect = { report = { status = "failed", error = { code = "E_INVALID_VALUE" } } }
+
+[[case]]
+id = "exec/schedule/schedule.list/empty"
+kind = "exec"
+summary = "schedule.list of a new state directory is empty."
+fs_before = { entries = [] }
+program = "schedule.list"
+expect = { report = { status = "ok", records = { matched = 0 } } }
+
+[[case]]
+id = "exec/schedule/schedule.pause/and-resume"
+kind = "exec"
+summary = "schedule.pause and schedule.resume change the state of a schedule."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'schedule.create "p" every: 1h action: (sleep 1s)'
+
+[[case.step]]
+program = 'schedule.list |> filter label == "p"'
+
+[[case.step]]
+program = 'schedule.pause "${step2/report/records/rows/0/fields/id/v}"'
+expect = { report = { status = "ok", kind = "schedule.pause" } }
+
+[[case.step]]
+program = 'schedule.list state: paused'
+expect = { report = { records = { matched = 1 } } }
+
+[[case]]
+id = "exec/schedule/schedule.resume/paused"
+kind = "exec"
+summary = "schedule.resume makes a paused schedule active."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'schedule.create "r" every: 1h action: (sleep 1s) enabled: false'
+
+[[case.step]]
+program = 'schedule.list |> filter label == "r"'
+
+[[case.step]]
+program = 'schedule.resume "${step2/report/records/rows/0/fields/id/v}"'
+expect = { report = { status = "ok", kind = "schedule.resume" } }
+
+[[case]]
+id = "exec/schedule/schedule.remove/all"
+kind = "exec"
+summary = "schedule.remove with all removes every schedule."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'schedule.create "x" every: 1h action: (sleep 1s)'
+
+[[case.step]]
+program = "schedule.remove all: true"
+expect = { report = { status = "ok", kind = "schedule.remove" } }
+
+[[case.step]]
+program = "schedule.list"
+expect = { report = { records = { matched = 0 } } }
+
+[[case]]
+id = "exec/schedule/schedule.run/now"
+kind = "exec"
+summary = "schedule.run runs the action at once and records the run."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'schedule.create "w" every: 1h action: (write "${base}/ran.txt" "ran\n" mode: overwrite) enabled: false'
+
+[[case.step]]
+program = 'schedule.list |> filter label == "w"'
+
+[[case.step]]
+program = 'schedule.run "${step2/report/records/rows/0/fields/id/v}"'
+expect = { report = { status = "ok", kind = "schedule.run" } }
+fs_after = { entries = [{ path = "ran.txt", type = "file", content_utf8 = "ran\n" }] }
+
+[[case]]
+id = "exec/schedule/schedule.history/after-run"
+kind = "exec"
+summary = "schedule.history lists a run made by schedule.run."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'schedule.create "h" every: 1h action: (sleep 10ms) enabled: false'
+
+[[case.step]]
+program = 'schedule.list |> filter label == "h"'
+
+[[case.step]]
+program = 'schedule.run "${step2/report/records/rows/0/fields/id/v}"'
+
+[[case.step]]
+program = 'schedule.history "${step2/report/records/rows/0/fields/id/v}"'
+expect = { report = { status = "ok", records = { type = "schedule_run", matched = 1 } } }
+
+# journal
+
+[[case]]
+id = "exec/journal/journal.status/state"
+kind = "exec"
+class = "optional:journal"
+summary = "journal.status reports the entries and the active limits."
+fs_before = { entries = [] }
+program = "journal.status"
+expect = { report = { status = "ok", kind = "journal.status", records = { type = "journal_state", matched = 1 } } }
+
+[[case]]
+id = "exec/journal/journal.space/volumes"
+kind = "exec"
+class = "optional:journal"
+summary = "journal.space reports free and reclaimable space."
+fs_before = { entries = [] }
+program = 'journal.space volume: "${base}"'
+expect = { report = { status = "ok", records = { type = "volume" } } }
+
+[[case]]
+id = "exec/journal/journal.pin/entry"
+kind = "exec"
+class = "optional:journal"
+summary = "journal.pin protects an entry; history shows it pinned."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'write "a.txt" "a" mode: create'
+
+[[case.step]]
+program = "journal.pin ${step1/report/op}"
+expect = { report = { status = "ok", kind = "journal.pin" } }
+
+[[case.step]]
+program = "history ${step1/report/op}"
+expect = { report = { records = { rows = [{ kind = "operation", fields = { pinned = { t = "bool", v = true } } }] } } }
+
+[[case]]
+id = "exec/journal/journal.limits/read"
+kind = "exec"
+class = "optional:journal"
+summary = "journal.limits without parameters only reads the limits."
+fs_before = { entries = [] }
+program = "journal.limits"
+expect = { report = { status = "ok", records = { type = "journal_state" } } }
+
+[[case]]
+id = "exec/journal/journal.purge/irreversible"
+kind = "exec"
+class = "optional:journal"
+summary = "journal.purge releases entries and reports the purge as irreversible."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'write "a.txt" "a" mode: create'
+
+[[case.step]]
+program = "journal.purge up_to: ${step1/report/op}"
+expect = { report = { status = "ok", kind = "journal.purge", irreversible = [{ reason = "purged" }] } }
+
+[[case.step]]
+program = "undo ${step1/report/op}"
+expect = { report = { status = "failed", error = { code = "E_JOURNAL_EXPIRED" } } }
+
+# program
+
+[[case]]
+id = "exec/program/program.find/shell"
+kind = "exec"
+requires = ["os:unix"]
+summary = "program.find locates sh in the search path."
+fs_before = { entries = [] }
+program = 'program.find "sh"'
+expect = { report = { status = "ok", records = { type = "program_location" } } }
+
+[[case]]
+id = "exec/program/program.search/query"
+kind = "exec"
+summary = "program.search returns program cards for a query."
+fs_before = { entries = [] }
+program = 'program.search "archive" limit: 3'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/program/program.describe/shell"
+kind = "exec"
+requires = ["os:unix"]
+summary = "program.describe describes a program of the system."
+fs_before = { entries = [] }
+program = 'program.describe "sh" include_guide: false'
+expect = { report = { status = "ok", records = { type = "program_card", matched = 1 } } }
+
+[[case]]
+id = "exec/program/program.catalog/categories"
+kind = "exec"
+summary = "program.catalog without a category lists categories."
+fs_before = { entries = [] }
+program = "program.catalog"
+expect = { report = { status = "ok" } }
+
+# verify
+
+[[case]]
+id = "exec/verify/test.run/no-framework"
+kind = "exec"
+summary = "test.run in a directory without a test framework fails with E_TEST_NO_FRAMEWORK."
+fs_before = { entries = [{ path = "README.md", type = "file", content_utf8 = "# x\n" }] }
+program = 'test.run "${base}"'
+expect = { report = { status = "failed", error = { code = "E_TEST_NO_FRAMEWORK" } } }
+
+[[case]]
+id = "exec/verify/test.run/command"
+kind = "exec"
+class = "optional:tests"
+requires = ["os:unix"]
+summary = "test.run with an explicit command reports a typed test run."
+fs_before = { entries = [{ path = "t.sh", type = "file", content_utf8 = "echo ok\n" }] }
+program = 'test.run "${base}" command: ["sh", "t.sh"] wait: forever'
+expect = { report = { status = "ok", kind = "test.run" } }
+
+[[case]]
+id = "exec/verify/test.failed/unknown-run"
+kind = "exec"
+summary = "test.failed with an unknown run fails with E_UNKNOWN_RUN."
+fs_before = { entries = [] }
+program = 'test.failed "r-absent"'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_RUN" } } }
+
+[[case]]
+id = "exec/verify/test.show/unknown-run"
+kind = "exec"
+summary = "test.show with an unknown run fails with E_UNKNOWN_RUN."
+fs_before = { entries = [] }
+program = 'test.show "r-absent"'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_RUN" } } }
+
+[[case]]
+id = "exec/verify/test.list/empty"
+kind = "exec"
+summary = "test.list of a new state directory is empty."
+fs_before = { entries = [] }
+program = "test.list"
+expect = { report = { status = "ok", records = { matched = 0 } } }
+
+[[case]]
+id = "exec/verify/analyze.check/empty-project"
+kind = "exec"
+class = "optional:analysis"
+summary = "analyze.check of a project without sources returns a verdict without findings."
+fs_before = { entries = [{ path = "README.md", type = "file", content_utf8 = "# x\n" }] }
+program = 'analyze.check "${base}" wait: forever'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/verify/analyze.show/unknown"
+kind = "exec"
+summary = "analyze.show with an unknown analysis fails with E_UNKNOWN_ANALYSIS."
+fs_before = { entries = [] }
+program = 'analyze.show "a-absent"'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_ANALYSIS" } } }
+
+[[case]]
+id = "exec/verify/analyze.format/no-formatter"
+kind = "exec"
+class = "optional:analysis"
+summary = "analyze.format of files without a configured formatter changes nothing."
+fs_before = { entries = [{ path = "a.unknownext", type = "file", content_utf8 = "x\n" }] }
+program = 'analyze.format "${base}"'
+fs_after = "unchanged"
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/verify/analyze.tools/detected"
+kind = "exec"
+class = "optional:analysis"
+summary = "analyze.tools lists the analysis tools for a project."
+fs_before = { entries = [{ path = "a.py", type = "file", content_utf8 = "x = 1\n" }] }
+program = 'analyze.tools "${base}"'
+expect = { report = { status = "ok", records = { type = "analyze_tool" } } }

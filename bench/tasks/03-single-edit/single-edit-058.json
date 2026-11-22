@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-058",
+  "domain": 3,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Swap the first two lines in order.cfg. The result must be: load a.so, load b.so, load c.so.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "order.cfg",
+        "type": "file",
+        "content_utf8": "load b.so\nload a.so\nload c.so\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "order.cfg": {
+        "text": "load a.so\nload b.so\nload c.so\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"order.cfg\" changes: [{move_line: 2, to: 1}]",
+  "reference_bash": "printf '%s\\n' 'load a.so' 'load b.so' 'load c.so' > order.cfg\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'order.cfg'; $l = [Collections.Generic.List[string]][IO.File]::ReadAllLines($p); $x = $l[1]; $l.RemoveAt(1); $l.Insert(0, $x); [IO.File]::WriteAllText($p, ($l -join \"`n\") + \"`n\")\n",
+  "tags": [
+    "reorder"
+  ],
+  "license": "CC-BY-4.0"
+}

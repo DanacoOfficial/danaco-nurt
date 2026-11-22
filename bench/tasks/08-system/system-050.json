@@ -1,0 +1,71 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-050",
+  "domain": 8,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Clear the read-only attribute of every file under letters/ (recursively). 3 files are read-only.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "letters/a3.txt",
+        "type": "file",
+        "content_utf8": "text letters/a3.txt\r\n"
+      },
+      {
+        "path": "letters/b.txt",
+        "type": "file",
+        "content_utf8": "text letters/b.txt\r\n"
+      },
+      {
+        "path": "letters/d.txt",
+        "type": "file",
+        "content_utf8": "text letters/d.txt\r\n"
+      },
+      {
+        "path": "letters/sub/c.txt",
+        "type": "file",
+        "content_utf8": "text letters/sub/c.txt\r\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "The files letters/a3.txt, letters/b.txt, letters/sub/c.txt have the read-only attribute.",
+    "pwsh": "Set-ItemProperty -LiteralPath 'letters/a3.txt' -Name IsReadOnly -Value $true\nSet-ItemProperty -LiteralPath 'letters/b.txt' -Name IsReadOnly -Value $true\nSet-ItemProperty -LiteralPath 'letters/sub/c.txt' -Name IsReadOnly -Value $true"
+  },
+  "teardown": {
+    "pwsh": "Get-ChildItem letters -Recurse -File | ForEach-Object { $_.IsReadOnly = $false }"
+  },
+  "probes": [
+    {
+      "id": "readonly",
+      "kind": "command",
+      "argv": [
+        "pwsh",
+        "-NoProfile",
+        "-Command",
+        "@(Get-ChildItem letters -Recurse -File | Where-Object IsReadOnly).Count"
+      ]
+    }
+  ],
+  "expect": {
+    "probes": {
+      "readonly": {
+        "stdout": "0"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"letters\" type: file |> attributes readonly: false",
+  "reference_pwsh": "Get-ChildItem letters -Recurse -File | Where-Object IsReadOnly | ForEach-Object { $_.IsReadOnly = $false }\n",
+  "tags": [
+    "attributes",
+    "windows"
+  ],
+  "license": "CC-BY-4.0"
+}

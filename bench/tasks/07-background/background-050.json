@@ -1,0 +1,61 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-050",
+  "domain": 7,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Leftover processes from an earlier sync are still running: their command lines contain sync-job-5. Stop all of them. The process whose command line contains keep-alive-5 must keep running.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/idle.py",
+        "type": "file",
+        "content_utf8": "import time\r\n\r\nwhile True:\r\n    time.sleep(1)\r\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "2 processes with sync-job-5 and one with keep-alive-5 run tools/idle.py.",
+    "bash": "setsid python3 tools/idle.py sync-job-5-a > /dev/null 2>&1 < /dev/null &\nsetsid python3 tools/idle.py sync-job-5-b > /dev/null 2>&1 < /dev/null &\nsetsid python3 tools/idle.py keep-alive-5 > /dev/null 2>&1 < /dev/null &\nsleep 0.5",
+    "pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nStart-Process $py -ArgumentList 'tools/idle.py','sync-job-5-a'\nStart-Process $py -ArgumentList 'tools/idle.py','sync-job-5-b'\nStart-Process $py -ArgumentList 'tools/idle.py','keep-alive-5'\nStart-Sleep -Seconds 1"
+  },
+  "teardown": {
+    "bash": "pkill -f -- sync-job-5 || true; pkill -f -- keep-alive-5 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*sync-job-5*' } | Stop-Process -Force -ErrorAction SilentlyContinue\nGet-Process | Where-Object { $_.CommandLine -like '*keep-alive-5*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "probes": [
+    {
+      "id": "stray",
+      "kind": "process",
+      "match": "sync-job-5"
+    },
+    {
+      "id": "keep",
+      "kind": "process",
+      "match": "keep-alive-5"
+    }
+  ],
+  "expect": {
+    "probes": {
+      "stray": {
+        "count": 0
+      },
+      "keep": {
+        "count": 1
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "processes |> filter command ~ \"sync-job-5\" |> stop",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nGet-Process | Where-Object { $_.CommandLine -like '*sync-job-5*' } | Stop-Process -Force\nStart-Sleep -Milliseconds 300\n",
+  "tags": [
+    "processes",
+    "stop"
+  ],
+  "license": "CC-BY-4.0"
+}

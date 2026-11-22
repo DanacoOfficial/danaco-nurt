@@ -1,0 +1,60 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-027",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Count the lines containing ERROR in the files listed in logs.txt and write the total to total.txt. If a listed file does not exist, write nothing and name the file.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "a.log",
+        "type": "file",
+        "content_utf8": "ERROR x\nINFO y\n"
+      },
+      {
+        "path": "c.log",
+        "type": "file",
+        "content_utf8": "ERROR z\n"
+      },
+      {
+        "path": "logs.txt",
+        "type": "file",
+        "content_utf8": "a.log\nmissing.log\nc.log\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "total.txt": {
+        "absent": true
+      }
+    },
+    "answer": {
+      "contains": [
+        "missing.log"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"logs.txt\" |> read |> search \"ERROR\" |> count |> write \"total.txt\"",
+  "reference_bash": "while read -r f; do [ -f \"$f\" ] || { echo \"missing: $f\"; exit 1; }; done < logs.txt\ncat $(cat logs.txt) | grep -c ERROR > total.txt\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "cat $(cat logs.txt) | grep -c ERROR > total.txt",
+      "defect": "the pipeline succeeds with a partial count"
+    }
+  ],
+  "provocation": "pipeline-error",
+  "tags": [
+    "pipeline-error",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

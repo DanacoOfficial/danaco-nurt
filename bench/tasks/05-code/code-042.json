@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-042",
+  "domain": 5,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Remove the unused import from tools/clock.py. The other imports are used and stay.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/clock.py",
+        "type": "file",
+        "content_utf8": "import time\r\nimport datetime\r\n\r\n\r\ndef now():\r\n    return datetime.datetime.now()\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "tools/clock.py": {
+        "text": "import datetime\r\n\r\n\r\ndef now():\r\n    return datetime.datetime.now()\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.actions \"tools/clock.py\" |> filter kind == \"remove_unused_import\" |> apply",
+  "reference_pwsh": "$p = Join-Path $PWD 'tools/clock.py'; $t = [IO.File]::ReadAllText($p)\n$o = 'import time\n'.Replace(\"`n\", \"`r`n\"); $n = ''.Replace(\"`n\", \"`r`n\")\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in tools/clock.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n",
+  "tags": [
+    "imports",
+    "python"
+  ],
+  "license": "CC-BY-4.0"
+}

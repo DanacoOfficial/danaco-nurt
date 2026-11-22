@@ -1,0 +1,42 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-010",
+  "domain": 7,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Run tools/job.py once for each of the names red, green, blue, all at the same time in the background. When all have finished, write their output lines sorted to summary-4.txt. Leave no other files behind.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/job.py",
+        "type": "file",
+        "content_utf8": "import sys\nimport time\n\ntime.sleep(0.3)\nprint(f\"{sys.argv[1]} done\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "summary-4.txt": {
+        "lines": [
+          "blue done",
+          "green done",
+          "red done"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/job.py\", \"red\"] background: true label: \"red\"\nrun [\"python3\", \"tools/job.py\", \"green\"] background: true label: \"green\"\nrun [\"python3\", \"tools/job.py\", \"blue\"] background: true label: \"blue\"\njobs wait: 60s |> select stdout |> sort text |> write \"summary-4.txt\"",
+  "reference_bash": "mkdir -p out\npython3 tools/job.py red > out/red.txt &\npython3 tools/job.py green > out/green.txt &\npython3 tools/job.py blue > out/blue.txt &\nwait\nsort out/*.txt > summary-4.txt\nrm -r out\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nNew-Item -ItemType Directory -Force out | Out-Null\n$p0 = Start-Process $py -ArgumentList 'tools/job.py','red' -RedirectStandardOutput out/red.txt -PassThru -NoNewWindow\n$p1 = Start-Process $py -ArgumentList 'tools/job.py','green' -RedirectStandardOutput out/green.txt -PassThru -NoNewWindow\n$p2 = Start-Process $py -ArgumentList 'tools/job.py','blue' -RedirectStandardOutput out/blue.txt -PassThru -NoNewWindow\n$p0.WaitForExit()\n$p1.WaitForExit()\n$p2.WaitForExit()\n[string[]]$l = Get-Content out/*.txt; [Array]::Sort($l, [StringComparer]::Ordinal); Set-Content summary-4.txt $l\nRemove-Item -Recurse out\n",
+  "tags": [
+    "background",
+    "parallel"
+  ],
+  "license": "CC-BY-4.0"
+}

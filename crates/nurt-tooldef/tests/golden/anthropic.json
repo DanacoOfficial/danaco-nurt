@@ -1,0 +1,121 @@
+{
+  "name": "nurt",
+  "description": "Runs programs of the Nurt language.\n\nGroup git: Git repositories.",
+  "input_schema": {
+    "type": "object",
+    "description": "Give exactly one of `program`, `ast`, `cursor` or `accept`.",
+    "properties": {
+      "program": {
+        "type": "string",
+        "description": "Program text in any notation variant."
+      },
+      "ast": {
+        "type": "object",
+        "required": [
+          "nurt",
+          "program"
+        ],
+        "description": "Surface syntax tree nurt-ast/1, equivalent to program."
+      },
+      "cursor": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Cursor of a further page of an earlier result."
+      },
+      "accept": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Identifier of a candidate from an earlier E_AMBIGUOUS error."
+      },
+      "preview": {
+        "type": "boolean",
+        "default": false,
+        "description": "Only compute targets and effect; change nothing."
+      },
+      "base": {
+        "type": "string",
+        "description": "Absolute directory against which relative paths are resolved."
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 5000,
+        "default": 50,
+        "description": "Records or changes per page."
+      },
+      "fields": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": "Fields of the result to keep."
+      },
+      "format": {
+        "enum": [
+          "text",
+          "json",
+          "markdown",
+          "compact"
+        ],
+        "default": "text"
+      },
+      "verbosity": {
+        "enum": [
+          "quiet",
+          "normal",
+          "detailed"
+        ],
+        "default": "normal"
+      },
+      "diff": {
+        "enum": [
+          "none",
+          "stat",
+          "unified"
+        ],
+        "default": "unified"
+      },
+      "diff_context": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 3
+      },
+      "max_chars": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 0,
+        "description": "Largest number of characters of a single text field; 0 means no limit."
+      },
+      "save_to": {
+        "type": "string",
+        "description": "Absolute path of a file that receives the full result instead of the response."
+      },
+      "timeout": {
+        "type": "string",
+        "pattern": "^([0-9]+(ms|s|m|h|d))+$",
+        "default": "120s",
+        "description": "Time limit of the whole program."
+      },
+      "session": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Session identifier recorded in the journal."
+      },
+      "language": {
+        "enum": [
+          "en",
+          "pl"
+        ],
+        "default": "en",
+        "description": "Language of messages and help."
+      },
+      "script": {
+        "type": "boolean",
+        "default": false,
+        "description": "Script mode: several pipelines, each its own operation."
+      }
+    },
+    "additionalProperties": false
+  }
+}

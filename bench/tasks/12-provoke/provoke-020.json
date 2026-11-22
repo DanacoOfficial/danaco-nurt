@@ -1,0 +1,69 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-020",
+  "domain": 12,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Move the files in reports/ whose names start with [Q1] into the directory q1/ (create it).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "reports/1-index.xlsx",
+        "type": "file",
+        "content_utf8": "i\r\n"
+      },
+      {
+        "path": "reports/Q2 sales.xlsx",
+        "type": "file",
+        "content_utf8": "q2\r\n"
+      },
+      {
+        "path": "reports/[Q1] costs.xlsx",
+        "type": "file",
+        "content_utf8": "c1\r\n"
+      },
+      {
+        "path": "reports/[Q1] sales.xlsx",
+        "type": "file",
+        "content_utf8": "q1\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "q1/[Q1] costs.xlsx": {
+        "text": "c1\r\n"
+      },
+      "q1/[Q1] sales.xlsx": {
+        "text": "q1\r\n"
+      },
+      "reports/[Q1] costs.xlsx": {
+        "absent": true
+      },
+      "reports/[Q1] sales.xlsx": {
+        "absent": true
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"reports\" type: file |> filter name starts_with \"[Q1]\" |> move into: \"q1\"",
+  "reference_pwsh": "New-Item -ItemType Directory -Force q1 | Out-Null\nGet-ChildItem -LiteralPath reports -File | Where-Object { $_.Name.StartsWith('[Q1]') } | ForEach-Object { Move-Item -LiteralPath $_.FullName -Destination q1 }\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "New-Item -ItemType Directory -Force q1 | Out-Null\nMove-Item reports/[Q1]* q1",
+      "defect": "brackets act as a wildcard character class"
+    }
+  ],
+  "provocation": "special-names",
+  "tags": [
+    "provocation",
+    "special-names"
+  ],
+  "license": "CC-BY-4.0"
+}

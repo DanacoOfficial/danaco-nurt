@@ -1,0 +1,60 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-048",
+  "domain": 5,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Rename the field Customer of the Go struct store.Order to Client. Keep the JSON tag \"customer\", format the struct as gofmt does (aligned columns) and update the struct literal in the test.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "cmd/server/main.go",
+        "type": "file",
+        "content_utf8": "package main\r\n\r\nimport (\r\n\t\"log\"\r\n\t\"net/http\"\r\n\r\n\t\"example.com/orders/internal/handlers\"\r\n)\r\n\r\nfunc main() {\r\n\tmux := http.NewServeMux()\r\n\tmux.HandleFunc(\"/orders\", handlers.ListOrders)\r\n\tmux.HandleFunc(\"/orders/new\", handlers.CreateOrder)\r\n\tlog.Fatal(http.ListenAndServe(\":8080\", mux))\r\n}\r\n"
+      },
+      {
+        "path": "go.mod",
+        "type": "file",
+        "content_utf8": "module example.com/orders\r\n\r\ngo 1.22\r\n"
+      },
+      {
+        "path": "internal/handlers/orders.go",
+        "type": "file",
+        "content_utf8": "package handlers\r\n\r\nimport (\r\n\t\"encoding/json\"\r\n\t\"net/http\"\r\n\r\n\t\"example.com/orders/internal/store\"\r\n)\r\n\r\nfunc ListOrders(w http.ResponseWriter, r *http.Request) {\r\n\torders := store.AllOrders()\r\n\tjson.NewEncoder(w).Encode(orders)\r\n}\r\n\r\nfunc CreateOrder(w http.ResponseWriter, r *http.Request) {\r\n\tvar order store.Order\r\n\tif err := json.NewDecoder(r.Body).Decode(&order); err != nil {\r\n\t\thttp.Error(w, \"invalid order\", http.StatusBadRequest)\r\n\t\treturn\r\n\t}\r\n\tstore.SaveOrder(order)\r\n\tw.WriteHeader(http.StatusCreated)\r\n}\r\n"
+      },
+      {
+        "path": "internal/store/store.go",
+        "type": "file",
+        "content_utf8": "package store\r\n\r\ntype Order struct {\r\n\tID       int     `json:\"id\"`\r\n\tCustomer string  `json:\"customer\"`\r\n\tTotal    float64 `json:\"total\"`\r\n}\r\n\r\nvar orders []Order\r\n\r\nfunc AllOrders() []Order {\r\n\treturn orders\r\n}\r\n\r\nfunc SaveOrder(order Order) {\r\n\torders = append(orders, order)\r\n}\r\n"
+      },
+      {
+        "path": "internal/store/store_test.go",
+        "type": "file",
+        "content_utf8": "package store\r\n\r\nimport \"testing\"\r\n\r\nfunc TestSaveOrder(t *testing.T) {\r\n\tSaveOrder(Order{ID: 1, Customer: \"acme\", Total: 12.5})\r\n\tif len(AllOrders()) != 1 {\r\n\t\tt.Fatal(\"order not saved\")\r\n\t}\r\n}\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "internal/store/store.go": {
+        "text": "package store\r\n\r\ntype Order struct {\r\n\tID     int     `json:\"id\"`\r\n\tClient string  `json:\"customer\"`\r\n\tTotal  float64 `json:\"total\"`\r\n}\r\n\r\nvar orders []Order\r\n\r\nfunc AllOrders() []Order {\r\n\treturn orders\r\n}\r\n\r\nfunc SaveOrder(order Order) {\r\n\torders = append(orders, order)\r\n}\r\n"
+      },
+      "internal/store/store_test.go": {
+        "text": "package store\r\n\r\nimport \"testing\"\r\n\r\nfunc TestSaveOrder(t *testing.T) {\r\n\tSaveOrder(Order{ID: 1, Client: \"acme\", Total: 12.5})\r\n\tif len(AllOrders()) != 1 {\r\n\t\tt.Fatal(\"order not saved\")\r\n\t}\r\n}\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.rename \"Client\" path: \"internal/store/store.go\" symbol: \"Order.Customer\"\nrun [\"gofmt\", \"-w\", \"internal/store/store.go\"]",
+  "reference_pwsh": "$p = Join-Path $PWD 'internal/store/store.go'; $t = [IO.File]::ReadAllText($p)\n$o = '\tID       int     `json:\"id\"`\n\tCustomer string  `json:\"customer\"`\n\tTotal    float64 `json:\"total\"`\n'.Replace(\"`n\", \"`r`n\"); $n = '\tID     int     `json:\"id\"`\n\tClient string  `json:\"customer\"`\n\tTotal  float64 `json:\"total\"`\n'.Replace(\"`n\", \"`r`n\")\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in internal/store/store.go' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'internal/store/store_test.go'; $t = [IO.File]::ReadAllText($p)\n$o = 'Customer: \"acme\"'; $n = 'Client: \"acme\"'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in internal/store/store_test.go' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n",
+  "tags": [
+    "go",
+    "rename"
+  ],
+  "license": "CC-BY-4.0"
+}

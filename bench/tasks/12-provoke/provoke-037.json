@@ -1,0 +1,66 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-037",
+  "domain": 12,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Move all .csv files of export/ to archive/ as one operation: if any of them already exists in archive/, move nothing and name the conflict.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "archive/q2.csv",
+        "type": "file",
+        "content_utf8": "old q2\r\n"
+      },
+      {
+        "path": "export/q1.csv",
+        "type": "file",
+        "content_utf8": "q1\r\n"
+      },
+      {
+        "path": "export/q2.csv",
+        "type": "file",
+        "content_utf8": "q2\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "export/q1.csv": {
+        "same_as_before": "export/q1.csv"
+      },
+      "export/q2.csv": {
+        "same_as_before": "export/q2.csv"
+      },
+      "archive/q2.csv": {
+        "same_as_before": "archive/q2.csv"
+      }
+    },
+    "answer": {
+      "contains": [
+        "q2.csv"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"export\" glob: \"*.csv\" |> move into: \"archive\" on_conflict: fail",
+  "reference_pwsh": "$files = Get-ChildItem export -Filter '*.csv'\n$c = $files | Where-Object { Test-Path (Join-Path archive $_.Name) }\nif ($c) { 'conflict: ' + ($c.Name -join ', ') } else { $files | Move-Item -Destination archive }\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "Get-ChildItem export -Filter '*.csv' | Move-Item -Destination archive -ErrorAction SilentlyContinue",
+      "defect": "moves part of the files"
+    }
+  ],
+  "provocation": "interrupted-bulk",
+  "tags": [
+    "interrupted-bulk",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

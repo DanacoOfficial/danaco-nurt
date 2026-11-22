@@ -1,0 +1,46 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-012",
+  "domain": 9,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Which .sql files does the archive archives/backup-1.tar.gz contain? List their paths inside the archive without extracting it.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "archives/README.txt",
+        "type": "file",
+        "content_utf8": "Nightly backups\n"
+      },
+      {
+        "path": "archives/backup-1.tar.gz",
+        "type": "file",
+        "content_base64": "H4sIAAAAAAAC/+3TPQ6CQBBA4ak9BRcAZnEWKw8Dizb+rQKJxxfs1NZsjLyvmWSqSSavbcJhjGXXlt14irkW/fUoX6aT2uw5J+9T1VXifOWtWvt63jtn3iRTSWDsh+Y2nSLLlOfZ/PhMV4IFal/7dz/Tv6f/lP07+l9y/7shlE2MRbic95K8f7WP/m1D/ynct5QPAAAAAAAAAAAAAP/gAVD4AtEAKAAA"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "backup/db/dump-0.sql",
+        "backup/db/dump-1.sql"
+      ],
+      "not_contains": [
+        "app.conf"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "archive.list \"archives/backup-1.tar.gz\" glob: \"**/*.sql\"",
+  "reference_bash": "tar -tzf archives/backup-1.tar.gz | grep '\\.sql$'\n",
+  "tags": [
+    "archive",
+    "list"
+  ],
+  "license": "CC-BY-4.0"
+}

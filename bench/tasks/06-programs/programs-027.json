@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-027",
+  "domain": 6,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Feed input-1.txt to the standard input of tools/upper.py and write the program's output to output-1.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "input-1.txt",
+        "type": "file",
+        "content_utf8": "alpha\nbeta\n"
+      },
+      {
+        "path": "tools/upper.py",
+        "type": "file",
+        "content_utf8": "import sys\n\nfor line in sys.stdin:\n    print(line.rstrip(\"\\n\").upper())\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "output-1.txt": {
+        "lines": [
+          "ALPHA",
+          "BETA"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/upper.py\"] stdin: (read \"input-1.txt\") save_to: \"output-1.txt\"",
+  "reference_bash": "python3 tools/upper.py < input-1.txt > output-1.txt\n",
+  "tags": [
+    "run",
+    "stdin"
+  ],
+  "license": "CC-BY-4.0"
+}

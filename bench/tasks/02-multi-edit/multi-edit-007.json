@@ -1,0 +1,71 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-007",
+  "domain": 2,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Change the version 1.4.2 to 1.5.0 in every file of the project except CHANGELOG.md.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "CHANGELOG.md",
+        "type": "file",
+        "content_utf8": "## 1.4.2\n\n- Fix rounding.\n\n## 1.4.1\n\n- First release.\n"
+      },
+      {
+        "path": "docs/install.md",
+        "type": "file",
+        "content_utf8": "Install inventory 1.4.2 with pip.\n"
+      },
+      {
+        "path": "inventory/__init__.py",
+        "type": "file",
+        "content_utf8": "__version__ = \"1.4.2\"\n"
+      },
+      {
+        "path": "pyproject.toml",
+        "type": "file",
+        "content_utf8": "name = \"inventory\"\nversion = \"1.4.2\"\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "docs/install.md": {
+        "text": "Install inventory 1.5.0 with pip.\n"
+      },
+      "inventory/__init__.py": {
+        "text": "__version__ = \"1.5.0\"\n"
+      },
+      "pyproject.toml": {
+        "text": "name = \"inventory\"\nversion = \"1.5.0\"\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "CHANGELOG.md",
+      "change": "any",
+      "reason": "the changelog records released versions"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"1.4.2\" \".\" mode: literal exclude: [\"CHANGELOG.md\"] |> replace \"1.5.0\"",
+  "reference_bash": "grep -rlF --exclude=CHANGELOG.md -- '1.4.2' . | xargs -r sed -i 's/1\\.4\\.2/1.5.0/g'\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "grep -rlF -- '1.4.2' . | xargs -r sed -i 's/1\\.4\\.2/1.5.0/g'",
+      "defect": "rewrites the changelog"
+    }
+  ],
+  "tags": [
+    "replace",
+    "version"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,43 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-035",
+  "domain": 6,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Run tools/validate.py with the argument service-4.json and report its exit code.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "service-4.json",
+        "type": "file",
+        "content_utf8": "{\"name\": \"b\", \"port\": 3, \"owner\": \"dev\", \"enabled\": false}\n"
+      },
+      {
+        "path": "tools/validate.py",
+        "type": "file",
+        "content_utf8": "import json\nimport sys\n\nconfig = json.load(open(sys.argv[1]))\nmissing = [key for key in (\"name\", \"port\", \"owner\") if key not in config]\nfor key in missing:\n    print(\"missing key: \" + key, file=sys.stderr)\nsys.exit(len(missing) * 10 + (0 if config.get(\"enabled\", True) else 3))\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\d.])3(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/validate.py\", \"service-4.json\"] |> select exit_code",
+  "reference_bash": "python3 tools/validate.py service-4.json; echo \"exit code: $?\"\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n& $py tools/validate.py service-4.json 2>$null; \"exit code: $LASTEXITCODE\"\n",
+  "tags": [
+    "exit-code",
+    "run"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,57 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-025",
+  "domain": 7,
+  "split": "public",
+  "platform": "cross",
+  "nl": "An export job is running and will create data/export.csv within a few seconds. Wait until the file exists, then copy it to backup/export-4.csv.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/producer.py",
+        "type": "file",
+        "content_utf8": "import os\nimport pathlib\nimport sys\nimport time\n\ntime.sleep(1.5)\npathlib.Path(\"data\").mkdir(exist_ok=True)\npathlib.Path(\"data/export.tmp\").write_text(sys.argv[2])\nos.replace(\"data/export.tmp\", \"data/export.csv\")\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "tools/producer.py runs in the background and creates data/export.csv after 1.5 s.",
+    "bash": "setsid python3 tools/producer.py bench-export-4 $'id,total\\n4,100\\n' > /dev/null 2>&1 < /dev/null &",
+    "pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nStart-Process $py -ArgumentList 'tools/producer.py','bench-export-4',\"id,total`n4,100`n\""
+  },
+  "teardown": {
+    "bash": "pkill -f -- bench-export-4 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*bench-export-4*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "expect": {
+    "files": {
+      "backup/export-4.csv": {
+        "text": "id,total\n4,100\n"
+      }
+    },
+    "allowed_changes": [
+      "data/**"
+    ]
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "jobs wait: 30s\ncopy \"data/export.csv\" \"backup/export-4.csv\"",
+  "reference_bash": "until [ -f data/export.csv ]; do sleep 0.2; done\nmkdir -p backup\ncp data/export.csv backup/export-4.csv\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nwhile (-not (Test-Path data/export.csv)) { Start-Sleep -Milliseconds 200 }\nNew-Item -ItemType Directory -Force backup | Out-Null\nCopy-Item data/export.csv backup/export-4.csv\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "mkdir -p backup\ncp data/export.csv backup/export-4.csv",
+      "defect": "copies before the file exists"
+    }
+  ],
+  "tags": [
+    "background",
+    "wait"
+  ],
+  "license": "CC-BY-4.0"
+}

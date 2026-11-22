@@ -1,0 +1,304 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "correction/targets/b01-rm-rf-removes-the-same-tree"
+kind = "correction"
+summary = "A corrected rm -rf removes exactly the tree that the canonical program removes."
+program = "rm -rf ${base}/build"
+fs_before = { entries = [
+  { path = "build/a.o", type = "file", content_utf8 = "a" },
+  { path = "build/sub/b.o", type = "file", content_utf8 = "b" },
+  { path = "src/main.c", type = "file", content_utf8 = "int main(void) { return 0; }\n" },
+] }
+fs_after = { entries = [
+  { path = "src/main.c", type = "file", content_utf8 = "int main(void) { return 0; }\n" },
+] }
+
+[case.expect.report]
+status = "ok"
+kind = "remove"
+ran = 'remove "${base}/build"'
+corrections = [{ rule = "B01" }, { rule = "L21" }]
+
+[[case]]
+id = "correction/targets/b02-glob-keeps-hidden-and-nested"
+kind = "correction"
+summary = "A corrected rm with a shell glob removes one directory level and leaves hidden and nested files."
+program = "rm ${base}/build/*.tmp"
+fs_before = { entries = [
+  { path = "build/a.tmp", type = "file", content_utf8 = "a" },
+  { path = "build/.h.tmp", type = "file", content_utf8 = "h" },
+  { path = "build/sub/c.tmp", type = "file", content_utf8 = "c" },
+  { path = "build/keep.txt", type = "file", content_utf8 = "k" },
+] }
+fs_after = { entries = [
+  { path = "build/.h.tmp", type = "file", content_utf8 = "h" },
+  { path = "build/sub/c.tmp", type = "file", content_utf8 = "c" },
+  { path = "build/keep.txt", type = "file", content_utf8 = "k" },
+] }
+
+[case.expect.report]
+status = "ok"
+kind = "remove"
+targets = { count = 1 }
+
+[[case]]
+id = "correction/targets/b03-mv-into-existing-directory"
+kind = "correction"
+summary = "A corrected mv to an existing directory moves the file into it, as mv does."
+program = "mv ${base}/a.txt ${base}/archive"
+fs_before = { entries = [
+  { path = "a.txt", type = "file", content_utf8 = "one\n" },
+  { path = "archive", type = "dir" },
+] }
+fs_after = { entries = [
+  { path = "archive/a.txt", type = "file", content_utf8 = "one\n" },
+] }
+
+[case.expect.report]
+status = "ok"
+kind = "move"
+ran = 'move "${base}/a.txt" to: "${base}/archive"'
+notable = [{ code = "to_is_dir" }]
+
+[[case]]
+id = "correction/targets/b14-find-delete-selects-the-same-files"
+kind = "correction"
+summary = "find -name -delete removes the matching files at every depth and nothing else."
+program = 'find ${base} -name "*.tmp" -delete'
+fs_before = { entries = [
+  { path = "a.tmp", type = "file", content_utf8 = "a" },
+  { path = "sub/b.tmp", type = "file", content_utf8 = "b" },
+  { path = "sub/c.txt", type = "file", content_utf8 = "c" },
+  { path = "keep.tmp.txt", type = "file", content_utf8 = "k" },
+] }
+fs_after = { entries = [
+  { path = "sub/c.txt", type = "file", content_utf8 = "c" },
+  { path = "keep.tmp.txt", type = "file", content_utf8 = "k" },
+] }
+
+[case.expect.report]
+status = "ok"
+kind = "remove"
+summary = { files_deleted = 2 }
+
+[[case]]
+id = "correction/targets/l01-typo-removes-the-named-file"
+kind = "correction"
+summary = "A corrected command name changes only the named target."
+program = 'remvoe "${base}/old.log"'
+fs_before = { entries = [
+  { path = "old.log", type = "file", content_utf8 = "x\n" },
+  { path = "new.log", type = "file", content_utf8 = "y\n" },
+] }
+fs_after = { entries = [
+  { path = "new.log", type = "file", content_utf8 = "y\n" },
+] }
+
+[case.expect.report]
+status = "ok"
+kind = "remove"
+ran = 'remove "${base}/old.log"'
+corrections = [{ rule = "L01", class = "F", from = "remvoe", to = "remove" }]
+
+[[case]]
+id = "correction/targets/b19-echo-overwrites"
+kind = "correction"
+summary = "A corrected echo with > replaces the content with the text and a line ending."
+program = 'echo "x" > ${base}/a.txt'
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "old content\n" }] }
+fs_after = { entries = [{ path = "a.txt", type = "file", content_utf8 = "x\n" }] }
+
+[case.expect.report]
+status = "ok"
+kind = "write"
+
+[[case]]
+id = "correction/targets/b06-touch-creates-empty-file"
+kind = "correction"
+summary = "A corrected touch creates an empty file."
+program = "touch ${base}/new.txt"
+fs_before = { entries = [] }
+fs_after = { entries = [{ path = "new.txt", type = "file", content_utf8 = "" }] }
+
+[case.expect.report]
+status = "ok"
+kind = "create"
+
+[[case]]
+id = "correction/targets/b05-mkdir-p-creates-parents"
+kind = "correction"
+summary = "A corrected mkdir -p creates the directory with its parents."
+program = "mkdir -p ${base}/a/b/c"
+fs_before = { entries = [] }
+fs_after = { entries = [{ path = "a/b/c", type = "dir" }] }
+
+[case.expect.report]
+status = "ok"
+kind = "create"
+
+[[case]]
+id = "correction/targets/p08-remove-item"
+kind = "correction"
+summary = "A corrected Remove-Item removes the directory tree."
+program = "Remove-Item -Path ${base}/build -Recurse -Force"
+fs_before = { entries = [
+  { path = "build/a.o", type = "file", content_utf8 = "a" },
+  { path = "keep.txt", type = "file", content_utf8 = "k" },
+] }
+fs_after = { entries = [{ path = "keep.txt", type = "file", content_utf8 = "k" }] }
+
+[case.expect.report]
+status = "ok"
+kind = "remove"
+
+[[case]]
+id = "correction/targets/b16-sed-changes-nothing"
+kind = "correction"
+summary = "An ambiguous correction of a change runs nothing."
+program = "sed -i 's/a(/b(/' ${base}/f.txt"
+fs_before = { entries = [{ path = "f.txt", type = "file", content_utf8 = "a(1)\n" }] }
+fs_after = "unchanged"
+
+[case.expect.report]
+status = "failed"
+error = { code = "E_AMBIGUOUS" }
+
+[[case]]
+id = "correction/targets/b22-two-steps-change-nothing"
+kind = "correction"
+summary = "Two changing shell commands joined by && change nothing."
+program = "mkdir ${base}/out && cp ${base}/a.txt ${base}/out"
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+fs_after = "unchanged"
+
+[case.expect.report]
+status = "failed"
+error = { code = "E_ONE_EFFECT" }
+
+[[case]]
+id = "correction/targets/l23-relative-path-with-base"
+kind = "correction"
+summary = "A relative path is resolved against base and the program that ran shows the absolute path."
+program = 'read "./docs/a.md"'
+fs_before = { entries = [{ path = "docs/a.md", type = "file", content_utf8 = "# A\n" }] }
+fs_after = "unchanged"
+
+[case.expect.report]
+status = "ok"
+kind = "read"
+ran = 'read "${base}/docs/a.md"'
+corrections = [{ rule = "L23", class = "C" }]
+
+[[case]]
+id = "correction/targets/l23-relative-path-without-dot"
+kind = "correction"
+summary = "A relative path without a leading dot is resolved against base."
+program = 'find "src" glob: "*.go"'
+fs_before = { entries = [
+  { path = "src/a.go", type = "file", content_utf8 = "package a\n" },
+  { path = "b.go", type = "file", content_utf8 = "package b\n" },
+] }
+fs_after = "unchanged"
+
+[case.expect.report]
+status = "ok"
+kind = "find"
+ran = 'find "${base}/src" glob: "*.go"'
+records = { matched = 1 }
+
+[[case]]
+id = "correction/targets/b20-cd-resolves-relative-paths"
+kind = "correction"
+summary = "Relative paths after cd to an absolute directory are read from that directory."
+program = "cd ${base}/app && cat README.md"
+fs_before = { entries = [{ path = "app/README.md", type = "file", content_utf8 = "hello\n" }] }
+fs_after = "unchanged"
+
+[case.expect.report]
+status = "ok"
+kind = "read"
+ran = 'read "${base}/app/README.md"'
+
+[[case]]
+id = "correction/targets/t02-candidate-accepted"
+kind = "correction"
+summary = "An ambiguous unit is offered as candidates; accepting the binary reading removes only files above 1024 bytes."
+
+[case.fs_before]
+entries = [
+  { path = "big.bin", type = "file", content_utf8 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  { path = "mid.bin", type = "file", content_utf8 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  { path = "small.bin", type = "file", content_utf8 = "small" },
+]
+
+[[case.step]]
+program = 'find "${base}" glob: "*.bin" |> filter size > 1K |> remove'
+fs_after = "unchanged"
+
+[case.step.expect.report]
+status = "failed"
+error = { code = "E_AMBIGUOUS", candidates = [
+  { rank = 1, program = 'find "${base}" glob: "*.bin" |> filter size > 1kib |> remove' },
+  { rank = 2, program = 'find "${base}" glob: "*.bin" |> filter size > 1kb |> remove' },
+] }
+
+[[case.step]]
+params = { nurt = "1.0", accept = "${step1/report/error/candidates/0/ref}", options = { base = "${base}" } }
+
+[case.step.expect.report]
+status = "ok"
+kind = "remove"
+targets = { count = 1 }
+
+[case.step.fs_after]
+entries = [
+  { path = "mid.bin", type = "file", content_utf8 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  { path = "small.bin", type = "file", content_utf8 = "small" },
+]
+
+[[case]]
+id = "correction/targets/t02-decimal-candidate-accepted"
+kind = "correction"
+summary = "Accepting the decimal reading of an ambiguous unit removes the files above 1000 bytes."
+
+[case.fs_before]
+entries = [
+  { path = "big.bin", type = "file", content_utf8 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  { path = "mid.bin", type = "file", content_utf8 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  { path = "small.bin", type = "file", content_utf8 = "small" },
+]
+
+[[case.step]]
+program = 'find "${base}" glob: "*.bin" |> filter size > 1K |> remove'
+fs_after = "unchanged"
+
+[case.step.expect.report]
+status = "failed"
+error = { code = "E_AMBIGUOUS" }
+
+[[case.step]]
+params = { nurt = "1.0", accept = "${step1/report/error/candidates/1/ref}", options = { base = "${base}" } }
+
+[case.step.expect.report]
+status = "ok"
+kind = "remove"
+targets = { count = 2 }
+
+[case.step.fs_after]
+entries = [{ path = "small.bin", type = "file", content_utf8 = "small" }]
+
+[[case]]
+id = "correction/targets/unknown-candidate"
+kind = "correction"
+summary = "Accepting an unknown candidate fails and changes nothing."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+params = { nurt = "1.0", accept = "c999", options = { base = "${base}" } }
+fs_after = "unchanged"
+
+[case.expect.report]
+status = "failed"
+error = { code = "E_EXPIRED_CANDIDATE" }

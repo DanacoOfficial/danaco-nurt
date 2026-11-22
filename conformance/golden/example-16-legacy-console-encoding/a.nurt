@@ -1,0 +1,1 @@
+run ["cmd.exe", "/c", "dir", "C:\\proj"] cwd: "C:/proj"

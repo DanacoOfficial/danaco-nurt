@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "nurt": {
+      "command": "nurt",
+      "args": ["mcp", "--stdio"]
+    }
+  }
+}

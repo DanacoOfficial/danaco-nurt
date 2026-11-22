@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-013",
+  "domain": 3,
+  "split": "public",
+  "platform": "windows",
+  "nl": "In hosts.list, change 203.0.113.5 to 203.0.113.6 on line 2 only. Other lines with 203.0.113.5 stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "hosts.list",
+        "type": "file",
+        "content_utf8": "db 203.0.113.5\r\ncache 203.0.113.5\r\nqueue 203.0.113.5\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "hosts.list": {
+        "text": "db 203.0.113.5\r\ncache 203.0.113.6\r\nqueue 203.0.113.5\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"hosts.list\" 2..2 |> replace \"203.0.113.5\" \"203.0.113.6\" mode: literal",
+  "reference_pwsh": "$p = Join-Path $PWD 'hosts.list'; $l = [IO.File]::ReadAllLines($p); $l[1] = $l[1].Replace('203.0.113.5', '203.0.113.6'); [IO.File]::WriteAllText($p, ($l -join \"`r`n\") + \"`r`n\")\n",
+  "tags": [
+    "line-edit"
+  ],
+  "license": "CC-BY-4.0"
+}

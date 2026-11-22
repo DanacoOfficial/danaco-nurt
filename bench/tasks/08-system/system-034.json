@@ -1,0 +1,54 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-034",
+  "domain": 8,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Remove the write permission for others from every file under shared/ that has it. Other permission bits stay unchanged. (set 2)",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "shared/x.txt",
+        "type": "file",
+        "content_utf8": "content 0\n",
+        "mode": "0666"
+      },
+      {
+        "path": "shared/y.txt",
+        "type": "file",
+        "content_utf8": "content 1\n",
+        "mode": "0646"
+      },
+      {
+        "path": "shared/z.txt",
+        "type": "file",
+        "content_utf8": "content 2\n",
+        "mode": "0600"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "shared/x.txt": {
+        "mode": "0664",
+        "same_as_before": "shared/x.txt"
+      },
+      "shared/y.txt": {
+        "mode": "0644",
+        "same_as_before": "shared/y.txt"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"shared\" type: file |> filter mode & \"0002\" |> attributes mode: \"o-w\"",
+  "reference_bash": "find shared -type f -perm -o+w -exec chmod o-w {} +\n",
+  "tags": [
+    "permissions"
+  ],
+  "license": "CC-BY-4.0"
+}

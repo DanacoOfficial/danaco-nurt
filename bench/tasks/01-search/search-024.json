@@ -1,0 +1,35 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-024",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Show lines 8 to 10 of inventory/store.py.",
+  "fs_before": {
+    "fixture": "py-inventory"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "def load_items(path):",
+        "with open(path, newline=\"\", encoding=\"utf-8\") as handle:",
+        "return ["
+      ],
+      "not_contains": [
+        "Item(row[\"sku\"], row[\"name\"], int(row[\"quantity\"]), float(row[\"unit_price\"]))"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"inventory/store.py\" lines: 8..10",
+  "reference_bash": "sed -n '8,10p' inventory/store.py\n",
+  "tags": [
+    "line-range",
+    "read"
+  ],
+  "license": "CC-BY-4.0"
+}

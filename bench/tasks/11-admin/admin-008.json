@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-008",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Make the orders service restart always instead of only on failure (etc/systemd/system/orders.service).",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/systemd/system/orders.service": {
+        "text": "[Unit]\nDescription=Orders service\nAfter=network.target\n\n[Service]\nUser=orders\nExecStart=/opt/orders/bin/orders --port 8080\nRestart=always\n\n[Install]\nWantedBy=multi-user.target\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/systemd/system/orders.service\" changes: [{replace: \"Restart=on-failure\", with: \"Restart=always\"}]",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/systemd/system/orders.service'); t = p.read_text()\nassert t.count('Restart=on-failure') == 1\np.write_text(t.replace('Restart=on-failure', 'Restart=always'))\nEOF\n",
+  "tags": [
+    "service",
+    "systemd"
+  ],
+  "license": "CC-BY-4.0"
+}

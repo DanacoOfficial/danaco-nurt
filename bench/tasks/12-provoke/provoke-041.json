@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-041",
+  "domain": 12,
+  "split": "public",
+  "platform": "windows",
+  "nl": "In order.txt (Windows-1250) change 'Version: 1' to 'Version: 2'. Keep the encoding.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "order.txt",
+        "type": "file",
+        "content_base64": "Q2xpZW50OiBHZGHxc2sNCk5vdGVzOiCveXdpZWMsIEJls2NoYXTzdywgQ3rqc3RvY2hvd2EsIIx3aep0b2Nos293aWNlDQpWZXJzaW9uOiAxDQo="
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "order.txt": {
+        "base64": "Q2xpZW50OiBHZGHxc2sNCk5vdGVzOiCveXdpZWMsIEJls2NoYXTzdywgQ3rqc3RvY2hvd2EsIIx3aep0b2Nos293aWNlDQpWZXJzaW9uOiAyDQo="
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"Version: 1\" \"Version: 2\" in: [\"order.txt\"] mode: literal",
+  "reference_pwsh": "$e = [Text.Encoding]::GetEncoding(1250); $p = Join-Path $PWD 'order.txt'\n[IO.File]::WriteAllText($p, [IO.File]::ReadAllText($p, $e).Replace('Version: 1', 'Version: 2'), $e)\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "(Get-Content order.txt) -replace 'Version: 1', 'Version: 2' | Set-Content order.txt",
+      "defect": "writes the file as UTF-8"
+    }
+  ],
+  "provocation": "encoding-change",
+  "tags": [
+    "encoding-change",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

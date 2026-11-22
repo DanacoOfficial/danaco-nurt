@@ -1,0 +1,31 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-010",
+  "domain": 1,
+  "split": "public",
+  "platform": "cross",
+  "nl": "How many requests in the access logs logs/access-*.log came from the address 198.51.100.7? Answer with the number.",
+  "fs_before": {
+    "fixture": "web-logs"
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\d.])6(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"198.51.100.7 \" \"logs\" glob: \"access-*.log\" mode: literal |> count",
+  "reference_bash": "grep -h '^198\\.51\\.100\\.7 ' logs/access-*.log | wc -l\n",
+  "reference_pwsh": "(Get-ChildItem logs -Filter 'access-*.log' | Get-Content | Where-Object { $_ -match '^198\\.51\\.100\\.7 ' }).Count\n",
+  "tags": [
+    "count",
+    "logs"
+  ],
+  "license": "CC-BY-4.0"
+}

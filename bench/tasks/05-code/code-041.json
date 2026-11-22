@@ -1,0 +1,38 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-041",
+  "domain": 5,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Remove the unused import from tools/paths.py. The other imports are used and stay.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/paths.py",
+        "type": "file",
+        "content_utf8": "import os\nimport pathlib\nimport glob\n\n\ndef files(root):\n    return sorted(pathlib.Path(root).rglob('*'))\n\n\ndef home():\n    return os.path.expanduser('~')\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "tools/paths.py": {
+        "text": "import os\nimport pathlib\n\n\ndef files(root):\n    return sorted(pathlib.Path(root).rglob('*'))\n\n\ndef home():\n    return os.path.expanduser('~')\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.actions \"tools/paths.py\" |> filter kind == \"remove_unused_import\" |> apply",
+  "reference_bash": "python3 - <<'EOF'\nimport os, pathlib\np = pathlib.Path('tools/paths.py'); t = p.read_bytes().decode()\nassert t.count('import glob\\n') == 1, 'tools/paths.py'\np.write_bytes(t.replace('import glob\\n', '').encode())\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'tools/paths.py'; $t = [IO.File]::ReadAllText($p)\n$o = 'import glob\n'; $n = ''\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in tools/paths.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n",
+  "tags": [
+    "imports",
+    "python"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,96 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "read",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/config.go",
+                "span": [
+                  1,
+                  6,
+                  1,
+                  26
+                ]
+              },
+              "span": [
+                1,
+                6,
+                1,
+                26
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            26
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "replace",
+            "args": [
+              {
+                "value": {
+                  "t": "text",
+                  "v": "timeout = 30",
+                  "span": [
+                    1,
+                    38,
+                    1,
+                    52
+                  ]
+                },
+                "span": [
+                  1,
+                  38,
+                  1,
+                  52
+                ]
+              },
+              {
+                "value": {
+                  "t": "text",
+                  "v": "timeout = 60",
+                  "span": [
+                    1,
+                    53,
+                    1,
+                    67
+                  ]
+                },
+                "span": [
+                  1,
+                  53,
+                  1,
+                  67
+                ]
+              }
+            ],
+            "span": [
+              1,
+              30,
+              1,
+              67
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          67
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,648 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "correction/syntax/l07-single-quotes"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Single quotes around a text are written as double quotes; the bytes of the text are kept."
+method = "correct"
+program = '''find "/home/user/app" glob: '*.go''''
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go"'
+corrections = [{ rule = "L07", class = "C" }]
+
+[[case]]
+id = "correction/syntax/l07-single-quotes-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Quote correction is a certain equivalence and applies to a changing program."
+method = "correct"
+program = '''replace 'oldName(' 'newName(' in: ["/home/user/app/a.go"]'''
+
+[case.expect]
+program = 'replace "oldName(" "newName(" in: ["/home/user/app/a.go"]'
+
+[[case]]
+id = "correction/syntax/l07-typographic-quotes"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Typographic double quotes used as delimiters are written as straight quotes."
+method = "correct"
+program = 'read “/home/user/app/a.txt”'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt"'
+corrections = [{ rule = "L07", class = "C" }]
+
+[[case]]
+id = "correction/syntax/l07-low-high-quotes"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Low and high typographic quotes used as delimiters are written as straight quotes."
+method = "correct"
+program = 'read „/home/user/app/a.txt”'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/syntax/l07-guillemets"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Guillemets used as delimiters are written as straight quotes."
+method = "correct"
+program = 'read «/home/user/app/a.txt»'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/syntax/l07-single-quotes-with-double-quote-inside"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A single-quoted text that contains a double quote becomes a raw text with the same bytes."
+method = "correct"
+program = '''write "/home/user/app/a.txt" 'say "hi"' mode: create'''
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" r#"say "hi""# mode: create'
+
+[[case]]
+id = "correction/syntax/l08-unterminated-in-read"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A missing closing quote at the end of the line of a reading program is added."
+method = "correct"
+program = 'read "/home/user/app/a.txt'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt"'
+corrections = [{ rule = "L08", class = "P" }]
+
+[[case]]
+id = "correction/syntax/l08-unterminated-target-of-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A missing closing quote in the target of a change is not repaired; the closed form is offered."
+method = "correct"
+program = 'remove "/home/user/app/old.log'
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+candidates = [{ program = 'remove "/home/user/app/old.log"' }]
+
+[[case]]
+id = "correction/syntax/l08-unterminated-swallows-parameter"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Closing a quote at the end of the line would swallow the target; the candidate that keeps the target is first."
+method = "correct"
+program = 'replace "x" "newName( in: ["/home/user/app/b.go"]'
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+
+[[case]]
+id = "correction/syntax/l09-doubled-closing-quote"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A doubled closing quote before a pipe is removed when the line then parses."
+method = "correct"
+program = 'read "/home/user/app/a.txt"" |> count'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" |> count'
+corrections = [{ rule = "L09", class = "P" }]
+
+[[case]]
+id = "correction/syntax/l10-unclosed-verify"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An unclosed parenthesis at the end of the program is closed; the structure is unambiguous."
+method = "correct"
+program = 'search /oldName\(/ "/home/user/app/src" |> replace "newName(" |> verify (run ["go", "build"] cwd: "/home/user/app"'
+
+[case.expect]
+program = 'search /oldName\(/ "/home/user/app/src" |> replace "newName(" |> verify (run ["go", "build"] cwd: "/home/user/app")'
+corrections = [{ rule = "L10", class = "S" }]
+
+[[case]]
+id = "correction/syntax/l10-unclosed-list"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An unclosed list at the end of the program is closed."
+method = "correct"
+program = 'info ["/home/user/app/a.txt", "/home/user/app/b.txt"'
+
+[case.expect]
+program = 'info ["/home/user/app/a.txt", "/home/user/app/b.txt"]'
+corrections = [{ rule = "L10", class = "S" }]
+
+[[case]]
+id = "correction/syntax/l10-nested-unclosed"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Several unclosed brackets are closed in reverse order."
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] |> verify (run ["make", "test"'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] |> verify (run ["make", "test"])'
+
+[[case]]
+id = "correction/syntax/l11-variant-b-unclosed-before-pipe"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+variant = "b"
+summary = "In variant B an unclosed parenthesis before a pipe is closed before the pipe."
+method = "correct"
+program = 'find("/home/user/app" |> count()'
+
+[case.expect]
+program = 'find("/home/user/app") |> count()'
+corrections = [{ rule = "L11", class = "S" }]
+
+[[case]]
+id = "correction/syntax/l12-extra-closing-parenthesis"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An extra closing parenthesis at the end of the program is removed."
+method = "correct"
+program = 'find "/home/user/app" |> count)'
+
+[case.expect]
+program = 'find "/home/user/app" |> count'
+corrections = [{ rule = "L12", class = "S" }]
+
+[[case]]
+id = "correction/syntax/l12-variant-b-extra-parenthesis"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+variant = "b"
+summary = "In variant B an extra closing parenthesis at the end of the program is removed."
+method = "correct"
+program = 'find("/home/user/app") |> count())'
+
+[case.expect]
+program = 'find("/home/user/app") |> count()'
+
+[[case]]
+id = "correction/syntax/l13-single-bar"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A single bar between stages is the pipe operator."
+method = "correct"
+program = 'find "/home/user/app" | search /TODO/'
+
+[case.expect]
+program = 'find "/home/user/app" |> search /TODO/'
+corrections = [{ rule = "L13", class = "C", from = "|", to = "|>" }]
+
+[[case]]
+id = "correction/syntax/l13-bar-arrow"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The operator |-> between stages is the pipe operator |>."
+method = "correct"
+program = 'find "/home/user/app" |-> search /TODO/'
+
+[case.expect]
+program = 'find "/home/user/app" |> search /TODO/'
+corrections = [{ rule = "L13", class = "C", from = "|->", to = "|>" }]
+
+[[case]]
+id = "correction/syntax/l13-arrow"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The operator -> between stages is the pipe operator |>."
+method = "correct"
+program = 'find "/home/user/app" -> search /TODO/'
+
+[case.expect]
+program = 'find "/home/user/app" |> search /TODO/'
+corrections = [{ rule = "L13", class = "C", from = "->", to = "|>" }]
+
+[[case]]
+id = "correction/syntax/l13-split-pipe"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The pipe written with a space inside is the pipe operator."
+method = "correct"
+program = 'find "/home/user/app" | > count'
+
+[case.expect]
+program = 'find "/home/user/app" |> count'
+corrections = [{ rule = "L13", class = "C" }]
+
+[[case]]
+id = "correction/syntax/l13-single-bar-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The pipe correction is certain and applies before a changing stage."
+method = "correct"
+program = 'find "/home/user/app/build" glob: "*.tmp" | remove'
+
+[case.expect]
+program = 'find "/home/user/app/build" glob: "*.tmp" |> remove'
+corrections = [{ rule = "L13", class = "C", from = "|", to = "|>" }]
+
+[[case]]
+id = "correction/syntax/l13-arrow-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The operator -> before a changing stage is the pipe operator."
+method = "correct"
+program = 'find "/home/user/app/build" glob: "*.tmp" -> remove'
+
+[case.expect]
+program = 'find "/home/user/app/build" glob: "*.tmp" |> remove'
+corrections = [{ rule = "L13", class = "C", from = "->", to = "|>" }]
+
+[[case]]
+id = "correction/syntax/l13-bar-arrow-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The operator |-> before a changing stage is the pipe operator."
+method = "correct"
+program = 'search /oldName/ "/home/user/app/src" |-> replace "newName"'
+
+[case.expect]
+program = 'search /oldName/ "/home/user/app/src" |> replace "newName"'
+corrections = [{ rule = "L13", class = "C", from = "|->", to = "|>" }]
+
+[[case]]
+id = "correction/syntax/l13-several-arrows"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Every arrow between stages of one pipeline is the pipe operator."
+method = "correct"
+program = 'find "/home/user/app" -> filter size > 1kb -> sort size order: desc -> first 5'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter size > 1kb |> sort size order: desc |> first 5'
+
+[[case]]
+id = "correction/syntax/l14-missing-pipe"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A command name after a complete argument starts a new stage."
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" search /TODO/'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" |> search /TODO/'
+corrections = [{ rule = "L14", class = "S" }]
+
+[[case]]
+id = "correction/syntax/l14-missing-pipe-count"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A transform name after a complete argument starts a new stage."
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" count'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" |> count'
+
+[[case]]
+id = "correction/syntax/l15-comma-in-variant-a"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A comma between arguments in variant A is removed."
+method = "correct"
+program = 'find "/home/user/app", glob: "*.go"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go"'
+corrections = [{ rule = "L15", class = "S" }]
+
+[[case]]
+id = "correction/syntax/l15-comma-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A comma between arguments of a changing command is removed; the literals are unchanged."
+method = "correct"
+program = 'copy "/home/user/a.txt", to: "/home/user/b.txt"'
+
+[case.expect]
+program = 'copy "/home/user/a.txt" to: "/home/user/b.txt"'
+
+[[case]]
+id = "correction/syntax/l15-comma-in-list-kept"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Commas inside a list are part of the list and stay."
+method = "correct"
+program = 'info ["/home/user/a.txt", "/home/user/b.txt"]'
+
+[case.expect]
+program = 'info ["/home/user/a.txt", "/home/user/b.txt"]'
+
+[[case]]
+id = "correction/syntax/l15-variant-b-missing-comma"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+variant = "b"
+summary = "In variant B a missing comma between arguments is inserted."
+method = "correct"
+program = 'find("/home/user/app" glob: "*.go")'
+
+[case.expect]
+program = 'find("/home/user/app", glob: "*.go")'
+
+[[case]]
+id = "correction/syntax/l16-equals-sign"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An equals sign after a parameter name in variant A is a colon."
+method = "correct"
+program = 'find "/home/user/app" glob="*.go"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go"'
+corrections = [{ rule = "L16", class = "C" }]
+
+[[case]]
+id = "correction/syntax/l17-no-break-space"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A no-break space between tokens is a space."
+method = "correct"
+program = "find\u00a0\"/home/user/app\""
+
+[case.expect]
+program = 'find "/home/user/app"'
+
+[[case]]
+id = "correction/syntax/l17-zero-width-space-in-name"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A zero-width space inside a command name is removed."
+method = "correct"
+program = "fi\u200bnd \"/home/user/app\""
+
+[case.expect]
+program = 'find "/home/user/app"'
+
+[[case]]
+id = "correction/syntax/l17-tab-as-space"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A tab between arguments is a space."
+method = "correct"
+program = "find \"/home/user/app\"\tglob: \"*.go\""
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go"'
+
+[[case]]
+id = "correction/syntax/l18-positional-after-named"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A positional argument after a named one is moved before the named arguments."
+method = "correct"
+program = 'find glob: "*.go" "/home/user/app"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go"'
+corrections = [{ rule = "L18", class = "C" }]
+
+[[case]]
+id = "correction/syntax/l18-relative-order-kept"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Moving positional arguments keeps their relative order."
+method = "correct"
+program = 'search glob: "*.go" "TODO" "/home/user/app"'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" glob: "*.go"'
+
+[[case]]
+id = "correction/syntax/l19-trailing-slash"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A trailing slash of a directory path is removed."
+method = "correct"
+program = 'list "/home/user/app/"'
+
+[case.expect]
+program = 'list "/home/user/app"'
+corrections = [{ rule = "L19", class = "C" }]
+
+[[case]]
+id = "correction/syntax/l19-root-kept"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The root directory keeps its only slash."
+method = "correct"
+program = 'list "/"'
+
+[case.expect]
+program = 'list "/"'
+
+[[case]]
+id = "correction/syntax/l19-doubled-slash"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A doubled slash inside a path is one slash."
+method = "correct"
+program = 'read "/home//user/app/a.txt"'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/syntax/l19-backslashes-on-windows"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ["os:windows"]
+summary = "Backslashes in a Windows path are slashes; the trailing separator is removed."
+method = "correct"
+program = 'find "C:\proj\src\" glob: "*.go"'
+
+[case.expect]
+program = 'find "C:/proj/src" glob: "*.go"'
+
+[[case]]
+id = "correction/syntax/l19-drive-letter-on-windows"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ["os:windows"]
+summary = "A lower-case drive letter is written in upper case."
+method = "correct"
+program = 'list "c:/proj"'
+
+[case.expect]
+program = 'list "C:/proj"'
+
+[[case]]
+id = "correction/syntax/l19-unc-prefix-kept-on-windows"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ["os:windows"]
+summary = "The double slash at the start of a UNC path is kept."
+method = "correct"
+program = 'list "//server/share/docs/"'
+
+[case.expect]
+program = 'list "//server/share/docs"'
+
+[[case]]
+id = "correction/syntax/l20-variant-b-in-variant-a"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A call written in variant B is accepted in variant A and printed in variant A."
+method = "correct"
+program = 'find("/home/user/app", glob: "*.go")'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go"'
+corrections = [{ rule = "L20", class = "C" }]
+
+[[case]]
+id = "correction/syntax/l21-bare-absolute-path"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A bare absolute path is quoted."
+method = "correct"
+program = 'find /home/user/app glob: "*.go"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go"'
+corrections = [{ rule = "L21", class = "C" }]
+
+[[case]]
+id = "correction/syntax/l21-bare-path-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Quoting a bare path keeps its bytes and applies to a changing program."
+method = "correct"
+program = "remove /home/user/app/build/old.log"
+
+[case.expect]
+program = 'remove "/home/user/app/build/old.log"'
+corrections = [{ rule = "L21", class = "C" }]
+
+[[case]]
+id = "correction/syntax/l21-with-quotes-unit-and-bar"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A bare path, single quotes, a single bar and a size with a space are corrected together."
+method = "correct"
+program = '''find /home/user/app glob: '*.go' | filter size > 10 MB'''
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" |> filter size > 10mb'
+
+[[case]]
+id = "correction/syntax/l22-regex-in-path-place"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A token that reads as a regular expression in a place of type path is a path."
+method = "correct"
+program = "list /etc/"
+
+[case.expect]
+program = 'list "/etc"'
+corrections = [{ rule = "L22", class = "S" }]
+
+[[case]]
+id = "correction/syntax/l22-regex-in-path-place-of-find"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The first argument of find in regular expression form is a path."
+method = "correct"
+program = 'find /var/log/ glob: "*.log"'
+
+[case.expect]
+program = 'find "/var/log" glob: "*.log"'
+
+[[case]]
+id = "correction/syntax/l22-regex-kept-in-pattern-place"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A regular expression in a place that accepts one stays a regular expression."
+method = "correct"
+program = 'search /etc/ "/home/user/app"'
+
+[case.expect]
+program = 'search /etc/ "/home/user/app"'
+
+[[case]]
+id = "correction/syntax/l24-escape-in-regex-place"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A text with an unknown escape in a place that accepts a regular expression is that regular expression."
+method = "correct"
+program = 'search "\d+" "/home/user/app"'
+
+[case.expect]
+program = 'search /\d+/ "/home/user/app"'
+corrections = [{ rule = "L24", class = "P" }]
+
+[[case]]
+id = "correction/syntax/l24-escape-in-text-place"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An unknown escape in a place of type text is an escape error with help."
+method = "correct"
+program = 'write "/home/user/app/a.txt" "a\d" mode: create'
+
+[case.expect.error]
+code = "E_ESCAPE"

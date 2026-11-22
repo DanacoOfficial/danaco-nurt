@@ -1,0 +1,143 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "write",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "registry:/HKCU/Software/Example/Mode",
+                "span": [
+                  1,
+                  7,
+                  1,
+                  45
+                ]
+              },
+              "span": [
+                1,
+                7,
+                1,
+                45
+              ]
+            },
+            {
+              "value": {
+                "t": "int",
+                "v": 3,
+                "span": [
+                  1,
+                  46,
+                  1,
+                  47
+                ]
+              },
+              "span": [
+                1,
+                46,
+                1,
+                47
+              ]
+            },
+            {
+              "name": "value_type",
+              "value": {
+                "t": "ident",
+                "v": "dword",
+                "span": [
+                  1,
+                  60,
+                  1,
+                  65
+                ]
+              },
+              "span": [
+                1,
+                48,
+                1,
+                65
+              ]
+            },
+            {
+              "name": "mode",
+              "value": {
+                "t": "ident",
+                "v": "overwrite",
+                "span": [
+                  1,
+                  72,
+                  1,
+                  81
+                ]
+              },
+              "span": [
+                1,
+                66,
+                1,
+                81
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            81
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          81
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "read",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "registry:/HKCU/Software/Example/Mode",
+                "span": [
+                  2,
+                  6,
+                  2,
+                  44
+                ]
+              },
+              "span": [
+                2,
+                6,
+                2,
+                44
+              ]
+            }
+          ],
+          "span": [
+            2,
+            1,
+            2,
+            44
+          ]
+        },
+        "stages": [],
+        "span": [
+          2,
+          1,
+          2,
+          44
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/build",
+                "span": [
+                  1,
+                  6,
+                  1,
+                  22
+                ]
+              },
+              "span": [
+                1,
+                6,
+                1,
+                22
+              ]
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "text",
+                "v": "**/*.tmp",
+                "span": [
+                  1,
+                  29,
+                  1,
+                  39
+                ]
+              },
+              "span": [
+                1,
+                23,
+                1,
+                39
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            39
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "remove",
+            "args": [],
+            "span": [
+              2,
+              4,
+              2,
+              10
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          2,
+          10
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-051",
+  "domain": 7,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Start tools/a.py report in the background, run tools/b.py report in the foreground meanwhile, then wait for tools/a.py. Write the output of a.py followed by the output of b.py to report.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/a.py",
+        "type": "file",
+        "content_utf8": "import sys\nimport time\n\ntime.sleep(1)\nprint(f\"part A of {sys.argv[1]}\")\n"
+      },
+      {
+        "path": "tools/b.py",
+        "type": "file",
+        "content_utf8": "import sys\n\nprint(f\"part B of {sys.argv[1]}\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "report.txt": {
+        "lines": [
+          "part A of report",
+          "part B of report"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/a.py\", \"report\"] background: true\nrun [\"python3\", \"tools/b.py\", \"report\"]\njobs wait: 30s |> select stdout |> write \"report.txt\"",
+  "reference_bash": "python3 tools/a.py report > a.out &\npid=$!\nb=$(python3 tools/b.py report)\nwait $pid\n{ cat a.out; echo \"$b\"; } > report.txt\nrm a.out\n",
+  "tags": [
+    "background",
+    "ordering"
+  ],
+  "license": "CC-BY-4.0"
+}

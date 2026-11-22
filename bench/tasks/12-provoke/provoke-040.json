@@ -1,0 +1,46 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-040",
+  "domain": 12,
+  "split": "public",
+  "platform": "cross",
+  "nl": "In settings.cfg (CRLF line endings) change 'mode = test' to 'mode = live'. Keep the CRLF line endings.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "settings.cfg",
+        "type": "file",
+        "content_utf8": "line one\r\nmode = test\r\nline three\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "settings.cfg": {
+        "text": "line one\r\nmode = live\r\nline three\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"mode = test\" \"mode = live\" in: [\"settings.cfg\"] mode: literal",
+  "reference_bash": "sed -i 's/mode = test/mode = live/' settings.cfg\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'settings.cfg'; [IO.File]::WriteAllText($p, [IO.File]::ReadAllText($p).Replace('mode = test', 'mode = live'))\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "python3 -c \"p='settings.cfg'; t=open(p).read(); open(p,'w').write(t.replace('test','live'))\"",
+      "defect": "rewrites the line endings as LF"
+    }
+  ],
+  "provocation": "encoding-change",
+  "tags": [
+    "encoding-change",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,69 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-042",
+  "domain": 7,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Start tools/service.py bench-service-2 8101 in the background, wait until logs/service.log contains the line ready, run tools/client.py, and finally stop the service by creating the file run/stop and waiting until the log contains the line stopped.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/client.py",
+        "type": "file",
+        "content_utf8": "import pathlib\n\nport = pathlib.Path(\"run/port\").read_text()\npathlib.Path(\"out\").mkdir(exist_ok=True)\npathlib.Path(\"out/response.txt\").write_text(f\"connected to port {port}\\n\")\n"
+      },
+      {
+        "path": "tools/service.py",
+        "type": "file",
+        "content_utf8": "import pathlib\nimport sys\nimport time\n\npathlib.Path(\"run\").mkdir(exist_ok=True)\npathlib.Path(\"logs\").mkdir(exist_ok=True)\ntime.sleep(0.5)\npathlib.Path(\"run/port\").write_text(sys.argv[2])\nwith open(\"logs/service.log\", \"a\") as log:\n    log.write(\"ready\\n\")\nwhile not pathlib.Path(\"run/stop\").exists():\n    time.sleep(0.1)\nwith open(\"logs/service.log\", \"a\") as log:\n    log.write(\"stopped\\n\")\n"
+      }
+    ]
+  },
+  "teardown": {
+    "bash": "pkill -f -- bench-service-2 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*bench-service-2*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "probes": [
+    {
+      "id": "service",
+      "kind": "process",
+      "match": "bench-service-2"
+    }
+  ],
+  "expect": {
+    "files": {
+      "out/response.txt": {
+        "lines": [
+          "connected to port 8101"
+        ]
+      },
+      "logs/service.log": {
+        "lines": [
+          "ready",
+          "stopped"
+        ]
+      }
+    },
+    "allowed_changes": [
+      "run/**"
+    ],
+    "probes": {
+      "service": {
+        "count": 0
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/service.py\", \"bench-service-2\", \"8101\"] background: true\njobs \"j1\" wait: 10s filter: \"ready\"\nrun [\"python3\", \"tools/client.py\"]\ncreate \"run/stop\" type: file\njobs \"j1\" wait: 10s",
+  "reference_bash": "nohup python3 tools/service.py bench-service-2 8101 > /dev/null 2>&1 &\nuntil grep -qx ready logs/service.log 2>/dev/null; do sleep 0.1; done\npython3 tools/client.py\ntouch run/stop\nuntil grep -qx stopped logs/service.log; do sleep 0.1; done\nsleep 0.3\n",
+  "tags": [
+    "background",
+    "service"
+  ],
+  "license": "CC-BY-4.0"
+}

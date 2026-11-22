@@ -1,0 +1,1668 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "parity/files/read/whole-file",
+      "kind": "parity",
+      "summary": "Reads a whole UTF-8 file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "read",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "one\ntwo\nthree\nfour\nfive\n"
+                  },
+                  "lines": {
+                    "t": "int",
+                    "v": 5
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/range-middle",
+      "kind": "parity",
+      "summary": "Reads the lines 2..3 of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 2..3",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "two\nthree\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/range-open-start",
+      "kind": "parity",
+      "summary": "Reads the lines ..2 of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: ..2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "one\ntwo\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/range-open-end",
+      "kind": "parity",
+      "summary": "Reads the lines 4.. of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 4..",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "four\nfive\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/range-single-line",
+      "kind": "parity",
+      "summary": "Reads the lines 3 of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 3",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "three\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/range-whole",
+      "kind": "parity",
+      "summary": "Reads the lines 1..5 of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 1..5",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "one\ntwo\nthree\nfour\nfive\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/range-past-end",
+      "kind": "parity",
+      "summary": "Reads the lines 4..9 of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 4..9",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "four\nfive\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/line-1",
+      "kind": "parity",
+      "summary": "Reads line 1 as a range of one line.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 1..1",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "one\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/line-2",
+      "kind": "parity",
+      "summary": "Reads line 2 as a range of one line.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 2..2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "two\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/line-3",
+      "kind": "parity",
+      "summary": "Reads line 3 as a range of one line.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 3..3",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "three\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/line-4",
+      "kind": "parity",
+      "summary": "Reads line 4 as a range of one line.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 4..4",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "four\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/line-5",
+      "kind": "parity",
+      "summary": "Reads line 5 as a range of one line.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 5..5",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "five\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/last-1",
+      "kind": "parity",
+      "summary": "Reads the last 1 lines of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" last: 1",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "five\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/last-2",
+      "kind": "parity",
+      "summary": "Reads the last 2 lines of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" last: 2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "four\nfive\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/last-5",
+      "kind": "parity",
+      "summary": "Reads the last 5 lines of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" last: 5",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "one\ntwo\nthree\nfour\nfive\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/around-context-0",
+      "kind": "parity",
+      "summary": "Reads the lines around a match with 0 lines of context.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" around: /three/ context: 0",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "three\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/around-context-1",
+      "kind": "parity",
+      "summary": "Reads the lines around a match with 1 lines of context.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" around: /three/ context: 1",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "two\nthree\nfour\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/around-context-2",
+      "kind": "parity",
+      "summary": "Reads the lines around a match with 2 lines of context.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" around: /three/ context: 2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "one\ntwo\nthree\nfour\nfive\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/several-ranges",
+      "kind": "parity",
+      "summary": "Reads two ranges of one file in one record.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: [1..1, 5..5]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/line-numbers",
+      "kind": "parity",
+      "summary": "Reads with line numbers.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 1..2 line_numbers: true",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/missing-file",
+      "kind": "parity",
+      "summary": "Reading a missing file fails and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"missing.txt\"",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_NOT_FOUND"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/empty-file",
+      "kind": "parity",
+      "summary": "Reads an empty file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "e.txt",
+            "type": "file",
+            "content_utf8": ""
+          }
+        ]
+      },
+      "program": "read \"e.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/e.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": ""
+                  },
+                  "lines": {
+                    "t": "int",
+                    "v": 0
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/no-final-newline",
+      "kind": "parity",
+      "summary": "Reads a file without a final line ending.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\nb"
+          }
+        ]
+      },
+      "program": "read \"a.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "a\nb"
+                  },
+                  "lines": {
+                    "t": "int",
+                    "v": 2
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/crlf",
+      "kind": "parity",
+      "summary": "Reports CRLF line endings of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "a\r\nb\r\n"
+          }
+        ]
+      },
+      "program": "read \"w.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/w.txt"
+                  },
+                  "line_ending": {
+                    "t": "enum",
+                    "v": "crlf"
+                  },
+                  "lines": {
+                    "t": "int",
+                    "v": 2
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/mixed-line-endings",
+      "kind": "parity",
+      "summary": "Reports mixed line endings.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "m.txt",
+            "type": "file",
+            "content_utf8": "a\r\nb\nc\r\n"
+          }
+        ]
+      },
+      "program": "read \"m.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/m.txt"
+                  },
+                  "line_ending": {
+                    "t": "enum",
+                    "v": "mixed"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/cp1250",
+      "kind": "parity",
+      "summary": "Detects and decodes a Windows-1250 file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_base64": "imtvZGEgjmlsaW5hCg=="
+          }
+        ]
+      },
+      "program": "read \"l.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/l.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "Škoda Žilina\n"
+                  },
+                  "encoding": {
+                    "t": "text",
+                    "v": "windows-1250"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/cp852-explicit",
+      "kind": "parity",
+      "summary": "Decodes an IBM 852 file with the given encoding.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "d.txt",
+            "type": "file",
+            "content_base64": "5mtvZGEgpmlsaW5hCg=="
+          }
+        ]
+      },
+      "program": "read \"d.txt\" encoding: \"ibm852\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/d.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "Škoda Žilina\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/utf16-bom",
+      "kind": "parity",
+      "summary": "Decodes a UTF-16 file with a byte order mark.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "u.txt",
+            "type": "file",
+            "content_base64": "//5oAOkAbABsAG8AIAB3APYAcgBsAGQACgA="
+          }
+        ]
+      },
+      "program": "read \"u.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/u.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "héllo wörld\n"
+                  },
+                  "bom": {
+                    "t": "bool",
+                    "v": true
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/utf8-bom",
+      "kind": "parity",
+      "summary": "Reads a UTF-8 file with a byte order mark; the mark is not part of the text.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_base64": "77u/aGVsbG8K"
+          }
+        ]
+      },
+      "program": "read \"b.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "hello\n"
+                  },
+                  "bom": {
+                    "t": "bool",
+                    "v": true
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/gzip",
+      "kind": "parity",
+      "summary": "Reads the text of a gzip-compressed file transparently.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.log.gz",
+            "type": "file",
+            "content_base64": "H4sIAAAAAAAA/wEOAPH/bGluZSAxCmxpbmUgMgoBtD2FDgAAAA=="
+          }
+        ]
+      },
+      "program": "read \"a.log.gz\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "text": {
+                    "t": "text",
+                    "v": "line 1\nline 2\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          },
+          "notable": [
+            {
+              "code": "decompressed"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/gzip-raw",
+      "kind": "parity",
+      "summary": "Reads a compressed file without decompression when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.log.gz",
+            "type": "file",
+            "content_base64": "H4sIAAAAAAAA/wECAP3/eAofCOpGAgAAAA=="
+          }
+        ]
+      },
+      "program": "read \"a.log.gz\" decompress: none",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/several-files",
+      "kind": "parity",
+      "summary": "Reads several files, one record each.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          }
+        ]
+      },
+      "program": "read [\"a.txt\", \"b.txt\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "a\n"
+                  }
+                }
+              },
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "b\n"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/stage-of-find",
+      "kind": "parity",
+      "summary": "Reads the files found by find.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.md",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "b.md",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"*.md\" depth: 1 |> read",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.md"
+                  }
+                }
+              },
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.md"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/json-key",
+      "kind": "parity",
+      "summary": "Reads one key of a JSON document.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "package.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.2.0\",\n  \"scripts\": {\n    \"test\": \"vitest\"\n  }\n}\n"
+          }
+        ]
+      },
+      "program": "read \"package.json\" key: \"scripts.test\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "item",
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/json-missing-key",
+      "kind": "parity",
+      "summary": "Reading a missing key fails.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "package.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.2.0\",\n  \"scripts\": {\n    \"test\": \"vitest\"\n  }\n}\n"
+          }
+        ]
+      },
+      "program": "read \"package.json\" key: \"scripts.build\"",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_KEY_NOT_FOUND"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/markdown-section",
+      "kind": "parity",
+      "summary": "Reads one section of a Markdown file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "README.md",
+            "type": "file",
+            "content_utf8": "# App\n\n## Install\n\nRun make.\n\n## Usage\n\nRun app.\n"
+          }
+        ]
+      },
+      "program": "read \"README.md\" section: \"Install\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/unchanged-since",
+      "kind": "parity",
+      "summary": "A second read with the entity tag of the first reports the file unchanged.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "read \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "read \"a.txt\" unchanged_since: \"${step1/report/records/rows/0/fields/etag/v}\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "content",
+                "rows": [
+                  {
+                    "kind": "content",
+                    "fields": {
+                      "path": {
+                        "t": "path",
+                        "v": "${base}/a.txt"
+                      },
+                      "unchanged": {
+                        "t": "bool",
+                        "v": true
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "parity/files/read/changed-since",
+      "kind": "parity",
+      "summary": "A read after a change with the earlier entity tag returns the new content.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "read \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"new\\n\" mode: overwrite",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "read \"a.txt\" unchanged_since: \"${step1/report/records/rows/0/fields/etag/v}\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "content",
+                "rows": [
+                  {
+                    "kind": "content",
+                    "fields": {
+                      "path": {
+                        "t": "path",
+                        "v": "${base}/a.txt"
+                      },
+                      "text": {
+                        "t": "text",
+                        "v": "new\n"
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/files/read/lines-records",
+      "kind": "parity",
+      "summary": "Produces one record per line.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "lines \"a.txt\" 2..3",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "line",
+            "rows": [
+              {
+                "kind": "line",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 2
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "two"
+                  }
+                }
+              },
+              {
+                "kind": "line",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "three"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/lines-filtered",
+      "kind": "parity",
+      "summary": "Filters lines by a regular expression.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "lines \"a.txt\" |> filter text ~ /^t/",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "line",
+            "rows": [
+              {
+                "kind": "line",
+                "fields": {
+                  "no": {
+                    "t": "int",
+                    "v": 2
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "two"
+                  }
+                }
+              },
+              {
+                "kind": "line",
+                "fields": {
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "three"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/lines-count",
+      "kind": "parity",
+      "summary": "Counts the lines of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "lines \"a.txt\" |> count",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/long-line-limit",
+      "kind": "parity",
+      "summary": "Shortens long lines to the given limit.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_utf8": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+          }
+        ]
+      },
+      "program": "read \"l.txt\" max_line: 100",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    }
+  ]
+}

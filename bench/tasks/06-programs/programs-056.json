@@ -1,0 +1,61 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-056",
+  "domain": 6,
+  "split": "public",
+  "platform": "linux",
+  "nl": "tools/count.py counts the lines of data.txt in its working directory. Run it with data/2022 as working directory and save its output to data/2022/count.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "data.txt",
+        "type": "file",
+        "content_utf8": "top\n"
+      },
+      {
+        "path": "data/2022/data.txt",
+        "type": "file",
+        "content_utf8": "row 0\nrow 1\n"
+      },
+      {
+        "path": "data/2023/data.txt",
+        "type": "file",
+        "content_utf8": "x\n"
+      },
+      {
+        "path": "tools/count.py",
+        "type": "file",
+        "content_utf8": "import pathlib\n\nrows = pathlib.Path(\"data.txt\").read_text().splitlines()\nprint(f\"{len(rows)} rows\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "data/2022/count.txt": {
+        "lines": [
+          "2 rows"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"../../tools/count.py\"] cwd: \"data/2022\" save_to: \"data/2022/count.txt\"",
+  "reference_bash": "(cd data/2022 && python3 ../../tools/count.py > count.txt)\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "python3 tools/count.py > data/2022/count.txt",
+      "defect": "reads data.txt of the wrong directory"
+    }
+  ],
+  "tags": [
+    "run",
+    "working-directory"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,67 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-002",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "List the relative paths of all files with the extension .sql anywhere in the current tree.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "db/README.md",
+        "type": "file",
+        "content_utf8": "migrations\n"
+      },
+      {
+        "path": "db/migrations/001_init.sql",
+        "type": "file",
+        "content_utf8": "create table a (id int);\n"
+      },
+      {
+        "path": "db/migrations/002_items.sql",
+        "type": "file",
+        "content_utf8": "create table items (id int);\n"
+      },
+      {
+        "path": "db/schema.sql.orig",
+        "type": "file",
+        "content_utf8": "old\n"
+      },
+      {
+        "path": "db/seed/items.sql",
+        "type": "file",
+        "content_utf8": "insert into items values (1);\n"
+      },
+      {
+        "path": "src/db.py",
+        "type": "file",
+        "content_utf8": "import sqlite3\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "db/migrations/001_init.sql",
+        "db/migrations/002_items.sql",
+        "db/seed/items.sql"
+      ],
+      "not_contains": [
+        "schema.sql.orig"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \".\" glob: \"**/*.sql\" type: file",
+  "reference_bash": "find . -type f -name '*.sql' | sort\n",
+  "tags": [
+    "find",
+    "glob"
+  ],
+  "license": "CC-BY-4.0"
+}

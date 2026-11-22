@@ -1,0 +1,60 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-019",
+  "domain": 6,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Rebuild the project from scratch with make: run the clean target first, then build dist/bundle.txt. (The project has 3 source parts.)",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "Makefile",
+        "type": "file",
+        "content_utf8": "SOURCES := $(sort $(wildcard src/*.txt))\n\ndist/bundle.txt: $(SOURCES)\n\tmkdir -p dist\n\tcat $(SOURCES) > $@\n\n.PHONY: clean\nclean:\n\trm -rf dist\n"
+      },
+      {
+        "path": "dist/stale.txt",
+        "type": "file",
+        "content_utf8": "old build\n"
+      },
+      {
+        "path": "src/part-1.txt",
+        "type": "file",
+        "content_utf8": "content of part-1\n"
+      },
+      {
+        "path": "src/part-2.txt",
+        "type": "file",
+        "content_utf8": "content of part-2\n"
+      },
+      {
+        "path": "src/part-3.txt",
+        "type": "file",
+        "content_utf8": "content of part-3\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "dist/bundle.txt": {
+        "text": "content of part-1\ncontent of part-2\ncontent of part-3\n"
+      },
+      "dist/stale.txt": {
+        "absent": true
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"make\", \"clean\"] cwd: \".\"\nrun [\"make\", \"dist/bundle.txt\"] cwd: \".\"",
+  "reference_bash": "make clean && make dist/bundle.txt\n",
+  "tags": [
+    "build",
+    "make"
+  ],
+  "license": "CC-BY-4.0"
+}

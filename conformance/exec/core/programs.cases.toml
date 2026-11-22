@@ -1,0 +1,451 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+# Programs and jobs: run, jobs, stop, retry.
+
+[[case]]
+id = "exec/core/run/exit-code"
+kind = "exec"
+summary = "run reports the exit code, the output and the working directory of a program."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+program = 'run ["sh", "-c", "echo hello; exit 3"] cwd: "${base}"'
+fs_after = "unchanged"
+expect = { report = { status = "ok", kind = "run", exec = { command = ["sh", "-c", "echo hello; exit 3"], cwd = "${base}", exit_code = 3, stdout = "hello\n", timed_out = false }, notable = [{ code = "exit_nonzero", count = 3 }] } }
+
+[[case]]
+id = "exec/core/run/assert-exit-code"
+kind = "exec"
+summary = "assert exit_code after run reports a failed check with the effect kept."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+program = 'run ["sh", "-c", "exit 1"] cwd: "${base}" |> assert exit_code: 0'
+expect = { report = { status = "ok", error = { code = "E_ASSERT", stage = "5a" } } }
+
+[[case]]
+id = "exec/core/run/missing-working-directory"
+kind = "exec"
+summary = "run in a missing working directory fails with E_SPAWN and changes nothing."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+program = 'run ["sh", "-c", "true"] cwd: "${base}/absent"'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_SPAWN" } } }
+
+[[case]]
+id = "exec/core/run/program-not-found"
+kind = "exec"
+summary = "run of a program that is not in the search path fails with E_PROGRAM_NOT_FOUND."
+fs_before = { entries = [] }
+program = 'run ["nurt-conformance-absent-program"] cwd: "${base}"'
+expect = { report = { status = "failed", error = { code = "E_PROGRAM_NOT_FOUND" } } }
+
+[[case]]
+id = "exec/core/run/watched-changes"
+kind = "exec"
+summary = "run detects the files a program changed under watch and lists them."
+requires = ["os:unix"]
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "old\n" }] }
+program = 'run ["sh", "-c", "echo new > a.txt; echo b > b.txt"] cwd: "${base}" watch: ["${base}"]'
+fs_after = { entries = [
+  { path = "a.txt", type = "file", content_utf8 = "new\n" },
+  { path = "b.txt", type = "file", content_utf8 = "b\n" },
+] }
+expect = { report = { status = "ok", exec = { changes = [
+  { path = "${base}/a.txt", action = "modify" },
+  { path = "${base}/b.txt", action = "create" },
+] } } }
+
+[[case]]
+id = "exec/core/run/irreversible-without-preimage"
+kind = "exec"
+summary = "A program that changes a watched file whose previous content was not kept is reported as irreversible."
+requires = ["os:unix"]
+config = "../config/no-preimage.toml"
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "old\n" }] }
+program = 'run ["sh", "-c", "echo new > a.txt"] cwd: "${base}" watch: ["${base}"]'
+fs_after = { entries = [{ path = "a.txt", type = "file", content_utf8 = "new\n" }] }
+expect = { report = { status = "ok", irreversible = [{ reason = "previous_content_not_kept" }] } }
+
+[[case]]
+id = "exec/core/run/timeout"
+kind = "exec"
+summary = "A program that exceeds its time limit ends with E_TIMEOUT."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+program = 'run ["sh", "-c", "sleep 30"] cwd: "${base}" timeout: 500ms wait: forever'
+expect = { report = { status = "failed", error = { code = "E_TIMEOUT" } } }
+
+[[case]]
+id = "exec/core/run/environment"
+kind = "exec"
+summary = "run passes the given environment variables."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+program = 'run ["sh", "-c", "printf %s \"$GREETING\""] cwd: "${base}" env: {GREETING: "hi"}'
+expect = { report = { status = "ok", exec = { stdout = "hi", env_keys = ["GREETING"] } } }
+
+[[case]]
+id = "exec/core/run/stdin"
+kind = "exec"
+summary = "run feeds the given text to standard input."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+program = 'run ["sh", "-c", "cat"] cwd: "${base}" stdin: "piped\n"'
+expect = { report = { status = "ok", exec = { stdout = "piped\n" } } }
+
+[[case]]
+id = "exec/core/run/output-filter"
+kind = "exec"
+summary = "run with filter shows only the matching output lines."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+program = 'run ["sh", "-c", "printf \"ok 1\\nFAIL 2\\nok 3\\n\""] cwd: "${base}" filter: /FAIL/'
+expect = { report = { status = "ok", exec = { stdout = "FAIL 2\n" } } }
+
+[[case]]
+id = "exec/core/run/legacy-output-encoding"
+kind = "exec"
+summary = "run decodes output in the given legacy encoding."
+requires = ["os:unix"]
+fs_before = { entries = [{ path = "l.txt", type = "file", content_base64 = "jmlsaW5hCg==" }] }
+program = 'run ["cat", "l.txt"] cwd: "${base}" output_encoding: "windows-1250"'
+expect = { report = { status = "ok", exec = { stdout = "Žilina\n", decoded_as = "windows-1250" } } }
+
+[[case]]
+id = "exec/core/run/background"
+kind = "exec"
+summary = "run with background true returns a running job at once."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+program = 'run ["sh", "-c", "sleep 2"] cwd: "${base}" background: true'
+expect = { report = { status = "running", job = { state = "running" } } }
+
+[[case]]
+id = "exec/core/jobs/wait-for-result"
+kind = "exec"
+summary = "jobs with wait returns the result of a finished background job."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'run ["sh", "-c", "echo done"] cwd: "${base}" background: true'
+expect = { report = { status = "running" } }
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" wait: 10s view: result'
+expect = { report = { status = "ok", kind = "jobs", records = { type = "job", rows = [
+  { kind = "job", fields = { state = { t = "enum", v = "exited" }, exit_code = { t = "int", v = 0 } } },
+] } } }
+
+[[case]]
+id = "exec/core/jobs/output-tail"
+kind = "exec"
+summary = "jobs with tail returns the last lines of the output."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'run ["sh", "-c", "printf \"1\\n2\\n3\\n\""] cwd: "${base}" background: true'
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" wait: 10s tail: 1 view: output'
+expect = { report = { status = "ok", records = { rows = [{ kind = "job", fields = { stdout = { t = "text", v = "3\n" } } }] } } }
+
+[[case]]
+id = "exec/core/jobs/unknown"
+kind = "exec"
+summary = "jobs with an unknown identifier fails with E_UNKNOWN_JOB."
+fs_before = { entries = [] }
+program = 'jobs "j-absent"'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_JOB" } } }
+
+[[case]]
+id = "exec/core/jobs/list-state"
+kind = "exec"
+summary = "jobs with a state lists the jobs in that state."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'run ["sh", "-c", "sleep 5"] cwd: "${base}" background: true'
+
+[[case.step]]
+program = "jobs state: running"
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/core/stop/job-irreversible"
+kind = "exec"
+summary = "stop of a running job ends it and reports the stopped process as irreversible."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'run ["sh", "-c", "sleep 30"] cwd: "${base}" background: true'
+expect = { report = { status = "running" } }
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" |> stop'
+expect = { report = { status = "ok", kind = "stop", irreversible = [{ reason = "process_stopped" }] } }
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}"'
+expect = { report = { records = { rows = [{ kind = "job", fields = { state = { t = "enum", v = "stopped" } } }] } } }
+
+[[case]]
+id = "exec/core/stop/kill-signal"
+kind = "exec"
+summary = "stop with signal kill ends a job that ignores termination."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+
+[[case.step]]
+program = '''run ["sh", "-c", "trap '' TERM; sleep 30"] cwd: "${base}" background: true'''
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" |> stop signal: kill'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/stop/finished-job"
+kind = "exec"
+summary = "stop of a finished job is not allowed in its state."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'run ["sh", "-c", "true"] cwd: "${base}" background: true'
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" wait: 10s'
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" |> stop'
+expect = { report = { status = "failed", error = { code = "E_JOB_STATE" } } }
+
+[[case]]
+id = "exec/core/retry/same-command"
+kind = "exec"
+summary = "retry runs the command of a job again in the same directory."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'run ["sh", "-c", "echo x >> log.txt"] cwd: "${base}" background: true'
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" wait: 10s'
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" |> retry wait: forever'
+expect = { report = { status = "ok", kind = "retry" } }
+fs_after = { entries = [{ path = "log.txt", type = "file", content_utf8 = "x\nx\n" }] }
+
+[[case]]
+id = "exec/core/retry/timeout"
+kind = "exec"
+summary = "retry with a new time limit ends with E_TIMEOUT when exceeded."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'run ["sh", "-c", "sleep 1"] cwd: "${base}" background: true'
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" wait: 10s'
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" |> retry timeout: 100ms wait: forever'
+expect = { report = { status = "failed", error = { code = "E_TIMEOUT" } } }
+
+[[case]]
+id = "exec/core/retry/unknown-job"
+kind = "exec"
+summary = "retry of an unknown job fails."
+fs_before = { entries = [] }
+program = 'jobs "j-absent" |> retry'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_JOB" } } }
+
+# Checks after a change: verify.
+
+[[case]]
+id = "exec/core/verify/passes"
+kind = "exec"
+summary = "verify keeps a change whose check passes."
+class = "optional:journal"
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "old\n" }] }
+program = 'replace "old" "new" in: ["a.txt"] |> verify (read "a.txt" |> assert contains: "new")'
+fs_after = { entries = [{ path = "a.txt", type = "file", content_utf8 = "new\n" }] }
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/verify/fails-rolls-back"
+kind = "exec"
+summary = "verify rolls a change back when its check fails."
+class = "optional:journal"
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "old\n" }] }
+program = 'replace "old" "new" in: ["a.txt"] |> verify (read "a.txt" |> assert contains: "missing")'
+fs_after = "unchanged"
+expect = { report = { status = "rolled_back", error = { code = "E_ROLLED_BACK", cause = { code = "E_ASSERT" } } } }
+
+[[case]]
+id = "exec/core/verify/with-program"
+kind = "exec"
+summary = "verify with a program rolls back when the program fails."
+class = "optional:journal"
+requires = ["os:unix"]
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "old\n" }] }
+program = 'replace "old" "new" in: ["a.txt"] |> verify (run ["sh", "-c", "exit 1"] cwd: "${base}" |> assert exit_code: 0)'
+fs_after = "unchanged"
+expect = { report = { status = "rolled_back" } }
+
+# Journal commands of the core: history, undo, redo.
+
+[[case]]
+id = "exec/core/history/lists"
+kind = "exec"
+summary = "history lists operations with their kind and state."
+class = "optional:journal"
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'write "a.txt" "a" mode: create'
+
+[[case.step]]
+program = "history limit: 1"
+expect = { report = { status = "ok", kind = "history", records = { type = "operation", rows = [
+  { kind = "operation", fields = { kind = { t = "text", v = "write" }, state = { t = "enum", v = "available" } } },
+] } } }
+
+[[case]]
+id = "exec/core/history/empty"
+kind = "exec"
+summary = "history of a new state directory is empty."
+class = "optional:journal"
+fs_before = { entries = [] }
+program = "history"
+expect = { report = { status = "ok", records = { matched = 0 } } }
+
+[[case]]
+id = "exec/core/history/details"
+kind = "exec"
+summary = "history with details returns the tree hash and the targets of an operation."
+class = "optional:journal"
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'write "a.txt" "a" mode: create'
+
+[[case.step]]
+program = "history ${step1/report/op} details: true"
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/core/undo/last"
+kind = "exec"
+summary = "undo restores the state before the last operation."
+class = "optional:journal"
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+
+[[case.step]]
+program = 'remove "a.txt"'
+
+[[case.step]]
+program = "undo"
+expect = { report = { status = "ok", kind = "undo", op = "<volatile>" } }
+fs_after = "unchanged"
+
+[[case]]
+id = "exec/core/undo/nothing"
+kind = "exec"
+summary = "undo without operations fails with E_JOURNAL_NOOP."
+class = "optional:journal"
+fs_before = { entries = [] }
+program = "undo"
+expect = { report = { status = "failed", error = { code = "E_JOURNAL_NOOP" } } }
+
+[[case]]
+id = "exec/core/undo/journal-disabled"
+kind = "exec"
+summary = "With the journal disabled a change is reported as irreversible and undo has nothing to undo."
+config = "../config/journal-disabled.toml"
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+
+[[case.step]]
+program = 'remove "a.txt"'
+expect = { report = { status = "ok", irreversible = [{ reason = "journal_inactive" }] } }
+
+[[case.step]]
+program = "undo"
+expect = { report = { status = "failed", error = { code = "E_JOURNAL_NOOP" } } }
+
+[[case]]
+id = "exec/core/redo/after-undo"
+kind = "exec"
+summary = "redo applies an undone operation again."
+class = "optional:journal"
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+
+[[case.step]]
+program = 'remove "a.txt"'
+
+[[case.step]]
+program = "undo"
+
+[[case.step]]
+program = "redo ${step2/report/op}"
+expect = { report = { status = "ok", kind = "redo" } }
+fs_after = { entries = [] }
+
+[[case]]
+id = "exec/core/redo/nothing"
+kind = "exec"
+summary = "redo of an operation that is not an undo fails with E_JOURNAL_NOOP."
+class = "optional:journal"
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'write "a.txt" "a" mode: create'
+
+[[case.step]]
+program = "redo ${step1/report/op}"
+expect = { report = { status = "failed", error = { code = "E_JOURNAL_NOOP" } } }
+
+[[case]]
+id = "exec/core/redo/unknown"
+kind = "exec"
+summary = "redo of an unknown operation fails."
+class = "optional:journal"
+fs_before = { entries = [] }
+program = "redo 999999"
+expect = { report = { status = "failed", error = { code = "E_JOURNAL_NOOP" } } }
+
+# Help.
+
+[[case]]
+id = "exec/core/help/command"
+kind = "exec"
+summary = "help of a command describes it without changing anything."
+fs_before = { entries = [] }
+program = 'help "find"'
+fs_after = "unchanged"
+expect = { report = { status = "ok", kind = "help" } }
+
+[[case]]
+id = "exec/core/help/error-code"
+kind = "exec"
+summary = "help of an error code describes it."
+fs_before = { entries = [] }
+program = 'help "E_STALE" kind: error'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/help/unknown-topic"
+kind = "exec"
+summary = "help of an unknown command suggests near names."
+fs_before = { entries = [] }
+program = 'help "fnid"'
+expect = { report = { status = "ok" } }

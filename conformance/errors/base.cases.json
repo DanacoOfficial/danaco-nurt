@@ -1,0 +1,14 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "errors/bind/relative-path-without-base",
+      "kind": "error",
+      "code": "E_PATH_RELATIVE",
+      "summary": "A relative path in a call without base is rejected.",
+      "params": { "nurt": "1.0", "program": "read \"a.txt\"", "options": { "base": null } },
+      "expect": { "report": { "status": "failed", "error": { "code": "E_PATH_RELATIVE" } } },
+      "fs_after": "unchanged"
+    }
+  ]
+}

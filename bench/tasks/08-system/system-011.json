@@ -1,0 +1,57 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-011",
+  "domain": 8,
+  "split": "public",
+  "platform": "windows",
+  "nl": "A tools/idle.py process with the argument report-builder-5 is running. What is its process ID?",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "run/.keep",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tools/idle.py",
+        "type": "file",
+        "content_utf8": "import time\r\n\r\nwhile True:\r\n    time.sleep(1)\r\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "tools/idle.py report-builder-5 runs; its PID is recorded in run/app.pid for the oracle.",
+    "bash": "setsid python3 tools/idle.py report-builder-5 > /dev/null 2>&1 < /dev/null &\necho $! > run/app.pid",
+    "pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$p = Start-Process $py -ArgumentList 'tools/idle.py','report-builder-5' -PassThru\nSet-Content run/app.pid $p.Id"
+  },
+  "teardown": {
+    "bash": "pkill -f -- report-builder-5 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*report-builder-5*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "\\d+"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle": {
+    "script": "answer_from_file",
+    "params": {
+      "path": "run/app.pid"
+    }
+  },
+  "oracle_program": "processes |> filter command ~ \"report-builder-5\" |> select pid",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n(Get-Process | Where-Object { $_.CommandLine -like '*idle.py report-builder-5*' }).Id\n",
+  "tags": [
+    "pid",
+    "processes"
+  ],
+  "license": "CC-BY-4.0"
+}

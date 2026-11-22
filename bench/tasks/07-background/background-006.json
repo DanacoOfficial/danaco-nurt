@@ -1,0 +1,51 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-006",
+  "domain": 7,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Start tools/build.py 4 in the background with its standard output written to logs/build-6.log, wait for it to finish, then write its exit code to logs/exit-6.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "logs/.keep",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tools/build.py",
+        "type": "file",
+        "content_utf8": "import sys\r\nimport time\r\n\r\nprint(\"compiling\", flush=True)\r\ntime.sleep(0.5)\r\nprint(\"linking\", flush=True)\r\nprint(f\"result {sys.argv[1]}\", flush=True)\r\nsys.exit(int(sys.argv[1]))\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "logs/build-6.log": {
+        "lines": [
+          "compiling",
+          "linking",
+          "result 4"
+        ]
+      },
+      "logs/exit-6.txt": {
+        "lines": [
+          "4"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/build.py\", \"4\"] background: true save_to: \"logs/build-6.log\"\njobs \"j1\" wait: 60s |> select exit_code |> write \"logs/exit-6.txt\"",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$p = Start-Process $py -ArgumentList 'tools/build.py','4' -RedirectStandardOutput logs/build-6.log -PassThru -NoNewWindow\n$p.WaitForExit()\nSet-Content logs/exit-6.txt $p.ExitCode\n",
+  "tags": [
+    "background",
+    "exit-code"
+  ],
+  "license": "CC-BY-4.0"
+}

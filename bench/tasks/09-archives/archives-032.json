@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-032",
+  "domain": 9,
+  "split": "public",
+  "platform": "linux",
+  "nl": "export/settings-2.txt is UTF-16 LE with a byte order mark. Convert it to UTF-8 without a byte order mark into export/settings-2.utf8.txt, keeping the CRLF line endings.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "export/settings-2.txt",
+        "type": "file",
+        "content_base64": "//5OAGEAbQBlAD0ARwBkAGEARAFzAGsADQAKAFYAZQByAHMAaQBvAG4APQAxAC4AMAANAAoAQwBvAG0AbQBlAG4AdAA9AHsBeQB3AGkAZQBjACwAIABCAGUAQgFjAGgAYQB0APMAdwAsACAAQwB6ABkBcwB0AG8AYwBoAG8AdwBhACwAIABaAXcAaQAZAXQAbwBjAGgAQgFvAHcAaQBjAGUADQAKAA=="
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "export/settings-2.utf8.txt": {
+        "text": "Name=Gda\u0144sk\r\nVersion=1.0\r\nComment=\u017bywiec, Be\u0142chat\u00f3w, Cz\u0119stochowa, \u015awi\u0119toch\u0142owice\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"export/settings-2.txt\" |> write \"export/settings-2.utf8.txt\" encoding: \"utf-8\" bom: false",
+  "reference_bash": "iconv -f UTF-16 -t UTF-8 export/settings-2.txt > export/settings-2.utf8.txt\n",
+  "tags": [
+    "encoding",
+    "utf-16"
+  ],
+  "license": "CC-BY-4.0"
+}

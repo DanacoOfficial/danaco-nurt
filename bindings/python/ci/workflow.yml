@@ -1,0 +1,128 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+name: python-binding
+
+on:
+  push:
+    paths:
+      - "bindings/python/**"
+      - "crates/nurt-ffi/include/nurt.h"
+      - "spec/schemas/**"
+      - "conformance/bindings/**"
+  pull_request:
+    paths:
+      - "bindings/python/**"
+      - "crates/nurt-ffi/include/nurt.h"
+      - "spec/schemas/**"
+      - "conformance/bindings/**"
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: bindings/python
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+        python: ["3.9", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Build the conformance server
+        working-directory: .
+        run: cargo build -p nurt-conformance
+      - name: Compile
+        run: python -m compileall -q src tools tests
+      - name: Test
+        run: python -m unittest discover -s tests -v
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install checkers
+        run: python -m pip install mypy ruff
+      - name: Types are up to date
+        run: python tools/gen_types.py --check
+      - name: mypy
+        run: python -m mypy
+      - name: ruff
+        run: python -m ruff check src tools tests
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build source distribution
+        run: |
+          python -m pip install build twine
+          python -m build --sdist --outdir dist .
+          python -m twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-sdist
+          path: bindings/python/dist/*.tar.gz
+
+  wheels:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Download and verify release artifacts
+        run: |
+          mkdir -p downloads
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir downloads \
+            --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern 'SHA256SUMS'
+          (cd downloads && sha256sum --check --ignore-missing --strict SHA256SUMS)
+      - name: Arrange artifacts by target
+        run: |
+          version="${TAG#v}"
+          for archive in downloads/nurt-"$version"-*; do
+            name="$(basename "$archive")"
+            target="${name#nurt-$version-}"
+            target="${target%.tar.gz}"
+            target="${target%.zip}"
+            mkdir -p "unpacked/$target" "artifacts/$target"
+            case "$archive" in
+              *.zip) unzip -q "$archive" -d "unpacked/$target" ;;
+              *) tar -xzf "$archive" -C "unpacked/$target" ;;
+            esac
+            find "unpacked/$target" -type f \( -name nurt -o -name nurt.exe -o -name libnurt.so.1 \
+              -o -name libnurt.1.dylib -o -name nurt.dll \) -exec cp {} "artifacts/$target/" \;
+          done
+      - name: Version matches the release
+        run: test "v$(python -c 'import re;print(re.search(r"\"(.+)\"", open("src/nurt/_version.py").read())[1])')" = "$TAG"
+      - name: Build wheels
+        run: |
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          python tools/build_wheels.py --artifacts artifacts --out dist
+          python -m pip install twine
+          python -m twine check dist/*.whl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-wheels
+          path: bindings/python/dist/*.whl

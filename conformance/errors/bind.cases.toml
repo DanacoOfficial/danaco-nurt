@@ -1,0 +1,181 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "errors/bind/unknown-command"
+kind = "error"
+code = "E_UNKNOWN_COMMAND"
+summary = "An unknown command lists the nearest names."
+program = 'zzqx "src"'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_COMMAND", at = { stage = "1" } } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/unknown-parameter"
+kind = "error"
+code = "E_UNKNOWN_PARAM"
+summary = "An unknown parameter of a command lists the nearest names."
+program = 'find "." zzqx: 1'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_PARAM" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/unknown-name"
+kind = "error"
+code = "E_UNKNOWN_NAME"
+summary = "A reference to a name without a let is an unknown name."
+program = '@missing |> count'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_NAME" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/unknown-field"
+kind = "error"
+code = "E_UNKNOWN_FIELD"
+summary = "A filter on a field the records do not have lists the fields."
+program = 'find "." |> filter zzqx > 1'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_FIELD" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/unknown-value"
+kind = "error"
+code = "E_UNKNOWN_VALUE"
+summary = "An unknown value of an enumeration lists the values."
+program = 'find "." type: zzqx'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_VALUE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/missing-parameter"
+kind = "error"
+code = "E_MISSING_PARAM"
+summary = "A write without its required mode is a missing parameter and writes nothing."
+program = 'write "a.txt" "x"'
+expect = { report = { status = "failed", error = { code = "E_MISSING_PARAM" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/parameter-conflict"
+kind = "error"
+code = "E_PARAM_CONFLICT"
+summary = "Two parameters of one exclusive group given together are a conflict and read nothing."
+program = 'read "a.txt" targets: [{path: "a.txt"}]'
+expect = { report = { status = "failed", error = { code = "E_PARAM_CONFLICT", at = { stage = "1" } } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/type-of-count"
+kind = "error"
+code = "E_TYPE"
+summary = "A text where a count is required is a type error."
+program = 'find "." |> first "ten"'
+expect = { report = { status = "failed", error = { code = "E_TYPE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/arity-of-first"
+kind = "error"
+code = "E_ARITY"
+summary = "Too many positional arguments are an arity error."
+program = 'find "." |> first 1 2 3'
+expect = { report = { status = "failed", error = { code = "E_ARITY" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/invalid-cron-expression"
+kind = "error"
+code = "E_INVALID_VALUE"
+summary = "A cron expression out of range is an invalid value and creates no schedule."
+program = 'schedule.create "nightly" cron: "99 * * * *" program: "count"'
+expect = { report = { status = "failed", error = { code = "E_INVALID_VALUE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/foreign-drive-path"
+kind = "error"
+code = "E_PATH_FOREIGN"
+requires = ["os:unix"]
+summary = "A drive letter path on a Unix system is a foreign path."
+program = 'read "C:/Users/user/a.txt"'
+expect = { report = { status = "failed", error = { code = "E_PATH_FOREIGN" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/one-effect-two-removes"
+kind = "error"
+code = "E_ONE_EFFECT"
+summary = "Two changing stages in one pipeline are split into next steps and nothing is removed."
+program = 'find "." glob: "*.tmp" |> remove |> remove'
+fs_before = { entries = [{ path = "a.tmp", type = "file", content_utf8 = "" }] }
+expect = { report = { status = "failed", error = { code = "E_ONE_EFFECT", at = { stage = "1" } } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/windows-only-command"
+kind = "error"
+code = "E_OS_ONLY"
+requires = ["os:unix"]
+summary = "A command that exists only on Windows is rejected on Unix."
+program = 'windows.cim "Win32_Process"'
+expect = { report = { status = "failed", error = { code = "E_OS_ONLY" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/regex-unbalanced"
+kind = "error"
+code = "E_REGEX"
+summary = "An unbalanced group in a regular expression is a regex error."
+program = 'search /old(/ "."'
+expect = { report = { status = "failed", error = { code = "E_REGEX" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/key-path-empty-segment"
+kind = "error"
+code = "E_KEY_SYNTAX"
+summary = "A key path with an empty segment is a key syntax error."
+program = 'read "a.json" key: "a..b"'
+fs_before = { entries = [{ path = "a.json", type = "file", content_utf8 = "{\"a\": {\"b\": 1}}\n" }] }
+expect = { report = { status = "failed", error = { code = "E_KEY_SYNTAX" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/syntax-pattern-unbalanced"
+kind = "error"
+code = "E_PATTERN_SYNTAX"
+summary = "A syntax pattern that does not parse in its language is a pattern error."
+program = 'search "fn $NAME(" "." mode: syntax language: rust'
+expect = { report = { status = "failed", error = { code = "E_PATTERN_SYNTAX" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/document-query"
+kind = "error"
+code = "E_QUERY"
+summary = "A document query that does not compile is a query error."
+program = 'query "a.json" "..["'
+fs_before = { entries = [{ path = "a.json", type = "file", content_utf8 = "{}\n" }] }
+expect = { report = { status = "failed", error = { code = "E_QUERY" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/sql-statement"
+kind = "error"
+code = "E_SQL"
+summary = "An SQL statement that cannot be prepared is an SQL error."
+program = 'sql "data.sqlite" "SELEC 1"'
+fs_before = { entries = [{ path = "data.sqlite", type = "file", content_utf8 = "" }] }
+expect = { report = { status = "failed", error = { code = "E_SQL" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/bind/nul-in-process-argument"
+kind = "error"
+code = "E_ARG"
+summary = "A NUL character in a process argument cannot be passed and nothing runs."
+program = "run [\"echo\", \"a\u0000b\"]"
+expect = { report = { status = "failed", error = { code = "E_ARG" } } }
+fs_after = "unchanged"

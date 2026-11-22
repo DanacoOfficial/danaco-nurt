@@ -1,0 +1,67 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-001",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "List the relative paths of all files with the extension .yaml anywhere in the current tree.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "README.md",
+        "type": "file",
+        "content_utf8": "# deploy\n"
+      },
+      {
+        "path": "charts/app/values.yaml",
+        "type": "file",
+        "content_utf8": "image: app\n"
+      },
+      {
+        "path": "deploy/dev.yaml",
+        "type": "file",
+        "content_utf8": "replicas: 1\n"
+      },
+      {
+        "path": "deploy/notes.txt",
+        "type": "file",
+        "content_utf8": "see prod.yaml\n"
+      },
+      {
+        "path": "deploy/prod.yaml",
+        "type": "file",
+        "content_utf8": "replicas: 3\n"
+      },
+      {
+        "path": "old/prod.yaml.bak",
+        "type": "file",
+        "content_utf8": "replicas: 2\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "charts/app/values.yaml",
+        "deploy/dev.yaml",
+        "deploy/prod.yaml"
+      ],
+      "not_contains": [
+        "prod.yaml.bak"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \".\" glob: \"**/*.yaml\" type: file",
+  "reference_bash": "find . -type f -name '*.yaml' | sort\n",
+  "tags": [
+    "find",
+    "glob"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,66 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "archive.extract",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/dl/data.tar.gz",
+                "span": [
+                  1,
+                  17,
+                  1,
+                  38
+                ]
+              },
+              "span": [
+                1,
+                17,
+                1,
+                38
+              ]
+            },
+            {
+              "name": "into",
+              "value": {
+                "t": "text",
+                "v": "/srv/data",
+                "span": [
+                  1,
+                  45,
+                  1,
+                  56
+                ]
+              },
+              "span": [
+                1,
+                39,
+                1,
+                56
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            56
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          56
+        ]
+      }
+    ]
+  }
+}

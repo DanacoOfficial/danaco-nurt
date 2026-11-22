@@ -1,0 +1,43 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-024",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Add the line `dist/` at the end of .gitignore (the file is without a final line break). The new entry must be on a line of its own.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": ".gitignore",
+        "type": "file",
+        "content_utf8": "node_modules/\n*.log"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      ".gitignore": {
+        "text": "node_modules/\n*.log\ndist/\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \".gitignore\" \"dist/\" mode: append ensure_newline: true",
+  "reference_bash": "[ -n \"$(tail -c 1 .gitignore)\" ] && echo >> .gitignore; printf '%s\\n' 'dist/' >> .gitignore\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "printf '%s\\n' 'dist/' >> .gitignore",
+      "defect": "joins the entry to the last line"
+    }
+  ],
+  "tags": [
+    "append"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-005",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Change the schedule of the backup job in etc/cron.d/backup from 02:30 to 04:15 every day. Keep the command.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/cron.d/backup": {
+        "text": "SHELL=/bin/sh\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\n15 4 * * * root /usr/local/bin/backup --full\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"30 2 * * * root\" \"15 4 * * * root\" in: [\"etc/cron.d/backup\"] mode: literal expect: 1",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/cron.d/backup'); t = p.read_text()\nassert t.count('30 2 * * * root') == 1\np.write_text(t.replace('30 2 * * * root', '15 4 * * * root'))\nEOF\n",
+  "tags": [
+    "cron",
+    "schedule"
+  ],
+  "license": "CC-BY-4.0"
+}

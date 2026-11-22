@@ -1,0 +1,88 @@
+---
+title: Nurt for PowerShell users
+---
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+# Nurt for PowerShell users
+
+Every row pairs a PowerShell command with its form in Nurt. The last column states whether the console corrects the habit automatically or rejects it with an error that carries the fix.
+
+## Files and directories
+
+| Rule | PowerShell | Nurt | Result |
+|---|---|---|---|
+| P01 | `Get-ChildItem -Path C:\Users\user\app` | `list "C:/Users/user/app"` | corrected automatically |
+| P02 | `Get-ChildItem C:\Users\user\app -Recurse -Filter *.go` | `find "C:/Users/user/app" glob: "**/*.go"` | corrected automatically |
+| P06 | `Copy-Item C:\Users\user\app C:\Users\user\backup -Recurse` | `copy "C:/Users/user/app" to: "C:/Users/user/backup"` | corrected automatically |
+| P07 | `Move-Item C:\Users\user\a.txt C:\Users\user\archive` | `move "C:/Users/user/a.txt" to: "C:/Users/user/archive"` | corrected automatically |
+| P08 | `Remove-Item C:\Users\user\app\build -Recurse -Force` | `remove "C:/Users/user/app/build"` | corrected automatically |
+| P09 | `New-Item -ItemType Directory -Path C:\Users\user\app\out` | `create "C:/Users/user/app/out" type: directory` | corrected automatically |
+| P10 | `Rename-Item C:\Users\user\a.txt -NewName b.txt` | `rename path: "C:/Users/user/a.txt" to: "b.txt"` | corrected automatically |
+| P11 | `Test-Path C:\Users\user\a.txt` | `info "C:/Users/user/a.txt"` | corrected automatically |
+
+## Reading and searching text
+
+| Rule | PowerShell | Nurt | Result |
+|---|---|---|---|
+| P03 | `Get-Content C:\Users\user\a.log -Tail 20` | `read "C:/Users/user/a.log" last: 20` | corrected automatically |
+| P05 | `Select-String -Pattern todo -Path C:\Users\user\app\a.go` | `search /todo/i "C:/Users/user/app/a.go"` | corrected automatically: Select-String ignores letter case by default, so the pattern is case-insensitive |
+| P21 | `Get-FileHash C:\Users\user\a.zip -Algorithm SHA256` | `hash "C:/Users/user/a.zip" algorithm: sha256` | corrected automatically |
+| P20 | `Compare-Object (Get-Content a.txt) (Get-Content b.txt)` | `diff "C:/Users/user/a.txt" "C:/Users/user/b.txt"` | error with fix: only files are compared; the fix names both files |
+
+## Writing text
+
+| Rule | PowerShell | Nurt | Result |
+|---|---|---|---|
+| P04 | `Add-Content C:\Users\user\app\.gitignore -Value dist/` | `write "C:/Users/user/app/.gitignore" "dist/\n" mode: append` | corrected automatically |
+
+## Registry
+
+| Rule | PowerShell | Nurt | Result |
+|---|---|---|---|
+| P12 | `Get-ItemProperty -Path HKCU:\Software\Example -Name Mode` | `read "registry:/HKCU/Software/Example/Mode"` | corrected automatically |
+| P13 | `Set-ItemProperty -Path HKCU:\Software\Example -Name Mode -Value 3 -Type DWord` | `write "registry:/HKCU/Software/Example/Mode" "3" value_type: dword mode: overwrite` | corrected automatically |
+
+## Pipelines
+
+| Rule | PowerShell | Nurt | Result |
+|---|---|---|---|
+| P15 | `Get-ChildItem C:\Users\user\app -Recurse \| Where-Object { $_.Length -gt 1MB }` | `find "C:/Users/user/app" \|> filter size > 1mb` | corrected automatically |
+| P16 | `Get-Process \| Select-Object -First 5` | `processes \|> first 5` | corrected automatically |
+| P17 | `Get-Process \| Sort-Object WorkingSet -Descending` | `processes \|> sort memory order: desc` | corrected automatically |
+| P18 | `Get-Process \| Measure-Object` | `processes \|> count` | corrected automatically |
+| P19 | `Get-Process \| ForEach-Object { Write-Host $_.Name }` | `processes \|> select name` | error with fix: loops are replaced by pipelines; the fix selects the field |
+
+## Processes and services
+
+| Rule | PowerShell | Nurt | Result |
+|---|---|---|---|
+| P22 | `Stop-Process -Id 8120 -Force` | `processes pid: 8120 \|> stop signal: kill` | corrected automatically |
+| P23 | `Start-Process npm -ArgumentList 'test' -WorkingDirectory C:\Users\user\app -Wait` | `run ["npm", "test"] cwd: "C:/Users/user/app" wait: forever` | corrected automatically |
+| P24 | `Restart-Service nginx` | `services name: "nginx" \|> restart` | corrected automatically |
+| P31 | `$env:PATH` | `environment name: "PATH"` | corrected automatically |
+| P40 | `Get-Volume` | `disks` | corrected automatically |
+| P37 | `Get-WinEvent -LogName System -MaxEvents 50` | `logs source: "System" limit: 50` | corrected automatically |
+| P39 | `Get-CimInstance -ClassName Win32_OperatingSystem` | `windows.cim "Win32_OperatingSystem"` | corrected automatically |
+
+## Network
+
+| Rule | PowerShell | Nurt | Result |
+|---|---|---|---|
+| P25 | `Invoke-WebRequest https://example.com/a.zip -OutFile C:\Users\user\a.zip` | `http.download "https://example.com/a.zip" "C:/Users/user/a.zip"` | corrected automatically |
+| P38 | `Test-Connection example.com` | `network.ping "example.com"` | corrected automatically |
+| P38b | `Resolve-DnsName example.com` | `network.resolve "example.com"` | corrected automatically |
+
+## Archives
+
+| Rule | PowerShell | Nurt | Result |
+|---|---|---|---|
+| P29 | `Expand-Archive -Path C:\Users\user\a.zip -DestinationPath C:\Users\user\data` | `archive.extract "C:/Users/user/a.zip" into: "C:/Users/user/data"` | corrected automatically |
+
+## Other
+
+| Rule | PowerShell | Nurt | Result |
+|---|---|---|---|
+| P26 | `Start-Sleep -Seconds 5` | `sleep 5s` | corrected automatically |
+| P30 | `Set-Location C:\Users\user\app` | `run ["make"] cwd: "C:/Users/user/app"` | error with fix: there is no current directory; the fix passes the directory as cwd or base |
+| P42 | `Invoke-Expression $command` | `run ["pwsh", "-Command", "Get-Date"] cwd: "C:/Users/user"` | error with fix: the language has no eval; the fix runs the program explicitly |

@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-019",
+  "domain": 11,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Add the line `198.51.100.30 queue.internal.example.com queue` to etc/hosts after the database entry.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/hosts": {
+        "text": "127.0.0.1 localhost\n::1 localhost ip6-localhost\n203.0.113.5 db.internal.example.com db\n198.51.100.30 queue.internal.example.com queue\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "etc/passwd",
+      "change": "any",
+      "reason": "unrelated system file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/hosts\" changes: [{replace: \"db.internal.example.com db\\n\", with: \"db.internal.example.com db\\n198.51.100.30 queue.internal.example.com queue\\n\"}]",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/hosts'); t = p.read_text()\nassert t.count('db.internal.example.com db\\n') == 1\np.write_text(t.replace('db.internal.example.com db\\n', 'db.internal.example.com db\\n198.51.100.30 queue.internal.example.com queue\\n'))\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'etc/hosts'; $t = [IO.File]::ReadAllText($p)\n[IO.File]::WriteAllText($p, $t.Replace('db.internal.example.com db\n', 'db.internal.example.com db\n198.51.100.30 queue.internal.example.com queue\n'))\n",
+  "tags": [
+    "hosts",
+    "network-config"
+  ],
+  "license": "CC-BY-4.0"
+}

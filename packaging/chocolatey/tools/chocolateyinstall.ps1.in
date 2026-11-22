@@ -1,0 +1,23 @@
+$ErrorActionPreference = 'Stop'
+
+$toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$releaseUrl = 'https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@'
+
+if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'ARM64') {
+    $archive = 'nurt-@VERSION@-aarch64-pc-windows-msvc.zip'
+    $checksum = '@SHA256:aarch64-pc-windows-msvc@'
+}
+else {
+    $archive = 'nurt-@VERSION@-x86_64-pc-windows-msvc.zip'
+    $checksum = '@SHA256:x86_64-pc-windows-msvc@'
+}
+
+$packageArgs = @{
+    PackageName   = $env:ChocolateyPackageName
+    UnzipLocation = $toolsDir
+    Url64bit      = "$releaseUrl/$archive"
+    Checksum64    = $checksum
+    ChecksumType64 = 'sha256'
+}
+
+Install-ChocolateyZipPackage @packageArgs

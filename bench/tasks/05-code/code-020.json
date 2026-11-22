@@ -1,0 +1,42 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-020",
+  "domain": 5,
+  "split": "public",
+  "platform": "linux",
+  "nl": "In billing/pricing.py, introduce a module-level constant SECONDS_PER_DAY = 86400 after the module docstring (one blank line before it, two blank lines after it) and use it in place of the number 86400 in the three calculations. The string \"86400.0\" in version() stays unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "billing/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "billing/pricing.py",
+        "type": "file",
+        "content_utf8": "\"\"\"Pricing helpers.\"\"\"\n\n\ndef gross(net):\n    return net * (1 + 86400)\n\n\ndef tax(net):\n    return net * 86400\n\n\ndef label(net):\n    return f\"{net} plus {net * 86400:.2f}\"\n\n\ndef version():\n    return \"86400.0\"\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "billing/pricing.py": {
+        "text": "\"\"\"Pricing helpers.\"\"\"\n\nSECONDS_PER_DAY = 86400\n\n\ndef gross(net):\n    return net * (1 + SECONDS_PER_DAY)\n\n\ndef tax(net):\n    return net * SECONDS_PER_DAY\n\n\ndef label(net):\n    return f\"{net} plus {net * SECONDS_PER_DAY:.2f}\"\n\n\ndef version():\n    return \"86400.0\"\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"billing/pricing.py\" changes: [{insert: \"SECONDS_PER_DAY = 86400\\n\", line: 3, position: before}]\nsearch /\\b86400\\b(?!\\.0\")/ \"billing/pricing.py\" |> replace \"SECONDS_PER_DAY\"",
+  "reference_bash": "python3 - <<'EOF'\nimport os, pathlib\np = pathlib.Path('billing/pricing.py'); t = p.read_bytes().decode()\nassert t.count('\"\"\"Pricing helpers.\"\"\"\\n\\n') == 1, 'billing/pricing.py'\np.write_bytes(t.replace('\"\"\"Pricing helpers.\"\"\"\\n\\n', '\"\"\"Pricing helpers.\"\"\"\\n\\nSECONDS_PER_DAY = 86400\\n\\n').encode())\np = pathlib.Path('billing/pricing.py'); t = p.read_bytes().decode()\nassert t.count('(1 + 86400)') == 1, 'billing/pricing.py'\np.write_bytes(t.replace('(1 + 86400)', '(1 + SECONDS_PER_DAY)').encode())\np = pathlib.Path('billing/pricing.py'); t = p.read_bytes().decode()\nassert t.count('net * 86400\\n') == 1, 'billing/pricing.py'\np.write_bytes(t.replace('net * 86400\\n', 'net * SECONDS_PER_DAY\\n').encode())\np = pathlib.Path('billing/pricing.py'); t = p.read_bytes().decode()\nassert t.count('{net * 86400:.2f}') == 1, 'billing/pricing.py'\np.write_bytes(t.replace('{net * 86400:.2f}', '{net * SECONDS_PER_DAY:.2f}').encode())\nEOF\n",
+  "tags": [
+    "extract-constant",
+    "python"
+  ],
+  "license": "CC-BY-4.0"
+}

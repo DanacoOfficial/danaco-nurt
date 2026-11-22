@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-047",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Set POOL to 12 in .env. Do not touch other variables, including those whose names start with POOL.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": ".env",
+        "type": "file",
+        "content_utf8": "DATABASE_URL=postgres://db.example.com:5432/app\nPOOL=5\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      ".env": {
+        "text": "DATABASE_URL=postgres://db.example.com:5432/app\nPOOL=12\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "set \".env\" key: \"POOL\" value: \"12\" format: env",
+  "reference_bash": "sed -i 's/^POOL=.*/POOL=12/' .env\n",
+  "tags": [
+    "env",
+    "key-value"
+  ],
+  "license": "CC-BY-4.0"
+}

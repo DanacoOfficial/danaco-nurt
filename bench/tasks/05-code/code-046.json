@@ -1,0 +1,60 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-046",
+  "domain": 5,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Rename the field ID of the Go struct store.Order to Number. Keep the JSON tag \"id\", format the struct as gofmt does (aligned columns) and update the struct literal in the test.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "cmd/server/main.go",
+        "type": "file",
+        "content_utf8": "package main\n\nimport (\n\t\"log\"\n\t\"net/http\"\n\n\t\"example.com/orders/internal/handlers\"\n)\n\nfunc main() {\n\tmux := http.NewServeMux()\n\tmux.HandleFunc(\"/orders\", handlers.ListOrders)\n\tmux.HandleFunc(\"/orders/new\", handlers.CreateOrder)\n\tlog.Fatal(http.ListenAndServe(\":8080\", mux))\n}\n"
+      },
+      {
+        "path": "go.mod",
+        "type": "file",
+        "content_utf8": "module example.com/orders\n\ngo 1.22\n"
+      },
+      {
+        "path": "internal/handlers/orders.go",
+        "type": "file",
+        "content_utf8": "package handlers\n\nimport (\n\t\"encoding/json\"\n\t\"net/http\"\n\n\t\"example.com/orders/internal/store\"\n)\n\nfunc ListOrders(w http.ResponseWriter, r *http.Request) {\n\torders := store.AllOrders()\n\tjson.NewEncoder(w).Encode(orders)\n}\n\nfunc CreateOrder(w http.ResponseWriter, r *http.Request) {\n\tvar order store.Order\n\tif err := json.NewDecoder(r.Body).Decode(&order); err != nil {\n\t\thttp.Error(w, \"invalid order\", http.StatusBadRequest)\n\t\treturn\n\t}\n\tstore.SaveOrder(order)\n\tw.WriteHeader(http.StatusCreated)\n}\n"
+      },
+      {
+        "path": "internal/store/store.go",
+        "type": "file",
+        "content_utf8": "package store\n\ntype Order struct {\n\tID       int     `json:\"id\"`\n\tCustomer string  `json:\"customer\"`\n\tTotal    float64 `json:\"total\"`\n}\n\nvar orders []Order\n\nfunc AllOrders() []Order {\n\treturn orders\n}\n\nfunc SaveOrder(order Order) {\n\torders = append(orders, order)\n}\n"
+      },
+      {
+        "path": "internal/store/store_test.go",
+        "type": "file",
+        "content_utf8": "package store\n\nimport \"testing\"\n\nfunc TestSaveOrder(t *testing.T) {\n\tSaveOrder(Order{ID: 1, Customer: \"acme\", Total: 12.5})\n\tif len(AllOrders()) != 1 {\n\t\tt.Fatal(\"order not saved\")\n\t}\n}\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "internal/store/store.go": {
+        "text": "package store\n\ntype Order struct {\n\tNumber   int     `json:\"id\"`\n\tCustomer string  `json:\"customer\"`\n\tTotal    float64 `json:\"total\"`\n}\n\nvar orders []Order\n\nfunc AllOrders() []Order {\n\treturn orders\n}\n\nfunc SaveOrder(order Order) {\n\torders = append(orders, order)\n}\n"
+      },
+      "internal/store/store_test.go": {
+        "text": "package store\n\nimport \"testing\"\n\nfunc TestSaveOrder(t *testing.T) {\n\tSaveOrder(Order{Number: 1, Customer: \"acme\", Total: 12.5})\n\tif len(AllOrders()) != 1 {\n\t\tt.Fatal(\"order not saved\")\n\t}\n}\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.rename \"Number\" path: \"internal/store/store.go\" symbol: \"Order.ID\"\nrun [\"gofmt\", \"-w\", \"internal/store/store.go\"]",
+  "reference_bash": "python3 - <<'EOF'\nimport os, pathlib\np = pathlib.Path('internal/store/store.go'); t = p.read_bytes().decode()\nassert t.count('\\tID       int     `json:\"id\"`\\n\\tCustomer string  `json:\"customer\"`\\n\\tTotal    float64 `json:\"total\"`\\n') == 1, 'internal/store/store.go'\np.write_bytes(t.replace('\\tID       int     `json:\"id\"`\\n\\tCustomer string  `json:\"customer\"`\\n\\tTotal    float64 `json:\"total\"`\\n', '\\tNumber   int     `json:\"id\"`\\n\\tCustomer string  `json:\"customer\"`\\n\\tTotal    float64 `json:\"total\"`\\n').encode())\np = pathlib.Path('internal/store/store_test.go'); t = p.read_bytes().decode()\nassert t.count('ID: 1') == 1, 'internal/store/store_test.go'\np.write_bytes(t.replace('ID: 1', 'Number: 1').encode())\nEOF\n",
+  "tags": [
+    "go",
+    "rename"
+  ],
+  "license": "CC-BY-4.0"
+}

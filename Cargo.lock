@@ -5851,6 +5851,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nurt"
+version = "0.1.0"
+dependencies = [
+ "nurt-contracts",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "nurt-archive"
 version = "0.1.0"
 dependencies = [
@@ -5872,9 +5881,18 @@ dependencies = [
 name = "nurt-bench"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
+ "clap",
+ "hex",
+ "jiff 1.0.2",
  "nurt-contracts",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml",
+ "ureq",
 ]
 
 [[package]]
@@ -5930,10 +5948,19 @@ dependencies = [
 name = "nurt-conformance"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
+ "clap",
+ "hex",
+ "jiff 1.0.2",
+ "jsonschema",
  "nurt-contracts",
- "nurt-testkit",
  "serde",
  "serde_json",
+ "serde_json_canonicalizer",
+ "sha2 0.11.1",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml",
 ]
 
 [[package]]
@@ -6019,6 +6046,17 @@ dependencies = [
  "saphyr",
  "toml_edit",
  "yaml-edit",
+]
+
+[[package]]
+name = "nurt-docgen"
+version = "0.1.0"
+dependencies = [
+ "nurt-contracts",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]
@@ -6284,11 +6322,13 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "nurt-contracts",
- "nurt-core",
+ "nurt-tooldef",
  "rmcp",
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -6580,6 +6620,16 @@ dependencies = [
  "similar",
  "unicode-normalization",
  "unicode-width 0.2.3",
+]
+
+[[package]]
+name = "nurt-tooldef"
+version = "0.1.0"
+dependencies = [
+ "jsonschema",
+ "nurt-contracts",
+ "serde_json",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

@@ -1,0 +1,44 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-043",
+  "domain": 4,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Convert orders.json (an array of objects) to export/orders-4.csv with the columns id, customer, status in this order, a header line and one line per order, without quotes.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "orders.json",
+        "type": "file",
+        "content_utf8": "[\r\n  {\r\n    \"id\": 101,\r\n    \"customer\": \"acme\",\r\n    \"total\": 250,\r\n    \"status\": \"paid\"\r\n  },\r\n  {\r\n    \"id\": 102,\r\n    \"customer\": \"globex\",\r\n    \"total\": 80,\r\n    \"status\": \"open\"\r\n  },\r\n  {\r\n    \"id\": 103,\r\n    \"customer\": \"initech\",\r\n    \"total\": 1200,\r\n    \"status\": \"paid\"\r\n  },\r\n  {\r\n    \"id\": 104,\r\n    \"customer\": \"acme\",\r\n    \"total\": 45,\r\n    \"status\": \"cancelled\"\r\n  }\r\n]\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "export/orders-4.csv": {
+        "lines": [
+          "id,customer,status",
+          "101,acme,paid",
+          "102,globex,open",
+          "103,initech,paid",
+          "104,acme,cancelled"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"orders.json\" |> select id customer status |> write \"export/orders-4.csv\" format: csv parents: true",
+  "reference_pwsh": "New-Item -ItemType Directory -Force export | Out-Null\nGet-Content orders.json -Raw | ConvertFrom-Json | Select-Object id,customer,status | ConvertTo-Csv -NoTypeInformation -UseQuotes Never | Set-Content export/orders-4.csv\n",
+  "tags": [
+    "convert",
+    "csv",
+    "json"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,13 @@
+{
+  "format": "nurt-bench-tool/1",
+  "name": "bash",
+  "description": "Runs a command in bash and returns its standard output, its standard error after the line [stderr], and its exit code when it is not 0. Each call starts a new bash process in the root of the task; variables and the current directory do not persist between calls. Standard input is empty. The usual command line programs of the system are available.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "command": {"type": "string", "description": "The bash command to run."}
+    },
+    "required": ["command"]
+  },
+  "argument": "command"
+}

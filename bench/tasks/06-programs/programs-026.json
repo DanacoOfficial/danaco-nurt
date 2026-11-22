@@ -1,0 +1,40 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-026",
+  "domain": 6,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Run tools/greet.py with the argument Ewa and the environment variable GREETING set to 'Hello' and APP_MODE set to 'service'; save its output to greet-5.txt. Do not store the variables in any file.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/greet.py",
+        "type": "file",
+        "content_utf8": "import os\r\nimport sys\r\n\r\nprint(f\"{os.environ['GREETING']}, {sys.argv[1]}\")\r\nprint(f\"mode={os.environ.get('APP_MODE', 'default')}\")\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "greet-5.txt": {
+        "lines": [
+          "Hello, Ewa",
+          "mode=service"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/greet.py\", \"Ewa\"] env: {GREETING: \"Hello\", APP_MODE: \"service\"} save_to: \"greet-5.txt\"",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$env:GREETING = 'Hello'\n$env:APP_MODE = 'service'\n& $py tools/greet.py Ewa | Set-Content greet-5.txt\n",
+  "tags": [
+    "environment",
+    "run"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,50 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-051",
+  "domain": 6,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Run only the tests in tests/test_text.py (5 test methods) and report how many of them pass.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tests/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tests/test_other.py",
+        "type": "file",
+        "content_utf8": "import unittest\n\n\nclass Other(unittest.TestCase):\n    def test_one(self):\n        self.assertTrue(True)\n"
+      },
+      {
+        "path": "tests/test_text.py",
+        "type": "file",
+        "content_utf8": "import unittest\n\n\nclass TextTests(unittest.TestCase):\n    def test_upper(self):\n        self.assertEqual('a'.upper(), 'A')\n\n    def test_strip(self):\n        self.assertEqual(' a '.strip(), 'a')\n\n    def test_split(self):\n        self.assertEqual('a,b'.split(','), ['a', 'b', 'c'])\n\n    def test_join(self):\n        self.assertEqual('-'.join('ab'), 'a-b')\n\n    def test_find(self):\n        self.assertEqual('abc'.find('z'), 0)\n"
+      }
+    ]
+  },
+  "expect": {
+    "allowed_changes": [
+      "**/__pycache__/**"
+    ],
+    "answer": {
+      "regex": [
+        "(?<![\\d.])3(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "test.run \".\" framework: unittest targets: [\"tests.test_text\"] |> filter status == \"passed\" |> count",
+  "reference_bash": "python3 -m unittest tests.test_text -v 2>&1 | grep -c '\\.\\.\\. ok$'\n",
+  "tags": [
+    "count",
+    "tests"
+  ],
+  "license": "CC-BY-4.0"
+}

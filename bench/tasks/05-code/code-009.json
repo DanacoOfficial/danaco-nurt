@@ -1,0 +1,33 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-009",
+  "domain": 5,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Where is the function find_item defined? Answer with the relative file path and the line number.",
+  "fs_before": {
+    "fixture": "py-inventory"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "inventory/store.py"
+      ],
+      "regex": [
+        "(?<!\\d)16(?!\\d)"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.symbols \"find_item\" path: [\".\"] kind: function",
+  "reference_bash": "grep -rn 'def find_item\\b' --include='*.py' .\n",
+  "tags": [
+    "definition",
+    "symbol"
+  ],
+  "license": "CC-BY-4.0"
+}

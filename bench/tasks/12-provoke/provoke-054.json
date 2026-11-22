@@ -1,0 +1,48 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-054",
+  "domain": 12,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Create out/pattern.json containing the JSON object {\"regex\": \"\\\\d+\\\\.\\\\d+\"} - the value is the regular expression \\d+\\.\\d+ (one backslash before each d and before the dot).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "README.md",
+        "type": "file",
+        "content_utf8": "patterns\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/pattern.json": {
+        "json": {
+          "regex": "\\d+\\.\\d+"
+        }
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \"out/pattern.json\" r#\"{\"regex\": \"\\\\d+\\\\.\\\\d+\"}\"# mode: create parents: true",
+  "reference_bash": "mkdir -p out && printf '%s\\n' '{\"regex\": \"\\\\d+\\\\.\\\\d+\"}' > out/pattern.json\n",
+  "reference_pwsh": "New-Item -ItemType Directory -Force out | Out-Null\nSet-Content out/pattern.json '{\"regex\": \"\\\\d+\\\\.\\\\d+\"}'\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "mkdir -p out && echo \"{\\\"regex\\\": \\\"\\d+\\.\\d+\\\"}\" > out/pattern.json",
+      "defect": "loses one level of backslashes"
+    }
+  ],
+  "provocation": "interpreter-layers",
+  "tags": [
+    "interpreter-layers",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

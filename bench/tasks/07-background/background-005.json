@@ -1,0 +1,52 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-005",
+  "domain": 7,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Start tools/build.py 2 in the background with its standard output written to logs/build-5.log, wait for it to finish, then write its exit code to logs/exit-5.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "logs/.keep",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tools/build.py",
+        "type": "file",
+        "content_utf8": "import sys\nimport time\n\nprint(\"compiling\", flush=True)\ntime.sleep(0.5)\nprint(\"linking\", flush=True)\nprint(f\"result {sys.argv[1]}\", flush=True)\nsys.exit(int(sys.argv[1]))\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "logs/build-5.log": {
+        "lines": [
+          "compiling",
+          "linking",
+          "result 2"
+        ]
+      },
+      "logs/exit-5.txt": {
+        "lines": [
+          "2"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/build.py\", \"2\"] background: true save_to: \"logs/build-5.log\"\njobs \"j1\" wait: 60s |> select exit_code |> write \"logs/exit-5.txt\"",
+  "reference_bash": "python3 tools/build.py 2 > logs/build-5.log 2>&1 &\npid=$!\nwait $pid\necho $? > logs/exit-5.txt\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$p = Start-Process $py -ArgumentList 'tools/build.py','2' -RedirectStandardOutput logs/build-5.log -PassThru -NoNewWindow\n$p.WaitForExit()\nSet-Content logs/exit-5.txt $p.ExitCode\n",
+  "tags": [
+    "background",
+    "exit-code"
+  ],
+  "license": "CC-BY-4.0"
+}

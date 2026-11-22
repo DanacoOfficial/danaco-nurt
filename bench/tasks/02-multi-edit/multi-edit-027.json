@@ -1,0 +1,69 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-027",
+  "domain": 2,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Rename the key cpuLimit to cpu_limit in all YAML files (.yaml and .yml) under deploy/, at any nesting level. Do not edit other files.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "deploy/README.md",
+        "type": "file",
+        "content_utf8": "The key cpuLimit sets the limit.\n"
+      },
+      {
+        "path": "deploy/api.yaml",
+        "type": "file",
+        "content_utf8": "name: api\ncpuLimit: 512Mi\nresources:\n  cpuLimit: 256Mi\n"
+      },
+      {
+        "path": "deploy/cron.yaml",
+        "type": "file",
+        "content_utf8": "name: cron\nschedule: '0 * * * *'\n"
+      },
+      {
+        "path": "deploy/legacy/web1.yml",
+        "type": "file",
+        "content_utf8": "name: web\ncpuLimit: 128Mi\n"
+      },
+      {
+        "path": "deploy/worker.yaml",
+        "type": "file",
+        "content_utf8": "name: worker\ncpuLimit: 1Gi\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "deploy/api.yaml": {
+        "text": "name: api\ncpu_limit: 512Mi\nresources:\n  cpu_limit: 256Mi\n"
+      },
+      "deploy/legacy/web1.yml": {
+        "text": "name: web\ncpu_limit: 128Mi\n"
+      },
+      "deploy/worker.yaml": {
+        "text": "name: worker\ncpu_limit: 1Gi\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "deploy/README.md",
+      "change": "any",
+      "reason": "documentation is not a YAML file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search /^(\\s*)cpuLimit:/ \"deploy\" glob: \"**/*.{yaml,yml}\" |> replace \"${1}cpu_limit:\"",
+  "reference_bash": "find deploy -type f \\( -name '*.yaml' -o -name '*.yml' \\) -exec sed -i -E 's/^([[:space:]]*)cpuLimit:/\\1cpu_limit:/' {} +\n",
+  "tags": [
+    "rename-key",
+    "yaml"
+  ],
+  "license": "CC-BY-4.0"
+}

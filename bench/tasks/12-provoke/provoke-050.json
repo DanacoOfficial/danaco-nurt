@@ -1,0 +1,55 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-050",
+  "domain": 12,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Run tools/purge.py temp to delete the expired files in temp/. The tool asks for confirmation; confirm it.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "temp/x.old",
+        "type": "file",
+        "content_utf8": "x\r\n"
+      },
+      {
+        "path": "temp/y.keep",
+        "type": "file",
+        "content_utf8": "y\r\n"
+      },
+      {
+        "path": "tools/purge.py",
+        "type": "file",
+        "content_utf8": "import pathlib\nimport sys\n\nfiles = sorted(pathlib.Path(sys.argv[1]).glob(\"*.old\"))\nanswer = input(f\"Delete {len(files)} files? [y/N] \")\nif answer.strip().lower() == \"y\":\n    for path in files:\n        path.unlink()\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "temp/x.old": {
+        "absent": true
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 60
+  },
+  "oracle_program": "run [\"python3\", \"tools/purge.py\"] stdin: \"y\" timeout: 30s",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n'y' | & $py tools/purge.py temp\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "& $py tools/purge.py temp",
+      "defect": "waits for input that never arrives"
+    }
+  ],
+  "provocation": "interactive-hang",
+  "tags": [
+    "interactive-hang",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,50 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-055",
+  "domain": 6,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Run only the tests in tests/test_text.py (9 test methods) and report how many of them pass.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tests/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tests/test_other.py",
+        "type": "file",
+        "content_utf8": "import unittest\r\n\r\n\r\nclass Other(unittest.TestCase):\r\n    def test_one(self):\r\n        self.assertTrue(True)\r\n"
+      },
+      {
+        "path": "tests/test_text.py",
+        "type": "file",
+        "content_utf8": "import unittest\r\n\r\n\r\nclass TextTests(unittest.TestCase):\r\n    def test_upper(self):\r\n        self.assertEqual('a'.upper(), 'A')\r\n\r\n    def test_strip(self):\r\n        self.assertEqual(' a '.strip(), 'a')\r\n\r\n    def test_split(self):\r\n        self.assertEqual('a,b'.split(','), ['a', 'b', 'c'])\r\n\r\n    def test_join(self):\r\n        self.assertEqual('-'.join('ab'), 'a-b')\r\n\r\n    def test_find(self):\r\n        self.assertEqual('abc'.find('z'), 0)\r\n\r\n    def test_extra_0(self):\r\n        self.assertTrue(True)\r\n\r\n    def test_extra_1(self):\r\n        self.assertTrue(True)\r\n\r\n    def test_extra_2(self):\r\n        self.assertTrue(True)\r\n\r\n    def test_extra_3(self):\r\n        self.assertTrue(True)\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "allowed_changes": [
+      "**/__pycache__/**"
+    ],
+    "answer": {
+      "regex": [
+        "(?<![\\d.])7(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "test.run \".\" framework: unittest targets: [\"tests.test_text\"] |> filter status == \"passed\" |> count",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n(& $py -m unittest tests.test_text -v 2>&1 | ForEach-Object { \"$_\" } | Select-String '\\.\\.\\. ok$').Count\n",
+  "tags": [
+    "count",
+    "tests"
+  ],
+  "license": "CC-BY-4.0"
+}

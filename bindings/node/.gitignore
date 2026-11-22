@@ -1,0 +1,12 @@
+/node_modules/
+/dist/
+/src/generated/
+/coverage/
+*.tgz
+# Copied from the repository root by scripts/prepare-pack.mjs.
+/LICENSE
+/NOTICE
+/npm/*/LICENSE
+/npm/*/NOTICE
+# Placed by scripts/stage-binaries.mjs from the release archives.
+/npm/*/bin/

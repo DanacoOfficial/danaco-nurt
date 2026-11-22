@@ -1,0 +1,66 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "git-035",
+  "domain": 10,
+  "split": "public",
+  "platform": "cross",
+  "nl": "src/util.py was deleted by mistake in the working tree. Restore it from the last commit. The untracked file draft.md must stay.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "setup": {
+    "description": "A Git repository with src/util.py deleted from the working tree and an untracked draft.md.",
+    "bash": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\nprintf '%s' '# tool-3\n' > 'README.md'\nmkdir -p 'src' && printf '%s' 'print('\\''v1'\\'')\n' > 'src/app.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:00:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:00:00 +0000' git commit -qm 'Initial commit'\nmkdir -p 'src' && printf '%s' 'def helper():\n    return 1\n' > 'src/util.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:01:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:01:00 +0000' git commit -qm 'Add helper module'\nprintf '%s' 'keep me\n' > 'draft.md'\nrm -f -- 'src/util.py'",
+    "pwsh": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\n[IO.File]::WriteAllText((Join-Path $PWD 'README.md'), '# tool-3\n')\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/app.py'), 'print(''v1'')\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:00:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:00:00 +0000'; git commit -qm 'Initial commit'\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/util.py'), 'def helper():\n    return 1\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:01:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:01:00 +0000'; git commit -qm 'Add helper module'\n[IO.File]::WriteAllText((Join-Path $PWD 'draft.md'), 'keep me\n')\nRemove-Item -LiteralPath 'src/util.py'"
+  },
+  "probes": [
+    {
+      "id": "status",
+      "kind": "command",
+      "argv": [
+        "git",
+        "status",
+        "--porcelain"
+      ]
+    }
+  ],
+  "expect": {
+    "files": {
+      "src/util.py": {
+        "text": "def helper():\n    return 1\n"
+      },
+      "draft.md": {
+        "text": "keep me\n"
+      }
+    },
+    "allowed_changes": [
+      ".git/**"
+    ],
+    "probes": {
+      "status": {
+        "stdout": "?? draft.md"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "git.restore \".\" paths: [\"src/util.py\"]",
+  "reference_bash": "git restore -- src/util.py\n",
+  "reference_pwsh": "git restore -- src/util.py\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "git reset -q --hard && git clean -qfd",
+      "defect": "removes the untracked file"
+    }
+  ],
+  "tags": [
+    "git",
+    "restore"
+  ],
+  "license": "CC-BY-4.0"
+}

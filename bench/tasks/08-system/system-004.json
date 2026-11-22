@@ -1,0 +1,77 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-004",
+  "domain": 8,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Three tools/idle.py processes run with the arguments svc-alpha-4, svc-beta-4, svc-gamma-4. Stop only the one started with svc-alpha-4; the other two must keep running.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/idle.py",
+        "type": "file",
+        "content_utf8": "import time\n\nwhile True:\n    time.sleep(1)\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "Three tools/idle.py processes run with the arguments svc-alpha-4, svc-beta-4, svc-gamma-4.",
+    "bash": "setsid python3 tools/idle.py svc-alpha-4 > /dev/null 2>&1 < /dev/null &\nsetsid python3 tools/idle.py svc-beta-4 > /dev/null 2>&1 < /dev/null &\nsetsid python3 tools/idle.py svc-gamma-4 > /dev/null 2>&1 < /dev/null &\nsleep 0.5",
+    "pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$p = Start-Process $py -ArgumentList 'tools/idle.py','svc-alpha-4' -PassThru\n$p = Start-Process $py -ArgumentList 'tools/idle.py','svc-beta-4' -PassThru\n$p = Start-Process $py -ArgumentList 'tools/idle.py','svc-gamma-4' -PassThru\nStart-Sleep -Seconds 1"
+  },
+  "teardown": {
+    "bash": "pkill -f -- 'idle.py svc-alpha-4' || true\npkill -f -- 'idle.py svc-beta-4' || true\npkill -f -- 'idle.py svc-gamma-4' || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*idle.py svc-alpha-4*' } | Stop-Process -Force -ErrorAction SilentlyContinue\nGet-Process | Where-Object { $_.CommandLine -like '*idle.py svc-beta-4*' } | Stop-Process -Force -ErrorAction SilentlyContinue\nGet-Process | Where-Object { $_.CommandLine -like '*idle.py svc-gamma-4*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "probes": [
+    {
+      "id": "alpha",
+      "kind": "process",
+      "match": "idle.py svc-alpha-4"
+    },
+    {
+      "id": "beta",
+      "kind": "process",
+      "match": "idle.py svc-beta-4"
+    },
+    {
+      "id": "gamma",
+      "kind": "process",
+      "match": "idle.py svc-gamma-4"
+    }
+  ],
+  "expect": {
+    "probes": {
+      "alpha": {
+        "count": 0
+      },
+      "beta": {
+        "count": 1
+      },
+      "gamma": {
+        "count": 1
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "processes |> filter command ~ \"idle.py svc-alpha-4\" |> stop",
+  "reference_bash": "pkill -f -- 'idle.py svc-alpha-4'\nsleep 0.3\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nGet-Process | Where-Object { $_.CommandLine -like '*idle.py svc-alpha-4*' } | Stop-Process -Force\nStart-Sleep -Milliseconds 300\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "pkill -f -- 'idle.py svc-[a-z]*-4$'",
+      "defect": "stops all three processes"
+    }
+  ],
+  "tags": [
+    "processes",
+    "stop"
+  ],
+  "license": "CC-BY-4.0"
+}

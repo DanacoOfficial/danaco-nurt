@@ -1,0 +1,42 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-023",
+  "domain": 5,
+  "split": "public",
+  "platform": "windows",
+  "nl": "In billing/pricing.py, introduce a module-level constant DISCOUNT_RATE = 0.15 after the module docstring (one blank line before it, two blank lines after it) and use it in place of the number 0.15 in the three calculations. The string \"0.15.0\" in version() stays unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "billing/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "billing/pricing.py",
+        "type": "file",
+        "content_utf8": "\"\"\"Pricing helpers.\"\"\"\r\n\r\n\r\ndef gross(net):\r\n    return net * (1 + 0.15)\r\n\r\n\r\ndef tax(net):\r\n    return net * 0.15\r\n\r\n\r\ndef label(net):\r\n    return f\"{net} plus {net * 0.15:.2f}\"\r\n\r\n\r\ndef version():\r\n    return \"0.15.0\"\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "billing/pricing.py": {
+        "text": "\"\"\"Pricing helpers.\"\"\"\r\n\r\nDISCOUNT_RATE = 0.15\r\n\r\n\r\ndef gross(net):\r\n    return net * (1 + DISCOUNT_RATE)\r\n\r\n\r\ndef tax(net):\r\n    return net * DISCOUNT_RATE\r\n\r\n\r\ndef label(net):\r\n    return f\"{net} plus {net * DISCOUNT_RATE:.2f}\"\r\n\r\n\r\ndef version():\r\n    return \"0.15.0\"\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"billing/pricing.py\" changes: [{insert: \"DISCOUNT_RATE = 0.15\\n\", line: 3, position: before}]\nsearch /\\b0\\.15\\b(?!\\.0\")/ \"billing/pricing.py\" |> replace \"DISCOUNT_RATE\"",
+  "reference_pwsh": "$p = Join-Path $PWD 'billing/pricing.py'; $t = [IO.File]::ReadAllText($p)\n$o = '\"\"\"Pricing helpers.\"\"\"\n\n'.Replace(\"`n\", \"`r`n\"); $n = '\"\"\"Pricing helpers.\"\"\"\n\nDISCOUNT_RATE = 0.15\n\n'.Replace(\"`n\", \"`r`n\")\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in billing/pricing.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'billing/pricing.py'; $t = [IO.File]::ReadAllText($p)\n$o = '(1 + 0.15)'; $n = '(1 + DISCOUNT_RATE)'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in billing/pricing.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'billing/pricing.py'; $t = [IO.File]::ReadAllText($p)\n$o = 'net * 0.15\n'.Replace(\"`n\", \"`r`n\"); $n = 'net * DISCOUNT_RATE\n'.Replace(\"`n\", \"`r`n\")\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in billing/pricing.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'billing/pricing.py'; $t = [IO.File]::ReadAllText($p)\n$o = '{net * 0.15:.2f}'; $n = '{net * DISCOUNT_RATE:.2f}'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in billing/pricing.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n",
+  "tags": [
+    "extract-constant",
+    "python"
+  ],
+  "license": "CC-BY-4.0"
+}

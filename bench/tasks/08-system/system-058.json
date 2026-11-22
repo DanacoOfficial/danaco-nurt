@@ -1,0 +1,79 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-058",
+  "domain": 8,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Delete the .log files under logs/ whose modification time is before 2026-10-14 00:00 UTC. Keep newer log files and all files with other extensions.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "logs/keep-old.txt",
+        "type": "file",
+        "content_utf8": "notes\n",
+        "mtime": "2026-09-01T08:00:00Z"
+      },
+      {
+        "path": "logs/new-a.log",
+        "type": "file",
+        "content_utf8": "new-a\n",
+        "mtime": "2026-10-16T08:00:00Z"
+      },
+      {
+        "path": "logs/new-b.log",
+        "type": "file",
+        "content_utf8": "new-b\n",
+        "mtime": "2026-10-23T08:00:00Z"
+      },
+      {
+        "path": "logs/old-a.log",
+        "type": "file",
+        "content_utf8": "old-a\n",
+        "mtime": "2026-10-11T08:00:00Z"
+      },
+      {
+        "path": "logs/old-b.log",
+        "type": "file",
+        "content_utf8": "old-b\n",
+        "mtime": "2026-10-13T08:00:00Z"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "logs/old-a.log": {
+        "absent": true
+      },
+      "logs/old-b.log": {
+        "absent": true
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "logs/*.txt",
+      "change": "delete",
+      "reason": "only log files are cleaned up"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"logs\" glob: \"*.log\" type: file |> filter modified < date(\"2026-10-14T00:00:00Z\") |> remove",
+  "reference_bash": "find logs -type f -name '*.log' ! -newermt '2026-10-14 00:00:00 UTC' -delete\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$limit = [DateTime]::Parse('2026-10-14T00:00:00Z').ToUniversalTime()\nGet-ChildItem logs -File -Filter '*.log' | Where-Object { $_.LastWriteTimeUtc -lt $limit } | Remove-Item\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "find logs -type f ! -newermt '2026-10-14 00:00:00 UTC' -delete",
+      "defect": "also deletes the notes file"
+    }
+  ],
+  "tags": [
+    "cleanup",
+    "mtime"
+  ],
+  "license": "CC-BY-4.0"
+}

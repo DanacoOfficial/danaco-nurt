@@ -1,0 +1,43 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-009",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "In timeouts.ini, change 30 to 45 on line 4 only. Other lines with 30 stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "timeouts.ini",
+        "type": "file",
+        "content_utf8": "[http]\ntimeout = 30\n[db]\ntimeout = 30\n[cache]\ntimeout = 30\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "timeouts.ini": {
+        "text": "[http]\ntimeout = 30\n[db]\ntimeout = 45\n[cache]\ntimeout = 30\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"timeouts.ini\" 4..4 |> replace \"30\" \"45\" mode: literal",
+  "reference_bash": "sed -i '4s/30/45/' timeouts.ini\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sed -i 's/30/45/g' timeouts.ini",
+      "defect": "changes every line"
+    }
+  ],
+  "tags": [
+    "line-edit"
+  ],
+  "license": "CC-BY-4.0"
+}

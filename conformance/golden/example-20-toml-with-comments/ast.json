@@ -1,0 +1,85 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "set",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/Cargo.toml",
+                "span": [
+                  1,
+                  5,
+                  1,
+                  26
+                ]
+              },
+              "span": [
+                1,
+                5,
+                1,
+                26
+              ]
+            },
+            {
+              "name": "key",
+              "value": {
+                "t": "text",
+                "v": "package.version",
+                "span": [
+                  1,
+                  32,
+                  1,
+                  49
+                ]
+              },
+              "span": [
+                1,
+                27,
+                1,
+                49
+              ]
+            },
+            {
+              "name": "value",
+              "value": {
+                "t": "text",
+                "v": "0.4.0",
+                "span": [
+                  1,
+                  57,
+                  1,
+                  64
+                ]
+              },
+              "span": [
+                1,
+                50,
+                1,
+                64
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            64
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          64
+        ]
+      }
+    ]
+  }
+}

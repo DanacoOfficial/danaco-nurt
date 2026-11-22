@@ -1,0 +1,33 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-035",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Write the relative paths of all .tsx files in src/ (recursively) to components.txt, one path per line, sorted, with '/' as separator and without a leading './'.",
+  "fs_before": {
+    "fixture": "ts-webapp"
+  },
+  "expect": {
+    "files": {
+      "components.txt": {
+        "lines": [
+          "src/components/CustomerCard.tsx",
+          "src/components/OrderList.tsx"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"src\" glob: \"**/*.tsx\" type: file sort: name |> select relative |> write \"components.txt\" format: lines",
+  "reference_bash": "find src -type f -name '*.tsx' | sed 's|^\\./||' | LC_ALL=C sort > components.txt\n",
+  "tags": [
+    "find",
+    "write-result"
+  ],
+  "license": "CC-BY-4.0"
+}

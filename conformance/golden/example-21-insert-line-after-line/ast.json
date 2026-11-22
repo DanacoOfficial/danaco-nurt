@@ -1,0 +1,147 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "lines",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/main.go",
+                "span": [
+                  1,
+                  7,
+                  1,
+                  25
+                ]
+              },
+              "span": [
+                1,
+                7,
+                1,
+                25
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            25
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "args": [
+              {
+                "value": {
+                  "t": "bin",
+                  "op": "==",
+                  "l": {
+                    "t": "ident",
+                    "v": "text",
+                    "span": [
+                      1,
+                      36,
+                      1,
+                      40
+                    ]
+                  },
+                  "r": {
+                    "t": "text",
+                    "v": "package main",
+                    "span": [
+                      1,
+                      44,
+                      1,
+                      58
+                    ]
+                  },
+                  "span": [
+                    1,
+                    36,
+                    1,
+                    58
+                  ]
+                },
+                "span": [
+                  1,
+                  36,
+                  1,
+                  58
+                ]
+              }
+            ],
+            "span": [
+              1,
+              29,
+              1,
+              58
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "insert",
+            "args": [
+              {
+                "value": {
+                  "t": "text",
+                  "v": "import \"fmt\"",
+                  "span": [
+                    1,
+                    69,
+                    1,
+                    86
+                  ]
+                },
+                "span": [
+                  1,
+                  69,
+                  1,
+                  86
+                ]
+              },
+              {
+                "name": "position",
+                "value": {
+                  "t": "ident",
+                  "v": "after",
+                  "span": [
+                    1,
+                    97,
+                    1,
+                    102
+                  ]
+                },
+                "span": [
+                  1,
+                  87,
+                  1,
+                  102
+                ]
+              }
+            ],
+            "span": [
+              1,
+              62,
+              1,
+              102
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          102
+        ]
+      }
+    ]
+  }
+}

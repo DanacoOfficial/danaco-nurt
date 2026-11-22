@@ -1,0 +1,56 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-004",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "In cmd/server/main.go, replace the exact text `http.ListenAndServe(\":8080\", mux)` with `http.ListenAndServe(\":9090\", mux)`. Change nothing else.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "cmd/server/main.go",
+        "type": "file",
+        "content_utf8": "package main\n\nimport (\n\t\"log\"\n\t\"net/http\"\n\n\t\"example.com/orders/internal/handlers\"\n)\n\nfunc main() {\n\tmux := http.NewServeMux()\n\tmux.HandleFunc(\"/orders\", handlers.ListOrders)\n\tmux.HandleFunc(\"/orders/new\", handlers.CreateOrder)\n\tlog.Fatal(http.ListenAndServe(\":8080\", mux))\n}\n"
+      },
+      {
+        "path": "go.mod",
+        "type": "file",
+        "content_utf8": "module example.com/orders\n\ngo 1.22\n"
+      },
+      {
+        "path": "internal/handlers/orders.go",
+        "type": "file",
+        "content_utf8": "package handlers\n\nimport (\n\t\"encoding/json\"\n\t\"net/http\"\n\n\t\"example.com/orders/internal/store\"\n)\n\nfunc ListOrders(w http.ResponseWriter, r *http.Request) {\n\torders := store.AllOrders()\n\tjson.NewEncoder(w).Encode(orders)\n}\n\nfunc CreateOrder(w http.ResponseWriter, r *http.Request) {\n\tvar order store.Order\n\tif err := json.NewDecoder(r.Body).Decode(&order); err != nil {\n\t\thttp.Error(w, \"invalid order\", http.StatusBadRequest)\n\t\treturn\n\t}\n\tstore.SaveOrder(order)\n\tw.WriteHeader(http.StatusCreated)\n}\n"
+      },
+      {
+        "path": "internal/store/store.go",
+        "type": "file",
+        "content_utf8": "package store\n\ntype Order struct {\n\tID       int     `json:\"id\"`\n\tCustomer string  `json:\"customer\"`\n\tTotal    float64 `json:\"total\"`\n}\n\nvar orders []Order\n\nfunc AllOrders() []Order {\n\treturn orders\n}\n\nfunc SaveOrder(order Order) {\n\torders = append(orders, order)\n}\n"
+      },
+      {
+        "path": "internal/store/store_test.go",
+        "type": "file",
+        "content_utf8": "package store\n\nimport \"testing\"\n\nfunc TestSaveOrder(t *testing.T) {\n\tSaveOrder(Order{ID: 1, Customer: \"acme\", Total: 12.5})\n\tif len(AllOrders()) != 1 {\n\t\tt.Fatal(\"order not saved\")\n\t}\n}\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "cmd/server/main.go": {
+        "text": "package main\n\nimport (\n\t\"log\"\n\t\"net/http\"\n\n\t\"example.com/orders/internal/handlers\"\n)\n\nfunc main() {\n\tmux := http.NewServeMux()\n\tmux.HandleFunc(\"/orders\", handlers.ListOrders)\n\tmux.HandleFunc(\"/orders/new\", handlers.CreateOrder)\n\tlog.Fatal(http.ListenAndServe(\":9090\", mux))\n}\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"http.ListenAndServe(\\\":8080\\\", mux)\" \"http.ListenAndServe(\\\":9090\\\", mux)\" in: [\"cmd/server/main.go\"] mode: literal expect: 1",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('cmd/server/main.go')\nt = p.read_bytes().decode('utf-8')\nold = 'http.ListenAndServe(\":8080\", mux)'\nassert t.count(old) == 1\np.write_bytes(t.replace(old, 'http.ListenAndServe(\":9090\", mux)').encode('utf-8'))\nEOF\n",
+  "tags": [
+    "exact-replace"
+  ],
+  "license": "CC-BY-4.0"
+}

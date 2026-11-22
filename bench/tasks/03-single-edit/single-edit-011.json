@@ -1,0 +1,43 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-011",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "In names.txt, change alpha to omega on line 5 only. Other lines with alpha stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "names.txt",
+        "type": "file",
+        "content_utf8": "alpha\nbeta\nalpha\ngamma\nalpha\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "names.txt": {
+        "text": "alpha\nbeta\nalpha\ngamma\nomega\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"names.txt\" 5..5 |> replace \"alpha\" \"omega\" mode: literal",
+  "reference_bash": "sed -i '5s/alpha/omega/' names.txt\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sed -i 's/alpha/omega/g' names.txt",
+      "defect": "changes every line"
+    }
+  ],
+  "tags": [
+    "line-edit"
+  ],
+  "license": "CC-BY-4.0"
+}

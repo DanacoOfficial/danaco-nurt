@@ -1,0 +1,43 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-010",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "In ports.conf, change 8080 to 8081 on line 3 only. Other lines with 8080 stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "ports.conf",
+        "type": "file",
+        "content_utf8": "listen 8080\n# fallback\nlisten 8080\nlisten 8443\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "ports.conf": {
+        "text": "listen 8080\n# fallback\nlisten 8081\nlisten 8443\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"ports.conf\" 3..3 |> replace \"8080\" \"8081\" mode: literal",
+  "reference_bash": "sed -i '3s/8080/8081/' ports.conf\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sed -i 's/8080/8081/g' ports.conf",
+      "defect": "changes every line"
+    }
+  ],
+  "tags": [
+    "line-edit"
+  ],
+  "license": "CC-BY-4.0"
+}

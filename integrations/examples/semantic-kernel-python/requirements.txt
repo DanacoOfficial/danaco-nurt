@@ -1,0 +1,2 @@
+semantic-kernel[mcp]>=1.37
+nurt

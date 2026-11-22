@@ -1,0 +1,51 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-057",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Find the source files that contain 'BASE_URL'. Ignore node_modules/ and dist/. List relative paths.",
+  "fs_before": {
+    "fixture": "ts-webapp",
+    "overlay": [
+      {
+        "path": "dist/bundle.js",
+        "type": "file",
+        "content_utf8": "var x = 'BASE_URL';\n"
+      },
+      {
+        "path": "node_modules/lib2/dist/base_url.js",
+        "type": "file",
+        "content_utf8": "BASE_URL\n"
+      },
+      {
+        "path": "node_modules/lib2/index.js",
+        "type": "file",
+        "content_utf8": "// uses BASE_URL\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "src/api.ts"
+      ],
+      "not_contains": [
+        "node_modules",
+        "dist/bundle.js"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"BASE_URL\" \".\" mode: literal exclude: [\"node_modules/**\", \"dist/**\"] output: paths",
+  "reference_bash": "grep -rlF --exclude-dir=node_modules --exclude-dir=dist -- 'BASE_URL' . | sort\n",
+  "tags": [
+    "exclude",
+    "grep"
+  ],
+  "license": "CC-BY-4.0"
+}

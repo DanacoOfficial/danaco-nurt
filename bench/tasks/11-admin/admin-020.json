@@ -1,0 +1,29 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-020",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Keep 14 rotated logs instead of 7 in etc/logrotate.d/orders.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/logrotate.d/orders": {
+        "text": "/var/log/orders/*.log {\n    daily\n    rotate 14\n    compress\n    missingok\n}\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/logrotate.d/orders\" changes: [{replace: \"rotate 7\", with: \"rotate 14\"}]",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/logrotate.d/orders'); t = p.read_text()\nassert t.count('rotate 7') == 1\np.write_text(t.replace('rotate 7', 'rotate 14'))\nEOF\n",
+  "tags": [
+    "logrotate"
+  ],
+  "license": "CC-BY-4.0"
+}

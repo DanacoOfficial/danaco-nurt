@@ -1,0 +1,71 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-040",
+  "domain": 2,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Rename the C# member or type TotalAmount to GetTotalAmount in all .cs files under src/. Keep the CRLF line endings.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "App.sln",
+        "type": "file",
+        "content_utf8": "Microsoft Visual Studio Solution File, Format Version 12.00\r\nProject(\"{FAE04EC0}\") = \"Orders\", \"src\\Orders\\Orders.csproj\"\r\n"
+      },
+      {
+        "path": "scripts/build.cmd",
+        "type": "file",
+        "content_utf8": "@echo off\r\ndotnet build src\\Orders\\Orders.csproj -c Release\r\n"
+      },
+      {
+        "path": "scripts/deploy.ps1",
+        "type": "file",
+        "content_utf8": "param([string]$Environment = 'staging')\r\n$version = '3.1.0'\r\nWrite-Output \"Deploying $version to $Environment\"\r\n"
+      },
+      {
+        "path": "src/Orders/Order.cs",
+        "type": "file",
+        "content_utf8": "namespace Orders;\r\n\r\npublic sealed record Order(int Id, string Customer, decimal Amount);\r\n"
+      },
+      {
+        "path": "src/Orders/OrderService.cs",
+        "type": "file",
+        "content_utf8": "namespace Orders;\r\n\r\npublic sealed class OrderService\r\n{\r\n    private readonly List<Order> _orders = new();\r\n\r\n    public void AddOrder(Order order) => _orders.Add(order);\r\n\r\n    public decimal TotalAmount() => _orders.Sum(o => o.Amount);\r\n}\r\n"
+      },
+      {
+        "path": "src/Orders/Orders.csproj",
+        "type": "file",
+        "content_utf8": "<Project Sdk=\"Microsoft.NET.Sdk\">\r\n  <PropertyGroup>\r\n    <TargetFramework>net8.0</TargetFramework>\r\n    <Version>3.1.0</Version>\r\n    <Nullable>enable</Nullable>\r\n  </PropertyGroup>\r\n</Project>\r\n"
+      },
+      {
+        "path": "src/Orders/Program.cs",
+        "type": "file",
+        "content_utf8": "using Orders;\r\n\r\nvar service = new OrderService();\r\nservice.AddOrder(new Order(1, \"acme\", 12.5m));\r\nConsole.WriteLine(service.TotalAmount());\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "src/Orders/OrderService.cs": {
+        "text": "namespace Orders;\r\n\r\npublic sealed class OrderService\r\n{\r\n    private readonly List<Order> _orders = new();\r\n\r\n    public void AddOrder(Order order) => _orders.Add(order);\r\n\r\n    public decimal GetTotalAmount() => _orders.Sum(o => o.Amount);\r\n}\r\n"
+      },
+      "src/Orders/Program.cs": {
+        "text": "using Orders;\r\n\r\nvar service = new OrderService();\r\nservice.AddOrder(new Order(1, \"acme\", 12.5m));\r\nConsole.WriteLine(service.GetTotalAmount());\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search /\\bTotalAmount\\b/ \"src\" glob: \"**/*.cs\" |> replace \"GetTotalAmount\"",
+  "reference_pwsh": "Get-ChildItem src -Recurse -File -Include '*.cs' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  $n = $t -creplace '\\bTotalAmount\\b', 'GetTotalAmount'\n  if ($n -cne $t) { [IO.File]::WriteAllText($_.FullName, $n) }\n}\n",
+  "tags": [
+    "crlf",
+    "csharp",
+    "rename"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,8 @@
+{"client": {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "transcript", "version": "1.0.0"}}}}
+{"server": {"jsonrpc": "2.0", "id": 1, "result": "*"}}
+{"client": {"jsonrpc": "2.0", "method": "notifications/initialized"}}
+{"raw": "{\"jsonrpc\": \"2.0\", \"id\": "}
+{"client": {"jsonrpc": "2.0", "id": 2, "method": "nurt/unknown", "params": {}}}
+{"server": {"jsonrpc": "2.0", "id": 2, "error": {"code": -32601, "message": "nurt/unknown"}}}
+{"client": {"jsonrpc": "2.0", "id": 3, "method": "ping"}}
+{"server": {"jsonrpc": "2.0", "id": 3, "result": {}}}

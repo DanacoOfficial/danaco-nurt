@@ -1,0 +1,75 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-012",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Move the .txt files directly inside inbox/ (not in subdirectories, not .txt.bak files) to processed/.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "inbox/a.txt",
+        "type": "file",
+        "content_utf8": "a\n"
+      },
+      {
+        "path": "inbox/b.txt",
+        "type": "file",
+        "content_utf8": "b\n"
+      },
+      {
+        "path": "inbox/c.txt.bak",
+        "type": "file",
+        "content_utf8": "c\n"
+      },
+      {
+        "path": "inbox/sub/d.txt",
+        "type": "file",
+        "content_utf8": "d\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "inbox/a.txt": {
+        "absent": true
+      },
+      "inbox/b.txt": {
+        "absent": true
+      },
+      "processed/a.txt": {
+        "text": "a\n"
+      },
+      "processed/b.txt": {
+        "text": "b\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "inbox/sub/**",
+      "change": "any",
+      "reason": "nested files stay"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"inbox\" glob: \"*.txt\" depth: 1 type: file |> move into: \"processed\"",
+  "reference_bash": "mkdir -p processed && mv -- inbox/*.txt processed/\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "mkdir -p processed && find inbox -name '*.txt*' -exec mv {} processed/ \\;",
+      "defect": "also moves the backup and the nested file"
+    }
+  ],
+  "provocation": "glob-mismatch",
+  "tags": [
+    "glob-mismatch",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

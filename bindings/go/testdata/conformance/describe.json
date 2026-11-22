@@ -1,0 +1,6 @@
+{
+  "id": "describe.core",
+  "class": "mandatory",
+  "call": { "method": "describe", "args": { "layer": "core", "language": "en" } },
+  "expect": { "text_contains": "describe core en" }
+}

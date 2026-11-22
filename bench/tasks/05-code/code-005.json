@@ -1,0 +1,62 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-005",
+  "domain": 5,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Rename the method read of the class Sensor to sample, together with its calls on Sensor objects. The method read of Camera and its calls stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "app/main.py",
+        "type": "file",
+        "content_utf8": "from app.model import Sensor, Camera\n\n\ndef run():\n    sensor = Sensor()\n    camera = Camera()\n    return [sensor.read(), camera.read()]\n"
+      },
+      {
+        "path": "app/model.py",
+        "type": "file",
+        "content_utf8": "class Sensor:\n    def read(self):\n        return 'sensor'\n\n\nclass Camera:\n    def read(self):\n        return 'camera'\n"
+      },
+      {
+        "path": "tests/test_model.py",
+        "type": "file",
+        "content_utf8": "from app.model import Sensor, Camera\n\n\ndef test_sensor():\n    assert Sensor().read() == 'sensor'\n\n\ndef test_camera():\n    assert Camera().read() == 'camera'\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "app/main.py": {
+        "text": "from app.model import Sensor, Camera\n\n\ndef run():\n    sensor = Sensor()\n    camera = Camera()\n    return [sensor.sample(), camera.read()]\n"
+      },
+      "app/model.py": {
+        "text": "class Sensor:\n    def sample(self):\n        return 'sensor'\n\n\nclass Camera:\n    def read(self):\n        return 'camera'\n"
+      },
+      "tests/test_model.py": {
+        "text": "from app.model import Sensor, Camera\n\n\ndef test_sensor():\n    assert Sensor().sample() == 'sensor'\n\n\ndef test_camera():\n    assert Camera().read() == 'camera'\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.rename \"sample\" path: \"app/model.py\" symbol: \"Sensor.read\" paths: [\"app\", \"tests\"]",
+  "reference_bash": "python3 - <<'EOF'\nimport os, pathlib\np = pathlib.Path('app/model.py'); t = p.read_bytes().decode()\nassert t.count('class Sensor:\\n    def read(self):') == 1, 'app/model.py'\np.write_bytes(t.replace('class Sensor:\\n    def read(self):', 'class Sensor:\\n    def sample(self):').encode())\np = pathlib.Path('app/main.py'); t = p.read_bytes().decode()\nassert t.count('sensor.read()') == 1, 'app/main.py'\np.write_bytes(t.replace('sensor.read()', 'sensor.sample()').encode())\np = pathlib.Path('tests/test_model.py'); t = p.read_bytes().decode()\nassert t.count('Sensor().read()') == 1, 'tests/test_model.py'\np.write_bytes(t.replace('Sensor().read()', 'Sensor().sample()').encode())\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'app/model.py'; $t = [IO.File]::ReadAllText($p)\n$o = 'class Sensor:\n    def read(self):'; $n = 'class Sensor:\n    def sample(self):'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in app/model.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'app/main.py'; $t = [IO.File]::ReadAllText($p)\n$o = 'sensor.read()'; $n = 'sensor.sample()'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in app/main.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'tests/test_model.py'; $t = [IO.File]::ReadAllText($p)\n$o = 'Sensor().read()'; $n = 'Sensor().sample()'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in tests/test_model.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sed -i 's/\\bread(/sample(/g' app/*.py tests/*.py",
+      "defect": "renames the method of Camera as well"
+    }
+  ],
+  "tags": [
+    "python",
+    "rename",
+    "symbol"
+  ],
+  "license": "CC-BY-4.0"
+}

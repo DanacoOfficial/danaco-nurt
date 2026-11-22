@@ -1,0 +1,89 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "cat-1",
+  "corr_rev": "corr-1",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "info",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "path",
+                    "v": "/srv/data/my file.txt"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "hash",
+              "value": {
+                "t": "enum",
+                "v": "none"
+              },
+              "default": true
+            },
+            {
+              "name": "details",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "known",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "remove",
+            "effect": "local",
+            "phase": "mutate",
+            "args": [
+              {
+                "name": "path",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "on_missing",
+                "value": {
+                  "t": "enum",
+                  "v": "skip"
+                },
+                "default": true
+              },
+              {
+                "name": "check_references",
+                "value": {
+                  "t": "bool",
+                  "v": false
+                },
+                "default": true
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

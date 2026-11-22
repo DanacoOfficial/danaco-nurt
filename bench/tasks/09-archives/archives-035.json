@@ -1,0 +1,80 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-035",
+  "domain": 9,
+  "split": "public",
+  "platform": "linux",
+  "nl": "The shell scripts under scripts/ (recursively, *.sh, including step0.sh) have CRLF line endings. Convert them to LF. Other files keep CRLF.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "scripts/build.bat",
+        "type": "file",
+        "content_utf8": "@echo off\r\nnmake\r\n"
+      },
+      {
+        "path": "scripts/build.sh",
+        "type": "file",
+        "content_utf8": "#!/bin/sh\r\nmake all\r\n"
+      },
+      {
+        "path": "scripts/deploy.sh",
+        "type": "file",
+        "content_utf8": "#!/bin/sh\r\nrsync -a dist/ srv/\r\n"
+      },
+      {
+        "path": "scripts/notes.txt",
+        "type": "file",
+        "content_utf8": "CRLF notes\r\n"
+      },
+      {
+        "path": "scripts/sub/step0.sh",
+        "type": "file",
+        "content_utf8": "echo step\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "scripts/build.sh": {
+        "text": "#!/bin/sh\nmake all\n"
+      },
+      "scripts/deploy.sh": {
+        "text": "#!/bin/sh\nrsync -a dist/ srv/\n"
+      },
+      "scripts/sub/step0.sh": {
+        "text": "echo step\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "scripts/*.bat",
+      "change": "any",
+      "reason": "batch files need CRLF"
+    },
+    {
+      "path": "scripts/*.txt",
+      "change": "any",
+      "reason": "not a shell script"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"scripts\" glob: \"**/*.sh\" type: file |> convert line_ending: lf",
+  "reference_bash": "find scripts -type f -name '*.sh' -exec sed -i 's/\\r$//' {} +\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "find scripts -type f -exec sed -i 's/\\r$//' {} +",
+      "defect": "converts the batch file and the notes"
+    }
+  ],
+  "tags": [
+    "line-endings"
+  ],
+  "license": "CC-BY-4.0"
+}

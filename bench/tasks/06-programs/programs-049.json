@@ -1,0 +1,39 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-049",
+  "domain": 6,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Run the batch file scripts/build.cmd from the project root.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "scripts/build.cmd",
+        "type": "file",
+        "content_utf8": "@echo off\r\nif not exist out mkdir out\r\necho build 10> out\\build-info.txt\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/build-info.txt": {
+        "lines": [
+          "build 10"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"cmd.exe\", \"/c\", \"scripts\\\\build.cmd\"] cwd: \".\"",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\ncmd /c scripts\\build.cmd\n",
+  "tags": [
+    "run",
+    "scripts"
+  ],
+  "license": "CC-BY-4.0"
+}

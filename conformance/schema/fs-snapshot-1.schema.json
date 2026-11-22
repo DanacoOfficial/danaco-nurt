@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-fs-snapshot-1.schema.json",
+  "title": "nurt-fs-snapshot/1",
+  "description": "Snapshot of a directory tree: initial and expected states of conformance cases, benchmark tasks and documentation examples.",
+  "type": "object",
+  "required": ["entries"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "nurt-fs-snapshot/1" },
+    "exhaustive": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the snapshot describes the whole tree; when false only the listed entries are compared."
+    },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/\\\\\\u0000]+(/[^/\\\\\\u0000]+)*$",
+      "description": "Path relative to the root, segments separated by '/', without '.', '..' and empty segments."
+    },
+    "entry": {
+      "type": "object",
+      "required": ["path", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "type": { "enum": ["file", "dir", "symlink"] },
+        "content_utf8": { "type": "string" },
+        "content_base64": {
+          "type": "string",
+          "pattern": "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+        },
+        "mode": {
+          "type": "string",
+          "pattern": "^0[0-7]{3,4}$",
+          "description": "Permission bits in octal; applied and compared only on Unix."
+        },
+        "mtime": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "description": "Modification time, RFC 3339 in UTC with whole seconds."
+        },
+        "target": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "file" } } },
+          "then": {
+            "oneOf": [
+              { "required": ["content_utf8"], "not": { "required": ["content_base64"] } },
+              { "required": ["content_base64"], "not": { "required": ["content_utf8"] } }
+            ],
+            "not": { "required": ["target"] }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "dir" } } },
+          "then": {
+            "allOf": [
+              { "not": { "required": ["content_utf8"] } },
+              { "not": { "required": ["content_base64"] } },
+              { "not": { "required": ["target"] } }
+            ]
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "symlink" } } },
+          "then": {
+            "required": ["target"],
+            "allOf": [
+              { "not": { "required": ["content_utf8"] } },
+              { "not": { "required": ["content_base64"] } }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,125 @@
+using System;
+using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Danaco.Nurt;
+
+/// <summary>
+/// Execution started with <c>nurt_exec_start</c>. A dedicated thread waits in
+/// <c>nurt_exec_wait</c> and completes <see cref="Completion"/>; the handle is released after
+/// that wait returns, because <see cref="SafeHandle"/> defers the release while a call uses it.
+/// </summary>
+internal sealed unsafe class LibraryExecution : IExecutionHandle
+{
+    private readonly ExecHandle _handle;
+    private readonly EventQueue? _events;
+    private readonly ConcurrentDictionary<LibraryExecution, bool> _registry;
+    private int _disposed;
+
+    /// <summary>Starts an execution and keeps it in <paramref name="registry"/> until it is disposed.</summary>
+    public LibraryExecution(EngineHandle engine, byte[] envelope, EventQueue? events, ConcurrentDictionary<LibraryExecution, bool> registry)
+    {
+        _events = events;
+        _registry = registry;
+        GCHandle state = events is null ? default : GCHandle.Alloc(events);
+        byte[] request = Utf8.Terminate(envelope);
+        CallStatus status;
+        ExecHandle handle;
+        fixed (byte* pointer = request)
+        {
+            status = NativeMethods.ExecStart(
+                engine,
+                pointer,
+                events is null ? IntPtr.Zero : EventCallback.Pointer,
+                events is null ? IntPtr.Zero : GCHandle.ToIntPtr(state),
+                out handle);
+        }
+
+        if (status != CallStatus.Ok)
+        {
+            CallException failure = NativeCall.Failure(status, "nurt_exec_start");
+            handle.Dispose();
+            if (state.IsAllocated)
+            {
+                state.Free();
+            }
+
+            throw failure;
+        }
+
+        handle.Attach(state, engine);
+        _handle = handle;
+        registry[this] = true;
+        Completion = Task.Factory.StartNew(
+            WaitForResponse,
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+    }
+
+    public Task<Response> Completion { get; }
+
+    public Task CancelAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Guard.NotDisposed(Volatile.Read(ref _disposed) != 0, this);
+        NativeCall.Check(NativeMethods.ExecCancel(_handle), "nurt_exec_cancel");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Requests cancellation from a cancellation token callback; a disposed execution is already cancelled.</summary>
+    public void RequestCancel()
+    {
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _ = NativeMethods.ExecCancel(_handle);
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        if (!Completion.IsCompleted)
+        {
+            _ = NativeMethods.ExecCancel(_handle);
+        }
+
+        _registry.TryRemove(this, out _);
+        _handle.Dispose();
+        _events?.Complete();
+    }
+
+    private Response WaitForResponse()
+    {
+        NativeBuffer response = default;
+        try
+        {
+            CallStatus status = NativeMethods.ExecWait(_handle, NativeMethods.WaitForever, &response);
+            if (status is CallStatus.Ok or CallStatus.Cancelled)
+            {
+                return Response.Parse(response.ReadString());
+            }
+
+            throw NativeCall.Failure(status, "nurt_exec_wait");
+        }
+        finally
+        {
+            NativeMethods.BufferFree(&response);
+        }
+    }
+}

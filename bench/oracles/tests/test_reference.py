@@ -1,0 +1,117 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+"""Tests of the execution of reference and defective solutions."""
+
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+import unittest
+from typing import Any
+
+from nurt_bench_oracle.reference import Outcome, report_line, verify_task
+
+from .support import snap
+
+TIMEOUT = 60.0
+HAS_BASH = os.name == "posix" and shutil.which("bash") is not None
+HAS_PWSH = shutil.which("pwsh") is not None
+SORTED = "alpha\nbeta\n"
+
+
+def sort_task(**fields: Any) -> dict[str, Any]:
+    """Returns a task that sorts ``names.txt`` and keeps ``keep.txt``."""
+    data: dict[str, Any] = {
+        "id": "test-001",
+        "platform": "cross",
+        "fs_before": snap({"names.txt": "beta\nalpha\n", "keep.txt": "keep\n"}),
+        "expect": {"files": {"names.txt": {"text": SORTED}}},
+        "forbidden": [],
+        "reference_bash": "sort -o names.txt names.txt\n",
+        "reference_pwsh": (
+            "$lines = Get-Content names.txt | Sort-Object\n"
+            "[IO.File]::WriteAllText((Join-Path $PWD 'names.txt'), ($lines -join \"`n\") + \"`n\")\n"
+        ),
+    }
+    data.update(fields)
+    return data
+
+
+def labels(outcomes: list[Outcome]) -> list[str]:
+    """Returns the labels of outcomes that did not decide as expected."""
+    return [outcome.label for outcome in outcomes if not outcome.ok]
+
+
+class ReportTests(unittest.TestCase):
+    def test_report_line_names_the_failed_solutions(self) -> None:
+        good = Outcome("reference", True, {"passed": True})
+        bad = Outcome("empty solution", False, {"passed": True})
+        self.assertEqual(report_line("t-001", [good]), "ok t-001 (1 runs)")
+        self.assertEqual(report_line("t-001", [good, bad]), "FAIL t-001 (2 runs): empty solution")
+        self.assertFalse(Outcome("reference", True, None, "setup failed").ok)
+
+    def test_task_without_reference_for_the_shell_has_no_outcomes(self) -> None:
+        self.assertEqual(verify_task(sort_task(reference_bash=None), "bash", TIMEOUT), [])
+
+
+@unittest.skipUnless(HAS_BASH, "bash is not available")
+class BashTests(unittest.TestCase):
+    def test_reference_passes_and_defects_are_rejected(self) -> None:
+        negative = {"shell": "bash", "script": "sort names.txt > names.txt\n", "defect": "truncates the input"}
+        outcomes = verify_task(sort_task(negatives=[negative]), "bash", TIMEOUT)
+        self.assertEqual(
+            [outcome.label for outcome in outcomes],
+            ["reference", "empty solution", "reference and deletion of keep.txt", "truncates the input"],
+        )
+        self.assertEqual(labels(outcomes), [])
+
+    def test_deletion_applies_from_the_task_root(self) -> None:
+        moved = sort_task(
+            fs_before=snap({"sub/names.txt": "beta\nalpha\n", "keep.txt": "keep\n"}),
+            expect={"files": {"sub/names.txt": {"text": SORTED}}},
+            reference_bash="cd sub && sort -o names.txt names.txt\nexit 3\n",
+        )
+        outcomes = verify_task(moved, "bash", TIMEOUT)
+        self.assertEqual(labels(outcomes), [])
+        self.assertIn("reference and deletion of keep.txt", [outcome.label for outcome in outcomes])
+
+    def test_failing_setup_is_reported_as_an_error(self) -> None:
+        outcomes = verify_task(sort_task(setup={"description": "fails", "bash": "exit 3"}), "bash", TIMEOUT)
+        self.assertEqual(len(outcomes), 1)
+        self.assertEqual(outcomes[0].error, "setup failed with exit code 3")
+
+    def test_probes_and_answer_are_observed(self) -> None:
+        probe = {"id": "count", "kind": "command",
+                 "argv": [sys.executable, "-c", "print(open('names.txt').read().count(chr(10)))"]}
+        counted = sort_task(
+            probes=[probe],
+            expect={"files": {"names.txt": {"text": SORTED}}, "probes": {"count": {"stdout": "2", "exit": 0}},
+                    "answer": {"contains": ["sorted"]}},
+            reference_bash="sort -o names.txt names.txt\necho sorted\n",
+        )
+        outcomes = verify_task(counted, "bash", TIMEOUT)
+        self.assertEqual(labels(outcomes), [])
+        self.assertEqual(outcomes[0].verdict["failures"] if outcomes[0].verdict else None, [])
+
+    def test_time_limit_stops_the_solution(self) -> None:
+        slow = sort_task(reference_bash="sleep 30\n")
+        outcomes = verify_task(slow, "bash", 1.0)
+        self.assertEqual(outcomes[0].label, "reference")
+        self.assertFalse(outcomes[0].ok)
+
+
+@unittest.skipUnless(HAS_PWSH, "PowerShell 7 is not available")
+class PowerShellTests(unittest.TestCase):
+    def test_reference_passes_and_defects_are_rejected(self) -> None:
+        outcomes = verify_task(sort_task(), "pwsh", TIMEOUT)
+        self.assertEqual(
+            [outcome.label for outcome in outcomes],
+            ["reference", "empty solution", "reference and deletion of keep.txt"],
+        )
+        self.assertEqual(labels(outcomes), [])
+
+
+if __name__ == "__main__":
+    unittest.main()

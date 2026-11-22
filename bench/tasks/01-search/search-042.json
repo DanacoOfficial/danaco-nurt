@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-042",
+  "domain": 1,
+  "split": "public",
+  "platform": "windows",
+  "nl": "How many files with the extension .go does the tree contain? Answer with the number.",
+  "fs_before": {
+    "fixture": "go-service"
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\d.])4(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \".\" glob: \"**/*.go\" type: file |> count",
+  "reference_pwsh": "(Get-ChildItem -Recurse -File | Where-Object Extension -eq '.go').Count\n",
+  "tags": [
+    "count",
+    "find"
+  ],
+  "license": "CC-BY-4.0"
+}

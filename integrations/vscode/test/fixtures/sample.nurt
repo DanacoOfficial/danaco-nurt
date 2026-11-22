@@ -1,0 +1,3 @@
+#!/usr/bin/env nurt
+# Fixture opened by the extension tests.
+list "."

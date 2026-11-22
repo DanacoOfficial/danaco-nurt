@@ -1,0 +1,83 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "git-011",
+  "domain": 10,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Create the branch hotfix/1.4.1 from the tag v1.4.0 and switch to it.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "setup": {
+    "description": "A Git repository with the tag v1.4.0 one commit behind main.",
+    "bash": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\nprintf '%s' '# lib-4\n' > 'README.md'\nmkdir -p 'src' && printf '%s' 'print('\\''v1'\\'')\n' > 'src/app.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:00:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:00:00 +0000' git commit -qm 'Initial commit'\nmkdir -p 'src' && printf '%s' 'def helper():\n    return 1\n' > 'src/util.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:01:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:01:00 +0000' git commit -qm 'Add helper module'\ngit tag v1.4.0\nmkdir -p 'src' && printf '%s' 'print('\\''v2'\\'')\n' > 'src/app.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:02:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:02:00 +0000' git commit -qm 'Start version 2'",
+    "pwsh": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\n[IO.File]::WriteAllText((Join-Path $PWD 'README.md'), '# lib-4\n')\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/app.py'), 'print(''v1'')\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:00:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:00:00 +0000'; git commit -qm 'Initial commit'\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/util.py'), 'def helper():\n    return 1\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:01:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:01:00 +0000'; git commit -qm 'Add helper module'\ngit tag v1.4.0\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/app.py'), 'print(''v2'')\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:02:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:02:00 +0000'; git commit -qm 'Start version 2'"
+  },
+  "probes": [
+    {
+      "id": "branch",
+      "kind": "command",
+      "argv": [
+        "git",
+        "branch",
+        "--show-current"
+      ]
+    },
+    {
+      "id": "subject",
+      "kind": "command",
+      "argv": [
+        "git",
+        "log",
+        "-1",
+        "--format=%s"
+      ]
+    },
+    {
+      "id": "main",
+      "kind": "command",
+      "argv": [
+        "git",
+        "log",
+        "-1",
+        "--format=%s",
+        "main"
+      ]
+    }
+  ],
+  "expect": {
+    "files": {
+      "src/app.py": {
+        "text": "print('v1')\n"
+      }
+    },
+    "allowed_changes": [
+      ".git/**",
+      "src/app.py"
+    ],
+    "probes": {
+      "branch": {
+        "stdout": "hotfix/1.4.1"
+      },
+      "subject": {
+        "stdout": "Add helper module"
+      },
+      "main": {
+        "stdout": "Start version 2"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "git.branch \".\" create: \"hotfix/1.4.1\" from: \"v1.4.0\" switch: true",
+  "reference_pwsh": "git switch -qc hotfix/1.4.1 v1.4.0\n",
+  "tags": [
+    "branch",
+    "git"
+  ],
+  "license": "CC-BY-4.0"
+}

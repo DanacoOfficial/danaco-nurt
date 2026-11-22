@@ -1,0 +1,54 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-006",
+  "domain": 5,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Rename the method close of the class Account to deactivate, together with its calls on Account objects. The method close of Wallet and its calls stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "app/main.py",
+        "type": "file",
+        "content_utf8": "from app.model import Account, Wallet\r\n\r\n\r\ndef run():\r\n    account = Account()\r\n    wallet = Wallet()\r\n    return [account.close(), wallet.close()]\r\n"
+      },
+      {
+        "path": "app/model.py",
+        "type": "file",
+        "content_utf8": "class Account:\r\n    def close(self):\r\n        return 'account'\r\n\r\n\r\nclass Wallet:\r\n    def close(self):\r\n        return 'wallet'\r\n"
+      },
+      {
+        "path": "tests/test_model.py",
+        "type": "file",
+        "content_utf8": "from app.model import Account, Wallet\r\n\r\n\r\ndef test_account():\r\n    assert Account().close() == 'account'\r\n\r\n\r\ndef test_wallet():\r\n    assert Wallet().close() == 'wallet'\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "app/main.py": {
+        "text": "from app.model import Account, Wallet\r\n\r\n\r\ndef run():\r\n    account = Account()\r\n    wallet = Wallet()\r\n    return [account.deactivate(), wallet.close()]\r\n"
+      },
+      "app/model.py": {
+        "text": "class Account:\r\n    def deactivate(self):\r\n        return 'account'\r\n\r\n\r\nclass Wallet:\r\n    def close(self):\r\n        return 'wallet'\r\n"
+      },
+      "tests/test_model.py": {
+        "text": "from app.model import Account, Wallet\r\n\r\n\r\ndef test_account():\r\n    assert Account().deactivate() == 'account'\r\n\r\n\r\ndef test_wallet():\r\n    assert Wallet().close() == 'wallet'\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.rename \"deactivate\" path: \"app/model.py\" symbol: \"Account.close\" paths: [\"app\", \"tests\"]",
+  "reference_pwsh": "$p = Join-Path $PWD 'app/model.py'; $t = [IO.File]::ReadAllText($p)\n$o = 'class Account:\n    def close(self):'.Replace(\"`n\", \"`r`n\"); $n = 'class Account:\n    def deactivate(self):'.Replace(\"`n\", \"`r`n\")\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in app/model.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'app/main.py'; $t = [IO.File]::ReadAllText($p)\n$o = 'account.close()'; $n = 'account.deactivate()'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in app/main.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'tests/test_model.py'; $t = [IO.File]::ReadAllText($p)\n$o = 'Account().close()'; $n = 'Account().deactivate()'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in tests/test_model.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n",
+  "tags": [
+    "python",
+    "rename",
+    "symbol"
+  ],
+  "license": "CC-BY-4.0"
+}

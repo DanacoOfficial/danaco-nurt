@@ -1,0 +1,85 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "create",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "C:/proj/link",
+                "span": [
+                  1,
+                  8,
+                  1,
+                  22
+                ]
+              },
+              "span": [
+                1,
+                8,
+                1,
+                22
+              ]
+            },
+            {
+              "name": "type",
+              "value": {
+                "t": "ident",
+                "v": "link",
+                "span": [
+                  1,
+                  29,
+                  1,
+                  33
+                ]
+              },
+              "span": [
+                1,
+                23,
+                1,
+                33
+              ]
+            },
+            {
+              "name": "target",
+              "value": {
+                "t": "text",
+                "v": "C:/proj/src",
+                "span": [
+                  1,
+                  42,
+                  1,
+                  55
+                ]
+              },
+              "span": [
+                1,
+                34,
+                1,
+                55
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            55
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          55
+        ]
+      }
+    ]
+  }
+}

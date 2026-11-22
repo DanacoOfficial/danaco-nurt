@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-013",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Lower MaxAuthTries in etc/ssh/sshd_config to 3.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/ssh/sshd_config": {
+        "text": "Port 22\nPermitRootLogin yes\nPasswordAuthentication yes\nPubkeyAuthentication yes\nX11Forwarding no\nMaxAuthTries 3\nSubsystem sftp /usr/lib/openssh/sftp-server\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "set \"etc/ssh/sshd_config\" key: \"MaxAuthTries\" value: \"3\" format: sshd",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/ssh/sshd_config'); t = p.read_text()\nassert t.count('MaxAuthTries 6') == 1\np.write_text(t.replace('MaxAuthTries 6', 'MaxAuthTries 3'))\nEOF\n",
+  "tags": [
+    "config",
+    "ssh"
+  ],
+  "license": "CC-BY-4.0"
+}

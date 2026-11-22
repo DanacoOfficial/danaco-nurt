@@ -1,0 +1,4814 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "journal/coverage/verify",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "A failed verification after a change restores every target of the change.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "old\n"
+          }
+        ]
+      },
+      "program": "replace \"old\" \"new\" in: [\"a.txt\"] |> verify (read \"a.txt\" |> assert contains: \"absent\")",
+      "expect": {
+        "report": {
+          "status": "rolled_back",
+          "kind": "replace",
+          "error": {
+            "code": "E_ROLLED_BACK"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/coverage/write-create",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a created file removes it.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"n.txt\" \"new\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "n.txt",
+                "type": "file",
+                "content_utf8": "new\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/write-overwrite",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of an overwrite restores the previous bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"a.txt\" \"replaced\\n\" mode: overwrite",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "replaced\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/write-append",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of an append restores the previous length.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"a.txt\" \"gamma\\n\" mode: append",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\ngamma\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/write-prepend",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a prepend restores the previous bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"a.txt\" \"zero\\n\" mode: prepend",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "zero\nalpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/write-files",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a batch of writes restores every file of the batch as one operation.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write files: [{path: \"${base}/n.txt\", text: \"new\\n\", mode: \"create\"}, {path: \"${base}/a.txt\", text: \"gamma\\n\", mode: \"append\"}, {path: \"${base}/b.txt\", text: \"B\\n\", mode: \"overwrite\"}]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\ngamma\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "B\n"
+              },
+              {
+                "path": "n.txt",
+                "type": "file",
+                "content_utf8": "new\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/write-size",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a truncation restores the removed bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"a.txt\" size: 5",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/write-size/extend",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of an extension restores the previous length.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "ab"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"a.txt\" size: 4",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_base64": "YWIAAA=="
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "ab"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/write-registry",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:windows"
+      ],
+      "summary": "Undo of a written registry value removes the value.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "write \"registry:/HKCU/Software/NurtConformance/value\" \"data\" value_type: string",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": []
+          }
+        },
+        {
+          "program": "info \"registry:/HKCU/Software/NurtConformance/value\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "entry",
+                "rows": [
+                  {
+                    "kind": "entry",
+                    "fields": {
+                      "exists": {
+                        "t": "bool",
+                        "v": false
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/write-special-file",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "A write to a special file is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "program": "write \"/dev/null\" \"x\\n\" mode: append",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "write",
+          "irreversible": [
+            {
+              "reason": "special_file"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/coverage/replace",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a replacement restores the previous bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nBETA\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/insert",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of an insertion restores the previous bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "insert \"middle\" in: \"a.txt\" line: 1",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "insert"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nmiddle\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/insert/end",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of an insertion at the end restores the previous length.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "insert \"omega\" in: \"a.txt\" position: end",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "insert"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/edit",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of an edit restores the previous bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "edit \"a.txt\" changes: [{replace: \"alpha\", with: \"ALPHA\"}, {replace: \"beta\", with: \"BETA\"}]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "edit"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "ALPHA\nBETA\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/copy",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a copied tree removes the copy.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "e.txt",
+            "type": "file",
+            "content_utf8": "echo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "copy \"dir\" to: \"dir2\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "copy"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "e.txt",
+                "type": "file",
+                "content_utf8": "echo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "dir2/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir2/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "e.txt",
+                "type": "file",
+                "content_utf8": "echo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/copy/overwrite",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a copy onto an existing file restores the destination.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "e.txt",
+            "type": "file",
+            "content_utf8": "echo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "copy \"e.txt\" to: \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "copy"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "echo\n"
+              },
+              {
+                "path": "e.txt",
+                "type": "file",
+                "content_utf8": "echo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "e.txt",
+                "type": "file",
+                "content_utf8": "echo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/copy-registry",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:windows"
+      ],
+      "summary": "Undo of a copied registry value removes the copy.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "write \"registry:/HKCU/Software/NurtConformance/value\" \"data\" value_type: string",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "copy \"registry:/HKCU/Software/NurtConformance/value\" to: \"registry:/HKCU/Software/NurtConformance/copy\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "copy"
+            }
+          }
+        },
+        {
+          "program": "undo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": []
+          }
+        },
+        {
+          "program": "info [\"registry:/HKCU/Software/NurtConformance/value\", \"registry:/HKCU/Software/NurtConformance/copy\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "entry",
+                "rows": [
+                  {
+                    "kind": "entry",
+                    "fields": {
+                      "exists": {
+                        "t": "bool",
+                        "v": true
+                      }
+                    }
+                  },
+                  {
+                    "kind": "entry",
+                    "fields": {
+                      "exists": {
+                        "t": "bool",
+                        "v": false
+                      }
+                    }
+                  }
+                ],
+                "matched": 2
+              }
+            }
+          }
+        },
+        {
+          "program": "remove \"registry:/HKCU/Software/NurtConformance\""
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/move",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a move onto an existing file restores both files.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "move \"b.txt\" to: \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "move"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/move/new-name",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a move to a new name restores the old name.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "move \"b.txt\" to: \"m.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "move"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "m.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/move-registry",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:windows"
+      ],
+      "summary": "Undo of a moved registry value restores it under its old name.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "write \"registry:/HKCU/Software/NurtConformance/value\" \"data\" value_type: string",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "move \"registry:/HKCU/Software/NurtConformance/value\" to: \"registry:/HKCU/Software/NurtConformance/moved\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "move"
+            }
+          }
+        },
+        {
+          "program": "undo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": []
+          }
+        },
+        {
+          "program": "info [\"registry:/HKCU/Software/NurtConformance/value\", \"registry:/HKCU/Software/NurtConformance/moved\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "entry",
+                "rows": [
+                  {
+                    "kind": "entry",
+                    "fields": {
+                      "exists": {
+                        "t": "bool",
+                        "v": true
+                      }
+                    }
+                  },
+                  {
+                    "kind": "entry",
+                    "fields": {
+                      "exists": {
+                        "t": "bool",
+                        "v": false
+                      }
+                    }
+                  }
+                ],
+                "matched": 2
+              }
+            }
+          }
+        },
+        {
+          "program": "remove \"registry:/HKCU/Software/NurtConformance\""
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/remove",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a removed directory tree restores every entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "e.txt",
+            "type": "file",
+            "content_utf8": "echo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove \"dir\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "e.txt",
+                "type": "file",
+                "content_utf8": "echo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "e.txt",
+                "type": "file",
+                "content_utf8": "echo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/remove/files",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of several removed files restores all of them as one operation.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "e.txt",
+            "type": "file",
+            "content_utf8": "echo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove [\"a.txt\", \"e.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "e.txt",
+                "type": "file",
+                "content_utf8": "echo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/remove-records",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of removed lines restores the previous bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "lines \"a.txt\" |> filter text == \"beta\" |> remove",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/remove-registry",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:windows"
+      ],
+      "summary": "Undo of a removed registry value restores it.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "write \"registry:/HKCU/Software/NurtConformance/value\" \"data\" value_type: string",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "remove \"registry:/HKCU/Software/NurtConformance/value\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "undo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": []
+          }
+        },
+        {
+          "program": "info \"registry:/HKCU/Software/NurtConformance/value\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "entry",
+                "rows": [
+                  {
+                    "kind": "entry",
+                    "fields": {
+                      "exists": {
+                        "t": "bool",
+                        "v": true
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        },
+        {
+          "program": "remove \"registry:/HKCU/Software/NurtConformance\""
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/remove-job",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Removing a finished job is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "run [\"sh\", \"-c\", \"echo done\"] cwd: \"${base}\" background: true"
+        },
+        {
+          "program": "jobs \"${step1/report/job/id}\" wait: 10s"
+        },
+        {
+          "program": "jobs \"${step1/report/job/id}\" |> remove",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove",
+              "irreversible": [
+                {
+                  "reason": "job_output_removed"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/rename",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a rename restores the old name.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "rename path: \"b.txt\" to: \"r.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "rename"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "r.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/create-file",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a created file removes it.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "create \"n.txt\" type: file",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "create"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "n.txt",
+                "type": "file",
+                "content_utf8": ""
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/create-directory",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of created directories removes them, parents included.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "create \"out/logs\" type: directory",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "create"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "out/logs",
+                "type": "dir"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/create-link",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Undo of a created symbolic link removes the link and keeps its target.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "create \"l\" type: link target: \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "create"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "l",
+                "type": "symlink",
+                "target": "a.txt"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/create-link/hard",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a created hard link removes the link and keeps the file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "create \"h.txt\" type: link target: \"${base}/a.txt\" hard: true",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "create"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "h.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/create-junction",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:windows"
+      ],
+      "summary": "Undo of a created junction removes it and keeps its target.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "e.txt",
+            "type": "file",
+            "content_utf8": "echo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "create \"j\" type: junction target: \"${base}/dir\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "create"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "e.txt",
+                "type": "file",
+                "content_utf8": "echo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/create-touch",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a touch restores the previous modification time.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\n",
+            "mtime": "2020-01-01T00:00:00Z"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "create \"a.txt\" type: file on_exists: touch",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "create"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\n",
+                "mtime": "2020-01-01T00:00:00Z"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/attributes",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Undo of a mode change restores the previous mode.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\n",
+            "mode": "0644"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "attributes \"a.txt\" mode: \"0600\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "attributes"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\n",
+                "mode": "0600"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\n",
+                "mode": "0644"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/attributes/modified",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a changed modification time restores the previous time.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\n",
+            "mtime": "2020-01-01T00:00:00Z"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "attributes \"a.txt\" modified: \"2026-01-01T00:00:00Z\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "attributes"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\n",
+                "mtime": "2026-01-01T00:00:00Z"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\n",
+                "mtime": "2020-01-01T00:00:00Z"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/run",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Undo of a program run restores the watched files the program changed.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "old\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "run [\"sh\", \"-c\", \"echo new > a.txt; echo b > b.txt\"] cwd: \"${base}\" watch: [\"${base}\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "run"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "new\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "b\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "old\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/run/unpreserved",
+      "kind": "journal",
+      "config": "../exec/config/no-preimage.toml",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "A watched file changed without a kept copy is reported as irreversible.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "old\n"
+          }
+        ]
+      },
+      "program": "run [\"sh\", \"-c\", \"echo new > a.txt\"] cwd: \"${base}\" watch: [\"${base}\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "run",
+          "irreversible": [
+            {
+              "reason": "previous_content_not_kept"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "new\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "journal/coverage/stop",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Stopping a job is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "run [\"sh\", \"-c\", \"sleep 30\"] cwd: \"${base}\" background: true"
+        },
+        {
+          "program": "jobs \"${step1/report/job/id}\" |> stop",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "stop",
+              "irreversible": [
+                {
+                  "reason": "process_stopped"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/retry",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Undo of a retried program restores the files of the retry only.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "run [\"sh\", \"-c\", \"echo x >> log.txt\"] cwd: \"${base}\" background: true"
+        },
+        {
+          "program": "jobs \"${step1/report/job/id}\" wait: 10s",
+          "fs_after": {
+            "entries": [
+              {
+                "path": "log.txt",
+                "type": "file",
+                "content_utf8": "x\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "jobs \"${step1/report/job/id}\" |> retry wait: forever",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "retry"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "log.txt",
+                "type": "file",
+                "content_utf8": "x\nx\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step3/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "log.txt",
+                "type": "file",
+                "content_utf8": "x\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/retry/unpreserved",
+      "kind": "journal",
+      "config": "../exec/config/no-preimage.toml",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "A retry that changes a file without a kept copy is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "run [\"sh\", \"-c\", \"echo x >> log.txt\"] cwd: \"${base}\" background: true"
+        },
+        {
+          "program": "jobs \"${step1/report/job/id}\" wait: 10s"
+        },
+        {
+          "program": "jobs \"${step1/report/job/id}\" |> retry wait: forever",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "retry",
+              "irreversible": [
+                {
+                  "reason": "previous_content_not_kept"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/undo",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The undo entry keeps the restored items, so its redo returns the state after the change.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"a.txt\" \"replaced\\n\" mode: overwrite",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "replaced\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "redo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "redo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "replaced\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/redo",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a redo restores the state before the redo.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"a.txt\" \"replaced\\n\" mode: overwrite",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "redo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "redo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "replaced\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step3/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/set",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a changed document value restores the previous bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "set \"c.json\" key: \"version\" value: \"1.1.0\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "set"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.1.0\"\n}\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/sql-write",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a database change restores the content of the database.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "sql \"app.db\" \"create table t(x integer)\" write: true",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "sql"
+            }
+          }
+        },
+        {
+          "program": "sql \"app.db\" \"insert into t values (1)\" write: true",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "sql"
+            }
+          }
+        },
+        {
+          "program": "undo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "sql \"app.db\" \"select x from t\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "sql",
+              "records": {
+                "type": "row",
+                "matched": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/sql-write/create",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a created database removes the database and its side files.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "sql \"app.db\" \"create table t(x integer)\" write: true",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "sql"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/patch",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of an applied patch restores the previous bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "patch \"--- a/a.txt\\n+++ b/a.txt\\n@@ -1,2 +1,2 @@\\n one\\n-two\\n+TWO\\n\" root: \"${base}\" strip: 1",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "patch"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "one\nTWO\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "one\ntwo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/patch/files",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a patch that creates and deletes files restores both.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "patch \"--- /dev/null\\n+++ b/n.txt\\n@@ -0,0 +1 @@\\n+new\\n--- a/b.txt\\n+++ /dev/null\\n@@ -1 +0,0 @@\\n-bravo\\n\" root: \"${base}\" strip: 1",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "patch"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "n.txt",
+                "type": "file",
+                "content_utf8": "new\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/convert",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a line ending conversion restores the previous bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "convert \"w.txt\" line_ending: lf",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "convert"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\ntwo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/convert/encoding",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of an encoding conversion restores the previous bytes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_base64": "jmlsaW5hCg=="
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "convert \"l.txt\" encoding: \"utf-8\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "convert"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "l.txt",
+                "type": "file",
+                "content_utf8": "Žilina\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "l.txt",
+                "type": "file",
+                "content_base64": "jmlsaW5hCg=="
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/code.rename",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:code"
+      ],
+      "summary": "Undo of a rename across files restores every file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.py",
+            "type": "file",
+            "content_utf8": "def old_name():\n    pass\n"
+          },
+          {
+            "path": "b.py",
+            "type": "file",
+            "content_utf8": "from a import old_name\nold_name()\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "code.symbols \"old_name\" path: [\"${base}\"] kind: function source: syntax match: exact |> code.rename \"new_name\" source: syntax",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "code.rename"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.py",
+                "type": "file",
+                "content_utf8": "def old_name():\n    pass\n"
+              },
+              {
+                "path": "b.py",
+                "type": "file",
+                "content_utf8": "from a import old_name\nold_name()\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/notebook.insert",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of notebook.insert restores the notebook byte for byte.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "notebook.insert \"a.ipynb\" index: 0 cell_type: code source: \"print(2)\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "notebook.insert"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.ipynb",
+                "type": "file",
+                "content_utf8": "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/notebook.replace",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of notebook.replace restores the notebook byte for byte.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\"cells\": [{\"cell_type\": \"code\", \"id\": \"c1\", \"metadata\": {}, \"execution_count\": null, \"outputs\": [], \"source\": [\"print(1)\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "notebook.replace \"a.ipynb\" id: \"c1\" source: \"print(9)\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "notebook.replace"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.ipynb",
+                "type": "file",
+                "content_utf8": "{\"cells\": [{\"cell_type\": \"code\", \"id\": \"c1\", \"metadata\": {}, \"execution_count\": null, \"outputs\": [], \"source\": [\"print(1)\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/notebook.move",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of notebook.move restores the notebook byte for byte.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}, {\"cell_type\": \"markdown\", \"id\": \"n\", \"metadata\": {}, \"source\": [\"# B\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "notebook.move \"a.ipynb\" from: 1 to: 0",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "notebook.move"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.ipynb",
+                "type": "file",
+                "content_utf8": "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}, {\"cell_type\": \"markdown\", \"id\": \"n\", \"metadata\": {}, \"source\": [\"# B\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/notebook.copy",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of notebook.copy restores the notebook byte for byte.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "notebook.copy \"a.ipynb\" from: 0 to: 1",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "notebook.copy"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.ipynb",
+                "type": "file",
+                "content_utf8": "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/notebook.normalize",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of notebook.normalize restores the notebook byte for byte.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\"cells\": [{\"cell_type\": \"markdown\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 4}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "notebook.normalize \"a.ipynb\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "notebook.normalize"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.ipynb",
+                "type": "file",
+                "content_utf8": "{\"cells\": [{\"cell_type\": \"markdown\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 4}\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/notebook.ops",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of notebook.ops restores the notebook byte for byte.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "notebook.ops \"a.ipynb\" changes: [{op: \"insert\", index: 1, cell_type: \"code\", source: \"x = 1\"}, {op: \"remove\", index: 0}]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "notebook.ops"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.ipynb",
+                "type": "file",
+                "content_utf8": "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/notebook.remove",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of notebook.remove restores the notebook byte for byte.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "notebook.remove \"a.ipynb\" id: \"m\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "notebook.remove"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.ipynb",
+                "type": "file",
+                "content_utf8": "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/notebook.clear-outputs",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of notebook.clear_outputs restores the notebook byte for byte.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\"cells\": [{\"cell_type\": \"code\", \"id\": \"c1\", \"metadata\": {}, \"execution_count\": 1, \"outputs\": [{\"output_type\": \"stream\", \"name\": \"stdout\", \"text\": [\"1\\n\"]}], \"source\": [\"print(1)\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "notebook.clear_outputs \"a.ipynb\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "notebook.clear_outputs"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.ipynb",
+                "type": "file",
+                "content_utf8": "{\"cells\": [{\"cell_type\": \"code\", \"id\": \"c1\", \"metadata\": {}, \"execution_count\": 1, \"outputs\": [{\"output_type\": \"stream\", \"name\": \"stdout\", \"text\": [\"1\\n\"]}], \"source\": [\"print(1)\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/notebook.export",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of notebook.export restores the notebook byte for byte.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\"cells\": [{\"cell_type\": \"code\", \"id\": \"c1\", \"metadata\": {}, \"execution_count\": null, \"outputs\": [], \"source\": [\"print(1)\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "notebook.export \"a.ipynb\" to: \"a.py\" format: script",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "notebook.export"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.ipynb",
+                "type": "file",
+                "content_utf8": "{\"cells\": [{\"cell_type\": \"code\", \"id\": \"c1\", \"metadata\": {}, \"execution_count\": null, \"outputs\": [], \"source\": [\"print(1)\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/archive.extract",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of an extraction removes the extracted files.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "in.zip",
+            "type": "file",
+            "content_base64": "UEsDBBQAAAAAAAAAIVDsbmCfBgAAAAYAAAAFAAAAYS50eHRhbHBoYQpQSwECFAMUAAAAAAAAACFQ7G5gnwYAAAAGAAAABQAAAAAAAAAAAAAApIEAAAAAYS50eHRQSwUGAAAAAAEAAQAzAAAAKQAAAAAA"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "archive.extract \"in.zip\" into: \"out\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "archive.extract"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "in.zip",
+                "type": "file",
+                "content_base64": "UEsDBBQAAAAAAAAAIVDsbmCfBgAAAAYAAAAFAAAAYS50eHRhbHBoYQpQSwECFAMUAAAAAAAAACFQ7G5gnwYAAAAGAAAABQAAAAAAAAAAAAAApIEAAAAAYS50eHRQSwUGAAAAAAEAAQAzAAAAKQAAAAAA"
+              },
+              {
+                "path": "out/a.txt",
+                "type": "file",
+                "content_utf8": "alpha\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "in.zip",
+                "type": "file",
+                "content_base64": "UEsDBBQAAAAAAAAAIVDsbmCfBgAAAAYAAAAFAAAAYS50eHRhbHBoYQpQSwECFAMUAAAAAAAAACFQ7G5gnwYAAAAGAAAABQAAAAAAAAAAAAAApIEAAAAAYS50eHRQSwUGAAAAAAEAAQAzAAAAKQAAAAAA"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/archive.extract/overwrite",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of an extraction over existing files restores them.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "in.zip",
+            "type": "file",
+            "content_base64": "UEsDBBQAAAAAAAAAIVDsbmCfBgAAAAYAAAAFAAAAYS50eHRhbHBoYQpQSwECFAMUAAAAAAAAACFQ7G5gnwYAAAAGAAAABQAAAAAAAAAAAAAApIEAAAAAYS50eHRQSwUGAAAAAAEAAQAzAAAAKQAAAAAA"
+          },
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "old\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "archive.extract \"in.zip\" into: \"${base}\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "archive.extract"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "in.zip",
+                "type": "file",
+                "content_base64": "UEsDBBQAAAAAAAAAIVDsbmCfBgAAAAYAAAAFAAAAYS50eHRhbHBoYQpQSwECFAMUAAAAAAAAACFQ7G5gnwYAAAAGAAAABQAAAAAAAAAAAAAApIEAAAAAYS50eHRQSwUGAAAAAAEAAQAzAAAAKQAAAAAA"
+              },
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "in.zip",
+                "type": "file",
+                "content_base64": "UEsDBBQAAAAAAAAAIVDsbmCfBgAAAAYAAAAFAAAAYS50eHRhbHBoYQpQSwECFAMUAAAAAAAAACFQ7G5gnwYAAAAGAAAABQAAAAAAAAAAAAAApIEAAAAAYS50eHRQSwUGAAAAAAEAAQAzAAAAKQAAAAAA"
+              },
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "old\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/archive.create",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a created archive removes it.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "dist/a.txt",
+            "type": "file",
+            "content_utf8": "a"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "find \"dist\" |> archive.create \"out.zip\" base: \"${base}/dist\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "archive.create"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "dist/a.txt",
+                "type": "file",
+                "content_utf8": "a"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/compress",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a compression without a kept source restores the source.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.log",
+            "type": "file",
+            "content_utf8": "line\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "compress \"a.log\" keep: false",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "compress"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.log",
+                "type": "file",
+                "content_utf8": "line\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/decompress",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a decompression without a kept source restores the compressed file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.log.gz",
+            "type": "file",
+            "content_base64": "H4sIAAAAAAAA/wEFAPr/bGluZQoORdhmBQAAAA=="
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "decompress \"a.log.gz\" keep: false",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "decompress"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.log",
+                "type": "file",
+                "content_utf8": "line\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.log.gz",
+                "type": "file",
+                "content_base64": "H4sIAAAAAAAA/wEFAPr/bGluZQoORdhmBQAAAA=="
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/sleep",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "A command without an effect creates no journal entry.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "sleep 10ms",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "sleep"
+            }
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/suspend",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Suspending a job is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "run [\"sh\", \"-c\", \"sleep 30\"] cwd: \"${base}\" background: true"
+        },
+        {
+          "program": "jobs \"${step1/report/job/id}\" |> suspend",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "suspend",
+              "irreversible": [
+                {
+                  "reason": "process_state_changed"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "program": "jobs \"${step1/report/job/id}\" |> stop signal: kill"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/resume",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Resuming a job is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "run [\"sh\", \"-c\", \"sleep 30\"] cwd: \"${base}\" background: true"
+        },
+        {
+          "program": "jobs \"${step1/report/job/id}\" |> suspend"
+        },
+        {
+          "program": "jobs \"${step1/report/job/id}\" |> resume",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "resume",
+              "irreversible": [
+                {
+                  "reason": "process_state_changed"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "program": "jobs \"${step1/report/job/id}\" |> stop signal: kill"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/start",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:services"
+      ],
+      "summary": "The command start on a service is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "program": "services name: \"nurt-conformance-fixture\" |> start",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "start",
+          "irreversible": [
+            {
+              "reason": "service_changed"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/coverage/restart",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:services"
+      ],
+      "summary": "The command restart on a service is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "program": "services name: \"nurt-conformance-fixture\" |> restart",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "restart",
+          "irreversible": [
+            {
+              "reason": "service_changed"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/coverage/enable",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:services"
+      ],
+      "summary": "The command enable on a service is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "program": "services name: \"nurt-conformance-fixture\" |> enable",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "enable",
+          "irreversible": [
+            {
+              "reason": "service_changed"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/coverage/disable",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:services"
+      ],
+      "summary": "The command disable on a service is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "program": "services name: \"nurt-conformance-fixture\" |> disable",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "disable",
+          "irreversible": [
+            {
+              "reason": "service_changed"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/coverage/package.install",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:packages"
+      ],
+      "summary": "The command package.install is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "program": "package.install [\"nurt-conformance-fixture\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "package.install",
+          "irreversible": [
+            {
+              "reason": "package_changed"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/coverage/package.remove",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:packages"
+      ],
+      "summary": "The command package.remove is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "program": "package.remove [\"nurt-conformance-fixture\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "package.remove",
+          "irreversible": [
+            {
+              "reason": "package_changed"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/coverage/package.upgrade",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:packages"
+      ],
+      "summary": "The command package.upgrade is reported as irreversible.",
+      "fs_before": {
+        "entries": []
+      },
+      "program": "package.upgrade [\"nurt-conformance-fixture\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "package.upgrade",
+          "irreversible": [
+            {
+              "reason": "package_changed"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/coverage/schedule.create",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a created schedule removes it.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "schedule.create \"jc\" every: 1h action: (sleep 1s) enabled: false",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "schedule.create"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "schedule.list |> filter label == \"jc\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "schedule",
+                "matched": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/schedule.remove",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a removed schedule restores it.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "schedule.create \"jr\" every: 1h action: (sleep 1s)"
+        },
+        {
+          "program": "schedule.list |> filter label == \"jr\""
+        },
+        {
+          "program": "schedule.remove \"${step2/report/records/rows/0/fields/id/v}\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "schedule.remove"
+            }
+          }
+        },
+        {
+          "program": "undo ${step3/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "schedule.list |> filter label == \"jr\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "schedule",
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/schedule.pause",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a paused schedule makes it active again.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "schedule.create \"jp\" every: 1h action: (sleep 1s)"
+        },
+        {
+          "program": "schedule.list |> filter label == \"jp\""
+        },
+        {
+          "program": "schedule.pause \"${step2/report/records/rows/0/fields/id/v}\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "schedule.pause"
+            }
+          }
+        },
+        {
+          "program": "undo ${step3/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "schedule.list state: paused |> filter label == \"jp\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "schedule",
+                "matched": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/schedule.resume",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a resumed schedule pauses it again.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "schedule.create \"js\" every: 1h action: (sleep 1s) enabled: false"
+        },
+        {
+          "program": "schedule.list |> filter label == \"js\""
+        },
+        {
+          "program": "schedule.resume \"${step2/report/records/rows/0/fields/id/v}\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "schedule.resume"
+            }
+          }
+        },
+        {
+          "program": "undo ${step3/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "schedule.list state: paused |> filter label == \"js\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "schedule",
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/schedule.run",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a run schedule action restores the files the action wrote.",
+      "fs_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "schedule.create \"jw\" every: 1h action: (write \"${base}/ran.txt\" \"ran\\n\" mode: overwrite) enabled: false"
+        },
+        {
+          "program": "schedule.list |> filter label == \"jw\""
+        },
+        {
+          "program": "schedule.run \"${step2/report/records/rows/0/fields/id/v}\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "schedule.run"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "ran.txt",
+                "type": "file",
+                "content_utf8": "ran\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step3/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/journal.pin",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a pin restores the previous pin state.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"n.txt\" \"new\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "journal.pin [${step1/report/op}]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "journal.pin"
+            }
+          }
+        },
+        {
+          "program": "undo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "history ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "pinned": {
+                        "t": "bool",
+                        "v": false
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/journal.pin-release",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Entries that expire after a released pin are reported and cannot be undone.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"n.txt\" \"new\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "write \"m.txt\" \"more\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "journal.pin [${step1/report/op}]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "journal.pin"
+            }
+          }
+        },
+        {
+          "program": "journal.limits steps: 1"
+        },
+        {
+          "program": "journal.pin [${step1/report/op}] release: true",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "journal.pin",
+              "irreversible": [
+                {
+                  "reason": "journal_entries_expired"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_EXPIRED"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/journal.limits",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Lowered limits expire entries; undo of the limits does not restore them.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"n.txt\" \"new\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "write \"m.txt\" \"more\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "journal.limits steps: 1",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "journal.limits",
+              "irreversible": [
+                {
+                  "reason": "journal_entries_expired"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_EXPIRED"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        },
+        {
+          "program": "undo ${step3/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_EXPIRED"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/journal.purge",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "A purged entry is reported as irreversible and cannot be undone.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"n.txt\" \"new\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "journal.purge id: [${step1/report/op}]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "journal.purge",
+              "irreversible": [
+                {
+                  "reason": "purged"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_EXPIRED"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        },
+        {
+          "program": "history ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "state": {
+                        "t": "enum",
+                        "v": "expired"
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/test.run",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:tests",
+        "os:unix"
+      ],
+      "summary": "Undo of a test run removes the files the framework wrote.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "t.sh",
+            "type": "file",
+            "content_utf8": "echo ok > out.txt\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "test.run \"${base}\" command: [\"sh\", \"t.sh\"] wait: forever",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "test.run"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "t.sh",
+                "type": "file",
+                "content_utf8": "echo ok > out.txt\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/test.failed",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:tests",
+        "os:unix"
+      ],
+      "summary": "Undo of a rerun of failed tests restores the files of the rerun only.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "t.sh",
+            "type": "file",
+            "content_utf8": "echo ok > out.txt\nexit 1\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "test.run \"${base}\" command: [\"sh\", \"t.sh\"] wait: forever"
+        },
+        {
+          "program": "test.failed \"${step1/report/test/id}\" wait: forever",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "test.failed"
+            }
+          }
+        },
+        {
+          "program": "undo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "t.sh",
+                "type": "file",
+                "content_utf8": "echo ok > out.txt\nexit 1\n"
+              },
+              {
+                "path": "out.txt",
+                "type": "file",
+                "content_utf8": "ok\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/analyze.check",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:analysis"
+      ],
+      "summary": "Undo of an analysis removes the files the analyzers wrote.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.py",
+            "type": "file",
+            "content_utf8": "x = 1\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "analyze.check \"${base}\" wait: forever",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "analyze.check"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.py",
+                "type": "file",
+                "content_utf8": "x = 1\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/analyze.format",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "feature:analysis"
+      ],
+      "summary": "Undo of formatting restores the source files.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.py",
+            "type": "file",
+            "content_utf8": "x=1\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "analyze.format \"${base}\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "analyze.format"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.py",
+                "type": "file",
+                "content_utf8": "x=1\n"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Model Context Protocol tool",
+  "description": "An element of `tools` in the result of `tools/list` (protocol revision 2025-11-25).",
+  "type": "object",
+  "required": ["name", "inputSchema"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,128}$" },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "icons": { "type": "array", "items": { "type": "object" } },
+    "inputSchema": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "type": { "const": "object" },
+        "properties": { "type": "object", "additionalProperties": { "type": ["object", "boolean"] } },
+        "required": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "outputSchema": {
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "const": "object" } }
+    },
+    "annotations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "readOnlyHint": { "type": "boolean" },
+        "destructiveHint": { "type": "boolean" },
+        "idempotentHint": { "type": "boolean" },
+        "openWorldHint": { "type": "boolean" }
+      }
+    },
+    "execution": { "type": "object" },
+    "_meta": {
+      "type": "object",
+      "propertyNames": {
+        "description": "An optional prefix of dot-separated labels followed by `/`, then a name.",
+        "pattern": "^(([a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?\\.)*[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?/)?([a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?)?$"
+      }
+    }
+  }
+}

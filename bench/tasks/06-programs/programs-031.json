@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-031",
+  "domain": 6,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Feed input-5.txt to the standard input of tools/upper.py and write the program's output to output-5.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "input-5.txt",
+        "type": "file",
+        "content_utf8": "sun\r\nmoon\r\n"
+      },
+      {
+        "path": "tools/upper.py",
+        "type": "file",
+        "content_utf8": "import sys\r\n\r\nfor line in sys.stdin:\r\n    print(line.rstrip(\"\\n\").upper())\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "output-5.txt": {
+        "lines": [
+          "SUN",
+          "MOON"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/upper.py\"] stdin: (read \"input-5.txt\") save_to: \"output-5.txt\"",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nGet-Content input-5.txt | & $py tools/upper.py | Set-Content output-5.txt\n",
+  "tags": [
+    "run",
+    "stdin"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,35 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-017",
+  "domain": 5,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Which files call the function SaveOrder? Do not count the file that only defines it. List relative paths.",
+  "fs_before": {
+    "fixture": "go-service"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "internal/handlers/orders.go",
+        "internal/store/store_test.go"
+      ],
+      "not_contains": [
+        "main.go"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.symbols \"SaveOrder\" path: [\".\"] kind: function |> code.references include_definition: false",
+  "reference_bash": "grep -rlE '(^|[^A-Za-z_])SaveOrder\\(' . | sort | while read -r f; do grep -E '(^|[^A-Za-z_])SaveOrder\\(' \"$f\" | grep -vqE '(def|func|function) SaveOrder\\(' && echo \"$f\"; done\n",
+  "reference_pwsh": "Get-ChildItem -Recurse -File | ForEach-Object {\n  $l = Get-Content $_.FullName\n  $calls = $l | Where-Object { $_ -match '(^|[^A-Za-z_])SaveOrder\\(' -and $_ -notmatch '(def|func|function) SaveOrder\\(' }\n  if ($calls) { (Resolve-Path -Relative $_.FullName) -replace '\\\\', '/' }\n}\n",
+  "tags": [
+    "references",
+    "symbol"
+  ],
+  "license": "CC-BY-4.0"
+}

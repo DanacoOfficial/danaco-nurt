@@ -1,0 +1,67 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-053",
+  "domain": 8,
+  "split": "public",
+  "platform": "windows",
+  "nl": "List the hidden files under exchange/ (recursively, 2 expected).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "exchange/plan.xlsx",
+        "type": "file",
+        "content_utf8": "data exchange/plan.xlsx\r\n"
+      },
+      {
+        "path": "exchange/report-2.docx",
+        "type": "file",
+        "content_utf8": "data exchange/report-2.docx\r\n"
+      },
+      {
+        "path": "exchange/sub/notes.txt",
+        "type": "file",
+        "content_utf8": "data exchange/sub/notes.txt\r\n"
+      },
+      {
+        "path": "exchange/sub/thumbs.db",
+        "type": "file",
+        "content_utf8": "data exchange/sub/thumbs.db\r\n"
+      },
+      {
+        "path": "exchange/~lock.tmp",
+        "type": "file",
+        "content_utf8": "data exchange/~lock.tmp\r\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "The files exchange/~lock.tmp, exchange/sub/thumbs.db have the hidden attribute.",
+    "pwsh": "$f = Get-Item -LiteralPath 'exchange/~lock.tmp'; $f.Attributes = $f.Attributes -bor [IO.FileAttributes]::Hidden\n$f = Get-Item -LiteralPath 'exchange/sub/thumbs.db'; $f.Attributes = $f.Attributes -bor [IO.FileAttributes]::Hidden"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "~lock.tmp",
+        "thumbs.db"
+      ],
+      "not_contains": [
+        "report-2.docx",
+        "plan.xlsx",
+        "notes.txt"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"exchange\" type: file hidden: true |> filter hidden == true",
+  "reference_pwsh": "Get-ChildItem exchange -Recurse -File -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::Hidden } | ForEach-Object FullName\n",
+  "tags": [
+    "attributes",
+    "windows"
+  ],
+  "license": "CC-BY-4.0"
+}

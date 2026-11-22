@@ -1,0 +1,164 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "read",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/main.go",
+                "span": [
+                  1,
+                  6,
+                  1,
+                  24
+                ]
+              },
+              "span": [
+                1,
+                6,
+                1,
+                24
+              ]
+            },
+            {
+              "name": "around",
+              "value": {
+                "t": "regex",
+                "v": "func main",
+                "flags": "",
+                "span": [
+                  1,
+                  33,
+                  1,
+                  44
+                ]
+              },
+              "span": [
+                1,
+                25,
+                1,
+                44
+              ]
+            },
+            {
+              "name": "context",
+              "value": {
+                "t": "int",
+                "v": 3,
+                "span": [
+                  1,
+                  54,
+                  1,
+                  55
+                ]
+              },
+              "span": [
+                1,
+                45,
+                1,
+                55
+              ]
+            },
+            {
+              "name": "line_numbers",
+              "value": {
+                "t": "bool",
+                "v": true,
+                "span": [
+                  1,
+                  70,
+                  1,
+                  74
+                ]
+              },
+              "span": [
+                1,
+                56,
+                1,
+                74
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            74
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          74
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "read",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/main.go",
+                "span": [
+                  2,
+                  6,
+                  2,
+                  24
+                ]
+              },
+              "span": [
+                2,
+                6,
+                2,
+                24
+              ]
+            },
+            {
+              "name": "unchanged_since",
+              "value": {
+                "t": "text",
+                "v": "1a2b3c4d",
+                "span": [
+                  2,
+                  42,
+                  2,
+                  52
+                ]
+              },
+              "span": [
+                2,
+                25,
+                2,
+                52
+              ]
+            }
+          ],
+          "span": [
+            2,
+            1,
+            2,
+            52
+          ]
+        },
+        "stages": [],
+        "span": [
+          2,
+          1,
+          2,
+          52
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-033",
+  "domain": 4,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Write the rows of sales.csv whose product is hinge to out/hinge.csv, with the header line first and the rows in their original order.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "sales.csv",
+        "type": "file",
+        "content_utf8": "date,region,product,quantity,amount\n2026-01-04,north,bolt,120,9.60\n2026-01-04,south,nut,300,9.00\n2026-01-05,north,hinge,4,9.60\n2026-01-06,east,bolt,75,6.00\n2026-01-06,south,washer,1000,10.00\n2026-01-07,north,nut,50,1.50\n2026-01-08,east,hinge,10,24.00\n2026-01-09,south,bolt,40,3.20\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/hinge.csv": {
+        "lines": [
+          "date,region,product,quantity,amount",
+          "2026-01-05,north,hinge,4,9.60",
+          "2026-01-08,east,hinge,10,24.00"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"sales.csv\" |> filter product == \"hinge\" |> write \"out/hinge.csv\" format: csv parents: true",
+  "reference_bash": "mkdir -p out && awk -F, 'NR == 1 || $3 == \"hinge\"' sales.csv > out/hinge.csv\n",
+  "reference_pwsh": "New-Item -ItemType Directory -Force out | Out-Null\n$rows = Import-Csv sales.csv | Where-Object product -eq 'hinge'\n$rows | ConvertTo-Csv -NoTypeInformation -UseQuotes Never | Set-Content out/hinge.csv\n",
+  "tags": [
+    "csv",
+    "filter"
+  ],
+  "license": "CC-BY-4.0"
+}

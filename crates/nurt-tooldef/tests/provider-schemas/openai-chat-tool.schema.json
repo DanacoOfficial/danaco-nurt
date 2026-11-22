@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenAI Chat Completions function tool",
+  "description": "An element of `tools` in a Chat Completions request.",
+  "type": "object",
+  "required": ["type", "function"],
+  "additionalProperties": false,
+  "properties": {
+    "type": { "const": "function" },
+    "function": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-zA-Z0-9_-]{1,64}$" },
+        "description": { "type": "string" },
+        "parameters": { "$ref": "#/$defs/parameters" },
+        "strict": { "type": ["boolean", "null"] }
+      }
+    }
+  },
+  "$defs": {
+    "parameters": {
+      "description": "The root of the parameters is an object schema and is not a union.",
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "const": "object" } },
+      "not": {
+        "anyOf": [{ "required": ["anyOf"] }, { "required": ["oneOf"] }, { "required": ["allOf"] }]
+      }
+    }
+  }
+}

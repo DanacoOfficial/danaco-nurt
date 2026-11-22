@@ -1,0 +1,65 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-027",
+  "domain": 4,
+  "split": "public",
+  "platform": "linux",
+  "nl": "In config/legacy.ini set smtp in the section [mail] to mail.example.com.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": ".env.example",
+        "type": "file",
+        "content_utf8": "DATABASE_URL=postgres://db.example.com:5432/orders\nLOG_LEVEL=info\n"
+      },
+      {
+        "path": "config/app.json",
+        "type": "file",
+        "content_utf8": "{\n  \"name\": \"orders\",\n  \"port\": 8080,\n  \"features\": {\n    \"export\": true,\n    \"beta_ui\": false\n  },\n  \"allowed_origins\": [\"https://example.com\"]\n}\n"
+      },
+      {
+        "path": "config/db.toml",
+        "type": "file",
+        "content_utf8": "# Database settings\n[database]\nurl = \"postgres://db.example.com:5432/orders\"\npool_size = 10\ntimeout_seconds = 30\n\n[database.replica]\nurl = \"postgres://replica.example.com:5432/orders\"\nenabled = false\n"
+      },
+      {
+        "path": "config/deploy.yaml",
+        "type": "file",
+        "content_utf8": "service: orders\nreplicas: 2\nimage: ghcr.io/example/orders:2.3.0\nresources:\n  memory: 512Mi\n  cpu: 500m\nenv:\n  LOG_LEVEL: info\n  REGION: eu-central\n"
+      },
+      {
+        "path": "config/legacy.ini",
+        "type": "file",
+        "content_utf8": "[server]\nhost = 0.0.0.0\nport = 8080\ndebug = true\n\n[mail]\nsender = orders@example.com\nsmtp = smtp.example.com\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "config/legacy.ini": {
+        "lines": [
+          "[server]",
+          "host = 0.0.0.0",
+          "port = 8080",
+          "debug = true",
+          "",
+          "[mail]",
+          "sender = orders@example.com",
+          "smtp = mail.example.com"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "set \"config/legacy.ini\" key: \"mail.smtp\" value: \"mail.example.com\"",
+  "reference_bash": "sed -i '/^\\[mail\\]/,/^\\[/ s|^smtp = .*|smtp = mail.example.com|' config/legacy.ini\n",
+  "tags": [
+    "ini"
+  ],
+  "license": "CC-BY-4.0"
+}

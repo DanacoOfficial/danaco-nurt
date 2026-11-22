@@ -1,0 +1,2699 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "parity/safety/checks/validate-json-reject",
+      "kind": "parity",
+      "summary": "A change that breaks a JSON document is rejected.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "replace \"\\\"app\\\",\" \"\\\"app\\\"\" in: [\"c.json\"]",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_DOC_PARSE"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/checks/validate-json-warn",
+      "kind": "parity",
+      "summary": "With validate warn a breaking change applies and is reported.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "replace \"\\\"app\\\",\" \"\\\"app\\\"\" in: [\"c.json\"] validate: warn",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\"\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/checks/validate-toml-reject",
+      "kind": "parity",
+      "summary": "A write of a broken TOML document is rejected.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "write \"c.toml\" \"[a\\nb = \\n\" mode: create",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_DOC_PARSE"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/checks/validate-yaml-reject",
+      "kind": "parity",
+      "summary": "A write of a broken YAML document is rejected.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "write \"c.yaml\" \"a: [1, 2\\n\" mode: create",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_DOC_PARSE"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/checks/validate-off",
+      "kind": "parity",
+      "summary": "With validate off any text is written.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "write \"c.yaml\" \"a: [1, 2\\n\" mode: create validate: off",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          },
+          {
+            "path": "c.yaml",
+            "type": "file",
+            "content_utf8": "a: [1, 2\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/checks/mass-delete",
+      "kind": "parity",
+      "summary": "Removing many files reports a mass deletion.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "logs/000.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/001.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/002.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/003.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/004.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/005.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/006.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/007.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/008.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/009.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/010.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/011.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/012.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/013.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/014.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/015.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/016.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/017.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/018.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/019.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/020.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/021.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/022.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/023.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/024.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/025.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/026.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/027.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/028.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/029.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/030.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/031.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/032.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/033.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/034.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/035.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/036.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/037.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/038.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/039.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/040.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/041.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/042.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/043.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/044.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/045.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/046.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/047.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/048.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/049.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/050.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/051.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/052.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/053.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/054.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/055.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/056.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/057.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/058.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/059.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/060.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/061.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/062.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/063.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/064.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/065.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/066.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/067.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/068.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/069.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/070.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/071.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/072.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/073.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/074.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/075.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/076.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/077.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/078.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/079.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/080.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/081.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/082.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/083.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/084.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/085.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/086.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/087.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/088.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/089.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/090.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/091.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/092.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/093.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/094.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/095.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/096.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/097.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/098.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/099.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/100.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/101.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/102.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/103.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/104.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/105.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/106.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/107.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/108.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/109.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/110.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/111.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/112.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/113.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/114.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/115.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/116.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/117.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/118.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/119.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          }
+        ]
+      },
+      "program": "remove \"logs\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "mass_delete",
+              "severity": "warning"
+            },
+            {
+              "code": "delete_tree"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": []
+      }
+    },
+    {
+      "id": "parity/safety/checks/bulk-report",
+      "kind": "parity",
+      "summary": "A change of many targets is reported as a bulk operation.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "logs/000.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/001.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/002.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/003.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/004.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/005.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/006.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/007.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/008.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/009.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/010.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/011.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/012.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/013.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/014.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/015.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/016.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/017.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/018.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/019.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/020.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/021.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/022.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/023.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/024.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/025.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/026.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/027.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/028.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/029.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/030.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/031.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/032.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/033.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/034.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/035.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/036.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/037.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/038.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/039.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/040.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/041.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/042.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/043.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/044.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/045.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/046.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/047.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/048.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/049.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/050.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/051.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/052.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/053.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/054.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/055.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/056.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/057.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/058.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/059.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/060.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/061.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/062.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/063.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/064.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/065.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/066.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/067.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/068.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/069.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/070.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/071.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/072.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/073.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/074.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/075.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/076.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/077.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/078.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/079.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/080.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/081.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/082.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/083.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/084.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/085.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/086.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/087.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/088.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/089.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/090.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/091.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/092.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/093.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/094.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/095.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/096.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/097.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/098.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/099.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/100.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/101.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/102.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/103.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/104.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/105.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/106.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/107.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/108.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/109.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/110.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/111.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/112.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/113.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/114.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/115.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/116.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/117.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/118.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "logs/119.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          }
+        ]
+      },
+      "program": "find \"logs\" glob: \"*.log\" |> remove",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "targets": {
+            "count": 120
+          }
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "logs",
+            "type": "dir"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/checks/delete-tree",
+      "kind": "parity",
+      "summary": "Removing a non-empty directory reports a tree deletion.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "remove \"dir\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "delete_tree",
+              "severity": "notice"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/checks/overwrote-existing",
+      "kind": "parity",
+      "summary": "Moving onto an existing file reports the overwrite.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "move \"b.txt\" to: \"a.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "overwrote_existing",
+              "severity": "warning"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/checks/file-emptied",
+      "kind": "parity",
+      "summary": "Emptying a file reports it.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "write \"b.txt\" \"\" mode: overwrite",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "file_emptied"
+            },
+            {
+              "code": "overwrote_existing"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": ""
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/checks/size-shrunk",
+      "kind": "parity",
+      "summary": "Shrinking a file by more than half reports it.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "big.txt",
+            "type": "file",
+            "content_utf8": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+          }
+        ]
+      },
+      "program": "write \"big.txt\" \"x\\n\" mode: overwrite",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "size_shrunk"
+            },
+            {
+              "code": "overwrote_existing"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "big.txt",
+            "type": "file",
+            "content_utf8": "x\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/checks/many-per-file",
+      "kind": "parity",
+      "summary": "Many replacements in one file are reported.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "m.txt",
+            "type": "file",
+            "content_utf8": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+          }
+        ]
+      },
+      "program": "replace \"x\" \"y\" in: [\"m.txt\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "many_per_file",
+              "count": 150
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "m.txt",
+            "type": "file",
+            "content_utf8": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/checks/nothing-matched",
+      "kind": "parity",
+      "summary": "A change without targets reports it and creates no operation.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"**/*.tmp\" |> remove",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "nothing_matched"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/checks/line-ending-preserved",
+      "kind": "parity",
+      "summary": "A change of a CRLF file reports the preserved line endings.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "replace \"two\" \"TWO\" in: [\"w.txt\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "line_ending_preserved",
+              "detail": "crlf"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\nTWO\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/checks/line-ending-changed",
+      "kind": "parity",
+      "summary": "A conversion of line endings is reported.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "convert \"w.txt\" line_ending: lf",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "line_ending_changed"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/checks/binary-target",
+      "kind": "parity",
+      "summary": "Changing a binary file is reported.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "b.bin",
+            "type": "file",
+            "content_base64": "AGEA"
+          }
+        ]
+      },
+      "program": "replace \"a\" \"b\" in: [\"b.bin\"] binary: text",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "binary_target"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "b.bin",
+            "type": "file",
+            "content_base64": "AGIA"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/checks/preview-write",
+      "kind": "parity",
+      "summary": "A preview of write reports the planned effect and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "write \"a.txt\" \"x\\n\" mode: overwrite",
+      "options": {
+        "preview": true
+      },
+      "expect": {
+        "report": {
+          "status": "planned"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/checks/preview-replace",
+      "kind": "parity",
+      "summary": "A preview of replace reports the planned effect and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "replace \"a\" \"b\" in: [\"a.txt\"]",
+      "options": {
+        "preview": true
+      },
+      "expect": {
+        "report": {
+          "status": "planned"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/checks/preview-remove",
+      "kind": "parity",
+      "summary": "A preview of remove reports the planned effect and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "remove \"dir\"",
+      "options": {
+        "preview": true
+      },
+      "expect": {
+        "report": {
+          "status": "planned"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/checks/preview-move",
+      "kind": "parity",
+      "summary": "A preview of move reports the planned effect and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "move \"a.txt\" to: \"z.txt\"",
+      "options": {
+        "preview": true
+      },
+      "expect": {
+        "report": {
+          "status": "planned"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/checks/preview-create",
+      "kind": "parity",
+      "summary": "A preview of create reports the planned effect and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "create \"n\" type: directory",
+      "options": {
+        "preview": true
+      },
+      "expect": {
+        "report": {
+          "status": "planned"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/checks/preview-edit",
+      "kind": "parity",
+      "summary": "A preview of edit reports the planned effect and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "edit \"a.txt\" changes: [{replace: \"alpha\", with: \"A\"}]",
+      "options": {
+        "preview": true
+      },
+      "expect": {
+        "report": {
+          "status": "planned"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/checks/preview-set",
+      "kind": "parity",
+      "summary": "A preview of set reports the planned effect and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "set \"c.json\" key: \"version\" value: \"2.0.0\"",
+      "options": {
+        "preview": true
+      },
+      "expect": {
+        "report": {
+          "status": "planned"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/checks/preview-convert",
+      "kind": "parity",
+      "summary": "A preview of convert reports the planned effect and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "convert \"w.txt\" line_ending: lf",
+      "options": {
+        "preview": true
+      },
+      "expect": {
+        "report": {
+          "status": "planned"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/checks/change-summary",
+      "kind": "parity",
+      "summary": "The report of a replacement counts files, replacements and lines.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "replace \"a\" \"A\" in: [\".\"] glob: \"**/*.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "summary": {
+            "files_modified": 4,
+            "replacements": 6
+          }
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "AlphA\nbetA\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "brAvo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "chArlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "deltA\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/checks/change-diff",
+      "kind": "parity",
+      "summary": "The report of a replacement carries the difference.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "diff": [
+            {
+              "path": "${base}/a.txt",
+              "lines": [
+                "-beta",
+                "+BETA"
+              ]
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nBETA\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    }
+  ]
+}

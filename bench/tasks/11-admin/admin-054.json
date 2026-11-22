@@ -1,0 +1,38 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-054",
+  "domain": 11,
+  "split": "public",
+  "platform": "windows",
+  "nl": "What is the data of the value InstallPath in the registry key HKCU\\Software\\NurtBench\\Importer4?",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "setup": {
+    "description": "The registry key HKEY_CURRENT_USER\\Software\\NurtBench\\Importer4 exists with the values InstallPath, Build.",
+    "pwsh": "New-Item -Path 'HKCU:\\Software\\NurtBench\\Importer4' -Force | Out-Null\nNew-ItemProperty -Path 'HKCU:\\Software\\NurtBench\\Importer4' -Name 'InstallPath' -PropertyType String -Value 'C:\\Program Files\\Importer 4' -Force | Out-Null\nNew-ItemProperty -Path 'HKCU:\\Software\\NurtBench\\Importer4' -Name 'Build' -PropertyType DWord -Value 1203 -Force | Out-Null"
+  },
+  "teardown": {
+    "pwsh": "Remove-Item -Path 'HKCU:\\Software\\NurtBench\\Importer4' -Recurse -Force -ErrorAction SilentlyContinue"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "C:\\Program Files\\Importer 4"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"registry:/HKCU/Software/NurtBench/Importer4/InstallPath\"",
+  "reference_pwsh": "(Get-ItemProperty -Path 'HKCU:\\Software\\NurtBench\\Importer4' -Name InstallPath).InstallPath\n",
+  "tags": [
+    "registry",
+    "windows"
+  ],
+  "license": "CC-BY-4.0"
+}

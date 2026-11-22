@@ -1,0 +1,48 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-054",
+  "domain": 9,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Remove the UTF-8 byte order mark from feeds/stock-2.csv only. The rest of the file stays byte for byte the same.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "feeds/prices.csv",
+        "type": "file",
+        "content_utf8": "\ufeffsku,price\n"
+      },
+      {
+        "path": "feeds/stock-2.csv",
+        "type": "file",
+        "content_utf8": "\ufeffsku,qty\nA1,5\nB2,7\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "feeds/stock-2.csv": {
+        "text": "sku,qty\nA1,5\nB2,7\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "feeds/prices.csv",
+      "change": "any",
+      "reason": "only one file is requested"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "convert \"feeds/stock-2.csv\" bom: false",
+  "reference_bash": "sed -i '1s/^\\xEF\\xBB\\xBF//' feeds/stock-2.csv\n",
+  "tags": [
+    "bom",
+    "encoding"
+  ],
+  "license": "CC-BY-4.0"
+}

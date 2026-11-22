@@ -1,0 +1,62 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-020",
+  "domain": 2,
+  "split": "public",
+  "platform": "windows",
+  "nl": "In the Markdown files under docs/api/ except docs/api/customers.md, change every link that starts with http://example.com to start with https://example.com.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "docs/api/customers.md",
+        "type": "file",
+        "content_utf8": "# Customers API\r\n\r\n`GET /customers/{id}` returns one customer.\r\n"
+      },
+      {
+        "path": "docs/api/orders.md",
+        "type": "file",
+        "content_utf8": "# Orders API\r\n\r\n`GET /orders` returns all orders.\r\n`POST /orders/new` creates an order.\r\nReference: http://example.com/orders/api\r\n"
+      },
+      {
+        "path": "docs/changelog.md",
+        "type": "file",
+        "content_utf8": "# Changelog\r\n\r\n## 2.3.0\r\n\r\n- Added the customers API.\r\n\r\n## 2.2.0\r\n\r\n- Added order export.\r\n- Links now use http://example.com/orders/releases.\r\n"
+      },
+      {
+        "path": "docs/config.md",
+        "type": "file",
+        "content_utf8": "# Configuration\r\n\r\nThe service reads `config.toml` from the working directory.\r\n\r\n## Database\r\n\r\nSet `database.url`. The default is `sqlite://orders.db`.\r\n\r\n## Logging\r\n\r\nSet `log.level` to `debug`, `info` or `warn`.\r\n"
+      },
+      {
+        "path": "docs/index.md",
+        "type": "file",
+        "content_utf8": "# Orders service\r\n\r\nSee [installation](install.md) and [configuration](config.md).\r\nSource code: http://example.com/orders/source\r\n"
+      },
+      {
+        "path": "docs/install.md",
+        "type": "file",
+        "content_utf8": "# Installation\r\n\r\nDownload the release from http://example.com/orders/releases.\r\nVerify the checksum published at http://example.com/orders/sha256.\r\n\r\n## Requirements\r\n\r\n- Linux, macOS or Windows\r\n- 512 MB of memory\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "docs/api/orders.md": {
+        "text": "# Orders API\r\n\r\n`GET /orders` returns all orders.\r\n`POST /orders/new` creates an order.\r\nReference: https://example.com/orders/api\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"http://example.com\" \"docs/api\" glob: \"**/*.md\" mode: literal exclude: [\"**/customers.md\"] |> replace \"https://example.com\"",
+  "reference_pwsh": "Get-ChildItem docs/api -Recurse -File -Filter '*.md' | Where-Object Name -ne 'customers.md' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  $n = $t.Replace('http://example.com', 'https://example.com')\n  if ($n -cne $t) { [IO.File]::WriteAllText($_.FullName, $n) }\n}\n",
+  "tags": [
+    "links",
+    "markdown"
+  ],
+  "license": "CC-BY-4.0"
+}

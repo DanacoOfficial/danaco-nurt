@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-bench-mock-1.schema.json",
+  "title": "nurt-bench-mock/1",
+  "description": "Script of the mock model of nurt-bench.",
+  "type": "object",
+  "required": ["format"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {"const": "nurt-bench-mock/1"},
+    "id": {"type": "string", "default": "mock", "description": "Label of the model in run logs."},
+    "scripts": {
+      "type": "array",
+      "description": "Scripts tried in order; the first that matches the task, the condition and the seed of a run is used.",
+      "items": {
+        "type": "object",
+        "required": ["task", "steps"],
+        "additionalProperties": false,
+        "properties": {
+          "task": {"type": "string", "description": "Task identifier, a text contained in it, or a pattern with *."},
+          "condition": {"enum": ["bash", "pwsh", "nurt", "nurt-groups"]},
+          "seed": {"type": "integer", "minimum": 0},
+          "steps": {"type": "array", "items": {"$ref": "#/$defs/step"}}
+        }
+      }
+    },
+    "default": {"type": "array", "items": {"$ref": "#/$defs/step"}, "description": "Steps of runs without a matching script."}
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {"type": "string", "default": ""},
+        "tool_calls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["input"],
+            "additionalProperties": false,
+            "properties": {"id": {"type": "string"}, "input": {}}
+          }
+        },
+        "usage": {
+          "type": "object",
+          "required": ["input", "output"],
+          "additionalProperties": false,
+          "properties": {
+            "input": {"type": "integer", "minimum": 0},
+            "output": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    }
+  }
+}

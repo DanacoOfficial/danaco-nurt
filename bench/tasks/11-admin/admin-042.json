@@ -1,0 +1,59 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-042",
+  "domain": 11,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Disable the service admin/services/legacy.conf (enabled = false).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "admin/jobs.json",
+        "type": "file",
+        "content_utf8": "[\n  {\n    \"name\": \"cleanup\",\n    \"cron\": \"0 3 * * *\",\n    \"command\": \"cleanup --days 14\",\n    \"enabled\": true\n  },\n  {\n    \"name\": \"sync\",\n    \"cron\": \"*/15 * * * *\",\n    \"command\": \"sync --all\",\n    \"enabled\": true\n  },\n  {\n    \"name\": \"legacy-export\",\n    \"cron\": \"0 1 * * 0\",\n    \"command\": \"export --legacy\",\n    \"enabled\": false\n  }\n]\n"
+      },
+      {
+        "path": "admin/services/legacy.conf",
+        "type": "file",
+        "content_utf8": "name = legacy\nport = 8090\nenabled = true\n"
+      },
+      {
+        "path": "admin/services/orders.conf",
+        "type": "file",
+        "content_utf8": "name = orders\nport = 8080\nenabled = true\n"
+      },
+      {
+        "path": "admin/services/orders.env",
+        "type": "file",
+        "content_utf8": "LOG_LEVEL=info\nWORKERS=4\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "admin/services/legacy.conf": {
+        "text": "name = legacy\nport = 8090\nenabled = false\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "admin/services/*.conf",
+      "change": "delete",
+      "reason": "service definitions are kept"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"enabled = true\" \"enabled = false\" in: [\"admin/services/legacy.conf\"] mode: literal expect: 1",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('admin/services/legacy.conf'); t = p.read_text()\nassert t.count('enabled = true') == 1\np.write_text(t.replace('enabled = true', 'enabled = false'))\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'admin/services/legacy.conf'; $t = [IO.File]::ReadAllText($p)\n[IO.File]::WriteAllText($p, $t.Replace('enabled = true', 'enabled = false'))\n",
+  "tags": [
+    "admin",
+    "config"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,233 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "parity/files/notebook/cells-outline",
+      "kind": "parity",
+      "summary": "Lists the cells of a notebook.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"id\": \"m1\",\n   \"metadata\": {},\n   \"source\": [\n    \"# Title\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"id\": \"c1\",\n   \"metadata\": {},\n   \"execution_count\": 1,\n   \"source\": [\n    \"print(1)\"\n   ],\n   \"outputs\": [\n    {\n     \"output_type\": \"stream\",\n     \"name\": \"stdout\",\n     \"text\": [\n      \"1\\n\"\n     ]\n    }\n   ]\n  }\n ],\n \"metadata\": {},\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n"
+          }
+        ]
+      },
+      "program": "notebook.cells \"a.ipynb\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "cell",
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/notebook/cells-code-only",
+      "kind": "parity",
+      "summary": "Lists the code cells.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"id\": \"m1\",\n   \"metadata\": {},\n   \"source\": [\n    \"# Title\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"id\": \"c1\",\n   \"metadata\": {},\n   \"execution_count\": 1,\n   \"source\": [\n    \"print(1)\"\n   ],\n   \"outputs\": [\n    {\n     \"output_type\": \"stream\",\n     \"name\": \"stdout\",\n     \"text\": [\n      \"1\\n\"\n     ]\n    }\n   ]\n  }\n ],\n \"metadata\": {},\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n"
+          }
+        ]
+      },
+      "program": "notebook.cells \"a.ipynb\" cell_type: code",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "cell",
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/notebook/read-cell",
+      "kind": "parity",
+      "summary": "Reads one cell of a notebook.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"id\": \"m1\",\n   \"metadata\": {},\n   \"source\": [\n    \"# Title\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"id\": \"c1\",\n   \"metadata\": {},\n   \"execution_count\": 1,\n   \"source\": [\n    \"print(1)\"\n   ],\n   \"outputs\": [\n    {\n     \"output_type\": \"stream\",\n     \"name\": \"stdout\",\n     \"text\": [\n      \"1\\n\"\n     ]\n    }\n   ]\n  }\n ],\n \"metadata\": {},\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n"
+          }
+        ]
+      },
+      "program": "read \"a.ipynb\" cell: 1",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/notebook/insert-cell",
+      "kind": "parity",
+      "summary": "Inserts a cell.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"id\": \"m1\",\n   \"metadata\": {},\n   \"source\": [\n    \"# Title\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"id\": \"c1\",\n   \"metadata\": {},\n   \"execution_count\": 1,\n   \"source\": [\n    \"print(1)\"\n   ],\n   \"outputs\": [\n    {\n     \"output_type\": \"stream\",\n     \"name\": \"stdout\",\n     \"text\": [\n      \"1\\n\"\n     ]\n    }\n   ]\n  }\n ],\n \"metadata\": {},\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n"
+          }
+        ]
+      },
+      "program": "notebook.insert \"a.ipynb\" index: 2 cell_type: code source: \"print(2)\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "notebook.insert"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/notebook/replace-cell",
+      "kind": "parity",
+      "summary": "Replaces the source of a cell.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"id\": \"m1\",\n   \"metadata\": {},\n   \"source\": [\n    \"# Title\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"id\": \"c1\",\n   \"metadata\": {},\n   \"execution_count\": 1,\n   \"source\": [\n    \"print(1)\"\n   ],\n   \"outputs\": [\n    {\n     \"output_type\": \"stream\",\n     \"name\": \"stdout\",\n     \"text\": [\n      \"1\\n\"\n     ]\n    }\n   ]\n  }\n ],\n \"metadata\": {},\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n"
+          }
+        ]
+      },
+      "program": "notebook.replace \"a.ipynb\" id: \"c1\" source: \"print(3)\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/notebook/remove-cell",
+      "kind": "parity",
+      "summary": "Removes a cell.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"id\": \"m1\",\n   \"metadata\": {},\n   \"source\": [\n    \"# Title\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"id\": \"c1\",\n   \"metadata\": {},\n   \"execution_count\": 1,\n   \"source\": [\n    \"print(1)\"\n   ],\n   \"outputs\": [\n    {\n     \"output_type\": \"stream\",\n     \"name\": \"stdout\",\n     \"text\": [\n      \"1\\n\"\n     ]\n    }\n   ]\n  }\n ],\n \"metadata\": {},\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n"
+          }
+        ]
+      },
+      "program": "notebook.remove \"a.ipynb\" id: \"m1\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/notebook/clear-outputs",
+      "kind": "parity",
+      "summary": "Clears the outputs of all cells.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"id\": \"m1\",\n   \"metadata\": {},\n   \"source\": [\n    \"# Title\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"id\": \"c1\",\n   \"metadata\": {},\n   \"execution_count\": 1,\n   \"source\": [\n    \"print(1)\"\n   ],\n   \"outputs\": [\n    {\n     \"output_type\": \"stream\",\n     \"name\": \"stdout\",\n     \"text\": [\n      \"1\\n\"\n     ]\n    }\n   ]\n  }\n ],\n \"metadata\": {},\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n"
+          }
+        ]
+      },
+      "program": "notebook.clear_outputs \"a.ipynb\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/notebook/move-cell",
+      "kind": "parity",
+      "summary": "Moves a cell.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"id\": \"m1\",\n   \"metadata\": {},\n   \"source\": [\n    \"# Title\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"id\": \"c1\",\n   \"metadata\": {},\n   \"execution_count\": 1,\n   \"source\": [\n    \"print(1)\"\n   ],\n   \"outputs\": [\n    {\n     \"output_type\": \"stream\",\n     \"name\": \"stdout\",\n     \"text\": [\n      \"1\\n\"\n     ]\n    }\n   ]\n  }\n ],\n \"metadata\": {},\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n"
+          }
+        ]
+      },
+      "program": "notebook.move \"a.ipynb\" from: 1 to: 0",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/notebook/export-script",
+      "kind": "parity",
+      "summary": "Exports the code cells to a script.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.ipynb",
+            "type": "file",
+            "content_utf8": "{\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"id\": \"m1\",\n   \"metadata\": {},\n   \"source\": [\n    \"# Title\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"id\": \"c1\",\n   \"metadata\": {},\n   \"execution_count\": 1,\n   \"source\": [\n    \"print(1)\"\n   ],\n   \"outputs\": [\n    {\n     \"output_type\": \"stream\",\n     \"name\": \"stdout\",\n     \"text\": [\n      \"1\\n\"\n     ]\n    }\n   ]\n  }\n ],\n \"metadata\": {},\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n"
+          }
+        ]
+      },
+      "program": "notebook.export \"a.ipynb\" to: \"a.py\" format: script",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "exhaustive": false,
+        "entries": [
+          {
+            "path": "a.py",
+            "type": "file",
+            "content_utf8": "print(1)\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/notebook/invalid-notebook",
+      "kind": "parity",
+      "summary": "A damaged notebook is reported as a format error.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "b.ipynb",
+            "type": "file",
+            "content_utf8": "{"
+          }
+        ]
+      },
+      "program": "notebook.cells \"b.ipynb\"",
+      "expect": {
+        "report": {
+          "status": "failed"
+        }
+      },
+      "fs_after": "unchanged"
+    }
+  ]
+}

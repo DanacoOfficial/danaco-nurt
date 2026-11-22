@@ -1,0 +1,81 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-016",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Move every .txt file from inbox/ to done/ (create done/). Some names contain spaces, quotes or a leading dash.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "inbox/-v.txt",
+        "type": "file",
+        "content_utf8": "-v.txt\n"
+      },
+      {
+        "path": "inbox/it's.txt",
+        "type": "file",
+        "content_utf8": "it's.txt\n"
+      },
+      {
+        "path": "inbox/my report.txt",
+        "type": "file",
+        "content_utf8": "my report.txt\n"
+      },
+      {
+        "path": "inbox/plain.txt",
+        "type": "file",
+        "content_utf8": "plain.txt\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "done/-v.txt": {
+        "text": "-v.txt\n"
+      },
+      "done/it's.txt": {
+        "text": "it's.txt\n"
+      },
+      "done/my report.txt": {
+        "text": "my report.txt\n"
+      },
+      "done/plain.txt": {
+        "text": "plain.txt\n"
+      },
+      "inbox/-v.txt": {
+        "absent": true
+      },
+      "inbox/it's.txt": {
+        "absent": true
+      },
+      "inbox/my report.txt": {
+        "absent": true
+      },
+      "inbox/plain.txt": {
+        "absent": true
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"inbox\" glob: \"*.txt\" |> move into: \"done\"",
+  "reference_bash": "mkdir -p done && mv -- inbox/*.txt done/\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "mkdir -p done\nfor f in $(ls inbox); do mv inbox/$f done/; done",
+      "defect": "splits names at spaces"
+    }
+  ],
+  "provocation": "special-names",
+  "tags": [
+    "provocation",
+    "special-names"
+  ],
+  "license": "CC-BY-4.0"
+}

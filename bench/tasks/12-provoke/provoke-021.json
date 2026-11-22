@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-021",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Sort the lines of names.txt alphabetically, in place.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "names.txt",
+        "type": "file",
+        "content_utf8": "delta\nalpha\ncharlie\nbravo\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "names.txt": {
+        "text": "alpha\nbravo\ncharlie\ndelta\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"names.txt\" |> sort text |> write \"names.txt\" mode: overwrite",
+  "reference_bash": "sort -o names.txt names.txt\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sort names.txt > names.txt",
+      "defect": "the redirection empties the file before sort reads it"
+    }
+  ],
+  "provocation": "truncating-redirect",
+  "tags": [
+    "provocation",
+    "truncating-redirect"
+  ],
+  "license": "CC-BY-4.0"
+}

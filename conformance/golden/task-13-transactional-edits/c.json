@@ -1,0 +1,97 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "edit",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/main.go"
+              }
+            },
+            {
+              "name": "changes",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "map",
+                    "entries": [
+                      {
+                        "k": "replace",
+                        "v": {
+                          "t": "text",
+                          "v": "oldName("
+                        }
+                      },
+                      {
+                        "k": "with",
+                        "v": {
+                          "t": "text",
+                          "v": "newName("
+                        }
+                      },
+                      {
+                        "k": "occurrence",
+                        "v": {
+                          "t": "int",
+                          "v": 1
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "t": "map",
+                    "entries": [
+                      {
+                        "k": "insert",
+                        "v": {
+                          "t": "text",
+                          "v": "// updated"
+                        }
+                      },
+                      {
+                        "k": "line",
+                        "v": {
+                          "t": "int",
+                          "v": 3
+                        }
+                      },
+                      {
+                        "k": "position",
+                        "v": {
+                          "t": "ident",
+                          "v": "before"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "t": "map",
+                    "entries": [
+                      {
+                        "k": "delete_lines",
+                        "v": {
+                          "t": "range",
+                          "lo": 10,
+                          "hi": 12
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

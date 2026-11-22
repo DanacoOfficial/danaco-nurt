@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-019",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Remove the lines marked with the comment '# dev' from requirements.txt. Keep all other lines in their order.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "requirements.txt",
+        "type": "file",
+        "content_utf8": "requests==2.32.3\npytest==8.3.2  # test\nblack==24.8.0  # dev\nurllib3==2.2.2\nmypy==1.11.1  # dev\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "requirements.txt": {
+        "text": "requests==2.32.3\npytest==8.3.2  # test\nurllib3==2.2.2\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"requirements.txt\" |> filter text ~ \"# dev\" |> remove",
+  "reference_bash": "sed -i '/# dev/d' requirements.txt\n",
+  "tags": [
+    "delete-lines"
+  ],
+  "license": "CC-BY-4.0"
+}

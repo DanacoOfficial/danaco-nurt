@@ -1,0 +1,61 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-002",
+  "domain": 5,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Rename the method total of the class Invoice to grand_total, together with its calls on Invoice objects. The method total of Quote and its calls stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "app/main.py",
+        "type": "file",
+        "content_utf8": "from app.model import Invoice, Quote\n\n\ndef run():\n    invoice = Invoice()\n    quote = Quote()\n    return [invoice.total(), quote.total()]\n"
+      },
+      {
+        "path": "app/model.py",
+        "type": "file",
+        "content_utf8": "class Invoice:\n    def total(self):\n        return 'invoice'\n\n\nclass Quote:\n    def total(self):\n        return 'quote'\n"
+      },
+      {
+        "path": "tests/test_model.py",
+        "type": "file",
+        "content_utf8": "from app.model import Invoice, Quote\n\n\ndef test_invoice():\n    assert Invoice().total() == 'invoice'\n\n\ndef test_quote():\n    assert Quote().total() == 'quote'\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "app/main.py": {
+        "text": "from app.model import Invoice, Quote\n\n\ndef run():\n    invoice = Invoice()\n    quote = Quote()\n    return [invoice.grand_total(), quote.total()]\n"
+      },
+      "app/model.py": {
+        "text": "class Invoice:\n    def grand_total(self):\n        return 'invoice'\n\n\nclass Quote:\n    def total(self):\n        return 'quote'\n"
+      },
+      "tests/test_model.py": {
+        "text": "from app.model import Invoice, Quote\n\n\ndef test_invoice():\n    assert Invoice().grand_total() == 'invoice'\n\n\ndef test_quote():\n    assert Quote().total() == 'quote'\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.rename \"grand_total\" path: \"app/model.py\" symbol: \"Invoice.total\" paths: [\"app\", \"tests\"]",
+  "reference_bash": "python3 - <<'EOF'\nimport os, pathlib\np = pathlib.Path('app/model.py'); t = p.read_bytes().decode()\nassert t.count('class Invoice:\\n    def total(self):') == 1, 'app/model.py'\np.write_bytes(t.replace('class Invoice:\\n    def total(self):', 'class Invoice:\\n    def grand_total(self):').encode())\np = pathlib.Path('app/main.py'); t = p.read_bytes().decode()\nassert t.count('invoice.total()') == 1, 'app/main.py'\np.write_bytes(t.replace('invoice.total()', 'invoice.grand_total()').encode())\np = pathlib.Path('tests/test_model.py'); t = p.read_bytes().decode()\nassert t.count('Invoice().total()') == 1, 'tests/test_model.py'\np.write_bytes(t.replace('Invoice().total()', 'Invoice().grand_total()').encode())\nEOF\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sed -i 's/\\btotal(/grand_total(/g' app/*.py tests/*.py",
+      "defect": "renames the method of Quote as well"
+    }
+  ],
+  "tags": [
+    "python",
+    "rename",
+    "symbol"
+  ],
+  "license": "CC-BY-4.0"
+}

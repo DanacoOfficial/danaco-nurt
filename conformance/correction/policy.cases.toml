@@ -1,0 +1,209 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "correction/policy/changing-command-distance-two"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A changing command name two edits away is offered as a candidate, not applied."
+method = "correct"
+program = 'atrtibtues "/home/user/app/run.sh" mode: "0755"'
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+candidates = [{ program = 'attributes "/home/user/app/run.sh" mode: "0755"' }]
+
+[[case]]
+id = "correction/policy/reading-command-distance-two"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A reading command name two edits away is applied when it is long and unique."
+method = "correct"
+program = "enivronmnet"
+
+[case.expect]
+program = "environment"
+
+[[case]]
+id = "correction/policy/effect-budget-within"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Four certain corrections in a changing program are within the budget and are applied."
+method = "correct"
+program = 'Find /home/user/app/build Glob: "*.tmp" | remove'
+
+[case.expect]
+program = 'find "/home/user/app/build" glob: "*.tmp" |> remove'
+
+[[case]]
+id = "correction/policy/effect-budget-exceeded"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "More corrections than the budget of a changing program yield one candidate with the full canonical program."
+method = "correct"
+program = '''Find /home/user/app Glob: '*.tmp' | Filter size > 10 MB | Remvoe'''
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+candidates = [{ program = 'find "/home/user/app" glob: "*.tmp" |> filter size > 10mb |> remove' }]
+
+[[case]]
+id = "correction/policy/read-budget-exceeded"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "More corrections than the budget of a reading program yield one candidate."
+method = "correct"
+program = '''Find /home/user/app Glob: '*.go' Type: File | Filter Size > 10 MB | Sort Size Order: Desc | First 5'''
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+candidates = [{ program = 'find "/home/user/app" glob: "*.go" type: file |> filter size > 10mb |> sort size order: desc |> first 5' }]
+
+[[case]]
+id = "correction/policy/configured-budget"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+config = "config/small-budget.toml"
+summary = "The configured budget of one correction rejects a reading program with two corrections."
+method = "correct"
+program = 'Find "/home/user/app" Glob: "*.go"'
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+candidates = [{ program = 'find "/home/user/app" glob: "*.go"' }]
+
+[[case]]
+id = "correction/policy/configured-budget-allows-one"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+config = "config/small-budget.toml"
+summary = "The configured budget of one correction allows one correction."
+method = "correct"
+program = 'Find "/home/user/app" glob: "*.go"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go"'
+
+[[case]]
+id = "correction/policy/disabled-name"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+config = "config/correction-disabled.toml"
+summary = "With correction disabled a typing error in a command name is an unknown command."
+method = "correct"
+program = 'remvoe "/home/user/app/old.log"'
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/policy/disabled-pipe"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+config = "config/correction-disabled.toml"
+summary = "With correction disabled a single bar is a syntax error."
+method = "correct"
+program = 'find "/home/user/app" | count'
+
+[case.expect.error]
+code = "E_SYNTAX"
+
+[[case]]
+id = "correction/policy/disabled-correct-program"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+config = "config/correction-disabled.toml"
+summary = "With correction disabled a correct program is unchanged."
+method = "correct"
+program = 'find "/home/user/app" |> count'
+
+[case.expect]
+program = 'find "/home/user/app" |> count'
+
+[[case]]
+id = "correction/policy/first-character-required"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A name that differs in its first character is not corrected by default."
+method = "correct"
+program = 'xemove "/home/user/app/a.txt"'
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/policy/first-character-not-required"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+config = "config/any-first-character.toml"
+summary = "With the first-character condition switched off a unique name at distance 1 is corrected."
+method = "correct"
+program = 'xemove "/home/user/app/a.txt"'
+
+[case.expect]
+program = 'remove "/home/user/app/a.txt"'
+corrections = [{ rule = "L01", class = "F", from = "xemove", to = "remove" }]
+
+[[case]]
+id = "correction/policy/probable-in-read-has-alternatives"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A probable correction in a reading program is applied and lists its alternatives."
+method = "correct"
+program = 'find "/home/user/app" |> filter size > 10M'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter size > 10mib'
+corrections = [{ rule = "T02", class = "P", alternatives = ['find "/home/user/app" |> filter size > 10mb'] }]
+
+[[case]]
+id = "correction/policy/structural-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A structural correction of an unambiguous structure applies to a changing program."
+method = "correct"
+program = 'copy "/home/user/a.txt", to: "/home/user/b.txt"'
+
+[case.expect]
+program = 'copy "/home/user/a.txt" to: "/home/user/b.txt"'
+corrections = [{ rule = "L15", class = "S" }]
+
+[[case]]
+id = "correction/policy/corrections-never-add-changing-stage"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A reading program stays a reading program; a name near a changing command and a reading command is not chosen."
+method = "correct"
+program = 'find "/home/user/app" |> reod'
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/policy/canonical-program-unchanged"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A program already in canonical form has no corrections."
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" |> filter size > 1mb and modified > ago(24h) |> sort size order: desc |> first 20'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" |> filter size > 1mb and modified > ago(24h) |> sort size order: desc |> first 20'

@@ -1,0 +1,2 @@
+{"client": {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2099-01-01", "capabilities": {}, "clientInfo": {"name": "transcript", "version": "1.0.0"}}}}
+{"server": {"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-11-25", "capabilities": "*", "serverInfo": "*", "instructions": "*"}}}

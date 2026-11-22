@@ -1,0 +1,31 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-041",
+  "domain": 1,
+  "split": "public",
+  "platform": "cross",
+  "nl": "How many files with the extension .md does the tree contain? Answer with the number.",
+  "fs_before": {
+    "fixture": "docs-site"
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\d.])6(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \".\" glob: \"**/*.md\" type: file |> count",
+  "reference_bash": "find . -type f -name '*.md' | wc -l\n",
+  "reference_pwsh": "(Get-ChildItem -Recurse -File | Where-Object Extension -eq '.md').Count\n",
+  "tags": [
+    "count",
+    "find"
+  ],
+  "license": "CC-BY-4.0"
+}

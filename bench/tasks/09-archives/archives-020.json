@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-020",
+  "domain": 9,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Extract only the member release/README.txt from release.tar.gz and store it as restored/README.txt. Extract nothing else (archive 4).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "release.tar.gz",
+        "type": "file",
+        "content_base64": "H4sIAAAAAAAC/+3XvU7DMBSGYc+5CiP2xHZ+OjEgyIBUGMoVmOS0jWRiKT6tevmkhSkMMFAP+HsWS1kcyXltZyJHNlCxfnpoX17bnE8s/pqaNVV1GWfLUSldC12bujJl3Zyfa22qWkglIjgEttP8KiJN66GjMZBkOnEmIDXTV/+b9v7x+Tr5/6L/Ztm/Nhr9x7D5XH85eqaADSDZ/t+GsWDv3TXm+LF/Uy37VyuD/mO4vbksfdhn1O29PH8C2AUS7L/z43bYFT1t7cFxzv7dxetfm0X/pVG4/0fh6EhO3kmN6pPuv7dsi0Bc5l04xj7/1bf//5VB/1EMfVYifQAAAAAAAAAAAID/5wNBAQ7BACgAAA=="
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "restored/README.txt": {
+        "text": "Release notes\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "archive.extract \"release.tar.gz\" into: \"restored\" only: [\"release/README.txt\"] strip_components: 1",
+  "reference_pwsh": "New-Item -ItemType Directory -Force restored | Out-Null\ntar -xzf release.tar.gz -C restored --strip-components 1 release/README.txt\n",
+  "tags": [
+    "extract",
+    "tar"
+  ],
+  "license": "CC-BY-4.0"
+}

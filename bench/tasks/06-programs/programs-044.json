@@ -1,0 +1,61 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-044",
+  "domain": 6,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Run tools/lint.py src and save only its standard error (the warnings) to lint-4.log; discard the standard output.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "src/a.py",
+        "type": "file",
+        "content_utf8": "x = 1\n"
+      },
+      {
+        "path": "src/b.py",
+        "type": "file",
+        "content_utf8": "def f():\n\treturn 1\n"
+      },
+      {
+        "path": "src/pkg/c.py",
+        "type": "file",
+        "content_utf8": "a = 1\nb = 2\nc = 3\nd = 4\n"
+      },
+      {
+        "path": "src/pkg/d3.py",
+        "type": "file",
+        "content_utf8": "if True:\n\tpass\n"
+      },
+      {
+        "path": "tools/lint.py",
+        "type": "file",
+        "content_utf8": "import pathlib\nimport sys\n\nfor path in sorted(pathlib.Path(sys.argv[1]).rglob(\"*.py\")):\n    text = path.read_text()\n    if \"\\t\" in text:\n        print(f\"warning: {path.as_posix()}: tab character\", file=sys.stderr)\n    if len(text.splitlines()) > 3:\n        print(f\"warning: {path.as_posix()}: more than 3 lines\", file=sys.stderr)\n    print(f\"checked {path.as_posix()}\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "lint-4.log": {
+        "lines": [
+          "warning: src/b.py: tab character",
+          "warning: src/pkg/c.py: more than 3 lines",
+          "warning: src/pkg/d3.py: tab character"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/lint.py\", \"src\"] |> select stderr |> write \"lint-4.log\"",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n& $py tools/lint.py src 2> lint-4.log | Out-Null\n",
+  "tags": [
+    "redirect",
+    "stderr"
+  ],
+  "license": "CC-BY-4.0"
+}

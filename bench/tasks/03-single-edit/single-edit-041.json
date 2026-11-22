@@ -1,0 +1,46 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-041",
+  "domain": 3,
+  "split": "public",
+  "platform": "cross",
+  "nl": "In build.props, replace `3.1.0` with `3.1.1`. The file starts with a UTF-8 byte order mark and uses CRLF line endings; keep both.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "build.props",
+        "type": "file",
+        "content_utf8": "\ufeff<Project>\r\n  <Version>3.1.0</Version>\r\n</Project>\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "build.props": {
+        "text": "\ufeff<Project>\r\n  <Version>3.1.1</Version>\r\n</Project>\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"3.1.0\" \"3.1.1\" in: [\"build.props\"] mode: literal expect: 1",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('build.props')\np.write_bytes(p.read_bytes().replace(b'3.1.0', b'3.1.1', 1))\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'build.props'; $t = [IO.File]::ReadAllText($p); [IO.File]::WriteAllText($p, $t.Replace('3.1.0', '3.1.1'), [Text.UTF8Encoding]::new($true))\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sed -i 's/3.1.0/3.1.1/' build.props && sed -i '1s/^\\xEF\\xBB\\xBF//' build.props",
+      "defect": "drops the byte order mark"
+    }
+  ],
+  "tags": [
+    "bom",
+    "crlf",
+    "encoding"
+  ],
+  "license": "CC-BY-4.0"
+}

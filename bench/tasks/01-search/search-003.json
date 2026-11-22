@@ -1,0 +1,65 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-003",
+  "domain": 1,
+  "split": "public",
+  "platform": "cross",
+  "nl": "List the relative paths of all files with the extension .proto anywhere in the current tree.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "api/buf.yaml",
+        "type": "file",
+        "content_utf8": "version: v2\n"
+      },
+      {
+        "path": "api/common/money.proto",
+        "type": "file",
+        "content_utf8": "syntax = \"proto3\";\n"
+      },
+      {
+        "path": "api/customers/v1/customers.proto",
+        "type": "file",
+        "content_utf8": "syntax = \"proto3\";\n"
+      },
+      {
+        "path": "api/orders/v1/orders.proto",
+        "type": "file",
+        "content_utf8": "syntax = \"proto3\";\n"
+      },
+      {
+        "path": "docs/proto.md",
+        "type": "file",
+        "content_utf8": "Protocol files\n"
+      },
+      {
+        "path": "gen/orders.pb.go",
+        "type": "file",
+        "content_utf8": "package orders\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "api/common/money.proto",
+        "api/customers/v1/customers.proto",
+        "api/orders/v1/orders.proto"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \".\" glob: \"**/*.proto\" type: file",
+  "reference_bash": "find . -type f -name '*.proto' | sort\n",
+  "reference_pwsh": "Get-ChildItem -Recurse -File | Where-Object Extension -eq '.proto' | ForEach-Object { (Resolve-Path -Relative $_.FullName) -replace '\\\\', '/' }\n",
+  "tags": [
+    "find",
+    "glob"
+  ],
+  "license": "CC-BY-4.0"
+}

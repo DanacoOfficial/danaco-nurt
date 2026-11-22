@@ -1,0 +1,57 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-044",
+  "domain": 2,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Replace the import path example.com/orders/internal/store with example.com/orders/pkg/store in all *.go files of the project.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "cmd/server/main.go",
+        "type": "file",
+        "content_utf8": "package main\n\nimport (\n\t\"log\"\n\t\"net/http\"\n\n\t\"example.com/orders/internal/handlers\"\n)\n\nfunc main() {\n\tmux := http.NewServeMux()\n\tmux.HandleFunc(\"/orders\", handlers.ListOrders)\n\tmux.HandleFunc(\"/orders/new\", handlers.CreateOrder)\n\tlog.Fatal(http.ListenAndServe(\":8080\", mux))\n}\n"
+      },
+      {
+        "path": "go.mod",
+        "type": "file",
+        "content_utf8": "module example.com/orders\n\ngo 1.22\n"
+      },
+      {
+        "path": "internal/handlers/orders.go",
+        "type": "file",
+        "content_utf8": "package handlers\n\nimport (\n\t\"encoding/json\"\n\t\"net/http\"\n\n\t\"example.com/orders/internal/store\"\n)\n\nfunc ListOrders(w http.ResponseWriter, r *http.Request) {\n\torders := store.AllOrders()\n\tjson.NewEncoder(w).Encode(orders)\n}\n\nfunc CreateOrder(w http.ResponseWriter, r *http.Request) {\n\tvar order store.Order\n\tif err := json.NewDecoder(r.Body).Decode(&order); err != nil {\n\t\thttp.Error(w, \"invalid order\", http.StatusBadRequest)\n\t\treturn\n\t}\n\tstore.SaveOrder(order)\n\tw.WriteHeader(http.StatusCreated)\n}\n"
+      },
+      {
+        "path": "internal/store/store.go",
+        "type": "file",
+        "content_utf8": "package store\n\ntype Order struct {\n\tID       int     `json:\"id\"`\n\tCustomer string  `json:\"customer\"`\n\tTotal    float64 `json:\"total\"`\n}\n\nvar orders []Order\n\nfunc AllOrders() []Order {\n\treturn orders\n}\n\nfunc SaveOrder(order Order) {\n\torders = append(orders, order)\n}\n"
+      },
+      {
+        "path": "internal/store/store_test.go",
+        "type": "file",
+        "content_utf8": "package store\n\nimport \"testing\"\n\nfunc TestSaveOrder(t *testing.T) {\n\tSaveOrder(Order{ID: 1, Customer: \"acme\", Total: 12.5})\n\tif len(AllOrders()) != 1 {\n\t\tt.Fatal(\"order not saved\")\n\t}\n}\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "internal/handlers/orders.go": {
+        "text": "package handlers\n\nimport (\n\t\"encoding/json\"\n\t\"net/http\"\n\n\t\"example.com/orders/pkg/store\"\n)\n\nfunc ListOrders(w http.ResponseWriter, r *http.Request) {\n\torders := store.AllOrders()\n\tjson.NewEncoder(w).Encode(orders)\n}\n\nfunc CreateOrder(w http.ResponseWriter, r *http.Request) {\n\tvar order store.Order\n\tif err := json.NewDecoder(r.Body).Decode(&order); err != nil {\n\t\thttp.Error(w, \"invalid order\", http.StatusBadRequest)\n\t\treturn\n\t}\n\tstore.SaveOrder(order)\n\tw.WriteHeader(http.StatusCreated)\n}\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"example.com/orders/internal/store\" \".\" glob: \"**/*.go\" mode: literal |> replace \"example.com/orders/pkg/store\"",
+  "reference_bash": "grep -rlF --include='*.go' -- 'example.com/orders/internal/store' . | xargs -r sed -i 's/example\\.com\\/orders\\/internal\\/store/example.com\\/orders\\/pkg\\/store/g'\n",
+  "tags": [
+    "imports",
+    "replace"
+  ],
+  "license": "CC-BY-4.0"
+}

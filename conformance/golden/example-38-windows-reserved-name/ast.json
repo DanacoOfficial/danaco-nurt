@@ -1,0 +1,84 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "write",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "C:/proj/aux.txt",
+                "span": [
+                  1,
+                  7,
+                  1,
+                  24
+                ]
+              },
+              "span": [
+                1,
+                7,
+                1,
+                24
+              ]
+            },
+            {
+              "value": {
+                "t": "text",
+                "v": "x",
+                "span": [
+                  1,
+                  25,
+                  1,
+                  28
+                ]
+              },
+              "span": [
+                1,
+                25,
+                1,
+                28
+              ]
+            },
+            {
+              "name": "mode",
+              "value": {
+                "t": "ident",
+                "v": "create",
+                "span": [
+                  1,
+                  35,
+                  1,
+                  41
+                ]
+              },
+              "span": [
+                1,
+                29,
+                1,
+                41
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            41
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          41
+        ]
+      }
+    ]
+  }
+}

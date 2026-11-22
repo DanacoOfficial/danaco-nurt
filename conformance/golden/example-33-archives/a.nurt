@@ -1,0 +1,2 @@
+archive.extract "/srv/dl/data.tar.gz" into: "/srv/data"
+find "/srv/app/dist" |> archive.create "/srv/out/dist.zip" base: "/srv/app"

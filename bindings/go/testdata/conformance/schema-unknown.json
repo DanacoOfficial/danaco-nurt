@@ -1,0 +1,6 @@
+{
+  "id": "schema.unknown",
+  "class": "mandatory",
+  "call": { "method": "schema", "args": { "which": "unknown" } },
+  "expect": { "invocation_error": "NURT_E_ARG" }
+}

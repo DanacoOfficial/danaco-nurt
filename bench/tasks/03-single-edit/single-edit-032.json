@@ -1,0 +1,73 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-032",
+  "domain": 3,
+  "split": "public",
+  "platform": "cross",
+  "nl": "In etc/logrotate.d/orders, replace this block:\n    daily\n    rotate 7\n\nwith this block:\n    weekly\n    rotate 4",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "etc/cron.d/backup",
+        "type": "file",
+        "content_utf8": "SHELL=/bin/sh\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\n30 2 * * * root /usr/local/bin/backup --full\n"
+      },
+      {
+        "path": "etc/hosts",
+        "type": "file",
+        "content_utf8": "127.0.0.1 localhost\n::1 localhost ip6-localhost\n203.0.113.5 db.internal.example.com db\n"
+      },
+      {
+        "path": "etc/logrotate.d/orders",
+        "type": "file",
+        "content_utf8": "/var/log/orders/*.log {\n    daily\n    rotate 7\n    compress\n    missingok\n}\n"
+      },
+      {
+        "path": "etc/passwd",
+        "type": "file",
+        "content_utf8": "root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\norders:x:998:998:Orders service:/opt/orders:/usr/sbin/nologin\nuser:x:1000:1000:Example User:/home/user:/bin/bash\ndeploy:x:1001:1001:Deployment:/srv/deploy:/bin/bash\nbackup:x:34:34:backup:/var/backups:/usr/sbin/nologin\n"
+      },
+      {
+        "path": "etc/ssh/sshd_config",
+        "type": "file",
+        "content_utf8": "Port 22\nPermitRootLogin yes\nPasswordAuthentication yes\nPubkeyAuthentication yes\nX11Forwarding no\nMaxAuthTries 6\nSubsystem sftp /usr/lib/openssh/sftp-server\n"
+      },
+      {
+        "path": "etc/sysctl.d/90-net.conf",
+        "type": "file",
+        "content_utf8": "net.core.somaxconn = 1024\n"
+      },
+      {
+        "path": "etc/systemd/system/orders.service",
+        "type": "file",
+        "content_utf8": "[Unit]\nDescription=Orders service\nAfter=network.target\n\n[Service]\nUser=orders\nExecStart=/opt/orders/bin/orders --port 8080\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\n"
+      },
+      {
+        "path": "etc/systemd/system/reports.service",
+        "type": "file",
+        "content_utf8": "[Unit]\nDescription=Report generator\n\n[Service]\nType=oneshot\nExecStart=/opt/reports/bin/generate\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "etc/logrotate.d/orders": {
+        "text": "/var/log/orders/*.log {\n    weekly\n    rotate 4\n    compress\n    missingok\n}\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/logrotate.d/orders\" changes: [{replace: \"    daily\\n    rotate 7\\n\", with: \"    weekly\\n    rotate 4\\n\"}] expect: 1",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/logrotate.d/orders')\nt = p.read_bytes().decode('utf-8')\nold = '    daily\\n    rotate 7\\n'\nassert t.count(old) == 1\np.write_bytes(t.replace(old, '    weekly\\n    rotate 4\\n').encode('utf-8'))\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'etc/logrotate.d/orders'\n$t = [IO.File]::ReadAllText($p)\n$old = '    daily\n    rotate 7\n'\n$new = '    weekly\n    rotate 4\n'\nif (([regex]::Matches($t, [regex]::Escape($old))).Count -ne 1) { throw 'expected one match' }\n[IO.File]::WriteAllText($p, $t.Replace($old, $new))\n",
+  "tags": [
+    "block-replace",
+    "exact-replace"
+  ],
+  "license": "CC-BY-4.0"
+}

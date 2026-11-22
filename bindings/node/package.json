@@ -1,0 +1,74 @@
+{
+  "name": "nurt",
+  "version": "0.1.0",
+  "description": "Command shell and language where every change can be undone",
+  "keywords": [
+    "nurt",
+    "shell",
+    "console",
+    "json-rpc"
+  ],
+  "homepage": "https://nurt.danaco-group.pl",
+  "bugs": {
+    "url": "https://github.com/DanacoOfficial/nurt/issues",
+    "email": "support@danaco-group.pl"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DanacoOfficial/nurt.git",
+    "directory": "bindings/node"
+  },
+  "license": "Apache-2.0",
+  "author": "Danaco Holding Group Sp. z o.o. <support@danaco-group.pl>",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./esm/index.d.mts",
+        "default": "./esm/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "nurt": "bin/nurt.js"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "esm/",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "generate": "node scripts/generate-types.mjs",
+    "build": "node scripts/generate-types.mjs && tsc -p tsconfig.json",
+    "test": "node scripts/run-tests.mjs",
+    "prepack": "node scripts/prepare-pack.mjs"
+  },
+  "optionalDependencies": {
+    "nurt-darwin-arm64": "0.1.0",
+    "nurt-darwin-x64": "0.1.0",
+    "nurt-linux-arm64-gnu": "0.1.0",
+    "nurt-linux-arm64-musl": "0.1.0",
+    "nurt-linux-x64-gnu": "0.1.0",
+    "nurt-linux-x64-musl": "0.1.0",
+    "nurt-win32-arm64": "0.1.0",
+    "nurt-win32-x64": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "18.19.50",
+    "typescript": "5.6.3"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-005",
+  "domain": 6,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Run the unit tests of the project in stats/ (python -m unittest discover -s tests, run inside stats/) and name the failing tests.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "stats/calc/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "stats/calc/ops.py",
+        "type": "file",
+        "content_utf8": "\"\"\"Arithmetic helpers.\"\"\"\n\n\ndef add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a + b\n\n\ndef mul(a, b):\n    return a * b\n\n\ndef quotient(a, b):\n    return a / b\n\n\ndef mean(values):\n    return sum(values) / (len(values) - 1)\n"
+      },
+      {
+        "path": "stats/tests/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "stats/tests/test_ops.py",
+        "type": "file",
+        "content_utf8": "import unittest\n\nfrom calc.ops import add, mean, mul, quotient, sub\n\n\nclass OpsTests(unittest.TestCase):\n    def test_add(self):\n        self.assertEqual(add(2, 3), 5)\n\n    def test_sub(self):\n        self.assertEqual(sub(7, 3), 4)\n\n    def test_mul(self):\n        self.assertEqual(mul(2, 3), 6)\n\n    def test_quotient(self):\n        self.assertEqual(quotient(7, 2), 3.5)\n\n    def test_mean(self):\n        self.assertEqual(mean([2, 4, 6]), 4)\n\n    def test_zero_divisor(self):\n        with self.assertRaises(ZeroDivisionError):\n            quotient(1, 0)\n"
+      }
+    ]
+  },
+  "expect": {
+    "allowed_changes": [
+      "**/__pycache__/**"
+    ],
+    "answer": {
+      "contains": [
+        "test_mean",
+        "test_sub"
+      ],
+      "not_contains": [
+        "test_add",
+        "test_mul",
+        "test_quotient",
+        "test_zero_divisor"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "test.run \"stats\" framework: unittest |> filter status == \"failed\" |> select name",
+  "reference_bash": "cd stats && python3 -m unittest discover -s tests -v 2>&1 | grep -E '\\.\\.\\. (FAIL|ERROR)$'\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nSet-Location stats; & $py -m unittest discover -s tests -v 2>&1 | ForEach-Object { \"$_\" } | Select-String '\\.\\.\\. (FAIL|ERROR)$'\n",
+  "tags": [
+    "python",
+    "tests"
+  ],
+  "license": "CC-BY-4.0"
+}

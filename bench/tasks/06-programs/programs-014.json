@@ -1,0 +1,47 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-014",
+  "domain": 6,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Run tools/summary.py with the arguments stock.csv and region and save its standard output to out/by-region-3.txt (create out/ if needed).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "stock.csv",
+        "type": "file",
+        "content_utf8": "region,product,quantity\nnorth,hinge,4\neast,bolt,75\nsouth,washer,1000\nnorth,nut,50\nnorth,bolt,120\nsouth,nut,300\n"
+      },
+      {
+        "path": "tools/summary.py",
+        "type": "file",
+        "content_utf8": "import csv\nimport sys\n\n\ndef main(path, column):\n    totals = {}\n    with open(path, newline=\"\", encoding=\"utf-8\") as handle:\n        for row in csv.DictReader(handle):\n            totals[row[column]] = totals.get(row[column], 0) + int(row[\"quantity\"])\n    for key in sorted(totals):\n        print(f\"{key} {totals[key]}\")\n\n\nif __name__ == \"__main__\":\n    main(sys.argv[1], sys.argv[2])\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/by-region-3.txt": {
+        "lines": [
+          "east 75",
+          "north 174",
+          "south 1300"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/summary.py\", \"stock.csv\", \"region\"] save_to: \"out/by-region-3.txt\"",
+  "reference_bash": "mkdir -p out && python3 tools/summary.py stock.csv region > out/by-region-3.txt\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nNew-Item -ItemType Directory -Force out | Out-Null\n& $py tools/summary.py stock.csv region | Set-Content out/by-region-3.txt\n",
+  "tags": [
+    "redirect",
+    "run"
+  ],
+  "license": "CC-BY-4.0"
+}

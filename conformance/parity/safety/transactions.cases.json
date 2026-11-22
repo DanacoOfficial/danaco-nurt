@@ -1,0 +1,919 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "parity/safety/transactions/edit-all-or-nothing",
+      "kind": "parity",
+      "summary": "An edit whose second change fails changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "edit \"a.txt\" changes: [{replace: \"alpha\", with: \"A\"}, {replace: \"absent\", with: \"B\"}] on_missing: error",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_NO_MATCH"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/transactions/bulk-is-one-operation",
+      "kind": "parity",
+      "summary": "A change of several files is one operation.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "replace \"a\" \"A\" in: [\".\"] glob: \"**/*.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "targets": {
+            "count": 4
+          }
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "AlphA\nbetA\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "brAvo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "chArlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "deltA\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/transactions/verify-passes",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "A change whose verification passes stays.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"] |> verify (read \"a.txt\" |> assert contains: \"BETA\")",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nBETA\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/transactions/verify-fails-rolls-back",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "A change whose verification fails is rolled back.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"] |> verify (read \"a.txt\" |> assert contains: \"gamma\")",
+      "expect": {
+        "report": {
+          "status": "rolled_back",
+          "error": {
+            "code": "E_ROLLED_BACK"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/transactions/verify-fails-bulk",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "A failed verification rolls back every file of a bulk change.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "replace \"a\" \"A\" in: [\".\"] glob: \"**/*.txt\" |> verify (find \".\" glob: \"**/*.txt\" |> assert empty: true)",
+      "expect": {
+        "report": {
+          "status": "rolled_back"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/transactions/assert-before-holds",
+      "kind": "parity",
+      "summary": "An assertion on the targets before the change holds.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"**/*.txt\" |> assert count: 5 |> filter name == \"b.txt\" |> remove",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/transactions/assert-before-fails",
+      "kind": "parity",
+      "summary": "A failed assertion before the change changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"**/*.txt\" |> assert count: 3 |> remove",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_ASSERT",
+            "stage": "3"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/transactions/assert-paths",
+      "kind": "parity",
+      "summary": "An assertion on the number of files of a search holds before a replacement.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "search \"a\" \".\" glob: \"**/*.txt\" |> assert paths: 4 |> replace \"A\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "AlphA\nbetA\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "brAvo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "chArlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "deltA\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/transactions/assert-paths-fails",
+      "kind": "parity",
+      "summary": "A wrong expected number of files changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "search \"a\" \".\" glob: \"**/*.txt\" |> assert paths: 1 |> replace \"A\"",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_ASSERT"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/transactions/assert-empty",
+      "kind": "parity",
+      "summary": "An assertion that nothing matched holds.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"**/*.tmp\" |> assert empty: true",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/safety/transactions/assert-after-effect",
+      "kind": "parity",
+      "summary": "An assertion after the effect keeps the effect and reports the error.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "remove \"b.txt\" |> assert count: 5",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "error": {
+            "code": "E_ASSERT",
+            "stage": "5a"
+          }
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/transactions/replace-expect-range",
+      "kind": "parity",
+      "summary": "A replacement with an expected range of replacements applies.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "replace \"a\" \"A\" in: [\"a.txt\"] expect: 1..5",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "AlphA\nbetA\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/transactions/stale-read",
+      "kind": "parity",
+      "summary": "A file changed between the read and the change is not changed again.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "read \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"external\\n\" mode: overwrite",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "replace \"alpha\" \"A\" in: [\"a.txt\"] if_match: \"${step1/report/records/rows/0/fields/etag/v}\"",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_STALE"
+              }
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "external\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/transactions/one-effect",
+      "kind": "parity",
+      "summary": "Two changing stages in one program change nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "remove \"a.txt\" |> remove",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_ONE_EFFECT"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    }
+  ]
+}

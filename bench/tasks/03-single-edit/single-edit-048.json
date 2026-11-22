@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-048",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Set API_TIMEOUT to 45 in config/.env.local. Do not touch other variables, including those whose names start with API_TIMEOUT.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "config/.env.local",
+        "type": "file",
+        "content_utf8": "API_URL=https://api.example.com\nAPI_TIMEOUT=30\nAPI_RETRIES=3\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "config/.env.local": {
+        "text": "API_URL=https://api.example.com\nAPI_TIMEOUT=45\nAPI_RETRIES=3\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "set \"config/.env.local\" key: \"API_TIMEOUT\" value: \"45\" format: env",
+  "reference_bash": "sed -i 's/^API_TIMEOUT=.*/API_TIMEOUT=45/' config/.env.local\n",
+  "tags": [
+    "env",
+    "key-value"
+  ],
+  "license": "CC-BY-4.0"
+}

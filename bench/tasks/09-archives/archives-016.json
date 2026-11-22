@@ -1,0 +1,50 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-016",
+  "domain": 9,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Which .sql files does the archive archives/backup-5.tar.gz contain? List their paths inside the archive without extracting it.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "archives/README.txt",
+        "type": "file",
+        "content_utf8": "Nightly backups\n"
+      },
+      {
+        "path": "archives/backup-5.tar.gz",
+        "type": "file",
+        "content_base64": "H4sIAAAAAAAC/+3YPQ7CMAyG4cycohdw66ROmDhMf2Dhz1AqcXxaNmBFVqR872Ipk6XokaL03XCctRn7ZpzPSlxPt5P7c7yURN5z6Xsy++B8DFFCG9N67r1EcRU7g+bp0d2XVVyZEVXrxVe8cajA+k//Phv/Ef4t/Xv4h3+lkI3/BP+W/gP8w79Sm43/Lfxb+m/hH/6VJBf/ieHf0r/AP/wrxWz8e/i39B/hv2T/+8fQdKr1cL0cnLl/lh//gve/Sc8dfv4QQgghhBBCqIRe1rQdVgAoAAA="
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "backup/db/dump-0.sql",
+        "backup/db/dump-1.sql",
+        "backup/db/dump-2.sql",
+        "backup/db/dump-3.sql",
+        "backup/db/dump-4.sql",
+        "backup/db/dump-5.sql"
+      ],
+      "not_contains": [
+        "app.conf"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "archive.list \"archives/backup-5.tar.gz\" glob: \"**/*.sql\"",
+  "reference_pwsh": "tar -tzf archives/backup-5.tar.gz | Where-Object { $_ -like '*.sql' }\n",
+  "tags": [
+    "archive",
+    "list"
+  ],
+  "license": "CC-BY-4.0"
+}

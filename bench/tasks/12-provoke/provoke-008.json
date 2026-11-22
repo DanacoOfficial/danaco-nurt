@@ -1,0 +1,64 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-008",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Delete the .bak files inside the directory named -archive.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "-archive/a.bak",
+        "type": "file",
+        "content_utf8": "a\n"
+      },
+      {
+        "path": "-archive/b.bak",
+        "type": "file",
+        "content_utf8": "b\n"
+      },
+      {
+        "path": "x.bak",
+        "type": "file",
+        "content_utf8": "root\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "-archive/a.bak": {
+        "absent": true
+      },
+      "-archive/b.bak": {
+        "absent": true
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "x.bak",
+      "change": "delete",
+      "reason": "outside the requested directory"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"-archive\" glob: \"*.bak\" |> remove",
+  "reference_bash": "rm -f -- ./-archive/*.bak\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "cd -archive; rm -f *.bak",
+      "defect": "cd treats the name as an option and the root .bak file is deleted"
+    }
+  ],
+  "provocation": "failed-cd",
+  "tags": [
+    "failed-cd",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

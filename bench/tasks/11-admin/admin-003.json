@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-003",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Create the cron file etc/cron.d/certs in the same format as etc/cron.d/backup (SHELL and PATH lines first) that runs `/usr/local/bin/renew-certs` as root at `0 0 1 * *`.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/cron.d/certs": {
+        "text": "SHELL=/bin/sh\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\n0 0 1 * * root /usr/local/bin/renew-certs\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "etc/cron.d/backup",
+      "change": "any",
+      "reason": "the existing job stays unchanged"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "schedule.create \"certs\" cron: \"0 0 1 * *\" action: (run [\"/usr/local/bin/renew-certs\"])",
+  "reference_bash": "mkdir -p 'etc/cron.d'\nprintf '%s' 'SHELL=/bin/sh\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\n0 0 1 * * root /usr/local/bin/renew-certs\n' > 'etc/cron.d/certs'\n",
+  "tags": [
+    "cron",
+    "schedule"
+  ],
+  "license": "CC-BY-4.0"
+}

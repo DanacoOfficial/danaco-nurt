@@ -1,0 +1,77 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "git-052",
+  "domain": 10,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Apply only the commit 'Fix rounding error 2' from the branch develop to main (the current branch) as a new commit.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "setup": {
+    "description": "A Git repository with a branch develop two commits ahead of main; main is checked out.",
+    "bash": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\nprintf '%s' '# calc-1\n' > 'README.md'\nmkdir -p 'src' && printf '%s' 'print('\\''v1'\\'')\n' > 'src/app.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:00:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:00:00 +0000' git commit -qm 'Initial commit'\nmkdir -p 'src' && printf '%s' 'def helper():\n    return 1\n' > 'src/util.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:01:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:01:00 +0000' git commit -qm 'Add helper module'\ngit switch -qc develop\nmkdir -p 'src' && printf '%s' 'ROUND = 2\n' > 'src/math.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:02:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:02:00 +0000' git commit -qm 'Fix rounding error 2'\nmkdir -p 'src' && printf '%s' 'FLAG = True\n' > 'src/experimental.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:03:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:03:00 +0000' git commit -qm 'Add experimental flag'\ngit switch -q main",
+    "pwsh": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\n[IO.File]::WriteAllText((Join-Path $PWD 'README.md'), '# calc-1\n')\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/app.py'), 'print(''v1'')\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:00:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:00:00 +0000'; git commit -qm 'Initial commit'\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/util.py'), 'def helper():\n    return 1\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:01:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:01:00 +0000'; git commit -qm 'Add helper module'\ngit switch -qc develop\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/math.py'), 'ROUND = 2\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:02:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:02:00 +0000'; git commit -qm 'Fix rounding error 2'\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/experimental.py'), 'FLAG = True\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:03:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:03:00 +0000'; git commit -qm 'Add experimental flag'\ngit switch -q main"
+  },
+  "probes": [
+    {
+      "id": "subjects",
+      "kind": "command",
+      "argv": [
+        "git",
+        "log",
+        "--format=%s"
+      ]
+    },
+    {
+      "id": "branch",
+      "kind": "command",
+      "argv": [
+        "git",
+        "branch",
+        "--show-current"
+      ]
+    }
+  ],
+  "expect": {
+    "files": {
+      "src/math.py": {
+        "text": "ROUND = 2\n"
+      },
+      "src/experimental.py": {
+        "absent": true
+      }
+    },
+    "allowed_changes": [
+      ".git/**"
+    ],
+    "probes": {
+      "subjects": {
+        "stdout": "Fix rounding error 2\nAdd helper module\nInitial commit"
+      },
+      "branch": {
+        "stdout": "main"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "git.log \".\" revision: \"develop\" message: \"Fix rounding error 2\" count: 1 |> git.cherry_pick",
+  "reference_bash": "git cherry-pick $(git log develop --format=%H --grep='Fix rounding error 2' -F -n 1)\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "git merge -q --ff-only develop",
+      "defect": "brings the experimental commit as well"
+    }
+  ],
+  "tags": [
+    "cherry-pick",
+    "git"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,62 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-005",
+  "domain": 3,
+  "split": "public",
+  "platform": "cross",
+  "nl": "In docs/config.md, replace the exact text `The default is `sqlite://orders.db`.` with `The default is `sqlite://data/orders.db`.`. Change nothing else.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "docs/api/customers.md",
+        "type": "file",
+        "content_utf8": "# Customers API\n\n`GET /customers/{id}` returns one customer.\n"
+      },
+      {
+        "path": "docs/api/orders.md",
+        "type": "file",
+        "content_utf8": "# Orders API\n\n`GET /orders` returns all orders.\n`POST /orders/new` creates an order.\nReference: http://example.com/orders/api\n"
+      },
+      {
+        "path": "docs/changelog.md",
+        "type": "file",
+        "content_utf8": "# Changelog\n\n## 2.3.0\n\n- Added the customers API.\n\n## 2.2.0\n\n- Added order export.\n"
+      },
+      {
+        "path": "docs/config.md",
+        "type": "file",
+        "content_utf8": "# Configuration\n\nThe service reads `config.toml` from the working directory.\n\n## Database\n\nSet `database.url`. The default is `sqlite://orders.db`.\n\n## Logging\n\nSet `log.level` to `debug`, `info` or `warn`.\n"
+      },
+      {
+        "path": "docs/index.md",
+        "type": "file",
+        "content_utf8": "# Orders service\n\nSee [installation](install.md) and [configuration](config.md).\nSource code: http://example.com/orders/source\n"
+      },
+      {
+        "path": "docs/install.md",
+        "type": "file",
+        "content_utf8": "# Installation\n\nDownload the release from http://example.com/orders/releases.\nVerify the checksum published at http://example.com/orders/sha256.\n\n## Requirements\n\n- Linux, macOS or Windows\n- 512 MB of memory\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "docs/config.md": {
+        "text": "# Configuration\n\nThe service reads `config.toml` from the working directory.\n\n## Database\n\nSet `database.url`. The default is `sqlite://data/orders.db`.\n\n## Logging\n\nSet `log.level` to `debug`, `info` or `warn`.\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"The default is `sqlite://orders.db`.\" \"The default is `sqlite://data/orders.db`.\" in: [\"docs/config.md\"] mode: literal expect: 1",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('docs/config.md')\nt = p.read_bytes().decode('utf-8')\nold = 'The default is `sqlite://orders.db`.'\nassert t.count(old) == 1\np.write_bytes(t.replace(old, 'The default is `sqlite://data/orders.db`.').encode('utf-8'))\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'docs/config.md'\n$t = [IO.File]::ReadAllText($p)\n$old = 'The default is `sqlite://orders.db`.'\n$new = 'The default is `sqlite://data/orders.db`.'\nif (([regex]::Matches($t, [regex]::Escape($old))).Count -ne 1) { throw 'expected one match' }\n[IO.File]::WriteAllText($p, $t.Replace($old, $new))\n",
+  "tags": [
+    "exact-replace"
+  ],
+  "license": "CC-BY-4.0"
+}

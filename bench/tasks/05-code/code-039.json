@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-039",
+  "domain": 5,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Remove the unused import from tools/stats.py. The other imports are used and stay.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/stats.py",
+        "type": "file",
+        "content_utf8": "import json\nimport math\nimport statistics\n\n\ndef mean(values):\n    return statistics.mean(values)\n\n\ndef dump(values):\n    return json.dumps(values)\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "tools/stats.py": {
+        "text": "import json\nimport statistics\n\n\ndef mean(values):\n    return statistics.mean(values)\n\n\ndef dump(values):\n    return json.dumps(values)\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.actions \"tools/stats.py\" |> filter kind == \"remove_unused_import\" |> apply",
+  "reference_bash": "python3 - <<'EOF'\nimport os, pathlib\np = pathlib.Path('tools/stats.py'); t = p.read_bytes().decode()\nassert t.count('import math\\n') == 1, 'tools/stats.py'\np.write_bytes(t.replace('import math\\n', '').encode())\nEOF\n",
+  "tags": [
+    "imports",
+    "python"
+  ],
+  "license": "CC-BY-4.0"
+}

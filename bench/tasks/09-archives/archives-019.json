@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-019",
+  "domain": 9,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Extract only the member release/config/default.toml from release.tar.gz and store it as restored/default.toml. Extract nothing else (archive 3).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "release.tar.gz",
+        "type": "file",
+        "content_base64": "H4sIAAAAAAAC/+3XsW6DMBSFYc88haPuYDtApg5Vw1Ap7ZA+gQs3CZKLJXwT5fFL0k50aIfGQ32+xRILlsxv7JEc2UDF5umxeXltcj6z+GtqUpfldZzMR6V0JXRlqtIsq/ryXGtTVkIqEcExsB2nqYg0bfqWhkCS6cyZgNSMX/1vm4f1823y/0X/9bx/bTT6j2H7uf5y8EwBG0Cy/b/1Q8Heu1u848f+TTnvX60M+o/hbnFd+nDIqD14efkEsAsk2H/rh12/Lzra2aPjnP27i9e/NrP+l0bh/B+FoxM5eS81qk+6/86yLQKxydtwiv3/V9/u/6vpSID+I+i7zCB9AAAAAAAAAAAAgP/nA37gbN8AKAAA"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "restored/default.toml": {
+        "text": "level = 1\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "archive.extract \"release.tar.gz\" into: \"restored\" only: [\"release/config/default.toml\"] strip_components: 2",
+  "reference_bash": "mkdir -p restored && tar -xzf release.tar.gz -C restored --strip-components=2 release/config/default.toml\n",
+  "reference_pwsh": "New-Item -ItemType Directory -Force restored | Out-Null\ntar -xzf release.tar.gz -C restored --strip-components 2 release/config/default.toml\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "tar -xzf release.tar.gz",
+      "defect": "extracts the whole archive into the root"
+    }
+  ],
+  "tags": [
+    "extract",
+    "tar"
+  ],
+  "license": "CC-BY-4.0"
+}

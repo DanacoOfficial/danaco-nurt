@@ -1,0 +1,12 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-bench-model/1"
+id = "gpt"
+provider = "openai"
+model = "gpt-5"
+producer = "OpenAI"
+weights = "closed"
+api_key_env = "OPENAI_API_KEY"
+temperature = 0.0
+max_output_tokens = 4096

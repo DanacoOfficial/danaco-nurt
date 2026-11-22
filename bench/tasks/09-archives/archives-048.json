@@ -1,0 +1,63 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-048",
+  "domain": 9,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Which files under texts/ (recursively) are not valid UTF-8? List their names.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "texts/a.txt",
+        "type": "file",
+        "content_utf8": "plain ascii\n"
+      },
+      {
+        "path": "texts/b.txt",
+        "type": "file",
+        "content_utf8": "\u0141\u00f3d\u017a\n"
+      },
+      {
+        "path": "texts/d.txt",
+        "type": "file",
+        "content_utf8": "\ufeffbom file\n"
+      },
+      {
+        "path": "texts/legacy-0.txt",
+        "type": "file",
+        "content_base64": "o/NknyCveXdpZWMsIEJls2NoYXTzdywgQ3rqc3RvY2hvd2EsIIx3aep0b2Nos293aWNlCg=="
+      },
+      {
+        "path": "texts/sub/c.txt",
+        "type": "file",
+        "content_base64": "r3l3aWVjLCBCZbNjaGF083csIEN66nN0b2Nob3dhLCCmd2nqdG9jaLNvd2ljZQo="
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "legacy-0.txt",
+        "c.txt"
+      ],
+      "not_contains": [
+        "a.txt",
+        "b.txt",
+        "d.txt"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"texts\" type: file |> info details: true |> filter encoding not in [\"utf-8\", \"ascii\"]",
+  "reference_bash": "find texts -type f | while IFS= read -r f; do iconv -f UTF-8 -t UTF-8 \"$f\" > /dev/null 2>&1 || echo \"$f\"; done\n",
+  "tags": [
+    "detect",
+    "encoding"
+  ],
+  "license": "CC-BY-4.0"
+}

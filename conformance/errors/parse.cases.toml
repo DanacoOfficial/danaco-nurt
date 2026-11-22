@@ -1,0 +1,97 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "errors/parse/lexical-unterminated-text"
+kind = "error"
+code = "E_LEXICAL"
+summary = "An unterminated text is a lexical error and changes nothing."
+program = 'find "src'
+expect = { report = { status = "failed", error = { code = "E_LEXICAL", at = { stage = "0" } } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/parse/escape-unknown-sequence"
+kind = "error"
+code = "E_ESCAPE"
+summary = "An unknown escape sequence in a text is an escape error."
+program = 'find "src\q"'
+expect = { report = { status = "failed", error = { code = "E_ESCAPE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/parse/syntax-unclosed-list"
+kind = "error"
+code = "E_SYNTAX"
+summary = "An unclosed list is a syntax error with a position."
+program = 'find "src" glob: ["*.go"'
+expect = { report = { status = "failed", error = { code = "E_SYNTAX", at = { stage = "0" } } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/parse/ambiguous-correction-of-change"
+kind = "error"
+code = "E_AMBIGUOUS"
+summary = "A correction of the command name of a changing program is offered as candidates, not applied."
+program = 'rmove "old.log"'
+fs_before = { entries = [{ path = "old.log", type = "file", content_utf8 = "x" }] }
+expect = { report = { status = "failed", error = { code = "E_AMBIGUOUS" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/parse/uncorrectable-shell-pipeline"
+kind = "error"
+code = "E_UNCORRECTABLE"
+summary = "A shell pipeline with flags cannot be corrected and is answered with a way forward."
+program = 'find . -name "*.tmp" | xargs rm'
+expect = { report = { status = "failed", error = { code = "E_UNCORRECTABLE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/parse/expired-candidate"
+kind = "error"
+code = "E_EXPIRED_CANDIDATE"
+summary = "Accepting an unknown correction candidate asks for the program again."
+params = { nurt = "1.0", accept = "candidate-unknown-0000" }
+expect = { report = { status = "failed", error = { code = "E_EXPIRED_CANDIDATE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/parse/ast-newer-minor-version"
+kind = "error"
+code = "E_AST_VERSION"
+summary = "A syntax tree of a newer minor version is rejected."
+expect = { report = { status = "failed", error = { code = "E_AST_VERSION" } } }
+fs_after = "unchanged"
+
+[case.params]
+nurt = "1.0"
+
+[case.params.ast]
+nurt = "1.99"
+
+[[case.params.ast.program.statements]]
+t = "pipeline"
+stages = []
+head = { t = "stage", name = "count", args = [] }
+
+[[case]]
+id = "errors/parse/ast-schema-empty-program"
+kind = "error"
+code = "E_AST_SCHEMA"
+summary = "A syntax tree without statements does not conform to its schema."
+params = { nurt = "1.0", ast = { nurt = "1.0", program = { statements = [] } } }
+expect = { report = { status = "failed", error = { code = "E_AST_SCHEMA" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/parse/config-unknown-key"
+kind = "error"
+code = "E_CONFIG"
+summary = "An unknown key of the configuration file is reported with its location."
+config = "invalid-config.toml"
+program = 'find "."'
+expect = { report = { status = "failed", error = { code = "E_CONFIG" } } }
+fs_after = "unchanged"

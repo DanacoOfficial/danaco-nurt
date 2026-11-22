@@ -1,0 +1,296 @@
+{
+  "format": "nurt-binding-cases/1",
+  "cases": [
+    {
+      "id": "run.read-ok",
+      "summary": "A reading program returns a response whose ok is true and whose report has the status ok.",
+      "fs": [
+        { "path": "src/a.go", "type": "file", "content_utf8": "package a\n" },
+        { "path": "src/b.go", "type": "file", "content_utf8": "package b\n" }
+      ],
+      "steps": [
+        {
+          "call": "run",
+          "args": { "program": "find \"src\" glob: \"*.go\"", "options": { "base": "${base}" } },
+          "expect": {
+            "outcome": "ok",
+            "fields": { "/ok": true, "/report/status": "ok", "/report/kind": "find" },
+            "present": ["/report/ast_hash"],
+            "absent": ["/error"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "run.rendered-text",
+      "summary": "The option format text adds the rendered text to the response.",
+      "steps": [
+        {
+          "call": "run",
+          "args": { "program": "help \"find\"", "options": { "format": "text" } },
+          "expect": { "outcome": "ok", "fields": { "/ok": true }, "present": ["/text"] }
+        }
+      ]
+    },
+    {
+      "id": "run.language-error-is-a-response",
+      "summary": "A syntax error is returned as a response with ok false, not raised.",
+      "steps": [
+        {
+          "call": "run",
+          "args": { "program": "find \"bindings\" glob: [\"*.go\"" },
+          "expect": {
+            "outcome": "language_error",
+            "code": "E_SYNTAX",
+            "fields": { "/ok": false, "/report/status": "failed", "/error/code": "E_SYNTAX" },
+            "present": ["/error/message", "/error/at"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "run.raise-on-error",
+      "summary": "With raise_on_error a language error is raised as the language error exception.",
+      "steps": [
+        {
+          "call": "run",
+          "args": { "program": "zzqx \"bindings\"", "raise_on_error": true },
+          "expect": { "outcome": "language_error", "code": "E_UNKNOWN_COMMAND" }
+        }
+      ]
+    },
+    {
+      "id": "run.call-error-without-input",
+      "summary": "A request without program, tree, cursor or candidate is a call error with the status NURT_E_ARG.",
+      "steps": [
+        {
+          "call": "run",
+          "args": { "options": { "limit": 1 } },
+          "expect": { "outcome": "call_error", "status": "NURT_E_ARG" }
+        }
+      ]
+    },
+    {
+      "id": "run.page-with-cursor",
+      "summary": "A cursor of a first page returns the next page through page.",
+      "steps": [
+        {
+          "call": "run",
+          "args": { "program": "list \"/home/user\" depth: 1", "options": { "limit": 1 } },
+          "expect": {
+            "outcome": "ok",
+            "fields": { "/ok": true, "/next_cursor": "c-bindings-1" }
+          }
+        },
+        {
+          "call": "page",
+          "args": { "cursor": "${step1/next_cursor}", "limit": 1 },
+          "expect": { "outcome": "ok", "fields": { "/ok": true, "/report/status": "ok" } }
+        }
+      ]
+    },
+    {
+      "id": "start.wait",
+      "summary": "A started execution is waited for and returns the response.",
+      "steps": [
+        { "call": "start", "args": { "program": "sleep 10ms" }, "expect": { "outcome": "ok" } },
+        {
+          "call": "wait",
+          "execution": 1,
+          "args": { "timeout_ms": 10000 },
+          "expect": { "outcome": "ok", "fields": { "/ok": true, "/report/status": "ok" } }
+        }
+      ]
+    },
+    {
+      "id": "start.events",
+      "summary": "The events of an execution start with exec.started and end with exec.finished.",
+      "steps": [
+        { "call": "start", "args": { "program": "sleep 20ms" }, "expect": { "outcome": "ok" } },
+        {
+          "call": "wait",
+          "execution": 1,
+          "args": { "timeout_ms": 10000 },
+          "expect": { "outcome": "ok", "fields": { "/ok": true } }
+        },
+        {
+          "call": "events",
+          "execution": 1,
+          "expect": {
+            "outcome": "ok",
+            "fields": { "/value/0/t": "exec.started", "/value/1/t": "exec.finished" },
+            "present": ["/value/0/seq", "/value/0/time"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "start.cancel",
+      "summary": "A cancelled execution ends with the error E_CANCELLED in its response.",
+      "steps": [
+        { "call": "start", "args": { "program": "sleep 60s" }, "expect": { "outcome": "ok" } },
+        { "call": "cancel", "execution": 1, "expect": { "outcome": "ok" } },
+        {
+          "call": "wait",
+          "execution": 1,
+          "args": { "timeout_ms": 10000 },
+          "expect": {
+            "outcome": "language_error",
+            "code": "E_CANCELLED",
+            "fields": { "/ok": false, "/report/status": "failed" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "check.bound-tree",
+      "summary": "Check returns the bound tree without executing the program.",
+      "steps": [
+        {
+          "call": "check",
+          "args": { "program": "find \"bindings\" glob: \"*.go\"" },
+          "expect": {
+            "outcome": "ok",
+            "fields": { "/value/bound/bound": "1.0" },
+            "present": ["/value/bound/program", "/value/ast_hash"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "parse.surface-tree",
+      "summary": "Parse returns the surface tree of the program.",
+      "steps": [
+        {
+          "call": "parse",
+          "args": { "program": "find \"bindings\"" },
+          "expect": {
+            "outcome": "ok",
+            "fields": { "/value/ast/nurt": "1.0", "/value/ast/program/statements/0/t": "pipeline" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "parse.variant-b",
+      "summary": "Parse accepts the variant b.",
+      "steps": [
+        {
+          "call": "parse",
+          "args": { "program": "find(\"bindings\")", "variant": "b" },
+          "expect": { "outcome": "ok", "fields": { "/value/ast/nurt": "1.0" } }
+        }
+      ]
+    },
+    {
+      "id": "parse.language-error",
+      "summary": "Parse of an unterminated text returns the lexical error.",
+      "steps": [
+        {
+          "call": "parse",
+          "args": { "program": "find \"bindings" },
+          "expect": { "outcome": "language_error", "code": "E_LEXICAL" }
+        }
+      ]
+    },
+    {
+      "id": "print.canonical-text",
+      "summary": "Print returns the canonical text of a tree.",
+      "steps": [
+        {
+          "call": "print",
+          "args": {
+            "ast": {
+              "nurt": "1.0",
+              "program": {
+                "statements": [
+                  {
+                    "t": "pipeline",
+                    "head": { "t": "stage", "name": "count", "args": [] },
+                    "stages": []
+                  }
+                ]
+              }
+            }
+          },
+          "expect": { "outcome": "ok", "fields": { "/value": "count" } }
+        }
+      ]
+    },
+    {
+      "id": "correct.quotes",
+      "summary": "Correct writes single quotes as double quotes.",
+      "steps": [
+        {
+          "call": "correct",
+          "args": { "program": "find 'bindings'" },
+          "expect": { "outcome": "ok", "fields": { "/value/program": "find \"bindings\"" } }
+        }
+      ]
+    },
+    {
+      "id": "describe.core",
+      "summary": "Describe of the core layer returns text.",
+      "steps": [
+        { "call": "describe", "args": { "layer": "core" }, "expect": { "outcome": "ok", "present": ["/value"] } }
+      ]
+    },
+    {
+      "id": "help.topic",
+      "summary": "Help of a command returns text.",
+      "steps": [
+        { "call": "help", "args": { "topic": "find" }, "expect": { "outcome": "ok", "present": ["/value"] } }
+      ]
+    },
+    {
+      "id": "catalog.revision",
+      "summary": "The catalog names its revision.",
+      "steps": [
+        { "call": "catalog", "expect": { "outcome": "ok", "present": ["/value/catalog_rev"] } }
+      ]
+    },
+    {
+      "id": "schema.report",
+      "summary": "Schema returns the published schema of the report.",
+      "steps": [
+        {
+          "call": "schema",
+          "args": { "which": "report" },
+          "expect": { "outcome": "ok", "fields": { "/value/title": "nurt-report/1" } }
+        }
+      ]
+    },
+    {
+      "id": "history.entries",
+      "summary": "History returns the journal entries.",
+      "steps": [
+        { "call": "history", "args": { "query": "last 5" }, "expect": { "outcome": "ok", "present": ["/value/entries"] } }
+      ]
+    },
+    {
+      "id": "space.volumes",
+      "summary": "Space returns the state of the journal volumes.",
+      "steps": [
+        { "call": "space", "expect": { "outcome": "ok", "present": ["/value/volumes"] } }
+      ]
+    },
+    {
+      "id": "info.versions",
+      "summary": "Info names the version, the language and the features.",
+      "steps": [
+        {
+          "call": "info",
+          "expect": { "outcome": "ok", "present": ["/value/version", "/value/language", "/value/features"] }
+        }
+      ]
+    },
+    {
+      "id": "close.then-call-error",
+      "summary": "A call after close is a call error.",
+      "steps": [
+        { "call": "close", "expect": { "outcome": "ok" } },
+        { "call": "info", "expect": { "outcome": "call_error", "status": "NURT_E_ARG" } }
+      ]
+    }
+  ]
+}

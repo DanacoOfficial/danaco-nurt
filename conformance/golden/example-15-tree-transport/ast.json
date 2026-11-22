@@ -1,0 +1,70 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "C:/proj",
+                "span": [
+                  1,
+                  6,
+                  1,
+                  15
+                ]
+              },
+              "span": [
+                1,
+                6,
+                1,
+                15
+              ]
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "text",
+                "v": "*.go",
+                "span": [
+                  1,
+                  22,
+                  1,
+                  28
+                ]
+              },
+              "span": [
+                1,
+                16,
+                1,
+                28
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            28
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          28
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "variant": "a",
+    "source": "find \"C:/proj\" glob: \"*.go\""
+  }
+}

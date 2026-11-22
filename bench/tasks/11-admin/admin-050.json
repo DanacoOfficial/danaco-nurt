@@ -1,0 +1,67 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-050",
+  "domain": 11,
+  "split": "public",
+  "platform": "windows",
+  "nl": "In the registry key HKCU\\Software\\NurtBench\\Viewer5, set the DWORD value Level to 7 and add the string value Mode with the data fast.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "setup": {
+    "description": "The registry key HKEY_CURRENT_USER\\Software\\NurtBench\\Viewer5 exists with the values Level, Theme.",
+    "pwsh": "New-Item -Path 'HKCU:\\Software\\NurtBench\\Viewer5' -Force | Out-Null\nNew-ItemProperty -Path 'HKCU:\\Software\\NurtBench\\Viewer5' -Name 'Level' -PropertyType DWord -Value 1 -Force | Out-Null\nNew-ItemProperty -Path 'HKCU:\\Software\\NurtBench\\Viewer5' -Name 'Theme' -PropertyType String -Value 'dark' -Force | Out-Null"
+  },
+  "teardown": {
+    "pwsh": "Remove-Item -Path 'HKCU:\\Software\\NurtBench\\Viewer5' -Recurse -Force -ErrorAction SilentlyContinue"
+  },
+  "probes": [
+    {
+      "id": "level",
+      "kind": "registry",
+      "key": "HKEY_CURRENT_USER\\Software\\NurtBench\\Viewer5",
+      "value": "Level"
+    },
+    {
+      "id": "mode",
+      "kind": "registry",
+      "key": "HKEY_CURRENT_USER\\Software\\NurtBench\\Viewer5",
+      "value": "Mode"
+    },
+    {
+      "id": "theme",
+      "kind": "registry",
+      "key": "HKEY_CURRENT_USER\\Software\\NurtBench\\Viewer5",
+      "value": "Theme"
+    }
+  ],
+  "expect": {
+    "probes": {
+      "level": {
+        "exists": true,
+        "data": 7
+      },
+      "mode": {
+        "exists": true,
+        "data": "fast"
+      },
+      "theme": {
+        "exists": true,
+        "data": "dark"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \"registry:/HKCU/Software/NurtBench/Viewer5/Level\" 7 value_type: dword mode: overwrite\nwrite \"registry:/HKCU/Software/NurtBench/Viewer5/Mode\" \"fast\" value_type: string mode: create",
+  "reference_pwsh": "Set-ItemProperty -Path 'HKCU:\\Software\\NurtBench\\Viewer5' -Name Level -Value 7 -Type DWord\nNew-ItemProperty -Path 'HKCU:\\Software\\NurtBench\\Viewer5' -Name Mode -PropertyType String -Value 'fast' | Out-Null\n",
+  "tags": [
+    "registry",
+    "windows"
+  ],
+  "license": "CC-BY-4.0"
+}

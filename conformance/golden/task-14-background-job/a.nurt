@@ -1,0 +1,1 @@
+run ["npm", "run", "build"] cwd: "/srv/app" background: true

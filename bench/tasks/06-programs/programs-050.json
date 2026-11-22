@@ -1,0 +1,39 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-050",
+  "domain": 6,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Run scripts/Build-Info.ps1 with the parameter -Label set to 'eleven'.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "scripts/Build-Info.ps1",
+        "type": "file",
+        "content_utf8": "param([string]$Label)\r\nNew-Item -ItemType Directory -Force out | Out-Null\r\nSet-Content out/build-info.txt \"build $Label\"\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/build-info.txt": {
+        "lines": [
+          "build eleven"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"pwsh\", \"-File\", \"scripts/Build-Info.ps1\", \"-Label\", \"eleven\"] cwd: \".\"",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n& ./scripts/Build-Info.ps1 -Label eleven\n",
+  "tags": [
+    "run",
+    "scripts"
+  ],
+  "license": "CC-BY-4.0"
+}

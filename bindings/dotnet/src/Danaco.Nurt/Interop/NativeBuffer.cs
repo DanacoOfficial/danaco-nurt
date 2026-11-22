@@ -1,0 +1,22 @@
+using System.Runtime.InteropServices;
+using System.Text.Json;
+
+namespace Danaco.Nurt;
+
+/// <summary>
+/// Layout of <c>nurt_buf</c>. <see cref="Pointer"/> is null exactly when <see cref="Length"/>
+/// is zero; a zero byte follows the last byte; <see cref="Capacity"/> belongs to the library.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct NativeBuffer
+{
+    public byte* Pointer;
+    public nuint Length;
+    public nuint Capacity;
+
+    public readonly bool IsEmpty => Length == 0;
+
+    public readonly string ReadString() => Utf8.FromNative(Pointer, Length);
+
+    public readonly JsonElement? ReadJson(string what) => IsEmpty ? null : JsonRead.Parse(ReadString(), what);
+}

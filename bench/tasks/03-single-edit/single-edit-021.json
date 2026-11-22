@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-021",
+  "domain": 3,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Remove the line for /opt/old-backup from crontab.txt. Keep all other lines in their order.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "crontab.txt",
+        "type": "file",
+        "content_utf8": "# m h dom mon dow command\n0 * * * * /opt/a\n#0 3 * * * /opt/old-backup\n15 4 * * * /opt/b\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "crontab.txt": {
+        "text": "# m h dom mon dow command\n0 * * * * /opt/a\n15 4 * * * /opt/b\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"crontab.txt\" |> filter text ~ \"/opt/old-backup\" |> remove",
+  "reference_bash": "sed -i '/\\/opt\\/old-backup/d' crontab.txt\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'crontab.txt'; $t = [IO.File]::ReadAllText($p); $eol = if ($t.Contains(\"`r`n\")) { \"`r`n\" } else { \"`n\" }; $l = [IO.File]::ReadAllLines($p) | Where-Object { -not $_.Contains('/opt/old-backup') }; [IO.File]::WriteAllText($p, ($l -join $eol) + $eol)\n",
+  "tags": [
+    "delete-lines"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,42 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-009",
+  "domain": 7,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Run tools/job.py once for each of the names n1, n2, n3, n4, all at the same time in the background. When all have finished, write their output lines sorted to summary-3.txt. Leave no other files behind.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/job.py",
+        "type": "file",
+        "content_utf8": "import sys\nimport time\n\ntime.sleep(0.3)\nprint(f\"{sys.argv[1]} done\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "summary-3.txt": {
+        "lines": [
+          "n1 done",
+          "n2 done",
+          "n3 done",
+          "n4 done"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/job.py\", \"n1\"] background: true label: \"n1\"\nrun [\"python3\", \"tools/job.py\", \"n2\"] background: true label: \"n2\"\nrun [\"python3\", \"tools/job.py\", \"n3\"] background: true label: \"n3\"\nrun [\"python3\", \"tools/job.py\", \"n4\"] background: true label: \"n4\"\njobs wait: 60s |> select stdout |> sort text |> write \"summary-3.txt\"",
+  "reference_bash": "mkdir -p out\npython3 tools/job.py n1 > out/n1.txt &\npython3 tools/job.py n2 > out/n2.txt &\npython3 tools/job.py n3 > out/n3.txt &\npython3 tools/job.py n4 > out/n4.txt &\nwait\nsort out/*.txt > summary-3.txt\nrm -r out\n",
+  "tags": [
+    "background",
+    "parallel"
+  ],
+  "license": "CC-BY-4.0"
+}

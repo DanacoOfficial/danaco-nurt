@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-040",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "How many files with the extension .ts does the tree contain? Answer with the number.",
+  "fs_before": {
+    "fixture": "ts-webapp"
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\d.])2(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \".\" glob: \"**/*.ts\" type: file |> count",
+  "reference_bash": "find . -type f -name '*.ts' | wc -l\n",
+  "tags": [
+    "count",
+    "find"
+  ],
+  "license": "CC-BY-4.0"
+}

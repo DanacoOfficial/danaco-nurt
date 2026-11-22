@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-057",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Move the step `lint` to the top of the list in steps.txt. The result must be: lint, build, test, deploy.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "steps.txt",
+        "type": "file",
+        "content_utf8": "build\ntest\ndeploy\nlint\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "steps.txt": {
+        "text": "lint\nbuild\ntest\ndeploy\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"steps.txt\" changes: [{move_line: 4, to: 1}]",
+  "reference_bash": "printf '%s\\n' 'lint' 'build' 'test' 'deploy' > steps.txt\n",
+  "tags": [
+    "reorder"
+  ],
+  "license": "CC-BY-4.0"
+}

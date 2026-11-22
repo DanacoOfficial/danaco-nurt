@@ -1,0 +1,54 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-058",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "tools/legacy.py cp852 '<text>' prints text in the legacy code page 852 (DOS Latin 2) encoding. Run tools/legacy.py with the arguments cp852 and the text from message-2.txt, and save its output as UTF-8 to report-2.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "message-2.txt",
+        "type": "file",
+        "content_utf8": "Client: Krak\u00f3w\r\nState: done\r\n"
+      },
+      {
+        "path": "tools/legacy.py",
+        "type": "file",
+        "content_utf8": "import sys\n\ntext = sys.argv[2]\nsys.stdout.buffer.write(text.encode(sys.argv[1]))\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "report-2.txt": {
+        "contains": [
+          "Client: Krak\u00f3w",
+          "State: done"
+        ],
+        "encoding": "utf-8"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/legacy.py\", \"cp852\", (read \"message-2.txt\")] output_encoding: \"cp852\" save_to: \"report-2.txt\"",
+  "reference_bash": "python3 tools/legacy.py cp852 \"$(cat message-2.txt)\" | iconv -f CP852 -t UTF-8 > report-2.txt\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "python3 tools/legacy.py cp852 \"$(cat message-2.txt)\" > report-2.txt",
+      "defect": "stores the legacy bytes unconverted"
+    }
+  ],
+  "provocation": "console-encoding",
+  "tags": [
+    "console-encoding",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

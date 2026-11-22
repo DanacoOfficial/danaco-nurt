@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-009",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Add After=network.target to the [Unit] section of etc/systemd/system/reports.service, after the Description line.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/systemd/system/reports.service": {
+        "text": "[Unit]\nDescription=Report generator\nAfter=network.target\n\n[Service]\nType=oneshot\nExecStart=/opt/reports/bin/generate\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/systemd/system/reports.service\" changes: [{replace: \"Description=Report generator\\n\", with: \"Description=Report generator\\nAfter=network.target\\n\"}]",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/systemd/system/reports.service'); t = p.read_text()\nassert t.count('Description=Report generator\\n') == 1\np.write_text(t.replace('Description=Report generator\\n', 'Description=Report generator\\nAfter=network.target\\n'))\nEOF\n",
+  "tags": [
+    "service",
+    "systemd"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,3426 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "parity/files/search/literal",
+      "kind": "parity",
+      "summary": "Finds a text in every file under a directory.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \".\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/.hidden/x.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO hidden"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs/readme.md"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "TODO docs"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 4
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO: rename oldName"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.txt"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 2
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "TODO later"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/vendor/v.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO vendored"
+                  }
+                }
+              }
+            ],
+            "matched": 5
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/literal-in-subdirectory",
+      "kind": "parity",
+      "summary": "Searches one subdirectory.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \"src\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 4
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO: rename oldName"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.txt"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 2
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "TODO later"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/regex",
+      "kind": "parity",
+      "summary": "Finds a regular expression.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search /old[A-Z]\\w+/ \"src\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "oldName"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "func oldName() {}"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 4
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "oldName"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO: rename oldName"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/b.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "oldName"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "func use() { oldName() }"
+                  }
+                }
+              }
+            ],
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/regex-anchored",
+      "kind": "parity",
+      "summary": "Finds lines that start with a pattern.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search /^package/ \"src\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "package"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "package a"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/b.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "package"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "package b"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/deep/d.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "package"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "package deep"
+                  }
+                }
+              }
+            ],
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/case-insensitive",
+      "kind": "parity",
+      "summary": "Finds a text without letter case.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"todo\" \"src\" case_sensitive: false",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 4
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO: rename oldName"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.txt"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "todo"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "todo list"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.txt"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 2
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "TODO later"
+                  }
+                }
+              }
+            ],
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/case-sensitive-default",
+      "kind": "parity",
+      "summary": "Letter case matters by default.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"todo\" \"src\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.txt"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "todo"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "todo list"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/whole-word",
+      "kind": "parity",
+      "summary": "Finds whole words only.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"old\" \"src\" whole_word: true case_sensitive: false",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/deep/d.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "Old"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "var Old = 1"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/glob",
+      "kind": "parity",
+      "summary": "Limits the search to files matching a glob.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \".\" glob: \"**/*.go\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/.hidden/x.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO hidden"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 4
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO: rename oldName"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/vendor/v.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO vendored"
+                  }
+                }
+              }
+            ],
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/glob-list",
+      "kind": "parity",
+      "summary": "Limits the search to files matching any glob of a list.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \".\" glob: [\"**/*.md\", \"**/*.txt\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs/readme.md"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "TODO docs"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.txt"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 2
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "TODO later"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/without-hidden",
+      "kind": "parity",
+      "summary": "Skips hidden directories when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \".\" hidden: false",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs/readme.md"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "TODO docs"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 4
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO: rename oldName"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.txt"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 2
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "TODO later"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/vendor/v.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO vendored"
+                  }
+                }
+              }
+            ],
+            "matched": 4
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/exclude",
+      "kind": "parity",
+      "summary": "Skips files matching an exclusion.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \".\" exclude: [\"vendor/**\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/.hidden/x.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO hidden"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs/readme.md"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "TODO docs"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 4
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO: rename oldName"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.txt"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 2
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "TODO later"
+                  }
+                }
+              }
+            ],
+            "matched": 4
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/no-match",
+      "kind": "parity",
+      "summary": "A search without matches returns no records and succeeds.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"absent-text\" \".\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [],
+            "matched": 0
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/several-files-as-path",
+      "kind": "parity",
+      "summary": "Searches a list of files.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"package\" [\"src/a.go\", \"src/b.go\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "package"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "package a"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/b.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "package"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "package b"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/pattern-list",
+      "kind": "parity",
+      "summary": "Finds any pattern of a list.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search [\"TODO\", \"package\"] \"src/a.go\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "package"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "package a"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 4
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO: rename oldName"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/special-characters-as-text",
+      "kind": "parity",
+      "summary": "A text pattern with regular expression characters is matched literally.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"oldName()\" \"src\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "oldName()"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "func oldName() {}"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/b.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "oldName()"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "func use() { oldName() }"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/literal-mode",
+      "kind": "parity",
+      "summary": "mode literal matches a regular expression text literally.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"(\" \"src\" mode: literal",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "("
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "func oldName() {}"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/b.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "("
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "func use() { oldName() }"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/invert",
+      "kind": "parity",
+      "summary": "Returns the lines that do not match.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"later\" \"src/c.txt\" invert: true",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "search",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.txt"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "todo list"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/output-files",
+      "kind": "parity",
+      "summary": "Returns the matching files instead of the matches.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \"src\" output: files",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.txt"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/output-counts",
+      "kind": "parity",
+      "summary": "Returns the number of matches per file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"oldName\" \"src\" output: counts",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "count": {
+                    "t": "int",
+                    "v": 2
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/b.go"
+                  },
+                  "count": {
+                    "t": "int",
+                    "v": 1
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/output-unmatched",
+      "kind": "parity",
+      "summary": "Returns the files without a match.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \"src\" glob: \"**/*.go\" output: unmatched",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/b.go"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/deep/d.go"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/max-per-file",
+      "kind": "parity",
+      "summary": "Limits the matches per file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "m.txt",
+            "type": "file",
+            "content_utf8": "x1\nx2\nx3\n"
+          }
+        ]
+      },
+      "program": "search \"x\" \"m.txt\" max_per_file: 2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/context",
+      "kind": "parity",
+      "summary": "Returns lines of context with context: 1.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "c.txt",
+            "type": "file",
+            "content_utf8": "a\nb\nTARGET\nd\ne\n"
+          }
+        ]
+      },
+      "program": "search \"TARGET\" \"c.txt\" context: 1",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TARGET"
+                  },
+                  "before": {
+                    "t": "list",
+                    "v": [
+                      {
+                        "t": "text",
+                        "v": "b"
+                      }
+                    ]
+                  },
+                  "after": {
+                    "t": "list",
+                    "v": [
+                      {
+                        "t": "text",
+                        "v": "d"
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/before",
+      "kind": "parity",
+      "summary": "Returns lines of context with before: 2.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "c.txt",
+            "type": "file",
+            "content_utf8": "a\nb\nTARGET\nd\ne\n"
+          }
+        ]
+      },
+      "program": "search \"TARGET\" \"c.txt\" before: 2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TARGET"
+                  },
+                  "before": {
+                    "t": "list",
+                    "v": [
+                      {
+                        "t": "text",
+                        "v": "a"
+                      },
+                      {
+                        "t": "text",
+                        "v": "b"
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/after",
+      "kind": "parity",
+      "summary": "Returns lines of context with after: 2.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "c.txt",
+            "type": "file",
+            "content_utf8": "a\nb\nTARGET\nd\ne\n"
+          }
+        ]
+      },
+      "program": "search \"TARGET\" \"c.txt\" after: 2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TARGET"
+                  },
+                  "after": {
+                    "t": "list",
+                    "v": [
+                      {
+                        "t": "text",
+                        "v": "d"
+                      },
+                      {
+                        "t": "text",
+                        "v": "e"
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/context-two",
+      "kind": "parity",
+      "summary": "Returns lines of context with context: 2.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "c.txt",
+            "type": "file",
+            "content_utf8": "a\nb\nTARGET\nd\ne\n"
+          }
+        ]
+      },
+      "program": "search \"TARGET\" \"c.txt\" context: 2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TARGET"
+                  },
+                  "before": {
+                    "t": "list",
+                    "v": [
+                      {
+                        "t": "text",
+                        "v": "a"
+                      },
+                      {
+                        "t": "text",
+                        "v": "b"
+                      }
+                    ]
+                  },
+                  "after": {
+                    "t": "list",
+                    "v": [
+                      {
+                        "t": "text",
+                        "v": "d"
+                      },
+                      {
+                        "t": "text",
+                        "v": "e"
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/only-matching",
+      "kind": "parity",
+      "summary": "Returns only the matched text.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search /old\\w+/ \"src/b.go\" only_matching: true",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/b.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "oldName"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/binary-skipped",
+      "kind": "parity",
+      "summary": "Skips binary files and reports how many.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "t.txt",
+            "type": "file",
+            "content_utf8": "TODO\n"
+          },
+          {
+            "path": "b.bin",
+            "type": "file",
+            "content_base64": "AFRPRE8ACg=="
+          }
+        ]
+      },
+      "program": "search \"TODO\" \".\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/t.txt"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          },
+          "notable": [
+            {
+              "code": "binary_skipped",
+              "count": 1
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/binary-as-text",
+      "kind": "parity",
+      "summary": "Searches binary files as text when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "b.bin",
+            "type": "file",
+            "content_base64": "AFRPRE8ACg=="
+          }
+        ]
+      },
+      "program": "search \"TODO\" \".\" binary: text",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/multiline",
+      "kind": "parity",
+      "summary": "Matches across lines when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "m.txt",
+            "type": "file",
+            "content_utf8": "begin\nmiddle\nend\n"
+          }
+        ]
+      },
+      "program": "search /begin\\nmiddle/ \"m.txt\" multiline: true",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/gitignore",
+      "kind": "parity",
+      "summary": "Skips files ignored by .gitignore when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": ".gitignore",
+            "type": "file",
+            "content_utf8": "build/\n"
+          },
+          {
+            "path": "build/x.txt",
+            "type": "file",
+            "content_utf8": "TODO\n"
+          },
+          {
+            "path": "src/y.txt",
+            "type": "file",
+            "content_utf8": "TODO\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \".\" gitignore: true",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/y.txt"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/exclude-preset-deps",
+      "kind": "parity",
+      "summary": "Skips dependency directories with a preset.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "node_modules/p/i.js",
+            "type": "file",
+            "content_utf8": "TODO\n"
+          },
+          {
+            "path": "src/i.js",
+            "type": "file",
+            "content_utf8": "TODO\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \".\" exclude_preset: [deps]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/i.js"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/trim",
+      "kind": "parity",
+      "summary": "Trims leading white space of the returned lines.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "t.py",
+            "type": "file",
+            "content_utf8": "    TODO here\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \"t.py\" trim: true",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "line": {
+                    "t": "text",
+                    "v": "TODO here"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/dedupe",
+      "kind": "parity",
+      "summary": "Returns repeated lines once.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "d.txt",
+            "type": "file",
+            "content_utf8": "same TODO\nsame TODO\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \"d.txt\" dedupe: true",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/crlf-file",
+      "kind": "parity",
+      "summary": "Matches lines of a CRLF file without the line ending.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "a TODO\r\nb\r\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \"w.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "a TODO"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/legacy-encoding",
+      "kind": "parity",
+      "summary": "Searches a Windows-1250 file by its decoded text.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_base64": "jmlsaW5hCkJybm8K"
+          }
+        ]
+      },
+      "program": "search \"Žilina\" \"l.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "Žilina"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/utf16-file",
+      "kind": "parity",
+      "summary": "Searches a UTF-16 file by its decoded text.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "u.txt",
+            "type": "file",
+            "content_base64": "//5hAGwAcABoAGEACgBiAGUAdABhAAoA"
+          }
+        ]
+      },
+      "program": "search \"beta\" \"u.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "no": {
+                    "t": "int",
+                    "v": 2
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "beta"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/missing-path",
+      "kind": "parity",
+      "summary": "Searching a missing path fails.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \"absent\"",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_NOT_FOUND"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/invalid-regex",
+      "kind": "parity",
+      "summary": "An invalid regular expression is rejected before reading.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search /(unclosed/ \"src\"",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_REGEX"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/count-matches",
+      "kind": "parity",
+      "summary": "Counts the matches of a search.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \".\" |> count",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/stage-on-found-files",
+      "kind": "parity",
+      "summary": "Searches the files found by find.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "find \"src\" glob: \"**/*.go\" |> search \"oldName\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "oldName"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "func oldName() {}"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 4
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "oldName"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO: rename oldName"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/b.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 3
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "oldName"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "func use() { oldName() }"
+                  }
+                }
+              }
+            ],
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/stage-on-lines",
+      "kind": "parity",
+      "summary": "Searches the lines of one file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "lines \"a.txt\" |> search \"o\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/sort-by-count",
+      "kind": "parity",
+      "summary": "Sorts files by the number of matches.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"oldName\" \"src\" output: counts sort: count",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/file-type",
+      "kind": "parity",
+      "summary": "Limits the search to a file type.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \".\" file_type: [\"go\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/.hidden/x.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO hidden"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/a.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 4
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO: rename oldName"
+                  }
+                }
+              },
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/vendor/v.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO vendored"
+                  }
+                }
+              }
+            ],
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/exclude-file-type",
+      "kind": "parity",
+      "summary": "Skips a file type.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \"src\" exclude_file_type: [\"go\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.txt"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/whitespace-normalize",
+      "kind": "parity",
+      "summary": "Matches a text with different runs of white space.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "s.txt",
+            "type": "file",
+            "content_utf8": "a   b\tc\n"
+          }
+        ]
+      },
+      "program": "search \"a b c\" \"s.txt\" whitespace: normalize",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/named-groups",
+      "kind": "parity",
+      "summary": "Returns named groups of a regular expression.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "l.log",
+            "type": "file",
+            "content_utf8": "ERROR: disk full\n"
+          }
+        ]
+      },
+      "program": "search /(?P<level>[A-Z]+): (?P<msg>.*)/ \"l.log\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/search/search-then-first",
+      "kind": "parity",
+      "summary": "Keeps the first match only.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "src/a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n// TODO: rename oldName\n"
+          },
+          {
+            "path": "src/b.go",
+            "type": "file",
+            "content_utf8": "package b\n\nfunc use() { oldName() }\n"
+          },
+          {
+            "path": "src/c.txt",
+            "type": "file",
+            "content_utf8": "todo list\nTODO later\n"
+          },
+          {
+            "path": "src/deep/d.go",
+            "type": "file",
+            "content_utf8": "package deep\n\nvar Old = 1\n"
+          },
+          {
+            "path": "docs/readme.md",
+            "type": "file",
+            "content_utf8": "# Readme\n\nTODO docs\n"
+          },
+          {
+            "path": ".hidden/x.go",
+            "type": "file",
+            "content_utf8": "// TODO hidden\n"
+          },
+          {
+            "path": "vendor/v.go",
+            "type": "file",
+            "content_utf8": "// TODO vendored\n"
+          }
+        ]
+      },
+      "program": "search \"TODO\" \".\" |> first 1",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "match",
+            "rows": [
+              {
+                "kind": "match",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/.hidden/x.go"
+                  },
+                  "no": {
+                    "t": "int",
+                    "v": 1
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "TODO"
+                  },
+                  "line": {
+                    "t": "text",
+                    "v": "// TODO hidden"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-023",
+  "domain": 8,
+  "split": "public",
+  "platform": "linux",
+  "nl": "The symbolic link current points to releases/v2.3.0. Switch it to releases/v2.4.0 by replacing the link (relative target). Do not modify the release directories.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "current",
+        "type": "symlink",
+        "target": "releases/v2.3.0"
+      },
+      {
+        "path": "releases/v2.3.0/app.txt",
+        "type": "file",
+        "content_utf8": "app 2.3.0\n"
+      },
+      {
+        "path": "releases/v2.4.0/app.txt",
+        "type": "file",
+        "content_utf8": "app 2.4.0\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "current": {
+        "type": "symlink",
+        "target": "releases/v2.4.0"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "releases/**",
+      "change": "any",
+      "reason": "release directories are immutable"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "create \"current\" type: link target: \"releases/v2.4.0\" on_exists: replace",
+  "reference_bash": "ln -sfn releases/v2.4.0 current\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "ln -sf releases/v2.4.0 current",
+      "defect": "creates a link inside the old release directory"
+    }
+  ],
+  "tags": [
+    "symlink"
+  ],
+  "license": "CC-BY-4.0"
+}

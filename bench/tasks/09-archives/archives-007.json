@@ -1,0 +1,55 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-007",
+  "domain": 9,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Extract downloads/release-1.tar.gz into the directory opt/release-1 (create it). Keep the archive.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "downloads/release-1.tar.gz",
+        "type": "file",
+        "content_base64": "H4sIAAAAAAAC/+3XsW6DMBSFYc88haPuYDuGTB2qhqFS2iF9Ago3CZKLJXwT5fFL0k50aIfGQ32+xRILlsxv45EcNYGKzdNj/fJa53xm8dfUpLL2Ok7mo1K6FLo0pTXLsro819rYUkglIjgGbsZpKiJNm76lIZBkOnMmIDXjV//b+mH9fJv8f9F/Ne9fG43+Y9h+rr8cPFPABpBs/2/9ULD37hbv+LF/Y+f9q5VB/zHcLa5LHw4ZtQcvL58AdoEE+2/9sOv3RUe75ug4Z//u4vWvzaz/pVH4/4/C0YmcvJca1Sfdf9dwUwRilbfhFPv8V9/u/yuD8z+KvssU0gcAAAAAAAAAAAD4fz4AaHrIBwAoAAA="
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "opt/release-1/release/LICENSE.txt": {
+        "text": "License text\n"
+      },
+      "opt/release-1/release/README.txt": {
+        "text": "Release notes\n"
+      },
+      "opt/release-1/release/bin/tool": {
+        "text": "#!/bin/sh\necho tool\n"
+      },
+      "opt/release-1/release/config/default.toml": {
+        "text": "level = 1\n"
+      },
+      "opt/release-1/release/data/set0.csv": {
+        "text": "id\n0\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "downloads/release-1.tar.gz",
+      "change": "any",
+      "reason": "the downloaded archive must be kept"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "archive.extract \"downloads/release-1.tar.gz\" into: \"opt/release-1\"",
+  "reference_bash": "mkdir -p opt/release-1 && tar -xzf downloads/release-1.tar.gz -C opt/release-1\n",
+  "tags": [
+    "extract",
+    "tar"
+  ],
+  "license": "CC-BY-4.0"
+}

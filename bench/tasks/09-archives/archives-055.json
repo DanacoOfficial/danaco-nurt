@@ -1,0 +1,49 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-055",
+  "domain": 9,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Remove the UTF-8 byte order mark from feeds/stock-3.csv only. The rest of the file stays byte for byte the same.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "feeds/prices.csv",
+        "type": "file",
+        "content_utf8": "\ufeffsku,price\n"
+      },
+      {
+        "path": "feeds/stock-3.csv",
+        "type": "file",
+        "content_utf8": "\ufeffsku,qty\nA1,5\nB2,7\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "feeds/stock-3.csv": {
+        "text": "sku,qty\nA1,5\nB2,7\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "feeds/prices.csv",
+      "change": "any",
+      "reason": "only one file is requested"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "convert \"feeds/stock-3.csv\" bom: false",
+  "reference_bash": "sed -i '1s/^\\xEF\\xBB\\xBF//' feeds/stock-3.csv\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'feeds/stock-3.csv'; $b = [IO.File]::ReadAllBytes($p)\nif ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF) { [IO.File]::WriteAllBytes($p, $b[3..($b.Length - 1)]) }\n",
+  "tags": [
+    "bom",
+    "encoding"
+  ],
+  "license": "CC-BY-4.0"
+}

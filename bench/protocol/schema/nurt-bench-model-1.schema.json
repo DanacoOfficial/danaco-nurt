@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-bench-model-1.schema.json",
+  "title": "nurt-bench-model/1",
+  "description": "Model configuration of nurt-bench, written as TOML.",
+  "type": "object",
+  "required": ["format", "id", "provider", "model", "producer", "weights", "temperature", "max_output_tokens"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {"const": "nurt-bench-model/1"},
+    "id": {"type": "string"},
+    "provider": {"enum": ["anthropic", "openai", "gemini", "openai-compatible"]},
+    "model": {"type": "string"},
+    "producer": {"type": "string"},
+    "weights": {"enum": ["open", "closed"]},
+    "base_url": {"type": "string", "format": "uri"},
+    "api_key_env": {"type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$"},
+    "temperature": {"type": "number", "minimum": 0, "maximum": 2},
+    "max_output_tokens": {"type": "integer", "minimum": 1},
+    "timeout_seconds": {"type": "integer", "minimum": 1, "default": 300},
+    "retries": {"type": "integer", "minimum": 0, "default": 4},
+    "retry_delay_ms": {"type": "integer", "minimum": 0, "default": 2000}
+  }
+}

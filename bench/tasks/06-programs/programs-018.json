@@ -1,0 +1,47 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-018",
+  "domain": 6,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Build dist/bundle.txt with make. (The project has 2 source parts.)",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "Makefile",
+        "type": "file",
+        "content_utf8": "SOURCES := $(sort $(wildcard src/*.txt))\n\ndist/bundle.txt: $(SOURCES)\n\tmkdir -p dist\n\tcat $(SOURCES) > $@\n\n.PHONY: clean\nclean:\n\trm -rf dist\n"
+      },
+      {
+        "path": "src/part-1.txt",
+        "type": "file",
+        "content_utf8": "content of part-1\n"
+      },
+      {
+        "path": "src/part-2.txt",
+        "type": "file",
+        "content_utf8": "content of part-2\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "dist/bundle.txt": {
+        "text": "content of part-1\ncontent of part-2\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"make\", \"dist/bundle.txt\"] cwd: \".\"",
+  "reference_bash": "make dist/bundle.txt\n",
+  "tags": [
+    "build",
+    "make"
+  ],
+  "license": "CC-BY-4.0"
+}

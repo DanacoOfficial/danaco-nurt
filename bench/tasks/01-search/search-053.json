@@ -1,0 +1,69 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-053",
+  "domain": 1,
+  "split": "public",
+  "platform": "windows",
+  "nl": "List the files under spool/ that are empty (zero bytes).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "spool/a.txt",
+        "type": "file",
+        "content_utf8": "alpha\n"
+      },
+      {
+        "path": "spool/d.csv",
+        "type": "file",
+        "content_utf8": "x,y\n"
+      },
+      {
+        "path": "spool/empty-2.txt",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "spool/sub/b.txt",
+        "type": "file",
+        "content_utf8": "beta\n"
+      },
+      {
+        "path": "spool/sub/c.txt",
+        "type": "file",
+        "content_utf8": "\n"
+      },
+      {
+        "path": "spool/sub/zero.log",
+        "type": "file",
+        "content_utf8": ""
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "empty-2.txt",
+        "zero.log"
+      ],
+      "not_contains": [
+        "a.txt",
+        "b.txt",
+        "c.txt",
+        "d.csv"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"spool\" type: file |> filter size == 0",
+  "reference_pwsh": "Get-ChildItem spool -Recurse -File | Where-Object Length -eq 0 | ForEach-Object FullName\n",
+  "tags": [
+    "find",
+    "size"
+  ],
+  "license": "CC-BY-4.0"
+}

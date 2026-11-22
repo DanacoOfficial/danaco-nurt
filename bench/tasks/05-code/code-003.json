@@ -1,0 +1,61 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-003",
+  "domain": 5,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Rename the method clear of the class FileCache to purge, together with its calls on FileCache objects. The method clear of MemoryCache and its calls stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "app/main.py",
+        "type": "file",
+        "content_utf8": "from app.model import FileCache, MemoryCache\n\n\ndef run():\n    disk = FileCache()\n    memory = MemoryCache()\n    return [disk.clear(), memory.clear()]\n"
+      },
+      {
+        "path": "app/model.py",
+        "type": "file",
+        "content_utf8": "class FileCache:\n    def clear(self):\n        return 'filecache'\n\n\nclass MemoryCache:\n    def clear(self):\n        return 'memorycache'\n"
+      },
+      {
+        "path": "tests/test_model.py",
+        "type": "file",
+        "content_utf8": "from app.model import FileCache, MemoryCache\n\n\ndef test_filecache():\n    assert FileCache().clear() == 'filecache'\n\n\ndef test_memorycache():\n    assert MemoryCache().clear() == 'memorycache'\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "app/main.py": {
+        "text": "from app.model import FileCache, MemoryCache\n\n\ndef run():\n    disk = FileCache()\n    memory = MemoryCache()\n    return [disk.purge(), memory.clear()]\n"
+      },
+      "app/model.py": {
+        "text": "class FileCache:\n    def purge(self):\n        return 'filecache'\n\n\nclass MemoryCache:\n    def clear(self):\n        return 'memorycache'\n"
+      },
+      "tests/test_model.py": {
+        "text": "from app.model import FileCache, MemoryCache\n\n\ndef test_filecache():\n    assert FileCache().purge() == 'filecache'\n\n\ndef test_memorycache():\n    assert MemoryCache().clear() == 'memorycache'\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.rename \"purge\" path: \"app/model.py\" symbol: \"FileCache.clear\" paths: [\"app\", \"tests\"]",
+  "reference_bash": "python3 - <<'EOF'\nimport os, pathlib\np = pathlib.Path('app/model.py'); t = p.read_bytes().decode()\nassert t.count('class FileCache:\\n    def clear(self):') == 1, 'app/model.py'\np.write_bytes(t.replace('class FileCache:\\n    def clear(self):', 'class FileCache:\\n    def purge(self):').encode())\np = pathlib.Path('app/main.py'); t = p.read_bytes().decode()\nassert t.count('disk.clear()') == 1, 'app/main.py'\np.write_bytes(t.replace('disk.clear()', 'disk.purge()').encode())\np = pathlib.Path('tests/test_model.py'); t = p.read_bytes().decode()\nassert t.count('FileCache().clear()') == 1, 'tests/test_model.py'\np.write_bytes(t.replace('FileCache().clear()', 'FileCache().purge()').encode())\nEOF\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sed -i 's/\\bclear(/purge(/g' app/*.py tests/*.py",
+      "defect": "renames the method of MemoryCache as well"
+    }
+  ],
+  "tags": [
+    "python",
+    "rename",
+    "symbol"
+  ],
+  "license": "CC-BY-4.0"
+}

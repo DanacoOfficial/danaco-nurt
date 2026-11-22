@@ -1,0 +1,69 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-049",
+  "domain": 7,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Leftover processes from an earlier sync are still running: their command lines contain sync-job-4. Stop all of them. The process whose command line contains keep-alive-4 must keep running.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/idle.py",
+        "type": "file",
+        "content_utf8": "import time\n\nwhile True:\n    time.sleep(1)\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "3 processes with sync-job-4 and one with keep-alive-4 run tools/idle.py.",
+    "bash": "setsid python3 tools/idle.py sync-job-4-a > /dev/null 2>&1 < /dev/null &\nsetsid python3 tools/idle.py sync-job-4-b > /dev/null 2>&1 < /dev/null &\nsetsid python3 tools/idle.py sync-job-4-c > /dev/null 2>&1 < /dev/null &\nsetsid python3 tools/idle.py keep-alive-4 > /dev/null 2>&1 < /dev/null &\nsleep 0.5",
+    "pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nStart-Process $py -ArgumentList 'tools/idle.py','sync-job-4-a'\nStart-Process $py -ArgumentList 'tools/idle.py','sync-job-4-b'\nStart-Process $py -ArgumentList 'tools/idle.py','sync-job-4-c'\nStart-Process $py -ArgumentList 'tools/idle.py','keep-alive-4'\nStart-Sleep -Seconds 1"
+  },
+  "teardown": {
+    "bash": "pkill -f -- sync-job-4 || true; pkill -f -- keep-alive-4 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*sync-job-4*' } | Stop-Process -Force -ErrorAction SilentlyContinue\nGet-Process | Where-Object { $_.CommandLine -like '*keep-alive-4*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "probes": [
+    {
+      "id": "stray",
+      "kind": "process",
+      "match": "sync-job-4"
+    },
+    {
+      "id": "keep",
+      "kind": "process",
+      "match": "keep-alive-4"
+    }
+  ],
+  "expect": {
+    "probes": {
+      "stray": {
+        "count": 0
+      },
+      "keep": {
+        "count": 1
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "processes |> filter command ~ \"sync-job-4\" |> stop",
+  "reference_bash": "pkill -f -- sync-job-4\nsleep 0.3\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nGet-Process | Where-Object { $_.CommandLine -like '*sync-job-4*' } | Stop-Process -Force\nStart-Sleep -Milliseconds 300\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "pkill -f tools/idle.py",
+      "defect": "also stops the process that must keep running"
+    }
+  ],
+  "tags": [
+    "processes",
+    "stop"
+  ],
+  "license": "CC-BY-4.0"
+}

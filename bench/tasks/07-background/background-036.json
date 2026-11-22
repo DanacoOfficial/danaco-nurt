@@ -1,0 +1,44 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-036",
+  "domain": 7,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Run tools/check.py for each of the services web, db, cache in parallel in the background and wait for all of them. Which services failed (non-zero exit code)?",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/check.py",
+        "type": "file",
+        "content_utf8": "import sys\nimport time\n\ntime.sleep(0.3)\nfailing = {\"db\", \"queue\", \"mail\"}\nprint(f\"{sys.argv[1]}: {'failed' if sys.argv[1] in failing else 'ok'}\")\nsys.exit(2 if sys.argv[1] in failing else 0)\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "db"
+      ],
+      "not_contains": [
+        "web: failed",
+        "cache: failed",
+        "web failed",
+        "cache failed"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/check.py\", \"web\"] background: true label: \"web\"\nrun [\"python3\", \"tools/check.py\", \"db\"] background: true label: \"db\"\nrun [\"python3\", \"tools/check.py\", \"cache\"] background: true label: \"cache\"\njobs wait: 60s |> filter exit_code != 0 |> select label",
+  "reference_bash": "python3 tools/check.py web > /dev/null & p0=$!\npython3 tools/check.py db > /dev/null & p1=$!\npython3 tools/check.py cache > /dev/null & p2=$!\nwait $p0 || echo web failed\nwait $p1 || echo db failed\nwait $p2 || echo cache failed\n",
+  "tags": [
+    "background",
+    "exit-code",
+    "parallel"
+  ],
+  "license": "CC-BY-4.0"
+}

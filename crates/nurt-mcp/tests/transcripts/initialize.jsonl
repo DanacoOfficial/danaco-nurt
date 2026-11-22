@@ -1,0 +1,5 @@
+{"client": {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "transcript", "version": "1.0.0"}}}}
+{"server": {"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-06-18", "capabilities": {"logging": {}, "resources": {}, "tools": {}}, "serverInfo": {"name": "nurt", "title": "Danaco Nurt", "version": "*"}, "instructions": "Run programs of the Nurt language with the `nurt` tool. Built-in help is available through the `nurt_help` tool and the `nurt://help/{topic}` resources."}}}
+{"client": {"jsonrpc": "2.0", "method": "notifications/initialized"}}
+{"client": {"jsonrpc": "2.0", "id": 2, "method": "ping"}}
+{"server": {"jsonrpc": "2.0", "id": 2, "result": {}}}

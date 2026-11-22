@@ -1,0 +1,2203 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "journal/semantics/undo-last",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo without a selector undoes the newest operation.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nBETA\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/undo-last-skips-undo-entries",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo without a selector never undoes an undo entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"n.txt\" \"new\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "n.txt",
+                "type": "file",
+                "content_utf8": "new\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/undo-op",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of an operation by number leaves later operations in place.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "x.txt",
+                "type": "file",
+                "content_utf8": "x\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/undo-report-has-operation-number",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The report of an undo carries its own operation number.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo",
+              "op": "<volatile>"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/undo-bulk-as-whole",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a change of several files restores every file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"a\" \"A\" in: [\"a.txt\", \"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace",
+              "targets": {
+                "count": 2
+              }
+            }
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/undo-to",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo to an operation reverts every later operation as one undo.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "undo to: ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "x.txt",
+                "type": "file",
+                "content_utf8": "x\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "history limit: 1",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "undo_scope": {
+                        "t": "enum",
+                        "v": "to"
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/undo-file",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of one file restores only that file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"a\" \"A\" in: [\"a.txt\", \"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "undo file: \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "brAvo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "history ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "state": {
+                        "t": "enum",
+                        "v": "partial"
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/undo-paths",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of selected paths of one operation restores those paths only.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove [\"a.txt\", \"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} paths: [\"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "history ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "state": {
+                        "t": "enum",
+                        "v": "partial"
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/redo",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Redo of an undo applies the operation again.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "redo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "redo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nBETA\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/redo-invalidated",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Redo after a later change of the same file reports the conflict.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"x\\n\" mode: overwrite",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "redo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_CONFLICT"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/redo-of-change",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Redo of an operation that is not an undo reports nothing to redo.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "redo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/undo-nothing",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo with an empty journal reports nothing to undo.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "program": "undo",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_JOURNAL_NOOP"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/semantics/undo-unknown-operation",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of an unknown operation changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "program": "undo 999999",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_JOURNAL_NOOP"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/semantics/undo-twice",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "A second undo of the same operation reports nothing to undo.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/undo-after-preview",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "A preview creates no operation, so there is nothing to undo.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove \"b.txt\"",
+          "options": {
+            "preview": true
+          },
+          "expect": {
+            "report": {
+              "status": "planned"
+            }
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/conflict-report",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo after a later change of the same file fails and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"later\\n\" mode: append",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nBETA\nlater\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_CONFLICT"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/conflict-report-explicit",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The choice report is the default of on_conflict.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"later\\n\" mode: append",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} on_conflict: report",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_CONFLICT"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/conflict-force",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo with force restores the content despite a later change.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"later\\n\" mode: append",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} on_conflict: force",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/conflict-force-redo",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo with force keeps the current content, so its redo restores it.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"later\\n\" mode: append",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} on_conflict: force",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "redo ${step3/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "redo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nBETA\nlater\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/conflict-include-later",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo with include_later also undoes the later change.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"later\\n\" mode: append",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} on_conflict: include_later",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/conflict-abort",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo with abort changes nothing on a conflict.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "replace"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"later\\n\" mode: append",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} on_conflict: abort",
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/conflict-partial",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a partial entry fails unless partial asks for the remaining items.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove [\"a.txt\", \"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} paths: [\"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_PARTIAL"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        },
+        {
+          "program": "undo ${step1/report/op} on_conflict: partial",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/history-newest-first",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "History lists the operations, newest first.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "history limit: 2",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "history",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "kind": {
+                        "t": "text",
+                        "v": "remove"
+                      }
+                    }
+                  },
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "kind": {
+                        "t": "text",
+                        "v": "write"
+                      }
+                    }
+                  }
+                ],
+                "matched": 2
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/history-state-undone",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "History shows an undone operation as undone.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "history ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "state": {
+                        "t": "enum",
+                        "v": "undone"
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/history-state-filter",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "History filtered by state lists only the matching operations.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "history state: undone",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/history-of-path",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "History of one path lists only the operations that touched it.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "history path: \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/history-reads-create-no-entry",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Reading programs create no journal entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "read \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "find \".\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "history",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/history-undo-scope",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "History records the scope of an undo.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          }
+        },
+        {
+          "program": "history ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "undo_scope": {
+                        "t": "enum",
+                        "v": "op"
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/no-expiry-in-change-report",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The report of a change has the operation number and no expiry member.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "status": "ok",
+            "op": "<volatile>"
+          },
+          "expect_at": "/report",
+          "validate": "report",
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/no-expiry-in-undo-report",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The report of an undo has no expiry member.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "status": "ok",
+            "kind": "undo"
+          },
+          "expect_at": "/report",
+          "validate": "report",
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/no-expiry-in-history-report",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "The report of a history query has no expiry member.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove"
+            }
+          }
+        },
+        {
+          "program": "history ${step1/report/op} details: true",
+          "expect": {
+            "status": "ok"
+          },
+          "expect_at": "/report",
+          "validate": "report"
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/expiry-steps",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "An entry beyond the step limit expires and cannot be undone.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "journal.limits steps: 2",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "journal.limits"
+            }
+          }
+        },
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "write \"y.txt\" \"y\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "write \"z.txt\" \"z\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "undo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_EXPIRED"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        },
+        {
+          "program": "history ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "state": {
+                        "t": "enum",
+                        "v": "expired"
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/expiry-in-selection",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo to an operation fails and changes nothing when the selection has an expired entry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "journal.limits steps: 2",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "journal.limits"
+            }
+          }
+        },
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "write \"y.txt\" \"y\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "write \"z.txt\" \"z\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "undo to: ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_EXPIRED"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/expiry-age",
+      "kind": "journal",
+      "class": "optional:testkit",
+      "requires": [
+        "feature:journal"
+      ],
+      "summary": "An entry older than the age limit expires on the test clock.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "journal.limits age: 1h",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "journal.limits"
+            }
+          }
+        },
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "method": "testkit.clock.advance",
+          "params": {
+            "by": "2h"
+          }
+        },
+        {
+          "program": "undo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_EXPIRED"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        },
+        {
+          "program": "history ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "state": {
+                        "t": "enum",
+                        "v": "expired"
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/journal-inactive",
+      "kind": "journal",
+      "config": "../exec/config/journal-disabled.toml",
+      "class": "optional:journal",
+      "summary": "A change with the journal disabled is reported as irreversible and cannot be undone.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove",
+              "irreversible": [
+                {
+                  "reason": "journal_inactive"
+                }
+              ]
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    }
+  ]
+}

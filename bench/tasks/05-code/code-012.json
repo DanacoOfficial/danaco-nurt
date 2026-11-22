@@ -1,0 +1,33 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-012",
+  "domain": 5,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Where is the function formatPrice defined? Answer with the relative file path and the line number.",
+  "fs_before": {
+    "fixture": "ts-webapp"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "src/format.ts"
+      ],
+      "regex": [
+        "(?<!\\d)1(?!\\d)"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.symbols \"formatPrice\" path: [\".\"] kind: function",
+  "reference_pwsh": "Get-ChildItem -Recurse -File -Filter '*.ts' | Select-String -Pattern 'function formatPrice\\b' | ForEach-Object { \"$((Resolve-Path -Relative $_.Path) -replace '\\\\', '/'):$($_.LineNumber)\" }\n",
+  "tags": [
+    "definition",
+    "symbol"
+  ],
+  "license": "CC-BY-4.0"
+}

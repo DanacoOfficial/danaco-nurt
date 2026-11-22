@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-023",
+  "domain": 11,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Add the option `maxsize 100M` as the last option of etc/logrotate.d/orders, before the closing brace, indented by four spaces.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/logrotate.d/orders": {
+        "text": "/var/log/orders/*.log {\n    daily\n    rotate 7\n    compress\n    missingok\n    maxsize 100M\n}\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/logrotate.d/orders\" changes: [{replace: \"    missingok\\n}\", with: \"    missingok\\n    maxsize 100M\\n}\"}]",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/logrotate.d/orders'); t = p.read_text()\nassert t.count('    missingok\\n}') == 1\np.write_text(t.replace('    missingok\\n}', '    missingok\\n    maxsize 100M\\n}'))\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'etc/logrotate.d/orders'; $t = [IO.File]::ReadAllText($p)\n[IO.File]::WriteAllText($p, $t.Replace('    missingok\n}', '    missingok\n    maxsize 100M\n}'))\n",
+  "tags": [
+    "logrotate"
+  ],
+  "license": "CC-BY-4.0"
+}

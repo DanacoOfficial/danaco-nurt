@@ -1,0 +1,54 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-035",
+  "domain": 8,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Make the private key files under keys/ (the .key files and id_ed25519) readable and writable only by their owning account (mode 0600). (set 3)",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "keys/README.txt",
+        "type": "file",
+        "content_utf8": "content 2\n",
+        "mode": "0644"
+      },
+      {
+        "path": "keys/api.key",
+        "type": "file",
+        "content_utf8": "content 1\n",
+        "mode": "0664"
+      },
+      {
+        "path": "keys/id_ed25519",
+        "type": "file",
+        "content_utf8": "content 0\n",
+        "mode": "0644"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "keys/id_ed25519": {
+        "mode": "0600",
+        "same_as_before": "keys/id_ed25519"
+      },
+      "keys/api.key": {
+        "mode": "0600",
+        "same_as_before": "keys/api.key"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"keys\" glob: \"*.key\" type: file |> attributes mode: \"0600\"",
+  "reference_bash": "find keys -type f \\( -name '*.key' -o -name 'id_*' \\) -exec chmod 0600 {} +\n",
+  "tags": [
+    "permissions"
+  ],
+  "license": "CC-BY-4.0"
+}

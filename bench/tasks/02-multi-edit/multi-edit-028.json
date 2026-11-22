@@ -1,0 +1,70 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-028",
+  "domain": 2,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Rename the key replicaCount to replica_count in all YAML files (.yaml and .yml) under deploy/, at any nesting level. Do not edit other files.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "deploy/README.md",
+        "type": "file",
+        "content_utf8": "The key replicaCount sets the limit.\n"
+      },
+      {
+        "path": "deploy/api.yaml",
+        "type": "file",
+        "content_utf8": "name: api\nreplicaCount: 512Mi\nresources:\n  replicaCount: 256Mi\n"
+      },
+      {
+        "path": "deploy/cron.yaml",
+        "type": "file",
+        "content_utf8": "name: cron\nschedule: '0 * * * *'\n"
+      },
+      {
+        "path": "deploy/legacy/web2.yml",
+        "type": "file",
+        "content_utf8": "name: web\nreplicaCount: 128Mi\n"
+      },
+      {
+        "path": "deploy/worker.yaml",
+        "type": "file",
+        "content_utf8": "name: worker\nreplicaCount: 1Gi\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "deploy/api.yaml": {
+        "text": "name: api\nreplica_count: 512Mi\nresources:\n  replica_count: 256Mi\n"
+      },
+      "deploy/legacy/web2.yml": {
+        "text": "name: web\nreplica_count: 128Mi\n"
+      },
+      "deploy/worker.yaml": {
+        "text": "name: worker\nreplica_count: 1Gi\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "deploy/README.md",
+      "change": "any",
+      "reason": "documentation is not a YAML file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search /^(\\s*)replicaCount:/ \"deploy\" glob: \"**/*.{yaml,yml}\" |> replace \"${1}replica_count:\"",
+  "reference_bash": "find deploy -type f \\( -name '*.yaml' -o -name '*.yml' \\) -exec sed -i -E 's/^([[:space:]]*)replicaCount:/\\1replica_count:/' {} +\n",
+  "reference_pwsh": "Get-ChildItem deploy -Recurse -File -Include '*.yaml','*.yml' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  $n = $t -creplace '(?m)^([ \\t]*)replicaCount:', '${1}replica_count:'\n  if ($n -cne $t) { [IO.File]::WriteAllText($_.FullName, $n) }\n}\n",
+  "tags": [
+    "rename-key",
+    "yaml"
+  ],
+  "license": "CC-BY-4.0"
+}

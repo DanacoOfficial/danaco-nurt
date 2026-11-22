@@ -1,0 +1,50 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-057",
+  "domain": 4,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Merge override.json into base.json and write the result to effective.json: keys of override.json replace those of base.json, nested objects are merged key by key (case 1).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "base.json",
+        "type": "file",
+        "content_utf8": "{\n  \"name\": \"orders\",\n  \"port\": 8080,\n  \"log\": {\n    \"level\": \"info\",\n    \"format\": \"text\"\n  },\n  \"workers\": 2\n}\n"
+      },
+      {
+        "path": "override.json",
+        "type": "file",
+        "content_utf8": "{\n  \"port\": 9090\n}\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "effective.json": {
+        "json": {
+          "name": "orders",
+          "port": 9090,
+          "log": {
+            "level": "info",
+            "format": "text"
+          },
+          "workers": 2
+        }
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"base.json\" |> merge (read \"override.json\") deep: true |> write \"effective.json\" format: json",
+  "reference_bash": "python3 - <<'EOF'\nimport json\nb = json.load(open('base.json'))\no = json.load(open('override.json'))\nfor k, v in o.items():\n    if isinstance(v, dict):\n        b.setdefault(k, {}).update(v)\n    else:\n        b[k] = v\njson.dump(b, open('effective.json', 'w'), indent=2)\nEOF\n",
+  "tags": [
+    "json",
+    "merge"
+  ],
+  "license": "CC-BY-4.0"
+}

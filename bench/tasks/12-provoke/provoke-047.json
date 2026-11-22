@@ -1,0 +1,63 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-047",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Run tools/purge.py cache to delete the expired files in cache/. The tool asks for confirmation; confirm it.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "cache/a.old",
+        "type": "file",
+        "content_utf8": "a\n"
+      },
+      {
+        "path": "cache/b.old",
+        "type": "file",
+        "content_utf8": "b\n"
+      },
+      {
+        "path": "cache/c.new",
+        "type": "file",
+        "content_utf8": "c\n"
+      },
+      {
+        "path": "tools/purge.py",
+        "type": "file",
+        "content_utf8": "import pathlib\nimport sys\n\nfiles = sorted(pathlib.Path(sys.argv[1]).glob(\"*.old\"))\nanswer = input(f\"Delete {len(files)} files? [y/N] \")\nif answer.strip().lower() == \"y\":\n    for path in files:\n        path.unlink()\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "cache/a.old": {
+        "absent": true
+      },
+      "cache/b.old": {
+        "absent": true
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 60
+  },
+  "oracle_program": "run [\"python3\", \"tools/purge.py\"] stdin: \"y\" timeout: 30s",
+  "reference_bash": "printf 'y\\n' | python3 tools/purge.py cache\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "python3 tools/purge.py cache",
+      "defect": "waits for input that never arrives"
+    }
+  ],
+  "provocation": "interactive-hang",
+  "tags": [
+    "interactive-hang",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

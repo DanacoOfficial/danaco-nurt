@@ -1,0 +1,37 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+name: Setup Danaco Nurt
+description: Install Danaco Nurt and add it to the PATH.
+author: Danaco Holding Group
+branding:
+  icon: terminal
+  color: blue
+inputs:
+  version:
+    description: >-
+      Version to install: "latest", an exact SemVer version, or a version
+      range such as "1", "1.4", "^1.2.0" or ">=1.2.0 <2.0.0".
+    required: false
+    default: latest
+  verify:
+    description: Verify the SHA-256 digest of the downloaded archive.
+    required: false
+    default: 'true'
+outputs:
+  path:
+    description: Absolute path of the installed nurt executable.
+    value: ${{ steps.install.outputs.path }}
+  version:
+    description: Installed version.
+    value: ${{ steps.install.outputs.version }}
+runs:
+  using: composite
+  steps:
+    - id: install
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_VERIFY: ${{ inputs.verify }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: bash "${{ github.action_path }}/scripts/setup-nurt.sh"

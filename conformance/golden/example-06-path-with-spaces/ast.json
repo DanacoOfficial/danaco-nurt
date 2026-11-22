@@ -1,0 +1,47 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "remove",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/data/my file.txt",
+                "span": [
+                  1,
+                  8,
+                  1,
+                  31
+                ]
+              },
+              "span": [
+                1,
+                8,
+                1,
+                31
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            31
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          31
+        ]
+      }
+    ]
+  }
+}

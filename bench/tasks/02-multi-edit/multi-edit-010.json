@@ -1,0 +1,64 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-010",
+  "domain": 2,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Change the version 3.1.0 to 3.2.0 in every file of the project except CHANGELOG.md.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "CHANGELOG.md",
+        "type": "file",
+        "content_utf8": "## 3.1.0\r\n\r\n- Totals.\r\n"
+      },
+      {
+        "path": "README.md",
+        "type": "file",
+        "content_utf8": "Orders 3.1.0\r\n"
+      },
+      {
+        "path": "scripts/deploy.ps1",
+        "type": "file",
+        "content_utf8": "$version = '3.1.0'\r\n"
+      },
+      {
+        "path": "src/Orders/Orders.csproj",
+        "type": "file",
+        "content_utf8": "<Project>\r\n  <Version>3.1.0</Version>\r\n</Project>\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "README.md": {
+        "text": "Orders 3.2.0\r\n"
+      },
+      "scripts/deploy.ps1": {
+        "text": "$version = '3.2.0'\r\n"
+      },
+      "src/Orders/Orders.csproj": {
+        "text": "<Project>\r\n  <Version>3.2.0</Version>\r\n</Project>\r\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "CHANGELOG.md",
+      "change": "any",
+      "reason": "the changelog records released versions"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"3.1.0\" \".\" mode: literal exclude: [\"CHANGELOG.md\"] |> replace \"3.2.0\"",
+  "reference_pwsh": "Get-ChildItem -Recurse -File | Where-Object Name -ne 'CHANGELOG.md' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  if ($t.Contains('3.1.0')) { [IO.File]::WriteAllText($_.FullName, $t.Replace('3.1.0', '3.2.0')) }\n}\n",
+  "tags": [
+    "replace",
+    "version"
+  ],
+  "license": "CC-BY-4.0"
+}

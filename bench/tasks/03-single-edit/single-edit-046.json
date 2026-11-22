@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-046",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Set LOG_LEVEL to debug in .env. Do not touch other variables, including those whose names start with LOG_LEVEL.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": ".env",
+        "type": "file",
+        "content_utf8": "APP_ENV=production\nLOG_LEVEL=info\nCACHE_TTL=300\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      ".env": {
+        "text": "APP_ENV=production\nLOG_LEVEL=debug\nCACHE_TTL=300\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "set \".env\" key: \"LOG_LEVEL\" value: \"debug\" format: env",
+  "reference_bash": "sed -i 's/^LOG_LEVEL=.*/LOG_LEVEL=debug/' .env\n",
+  "tags": [
+    "env",
+    "key-value"
+  ],
+  "license": "CC-BY-4.0"
+}

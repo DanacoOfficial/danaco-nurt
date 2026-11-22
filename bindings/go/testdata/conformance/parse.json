@@ -1,0 +1,6 @@
+{
+  "id": "parse.program",
+  "class": "mandatory",
+  "call": { "method": "parse", "args": { "program": "info", "variant": "a" } },
+  "expect": { "fields": { "ast.nurt": "1.0" } }
+}

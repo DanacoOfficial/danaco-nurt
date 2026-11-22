@@ -1,0 +1,6 @@
+{
+  "id": "start.events",
+  "class": "mandatory",
+  "call": { "method": "start", "args": { "program": "events" } },
+  "expect": { "ok": true, "events": ["exec.started", "exec.finished"] }
+}

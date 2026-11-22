@@ -1,0 +1,74 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-030",
+  "domain": 8,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Make every .sh file directly in scripts/ (not in subdirectories) executable with the mode 0755. Other files keep their permissions (check-2.sh is one of the scripts).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "scripts/README.md",
+        "type": "file",
+        "content_utf8": "scripts\n",
+        "mode": "0644"
+      },
+      {
+        "path": "scripts/check-2.sh",
+        "type": "file",
+        "content_utf8": "#!/bin/sh\necho check\n",
+        "mode": "0644"
+      },
+      {
+        "path": "scripts/deploy.sh",
+        "type": "file",
+        "content_utf8": "#!/bin/sh\necho deploy\n",
+        "mode": "0644"
+      },
+      {
+        "path": "scripts/lib/common.sh",
+        "type": "file",
+        "content_utf8": "helper() { :; }\n",
+        "mode": "0644"
+      },
+      {
+        "path": "scripts/tool.py",
+        "type": "file",
+        "content_utf8": "print(1)\n",
+        "mode": "0644"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "scripts/deploy.sh": {
+        "mode": "0755",
+        "same_as_before": "scripts/deploy.sh"
+      },
+      "scripts/check-2.sh": {
+        "mode": "0755",
+        "same_as_before": "scripts/check-2.sh"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"scripts\" glob: \"*.sh\" type: file |> attributes mode: \"0755\"",
+  "reference_bash": "find scripts -maxdepth 1 -type f -name '*.sh' -exec chmod 0755 {} +\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "chmod -R 0755 scripts",
+      "defect": "changes the mode of every file"
+    }
+  ],
+  "tags": [
+    "chmod",
+    "permissions"
+  ],
+  "license": "CC-BY-4.0"
+}

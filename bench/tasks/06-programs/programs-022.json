@@ -1,0 +1,40 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-022",
+  "domain": 6,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Run tools/greet.py with the argument Anna and the environment variable GREETING set to 'Hello'; save its output to greet-1.txt. Do not store the variables in any file.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/greet.py",
+        "type": "file",
+        "content_utf8": "import os\nimport sys\n\nprint(f\"{os.environ['GREETING']}, {sys.argv[1]}\")\nprint(f\"mode={os.environ.get('APP_MODE', 'default')}\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "greet-1.txt": {
+        "lines": [
+          "Hello, Anna",
+          "mode=default"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/greet.py\", \"Anna\"] env: {GREETING: \"Hello\"} save_to: \"greet-1.txt\"",
+  "reference_bash": "GREETING='Hello' python3 tools/greet.py Anna > greet-1.txt\n",
+  "tags": [
+    "environment",
+    "run"
+  ],
+  "license": "CC-BY-4.0"
+}

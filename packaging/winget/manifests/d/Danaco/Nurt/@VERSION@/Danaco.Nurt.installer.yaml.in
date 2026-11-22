@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+
+PackageIdentifier: Danaco.Nurt
+PackageVersion: @VERSION@
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+- RelativeFilePath: nurt.exe
+  PortableCommandAlias: nurt
+Commands:
+- nurt
+ReleaseDate: @DATE@
+Installers:
+- Architecture: x64
+  InstallerUrl: https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@/nurt-@VERSION@-x86_64-pc-windows-msvc.zip
+  InstallerSha256: @SHA256:x86_64-pc-windows-msvc@
+- Architecture: arm64
+  InstallerUrl: https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@/nurt-@VERSION@-aarch64-pc-windows-msvc.zip
+  InstallerSha256: @SHA256:aarch64-pc-windows-msvc@
+ManifestType: installer
+ManifestVersion: 1.6.0

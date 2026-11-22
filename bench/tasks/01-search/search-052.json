@@ -1,0 +1,69 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-052",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "List the files under inbox/ that are empty (zero bytes).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "inbox/a.txt",
+        "type": "file",
+        "content_utf8": "alpha\n"
+      },
+      {
+        "path": "inbox/d.csv",
+        "type": "file",
+        "content_utf8": "x,y\n"
+      },
+      {
+        "path": "inbox/empty-1.txt",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "inbox/sub/b.txt",
+        "type": "file",
+        "content_utf8": "beta\n"
+      },
+      {
+        "path": "inbox/sub/c.txt",
+        "type": "file",
+        "content_utf8": "\n"
+      },
+      {
+        "path": "inbox/sub/zero.log",
+        "type": "file",
+        "content_utf8": ""
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "empty-1.txt",
+        "zero.log"
+      ],
+      "not_contains": [
+        "a.txt",
+        "b.txt",
+        "c.txt",
+        "d.csv"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"inbox\" type: file |> filter size == 0",
+  "reference_bash": "find inbox -type f -empty\n",
+  "tags": [
+    "find",
+    "size"
+  ],
+  "license": "CC-BY-4.0"
+}

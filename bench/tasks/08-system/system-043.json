@@ -1,0 +1,52 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-043",
+  "domain": 8,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Which command line arguments was the process whose PID is in run/exporter.pid started with?",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "run/.keep",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tools/idle.py",
+        "type": "file",
+        "content_utf8": "import time\r\n\r\nwhile True:\r\n    time.sleep(1)\r\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "tools/idle.py --queue orders-5 --batch 125 --mark cmdline-5 runs; its PID is in run/exporter.pid.",
+    "bash": "setsid python3 tools/idle.py --queue orders-5 --batch 125 --mark cmdline-5 > /dev/null 2>&1 < /dev/null &\necho $! > run/exporter.pid",
+    "pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$p = Start-Process $py -ArgumentList 'tools/idle.py','--queue','orders-5','--batch','125','--mark','cmdline-5' -PassThru\nSet-Content run/exporter.pid $p.Id"
+  },
+  "teardown": {
+    "bash": "pkill -f -- cmdline-5 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*cmdline-5*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "--queue orders-5",
+        "--batch 125"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "processes pid: (read \"run/exporter.pid\" |> evaluate int(text)) |> select command",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n(Get-Process -Id ([int](Get-Content run/exporter.pid))).CommandLine\n",
+  "tags": [
+    "command-line",
+    "processes"
+  ],
+  "license": "CC-BY-4.0"
+}

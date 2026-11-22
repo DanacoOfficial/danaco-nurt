@@ -1,0 +1,65 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-030",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Which units are enabled for multi-user.target in this tree (links in etc/systemd/system/multi-user.target.wants/)? (4 expected)",
+  "fs_before": {
+    "fixture": "etc-tree",
+    "overlay": [
+      {
+        "path": "etc/systemd/system/extra2.service",
+        "type": "file",
+        "content_utf8": "[Service]\nExecStart=/opt/extra2\n"
+      },
+      {
+        "path": "etc/systemd/system/mailer.service",
+        "type": "file",
+        "content_utf8": "[Service]\nExecStart=/opt/mailer\n"
+      },
+      {
+        "path": "etc/systemd/system/multi-user.target.wants/extra2.service",
+        "type": "symlink",
+        "target": "../extra2.service"
+      },
+      {
+        "path": "etc/systemd/system/multi-user.target.wants/mailer.service",
+        "type": "symlink",
+        "target": "../mailer.service"
+      },
+      {
+        "path": "etc/systemd/system/multi-user.target.wants/orders.service",
+        "type": "symlink",
+        "target": "../orders.service"
+      },
+      {
+        "path": "etc/systemd/system/multi-user.target.wants/reports.service",
+        "type": "symlink",
+        "target": "../reports.service"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "orders.service",
+        "reports.service",
+        "extra2.service",
+        "mailer.service"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "list \"etc/systemd/system/multi-user.target.wants\" type: link |> select name",
+  "reference_bash": "ls etc/systemd/system/multi-user.target.wants/\n",
+  "tags": [
+    "report",
+    "systemd"
+  ],
+  "license": "CC-BY-4.0"
+}

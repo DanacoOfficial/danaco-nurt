@@ -1,0 +1,68 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-004",
+  "domain": 1,
+  "split": "public",
+  "platform": "cross",
+  "nl": "List the relative paths of all files with the extension .csv anywhere in the current tree.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "reports/2026/q1.csv",
+        "type": "file",
+        "content_utf8": "month,total\n1,10\n"
+      },
+      {
+        "path": "reports/2026/q2.csv",
+        "type": "file",
+        "content_utf8": "month,total\n4,12\n"
+      },
+      {
+        "path": "reports/README.md",
+        "type": "file",
+        "content_utf8": "quarterly\n"
+      },
+      {
+        "path": "reports/archive/2025.csv",
+        "type": "file",
+        "content_utf8": "month,total\n12,9\n"
+      },
+      {
+        "path": "reports/summary.xlsx.csv.txt",
+        "type": "file",
+        "content_utf8": "n/a\n"
+      },
+      {
+        "path": "scripts/export.py",
+        "type": "file",
+        "content_utf8": "import csv\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "reports/2026/q1.csv",
+        "reports/2026/q2.csv",
+        "reports/archive/2025.csv"
+      ],
+      "not_contains": [
+        "summary.xlsx.csv.txt"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \".\" glob: \"**/*.csv\" type: file",
+  "reference_bash": "find . -type f -name '*.csv' | sort\n",
+  "reference_pwsh": "Get-ChildItem -Recurse -File | Where-Object Extension -eq '.csv' | ForEach-Object { (Resolve-Path -Relative $_.FullName) -replace '\\\\', '/' }\n",
+  "tags": [
+    "find",
+    "glob"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,35 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-016",
+  "domain": 5,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Which files call the function formatPrice? Do not count the file that only defines it. List relative paths.",
+  "fs_before": {
+    "fixture": "ts-webapp"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "src/components/OrderList.tsx"
+      ],
+      "not_contains": [
+        "api.ts",
+        "CustomerCard"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.symbols \"formatPrice\" path: [\".\"] kind: function |> code.references include_definition: false",
+  "reference_bash": "grep -rlE '(^|[^A-Za-z_])formatPrice\\(' . | sort | while read -r f; do grep -E '(^|[^A-Za-z_])formatPrice\\(' \"$f\" | grep -vqE '(def|func|function) formatPrice\\(' && echo \"$f\"; done\n",
+  "reference_pwsh": "Get-ChildItem -Recurse -File | ForEach-Object {\n  $l = Get-Content $_.FullName\n  $calls = $l | Where-Object { $_ -match '(^|[^A-Za-z_])formatPrice\\(' -and $_ -notmatch '(def|func|function) formatPrice\\(' }\n  if ($calls) { (Resolve-Path -Relative $_.FullName) -replace '\\\\', '/' }\n}\n",
+  "tags": [
+    "references",
+    "symbol"
+  ],
+  "license": "CC-BY-4.0"
+}

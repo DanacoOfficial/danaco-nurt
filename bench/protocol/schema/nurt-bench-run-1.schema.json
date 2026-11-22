@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-bench-run-1.schema.json",
+  "title": "nurt-bench-run/1",
+  "description": "One line of a run log of nurt-bench. The first line is a run event, the last line an end event.",
+  "type": "object",
+  "required": ["event"],
+  "oneOf": [
+    {"$ref": "#/$defs/run"},
+    {"$ref": "#/$defs/model"},
+    {"$ref": "#/$defs/tool"},
+    {"$ref": "#/$defs/group"},
+    {"$ref": "#/$defs/oracle"},
+    {"$ref": "#/$defs/end"}
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "condition": {"enum": ["bash", "pwsh", "nurt", "nurt-groups"]},
+    "usage": {
+      "type": "object",
+      "required": ["input", "output"],
+      "properties": {
+        "input": {"type": "integer", "minimum": 0},
+        "output": {"type": "integer", "minimum": 0}
+      }
+    },
+    "run": {
+      "type": "object",
+      "required": ["event", "format", "run_id", "task", "condition", "model", "seed", "protocol", "tool", "limits", "host", "started", "runner"],
+      "properties": {
+        "event": {"const": "run"},
+        "format": {"const": "nurt-bench-run/1"},
+        "run_id": {"type": "string", "description": "<model>/<condition>/<task>/s<seed>"},
+        "task": {
+          "type": "object",
+          "required": ["id", "domain", "platform", "split"],
+          "properties": {
+            "id": {"type": "string"},
+            "domain": {"type": "integer", "minimum": 1, "maximum": 12},
+            "platform": {"enum": ["linux", "windows", "cross", "macos"]},
+            "split": {"enum": ["public", "holdout"]},
+            "provocation": {"type": "string"}
+          }
+        },
+        "condition": {"$ref": "#/$defs/condition"},
+        "model": {
+          "type": "object",
+          "required": ["id", "provider", "model", "producer", "weights", "temperature", "max_output_tokens"],
+          "properties": {
+            "id": {"type": "string"},
+            "provider": {"enum": ["anthropic", "openai", "gemini", "openai-compatible", "mock"]},
+            "model": {"type": "string"},
+            "producer": {"type": "string"},
+            "weights": {"enum": ["open", "closed"]},
+            "temperature": {"type": "number", "minimum": 0, "maximum": 2},
+            "max_output_tokens": {"type": "integer", "minimum": 0}
+          }
+        },
+        "seed": {"type": "integer", "minimum": 0},
+        "protocol": {
+          "type": "object",
+          "required": ["version", "system_message_sha256"],
+          "properties": {
+            "version": {"type": "string"},
+            "system_message_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "tool": {
+          "type": "object",
+          "required": ["name", "description_sha256", "description_chars"],
+          "properties": {
+            "name": {"type": "string"},
+            "description_sha256": {"$ref": "#/$defs/sha256"},
+            "description_chars": {"type": "integer", "minimum": 0},
+            "description_tokens": {"type": ["integer", "null"], "minimum": 0}
+          }
+        },
+        "limits": {
+          "type": "object",
+          "required": ["steps", "seconds"],
+          "properties": {
+            "steps": {"type": "integer", "minimum": 1},
+            "seconds": {"type": "integer", "minimum": 1}
+          }
+        },
+        "host": {"enum": ["linux", "windows", "macos"]},
+        "started": {"type": "string", "format": "date-time"},
+        "runner": {"type": "string"}
+      }
+    },
+    "model": {
+      "type": "object",
+      "required": ["event", "step", "t_ms", "latency_ms", "response"],
+      "properties": {
+        "event": {"const": "model"},
+        "step": {"type": "integer", "minimum": 1},
+        "t_ms": {"type": "integer", "minimum": 0},
+        "latency_ms": {"type": "integer", "minimum": 0},
+        "response": {
+          "type": "object",
+          "required": ["text", "tool_calls", "usage", "stop"],
+          "properties": {
+            "text": {"type": "string"},
+            "tool_calls": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "input"],
+                "properties": {"id": {"type": "string"}, "input": {}}
+              }
+            },
+            "usage": {"$ref": "#/$defs/usage"},
+            "stop": {"enum": ["tool_use", "end", "length", "other"]}
+          }
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "required": ["event", "step", "call_id", "t_ms", "duration_ms", "input", "output", "is_error"],
+      "properties": {
+        "event": {"const": "tool"},
+        "step": {"type": "integer", "minimum": 1},
+        "call_id": {"type": "string"},
+        "t_ms": {"type": "integer", "minimum": 0},
+        "duration_ms": {"type": "integer", "minimum": 0},
+        "input": {},
+        "output": {"type": "string"},
+        "is_error": {"type": "boolean"},
+        "exit": {"type": ["integer", "null"]},
+        "timed_out": {"type": "boolean"},
+        "nurt": {
+          "type": ["object", "null"],
+          "properties": {
+            "status": {"type": ["string", "null"]},
+            "error_code": {"type": ["string", "null"]},
+            "corrections": {"type": "array", "items": {"type": "string"}},
+            "changes": {"type": "array", "items": {"type": "string"}}
+          }
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "required": ["event", "step", "group", "chars"],
+      "properties": {
+        "event": {"const": "group"},
+        "step": {"type": "integer", "minimum": 1},
+        "group": {"type": "string"},
+        "chars": {"type": "integer", "minimum": 0},
+        "tokens": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "oracle": {
+      "type": "object",
+      "required": ["event", "observation", "verdict"],
+      "properties": {
+        "event": {"const": "oracle"},
+        "observation": {
+          "type": "object",
+          "required": ["answer", "probes"],
+          "properties": {
+            "answer": {"type": "string"},
+            "probes": {"type": "object"}
+          }
+        },
+        "verdict": {
+          "type": "object",
+          "description": "Verdict nurt-bench-verdict/1 of the oracle.",
+          "required": ["completed", "harmed"],
+          "properties": {
+            "format": {"type": "string"},
+            "completed": {"type": "boolean"},
+            "harmed": {"type": "boolean"},
+            "passed": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "end": {
+      "type": "object",
+      "required": ["event", "outcome", "steps", "tool_calls", "tokens", "wall_ms"],
+      "properties": {
+        "event": {"const": "end"},
+        "outcome": {"enum": ["answered", "step_limit", "time_limit", "error"]},
+        "steps": {"type": "integer", "minimum": 0},
+        "tool_calls": {"type": "integer", "minimum": 0},
+        "tokens": {"$ref": "#/$defs/usage"},
+        "wall_ms": {"type": "integer", "minimum": 0},
+        "error": {"type": "string"}
+      }
+    }
+  }
+}

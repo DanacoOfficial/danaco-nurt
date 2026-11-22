@@ -1,0 +1,71 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-018",
+  "domain": 3,
+  "split": "public",
+  "platform": "windows",
+  "nl": "In etc/systemd/system/orders.service, insert the line `RestartSec=5` directly after the line `Restart=on-failure`.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "etc/cron.d/backup",
+        "type": "file",
+        "content_utf8": "SHELL=/bin/sh\r\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\r\n30 2 * * * root /usr/local/bin/backup --full\r\n"
+      },
+      {
+        "path": "etc/hosts",
+        "type": "file",
+        "content_utf8": "127.0.0.1 localhost\r\n::1 localhost ip6-localhost\r\n203.0.113.5 db.internal.example.com db\r\n"
+      },
+      {
+        "path": "etc/logrotate.d/orders",
+        "type": "file",
+        "content_utf8": "/var/log/orders/*.log {\r\n    daily\r\n    rotate 7\r\n    compress\r\n    missingok\r\n}\r\n"
+      },
+      {
+        "path": "etc/passwd",
+        "type": "file",
+        "content_utf8": "root:x:0:0:root:/root:/bin/bash\r\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\r\norders:x:998:998:Orders service:/opt/orders:/usr/sbin/nologin\r\nuser:x:1000:1000:Example User:/home/user:/bin/bash\r\ndeploy:x:1001:1001:Deployment:/srv/deploy:/bin/bash\r\nbackup:x:34:34:backup:/var/backups:/usr/sbin/nologin\r\n"
+      },
+      {
+        "path": "etc/ssh/sshd_config",
+        "type": "file",
+        "content_utf8": "Port 22\r\nPermitRootLogin yes\r\nPasswordAuthentication yes\r\nPubkeyAuthentication yes\r\nX11Forwarding no\r\nMaxAuthTries 6\r\nSubsystem sftp /usr/lib/openssh/sftp-server\r\n"
+      },
+      {
+        "path": "etc/sysctl.d/90-net.conf",
+        "type": "file",
+        "content_utf8": "net.core.somaxconn = 1024\r\n"
+      },
+      {
+        "path": "etc/systemd/system/orders.service",
+        "type": "file",
+        "content_utf8": "[Unit]\r\nDescription=Orders service\r\nAfter=network.target\r\n\r\n[Service]\r\nUser=orders\r\nExecStart=/opt/orders/bin/orders --port 8080\r\nRestart=on-failure\r\n\r\n[Install]\r\nWantedBy=multi-user.target\r\n"
+      },
+      {
+        "path": "etc/systemd/system/reports.service",
+        "type": "file",
+        "content_utf8": "[Unit]\r\nDescription=Report generator\r\n\r\n[Service]\r\nType=oneshot\r\nExecStart=/opt/reports/bin/generate\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "etc/systemd/system/orders.service": {
+        "text": "[Unit]\r\nDescription=Orders service\r\nAfter=network.target\r\n\r\n[Service]\r\nUser=orders\r\nExecStart=/opt/orders/bin/orders --port 8080\r\nRestart=on-failure\r\nRestartSec=5\r\n\r\n[Install]\r\nWantedBy=multi-user.target\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"etc/systemd/system/orders.service\" |> filter text == \"Restart=on-failure\" |> insert \"RestartSec=5\" position: after",
+  "reference_pwsh": "$p = Join-Path $PWD 'etc/systemd/system/orders.service'\n$t = [IO.File]::ReadAllText($p)\n$a = 'Restart=on-failure'\n$n = 'RestartSec=5'\n$i = $t.IndexOf($a); $e = $t.IndexOf(\"`n\", $i)\n$eol = if ($t[$e - 1] -eq \"`r\") { \"`r`n\" } else { \"`n\" }\n[IO.File]::WriteAllText($p, $t.Insert($e + 1, $n + $eol))\n",
+  "tags": [
+    "insert-line"
+  ],
+  "license": "CC-BY-4.0"
+}

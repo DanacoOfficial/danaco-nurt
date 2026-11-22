@@ -1,0 +1,74 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-035",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Move all files of outbox/ to sent/ as one operation: if any file name already exists in sent/, move nothing and name the conflict.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "outbox/1.msg",
+        "type": "file",
+        "content_utf8": "one\n"
+      },
+      {
+        "path": "outbox/2.msg",
+        "type": "file",
+        "content_utf8": "two\n"
+      },
+      {
+        "path": "outbox/3.msg",
+        "type": "file",
+        "content_utf8": "three\n"
+      },
+      {
+        "path": "sent/2.msg",
+        "type": "file",
+        "content_utf8": "sent two\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "outbox/1.msg": {
+        "same_as_before": "outbox/1.msg"
+      },
+      "outbox/2.msg": {
+        "same_as_before": "outbox/2.msg"
+      },
+      "outbox/3.msg": {
+        "same_as_before": "outbox/3.msg"
+      },
+      "sent/2.msg": {
+        "same_as_before": "sent/2.msg"
+      }
+    },
+    "answer": {
+      "contains": [
+        "2.msg"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"outbox\" type: file |> move into: \"sent\" on_conflict: fail",
+  "reference_bash": "for f in outbox/*; do [ -e \"sent/${f##*/}\" ] && { echo \"conflict: ${f##*/}\"; exit 1; }; done\nmv -- outbox/* sent/\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "mv -n outbox/* sent/",
+      "defect": "moves the files without a conflict and leaves the rest"
+    }
+  ],
+  "provocation": "interrupted-bulk",
+  "tags": [
+    "interrupted-bulk",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,18 @@
+{
+  "name": "nurt-linux-x64-gnu",
+  "version": "0.1.0",
+  "description": "Command shell and language where every change can be undone",
+  "homepage": "https://nurt.danaco-group.pl",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DanacoOfficial/nurt.git",
+    "directory": "bindings/node/npm/linux-x64-gnu"
+  },
+  "license": "Apache-2.0",
+  "author": "Danaco Holding Group Sp. z o.o. <support@danaco-group.pl>",
+  "os": ["linux"],
+  "cpu": ["x64"],
+  "libc": ["glibc"],
+  "files": ["bin/", "LICENSE", "NOTICE", "README.md"],
+  "preferUnplugged": true
+}

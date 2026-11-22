@@ -1,0 +1,35 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-023",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Show lines 6 to 8 of inventory/report.py.",
+  "fs_before": {
+    "fixture": "py-inventory"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "def format_report(items):",
+        "rows = [f\"{item.sku:<8} {item.name:<20} {item.quantity:>5}\" for item in items]",
+        "rows.append(f\"total value: {total_value(items):.2f}\")"
+      ],
+      "not_contains": [
+        "for item in low_stock(items):"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"inventory/report.py\" lines: 6..8",
+  "reference_bash": "sed -n '6,8p' inventory/report.py\n",
+  "tags": [
+    "line-range",
+    "read"
+  ],
+  "license": "CC-BY-4.0"
+}

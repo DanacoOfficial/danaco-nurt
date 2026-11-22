@@ -1,0 +1,73 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-051",
+  "domain": 5,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Rename the C# class OrderService to OrderRegistry, update its use in Program.cs and rename the file OrderService.cs to OrderRegistry.cs. Keep the CRLF line endings.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "App.sln",
+        "type": "file",
+        "content_utf8": "Microsoft Visual Studio Solution File, Format Version 12.00\r\nProject(\"{FAE04EC0}\") = \"Orders\", \"src\\Orders\\Orders.csproj\"\r\n"
+      },
+      {
+        "path": "scripts/build.cmd",
+        "type": "file",
+        "content_utf8": "@echo off\r\ndotnet build src\\Orders\\Orders.csproj -c Release\r\n"
+      },
+      {
+        "path": "scripts/deploy.ps1",
+        "type": "file",
+        "content_utf8": "param([string]$Environment = 'staging')\r\n$version = '3.1.0'\r\nWrite-Output \"Deploying $version to $Environment\"\r\n"
+      },
+      {
+        "path": "src/Orders/Order.cs",
+        "type": "file",
+        "content_utf8": "namespace Orders;\r\n\r\npublic sealed record Order(int Id, string Customer, decimal Amount);\r\n"
+      },
+      {
+        "path": "src/Orders/OrderService.cs",
+        "type": "file",
+        "content_utf8": "namespace Orders;\r\n\r\npublic sealed class OrderService\r\n{\r\n    private readonly List<Order> _orders = new();\r\n\r\n    public void AddOrder(Order order) => _orders.Add(order);\r\n\r\n    public decimal TotalAmount() => _orders.Sum(o => o.Amount);\r\n}\r\n"
+      },
+      {
+        "path": "src/Orders/Orders.csproj",
+        "type": "file",
+        "content_utf8": "<Project Sdk=\"Microsoft.NET.Sdk\">\r\n  <PropertyGroup>\r\n    <TargetFramework>net8.0</TargetFramework>\r\n    <Version>3.1.0</Version>\r\n    <Nullable>enable</Nullable>\r\n  </PropertyGroup>\r\n</Project>\r\n"
+      },
+      {
+        "path": "src/Orders/Program.cs",
+        "type": "file",
+        "content_utf8": "using Orders;\r\n\r\nvar service = new OrderService();\r\nservice.AddOrder(new Order(1, \"acme\", 12.5m));\r\nConsole.WriteLine(service.TotalAmount());\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "src/Orders/OrderRegistry.cs": {
+        "text": "namespace Orders;\r\n\r\npublic sealed class OrderRegistry\r\n{\r\n    private readonly List<Order> _orders = new();\r\n\r\n    public void AddOrder(Order order) => _orders.Add(order);\r\n\r\n    public decimal TotalAmount() => _orders.Sum(o => o.Amount);\r\n}\r\n"
+      },
+      "src/Orders/OrderService.cs": {
+        "absent": true
+      },
+      "src/Orders/Program.cs": {
+        "text": "using Orders;\r\n\r\nvar service = new OrderRegistry();\r\nservice.AddOrder(new Order(1, \"acme\", 12.5m));\r\nConsole.WriteLine(service.TotalAmount());\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.rename \"OrderRegistry\" path: \"src/Orders/OrderService.cs\" symbol: \"OrderService\"\nmove \"src/Orders/OrderService.cs\" \"src/Orders/OrderRegistry.cs\"",
+  "reference_pwsh": "$p = Join-Path $PWD 'src/Orders/OrderService.cs'; $t = [IO.File]::ReadAllText($p)\n$o = 'public sealed class OrderService'; $n = 'public sealed class OrderRegistry'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in src/Orders/OrderService.cs' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'src/Orders/Program.cs'; $t = [IO.File]::ReadAllText($p)\n$o = 'new OrderService()'; $n = 'new OrderRegistry()'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in src/Orders/Program.cs' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\nMove-Item -LiteralPath 'src/Orders/OrderService.cs' -Destination 'src/Orders/OrderRegistry.cs'\n",
+  "tags": [
+    "csharp",
+    "rename"
+  ],
+  "license": "CC-BY-4.0"
+}

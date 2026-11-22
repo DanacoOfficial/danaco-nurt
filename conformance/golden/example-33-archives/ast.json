@@ -1,0 +1,156 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "archive.extract",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/dl/data.tar.gz",
+                "span": [
+                  1,
+                  17,
+                  1,
+                  38
+                ]
+              },
+              "span": [
+                1,
+                17,
+                1,
+                38
+              ]
+            },
+            {
+              "name": "into",
+              "value": {
+                "t": "text",
+                "v": "/srv/data",
+                "span": [
+                  1,
+                  45,
+                  1,
+                  56
+                ]
+              },
+              "span": [
+                1,
+                39,
+                1,
+                56
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            56
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          56
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/dist",
+                "span": [
+                  2,
+                  6,
+                  2,
+                  21
+                ]
+              },
+              "span": [
+                2,
+                6,
+                2,
+                21
+              ]
+            }
+          ],
+          "span": [
+            2,
+            1,
+            2,
+            21
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "archive.create",
+            "args": [
+              {
+                "value": {
+                  "t": "text",
+                  "v": "/srv/out/dist.zip",
+                  "span": [
+                    2,
+                    40,
+                    2,
+                    59
+                  ]
+                },
+                "span": [
+                  2,
+                  40,
+                  2,
+                  59
+                ]
+              },
+              {
+                "name": "base",
+                "value": {
+                  "t": "text",
+                  "v": "/srv/app",
+                  "span": [
+                    2,
+                    66,
+                    2,
+                    76
+                  ]
+                },
+                "span": [
+                  2,
+                  60,
+                  2,
+                  76
+                ]
+              }
+            ],
+            "span": [
+              2,
+              25,
+              2,
+              76
+            ]
+          }
+        ],
+        "span": [
+          2,
+          1,
+          2,
+          76
+        ]
+      }
+    ]
+  }
+}

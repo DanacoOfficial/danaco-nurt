@@ -1,0 +1,226 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "errors/execution/program-not-found"
+kind = "error"
+code = "E_PROGRAM_NOT_FOUND"
+summary = "A program missing from the search path is reported with similar names."
+program = 'run ["nurt-conformance-no-such-program"]'
+expect = { report = { status = "failed", error = { code = "E_PROGRAM_NOT_FOUND" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/spawn-without-permission"
+kind = "error"
+code = "E_SPAWN"
+requires = ["os:unix"]
+summary = "A file without permission to execute cannot be started."
+program = 'run ["${base}/tool.sh"]'
+fs_before = { entries = [{ path = "tool.sh", type = "file", content_utf8 = "#!/bin/sh\n", mode = "0644" }] }
+expect = { report = { status = "failed", error = { code = "E_SPAWN" } } }
+
+[[case]]
+id = "errors/execution/assert-before-effect"
+kind = "error"
+code = "E_ASSERT"
+summary = "A failed assertion before the effect changes nothing."
+program = 'find "." glob: "*.tmp" |> assert count: 5 |> remove'
+fs_before = { entries = [{ path = "a.tmp", type = "file", content_utf8 = "" }] }
+expect = { report = { status = "failed", error = { code = "E_ASSERT" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/binary-content"
+kind = "error"
+code = "E_BINARY"
+summary = "Reading lines of binary content is a binary error."
+program = 'lines "data.bin"'
+fs_before = { entries = [{ path = "data.bin", type = "file", content_base64 = "AAECAwQFBgcICQ==" }] }
+expect = { report = { status = "failed", error = { code = "E_BINARY" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/document-does-not-parse"
+kind = "error"
+code = "E_DOC_PARSE"
+summary = "Setting a key in a file that is not valid JSON reports the location and changes nothing."
+program = 'set "a.json" key: "x" value: 1'
+fs_before = { entries = [{ path = "a.json", type = "file", content_utf8 = "{\"a\": \n" }] }
+expect = { report = { status = "failed", error = { code = "E_DOC_PARSE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/damaged-archive"
+kind = "error"
+code = "E_FORMAT"
+summary = "Listing a file that is not an archive is a format error."
+program = 'archive.list "a.zip"'
+fs_before = { entries = [{ path = "a.zip", type = "file", content_utf8 = "not an archive\n" }] }
+expect = { report = { status = "failed", error = { code = "E_FORMAT" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/key-not-found"
+kind = "error"
+code = "E_KEY_NOT_FOUND"
+summary = "Reading a missing key of a document is a key error."
+program = 'read "a.json" key: "missing"'
+fs_before = { entries = [{ path = "a.json", type = "file", content_utf8 = "{\"a\": 1}\n" }] }
+expect = { report = { status = "failed", error = { code = "E_KEY_NOT_FOUND" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/key-through-number"
+kind = "error"
+code = "E_KEY_CONFLICT"
+summary = "A key path through a number is a key conflict and changes nothing."
+program = 'set "a.json" key: "a.b" value: 1'
+fs_before = { entries = [{ path = "a.json", type = "file", content_utf8 = "{\"a\": 1}\n" }] }
+expect = { report = { status = "failed", error = { code = "E_KEY_CONFLICT" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/unsupported-language"
+kind = "error"
+code = "E_UNSUPPORTED_LANGUAGE"
+summary = "An outline of a file in a language without grammar is an unsupported language."
+program = 'code.outline "a.zzq"'
+fs_before = { entries = [{ path = "a.zzq", type = "file", content_utf8 = "x\n" }] }
+expect = { report = { status = "failed", error = { code = "E_UNSUPPORTED_LANGUAGE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/edit-without-match"
+kind = "error"
+code = "E_NO_MATCH"
+summary = "An edit whose replacement finds no match changes nothing."
+program = 'edit "a.txt" changes: [{replace: "zzz", with: "y"}]'
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "abc\n" }] }
+expect = { report = { status = "failed", error = { code = "E_NO_MATCH" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/patch-rejected"
+kind = "error"
+code = "E_PATCH_REJECTED"
+summary = "A hunk that does not apply rejects the patch and changes nothing."
+program = 'patch "--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-zzz\n+yyy\n" root: "."'
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "abc\n" }] }
+expect = { report = { status = "failed", error = { code = "E_PATCH_REJECTED" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/create-existing-file"
+kind = "error"
+code = "E_EXISTS"
+summary = "Creating a file that exists fails and keeps its content."
+program = 'write "a.txt" "new" mode: create'
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "old" }] }
+expect = { report = { status = "failed", error = { code = "E_EXISTS" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/read-missing-file"
+kind = "error"
+code = "E_NOT_FOUND"
+summary = "Reading a missing file is a not found error."
+program = 'read "missing.txt"'
+expect = { report = { status = "failed", error = { code = "E_NOT_FOUND" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/timeout-of-call"
+kind = "error"
+code = "E_TIMEOUT"
+summary = "A call stopped by its time limit ends as failed with a timeout."
+program = 'sleep 10s'
+options = { timeout = "1s" }
+expect = { report = { status = "failed", error = { code = "E_TIMEOUT" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/verify-rolls-back"
+kind = "error"
+code = "E_ROLLED_BACK"
+summary = "A failed verification rolls the replacement back."
+program = 'replace "old" "new" in: ["a.txt"] |> verify (find "." glob: "*.txt" |> assert count: 0)'
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "old\n" }] }
+expect = { report = { status = "rolled_back", error = { code = "E_ROLLED_BACK" } } }
+fs_after = { entries = [{ path = "a.txt", type = "file", content_utf8 = "old\n" }] }
+
+[[case]]
+id = "errors/execution/unknown-job"
+kind = "error"
+code = "E_UNKNOWN_JOB"
+summary = "Stopping an unknown background job is an unknown job error."
+program = 'stop 999999'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_JOB" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/test-framework-not-recognised"
+kind = "error"
+code = "E_TEST_NO_FRAMEWORK"
+summary = "Running tests in a directory without a project reports no framework."
+program = 'test.run "."'
+fs_before = { entries = [{ path = "notes.txt", type = "file", content_utf8 = "x\n" }] }
+expect = { report = { status = "failed", error = { code = "E_TEST_NO_FRAMEWORK" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/unknown-test-run"
+kind = "error"
+code = "E_UNKNOWN_RUN"
+summary = "Showing an unknown test run is an unknown run error."
+program = 'test.show "run-999999"'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_RUN" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/unknown-analysis"
+kind = "error"
+code = "E_UNKNOWN_ANALYSIS"
+summary = "Showing an unknown analysis is an unknown analysis error."
+program = 'analyze.show "analysis-999999"'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_ANALYSIS" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/git-not-a-repository"
+kind = "error"
+code = "E_GIT_NOT_REPOSITORY"
+summary = "A repository command outside a repository names the problem and nearby repositories."
+program = 'git.status "."'
+expect = { report = { status = "failed", error = { code = "E_GIT_NOT_REPOSITORY" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/journal-nothing-to-undo"
+kind = "error"
+code = "E_JOURNAL_NOOP"
+summary = "Undoing an operation that is not in the journal changes nothing."
+program = 'undo 999999'
+expect = { report = { status = "failed", error = { code = "E_JOURNAL_NOOP" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/execution/journal-conflict-on-undo"
+kind = "error"
+code = "E_JOURNAL_CONFLICT"
+summary = "Undoing a write after a later change of the same file reports a conflict and changes nothing."
+
+[[case.step]]
+program = 'write "a.txt" "first" mode: create'
+expect = { report = { status = "ok", op = 1 } }
+
+[[case.step]]
+program = 'write "a.txt" "second" mode: overwrite'
+expect = { report = { status = "ok", op = 2 } }
+
+[[case.step]]
+program = 'undo ${step1/report/op}'
+expect = { report = { status = "failed", error = { code = "E_JOURNAL_CONFLICT" } } }
+fs_after = { entries = [{ path = "a.txt", type = "file", content_utf8 = "second" }] }

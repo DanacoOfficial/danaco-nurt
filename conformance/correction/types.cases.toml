@@ -1,0 +1,436 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "correction/types/t01-size-with-space"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A size written with a space and an upper-case unit is the canonical size."
+method = "correct"
+program = 'find "/home/user/app" |> filter size > 10 MB'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter size > 10mb'
+corrections = [{ rule = "T01", class = "C" }]
+
+[[case]]
+id = "correction/types/t01-mixed-case-unit"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A unit in mixed letter case is the canonical unit."
+method = "correct"
+program = 'find "/home/user/app" |> filter size > 10Mb'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter size > 10mb'
+
+[[case]]
+id = "correction/types/t01-unit-name"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A unit written as a word is the decimal unit."
+method = "correct"
+program = 'find "/home/user/app" |> filter size > 10 megabytes'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter size > 10mb'
+
+[[case]]
+id = "correction/types/t01-binary-unit"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A binary unit stays binary; the fractional value is unchanged."
+method = "correct"
+program = 'find "/home/user/app" |> filter size > 1.5 GiB'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter size > 1.5gib'
+
+[[case]]
+id = "correction/types/t01-size-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The notation of an unambiguous size is corrected in a changing program."
+method = "correct"
+program = 'find "/home/user/app/logs" glob: "*.log" |> filter size > 100 MB |> remove'
+
+[case.expect]
+program = 'find "/home/user/app/logs" glob: "*.log" |> filter size > 100mb |> remove'
+
+[[case]]
+id = "correction/types/t01-kilobytes"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "KB in upper case is the decimal kilobyte."
+method = "correct"
+program = 'find "/home/user/app" |> filter size >= 512 KB'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter size >= 512kb'
+
+[[case]]
+id = "correction/types/t02-single-letter-unit-in-read"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A single-letter unit follows the coreutils convention in a reading program, with the decimal alternative."
+method = "correct"
+program = 'find "/home/user/app" |> filter size > 10M'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter size > 10mib'
+corrections = [{ rule = "T02", class = "P" }]
+
+[[case]]
+id = "correction/types/t02-single-letter-unit-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A single-letter unit in a changing program selects different targets in each reading; both programs are offered."
+method = "correct"
+program = 'find "/home/user/app" |> filter size > 10M |> remove'
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+candidates = [
+  { program = 'find "/home/user/app" |> filter size > 10mib |> remove' },
+  { program = 'find "/home/user/app" |> filter size > 10mb |> remove' },
+]
+
+[[case]]
+id = "correction/types/t02-kilo-in-read"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The unit k is kibibytes in a reading program."
+method = "correct"
+program = 'find "/home/user/app" |> filter size < 64k'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter size < 64kib'
+
+[[case]]
+id = "correction/types/t02-giga-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The unit G in a changing program is ambiguous."
+method = "correct"
+program = 'find "/home/user/backups" |> filter size > 2G |> remove'
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+
+[[case]]
+id = "correction/types/t03-duration-words"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A duration written in words is the canonical duration."
+method = "correct"
+program = 'find "/home/user/app" |> filter modified > ago(2 days)'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter modified > ago(2d)'
+corrections = [{ rule = "T03", class = "C" }]
+
+[[case]]
+id = "correction/types/t03-duration-hour"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The duration 1 hour is 1h."
+method = "correct"
+program = 'find "/home/user/app" |> filter modified > ago(1 hour)'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter modified > ago(1h)'
+
+[[case]]
+id = "correction/types/t03-duration-abbreviation"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The duration 1hr is 1h."
+method = "correct"
+program = 'jobs "j1" wait: 1hr'
+
+[case.expect]
+program = 'jobs "j1" wait: 1h'
+
+[[case]]
+id = "correction/types/t03-duration-minutes"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The duration 90 minutes is 90m; the number is unchanged."
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" timeout: 90 minutes'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" timeout: 90m'
+
+[[case]]
+id = "correction/types/t03-iso-duration"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An ISO 8601 duration is the canonical duration."
+method = "correct"
+program = 'jobs "j1" wait: PT1H'
+
+[case.expect]
+program = 'jobs "j1" wait: 1h'
+
+[[case]]
+id = "correction/types/t03-months-uncorrectable"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Months have no fixed duration and are not corrected."
+method = "correct"
+program = 'find "/home/user/app" |> filter modified < ago(2 months)'
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/types/t04-yes"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "yes in a place of type bool is true."
+method = "correct"
+program = 'list "/home/user/app" hidden: yes'
+
+[case.expect]
+program = 'list "/home/user/app" hidden: true'
+corrections = [{ rule = "T04", class = "C" }]
+
+[[case]]
+id = "correction/types/t04-off"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "off in a place of type bool is false."
+method = "correct"
+program = 'list "/home/user/app" hidden: off'
+
+[case.expect]
+program = 'list "/home/user/app" hidden: false'
+
+[[case]]
+id = "correction/types/t04-quoted-true"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The text true in a place of type bool is the value true."
+method = "correct"
+program = 'search "x" "/home/user/app" whole_word: "true"'
+
+[case.expect]
+program = 'search "x" "/home/user/app" whole_word: true'
+
+[[case]]
+id = "correction/types/t04-capital-true"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "True with a capital letter is true."
+method = "correct"
+program = 'search "x" "/home/user/app" invert: True'
+
+[case.expect]
+program = 'search "x" "/home/user/app" invert: true'
+
+[[case]]
+id = "correction/types/t04-number-one"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "1 in a place of type bool is true."
+method = "correct"
+program = 'search "x" "/home/user/app" multiline: 1'
+
+[case.expect]
+program = 'search "x" "/home/user/app" multiline: true'
+
+[[case]]
+id = "correction/types/t04-recursive-yes-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A boolean notation of a mode parameter is corrected by the table, not guessed."
+method = "correct"
+program = 'attributes "/home/user/app/bin" mode: "0755" recursive: yes'
+
+[case.expect]
+program = 'attributes "/home/user/app/bin" mode: "0755" recursive: true'
+
+[[case]]
+id = "correction/types/t05-integral-number"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A number with a zero fraction in a place of type int is the integer; the value is unchanged."
+method = "correct"
+program = 'list "/home/user/app" depth: 2.0'
+
+[case.expect]
+program = 'list "/home/user/app" depth: 2'
+corrections = [{ rule = "T05", class = "C" }]
+
+[[case]]
+id = "correction/types/t05-first-count"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The count of first written with a zero fraction keeps its value."
+method = "correct"
+program = 'find "/home/user/app" |> first 40.0'
+
+[case.expect]
+program = 'find "/home/user/app" |> first 40'
+
+[[case]]
+id = "correction/types/t06-dash-range"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A range written with a dash is the canonical range."
+method = "correct"
+program = 'read "/home/user/app/a.txt" lines: 10-20'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" lines: 10..20'
+corrections = [{ rule = "T06", class = "C" }]
+
+[[case]]
+id = "correction/types/t06-colon-range"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A range written with a colon is the canonical range."
+method = "correct"
+program = 'read "/home/user/app/a.txt" lines: 10:20'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" lines: 10..20'
+
+[[case]]
+id = "correction/types/t06-at-least-count"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A comparison in the count of assert is an open range."
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" |> assert count: >=40'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" |> assert count: 40..'
+
+[[case]]
+id = "correction/types/t07-text-as-regex-in-read"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A text after the match operator is a regular expression with the same text in a reading program."
+method = "correct"
+program = 'find "/home/user/app" |> filter name ~ "test"'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter name ~ /test/'
+corrections = [{ rule = "T07", class = "P" }]
+
+[[case]]
+id = "correction/types/t07-text-as-regex-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A text after the match operator selects the targets of a change; the program is offered, not run."
+method = "correct"
+program = 'find "/home/user/app" |> filter name ~ "tmp" |> remove'
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+
+[[case]]
+id = "correction/types/t08-yesterday"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "yesterday in a place of type instant is ago(1d)."
+method = "correct"
+program = 'find "/home/user/app" |> filter modified > yesterday'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter modified > ago(1d)'
+corrections = [{ rule = "T08", class = "P" }]
+
+[[case]]
+id = "correction/types/t08-last-week"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "last week in a place of type instant is ago(7d)."
+method = "correct"
+program = 'find "/home/user/app" |> filter modified > last week'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter modified > ago(7d)'
+
+[[case]]
+id = "correction/types/t08-instant-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An interpreted instant that selects targets of a change is not applied."
+method = "correct"
+program = 'find "/home/user/app/logs" |> filter modified < last week |> remove'
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+
+[[case]]
+id = "correction/types/t09-mode-add"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The mode add of write is append."
+method = "correct"
+program = 'write "/home/user/app/.gitignore" "dist/\n" mode: add'
+
+[case.expect]
+program = 'write "/home/user/app/.gitignore" "dist/\n" mode: append'
+
+[[case]]
+id = "correction/types/t09-mode-replace"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The mode replace of write is overwrite."
+method = "correct"
+program = 'write "/home/user/app/a.txt" "x\n" mode: replace'
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" "x\n" mode: overwrite'
+
+[[case]]
+id = "correction/types/t09-mode-truncate"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The mode truncate of write is overwrite."
+method = "correct"
+program = 'write "/home/user/app/a.txt" "x\n" mode: truncate'
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" "x\n" mode: overwrite'

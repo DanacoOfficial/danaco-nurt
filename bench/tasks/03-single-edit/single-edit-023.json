@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-023",
+  "domain": 3,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Remove the lines marked '# debug' from Makefile.inc. Keep all other lines in their order.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "Makefile.inc",
+        "type": "file",
+        "content_utf8": "CFLAGS += -O2\r\nCFLAGS += -g  # debug\r\nLDFLAGS += -lm\r\nCFLAGS += -DTRACE  # debug\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "Makefile.inc": {
+        "text": "CFLAGS += -O2\r\nLDFLAGS += -lm\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"Makefile.inc\" |> filter text ~ \"# debug\" |> remove",
+  "reference_pwsh": "$p = Join-Path $PWD 'Makefile.inc'; $t = [IO.File]::ReadAllText($p); $eol = if ($t.Contains(\"`r`n\")) { \"`r`n\" } else { \"`n\" }; $l = [IO.File]::ReadAllLines($p) | Where-Object { -not $_.Contains('# debug') }; [IO.File]::WriteAllText($p, ($l -join $eol) + $eol)\n",
+  "tags": [
+    "delete-lines"
+  ],
+  "license": "CC-BY-4.0"
+}

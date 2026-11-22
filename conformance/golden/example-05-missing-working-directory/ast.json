@@ -1,0 +1,87 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "run",
+          "args": [
+            {
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "make",
+                    "span": [
+                      1,
+                      6,
+                      1,
+                      12
+                    ]
+                  },
+                  {
+                    "t": "text",
+                    "v": "clean",
+                    "span": [
+                      1,
+                      14,
+                      1,
+                      21
+                    ]
+                  }
+                ],
+                "span": [
+                  1,
+                  5,
+                  1,
+                  22
+                ]
+              },
+              "span": [
+                1,
+                5,
+                1,
+                22
+              ]
+            },
+            {
+              "name": "cwd",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/new",
+                "span": [
+                  1,
+                  28,
+                  1,
+                  42
+                ]
+              },
+              "span": [
+                1,
+                23,
+                1,
+                42
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            42
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          42
+        ]
+      }
+    ]
+  }
+}

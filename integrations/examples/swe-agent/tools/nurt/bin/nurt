@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Command `nurt` of the tool bundle. The bundle directory comes first in PATH,
+# so the console executable is called by its path to avoid calling this file.
+set -euo pipefail
+exec "${NURT_EXECUTABLE:-/usr/local/bin/nurt}" exec -- "$1"

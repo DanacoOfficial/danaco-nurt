@@ -1,0 +1,33 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-007",
+  "domain": 5,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Where is the function SaveOrder defined? Answer with the relative file path and the line number.",
+  "fs_before": {
+    "fixture": "go-service"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "internal/store/store.go"
+      ],
+      "regex": [
+        "(?<!\\d)15(?!\\d)"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.symbols \"SaveOrder\" path: [\".\"] kind: function",
+  "reference_bash": "grep -rn 'func SaveOrder\\b' --include='*.go' .\n",
+  "tags": [
+    "definition",
+    "symbol"
+  ],
+  "license": "CC-BY-4.0"
+}

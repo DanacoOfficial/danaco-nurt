@@ -1,0 +1,68 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "golden/schema/ast"
+kind = "golden"
+summary = "The published schema of the surface tree is a valid JSON Schema 2020-12."
+method = "schema"
+params = { which = "ast" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/bound"
+kind = "golden"
+summary = "The published schema of the bound tree is a valid JSON Schema 2020-12."
+method = "schema"
+params = { which = "bound" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/report"
+kind = "golden"
+summary = "The published schema of the effect report is a valid JSON Schema 2020-12."
+method = "schema"
+params = { which = "report" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/request"
+kind = "golden"
+summary = "The published schema of requests and responses is a valid JSON Schema 2020-12."
+method = "schema"
+params = { which = "request" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/config"
+kind = "golden"
+summary = "The published schema of the configuration is a valid JSON Schema 2020-12."
+method = "schema"
+params = { which = "config" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/catalog"
+kind = "golden"
+summary = "The published schema of the command catalog is a valid JSON Schema 2020-12."
+method = "schema"
+params = { which = "catalog" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/value"
+kind = "golden"
+summary = "The published schema of values and records is a valid JSON Schema 2020-12."
+method = "schema"
+params = { which = "value" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/unknown-name"
+kind = "golden"
+summary = "Asking for an unknown schema is an invalid parameter."
+method = "schema"
+params = { which = "no-such-schema" }
+expect_error = -32602

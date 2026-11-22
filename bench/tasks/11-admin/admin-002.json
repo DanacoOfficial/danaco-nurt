@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-002",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Create the cron file etc/cron.d/reports in the same format as etc/cron.d/backup (SHELL and PATH lines first) that runs `/opt/reports/bin/generate --weekly` as orders at `0 6 * * 1`.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/cron.d/reports": {
+        "text": "SHELL=/bin/sh\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\n0 6 * * 1 orders /opt/reports/bin/generate --weekly\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "etc/cron.d/backup",
+      "change": "any",
+      "reason": "the existing job stays unchanged"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "schedule.create \"reports\" cron: \"0 6 * * 1\" action: (run [\"/opt/reports/bin/generate\", \"--weekly\"])",
+  "reference_bash": "mkdir -p 'etc/cron.d'\nprintf '%s' 'SHELL=/bin/sh\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\n0 6 * * 1 orders /opt/reports/bin/generate --weekly\n' > 'etc/cron.d/reports'\n",
+  "tags": [
+    "cron",
+    "schedule"
+  ],
+  "license": "CC-BY-4.0"
+}

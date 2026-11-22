@@ -1,0 +1,31 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-027",
+  "domain": 11,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Create etc/systemd/system/mailer.service following the layout of orders.service: Description=Mail sender, After=network.target, User=orders, ExecStart=/opt/mailer/bin/mailer --config /etc/mailer.toml, Restart=on-failure, WantedBy=multi-user.target.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/systemd/system/mailer.service": {
+        "text": "[Unit]\nDescription=Mail sender\nAfter=network.target\n\n[Service]\nUser=orders\nExecStart=/opt/mailer/bin/mailer --config /etc/mailer.toml\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \"etc/systemd/system/mailer.service\" \"[Unit]\\nDescription=Mail sender\\nAfter=network.target\\n\\n[Service]\\nUser=orders\\nExecStart=/opt/mailer/bin/mailer --config /etc/mailer.toml\\nRestart=on-failure\\n\\n[Install]\\nWantedBy=multi-user.target\\n\" mode: create",
+  "reference_bash": "mkdir -p 'etc/systemd/system'\nprintf '%s' '[Unit]\nDescription=Mail sender\nAfter=network.target\n\n[Service]\nUser=orders\nExecStart=/opt/mailer/bin/mailer --config /etc/mailer.toml\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\n' > 'etc/systemd/system/mailer.service'\n",
+  "reference_pwsh": "New-Item -ItemType Directory -Force 'etc/systemd/system' | Out-Null\n[IO.File]::WriteAllText((Join-Path $PWD 'etc/systemd/system/mailer.service'), '[Unit]\nDescription=Mail sender\nAfter=network.target\n\n[Service]\nUser=orders\nExecStart=/opt/mailer/bin/mailer --config /etc/mailer.toml\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\n')\n",
+  "tags": [
+    "create",
+    "systemd"
+  ],
+  "license": "CC-BY-4.0"
+}

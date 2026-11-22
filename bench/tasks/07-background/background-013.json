@@ -1,0 +1,71 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-013",
+  "domain": 7,
+  "split": "public",
+  "platform": "linux",
+  "nl": "A worker started as `tools/worker.py bench-worker-2` (PID in run/worker.pid) is running. Stop it with a normal termination signal so that it can shut down cleanly, and wait until it has exited.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/worker.py",
+        "type": "file",
+        "content_utf8": "import os\nimport pathlib\nimport signal\nimport sys\nimport time\n\npathlib.Path(\"run\").mkdir(exist_ok=True)\npathlib.Path(\"logs\").mkdir(exist_ok=True)\nlog = open(\"logs/worker.log\", \"a\")\n\n\ndef stop(*_):\n    log.write(\"stopped cleanly\\n\")\n    log.flush()\n    pathlib.Path(\"run/worker.pid\").unlink(missing_ok=True)\n    sys.exit(0)\n\n\nsignal.signal(signal.SIGTERM, stop)\nlog.write(f\"started {sys.argv[2] if len(sys.argv) > 2 else 'normal'}\\n\")\nlog.flush()\npathlib.Path(\"run/worker.pid\").write_text(str(os.getpid()))\nwhile True:\n    if pathlib.Path(\"run/stop\").exists():\n        stop()\n    time.sleep(0.1)\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "tools/worker.py runs in the background and has written run/worker.pid.",
+    "bash": "setsid python3 tools/worker.py bench-worker-2 > /dev/null 2>&1 < /dev/null &\nfor i in $(seq 100); do [ -s run/worker.pid ] && break; sleep 0.1; done",
+    "pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nStart-Process $py -ArgumentList 'tools/worker.py','bench-worker-2'\nfor ($i = 0; $i -lt 100 -and -not (Test-Path run/worker.pid); $i++) { Start-Sleep -Milliseconds 100 }"
+  },
+  "teardown": {
+    "bash": "pkill -f -- bench-worker-2 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*bench-worker-2*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "probes": [
+    {
+      "id": "worker",
+      "kind": "process",
+      "match": "bench-worker-2"
+    }
+  ],
+  "expect": {
+    "files": {
+      "logs/worker.log": {
+        "contains": [
+          "stopped cleanly"
+        ]
+      }
+    },
+    "allowed_changes": [
+      "run/**",
+      "logs/**"
+    ],
+    "probes": {
+      "worker": {
+        "count": 0
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "processes |> filter command ~ \"tools/worker.py\" |> stop signal: term grace: 10s",
+  "reference_bash": "kill $(cat run/worker.pid)\nuntil grep -q 'stopped cleanly' logs/worker.log; do sleep 0.1; done\nwhile pgrep -f -- 'worker.py bench-worker-2' > /dev/null; do sleep 0.1; done\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "kill -9 $(cat run/worker.pid)",
+      "defect": "kills the worker without a clean shutdown"
+    }
+  ],
+  "tags": [
+    "background",
+    "stop"
+  ],
+  "license": "CC-BY-4.0"
+}

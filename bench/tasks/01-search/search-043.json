@@ -1,0 +1,63 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-043",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Two files under assets/ have identical content. Which ones?",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "assets/banner.svg",
+        "type": "file",
+        "content_utf8": "banner\nbanner\nbanner\nbanner\nbanner\nbanner\nbanner\nbanner\nbanner\n"
+      },
+      {
+        "path": "assets/icon.svg",
+        "type": "file",
+        "content_utf8": "icon\nicon\nicon\nicon\nicon\nicon\nicon\n"
+      },
+      {
+        "path": "assets/logo.svg",
+        "type": "file",
+        "content_utf8": "logo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\n"
+      },
+      {
+        "path": "assets/old/icon-v1.svg",
+        "type": "file",
+        "content_utf8": "icon v1\nicon v1\nicon v1\nicon v1\nicon v1\nicon v1\nicon v1\n"
+      },
+      {
+        "path": "assets/old/logo-copy0.svg",
+        "type": "file",
+        "content_utf8": "logo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\nlogo version 0\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "logo.svg",
+        "logo-copy0.svg"
+      ],
+      "not_contains": [
+        "icon.svg",
+        "banner.svg",
+        "icon-v1.svg"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"assets\" type: file |> hash |> group sha256 |> filter count > 1",
+  "reference_bash": "find assets -type f -exec sha256sum {} + | sort | uniq -w64 -D\n",
+  "tags": [
+    "duplicates",
+    "hash"
+  ],
+  "license": "CC-BY-4.0"
+}
