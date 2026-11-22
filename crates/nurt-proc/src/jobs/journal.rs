@@ -18,14 +18,18 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{FileKind, WriteHandle};
 use nurt_contracts::journal::{
     AfterState, Applied, BeforeState, BeginRequest, ExemptWrite, ExternalChange,
-    ExternalChangeKind, Mutation, MutationTx, OpHandle, OpId, OpKind, PreserveMode, Preserved,
-    RollbackReason, RollbackReport, SessionId, TargetIndex, TargetSpec,
+    ExternalChangeKind, InactiveReason, Mutation, MutationTx, OpHandle, OpId, OpKind, PreserveMode,
+    Preserved, RollbackReason, RollbackReport, SessionId, TargetIndex, TargetSpec,
 };
 use nurt_contracts::kinds::EffectKind;
-use nurt_contracts::report::{Irreversible, IrreversibleEntry};
+use nurt_contracts::report::IrreversibleEntry;
 use nurt_contracts::stage::ExecCtx;
 
 use crate::iface::RunRequest;
+
+/// Why a run without a journal store keeps nothing: the journal is
+/// unavailable as on a volume whose space service is not running.
+const NO_STORE: InactiveReason = InactiveReason::ServiceDown;
 
 /// Bound program recorded in the journal entry of a run: the program given
 /// by the executor in the context extensions, or a program of the single
@@ -112,7 +116,7 @@ impl Unjournaled {
     fn not_kept(&mut self, path: String) {
         self.irreversible.push(IrreversibleEntry {
             path: Some(path),
-            ..IrreversibleEntry::new(Irreversible::JournalInactive)
+            ..IrreversibleEntry::new(NO_STORE.irreversible())
         });
     }
 }
@@ -131,7 +135,7 @@ impl MutationTx for Unjournaled {
                 mode: PreserveMode::None,
                 bytes_held: 0,
                 before: BeforeState::default(),
-                irreversible: Some(Irreversible::JournalInactive),
+                irreversible: Some(NO_STORE.irreversible()),
                 notable: Vec::new(),
             });
             self.targets = self.targets.saturating_add(1);

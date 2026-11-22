@@ -1655,6 +1655,137 @@ mod jobs_events {
         let text = serde_json::to_string(&recorder.events()).unwrap();
         assert!(!text.contains(SECRET_VALUE));
     }
+
+    /// Checks that `events` hold no execution event and that the events of
+    /// every job run from one `job.started` to one `job.finished`; returns
+    /// the jobs in the order of their start.
+    fn job_lifecycles(events: &[Event]) -> Vec<String> {
+        let mut started: Vec<String> = Vec::new();
+        let mut finished: HashSet<String> = HashSet::new();
+        for event in events {
+            let (id, starts, ends) = match event {
+                Event::ExecStarted(_) | Event::ExecFinished(_) => {
+                    panic!("a job emitted an execution event: {event:?}")
+                }
+                Event::JobStarted(job) => (&job.id, true, false),
+                Event::JobOutput(output) => (&output.id, false, false),
+                Event::JobProgress(progress) => (&progress.id, false, false),
+                Event::JobFinished(job) => (&job.id, false, true),
+                _ => continue,
+            };
+            if starts {
+                assert!(!started.contains(id), "job {id} started twice");
+                started.push(id.clone());
+            } else {
+                assert!(started.contains(id), "event of job {id} before job.started");
+            }
+            assert!(
+                !finished.contains(id),
+                "event of job {id} after job.finished"
+            );
+            if ends {
+                finished.insert(id.clone());
+            }
+        }
+        for id in &started {
+            assert!(finished.contains(id), "job {id} has no job.finished");
+        }
+        started
+    }
+
+    fn has_finished(recorder: &Recorder, id: &str) -> bool {
+        recorder
+            .events()
+            .iter()
+            .any(|event| matches!(event, Event::JobFinished(job) if job.id == id))
+    }
+
+    #[test]
+    fn a_foreground_run_emits_one_job_lifecycle_and_no_execution_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, recorder) = context(dir.path());
+        run(&ctx, &components(), request(dir.path(), 0, 0, 2), None).unwrap();
+        assert_eq!(job_lifecycles(&recorder.events()), ["j1"]);
+    }
+
+    #[test]
+    fn a_background_run_and_its_retry_emit_separate_job_lifecycles() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, recorder) = context(dir.path());
+        let components = components();
+        let job = background(&ctx, &components, request(dir.path(), 0, 4, 1));
+        wait_finished(dir.path(), &job.id);
+        wait_until(|| has_finished(&recorder, &job.id));
+        let args = BoundArgs::new("retry")
+            .with("wait", word("forever"), false)
+            .with("timeout", millis(30_000), false);
+        let (records, _, _) =
+            effect_on(&components, &ctx, "retry", &args, vec![job.clone()]).unwrap();
+        assert_eq!(records[0].kind, RecordKind::Exec);
+        let lifecycles = job_lifecycles(&recorder.events());
+        assert_eq!(lifecycles.len(), 2);
+        assert_eq!(lifecycles[0], job.id);
+        assert_ne!(lifecycles[1], job.id);
+    }
+}
+
+mod stage_registration {
+    use super::*;
+    use nurt_contracts::stage::StageRegistrar;
+
+    /// Registrar that refuses the stages of one command.
+    struct Refusing {
+        command: &'static str,
+        accepted: Vec<String>,
+    }
+
+    impl StageRegistrar for Refusing {
+        fn register(&mut self, stage: Arc<dyn StageImpl>) -> Result<()> {
+            let command = stage.descriptor().command;
+            if command == self.command {
+                return Err(Error::new(ErrorCode::UnknownCommand, "unknown command"));
+            }
+            self.accepted.push(command);
+            Ok(())
+        }
+    }
+
+    fn commands(stages: &[Arc<dyn StageImpl>]) -> Vec<String> {
+        stages
+            .iter()
+            .map(|stage| stage.descriptor().command)
+            .collect()
+    }
+
+    #[test]
+    fn registers_every_stage_in_the_order_of_the_list() {
+        let mut registered: Vec<Arc<dyn StageImpl>> = Vec::new();
+        crate::register(&mut registered).unwrap();
+        assert_eq!(commands(&registered), commands(&crate::stages()));
+        for command in [
+            "run", "jobs", "stop", "retry", "suspend", "resume", "remove",
+        ] {
+            assert!(
+                commands(&registered).iter().any(|found| found == command),
+                "{command}"
+            );
+        }
+    }
+
+    #[test]
+    fn stops_at_the_first_refused_stage() {
+        let mut registrar = Refusing {
+            command: "stop",
+            accepted: Vec::new(),
+        };
+        let error = crate::register(&mut registrar).unwrap_err();
+        assert_eq!(error.code, ErrorCode::UnknownCommand);
+        let expected: Vec<String> = commands(&crate::stages())
+            .into_iter()
+            .take_while(|command| command != "stop")
+            .collect();
+        assert_eq!(registrar.accepted, expected);
+    }
 }
 
 /// Entry points of the processes started by the supervisor tests. Run
