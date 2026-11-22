@@ -62,6 +62,16 @@ execute bits, the mode is not applied and the change carries the flag
 `reverse: true` undoes the changes the diff describes: added lines are
 removed, created files are deleted and renames are reverted.
 
+The text of every created and changed file of a known format is checked
+after the patch is applied: a document format of the documents group,
+otherwise a language of the code group. Only syntax errors that the previous
+content did not have count; a file created by a rename is compared with the
+file it is renamed from. With `validate: reject` such an error in any file
+rolls the whole patch back with `E_ROLLED_BACK`; with `warn` it is reported
+as a warning and the patch is kept; `off` skips the check. Deleted files and
+mode changes are not checked, and without the documents and code groups
+nothing is checked.
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
@@ -72,7 +82,7 @@ removed, created files are deleted and renames are reverted.
 | `reverse` | `bool` | `false` | Apply the diff in reverse. |
 | `fuzz` | `int` | `0` | Number of context lines at each end of a hunk that may differ when the hunk is placed. |
 | `strip` | `int` | `0` | Number of leading path components removed from the paths in the diff. |
-| `validate` | `enum(off\|warn\|reject)` | `reject` | Syntax validation of the changed files. Only the default is accepted; `off` and `warn` fail with `E_INVALID_VALUE`. |
+| `validate` | `enum(off\|warn\|reject)` | `reject` | Check created and changed text of a known format: `reject` rolls back a patch that adds a syntax error, `warn` reports it, `off` skips the check. |
 | `if_match` | `text \| map<text>` | | Expected etag of the patched file, or a map from path to etag for several files. A file with another etag fails with `E_STALE` and nothing changes. |
 
 ## Input and output
@@ -150,6 +160,25 @@ error E_PATCH_REJECTED  stage 1  /srv/app/src/config.rs:1
   hunk 1 does not apply to src/config.rs at line 1; check the file version or raise fuzz
 ```
 
+A diff that removes the closing brace of `package.json` is rolled back
+together with its change of `README.md`.
+
+```nurt example
+patch from: "/srv/patches/bump.diff" root: "/srv/app" strip: 1
+```
+
+```text expected
+error E_ROLLED_BACK  stage 1
+  the change adds 1 syntax error to `/srv/app/package.json` and was rolled back: correct the new text or pass `validate: warn`
+```
+
+The same diff with `validate: warn` is applied, and the new error is
+reported as a warning.
+
+```nurt example
+patch from: "/srv/patches/bump.diff" root: "/srv/app" strip: 1 validate: warn
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |
@@ -161,7 +190,9 @@ error E_PATCH_REJECTED  stage 1  /srv/app/src/config.rs:1
 | `E_STALE` | A file does not have the etag of `if_match`, or changed after the plan. | Read the file again and repeat the call. |
 | `E_MISSING_PARAM` | Neither `diff` nor `from`, or no `root`. | Give the diff and the root directory. |
 | `E_PARAM_CONFLICT` | Both `diff` and `from`. | Give one of them. |
-| `E_INVALID_VALUE` | `strip` or `fuzz` is negative, `root` is not a directory (`problem: not_a_directory`), a path of the diff is a directory or a link (`problem: not_a_file`), or `validate` is not `reject` (`problem: validate_unsupported`). | Correct the value. |
+| `E_INVALID_VALUE` | `strip` or `fuzz` is negative, `root` is not a directory (`problem: not_a_directory`), or a path of the diff is a directory or a link (`problem: not_a_file`). | Correct the value. |
+| `E_UNKNOWN_VALUE` | `validate` is not `off`, `warn` or `reject`. | Use one of the listed values. |
+| `E_ROLLED_BACK` | The patch adds a syntax error to a file and `validate` is `reject` (`problem: validate_failed`, one `sample` line per new error). | Correct the diff or pass `validate: warn`. |
 | `E_BINARY` | A file to change has binary content. | Patch text files only. |
 | `E_ENCODING` | A file is not valid in its detected encoding, or an added character cannot be represented in it. | Convert the file with `convert`. |
 | `E_LIMIT` | A file is larger than the limit of text files. | Patch smaller files. |

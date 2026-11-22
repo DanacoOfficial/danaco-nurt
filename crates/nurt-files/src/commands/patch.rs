@@ -25,6 +25,12 @@
 //! A git mode change is applied to a file whose content does not change;
 //! for a file whose content changes, or a new executable file, the mode is
 //! not applied and the change carries the flag `mode_not_applied`.
+//!
+//! `validate` checks the new text of every created and changed file once
+//! the operations are applied (see [`crate::commands::validate`]). A file
+//! created by a rename is compared with the text of the file it is renamed
+//! from. With `reject`, a syntax error added to any file fails the stage
+//! with `E_ROLLED_BACK`, and the executor rolls the whole patch back.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -38,7 +44,7 @@ use nurt_contracts::stage::{
     BoundArgs, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, RecordStream,
     StageDescriptor, StageImpl, StageInput, StageOutput,
 };
-use nurt_contracts::value::{Record, Size, Value};
+use nurt_contracts::value::{Record, Size};
 use nurt_text::codec::encode;
 use nurt_text::diff::{Hunk, unified_diff};
 use nurt_text::patch::{
@@ -47,6 +53,7 @@ use nurt_text::patch::{
 use serde_json::json;
 
 use super::diff::{hunk_record, join_relative};
+use crate::commands::validate::{Validate, check_change, validate_param};
 use crate::common::etag::{Observed, check_if_match, observe};
 use crate::common::mutation::{apply_changes, planned_change};
 use crate::common::notable::{at_path, preserved_text};
@@ -74,15 +81,6 @@ const FUZZ: &str = "fuzz";
 
 /// Name of the `strip` parameter.
 const STRIP: &str = "strip";
-
-/// Name of the `validate` parameter.
-const VALIDATE: &str = "validate";
-
-/// Default value of `validate` in the catalog.
-const VALIDATE_DEFAULT: &str = "reject";
-
-/// Values of `validate` in the catalog.
-const VALIDATE_VALUES: [&str; 3] = ["off", "warn", "reject"];
 
 /// Permission bits of the directories created for new files.
 const NEW_DIR_MODE: u32 = 0o755;
@@ -149,7 +147,6 @@ impl EffectStage for ApplyPatch {
                 format!("`{COMMAND}` takes no input records: start the pipeline with `{COMMAND}`"),
             ));
         }
-        check_validate(args)?;
         let settings = Settings::from_args(args, ctx)?;
         let text = patch_text(args, ctx)?;
         let patch = Patch::parse(&text).map_err(|error| patch_error(&error, &settings.root))?;
@@ -169,7 +166,11 @@ impl EffectStage for ApplyPatch {
         plan.notable = built.notable;
         plan.changes = built.steps.iter().map(|step| step.change.clone()).collect();
         plan.bulk = built.steps.len() > 1;
-        Ok(plan.with_state(PatchState { steps: built.steps }))
+        Ok(plan.with_state(PatchState {
+            steps: built.steps,
+            checks: built.checks,
+            validate: settings.validate,
+        }))
     }
 
     fn apply<'a>(
@@ -177,7 +178,7 @@ impl EffectStage for ApplyPatch {
         _args: &'a BoundArgs,
         mut plan: EffectPlan,
         tx: &mut dyn MutationTx,
-        _ctx: &'a ExecCtx,
+        ctx: &'a ExecCtx,
     ) -> Result<EffectOutcome<'a>> {
         let state = plan.take_state::<PatchState>().ok_or_else(|| {
             Error::new(
@@ -199,6 +200,16 @@ impl EffectStage for ApplyPatch {
                 .map(|(applied, planned)| merged_change(applied, planned))
                 .collect()
         };
+        for check in &state.checks {
+            check_change(
+                ctx,
+                COMMAND,
+                &check.path,
+                check.before.as_bytes(),
+                check.after.as_bytes(),
+                state.validate,
+            )?;
+        }
         let effect = Effect {
             status: EffectStatus::Ok,
             kind: COMMAND.to_owned(),
@@ -226,10 +237,11 @@ pub(crate) fn stages() -> Vec<Arc<dyn StageImpl>> {
     vec![Arc::new(ApplyPatch)]
 }
 
-/// `root`, `strip`, `fuzz`, `reverse` and `if_match`.
+/// `root`, `strip`, `fuzz`, `reverse`, `validate` and `if_match`.
 struct Settings {
     root: AbsPath,
     options: ApplyOptions,
+    validate: Validate,
     if_match: Option<IfMatch>,
 }
 
@@ -258,6 +270,7 @@ impl Settings {
                 fuzz: count_param(args, FUZZ)?,
                 reverse: args.bool(REVERSE)?.unwrap_or(false),
             },
+            validate: validate_param(args)?,
             if_match: if_match_param(args, ctx)?,
             root,
         })
@@ -285,41 +298,6 @@ fn count_param(args: &BoundArgs, name: &str) -> Result<usize> {
             )
             .with_found(count.to_string())
         }),
-    }
-}
-
-/// Accepts the default `validate`; other values need syntax validation,
-/// which this command does not perform.
-fn check_validate(args: &BoundArgs) -> Result<()> {
-    match args.value(VALIDATE) {
-        None | Some(Value::Null) => Ok(()),
-        Some(Value::Enum(value) | Value::Text(value)) if value.as_str() == VALIDATE_DEFAULT => Ok(()),
-        Some(Value::Enum(value) | Value::Text(value))
-            if VALIDATE_VALUES.contains(&value.as_str()) =>
-        {
-            Err(Error::new(
-                ErrorCode::InvalidValue,
-                format!(
-                    "`{VALIDATE}: {value}` is not supported by `{COMMAND}`: remove `{VALIDATE}` or use `{VALIDATE_DEFAULT}`"
-                ),
-            )
-            .with_problem("validate_unsupported")
-            .with_found(value.clone())
-            .with_expected(json!(VALIDATE_DEFAULT)))
-        }
-        Some(Value::Enum(value) | Value::Text(value)) => Err(Error::new(
-            ErrorCode::UnknownValue,
-            format!(
-                "`{value}` is not a value of `{VALIDATE}`: use one of {}",
-                VALIDATE_VALUES.join(", ")
-            ),
-        )
-        .with_found(value.clone())
-        .with_expected(json!(VALIDATE_VALUES))),
-        Some(_) => Err(Error::new(
-            ErrorCode::Type,
-            format!("`{COMMAND}` expects a value of the enumeration for `{VALIDATE}`"),
-        )),
     }
 }
 
@@ -619,14 +597,26 @@ struct Step {
     change: Change,
 }
 
+/// Text of a created or changed file before and after the patch, checked
+/// as `validate` requires once the operations are applied.
+#[derive(Debug)]
+struct TextCheck {
+    path: AbsPath,
+    before: String,
+    after: String,
+}
+
 /// Private state of the plan.
 struct PatchState {
     steps: Vec<Step>,
+    checks: Vec<TextCheck>,
+    validate: Validate,
 }
 
-/// Operations and notable entries of a plan.
+/// Operations, text checks and notable entries of a plan.
 struct Built {
     steps: Vec<Step>,
+    checks: Vec<TextCheck>,
     notable: Vec<NotableEntry>,
 }
 
@@ -641,6 +631,16 @@ fn build(
     let mut dirs = BTreeSet::new();
     let mut steps = Vec::new();
     let mut notable = Vec::new();
+    let mut checks = Vec::new();
+    let mut check = |path: &AbsPath, before: &str, after: &str| {
+        if settings.validate != Validate::Off {
+            checks.push(TextCheck {
+                path: path.clone(),
+                before: before.to_owned(),
+                after: after.to_owned(),
+            });
+        }
+    };
     let mut handled = BTreeSet::new();
     for (from, to) in &outcomes.renames {
         if let Some(step) = pure_rename(fs, settings, originals, outcomes, from, to, &mut dirs)? {
@@ -665,6 +665,11 @@ fn build(
                     None => join_relative(&settings.root, relative)?,
                 };
                 missing_parents(fs, &settings.root, &path, &mut dirs)?;
+                check(
+                    &path,
+                    rename_source(originals, outcomes, relative).unwrap_or_default(),
+                    text,
+                );
                 steps.push(create_step(&path, text, outcome));
             }
             (Some(file), None) => {
@@ -685,6 +690,7 @@ fn build(
                     notable.push(at_path(Notable::FileEmptied, &file.path));
                 }
                 notable.extend(preserved_text(file));
+                check(&file.path, &file.text, text);
                 steps.push(modify_step(file, text, outcome)?);
             }
         }
@@ -702,8 +708,25 @@ fn build(
     all.extend(steps);
     Ok(Built {
         steps: all,
+        checks,
         notable,
     })
+}
+
+/// Text of the existing file that the patch renames to `relative`.
+fn rename_source<'o>(
+    originals: &'o BTreeMap<String, Original>,
+    outcomes: &Outcomes,
+    relative: &str,
+) -> Option<&'o str> {
+    outcomes
+        .renames
+        .iter()
+        .rev()
+        .find(|(_, to)| to == relative)
+        .and_then(|(from, _)| originals.get(from))
+        .and_then(|original| original.file.as_ref())
+        .map(|file| file.text.as_str())
 }
 
 fn check_original(settings: &Settings, original: Option<&Original>) -> Result<()> {
@@ -902,7 +925,7 @@ mod tests {
     use nurt_contracts::journal::{JournalStore, TargetIndex, TargetPath};
     use nurt_contracts::record::ChangeAction;
     use nurt_contracts::stage::{ArgValue, StageData};
-    use nurt_contracts::value::RecordKind;
+    use nurt_contracts::value::{RecordKind, Value};
     use nurt_testkit::ctx::TestContext;
     use nurt_testkit::fixtures::begin_request;
     use nurt_testkit::journal::JournalCall;
@@ -1397,17 +1420,8 @@ mod tests {
     }
 
     #[test]
-    fn validate_other_than_the_default_is_rejected() {
+    fn validate_is_read_with_the_shared_parameter() {
         let test = with_files(&[("/work/notes.txt", b"a\nb\nc\n")]);
-        let warn = args(
-            &modify_b(),
-            &[strip_one(), (VALIDATE, Value::Enum("warn".to_owned()))],
-        );
-        let error = ApplyPatch
-            .plan(&warn, StageInput::none(), &test.ctx())
-            .unwrap_err();
-        assert_eq!(error.code(), ErrorCode::InvalidValue);
-        assert_eq!(error.problem.as_deref(), Some("validate_unsupported"));
         let unknown = args(
             &modify_b(),
             &[strip_one(), (VALIDATE, Value::Enum("strict".to_owned()))],
@@ -1416,12 +1430,99 @@ mod tests {
             .plan(&unknown, StageInput::none(), &test.ctx())
             .unwrap_err();
         assert_eq!(error.code(), ErrorCode::UnknownValue);
-        let default = args(
+        let wrong = args(&modify_b(), &[strip_one(), (VALIDATE, Value::Bool(true))]);
+        let error = ApplyPatch
+            .plan(&wrong, StageInput::none(), &test.ctx())
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Type);
+        let warn = args(
             &modify_b(),
-            &[strip_one(), (VALIDATE, Value::Enum("reject".to_owned()))],
+            &[strip_one(), (VALIDATE, Value::Enum("warn".to_owned()))],
         );
-        run(&test, &default).unwrap();
+        run(&test, &warn).unwrap();
+        assert_eq!(read(&test, "/work/notes.txt"), b"a\nB\nc\n");
     }
+
+    #[test]
+    fn created_and_changed_text_is_kept_for_validation() {
+        let test = with_files(&[
+            ("/work/notes.txt", b"a\nb\nc\n"),
+            ("/work/edit.txt", b"keep\nold\n"),
+            ("/work/gone.txt", b"x\n"),
+        ]);
+        let diff = format!(
+            "{}{}",
+            modify_b(),
+            diff_text(&[
+                "diff --git a/edit.txt b/edited.txt",
+                "similarity index 60%",
+                "rename from edit.txt",
+                "rename to edited.txt",
+                "--- a/edit.txt",
+                "+++ b/edited.txt",
+                "@@ -1,2 +1,2 @@",
+                " keep",
+                "-old",
+                "+new",
+                "diff --git a/new.txt b/new.txt",
+                "new file mode 100644",
+                "--- /dev/null",
+                "+++ b/new.txt",
+                "@@ -0,0 +1 @@",
+                "+fresh",
+                "diff --git a/gone.txt b/gone.txt",
+                "deleted file mode 100644",
+                "--- a/gone.txt",
+                "+++ /dev/null",
+                "@@ -1 +0,0 @@",
+                "-x",
+            ])
+        );
+        let ctx = test.ctx();
+        let mut plan = ApplyPatch
+            .plan(&args(&diff, &[strip_one()]), StageInput::none(), &ctx)
+            .unwrap();
+        let state = plan.take_state::<PatchState>().unwrap();
+        assert_eq!(state.validate, Validate::Reject);
+        let checks: Vec<(String, &str, &str)> = state
+            .checks
+            .iter()
+            .map(|check| {
+                (
+                    check.path.to_language_string(),
+                    check.before.as_str(),
+                    check.after.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            checks,
+            [
+                (
+                    abs("/work/edited.txt").to_language_string(),
+                    "keep\nold\n",
+                    "keep\nnew\n"
+                ),
+                (abs("/work/new.txt").to_language_string(), "", "fresh\n"),
+                (
+                    abs("/work/notes.txt").to_language_string(),
+                    "a\nb\nc\n",
+                    "a\nB\nc\n"
+                ),
+            ]
+        );
+
+        let off = args(
+            &diff,
+            &[strip_one(), (VALIDATE, Value::Enum("off".to_owned()))],
+        );
+        let mut plan = ApplyPatch.plan(&off, StageInput::none(), &ctx).unwrap();
+        let state = plan.take_state::<PatchState>().unwrap();
+        assert_eq!(state.validate, Validate::Off);
+        assert!(state.checks.is_empty());
+    }
+
+    const VALIDATE: &str = crate::commands::validate::VALIDATE;
 
     #[test]
     fn diff_is_read_from_a_file() {
