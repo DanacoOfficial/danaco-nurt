@@ -2529,6 +2529,8 @@ record_struct! {
         removed: Option<u64>,
         /// Replacements made.
         replacements: Option<u64>,
+        /// Rows inserted, updated or deleted by SQL statements.
+        rows_changed: Option<u64>,
         /// Notes about the change, for example `crlf_preserved`.
         flags: Option<Vec<String>>,
         /// Encoding before.

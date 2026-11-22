@@ -194,7 +194,7 @@ command that observed the condition.
 | `untracked_removed` | warning | command | untracked files were removed |
 | `local_changes_carried` | info | command | uncommitted changes were carried to another branch |
 | `filter_not_applied` | warning | command | a content filter of the repository was not applied |
-| `credential_helper_ignored`, `ssh_command_ignored`, `fsmonitor_ignored` | notice | command | a program named by the repository configuration was not run |
+| `credential_helper_ignored`, `ssh_command_ignored`, `fsmonitor_ignored`, `signing_program_ignored` | notice | command | a program named by the repository configuration was not run |
 | `submodules_not_updated` | notice | command | submodules were not updated |
 | `sparse_checkout`, `shallow_repository` | info | command | the repository uses sparse checkout or shallow history |
 | `line_endings_converted` | info | command | line endings converted by repository settings |

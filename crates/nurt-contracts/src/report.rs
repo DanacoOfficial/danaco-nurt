@@ -468,6 +468,9 @@ pub enum Notable {
     HostKeyUnverified,
     /// A `Match exec` condition of the SSH configuration was not run.
     MatchExecIgnored,
+    /// A signing program named by the repository configuration was not run;
+    /// the signature was created without it.
+    SigningProgramIgnored,
 }
 
 impl Notable {
@@ -566,6 +569,7 @@ impl Notable {
         Self::PushStatusUnknown,
         Self::HostKeyUnverified,
         Self::MatchExecIgnored,
+        Self::SigningProgramIgnored,
     ];
 
     /// Returns the stable code, as written in JSON.
@@ -665,6 +669,7 @@ impl Notable {
             Self::PushStatusUnknown => "push_status_unknown",
             Self::HostKeyUnverified => "host_key_unverified",
             Self::MatchExecIgnored => "match_exec_ignored",
+            Self::SigningProgramIgnored => "signing_program_ignored",
         }
     }
 
@@ -746,7 +751,8 @@ impl Notable {
             | Self::StashKept
             | Self::LinkLoopSkipped
             | Self::HttpOptionIgnored
-            | Self::MatchExecIgnored => Severity::Notice,
+            | Self::MatchExecIgnored
+            | Self::SigningProgramIgnored => Severity::Notice,
             Self::Unchanged
             | Self::HardlinkSetPreserved
             | Self::EncodingPreserved

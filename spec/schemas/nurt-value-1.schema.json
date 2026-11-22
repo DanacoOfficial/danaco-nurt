@@ -4219,6 +4219,15 @@
           "minimum": 0,
           "description": "Replacements made."
         },
+        "rows_changed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Rows inserted, updated or deleted by SQL statements."
+        },
         "flags": {
           "type": [
             "array",

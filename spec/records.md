@@ -415,6 +415,7 @@ Change of one file within an effect.
 | `added` | int | no | Lines added. |
 | `removed` | int | no | Lines removed. |
 | `replacements` | int | no | Replacements made. |
+| `rows_changed` | int | no | Rows inserted, updated or deleted by SQL statements. |
 | `flags` | list<text> | no | Notes about the change, for example `crlf_preserved`. |
 | `encoding_before` | text | no | Encoding before. |
 | `encoding_after` | text | no | Encoding after. |

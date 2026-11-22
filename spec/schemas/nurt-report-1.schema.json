@@ -115,6 +115,7 @@
         "added": { "type": "integer", "minimum": 0 },
         "removed": { "type": "integer", "minimum": 0 },
         "replacements": { "type": "integer", "minimum": 0 },
+        "rows_changed": { "type": "integer", "minimum": 0 },
         "flags": { "type": "array", "items": { "type": "string" } },
         "encoding_before": { "type": "string" },
         "encoding_after": { "type": "string" },
@@ -262,7 +263,8 @@
         "amend_published", "commit_detached_head", "operation_in_progress", "excluded",
         "review_skipped", "checkpoint_without_index", "link_loop_skipped",
         "tls_verification_disabled", "http_option_ignored", "pack_without_deltas",
-        "push_status_unknown", "host_key_unverified", "match_exec_ignored"
+        "push_status_unknown", "host_key_unverified", "match_exec_ignored",
+        "signing_program_ignored"
       ]
     },
     "irreversible": {
