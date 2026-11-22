@@ -174,10 +174,9 @@ pub(crate) fn build(
             .iter()
             .any(|given| entry.options[given.index].id == option.id);
         if !present {
-            append_args(
-                &mut stages[target],
-                fill_args(&option.absent, &bindings, session)?,
-            );
+            let mut absent = fill_args(&option.absent, &bindings, session)?;
+            absent.retain(|arg| !parsed.extra.iter().any(|extra| extra.name == arg.name));
+            append_args(&mut stages[target], absent);
         }
     }
     append_args(&mut stages[target], parsed.extra.clone());

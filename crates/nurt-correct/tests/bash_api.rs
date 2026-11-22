@@ -179,6 +179,268 @@ fn invalid_tables_are_rejected() {
     assert!(BashTable::parse(&unknown, HABITS_TABLE).is_err());
 }
 
+/// The reaction of a live translation without `base` and `let` names: the
+/// canonical text, the error code, or `unchanged` for a Nurt program.
+fn live_reaction(input: &str) -> String {
+    match translate_with(input, &TranslateContext::default()) {
+        None => "unchanged".to_owned(),
+        Some(Ok(translation)) => translation.text(),
+        Some(Err(error)) => error.code().as_str().to_owned(),
+    }
+}
+
+fn assert_reactions(cases: &[(&str, &str)]) {
+    let failures: Vec<String> = cases
+        .iter()
+        .filter_map(|(input, expected)| {
+            let actual = live_reaction(input);
+            (actual != *expected)
+                .then(|| format!("{input:?}\n  expected {expected:?}\n  actual   {actual:?}"))
+        })
+        .collect();
+    assert!(
+        failures.is_empty(),
+        "{} failing cases:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn redirections_without_an_equivalent_are_uncorrectable() {
+    assert_reactions(&[
+        ("ls -l /srv >&2", "E_UNCORRECTABLE"),
+        ("ls -l /srv 3> /srv/out.txt", "E_UNCORRECTABLE"),
+        ("ls /srv | wc -l < /srv/a.txt", "E_UNCORRECTABLE"),
+        ("rm -f /srv/a > /srv/log.txt", "E_UNCORRECTABLE"),
+        ("wc -l <<EOF\nx\nEOF\n", "E_UNCORRECTABLE"),
+        ("ls -l /srv &> /dev/null", "E_UNCORRECTABLE"),
+    ]);
+}
+
+#[test]
+fn redirections_with_an_equivalent_are_translated() {
+    assert_reactions(&[
+        ("wc -l < /srv/a.txt", "lines \"/srv/a.txt\"\n|> count"),
+        (
+            "ls -l /srv &> /srv/out.txt",
+            "write \"/srv/out.txt\" from: (list \"/srv\" hidden: false) mode: overwrite",
+        ),
+    ]);
+}
+
+#[test]
+fn flags_and_operands_outside_the_entry_are_uncorrectable() {
+    assert_reactions(&[
+        ("rm -f", "E_UNCORRECTABLE"),
+        ("head -n", "E_UNCORRECTABLE"),
+        ("ls --frobnicate /srv", "E_UNCORRECTABLE"),
+        ("cat /srv/a | mkdir -p", "E_UNCORRECTABLE"),
+        ("rm /srv/**.tmp", "E_UNCORRECTABLE"),
+        ("rm *.tmp", "E_PATH_RELATIVE"),
+        ("curl -H 'X' https://a.example.com/x", "E_UNCORRECTABLE"),
+        ("service nginx > /dev/null", "E_UNCORRECTABLE"),
+        ("service nginx frobnicate > /dev/null", "E_UNCORRECTABLE"),
+        ("git -C", "E_UNCORRECTABLE"),
+        ("git -C /srv/app commit -m \"$MSG\"", "E_UNCORRECTABLE"),
+    ]);
+}
+
+#[test]
+fn long_flags_name_parameters_of_the_target_command() {
+    assert_reactions(&[
+        ("rm -f -- /srv/-a", "remove \"/srv/-a\""),
+        (
+            "head --lines=5 /srv/a.txt",
+            "read \"/srv/a.txt\" lines: ..5",
+        ),
+        ("ls --depth=2 /srv", "list \"/srv\" hidden: false depth: 2"),
+        ("ls --hidden=true /srv", "list \"/srv\" hidden: true"),
+        (
+            "ls --type=file /srv",
+            "list \"/srv\" hidden: false type: file",
+        ),
+        (
+            "ls --sort='a b' /srv",
+            "list \"/srv\" hidden: false sort: \"a b\"",
+        ),
+        ("ls --dep /srv", "list \"/srv\" hidden: false depth: true"),
+    ]);
+}
+
+#[test]
+fn patterns_archives_and_git_programs_are_translated() {
+    assert_reactions(&[
+        (
+            "rm /*.tmp",
+            "find \"/\" glob: \"*.tmp\" depth: 1 hidden: false\n|> remove on_missing: error",
+        ),
+        (
+            "rm /srv/'a*'*.tmp",
+            "find \"/srv\" glob: \"a[*]*.tmp\" depth: 1 hidden: false\n|> remove on_missing: error",
+        ),
+        (
+            "zip -r /srv/a.zip /srv/x",
+            "find \"/srv/x\" type: any\n|> archive.create \"/srv/a.zip\" format: zip base: \"/\"",
+        ),
+        (
+            "git -C /srv/app frobnicate --x",
+            "run [\"git\", \"frobnicate\", \"--x\"] cwd: \"/srv/app\"",
+        ),
+    ]);
+}
+
+#[test]
+fn text_without_a_file_or_with_unsupported_formats_is_uncorrectable() {
+    assert_reactions(&[
+        ("echo -n hello", "E_UNCORRECTABLE"),
+        ("printf > /srv/a.txt", "E_UNCORRECTABLE"),
+        ("printf '%d' 5 > /srv/a.txt", "E_UNCORRECTABLE"),
+        ("printf 'a' b > /srv/a.txt", "E_UNCORRECTABLE"),
+    ]);
+}
+
+#[test]
+fn text_written_to_a_file_keeps_its_bytes() {
+    assert_reactions(&[
+        (
+            "echo -E 'a\\tb' > /srv/f.txt",
+            "write \"/srv/f.txt\" r\"a\\tb\n\" mode: overwrite",
+        ),
+        (
+            "printf '100%%\\n' > /srv/a.txt",
+            "write \"/srv/a.txt\" \"100%\\n\" mode: overwrite",
+        ),
+    ]);
+}
+
+#[test]
+fn tests_outside_the_table_are_uncorrectable() {
+    assert_reactions(&[
+        ("[ -f /srv/a", "E_UNCORRECTABLE"),
+        ("[ -f ]", "E_UNCORRECTABLE"),
+        ("[ -q /srv/a ]", "E_UNCORRECTABLE"),
+        ("[ -d /srv/a ] && make", "E_UNCORRECTABLE"),
+        (
+            "[ ! -f /srv/a ]",
+            "info \"/srv/a\"\n|> assert all: not type == file",
+        ),
+    ]);
+}
+
+#[test]
+fn substitutions_of_several_or_changing_commands_are_uncorrectable() {
+    assert_reactions(&[
+        ("cat $(ls /srv; ls /tmp)", "E_UNCORRECTABLE"),
+        ("cat $(ls /srv && ls /tmp)", "E_UNCORRECTABLE"),
+        ("cat $(rm -f /srv/a)", "E_UNCORRECTABLE"),
+    ]);
+}
+
+#[test]
+fn entries_reach_commands_through_xargs_tee_and_at() {
+    assert_reactions(&[
+        ("find /srv -name '*.tmp' | xargs -n 1 rm", "E_UNCORRECTABLE"),
+        ("find /srv -name '*.tmp' | xargs mv", "E_UNCORRECTABLE"),
+        ("cat /srv/a.txt | xargs rm -f", "E_UNCORRECTABLE"),
+        ("find /srv -name '*.tmp' | xargs", "E_UNCORRECTABLE"),
+        ("find /srv -name '*.go' | xargs wc -l", "E_UNCORRECTABLE"),
+        ("find /srv -name '*.go' | xargs gofmt -l", "E_UNCORRECTABLE"),
+        (
+            "cd /srv && find /srv -name '*.go' | xargs gofmt -l",
+            "E_AMBIGUOUS",
+        ),
+        ("ls -l /srv | tee -x /srv/out.txt", "E_UNCORRECTABLE"),
+        ("ls -l /srv | tee /srv/a /srv/b", "E_UNCORRECTABLE"),
+        ("at 10:00 rm -f /srv/a", "E_UNCORRECTABLE"),
+        ("at 2026-12-01T10:00 > /dev/null", "E_UNCORRECTABLE"),
+    ]);
+}
+
+#[test]
+fn sed_scripts_outside_the_interpreter_are_uncorrectable() {
+    assert_reactions(&[
+        ("ls /srv | sed -n 1p", "E_UNCORRECTABLE"),
+        ("sed -i", "E_UNCORRECTABLE"),
+        ("sed -i 's/a/b/'", "E_UNCORRECTABLE"),
+        ("sed -i \"$X\" /srv/f", "E_UNCORRECTABLE"),
+        ("sed -i 's/a/b/w' /srv/f", "E_UNCORRECTABLE"),
+        ("sed -E -i 's/a(/b/' /srv/f", "E_UNCORRECTABLE"),
+        ("sed -n 1p /srv/a /srv/b", "E_UNCORRECTABLE"),
+        ("sed '1p' /srv/a", "E_UNCORRECTABLE"),
+    ]);
+}
+
+#[test]
+fn sed_scripts_with_flags_and_addresses_are_translated() {
+    assert_reactions(&[
+        ("sed -n 5p /srv/a", "read \"/srv/a\" lines: 5"),
+        ("sed -i '/a(/d' /srv/f", "E_AMBIGUOUS"),
+        (
+            "sed -i 's/a/b/gI' /srv/f",
+            "replace /a/ \"b\" in: [\"/srv/f\"] case_sensitive: false",
+        ),
+        (
+            "sed -E -i 's/a+/b/' /srv/f",
+            "replace /a+/ \"b\" in: [\"/srv/f\"] occurrence: 1",
+        ),
+        (
+            "sed -i -e 's/a/b/' /srv/f",
+            "replace /a/ \"b\" in: [\"/srv/f\"] occurrence: 1",
+        ),
+    ]);
+}
+
+#[test]
+fn find_predicates_outside_the_table_are_uncorrectable() {
+    assert_reactions(&[
+        ("ls /srv | find /srv -type f", "E_UNCORRECTABLE"),
+        ("find /srv /tmp -name '*.go'", "E_UNCORRECTABLE"),
+        ("find /srv -name", "E_UNCORRECTABLE"),
+        ("find /srv -exec rm {}", "E_UNCORRECTABLE"),
+        ("find /srv -exec rm \\;", "E_UNCORRECTABLE"),
+        ("find /srv -name 'a/b'", "E_UNCORRECTABLE"),
+        ("find /srv -type q", "E_UNCORRECTABLE"),
+        (
+            "find /srv -mmin -5",
+            "find \"/srv\" type: any\n|> filter modified > ago(5m)",
+        ),
+    ]);
+}
+
+#[test]
+fn grep_patterns_and_operands_follow_the_dialect() {
+    assert_reactions(&[
+        ("grep -E 'a(' /srv/a", "E_UNCORRECTABLE"),
+        ("ls /srv | grep -i a /srv/b", "E_UNCORRECTABLE"),
+        ("grep -i a", "E_UNCORRECTABLE"),
+        ("grep -i", "E_UNCORRECTABLE"),
+        ("grep -e a -e b /srv/a", "E_UNCORRECTABLE"),
+        ("grep -r foo", "E_PATH_RELATIVE"),
+        (
+            "grep -r --include '*.go' foo /srv",
+            "search /foo/ \"/srv\" glob: \"**/*.go\"",
+        ),
+        ("grep -e foo /srv/a", "search /foo/ \"/srv/a\""),
+        ("grep -P '\\d+' /srv/a", "search /\\d+/ \"/srv/a\""),
+    ]);
+}
+
+#[test]
+fn shell_constructs_without_an_equivalent_are_uncorrectable() {
+    assert_reactions(&[
+        ("export FOO && make", "E_UNCORRECTABLE"),
+        ("! grep -q a /srv/a", "unchanged"),
+        (
+            "cd /srv/app && for f in *; do echo $f; done",
+            "E_UNCORRECTABLE",
+        ),
+        ("env A=1 > /dev/null", "E_UNCORRECTABLE"),
+        ("head -n x /srv/a", "E_UNCORRECTABLE"),
+        ("timeout 5x make", "E_UNCORRECTABLE"),
+    ]);
+}
+
 #[test]
 fn the_shared_loader_reads_the_bash_tables() {
     let tables = nurt_correct::tables::load_embedded().expect("valid tables");
