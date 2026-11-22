@@ -2008,6 +2008,32 @@ impl Tx<'_> {
         })
     }
 
+    /// Whether an earlier target of the transaction moved the entry at `path`
+    /// away after the destination was declared, so that nothing is left to
+    /// displace.
+    fn vacated(&self, position: usize, path: &AbsPath) -> bool {
+        let moved_away = self.targets[..position]
+            .iter()
+            .any(|earlier| earlier.changed && earlier.path.as_ref() == Some(path));
+        moved_away
+            && matches!(
+                self.ctx.fs.metadata(path, Follow::NoFollow),
+                Err(error) if error.kind == FsErrorKind::NotFound
+            )
+    }
+
+    /// Drops the preservation planned for a destination that was vacated.
+    fn forget_destination(&mut self, position: usize) {
+        if let Some(dest) = self.targets[position].dest.as_mut() {
+            dest.record.before.exists = false;
+            dest.record.before.store = PreserveMode::Created;
+            dest.record.before.blob = None;
+            dest.record.before.meta = None;
+            dest.record.irreversible = None;
+        }
+        self.targets[position].record.replaced = None;
+    }
+
     fn displace_destination(&mut self, position: usize) -> Result<()> {
         let fs = self.ctx.fs.as_ref();
         let scope = self.scope();
@@ -2019,6 +2045,10 @@ impl Tx<'_> {
             return Ok(());
         }
         let path = dest.path.clone();
+        if self.vacated(position, &path) {
+            self.forget_destination(position);
+            return Ok(());
+        }
         let blob_path = dest
             .part
             .filter(|_| dest.record.before.store == PreserveMode::Moved)

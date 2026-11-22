@@ -103,12 +103,18 @@ pub(crate) struct ExpiryInput<'a> {
 /// Parts of every entry, by number.
 type Groups<'a> = BTreeMap<OpId, Vec<&'a EntryFacts>>;
 
-fn groups(entries: &[EntryFacts]) -> Groups<'_> {
-    let mut groups: Groups<'_> = BTreeMap::new();
-    for part in entries {
+fn grouped<'a>(parts: impl Iterator<Item = &'a EntryFacts>) -> Groups<'a> {
+    let mut groups: Groups<'a> = BTreeMap::new();
+    for part in parts {
         groups.entry(part.op).or_default().push(part);
     }
     groups
+}
+
+/// Parts of the entries of the journal. Entries rolled back before their
+/// commit are not entries: limits neither expire them nor count their bytes.
+fn groups(entries: &[EntryFacts]) -> Groups<'_> {
+    grouped(entries.iter().filter(|part| !part.rolled_back))
 }
 
 /// Whether limits may expire the entry: every part is expirable and none
@@ -287,7 +293,9 @@ impl Snapshot {
                 let held = self
                     .entries
                     .iter()
-                    .filter(|part| part.volume == volume.mount && holds_space(part.state))
+                    .filter(|part| {
+                        part.volume == volume.mount && !part.rolled_back && holds_space(part.state)
+                    })
                     .fold(0_u64, |sum, part| sum.saturating_add(part.bytes_held));
                 let input = ResolutionInput {
                     mount: &key,
@@ -325,12 +333,9 @@ impl Snapshot {
         store: &dyn RetentionStore,
         plan: &[ExpiredEntry],
     ) -> Result<u64> {
-        let bytes = execute(
-            store,
-            &self.entries,
-            plan,
-            self.resolved.config.journal.history_keep,
-        )?;
+        let history_keep = self.resolved.config.journal.history_keep;
+        discard_rolled_back(store, &self.entries, history_keep)?;
+        let bytes = execute(store, &self.entries, plan, history_keep)?;
         self.age.observe(&self.now);
         store.write_file(Area::State, AGE_STATE_FILE, &self.age.encode()?)?;
         Ok(bytes)
@@ -382,7 +387,7 @@ fn execute(
     plan: &[ExpiredEntry],
     history_keep: u32,
 ) -> Result<u64> {
-    let groups = groups(entries);
+    let groups = grouped(entries.iter());
     let mut bytes: u64 = 0;
     let mut touched = BTreeSet::new();
     for expired in plan {
@@ -407,6 +412,29 @@ fn execute(
         tomb::prune(store, volume, history_keep)?;
     }
     Ok(bytes)
+}
+
+/// Removes what entries rolled back before their commit left behind. They
+/// are not entries, so no tombstone is written and nothing is reported as
+/// expired.
+fn discard_rolled_back(
+    store: &dyn RetentionStore,
+    entries: &[EntryFacts],
+    history_keep: u32,
+) -> Result<()> {
+    let plan: Vec<ExpiredEntry> = grouped(entries.iter())
+        .into_iter()
+        .filter(|(_, parts)| parts.iter().all(|part| part.rolled_back))
+        .map(|(op, _)| ExpiredEntry {
+            op,
+            reason: ExpiryReason::Space,
+        })
+        .collect();
+    if plan.is_empty() {
+        return Ok(());
+    }
+    execute(store, entries, &plan, history_keep)?;
+    Ok(())
 }
 
 fn finish(store: &dyn RetentionStore, part: &EntryFacts, reason: ExpiryReason) -> Result<()> {
@@ -457,7 +485,12 @@ pub(crate) fn purge_store(
     let released: Vec<OpId> = snapshot
         .entries
         .iter()
-        .filter(|part| selected.contains(&part.volume) && expirable(part.state) && chosen(part.op))
+        .filter(|part| {
+            selected.contains(&part.volume)
+                && !part.rolled_back
+                && expirable(part.state)
+                && chosen(part.op)
+        })
         .map(|part| part.op)
         .collect::<BTreeSet<_>>()
         .into_iter()
@@ -621,7 +654,7 @@ pub(crate) fn budget_admission(
     let groups = groups(entries);
     let mut held: u64 = entries
         .iter()
-        .filter(|part| holds_space(part.state))
+        .filter(|part| !part.rolled_back && holds_space(part.state))
         .map(|part| part.bytes_held)
         .sum();
     let mut victims = Vec::new();

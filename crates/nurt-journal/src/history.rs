@@ -29,7 +29,7 @@ use crate::manifest::{
     self, AfterRecord, ItemState, Items, Manifest, StateRecord, TargetRecord, TargetRole,
 };
 use crate::pin::{self, PinSet};
-use crate::retention::ctx::{CtxStore, is_rolled_back};
+use crate::retention::ctx::{Commits, CtxStore};
 use crate::retention::tomb;
 use crate::store::JournalCtx;
 
@@ -405,8 +405,14 @@ impl EntrySource for JournalCtx {
 
     fn load(&self, op: OpId) -> Result<Option<JournalEntry>> {
         let (parts, damaged) = stored_parts(self, op)?;
-        if !damaged && !parts.is_empty() && parts.iter().all(|part| is_rolled_back(&part.state)) {
-            return Ok(None);
+        if !damaged && !parts.is_empty() {
+            let commits = Commits::new(self);
+            if parts
+                .iter()
+                .all(|part| commits.rolled_back(op, &part.state))
+            {
+                return Ok(None);
+            }
         }
         if parts.is_empty() {
             return if damaged {
@@ -520,8 +526,8 @@ pub(crate) fn details(ctx: &JournalCtx, op: OpId) -> Result<OperationDetails> {
 
 /// Lists entries, newest first, filtered by the query.
 ///
-/// Entries in transient states are not listed; expiring and corrupt entries
-/// are listed as expired. Without a limit at most [`DEFAULT_LIMIT`] entries
+/// Entries in transient states and entries rolled back before their commit
+/// are not listed; expiring and corrupt entries are listed as expired. Without a limit at most [`DEFAULT_LIMIT`] entries
 /// are returned.
 ///
 /// Fails with the error of the entry source.

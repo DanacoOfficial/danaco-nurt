@@ -32,7 +32,7 @@ use nurt_contracts::journal::{
 use crate::layout::{self, EntryLayout, JournalLayout};
 use crate::manifest::{self, ItemState, Items, Manifest, ReadError, StateRecord};
 use crate::pin;
-use crate::retention::ctx::{CtxStore, EXPIRY_FILE, reason_text};
+use crate::retention::ctx::{Commits, CtxStore, EXPIRY_FILE, reason_text};
 use crate::retention::expiry::{self, Snapshot};
 use crate::retention::port::RetentionStore;
 use crate::retention::tomb::{self, Tombstone};
@@ -254,10 +254,12 @@ pub(crate) fn entries(ctx: &JournalCtx, volume: &VolumeId) -> Result<Vec<EntrySu
     let overdue = overdue(ctx)?;
     let pins = pin::read_pin_file(ctx, &journal.layout)?;
     let now = ctx.clock.now();
+    let commits = Commits::new(ctx);
     let mut summaries = Vec::new();
     for op in layout::entries(fs, &journal.layout)? {
         let entry = journal.layout.entry(op)?;
         let state = match manifest::read_state(fs, &entry.state()?) {
+            Ok(record) if commits.rolled_back(op, &record) => continue,
             Ok(record) => record.state,
             Err(ReadError::Format(_)) => EntryState::Corrupt,
             Err(ReadError::Fs(error)) if error.kind == FsErrorKind::NotFound => continue,
@@ -364,6 +366,8 @@ pub(crate) fn begin_reclaim(
         return Err(unknown_entry(op, &journal.mount));
     }
     let manifest = entry_manifest(ctx, &journal, op)?;
+    let rolled_back = manifest::read_state(fs, &entry.state()?)
+        .is_ok_and(|record| Commits::new(ctx).rolled_back(op, &record));
     let scope = scope(op, ScopePurpose::Reclaim);
     manifest::write_atomic(
         fs,
@@ -372,11 +376,13 @@ pub(crate) fn begin_reclaim(
         &entry.dir().join_name(EXPIRY_FILE)?,
         reason_text(reason).as_bytes(),
     )?;
-    tomb::write(
-        &CtxStore(ctx),
-        &journal.mount,
-        &tombstone(&manifest, reason),
-    )?;
+    if !rolled_back {
+        tomb::write(
+            &CtxStore(ctx),
+            &journal.mount,
+            &tombstone(&manifest, reason),
+        )?;
+    }
     ensure_dir(ctx, op, &journal.layout.reap_dir()?)?;
     Ok(ReclaimPaths {
         entry: entry.dir().clone(),

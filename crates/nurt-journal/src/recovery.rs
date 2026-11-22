@@ -854,10 +854,14 @@ impl Entry<'_> {
         cause: UndoneCause,
         started: bool,
     ) -> Step<EntryResult> {
-        let mut plan = Vec::new();
+        let mut plan: Vec<Action> = Vec::new();
+        let mut vacated: Vec<AbsPath> = Vec::new();
         for record in manifest.targets.iter().rev() {
-            match self.plan_target(record)? {
-                Some(steps) => plan.extend(steps),
+            match self.plan_target(record, &vacated)? {
+                Some(steps) => {
+                    vacated.extend(steps.iter().filter_map(Action::vacates).cloned());
+                    plan.extend(steps);
+                }
                 None if Self::superseded(manifest, record) => {}
                 None => return self.mark_corrupt(),
             }
@@ -894,7 +898,10 @@ impl Entry<'_> {
                 .any(|other| other.index < record.index && other.path == record.path)
     }
 
-    fn plan_target(&self, record: &TargetRecord) -> Step<Option<Vec<Action>>> {
+    /// Actions that restore one target. `vacated` lists the names that the
+    /// actions planned for later targets of the entry move away before the
+    /// actions of this target run.
+    fn plan_target(&self, record: &TargetRecord, vacated: &[AbsPath]) -> Step<Option<Vec<Action>>> {
         let before = &record.before;
         match (&record.path, before.store) {
             (
@@ -909,7 +916,7 @@ impl Entry<'_> {
             ) => self.plan_content(record, path),
             (TargetPath::Fs(path), PreserveMode::Meta) => self.plan_meta(before, path),
             (TargetPath::Fs(path), PreserveMode::Append) => self.plan_append(record, path),
-            (TargetPath::Fs(path), PreserveMode::Rename) => self.plan_rename(record, path),
+            (TargetPath::Fs(path), PreserveMode::Rename) => self.plan_rename(record, path, vacated),
             (TargetPath::Provider(_), PreserveMode::Value | PreserveMode::Ref) => {
                 self.plan_provider(before)
             }
@@ -1022,7 +1029,19 @@ impl Entry<'_> {
         }]))
     }
 
-    fn plan_rename(&self, record: &TargetRecord, from: &AbsPath) -> Step<Option<Vec<Action>>> {
+    /// Actions that undo a rename: the renamed entry returns to the source
+    /// name, then the replaced destination returns from its block.
+    ///
+    /// Every state a crash can leave is decided: neither step made, the
+    /// destination displaced, the rename made, and the destination already
+    /// back. Content that another action of the entry is about to move away
+    /// (`vacated`) does not hold the source name.
+    fn plan_rename(
+        &self,
+        record: &TargetRecord,
+        from: &AbsPath,
+        vacated: &[AbsPath],
+    ) -> Step<Option<Vec<Action>>> {
         let TargetAction::Rename { to, .. } = &record.action else {
             return Ok(None);
         };
@@ -1038,7 +1057,8 @@ impl Entry<'_> {
         let mut actions = Vec::new();
         let mut destination_free = at_destination.is_none();
         if !is_source(&at_source) {
-            if at_source.is_some() || !is_source(&at_destination) {
+            let name_taken = at_source.is_some() && !vacated.contains(from);
+            if name_taken || !is_source(&at_destination) {
                 return Ok(None);
             }
             actions.push(Action::Restore {
@@ -1055,17 +1075,24 @@ impl Entry<'_> {
             && let Some(blob) = self.blob_path(replaced.blob.as_deref())
             && let Some(kept) = observe(fs, &blob)?
         {
-            if likeness(&before_facts(replaced), &kept, Identity::Original) != Likeness::Same {
+            let recorded = before_facts(replaced);
+            if likeness(&recorded, &kept, Identity::Original) != Likeness::Same {
                 return Ok(None);
             }
-            actions.push(Action::Restore {
-                index: record.index,
-                from: blob,
-                target: to.clone(),
-                displace: !destination_free,
-                in_place: false,
-                meta: None,
-            });
+            let restored = !destination_free
+                && at_destination.is_some_and(|facts| {
+                    likeness(&recorded, &facts, Identity::Original) == Likeness::Same
+                });
+            if !restored {
+                actions.push(Action::Restore {
+                    index: record.index,
+                    from: blob,
+                    target: to.clone(),
+                    displace: !destination_free,
+                    in_place: false,
+                    meta: None,
+                });
+            }
         }
         Ok(Some(actions))
     }
@@ -1422,6 +1449,21 @@ enum Action {
     },
     /// Restores a provider value.
     Provider(Box<ProviderSnapshot>),
+}
+
+impl Action {
+    /// Name whose entry the action moves away, when it does.
+    fn vacates(&self) -> Option<&AbsPath> {
+        match self {
+            Self::Restore {
+                from,
+                in_place: false,
+                ..
+            } => Some(from),
+            Self::Displace { target, .. } => Some(target),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
