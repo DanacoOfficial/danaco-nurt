@@ -1200,6 +1200,7 @@ pub struct HistoryQuery {
     /// Entries touching this path.
     pub path: Option<AbsPath>,
     /// Entries containing deletions only.
+    #[serde(default)]
     pub deleted_only: bool,
 }
 

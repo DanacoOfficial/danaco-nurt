@@ -3178,6 +3178,30 @@ record_struct! {
     }
 }
 
+object_struct! {
+    /// Item of a journal entry: one target of the operation.
+    OperationItem {
+        /// Target of the item.
+        path: Path,
+        /// Action on the target, the name of the journal target action, for
+        /// example `create`, `modify` or `rename`.
+        action: String,
+        /// Preserve mode of the previous content, for example `clone` or
+        /// `none`.
+        mode: String,
+        /// Hash of the content before the operation; absent when there was
+        /// none.
+        before_hash: Option<String>,
+        /// Hash of the content after the operation; absent when there is
+        /// none.
+        after_hash: Option<String>,
+        /// The item has been undone.
+        undone: bool,
+        /// The preserved previous content of the item has been released.
+        released: bool,
+    }
+}
+
 record_struct! {
     /// Entry of the operation journal.
     ///
@@ -3225,6 +3249,9 @@ record_struct! {
         /// Protected from expiry by steps, age and size, but not from the need
         /// for space.
         pinned: bool,
+        /// Items of the entry; present only when details are requested, and
+        /// empty for an expired entry.
+        items: Option<Vec<OperationItem>>,
     }
 }
 

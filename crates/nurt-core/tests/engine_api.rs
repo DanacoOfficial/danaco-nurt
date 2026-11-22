@@ -22,7 +22,7 @@ use nurt_contracts::envelope::{
 };
 use nurt_contracts::error::{AbiStatus, Candidate, Error, ErrorCode};
 use nurt_contracts::journal::{HistoryQuery, JournalStore};
-use nurt_contracts::kinds::SyntaxVariant;
+use nurt_contracts::kinds::{EffectKind, SyntaxVariant};
 use nurt_contracts::report::ReportStatus;
 use nurt_contracts::services::ServiceKind;
 use nurt_core::config::{ConfigSources, toml_table};
@@ -46,7 +46,9 @@ fn bound_find() -> BoundDocument {
         "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
         "program": {"statements": [{
             "t": "pipeline",
-            "head": {"t": "stage", "name": "find", "effect": "read", "phase": "source", "args": []},
+            "head": {"t": "stage", "name": "find", "effect": "read", "phase": "source", "args": [
+                {"name": "path", "value": {"t": "path", "v": "/srv"}}
+            ]},
             "stages": []
         }]}
     }))
@@ -139,6 +141,7 @@ impl Frontend for ScriptedFrontend {
             bound: bound_find(),
             corrections: Vec::new(),
             ran: None,
+            ast_hash: None,
         })
     }
 }
@@ -340,7 +343,7 @@ fn ambiguous_programs_offer_candidates_until_they_expire() {
     assert_eq!(references, vec!["c1", "c2"]);
 
     let accepted = h.engine.run(&in_session(Request::accept("c1"), "s-1"));
-    assert_eq!(error_of(&accepted).code, ErrorCode::Unsupported);
+    assert_eq!(error_of(&accepted).code, ErrorCode::Internal);
     assert_eq!(accepted.report.kind, "find");
     assert_eq!(h.frontend.compiled(), vec![AMBIGUOUS, FIND]);
 
@@ -424,7 +427,7 @@ fn started_requests_complete_without_cancellation() {
         .engine
         .start(&Request::program(FIND), Arc::new(Collect::default()));
     let response = handle.wait(None).unwrap();
-    assert_eq!(error_of(&response).code, ErrorCode::Unsupported);
+    assert_eq!(error_of(&response).code, ErrorCode::Internal);
     let second = h
         .engine
         .start(&Request::program(FIND), Arc::new(Collect::default()));
@@ -446,17 +449,19 @@ fn queries_delegate_to_the_front_end() {
         h.engine.help("find", Some(Language::Pl)).unwrap(),
         "find:pl"
     );
-    assert_eq!(h.engine.catalog().unwrap_err().code, ErrorCode::Unsupported);
+    let catalog = h.engine.catalog().unwrap();
+    assert_eq!(catalog["catalog_rev"], h.engine.catalog_rev());
 }
 
 #[test]
-fn check_binds_before_planning() {
+fn check_plans_the_bound_program() {
     let h = harness();
-    let error = h.engine.check(&Request::program(FIND)).unwrap_err();
-    assert_eq!(error.code, ErrorCode::Unsupported);
-    assert_eq!(error.details["command"], "find");
-    let error = h.engine.check(&Request::ast(ast())).unwrap_err();
-    assert_eq!(error.details["command"], "find");
+    let report = h.engine.check(&Request::program(FIND)).unwrap();
+    assert_eq!(report.bound, bound_find());
+    assert_eq!(report.summary.effect, EffectKind::Read);
+    assert_eq!(report.summary.paths, vec!["/srv".to_owned()]);
+    let from_tree = h.engine.check(&Request::ast(ast())).unwrap();
+    assert_eq!(from_tree, report);
     assert_eq!(
         h.engine.check(&Request::cursor("c_1")).unwrap_err().code,
         ErrorCode::Arg
@@ -474,8 +479,11 @@ fn check_binds_before_planning() {
 fn syntax_trees_are_bound_and_run() {
     let h = harness();
     let response = h.engine.run(&Request::ast(ast()));
-    assert_eq!(error_of(&response).code, ErrorCode::Unsupported);
+    let error = error_of(&response);
+    assert_eq!(error.code, ErrorCode::Internal);
+    assert!(error.message.contains("no registered implementation"));
     assert_eq!(response.report.kind, "find");
+    assert_eq!(response.rendered.unwrap().format, OutputFormat::Text);
 }
 
 #[test]

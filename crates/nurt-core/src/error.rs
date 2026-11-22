@@ -87,6 +87,19 @@ impl EngineError {
         }
     }
 
+    /// The command registry of the build cannot be assembled: the embedded
+    /// catalog is inconsistent or two stage implementations conflict. The
+    /// build is damaged, so the status is `NURT_E_INTERNAL`.
+    #[must_use]
+    pub fn registry(error: &Error) -> Self {
+        Self {
+            status: AbiStatus::Internal,
+            code: error.code,
+            message: format!("cannot assemble the command registry: {}", error.message),
+            config: None,
+        }
+    }
+
     /// Status of the call for the C interface and the protocol server.
     #[must_use]
     pub const fn status(&self) -> AbiStatus {
@@ -241,6 +254,14 @@ mod tests {
         let error = envelope_error(&envelope, &request);
         assert_eq!(error.code, ErrorCode::PathRelative);
         assert_eq!(error.found.as_deref(), Some("out.json"));
+    }
+
+    #[test]
+    fn registry_failure_is_internal_and_keeps_the_code() {
+        let error = EngineError::registry(&Error::new(ErrorCode::Catalog, "duplicate command"));
+        assert_eq!(error.status(), AbiStatus::Internal);
+        assert_eq!(error.to_error().code, ErrorCode::Catalog);
+        assert!(error.message().ends_with("duplicate command"));
     }
 
     #[test]

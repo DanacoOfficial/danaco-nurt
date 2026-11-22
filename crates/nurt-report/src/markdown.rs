@@ -75,6 +75,9 @@ pub(crate) fn render(shaped: &Shaped) -> String {
     if let Some(cursor) = &report.next_cursor {
         blocks.push(format!("next cursor `{cursor}`"));
     }
+    if let Some(path) = &report.result_file {
+        blocks.push(format!("result file `{path}`"));
+    }
     let timing = report.timing.map(timing_parts).unwrap_or_default();
     if !timing.is_empty() {
         blocks.push(format!("timing {}", timing.join(SEPARATOR)));

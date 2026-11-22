@@ -13,13 +13,20 @@
 mod common;
 
 use std::collections::BTreeSet;
+use std::sync::Arc;
 
 use common::{
     after, binding, checking, document, field, find, from_ref, given, greater, int, mutate,
     operation, pipeline, run, single, source, text, transform,
 };
+use nurt_catalog::Registry;
 use nurt_contracts::bound::{BoundDocument, BoundExpr};
-use nurt_contracts::stage::{Demand, FieldDemand};
+use nurt_contracts::config::Config;
+use nurt_contracts::error::{Error, ErrorCode, Result};
+use nurt_contracts::stage::{
+    BoundArgs, CheckCtx, Demand, FieldDemand, InputKinds, StageDescriptor, StageImpl, StaticInfo,
+};
+use nurt_contracts::value::Value;
 use nurt_plan::{Plan, PlanOptions};
 
 fn plan(document: &BoundDocument, options: &PlanOptions) -> Plan {
@@ -215,4 +222,201 @@ fn requested_fields_reach_the_last_stage() {
     ));
     let demands = demands(&plan(&program, &PlanOptions::new().with_fields(["id"])));
     assert_eq!(demands[1].fields, only(&["id"]));
+}
+
+/// What the static check of a stand-in stage reports as the detail `limit`.
+#[derive(Clone)]
+enum Report {
+    /// The value of the argument `count`, as the record stages report it.
+    Count,
+    /// A fixed value.
+    Fixed(Value),
+    /// No detail.
+    Nothing,
+    /// An error.
+    Reject,
+}
+
+/// Implementation of a record stage that takes any input and has no
+/// behaviour except its static check.
+struct Limiting {
+    command: &'static str,
+    report: Report,
+}
+
+impl StageImpl for Limiting {
+    fn descriptor(&self) -> StageDescriptor {
+        StageDescriptor {
+            command: self.command.to_owned(),
+            source: false,
+            input: InputKinds::Any,
+        }
+    }
+
+    fn check(&self, args: &BoundArgs, _ctx: &CheckCtx<'_>) -> Result<StaticInfo> {
+        let mut info = StaticInfo::default();
+        let limit = match &self.report {
+            Report::Count => args.value("count").cloned(),
+            Report::Fixed(value) => Some(value.clone()),
+            Report::Nothing => None,
+            Report::Reject => return Err(Error::new(ErrorCode::InvalidValue, "count too large")),
+        };
+        if let Some(limit) = limit {
+            info.details.insert("limit".to_owned(), limit);
+        }
+        Ok(info)
+    }
+}
+
+fn registry_reporting(stages: &[(&'static str, Report)]) -> Registry {
+    let mut registry = common::registry();
+    for (command, report) in stages {
+        registry
+            .register_impl(Arc::new(Limiting {
+                command,
+                report: report.clone(),
+            }))
+            .unwrap();
+    }
+    registry
+}
+
+fn plan_in(registry: &Registry, document: &BoundDocument, options: &PlanOptions) -> Plan {
+    nurt_plan::plan_with(document, registry, options).unwrap()
+}
+
+#[test]
+fn reported_limit_reaches_the_source() {
+    let registry = registry_reporting(&[("first", Report::Count)]);
+    let program = single(pipeline(find("/srv/app"), vec![filter_large(), first(10)]));
+    let demands = demands(&plan_in(&registry, &program, &PlanOptions::new()));
+    assert_eq!(demands[0].limit, None);
+    assert_eq!(demands[1].limit, Some(10));
+    assert_eq!(demands[2].limit, None);
+}
+
+#[test]
+fn reported_limit_replaces_the_argument_of_the_command() {
+    let registry = registry_reporting(&[("first", Report::Fixed(Value::Int(7)))]);
+    let program = single(pipeline(find("/srv/app"), vec![first(10)]));
+    let demands = demands(&plan_in(&registry, &program, &PlanOptions::new()));
+    assert_eq!(demands[0].limit, Some(7));
+}
+
+#[test]
+fn reported_limit_is_capped_by_the_limit_after_the_stage() {
+    let registry = registry_reporting(&[("first", Report::Count)]);
+    let program = single(pipeline(find("/a"), vec![first(10), first(3)]));
+    let capped = demands(&plan_in(&registry, &program, &PlanOptions::new()));
+    assert_eq!(capped[0].limit, Some(3));
+    assert_eq!(capped[1].limit, Some(3));
+    let single_stage = single(pipeline(find("/a"), vec![first(10)]));
+    let paged = demands(&plan_in(
+        &registry,
+        &single_stage,
+        &PlanOptions::new().with_limit(4),
+    ));
+    assert_eq!(paged[0].limit, Some(4));
+}
+
+#[test]
+fn reported_limit_of_zero_reads_nothing() {
+    let registry = registry_reporting(&[("first", Report::Count)]);
+    let program = single(pipeline(find("/a"), vec![first(0)]));
+    let demands = demands(&plan_in(&registry, &program, &PlanOptions::new()));
+    assert_eq!(demands[0].limit, Some(0));
+}
+
+#[test]
+fn any_stage_may_report_a_limit() {
+    let registry = registry_reporting(&[("distinct", Report::Fixed(Value::Int(5)))]);
+    let program = single(pipeline(
+        find("/a"),
+        vec![transform("distinct", Vec::new())],
+    ));
+    let demands = demands(&plan_in(&registry, &program, &PlanOptions::new()));
+    assert_eq!(demands[0].limit, Some(5));
+}
+
+#[test]
+fn stage_without_a_usable_report_keeps_the_rule_of_the_command() {
+    let program = single(pipeline(find("/a"), vec![first(10)]));
+    let unusable = [
+        Report::Nothing,
+        Report::Reject,
+        Report::Fixed(Value::Int(-1)),
+        Report::Fixed(Value::Text("7".to_owned())),
+    ];
+    for report in unusable {
+        let registry = registry_reporting(&[("first", report)]);
+        let demands = demands(&plan_in(&registry, &program, &PlanOptions::new()));
+        assert_eq!(demands[0].limit, Some(10));
+    }
+}
+
+#[test]
+fn registered_stand_in_does_not_change_golden_plans() {
+    let registry = registry_reporting(&[("first", Report::Count)]);
+    let plain = common::registry();
+    for entry in std::fs::read_dir(common::golden_dir()).unwrap() {
+        let name = entry.unwrap().file_name().into_string().unwrap();
+        let Some(stem) = name.strip_suffix(".json") else {
+            continue;
+        };
+        if stem.ends_with(".generated") {
+            continue;
+        }
+        let program = common::golden(stem);
+        let options = PlanOptions::new().with_limit(50);
+        assert_eq!(
+            plan_in(&registry, &program, &options),
+            plan_in(&plain, &program, &options),
+            "{stem}"
+        );
+    }
+}
+
+#[test]
+fn golden_tree_with_first_limits_the_source_by_the_reported_limit() {
+    let registry = registry_reporting(&[("first", Report::Fixed(Value::Int(6)))]);
+    let program = common::golden("task-01-largest-go-files");
+    let reported = plan_in(&registry, &program, &PlanOptions::new());
+    let plain = plan_in(&common::registry(), &program, &PlanOptions::new());
+    let first_index = reported
+        .operations()
+        .next()
+        .unwrap()
+        .pipeline
+        .stages
+        .iter()
+        .position(|stage| stage.command() == "first")
+        .unwrap();
+    assert_eq!(demands(&reported)[first_index].limit, None);
+    let upstream = |plan: &Plan| demands(plan)[first_index - 1].limit;
+    assert_eq!(upstream(&reported), Some(6));
+    assert_eq!(upstream(&plain), Some(20));
+}
+
+#[test]
+fn rejected_check_fails_the_check_of_the_plan_but_not_the_plan() {
+    let registry = registry_reporting(&[("first", Report::Reject)]);
+    let program = single(pipeline(find("/a"), vec![first(10)]));
+    let plan = plan_in(&registry, &program, &PlanOptions::new());
+    let error =
+        nurt_plan::check(&plan, &registry, &common::host(), &Config::default()).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::InvalidValue);
+}
+
+#[test]
+fn check_summary_lists_the_reported_limit() {
+    let registry = registry_reporting(&[("first", Report::Count)]);
+    let program = single(pipeline(find("/a"), vec![first(10)]));
+    let plan = plan_in(&registry, &program, &PlanOptions::new());
+    let summary = nurt_plan::check(&plan, &registry, &common::host(), &Config::default()).unwrap();
+    assert_eq!(summary.details.len(), 1);
+    assert_eq!(summary.details[0].command, "first");
+    assert_eq!(
+        summary.details[0].details.get("limit"),
+        Some(&Value::Int(10))
+    );
 }

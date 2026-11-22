@@ -21,9 +21,9 @@ use crate::boundary::{self, guard, guard_void};
 use crate::buffer::NurtBuf;
 use crate::engine::Engine;
 use crate::error::{self, CallError, NurtStatus};
-use crate::exec::{Callback, EventCallback, Exec, Job};
+use crate::exec::{Callback, EventCallback, Exec};
+use crate::info;
 use crate::log::{self, LogCallback};
-use crate::{info, response};
 
 /// Major version of the interface (`NURT_ABI_MAJOR`).
 pub const NURT_ABI_MAJOR: u32 = 1;
@@ -176,8 +176,8 @@ pub extern "C" fn nurt_version() -> *const c_char {
 }
 
 /// Information about the library as JSON: version, interface version,
-/// format versions, published schemas, catalog revision, features, target
-/// and build profile.
+/// format versions, published schemas, revision of the built-in command
+/// catalog, features, target and build profile.
 ///
 /// # Safety
 ///
@@ -423,11 +423,7 @@ pub unsafe extern "C" fn nurt_run_json(
         let engine = unsafe { boundary::engine(e)? };
         // SAFETY: The caller upholds the contract stated under `# Safety`.
         let request = request(unsafe { boundary::text(request_json, "request_json")? })?;
-        let response = match request.validate() {
-            Err(violation) => response::envelope_rule(&violation),
-            Ok(()) => engine.run(&request_value(&request)?)?,
-        };
-        *out = NurtBuf::from_bytes(response);
+        *out = NurtBuf::from_bytes(engine.run(&request)?);
         Ok(NurtStatus::Ok)
     })
 }
@@ -459,11 +455,7 @@ pub unsafe extern "C" fn nurt_exec_start(
         let engine = unsafe { boundary::engine(e)? };
         // SAFETY: The caller upholds the contract stated under `# Safety`.
         let request = request(unsafe { boundary::text(request_json, "request_json")? })?;
-        let job = match request.validate() {
-            Err(violation) => Job::Done(response::envelope_rule(&violation)),
-            Ok(()) => Job::Run(request_value(&request)?),
-        };
-        let exec = engine.start(job, Callback::new(cb, user))?;
+        let exec = engine.start(&request, Callback::new(cb, user))?;
         // SAFETY: As above; the handle is released by `nurt_exec_free`.
         unsafe { out.write(Box::into_raw(Box::new(exec))) };
         Ok(NurtStatus::Ok)

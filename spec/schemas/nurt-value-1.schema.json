@@ -7890,6 +7890,16 @@
         "pinned": {
           "type": "boolean",
           "description": "Protected from expiry by steps, age and size, but not from the need\nfor space."
+        },
+        "items": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/OperationItem"
+          },
+          "description": "Items of the entry; present only when details are requested, and\nempty for an expired entry."
         }
       },
       "required": [
@@ -7994,6 +8004,53 @@
         }
       ],
       "description": "Scope of an undo entry."
+    },
+    "OperationItem": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/Path",
+          "description": "Target of the item."
+        },
+        "action": {
+          "type": "string",
+          "description": "Action on the target, the name of the journal target action, for\nexample `create`, `modify` or `rename`."
+        },
+        "mode": {
+          "type": "string",
+          "description": "Preserve mode of the previous content, for example `clone` or\n`none`."
+        },
+        "before_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Hash of the content before the operation; absent when there was\nnone."
+        },
+        "after_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Hash of the content after the operation; absent when there is\nnone."
+        },
+        "undone": {
+          "type": "boolean",
+          "description": "The item has been undone."
+        },
+        "released": {
+          "type": "boolean",
+          "description": "The preserved previous content of the item has been released."
+        }
+      },
+      "required": [
+        "path",
+        "action",
+        "mode",
+        "undone",
+        "released"
+      ],
+      "description": "Item of a journal entry: one target of the operation."
     },
     "HttpResponse": {
       "type": "object",
