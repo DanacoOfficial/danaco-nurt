@@ -10,6 +10,11 @@ use super::{DUPLICATION_MIN_LINES, SourceTokens, detect, normalize};
 
 const KEYWORDS: [&str; 6] = ["let", "return", "fn", "import", "use", "if"];
 
+/// Ten lines of code that share no block with the generated functions.
+const DISTINCT_CODE: &str = "if a { return 1; }\nlet q = \"s\";\nfn g(b, c) { return b; }\n\
+                             let r = h(1)(2);\nif b { if c { return 2; } }\nlet s = t + u + v + w;\n\
+                             return x;\nfn k() { }\nlet m = n(o, p, q, r, s);\nif z { return 0; }\n";
+
 fn scan_while(bytes: &[u8], mut index: usize, keep: impl Fn(u8) -> bool) -> usize {
     while index < bytes.len() && keep(bytes[index]) {
         index += 1;
@@ -100,6 +105,29 @@ fn ignores_block_shorter_than_minimum() {
     let second = source("b.rs", &function("two", ["x", "f", "y"], 3));
     let report = detect(&[first, second], DUPLICATION_MIN_LINES);
     assert!(report.findings.is_empty());
+    assert_eq!(report.duplicated_lines, 0);
+    assert_eq!(report.percent(), 0.0);
+}
+
+#[test]
+fn reports_share_of_duplicated_lines() {
+    let first = source("a.rs", &function("one", ["x", "f", "y"], 10));
+    let second = source("b.rs", &function("two", ["x", "f", "y"], 10));
+    let report = detect(&[first, second], DUPLICATION_MIN_LINES);
+    assert_eq!(report.code_lines, 26);
+    assert_eq!(report.duplicated_lines, 26);
+    assert_eq!(report.percent(), 100.0);
+}
+
+#[test]
+fn share_counts_distinct_code_as_not_duplicated() {
+    let first = source("a.rs", &function("one", ["x", "f", "y"], 10));
+    let second = source("b.rs", &function("two", ["x", "f", "y"], 10));
+    let distinct = source("c.rs", DISTINCT_CODE);
+    let report = detect(&[first, second, distinct], DUPLICATION_MIN_LINES);
+    assert_eq!(report.code_lines, 36);
+    assert_eq!(report.duplicated_lines, 26);
+    assert_eq!(report.percent(), 72.2);
 }
 
 #[test]
@@ -140,6 +168,8 @@ fn skips_dependency_declarations() {
         DUPLICATION_MIN_LINES,
     );
     assert!(report.findings.is_empty());
+    assert_eq!(report.code_lines, 0);
+    assert_eq!(report.percent(), 0.0);
 }
 
 #[test]
@@ -159,9 +189,10 @@ fn reports_repeated_function_in_one_file() {
 #[test]
 fn distinct_code_has_no_findings() {
     let first = source("a.rs", &function("one", ["x", "f", "y"], 10));
-    let other = "if a { return 1; }\nlet q = \"s\";\nfn g(b, c) { return b; }\n\
-                 let r = h(1)(2);\nif b { if c { return 2; } }\nlet s = t + u + v + w;\n\
-                 return x;\nfn k() { }\nlet m = n(o, p, q, r, s);\nif z { return 0; }\n";
-    let report = detect(&[first, source("b.rs", other)], DUPLICATION_MIN_LINES);
+    let report = detect(
+        &[first, source("b.rs", DISTINCT_CODE)],
+        DUPLICATION_MIN_LINES,
+    );
     assert!(report.findings.is_empty());
+    assert_eq!(report.duplicated_lines, 0);
 }

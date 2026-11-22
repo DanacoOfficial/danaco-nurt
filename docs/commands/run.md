@@ -173,6 +173,12 @@ argument with a NUL character for any program, fails with `E_ARG`;
 `details.index` gives the position in `command` and `fix` passes the text on
 standard input instead.
 
+Every job of a run, a batch or a `retry` emits `job.started`, then
+`job.output` and `job.progress`, then one `job.finished`, also when the job
+continues in the background. The command emits no `exec.started` or
+`exec.finished`: these events enclose the whole program and come from the
+engine.
+
 ## Examples
 
 Run the tests of a project and show only the error lines:

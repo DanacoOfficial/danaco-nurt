@@ -91,6 +91,7 @@ impl JobFinisher for AnalysisFinisher {
             started: result.exec.started,
             duration: result.exec.elapsed,
             fingerprint: None,
+            duplication_percent: None,
             op: result.op,
         };
         let header = Record::from(analysis);
@@ -226,6 +227,10 @@ mod tests {
             Some("an-7")
         );
         assert_eq!(header.get("passed").and_then(Value::as_bool), Some(false));
+        assert_eq!(
+            header.get("duplication_percent").and_then(Value::as_number),
+            None
+        );
         let stored = verify_store()
             .load(&ctx(state.path()), EntryKind::Analysis, "an-7")
             .unwrap()

@@ -1533,42 +1533,191 @@ mod jobs_suspend_resume {
 }
 
 mod jobs_remove {
+    use nurt_contracts::fs::WriteHandle;
+    use nurt_contracts::journal::{
+        Applied, ExemptWrite, ExternalChange, Mutation, OpHandle, OpId, Preserved, RollbackReason,
+        RollbackReport, TargetIndex, TargetSpec,
+    };
+    use nurt_contracts::report::IrreversibleEntry;
+
     use super::*;
 
+    /// Transaction that records the name of every call a stage makes on it.
+    #[derive(Default)]
+    struct WatchedTx {
+        calls: Vec<&'static str>,
+    }
+
+    fn journal_refused() -> Error {
+        Error::new(ErrorCode::Unsupported, "the journal is not available")
+    }
+
+    impl MutationTx for WatchedTx {
+        fn op(&self) -> Option<OpId> {
+            None
+        }
+
+        fn preserve(&mut self, _targets: &[TargetSpec]) -> Result<Vec<Preserved>> {
+            self.calls.push("preserve");
+            Err(journal_refused())
+        }
+
+        fn stage(&mut self, _target: TargetIndex) -> Result<Box<dyn WriteHandle>> {
+            self.calls.push("stage");
+            Err(journal_refused())
+        }
+
+        fn apply(&mut self, _target: TargetIndex, _mutation: Mutation) -> Result<Applied> {
+            self.calls.push("apply");
+            Err(journal_refused())
+        }
+
+        fn observe_external(&mut self, _changes: &[ExternalChange]) -> Result<Vec<Applied>> {
+            self.calls.push("observe_external");
+            Err(journal_refused())
+        }
+
+        fn mark_irreversible(&mut self, _marker: IrreversibleEntry) {
+            self.calls.push("mark_irreversible");
+        }
+
+        fn record_exempt(&mut self, _write: ExemptWrite) {
+            self.calls.push("record_exempt");
+        }
+
+        fn commit(self: Box<Self>) -> Result<OpHandle> {
+            Err(journal_refused())
+        }
+
+        fn rollback(self: Box<Self>, _reason: RollbackReason) -> Result<RollbackReport> {
+            Err(journal_refused())
+        }
+    }
+
+    /// What one `remove` call planned, produced and asked of the journal.
+    struct Removal {
+        records: Vec<Effect>,
+        bulk: bool,
+        planned_irreversible: usize,
+        planned_changes: usize,
+        irreversible: usize,
+        changes: usize,
+        journal_calls: Vec<&'static str>,
+    }
+
+    fn remove(components: &Components, ctx: &ExecCtx, jobs: Vec<Job>) -> Result<Removal> {
+        let stage = stage(components, "remove");
+        let effect = stage.as_effect().unwrap();
+        let args = BoundArgs::new("remove");
+        let input = StageInput::records(RecordStream::from_records(
+            jobs.into_iter().map(Record::from).collect(),
+        ));
+        let plan = effect.plan(&args, input, ctx)?;
+        let bulk = plan.bulk;
+        let planned_irreversible = plan.irreversible.len();
+        let planned_changes = plan.changes.len();
+        let mut tx = WatchedTx::default();
+        let outcome = effect.apply(&args, plan, &mut tx, ctx)?;
+        let irreversible = outcome.irreversible.len();
+        let changes = outcome.changes.len();
+        let records = StageInput::from(outcome.output)
+            .into_records()?
+            .map(|record| Effect::try_from(record.unwrap()).unwrap())
+            .collect();
+        Ok(Removal {
+            records,
+            bulk,
+            planned_irreversible,
+            planned_changes,
+            irreversible,
+            changes,
+            journal_calls: tx.calls,
+        })
+    }
+
+    fn finished(ctx: &ExecCtx, components: &Components, dir: &Path) -> Job {
+        let job = background(ctx, components, request(dir, 0, 0, 2));
+        wait_finished(dir, &job.id);
+        job
+    }
+
+    fn assert_outside_the_journal(removal: &Removal) {
+        assert!(
+            removal.journal_calls.is_empty(),
+            "{:?}",
+            removal.journal_calls
+        );
+        assert_eq!(removal.planned_irreversible, 0);
+        assert_eq!(removal.planned_changes, 0);
+        assert_eq!(removal.irreversible, 0);
+        assert_eq!(removal.changes, 0);
+    }
+
+    fn assert_removed_effect(effect: &Effect, job: &Job) {
+        assert_eq!(effect.kind, "remove");
+        assert_eq!(effect.action.as_deref(), Some("remove"));
+        assert_eq!(
+            effect.target.as_deref(),
+            Some(format!("job:{}", job.id).as_str())
+        );
+        assert!(effect.irreversible.is_none());
+        assert_eq!(effect.job.as_ref().unwrap().state, JobState::Exited);
+    }
+
     #[test]
-    fn removes_a_finished_job_with_its_output() {
+    fn removes_a_finished_job_with_its_output_outside_the_journal() {
         let dir = tempfile::tempdir().unwrap();
         let (ctx, _) = context(dir.path());
         let components = components();
-        let job = background(&ctx, &components, request(dir.path(), 0, 0, 2));
-        wait_finished(dir.path(), &job.id);
-        let (records, outcome, marked) = effect_on(
-            &components,
-            &ctx,
-            "remove",
-            &BoundArgs::new("remove"),
-            vec![job.clone()],
-        )
-        .unwrap();
-        assert_eq!(Effect::try_from(records[0].clone()).unwrap().kind, "remove");
-        assert_eq!(
-            outcome.irreversible[0].reason,
-            Irreversible::JobOutputRemoved
-        );
-        assert_eq!(marked, [Irreversible::JobOutputRemoved]);
+        let job = finished(&ctx, &components, dir.path());
         let jobs = dir.path().join("jobs");
+        let stdout = dir.path().join("spool").join(format!("{}.stdout", job.id));
+        assert!(jobs.join(format!("{}.json", job.id)).exists());
+        assert!(stdout.exists());
+        let removal = remove(&components, &ctx, vec![job.clone()]).unwrap();
+        assert_outside_the_journal(&removal);
+        assert!(!removal.bulk);
+        let [effect] = removal.records.as_slice() else {
+            panic!("expected one effect record");
+        };
+        assert_removed_effect(effect, &job);
         assert!(!jobs.join(format!("{}.json", job.id)).exists());
         assert!(!jobs.join(format!("{}.input.json", job.id)).exists());
-        assert!(
-            !dir.path()
-                .join("spool")
-                .join(format!("{}.stdout", job.id))
-                .exists()
-        );
+        assert!(!stdout.exists());
         assert_eq!(
             JobTable::at(jobs).unwrap().get(&job.id).unwrap_err().code,
             ErrorCode::UnknownJob
         );
+    }
+
+    #[test]
+    fn removes_several_finished_jobs_as_one_bulk_operation() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let components = components();
+        let first = finished(&ctx, &components, dir.path());
+        let second = finished(&ctx, &components, dir.path());
+        let removal = remove(&components, &ctx, vec![first.clone(), second.clone()]).unwrap();
+        assert!(removal.bulk);
+        assert!(
+            removal.journal_calls.is_empty(),
+            "{:?}",
+            removal.journal_calls
+        );
+        let targets: Vec<Option<&str>> = removal
+            .records
+            .iter()
+            .map(|effect| effect.target.as_deref())
+            .collect();
+        assert_eq!(
+            targets,
+            [
+                Some(format!("job:{}", first.id).as_str()),
+                Some(format!("job:{}", second.id).as_str())
+            ]
+        );
+        let (jobs, _) = read_jobs(&components, &ctx, &BoundArgs::new("jobs")).unwrap();
+        assert!(jobs.is_empty());
     }
 
     #[test]
@@ -1577,17 +1726,60 @@ mod jobs_remove {
         let (ctx, _) = context(dir.path());
         let components = components();
         let job = background(&ctx, &components, request(dir.path(), 10_000, 0, 0));
-        let error = effect_on(
+        let error = remove(&components, &ctx, vec![job.clone()]).err().unwrap();
+        assert_eq!(error.code, ErrorCode::JobState);
+        assert_eq!(error.found.as_deref(), Some("running"));
+        assert_eq!(error.fix, [format!("jobs \"{}\" |> stop", job.id)]);
+        assert!(
+            dir.path()
+                .join("jobs")
+                .join(format!("{}.json", job.id))
+                .exists()
+        );
+        stop_all(&ctx, &components);
+    }
+
+    #[test]
+    fn refuses_to_remove_a_suspended_job() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let components = components();
+        let job = background(&ctx, &components, gated(dir.path(), 0));
+        effect_on(
             &components,
             &ctx,
-            "remove",
-            &BoundArgs::new("remove"),
+            "suspend",
+            &BoundArgs::new("suspend"),
             vec![job.clone()],
         )
-        .unwrap_err();
+        .unwrap();
+        let error = remove(&components, &ctx, vec![job.clone()]).err().unwrap();
         assert_eq!(error.code, ErrorCode::JobState);
+        assert_eq!(error.found.as_deref(), Some("suspended"));
         assert_eq!(error.fix, [format!("jobs \"{}\" |> stop", job.id)]);
-        stop_all(&ctx, &components);
+        effect_on(
+            &components,
+            &ctx,
+            "resume",
+            &BoundArgs::new("resume"),
+            vec![job.clone()],
+        )
+        .unwrap();
+        release(dir.path());
+        wait_finished(dir.path(), &job.id);
+        let removal = remove(&components, &ctx, vec![job]).unwrap();
+        assert_eq!(removal.records.len(), 1);
+    }
+
+    #[test]
+    fn a_second_removal_reports_an_unknown_job() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let components = components();
+        let job = finished(&ctx, &components, dir.path());
+        remove(&components, &ctx, vec![job.clone()]).unwrap();
+        let error = remove(&components, &ctx, vec![job]).err().unwrap();
+        assert_eq!(error.code, ErrorCode::UnknownJob);
     }
 
     #[test]
@@ -1654,6 +1846,137 @@ mod jobs_events {
         run(&ctx, &components(), request(dir.path(), 0, 0, 1), None).unwrap();
         let text = serde_json::to_string(&recorder.events()).unwrap();
         assert!(!text.contains(SECRET_VALUE));
+    }
+
+    /// Checks that `events` hold no execution event and that the events of
+    /// every job run from one `job.started` to one `job.finished`; returns
+    /// the jobs in the order of their start.
+    fn job_lifecycles(events: &[Event]) -> Vec<String> {
+        let mut started: Vec<String> = Vec::new();
+        let mut finished: HashSet<String> = HashSet::new();
+        for event in events {
+            let (id, starts, ends) = match event {
+                Event::ExecStarted(_) | Event::ExecFinished(_) => {
+                    panic!("a job emitted an execution event: {event:?}")
+                }
+                Event::JobStarted(job) => (&job.id, true, false),
+                Event::JobOutput(output) => (&output.id, false, false),
+                Event::JobProgress(progress) => (&progress.id, false, false),
+                Event::JobFinished(job) => (&job.id, false, true),
+                _ => continue,
+            };
+            if starts {
+                assert!(!started.contains(id), "job {id} started twice");
+                started.push(id.clone());
+            } else {
+                assert!(started.contains(id), "event of job {id} before job.started");
+            }
+            assert!(
+                !finished.contains(id),
+                "event of job {id} after job.finished"
+            );
+            if ends {
+                finished.insert(id.clone());
+            }
+        }
+        for id in &started {
+            assert!(finished.contains(id), "job {id} has no job.finished");
+        }
+        started
+    }
+
+    fn has_finished(recorder: &Recorder, id: &str) -> bool {
+        recorder
+            .events()
+            .iter()
+            .any(|event| matches!(event, Event::JobFinished(job) if job.id == id))
+    }
+
+    #[test]
+    fn a_foreground_run_emits_one_job_lifecycle_and_no_execution_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, recorder) = context(dir.path());
+        run(&ctx, &components(), request(dir.path(), 0, 0, 2), None).unwrap();
+        assert_eq!(job_lifecycles(&recorder.events()), ["j1"]);
+    }
+
+    #[test]
+    fn a_background_run_and_its_retry_emit_separate_job_lifecycles() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, recorder) = context(dir.path());
+        let components = components();
+        let job = background(&ctx, &components, request(dir.path(), 0, 4, 1));
+        wait_finished(dir.path(), &job.id);
+        wait_until(|| has_finished(&recorder, &job.id));
+        let args = BoundArgs::new("retry")
+            .with("wait", word("forever"), false)
+            .with("timeout", millis(30_000), false);
+        let (records, _, _) =
+            effect_on(&components, &ctx, "retry", &args, vec![job.clone()]).unwrap();
+        assert_eq!(records[0].kind, RecordKind::Exec);
+        let lifecycles = job_lifecycles(&recorder.events());
+        assert_eq!(lifecycles.len(), 2);
+        assert_eq!(lifecycles[0], job.id);
+        assert_ne!(lifecycles[1], job.id);
+    }
+}
+
+mod stage_registration {
+    use super::*;
+    use nurt_contracts::stage::StageRegistrar;
+
+    /// Registrar that refuses the stages of one command.
+    struct Refusing {
+        command: &'static str,
+        accepted: Vec<String>,
+    }
+
+    impl StageRegistrar for Refusing {
+        fn register(&mut self, stage: Arc<dyn StageImpl>) -> Result<()> {
+            let command = stage.descriptor().command;
+            if command == self.command {
+                return Err(Error::new(ErrorCode::UnknownCommand, "unknown command"));
+            }
+            self.accepted.push(command);
+            Ok(())
+        }
+    }
+
+    fn commands(stages: &[Arc<dyn StageImpl>]) -> Vec<String> {
+        stages
+            .iter()
+            .map(|stage| stage.descriptor().command)
+            .collect()
+    }
+
+    #[test]
+    fn registers_every_stage_in_the_order_of_the_list() {
+        let mut registered: Vec<Arc<dyn StageImpl>> = Vec::new();
+        crate::register(&mut registered).unwrap();
+        assert_eq!(commands(&registered), commands(&crate::stages()));
+        for command in [
+            "run", "jobs", "stop", "retry", "suspend", "resume", "remove",
+        ] {
+            assert!(
+                commands(&registered).iter().any(|found| found == command),
+                "{command}"
+            );
+        }
+    }
+
+    #[test]
+    fn stops_at_the_first_refused_stage() {
+        let mut registrar = Refusing {
+            command: "stop",
+            accepted: Vec::new(),
+        };
+        let error = crate::register(&mut registrar).unwrap_err();
+        assert_eq!(error.code, ErrorCode::UnknownCommand);
+        let expected: Vec<String> = commands(&crate::stages())
+            .into_iter()
+            .take_while(|command| command != "stop")
+            .collect();
+        assert_eq!(registrar.accepted, expected);
     }
 }
 

@@ -88,8 +88,25 @@ fn duplicated_blocks_in_two_files_are_reported() {
     workspace
         .file("src/a.rs", &block())
         .file("src/b.rs", &block());
-    let (_, records) = check(&workspace, None, &[("checks", texts(&["duplication"]))]).unwrap();
+    let (header, records) =
+        check(&workspace, None, &[("checks", texts(&["duplication"]))]).unwrap();
     assert!(!kinds(&records, "duplication").is_empty());
+    let share = percent(&header).unwrap();
+    assert!(share > 0.0 && share <= 100.0, "share {share}");
+}
+
+#[test]
+fn duplication_share_is_empty_when_the_check_does_not_run() {
+    let workspace = Workspace::new();
+    workspace
+        .file("src/a.rs", &block())
+        .file("src/b.rs", &block());
+    let (header, _) = check(&workspace, None, &[("checks", texts(&["complexity"]))]).unwrap();
+    assert_eq!(percent(&header), None);
+}
+
+fn percent(header: &Record) -> Option<f64> {
+    header.get("duplication_percent").and_then(Value::as_number)
 }
 
 #[test]

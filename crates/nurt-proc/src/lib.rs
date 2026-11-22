@@ -36,3 +36,42 @@ pub use classify::{
     classify_effects,
 };
 pub use jobs::{Supervision, SupervisorCommand, run_supervisor};
+
+use nurt_contracts::error::Result;
+use nurt_contracts::stage::StageRegistrar;
+
+/// Adds the stages of `run`, `jobs`, `stop`, `retry`, `suspend`, `resume`
+/// and `remove` on job records to `registrar`, in the order of [`stages`].
+///
+/// The stages emit the job events `job.started`, `job.output`,
+/// `job.progress` and `job.finished`; the execution events `exec.started`
+/// and `exec.finished` that enclose them belong to the engine.
+///
+/// # Errors
+///
+/// Returns the first error of the registrar: `E_UNKNOWN_COMMAND` when a
+/// command is not in the catalog and `E_TYPE` when an accepted record kind
+/// is not declared for the command.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+/// use nurt_contracts::stage::StageImpl;
+///
+/// let mut registered: Vec<Arc<dyn StageImpl>> = Vec::new();
+/// nurt_proc::register(&mut registered)?;
+/// let commands: Vec<String> = registered
+///     .iter()
+///     .map(|stage| stage.descriptor().command)
+///     .collect();
+/// assert!(commands.iter().any(|command| command == "run"));
+/// assert!(commands.iter().any(|command| command == "retry"));
+/// assert_eq!(registered.len(), nurt_proc::stages().len());
+/// # Ok::<(), nurt_contracts::error::Error>(())
+/// ```
+pub fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
+    stages()
+        .into_iter()
+        .try_for_each(|stage| registrar.register(stage))
+}

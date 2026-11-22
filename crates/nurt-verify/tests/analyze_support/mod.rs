@@ -22,8 +22,7 @@ use nurt_contracts::env::{BootId, Clock, ClockStamp, WallTime};
 use nurt_contracts::envelope::RequestOptions;
 use nurt_contracts::error::Result;
 use nurt_contracts::journal::JournalStore;
-use nurt_contracts::services::{GitQueryService, Services};
-use nurt_contracts::stage::Extensions;
+use nurt_contracts::services::Services;
 use nurt_contracts::stage::{
     ArgValue, BoundArgs, CancelReason, CancelToken, EffectOutcome, EffectStage, ExecCtx, StageData,
     StageInput, StageOutput,
@@ -163,16 +162,14 @@ impl Workspace {
     /// Context with the code service and the file listing of the doubles and,
     /// when given, repository queries.
     pub(crate) fn serviced(&self, git: Option<FakeGit>) -> ExecCtx {
-        let services = Services::new()
+        let mut services = Services::new()
             .with_code(Arc::new(FakeCode))
             .with_file_list(Arc::new(DiskFiles));
-        let mut extensions = Extensions::new();
         if let Some(git) = git {
-            extensions.insert::<dyn GitQueryService>(Arc::new(git));
+            services = services.with_git_query(Arc::new(git));
         }
         self.builder(self.bin.path().as_os_str())
             .services(Arc::new(services))
-            .extensions(extensions)
             .build()
     }
 

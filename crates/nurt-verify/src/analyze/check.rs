@@ -219,6 +219,9 @@ struct BuiltinResult {
     findings: Vec<Finding>,
     checks: Vec<AnalysisCheck>,
     notes: Vec<NotableEntry>,
+    /// Share of duplicated lines; `None` when the duplication check did not
+    /// run.
+    duplication_percent: Option<f64>,
 }
 
 fn builtin_checks(ctx: &ExecCtx, request: &CheckRequest, scope: &Scope) -> BuiltinResult {
@@ -226,6 +229,7 @@ fn builtin_checks(ctx: &ExecCtx, request: &CheckRequest, scope: &Scope) -> Built
         findings: Vec::new(),
         checks: Vec::new(),
         notes: Vec::new(),
+        duplication_percent: None,
     };
     let kinds: Vec<FindingKind> = [FindingKind::Complexity, FindingKind::Duplication]
         .into_iter()
@@ -288,6 +292,7 @@ fn builtin_checks(ctx: &ExecCtx, request: &CheckRequest, scope: &Scope) -> Built
         if let Some(own) = own {
             own.findings = Some(report.findings.len() as u64);
         }
+        result.duplication_percent = Some(report.percent());
         result.findings.extend(report.findings);
     }
     result
@@ -353,6 +358,7 @@ pub(crate) fn perform(
         started: began,
         duration: millis(ctx.clock().monotonic().saturating_sub(started)),
         fingerprint: None,
+        duplication_percent: builtin.duplication_percent,
         op: None,
     };
     Ok(CheckOutcome {

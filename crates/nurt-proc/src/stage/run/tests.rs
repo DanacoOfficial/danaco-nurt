@@ -203,6 +203,7 @@ mod environment {
 
     /// Prefix of the variables that the profiling runtime of a test program
     /// built for coverage measurement sets in its own environment.
+    #[cfg(unix)]
     const PROFILE_RUNTIME_PREFIX: &str = "__LLVM_PROFILE";
 
     fn child_env(args: &BoundArgs, ctx: &ExecCtx) -> BTreeMap<String, String> {

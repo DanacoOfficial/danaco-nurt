@@ -9,7 +9,7 @@
 //! polynomial fingerprint is kept in a table; consecutive matching windows of
 //! the same pair of places form one block.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use nurt_contracts::error::Result;
 use nurt_contracts::record::{Finding, FindingKind, FindingSeverity, RelatedLocation};
@@ -77,6 +77,28 @@ pub(crate) struct SourceTokens {
 pub(crate) struct DuplicationReport {
     /// One finding per block, located in the later copy.
     pub(crate) findings: Vec<Finding>,
+    /// Lines of code in all files.
+    pub(crate) code_lines: usize,
+    /// Lines of code that belong to a block, in both copies.
+    pub(crate) duplicated_lines: usize,
+}
+
+/// Scale of the share that keeps one decimal of a percentage.
+const PERCENT_DECIMAL_SCALE: f64 = 1000.0;
+
+/// Divisor that turns the scaled share into a percentage.
+const PERCENT_DECIMAL_DIVISOR: f64 = 10.0;
+
+impl DuplicationReport {
+    /// Share of duplicated lines in the code, in percent with one decimal;
+    /// `0.0` when the files hold no code.
+    pub(crate) fn percent(&self) -> f64 {
+        if self.code_lines == 0 {
+            return 0.0;
+        }
+        let share = self.duplicated_lines as f64 / self.code_lines as f64;
+        (share * PERCENT_DECIMAL_SCALE).round() / PERCENT_DECIMAL_DIVISOR
+    }
 }
 
 /// Tokens of one file read from the code service and normalized.
@@ -323,28 +345,43 @@ fn line_span(tokens: &[NormalizedToken]) -> (u32, u32, usize) {
     (first, last, count)
 }
 
+fn lines_of(tokens: &[NormalizedToken]) -> impl Iterator<Item = u32> + '_ {
+    tokens.iter().map(|token| token.line)
+}
+
 /// Finds duplicated blocks of at least `min_lines` lines of code.
 ///
 /// The files are processed in the order of their paths, so the result does
 /// not depend on the order of `files`. The later copy is reported, the
-/// earlier one is its original.
+/// earlier one is its original. A line of code counts once towards the
+/// duplicated lines, however many blocks cover it.
 pub(crate) fn detect(files: &[SourceTokens], min_lines: usize) -> DuplicationReport {
     let mut ordered: Vec<&SourceTokens> = files.iter().collect();
     ordered.sort_by(|left, right| left.path.cmp(&right.path));
     let ordered: Vec<SourceTokens> = ordered.into_iter().cloned().collect();
     let index = Index::build(&ordered, WINDOW_TOKENS);
-    let mut report = DuplicationReport::default();
+    let mut report = DuplicationReport {
+        code_lines: ordered.iter().map(|file| line_span(&file.tokens).2).sum(),
+        ..DuplicationReport::default()
+    };
+    let mut marked: HashSet<(usize, u32)> = HashSet::new();
     for file in 0..ordered.len() {
         for run in index.runs_of(file) {
-            if let Some(finding) = report_run(&ordered, &run, min_lines) {
+            if let Some(finding) = report_run(&ordered, &run, min_lines, &mut marked) {
                 report.findings.push(finding);
             }
         }
     }
+    report.duplicated_lines = marked.len();
     report
 }
 
-fn report_run(files: &[SourceTokens], run: &Run, min_lines: usize) -> Option<Finding> {
+fn report_run(
+    files: &[SourceTokens],
+    run: &Run,
+    min_lines: usize,
+    marked: &mut HashSet<(usize, u32)>,
+) -> Option<Finding> {
     let own = &files[run.file].tokens[run.first..run.last + WINDOW_TOKENS];
     let original =
         &files[run.partner_file].tokens[run.partner_first..run.partner_last + WINDOW_TOKENS];
@@ -353,6 +390,8 @@ fn report_run(files: &[SourceTokens], run: &Run, min_lines: usize) -> Option<Fin
         return None;
     }
     let (original_first, original_last, _) = line_span(original);
+    marked.extend(lines_of(own).map(|line| (run.file, line)));
+    marked.extend(lines_of(original).map(|line| (run.partner_file, line)));
     Some(Finding {
         path: RecordPath::new(files[run.file].path.clone()),
         kind: FindingKind::Duplication,
