@@ -1,2 +1,42 @@
-# Corpus files whose value model differs from `yq -p xml -o json`, with the reason.
-# Format: <file name>: <reason>
+# Corpus files whose value differs from yq -p xml -o json (yq 4.53.6).
+# Format: file: reason
+cdata-000.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-001.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-002.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-003.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-004.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-005.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-006.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-007.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-008.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-009.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-010.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-011.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-012.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-013.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-014.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-015.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-016.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-017.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-018.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+cdata-019.xml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-000.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-001.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-002.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-003.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-004.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-005.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-006.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-007.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-008.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-009.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-010.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-011.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-012.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-013.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-014.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-015.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-016.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-017.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-018.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries
+page-019.xhtml: adjacent text and CDATA form one chunk; yq splits the content at CDATA section boundaries

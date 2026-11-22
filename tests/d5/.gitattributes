@@ -3,3 +3,7 @@
 corpus/** -text
 data/** -text
 third_party/** -text
+code/** -text
+differential/** -text
+lsp/** -text
+query/** -text

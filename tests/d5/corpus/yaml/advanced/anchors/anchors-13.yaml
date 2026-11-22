@@ -27,6 +27,7 @@ jobs:
   deploy-copy: *deploy
 keys:
   &k key13 : value
+aliased_keys:
   *k : other
 odd-names:
   a: &a.b-c_d/1 value
