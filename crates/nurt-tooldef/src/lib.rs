@@ -88,6 +88,9 @@ pub fn render(format: ToolFormat, options: &RenderOptions) -> Result<String, Too
 /// | `mcp` | `{name, description, inputSchema, _meta}`; `_meta` only with a catalog version |
 /// | `json-schema` | `{name, description, input_schema, catalog_version}`; `catalog_version` only when given |
 ///
+/// The `json-schema` value is a neutral definition `nurt-tool/1`; its schema
+/// is published as `nurt_contracts::schema::TOOL`.
+///
 /// # Errors
 ///
 /// - the errors of [`RenderOptions::description`];

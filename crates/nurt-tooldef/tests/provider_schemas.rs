@@ -6,8 +6,9 @@
 //! Every format is rendered with the core group, with an optional group,
 //! with both languages and with and without a catalog version, and each
 //! result is validated against the schema of its platform in
-//! `tests/provider-schemas/`. The formats based on JSON Schema are also
-//! validated against the neutral vocabulary of `nurt-tool/1`.
+//! `tests/provider-schemas/`; the `json-schema` format is validated against
+//! the published schema `nurt-tool/1`. The formats based on JSON Schema are
+//! also validated against the input schema vocabulary of `nurt-tool/1`.
 
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -20,7 +21,7 @@ use nurt_contracts::envelope::Language;
 use nurt_tooldef::{GroupSelection, RenderOptions, ToolFormat, definition};
 use serde_json::{Value, json};
 
-use common::{errors, input_schema, provider_schema, validator};
+use common::{errors, input_schema, provider_schema, tool_schema, validator};
 
 fn variants() -> Vec<RenderOptions> {
     vec![
@@ -33,8 +34,9 @@ fn variants() -> Vec<RenderOptions> {
     ]
 }
 
-fn schema_file(format: ToolFormat) -> &'static str {
-    match format {
+/// Returns the schema that a definition in a format must match.
+fn platform_schema(format: ToolFormat) -> Value {
+    let file = match format {
         ToolFormat::Anthropic => "anthropic-tool.schema.json",
         ToolFormat::OpenAiChat | ToolFormat::OpenAiChatStrict => "openai-chat-tool.schema.json",
         ToolFormat::OpenAiResponses | ToolFormat::OpenAiResponsesStrict => {
@@ -42,8 +44,9 @@ fn schema_file(format: ToolFormat) -> &'static str {
         }
         ToolFormat::Gemini => "gemini-function-declaration.schema.json",
         ToolFormat::Mcp => "mcp-tool.schema.json",
-        _ => "neutral-tool.schema.json",
-    }
+        _ => return tool_schema(),
+    };
+    provider_schema(file)
 }
 
 fn assert_valid(validator: &jsonschema::Validator, instance: &Value, what: &str) {
@@ -54,11 +57,25 @@ fn assert_valid(validator: &jsonschema::Validator, instance: &Value, what: &str)
 #[test]
 fn every_format_matches_the_schema_of_its_platform() {
     for format in ToolFormat::ALL {
-        let validator = validator(&provider_schema(schema_file(*format)));
+        let validator = validator(&platform_schema(*format));
         for options in variants() {
             let definition = definition(*format, &options).unwrap();
             assert_valid(&validator, &definition, format.name());
         }
+    }
+}
+
+#[test]
+fn json_schema_format_matches_the_published_schema() {
+    let published: Value = serde_json::from_str(
+        nurt_contracts::schema::by_name("tool").expect("the schema `tool` is published"),
+    )
+    .unwrap();
+    assert_eq!(published["title"], "nurt-tool/1");
+    let validator = validator(&published);
+    for options in variants() {
+        let definition = definition(ToolFormat::JsonSchema, &options).unwrap();
+        assert_valid(&validator, &definition, "json-schema");
     }
 }
 
@@ -89,10 +106,9 @@ fn strict_formats_match_the_structured_outputs_subset() {
 
 #[test]
 fn json_schema_formats_use_the_neutral_vocabulary() {
-    let neutral = provider_schema("neutral-tool.schema.json");
     let vocabulary = validator(&json!({
         "$ref": "#/$defs/inputSchema",
-        "$defs": neutral["$defs"],
+        "$defs": tool_schema()["$defs"],
     }));
     for format in ToolFormat::ALL.iter().filter(|f| **f != ToolFormat::Gemini) {
         let definition = definition(*format, &common::options()).unwrap();
@@ -136,19 +152,38 @@ fn platform_schemas_reject_known_invalid_definitions() {
             "mcp-tool.schema.json",
             json!({"name": "nurt tool", "inputSchema": {"type": "object"}}),
         ),
-        (
-            "neutral-tool.schema.json",
-            json!({"name": "nurt", "description": "d", "input_schema": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "type": "object", "description": "d", "additionalProperties": false,
-                "properties": {"program": {"type": "string"}},
-                "oneOf": [{"required": ["program"]}]}}),
-        ),
     ];
     for (file, instance) in cases {
         assert!(
             !validator(&provider_schema(file)).is_valid(&instance),
             "{file} accepts {instance}"
+        );
+    }
+}
+
+#[test]
+fn published_schema_rejects_known_invalid_definitions() {
+    let input_schema = json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object", "description": "d", "additionalProperties": false,
+        "properties": {"program": {"type": "string"}},
+    });
+    let mut combinator = input_schema.clone();
+    combinator["oneOf"] = json!([{"required": ["program"]}]);
+    let mut without_dialect = input_schema.clone();
+    without_dialect.as_object_mut().unwrap().remove("$schema");
+    let cases = [
+        json!({"name": "nurt", "description": "d", "input_schema": combinator}),
+        json!({"name": "nurt", "description": "d", "input_schema": without_dialect}),
+        json!({"name": "shell", "description": "d", "input_schema": input_schema}),
+        json!({"name": "nurt", "description": "", "input_schema": input_schema}),
+        json!({"name": "nurt", "description": "d", "input_schema": input_schema, "extra": 1}),
+    ];
+    let validator = validator(&tool_schema());
+    for instance in cases {
+        assert!(
+            !validator.is_valid(&instance),
+            "nurt-tool/1 accepts {instance}"
         );
     }
 }
