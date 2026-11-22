@@ -102,6 +102,15 @@ fn assemble(index: CatalogIndex, sources: &[(&str, &str)]) -> Result<Registry> {
     }
 }
 
+/// The embedded catalog data: the text of `_index.toml` and the pairs of
+/// file name and text of the catalog files, in the order of the index.
+///
+/// Used by components that read the catalog in their own form.
+#[must_use]
+pub const fn embedded_sources() -> (&'static str, &'static [(&'static str, &'static str)]) {
+    (EMBEDDED_INDEX, EMBEDDED_FILES)
+}
+
 impl Registry {
     /// Loads the catalog compiled into the executable.
     ///

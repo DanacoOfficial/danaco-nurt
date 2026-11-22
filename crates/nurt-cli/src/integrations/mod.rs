@@ -11,7 +11,7 @@
 
 use std::sync::Arc;
 
-use nurt_core::{Frontend, UnavailableFrontend};
+use nurt_core::{Frontend, LanguageFrontend, UnavailableFrontend};
 
 use crate::app::CliError;
 
@@ -77,11 +77,15 @@ pub const NOT_CONNECTED: &[&str] = &["mcp", "lsp", "migrate", "service", "journa
 
 /// Language front end of the executable.
 ///
-/// The build without language components answers every request with
-/// `E_UNSUPPORTED`.
+/// Parses, corrects, binds, prints, describes and helps through the language
+/// crates. When the embedded catalog or tables cannot be loaded, every
+/// request is answered with `E_UNSUPPORTED`.
 #[must_use]
 pub fn frontend() -> Arc<dyn Frontend> {
-    Arc::new(UnavailableFrontend)
+    match LanguageFrontend::new() {
+        Ok(frontend) => Arc::new(frontend),
+        Err(_) => Arc::new(UnavailableFrontend),
+    }
 }
 
 /// Whether the component of a subcommand is connected.

@@ -51,11 +51,18 @@ pub fn standard_registry() -> Result<Registry, Error> {
 pub fn standard_registry_with(extra: &[Arc<dyn StageImpl>]) -> Result<Registry, Error> {
     let mut registry = Registry::load_embedded()?;
     nurt_exec::stages::register(&mut registry)?;
-    #[cfg(feature = "structured")]
-    {
-        nurt_doc::register(&mut registry)?;
-        nurt_code::register(&mut registry)?;
-    }
+    nurt_files::register(&mut registry)?;
+    nurt_doc::register(&mut registry)?;
+    nurt_code::register(&mut registry)?;
+    nurt_proc::register(&mut registry)?;
+    nurt_verify::register(&mut registry)?;
+    nurt_syslog::register(&mut registry)?;
+    nurt_git::register(&mut registry)?;
+    nurt_git_ops::register(&mut registry)?;
+    nurt_sys::register(&mut registry)?;
+    nurt_net::register(&mut registry)?;
+    nurt_sched::register(&mut registry)?;
+    nurt_programs::register(&mut registry)?;
     for stage in extra {
         registry.register_impl(Arc::clone(stage))?;
     }

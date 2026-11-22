@@ -24,6 +24,7 @@ pub mod events;
 #[cfg(any(test, feature = "fixtures"))]
 pub mod fixtures;
 pub mod frontend;
+pub mod language;
 pub mod paths;
 pub mod readcache;
 pub mod registry;
@@ -35,5 +36,6 @@ pub use engine::{CheckReport, Engine, EngineConfig, EngineInfo, ExecHandle, Form
 pub use error::EngineError;
 pub use events::{DeliveredEvent, EventBody, EventListener, Lifecycle};
 pub use frontend::{Compiled, Corrected, Frontend, UnavailableFrontend};
+pub use language::LanguageFrontend;
 pub use nurt_catalog::CatalogQuery;
 pub use nurt_plan::CheckSummary;

@@ -37,6 +37,7 @@ mod registry;
 mod spec_ext;
 mod stages;
 
+pub use load::embedded_sources;
 pub use output::{CATALOG_RESULT_FORMAT, CatalogQuery};
 pub use registry::{Group, GroupOrigin, NameEntry, NameKind, Registry};
 pub use spec_ext::StageSpecExt;

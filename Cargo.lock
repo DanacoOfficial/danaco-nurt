@@ -186,6 +186,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "anstream"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "824a212faf96e9acacdbd09febd34438f8f711fb84e09a8916013cd7815ca28d"
+dependencies = [
+ "anstyle",
+ "anstyle-parse",
+ "anstyle-query",
+ "anstyle-wincon",
+ "colorchoice",
+ "is_terminal_polyfill",
+ "utf8parse",
+]
+
+[[package]]
+name = "anstyle"
+version = "1.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
+
+[[package]]
+name = "anstyle-parse"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52ce7f38b242319f7cabaa6813055467063ecdc9d355bbb4ce0c68908cd8130e"
+dependencies = [
+ "utf8parse",
+]
+
+[[package]]
+name = "anstyle-query"
+version = "1.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
+dependencies = [
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "anstyle-wincon"
+version = "3.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
+dependencies = [
+ "anstyle",
+ "once_cell_polyfill",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -512,7 +562,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "rustc-hash 2.1.3",
+ "rustc-hash",
  "shlex 1.3.0",
  "syn 2.0.119",
 ]
@@ -1056,6 +1106,65 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap"
+version = "4.6.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "844c5c0b65be192cb68d570cca1b21a6444431d24e39c084dc0336177015337c"
+dependencies = [
+ "clap_builder",
+ "clap_derive",
+]
+
+[[package]]
+name = "clap_builder"
+version = "4.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0797fb7aeb1406c84efac526901f7ec3ead2124f946b494e72879d4b54704d"
+dependencies = [
+ "anstream",
+ "anstyle",
+ "clap_lex",
+ "strsim",
+]
+
+[[package]]
+name = "clap_complete"
+version = "4.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a35200383f20018d41c14d1ab19c1727c697f544492143f7d93aa39f0187848"
+dependencies = [
+ "clap",
+]
+
+[[package]]
+name = "clap_derive"
+version = "4.6.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4c174f11f949b9ca8c60580925e282b9cbd5454750e506f08648b2038080cd7"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.10",
+]
+
+[[package]]
+name = "clap_lex"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0921b3876b3a1df8a1c9f912e7f94342458022c2e84288015893d83c4d62a79"
+
+[[package]]
+name = "clap_mangen"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3b6a8907b1723f211693e27b9af5899b86a9512ef5b08bd4a15b6bceb30da6d"
+dependencies = [
+ "clap",
+ "roff",
+]
+
+[[package]]
 name = "clru"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1113,6 +1222,12 @@ name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
+
+[[package]]
+name = "colorchoice"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
 name = "combine"
@@ -1192,6 +1307,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "convert_case"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1af709f1f33454bf52eadfc8c78b3b9ef9cb26fb54d16dc9cd9a7299f899fd1b"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1222,12 +1346,6 @@ name = "core_detect"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
-
-[[package]]
-name = "countme"
-version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7704b5fdd17b18ae31c4c1da5a2e0305a2bf17b5249300a9ee9ed7b72114c636"
 
 [[package]]
 name = "cpp_demangle"
@@ -1323,7 +1441,7 @@ dependencies = [
  "postcard",
  "pulley-interpreter",
  "regalloc2",
- "rustc-hash 2.1.3",
+ "rustc-hash",
  "serde",
  "serde_derive",
  "sha2 0.10.9",
@@ -1611,6 +1729,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "704a3c26996a80471189265814dbc2c257598b96b8a7feae2d31ace646bb9782"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "ctor"
+version = "1.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea691ed9f36489d087419b8b2ba3ef27d89621380b4178c73e2445a379e4e0f4"
+dependencies = [
+ "link-section",
 ]
 
 [[package]]
@@ -1965,7 +2092,7 @@ version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "799a97264921d8623a957f6c3b9011f3b5492f557bbb7a5a19b7fa6d06ba8dcb"
 dependencies = [
- "convert_case",
+ "convert_case 0.10.0",
  "proc-macro2",
  "quote",
  "rustc_version",
@@ -2574,6 +2701,12 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "foldhash"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
+
+[[package]]
+name = "foldhash"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
@@ -2726,7 +2859,7 @@ checksum = "25234f20a3ec0a962a61770cfe39ecf03cb529a6e474ad8cff025ed497eda557"
 dependencies = [
  "bitflags 2.13.2",
  "debugid",
- "rustc-hash 2.1.3",
+ "rustc-hash",
  "serde",
  "serde_derive",
  "serde_json",
@@ -3913,7 +4046,7 @@ checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 dependencies = [
  "allocator-api2",
  "equivalent",
- "foldhash",
+ "foldhash 0.2.0",
 ]
 
 [[package]]
@@ -3924,7 +4057,7 @@ checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 dependencies = [
  "allocator-api2",
  "equivalent",
- "foldhash",
+ "foldhash 0.2.0",
  "serde",
  "serde_core",
 ]
@@ -4035,6 +4168,12 @@ dependencies = [
  "tokio",
  "tracing",
 ]
+
+[[package]]
+name = "hifijson"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a9dfcf92104a9752d8dbac1879032a51873d7cebcf7e4cb2bdd0513e069440f"
 
 [[package]]
 name = "hkdf"
@@ -4430,6 +4569,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "insta"
+version = "1.49.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b67d3d2e287e4b86c10b3f3b641033d1f89b74bdb39d05f34952e2b9a6fe21cd"
+dependencies = [
+ "once_cell",
+ "serde",
+ "similar 2.7.0",
+ "tempfile",
+]
+
+[[package]]
 name = "interpolate_name"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4495,6 +4646,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "is_terminal_polyfill"
+version = "1.70.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
+
+[[package]]
 name = "itertools"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4547,6 +4704,42 @@ dependencies = [
  "dyn-clone",
  "once_cell",
  "typed-arena",
+]
+
+[[package]]
+name = "jaq-json"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4be2f53207ffb1313a2d2ad819cfa8bfaa7936cb85a110eda10fd5da822cec94"
+dependencies = [
+ "bstr",
+ "bytes",
+ "foldhash 0.1.5",
+ "hifijson",
+ "indexmap",
+ "jaq-core",
+ "jaq-std",
+ "num-bigint 0.4.8",
+ "num-traits",
+ "ryu",
+ "self_cell",
+]
+
+[[package]]
+name = "jaq-std"
+version = "3.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56b378d4f7587d332111a92608348db6d6b9b8f7cb5ee1d2bd162ec715d7c5bf"
+dependencies = [
+ "aho-corasick",
+ "base64 0.22.1",
+ "bstr",
+ "jaq-core",
+ "jiff 0.2.46",
+ "libm",
+ "log",
+ "regex-bites",
+ "urlencoding",
 ]
 
 [[package]]
@@ -4963,6 +5156,12 @@ dependencies = [
  "pkg-config",
  "vcpkg",
 ]
+
+[[package]]
+name = "link-section"
+version = "0.19.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d9aae57673c1a235149777a74d152f3210ebd3e3b13346d2cdb6809e566bd3c"
 
 [[package]]
 name = "linux-raw-sys"
@@ -5393,6 +5592,64 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13d2233c9842d08cfe13f9eac96e207ca6a2ea10b80259ebe8ad0268be27d2af"
 
 [[package]]
+name = "napi"
+version = "3.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "567c62b9c2d0fae123713f766686ad66a2c75b45ba3ee01ed8b06a7e99bc435b"
+dependencies = [
+ "bitflags 2.13.2",
+ "ctor",
+ "futures",
+ "libc",
+ "napi-build",
+ "napi-sys",
+ "nohash-hasher",
+ "rustc-hash",
+]
+
+[[package]]
+name = "napi-build"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b899b545d3aa6dca985939059f258c5488d34e4ecf39c274e20009748f4b846d"
+
+[[package]]
+name = "napi-derive"
+version = "3.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94c8098ed9d61a1bbd019519c637817531b0e24023ef4b5678f2f0cbe24bed9c"
+dependencies = [
+ "convert_case 0.12.0",
+ "ctor",
+ "napi-derive-backend",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.10",
+]
+
+[[package]]
+name = "napi-derive-backend"
+version = "7.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "314cd6ca42bd978fd8bae84b4137e1322bbf3e83552fca8dbd7d18034188ff3a"
+dependencies = [
+ "convert_case 0.12.0",
+ "proc-macro2",
+ "quote",
+ "semver",
+ "syn 3.0.10",
+]
+
+[[package]]
+name = "napi-sys"
+version = "3.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d153beb7d5c973f4b9395be8a83054a28968b61188f1dd1a2cc2321af22daea2"
+dependencies = [
+ "libloading 0.9.1",
+]
+
+[[package]]
 name = "ndk-context"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5503,6 +5760,12 @@ checksum = "418abd1b6d34fbf6cae440dc874771b0525a604428704c76e48b29a5e67b8003"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "nohash-hasher"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
 
 [[package]]
 name = "nom"
@@ -5740,6 +6003,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nurt"
+version = "0.1.0"
+dependencies = [
+ "nurt-cli",
+ "nurt-contracts",
+ "nurt-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "nurt-archive"
 version = "0.1.0"
 dependencies = [
@@ -5761,20 +6036,39 @@ dependencies = [
 name = "nurt-bench"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
+ "clap",
+ "hex",
+ "jiff 1.0.2",
  "nurt-contracts",
+ "nurt-core",
+ "nurt-testkit",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml",
+ "ureq",
 ]
 
 [[package]]
 name = "nurt-bind"
 version = "0.1.0"
 dependencies = [
+ "globset",
+ "hex",
+ "jiff 1.0.2",
  "nurt-catalog",
  "nurt-contracts",
  "nurt-correct",
  "nurt-syntax",
  "nurt-types",
+ "serde",
+ "serde_json",
+ "serde_json_canonicalizer",
+ "sha2 0.11.1",
+ "toml",
 ]
 
 [[package]]
@@ -5821,20 +6115,65 @@ name = "nurt-code"
 version = "0.1.0"
 dependencies = [
  "ast-grep-core",
+ "globset",
+ "ignore",
+ "indexmap",
+ "insta",
  "nurt-contracts",
+ "nurt-testkit",
  "nurt-types",
+ "proptest",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "thiserror 2.0.21",
  "tree-sitter",
+ "tree-sitter-bash",
+ "tree-sitter-c",
+ "tree-sitter-c-sharp",
+ "tree-sitter-cpp",
+ "tree-sitter-css",
+ "tree-sitter-go",
+ "tree-sitter-html",
+ "tree-sitter-java",
+ "tree-sitter-javascript",
+ "tree-sitter-json",
+ "tree-sitter-kotlin-ng",
  "tree-sitter-language",
+ "tree-sitter-md",
+ "tree-sitter-php",
+ "tree-sitter-powershell",
+ "tree-sitter-python",
+ "tree-sitter-ruby",
+ "tree-sitter-rust",
+ "tree-sitter-swift",
+ "tree-sitter-toml-ng",
+ "tree-sitter-typescript",
+ "tree-sitter-xml",
+ "tree-sitter-yaml",
 ]
 
 [[package]]
 name = "nurt-conformance"
 version = "0.1.0"
 dependencies = [
+ "axum",
+ "base64 0.23.1",
+ "clap",
+ "hex",
+ "jiff 1.0.2",
+ "jsonschema",
  "nurt-contracts",
- "nurt-testkit",
  "serde",
  "serde_json",
+ "serde_json_canonicalizer",
+ "sha2 0.11.1",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -5858,12 +6197,28 @@ name = "nurt-core"
 version = "0.1.0"
 dependencies = [
  "jsonschema",
+ "nurt-bind",
  "nurt-catalog",
+ "nurt-code",
  "nurt-contracts",
+ "nurt-correct",
+ "nurt-doc",
  "nurt-exec",
+ "nurt-files",
+ "nurt-git",
+ "nurt-git-ops",
+ "nurt-help",
+ "nurt-net",
  "nurt-plan",
+ "nurt-proc",
+ "nurt-programs",
  "nurt-report",
+ "nurt-sched",
+ "nurt-syntax",
+ "nurt-sys",
+ "nurt-syslog",
  "nurt-testkit",
+ "nurt-verify",
  "schemars",
  "serde",
  "serde_json",
@@ -5877,9 +6232,36 @@ dependencies = [
 name = "nurt-correct"
 version = "0.1.0"
 dependencies = [
+ "hex",
+ "insta",
+ "jiff 1.0.2",
  "nurt-catalog",
  "nurt-contracts",
  "nurt-syntax",
+ "proptest",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_json_canonicalizer",
+ "sha2 0.11.1",
+ "toml_edit",
+ "unicode-normalization",
+]
+
+[[package]]
+name = "nurt-crashfs"
+version = "0.1.0"
+dependencies = [
+ "nurt-contracts",
+ "nurt-fs",
+ "nurt-journal",
+ "nurt-space",
+ "proptest",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]
@@ -5887,9 +6269,15 @@ name = "nurt-doc"
 version = "0.1.0"
 dependencies = [
  "csv",
+ "encoding_rs",
+ "indexmap",
+ "insta",
  "jaq-core",
+ "jaq-json",
+ "jaq-std",
  "jsonc-parser",
  "nurt-contracts",
+ "nurt-testkit",
  "nurt-types",
  "plist",
  "proptest",
@@ -5897,8 +6285,28 @@ dependencies = [
  "rusqlite",
  "rust-ini",
  "saphyr",
+ "saphyr-parser",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml",
  "toml_edit",
- "yaml-edit",
+]
+
+[[package]]
+name = "nurt-docgen"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "clap_complete",
+ "clap_mangen",
+ "nurt-contracts",
+ "pulldown-cmark",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]
@@ -5951,6 +6359,8 @@ dependencies = [
 name = "nurt-files"
 version = "0.1.0"
 dependencies = [
+ "encoding_rs",
+ "fancy-regex",
  "globset",
  "ignore",
  "image",
@@ -5959,12 +6369,20 @@ dependencies = [
  "lopdf 0.47.0",
  "memmap2",
  "mime_guess",
+ "nurt-archive",
  "nurt-contracts",
+ "nurt-notebook",
  "nurt-testkit",
  "nurt-text",
  "nurt-types",
  "pdf-extract",
+ "regex",
+ "serde",
+ "serde_json",
  "tempfile",
+ "toml",
+ "unicode-normalization",
+ "which",
 ]
 
 [[package]]
@@ -5972,20 +6390,28 @@ name = "nurt-fs"
 version = "0.1.0"
 dependencies = [
  "camino",
+ "core-foundation 0.10.1",
  "dunce",
  "file-id",
  "filetime",
+ "flate2",
  "fs4",
  "libc",
  "nurt-contracts",
  "nurt-types",
+ "proptest",
  "reflink-copy",
  "rustix",
  "same-file",
+ "serde",
+ "sha2 0.11.1",
+ "tar",
  "tempfile",
  "unicode-normalization",
  "windows-sys 0.61.2",
  "xattr",
+ "zip",
+ "zstd",
 ]
 
 [[package]]
@@ -6031,6 +6457,7 @@ dependencies = [
  "smallvec",
  "tempfile",
  "thiserror 2.0.21",
+ "toml",
 ]
 
 [[package]]
@@ -6039,17 +6466,20 @@ version = "0.1.0"
 dependencies = [
  "gix",
  "hex",
+ "indexmap",
  "nurt-contracts",
  "nurt-git",
  "nurt-git-ops",
  "nurt-git-transport",
  "nurt-testkit",
  "nurt-types",
+ "russh",
  "serde",
  "serde_json",
  "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
+ "tokio",
  "toml",
 ]
 
@@ -6059,6 +6489,9 @@ version = "0.1.0"
 dependencies = [
  "bstr",
  "gix",
+ "gix-actor",
+ "gix-config",
+ "gix-date",
  "gix-diff",
  "gix-dir",
  "gix-filter",
@@ -6079,9 +6512,15 @@ dependencies = [
  "nurt-testkit",
  "nurt-types",
  "proptest",
+ "russh",
+ "serde",
+ "serde_json",
  "sha1 0.11.0",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
+ "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -6113,17 +6552,18 @@ dependencies = [
  "proptest",
  "rand 0.10.4",
  "rcgen",
+ "rusqlite",
  "russh",
  "rustls",
  "rustls-native-certs",
  "security-framework",
+ "serde_json",
  "sha1 0.11.0",
  "sha2 0.11.1",
  "ssh-key",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
- "tokio-util",
  "ureq",
  "url",
  "windows-sys 0.61.2",
@@ -6136,12 +6576,16 @@ version = "0.1.0"
 dependencies = [
  "nurt-catalog",
  "nurt-contracts",
+ "nurt-syntax",
+ "serde_json",
+ "toml",
 ]
 
 [[package]]
 name = "nurt-journal"
 version = "0.1.0"
 dependencies = [
+ "crc32fast",
  "hex",
  "nurt-contracts",
  "nurt-fs",
@@ -6149,8 +6593,11 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
+ "serde_json_canonicalizer",
  "sha2 0.11.1",
  "tempfile",
+ "toml_edit",
+ "uuid",
 ]
 
 [[package]]
@@ -6159,20 +6606,32 @@ version = "0.1.0"
 dependencies = [
  "lsp-server",
  "lsp-types",
+ "nurt-bind",
  "nurt-catalog",
  "nurt-contracts",
+ "nurt-correct",
+ "nurt-help",
  "nurt-syntax",
+ "proptest",
  "serde_json",
+ "toml",
 ]
 
 [[package]]
 name = "nurt-lspclient"
 version = "0.1.0"
 dependencies = [
+ "crossbeam-channel",
  "lsp-types",
+ "nurt-code",
  "nurt-contracts",
+ "proptest",
  "serde",
  "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "url",
+ "which",
 ]
 
 [[package]]
@@ -6182,33 +6641,78 @@ dependencies = [
  "axum",
  "nurt-contracts",
  "nurt-core",
+ "nurt-testkit",
+ "nurt-tooldef",
  "rmcp",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
 name = "nurt-migrate"
 version = "0.1.0"
 dependencies = [
+ "nurt-bind",
  "nurt-contracts",
+ "nurt-correct",
  "nurt-syntax",
+ "serde_json",
+ "tree-sitter",
+ "tree-sitter-bash",
+ "tree-sitter-powershell",
 ]
 
 [[package]]
 name = "nurt-net"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
+ "blake3",
+ "chardetng",
+ "ciborium",
+ "encoding_rs",
+ "flate2",
+ "hex",
  "hickory-resolver",
+ "indexmap",
+ "jiff 1.0.2",
+ "libc",
  "nurt-contracts",
+ "nurt-testkit",
  "nurt-types",
  "percent-encoding",
+ "proptest",
+ "regex",
+ "rustix",
  "rustls",
  "rustls-native-certs",
- "socket2",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml",
+ "tree-sitter",
+ "tree-sitter-html",
  "ureq",
  "url",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "nurt-node"
+version = "0.1.0"
+dependencies = [
+ "napi",
+ "napi-build",
+ "napi-derive",
+ "nurt-contracts",
+ "nurt-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -6216,6 +6720,7 @@ name = "nurt-notebook"
 version = "0.1.0"
 dependencies = [
  "nurt-contracts",
+ "proptest",
  "serde",
  "serde_json",
  "uuid",
@@ -6238,13 +6743,22 @@ dependencies = [
 name = "nurt-proc"
 version = "0.1.0"
 dependencies = [
+ "chardetng",
+ "encoding_rs",
+ "fancy-regex",
  "libc",
+ "memchr",
  "nix 0.32.0",
  "notify",
  "nurt-contracts",
  "nurt-types",
+ "regex",
  "rustix",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
  "tempfile",
+ "toml",
  "which",
  "windows-sys 0.61.2",
 ]
@@ -6253,8 +6767,32 @@ dependencies = [
 name = "nurt-programs"
 version = "0.1.0"
 dependencies = [
+ "bzip2",
+ "chardetng",
+ "ciborium",
+ "encoding_rs",
+ "flate2",
+ "hex",
+ "jsonschema",
+ "liblzma",
+ "lz4_flex",
+ "memchr",
  "nurt-contracts",
  "nurt-types",
+ "plist",
+ "proptest",
+ "quick-xml",
+ "rayon",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml",
+ "unicode-normalization",
+ "windows-sys 0.61.2",
+ "zstd",
 ]
 
 [[package]]
@@ -6277,29 +6815,51 @@ name = "nurt-sched"
 version = "0.1.0"
 dependencies = [
  "croner",
+ "hex",
+ "indexmap",
  "jiff 1.0.2",
  "nurt-contracts",
  "nurt-types",
+ "serde",
+ "serde_json",
+ "serde_json_canonicalizer",
+ "sha2 0.11.1",
+ "tempfile",
 ]
 
 [[package]]
 name = "nurt-service"
 version = "0.1.0"
 dependencies = [
+ "fs4",
+ "jiff 1.0.2",
+ "libc",
+ "nix 0.32.0",
  "nurt-contracts",
  "nurt-sched",
- "nurt-space",
+ "plist",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "windows",
  "windows-service",
+ "windows-sys 0.61.2",
+ "zbus",
 ]
 
 [[package]]
 name = "nurt-space"
 version = "0.1.0"
 dependencies = [
+ "crc32fast",
  "nurt-contracts",
  "nurt-fs",
  "nurt-journal",
  "nurt-types",
+ "proptest",
+ "rayon",
+ "serde",
+ "serde_json",
  "tempfile",
 ]
 
@@ -6309,6 +6869,8 @@ version = "0.1.0"
 dependencies = [
  "ciborium",
  "hex",
+ "insta",
+ "jsonschema",
  "logos",
  "nurt-contracts",
  "proptest",
@@ -6322,16 +6884,39 @@ dependencies = [
 name = "nurt-sys"
 version = "0.1.0"
 dependencies = [
+ "bzip2",
  "core-foundation 0.10.1",
+ "flate2",
+ "globset",
+ "indexmap",
+ "jiff 1.0.2",
+ "libc",
+ "liblzma",
+ "lz4_flex",
  "netstat2",
+ "nix 0.32.0",
  "nurt-contracts",
+ "nurt-programs",
  "nurt-syslog",
  "nurt-types",
+ "plist",
+ "proptest",
+ "quick-xml",
+ "regex",
+ "rusqlite",
+ "rustix",
+ "serde",
+ "serde_json",
  "sysinfo",
+ "tar",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml",
+ "which",
  "windows",
  "windows-sys 0.61.2",
- "wmi",
  "zbus",
+ "zstd",
 ]
 
 [[package]]
@@ -6339,6 +6924,11 @@ name = "nurt-syslog"
 version = "0.1.0"
 dependencies = [
  "block2",
+ "globset",
+ "indexmap",
+ "jiff 1.0.2",
+ "libc",
+ "lz4_flex",
  "lzma-rust2",
  "macos-unifiedlogs",
  "nurt-contracts",
@@ -6346,7 +6936,16 @@ dependencies = [
  "objc2",
  "objc2-foundation",
  "objc2-os-log",
+ "proptest",
+ "quick-xml",
+ "regex",
+ "serde",
+ "serde_json",
  "siphasher",
+ "tempfile",
+ "thiserror 2.0.21",
+ "windows",
+ "zstd",
 ]
 
 [[package]]
@@ -6386,9 +6985,20 @@ dependencies = [
  "regex",
  "sha1 0.11.0",
  "sha2 0.11.1",
- "similar",
+ "similar 3.2.1",
+ "tempfile",
  "unicode-normalization",
  "unicode-width",
+]
+
+[[package]]
+name = "nurt-tooldef"
+version = "0.1.0"
+dependencies = [
+ "jsonschema",
+ "nurt-contracts",
+ "serde_json",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -6411,12 +7021,18 @@ dependencies = [
 name = "nurt-verify"
 version = "0.1.0"
 dependencies = [
+ "hex",
+ "ignore",
  "nurt-contracts",
  "nurt-proc",
+ "nurt-testkit",
  "nurt-types",
+ "quick-xml",
  "regex",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
 ]
 
 [[package]]
@@ -6552,6 +7168,12 @@ dependencies = [
  "critical-section",
  "portable-atomic",
 ]
+
+[[package]]
+name = "once_cell_polyfill"
+version = "1.70.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "opaque-debug"
@@ -7260,6 +7882,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pulldown-cmark"
+version = "0.13.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3db2be46835f013dd3f4fa7f5f7402c537787b54ebb6fe2b94bbdd7e2669bb7b"
+dependencies = [
+ "bitflags 2.13.2",
+ "memchr",
+ "pulldown-cmark-escape",
+ "unicase",
+]
+
+[[package]]
+name = "pulldown-cmark-escape"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "007d8adb5ddab6f8e3f491ac63566a7d5002cc7ed73901f72057943fa71ae1ae"
+
+[[package]]
 name = "pulley-interpreter"
 version = "51.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7316,6 +7956,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41b1177fdf999d2321d3fb46ff47159d9c1fb9ad66a4879f8c50a0b504615e9b"
 dependencies = [
  "memchr",
+ "serde",
 ]
 
 [[package]]
@@ -7616,7 +8257,7 @@ dependencies = [
  "bumpalo",
  "hashbrown 0.17.1",
  "log",
- "rustc-hash 2.1.3",
+ "rustc-hash",
  "serde",
  "smallvec",
 ]
@@ -7643,6 +8284,12 @@ dependencies = [
  "memchr",
  "regex-syntax",
 ]
+
+[[package]]
+name = "regex-bites"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6a15a2fa0bfda9361941c45550896ae87b15cc6c8c939ea350079670332e211"
 
 [[package]]
 name = "regex-syntax"
@@ -7762,16 +8409,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "rowan"
-version = "0.16.1"
+name = "roff"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "417a3a9f582e349834051b8a10c8d71ca88da4211e4093528e36b9845f6b5f21"
-dependencies = [
- "countme",
- "hashbrown 0.14.5",
- "rustc-hash 1.1.0",
- "text-size",
-]
+checksum = "323c417e1d9665a65b263ec744ba09030cfb277e9daa0b018a4ab62e57bc8189"
 
 [[package]]
 name = "rsa"
@@ -7947,12 +8588,6 @@ name = "rustc-demangle"
 version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b74b56ffa8bb2830709a538c2cbcae9aa062db0d2a42563bfb09bdaae44020eb"
-
-[[package]]
-name = "rustc-hash"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc-hash"
@@ -8229,6 +8864,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "self_cell"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ab42ca02749e120097e328d91d415325bdf43b1c72c4c8badf37375fe40a813"
+
+[[package]]
 name = "semver"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8285,7 +8926,7 @@ version = "1.0.154"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6"
 dependencies = [
- "foldhash",
+ "foldhash 0.2.0",
  "indexmap",
  "itoa",
  "memchr",
@@ -8582,6 +9223,12 @@ name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
+
+[[package]]
+name = "similar"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
 
 [[package]]
 name = "similar"
@@ -8991,12 +9638,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "text-size"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f18aa187839b2bdb1ad2fa35ead8c4c2976b64e4363c386d45ac0f7ee85c9233"
-
-[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9285,10 +9926,231 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-bash"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e5ec769279cc91b561d3df0d8a5deb26b0ad40d183127f409494d6d8fc53062"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-c"
+version = "0.24.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9b2eb57a55fed6b00812912e730b7a275cf4fe98bfd6a5d76263d4438371728"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-c-sharp"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54b3cdb7aeae9018e60908aa18937708de29338c83ecf3701de534b23d365c30"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-cpp"
+version = "0.23.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df2196ea9d47b4ab4a31b9297eaa5a5d19a0b121dceb9f118f6790ad0ab94743"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-css"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5cbc5e18f29a2c6d6435891f42569525cf95435a3e01c2f1947abcde178686f"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-go"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8560a4d2f835cc0d4d2c2e03cbd0dde2f6114b43bc491164238d333e28b16ea"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-html"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "261b708e5d92061ede329babaaa427b819329a9d427a1d710abb0f67bbef63ee"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-java"
+version = "0.23.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0aa6cbcdc8c679b214e616fd3300da67da0e492e066df01bcf5a5921a71e90d6"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-javascript"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68204f2abc0627a90bdf06e605f5c470aa26fdcb2081ea553a04bdad756693f5"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-json"
+version = "0.24.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d727acca406c0020cffc6cf35516764f36c8e3dc4408e5ebe2cb35a947ec471"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-kotlin-ng"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e800ebbda938acfbf224f4d2c34947a31994b1295ee6e819b65226c7b51b4450"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
 name = "tree-sitter-language"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0af592be68c579aa78a16846bd19422978c3c52e438523d45ff5d1bff1f9d4a"
+
+[[package]]
+name = "tree-sitter-md"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ed661bfe3c264961425f77cd89ad2998bf5d629e71ce8bab1e5d7e940d6246e"
+dependencies = [
+ "cc",
+ "tree-sitter",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-php"
+version = "0.25.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5be68f5b75fc311f7bef753d164d7bb891e5b63cb036c27899ca86c1d0a57c0a"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-powershell"
+version = "0.26.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa49d15e5b291030a548447445e0547992eff1438e7cd9133bfec99a9ba962a9"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-python"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bf85fd39652e740bf60f46f4cda9492c3a9ad75880575bf14960f775cb74a1c"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-ruby"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be0484ea4ef6bb9c575b4fdabde7e31340a8d2dbc7d52b321ac83da703249f95"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-rust"
+version = "0.24.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "439e577dbe07423ec2582ac62c7531120dbfccfa6e5f92406f93dd271a120e45"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-swift"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2688c06564afa397313e0db17d140a73e2c6a47f3884794614246167c9dd5dfd"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-toml-ng"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9adc2c898ae49730e857d75be403da3f92bb81d8e37a2f918a08dd10de5ebb1"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-typescript"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c5f76ed8d947a75cc446d5fccd8b602ebf0cde64ccf2ffa434d873d7a575eff"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-xml"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e670041f591d994f54d597ddcd8f4ebc930e282c4c76a42268743b71f0c8b6b3"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-yaml"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53c223db85f05e34794f065454843b0668ebc15d240ada63e2b5939f43ce7c97"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
 
 [[package]]
 name = "ttf-parser"
@@ -9501,6 +10363,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "urlencoding"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
+
+[[package]]
 name = "utf8-zero"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9514,6 +10382,12 @@ checksum = "af3bd9d3e571c26fcce9d033b87ea5ab061b8d2ffe9b7a5675d810d68f03edf0"
 dependencies = [
  "utf_types",
 ]
+
+[[package]]
+name = "utf8parse"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "utf_types"
@@ -10427,21 +11301,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wmi"
-version = "0.18.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c81b85c57a57500e56669586496bf2abd5cf082b9d32995251185d105208b64"
-dependencies = [
- "chrono",
- "futures",
- "log",
- "serde",
- "thiserror 2.0.21",
- "windows",
- "windows-core",
-]
-
-[[package]]
 name = "wnaf"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10519,16 +11378,6 @@ name = "y4m"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a5a4b21e1a62b67a2970e6831bc091d7b87e119e7f9791aef9702e3bef04448"
-
-[[package]]
-name = "yaml-edit"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5df55a38673279c691015377f55503186026bc41d448892b01886cb7475cd121"
-dependencies = [
- "base64 0.22.1",
- "rowan",
-]
 
 [[package]]
 name = "yasna"
