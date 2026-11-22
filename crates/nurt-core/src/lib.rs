@@ -21,6 +21,7 @@ pub mod cursor;
 pub mod engine;
 pub mod error;
 pub mod events;
+mod extensions;
 #[cfg(any(test, feature = "fixtures"))]
 pub mod fixtures;
 pub mod frontend;

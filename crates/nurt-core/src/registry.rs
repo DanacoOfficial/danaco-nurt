@@ -14,6 +14,7 @@ use std::sync::Arc;
 use nurt_catalog::Registry;
 use nurt_contracts::error::Error;
 use nurt_contracts::stage::StageImpl;
+use nurt_ext::locations::ExtLocations;
 
 /// Builds the registry of this build: the embedded command catalog and the
 /// stage implementations compiled into the build.
@@ -49,6 +50,18 @@ pub fn standard_registry() -> Result<Registry, Error> {
 /// implementation names a command that is not in the catalog or overlaps
 /// another implementation of its command.
 pub fn standard_registry_with(extra: &[Arc<dyn StageImpl>]) -> Result<Registry, Error> {
+    registry_with(extra, None)
+}
+
+/// Builds the registry of this build, then adds the commands of the
+/// extensions installed in `extensions`.
+///
+/// An extension that cannot be loaded or registered is left out, so that the
+/// other commands stay available.
+pub(crate) fn registry_with(
+    extra: &[Arc<dyn StageImpl>],
+    extensions: Option<ExtLocations>,
+) -> Result<Registry, Error> {
     let mut registry = Registry::load_embedded()?;
     nurt_exec::stages::register(&mut registry)?;
     nurt_journal::register(&mut registry)?;
@@ -66,6 +79,9 @@ pub fn standard_registry_with(extra: &[Arc<dyn StageImpl>]) -> Result<Registry, 
     nurt_programs::register(&mut registry)?;
     for stage in extra {
         registry.register_impl(Arc::clone(stage))?;
+    }
+    if let Some(locations) = extensions {
+        crate::extensions::register_installed(&mut registry, locations)?;
     }
     Ok(registry)
 }

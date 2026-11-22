@@ -6209,6 +6209,7 @@ dependencies = [
  "nurt-correct",
  "nurt-doc",
  "nurt-exec",
+ "nurt-ext",
  "nurt-files",
  "nurt-fs",
  "nurt-git",

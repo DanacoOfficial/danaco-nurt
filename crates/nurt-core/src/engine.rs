@@ -63,9 +63,10 @@ use crate::config::{ConfigLoader, ConfigSources, LoadedConfig};
 use crate::cursor::{CursorStore, ProgramRef};
 use crate::error::{EngineError, envelope_error, unavailable};
 use crate::events::{EventListener, Sequencer};
+use crate::extensions;
 use crate::frontend::{Compiled, Corrected, Frontend, UnavailableFrontend};
 use crate::readcache::ReadCache;
-use crate::registry::standard_registry_with;
+use crate::registry::registry_with;
 use crate::session::{SessionId, Sessions};
 use crate::state::{StateArea, StateDir, write_atomic};
 use crate::system::{SystemClock, SystemHost};
@@ -114,6 +115,7 @@ pub struct EngineConfig {
     fs: Option<Arc<dyn Fs>>,
     journal: Option<Arc<dyn JournalStore>>,
     system_journal: bool,
+    process_components: bool,
     frontend: Arc<dyn Frontend>,
     services: Services,
     stages: Vec<Arc<dyn StageImpl>>,
@@ -146,6 +148,7 @@ impl EngineConfig {
             fs: None,
             journal: None,
             system_journal: false,
+            process_components: false,
             frontend: Arc::new(UnavailableFrontend),
             services: Services::new(),
             stages: Vec::new(),
@@ -167,6 +170,7 @@ impl EngineConfig {
         Self::new(Arc::new(SystemClock::new()), Arc::new(SystemHost::detect()))
             .with_fs(nurt_fs::system_fs())
             .with_system_journal()
+            .with_process_components()
     }
 
     /// The journal of the process is built in the state directory when the
@@ -176,6 +180,14 @@ impl EngineConfig {
     #[must_use]
     pub fn with_system_journal(mut self) -> Self {
         self.system_journal = true;
+        self
+    }
+
+    /// The commands of the extensions installed for the account are added to
+    /// the command registry when the engine opens.
+    #[must_use]
+    pub fn with_process_components(mut self) -> Self {
+        self.process_components = true;
         self
     }
 
@@ -499,15 +511,21 @@ impl Engine {
     /// session identifier is invalid, the state directory cannot be created
     /// or the command registry of the build cannot be assembled.
     pub fn open(config: EngineConfig) -> Result<Self, EngineError> {
-        let registry = standard_registry_with(&config.stages)
+        let loader = ConfigLoader::new(&config.sources, config.host.as_ref())?;
+        let project = loader.project_for(None);
+        let loaded = Arc::new(loader.load(project.as_deref())?);
+        let installed = if config.process_components {
+            extensions::locations(config.host.as_ref(), &loaded.config().ext)
+                .map_err(|error| EngineError::registry(&error))?
+        } else {
+            None
+        };
+        let registry = registry_with(&config.stages, installed)
             .map(Arc::new)
             .map_err(|error| EngineError::registry(&error))?;
         let catalog_rev = registry
             .catalog_rev()
             .map_err(|error| EngineError::registry(&error))?;
-        let loader = ConfigLoader::new(&config.sources, config.host.as_ref())?;
-        let project = loader.project_for(None);
-        let loaded = Arc::new(loader.load(project.as_deref())?);
         let root = if config.use_state_dir {
             config
                 .state_dir
