@@ -15,10 +15,13 @@ structured report of its effects.
 
 ## Status
 
-The project is in early development. The language, the syntax tree, the
-command catalog, the report format and the library interfaces are being
-specified, and the implementation is not yet functional. No release has been
-published. Interfaces may change without notice until the first stable release.
+Version 0.1.0 is the first release. The language front end, the engine, the
+command catalog, the undo journal, the command line program, the Model Context
+Protocol server, the language server and the C interface are implemented and
+work together. The release is not stable: the language, the syntax tree, the
+command catalog, the report format and the library interfaces may change
+between 0.x versions. The known limitations are listed in the
+[changelog](CHANGELOG.md).
 
 ## Design
 
@@ -39,8 +42,8 @@ published. Interfaces may change without notice until the first stable release.
 
 ## Example
 
-The language is under specification. The following program lists the 20
-largest Go source files changed during the last day:
+The following program lists the 20 largest Go source files changed during the
+last day:
 
 ```text
 find "/home/user/project" glob: "**/*.go"
