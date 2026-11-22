@@ -151,6 +151,8 @@ def read_scenarios() -> Collection:
           report={"status": "ok", "records": records("content", matched=1)})
     c.add("missing-file", "Reading a missing file fails and changes nothing.", fs, 'read "missing.txt"',
           report={"status": "failed", "error": {"code": "E_NOT_FOUND"}})
+    c.add("lines-after-end", "Reading a line range after the end of the file fails with E_OUT_OF_RANGE.", fs,
+          'read "a.txt" lines: 100..120', report={"status": "failed", "error": {"code": "E_OUT_OF_RANGE"}})
     c.add("empty-file", "Reads an empty file.", tree({"e.txt": ""}), 'read "e.txt"',
           report={"status": "ok", "records": records("content", [row("content", path="e.txt", text="", lines=0)])})
     c.add("no-final-newline", "Reads a file without a final line ending.", tree({"a.txt": "a\nb"}), 'read "a.txt"',
@@ -388,6 +390,11 @@ def find_scenarios() -> Collection:
     c.add("fuzzy", "Ranks entries by similarity of the name.", fs, 'find "." fuzzy: "egm"', report={"status": "ok"})
     c.add("missing-directory", "Finding under a missing directory fails.", fs, 'find "absent"',
           report={"status": "failed", "error": {"code": "E_NOT_FOUND"}})
+    looped = {"entries": tree({"d/a.go": "package d\n"})["entries"] + [entry("d/up", target="..")]}
+    c.add("follow-links-loop", "Following links skips a link back to a parent directory and reports it.", looped,
+          'find "." glob: "**/*.go" follow_links: true', requires=("os:unix",),
+          report={"status": "ok", "notable": [{"code": "link_loop_skipped"}],
+                  "records": records("entry", [row("entry", path="d/a.go")])})
     c.add("follow-links-off", "Does not descend into linked directories by default.",
           {"entries": [entry("real/x.txt", "x\n"), entry("link", target="real")]}, 'find "." glob: "**/x.txt"',
           report={"status": "ok", "records": records("entry", [row("entry", path="real/x.txt")])}, requires=("os:unix",))
@@ -638,6 +645,8 @@ def edit_scenarios() -> Collection:
     c.add("edit-all-or-nothing", "A change without a match fails the whole edit when asked; nothing changes.", tree(edit_src),
           'edit "e.go" changes: [{replace: "oldName(", with: "newName("}, {replace: "absent", with: "x"}] on_missing: error',
           report={"status": "failed", "error": {"code": "E_NO_MATCH"}})
+    c.add("insert-after-end", "Inserting at a line after the end of the file fails with E_OUT_OF_RANGE.", tree(edit_src),
+          'insert "x" in: "e.go" line: 99', report={"status": "failed", "error": {"code": "E_OUT_OF_RANGE"}})
     c.add("edit-expect-count", "An edit with the expected number of changes applies.", tree(edit_src),
           'edit "e.go" changes: [{replace: "line1", with: "L1"}, {replace: "line5", with: "L5"}] expect: 2',
           report={"status": "ok"}, after=tree({"e.go": "L1\nline2 oldName(\nline3\nline4\nL5\n"}))

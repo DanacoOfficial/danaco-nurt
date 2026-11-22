@@ -67,6 +67,32 @@ program = 'sql "app.db" "create table t(x)" write: true'
 program = 'sql "app.db" "insert into t values (1)"'
 expect = { report = { status = "failed", error = { code = "E_SQL" } } }
 
+[[case]]
+id = "exec/documents/sql/named-params"
+kind = "exec"
+summary = "sql binds a map of values to the named placeholders of a statement."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = "sql \"app.db\" \"create table users(id integer, name text); insert into users values (1, 'ann'), (2, 'bob')\" write: true"
+
+[[case.step]]
+program = 'sql "app.db" "select id from users where name = :name" params: {name: "bob"}'
+expect = { report = { status = "ok", kind = "sql", records = { type = "row", matched = 1 } } }
+
+[[case]]
+id = "exec/documents/sql/rows-changed"
+kind = "exec"
+summary = "The change of a database written by sql reports the number of rows inserted."
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'sql "app.db" "create table t(x integer)" write: true'
+
+[[case.step]]
+program = 'sql "app.db" "insert into t values (1), (2), (3)" write: true'
+expect = { report = { status = "ok", kind = "sql", changes = [{ rows_changed = 3 }] } }
+
 # text
 
 [[case]]
@@ -381,6 +407,15 @@ summary = "notebook.move moves a cell."
 fs_before = { entries = [{ path = "a.ipynb", type = "file", content_utf8 = "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}, {\"cell_type\": \"markdown\", \"id\": \"n\", \"metadata\": {}, \"source\": [\"# B\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n" }] }
 program = 'notebook.move "a.ipynb" from: 1 to: 0'
 expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/notebook/notebook.move/out-of-range"
+kind = "exec"
+summary = "notebook.move of an index after the last cell fails with E_OUT_OF_RANGE and changes nothing."
+fs_before = { entries = [{ path = "a.ipynb", type = "file", content_utf8 = "{\"cells\": [{\"cell_type\": \"markdown\", \"id\": \"m\", \"metadata\": {}, \"source\": [\"# A\"]}], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}\n" }] }
+program = 'notebook.move "a.ipynb" from: 3 to: 0'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_OUT_OF_RANGE" } } }
 
 [[case]]
 id = "exec/notebook/notebook.copy/cell"

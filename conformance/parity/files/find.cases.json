@@ -2814,6 +2814,55 @@
       "fs_after": "unchanged"
     },
     {
+      "id": "parity/files/find/follow-links-loop",
+      "kind": "parity",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Following links skips a link back to a parent directory and reports it.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "d/a.go",
+            "type": "file",
+            "content_utf8": "package d\n"
+          },
+          {
+            "path": "d/up",
+            "type": "symlink",
+            "target": ".."
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"**/*.go\" follow_links: true",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "link_loop_skipped"
+            }
+          ],
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/d/a.go"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
       "id": "parity/files/find/follow-links-off",
       "kind": "parity",
       "requires": [

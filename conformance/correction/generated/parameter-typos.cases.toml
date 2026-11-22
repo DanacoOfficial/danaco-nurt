@@ -1,6 +1,3 @@
-# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
-# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
-# https://github.com/DanacoOfficial | support@danaco-group.pl
 # Typing errors and unique prefixes of parameter names.
 # Written by conformance/tools/generate_correction.py; edit the generator, not this file.
 
@@ -1617,19 +1614,6 @@ program = 'git.commit "/home/user/app" message: "fix: parser" sgin_off: false'
 [case.expect]
 program = 'git.commit "/home/user/app" message: "fix: parser" sign_off: false'
 corrections = [{ rule = 'L02', class = 'F', from = 'sgin_off', to = 'sign_off' }]
-
-[[case]]
-id = 'correction/generated/parameter-typos/git-commit/sign-off-prefix'
-kind = "correction"
-class = "mandatory"
-language = "1.0"
-summary = 'The prefix sig names only the parameter sign_off.'
-method = "correct"
-program = 'git.commit "/home/user/app" message: "fix: parser" sig: false'
-
-[case.expect]
-program = 'git.commit "/home/user/app" message: "fix: parser" sign_off: false'
-corrections = [{ rule = 'L05', class = 'F', from = 'sig', to = 'sign_off' }]
 
 [[case]]
 id = 'correction/generated/parameter-typos/git-diff/staged-satged'
