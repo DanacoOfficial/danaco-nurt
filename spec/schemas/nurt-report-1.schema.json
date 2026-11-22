@@ -260,7 +260,9 @@
         "fsmonitor_ignored", "submodules_not_updated", "sparse_checkout", "shallow_repository",
         "line_endings_converted", "upstream_set", "stash_kept", "signed",
         "amend_published", "commit_detached_head", "operation_in_progress", "excluded",
-        "review_skipped", "checkpoint_without_index"
+        "review_skipped", "checkpoint_without_index", "link_loop_skipped",
+        "tls_verification_disabled", "http_option_ignored", "pack_without_deltas",
+        "push_status_unknown", "host_key_unverified", "match_exec_ignored"
       ]
     },
     "irreversible": {
@@ -294,7 +296,7 @@
         "E_SPAWN", "E_ASSERT", "E_BINARY", "E_DOC_PARSE", "E_FORMAT", "E_ENCRYPTED",
         "E_UNSUPPORTED_CONSTRUCT", "E_KEY_NOT_FOUND", "E_KEY_CONFLICT", "E_UNSUPPORTED_LANGUAGE",
         "E_SYMBOL_NOT_FOUND", "E_SYMBOL_AMBIGUOUS", "E_RENAME_CONFLICT", "E_NO_MATCH",
-        "E_PATCH_REJECTED", "E_STALE", "E_ENCODING", "E_IO", "E_PERMISSION", "E_EXISTS",
+        "E_PATCH_REJECTED", "E_OUT_OF_RANGE", "E_STALE", "E_ENCODING", "E_IO", "E_PERMISSION", "E_EXISTS",
         "E_NOT_FOUND", "E_IN_USE", "E_PRIVILEGE", "E_NO_SPACE", "E_TIMEOUT", "E_CANCELLED", "E_LIMIT",
         "E_STAGE_FAILED", "E_ROLLED_BACK", "E_ROLLBACK_FAILED",
         "E_JOURNAL_NOOP", "E_JOURNAL_EXPIRED", "E_JOURNAL_CONFLICT", "E_JOURNAL_PARTIAL",
@@ -304,7 +306,7 @@
         "E_GIT_DIRTY", "E_GIT_CONFLICT", "E_GIT_IN_PROGRESS", "E_GIT_LOCKED", "E_GIT_NON_FAST_FORWARD",
         "E_GIT_NOTHING_TO_COMMIT", "E_GIT_HOOK", "E_GIT_SIGN", "E_GIT_AUTH", "E_GIT_HOST_KEY",
         "E_GIT_PUSH_REJECTED", "E_GIT_PROTOCOL", "E_GIT_UNSUPPORTED", "E_GIT_HUNK",
-        "E_GIT_CHECKPOINT", "E_GIT_WORKTREE", "E_INTERNAL"
+        "E_GIT_CHECKPOINT", "E_GIT_WORKTREE", "E_GIT_CONFIG", "E_INTERNAL"
       ]
     },
     "error_stage": {

@@ -1481,6 +1481,18 @@ pub struct RecoveryReport {
     pub expired: Vec<OpId>,
     /// Wall time spent, milliseconds.
     pub elapsed_ms: u64,
+    /// Entries left unchanged because their item list cannot be read; they
+    /// are repaired by `journal salvage`.
+    #[serde(default)]
+    pub needs_salvage: Vec<OpId>,
+    /// Entries left unchanged because another live process holds their lock.
+    #[serde(default)]
+    pub skipped_live: Vec<OpId>,
+    /// Entries left unchanged because their state cannot be decided, for
+    /// example a prepared entry without its marker or an unreadable part of
+    /// an entry stored in several parts.
+    #[serde(default)]
+    pub unresolved: Vec<OpId>,
 }
 
 /// Entry expired by a sweep.

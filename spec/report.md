@@ -160,6 +160,7 @@ command that observed the condition.
 | `external_volume` | notice | command | a target on a network or removable volume |
 | `archive_path_escape` | warning | command | archive entries outside the destination were skipped |
 | `permission_denied_skipped` | warning | command | files without read permission were skipped |
+| `link_loop_skipped` | notice | command | a symbolic link leading back to one of its parent directories was not followed |
 | `ignored` | info | command | changes in paths excluded from tracking (`run.track_ignore`) |
 | `alias_shared` | warning | command | a node referenced by aliases was changed |
 | `keys_created` | info | command | intermediate keys were created |
@@ -200,6 +201,18 @@ command that observed the condition.
 | `upstream_set` | info | command | an upstream branch was set |
 | `stash_kept` | notice | command | a stash entry was kept after a conflict |
 | `signed` | info | command | a commit or tag was signed |
+| `amend_published` | alert | command | the amended commit is reachable from a remote-tracking branch |
+| `commit_detached_head` | warning | command | a commit was created on a detached `HEAD` |
+| `operation_in_progress` | warning | command | a commit was created while a rebase, cherry-pick, revert or bisection is in progress |
+| `excluded` | info | command | files matched by `exclude` were skipped (`count`) |
+| `review_skipped` | notice | command | files were not reviewed: untracked files over the size limit, binary files or files over the count limit |
+| `checkpoint_without_index` | notice | command | a checkpoint was created without the index because the index has conflicts |
+| `tls_verification_disabled` | warning | command | verification of TLS certificates is disabled by the repository configuration |
+| `http_option_ignored` | notice | command | an unsupported HTTP setting of the repository configuration was ignored |
+| `pack_without_deltas` | info | command | a push sent objects without new delta compression |
+| `push_status_unknown` | warning | command | the remote did not report the outcome of a reference update |
+| `host_key_unverified` | warning | command | the host key of a remote was accepted without verification |
+| `match_exec_ignored` | notice | command | a `Match exec` condition of the SSH configuration was not run |
 
 ## 7. Irreversible effects (`irreversible`)
 

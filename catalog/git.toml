@@ -149,7 +149,7 @@ reversibility = "read"
 effect = "read"
 implementation = "builtin"
 input = ["none"]
-output = ["commit"]
+output = ["commit", "group"]
 summary = "List commits of a revision, optionally limited to files, authors, dates or content."
 
 [[command.param]]
@@ -343,7 +343,7 @@ reversibility = "read"
 effect = "read"
 implementation = "builtin"
 input = ["none"]
-output = ["branch", "effect"]
+output = ["branch", "effect", "git_trash_entry"]
 summary = "List branches, or create, rename, switch or delete them."
 reversibility_note = "Branch changes are reversible from the journal, which keeps the previous value of each reference."
 effects = [

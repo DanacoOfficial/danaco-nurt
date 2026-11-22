@@ -408,13 +408,14 @@ check_boilerplate() {
 # References to automated authorship tools. Permitted: names of standards (for
 # example Model Context Protocol) and the technical terms of other systems: SSH
 # agent, agent authentication, agent forwarding, launchd agent and the
-# User-Agent header of HTTP. Identifiers such as user_agent do not match,
+# User-Agent header of HTTP; the terms AI agent and AI coding agent, which
+# name the users of the product. Identifiers such as user_agent do not match,
 # because whole words are compared.
 check_tool_mention() {
   select_files tool-mention
   grep_files -wE 'A[I]|L[L]Ms?'
   grep_files_append -iwE 'artificial [i]ntelligence|language m[o]dels?|a[s]sistants?|a[g]ents?|chatb[o]ts?|system p[r]ompts?|prompt e[n]gineering'
-  drop_hits -iE 'model c[o]ntext protocol|ssh[- ]agents?|agent (authentication|forwarding)|launchd agents?|launch agents?|user-agent'
+  drop_hits -iE 'model c[o]ntext protocol|ssh[- ]agents?|agent (authentication|forwarding)|launchd agents?|launch agents?|user-agent|\ba[i] (coding )?a[g]ents?\b'
   sort -u "$work/hits" >"$work/hits.sorted"
   mv "$work/hits.sorted" "$work/hits"
   report_hits tool-mention
