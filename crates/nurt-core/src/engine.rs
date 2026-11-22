@@ -861,6 +861,10 @@ impl Engine {
         let plan = self.plan(compiled, prepared)?;
         let planned = clock.monotonic();
         let env = self.exec_env(prepared, cancel, events)?;
+        let env = match &compiled.ast_hash {
+            Some(hash) => env.with_ast_hash(hash.clone()),
+            None => env,
+        };
         let outcome = Executor::new().run(&plan, &env);
         let timing = (prepared.options.verbosity == Some(Verbosity::Detailed)).then(|| {
             let mut timing = timing_of(&outcome);
@@ -995,6 +999,7 @@ impl Engine {
             .bind(document, prepared.config.config())
             .map(|bound| Compiled {
                 bound,
+                ast_hash: crate::frontend::ast_hash(document),
                 corrections: Vec::new(),
                 ran: None,
             })
@@ -1323,6 +1328,9 @@ fn report_of(
             builder = builder.ran(ran.clone());
         }
     }
+    if let Some(hash) = &compiled.ast_hash {
+        builder = builder.ast_hash(hash.clone());
+    }
     let last = operations.last().map(|operation| operation.index);
     for operation in operations {
         builder = add_operation(builder, operation, last);
@@ -1582,6 +1590,7 @@ mod tests {
                 .unwrap(),
             ],
             ran: Some("find \"/srv\"".to_owned()),
+            ast_hash: None,
         };
         let changing = ProgramKind {
             kind: "remove".to_owned(),
