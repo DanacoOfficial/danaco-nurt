@@ -9,12 +9,10 @@
 //! the cache.
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::record::{ProfileEntry, ProfileSection};
 use nurt_contracts::report::{Notable, NotableEntry};
-use nurt_contracts::services::GitQueryService;
 use nurt_contracts::stage::{
     BoundArgs, CheckCtx, ExecCtx, InputKinds, ReadStage, RecordStream, StageDescriptor, StageImpl,
     StageInput, StageOutput, StaticInfo,
@@ -36,8 +34,7 @@ const COMMAND: &str = "code.profile";
 ///
 /// Manifests in JSON and TOML are read through the document service of the
 /// execution context, the file tree through its file layer and listing
-/// service, and the repository history through the repository query service
-/// registered in the extensions of the context.
+/// service, and the repository history through its repository query service.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CodeProfile;
 
@@ -72,12 +69,11 @@ impl ReadStage for CodeProfile {
         ctx: &'a ExecCtx,
     ) -> Result<StageOutput<'a>> {
         let request = request(args)?;
-        let git = git_query(ctx);
         let tree = ContextFiles::new(ctx.fs(), ctx.files());
         let env = Env {
             tree: &tree,
             doc: ctx.doc(),
-            git: git.as_deref(),
+            git: ctx.services().git_query(),
             state_dir: ctx.state_dir(),
             now_ns: i64::try_from(ctx.clock().now().unix_nanos()).unwrap_or(i64::MAX),
             registry: Registry::builtin(),
@@ -96,14 +92,6 @@ impl ReadStage for CodeProfile {
         Ok(StageOutput::records(RecordStream::from_records(records))
             .with_header(header(&request.root, &profile)))
     }
-}
-
-/// Repository query service of the context.
-///
-/// The execution context carries the service in its extensions until the
-/// service registry is reachable from the context directly.
-fn git_query(ctx: &ExecCtx) -> Option<Arc<dyn GitQueryService>> {
-    ctx.extensions().get::<dyn GitQueryService>()
 }
 
 /// Options of the call other than the root.
@@ -166,10 +154,7 @@ fn sections(value: &Value) -> Result<Vec<Section>> {
             let known: Vec<&str> = Section::ALL.iter().map(|s| s.as_str()).collect();
             invalid(
                 "sections",
-                format!(
-                    "unknown section `{text}`; use one of {}",
-                    known.join(", ")
-                ),
+                format!("unknown section `{text}`; use one of {}", known.join(", ")),
             )
         })?;
         if !sections.contains(&section) {
@@ -279,9 +264,11 @@ mod tests {
     use super::*;
 
     fn args(pairs: &[(&str, Value)]) -> BoundArgs {
-        pairs.iter().fold(BoundArgs::new(COMMAND), |args, (name, value)| {
-            args.with(*name, ArgValue::Value(value.clone()), false)
-        })
+        pairs
+            .iter()
+            .fold(BoundArgs::new(COMMAND), |args, (name, value)| {
+                args.with(*name, ArgValue::Value(value.clone()), false)
+            })
     }
 
     #[test]
@@ -300,7 +287,10 @@ mod tests {
             ("days", Value::Int(0)),
             ("days", Value::Int(DAYS_MAX + 1)),
             ("sections", Value::List(Vec::new())),
-            ("sections", Value::List(vec![Value::Enum("tests".to_owned())])),
+            (
+                "sections",
+                Value::List(vec![Value::Enum("tests".to_owned())]),
+            ),
         ] {
             let error = options(&args(&[(name, value)])).err().unwrap();
             assert_eq!(error.code, ErrorCode::InvalidValue, "{name}");

@@ -18,11 +18,15 @@
 //! letter. A name used twice matches only nodes with the same structure, so
 //! `$A == $A` finds comparisons of a value with itself. Whitespace and
 //! comments are not significant; the kind and the text of every other leaf
-//! must agree.
+//! must agree. Nodes that follow the last node of the pattern among its
+//! siblings are not compared, so `puts $A` in Ruby also matches `puts 1, 2`.
 //!
-//! The pattern is parsed with the grammar of the target language. A pattern
-//! that does not parse fails with `E_PATTERN_SYNTAX` and the position of the
-//! first syntax error. Matching uses `ast-grep-core`.
+//! The pattern is parsed with the grammar of the target language. In Rust,
+//! Go, C, C++, Java, C#, PHP and Swift, where the top level of a file holds
+//! only declarations, the pattern is first parsed as a statement of a
+//! function body and then on its own. A pattern that does not parse fails
+//! with `E_PATTERN_SYNTAX` and the position of the first syntax error.
+//! Matching uses `ast-grep-core`.
 //!
 //! ```
 //! use nurt_code::pattern::StructuralPattern;
@@ -40,6 +44,7 @@
 use std::any::Any;
 use std::borrow::Cow;
 use std::fmt;
+use std::ops::Range;
 
 use ast_grep_core::matcher::{PatternBuilder, PatternNode};
 use ast_grep_core::meta_var::MetaVariable;
@@ -87,6 +92,9 @@ const PHP_OPEN_TAG: &str = "<?php\n";
 /// `$` nor the micro sign in every position.
 const HTML_SIGIL: char = 'z';
 
+/// Kinds of nodes that only group the statements of a function body.
+const STATEMENT_LISTS: [&str; 2] = ["statement_list", "statements"];
+
 /// Grammar of a pattern, in the form `ast-grep-core` works with.
 #[derive(Clone)]
 struct PatternLanguage {
@@ -96,7 +104,7 @@ struct PatternLanguage {
 
 impl Language for PatternLanguage {
     fn pre_process_pattern<'q>(&self, query: &'q str) -> Cow<'q, str> {
-        substitute(query, self.expando)
+        substitute(query, self.expando, false)
     }
 
     fn meta_var_char(&self) -> char {
@@ -115,7 +123,10 @@ impl Language for PatternLanguage {
         self.grammar.field_id_for_name(field).map(|id| id.get())
     }
 
-    fn build_pattern(&self, builder: &PatternBuilder<'_>) -> std::result::Result<Pattern, PatternError> {
+    fn build_pattern(
+        &self,
+        builder: &PatternBuilder<'_>,
+    ) -> std::result::Result<Pattern, PatternError> {
         builder.build(|source| StrDoc::try_new(source, self.clone()))
     }
 }
@@ -143,8 +154,10 @@ fn expando_for(language: &LanguageId) -> char {
 /// Replaces the sigil of every metavariable by `expando`; a `$` that does
 /// not start a metavariable is kept. Each sigil is replaced by exactly one
 /// character, so character positions of the result are positions in the
-/// pattern as written.
-fn substitute(pattern: &str, expando: char) -> Cow<'_, str> {
+/// pattern as written. With `variables`, a single-node metavariable keeps
+/// its `$` in front of the replacement, so that it parses as a PHP variable
+/// whose name is the metavariable.
+fn substitute(pattern: &str, expando: char, variables: bool) -> Cow<'_, str> {
     if expando == SIGIL || !pattern.contains(SIGIL) {
         return Cow::Borrowed(pattern);
     }
@@ -161,6 +174,9 @@ fn substitute(pattern: &str, expando: char) -> Cow<'_, str> {
         } else {
             SIGIL
         };
+        if variables && starts_name && dollars == 1 {
+            out.push(SIGIL);
+        }
         out.extend(std::iter::repeat_n(sigil, dollars));
         dollars = 0;
         out.push(c);
@@ -168,6 +184,97 @@ fn substitute(pattern: &str, expando: char) -> Cow<'_, str> {
     let sigil = if dollars == 3 { expando } else { SIGIL };
     out.extend(std::iter::repeat_n(sigil, dollars));
     Cow::Owned(out)
+}
+
+/// Code placed around a pattern so that it parses as a statement of a
+/// function body.
+struct Context {
+    prefix: &'static str,
+    suffix: &'static str,
+    /// Statement terminator tried after the pattern before the pattern
+    /// without it.
+    terminator: Option<&'static str>,
+}
+
+/// Pattern placed in a context.
+struct Wrapped {
+    text: String,
+    /// Bytes of the pattern in `text`.
+    hole: Range<usize>,
+    /// End of the pattern and the added terminator in `text`.
+    extent: usize,
+}
+
+impl Context {
+    const fn new(
+        prefix: &'static str,
+        suffix: &'static str,
+        terminator: Option<&'static str>,
+    ) -> Self {
+        Self {
+            prefix,
+            suffix,
+            terminator,
+        }
+    }
+
+    /// Contexts of a language in the order they are tried. Where a
+    /// statement made of an expression is ambiguous or not allowed (C and
+    /// C++ read `a && b;` as a declaration, C# and Java accept only some
+    /// expressions as statements), the pattern is first placed in an
+    /// expression.
+    fn of(language: &LanguageId) -> Vec<Self> {
+        match language.as_str() {
+            "rust" => vec![Self::new("fn nurt_context() {\n", "\n}\n", Some(";"))],
+            "go" => vec![Self::new(
+                "package nurt\nfunc nurt_context() {\n",
+                "\n}\n",
+                None,
+            )],
+            "c" | "cpp" => vec![
+                Self::new("void nurt_context(void) {\n(void)(", ");\n}\n", None),
+                Self::new("void nurt_context(void) {\n", "\n}\n", Some(";")),
+            ],
+            "java" | "csharp" => vec![
+                Self::new(
+                    "class NurtContext {\nvoid NurtMethod() {\nvar nurt = (",
+                    ");\n}\n}\n",
+                    None,
+                ),
+                Self::new(
+                    "class NurtContext {\nvoid NurtMethod() {\n",
+                    "\n}\n}\n",
+                    Some(";"),
+                ),
+            ],
+            "php" => vec![Self::new(PHP_OPEN_TAG, "\n", Some(";"))],
+            "swift" => vec![Self::new("func nurt_context() {\n", "\n}\n", None)],
+            _ => Vec::new(),
+        }
+    }
+
+    /// `body` in this context, with the terminator and without it.
+    fn wrap(&self, body: &str) -> Vec<Wrapped> {
+        let start = self.prefix.len();
+        let hole = start..start + body.len();
+        let mut out = Vec::new();
+        let terminator = self
+            .terminator
+            .filter(|end| !body.ends_with(end) && !body.ends_with('}'));
+        if let Some(end) = terminator {
+            out.push(Wrapped {
+                text: format!("{}{body}{end}{}", self.prefix, self.suffix),
+                hole: hole.clone(),
+                extent: hole.end + end.len(),
+            });
+        }
+        out.push(Wrapped {
+            text: format!("{}{body}{}", self.prefix, self.suffix),
+            extent: hole.end,
+            hole,
+        });
+        out
+    }
 }
 
 /// Metavariable of a compiled pattern.
@@ -203,10 +310,14 @@ impl StructuralPattern {
     ///
     /// The pattern is one syntax node of the language, for example an
     /// expression, a statement or a declaration, with metavariables in place
-    /// of nodes. A pattern with several top-level nodes, an empty pattern, a
-    /// pattern that is only `$$$NAME` and a pattern with a syntax error fail
-    /// with `E_PATTERN_SYNTAX`; the error has the language in its details
-    /// and the position of the problem in `at`.
+    /// of nodes.
+    ///
+    /// # Errors
+    ///
+    /// A pattern with several top-level nodes, an empty pattern, a pattern
+    /// that is only `$$$NAME` and a pattern with a syntax error fail with
+    /// `E_PATTERN_SYNTAX`; the error has the language in its details and
+    /// the position of the problem in `at`.
     ///
     /// # Examples
     ///
@@ -233,28 +344,10 @@ impl StructuralPattern {
             grammar: grammar.clone(),
             expando: expando_for(language),
         };
-        let processed = substitute(pattern, lang.expando);
-        let prefix = if language.as_str() == "php" && !pattern.trim_start().starts_with("<?php") {
-            PHP_OPEN_TAG
-        } else {
-            ""
+        let compiled = match contextual_pattern(pattern, language, &lang) {
+            Some(found) => found,
+            None => bare_pattern(pattern, language, &lang)?,
         };
-        let full = format!("{prefix}{processed}");
-        let root = AstGrep::<StrDoc<PatternLanguage>>::try_new(&full, lang.clone())
-            .map_err(|message| internal_parse_error(language, &message))?;
-        if let Some(offset) = first_error(root.root().get_inner_node()) {
-            let at = full[..offset.min(full.len())].chars().count() - prefix.chars().count();
-            return Err(pattern_error(
-                language,
-                &format!(
-                    "pattern is not valid {language} code; correct the syntax at the reported position"
-                ),
-                pattern,
-                at,
-            ));
-        }
-        let node = pattern_root(&root, prefix.len(), language, pattern)?;
-        let compiled = Pattern::from(node);
         if let PatternNode::MetaVar {
             meta_var: MetaVariable::MultiCapture(_) | MetaVariable::Multiple,
         } = &compiled.node
@@ -342,6 +435,150 @@ impl SyntaxPattern for StructuralPattern {
 }
 
 type PatternDoc = StrDoc<PatternLanguage>;
+
+/// Pattern parsed as a statement of a function body: first with the
+/// metavariables as names, then, in PHP, as variables.
+fn contextual_pattern(
+    pattern: &str,
+    language: &LanguageId,
+    lang: &PatternLanguage,
+) -> Option<Pattern> {
+    let contexts = Context::of(language);
+    let body = pattern.trim();
+    let php = language.as_str() == "php";
+    if contexts.is_empty() || (php && body.starts_with("<?php")) {
+        return None;
+    }
+    let mut forms = vec![substitute(body, lang.expando, false)];
+    if php {
+        forms.push(substitute(body, lang.expando, true));
+    }
+    forms
+        .iter()
+        .flat_map(|form| contexts.iter().flat_map(|context| context.wrap(form)))
+        .find_map(|wrapped| contextual(&wrapped, lang))
+}
+
+/// Pattern of the only construct in the hole of a wrapped pattern; `None`
+/// when the wrapped text has a syntax error or the hole does not hold
+/// exactly one construct.
+fn contextual(wrapped: &Wrapped, lang: &PatternLanguage) -> Option<Pattern> {
+    let root = AstGrep::<PatternDoc>::try_new(&wrapped.text, lang.clone()).ok()?;
+    let tree_root = root.root().get_inner_node();
+    if first_error(tree_root).is_some() {
+        return None;
+    }
+    let nodes = hole_nodes(tree_root, wrapped.hole.start, wrapped.extent);
+    let [only] = nodes.as_slice() else {
+        return None;
+    };
+    let mut target = *only;
+    if target.end_byte() > wrapped.hole.end {
+        target = child_spanning(target, &wrapped.hole).unwrap_or(target);
+    }
+    let mut node = grep_node(&root, target)?;
+    while is_single(&node) {
+        let Some(child) = node.child(0) else {
+            break;
+        };
+        node = child;
+    }
+    Some(Pattern::from(node))
+}
+
+/// Named nodes of the body around the bytes `start..end` that lie within
+/// them; statement lists of the body are looked through.
+fn hole_nodes(root: tree_sitter::Node<'_>, start: usize, end: usize) -> Vec<tree_sitter::Node<'_>> {
+    let Some(mut body) = root.descendant_for_byte_range(start, end) else {
+        return Vec::new();
+    };
+    while body.start_byte() >= start && body.end_byte() <= end {
+        let Some(parent) = body.parent() else {
+            break;
+        };
+        body = parent;
+    }
+    let mut nodes = named_children_within(body, start, end);
+    while let [only] = nodes.as_slice() {
+        let list = *only;
+        if !STATEMENT_LISTS.contains(&list.kind()) {
+            break;
+        }
+        nodes = named_children_within(list, start, end);
+    }
+    nodes
+}
+
+fn named_children_within(
+    node: tree_sitter::Node<'_>,
+    start: usize,
+    end: usize,
+) -> Vec<tree_sitter::Node<'_>> {
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor)
+        .filter(|child| !child.is_extra() && !child.is_missing())
+        .filter(|child| child.start_byte() >= start && child.end_byte() <= end)
+        .collect()
+}
+
+/// Child of `node` that covers exactly `range`.
+fn child_spanning<'t>(
+    node: tree_sitter::Node<'t>,
+    range: &Range<usize>,
+) -> Option<tree_sitter::Node<'t>> {
+    let mut cursor = node.walk();
+    node.children(&mut cursor)
+        .find(|child| child.start_byte() == range.start && child.end_byte() == range.end)
+}
+
+/// Node of `root` at the position of the tree node `target`.
+fn grep_node<'r>(
+    root: &'r AstGrep<PatternDoc>,
+    target: tree_sitter::Node<'_>,
+) -> Option<Node<'r, PatternDoc>> {
+    let mut path = Vec::new();
+    let mut current = target;
+    while let Some(parent) = current.parent() {
+        let mut cursor = parent.walk();
+        let index = parent
+            .children(&mut cursor)
+            .position(|child| child.id() == current.id())?;
+        path.push(index);
+        current = parent;
+    }
+    path.iter()
+        .rev()
+        .try_fold(root.root(), |node, &index| node.child(index))
+}
+
+/// Pattern parsed on its own, as the whole text of a file.
+fn bare_pattern(pattern: &str, language: &LanguageId, lang: &PatternLanguage) -> Result<Pattern> {
+    let processed = substitute(pattern, lang.expando, false);
+    let prefix = if language.as_str() == "php" && !pattern.trim_start().starts_with("<?php") {
+        PHP_OPEN_TAG
+    } else {
+        ""
+    };
+    let full = format!("{prefix}{processed}");
+    let root = AstGrep::<PatternDoc>::try_new(&full, lang.clone())
+        .map_err(|message| internal_parse_error(language, &message))?;
+    if let Some(offset) = first_error(root.root().get_inner_node()) {
+        let at = full[..offset.min(full.len())]
+            .chars()
+            .count()
+            .saturating_sub(prefix.chars().count());
+        return Err(pattern_error(
+            language,
+            &format!(
+                "pattern is not valid {language} code; correct the syntax at the reported position"
+            ),
+            pattern,
+            at,
+        ));
+    }
+    let node = pattern_root(&root, prefix.len(), language, pattern)?;
+    Ok(Pattern::from(node))
+}
 
 fn capture(
     env: &ast_grep_core::meta_var::MetaVarEnv<'_, PatternDoc>,
@@ -483,7 +720,11 @@ fn pattern_error(language: &LanguageId, message: &str, pattern: &str, at: usize)
             column += 1;
         }
     }
-    let found: String = pattern.chars().skip(at).take_while(|c| *c != '\n').collect();
+    let found: String = pattern
+        .chars()
+        .skip(at)
+        .take_while(|c| *c != '\n')
+        .collect();
     Error::new(ErrorCode::PatternSyntax, message)
         .with_at(At::new(line, column, 1))
         .with_found(found)
@@ -518,7 +759,12 @@ fn internal_parse_error(language: &LanguageId, message: &str) -> Error {
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[must_use]
-pub fn node_record(path: &str, language: &LanguageId, etag: &str, found: &SyntaxMatch) -> NodeRecord {
+pub fn node_record(
+    path: &str,
+    language: &LanguageId,
+    etag: &str,
+    found: &SyntaxMatch,
+) -> NodeRecord {
     let captures: IndexMap<String, String> = found
         .captures
         .iter()
@@ -544,19 +790,33 @@ pub fn node_record(path: &str, language: &LanguageId, etag: &str, found: &Syntax
 mod tests {
     use super::*;
 
+    fn id(name: &str) -> LanguageId {
+        LanguageId::new(name).unwrap()
+    }
+
     #[test]
     fn substitution_replaces_only_metavariable_sigils() {
-        assert_eq!(substitute("$A + $b", MICRO_SIGN), "\u{b5}A + $b");
-        assert_eq!(substitute("f($$$ARGS)", MICRO_SIGN), "f(\u{b5}\u{b5}\u{b5}ARGS)");
-        assert_eq!(substitute("$$$", MICRO_SIGN), "\u{b5}\u{b5}\u{b5}");
-        assert_eq!(substitute("$$OP", MICRO_SIGN), "\u{b5}\u{b5}OP");
-        assert_eq!(substitute("cost $5", MICRO_SIGN), "cost $5");
-        assert_eq!(substitute("$A", SIGIL), "$A");
+        assert_eq!(substitute("$A + $b", MICRO_SIGN, false), "\u{b5}A + $b");
+        assert_eq!(
+            substitute("f($$$ARGS)", MICRO_SIGN, false),
+            "f(\u{b5}\u{b5}\u{b5}ARGS)"
+        );
+        assert_eq!(substitute("$$$", MICRO_SIGN, false), "\u{b5}\u{b5}\u{b5}");
+        assert_eq!(substitute("$$OP", MICRO_SIGN, false), "\u{b5}\u{b5}OP");
+        assert_eq!(substitute("cost $5", MICRO_SIGN, false), "cost $5");
+        assert_eq!(substitute("$A", SIGIL, false), "$A");
+    }
+
+    #[test]
+    fn variable_form_keeps_the_sigil_of_single_metavariables() {
+        assert_eq!(
+            substitute("isset($A, $$$B)", MICRO_SIGN, true),
+            "isset($\u{b5}A, \u{b5}\u{b5}\u{b5}B)"
+        );
     }
 
     #[test]
     fn sigil_follows_the_identifier_rules_of_the_language() {
-        let id = |name: &str| LanguageId::new(name).unwrap();
         assert_eq!(expando_for(&id("javascript")), SIGIL);
         assert_eq!(expando_for(&id("rust")), MICRO_SIGN);
         assert_eq!(expando_for(&id("css")), '_');
@@ -564,9 +824,21 @@ mod tests {
     }
 
     #[test]
+    fn contexts_add_the_terminator_only_where_it_is_missing() {
+        let contexts = Context::of(&id("rust"));
+        let wrapped = contexts[0].wrap("f(x)");
+        assert_eq!(wrapped.len(), 2);
+        assert_eq!(&wrapped[0].text[wrapped[0].hole.clone()], "f(x)");
+        assert_eq!(wrapped[0].extent, wrapped[0].hole.end + 1);
+        assert_eq!(contexts[0].wrap("let a = 1;").len(), 1);
+        assert_eq!(contexts[0].wrap("fn a() {}").len(), 1);
+        assert_eq!(Context::of(&id("c"))[0].wrap("a && a").len(), 1);
+        assert!(Context::of(&id("python")).is_empty());
+    }
+
+    #[test]
     fn error_positions_count_lines_and_characters() {
-        let id = LanguageId::new("rust").unwrap();
-        let error = pattern_error(&id, "m", "a\nb\u{e9}c", 4);
+        let error = pattern_error(&id("rust"), "m", "a\nb\u{e9}c", 4);
         assert_eq!(error.at, Some(At::new(2, 3, 1)));
         assert_eq!(error.found.as_deref(), Some("c"));
     }

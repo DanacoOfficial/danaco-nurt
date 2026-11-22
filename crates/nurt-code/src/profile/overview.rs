@@ -48,8 +48,7 @@ pub(crate) fn languages(files: &[String], registry: &Registry) -> Vec<Entry> {
     let code_total: usize = code.iter().map(|(_, (_, count))| count).sum();
     let mut entries = Vec::new();
     for (group, is_data) in [(code, false), (data, true)] {
-        let mut group: Vec<(String, usize)> =
-            group.into_iter().map(|(_, value)| value).collect();
+        let mut group: Vec<(String, usize)> = group.into_iter().map(|(_, value)| value).collect();
         group.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
         for (name, count) in group {
             let origin = if is_data {
@@ -65,11 +64,9 @@ pub(crate) fn languages(files: &[String], registry: &Registry) -> Vec<Entry> {
 
 fn percent(part: usize, total: usize) -> usize {
     const HUNDRED: usize = 100;
-    if total == 0 {
-        0
-    } else {
-        (part * HUNDRED + total / 2) / total
-    }
+    (part * HUNDRED + total / 2)
+        .checked_div(total)
+        .unwrap_or_default()
 }
 
 /// Directories holding a project manifest; without manifests below the root,

@@ -93,7 +93,9 @@ impl TreeFiles for ContextFiles<'_> {
     fn modified(&self, path: &Path) -> Option<i64> {
         match self.fs {
             Some(fs) => {
-                let meta = fs.metadata(&AbsPath::new(path).ok()?, Follow::Follow).ok()?;
+                let meta = fs
+                    .metadata(&AbsPath::new(path).ok()?, Follow::Follow)
+                    .ok()?;
                 Some(meta.modified_ns)
             }
             None => {

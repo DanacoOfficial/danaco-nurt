@@ -87,11 +87,11 @@ pub fn classify_spans(tree: &Tree) -> Vec<ClassifiedSpan> {
 }
 
 fn classify(node: Node<'_>, out: &mut Vec<ClassifiedSpan>) {
-    if node.is_named() {
-        if let Some(class) = class_of_kind(node.kind()) {
-            push_with_holes(node, class, out);
-            return;
-        }
+    if node.is_named()
+        && let Some(class) = class_of_kind(node.kind())
+    {
+        push_with_holes(node, class, out);
+        return;
     }
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
@@ -197,7 +197,7 @@ pub(crate) fn to_u64(offset: usize) -> u64 {
 /// ```
 /// use nurt_code::spans::LineIndex;
 ///
-/// let index = LineIndex::new("a\nżb".as_bytes());
+/// let index = LineIndex::new("a\néb".as_bytes());
 /// let position = index.position(4);
 /// assert_eq!((position.line, position.column), (2, 2));
 /// ```
@@ -296,7 +296,12 @@ mod tests {
         ] {
             assert!(class_of_kind(kind).is_some(), "{kind}");
         }
-        for kind in ["identifier", "call_expression", "string_content_x", "plain_scalar"] {
+        for kind in [
+            "identifier",
+            "call_expression",
+            "string_content_x",
+            "plain_scalar",
+        ] {
             assert!(class_of_kind(kind).is_none(), "{kind}");
         }
     }

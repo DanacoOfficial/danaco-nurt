@@ -195,9 +195,7 @@ fn read_tree(
     cached.manifests = found
         .iter()
         .filter_map(|manifest| {
-            let modified = env
-                .tree
-                .modified(&files::absolute(root, &manifest.path))?;
+            let modified = env.tree.modified(&files::absolute(root, &manifest.path))?;
             Some((manifest.path.clone(), modified))
         })
         .collect::<BTreeMap<_, _>>();

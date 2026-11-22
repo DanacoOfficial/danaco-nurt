@@ -52,7 +52,9 @@ impl Section {
 
     /// Section named `name`.
     pub(crate) fn parse(name: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|section| section.as_str() == name)
+        Self::ALL
+            .into_iter()
+            .find(|section| section.as_str() == name)
     }
 }
 
