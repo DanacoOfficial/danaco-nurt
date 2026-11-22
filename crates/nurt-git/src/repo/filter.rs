@@ -331,35 +331,13 @@ impl Filters<'_> {
 
     fn attributes_of(&mut self, path: &BStr) -> Result<PathAttributes, Error> {
         let repo = self.repo;
-        let mut outcome = gix_attributes::search::Outcome::default();
-        outcome.initialize_with_selection(
-            &Default::default(),
-            ["filter", "ident", "working-tree-encoding"],
-        );
         let platform = self
             .stack
             .at_entry(path, None, &repo.gix().objects)
             .map_err(|failure| {
                 error::io(&repo.root().join(path.to_str_lossy().as_ref()), &failure)
             })?;
-        platform.matching_attributes(&mut outcome);
-        let mut found = PathAttributes::default();
-        for matched in outcome.iter_selected() {
-            let value = match matched.assignment.state {
-                gix_attributes::StateRef::Value(value) => {
-                    Some(value.as_bstr().to_str_lossy().into_owned())
-                }
-                _ => None,
-            };
-            match matched.assignment.name.as_str() {
-                "filter" => found.filter = value,
-                "ident" => {
-                    found.ident = matches!(matched.assignment.state, gix_attributes::StateRef::Set)
-                }
-                _ => found.encoding = value,
-            }
-        }
-        Ok(found)
+        Ok(PathAttributes::read(&platform))
     }
 
     fn builtin_to_git(&mut self, path: &BStr, bytes: &[u8]) -> Result<Vec<u8>, Error> {
@@ -408,20 +386,8 @@ impl Filters<'_> {
     fn builtin_to_worktree(&mut self, path: &BStr, bytes: &[u8]) -> Result<Vec<u8>, Error> {
         let converted = self.library_to_worktree(path, bytes)?;
         let attributes = self.attributes_of(path)?;
-        let converted = if attributes.ident {
-            complete_ident(&converted, self.repo.gix().object_hash().len_in_hex())
-        } else {
-            converted
-        };
-        match attributes.encoding.as_deref().and_then(Utf16::from_label) {
-            Some(form) => form.encode(&converted).ok_or_else(|| {
-                conversion_failed(
-                    path,
-                    &"the content is not valid UTF-8 and cannot be encoded as UTF-16",
-                )
-            }),
-            None => Ok(converted),
-        }
+        let hex_len = self.repo.gix().object_hash().len_in_hex();
+        attributes.finish_worktree_content(converted, hex_len, path)
     }
 
     fn library_to_worktree(&mut self, path: &BStr, bytes: &[u8]) -> Result<Vec<u8>, Error> {
@@ -551,10 +517,73 @@ impl Drop for Filters<'_> {
 
 /// Attributes of one path consulted besides those of the library pipeline.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-struct PathAttributes {
+pub(crate) struct PathAttributes {
     filter: Option<String>,
     ident: bool,
     encoding: Option<String>,
+}
+
+impl PathAttributes {
+    /// Reads `filter`, `ident` and `working-tree-encoding` for the path of
+    /// `platform`.
+    pub(crate) fn read(platform: &gix_worktree::stack::Platform<'_>) -> Self {
+        let mut outcome = gix_attributes::search::Outcome::default();
+        outcome.initialize_with_selection(
+            &Default::default(),
+            ["filter", "ident", "working-tree-encoding"],
+        );
+        platform.matching_attributes(&mut outcome);
+        let mut found = Self::default();
+        for matched in outcome.iter_selected() {
+            let value = match matched.assignment.state {
+                gix_attributes::StateRef::Value(value) => {
+                    Some(value.as_bstr().to_str_lossy().into_owned())
+                }
+                _ => None,
+            };
+            match matched.assignment.name.as_str() {
+                "filter" => found.filter = value,
+                "ident" => {
+                    found.ident = matches!(matched.assignment.state, gix_attributes::StateRef::Set)
+                }
+                _ => found.encoding = value,
+            }
+        }
+        found
+    }
+
+    /// Completes the conversions of the library pipeline that it leaves out:
+    /// the space before the closing `$` of an expanded `$Id: <hex> $` and the
+    /// encoding of UTF-16 `working-tree-encoding` values.
+    ///
+    /// `converted` is the output of the pipeline for `path`; `hex_len` is the
+    /// length of an object identifier in hexadecimal digits.
+    ///
+    /// # Errors
+    ///
+    /// Returns `E_IO` when the content is not valid UTF-8 and the attribute
+    /// requires an encoding.
+    pub(crate) fn finish_worktree_content(
+        &self,
+        converted: Vec<u8>,
+        hex_len: usize,
+        path: &BStr,
+    ) -> Result<Vec<u8>, Error> {
+        let converted = if self.ident {
+            complete_ident(&converted, hex_len)
+        } else {
+            converted
+        };
+        match self.encoding.as_deref().and_then(Utf16::from_label) {
+            Some(form) => form.encode(&converted).ok_or_else(|| {
+                conversion_failed(
+                    path,
+                    &"the content is not valid UTF-8 and cannot be encoded as UTF-16",
+                )
+            }),
+            None => Ok(converted),
+        }
+    }
 }
 
 /// UTF-16 forms of `working-tree-encoding`, which the encoding library of

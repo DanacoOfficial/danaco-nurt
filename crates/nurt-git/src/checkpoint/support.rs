@@ -525,6 +525,7 @@ pub(crate) fn ensure_unlocked(path: &Path) -> Result<()> {
 enum Step {
     Write(Vec<u8>),
     CreateDir,
+    ReplaceDir,
     Remove,
     Rename,
 }
@@ -600,6 +601,20 @@ impl TxPlan {
         Ok(index)
     }
 
+    /// Declares a new directory populated by the operation in place of an
+    /// existing empty directory; the previous directory is preserved.
+    pub(crate) fn replace_with_tree(&mut self, dir: &Path) -> Result<usize> {
+        self.removed.insert(dir.to_path_buf());
+        let index = self.push(
+            dir,
+            TargetAction::Replace,
+            Expect::Unchecked,
+            Step::ReplaceDir,
+        )?;
+        self.created_dirs.insert(dir.to_path_buf());
+        Ok(index)
+    }
+
     /// Declares a new file with `content`.
     pub(crate) fn create_file(&mut self, path: &Path, content: Vec<u8>) -> Result<usize> {
         if let Some(parent) = path.parent() {
@@ -630,18 +645,6 @@ impl TxPlan {
     pub(crate) fn delete(&mut self, path: &Path, expect: Expect) -> Result<usize> {
         self.removed.insert(path.to_path_buf());
         self.push(path, TargetAction::Delete, expect, Step::Remove)
-    }
-
-    /// Declares the replacement of a directory or link by a file with
-    /// `content`; the previous entry is preserved as a whole.
-    pub(crate) fn replace_with_file(&mut self, path: &Path, content: Vec<u8>) -> Result<usize> {
-        self.removed.insert(path.to_path_buf());
-        self.push(
-            path,
-            TargetAction::Replace,
-            Expect::Unchecked,
-            Step::Write(content),
-        )
     }
 
     /// Declares a write of `file` by the lock protocol of `git`: the lock
@@ -712,9 +715,14 @@ impl TxPlan {
             let index = self.next;
             self.next += 1;
             let target = TargetIndex(u32::try_from(index).unwrap_or(u32::MAX));
+            if matches!(self.steps[index], Step::ReplaceDir) {
+                tx.apply(target, Mutation::Remove)?;
+                tx.apply(target, Mutation::CreateDir { mode: DIR_MODE })?;
+                continue;
+            }
             let mutation = match &mut self.steps[index] {
                 Step::Write(bytes) => Mutation::WriteBytes(std::mem::take(bytes)),
-                Step::CreateDir => Mutation::CreateDir { mode: DIR_MODE },
+                Step::CreateDir | Step::ReplaceDir => Mutation::CreateDir { mode: DIR_MODE },
                 Step::Remove => Mutation::Remove,
                 Step::Rename => Mutation::Rename,
             };

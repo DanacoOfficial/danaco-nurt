@@ -4,7 +4,7 @@
 //! Repositories and a checked journal for the tests of the checkpoint and
 //! working tree commands.
 //!
-//! [`RecordingJournal`] wraps the journal of [`crate::testutil`] and compares
+//! [`RecordingJournal`] wraps the journal of [`crate::apply::testjournal`] and compares
 //! the directory of the fixture before and after every committed
 //! transaction: a change outside the declared targets, including the
 //! destinations of renames, panics. Additions to the object database are
@@ -25,6 +25,7 @@ use nurt_contracts::journal::{
 };
 use nurt_contracts::report::IrreversibleEntry;
 
+use crate::apply;
 pub(crate) use crate::testutil::test_ctx;
 use crate::testutil::{self, RepoBuilder, TreeEntry};
 
@@ -205,13 +206,13 @@ struct Watch {
 /// Journal that panics when a transaction changes an undeclared entry.
 #[derive(Default)]
 pub(crate) struct RecordingJournal {
-    inner: testutil::RecordingJournal,
+    inner: apply::testjournal::RecordingJournal,
     watched: Mutex<Option<Watch>>,
 }
 
 impl RecordingJournal {
     /// Opens a transaction whose changes are checked below `base`.
-    pub(crate) fn begin(&self, base: &Path) -> Box<dyn MutationTx> {
+    pub(crate) fn begin(&self, base: &Path) -> Box<dyn MutationTx + '_> {
         let declared = Declared::default();
         *self.watched.lock().unwrap() = Some(Watch {
             base: base.to_path_buf(),
@@ -219,13 +220,13 @@ impl RecordingJournal {
             declared: Arc::clone(&declared),
         });
         Box::new(CheckedTx {
-            inner: self.inner.begin(),
+            inner: Box::new(self.inner.begin()),
             declared,
         })
     }
 
     /// Commits `tx` and checks that only declared targets changed.
-    pub(crate) fn commit(&self, tx: Box<dyn MutationTx>) {
+    pub(crate) fn commit(&self, tx: Box<dyn MutationTx + '_>) {
         tx.commit().unwrap();
         let watch = self.watched.lock().unwrap().take().unwrap();
         let after = checked_state(&watch.base);
@@ -248,7 +249,7 @@ impl RecordingJournal {
     }
 
     /// Rolls `tx` back.
-    pub(crate) fn rollback(&self, tx: Box<dyn MutationTx>) {
+    pub(crate) fn rollback(&self, tx: Box<dyn MutationTx + '_>) {
         self.watched.lock().unwrap().take();
         tx.rollback(RollbackReason::TargetFailed).unwrap();
     }
@@ -260,12 +261,12 @@ impl RecordingJournal {
 }
 
 /// Transaction that records every declared path before passing the call on.
-struct CheckedTx {
-    inner: Box<dyn MutationTx>,
+struct CheckedTx<'j> {
+    inner: Box<dyn MutationTx + 'j>,
     declared: Declared,
 }
 
-impl MutationTx for CheckedTx {
+impl MutationTx for CheckedTx<'_> {
     fn op(&self) -> Option<OpId> {
         self.inner.op()
     }
@@ -281,7 +282,17 @@ impl MutationTx for CheckedTx {
             }
         }
         drop(declared);
-        self.inner.preserve(targets)
+        let forwarded: Vec<TargetSpec> = targets
+            .iter()
+            .map(|spec| {
+                let mut spec = spec.clone();
+                if matches!(spec.action, TargetAction::CreateTree) {
+                    spec.action = TargetAction::Create;
+                }
+                spec
+            })
+            .collect();
+        self.inner.preserve(&forwarded)
     }
 
     fn stage(&mut self, target: TargetIndex) -> Result<Box<dyn WriteHandle>> {

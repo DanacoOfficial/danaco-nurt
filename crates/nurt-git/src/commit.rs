@@ -422,7 +422,9 @@ pub(crate) mod args {
 
     fn scalar(value: &Value) -> Option<String> {
         match value {
-            Value::Text(text) | Value::Path(text) | Value::Glob(text) => Some(text.clone()),
+            Value::Text(text) | Value::Path(text) | Value::Glob(text) | Value::Enum(text) => {
+                Some(text.clone())
+            }
             _ => None,
         }
     }

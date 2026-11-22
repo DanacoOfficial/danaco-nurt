@@ -86,7 +86,7 @@ pub fn plan_paths(ctx: &ApplyContext<'_>, request: &PathsRequest) -> Result<Appl
     if !unmerged.is_empty() {
         return Err(unmerged_error(&unmerged));
     }
-    super::layout::finish(ctx, &mut worktree, changes, true)
+    super::layout::finish(ctx, &mut worktree, changes, true, true)
 }
 
 fn index_map(index: &gix_index::State) -> TreeMap {

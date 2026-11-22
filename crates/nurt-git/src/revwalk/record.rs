@@ -392,25 +392,98 @@ mod tests {
         assert_eq!(records.author(id).unwrap().name, "Proper Name");
     }
 
-    #[test]
-    fn reports_signature_format_only_when_asked_for() {
+    /// A commit signed with an SSH key, as `git commit -S` writes it.
+    const SIGNED_COMMIT: &str = "tree 08585692ce06452da6f82ae66b90d98b55536fca
+author Tester <tester@example.test> 1767225600 +0000
+committer Tester <tester@example.test> 1767225600 +0000
+gpgsig -----BEGIN SSH SIGNATURE-----
+ U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg6kpsY+KcUgq+9VB7Ey7F+ZVHdq
+ 6+vnuSQh7qaRRG0iwAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5
+ AAAAQEApspBvUHXfArdtPu/9u4OCqb0TgwpRINAzTAJ1YG2KrMBjaOgGghYnKkeKoENnye
+ F4XiKcKSFJrlSKMn1QzAg=
+ -----END SSH SIGNATURE-----
+
+signed commit
+";
+
+    const SIGNING_KEY: &str =
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOpKbGPinFIKvvVQexMuxfmVR3auvr57kkIe6mkURtIs";
+
+    const SIGNING_FINGERPRINT: &str = "SHA256:z/fSv0Z0RZS+Lccbc6ZoOWwt/fbj1VFJGSBKQbo4icE";
+
+    fn signature_demand() -> FieldDemand {
+        FieldDemand::Only(BTreeSet::from(["signature".to_owned()]))
+    }
+
+    /// Verified signature of `commit` in a repository that trusts the key
+    /// of the fixture when `trusted`.
+    fn verified(commit: &str, trusted: bool) -> CommitSignature {
         let mut fixture = Fixture::new();
-        let id = fixture.commit_signed(
-            "signed",
-            "-----BEGIN SSH SIGNATURE-----\nabc\n-----END SSH SIGNATURE-----",
-        );
+        let id = fixture.commit_object(commit.as_bytes());
+        if trusted {
+            let signers = fixture.path("allowed_signers");
+            std::fs::write(&signers, format!("tester@example.test {SIGNING_KEY}\n")).unwrap();
+            let config = std::path::Path::new(&fixture.root()).join(".git/config");
+            let mut text = std::fs::read_to_string(&config).unwrap();
+            text.push_str(&format!(
+                "[gpg \"ssh\"]\n\tallowedSignersFile = {signers}\n"
+            ));
+            std::fs::write(&config, text).unwrap();
+        }
+        let repo = fixture.open();
+        let records = CommitRecords::new(&repo, &signature_demand());
+        records.commit(id).unwrap().signature.unwrap()
+    }
+
+    #[test]
+    fn reports_a_good_signature_of_a_trusted_key() {
+        let signature = verified(SIGNED_COMMIT, true);
+        assert_eq!(signature.status, SignatureStatus::Good);
+        assert_eq!(signature.format, Some(SignatureFormat::Ssh));
+        assert_eq!(signature.key.as_deref(), Some(SIGNING_FINGERPRINT));
+    }
+
+    #[test]
+    fn reports_an_unknown_key_without_allowed_signers() {
+        let signature = verified(SIGNED_COMMIT, false);
+        assert_eq!(signature.status, SignatureStatus::UnknownKey);
+        assert_eq!(signature.format, Some(SignatureFormat::Ssh));
+    }
+
+    #[test]
+    fn reports_a_bad_signature_of_an_altered_commit() {
+        let altered = SIGNED_COMMIT.replace("signed commit", "altered commit");
+        let signature = verified(&altered, true);
+        assert_eq!(signature.status, SignatureStatus::Bad);
+        assert_eq!(signature.format, Some(SignatureFormat::Ssh));
+    }
+
+    #[test]
+    fn reports_an_unparsable_signature_as_bad() {
+        let start = SIGNED_COMMIT.find(" U1NIU0lH").unwrap();
+        let end = SIGNED_COMMIT.find(" -----END").unwrap();
+        let malformed = format!("{} abc\n{}", &SIGNED_COMMIT[..start], &SIGNED_COMMIT[end..]);
+        let signature = verified(&malformed, true);
+        assert_eq!(signature.status, SignatureStatus::Bad);
+        assert_eq!(signature.format, Some(SignatureFormat::Ssh));
+    }
+
+    #[test]
+    fn reports_signature_only_when_asked_for() {
+        let mut fixture = Fixture::new();
         let plain = fixture.commit("plain", &[("a", Some("a\n"))]);
         let repo = fixture.open();
-        let demand = FieldDemand::Only(BTreeSet::from(["signature".to_owned()]));
-        let records = CommitRecords::new(&repo, &demand);
-        let signature = records.commit(id).unwrap().signature.unwrap();
-        assert_ne!(signature.status, SignatureStatus::None);
-        assert_eq!(signature.format, Some(SignatureFormat::Ssh));
-        assert_eq!(
-            records.commit(plain).unwrap().signature.unwrap().status,
-            SignatureStatus::None
+        let records = CommitRecords::new(&repo, &signature_demand());
+        let record = records.commit(plain).unwrap();
+        assert_eq!(record.signature.unwrap().status, SignatureStatus::None);
+        assert!(record.refs.is_none());
+        assert!(
+            CommitRecords::new(&repo, &all())
+                .commit(plain)
+                .unwrap()
+                .signature
+                .is_none()
         );
-        assert!(records.commit(plain).unwrap().refs.is_none());
         assert_eq!(
             signature_format(b"-----BEGIN PGP SIGNATURE".as_bstr()),
             SignatureFormat::Openpgp

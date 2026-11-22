@@ -6,7 +6,8 @@
 
 use std::fmt::Display;
 use std::path::{Component, Path, PathBuf};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
 
 use bstr::{BStr, BString, ByteSlice};
 use gix::ObjectId;
@@ -21,6 +22,19 @@ use crate::repo::GitRepo;
 /// Bytes of decoded objects kept in memory while a command runs.
 const OBJECT_CACHE_BYTES: usize = 32 * 1024 * 1024;
 
+/// Shortest abbreviation `git` accepts in `core.abbrev`.
+const MIN_ABBREVIATION: usize = 4;
+
+/// Longest abbreviation of a SHA-1 identifier.
+const MAX_ABBREVIATION: usize = 40;
+
+/// Abbreviation length that repositories of up to 16384 objects get.
+const AUTO_ABBREVIATION: usize = 7;
+
+/// Number of abbreviations asked from the object database before the
+/// identifiers of all objects are sorted.
+const SORTED_AFTER: usize = 512;
+
 /// A repository opened for one command.
 pub(crate) struct OpenRepo {
     /// The repository.
@@ -33,6 +47,9 @@ pub(crate) struct OpenRepo {
     pub(crate) verify: VerifyConfig,
     workdir: Option<PathBuf>,
     label: String,
+    abbrev: OnceLock<usize>,
+    lookups: AtomicUsize,
+    sorted: OnceLock<Option<Vec<ObjectId>>>,
 }
 
 impl OpenRepo {
@@ -68,6 +85,9 @@ impl OpenRepo {
             verify,
             workdir,
             label,
+            abbrev: OnceLock::new(),
+            lookups: AtomicUsize::new(0),
+            sorted: OnceLock::new(),
         })
     }
 
@@ -208,9 +228,87 @@ impl OpenRepo {
     }
 
     /// Abbreviated identifier, unique in the repository.
+    ///
+    /// The first lookups ask the object database. After `SORTED_AFTER`
+    /// lookups the identifiers of all objects are sorted once and each
+    /// abbreviation is extended past the longest prefix shared with a
+    /// neighbour.
     pub(crate) fn short_id(&self, id: ObjectId) -> String {
-        id.attach(&self.repo).shorten_or_id().to_string()
+        let length = *self.abbrev.get_or_init(|| self.abbreviation_length());
+        if self.lookups.fetch_add(1, Ordering::Relaxed) >= SORTED_AFTER
+            && let Some(sorted) = self.sorted.get_or_init(|| self.sorted_ids()).as_ref()
+            && let Ok(position) = sorted.binary_search(&id)
+        {
+            let shared = [position.checked_sub(1), position.checked_add(1)]
+                .into_iter()
+                .flatten()
+                .filter_map(|neighbour| sorted.get(neighbour))
+                .map(|other| shared_hex_digits(&id, other))
+                .max()
+                .unwrap_or(0);
+            return id.to_hex_with_len((shared + 1).max(length)).to_string();
+        }
+        gix::odb::store::prefix::disambiguate::Candidate::new(id, length)
+            .ok()
+            .and_then(|candidate| {
+                self.repo
+                    .objects
+                    .disambiguate_prefix(candidate)
+                    .ok()
+                    .flatten()
+            })
+            .map_or_else(
+                || id.attach(&self.repo).shorten_or_id().to_string(),
+                |prefix| prefix.to_string(),
+            )
     }
+
+    fn sorted_ids(&self) -> Option<Vec<ObjectId>> {
+        let mut ids: Vec<ObjectId> = self
+            .repo
+            .objects
+            .iter()
+            .ok()?
+            .collect::<Result<_, _>>()
+            .ok()?;
+        ids.sort_unstable();
+        ids.dedup();
+        Some(ids)
+    }
+
+    /// Length of abbreviated identifiers before they are extended to be
+    /// unique: `core.abbrev`, or from the number of objects as `git` chooses
+    /// it.
+    fn abbreviation_length(&self) -> usize {
+        let configured = self
+            .repo
+            .config_snapshot()
+            .integer("core.abbrev")
+            .and_then(|length| usize::try_from(length).ok())
+            .filter(|length| (MIN_ABBREVIATION..=MAX_ABBREVIATION).contains(length));
+        configured.unwrap_or_else(|| {
+            let objects = self.repo.objects.packed_object_count().unwrap_or(0);
+            let bits = u64::BITS - objects.leading_zeros();
+            usize::try_from(bits.div_ceil(2))
+                .map_or(AUTO_ABBREVIATION, |length| length.max(AUTO_ABBREVIATION))
+        })
+    }
+}
+
+/// Leading hexadecimal digits that two identifiers share.
+fn shared_hex_digits(a: &ObjectId, b: &ObjectId) -> usize {
+    let mut shared = 0;
+    for (x, y) in a.as_bytes().iter().zip(b.as_bytes()) {
+        if x == y {
+            shared += 2;
+        } else {
+            if x >> 4 == y >> 4 {
+                shared += 1;
+            }
+            break;
+        }
+    }
+    shared
 }
 
 /// Why a revision could not be used.
@@ -393,5 +491,45 @@ mod tests {
         let range = repo.resolve_object("HEAD..HEAD").err().unwrap();
         assert_eq!(range.code(), ErrorCode::GitRevision);
         assert_eq!(repo.short_id(first).len(), 7);
+    }
+
+    #[test]
+    fn abbreviations_agree_before_and_after_the_identifiers_are_sorted() {
+        let mut fixture = Fixture::new();
+        let ids: Vec<ObjectId> = (0..40)
+            .map(|number| {
+                fixture.commit(
+                    &format!("commit {number}"),
+                    &[("a.txt", Some(&format!("{number}\n")))],
+                )
+            })
+            .collect();
+        let repo = fixture.open();
+        let before: Vec<String> = ids.iter().map(|id| repo.short_id(*id)).collect();
+        for _ in 0..SORTED_AFTER {
+            repo.short_id(ids[0]);
+        }
+        let after: Vec<String> = ids.iter().map(|id| repo.short_id(*id)).collect();
+        assert!(repo.sorted.get().is_some_and(Option::is_some));
+        assert_eq!(before, after);
+        assert!(before.iter().all(|short| short.len() >= MIN_ABBREVIATION));
+    }
+
+    #[test]
+    fn counts_the_digits_that_identifiers_share() {
+        let id = |text: &str| ObjectId::from_hex(text.as_bytes()).unwrap();
+        let base = id("abcdef0000000000000000000000000000000000");
+        assert_eq!(
+            shared_hex_digits(&base, &id("abcdef1000000000000000000000000000000000")),
+            6
+        );
+        assert_eq!(
+            shared_hex_digits(&base, &id("abcd0f0000000000000000000000000000000000")),
+            4
+        );
+        assert_eq!(
+            shared_hex_digits(&base, &id("abc9ef0000000000000000000000000000000000")),
+            3
+        );
     }
 }

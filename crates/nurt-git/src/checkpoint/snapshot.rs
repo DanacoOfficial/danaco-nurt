@@ -162,7 +162,14 @@ fn hash_file(
 ) -> Result<Option<TreeEntry>> {
     let metadata = match std::fs::symlink_metadata(file) {
         Ok(metadata) => metadata,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(err)
+            if matches!(
+                err.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+            ) =>
+        {
+            return Ok(None);
+        }
         Err(err) => return Err(repo_error(&format!("read `{}`", file.display()), err)),
     };
     if metadata.file_type().is_symlink() {
@@ -257,6 +264,62 @@ fn untracked_files(repo: &gix::Repository, index: &gix::index::State) -> Result<
         })
         .map(|(entry, _)| entry.rela_path)
         .collect())
+}
+
+/// Files that the ignore rules exclude, relative to the working tree root.
+/// Ignored directories are listed by the files below them.
+pub(crate) fn ignored_paths(
+    repo: &gix::Repository,
+    index: &gix::index::State,
+) -> Result<Vec<BString>> {
+    let root = super::support::workdir(repo)?;
+    let options = repo
+        .dirwalk_options()
+        .map_err(|err| repo_error("prepare the directory walk", err))?
+        .emit_untracked(gix::dir::walk::EmissionMode::Matching)
+        .emit_ignored(Some(gix::dir::walk::EmissionMode::Matching))
+        .emit_tracked(false)
+        .recurse_repositories(false)
+        .emit_pruned(false)
+        .emit_empty_directories(false);
+    let mut collect = gix::dir::walk::delegate::Collect::default();
+    let interrupt = AtomicBool::new(false);
+    repo.dirwalk(index, None::<&str>, &interrupt, options, &mut collect)
+        .map_err(|err| repo_error("walk the working tree", err))?;
+    let mut out = Vec::new();
+    for (entry, _) in collect.into_entries_by_path() {
+        if !matches!(entry.status, gix::dir::entry::Status::Ignored(_)) {
+            continue;
+        }
+        match entry.disk_kind {
+            Some(gix::dir::entry::Kind::File | gix::dir::entry::Kind::Symlink) => {
+                out.push(entry.rela_path);
+            }
+            Some(gix::dir::entry::Kind::Directory) => {
+                let dir = worktree_path(&root, entry.rela_path.as_bstr())?;
+                files_below(&dir, &entry.rela_path, &mut out)?;
+            }
+            _ => {}
+        }
+    }
+    out.sort();
+    Ok(out)
+}
+
+fn files_below(dir: &Path, rela: &BString, out: &mut Vec<BString>) -> Result<()> {
+    let read_error = |err: std::io::Error| repo_error(&format!("read `{}`", dir.display()), err);
+    for item in std::fs::read_dir(dir).map_err(read_error)? {
+        let item = item.map_err(read_error)?;
+        let mut child = rela.clone();
+        child.push(b'/');
+        child.extend_from_slice(&super::support::repo_path(Path::new(&item.file_name()))?);
+        if item.file_type().map_err(read_error)?.is_dir() {
+            files_below(&item.path(), &child, out)?;
+        } else {
+            out.push(child);
+        }
+    }
+    Ok(())
 }
 
 /// Tree of the stage 0 entries of `index`, or `None` when the index has

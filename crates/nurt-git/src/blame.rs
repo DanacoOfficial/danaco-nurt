@@ -27,6 +27,7 @@ use nurt_contracts::value::{Instant, Range, Record};
 use crate::diff::{Reader, open_repository};
 use crate::revwalk::args;
 use crate::revwalk::lines;
+use crate::revwalk::moves::{Moves, Piece};
 use crate::revwalk::paths::entry_at;
 use crate::revwalk::record::{CommitRecords, instant};
 use crate::revwalk::repo::{OpenRepo, quote};
@@ -116,6 +117,12 @@ struct Query {
     /// The revision given by the program; absent when the working tree is
     /// annotated.
     revision: Option<String>,
+    /// Lines moved within the file are attributed to the commit that wrote
+    /// them (`-M`).
+    find_moves: bool,
+    /// Lines copied from other files changed by the same commit are
+    /// attributed to the commit that wrote them (`-C`); implies `find_moves`.
+    find_copies: bool,
 }
 
 impl Query {
@@ -125,10 +132,13 @@ impl Query {
         } else {
             args::text(bound, "revision")?
         };
+        let find_copies = args::flag(bound, "find_copies")?;
         Ok(Self {
             path: args::required_path(bound, "path")?,
             lines: args::range(bound, "lines")?,
             revision,
+            find_moves: find_copies || args::flag(bound, "find_moves")?,
+            find_copies,
         })
     }
 }
@@ -354,25 +364,39 @@ fn blame(
         options,
     )
     .map_err(|err| reading(&err))?;
+    let mut pieces: Vec<Piece> = outcome
+        .entries
+        .iter()
+        .map(|entry| Piece {
+            blamed_start: entry.start_in_blamed_file,
+            len: entry.len.get(),
+            commit: entry.commit_id,
+            path: entry
+                .source_file_name
+                .clone()
+                .unwrap_or_else(|| relative.clone()),
+            source_start: entry.start_in_source_file,
+        })
+        .collect();
+    if query.find_moves {
+        pieces = Moves::new(repo, &source, &mut cache, query.find_copies).refine(pieces, 0)?;
+    }
     let records = CommitRecords::new(repo, &ctx.demand().fields);
     let blamed = lines::split_lines(&outcome.blob);
     let mut origins: HashMap<ObjectId, Origin> = HashMap::new();
     let mut out: Vec<BlameLine> = Vec::new();
-    for entry in &outcome.entries {
+    for entry in &pieces {
         ctx.checkpoint()?;
-        if let std::collections::hash_map::Entry::Vacant(e) = origins.entry(entry.commit_id) {
-            let origin = origin_of(&records, entry.commit_id, ctx)?;
+        if let std::collections::hash_map::Entry::Vacant(e) = origins.entry(entry.commit) {
+            let origin = origin_of(&records, entry.commit, ctx)?;
             e.insert(origin);
         }
-        let Some(origin) = origins.get(&entry.commit_id) else {
+        let Some(origin) = origins.get(&entry.commit) else {
             continue;
         };
-        let source_path = entry
-            .source_file_name
-            .as_ref()
-            .map_or_else(|| path.clone(), |name| name.to_str_lossy().into_owned());
-        for offset in 0..entry.len.get() {
-            let line = entry.start_in_blamed_file + offset;
+        let source_path = entry.path.to_str_lossy().into_owned();
+        for offset in 0..entry.len {
+            let line = entry.blamed_start + offset;
             out.push(BlameLine {
                 path: path.clone(),
                 no: u64::from(line) + 1,
@@ -386,7 +410,7 @@ fn blame(
                     .unwrap_or_default(),
                 author_email: Some(origin.email.clone()),
                 original_path: Some(source_path.clone()),
-                original_no: Some(u64::from(entry.start_in_source_file + offset) + 1),
+                original_no: Some(u64::from(entry.source_start + offset) + 1),
                 boundary: Some(origin.boundary),
             });
         }
@@ -646,6 +670,78 @@ mod tests {
                 .code(),
             ErrorCode::InvalidValue
         );
+    }
+
+    const BLOCK: &str =
+        "first block line with text\nsecond block line with text\nthird block line with text\n";
+
+    #[test]
+    fn moved_lines_belong_to_the_commit_that_wrote_them_with_find_moves() {
+        let mut fixture = Fixture::new();
+        let first = fixture.commit(
+            "first",
+            &[(
+                "a.txt",
+                Some(&format!("{BLOCK}middle\nfiller one\nfiller two\n")),
+            )],
+        );
+        let second = fixture.commit(
+            "move",
+            &[(
+                "a.txt",
+                Some(&format!("middle\nfiller one\nfiller two\n{BLOCK}")),
+            )],
+        );
+        let plain = blame_lines(&fixture, "a.txt", &[("revision", text("HEAD"))]);
+        assert_eq!(plain[3].commit, second.to_string());
+        let moved = blame_lines(
+            &fixture,
+            "a.txt",
+            &[
+                ("revision", text("HEAD")),
+                ("find_moves", Value::Bool(true)),
+            ],
+        );
+        assert_eq!(moved[3].commit, first.to_string());
+        assert_eq!(moved[3].original_no, Some(1));
+        assert_eq!(moved[5].original_no, Some(3));
+        assert_eq!(moved[0].commit, first.to_string());
+    }
+
+    #[test]
+    fn copied_lines_belong_to_the_commit_that_wrote_them_with_find_copies() {
+        let mut fixture = Fixture::new();
+        let long = "alpha line of the original file\nbeta line of the original file\ngamma line of the original file\ndelta line of the original file\n";
+        let first = fixture.commit("first", &[("src.txt", Some(long))]);
+        let second = fixture.commit(
+            "copy",
+            &[
+                ("src.txt", Some(&format!("{long}extra\n"))),
+                ("dst.txt", Some(long)),
+            ],
+        );
+        let plain = blame_lines(&fixture, "dst.txt", &[("revision", text("HEAD"))]);
+        assert_eq!(plain[0].commit, second.to_string());
+        let moves = blame_lines(
+            &fixture,
+            "dst.txt",
+            &[
+                ("revision", text("HEAD")),
+                ("find_moves", Value::Bool(true)),
+            ],
+        );
+        assert_eq!(moves[0].commit, second.to_string());
+        let copied = blame_lines(
+            &fixture,
+            "dst.txt",
+            &[
+                ("revision", text("HEAD")),
+                ("find_copies", Value::Bool(true)),
+            ],
+        );
+        assert_eq!(copied[0].commit, first.to_string());
+        assert_eq!(copied[0].original_path.as_deref(), Some("src.txt"));
+        assert_eq!(copied[3].original_no, Some(4));
     }
 
     #[test]

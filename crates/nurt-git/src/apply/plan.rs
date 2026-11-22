@@ -108,6 +108,11 @@ pub struct IndexPlan {
     pub state: gix_index::State,
     /// Expected state of the index file, observed when the plan was made.
     pub expect: Expect,
+    /// Whether conflict stages resolved by the plan are recorded in the
+    /// resolve-undo extension. Set for the resolution of single paths; plans
+    /// that reset the index to a tree leave it unset, as `git` clears the
+    /// extension then.
+    pub record_resolve_undo: bool,
 }
 
 /// New value of a reference.

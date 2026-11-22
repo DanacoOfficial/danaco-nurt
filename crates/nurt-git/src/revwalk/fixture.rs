@@ -155,16 +155,12 @@ impl Fixture {
         id
     }
 
-    /// Commits on top of `HEAD` without changes, with a `gpgsig` header.
-    pub(crate) fn commit_signed(&mut self, message: &str, signature: &str) -> ObjectId {
-        let parents: Vec<ObjectId> = self.head_commit().into_iter().collect();
-        let id = self.write_commit(
-            &parents,
-            ("Author", "author@example.com"),
-            message,
-            &[],
-            Some(signature),
-        );
+    /// Writes `data` as a commit object and moves the current branch to it.
+    pub(crate) fn commit_object(&mut self, data: &[u8]) -> ObjectId {
+        let id = self
+            .repo
+            .write_buf(gix::object::Kind::Commit, data)
+            .unwrap();
         self.move_current(id);
         id
     }

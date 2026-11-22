@@ -164,3 +164,44 @@ fn quote_paths(paths: &BTreeSet<BString>) -> String {
     }
     quoted.join(", ")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn io_error_maps_kinds_to_codes() {
+        let path = Path::new("/r/f");
+        let cases = [
+            (std::io::ErrorKind::NotFound, ErrorCode::NotFound),
+            (std::io::ErrorKind::PermissionDenied, ErrorCode::Permission),
+            (std::io::ErrorKind::InvalidData, ErrorCode::Io),
+        ];
+        for (kind, code) in cases {
+            assert_eq!(io_error(&std::io::Error::from(kind), path).code(), code);
+        }
+    }
+
+    #[test]
+    fn repository_and_object_errors_carry_operation_and_id() {
+        let repo = repo_error("broken", "read the index");
+        assert_eq!(repo.code(), ErrorCode::Io);
+        assert!(repo.to_string().contains("cannot read the index"));
+        let id = gix::ObjectId::null(gix::hash::Kind::Sha1);
+        assert!(
+            object_error("missing", &id)
+                .to_string()
+                .contains("git.status")
+        );
+    }
+
+    #[test]
+    fn unsafe_path_and_lock_errors_use_contract_codes() {
+        let unsafe_error = unsafe_path(b".git/config", "reserved name");
+        assert_eq!(unsafe_error.code(), ErrorCode::GitUnsupported);
+        assert!(unsafe_error.to_string().contains(".git/config"));
+        let lock = locked(Path::new("/r/.git/index.lock"));
+        assert_eq!(lock.code(), ErrorCode::GitLocked);
+        assert!(lock.to_string().contains("index.lock"));
+    }
+}

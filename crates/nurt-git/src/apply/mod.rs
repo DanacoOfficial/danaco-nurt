@@ -35,6 +35,7 @@ mod oneway;
 mod paths;
 mod plan;
 mod refs;
+mod resolve_undo;
 mod sparse;
 #[cfg(any(test, feature = "testutil"))]
 pub mod testjournal;

@@ -19,6 +19,7 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 
 use super::error::repo_error;
 use super::plan::Notable;
+use crate::repo::filter::PathAttributes;
 
 /// Name of the attribute that selects a filter driver.
 const FILTER_ATTRIBUTE: &str = "filter";
@@ -162,6 +163,11 @@ impl<'r> Filters<'r> {
             }
             ToWorktreeOutcome::Process(_) => data.to_vec(),
         };
+        let bytes = PathAttributes::read(&platform).finish_worktree_content(
+            bytes,
+            self.repo.object_hash().len_in_hex(),
+            path,
+        )?;
         Ok((bytes, skipped))
     }
 }
@@ -189,4 +195,73 @@ fn convert_error(path: &BStr, err: &dyn std::fmt::Display) -> Error {
         format!("cannot convert the content of '{path}': {err}; check .gitattributes for the path"),
     )
     .with_found(path.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn repository(dir: &std::path::Path, attributes: &str) -> gix::Repository {
+        let repo = gix::init(dir).expect("init");
+        std::fs::write(dir.join(".gitattributes"), attributes).expect("attributes");
+        repo
+    }
+
+    fn smudged(attributes: &str, data: &[u8]) -> Vec<u8> {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let repo = repository(dir.path(), attributes);
+        let index = gix_index::State::new(repo.object_hash());
+        let mut filters = Filters::new(&repo, &index, Direction::ToWorktree).expect("filters");
+        filters
+            .smudge(b"f.txt".as_slice().into(), data)
+            .expect("smudge")
+            .0
+    }
+
+    #[test]
+    fn smudge_completes_ident_marker_with_object_id() {
+        let out = smudged("f.txt ident\n", b"$Id$\n");
+        let text = String::from_utf8(out).expect("utf-8");
+        assert!(
+            text.starts_with("$Id: ") && text.ends_with(" $\n"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn smudge_encodes_utf16_working_tree_encoding() {
+        let out = smudged("f.txt working-tree-encoding=UTF-16LE\n", b"a\n");
+        assert_eq!(out, [b'a', 0, b'\n', 0]);
+    }
+}
+
+#[cfg(test)]
+mod clean_tests {
+    use super::*;
+
+    #[test]
+    fn clean_converts_working_tree_line_endings_to_lf() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let repo = gix::init(dir.path()).expect("init");
+        std::fs::write(dir.path().join(".gitattributes"), "f.txt text eol=crlf\n")
+            .expect("attributes");
+        let index = gix_index::State::new(repo.object_hash());
+        let mut filters = Filters::new(&repo, &index, Direction::ToGit).expect("filters");
+        let out = filters
+            .clean(b"f.txt".as_slice().into(), b"a\r\nb\r\n", &index)
+            .expect("clean");
+        assert_eq!(out, b"a\nb\n");
+    }
+
+    #[test]
+    fn conversion_errors_name_the_path() {
+        let error = convert_error(b"x.txt".as_slice().into(), &"bad");
+        assert_eq!(error.code(), ErrorCode::Io);
+        assert!(error.to_string().contains("x.txt"));
+        assert!(
+            path_error(b"y".as_slice().into(), &"bad")
+                .to_string()
+                .contains('y')
+        );
+    }
 }

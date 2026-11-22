@@ -124,7 +124,7 @@ pub(crate) fn apply(
         .write_object(&object)
         .map_err(|error| access::lib_error("write the commit object", error))?
         .detach();
-    write_targets(repo, &prepared, id, &edited, &message, tx)?;
+    write_targets(repo, &prepared, id, &message, tx)?;
     if let Some(runner) = &runner {
         runner.run(
             Hook::PostCommit,
@@ -204,7 +204,6 @@ fn write_targets(
     repo: &GitRepo,
     prepared: &Prepared,
     id: ObjectId,
-    edited: &str,
     message: &str,
     tx: &mut dyn MutationTx,
 ) -> Result<()> {
@@ -215,7 +214,7 @@ fn write_targets(
     }
     writes.push(LockedWrite::new(
         repo.git_dir().join("COMMIT_EDITMSG"),
-        edited.as_bytes().to_vec(),
+        message.as_bytes().to_vec(),
     ));
     let writes = LockedWrites::new(writes);
     let mut targets = writes.targets()?;
