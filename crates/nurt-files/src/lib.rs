@@ -11,3 +11,6 @@
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+pub mod fuzzy;
+pub mod walk;
