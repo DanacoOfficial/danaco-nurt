@@ -183,3 +183,135 @@ list "/home/user/app" |> filter name ~ /^test_/
 ```text expected
 test_
 ```
+
+## Sort by two fields
+
+Sort the files by extension and, within an extension, by size.
+
+```nurt example
+find "/home/user/app" |> sort by: [extension, size] order: desc
+```
+
+```text expected
+extension
+```
+
+## Take the last records
+
+Take the five oldest files of a directory.
+
+```nurt example
+find "/home/user/app" |> sort modified |> first 5
+```
+
+```text expected
+/home/user/app
+```
+
+## Keep the last lines of a file
+
+Keep the last three lines of a file.
+
+```nurt example
+lines "/home/user/app/app.log" |> last 3
+```
+
+```text expected
+app.log
+```
+
+## Filter the lines of a file
+
+Keep the lines of a file that contain a warning.
+
+```nurt example
+lines "/home/user/app/app.log" |> filter text ~ /WARN/
+```
+
+```text expected
+WARN
+```
+
+## Select the number and the text of lines
+
+Show the number and the text of every line.
+
+```nurt example
+lines "/home/user/app/main.go" |> select no text
+```
+
+```text expected
+text
+```
+
+## Count the records by a field
+
+Count the files of each type.
+
+```nurt example
+find "/home/user/app" |> group by: type |> summarize
+```
+
+```text expected
+type
+```
+
+## Sum a field
+
+Add up the sizes of the files by extension.
+
+```nurt example
+find "/home/user/app" |> summarize size by: extension
+```
+
+```text expected
+size
+```
+
+## Split a table into fields
+
+Split lines of a semicolon separated file and keep two columns.
+
+```nurt example
+lines "/home/user/data.csv" |> skip 1 |> split ";" names: ["id", "name", "city"] |> select id name
+```
+
+```text expected
+id
+```
+
+## Query a SQLite database
+
+Read the rows of a table of a database file.
+
+```nurt example
+sql "/home/user/app/data.db" "select id, name from users where active = 1"
+```
+
+```text expected
+name
+```
+
+## Query with named parameters
+
+Bind the values of a query by name.
+
+```nurt example
+sql "/home/user/app/data.db" "select id from orders where total > :min and city = :city" params: {min: 100, city: "Gdansk"}
+```
+
+```text expected
+id
+```
+
+## Change rows and review the result
+
+Update rows of a database file and show the number of rows that changed.
+
+```nurt example
+sql "/home/user/app/data.db" "update users set active = 0 where last_seen < ?" params: ["2025-01-01"] write: true
+```
+
+```text expected
+rows_changed
+```

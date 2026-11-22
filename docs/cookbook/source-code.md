@@ -178,3 +178,135 @@ analyze.check changed_only: true
 ```text expected
 finding
 ```
+
+## List the exported functions with their signatures
+
+List the exported functions whose name starts with `New`.
+
+```nurt example
+code.symbols "New" match: prefix kind: function exported_only: true with_signature: true path: ["/home/user/app/src"]
+```
+
+```text expected
+signature
+```
+
+## List the structures outside the tests
+
+List the structures of a project and skip the test files.
+
+```nurt example
+code.symbols kind: struct path: ["/home/user/app/src"] exclude_preset: [tests]
+```
+
+```text expected
+struct
+```
+
+## List the references within one file
+
+List the references of a symbol in the file of its definition only.
+
+```nurt example
+code.references "/home/user/app/src/a.go" line: 12 column: 6 scope: file include_definition: true
+```
+
+```text expected
+/home/user/app/src/a.go
+```
+
+## List the actions available for a range of lines
+
+List the fixes and refactorings that the analyzer offers for lines 20 to 25.
+
+```nurt example
+code.actions "/home/user/app/src/a.go" line: 20 end_line: 25
+```
+
+```text expected
+code_action
+```
+
+## Show the errors of the changed files
+
+Show only the errors of the files that changed since the last commit.
+
+```nurt example
+code.diagnostics changed: true severity: error
+```
+
+```text expected
+severity
+```
+
+## Show the entry points and the commands of a project
+
+Show how a project is built, tested and started.
+
+```nurt example
+code.profile "/home/user/app" sections: ["commands", "entry_points"]
+```
+
+```text expected
+commands
+```
+
+## Rename a symbol and its mentions in comments
+
+Rename a function and change its name in comments of the code.
+
+```nurt example
+code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" include_comments: true
+```
+
+```text expected
+newName
+```
+
+## Search the strings of the source files
+
+Find the web addresses written in the string literals of the code.
+
+```nurt example
+search /https?:\/\// "/home/user/app/src" scope: strings
+```
+
+```text expected
+/home/user/app/src
+```
+
+## Check types and lint for the whole project
+
+Run the type check and the linter and fail on errors only.
+
+```nurt example
+analyze.check ["/home/user/app/src"] checks: [types, lint] fail_on: error
+```
+
+```text expected
+analysis
+```
+
+## Read the findings of an analysis
+
+Read at most 20 errors of an earlier analysis.
+
+```nurt example
+analyze.show "a1" min_severity: error max_findings: 20
+```
+
+```text expected
+finding
+```
+
+## Repeat the failed tests
+
+Run again only the tests that failed in an earlier run.
+
+```nurt example
+test.failed "r1" failures: 10 message_lines: 5
+```
+
+```text expected
+test_run
+```

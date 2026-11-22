@@ -7,15 +7,15 @@ Each recipe states a problem, a program, the expected result and, where useful, 
 
 | Category | Recipes |
 |---|---|
-| [Administration, packages and schedules](administration.md) | 15 |
-| [Archives and network](archives-and-network.md) | 14 |
-| [Editing many files](edit-many-files.md) | 14 |
-| [Editing a single file](edit-single-file.md) | 14 |
-| [Files and directories](files-and-directories.md) | 15 |
-| [Git](git.md) | 15 |
-| [Journal, undo and safety](journal-and-undo.md) | 14 |
-| [Records and text processing](records-and-text.md) | 14 |
-| [Running programs and background jobs](running-programs.md) | 14 |
-| [Searching and reading](search-and-read.md) | 14 |
-| [Source code](source-code.md) | 14 |
-| [System and processes](system-and-processes.md) | 15 |
+| [Administration, packages and schedules](administration.md) | 28 |
+| [Archives and network](archives-and-network.md) | 26 |
+| [Editing many files](edit-many-files.md) | 29 |
+| [Editing a single file](edit-single-file.md) | 29 |
+| [Files and directories](files-and-directories.md) | 31 |
+| [Git](git.md) | 38 |
+| [Journal, undo and safety](journal-and-undo.md) | 25 |
+| [Records and text processing](records-and-text.md) | 25 |
+| [Running programs and background jobs](running-programs.md) | 25 |
+| [Searching and reading](search-and-read.md) | 25 |
+| [Source code](source-code.md) | 25 |
+| [System and processes](system-and-processes.md) | 26 |

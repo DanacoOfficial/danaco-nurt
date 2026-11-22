@@ -174,3 +174,135 @@ search /oldName\(/ "/home/user/app/src" glob: "**/*.go" |> replace "newName(" |>
 ```text expected
 newName
 ```
+
+## List the operations that were only partly undoable
+
+List the operations whose changes are only partly kept in the journal.
+
+```nurt example
+history state: partial limit: 10
+```
+
+```text expected
+partial
+```
+
+## List the operations that were undone
+
+List the operations that were undone and can be redone.
+
+```nurt example
+history state: undone
+```
+
+```text expected
+undone
+```
+
+## List the operations that removed files
+
+List the operations that deleted at least one file.
+
+```nurt example
+history deleted: true limit: 20
+```
+
+```text expected
+id
+```
+
+## Undo every operation back to a point
+
+Undo all operations newer than operation 12, latest first, in one transaction.
+
+```nurt example
+undo to: 12
+```
+
+```text expected
+12
+```
+
+## Undo operations of all sessions
+
+Undo the operations of every session that are newer than operation 12.
+
+```nurt example
+undo to: 12 all_sessions: true
+```
+
+```text expected
+12
+```
+
+## Undo what is possible and report the rest
+
+Undo the files of an operation that are not touched by later changes and report the others.
+
+```nurt example
+undo 18 on_conflict: partial
+```
+
+```text expected
+18
+```
+
+## Cancel an undo on conflict
+
+Leave all files unchanged when a later change touches a file of the operation.
+
+```nurt example
+undo 18 on_conflict: abort
+```
+
+```text expected
+18
+```
+
+## Undo the changes of a file made in the last hour
+
+Restore one file to its state of one hour ago.
+
+```nurt example
+undo file: "/home/user/app/src/a.go" since: ago(1h)
+```
+
+```text expected
+/home/user/app/src/a.go
+```
+
+## Release a pinned operation
+
+Allow the journal to release an operation that was pinned.
+
+```nurt example
+journal.pin 18 release: true
+```
+
+```text expected
+18
+```
+
+## Limit the age of the journal for the account
+
+Keep the operations of the last seven days for the current account.
+
+```nurt example
+journal.limits age: 7d scope: user
+```
+
+```text expected
+7d
+```
+
+## Guard a replacement with a file count
+
+Stop before the replacement when the search finds more than five files.
+
+```nurt example
+search /legacyApi/ "/home/user/app/src" |> assert paths: 1..5 |> replace "currentApi"
+```
+
+```text expected
+E_ASSERT
+```

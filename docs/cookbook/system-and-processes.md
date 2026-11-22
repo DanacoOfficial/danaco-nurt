@@ -198,3 +198,151 @@ processes pid: 4132 |> resume
 ```text expected
 4132
 ```
+
+## List the processes of an account
+
+List the processes that run for one account.
+
+```nurt example
+processes user: "deploy"
+```
+
+```text expected
+deploy
+```
+
+```bash
+ps -u deploy
+```
+
+## Show the working directory of processes
+
+Show the working directories of the processes whose name matches a pattern.
+
+```nurt example
+processes /node/ cwd: true
+```
+
+```text expected
+node
+```
+
+## Show the UDP ports
+
+Show all ports that use the UDP protocol, not only the listening ones.
+
+```nurt example
+ports state: all protocol: udp
+```
+
+```text expected
+udp
+```
+
+```bash
+ss -uanp
+```
+
+## Find the disk with the least free space
+
+Show the volume with the least free space.
+
+```nurt example
+disks |> sort free order: asc |> first 1
+```
+
+```text expected
+free
+```
+
+```bash
+df -h --output=source,avail | sort -h -k2 | head -2
+```
+
+## Show the variables of the account
+
+Show the environment variable `PATH` as it is set for the account, not for the session.
+
+```nurt example
+environment "PATH" scope: user
+```
+
+```text expected
+PATH
+```
+
+## Search the warnings of the system log
+
+Show the warnings of the last day that mention a timeout.
+
+```nurt example
+logs level: warning message: /timeout/ since: ago(24h)
+```
+
+```text expected
+timeout
+```
+
+```bash
+journalctl -p warning --since '-1 day' | grep -i timeout
+```
+
+## Read a window of the log of a unit
+
+Read the log of a unit between two points in time.
+
+```nurt example
+logs unit: "sshd" since: ago(2h) until: ago(1h)
+```
+
+```text expected
+sshd
+```
+
+## Find an installed program by a keyword
+
+Search the path, the packages and the applications for programs that handle JSON.
+
+```nurt example
+program.search "json" source: [path, package] limit: 10
+```
+
+```text expected
+json
+```
+
+## Read the description of a program
+
+Read the card of a program with its usage guide.
+
+```nurt example
+program.describe "jq" include_guide: true
+```
+
+```text expected
+jq
+```
+
+## Show the versions of installed programs
+
+Show the locations and versions of several programs.
+
+```nurt example
+program.find ["git", "make"] versions: true
+```
+
+```text expected
+git
+```
+
+## Stop a process after a grace period
+
+Terminate a process and kill it when it does not exit within five seconds.
+
+```nurt example
+processes /^runaway$/ |> stop grace: 5s
+```
+
+```text expected
+runaway
+```

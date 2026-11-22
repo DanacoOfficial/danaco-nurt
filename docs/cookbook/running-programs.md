@@ -190,3 +190,155 @@ test.run "/home/user/app" failures: 10 message_lines: 5
 ```text expected
 test_run
 ```
+
+## Feed a file to a program
+
+Run a program with the content of a file as its standard input.
+
+```nurt example
+run ["sort", "-u"] stdin: "/home/user/app/names.txt"
+```
+
+```text expected
+exit_code
+```
+
+```bash
+sort -u < /home/user/app/names.txt
+```
+
+## Stop a program that produces no output
+
+Stop an installation that prints nothing for two minutes.
+
+```nurt example
+run ["npm", "install"] cwd: "/home/user/app" idle_timeout: 2m
+```
+
+```text expected
+exit_code
+```
+
+## Show only warnings and errors with context
+
+Merge the error stream into the output and keep the lines that match a pattern with two lines of context.
+
+```nurt example
+run ["make"] cwd: "/home/user/app" merge_stderr: true filter: /warning|error/ context: 2
+```
+
+```text expected
+exit_code
+```
+
+```bash
+make 2>&1 | grep -E -C 2 'warning|error'
+```
+
+## Run with a clean environment
+
+Run a program without the environment of the session and with one variable.
+
+```nurt example
+run ["env"] inherit_env: none env: {LANG: "C"}
+```
+
+```text expected
+LANG
+```
+
+```bash
+env -i LANG=C env
+```
+
+## Limit the resources of a program
+
+Run a build with a low priority and a limit of memory.
+
+```nurt example
+run ["make", "-j4"] cwd: "/home/user/app" max_memory: 2gb priority: low
+```
+
+```text expected
+exit_code
+```
+
+```bash
+nice -n 19 make -j4
+```
+
+## Run a program for each file
+
+Run an image optimizer on every PNG file, four at a time, 8 files per call.
+
+```nurt example
+find "/home/user/app/img" glob: "**/*.png" |> run ["optipng", "-o2"] parallel: 4 batch: 8
+```
+
+```text expected
+exit_code
+```
+
+```bash
+find /home/user/app/img -name '*.png' -print0 | xargs -0 -n 8 -P 4 optipng -o2
+```
+
+## Name a background job
+
+Start a release build as a labelled job.
+
+```nurt example
+run ["make", "release"] cwd: "/home/user/app" background: true label: "release-build" description: "Release build of the application"
+```
+
+```text expected
+release-build
+```
+
+## Report progress and a summary of a run
+
+Report the percentage lines of a run and keep the line that sums up the result.
+
+```nurt example
+run ["cargo", "test"] cwd: "/home/user/app" progress: /\d+%/ summary: [/test result/]
+```
+
+```text expected
+summary_lines
+```
+
+## Read the errors of a job
+
+Read the lines of the output of a job that match a pattern, with two lines of context.
+
+```nurt example
+jobs "j1" view: output filter: /error/ context: 2
+```
+
+```text expected
+j1
+```
+
+## Read the result of a finished job
+
+Read the exit code and the duration of a finished job.
+
+```nurt example
+jobs "j1" view: result
+```
+
+```text expected
+exit_code
+```
+
+## Stop a job gently
+
+Interrupt a job and give it ten seconds to finish before it is killed.
+
+```nurt example
+jobs "j1" |> stop signal: interrupt grace: 10s
+```
+
+```text expected
+j1
+```
