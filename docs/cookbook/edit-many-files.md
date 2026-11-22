@@ -262,3 +262,259 @@ patch "--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-one\n+two\n" root: "/home/user/ap
 ```bash
 patch -p1 -d /home/user/app < change.diff
 ```
+
+## Replace regardless of letter case
+
+Replace a product name in every Markdown file whatever its letter case.
+
+```nurt example
+replace "acme" "Acme" in: ["/home/user/app/docs"] glob: "**/*.md" case_sensitive: false
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/docs/a.md","type":"file","content_utf8":"ACME and acme\n"}]}
+```
+
+```text expected
+/home/user/app/docs/a.md
+```
+
+```bash
+grep -rli 'acme' --include='*.md' /home/user/app/docs | xargs sed -i 's/acme/Acme/gI'
+```
+
+## Replace only inside comments
+
+Change a spelling in comments and leave the code unchanged.
+
+```nurt example
+replace "colour" "color" in: ["/home/user/app/src"] glob: "**/*.go" scope: comments
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/src/a.go","type":"file","content_utf8":"// colour of the text\nvar colour = 1\n"}]}
+```
+
+```text expected
+/home/user/app/src/a.go
+```
+
+## Replace across lines
+
+Join a call that is split over two lines.
+
+```nurt example
+replace /open\(\n\s+path\)/ "open(path)" in: ["/home/user/app/src"] glob: "**/*.js" multiline: true
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/src/a.js","type":"file","content_utf8":"open(\n  path)\n"}]}
+```
+
+```text expected
+/home/user/app/src/a.js
+```
+
+## Replace with a bound on the number of changes
+
+Stop before any change when the pattern occurs fewer than two or more than five times.
+
+```nurt example
+replace "timeout = 30" "timeout = 60" in: ["/home/user/app/conf"] glob: "*.conf" expect: 2..5
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/conf/a.conf","type":"file","content_utf8":"timeout = 30\n"},{"path":"/home/user/app/conf/b.conf","type":"file","content_utf8":"timeout = 30\n"}]}
+```
+
+```text expected
+/home/user/app/conf/a.conf
+```
+
+## Replace in files of one language
+
+Replace a name in the files of one language, wherever they are.
+
+```nurt example
+replace "getUser" "fetchUser" in: ["/home/user/app"] file_type: ["ts"]
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/src/a.ts","type":"file","content_utf8":"getUser(1)\n"}]}
+```
+
+```text expected
+/home/user/app/src/a.ts
+```
+
+## Replace and respect the ignore rules
+
+Replace a name in the files that the repository does not ignore.
+
+```nurt example
+replace "v1/api" "v2/api" in: ["/home/user/app"] gitignore: true
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/client.py","type":"file","content_utf8":"url = 'v1/api'\n"}]}
+```
+
+```text expected
+/home/user/app/client.py
+```
+
+## Remove lines by number
+
+Remove the first two lines of a file, for example a banner.
+
+```nurt example
+lines "/home/user/app/export.csv" 1..2 |> remove
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/export.csv","type":"file","content_utf8":"banner\ngenerated\nid,name\n"}]}
+```
+
+```text expected
+/home/user/app/export.csv
+```
+
+```bash
+sed -i '1,2d' /home/user/app/export.csv
+```
+
+## Insert a header at the start of a file
+
+Insert a shebang line at the start of a script.
+
+```nurt example
+insert "#!/bin/sh" in: "/home/user/app/run.sh" position: start
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/run.sh","type":"file","content_utf8":"echo run\n"}]}
+```
+
+```text expected
+/home/user/app/run.sh
+```
+
+```bash
+sed -i '1i #!/bin/sh' /home/user/app/run.sh
+```
+
+## Insert a line at the end of a file
+
+Insert a closing line at the end of a file.
+
+```nurt example
+insert "# end of file" in: "/home/user/app/app.conf" position: end ensure_newline: true
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/app.conf","type":"file","content_utf8":"a = 1"}]}
+```
+
+```text expected
+/home/user/app/app.conf
+```
+
+## Copy the non-empty lines to another file
+
+Write the non-empty lines of a file to a new file.
+
+```nurt example
+lines "/home/user/app/in.txt" |> filter text != "" |> write "/home/user/app/out.txt" mode: create
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/in.txt","type":"file","content_utf8":"a\n\nb\n"}]}
+```
+
+```text expected
+/home/user/app/out.txt
+```
+
+```bash
+grep -v '^$' /home/user/app/in.txt > /home/user/app/out.txt
+```
+
+## Write several files in one transaction
+
+Create two files together; when one of them cannot be created, neither is.
+
+```nurt example
+write files: [{path: "/home/user/app/a.txt", text: "one\n"}, {path: "/home/user/app/b.txt", text: "two\n"}] mode: create
+```
+
+```text expected
+/home/user/app/a.txt
+```
+
+## Convert all text files to LF
+
+Convert the line endings of every text file of a directory.
+
+```nurt example
+find "/home/user/app/docs" glob: "**/*.txt" |> convert line_ending: lf
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/docs/a.txt","type":"file","content_utf8":"a\r\n"}]}
+```
+
+```text expected
+/home/user/app/docs/a.txt
+```
+
+## Add a byte order mark
+
+Add a byte order mark to a file that a legacy program reads.
+
+```nurt example
+convert "/home/user/legacy/list.csv" bom: true
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/legacy/list.csv","type":"file","content_utf8":"a;b\n"}]}
+```
+
+```text expected
+/home/user/legacy/list.csv
+```
+
+## Revert a patch
+
+Apply a unified diff in reverse to undo the change that it describes.
+
+```nurt example
+patch "--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-one\n+two\n" root: "/home/user/app" reverse: true
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/a.txt","type":"file","content_utf8":"two\n"}]}
+```
+
+```text expected
+/home/user/app/a.txt
+```
+
+```bash
+patch -R -p1 -d /home/user/app < change.diff
+```
+
+## Apply a patch from a file
+
+Apply a diff stored in a file and strip one leading path component.
+
+```nurt example
+patch from: "/home/user/dl/change.diff" root: "/home/user/app" strip: 1
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/dl/change.diff","type":"file","content_utf8":"--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-one\n+two\n"},{"path":"/home/user/app/a.txt","type":"file","content_utf8":"one\n"}]}
+```
+
+```text expected
+/home/user/app/a.txt
+```
