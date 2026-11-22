@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+  <!ENTITY number "08">
+  <!ENTITY topic "Topic 08">
+]>
+<chapter id="ch&number;">
+  <title>Chapter &number;: &topic;</title>
+  <para>This chapter describes &topic;.</para>
+  <note><para>See also chapter &number; of the reference.</para></note>
+</chapter>

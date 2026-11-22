@@ -37,20 +37,34 @@ pub(crate) struct Splice {
 /// Returns `E_TYPE` for a value that cannot be stored there, `E_KEY_NOT_FOUND` for a
 /// map with a key that is not a column, `E_KEY_CONFLICT` for the whole
 /// table.
-pub(crate) fn set(table: &Table, bytes: &[u8], key: &KeyPath, target: Target, value: &Value) -> Result<Vec<Splice>, Error> {
+pub(crate) fn set(
+    table: &Table,
+    bytes: &[u8],
+    key: &KeyPath,
+    target: Target,
+    value: &Value,
+) -> Result<Vec<Splice>, Error> {
     match target {
         Target::Table => Err(whole_table(key)),
         Target::Cell { row, column } => {
             let text = cell_text(key, value)?;
-            Ok(set_cell(table, &table.rows()[row], column, &text).into_iter().collect())
+            Ok(set_cell(table, &table.rows()[row], column, &text)
+                .into_iter()
+                .collect())
         }
         Target::Row(row) => {
-            let cells = row_texts(table, key, value)?;
-            Ok(set_row(table, &table.rows()[row], &cells))
+            let record = &table.rows()[row];
+            let cells = row_texts(table, key, value, Some(record))?;
+            Ok(set_row(table, record, &cells))
         }
         Target::NewRow => {
-            let cells = row_texts(table, key, value)?;
-            Ok(vec![append_row(table, bytes, &cells, header_for(table, value))])
+            let cells = row_texts(table, key, value, None)?;
+            Ok(vec![append_row(
+                table,
+                bytes,
+                &cells,
+                header_for(table, value),
+            )])
         }
         Target::NewRowCell { column } => {
             let text = cell_text(key, value)?;
@@ -68,7 +82,12 @@ pub(crate) fn set(table: &Table, bytes: &[u8], key: &KeyPath, target: Target, va
 ///
 /// Returns `E_KEY_CONFLICT` for the whole table and `E_KEY_NOT_FOUND` for a row that
 /// does not exist.
-pub(crate) fn remove(table: &Table, bytes: &[u8], key: &KeyPath, target: Target) -> Result<Vec<Splice>, Error> {
+pub(crate) fn remove(
+    table: &Table,
+    bytes: &[u8],
+    key: &KeyPath,
+    target: Target,
+) -> Result<Vec<Splice>, Error> {
     match target {
         Target::Table => Err(whole_table(key)),
         Target::Cell { row, column } => {
@@ -86,20 +105,22 @@ pub(crate) fn remove(table: &Table, bytes: &[u8], key: &KeyPath, target: Target)
 }
 
 fn whole_table(key: &KeyPath) -> Error {
-    errors::key_shape(key, "the key addresses the whole table; set rows with [0] or append with [+]")
+    errors::key_shape(
+        key,
+        "the key addresses the whole table; set rows with [0] or append with [+]",
+    )
 }
 
 /// Text of a cell for a scalar value.
-fn cell_text(key: &KeyPath, value: &Value) -> Result<String, Error> {
+pub(crate) fn cell_text(key: &KeyPath, value: &Value) -> Result<String, Error> {
     let text = match value {
         Value::Null => String::new(),
         Value::Bool(flag) => flag.to_string(),
         Value::Int(number) => number.to_string(),
         Value::Number(number) => number.to_string(),
-        Value::BigInt(text)
-        | Value::Decimal(text)
-        | Value::Text(text)
-        | Value::Path(text) => text.clone(),
+        Value::BigInt(text) | Value::Decimal(text) | Value::Text(text) | Value::Path(text) => {
+            text.clone()
+        }
         Value::Glob(text) | Value::Key(text) | Value::Enum(text) => text.clone(),
         Value::Date(date) => date.text.clone(),
         Value::Instant(instant) => instant.to_string(),
@@ -111,29 +132,46 @@ fn cell_text(key: &KeyPath, value: &Value) -> Result<String, Error> {
 }
 
 /// Cell texts of a row value: a map by column, a list by position or a
-/// scalar as a single cell.
-fn row_texts(table: &Table, key: &KeyPath, value: &Value) -> Result<Vec<String>, Error> {
+/// scalar as a single cell. `current` is the row the value replaces, `None`
+/// for a new row.
+pub(crate) fn row_texts(
+    table: &Table,
+    key: &KeyPath,
+    value: &Value,
+    current: Option<&Record>,
+) -> Result<Vec<String>, Error> {
     match value {
         Value::List(items) => items.iter().map(|item| cell_text(key, item)).collect(),
-        Value::Map(fields) => map_texts(table, key, fields),
+        Value::Map(fields) => map_texts(table, key, fields, current),
         Value::Record(record) => {
-            let fields: IndexMap<String, Value> =
-                record.field_names().filter_map(|name| Some((name.to_owned(), record.get(name)?.clone()))).collect();
-            map_texts(table, key, &fields)
+            let fields: IndexMap<String, Value> = record
+                .field_names()
+                .filter_map(|name| Some((name.to_owned(), record.get(name)?.clone())))
+                .collect();
+            map_texts(table, key, &fields, current)
         }
         scalar => Ok(vec![cell_text(key, scalar)?]),
     }
 }
 
-/// Cells of a map in column order; a table without rows and without a
-/// header row takes the map keys as its header.
-fn map_texts(table: &Table, key: &KeyPath, fields: &IndexMap<String, Value>) -> Result<Vec<String>, Error> {
+/// Cells of a map in column order, by the labels of
+/// [`Table::column_label`]; a table without rows and without a header row
+/// takes the map keys as its header.
+///
+/// Empty cells past the end of the `current` row are not written, so a row
+/// shorter than the header keeps its length when its own value is stored.
+fn map_texts(
+    table: &Table,
+    key: &KeyPath,
+    fields: &IndexMap<String, Value>,
+    current: Option<&Record>,
+) -> Result<Vec<String>, Error> {
     if table.header && table.scan.records.is_empty() {
         return fields.values().map(|value| cell_text(key, value)).collect();
     }
     let mut cells: Vec<String> = vec![String::new(); table.column_names().len()];
     for (name, value) in fields {
-        let column = column_for_label(table, name).ok_or_else(|| {
+        let column = table.label_column(name).ok_or_else(|| {
             let columns = table.column_names().join(", ");
             errors::key_not_found(key, &format!("no column {name:?}; columns: {columns}"))
         })?;
@@ -142,21 +180,18 @@ fn map_texts(table: &Table, key: &KeyPath, fields: &IndexMap<String, Value>) -> 
         }
         cells[column] = cell_text(key, value)?;
     }
+    if let Some(record) = current {
+        let kept = record.fields.len().max(1);
+        while cells.len() > kept && cells.last().is_some_and(String::is_empty) {
+            cells.pop();
+        }
+    }
     Ok(cells)
-}
-
-/// Column for a label used in row maps: a header name, or a decimal index
-/// for a column without a name.
-fn column_for_label(table: &Table, label: &str) -> Option<usize> {
-    table.column_index(label).or_else(|| {
-        let index: usize = label.parse().ok()?;
-        (index >= table.column_names().len() || table.column_names()[index].is_empty()).then_some(index)
-    })
 }
 
 /// Header row to write before the first row of an empty table read with a
 /// header.
-fn header_for(table: &Table, value: &Value) -> Option<Vec<String>> {
+pub(crate) fn header_for(table: &Table, value: &Value) -> Option<Vec<String>> {
     if !table.header || !table.scan.records.is_empty() {
         return None;
     }
@@ -171,11 +206,14 @@ fn header_for(table: &Table, value: &Value) -> Option<Vec<String>> {
 fn set_cell(table: &Table, record: &Record, column: usize, text: &str) -> Option<Splice> {
     let sole = record.fields.len() == 1 && column == 0;
     if let Some(field) = record.fields.get(column) {
-        let unchanged = field.value == text && !field.irregular && !(sole && text.is_empty() && !field.quoted);
+        let unchanged = field.value == text && !(sole && text.is_empty() && !field.quoted);
         if unchanged {
             return None;
         }
-        return Some(Splice { range: field.raw.clone(), text: encode(table, text, sole) });
+        return Some(Splice {
+            range: field.raw.clone(),
+            text: encode(table, text, sole),
+        });
     }
     let delimiter = char::from(table.dialect.delimiter);
     let mut inserted = String::new();
@@ -185,20 +223,30 @@ fn set_cell(table: &Table, record: &Record, column: usize, text: &str) -> Option
     }
     inserted.push(delimiter);
     inserted.push_str(&encode(table, text, false));
-    Some(Splice { range: record.span.end..record.span.end, text: inserted })
+    Some(Splice {
+        range: record.span.end..record.span.end,
+        text: inserted,
+    })
 }
 
 /// Changes that make a row hold exactly `cells`.
 fn set_row(table: &Table, record: &Record, cells: &[String]) -> Vec<Splice> {
-    let cells: Vec<String> = if cells.is_empty() { vec![String::new()] } else { cells.to_vec() };
+    let cells: Vec<String> = if cells.is_empty() {
+        vec![String::new()]
+    } else {
+        cells.to_vec()
+    };
     let old = record.fields.len();
     let mut splices: Vec<Splice> = Vec::new();
     for (column, text) in cells.iter().enumerate().take(old) {
         let sole = cells.len() == 1;
         let field = &record.fields[column];
-        let unchanged = field.value == *text && !field.irregular && !(sole && text.is_empty() && !field.quoted);
+        let unchanged = field.value == *text && !(sole && text.is_empty() && !field.quoted);
         if !unchanged {
-            splices.push(Splice { range: field.raw.clone(), text: encode(table, text, sole) });
+            splices.push(Splice {
+                range: field.raw.clone(),
+                text: encode(table, text, sole),
+            });
         }
     }
     let delimiter = char::from(table.dialect.delimiter);
@@ -208,16 +256,27 @@ fn set_row(table: &Table, record: &Record, cells: &[String]) -> Vec<Splice> {
             inserted.push(delimiter);
             inserted.push_str(&encode(table, text, false));
         }
-        splices.push(Splice { range: record.span.end..record.span.end, text: inserted });
+        splices.push(Splice {
+            range: record.span.end..record.span.end,
+            text: inserted,
+        });
     } else if cells.len() < old {
         let start = record.fields[cells.len() - 1].raw.end;
-        splices.push(Splice { range: start..record.span.end, text: String::new() });
+        splices.push(Splice {
+            range: start..record.span.end,
+            text: String::new(),
+        });
     }
     splices
 }
 
 /// Insertion of a row after the last record, before trailing blank lines.
-fn append_row(table: &Table, bytes: &[u8], cells: &[String], header: Option<Vec<String>>) -> Splice {
+fn append_row(
+    table: &Table,
+    bytes: &[u8],
+    cells: &[String],
+    header: Option<Vec<String>>,
+) -> Splice {
     let mut text = String::new();
     if let Some(names) = header {
         text.push_str(&row_text(table, &names));
@@ -225,17 +284,24 @@ fn append_row(table: &Table, bytes: &[u8], cells: &[String], header: Option<Vec<
     }
     text.push_str(&row_text(table, cells));
     match table.scan.records.last() {
-        Some(last) if last.terminator.is_empty() => {
-            Splice { range: last.span.end..last.span.end, text: format!("{}{text}", table.terminator) }
-        }
+        Some(last) if last.terminator.is_empty() => Splice {
+            range: last.span.end..last.span.end,
+            text: format!("{}{text}", table.terminator),
+        },
         Some(last) => {
             text.push_str(&table.terminator);
-            Splice { range: last.terminator.end..last.terminator.end, text }
+            Splice {
+                range: last.terminator.end..last.terminator.end,
+                text,
+            }
         }
         None => {
             text.push_str(&table.terminator);
             let start = table.scan.bom.min(bytes.len());
-            Splice { range: start..start, text }
+            Splice {
+                range: start..start,
+                text,
+            }
         }
     }
 }
@@ -247,14 +313,21 @@ fn row_text(table: &Table, cells: &[String]) -> String {
     if cells.is_empty() {
         return encode(table, "", true);
     }
-    cells.iter().map(|text| encode(table, text, sole)).collect::<Vec<_>>().join(&delimiter)
+    cells
+        .iter()
+        .map(|text| encode(table, text, sole))
+        .collect::<Vec<_>>()
+        .join(&delimiter)
 }
 
 /// Removal of a record with its line terminator; the last record of a file
 /// without a final line break takes the line break before it.
 fn remove_record(bytes: &[u8], record: &Record) -> Splice {
     if !record.terminator.is_empty() {
-        return Splice { range: record.span.start..record.terminator.end, text: String::new() };
+        return Splice {
+            range: record.span.start..record.terminator.end,
+            text: String::new(),
+        };
     }
     let start = record.span.start;
     let before = match start.checked_sub(1).map(|index| bytes[index]) {
@@ -262,7 +335,10 @@ fn remove_record(bytes: &[u8], record: &Record) -> Splice {
         Some(b'\n' | b'\r') => 1,
         _ => 0,
     };
-    Splice { range: start - before..record.span.end, text: String::new() }
+    Splice {
+        range: start - before..record.span.end,
+        text: String::new(),
+    }
 }
 
 /// Field text for `value`, quoted when required or when the file quotes
@@ -271,7 +347,9 @@ fn remove_record(bytes: &[u8], record: &Record) -> Splice {
 pub(crate) fn encode(table: &Table, value: &str, sole: bool) -> String {
     let quote = table.dialect.quote;
     let delimiter = table.dialect.delimiter;
-    let required = value.bytes().any(|byte| byte == delimiter || byte == quote || byte == b'\r' || byte == b'\n');
+    let required = value
+        .bytes()
+        .any(|byte| byte == delimiter || byte == quote || byte == b'\r' || byte == b'\n');
     if !(required || table.quote_all || (sole && value.is_empty())) {
         return value.to_owned();
     }
@@ -315,11 +393,32 @@ mod tests {
         let text = "a,b\n1,\"x\"\n";
         let table = table(text);
         let target = Target::Cell { row: 0, column: 1 };
-        let plain = set(&table, text.as_bytes(), &key(), target, &Value::Text("y".into())).unwrap();
+        let plain = set(
+            &table,
+            text.as_bytes(),
+            &key(),
+            target,
+            &Value::Text("y".into()),
+        )
+        .unwrap();
         assert_eq!(apply(text, &plain), "a,b\n1,y\n");
-        let comma = set(&table, text.as_bytes(), &key(), target, &Value::Text("p,q".into())).unwrap();
+        let comma = set(
+            &table,
+            text.as_bytes(),
+            &key(),
+            target,
+            &Value::Text("p,q".into()),
+        )
+        .unwrap();
         assert_eq!(apply(text, &comma), "a,b\n1,\"p,q\"\n");
-        let quote = set(&table, text.as_bytes(), &key(), target, &Value::Text("say \"hi\"".into())).unwrap();
+        let quote = set(
+            &table,
+            text.as_bytes(),
+            &key(),
+            target,
+            &Value::Text("say \"hi\"".into()),
+        )
+        .unwrap();
         assert_eq!(apply(text, &quote), "a,b\n1,\"say \"\"hi\"\"\"\n");
     }
 
@@ -328,7 +427,17 @@ mod tests {
         let text = "a,b\n1,\"x\"\n";
         let table = table(text);
         let target = Target::Cell { row: 0, column: 1 };
-        assert!(set(&table, text.as_bytes(), &key(), target, &Value::Text("x".into())).unwrap().is_empty());
+        assert!(
+            set(
+                &table,
+                text.as_bytes(),
+                &key(),
+                target,
+                &Value::Text("x".into())
+            )
+            .unwrap()
+            .is_empty()
+        );
     }
 
     #[test]
@@ -360,8 +469,28 @@ mod tests {
         let mut fields = IndexMap::new();
         fields.insert("b".to_owned(), Value::Int(5));
         fields.insert("a".to_owned(), Value::Int(4));
-        let splices = set(&table, text.as_bytes(), &key(), Target::NewRow, &Value::Map(fields)).unwrap();
+        let splices = set(
+            &table,
+            text.as_bytes(),
+            &key(),
+            Target::NewRow,
+            &Value::Map(fields),
+        )
+        .unwrap();
         assert_eq!(apply(text, &splices), "a,b\n1,2\n4,5\n");
+    }
+
+    #[test]
+    fn row_map_of_the_current_value_changes_nothing() {
+        for text in ["a,b,c\n1\n1,2\n1,2,3,4\n", "a,a,,b\n1,2,3,4\n1\n"] {
+            let table = table(text);
+            for (row, record) in table.rows().iter().enumerate() {
+                let value = table.row_value(record);
+                let splices =
+                    set(&table, text.as_bytes(), &key(), Target::Row(row), &value).unwrap();
+                assert!(splices.is_empty(), "{text:?} [{row}]: {splices:?}");
+            }
+        }
     }
 
     #[test]
@@ -370,7 +499,14 @@ mod tests {
         let table = table(text);
         let mut fields = IndexMap::new();
         fields.insert("c".to_owned(), Value::Int(5));
-        let error = set(&table, text.as_bytes(), &key(), Target::Row(0), &Value::Map(fields)).unwrap_err();
+        let error = set(
+            &table,
+            text.as_bytes(),
+            &key(),
+            Target::Row(0),
+            &Value::Map(fields),
+        )
+        .unwrap_err();
         assert_eq!(error.code().as_str(), "E_KEY_NOT_FOUND");
     }
 
@@ -380,7 +516,14 @@ mod tests {
         let table = table(text);
         let mut fields = IndexMap::new();
         fields.insert("id".to_owned(), Value::Int(1));
-        let splices = set(&table, text.as_bytes(), &key(), Target::NewRow, &Value::Map(fields)).unwrap();
+        let splices = set(
+            &table,
+            text.as_bytes(),
+            &key(),
+            Target::NewRow,
+            &Value::Map(fields),
+        )
+        .unwrap();
         assert_eq!(apply(text, &splices), "id\n1\n");
     }
 
@@ -398,9 +541,21 @@ mod tests {
     fn removing_a_cell_empties_it_and_sole_cell_stays_a_record() {
         let text = "a,b\n1,2\nx\n";
         let table = table(text);
-        let cell = remove(&table, text.as_bytes(), &key(), Target::Cell { row: 0, column: 0 }).unwrap();
+        let cell = remove(
+            &table,
+            text.as_bytes(),
+            &key(),
+            Target::Cell { row: 0, column: 0 },
+        )
+        .unwrap();
         assert_eq!(apply(text, &cell), "a,b\n,2\nx\n");
-        let sole = remove(&table, text.as_bytes(), &key(), Target::Cell { row: 1, column: 0 }).unwrap();
+        let sole = remove(
+            &table,
+            text.as_bytes(),
+            &key(),
+            Target::Cell { row: 1, column: 0 },
+        )
+        .unwrap();
         assert_eq!(apply(text, &sole), "a,b\n1,2\n\"\"\n");
     }
 
@@ -420,7 +575,14 @@ mod tests {
     fn quote_all_files_quote_new_cells() {
         let text = "\"a\",\"b\"\n\"1\",\"2\"\n";
         let table = table(text);
-        let splices = set(&table, text.as_bytes(), &key(), Target::Cell { row: 0, column: 0 }, &Value::Int(7)).unwrap();
+        let splices = set(
+            &table,
+            text.as_bytes(),
+            &key(),
+            Target::Cell { row: 0, column: 0 },
+            &Value::Int(7),
+        )
+        .unwrap();
         assert_eq!(apply(text, &splices), "\"a\",\"b\"\n\"7\",\"2\"\n");
     }
 
@@ -431,7 +593,14 @@ mod tests {
         let error = set(&table, text.as_bytes(), &key(), Target::Table, &Value::Null).unwrap_err();
         assert_eq!(error.code().as_str(), "E_KEY_CONFLICT");
         let nested = Value::List(vec![]);
-        let error = set(&table, text.as_bytes(), &key(), Target::Cell { row: 0, column: 0 }, &nested).unwrap_err();
+        let error = set(
+            &table,
+            text.as_bytes(),
+            &key(),
+            Target::Cell { row: 0, column: 0 },
+            &nested,
+        )
+        .unwrap_err();
         assert_eq!(error.code().as_str(), "E_TYPE");
     }
 }

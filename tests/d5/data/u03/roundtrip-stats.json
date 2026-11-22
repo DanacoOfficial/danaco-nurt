@@ -1,0 +1,74 @@
+{
+  "toml-test": {
+    "doc.out_of_scope_change": 23,
+    "toml.inline_dotted_key": 76,
+    "toml.layout": 2,
+    "toml.table_to_value": 475,
+    "toml.verify": 108
+  },
+  "toml-own": {
+    "doc.out_of_scope_change": 18,
+    "toml.table_to_value": 330,
+    "toml.verify": 51
+  },
+  "ini-generic": {
+    "ini.nested_value": 16,
+    "ini.section_value": 7
+  },
+  "ini-generated-generic": {
+    "ini.nested_value": 132,
+    "ini.section_value": 100
+  },
+  "ini-systemd": {
+    "doc.semantic_mismatch": 4,
+    "ini.nested_value": 15,
+    "ini.section_value": 8
+  },
+  "ini-generated-systemd": {
+    "doc.semantic_mismatch": 24,
+    "ini.nested_value": 174,
+    "ini.section_value": 100
+  },
+  "ini-gitconfig": {
+    "doc.semantic_mismatch": 2,
+    "ini.nested_value": 10,
+    "ini.section_value": 8
+  },
+  "ini-generated-gitconfig": {
+    "doc.semantic_mismatch": 33,
+    "ini.nested_value": 170,
+    "ini.section_value": 149
+  },
+  "ini-desktop": {
+    "ini.nested_value": 10,
+    "ini.section_value": 3
+  },
+  "ini-generated-desktop": {
+    "ini.nested_value": 151,
+    "ini.section_value": 63
+  },
+  "ini-php": {
+    "doc.semantic_mismatch": 1,
+    "ini.nested_value": 7,
+    "ini.section_value": 3
+  },
+  "ini-generated-php": {
+    "doc.semantic_mismatch": 32,
+    "ini.nested_value": 183,
+    "ini.section_value": 84
+  },
+  "ini-editorconfig": {
+    "ini.nested_value": 7,
+    "ini.section_value": 4
+  },
+  "ini-generated-editorconfig": {
+    "ini.nested_value": 177,
+    "ini.section_value": 125
+  },
+  "properties": {
+    "properties.nested_value": 627
+  },
+  "env": {
+    "env.nested_value": 566
+  }
+}

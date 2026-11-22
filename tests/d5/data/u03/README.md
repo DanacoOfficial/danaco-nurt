@@ -21,4 +21,17 @@ The corpus of the TOML, INI, property and environment formats is in
 
 A generated file combines fragments chosen by its number, so that every
 fragment occurs in several files and in several positions. The INI profile
-of a file is detected from its content.
+of a file follows from its name when the name implies a dialect
+(`.service`, `.gitconfig`, `.desktop`, `php.ini`, `.editorconfig`, `.ini`) and
+from its content otherwise.
+
+## Recorded results of other implementations
+
+| Path | Content | Used by |
+|---|---|---|
+| `git-config/gitconfig.list`, `git-config/generated/NNN.list` | output of `git config --list --null --file` (Git 2.53.0) for `corpus/ini/gitconfig/.gitconfig` and `corpus/ini/generated/gitconfig/NNN.ini`; records are `key\nvalue\0`, a key without `=` has no value | `u03_ini_differential.rs` |
+| `git-config/edge.gitconfig`, `git-config/edge.list` | one file with every value rule of the Git syntax (quotes, escapes, continuation, trailing comments, key without `=`, subsections with differing case) and its Git output | `u03_ini_differential.rs` |
+| `java-properties.json` | `java.util.Properties.load` (OpenJDK 21.0.12.1) for the 103 files of `corpus/properties/`: 524 keys; files are read as UTF-8 when valid and as ISO-8859-1 otherwise, a byte order mark is removed | `u03_ini_differential.rs` |
+| `roundtrip-stats.json` | refusals with `E_UNSUPPORTED_CONSTRUCT` by construct name for each corpus set of the harness run | `u03_roundtrip.rs` |
+
+`rust-ini` is compared live; no results of it are recorded.

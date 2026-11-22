@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+  <!ENTITY table-caption "Supported encodings">
+]>
+<article>
+  <title>Encodings</title>
+  <table frame="all">
+    <title>&table-caption;</title>
+    <tgroup cols="2">
+      <thead><row><entry>Name</entry><entry>Unicode</entry></row></thead>
+      <tbody>
+        <row><entry>UTF-8</entry><entry>yes</entry></row>
+        <row><entry>ISO-8859-2</entry><entry>no</entry></row>
+      </tbody>
+    </tgroup>
+  </table>
+</article>

@@ -39,12 +39,12 @@ const NEXTSTEP_HIGH: [char; 128] = [
     '\u{B7}', '\u{A6}', '\u{B6}', '\u{2022}', '\u{201A}', '\u{201E}', '\u{201D}', '\u{BB}',
     '\u{2026}', '\u{2030}', '\u{AC}', '\u{BF}', '\u{B9}', '\u{2CB}', '\u{B4}', '\u{2C6}',
     '\u{2DC}', '\u{AF}', '\u{2D8}', '\u{2D9}', '\u{A8}', '\u{B2}', '\u{2DA}', '\u{B8}', '\u{B3}',
-    '\u{2DD}', '\u{2DB}', '\u{2C7}', '\u{2014}', '\u{B1}', '\u{BC}', '\u{BD}', '\u{BE}',
-    '\u{E0}', '\u{E1}', '\u{E2}', '\u{E3}', '\u{E4}', '\u{E5}', '\u{E7}', '\u{E8}', '\u{E9}',
-    '\u{EA}', '\u{EB}', '\u{EC}', '\u{C6}', '\u{ED}', '\u{AA}', '\u{EE}', '\u{EF}', '\u{F0}',
-    '\u{F1}', '\u{141}', '\u{D8}', '\u{152}', '\u{BA}', '\u{F2}', '\u{F3}', '\u{F4}', '\u{F5}',
-    '\u{F6}', '\u{E6}', '\u{F9}', '\u{FA}', '\u{FB}', '\u{131}', '\u{FC}', '\u{FD}', '\u{142}',
-    '\u{F8}', '\u{153}', '\u{DF}', '\u{FE}', '\u{FF}', '\u{FFFD}', '\u{FFFD}',
+    '\u{2DD}', '\u{2DB}', '\u{2C7}', '\u{2014}', '\u{B1}', '\u{BC}', '\u{BD}', '\u{BE}', '\u{E0}',
+    '\u{E1}', '\u{E2}', '\u{E3}', '\u{E4}', '\u{E5}', '\u{E7}', '\u{E8}', '\u{E9}', '\u{EA}',
+    '\u{EB}', '\u{EC}', '\u{C6}', '\u{ED}', '\u{AA}', '\u{EE}', '\u{EF}', '\u{F0}', '\u{F1}',
+    '\u{141}', '\u{D8}', '\u{152}', '\u{BA}', '\u{F2}', '\u{F3}', '\u{F4}', '\u{F5}', '\u{F6}',
+    '\u{E6}', '\u{F9}', '\u{FA}', '\u{FB}', '\u{131}', '\u{FC}', '\u{FD}', '\u{142}', '\u{F8}',
+    '\u{153}', '\u{DF}', '\u{FE}', '\u{FF}', '\u{FFFD}', '\u{FFFD}',
 ];
 
 /// First NeXTSTEP code outside ASCII.
@@ -110,9 +110,12 @@ impl Item {
             Body::String(text) => Value::Text(text.clone()),
             Body::Data(bytes) => Value::Bytes(Bytes::new(bytes.clone())),
             Body::Typed(value) => value.clone(),
-            Body::Array(elements) => {
-                Value::List(elements.iter().map(|element| element.value.to_value()).collect())
-            }
+            Body::Array(elements) => Value::List(
+                elements
+                    .iter()
+                    .map(|element| element.value.to_value())
+                    .collect(),
+            ),
             Body::Dict(entries) => Value::Map(
                 entries
                     .iter()
@@ -130,11 +133,18 @@ impl Item {
 ///
 /// Returns `E_DOC_PARSE` with the line and column of the first error.
 pub(crate) fn parse(text: &[u8]) -> Result<Item, Error> {
-    let mut parser = Parser { text, position: 0, depth: 0 };
+    let mut parser = Parser {
+        text,
+        position: 0,
+        depth: 0,
+    };
     parser.skip_space()?;
     if parser.at_end() {
         let end = parser.position;
-        return Ok(Item { span: end..end, body: Body::Dict(Vec::new()) });
+        return Ok(Item {
+            span: end..end,
+            body: Body::Dict(Vec::new()),
+        });
     }
     let start = parser.position;
     let first = parser.value()?;
@@ -146,7 +156,10 @@ pub(crate) fn parse(text: &[u8]) -> Result<Item, Error> {
         parser.position = start;
         let entries = parser.entries(None)?;
         let end = entries.last().map_or(start, |entry| entry.end);
-        return Ok(Item { span: start..end, body: Body::Dict(entries) });
+        return Ok(Item {
+            span: start..end,
+            body: Body::Dict(entries),
+        });
     }
     Err(parser.error("unexpected text after the root value; a property list holds one value"))
 }
@@ -167,7 +180,12 @@ impl Parser<'_> {
     }
 
     fn error(&self, message: &str) -> Error {
-        doc_parse(&DocFormatId::PLIST, self.text, Some(self.position.min(self.text.len())), message)
+        doc_parse(
+            &DocFormatId::PLIST,
+            self.text,
+            Some(self.position.min(self.text.len())),
+            message,
+        )
     }
 
     fn skip_space(&mut self) -> Result<(), Error> {
@@ -214,9 +232,14 @@ impl Parser<'_> {
                     "expected a value: a string, <data>, ( array ) or { dictionary }; quote strings with other characters",
                 ));
             }
-            None => return Err(self.error("unexpected end of the property list; a value is missing")),
+            None => {
+                return Err(self.error("unexpected end of the property list; a value is missing"));
+            }
         };
-        Ok(Item { span: start..self.position, body })
+        Ok(Item {
+            span: start..self.position,
+            body,
+        })
     }
 
     fn nested(&mut self, parse: fn(&mut Self) -> Result<Body, Error>) -> Result<Body, Error> {
@@ -253,7 +276,12 @@ impl Parser<'_> {
             self.expect(b'=', "expected = after the dictionary key")?;
             let value = self.value()?;
             let end = self.expect(b';', "expected ; after the dictionary value")? + 1;
-            entries.push(Entry { key, name, value, end });
+            entries.push(Entry {
+                key,
+                name,
+                value,
+                end,
+            });
         }
     }
 
@@ -266,7 +294,10 @@ impl Parser<'_> {
                 self.position += 1;
                 return Ok(Body::Array(elements));
             }
-            if elements.last().is_some_and(|element| element.comma.is_none()) {
+            if elements
+                .last()
+                .is_some_and(|element| element.comma.is_none())
+            {
                 return Err(self.error("expected , or ) after the array element"));
             }
             let value = self.value()?;
@@ -384,22 +415,37 @@ fn typed_value(inner: &[u8]) -> Result<Body, &'static str> {
     let (&letter, rest) = inner.split_first().ok_or("typed value <*…> is empty")?;
     let rest = std::str::from_utf8(rest).map_err(|_| "typed value <*…> is not text")?;
     let value = match letter {
-        b'I' => rest.trim().parse().map(Value::Int).map_err(|_| "<*I…> must hold an integer")?,
-        b'R' => rest.trim().parse().map(Value::Number).map_err(|_| "<*R…> must hold a number")?,
+        b'I' => rest
+            .trim()
+            .parse()
+            .map(Value::Int)
+            .map_err(|_| "<*I…> must hold an integer")?,
+        b'R' => rest
+            .trim()
+            .parse()
+            .map(Value::Number)
+            .map_err(|_| "<*R…> must hold a number")?,
         b'B' => match rest.trim() {
             "Y" => Value::Bool(true),
             "N" => Value::Bool(false),
             _ => return Err("<*B…> must hold Y or N"),
         },
-        b'D' => Value::Date(Date { kind: DateKind::OffsetDateTime, text: rest.to_owned() }),
+        b'D' => Value::Date(Date {
+            kind: DateKind::OffsetDateTime,
+            text: rest.to_owned(),
+        }),
         _ => return Err("typed value must be <*I…>, <*R…>, <*B…> or <*D…>"),
     };
     Ok(Body::Typed(value))
 }
 
 fn hex_data(inner: &[u8]) -> Result<Body, &'static str> {
-    let digits: Vec<u8> = inner.iter().copied().filter(|byte| !byte.is_ascii_whitespace()).collect();
-    if digits.len() % 2 != 0 {
+    let digits: Vec<u8> = inner
+        .iter()
+        .copied()
+        .filter(|byte| !byte.is_ascii_whitespace())
+        .collect();
+    if !digits.len().is_multiple_of(2) {
         return Err("data must hold an even number of hexadecimal digits");
     }
     digits
@@ -427,7 +473,9 @@ pub(crate) const fn is_unquoted(byte: u8) -> bool {
 }
 
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|window| window == needle)
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 #[cfg(test)]
@@ -451,10 +499,15 @@ mod tests {
 
     #[test]
     fn reads_dictionaries_arrays_and_strings() {
-        let fields = map(value("{ name = \"My App\"; list = (a, 'b c', ); nested = { k = v; }; }"));
+        let fields = map(value(
+            "{ name = \"My App\"; list = (a, 'b c', ); nested = { k = v; }; }",
+        ));
         assert_eq!(fields["name"], text("My App"));
         assert_eq!(fields["list"], Value::List(vec![text("a"), text("b c")]));
-        assert_eq!(fields.keys().collect::<Vec<_>>(), ["name", "list", "nested"]);
+        assert_eq!(
+            fields.keys().collect::<Vec<_>>(),
+            ["name", "list", "nested"]
+        );
     }
 
     #[test]
@@ -462,18 +515,25 @@ mod tests {
         let fields = map(value(
             "{ d = <0fbd 7a>; i = <*I-3>; r = <*R1.5>; b = <*BY>; n = <*BN>; t = <*D2026-01-31 12:00:00 +0000>; s = \"a\\n\\U00e9\\101\\341\\\"\"; }",
         ));
-        assert_eq!(fields["d"], Value::Bytes(Bytes::new(vec![0x0f, 0xbd, 0x7a])));
+        assert_eq!(
+            fields["d"],
+            Value::Bytes(Bytes::new(vec![0x0f, 0xbd, 0x7a]))
+        );
         assert_eq!(fields["i"], Value::Int(-3));
         assert_eq!(fields["r"], Value::Number(1.5));
         assert_eq!(fields["b"], Value::Bool(true));
         assert_eq!(fields["n"], Value::Bool(false));
-        assert!(matches!(&fields["t"], Value::Date(date) if date.text == "2026-01-31 12:00:00 +0000"));
+        assert!(
+            matches!(&fields["t"], Value::Date(date) if date.text == "2026-01-31 12:00:00 +0000")
+        );
         assert_eq!(fields["s"], text("a\n\u{e9}A\u{c6}\""));
     }
 
     #[test]
     fn comments_are_white_space_and_urls_stay_unquoted() {
-        let fields = map(value("// head\n{ /* a */ url = http://example.org/x; // tail\n}"));
+        let fields = map(value(
+            "// head\n{ /* a */ url = http://example.org/x; // tail\n}",
+        ));
         assert_eq!(fields["url"], text("http://example.org/x"));
     }
 
@@ -482,18 +542,25 @@ mod tests {
         let item = parse(b"\"a\" = \"1\";\nb = 2;\n").unwrap();
         assert_eq!(item.span, 0..17);
         assert_eq!(map(item.to_value())["b"], text("2"));
-        assert_eq!(parse(b"  // only a comment\n").unwrap().to_value(), Value::Map(Fields::new()));
+        assert_eq!(
+            parse(b"  // only a comment\n").unwrap().to_value(),
+            Value::Map(Fields::new())
+        );
     }
 
     #[test]
     fn records_ranges_of_entries_and_commas() {
         let source = "{ a = (x, y); }";
         let item = parse(source.as_bytes()).unwrap();
-        let Body::Dict(entries) = &item.body else { panic!("map expected") };
+        let Body::Dict(entries) = &item.body else {
+            panic!("map expected")
+        };
         assert_eq!(&source[entries[0].key.span.clone()], "a");
         assert_eq!(&source[entries[0].value.span.clone()], "(x, y)");
         assert_eq!(entries[0].end, 13);
-        let Body::Array(elements) = &entries[0].value.body else { panic!("array expected") };
+        let Body::Array(elements) = &entries[0].value.body else {
+            panic!("array expected")
+        };
         assert_eq!(elements[0].comma, Some(8));
         assert_eq!(elements[1].comma, None);
     }
@@ -501,8 +568,21 @@ mod tests {
     #[test]
     fn reports_errors_with_position() {
         let cases = [
-            "{ a = b }", "( a b )", "{ (a) = b; }", "<abc>", "<zz>", "\"open", "{ a = b; } c", "/* x", "{ a = ", "<*Ix>",
-            "<*Q1>", "<*BX>", "<*>", "\"\\U12\"", "#",
+            "{ a = b }",
+            "( a b )",
+            "{ (a) = b; }",
+            "<abc>",
+            "<zz>",
+            "\"open",
+            "{ a = b; } c",
+            "/* x",
+            "{ a = ",
+            "<*Ix>",
+            "<*Q1>",
+            "<*BX>",
+            "<*>",
+            "\"\\U12\"",
+            "#",
         ];
         for source in cases {
             let error = parse(source.as_bytes()).unwrap_err();
@@ -513,7 +593,10 @@ mod tests {
     #[test]
     fn rejects_excessive_nesting() {
         let source = "(".repeat(MAX_DEPTH + 1);
-        assert_eq!(parse(source.as_bytes()).unwrap_err().code().as_str(), "E_DOC_PARSE");
+        assert_eq!(
+            parse(source.as_bytes()).unwrap_err().code().as_str(),
+            "E_DOC_PARSE"
+        );
     }
 
     #[test]

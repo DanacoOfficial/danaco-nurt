@@ -225,7 +225,11 @@ const fn is_line_break(byte: u8) -> bool {
 /// Scans a whole file, skipping a leading UTF-8 byte order mark; ranges are
 /// offsets into `bytes`.
 pub(crate) fn scan_file(bytes: &[u8], dialect: Dialect) -> Scan {
-    let bom = if bytes.starts_with(UTF8_BOM) { UTF8_BOM.len() } else { 0 };
+    let bom = if bytes.starts_with(UTF8_BOM) {
+        UTF8_BOM.len()
+    } else {
+        0
+    };
     let mut records = scan(&bytes[bom..], dialect);
     if bom > 0 {
         for record in &mut records {
@@ -251,7 +255,10 @@ fn shift(range: &Range<usize>, offset: usize) -> Range<usize> {
 mod tests {
     use super::*;
 
-    const COMMA: Dialect = Dialect { delimiter: b',', quote: b'"' };
+    const COMMA: Dialect = Dialect {
+        delimiter: b',',
+        quote: b'"',
+    };
 
     fn values(text: &str) -> Vec<Vec<String>> {
         scan(text.as_bytes(), COMMA)

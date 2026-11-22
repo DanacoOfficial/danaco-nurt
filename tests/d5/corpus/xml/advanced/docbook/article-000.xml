@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+  <!ENTITY product "Nurt">
+  <!ENTITY version "1.0">
+]>
+<article lang="en">
+  <title>&product; &version; Release Notes</title>
+  <section id="changes">
+    <title>Changes</title>
+    <para>&product; edits structured documents in place.</para>
+    <itemizedlist>
+      <listitem><para>XML entities are expanded on read.</para></listitem>
+      <listitem><para>External entities are never resolved.</para></listitem>
+    </itemizedlist>
+  </section>
+</article>

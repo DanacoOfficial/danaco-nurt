@@ -47,7 +47,11 @@ const fn is_blank(byte: u8) -> bool {
 pub(crate) fn line_break(text: &str) -> &'static str {
     let crlf = text.matches("\r\n").count();
     let all = text.matches('\n').count();
-    if crlf > 0 && crlf * 2 >= all { "\r\n" } else { "\n" }
+    if crlf > 0 && crlf * 2 >= all {
+        "\r\n"
+    } else {
+        "\n"
+    }
 }
 
 /// Indentation unit of the document: a tab when any line is indented with
@@ -73,17 +77,21 @@ pub(crate) fn indent_unit(text: &str) -> String {
 /// followed by white space and another member is removed up to that member.
 /// Otherwise the white space before the member is removed with it.
 pub(crate) fn removal(text: &str, span: &Range<usize>, next: Option<usize>) -> Range<usize> {
-    if starts_line(text, span.start) {
-        if let Some(end) = rest_of_line(text, span.end) {
-            return line_start(text, span.start)..end;
-        }
+    if starts_line(text, span.start)
+        && let Some(end) = rest_of_line(text, span.end)
+    {
+        return line_start(text, span.start)..end;
     }
-    if let Some(next) = next {
-        if text[span.end..next].bytes().all(|byte| byte.is_ascii_whitespace()) {
-            return span.start..next;
-        }
+    if let Some(next) = next
+        && text[span.end..next]
+            .bytes()
+            .all(|byte| byte.is_ascii_whitespace())
+    {
+        return span.start..next;
     }
-    let start = text[..span.start].trim_end_matches(|c: char| c.is_ascii_whitespace()).len();
+    let start = text[..span.start]
+        .trim_end_matches(|c: char| c.is_ascii_whitespace())
+        .len();
     start..span.end
 }
 

@@ -1,0 +1,272 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Classified differences between the values read by Nurt and the output of
+# `yq -p <format> -o json`. The differential tests accept a difference only
+# when an entry below covers it, and fail when an entry covers none.
+#
+# Fields: `id`; `format` (`xml`, `json`, `toml`, `yaml`); `class` (`convention`: the
+# two programs follow different rules, `yq`: a defect or limitation of `yq`,
+# `nurt`: a defect of Nurt); `rule` with its parameter (`unexpanded-entity`,
+# `unsupported-construct` with `construct`, `yq-error` with `error`, `value`
+# with `pointer`, a pattern of JSON pointers, `number-as-text`,
+# `empty-document`, `float-rounding`); optional `paths`, patterns of file paths relative to
+# `tests/d5` in which `*` matches any characters; `reason`.
+
+yq_version = "4.53.6"
+
+[[difference]]
+id = "xml-internal-entities"
+format = "xml"
+class = "yq"
+rule = "unexpanded-entity"
+reason = "yq does not read the internal subset of the document type declaration and keeps references to the entities declared there as written; Nurt replaces them with their replacement text"
+
+[[difference]]
+id = "xml-external-entities"
+format = "xml"
+class = "convention"
+rule = "unsupported-construct"
+construct = "xml.external_entity"
+reason = "Nurt never resolves external entities and does not guess the value of a reference that may be declared in an unread external subset; yq keeps such references as written"
+
+[[difference]]
+id = "xml-entity-markup"
+format = "xml"
+class = "convention"
+rule = "unsupported-construct"
+construct = "xml.entity_markup"
+reason = "an entity whose replacement text contains elements has no value in the model; yq keeps the reference as written"
+
+[[difference]]
+id = "json-byte-order-mark"
+format = "json"
+class = "yq"
+rule = "yq-error"
+error = "invalid character 'ï'"
+reason = "yq rejects a UTF-8 byte order mark at the start of a JSON file; RFC 8259 permits parsers to ignore it"
+
+[[difference]]
+id = "json-number-out-of-range"
+format = "json"
+class = "yq"
+rule = "yq-error"
+error = "value out of range"
+reason = "yq rejects numbers outside the range of a 64-bit float; RFC 8259 leaves the range to the implementation and Nurt keeps the number as written"
+
+[[difference]]
+id = "toml-local-date-time"
+format = "toml"
+class = "yq"
+rule = "yq-error"
+error = "unsupported type Local"
+reason = "yq does not support local dates, local times and local date-times"
+
+[[difference]]
+id = "toml-date-time-syntax"
+format = "toml"
+class = "yq"
+rule = "yq-error"
+error = "parsing time"
+reason = "yq rejects date-times that TOML 1.0 permits, such as a space between date and time or a lowercase `t` and `z`"
+
+[[difference]]
+id = "toml-json-output"
+format = "toml"
+class = "yq"
+rule = "yq-error"
+error = "MarshalJSON"
+reason = "yq reads an infinite float but cannot write it as JSON; Nurt writes a value that JSON cannot represent as null"
+
+[[difference]]
+id = "toml-signed-nan"
+format = "toml"
+class = "yq"
+rule = "yq-error"
+error = "strconv.ParseFloat"
+reason = "yq rejects `+nan` and `-nan`, which TOML 1.0 permits"
+
+[[difference]]
+id = "toml-binary-integer"
+format = "toml"
+class = "yq"
+rule = "yq-error"
+error = "strconv.ParseInt"
+reason = "yq rejects binary integers with the `0b` prefix, which TOML 1.0 permits"
+
+[[difference]]
+id = "toml-empty-document"
+format = "toml"
+class = "convention"
+rule = "empty-document"
+reason = "a document without key-value pairs is an empty table in Nurt; yq writes no value for it"
+
+[[difference]]
+id = "toml-float-rounding"
+format = "toml"
+class = "yq"
+rule = "float-rounding"
+reason = "yq writes some floats with a rounding error in the last significant digit"
+
+[[difference]]
+id = "toml-dotted-keys-in-inline-table"
+format = "toml"
+class = "yq"
+rule = "value"
+pointer = "/many/dots/here/dot/dot/dot/a/b/c"
+paths = ["third_party/toml/toml-test/valid/inline-table/key-dotted-2.toml"]
+reason = "yq drops all but the last of several dotted keys with a common prefix in an inline table; the expected value of toml-test contains both"
+
+[[difference]]
+id = "json-number-text"
+format = "json"
+class = "convention"
+rule = "number-as-text"
+reason = "Nurt keeps a number whose text is not the shortest form of its value, such as `19.90`, as a decimal with the text as written; the plain JSON form of a decimal is a string, yq writes the float"
+
+[[difference]]
+id = "xml-cdata-and-text-chunks"
+format = "xml"
+class = "convention"
+rule = "value"
+pointer = "*script*"
+paths = ["corpus/xml/*"]
+reason = "Nurt joins adjacent text and CDATA sections into one text chunk, because CDATA boundaries carry no information in the XML infoset; yq writes each section as a separate list item and trims it"
+
+[[difference]]
+id = "xml-internal-subset-comment"
+format = "xml"
+class = "yq"
+rule = "value"
+pointer = "/+directive"
+paths = ["corpus/xml/advanced/dtd/internal-subset-011.xml"]
+reason = "yq removes comments from the text of the document type declaration; Nurt keeps the declaration as written"
+
+[[difference]]
+id = "xml-tokenized-attributes"
+format = "xml"
+class = "yq"
+rule = "value"
+pointer = "/catalog/entry/*/+@*"
+paths = ["corpus/xml/advanced/dtd/internal-subset-015.xml"]
+reason = "yq does not read attribute-list declarations and keeps the spaces of attributes declared with a tokenized type; Nurt removes leading and trailing spaces and collapses runs of spaces as XML 1.0 section 3.3.3 requires"
+
+[[difference]]
+id = "yaml-document-start-properties"
+format = "yaml"
+class = "yq"
+rule = "value"
+pointer = "*"
+paths = [
+    "corpus/yaml/advanced/anchors/root-anchor.yaml",
+    "corpus/yaml/advanced/multidoc/anchored-root.yaml",
+    "corpus/yaml/advanced/kubernetes/manifest-03-billing.yaml",
+    "corpus/yaml/advanced/kubernetes/manifest-09-auth.yaml",
+    "corpus/yaml/advanced/kubernetes/manifest-15-notifier.yaml",
+    "corpus/yaml/advanced/kubernetes/manifest-21-backend.yaml",
+    "corpus/yaml/advanced/kubernetes/manifest-27-scheduler.yaml",
+    "corpus/yaml/advanced/kubernetes/manifest-33-billing.yaml",
+    "corpus/yaml/advanced/multidoc/stream-02.yaml",
+    "corpus/yaml/advanced/multidoc/stream-06.yaml",
+    "corpus/yaml/advanced/multidoc/stream-10.yaml",
+]
+reason = "after an anchor or a comment on the document start line, yq replaces the first key of the root mapping with an empty key or drops it"
+
+[[difference]]
+id = "yaml-complex-keys"
+format = "yaml"
+class = "convention"
+rule = "value"
+pointer = "*"
+paths = ["corpus/yaml/advanced/complex-keys/*"]
+reason = "JSON has only text keys; Nurt writes a sequence or mapping key as its flow text, yq writes an empty key or drops the entry"
+
+[[difference]]
+id = "yaml-merge-explicit-keys-win"
+format = "yaml"
+class = "yq"
+rule = "value"
+pointer = "/override_first/*"
+paths = ["corpus/yaml/advanced/merge/*", "corpus/yaml/advanced/crlf/merge-*"]
+reason = "a key written in a mapping takes precedence over a merged key wherever the merge key appears; yq lets a later merge key override an earlier explicit key"
+
+[[difference]]
+id = "yaml-merge-inline-mapping"
+format = "yaml"
+class = "yq"
+rule = "value"
+pointer = "/inline/*"
+paths = ["corpus/yaml/advanced/merge/*", "corpus/yaml/advanced/crlf/merge-*"]
+reason = "yq drops the keys of a mapping written in place as the value of a merge key"
+
+[[difference]]
+id = "yaml-merge-inline-mapping-in-sequence"
+format = "yaml"
+class = "yq"
+rule = "value"
+pointer = "/services/*/stop_grace_period"
+paths = ["corpus/yaml/advanced/compose/*", "corpus/yaml/advanced/crlf/compose-*"]
+reason = "yq drops the keys of a mapping written in place in the sequence of a merge key"
+
+[[difference]]
+id = "yaml-binary-scalar"
+format = "yaml"
+class = "convention"
+rule = "value"
+pointer = "/*_block"
+paths = ["corpus/yaml/advanced/tags/*", "corpus/yaml/advanced/crlf/tags-*"]
+reason = "Nurt reads a `!!binary` scalar as bytes and writes them as base64 without line breaks; yq writes the text of the scalar with its line breaks"
+
+[[difference]]
+id = "yaml-empty-scalar-with-local-tag"
+format = "yaml"
+class = "convention"
+rule = "value"
+pointer = "/empty_tagged"
+paths = ["corpus/yaml/advanced/tags/*", "corpus/yaml/advanced/crlf/tags-*"]
+reason = "Nurt resolves a scalar with a local tag by its content, so an empty one is null; yq writes an empty string"
+
+[[difference]]
+id = "yaml-non-specific-tag"
+format = "yaml"
+class = "yq"
+rule = "value"
+pointer = "/*"
+paths = ["corpus/yaml/advanced/tags/non-specific.yaml"]
+reason = "YAML 1.2 resolves a scalar with the non-specific tag `!` as a string; yq resolves it as an untagged plain scalar"
+
+[[difference]]
+id = "yaml-empty-documents"
+format = "yaml"
+class = "yq"
+rule = "value"
+pointer = ""
+paths = ["corpus/yaml/advanced/multidoc/empty-documents.yaml"]
+reason = "yq writes no value for the empty documents of a stream; Nurt reads each of them as null"
+
+[[difference]]
+id = "yaml-scalar-on-document-start-line"
+format = "yaml"
+class = "yq"
+rule = "value"
+pointer = ""
+paths = ["corpus/yaml/advanced/multidoc/inline-scalars.yaml"]
+reason = "yq joins a scalar written on a document start line with the start marker of the next document"
+
+[[difference]]
+id = "yaml-version-directive"
+format = "yaml"
+class = "yq"
+rule = "yq-error"
+error = "found incompatible YAML document"
+paths = ["corpus/yaml/advanced/multidoc/repeated-directives.yaml"]
+reason = "yq rejects a `%YAML` directive before a document other than the first; YAML 1.2 permits directives before each document of a stream"
+
+[[difference]]
+id = "yaml-tag-on-document-start-line"
+format = "yaml"
+class = "yq"
+rule = "yq-error"
+error = "mapping values are not allowed in this context"
+paths = ["corpus/yaml/advanced/multidoc/stream-*"]
+reason = "yq misreads a tag on the start line of the first document and rejects the block mapping that follows it"

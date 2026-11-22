@@ -35,9 +35,11 @@ const MAX_DEPTH: usize = 512;
 /// `E_DOC_PARSE` for a damaged file.
 pub(crate) fn read(bytes: &[u8]) -> Result<plist::Value, Error> {
     if !bytes.starts_with(SIGNATURE) {
-        let version = bytes.get(SIGNATURE_PREFIX.len()..SIGNATURE.len()).unwrap_or_default();
+        let version = bytes
+            .get(SIGNATURE_PREFIX.len()..SIGNATURE.len())
+            .unwrap_or_default();
         return Err(crate::constructs::unsupported(
-            super::CONSTRUCT_BINARY_VERSION,
+            crate::constructs::PLIST_BINARY_LAYOUT,
             format!(
                 "binary property list version {} cannot be read; convert the file to bplist00 or XML",
                 String::from_utf8_lossy(version)
@@ -130,13 +132,17 @@ pub(crate) fn get_mut<'a>(
     root: &'a mut plist::Value,
     segments: &[KeySegment],
 ) -> Option<&'a mut plist::Value> {
-    segments.iter().try_fold(root, |value, segment| match (value, segment) {
-        (plist::Value::Dictionary(dictionary), KeySegment::Key(name)) => dictionary.get_mut(name),
-        (plist::Value::Array(items), KeySegment::Index(index)) => {
-            usize::try_from(*index).ok().and_then(|index| items.get_mut(index))
-        }
-        _ => None,
-    })
+    segments
+        .iter()
+        .try_fold(root, |value, segment| match (value, segment) {
+            (plist::Value::Dictionary(dictionary), KeySegment::Key(name)) => {
+                dictionary.get_mut(name)
+            }
+            (plist::Value::Array(items), KeySegment::Index(index)) => usize::try_from(*index)
+                .ok()
+                .and_then(|index| items.get_mut(index)),
+            _ => None,
+        })
 }
 
 /// Replaces the value at `segments`, keeping a `real` or `UID` type.
@@ -145,7 +151,11 @@ pub(crate) fn get_mut<'a>(
 ///
 /// Returns the errors of [`value::from_value`] and `E_KEY_NOT_FOUND` for a
 /// path that does not exist.
-pub(crate) fn replace(root: &mut plist::Value, segments: &[KeySegment], value: &Value) -> Result<(), Error> {
+pub(crate) fn replace(
+    root: &mut plist::Value,
+    segments: &[KeySegment],
+    value: &Value,
+) -> Result<(), Error> {
     let slot = get_mut(root, segments).ok_or_else(missing)?;
     *slot = value::from_value(value, Hint::of(slot))?;
     Ok(())
@@ -156,7 +166,12 @@ pub(crate) fn replace(root: &mut plist::Value, segments: &[KeySegment], value: &
 /// # Errors
 ///
 /// As for [`replace`].
-pub(crate) fn insert(root: &mut plist::Value, segments: &[KeySegment], name: &str, value: &Value) -> Result<(), Error> {
+pub(crate) fn insert(
+    root: &mut plist::Value,
+    segments: &[KeySegment],
+    name: &str,
+    value: &Value,
+) -> Result<(), Error> {
     let new = value::from_value(value, Hint::Other)?;
     match get_mut(root, segments) {
         Some(plist::Value::Dictionary(dictionary)) => {
@@ -172,7 +187,11 @@ pub(crate) fn insert(root: &mut plist::Value, segments: &[KeySegment], name: &st
 /// # Errors
 ///
 /// As for [`replace`].
-pub(crate) fn append(root: &mut plist::Value, segments: &[KeySegment], value: &Value) -> Result<(), Error> {
+pub(crate) fn append(
+    root: &mut plist::Value,
+    segments: &[KeySegment],
+    value: &Value,
+) -> Result<(), Error> {
     let new = value::from_value(value, Hint::Other)?;
     match get_mut(root, segments) {
         Some(plist::Value::Array(items)) => {
@@ -197,7 +216,10 @@ pub(crate) fn remove(root: &mut plist::Value, segments: &[KeySegment]) -> Result
             dictionary.remove(name).map(drop).ok_or_else(missing)
         }
         (Some(plist::Value::Array(items)), KeySegment::Index(index)) => {
-            let index = usize::try_from(*index).ok().filter(|index| *index < items.len()).ok_or_else(missing)?;
+            let index = usize::try_from(*index)
+                .ok()
+                .filter(|index| *index < items.len())
+                .ok_or_else(missing)?;
             items.remove(index);
             Ok(())
         }
@@ -223,12 +245,18 @@ mod tests {
         inner.insert("real".into(), plist::Value::Real(2.0));
         let mut root = Dictionary::new();
         root.insert("name".into(), plist::Value::String("app".into()));
-        root.insert("items".into(), plist::Value::Array(vec![plist::Value::Dictionary(inner)]));
+        root.insert(
+            "items".into(),
+            plist::Value::Array(vec![plist::Value::Dictionary(inner)]),
+        );
         plist::Value::Dictionary(root)
     }
 
     fn path(text: &str) -> Vec<KeySegment> {
-        nurt_contracts::keypath::KeyPath::parse(text).unwrap().segments().to_vec()
+        nurt_contracts::keypath::KeyPath::parse(text)
+            .unwrap()
+            .segments()
+            .to_vec()
     }
 
     #[test]
@@ -249,7 +277,9 @@ mod tests {
         append(&mut value, &path("items"), &Value::Text("x".into())).unwrap();
         remove(&mut value, &path("name")).unwrap();
         let items = get_mut(&mut value, &path("items")).unwrap().clone();
-        let plist::Value::Array(items) = items else { panic!("array expected") };
+        let plist::Value::Array(items) = items else {
+            panic!("array expected")
+        };
         let first = items[0].as_dictionary().unwrap();
         assert_eq!(first.get("uid"), Some(&plist::Value::Uid(Uid::new(8))));
         assert_eq!(first.get("real"), Some(&plist::Value::Real(3.0)));
@@ -268,7 +298,10 @@ mod tests {
         let root = tree.roots()[0];
         assert_eq!(tree[root].children.len(), 2);
         let found = tree
-            .resolve(&nurt_contracts::keypath::KeyPath::parse("items[0].uid").unwrap(), &crate::model::MapSemantics::LAST_WINS)
+            .resolve(
+                &nurt_contracts::keypath::KeyPath::parse("items[0].uid").unwrap(),
+                &crate::model::MapSemantics::LAST_WINS,
+            )
             .unwrap();
         assert_eq!(tree[found[0].node].tag.as_deref(), Some(UID_TAG));
     }

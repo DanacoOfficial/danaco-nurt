@@ -223,3 +223,67 @@ fn the_registry_detects_every_format_by_name() {
     let conf = registry.detect(Some(Path::new("nginx.conf")), b"[main]\nkey = some value\n");
     assert_eq!(conf.as_ref().map(|id| id.as_str()), Some("ini"));
 }
+
+/// Refusals with `E_UNSUPPORTED_CONSTRUCT` by construct name, per corpus
+/// set, as recorded in `tests/d5/data/u03/roundtrip-stats.json`.
+fn unsupported_counts() -> serde_json::Value {
+    let mut sets: Vec<(String, Summary)> = vec![
+        (
+            "toml-test".to_owned(),
+            run(
+                "third_party/toml/toml-test/valid",
+                &TomlFormat,
+                &HarnessOptions::default(),
+            ),
+        ),
+        (
+            "toml-own".to_owned(),
+            run("corpus/toml/own", &TomlFormat, &HarnessOptions::default()),
+        ),
+    ];
+    for (name, profile) in PROFILES {
+        sets.push((
+            format!("ini-{name}"),
+            run(
+                &format!("corpus/ini/{name}"),
+                &IniFormat::new(),
+                &text_operations(),
+            ),
+        ));
+        sets.push((
+            format!("ini-generated-{name}"),
+            run(
+                &format!("corpus/ini/generated/{name}"),
+                &IniFormat::with_profile(profile),
+                &text_operations(),
+            ),
+        ));
+    }
+    sets.push((
+        "properties".to_owned(),
+        run("corpus/properties", &PropertiesFormat, &text_operations()),
+    ));
+    sets.push((
+        "env".to_owned(),
+        run("corpus/env", &EnvFormat, &text_operations()),
+    ));
+    let counts: serde_json::Map<String, serde_json::Value> = sets
+        .into_iter()
+        .map(|(name, summary)| (name, serde_json::json!(summary.unsupported)))
+        .collect();
+    serde_json::Value::Object(counts)
+}
+
+#[test]
+fn unsupported_constructs_match_the_recorded_counts() {
+    let actual = unsupported_counts();
+    let path = data().join("data/u03/roundtrip-stats.json");
+    let recorded: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(
+        recorded,
+        actual,
+        "recorded counts differ; current counts:\n{}",
+        serde_json::to_string_pretty(&actual).unwrap()
+    );
+}

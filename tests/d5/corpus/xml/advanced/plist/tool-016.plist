@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Tool 17</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.example.tool17</string>
+	<key>CFBundleVersion</key>
+	<string>1.17</string>
+	<key>Priority</key>
+	<integer>170</integer>
+	<key>Enabled</key>
+	<false/>
+	<key>Tags</key>
+	<array>
+		<string>tool</string>
+		<string>t17</string>
+	</array>
+</dict>
+</plist>

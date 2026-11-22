@@ -17,7 +17,7 @@ use nurt_contracts::error::Result;
 
 use super::tree::{Node, NodeId, XmlTree};
 use super::{CONSTRUCT_ENTITY_REFERENCE, NOTABLE_ENTITY_PREFIX};
-use super::{XmlChange, XmlEdit, doc_parse_error, invalid_value, unsupported};
+use super::{XmlChange, XmlEdit, doc_parse_error, invalid_value, locate, unsupported};
 
 /// Source of replacement text for general entities declared in a document
 /// type definition.
@@ -33,6 +33,15 @@ pub trait EntitySource: Send + Sync {
     /// Returns the error of the definition: limits of expansion, external
     /// or unparsed entities, recursion.
     fn resolve(&self, name: &str) -> Result<Option<String>>;
+
+    /// `true` when the attribute-list declaration of `element` gives
+    /// `attribute` a tokenized type (`ID`, `IDREF`, `IDREFS`, `ENTITY`,
+    /// `ENTITIES`, `NMTOKEN`, `NMTOKENS`, a notation or an enumeration);
+    /// values of such attributes lose leading and trailing spaces and keep
+    /// one space between tokens (XML 1.0, section 3.3.3).
+    fn tokenized(&self, _element: &str, _attribute: &str) -> bool {
+        false
+    }
 }
 
 /// Optional entity source held by a tree.
@@ -278,7 +287,10 @@ impl XmlTree {
         let Some(resolver) = self.resolver() else {
             return Err(self.unresolved_entity(name, at));
         };
-        let Some(text) = resolver.resolve(name)? else {
+        let Some(text) = resolver
+            .resolve(name)
+            .map_err(|error| locate(error, self.text(), at))?
+        else {
             return Err(doc_parse_error(
                 self.text(),
                 at,
@@ -287,17 +299,13 @@ impl XmlTree {
                 ),
             ));
         };
-        if context == Context::Text {
-            return Ok(text);
-        }
-        if text.contains('<') {
-            return Err(doc_parse_error(
-                self.text(),
-                at,
-                format!("entity `{name}` contains `<` and cannot be used in an attribute value"),
-            ));
-        }
-        Ok(text.replace(['\t', '\n', '\r'], " "))
+        // The entity source checks literal `<` in replacement text used in
+        // attributes; the text returned here is already decoded, so a `<`
+        // in it comes from a reference such as `&lt;` and is allowed.
+        Ok(match context {
+            Context::Text => text,
+            Context::Attribute => text.replace(['\t', '\n', '\r'], " "),
+        })
     }
 
     /// Error for an entity reference that cannot be resolved without an
@@ -399,22 +407,36 @@ impl XmlTree {
         Ok(Some(decoded))
     }
 
+    /// CDATA section of a run whose other nodes hold only whitespace.
+    fn sole_cdata(&self, run: &[NodeId]) -> Option<NodeId> {
+        let mut sections = run
+            .iter()
+            .filter(|id| matches!(self.node(**id), Node::CData(_)));
+        let section = sections.next().copied();
+        let blank_text = run.iter().all(|id| match self.node(*id) {
+            Node::Text(text) => trim_xml(&self.text()[text.span.clone()]).is_empty(),
+            _ => true,
+        });
+        section.filter(|_| sections.next().is_none() && blank_text)
+    }
+
     /// Range and markup that replace the value of the text chunk `run`.
     ///
-    /// A single CDATA section keeps its delimiters; a run with CDATA is
-    /// written as one CDATA section, other runs as escaped text.
-    /// Whitespace that surrounds the value stays in place.
+    /// A CDATA section surrounded only by whitespace keeps its delimiters
+    /// and the whitespace inside them; another run with CDATA is written as
+    /// one CDATA section, other runs as escaped text. Whitespace that
+    /// surrounds the value stays in place.
     fn run_replacement(&self, run: &[NodeId], value: &str) -> (Range<usize>, String) {
         let eol = self.style().eol;
-        if let [single] = run {
-            if let Node::CData(cdata) = self.node(*single) {
-                let core = core_range(&self.text()[cdata.content.clone()]);
-                let start = cdata.content.start;
-                return (
-                    start + core.start..start + core.end,
-                    cdata_content(value, eol),
-                );
-            }
+        if let Some(single) = self.sole_cdata(run)
+            && let Node::CData(cdata) = self.node(single)
+        {
+            let core = core_range(&self.text()[cdata.content.clone()]);
+            let start = cdata.content.start;
+            return (
+                start + core.start..start + core.end,
+                cdata_content(value, eol),
+            );
         }
         let (Some(first), Some(last)) = (run.first(), run.last()) else {
             return (0..0, String::new());

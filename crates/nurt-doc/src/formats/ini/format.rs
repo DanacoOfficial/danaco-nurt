@@ -9,6 +9,8 @@
 //! `[PHP]` section `php`, glob sections or a leading `root` key
 //! `editorconfig`; any other content is `generic`.
 
+use std::path::Path;
+
 use nurt_contracts::error::Result;
 use nurt_contracts::keypath::{KeyPath, KeySegment};
 use nurt_contracts::services::DocFormatId;
@@ -82,11 +84,12 @@ const SYSTEMD_SECTIONS: [&str; 18] = [
 const SNIFF_LINES: usize = 64;
 
 /// Key path rules of INI: a key written several times is selected by
-/// index, and names compare without regard to ASCII case in profiles that
-/// fold them.
+/// index. Section names and key names compare without regard to ASCII case
+/// in the profiles that fold them; names of subsections are exact.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct IniSemantics {
-    fold: bool,
+    fold_sections: bool,
+    fold_keys: bool,
 }
 
 impl FormatSemantics for IniSemantics {
@@ -95,15 +98,40 @@ impl FormatSemantics for IniSemantics {
     }
 
     fn name_matches(&self, tree: &DocTree, node: NodeId, name: &str) -> bool {
-        tree[node]
-            .name
-            .as_deref()
-            .is_some_and(|own| own == name || (self.fold && own.eq_ignore_ascii_case(name)))
+        let Some(own) = tree[node].name.as_deref() else {
+            return false;
+        };
+        if own == name {
+            return true;
+        }
+        let fold = if tree[node].kind == NodeKind::Map {
+            let section = tree[node]
+                .parent
+                .is_some_and(|parent| tree[parent].parent.is_none());
+            section && self.fold_sections
+        } else {
+            self.fold_keys
+        };
+        fold && own.eq_ignore_ascii_case(name)
     }
 }
 
-static EXACT: IniSemantics = IniSemantics { fold: false };
-static FOLDED: IniSemantics = IniSemantics { fold: true };
+static EXACT: IniSemantics = IniSemantics {
+    fold_sections: false,
+    fold_keys: false,
+};
+static FOLDED_KEYS: IniSemantics = IniSemantics {
+    fold_sections: false,
+    fold_keys: true,
+};
+static FOLDED_SECTIONS: IniSemantics = IniSemantics {
+    fold_sections: true,
+    fold_keys: false,
+};
+static FOLDED: IniSemantics = IniSemantics {
+    fold_sections: true,
+    fold_keys: true,
+};
 
 /// The format `ini`.
 ///
@@ -187,10 +215,33 @@ impl DocFormat for IniFormat {
     fn open(&self, content: Vec<u8>, _options: &DocOptions) -> Result<Box<dyn DocHandle>> {
         let text = utf8_text(content, &DocFormatId::INI)?;
         let profile = self.profile.unwrap_or_else(|| detect_profile(&text));
-        Ok(Box::new(KeyValueHandle::new(IniDocument::parse(
-            &text, profile,
-        )?)))
+        open_document(&text, profile)
     }
+
+    /// The profile of a format opened without one follows the file name when
+    /// the name implies a dialect, and the content otherwise.
+    fn open_at(
+        &self,
+        path: Option<&Path>,
+        content: Vec<u8>,
+        _options: &DocOptions,
+    ) -> Result<Box<dyn DocHandle>> {
+        let text = utf8_text(content, &DocFormatId::INI)?;
+        let profile = self
+            .profile
+            .or_else(|| {
+                path.and_then(Path::to_str)
+                    .and_then(IniProfile::from_file_name)
+            })
+            .unwrap_or_else(|| detect_profile(&text));
+        open_document(&text, profile)
+    }
+}
+
+fn open_document(text: &str, profile: IniProfile) -> Result<Box<dyn DocHandle>> {
+    Ok(Box::new(KeyValueHandle::new(IniDocument::parse(
+        text, profile,
+    )?)))
 }
 
 /// Profile implied by the sections and the first key of `text`.
@@ -239,10 +290,11 @@ impl Backend for IniDocument {
 
     fn semantics(&self) -> &'static dyn FormatSemantics {
         let rules = self.profile.rules();
-        if rules.fold_section_names || rules.fold_key_names {
-            &FOLDED
-        } else {
-            &EXACT
+        match (rules.fold_section_names, rules.fold_key_names) {
+            (true, true) => &FOLDED,
+            (true, false) => &FOLDED_SECTIONS,
+            (false, true) => &FOLDED_KEYS,
+            (false, false) => &EXACT,
         }
     }
 

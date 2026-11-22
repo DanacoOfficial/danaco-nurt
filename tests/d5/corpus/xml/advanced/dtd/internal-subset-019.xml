@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE chain [
+  <!ENTITY e1 "core">
+  <!ENTITY e2 "&e1;-2">
+  <!ENTITY e3 "&e2;-3">
+  <!ENTITY e4 "&e3;-4">
+  <!ENTITY e5 "&e4;-5">
+  <!ENTITY e6 "&e5;-6">
+  <!ENTITY e7 "&e6;-7">
+  <!ENTITY e8 "&e7;-8">
+]>
+<chain>&e8;</chain>

@@ -1,0 +1,8 @@
+{
+	entitlements = {
+		"com.apple.security.app-sandbox" = YES;
+		"keychain-access-groups" = (
+			"$(AppIdentifierPrefix)com.example.shared",
+		);
+	};
+}

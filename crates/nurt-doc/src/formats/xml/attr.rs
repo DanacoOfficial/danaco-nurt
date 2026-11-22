@@ -12,7 +12,7 @@ use std::ops::Range;
 use nurt_contracts::error::Result;
 
 use super::cdata::{Context, check_representable, escape_attribute};
-use super::ns::{is_valid_name, parse_clark, split_qname};
+use super::ns::{is_name_char, is_valid_name, parse_clark, split_qname};
 use super::tree::{NodeId, XmlTree};
 use super::{CONSTRUCT_NAMESPACE_DECLARATION, XmlChange, XmlEdit, doc_parse_error, invalid_value};
 
@@ -157,9 +157,35 @@ impl XmlTree {
     /// # Ok::<(), nurt_contracts::error::Error>(())
     /// ```
     pub fn attribute_value(&self, attribute: &Attribute) -> Result<String> {
-        Ok(self
+        let value = self
             .decode(attribute.value.clone(), Context::Attribute)?
-            .value)
+            .value;
+        let tokenized = self.resolver().is_some_and(|entities| {
+            entities.tokenized(self.owner_name(attribute), self.attribute_name(attribute))
+        });
+        Ok(if tokenized {
+            value
+                .split(' ')
+                .filter(|token| !token.is_empty())
+                .collect::<Vec<_>>()
+                .join(" ")
+        } else {
+            value
+        })
+    }
+
+    /// Name of the element whose start tag holds `attribute`. Attribute
+    /// values contain no `<`, so the nearest `<` before the attribute opens
+    /// the tag.
+    fn owner_name(&self, attribute: &Attribute) -> &str {
+        let text = self.text();
+        let open = text[..attribute.span.start]
+            .rfind('<')
+            .map_or(0, |at| at + 1);
+        let end = text[open..]
+            .find(|c: char| !is_name_char(c))
+            .map_or(text.len(), |length| open + length);
+        &text[open..end]
     }
 
     /// Qualified name of an attribute as written.

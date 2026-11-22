@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+  <!ENTITY chapter-intro SYSTEM "intro.xml">
+  <!ENTITY company "Example Org">
+]>
+<article>
+  <title>Handbook of &company;</title>
+  &chapter-intro;
+  <section>
+    <title>Contact</title>
+    <para>Write to the office of &company;.</para>
+  </section>
+</article>

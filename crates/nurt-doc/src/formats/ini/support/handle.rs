@@ -24,7 +24,7 @@ use super::flat::scalar_text;
 use super::tree::Node;
 use crate::constructs::{self, DOC_SEMANTIC_MISMATCH};
 use crate::edit::guard::{self, EditPlan, Expectation, ReferenceParser};
-use crate::edit::{ByteEdit, EditReport, diff};
+use crate::edit::{EditReport, diff};
 use crate::model::{
     DocHandle, DocTree, FormatSemantics, NodeId, NodeKind, NodeSpec, SetOptions, Span, TreeBuilder,
     doc_parse, key_not_found,
@@ -172,7 +172,7 @@ impl<B: Backend> KeyValueHandle<B> {
         for target in targets {
             plan.target(target);
         }
-        for edit in line_edits(&self.bytes, &after) {
+        for edit in diff(&self.bytes, &after) {
             plan.edit(edit);
         }
         report.replacements = u64::try_from(count).unwrap_or(u64::MAX);
@@ -263,35 +263,6 @@ impl<B: Backend + std::fmt::Debug> DocHandle for KeyValueHandle<B> {
         }
         self.commit(changed, targets, count, &expectation, EditReport::default())
     }
-}
-
-/// Sentinel bytes appended to the original and to the rewritten text by
-/// [`line_edits`]; they differ, so no common suffix includes them.
-const SENTINELS: (u8, u8) = (0, 1);
-
-/// Byte edits that turn `original` into `rewritten`, with lines aligned
-/// over the whole texts.
-///
-/// [`diff`] drops the bytes both texts share at the end before it aligns
-/// lines; when that shared end is a line break, the last changed line
-/// loses it and no longer matches an equal line, so separate changes such
-/// as two removed occurrences of a repeated key become one edit over the
-/// lines between them. Distinct sentinels at the ends keep every line
-/// whole; the last edit, which always holds them, is trimmed back.
-fn line_edits(original: &[u8], rewritten: &[u8]) -> Vec<ByteEdit> {
-    let mut old = original.to_vec();
-    old.push(SENTINELS.0);
-    let mut new = rewritten.to_vec();
-    new.push(SENTINELS.1);
-    let mut edits = diff(&old, &new);
-    if let Some(last) = edits.last_mut() {
-        last.span.end -= 1;
-        last.replacement.pop();
-        if last.span.start == last.span.end && last.replacement.is_empty() {
-            edits.pop();
-        }
-    }
-    edits
 }
 
 /// Returns `true` for a key of names, indexes and a final `[+]` in one

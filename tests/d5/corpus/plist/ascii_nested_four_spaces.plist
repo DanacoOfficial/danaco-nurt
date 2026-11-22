@@ -1,0 +1,18 @@
+{
+    level1 = {
+        level2 = {
+            items = (
+                {
+                    name = a;
+                    size = 1;
+                },
+                {
+                    name = b;
+                    size = 2;
+                }
+            );
+            flag = YES;
+        };
+    };
+    tail = end;
+}

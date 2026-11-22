@@ -9,11 +9,8 @@
 //! rows with different numbers of fields, blank lines skipped). Changes are
 //! replacements of byte ranges, so the separator, the quote character, the
 //! line terminators, the byte order mark and every unchanged field keep
-//! their bytes.
-//!
-//! The separator is detected among `,`, `;`, tab and `|` unless it is given;
-//! the quote character is `"`, or `'` when the file quotes fields with it
-//! and has no `"`.
+//! their bytes. The separator (`,`, `;`, tab, `|`) and the quote character
+//! (`"`, `'`) are detected unless given.
 //!
 //! # Keys
 //!
@@ -27,11 +24,11 @@
 //! | `[?id == "7"].name` | rows whose value matches the filter |
 //! | `[+]` | row appended after the last one, in the style of the file |
 //!
-//! The header row is not a data row. Cells are text; a number or a truth
-//! value is written in its usual text form. A cell is quoted only when its
-//! text contains the separator, the quote character or a line break, or when
-//! every field of the file is quoted. Removing a cell empties it; removing a
-//! row removes it with its line terminator.
+//! The header row is not a data row. A column without a name, or with the
+//! name of an earlier column, is labelled with its decimal index in row maps
+//! and addressed by index (`[0][2]`). Cells are text, quoted only when
+//! required or when the file quotes every field. Removing a cell empties
+//! it; removing a row removes its line terminator too.
 //!
 //! # Examples
 //!
@@ -59,6 +56,8 @@
 mod dialect;
 mod edit;
 mod errors;
+mod expect;
+mod handle;
 mod resolve;
 mod scan;
 mod table;
@@ -71,8 +70,12 @@ use nurt_contracts::record::Row;
 use nurt_contracts::services::{DocFormatId, DocItem};
 use nurt_contracts::value::{Path, Value};
 
+pub use handle::{CsvFormat, CsvHandle};
+
 use crate::model::{DocTree, NodeKind, NodeSpec, Span, TreeBuilder};
+use crate::registry::DocFormat;
 use edit::Splice;
+use expect::Expected;
 use resolve::{Access, Target};
 use table::Table;
 
@@ -81,6 +84,36 @@ pub const CSV_EXTENSIONS: [&str; 1] = ["csv"];
 
 /// File name extensions of tab-separated files, without the period.
 pub const TSV_EXTENSIONS: [&str; 2] = ["tsv", "tab"];
+
+/// The formats `csv` and `tsv`, in this order, for registration in a
+/// [`Registry`](crate::registry::Registry).
+///
+/// # Examples
+///
+/// ```
+/// use nurt_doc::formats::csv;
+///
+/// let ids: Vec<String> = csv::formats().iter().map(|format| format.id().to_string()).collect();
+/// assert_eq!(ids, ["csv", "tsv"]);
+/// ```
+#[must_use]
+pub fn formats() -> Vec<Box<dyn DocFormat>> {
+    vec![Box::new(CsvFormat::CSV), Box::new(CsvFormat::TSV)]
+}
+
+/// Planned change with what the guards check.
+#[derive(Debug, Clone)]
+pub(crate) struct CsvPlan {
+    /// The change.
+    pub(crate) change: CsvChange,
+    /// Spans of the source the change may alter: the changed rows and the
+    /// insertion points of new rows.
+    pub(crate) targets: Vec<Span>,
+    /// Value of the table after the change.
+    pub(crate) expected: Value,
+    /// Rows and cells changed, created or removed.
+    pub(crate) replacements: u64,
+}
 
 /// Options of [`CsvDocument::parse`], the parameters `header` and
 /// `delimiter` of `read`.
@@ -94,7 +127,10 @@ pub struct CsvOptions {
 
 impl Default for CsvOptions {
     fn default() -> Self {
-        Self { header: true, delimiter: None }
+        Self {
+            header: true,
+            delimiter: None,
+        }
     }
 }
 
@@ -169,7 +205,12 @@ impl CsvDocument {
         let delimiter = options.delimiter.map(delimiter_byte).transpose()?;
         let table = Table::parse(text, options.header, delimiter, default_delimiter)?;
         let tree = build_tree(text, &table);
-        Ok(Self { format: format.clone(), text: text.to_vec(), table, tree })
+        Ok(Self {
+            format: format.clone(),
+            text: text.to_vec(),
+            table,
+            tree,
+        })
     }
 
     /// Format of the document, `csv` or `tsv`.
@@ -199,7 +240,11 @@ impl CsvDocument {
     /// Column names from the header; empty without a header.
     #[must_use]
     pub fn columns(&self) -> Vec<String> {
-        self.table.column_names().into_iter().map(str::to_owned).collect()
+        self.table
+            .column_names()
+            .into_iter()
+            .map(str::to_owned)
+            .collect()
     }
 
     /// Node tree: a list of rows, each a map of cells by column name with a
@@ -241,7 +286,10 @@ impl CsvDocument {
     /// node, for example `a.b`.
     pub fn read(&self, key: &KeyPath) -> Result<Vec<DocItem>> {
         let targets = resolve::resolve(&self.table, &self.tree, key, Access::Read)?;
-        Ok(targets.into_iter().map(|target| self.item(target)).collect())
+        Ok(targets
+            .into_iter()
+            .map(|target| self.item(target))
+            .collect())
     }
 
     /// Change that stores `value` at `key`.
@@ -259,12 +307,7 @@ impl CsvDocument {
     /// not a column and `E_KEY_CONFLICT` for keys that select overlapping
     /// nodes, such as `**`.
     pub fn set(&self, key: &KeyPath, value: &Value) -> Result<CsvChange> {
-        let targets = resolve::resolve(&self.table, &self.tree, key, Access::Write)?;
-        let mut splices = Vec::new();
-        for target in targets {
-            splices.extend(edit::set(&self.table, &self.text, key, target, value)?);
-        }
-        finish(key, splices)
+        Ok(self.plan(key, Some(value))?.change)
     }
 
     /// Change that removes the nodes at `key`: a cell is emptied, a row is
@@ -275,17 +318,70 @@ impl CsvDocument {
     /// Returns the errors of [`CsvDocument::read`] and `E_KEY_CONFLICT` for
     /// the whole table.
     pub fn remove(&self, key: &KeyPath) -> Result<CsvChange> {
-        let targets = resolve::resolve(&self.table, &self.tree, key, Access::Read)?;
+        Ok(self.plan(key, None)?.change)
+    }
+
+    /// Plans storing `value` at `key`, or removing the nodes at `key` when
+    /// `value` is `None`.
+    pub(crate) fn plan(&self, key: &KeyPath, value: Option<&Value>) -> Result<CsvPlan> {
+        let access = if value.is_some() {
+            Access::Write
+        } else {
+            Access::Read
+        };
+        let targets = resolve::resolve(&self.table, &self.tree, key, access)?;
         let mut splices = Vec::new();
+        let mut spans = Vec::new();
+        let mut expected = Expected::new(&self.table);
         for target in targets {
-            splices.extend(edit::remove(&self.table, &self.text, key, target)?);
+            let made = match value {
+                Some(value) => {
+                    expected.set(&self.table, key, target, value)?;
+                    edit::set(&self.table, &self.text, key, target, value)?
+                }
+                None => {
+                    expected.remove(target);
+                    edit::remove(&self.table, &self.text, key, target)?
+                }
+            };
+            spans.extend(self.target_spans(target, &made));
+            splices.extend(made);
         }
-        finish(key, splices)
+        let change = finish(key, splices)?;
+        let replacements = u64::try_from(change.edits.len()).unwrap_or(u64::MAX);
+        Ok(CsvPlan {
+            change,
+            targets: spans,
+            expected: expected.value(),
+            replacements,
+        })
+    }
+
+    /// Spans a change of `target` may alter: the row with its line
+    /// terminator, or the insertion points of a new row.
+    fn target_spans(&self, target: Target, splices: &[Splice]) -> Vec<Span> {
+        let row = match target {
+            Target::Row(row) | Target::Cell { row, .. } => row,
+            Target::Table | Target::NewRow | Target::NewRowCell { .. } => {
+                return splices
+                    .iter()
+                    .map(|splice| Span::new(splice.range.start, splice.range.end))
+                    .collect();
+            }
+        };
+        let record = &self.table.rows()[row];
+        vec![Span::new(
+            record.span.start,
+            record.span.end.max(record.terminator.end),
+        )]
     }
 
     fn item(&self, target: Target) -> DocItem {
         let (value, range) = match target {
-            Target::Table => (self.table.to_value(), Some(self.table.scan.bom..self.text.len())),
+            Target::Table => (
+                self.table.to_value(),
+                Some(self.table.scan.bom..self.text.len()),
+            ),
             Target::Row(row) => {
                 let record = &self.table.rows()[row];
                 (self.table.row_value(record), Some(record.span.clone()))
@@ -299,7 +395,10 @@ impl CsvDocument {
         DocItem {
             key: resolve::canonical_key(&self.table, target),
             value,
-            span: range.map(|range| self.tree.text_span(&self.text, Span::new(range.start, range.end))),
+            span: range.map(|range| {
+                self.tree
+                    .text_span(&self.text, Span::new(range.start, range.end))
+            }),
             comment: None,
             document: None,
             anchor: None,
@@ -330,16 +429,24 @@ fn finish(key: &KeyPath, mut splices: Vec<Splice>) -> Result<CsvChange> {
     for splice in splices {
         if let Some(last) = edits.last_mut() {
             let overlaps = splice.range.start < last.range.end
-                || (splice.range.start == last.range.start && splice.range.is_empty() && last.range.is_empty());
+                || (splice.range.start == last.range.start
+                    && splice.range.is_empty()
+                    && last.range.is_empty());
             if overlaps {
                 if !(last.replacement.is_empty() && splice.text.is_empty()) {
-                    return Err(errors::key_shape(key, "the key selects rows and cells that overlap; select either rows or cells"));
+                    return Err(errors::key_shape(
+                        key,
+                        "the key selects rows and cells that overlap; select either rows or cells",
+                    ));
                 }
                 last.range.end = last.range.end.max(splice.range.end);
                 continue;
             }
         }
-        edits.push(CsvEdit { range: splice.range, replacement: splice.text });
+        edits.push(CsvEdit {
+            range: splice.range,
+            replacement: splice.text,
+        });
     }
     Ok(CsvChange { edits })
 }
@@ -348,13 +455,24 @@ fn finish(key: &KeyPath, mut splices: Vec<Splice>) -> Result<CsvChange> {
 /// header or a list of cells without one.
 fn build_tree(text: &[u8], table: &Table) -> DocTree {
     let mut builder = TreeBuilder::new(text);
-    let root = builder.node(None, NodeSpec::new(NodeKind::List, Span::new(table.scan.bom, text.len())));
-    let row_kind = if table.header { NodeKind::Map } else { NodeKind::List };
+    let root = builder.node(
+        None,
+        NodeSpec::new(NodeKind::List, Span::new(table.scan.bom, text.len())),
+    );
+    let row_kind = if table.header {
+        NodeKind::Map
+    } else {
+        NodeKind::List
+    };
     for record in table.rows() {
-        let row = builder.node(Some(root), NodeSpec::new(row_kind, Span::new(record.span.start, record.span.end)));
+        let row = builder.node(
+            Some(root),
+            NodeSpec::new(row_kind, Span::new(record.span.start, record.span.end)),
+        );
         for (column, field) in record.fields.iter().enumerate() {
-            let mut spec = NodeSpec::new(NodeKind::Scalar, Span::new(field.raw.start, field.raw.end))
-                .with_value(table::field_value(field));
+            let mut spec =
+                NodeSpec::new(NodeKind::Scalar, Span::new(field.raw.start, field.raw.end))
+                    .with_value(table::field_value(field));
             if table.header {
                 spec = spec.with_name(table.column_label(column));
             }

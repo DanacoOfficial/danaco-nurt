@@ -1,0 +1,12 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+		1A2B3C /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4D5E6F /* main.m */; };
+		4D5E6F /* main.m */ = {isa = PBXFileReference; path = main.m; sourceTree = "<group>"; };
+	};
+	rootObject = 0A0B0C /* Project object */;
+}

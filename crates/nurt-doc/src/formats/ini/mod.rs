@@ -271,14 +271,20 @@ fn collect_lines(parsed: &Parsed, node: &Node, out: &mut Vec<usize>) {
 }
 
 /// Builds the key tree: sections are maps under the root, Git subsections
-/// maps under their section, entries leaves.
+/// maps under their section, entries leaves. Section names and key names
+/// fold case as the profile prescribes; subsection names never do.
 fn build_tree(text: &str, parsed: &Parsed, profile: IniProfile) -> Result<Node, Error> {
     let rules = profile.rules();
     let mut root = Map::new(rules.fold_section_names);
     for (id, section) in parsed.sections.iter().enumerate() {
         let mut map = &mut root;
-        for name in &section.path {
-            let node = map.entry(name, || Node::Map(Map::new(rules.fold_key_names)));
+        for (depth, name) in section.path.iter().enumerate() {
+            let make = || Node::Map(Map::new(rules.fold_key_names).with_exact_maps());
+            let node = if depth == 0 {
+                map.entry(name, make)
+            } else {
+                map.entry_exact(name, make)
+            };
             map = match node {
                 Node::Map(child) => child,
                 _ => {

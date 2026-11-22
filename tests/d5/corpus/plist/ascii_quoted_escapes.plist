@@ -1,0 +1,1 @@
+{ path = "C:\\dir"; text = "line\nnext"; uni = "\U00e9"; octal = "\101"; quote = "say \"hi\""; }

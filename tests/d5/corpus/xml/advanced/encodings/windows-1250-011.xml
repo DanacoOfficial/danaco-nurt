@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="windows-1250"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE office [
+  <!ENTITY city "Ústí nad Labem">
+]>
+<office id="O11">
+  <name>„&city;“ office</name>
+  <street>Mírové náměstí</street>
+  <motto title="„quoted“ – dash">Open in &city; – every day</motto>
+</office>

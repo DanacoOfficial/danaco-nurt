@@ -273,10 +273,10 @@ impl XmlTree {
             if let Some(el) = self.element(id) {
                 for attribute in &el.attributes {
                     let name = &self.text()[attribute.name.clone()];
-                    if let Some(Some(prefix)) = declared_prefix(name) {
-                        if !prefixes.iter().any(|known| known == prefix) {
-                            prefixes.push(prefix.to_owned());
-                        }
+                    if let Some(Some(prefix)) = declared_prefix(name)
+                        && !prefixes.iter().any(|known| known == prefix)
+                    {
+                        prefixes.push(prefix.to_owned());
                     }
                 }
             }

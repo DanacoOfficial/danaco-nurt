@@ -1,0 +1,189 @@
+{"path":"third_party/toml/toml-test/valid/array/array-subtables.toml","value":{"arr":[{"subtab":{"val":1}},{"subtab":{"val":2}}]}}
+{"path":"third_party/toml/toml-test/valid/array/array.toml","value":{"ints":[1,2,3],"floats":[1.1,2.1,3.1],"strings":["a","b","c"],"dates":["1987-07-05T17:45:00Z","1979-05-27T07:32:00Z","2006-06-01T11:00:00Z"],"comments":[1,2]}}
+{"path":"third_party/toml/toml-test/valid/array/bool.toml","value":{"a":[true,false]}}
+{"path":"third_party/toml/toml-test/valid/array/empty.toml","value":{"thevoid":[[[[[]]]]]}}
+{"path":"third_party/toml/toml-test/valid/array/hetergeneous.toml","value":{"mixed":[[1,2],["a","b"],[1.1,2.1]]}}
+{"path":"third_party/toml/toml-test/valid/array/mixed-int-array.toml","value":{"arrays-and-ints":[1,["Arrays are not integers."]]}}
+{"path":"third_party/toml/toml-test/valid/array/mixed-int-float.toml","value":{"ints-and-floats":[1,1.1]}}
+{"path":"third_party/toml/toml-test/valid/array/mixed-int-string.toml","value":{"strings-and-ints":["hi",42]}}
+{"path":"third_party/toml/toml-test/valid/array/mixed-string-table.toml","value":{"contributors":["Foo Bar <foo@example.com>",{"name":"Baz Qux","email":"bazqux@example.com","url":"https://example.com/bazqux"}],"mixed":[{"k":"a"},"b",1]}}
+{"path":"third_party/toml/toml-test/valid/array/nested-double.toml","value":{"nest":[[["a"],[1,2,[3]]]]}}
+{"path":"third_party/toml/toml-test/valid/array/nested-inline-table.toml","value":{"a":[{"b":{}}]}}
+{"path":"third_party/toml/toml-test/valid/array/nested.toml","value":{"nest":[["a"],["b"]]}}
+{"path":"third_party/toml/toml-test/valid/array/nospaces.toml","value":{"ints":[1,2,3]}}
+{"path":"third_party/toml/toml-test/valid/array/open-parent-table.toml","value":{"parent-table":{"arr":[{},{}],"not-arr":1}}}
+{"path":"third_party/toml/toml-test/valid/array/string-quote-comma-2.toml","value":{"title":[" \", "]}}
+{"path":"third_party/toml/toml-test/valid/array/string-quote-comma.toml","value":{"title":["Client: \"XXXX\", Job: XXXX","Code: XXXX"]}}
+{"path":"third_party/toml/toml-test/valid/array/string-with-comma-2.toml","value":{"title":["Client: XXXX,\nJob: XXXX","Code: XXXX"]}}
+{"path":"third_party/toml/toml-test/valid/array/string-with-comma.toml","value":{"title":["Client: XXXX, Job: XXXX","Code: XXXX"]}}
+{"path":"third_party/toml/toml-test/valid/array/strings.toml","value":{"string_array":["all","strings","are the same","type"]}}
+{"path":"third_party/toml/toml-test/valid/array/table-array-string-backslash.toml","value":{"foo":[{"bar":"\"{{baz}}\""}]}}
+{"path":"third_party/toml/toml-test/valid/array/trailing-comma.toml","value":{"arr-1":[1],"arr-2":[2,3],"arr-3":[4],"arr-4":[5,6]}}
+{"path":"third_party/toml/toml-test/valid/bool/bool.toml","value":{"t":true,"f":false}}
+{"path":"third_party/toml/toml-test/valid/comment/after-literal-no-ws.toml","error":"Error: json: error calling MarshalJSON for type *yqlib.CandidateNode: json: error calling MarshalJSON for type *yqlib.CandidateNode: json: unsupported value: +Inf"}
+{"path":"third_party/toml/toml-test/valid/comment/at-eof.toml","value":{"key":"value"}}
+{"path":"third_party/toml/toml-test/valid/comment/at-eof2.toml","value":{"key":"value"}}
+{"path":"third_party/toml/toml-test/valid/comment/everywhere.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/comment/everywhere.toml': unsupported type LocalDate"}
+{"path":"third_party/toml/toml-test/valid/comment/noeol.toml","value":null}
+{"path":"third_party/toml/toml-test/valid/comment/nonascii.toml","value":null}
+{"path":"third_party/toml/toml-test/valid/comment/tricky.toml","value":{"section":{"one":"11","two":"22#","three":"#","four":"# no comment\n# nor this\n#also not comment","five":5.5,"six":6,"8":"eight","ten":1000.0,"eleven":11.1},"hash#tag":{"#!":"hash bang","arr3":["#","#","###"],"arr4":[1,2,3,4],"arr5":[[[[["#"]]]]],"tbl1":{"#":"}#"}}}}
+{"path":"third_party/toml/toml-test/valid/datetime/datetime.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/datetime/datetime.toml': parsing time \"1987-07-05 17:45:00Z\": extra text: \" 17:45:00Z\""}
+{"path":"third_party/toml/toml-test/valid/datetime/edge.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/datetime/edge.toml': parsing time \"0001-01-01 00:00:00Z\": extra text: \" 00:00:00Z\""}
+{"path":"third_party/toml/toml-test/valid/datetime/leap-year.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/datetime/leap-year.toml': parsing time \"2000-02-29 15:15:15Z\": extra text: \" 15:15:15Z\""}
+{"path":"third_party/toml/toml-test/valid/datetime/local-date.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/datetime/local-date.toml': unsupported type LocalDate"}
+{"path":"third_party/toml/toml-test/valid/datetime/local-time.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/datetime/local-time.toml': unsupported type LocalTime"}
+{"path":"third_party/toml/toml-test/valid/datetime/local.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/datetime/local.toml': unsupported type LocalDateTime"}
+{"path":"third_party/toml/toml-test/valid/datetime/milliseconds.toml","value":{"utc1":"1987-07-05T17:45:56.123Z","utc2":"1987-07-05T17:45:56.6Z","wita1":"1987-07-05T17:45:56.123+08:00","wita2":"1987-07-05T17:45:56.6+08:00"}}
+{"path":"third_party/toml/toml-test/valid/datetime/no-seconds.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/datetime/no-seconds.toml': unsupported type LocalTime"}
+{"path":"third_party/toml/toml-test/valid/datetime/timezone.toml","value":{"utc":"1987-07-05T17:45:56Z","pdt":"1987-07-05T17:45:56-05:00","nzst":"1987-07-05T17:45:56+12:00","nzdt":"1987-07-05T17:45:56+13:00"}}
+{"path":"third_party/toml/toml-test/valid/empty-file.toml","value":null}
+{"path":"third_party/toml/toml-test/valid/example.toml","value":{"best-day-ever":"1987-07-05T17:45:00Z","numtheory":{"boring":false,"perfection":[6,28,496]}}}
+{"path":"third_party/toml/toml-test/valid/float/exponent.toml","value":{"lower":300.0,"upper":300.0,"neg":0.03,"pos":300.0,"zero":3.0,"pointlower":310.0,"pointupper":310.0,"minustenth":-0.1}}
+{"path":"third_party/toml/toml-test/valid/float/float.toml","value":{"pi":3.14,"pospi":3.14,"negpi":-3.14,"zero-intpart":0.123,"leading-zero-fractional":0.0123}}
+{"path":"third_party/toml/toml-test/valid/float/inf-and-nan.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/float/inf-and-nan.toml': strconv.ParseFloat: parsing \"-nan\": invalid syntax"}
+{"path":"third_party/toml/toml-test/valid/float/long.toml","value":{"longpi":3.141592653589793,"neglongpi":-3.141592653589793}}
+{"path":"third_party/toml/toml-test/valid/float/max-int.toml","value":{"max_float":9007199254740991.0,"min_float":-9007199254740991.0}}
+{"path":"third_party/toml/toml-test/valid/float/underscore.toml","value":{"before":3141.5927,"after":3141.5927,"exponent":300000000000000.0}}
+{"path":"third_party/toml/toml-test/valid/float/zero.toml","value":{"zero":0.0,"signed-pos":0.0,"signed-neg":-0.0,"exponent":0.0,"exponent-two-0":0.0,"exponent-signed-pos":0.0,"exponent-signed-neg":-0.0}}
+{"path":"third_party/toml/toml-test/valid/implicit-and-explicit-after.toml","value":{"a":{"b":{"c":{"answer":42}},"better":43}}}
+{"path":"third_party/toml/toml-test/valid/implicit-and-explicit-before.toml","value":{"a":{"better":43,"b":{"c":{"answer":42}}}}}
+{"path":"third_party/toml/toml-test/valid/implicit-groups.toml","value":{"a":{"b":{"c":{"answer":42}}}}}
+{"path":"third_party/toml/toml-test/valid/inline-table/array-values.toml","value":{"a":{"a":[]},"b":{"a":[1,2],"b":[3,4]}}}
+{"path":"third_party/toml/toml-test/valid/inline-table/array.toml","value":{"arr":[{"a":1},{"a":2}],"people":[{"first_name":"Bruce","last_name":"Springsteen"},{"first_name":"Eric","last_name":"Clapton"},{"first_name":"Bob","last_name":"Seger"}]}}
+{"path":"third_party/toml/toml-test/valid/inline-table/bool.toml","value":{"a":{"a":true,"b":false}}}
+{"path":"third_party/toml/toml-test/valid/inline-table/empty.toml","value":{"empty1":{},"empty2":{},"empty_in_array":[{"not_empty":1},{}],"empty_in_array2":[{},{"not_empty":1}],"many_empty":[{},{},{}],"nested_empty":{"empty":{}},"with_cmt":{}}}
+{"path":"third_party/toml/toml-test/valid/inline-table/end-in-bool.toml","value":{"black":{"python":">3.6","version":">=18.9b0","allow_prereleases":true}}}
+{"path":"third_party/toml/toml-test/valid/inline-table/inline-table.toml","value":{"name":{"first":"Tom","last":"Preston-Werner"},"point":{"x":1,"y":2},"simple":{"a":1},"str-key":{"a":1},"table-array":[{"a":1},{"b":2}]}}
+{"path":"third_party/toml/toml-test/valid/inline-table/key-dotted-1.toml","value":{"a":{"a":{"b":1}},"b":{"a":{"b":1}},"c":{"a":{"b":1}},"d":{"a":{"b":1}},"e":{"a":{"b":1}}}}
+{"path":"third_party/toml/toml-test/valid/inline-table/key-dotted-2.toml","value":{"many":{"dots":{"here":{"dot":{"dot":{"dot":{"a":{"b":{"d":2}}}}}}}}}}
+{"path":"third_party/toml/toml-test/valid/inline-table/key-dotted-3.toml","value":{"tbl":{"a":{"b":{"c":{"d":{"e":1}}}},"x":{"a":{"b":{"c":{"d":{"e":1}}}}}}}}
+{"path":"third_party/toml/toml-test/valid/inline-table/key-dotted-4.toml","value":{"arr":[{"t":{"a":{"b":1}},"T":{"a":{"b":1}}},{"t":{"a":{"b":2}},"T":{"a":{"b":2}}}]}}
+{"path":"third_party/toml/toml-test/valid/inline-table/key-dotted-5.toml","value":{"arr-1":[{"a":{"b":1}}],"arr-2":["str",{"a":{"b":1}}],"arr-3":[{"a":{"b":1}},{"a":{"b":2}}],"arr-4":["str",{"a":{"b":1}},{"a":{"b":2}}]}}
+{"path":"third_party/toml/toml-test/valid/inline-table/key-dotted-6.toml","value":{"top":{"dot":{"dot":[{"dot":{"dot":{"dot":1}}},{"dot":{"dot":{"dot":2}}}]}}}}
+{"path":"third_party/toml/toml-test/valid/inline-table/key-dotted-7.toml","value":{"arr":[{"a":{"b":[{"c":{"d":1}}]}}]}}
+{"path":"third_party/toml/toml-test/valid/inline-table/multiline.toml","value":{"tbl_multiline":{"a":1,"b":"multiline\n","c":"and yet\nanother line","d":4}}}
+{"path":"third_party/toml/toml-test/valid/inline-table/nest.toml","value":{"tbl_tbl_empty":{"tbl_0":{}},"tbl_tbl_val":{"tbl_1":{"one":1}},"tbl_arr_tbl":{"arr_tbl":[{"one":1}]},"arr_tbl_tbl":[{"tbl":{"one":1}}],"arr_arr_tbl_empty":[[{}]],"arr_arr_tbl_val":[[{"one":1}]],"arr_arr_tbls":[[{"one":1},{"two":2}]]}}
+{"path":"third_party/toml/toml-test/valid/inline-table/newline.toml","value":{"trailing-comma-1":{"c":1},"trailing-comma-2":{"c":1},"tbl-1":{"hello":"world","1":2,"arr":[1,2,3],"tbl":{"k":1}},"tbl-2":{"k":"\tHello\n\t"}}}
+{"path":"third_party/toml/toml-test/valid/inline-table/spaces.toml","value":{"clap-1":{"version":"4","features":["derive","cargo"]},"clap-2":{"version":"4","features":["derive","cargo"],"nest":{"a":"x","b":[1.5,9.0]}}}}
+{"path":"third_party/toml/toml-test/valid/integer/float64-max.toml","value":{"max_int":9007199254740991,"min_int":-9007199254740991}}
+{"path":"third_party/toml/toml-test/valid/integer/integer.toml","value":{"answer":42,"posanswer":42,"neganswer":-42,"zero":0}}
+{"path":"third_party/toml/toml-test/valid/integer/literals.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/integer/literals.toml': strconv.ParseInt: parsing \"0b11010110\": invalid syntax"}
+{"path":"third_party/toml/toml-test/valid/integer/long.toml","value":{"int64-max":9223372036854775807,"int64-max-neg":-9223372036854775808}}
+{"path":"third_party/toml/toml-test/valid/integer/underscore.toml","value":{"kilo":1000,"x":1111}}
+{"path":"third_party/toml/toml-test/valid/integer/zero.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/integer/zero.toml': strconv.ParseInt: parsing \"0b0\": invalid syntax"}
+{"path":"third_party/toml/toml-test/valid/key/alphanum.toml","value":{"alpha":"a","123":"num","000111":"leading","10e3":"false float","one1two2":"mixed","with-dash":"dashed","under_score":"___","34-11":23,"2018_10":{"001":1},"a-a-a":{"_":false}}}
+{"path":"third_party/toml/toml-test/valid/key/case-sensitive.toml","value":{"sectioN":"NN","section":{"name":"lower","NAME":"upper","Name":"capitalized"},"Section":{"name":"different section!!","μ":"greek small letter mu","Μ":"greek capital letter MU","M":"latin letter M"}}}
+{"path":"third_party/toml/toml-test/valid/key/dotted-1.toml","value":{"name":{"first":"Arthur","last":"Dent"},"many":{"dots":{"dot":{"dot":{"dot":42}}}}}}
+{"path":"third_party/toml/toml-test/valid/key/dotted-2.toml","value":{"count":{"a":1,"b":2,"c":3,"d":4,"e":5,"f":6,"g":7,"h":8,"i":9,"j":10,"k":11,"l":12}}}
+{"path":"third_party/toml/toml-test/valid/key/dotted-3.toml","value":{"top":{"key":1},"tbl":{"a":{"b":{"c":42.666}}},"a":{"few":{"dots":{"polka":{"dot":"again?","dance-with":"Dot"}}}}}}
+{"path":"third_party/toml/toml-test/valid/key/dotted-4.toml","value":{"top":{"key":1},"arr":[{"a":{"b":{"c":1,"d":2}}},{"a":{"b":{"c":3,"d":4}}}]}}
+{"path":"third_party/toml/toml-test/valid/key/dotted-empty.toml","value":{"":{"x":"empty.x"},"x":{"":"x.empty"},"a":{"":{"":"empty.empty"}}}}
+{"path":"third_party/toml/toml-test/valid/key/empty-1.toml","value":{"":"blank"}}
+{"path":"third_party/toml/toml-test/valid/key/empty-2.toml","value":{"":"blank"}}
+{"path":"third_party/toml/toml-test/valid/key/empty-3.toml","value":{"":0}}
+{"path":"third_party/toml/toml-test/valid/key/equals-nospace.toml","value":{"answer":42}}
+{"path":"third_party/toml/toml-test/valid/key/escapes.toml","value":{"\n":"newline","\b":"bell","À":"latin capital letter A with grave","\"":"just a quote","backsp\b\b":{},"\"quoted\"":{"quote":true},"a.b":{"À":{}}}}
+{"path":"third_party/toml/toml-test/valid/key/numeric-dotted.toml","value":{"1":{"2":3}}}
+{"path":"third_party/toml/toml-test/valid/key/numeric.toml","value":{"1":1}}
+{"path":"third_party/toml/toml-test/valid/key/quoted-dots.toml","value":{"plain":1,"with.dot":2,"plain_table":{"plain":3,"with.dot":4},"table":{"withdot":{"plain":5,"key.with.dots":6}}}}
+{"path":"third_party/toml/toml-test/valid/key/quoted-unicode.toml","value":{"\u0000":"null","\\u0000":"different key","\b \f A   ÿ ퟿  ￿ 𐀀 􏿿":"escaped key","~  ÿ ퟿  ￿ 𐀀 􏿿":"basic key","l ~  ÿ ퟿  ￿ 𐀀 􏿿":"literal key"}}
+{"path":"third_party/toml/toml-test/valid/key/space.toml","value":{"a b":1," c d ":2," tbl ":{"\ttab\ttab\t":"tab"}}}
+{"path":"third_party/toml/toml-test/valid/key/special-chars.toml","value":{"=~!@$^&*()_+-`1234567890[]|/?><.,;:'=":1}}
+{"path":"third_party/toml/toml-test/valid/key/special-word.toml","value":{"false":false,"true":1,"inf":100000000,"nan":"ceci n'est pas un nombre"}}
+{"path":"third_party/toml/toml-test/valid/key/start.toml","value":{"-key":{"-key":1},"_key":{"_key":2},"1key":{"1key":3},"-":{"-":4},"_":{"_":5},"1":{"1":6},"---":{"---":7},"___":{"___":8},"111":{"111":9},"inline":{"---":{"---":10,"___":11,"111":12}}}}
+{"path":"third_party/toml/toml-test/valid/key/zero.toml","value":{"0":0}}
+{"path":"third_party/toml/toml-test/valid/newline-crlf.toml","value":{"os":"DOS","newline":"crlf"}}
+{"path":"third_party/toml/toml-test/valid/newline-lf.toml","value":{"os":"unix","newline":"lf"}}
+{"path":"third_party/toml/toml-test/valid/spec-example-1-compact.toml","value":{"title":"TOML Example","owner":{"name":"Lance Uppercut","dob":"1979-05-27T07:32:00-08:00"},"database":{"server":"192.168.1.1","ports":[8001,8001,8002],"connection_max":5000,"enabled":true},"servers":{"alpha":{"ip":"10.0.0.1","dc":"eqdc10"},"beta":{"ip":"10.0.0.2","dc":"eqdc10"}},"clients":{"data":[["gamma","delta"],[1,2]],"hosts":["alpha","omega"]}}}
+{"path":"third_party/toml/toml-test/valid/spec-example-1.toml","value":{"title":"TOML Example","owner":{"name":"Lance Uppercut","dob":"1979-05-27T07:32:00-08:00"},"database":{"server":"192.168.1.1","ports":[8001,8001,8002],"connection_max":5000,"enabled":true},"servers":{"alpha":{"ip":"10.0.0.1","dc":"eqdc10"},"beta":{"ip":"10.0.0.2","dc":"eqdc10"}},"clients":{"data":[["gamma","delta"],[1,2]],"hosts":["alpha","omega"]}}}
+{"path":"third_party/toml/toml-test/valid/spec/array-0.toml","value":{"integers":[1,2,3],"colors":["red","yellow","green"],"nested_arrays_of_ints":[[1,2],[3,4,5]],"nested_mixed_array":[[1,2],["a","b","c"]],"string_array":["all","strings","are the same","type"],"numbers":[0.1,0.2,0.5,1,2,5],"contributors":["Foo Bar <foo@example.com>",{"name":"Baz Qux","email":"bazqux@example.com","url":"https://example.com/bazqux"}]}}
+{"path":"third_party/toml/toml-test/valid/spec/array-1.toml","value":{"integers2":[1,2,3],"integers3":[1,2]}}
+{"path":"third_party/toml/toml-test/valid/spec/array-of-tables-0.toml","value":{"products":[{"name":"Hammer","sku":738594937},{},{"name":"Nail","sku":284758393,"color":"gray"}]}}
+{"path":"third_party/toml/toml-test/valid/spec/array-of-tables-1.toml","value":{"fruits":[{"name":"apple","physical":{"color":"red","shape":"round"},"varieties":[{"name":"red delicious"},{"name":"granny smith"}]},{"name":"banana","varieties":[{"name":"plantain"}]}]}}
+{"path":"third_party/toml/toml-test/valid/spec/array-of-tables-2.toml","value":{"points":[{"x":1,"y":2,"z":3},{"x":7,"y":8,"z":9},{"x":2,"y":4,"z":8}]}}
+{"path":"third_party/toml/toml-test/valid/spec/boolean-0.toml","value":{"bool1":true,"bool2":false}}
+{"path":"third_party/toml/toml-test/valid/spec/comment-0.toml","value":{"key":"value","another":"# This is not a comment"}}
+{"path":"third_party/toml/toml-test/valid/spec/float-0.toml","value":{"flt1":1.0,"flt2":3.1415,"flt3":-0.01,"flt4":5e+22,"flt5":1000000.0,"flt6":-0.02,"flt7":6.626e-34}}
+{"path":"third_party/toml/toml-test/valid/spec/float-1.toml","value":{"flt8":224617.445991228}}
+{"path":"third_party/toml/toml-test/valid/spec/float-2.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/spec/float-2.toml': strconv.ParseFloat: parsing \"+nan\": invalid syntax"}
+{"path":"third_party/toml/toml-test/valid/spec/inline-table-0.toml","value":{"name":{"first":"Tom","last":"Preston-Werner"},"point":{"x":1,"y":2},"animal":{"type":{"name":"pug"}}}}
+{"path":"third_party/toml/toml-test/valid/spec/inline-table-1.toml","value":{"name":{"first":"Tom","last":"Preston-Werner"},"point":{"x":1,"y":2},"animal":{"type":{"name":"pug"}}}}
+{"path":"third_party/toml/toml-test/valid/spec/inline-table-2.toml","value":{"product":{"type":{"name":"Nail"}}}}
+{"path":"third_party/toml/toml-test/valid/spec/inline-table-3.toml","value":{"product":{"type":{"name":"Nail"}}}}
+{"path":"third_party/toml/toml-test/valid/spec/integer-0.toml","value":{"int1":99,"int2":42,"int3":0,"int4":-17}}
+{"path":"third_party/toml/toml-test/valid/spec/integer-1.toml","value":{"int5":1000,"int6":5349221,"int7":5349221,"int8":12345}}
+{"path":"third_party/toml/toml-test/valid/spec/integer-2.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/spec/integer-2.toml': strconv.ParseInt: parsing \"0b11010110\": invalid syntax"}
+{"path":"third_party/toml/toml-test/valid/spec/key-value-pair-0.toml","value":{"key":"value"}}
+{"path":"third_party/toml/toml-test/valid/spec/keys-0.toml","value":{"key":"value","bare_key":"value","bare-key":"value","1234":"value"}}
+{"path":"third_party/toml/toml-test/valid/spec/keys-1.toml","value":{"127.0.0.1":"value","character encoding":"value","ʎǝʞ":"value","key2":"value","quoted \"value\"":"value"}}
+{"path":"third_party/toml/toml-test/valid/spec/keys-3.toml","value":{"name":"Orange","physical":{"color":"orange","shape":"round"},"site":{"google.com":true}}}
+{"path":"third_party/toml/toml-test/valid/spec/keys-4.toml","value":{"fruit":{"name":"banana","color":"yellow","flavor":"banana"}}}
+{"path":"third_party/toml/toml-test/valid/spec/keys-5.toml","value":{"apple":{"type":"fruit","skin":"thin","color":"red"},"orange":{"type":"fruit","skin":"thick","color":"orange"}}}
+{"path":"third_party/toml/toml-test/valid/spec/keys-6.toml","value":{"apple":{"type":"fruit","skin":"thin","color":"red"},"orange":{"type":"fruit","skin":"thick","color":"orange"}}}
+{"path":"third_party/toml/toml-test/valid/spec/keys-7.toml","value":{"3":{"14159":"pi"}}}
+{"path":"third_party/toml/toml-test/valid/spec/local-date-0.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/spec/local-date-0.toml': unsupported type LocalDate"}
+{"path":"third_party/toml/toml-test/valid/spec/local-date-time-0.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/spec/local-date-time-0.toml': unsupported type LocalDateTime"}
+{"path":"third_party/toml/toml-test/valid/spec/local-time-0.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/spec/local-time-0.toml': unsupported type LocalTime"}
+{"path":"third_party/toml/toml-test/valid/spec/offset-date-time-0.toml","value":{"odt1":"1979-05-27T07:32:00Z","odt2":"1979-05-27T00:32:00-07:00","odt3":"1979-05-27T00:32:00.999-07:00"}}
+{"path":"third_party/toml/toml-test/valid/spec/offset-date-time-1.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/spec/offset-date-time-1.toml': parsing time \"1979-05-27 07:32:00Z\": extra text: \" 07:32:00Z\""}
+{"path":"third_party/toml/toml-test/valid/spec/string-0.toml","value":{"str":"I'm a string. \"You can quote me\". Name\tJosé\nLocation\tSF."}}
+{"path":"third_party/toml/toml-test/valid/spec/string-1.toml","value":{"str1":"Roses are red\nViolets are blue"}}
+{"path":"third_party/toml/toml-test/valid/spec/string-2.toml","value":{"str2":"Roses are red\nViolets are blue","str3":"Roses are red\r\nViolets are blue"}}
+{"path":"third_party/toml/toml-test/valid/spec/string-3.toml","value":{"str1":"The quick brown fox jumps over the lazy dog.","str2":"The quick brown fox jumps over the lazy dog.","str3":"The quick brown fox jumps over the lazy dog."}}
+{"path":"third_party/toml/toml-test/valid/spec/string-4.toml","value":{"str4":"Here are two quotation marks: \"\". Simple enough.","str5":"Here are three quotation marks: \"\"\".","str6":"Here are fifteen quotation marks: \"\"\"\"\"\"\"\"\"\"\"\"\"\"\".","str7":"\"This,\" she said, \"is just a pointless statement.\""}}
+{"path":"third_party/toml/toml-test/valid/spec/string-5.toml","value":{"winpath":"C:\\Users\\nodejs\\templates","winpath2":"\\\\ServerX\\admin$\\system32\\","quoted":"Tom \"Dubs\" Preston-Werner","regex":"<\\i\\c*\\s*>"}}
+{"path":"third_party/toml/toml-test/valid/spec/string-6.toml","value":{"regex2":"I [dw]on't need \\d{2} apples","lines":"The first newline is\ntrimmed in raw strings.\n   All other whitespace\n   is preserved.\n"}}
+{"path":"third_party/toml/toml-test/valid/spec/string-7.toml","value":{"quot15":"Here are fifteen quotation marks: \"\"\"\"\"\"\"\"\"\"\"\"\"\"\"","apos15":"Here are fifteen apostrophes: '''''''''''''''","str":"'That,' she said, 'is still pointless.'"}}
+{"path":"third_party/toml/toml-test/valid/spec/table-0.toml","value":{"table":{}}}
+{"path":"third_party/toml/toml-test/valid/spec/table-1.toml","value":{"table-1":{"key1":"some string","key2":123},"table-2":{"key1":"another string","key2":456}}}
+{"path":"third_party/toml/toml-test/valid/spec/table-2.toml","value":{"dog":{"tater.man":{"type":{"name":"pug"}}}}}
+{"path":"third_party/toml/toml-test/valid/spec/table-3.toml","value":{"a":{"b":{"c":{}}},"d":{"e":{"f":{}}},"g":{"h":{"i":{}}},"j":{"ʞ":{"l":{}}}}}
+{"path":"third_party/toml/toml-test/valid/spec/table-4.toml","value":{"x":{"y":{"z":{"w":{}}}}}}
+{"path":"third_party/toml/toml-test/valid/spec/table-5.toml","value":{"fruit":{"apple":{},"orange":{}},"animal":{}}}
+{"path":"third_party/toml/toml-test/valid/spec/table-6.toml","value":{"fruit":{"apple":{},"orange":{}},"animal":{}}}
+{"path":"third_party/toml/toml-test/valid/spec/table-7.toml","error":"Error: bad file 'third_party/toml/toml-test/valid/spec/table-7.toml': unsupported type LocalDate"}
+{"path":"third_party/toml/toml-test/valid/spec/table-8.toml","value":{"fruit":{"apple":{"color":"red","taste":{"sweet":true}}}}}
+{"path":"third_party/toml/toml-test/valid/spec/table-9.toml","value":{"fruit":{"apple":{"color":"red","taste":{"sweet":true},"texture":{"smooth":true}}}}}
+{"path":"third_party/toml/toml-test/valid/string/double-quote-escape.toml","value":{"test":"\"one\""}}
+{"path":"third_party/toml/toml-test/valid/string/empty.toml","value":{"answer":""}}
+{"path":"third_party/toml/toml-test/valid/string/ends-in-whitespace-escape.toml","value":{"beee":"heeee\ngeeee"}}
+{"path":"third_party/toml/toml-test/valid/string/escape-esc.toml","value":{"esc":"\u001b There is no escape! \u001b"}}
+{"path":"third_party/toml/toml-test/valid/string/escape-tricky.toml","value":{"end_esc":"String does not end here\" but ends here\\","lit_end_esc":"String ends here\\","multiline_unicode":" ","multiline_not_unicode":"\\u0041","multiline_end_esc":"When will it end? \"\"\"...\"\"\" should be here\"","lit_multiline_not_unicode":"\\u007f","lit_multiline_end":"There is no escape\\"}}
+{"path":"third_party/toml/toml-test/valid/string/escaped-escape.toml","value":{"answer":"\\x64"}}
+{"path":"third_party/toml/toml-test/valid/string/escapes.toml","value":{"backspace":"|\b.","tab":"|\t.","newline":"|\n.","formfeed":"|\f.","carriage":"|\r.","quote":"|\".","backslash":"|\\.","delete":"|.","unitseparator":"|\u001f.","notunicode1":"|\\u.","notunicode2":"|\\u.","notunicode3":"|\\u0075.","notunicode4":"|\\u."}}
+{"path":"third_party/toml/toml-test/valid/string/hex-escape.toml","value":{"whitespace":"  \t \u001b \r\n","bs":"","nul":"\u0000","hello":"hello\n","higher-than-127":"Sørmirbæren","multiline":"  \t \u001b \r\n\n\n\u0000\nhello\n\nSørmirbæren\n","literal":"\\x20 \\x09 \\x0d\\x0a","multiline-literal":"\\x20 \\x09 \\x0d\\x0a\n"}}
+{"path":"third_party/toml/toml-test/valid/string/multiline-empty.toml","value":{"empty-1":"","empty-2":"","empty-3":"","empty-4":""}}
+{"path":"third_party/toml/toml-test/valid/string/multiline-escaped-crlf.toml","value":{"0":""}}
+{"path":"third_party/toml/toml-test/valid/string/multiline-quotes.toml","value":{"lit_one":"'one quote'","lit_two":"''two quotes''","lit_one_space":" 'one quote' ","lit_two_space":" ''two quotes'' ","one":"\"one quote\"","two":"\"\"two quotes\"\"","one_space":" \"one quote\" ","two_space":" \"\"two quotes\"\" ","mismatch1":"aaa'''bbb","mismatch2":"aaa\"\"\"bbb","escaped":"lol\"\"\"","five-quotes":"Closing with five quotes\n\"\"","four-quotes":"Closing with four quotes\n\""}}
+{"path":"third_party/toml/toml-test/valid/string/multiline.toml","value":{"equivalent_one":"The quick brown fox jumps over the lazy dog.","equivalent_two":"The quick brown fox jumps over the lazy dog.","equivalent_three":"The quick brown fox jumps over the lazy dog.","whitespace-after-bs":"The quick brown fox jumps over the lazy dog.","no-space":"ab","keep-ws-before":"a   \tb","escape-bs-1":"a \\\nb","escape-bs-2":"a \\b","escape-bs-3":"a \\\\\n  b"}}
+{"path":"third_party/toml/toml-test/valid/string/nl.toml","value":{"nl_mid":"val\nue","nl_end":"value\n","lit_nl_end":"value\\n","lit_nl_mid":"val\\nue","lit_nl_uni":"val\\ue"}}
+{"path":"third_party/toml/toml-test/valid/string/quoted-unicode.toml","value":{"escaped_string":"\u0000 \b \f A   ÿ ퟿  ￿ 𐀀 􏿿","not_escaped_string":"\\u0000 \\u0008 \\u000c \\U00000041 \\u007f \\u0080 \\u00ff \\ud7ff \\ue000 \\uffff \\U00010000 \\U0010ffff","basic_string":"~  ÿ ퟿  ￿ 𐀀 􏿿","literal_string":"~  ÿ ퟿  ￿ 𐀀 􏿿"}}
+{"path":"third_party/toml/toml-test/valid/string/raw-multiline.toml","value":{"oneline":"This string has a ' quote character.","firstnl":"This string has a ' quote character.","multiline":"This string\nhas ' a quote character\nand more than\none newline\nin it.","multiline_with_tab":"First line\n\t Followed by a tab","this-str-has-apostrophes":"' there's one already\n'' two more\n''"}}
+{"path":"third_party/toml/toml-test/valid/string/raw.toml","value":{"backspace":"This string has a \\b backspace character.","tab":"This string has a \\t tab character.","unescaped_tab":"This string has an \t unescaped tab character.","newline":"This string has a \\n new line character.","formfeed":"This string has a \\f form feed character.","carriage":"This string has a \\r carriage return character.","slash":"This string has a \\/ slash character.","backslash":"This string has a \\\\ backslash character."}}
+{"path":"third_party/toml/toml-test/valid/string/simple.toml","value":{"answer":"You are not drinking enough whisky."}}
+{"path":"third_party/toml/toml-test/valid/string/start-mb.toml","value":{"s1":"§","s2":"§","s3":"§","s4":"§","s5":"§","s6":"§","s7":"§"}}
+{"path":"third_party/toml/toml-test/valid/string/unicode-escape.toml","value":{"delta-1":"δ","delta-2":"δ","a":"a","b":"b","c":"c","null-1":"\u0000","null-2":"\u0000","ml-delta-1":"δ","ml-delta-2":"δ","ml-a":"a","ml-b":"b","ml-c":"c","ml-null-1":"\u0000","ml-null-2":"\u0000"}}
+{"path":"third_party/toml/toml-test/valid/string/unicode-literal.toml","value":{"answer":"δ"}}
+{"path":"third_party/toml/toml-test/valid/string/with-pound.toml","value":{"pound":"We see no # comments here.","poundcomment":"But there are # some comments here."}}
+{"path":"third_party/toml/toml-test/valid/table/array-implicit-and-explicit-after.toml","value":{"a":{"b":[{"x":1}],"y":2}}}
+{"path":"third_party/toml/toml-test/valid/table/array-implicit.toml","value":{"albums":{"songs":[{"name":"Glory Days"}]}}}
+{"path":"third_party/toml/toml-test/valid/table/array-many.toml","value":{"people":[{"first_name":"Bruce","last_name":"Springsteen"},{"first_name":"Eric","last_name":"Clapton"},{"first_name":"Bob","last_name":"Seger"}]}}
+{"path":"third_party/toml/toml-test/valid/table/array-nest.toml","value":{"albums":[{"name":"Born to Run","songs":[{"name":"Jungleland"},{"name":"Meeting Across the River"}]},{"name":"Born in the USA","songs":[{"name":"Glory Days"},{"name":"Dancing in the Dark"}]}]}}
+{"path":"third_party/toml/toml-test/valid/table/array-one.toml","value":{"people":[{"first_name":"Bruce","last_name":"Springsteen"}]}}
+{"path":"third_party/toml/toml-test/valid/table/array-table-array.toml","value":{"a":[{"b":[{"c":{"d":"val0"}},{"c":{"d":"val1"}}]}]}}
+{"path":"third_party/toml/toml-test/valid/table/array-within-dotted.toml","value":{"fruit":{"apple":{"color":"red","seeds":[{"size":2}]}}}}
+{"path":"third_party/toml/toml-test/valid/table/empty-name.toml","value":{"":{"x":1,"a":{"x":2}},"a":{"":{"x":3}}}}
+{"path":"third_party/toml/toml-test/valid/table/empty.toml","value":{"a":{}}}
+{"path":"third_party/toml/toml-test/valid/table/keyword-with-values.toml","value":{"true":{"k":1},"false":{"k":2},"inf":{"k":3},"nan":{"k":4}}}
+{"path":"third_party/toml/toml-test/valid/table/keyword.toml","value":{"true":{},"false":{},"inf":{},"nan":{}}}
+{"path":"third_party/toml/toml-test/valid/table/names-with-values.toml","value":{"a":{"b":{"c":{"key":1}},"b.c":{"key":2},"d.e":{"key":3}," x ":{"key":4}},"d":{"e":{"f":{"key":5}}},"g":{"h":{"i":{"key":6}}},"j":{"ʞ":{"l":{"key":7}}},"x":{"1":{"2":{"key":8}}}}}
+{"path":"third_party/toml/toml-test/valid/table/names.toml","value":{"a":{"b":{"c":{}},"b.c":{},"d.e":{}," x ":{}},"d":{"e":{"f":{}}},"g":{"h":{"i":{}}},"j":{"ʞ":{"l":{}}},"x":{"1":{"2":{}}}}}
+{"path":"third_party/toml/toml-test/valid/table/no-eol.toml","value":{"table":{}}}
+{"path":"third_party/toml/toml-test/valid/table/sub-empty.toml","value":{"a":{"b":{}}}}
+{"path":"third_party/toml/toml-test/valid/table/sub.toml","value":{"a":{"key":1,"extend":{"key":2,"more":{"key":3}}}}}
+{"path":"third_party/toml/toml-test/valid/table/whitespace.toml","value":{"valid key":{}}}
+{"path":"third_party/toml/toml-test/valid/table/with-literal-string.toml","value":{"a":{"\"b\"":{"c":{"answer":42}}}}}
+{"path":"third_party/toml/toml-test/valid/table/with-pound.toml","value":{"key#group":{"answer":42}}}
+{"path":"third_party/toml/toml-test/valid/table/with-single-quotes.toml","value":{"a":{"b":{"c":{"answer":42}}}}}
+{"path":"third_party/toml/toml-test/valid/table/without-super-with-values.toml","value":{"x":{"y":{"z":{"w":{"a":1,"b":2}}},"c":3,"d":4}}}
+{"path":"third_party/toml/toml-test/valid/table/without-super.toml","value":{"x":{"y":{"z":{"w":{}}}}}}

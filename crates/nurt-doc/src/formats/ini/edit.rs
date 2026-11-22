@@ -345,7 +345,11 @@ impl<'a> Planner<'a> {
                 .push(Splice::new(entry.value_range.clone(), encoded));
         } else {
             let separator = self.separator_near(Some(entry.section));
-            self.insert(entry.name_range.end, &format!("{separator}{encoded}"));
+            let name = &self.text()[entry.name_range.clone()];
+            self.plan.splices.push(Splice::new(
+                entry.name_range.clone(),
+                format!("{name}{separator}{encoded}"),
+            ));
         }
         Ok(())
     }
@@ -855,8 +859,14 @@ pub(crate) fn apply_and_verify(doc: &IniDocument, plan: &Plan) -> Result<Option<
         )
     };
     let parsed = parse(&text, doc.profile).map_err(|_| failed())?;
-    let old_ranges: Vec<Range<usize>> = owned.iter().map(|s| s.range.clone()).collect();
-    let new_ranges = shifted_ranges(&owned);
+    let old_ranges: Vec<Touch> = owned
+        .iter()
+        .map(|s| Touch {
+            range: s.range.clone(),
+            inline: s.range.is_empty() && !s.text.contains(['\n', '\r']),
+        })
+        .collect();
+    let new_ranges = shifted_ranges(doc, &owned);
     let fold = doc.profile.rules().fold_key_names;
     let (old_kept, _) = partition(&doc.parsed, &old_ranges, fold);
     let (new_kept, mut new_changed) = partition(&parsed, &new_ranges, fold);
@@ -870,8 +880,17 @@ pub(crate) fn apply_and_verify(doc: &IniDocument, plan: &Plan) -> Result<Option<
     }
 }
 
+/// Range of a change as it touches the entries of a document.
+struct Touch {
+    range: Range<usize>,
+    /// The range is empty because text inside a line was inserted into an
+    /// empty value or a value inside a line was replaced by nothing; the
+    /// entry that ends there is changed.
+    inline: bool,
+}
+
 /// Ranges of the replacement texts in the changed document.
-fn shifted_ranges(splices: &[Splice]) -> Vec<Range<usize>> {
+fn shifted_ranges(doc: &IniDocument, splices: &[Splice]) -> Vec<Touch> {
     let mut order: Vec<&Splice> = splices.iter().collect();
     order.sort_by_key(|s| (s.range.start, s.range.end));
     let mut delta: isize = 0;
@@ -882,23 +901,27 @@ fn shifted_ranges(splices: &[Splice]) -> Vec<Range<usize>> {
             let removed = isize::try_from(splice.range.len()).unwrap_or(isize::MAX);
             let added = isize::try_from(splice.text.len()).unwrap_or(isize::MAX);
             delta += added - removed;
-            start..start + splice.text.len()
+            let inline = splice.text.is_empty()
+                && !splice.range.is_empty()
+                && !doc.text[splice.range.clone()].contains(['\n', '\r']);
+            Touch {
+                range: start..start + splice.text.len(),
+                inline,
+            }
         })
         .collect()
 }
 
 /// Splits the entries into those outside every changed range and those
-/// touching one.
-fn partition(
-    parsed: &Parsed,
-    ranges: &[Range<usize>],
-    fold: bool,
-) -> (Vec<Signature>, Vec<Signature>) {
+/// touching one. The line break that ends an entry is not part of it, so a
+/// line break added or removed at the end of the document does not make the
+/// last entry count as changed.
+fn partition(parsed: &Parsed, ranges: &[Touch], fold: bool) -> (Vec<Signature>, Vec<Signature>) {
     let mut kept = Vec::new();
     let mut changed = Vec::new();
     for entry in &parsed.entries {
-        let span = parsed.lines[entry.first_line].start..parsed.lines[entry.last_line].end;
-        let touched = ranges.iter().any(|r| overlaps(&span, r));
+        let span = parsed.lines[entry.first_line].start..parsed.lines[entry.last_line].content_end;
+        let touched = ranges.iter().any(|touch| overlaps(&span, touch));
         let name = if fold {
             entry.name.to_ascii_lowercase()
         } else {
@@ -920,10 +943,13 @@ fn partition(
 
 /// Returns `true` when a change range touches a line span; an insertion
 /// touches the span when it falls strictly inside it.
-fn overlaps(span: &Range<usize>, change: &Range<usize>) -> bool {
-    if change.is_empty() {
-        span.start < change.start && change.start < span.end
-    } else {
+fn overlaps(span: &Range<usize>, touch: &Touch) -> bool {
+    let change = &touch.range;
+    if !change.is_empty() {
         span.start < change.end && change.start < span.end
+    } else if touch.inline {
+        span.start <= change.start && change.start <= span.end
+    } else {
+        span.start < change.start && change.start < span.end
     }
 }
