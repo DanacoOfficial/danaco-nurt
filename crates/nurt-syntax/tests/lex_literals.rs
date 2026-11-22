@@ -86,7 +86,7 @@ fn rejects_malformed_hexadecimal_integers() {
 fn rejects_letters_directly_after_a_number() {
     let error = error("20abc");
     assert_eq!(error.problem, "letters_after_number");
-    assert_eq!((error.at.column, error.at.length), (1, Some(5)));
+    assert_eq!((error.at.column, error.at.length), (Some(1), Some(5)));
     assert!(error.fix.is_empty());
 }
 
@@ -282,7 +282,11 @@ fn rejects_invalid_escapes_at_their_position() {
         let error = decode_text(src).unwrap_err();
         assert_eq!(error.code, ErrorCode::Escape, "{src}");
         assert_eq!(error.problem, problem, "{src}");
-        assert_eq!((error.at.line, error.at.column), (1, column), "{src}");
+        assert_eq!(
+            (error.at.line, error.at.column),
+            (Some(1), Some(column)),
+            "{src}"
+        );
         assert_eq!(error.at.length, Some(length), "{src}");
         let lexed = self::error(src);
         assert_eq!(lexed.at, error.at, "{src}");
@@ -306,7 +310,7 @@ fn rejects_an_unterminated_text_at_its_opening_quote() {
     assert_eq!(error.problem, "unterminated_text");
     assert_eq!(
         (error.at.line, error.at.column, error.at.length),
-        (1, 6, Some(4))
+        (Some(1), Some(6), Some(4))
     );
     assert_eq!(error.found, "\"abc");
 }
@@ -337,7 +341,7 @@ fn closes_raw_text_at_the_first_matching_delimiter() {
 fn rejects_unterminated_raw_text() {
     let error = error("r#\"abc\"");
     assert_eq!(error.problem, "unterminated_text");
-    assert_eq!(error.at.column, 1);
+    assert_eq!(error.at.column, Some(1));
 }
 
 #[test]
@@ -431,13 +435,13 @@ fn converts_into_the_contract_error() {
     let lexical = error("a $");
     let converted = Error::from(lexical.clone());
     assert_eq!(converted.code, ErrorCode::Lexical);
-    assert_eq!(converted.stage, Some(Stage::Parse));
-    assert_eq!(converted.at, Some(lexical.at));
+    assert_eq!(converted.stage(), Some(Stage::Parse));
+    assert_eq!(converted.at, Some(lexical.at.with_stage(Stage::Parse)));
     assert_eq!(converted.found.as_deref(), Some("$"));
     assert_eq!(converted.problem.as_deref(), Some("variable"));
     assert_eq!(converted.help.as_deref(), Some("syntax"));
     let json = serde_json::to_value(&converted).unwrap();
-    assert_eq!(json["stage"], "0");
+    assert_eq!(json["at"]["stage"], "0");
     assert_eq!(json["code"], "E_LEXICAL");
     assert!(lexical.to_string().starts_with("E_LEXICAL: "));
     let escape = Error::from(decode_text(r#""\q""#).unwrap_err());

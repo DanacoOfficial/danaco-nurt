@@ -283,7 +283,7 @@ fn treats_crlf_as_one_line_break() {
 fn rejects_a_lone_carriage_return() {
     let error = error("a\rb");
     assert_eq!(error.problem, "carriage_return");
-    assert_eq!((error.at.line, error.at.column), (1, 2));
+    assert_eq!((error.at.line, error.at.column), (Some(1), Some(2)));
 }
 
 #[test]
@@ -291,7 +291,7 @@ fn rejects_unicode_whitespace_outside_literals() {
     for (text, column) in [("a\u{A0}b", 2), ("a\u{200B}b", 2), ("a \u{FEFF}b", 3)] {
         let error = error(text);
         assert_eq!(error.problem, "unicode_whitespace", "{text:?}");
-        assert_eq!(error.at.column, column, "{text:?}");
+        assert_eq!(error.at.column, Some(column), "{text:?}");
     }
     assert_eq!(kinds("\"a\u{A0}b\""), [TokenKind::Text, TokenKind::Eof]);
 }
@@ -357,6 +357,68 @@ fn keeps_a_hash_inside_literals() {
     assert_eq!(kinds("\"# x\""), [TokenKind::Text, TokenKind::Eof]);
     assert_eq!(kinds("r#\"#\"#"), [TokenKind::RawText, TokenKind::Eof]);
     assert_eq!(kinds("/#/"), [TokenKind::Regex, TokenKind::Eof]);
+}
+
+#[test]
+fn reads_raw_text_after_brackets_and_separators_in_every_variant() {
+    use TokenKind::{Colon, Comma, Eof, Ident, LParen, Nl, PipeGt, RParen, RawText, Text};
+    let cases: [(&str, &[TokenKind]); 5] = [
+        (
+            "|> insert(r#\"import \"fmt\"\"#, position: after)\n",
+            &[
+                PipeGt, Ident, LParen, RawText, Comma, Ident, Colon, Ident, RParen, Nl, Eof,
+            ],
+        ),
+        (
+            "write(\"/a\", r#\"x\ny\n\"#, mode: create)",
+            &[
+                Ident, LParen, Text, Comma, RawText, Comma, Ident, Colon, Ident, RParen, Eof,
+            ],
+        ),
+        (
+            "f(r\"\\d+\",r\"x\")",
+            &[Ident, LParen, RawText, Comma, RawText, RParen, Eof],
+        ),
+        (
+            "f(pattern:r##\"a\"#b\"##)",
+            &[Ident, LParen, Ident, Colon, RawText, RParen, Eof],
+        ),
+        ("insert r#\"x\"# r\"y\"", &[Ident, RawText, RawText, Eof]),
+    ];
+    for (text, expected) in cases {
+        for arguments_by_whitespace in [true, false] {
+            for tolerant in [false, true] {
+                let options = LexOptions {
+                    arguments_by_whitespace,
+                    tolerant,
+                    ..LexOptions::default()
+                };
+                let read: Vec<_> = tokenize(text, options)
+                    .unwrap()
+                    .into_iter()
+                    .map(|token| token.kind)
+                    .collect();
+                assert_eq!(read, expected, "{text:?} {options:?}");
+            }
+        }
+    }
+}
+
+#[test]
+fn reads_raw_text_in_either_context_after_an_opening_bracket() {
+    for arguments_by_whitespace in [true, false] {
+        for context in [LexContext::Value, LexContext::Operator] {
+            let options = LexOptions {
+                arguments_by_whitespace,
+                ..LexOptions::default()
+            };
+            let mut lexer = Lexer::new("f(r#\"a\"#)", options);
+            lexer.next(LexContext::Value).unwrap();
+            lexer.next(LexContext::Operator).unwrap();
+            let raw = lexer.next(context).unwrap();
+            assert_eq!((raw.kind, raw.range), (TokenKind::RawText, 2..8));
+        }
+    }
 }
 
 #[test]
@@ -454,7 +516,10 @@ fn continues_after_an_error() {
         TokenKind::Ident
     );
     let error = lexer.next(LexContext::Operator).unwrap_err();
-    assert_eq!((error.problem.as_str(), error.at.column), ("variable", 3));
+    assert_eq!(
+        (error.problem.as_str(), error.at.column),
+        ("variable", Some(3))
+    );
     let next = lexer.next(LexContext::Value).unwrap();
     assert_eq!((next.kind, next.range), (TokenKind::Ident, 4..5));
 }

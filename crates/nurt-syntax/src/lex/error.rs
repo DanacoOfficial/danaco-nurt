@@ -22,10 +22,10 @@ use super::cursor::Cursor;
 ///
 /// let error = decode_text(r#""\d+""#).unwrap_err();
 /// assert_eq!(error.code, ErrorCode::Escape);
-/// assert_eq!((error.at.line, error.at.column), (1, 2));
+/// assert_eq!((error.at.line, error.at.column), (Some(1), Some(2)));
 /// assert_eq!(error.fix[0], r#"r"\d+""#);
 /// let error = Error::from(error);
-/// assert_eq!(error.stage, Some(Stage::Parse));
+/// assert_eq!(error.stage(), Some(Stage::Parse));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LexError(Box<LexErrorData>);
@@ -87,11 +87,12 @@ impl DerefMut for LexError {
 
 impl fmt::Display for LexError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}: {} at {}:{}",
-            self.code, self.message, self.at.line, self.at.column
-        )
+        match (self.at.line, self.at.column) {
+            (Some(line), Some(column)) => {
+                write!(f, "{}: {} at {line}:{column}", self.code, self.message)
+            }
+            _ => write!(f, "{}: {}", self.code, self.message),
+        }
     }
 }
 
