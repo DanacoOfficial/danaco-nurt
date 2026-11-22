@@ -8,7 +8,8 @@
 //! expectation of the task. The runner starts it as a process: the process
 //! reads one JSON object `{"task", "before", "after", "observation"}` on
 //! standard input and writes the verdict `nurt-bench-verdict/1` on standard
-//! output.
+//! output. The exit code is used only when the output is not a verdict: an
+//! oracle may report a failed run with a non-zero code.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -148,14 +149,14 @@ impl Oracle for CommandOracle {
         );
         spec.stdin = Some(input.to_string().into_bytes());
         let output = process::run(&spec)?;
-        if !output.success() {
-            return Err(BenchError::Oracle(format!(
+        match parse_verdict(&output.stdout) {
+            Err(_) if !output.success() => Err(BenchError::Oracle(format!(
                 "the oracle exited with {:?}: {}",
                 output.code,
                 String::from_utf8_lossy(&output.stderr).trim()
-            )));
+            ))),
+            result => result,
         }
-        parse_verdict(&output.stdout)
     }
 }
 
@@ -211,7 +212,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn command_oracle_sends_the_run_on_standard_input() {
-        let script = r#"read -r line; case "$line" in *'"answer":"done"'*) cat verdict.json;; *) exit 4;; esac"#;
+        let script = r#"read -r line; case "$line" in *'"answer":"done"'*) cat verdict.json;; *'"answer":"failed"'*) cat verdict.json; exit 1;; *) exit 4;; esac"#;
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("oracle.sh"), script).unwrap();
         std::fs::write(dir.path().join("verdict.json"), VERDICT).unwrap();
@@ -224,6 +225,14 @@ mod tests {
             .judge(&json!({"id": "t"}), &empty(), &empty(), &observation)
             .unwrap();
         assert!(verdict.completed);
+        let failed = Observation {
+            answer: "failed".into(),
+            probes: BTreeMap::new(),
+        };
+        let verdict = oracle
+            .judge(&json!({"id": "t"}), &empty(), &empty(), &failed)
+            .unwrap();
+        assert!(verdict.harmed);
         let other = Observation::default();
         let error = oracle
             .judge(&json!({}), &empty(), &empty(), &other)

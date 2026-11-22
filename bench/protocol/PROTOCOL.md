@@ -138,8 +138,10 @@ input:
 `task` is the task document, `before` and `after` are snapshots
 `nurt-fs-snapshot/1`, `answer` is the final answer and `probes` maps probe
 identifiers to their results. The oracle writes the verdict
-`nurt-bench-verdict/1` on standard output and exits with code 0. The default
-command is `python3 -m nurt_bench_oracle`, run in `bench/oracles`.
+`nurt-bench-verdict/1` on standard output. The exit code is not used when
+standard output holds a verdict, so an oracle may report a failed run with a
+non-zero code; without a verdict the run ends with the outcome `error`. The
+default command is `python3 -m nurt_bench_oracle`, run in `bench/oracles`.
 
 ## 5. Measures
 
