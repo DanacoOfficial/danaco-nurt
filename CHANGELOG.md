@@ -51,15 +51,31 @@ First release.
   `packaging/release`; see `SECURITY.md` for the verification.
 - Dependency policy for `cargo-deny`, continuous integration on Linux, macOS
   and Windows, and a repository hygiene check.
+- The banner of an interactive session draws the name of the product with
+  characters; the cursor is a blinking underscore while a line is typed.
+- `nurt.exe` carries version information and a manifest with the execution
+  level `asInvoker`, long path support and the UTF-8 code page. The build
+  embeds an icon when the file `crates/nurt-cli/windows/nurt.ico` exists.
+- `install.ps1` installs for the current user by default and for all users into
+  `%ProgramFiles%\Nurt` with `NURT_SCOPE=machine` from a terminal that runs as
+  administrator; it installs the documentation next to the executable.
+- The archives hold the documentation site, the completion scripts for five
+  shells and, on Linux, the manual pages; `packaging/release/pack.py` assembles
+  them reproducibly.
+- The shared library `libnurt.so.1` records the SONAME `libnurt.so.1`.
+- Every commit of the `main` branch is signed with a dedicated OpenPGP key; see
+  `SECURITY.md`.
 
 ### Known limitations
 
 - The journal is active on volumes that keep a journal; changes on volumes held
   in memory, such as `tmpfs`, are reported as irreversible.
 - This release has archives for Linux (glibc, x86-64) and Windows (MSVC,
-  x86-64). The Windows executable was run only under Wine, not on Windows, and
-  the registry provider is available only on Windows. The code for macOS exists,
-  but no macOS archive is built.
+  x86-64). The Windows archive and `install.ps1` were run on Windows 11 only,
+  and the registry provider is available only on Windows. The code for macOS
+  exists, but no macOS archive is built. `install.sh` takes the glibc archive of
+  Linux because the release has no musl archive.
+- `nurt.exe` has no icon yet; the icon of the product is not designed.
 - Native extensions are not available; extensions are WebAssembly modules.
 - The subcommand `journal` offers only `salvage`; the other journal operations
   are commands of the language.
