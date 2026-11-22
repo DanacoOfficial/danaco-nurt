@@ -57,3 +57,18 @@ pub fn system_fs() -> std::sync::Arc<dyn nurt_contracts::fs::FsWrite> {
     let backend = std::sync::Arc::new(windows::WindowsFs::new());
     backend
 }
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::fs::AbsPath;
+
+    #[test]
+    fn system_fs_describes_the_volume_of_a_writable_directory() {
+        let fs = super::system_fs();
+        let dir = tempfile::tempdir().expect("temporary directory");
+        let root = AbsPath::new(dir.path()).expect("absolute path");
+        assert!(fs.can_write_dir(&root).expect("own directory"));
+        let volume = fs.volume(&root).expect("volume");
+        assert!(root.starts_with(&volume.mount));
+    }
+}

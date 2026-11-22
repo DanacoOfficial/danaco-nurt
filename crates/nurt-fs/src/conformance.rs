@@ -1196,3 +1196,296 @@ fn check_real_path(ctx: &Ctx<'_>) -> Check {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::fs::{Fs, ScopePurpose};
+    use nurt_contracts::journal::OpId;
+
+    use super::*;
+    use crate::mem::{MemFault, MemFs, VolumeSpec};
+
+    #[allow(clippy::disallowed_methods, reason = "tests stand in for the journal")]
+    fn scope() -> TxScope {
+        TxScope::new_for_journal(OpId(1), ScopePurpose::Operation)
+    }
+
+    fn p(text: &str) -> AbsPath {
+        AbsPath::new(text).expect("absolute test path")
+    }
+
+    /// Memory file system with POSIX volumes at `/` and `/other` and an
+    /// empty test root at `/conformance`.
+    fn memory_fs() -> MemFs {
+        let fs = MemFs::builder()
+            .volume(VolumeSpec::posix(p("/")))
+            .volume(VolumeSpec::posix(p("/other")))
+            .build()
+            .expect("build");
+        fs.seed_dir(&p("/conformance")).expect("test root");
+        fs
+    }
+
+    fn run_memory(fs: &MemFs) -> Report {
+        let options = Options {
+            other_volume: Some(p("/other")),
+        };
+        run_with(fs, &p("/conformance"), &scope(), &options)
+    }
+
+    fn failed_ids(report: &Report) -> Vec<&'static str> {
+        report.failures().map(|result| result.id).collect()
+    }
+
+    /// Outcome of a check helper as text: `None` when it passed.
+    fn reason(check: Check) -> Option<String> {
+        match check {
+            Ok(()) => None,
+            Err(Problem::Fail(reason)) => Some(format!("fail: {reason}")),
+            Err(Problem::Skip(reason)) => Some(format!("skip: {reason}")),
+        }
+    }
+
+    #[test]
+    fn failing_call_inside_a_check_fails_only_that_check() {
+        let cases = [
+            ("fs-conf-exchange", "first", "exchange"),
+            ("fs-conf-handle-follows-inode", "moved", "open_read"),
+            ("fs-conf-remove-dir", "dir", "remove_dir"),
+            ("fs-conf-remove-tree", "tree/link", "create_link"),
+            ("fs-conf-create-link", "junction", "create_link"),
+            ("fs-conf-read-link", "file", "read_link"),
+            ("fs-conf-metadata-follow", "dangling", "metadata"),
+            ("fs-conf-apply-meta", "source", "set_meta"),
+            ("fs-conf-read-dir", "a", "read_dir"),
+            ("fs-conf-error-kinds", "missing", "metadata"),
+            ("fs-conf-error-kinds", "file/child", "metadata"),
+            ("fs-conf-error-kinds", "", "open_read"),
+            ("fs-conf-cross-device", "file", "rename"),
+            ("fs-conf-cross-device", "file", "hard_link"),
+        ];
+        for (id, relative, op) in cases {
+            let fs = memory_fs();
+            let path = if relative.is_empty() {
+                format!("/conformance/{id}")
+            } else {
+                format!("/conformance/{id}/{relative}")
+            };
+            fs.inject(MemFault::once(p(&path), op, FsErrorKind::Io))
+                .expect("fault");
+            let report = run_memory(&fs);
+            assert_eq!(failed_ids(&report), [id], "{op} on {path}: {report}");
+            assert!(
+                matches!(report.outcome(id), Some(Outcome::Failed(reason)) if !reason.is_empty()),
+                "{report}"
+            );
+        }
+    }
+
+    #[test]
+    fn missing_link_privilege_skips_link_checks_and_keeps_tree_check() {
+        let fs = memory_fs();
+        for path in [
+            "/conformance/fs-conf-read-link/link",
+            "/conformance/fs-conf-remove-tree/tree/link",
+        ] {
+            fs.inject(MemFault::once(
+                p(path),
+                "create_link",
+                FsErrorKind::Privilege,
+            ))
+            .expect("fault");
+        }
+        let report = run_memory(&fs);
+        assert!(report.passed(), "{report}");
+        assert!(matches!(
+            report.outcome("fs-conf-read-link"),
+            Some(Outcome::Skipped(_))
+        ));
+        assert_eq!(
+            report.outcome("fs-conf-remove-tree"),
+            Some(&Outcome::Passed)
+        );
+    }
+
+    #[test]
+    fn unreadable_volume_of_the_test_root_is_the_only_result() {
+        let fs = memory_fs();
+        fs.inject(MemFault::once(p("/conformance"), "volume", FsErrorKind::Io))
+            .expect("fault");
+        let report = run_memory(&fs);
+        assert_eq!(report.results.len(), 1, "{report}");
+        assert!(matches!(
+            report.outcome("fs-conf-volume"),
+            Some(Outcome::Failed(reason)) if reason.starts_with("volume of the test root")
+        ));
+    }
+
+    #[test]
+    fn missing_test_root_fails_every_check() {
+        let fs = memory_fs();
+        let report = run(&fs, &p("/absent"), &scope());
+        assert_eq!(report.results.len(), CHECKS.len());
+        assert!(report.results.iter().all(|result| matches!(
+            &result.outcome,
+            Outcome::Failed(reason) if reason.starts_with("cannot create the check directory")
+        )));
+    }
+
+    #[test]
+    fn report_finds_outcomes_and_formats_one_line_per_check() {
+        let report = Report {
+            results: vec![
+                CheckResult {
+                    id: "fs-conf-a",
+                    outcome: Outcome::Passed,
+                },
+                CheckResult {
+                    id: "fs-conf-b",
+                    outcome: Outcome::Failed("wrong".to_owned()),
+                },
+                CheckResult {
+                    id: "fs-conf-c",
+                    outcome: Outcome::Skipped("absent".to_owned()),
+                },
+            ],
+        };
+        assert!(!report.passed());
+        assert_eq!(failed_ids(&report), ["fs-conf-b"]);
+        assert_eq!(
+            report.outcome("fs-conf-c"),
+            Some(&Outcome::Skipped("absent".to_owned()))
+        );
+        assert_eq!(report.outcome("fs-conf-d"), None);
+        assert_eq!(
+            report.to_string(),
+            "fs-conf-a: passed\nfs-conf-b: failed: wrong\nfs-conf-c: skipped: absent\n"
+        );
+        assert!(Report::default().passed());
+    }
+
+    #[test]
+    fn helpers_classify_results_and_errors() {
+        let not_found = || FsError::new(FsErrorKind::NotFound, "metadata", None);
+        let unsupported = || FsError::new(FsErrorKind::Unsupported, "exchange", None);
+        assert_eq!(reason(ensure(true, "condition")), None);
+        assert_eq!(
+            reason(ensure(false, "condition")).as_deref(),
+            Some("fail: condition")
+        );
+        assert_eq!(
+            reason(expect_kind(
+                Err::<(), _>(not_found()),
+                FsErrorKind::NotFound,
+                "call"
+            )),
+            None
+        );
+        assert!(
+            reason(expect_kind(
+                Err::<(), _>(not_found()),
+                FsErrorKind::Exists,
+                "call"
+            ))
+            .is_some_and(|text| text.starts_with("fail: call: expected"))
+        );
+        assert!(
+            reason(expect_kind(Ok(()), FsErrorKind::Exists, "call"))
+                .is_some_and(|text| text.starts_with("fail: call: succeeded"))
+        );
+        assert_eq!(reason(declared(true, Ok(()), "clones")), None);
+        assert!(
+            reason(declared(false, Ok(()), "clones"))
+                .is_some_and(|text| text.starts_with("fail: succeeded although"))
+        );
+        assert_eq!(
+            reason(declared(false, Err::<(), _>(unsupported()), "clones")).as_deref(),
+            Some("skip: the volume declares no clones")
+        );
+        assert!(
+            reason(declared(true, Err::<(), _>(unsupported()), "clones"))
+                .is_some_and(|text| text.starts_with("fail: unexpected error"))
+        );
+        assert!(
+            reason(link_created(Err(FsError::new(
+                FsErrorKind::Privilege,
+                "create_link",
+                None
+            ))))
+            .is_some_and(|text| text.starts_with("skip:"))
+        );
+        assert!(
+            reason(link_created(Err(not_found())))
+                .is_some_and(|text| text.starts_with("fail: unexpected error"))
+        );
+        assert!(
+            reason(Err(Problem::from(io::Error::other("broken"))))
+                .is_some_and(|text| text.starts_with("fail: unexpected input/output error"))
+        );
+    }
+
+    #[test]
+    fn restored_metadata_differences_are_listed_unless_reported() {
+        let fs = memory_fs();
+        let file = p("/conformance/file");
+        fs.seed_file(&file, b"x").expect("file");
+        let mut before = fs
+            .extended_metadata(&file, Follow::NoFollow)
+            .expect("metadata");
+        before.basic.uid = Some(1);
+        before.basic.gid = Some(1);
+        let mut after = before.clone();
+        after.basic.mode ^= 0o070;
+        after.basic.modified_ns += 1;
+        after.basic.uid = Some(2);
+        after.basic.gid = Some(2);
+        after.xattrs.push(Xattr {
+            name: "user.extra".into(),
+            value: vec![1],
+        });
+        after.acl = Some(vec![2]);
+        after.flags = Some(before.flags.unwrap_or(0) + 1);
+        let complete = MetaTransferReport::default();
+        assert_eq!(reason(compare_restored(&before, &before, &complete)), None);
+        assert_eq!(
+            reason(compare_restored(&before, &after, &complete)).as_deref(),
+            Some(
+                "fail: restore_meta left differences in: mode, modification time, user id, \
+                 group id, extended attributes, ACL, flags"
+            )
+        );
+        let reported = MetaTransferReport {
+            not_transferred: vec![
+                "account".to_owned(),
+                "group".to_owned(),
+                "acl".to_owned(),
+                "xattr:user.extra".to_owned(),
+            ],
+        };
+        assert_eq!(
+            reason(compare_restored(&before, &after, &reported)).as_deref(),
+            Some("fail: restore_meta left differences in: mode, modification time, flags")
+        );
+    }
+
+    #[test]
+    fn content_mismatch_names_both_contents() {
+        let fs = memory_fs();
+        let scope = scope();
+        let ctx = Ctx {
+            fs: &fs,
+            scope: &scope,
+            dir: p("/conformance"),
+            features: FsFeatures::default(),
+            other: None,
+        };
+        let Ok(path) = ctx.file("file", b"actual") else {
+            panic!("test file");
+        };
+        assert_eq!(reason(ctx.content_is(&path, b"actual", "file")), None);
+        assert_eq!(
+            reason(ctx.content_is(&path, b"wanted", "file")).as_deref(),
+            Some("fail: file: content \"actual\", expected \"wanted\"")
+        );
+    }
+}

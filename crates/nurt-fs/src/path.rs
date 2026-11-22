@@ -443,6 +443,18 @@ mod tests {
     }
 
     #[test]
+    fn rooted_paths_are_posix_and_foreign_only_in_windows_style() {
+        assert_eq!(notation("/home/user", PathStyle::Posix), Notation::Posix);
+        assert_eq!(notation("/home/user", PathStyle::Windows), Notation::Posix);
+        assert_eq!(
+            notation("//server/share", PathStyle::Posix),
+            Notation::Posix
+        );
+        assert!(is_foreign("/home/user", PathStyle::Windows));
+        assert!(!is_foreign("/home/user", PathStyle::Posix));
+    }
+
+    #[test]
     fn every_reserved_device_name_is_flagged() {
         for base in ["CON", "PRN", "AUX", "NUL"] {
             for variant in [base.to_owned(), base.to_lowercase(), format!("{base}.txt")] {
