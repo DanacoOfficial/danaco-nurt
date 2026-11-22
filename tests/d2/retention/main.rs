@@ -3,6 +3,13 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Retention scenario tests of the journal.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test assertions report failures by panicking"
+)]
+
 #[allow(
     dead_code,
     reason = "the harness is shared by several test targets, each of which uses a subset"

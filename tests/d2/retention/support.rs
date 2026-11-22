@@ -7,6 +7,7 @@
 use std::time::Duration;
 
 use nurt_contracts::config::{AgeLimit, Oversize, SizeLimit, StepLimit};
+use nurt_contracts::fs::AbsPath;
 use nurt_contracts::journal::{
     Expect, Mutation, MutationTx, OpHandle, OpId, OpState, TargetAction, TargetIndex, TargetPath,
     TargetSpec,
@@ -70,14 +71,22 @@ pub(crate) fn small_write(fixture: &Fixture, index: usize) -> OpId {
         .expect("target is preserved");
     tx.apply(TargetIndex(0), Mutation::WriteBytes(b"after\n".to_vec()))
         .expect("change is applied");
-    tx.commit()
+    let op = tx
+        .commit()
         .expect("transaction commits")
         .op
-        .expect("a committed change has a number")
+        .expect("a committed change has a number");
+    retention_pass(fixture);
+    op
 }
 
-/// Changes the first bytes of a sparse file of `size` bytes, so that its
-/// whole previous content must be kept.
+/// Retention pass that the space service runs after changes.
+pub(crate) fn retention_pass(fixture: &Fixture) {
+    fixture.journal.sweep().expect("retention pass runs");
+}
+
+/// Replaces the content of a sparse file of `size` bytes, so that its whole
+/// previous content must be kept.
 pub(crate) fn large_write(fixture: &Fixture, name: &str, size: u64) -> OpHandle {
     let path = fixture.seed_sparse(&format!("work/{name}"), size);
     let mut tx: Box<dyn MutationTx + '_> =
@@ -87,29 +96,33 @@ pub(crate) fn large_write(fixture: &Fixture, name: &str, size: u64) -> OpHandle 
         ..target(&path, TargetAction::Modify)
     }])
     .expect("target is preserved");
-    tx.apply(
-        TargetIndex(0),
-        Mutation::WriteAt {
-            offset: 0,
-            bytes: b"changed".to_vec(),
-        },
-    )
-    .expect("change is applied");
-    tx.commit().expect("transaction commits")
+    tx.apply(TargetIndex(0), Mutation::WriteBytes(b"changed".to_vec()))
+        .expect("change is applied");
+    let handle = tx.commit().expect("transaction commits");
+    retention_pass(fixture);
+    handle
 }
 
 /// Removes a sparse file of `size` bytes; the journal keeps it by rename.
 pub(crate) fn large_remove(fixture: &Fixture, name: &str, size: u64) -> OpId {
     let path = fixture.seed_sparse(&format!("work/{name}"), size);
+    remove_path(fixture, &path)
+}
+
+/// Removes an existing file; the journal keeps it by rename.
+pub(crate) fn remove_path(fixture: &Fixture, path: &AbsPath) -> OpId {
     let mut tx: Box<dyn MutationTx + '_> = fixture.journal.begin(request::begin("remove", None));
-    tx.preserve(&[target(&path, TargetAction::Delete)])
+    tx.preserve(&[target(path, TargetAction::Delete)])
         .expect("target is preserved");
     tx.apply(TargetIndex(0), Mutation::Remove)
         .expect("change is applied");
-    tx.commit()
+    let op = tx
+        .commit()
         .expect("transaction commits")
         .op
-        .expect("a committed change has a number")
+        .expect("a committed change has a number");
+    retention_pass(fixture);
+    op
 }
 
 /// State of an entry in `history`.
@@ -145,9 +158,13 @@ pub(crate) fn status_matches_history(fixture: &Fixture) {
     assert_eq!(
         status.entries_expired,
         u64::try_from(expired).expect("count fits"),
-        "expired entries"
+        "expired entries: {:?}",
+        records
+            .iter()
+            .map(|record| (record.id, record.kind.as_str(), record.state))
+            .collect::<Vec<_>>()
     );
-    let oldest = available.iter().map(|record| record.id).min();
+    let oldest = available.iter().map(|record| OpId(record.id)).min();
     assert_eq!(
         status.oldest.as_ref().map(|entry| entry.op),
         oldest,

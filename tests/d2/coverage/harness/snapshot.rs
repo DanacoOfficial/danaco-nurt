@@ -100,6 +100,17 @@ impl TreeSnapshot {
         out
     }
 
+    /// Copy of the snapshot with every link count set to one. The entry of an
+    /// undone link creation keeps the removed name, so the count of the
+    /// linked file stays raised until the entry is released.
+    pub(crate) fn without_link_counts(&self) -> Self {
+        let mut copy = self.clone();
+        for state in copy.entries.values_mut() {
+            state.links = 1;
+        }
+        copy
+    }
+
     /// Panics with the differences when `actual` differs from `self`.
     pub(crate) fn assert_same(&self, actual: &Self, context: &str) {
         let differences = self.differences(actual);

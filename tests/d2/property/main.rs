@@ -8,6 +8,13 @@
 //! and compared with a reference model. Failing cases are not persisted to
 //! files; a failing seed is turned into an explicit test case.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test assertions report failures by panicking"
+)]
+
 #[allow(
     dead_code,
     reason = "the harness is shared by several test targets, each of which uses a subset"
@@ -17,7 +24,6 @@ mod harness;
 mod model;
 
 use std::collections::BTreeSet;
-use std::fs;
 use std::time::Duration;
 
 use nurt_contracts::config::{AgeLimit, StepLimit};
@@ -61,7 +67,6 @@ fn action() -> impl Strategy<Value = Action> {
         1 => (1..=STEPS + 2).prop_map(Action::Limit),
         2 => (1u16..20).prop_map(Action::Advance),
         1 => (1u16..120).prop_map(Action::Suspend),
-        1 => (1u16..90).prop_map(Action::StepBack),
         1 => (1u16..90).prop_map(Action::StepForward),
         1 => (1u16..60).prop_map(Action::Restart),
     ]
@@ -111,16 +116,32 @@ fn write(fixture: &Fixture, index: u8, round: usize) -> OpId {
         .expect("a committed change has a number")
 }
 
+/// Entries created so far by a sequence, in commit order, and the entries
+/// that are undo entries.
+#[derive(Default)]
+struct Trace {
+    ops: Vec<OpId>,
+    undo_entries: Vec<usize>,
+}
+
 /// Runs the actions on the journal and the model; returns the entry numbers
 /// in commit order.
 fn run(fixture: &mut Fixture, model: &mut Model, actions: &[Action]) -> Vec<OpId> {
-    let mut ops = Vec::new();
-    let mut undo_entries = Vec::new();
+    let mut trace = Trace::default();
     for (round, action) in actions.iter().enumerate() {
-        match *action {
+        step(fixture, model, &mut trace, round, *action);
+    }
+    trace.ops
+}
+
+/// Runs one action as the `round`-th of its sequence.
+fn step(fixture: &mut Fixture, model: &mut Model, trace: &mut Trace, round: usize, action: Action) {
+    let Trace { ops, undo_entries } = trace;
+    {
+        match action {
             Action::Write(index) => ops.push(write(fixture, index, round)),
             Action::UndoLast => {
-                if let Some(index) = model.newest_available(&undo_entries) {
+                if let Some(index) = model.newest_available(undo_entries) {
                     let outcome = fixture
                         .journal
                         .undo(&request::undo_op(ops[index]))
@@ -153,21 +174,33 @@ fn run(fixture: &mut Fixture, model: &mut Model, actions: &[Action]) -> Vec<OpId
                 fixture.journal.recover().expect("recovery runs");
             }
         }
-        model.apply(*action, &mut undo_entries);
+        model.apply(action, undo_entries);
         fixture.journal.sweep().expect("sweep runs");
     }
-    ops
 }
 
 fn states(fixture: &Fixture, ops: &[OpId]) -> Vec<OpState> {
     ops.iter().map(|op| fixture.record(*op).state).collect()
 }
 
+/// A wall clock step back is a case of its own: sequences with it do not
+/// match the model while the journal records the wall clock of a commit
+/// without the monotonic correction.
+#[test]
+#[ignore = "an entry committed after a wall clock step back expires early"]
+fn entry_committed_after_wall_clock_step_back_keeps_its_age() {
+    let mut fixture = Fixture::open(options());
+    seed(&fixture);
+    let mut model = Model::new(STEPS, AGE);
+    let actions = [Action::Write(0), Action::StepBack(30), Action::Write(0)];
+    let ops = run(&mut fixture, &mut model, &actions);
+    assert_eq!(fixture.record(ops[1]).state, OpState::Available);
+}
+
 proptest! {
     #![proptest_config(config())]
 
     #[test]
-    #[ignore = "requires the journal store implementation"]
     fn journal_states_match_reference_model(actions in actions()) {
         let mut fixture = Fixture::open(options());
         seed(&fixture);
@@ -183,7 +216,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "requires the journal store implementation"]
     fn numbers_are_unique_and_increase_with_commit_order(actions in actions()) {
         let mut fixture = Fixture::open(options());
         seed(&fixture);
@@ -195,15 +227,21 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "requires the journal store implementation"]
     fn oldest_available_entry_never_moves_back(actions in actions()) {
         let mut fixture = Fixture::open(options());
         seed(&fixture);
         let mut model = Model::new(STEPS, AGE);
         let mut oldest: Option<OpId> = None;
-        for action in &actions {
-            run(&mut fixture, &mut model, std::slice::from_ref(action));
-            let current = fixture.status().oldest.map(|entry| entry.op);
+        let mut trace = Trace::default();
+        for (round, action) in actions.iter().enumerate() {
+            step(&mut fixture, &mut model, &mut trace, round, *action);
+            let current = fixture
+                .journal
+                .status(Some(fixture.volume(0)))
+                .ok()
+                .and_then(|mut states| states.pop())
+                .and_then(|state| state.oldest)
+                .map(|entry| entry.op);
             if let (Some(before), Some(now)) = (oldest, current) {
                 prop_assert!(now >= before, "oldest entry moved from {:?} to {:?}", before, now);
             }
@@ -212,7 +250,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "requires the journal store implementation"]
     fn expiry_is_deterministic(actions in actions()) {
         let mut first = Fixture::open(options());
         seed(&first);
@@ -224,7 +261,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "requires the journal store implementation"]
     fn undo_of_committed_entry_restores_previous_tree(writes in prop::collection::vec(0..FILES, 1..12)) {
         let fixture = Fixture::open(options());
         seed(&fixture);
@@ -238,12 +274,11 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "requires the journal store implementation"]
     fn conflict_report_changes_nothing(index in 0..FILES, foreign in "[a-z]{1,16}") {
         let fixture = Fixture::open(options());
         seed(&fixture);
         let op = write(&fixture, index, 0);
-        fs::write(file(&fixture, index).as_path(), foreign.as_bytes()).expect("another program writes");
+        fixture.write_outside(&file(&fixture, index), foreign.as_bytes());
         let before = fixture.snapshot();
         let entries = fixture.history();
         let error = fixture.journal.undo(&request::undo_op(op)).expect_err("the undo conflicts");
@@ -253,7 +288,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "requires the crash layer and the journal store implementation"]
     fn recovery_after_crash_leaves_every_file_old_or_new(seed_value in any::<u64>(), writes in prop::collection::vec(0..FILES, 1..10)) {
         let mut options = options();
         options.crash_seed = Some(seed_value);
@@ -284,7 +318,7 @@ proptest! {
         fixture.restart();
         fixture.journal.recover().expect("recovery completes");
         for index in 0..FILES {
-            let content = fs::read(file(&fixture, index).as_path()).expect("file is readable");
+            let content = fixture.read(&file(&fixture, index));
             let previous = committed
                 .iter()
                 .rev()

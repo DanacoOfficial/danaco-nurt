@@ -5,7 +5,7 @@
 //! is compared after random sequences of operations.
 //!
 //! An entry expires when at least the step limit of later steps exist, or
-//! when its effective age exceeds the age limit. The effective age is the
+//! when its effective age reaches the age limit. The effective age is the
 //! larger of the wall clock difference and the running and suspended time
 //! since the commit, so a wall clock step back never extends it. Expiry is
 //! final: raising a limit restores nothing.
@@ -99,7 +99,7 @@ impl Model {
         for entry in &mut self.entries {
             let later = total - entry.index - 1;
             let effective = entry.elapsed.max(wall - entry.wall_at_commit);
-            if later >= steps || effective > age {
+            if later >= steps || effective >= age {
                 entry.expired = true;
             }
         }

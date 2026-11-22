@@ -21,7 +21,6 @@ nurt-contracts = { workspace = true }
 nurt-fs = { workspace = true, features = ["failpoints", "mutation-audit", "conformance"] }
 nurt-journal = { workspace = true, features = ["failpoints"] }
 nurt-space = { workspace = true }
-rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

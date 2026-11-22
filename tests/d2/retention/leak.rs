@@ -6,8 +6,8 @@
 //!
 //! Every channel is checked twice: no key of its JSON form names an expiry
 //! (`expires`, `deadline`, `ttl`, `remaining`, `until` and similar words),
-//! and no number in it equals the expiry instant of an entry in nanoseconds,
-//! milliseconds or seconds.
+//! and no value in it equals the expiry instant of an entry, as a number of
+//! nanoseconds, milliseconds or seconds or as an RFC 3339 instant.
 
 use std::time::Duration;
 
@@ -19,6 +19,7 @@ use nurt_contracts::journal::{
     SkippedEntry, TargetAction, TargetIndex, TargetOutcome, TargetPath, UndoOutcome, UndoScope,
 };
 use nurt_contracts::report::{Irreversible, IrreversibleEntry};
+use nurt_contracts::value::{Instant, Size};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -69,30 +70,56 @@ fn forbidden_keys(value: &Value, path: &str, found: &mut Vec<String>) {
     }
 }
 
-fn numbers(value: &Value, out: &mut Vec<i128>) {
+/// Numbers and texts of a JSON value; texts that hold an integer are also
+/// listed as numbers.
+#[derive(Debug, Default)]
+struct Scalars {
+    numbers: Vec<i128>,
+    texts: Vec<String>,
+}
+
+fn scalars(value: &Value, out: &mut Scalars) {
     match value {
         Value::Number(number) => {
             if let Some(integer) = number.as_i64() {
-                out.push(i128::from(integer));
+                out.numbers.push(i128::from(integer));
             } else if let Some(integer) = number.as_u64() {
-                out.push(i128::from(integer));
+                out.numbers.push(i128::from(integer));
             }
         }
         Value::String(text) => {
             if let Ok(integer) = text.parse::<i128>() {
-                out.push(integer);
+                out.numbers.push(integer);
             }
+            out.texts.push(text.clone());
         }
-        Value::Array(items) => items.iter().for_each(|item| numbers(item, out)),
-        Value::Object(map) => map.values().for_each(|item| numbers(item, out)),
+        Value::Array(items) => items.iter().for_each(|item| scalars(item, out)),
+        Value::Object(map) => map.values().for_each(|item| scalars(item, out)),
         _ => {}
     }
 }
 
-/// Forms of an expiry instant a channel must not contain.
-fn deadline_forms(deadline: WallTime) -> [i128; 3] {
+/// Numeric forms of an expiry instant a channel must not contain.
+fn deadline_numbers(deadline: WallTime) -> [i128; 3] {
     let nanos = deadline.unix_nanos();
     [nanos, nanos / NANOS_PER_MILLI, nanos / NANOS_PER_SECOND]
+}
+
+/// RFC 3339 form of an expiry instant, as records write instants.
+fn deadline_text(deadline: WallTime) -> Option<String> {
+    i64::try_from(deadline.unix_nanos())
+        .ok()
+        .map(|nanos| Instant::from_unix_nanos(nanos).to_string())
+}
+
+/// Wall time of an instant of a record.
+fn wall_time(instant: Instant) -> WallTime {
+    WallTime::from_unix_nanos(i128::from(instant.as_unix_nanos()))
+}
+
+/// Instant of a record at a wall time.
+fn record_instant(wall: WallTime) -> Instant {
+    Instant::from_unix_nanos(i64::try_from(wall.unix_nanos()).expect("instant is in range"))
 }
 
 /// Asserts that the JSON form of a result names no expiry and contains none
@@ -101,13 +128,19 @@ pub(crate) fn assert_no_expiry(channel: &str, value: &Value, deadlines: &[WallTi
     let mut keys = Vec::new();
     forbidden_keys(value, channel, &mut keys);
     assert!(keys.is_empty(), "{channel} names an expiry: {keys:?}");
-    let mut found = Vec::new();
-    numbers(value, &mut found);
+    let mut found = Scalars::default();
+    scalars(value, &mut found);
     for deadline in deadlines {
-        for form in deadline_forms(*deadline) {
+        for form in deadline_numbers(*deadline) {
             assert!(
-                !found.contains(&form),
+                !found.numbers.contains(&form),
                 "{channel} contains the expiry instant {form}"
+            );
+        }
+        if let Some(text) = deadline_text(*deadline) {
+            assert!(
+                !found.texts.contains(&text),
+                "{channel} contains the expiry instant {text}"
             );
         }
     }
@@ -123,7 +156,7 @@ fn deadlines(fixture: &Fixture) -> Vec<WallTime> {
     fixture
         .history()
         .iter()
-        .map(|record| record.time.saturating_add(AGE))
+        .map(|record| wall_time(record.time).saturating_add(AGE))
         .collect()
 }
 
@@ -133,7 +166,7 @@ pub(crate) fn history_carries_no_expiry(fixture: &Fixture) {
     let deadlines = deadlines(fixture);
     assert_no_expiry("history", &json(&records), &deadlines);
     for record in &records {
-        if let Ok(details) = fixture.journal.details(record.id) {
+        if let Ok(details) = fixture.journal.details(OpId(record.id)) {
             assert_no_expiry("history details", &json(&details), &deadlines);
         }
     }
@@ -141,6 +174,11 @@ pub(crate) fn history_carries_no_expiry(fixture: &Fixture) {
 
 fn hash(byte: u8) -> ContentHash {
     ContentHash([byte; 32])
+}
+
+/// Hash in the text form of records: `sha256:` and 64 hexadecimal digits.
+fn hash_text(byte: u8) -> String {
+    format!("sha256:{}", format!("{byte:02x}").repeat(32))
 }
 
 fn sample_path() -> AbsPath {
@@ -180,22 +218,23 @@ fn sample_outcome() -> TargetOutcome {
 
 fn sample_record() -> OperationRecord {
     OperationRecord {
-        id: OpId(7),
-        time: START,
-        kind: OpKind::with_action("write", "overwrite"),
+        id: 7,
+        time: record_instant(START),
+        kind: "write".to_owned(),
+        action: Some("overwrite".to_owned()),
         summary: "overwrite /home/user/notes.txt".to_owned(),
         state: OpState::Available,
         files: 1,
-        bytes: 10,
+        bytes: Size::from_bytes(10),
         irreversible: vec![IrreversibleEntry::new(Irreversible::NoSpaceForCopy)],
         bulk: false,
-        session: Some(SessionId("session-a".to_owned())),
-        undo_of: vec![OpId(6)],
-        redo_of: Some(OpId(5)),
+        session: Some("session-a".to_owned()),
+        undo_of: vec![6],
+        redo_of: Some(5),
         undo_scope: Some(UndoScope::Op),
-        ast_hash: hash(3),
-        manifest_hash: hash(4),
-        chain: Some(hash(5)),
+        ast_hash: hash_text(3),
+        manifest_sha256: hash_text(4),
+        chain: Some(hash_text(5)),
         pinned: true,
     }
 }
@@ -239,6 +278,7 @@ fn result_types_carry_no_expiry_fields() {
     let pin = PinOutcome {
         changed: vec![OpId(7)],
         not_available: vec![OpId(1)],
+        expired: vec![OpId(2)],
     };
     let purge = PurgeOutcome {
         released: vec![OpId(1), OpId(2)],
@@ -272,7 +312,6 @@ fn expiry_check_detects_named_fields_and_instants() {
 
 /// Runs operations, undo, pin and purge, and checks every result.
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn operation_results_carry_no_expiry_time() {
     let fixture = Fixture::open(support::options());
     let first = support::large_write(&fixture, "a.bin", 4096);

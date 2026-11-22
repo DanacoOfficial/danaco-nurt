@@ -9,8 +9,10 @@
 //! [`Harness::run_point`] repeats the scenario from the same initial state,
 //! crashes at the chosen trigger, optionally crashes again during recovery,
 //! and checks the result with the scenario oracle before recovery, after
-//! recovery and after a second recovery. Every run is determined by its
-//! seed and point, which a [`Failure`] records for replay.
+//! recovery and after a second recovery. An operation that returns before the
+//! trigger is reached is checked as returned and again after a power loss
+//! that follows its return. Every run is determined by its seed and point,
+//! which a [`Failure`] records for replay.
 
 use std::fs::File;
 use std::io::BufWriter;
@@ -131,6 +133,8 @@ pub trait Scenario {
     fn recover(&self, fs: &CrashFs, failpoints: &Arc<SeededFailpoints>) -> FsResult<()>;
 
     /// Checks the state in `phase`; `outcome` is the result of the operation.
+    /// [`Phase::AfterCrash`] with a returned outcome is the power loss that
+    /// follows the return of the operation.
     ///
     /// # Errors
     ///
@@ -149,6 +153,7 @@ pub struct Enumeration {
 
 impl Enumeration {
     /// Every trigger: each protocol hit and each file system call.
+    #[must_use]
     pub fn triggers(&self) -> Vec<Trigger> {
         let calls = (1..=self.fs_calls).map(|call| Trigger::FsCall { call });
         self.protocol.iter().copied().chain(calls).collect()
@@ -256,11 +261,12 @@ pub struct Harness {
 
 impl Harness {
     /// Creates a driver for `profile`.
+    #[must_use]
     pub fn new(profile: CrashProfile) -> Self {
         Self { profile }
     }
 
-    fn prepare(&self, scenario: &dyn Scenario, seed: u64) -> FsResult<CrashFs> {
+    fn prepare(self, scenario: &dyn Scenario, seed: u64) -> FsResult<CrashFs> {
         let fs = CrashFs::new(self.profile, seed, scenario.volumes())?;
         scenario.setup(&fs)?;
         fs.sync_all();
@@ -323,6 +329,10 @@ impl Harness {
             scenario
                 .check(&fs, Phase::AfterRecovery, outcome)
                 .map_err(|violation| fail(Phase::AfterRecovery, violation))?;
+            fs.crash();
+            scenario
+                .check(&fs, Phase::AfterCrash, outcome)
+                .map_err(|violation| fail(Phase::AfterCrash, violation))?;
             return Ok(PointReport {
                 crashes: 0,
                 outcome,
@@ -335,15 +345,20 @@ impl Harness {
         let mut crashes = 1;
         if let Some(trigger) = point.recovery {
             let failpoints = trigger.arm(&fs, seed);
-            if scenario.recover(&fs, &failpoints).is_err() && fs.is_halted() {
+            // The complete recovery that follows checks the result of the
+            // interrupted one.
+            let _interrupted = scenario.recover(&fs, &failpoints);
+            if fs.is_halted() {
                 fs.crash();
                 crashes += 1;
                 scenario
                     .check(&fs, Phase::AfterCrash, OpOutcome::Crashed)
                     .map_err(|violation| fail(Phase::AfterCrash, violation))?;
+            } else {
+                fs.disarm_crash();
             }
         }
-        self.recover_and_check(scenario, &fs, seed)
+        Self::recover_and_check(scenario, &fs, seed)
             .map_err(|violation| fail(Phase::AfterRecovery, violation))?;
         Ok(PointReport {
             crashes,
@@ -352,7 +367,6 @@ impl Harness {
     }
 
     fn recover_and_check(
-        &self,
         scenario: &dyn Scenario,
         fs: &CrashFs,
         seed: u64,
@@ -442,12 +456,14 @@ fn elapsed_ms(started: Instant) -> u64 {
 }
 
 /// Seed of point `index` of a run with base seed `seed`.
+#[must_use]
 pub fn derive_seed(seed: u64, index: u64) -> u64 {
     SplitMix64::new(seed ^ index.wrapping_mul(SEED_STRIDE)).next_u64()
 }
 
 /// Draws a crash point from `triggers`; with a fixed probability the point
 /// crashes recovery as well.
+#[must_use]
 pub fn random_point(triggers: &[Trigger], seed: u64) -> CrashPoint {
     let mut rng = SplitMix64::new(seed);
     let index = usize::try_from(rng.below(triggers.len() as u64)).unwrap_or(0);

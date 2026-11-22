@@ -1,25 +1,13 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
-# This file is the source of the journal coverage table. Every command and
-# every catalog action of the categories change and run, and every journal
-# command with an effect, has a row that states how the previous content is
-# preserved or why it is not. Commands and actions that only read have a row
-# with the coverage no_effect. The test suite checks the table against the
-# catalog.
-#
-# Row fields:
-#   command      Catalog command name.
-#   action       Optional action, mode or target variant; a row without an
-#                action covers the default form of the command and every
-#                form without a row of its own.
-#   group        Catalog group of the command.
-#   changes      What the operation changes.
-#   preserve     Preservation modes of the journal entry.
-#   coverage     The value full, partial, none or no_effect.
-#   irreversible Reasons reported for this row in addition to the generic ones.
-#   exception    Description of the exception; required for partial and none.
-#   note         Optional clarification.
+# Journal coverage table. Every command and every catalog action of the
+# categories change and run, and every journal command with an effect, has a
+# row that states how the previous content is preserved or why it is not.
+# Commands and actions that only read have a row with the coverage no_effect;
+# a row without an action covers the default form of the command and every
+# form without a row of its own.
+# Fields and rules: spec/journal.md, section 13.
 #
 # The overwrite modes exchange, replace_backup and hardlink keep the old
 # content without copying; when they are not possible the journal falls back
@@ -29,17 +17,19 @@ format = "nurt-journal-coverage/1"
 
 # These reasons may degrade any row: the journal is inactive on the volume,
 # the volume is a network or removable volume, there is no space for the
-# copy, or the operation exceeds the size limits. The operation is then
-# performed and the target is marked irreversible.
+# copy, the operation exceeds the size limits, or the journal fails while
+# recording. The operation is then performed and the target is marked
+# irreversible.
 generic_irreversible = [
   "journal_inactive",
   "network_volume",
   "removable_volume",
   "no_space_for_copy",
   "too_large_for_journal",
+  "journal_error",
 ]
 
-# Core commands.
+# Group core.
 
 [[row]]
 command = "list"

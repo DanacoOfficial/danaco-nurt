@@ -100,6 +100,7 @@ impl CrashProfile {
     ];
 
     /// Stable snake-case name, equal to the serialized form.
+    #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
             Self::PosixWorstCase => "posix_worst_case",
@@ -188,6 +189,7 @@ pub struct VolumeSpec {
 impl VolumeSpec {
     /// Local fixed volume with every capability except replacement with a
     /// backup name and alternate streams, 1 GiB and 2^20 entries.
+    #[must_use]
     pub fn new(mount: AbsPath) -> Self {
         Self {
             mount,
@@ -221,6 +223,23 @@ impl VolumeSpec {
     }
 
     /// Sets the account quota in bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nurt_contracts::fs::{AbsPath, Fs};
+    /// use nurt_crashfs::crash::{CrashFs, CrashProfile, VolumeSpec};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let root = AbsPath::new(if cfg!(windows) { "C:\\vol" } else { "/vol" })?;
+    /// let spec = VolumeSpec::new(root.clone()).with_quota(1 << 20);
+    /// let fs = CrashFs::new(CrashProfile::PosixWorstCase, 7, vec![spec])?;
+    /// let space = fs.space(&fs.volume(&root)?.id)?;
+    /// assert_eq!(space.quota_limit, Some(1 << 20));
+    /// assert_eq!(space.total, 1 << 20);
+    /// # Ok(())
+    /// # }
+    /// ```
     #[must_use]
     pub fn with_quota(mut self, bytes: u64) -> Self {
         self.quota_bytes = Some(bytes);
@@ -358,6 +377,8 @@ struct Node {
     body: Body,
     meta: Meta,
     nlink: u64,
+    /// Sequence number of the last operation that set the times of the node.
+    stamp: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -507,6 +528,7 @@ impl Image {
                 body: Body::Dir(BTreeMap::new()),
                 meta: Meta::new(DEFAULT_DIR_MODE, now),
                 nlink: 1,
+                stamp: 0,
             },
         );
         Self {
@@ -608,8 +630,9 @@ impl Image {
         }
     }
 
-    fn apply(&mut self, op: &Op, inits: &HashMap<NodeId, Node>, torn: Option<usize>) {
-        match op {
+    fn apply(&mut self, pending: &Pending, inits: &HashMap<NodeId, Node>, torn: Option<usize>) {
+        let seq = pending.seq;
+        match &pending.op {
             Op::Write {
                 id,
                 offset,
@@ -621,13 +644,13 @@ impl Image {
                 }
                 let bytes = torn.map_or(data.as_slice(), |prefix| &data[..prefix.min(data.len())]);
                 self.set_data(*id, |content| write_at(content, *offset, bytes));
-                self.touch(*id, *time);
+                self.touch(*id, *time, seq);
             }
             Op::SetLen { id, length, time } => {
                 if self.ensure(*id, inits) {
                     let length = usize::try_from(*length).unwrap_or(usize::MAX);
                     self.set_data(*id, |content| content.resize(length, 0));
-                    self.touch(*id, *time);
+                    self.touch(*id, *time, seq);
                 }
             }
             Op::Content { id, data } => {
@@ -640,9 +663,10 @@ impl Image {
                     && let Some(node) = self.nodes.get_mut(id)
                 {
                     node.meta = (**meta).clone();
+                    node.stamp = seq;
                 }
             }
-            _ => self.apply_entries(op, inits),
+            op => self.apply_entries(op, inits),
         }
     }
 
@@ -683,10 +707,16 @@ impl Image {
         }
     }
 
-    fn touch(&mut self, id: NodeId, time: i64) {
-        if let Some(node) = self.nodes.get_mut(&id) {
+    /// Sets the times of a node unless a later operation already set them:
+    /// a flush may persist a metadata operation ahead of an earlier write,
+    /// and the write must not move the times back.
+    fn touch(&mut self, id: NodeId, time: i64, seq: u64) {
+        if let Some(node) = self.nodes.get_mut(&id)
+            && seq >= node.stamp
+        {
             node.meta.modified_ns = time;
             node.meta.changed_ns = time;
+            node.stamp = seq;
         }
     }
 
@@ -857,9 +887,9 @@ impl State {
         let mut parent = None;
         let mut prefix = volume.spec.mount.clone();
         for (index, name) in names.iter().enumerate() {
-            let entries = match volume.live.nodes.get(&current).map(|node| &node.body) {
-                Some(Body::Dir(entries)) => entries,
-                _ => return Err(error(FsErrorKind::NotADirectory, op, path)),
+            let Some(Body::Dir(entries)) = volume.live.nodes.get(&current).map(|node| &node.body)
+            else {
+                return Err(error(FsErrorKind::NotADirectory, op, path));
             };
             let child = *entries
                 .get(name)
@@ -928,9 +958,8 @@ impl State {
         if self.volume_of(path) != Some(dir.vol) {
             return Err(error(FsErrorKind::InvalidPath, op, path));
         }
-        let entries = match &self.node(&dir)?.body {
-            Body::Dir(entries) => entries,
-            _ => return Err(error(FsErrorKind::NotADirectory, op, path)),
+        let Body::Dir(entries) = &self.node(&dir)?.body else {
+            return Err(error(FsErrorKind::NotADirectory, op, path));
         };
         Ok(Slot {
             vol: dir.vol,
@@ -1009,15 +1038,16 @@ impl State {
 
     fn push(&mut self, vol: usize, op: Op) {
         let volume = &mut self.volumes[vol];
-        volume.live.apply(&op, &volume.inits, None);
         let seq = volume.next_seq;
         volume.next_seq += 1;
         let unsynced_dirs = op.dirs();
-        volume.pending.push(Pending {
+        let pending = Pending {
             seq,
             op,
             unsynced_dirs,
-        });
+        };
+        volume.live.apply(&pending, &volume.inits, None);
+        volume.pending.push(pending);
     }
 
     fn new_node(&mut self, vol: usize, body: Body, mode: u32) -> NodeId {
@@ -1028,6 +1058,7 @@ impl State {
             body,
             meta: Meta::new(mode, now),
             nlink: 0,
+            stamp: 0,
         };
         let volume = &mut self.volumes[vol];
         volume.live.nodes.insert(id, node.clone());
@@ -1062,7 +1093,7 @@ impl State {
             .drain(..)
             .partition(|pending| selected(pending));
         for pending in &durable {
-            volume.durable.apply(&pending.op, &volume.inits, None);
+            volume.durable.apply(pending, &volume.inits, None);
         }
         volume.pending = rest;
     }
@@ -1122,7 +1153,7 @@ impl State {
                 if let Choice::Apply(torn) = choice {
                     summary.applied += 1;
                     summary.torn += u64::from(torn.is_some());
-                    image.apply(&pending.op, &volume.inits, torn);
+                    image.apply(pending, &volume.inits, torn);
                 }
             }
             image.collect_garbage();
@@ -1135,6 +1166,7 @@ impl State {
         self.generation += 1;
         self.halted = false;
         self.crash_at = None;
+        self.failpoints = None;
         self.locks.clear();
         summary
     }
@@ -1286,6 +1318,7 @@ impl CrashFs {
     }
 
     /// Persistence profile.
+    #[must_use]
     pub fn profile(&self) -> CrashProfile {
         self.state().profile
     }
@@ -1308,19 +1341,27 @@ impl CrashFs {
         self.state().crash_at = Some(call);
     }
 
+    /// Cancels the crash armed by [`CrashFs::arm_crash_at_call`] when it was
+    /// not reached.
+    pub fn disarm_crash(&self) {
+        self.state().crash_at = None;
+    }
+
     /// Stops the system now, as a crash decided by the caller.
     pub fn halt(&self) {
         self.state().halt();
     }
 
     /// Whether the system is stopped and waits for [`CrashFs::crash`].
+    #[must_use]
     pub fn is_halted(&self) -> bool {
         self.state().is_stopped()
     }
 
     /// Simulates power loss: builds the image from durable state and a
     /// seeded selection of pending operations, discards open handles and
-    /// locks, and restarts the system on that image.
+    /// locks, detaches the failpoint registry of the interrupted run and
+    /// restarts the system on that image.
     pub fn crash(&self) -> CrashSummary {
         self.state().crash()
     }
@@ -1334,6 +1375,7 @@ impl CrashFs {
     }
 
     /// Number of operations not yet durable.
+    #[must_use]
     pub fn pending_count(&self) -> usize {
         self.state()
             .volumes
@@ -1343,6 +1385,7 @@ impl CrashFs {
     }
 
     /// Counters since creation or the last [`CrashFs::reset_stats`].
+    #[must_use]
     pub fn stats(&self) -> CrashStats {
         self.state().stats
     }
@@ -1777,6 +1820,7 @@ impl Fs for CrashFs {
                 .spec
                 .quota_bytes
                 .map(|quota| quota.saturating_sub(used)),
+            quota_limit: found.spec.quota_bytes,
             purgeable_system: None,
         })
     }
@@ -2033,19 +2077,19 @@ impl FsWrite for CrashFs {
         if root.parent.is_none() {
             return Err(error(FsErrorKind::InvalidPath, "remove_tree", path));
         }
-        let mut stats = RemoveStats::default();
+        let mut removed = RemoveStats::default();
         for (entry, id, is_dir, bytes) in Self::remove_tree_entries(&state, &root) {
             state.enter("remove_tree", path)?;
             state.stats.removals += 1;
             state.push(root.vol, Op::Unlink { at: entry, id });
             if is_dir {
-                stats.directories += 1;
+                removed.directories += 1;
             } else {
-                stats.files += 1;
-                stats.bytes += bytes;
+                removed.files += 1;
+                removed.bytes += bytes;
             }
         }
-        Ok(stats)
+        Ok(removed)
     }
 
     fn create_dir(&self, _scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {

@@ -38,6 +38,7 @@ pub fn signal_ready() -> io::Result<()> {
 }
 
 /// Kill delay for a point: uniform in `0..max`, derived from `seed`.
+#[must_use]
 pub fn kill_delay(seed: u64, max: Duration) -> Duration {
     let micros = u64::try_from(max.as_micros()).unwrap_or(u64::MAX);
     Duration::from_micros(SplitMix64::new(seed).below(micros))

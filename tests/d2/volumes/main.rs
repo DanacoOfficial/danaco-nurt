@@ -19,6 +19,13 @@
 //! A test run with `--ignored` without its variable fails and names the
 //! variable.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test assertions report failures by panicking"
+)]
+
 #[allow(
     dead_code,
     reason = "the harness is shared by several test targets, each of which uses a subset"
@@ -43,9 +50,10 @@ use harness::snapshot::TreeSnapshot;
 const LARGE_FILE: usize = 40 << 20;
 
 fn fixture_on(variable: &str) -> Fixture {
-    let mut options = FixtureOptions::default();
-    options.mounted = vec![mounted_dir(variable)];
-    Fixture::open(options)
+    Fixture::open(FixtureOptions {
+        mounted: vec![mounted_dir(variable)],
+        ..FixtureOptions::default()
+    })
 }
 
 fn single(
