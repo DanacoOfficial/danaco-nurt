@@ -61,6 +61,10 @@ use crate::spans::LineIndex;
 /// Sigil of metavariables as written by the user.
 const SIGIL: char = '$';
 
+/// Number of sigils of a metavariable that matches a sequence of nodes
+/// (`$$$NAME`).
+const SEQUENCE_SIGILS: usize = 3;
+
 /// Replacement of the sigil for grammars in which `$` cannot start an
 /// identifier; the micro sign is a letter in the identifier rules of these
 /// languages.
@@ -169,7 +173,7 @@ fn substitute(pattern: &str, expando: char, variables: bool) -> Cow<'_, str> {
             continue;
         }
         let starts_name = c.is_ascii_uppercase() || c == '_';
-        let sigil = if starts_name || dollars == 3 {
+        let sigil = if starts_name || dollars == SEQUENCE_SIGILS {
             expando
         } else {
             SIGIL
@@ -181,7 +185,11 @@ fn substitute(pattern: &str, expando: char, variables: bool) -> Cow<'_, str> {
         dollars = 0;
         out.push(c);
     }
-    let sigil = if dollars == 3 { expando } else { SIGIL };
+    let sigil = if dollars == SEQUENCE_SIGILS {
+        expando
+    } else {
+        SIGIL
+    };
     out.extend(std::iter::repeat_n(sigil, dollars));
     Cow::Owned(out)
 }
