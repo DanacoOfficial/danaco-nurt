@@ -21,3 +21,16 @@ workspace = true
 nurt-contracts = { workspace = true }
 nurt-syntax = { workspace = true }
 nurt-catalog = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_json_canonicalizer = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+toml_edit = { workspace = true }
+unicode-normalization = { workspace = true }
+regex = { workspace = true }
+jiff = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+insta = { workspace = true }

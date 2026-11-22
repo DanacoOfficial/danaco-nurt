@@ -1,0 +1,844 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-correction-table/1"
+table = "synonyms"
+summary = "Synonyms of command, parameter, value, field and function names."
+
+# Commands.
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["delete", "del", "erase", "rm", "rmdir", "unlink", "ri", "rd"]
+to = "remove"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["work"]
+to = "jobs"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["ls", "dir", "gci"]
+to = "list"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["cat", "type", "gc"]
+to = "read"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["grep", "egrep", "fgrep", "rg", "sls", "findstr"]
+to = "search"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["head", "take", "limit"]
+to = "first"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["tail"]
+to = "last"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["offset"]
+to = "skip"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["uniq", "unique", "dedup", "dedupe"]
+to = "distinct"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["len", "length"]
+to = "count"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["where", "?"]
+to = "filter"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["sortby", "sort_by", "orderby", "order_by"]
+to = "sort"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["groupby", "group_by"]
+to = "group"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["pick"]
+to = "select"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["measure", "stats", "aggregate"]
+to = "summarize"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["stat"]
+to = "info"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["ps", "gps", "tasklist"]
+to = "processes"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["df"]
+to = "disks"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["kill", "taskkill"]
+to = "stop"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["env", "printenv"]
+to = "environment"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["which", "whereis"]
+to = "program.find"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["mv", "mi"]
+to = "move"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["cp", "cpi"]
+to = "copy"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["ren", "rni"]
+to = "rename"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["exec"]
+to = "run"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["checksum"]
+to = "hash"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["compare"]
+to = "diff"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["log"]
+to = "logs"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["man"]
+to = "help"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["netstat", "ss"]
+to = "ports"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["hostname", "uname", "whoami", "uptime"]
+to = "host"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["lsof"]
+to = "open_files"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["calc"]
+to = "evaluate"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["gunzip"]
+to = "decompress"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["unzip"]
+to = "archive.extract"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["curl"]
+to = "http.request"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["wget"]
+to = "http.download"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["ping"]
+to = "network.ping"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["nslookup", "dig"]
+to = "network.resolve"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["ifconfig", "ipconfig"]
+to = "network.interfaces"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "command"
+from = ["service"]
+to = "services"
+
+# Parameters. A parameter synonym applies only to a command that has the
+# target parameter and no parameter of the written name.
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["max_depth", "maxdepth"]
+to = "depth"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["dest", "destination"]
+to = "to"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["working_directory", "working_dir", "workdir", "chdir"]
+to = "cwd"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["environment", "envs"]
+to = "env"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["match_case"]
+to = "case_sensitive"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["invert_match", "inverse"]
+to = "invert"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["include_hidden", "show_hidden"]
+to = "hidden"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["follow_symlinks", "dereference"]
+to = "follow_links"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["if_exists"]
+to = "on_exists"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["if_missing"]
+to = "on_missing"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["if_conflict"]
+to = "on_conflict"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["time_limit"]
+to = "timeout"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["sort_by", "order_by"]
+to = "by"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["columns", "properties", "property"]
+to = "fields"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["include", "wildcard"]
+to = "glob"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["recurse"]
+to = "recursive"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["read_only"]
+to = "readonly"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["outfile", "out_file", "output_file"]
+to = "save"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["sig"]
+to = "signal"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["lang"]
+to = "language"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["msg"]
+to = "message"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["uri"]
+to = "url"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["max_results"]
+to = "limit"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
+from = ["filepath", "file_path", "filename"]
+to = "path"
+
+# Enumeration values. A value synonym applies only to a parameter whose
+# values include the target and not the written word.
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["dir", "dirs", "folder", "directories"]
+to = "directory"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["files"]
+to = "file"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["symlink", "symbolic_link", "links"]
+to = "link"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["ascending"]
+to = "asc"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["descending"]
+to = "desc"
+
+[[entry]]
+rule = "T09"
+class = "C"
+kind = "value"
+from = ["add"]
+to = "append"
+
+[[entry]]
+rule = "T09"
+class = "C"
+kind = "value"
+from = ["replace", "write", "truncate"]
+to = "overwrite"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["term", "sigterm"]
+to = "terminate"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["sigkill"]
+to = "kill"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["int", "sigint"]
+to = "interrupt"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["hup", "sighup"]
+to = "hangup"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["yml"]
+to = "yaml"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["md"]
+to = "markdown"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["tgz", "tar.gz"]
+to = "tar_gz"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["tar.bz2", "tbz2"]
+to = "tar_bz2"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["tar.xz", "txz"]
+to = "tar_xz"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["tar.zst"]
+to = "tar_zst"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["7z"]
+to = "seven_zip"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["unix"]
+to = "lf"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["dos"]
+to = "crlf"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["sha_256", "sha2"]
+to = "sha256"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["sha_1"]
+to = "sha1"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["sha_512"]
+to = "sha512"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["mtime", "modtime", "last_write_time", "last_modified"]
+to = "modified"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["filename", "file_name"]
+to = "name"
+
+[[entry]]
+rule = "V01"
+class = "C"
+kind = "value"
+from = ["bytes", "length", "filesize", "file_size"]
+to = "size"
+
+# Record fields.
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["mtime", "modtime", "last_write_time", "last_modified", "modification_time", "mod_time"]
+to = "modified"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["creation_time"]
+to = "created"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["atime", "last_access_time"]
+to = "accessed"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["filename", "file_name"]
+to = "name"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["bytes", "length", "filesize", "file_size"]
+to = "size"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["ext", "suffix"]
+to = "extension"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["line_number", "lineno", "line_no"]
+to = "no"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["kind"]
+to = "type"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["full_name", "fullname", "full_path", "fullpath", "filepath", "file_path"]
+to = "path"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["directory_name", "dirname"]
+to = "parent"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["process_id", "processid"]
+to = "pid"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["ppid"]
+to = "parent_pid"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["cmd", "cmdline", "command_line"]
+to = "command"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["mem", "rss", "working_set"]
+to = "memory"
+
+[[entry]]
+rule = "V02"
+class = "C"
+kind = "field"
+from = ["start_time"]
+to = "started"
+
+# Expression functions.
+
+[[entry]]
+rule = "V03"
+class = "C"
+kind = "function"
+from = ["lowercase", "to_lower", "tolower", "downcase", "lcase"]
+to = "lower"
+
+[[entry]]
+rule = "V03"
+class = "C"
+kind = "function"
+from = ["uppercase", "to_upper", "toupper", "upcase", "ucase"]
+to = "upper"
+
+[[entry]]
+rule = "V03"
+class = "C"
+kind = "function"
+from = ["length", "strlen"]
+to = "len"
+
+[[entry]]
+rule = "V03"
+class = "C"
+kind = "function"
+from = ["strip"]
+to = "trim"
+
+[[entry]]
+rule = "V03"
+class = "C"
+kind = "function"
+from = ["startswith"]
+to = "starts_with"
+
+[[entry]]
+rule = "V03"
+class = "C"
+kind = "function"
+from = ["endswith"]
+to = "ends_with"
+
+[[entry]]
+rule = "V03"
+class = "C"
+kind = "function"
+from = ["includes"]
+to = "contains"
+
+[[entry]]
+rule = "V03"
+class = "C"
+kind = "function"
+from = ["joinpath", "path_join"]
+to = "join_path"
+
+[[entry]]
+rule = "V03"
+class = "C"
+kind = "function"
+from = ["rand"]
+to = "random"
+
+[[entry]]
+rule = "V03"
+class = "C"
+kind = "function"
+from = ["guid"]
+to = "uuid"
+
+[[entry]]
+rule = "V03"
+class = "C"
+kind = "function"
+from = ["b64encode", "btoa"]
+to = "base64_encode"
+
+[[entry]]
+rule = "V03"
+class = "C"
+kind = "function"
+from = ["b64decode", "atob"]
+to = "base64_decode"

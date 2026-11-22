@@ -1,0 +1,6 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B23: alternative branches with ||.
+ls /srv/app/out || mkdir /srv/app/out
+grep -q app /etc/hosts || echo "127.0.0.1 app" >> /etc/hosts

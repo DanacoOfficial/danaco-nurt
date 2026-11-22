@@ -1,0 +1,1778 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-correction-table/1"
+table = "bash"
+summary = "Translation of commands written in bash notation into Nurt programs."
+
+# Each entry translates one bash command (`name`, with a subcommand when the
+# command has subcommands). `template` is the result in variant A: `$1` … `$9`
+# are operands, `$all`, `$rest`, `$init` and `$last` operand groups, other
+# slots are flag values or values computed by the interpreter of the entry.
+# `option` maps flags to arguments of the last stage (`args`), to appended
+# stages (`stages`) or to arguments written when the flag is absent
+# (`absent`); `default = true` marks a flag whose mapping is the default of
+# the target parameter. `form` selects another template by operands and
+# flags, `stage` gives the template of a command used after `|` for the kinds
+# of input records it accepts, and `glob` the stages after the expansion of
+# an unquoted shell pattern. A flag that is not listed has no equivalent.
+
+[glob]
+source = "find $dir glob: $pattern:text depth: $depth"
+hidden = "hidden: false"
+
+[assumptions]
+binary_units = "the size units k, M and G of find are binary (KiB, MiB, GiB)"
+decimal_units = "the size units are decimal (kB, MB, GB)"
+pattern_literal = "the pattern is read as literal text"
+pattern_basic = "the pattern is a basic regular expression translated to the extended dialect"
+pattern_extended = "the pattern is read as an extended regular expression"
+awk_fields = "fields are split by split; leading whitespace and numeric comparison may differ from awk"
+word_splitting = "every record of the substituted command is one argument; the shell splits output at whitespace"
+file_names_without_spaces = "file names contain no whitespace; xargs splits its input at whitespace"
+one_run = "the program runs once with every path; find -exec with ; runs it once per path"
+script_stops = "the script stops at the first error; bash continues after `;`"
+converted_in_place = "the file is converted in place; iconv writes the result to standard output"
+
+[messages.unsupported_syntax]
+message = "shell syntax has no translation: {reason}"
+help = "help corrections"
+
+[messages.current_directory]
+message = "there is no current directory; paths are absolute or relative to the call parameter `base`, and `cd` applies only to the command after it in the same line"
+help = "help corrections"
+
+[messages.environment_without_program]
+message = "environment variables apply only to a program run in the same line: `VAR=x program` or `export VAR=x; program`"
+help = "help run"
+
+[messages.privilege_elevation]
+message = "`sudo` is not translated; privileges are not raised, and the program runs with the privileges of the console"
+help = "help corrections"
+
+[messages.options_without_program]
+message = "environment, time limit and output options apply only to a program run with `run`"
+help = "help run"
+
+[messages.background_change]
+message = "only a program run with `run` can run in the background"
+help = "help run"
+
+[messages.working_directory]
+message = "the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes"
+help = "help run"
+
+[messages.repository_directory]
+message = "the repository is not given; write `git -C <absolute path>` or `cd <absolute path> &&` before it"
+help = "help git.status"
+
+[messages.host_variable]
+message = "`${name}` is not substituted; {hint}"
+help = "help host"
+
+[messages.unknown_variable]
+message = "`${name}` is not substituted; Nurt has no variables: write the value, or name a result with `let {lower} = …` and use `@{lower}`"
+help = "help corrections"
+
+[messages.variable_in_text]
+message = "`${name}` is not substituted inside text; paths are quoted absolute text: write the path, or use a field of a named result such as `@{lower}.path`"
+help = "help corrections"
+
+[messages.command_substitution]
+message = "command substitution has a translation only as a whole argument whose command reads records"
+help = "help corrections"
+
+[messages.relative_path]
+message = "relative path `{path}` without the call parameter `base`; write an absolute path or set `base`"
+help = "help corrections"
+
+[messages.loop]
+message = "`{keyword}` has no translation: loops, conditions, functions and here-documents other than `cat > file` are not translated; patterns and pipelines replace loops, and a script runs as `run [\"bash\", \"script.sh\"]`"
+help = "help run"
+
+[messages.alternative_branch]
+message = "`||` has no translation: a program has no alternative branch; check the condition with `assert` and run the alternative as a separate step"
+help = "help assert"
+
+[messages.several_programs]
+message = "several commands joined by `&&` or `;` are separate programs; send them as separate calls"
+help = "help corrections"
+
+[messages.one_effect]
+message = "several changing stages in one program ({stages}); nothing was run, send the next steps as separate calls"
+help = "help corrections"
+
+[messages.probable_change]
+message = "the translation depends on an assumption and the program changes files; nothing was run, choose a candidate"
+help = "help corrections"
+
+[messages.invalid_number]
+message = "`{value}` is not a non-negative integer"
+help = "help corrections"
+
+[messages.invalid_value]
+message = "`{value}` is not a valid value here"
+help = "help corrections"
+
+[messages.invalid_duration]
+message = "`{value}` is not a duration; write seconds or a number with s, m, h or d"
+help = "help corrections"
+
+[messages.missing_operand]
+message = "missing {slot} of `{command}`"
+help = "help corrections"
+
+[messages.too_many_operands]
+message = "too many operands of `{command}` for one translation"
+help = "help corrections"
+
+[messages.no_translation]
+message = "`{command}` with these flags has no translation"
+help = "help corrections"
+
+[messages.unsupported_stage]
+message = "`{command}` after `|` has no translation for the records of the previous command"
+help = "help corrections"
+
+[messages.flag_without_value]
+message = "flag `{flag}` needs a value"
+help = "help corrections"
+
+[messages.flag_without_equivalent]
+message = "flag `{flag}` of `{command}` has no equivalent; parameters of `{target}`: {params}"
+help = "help corrections"
+
+[messages.unsupported_pattern]
+message = "shell pattern `{pattern}` has no translation; write `find` with `glob`"
+help = "help find"
+
+[messages.unsupported_redirection]
+message = "redirection `{operator}` has no translation"
+help = "help write"
+
+[messages.output_redirection]
+message = "the output of a changing command or of a program cannot be redirected into a file; the full output of `run` is kept in its result"
+help = "help run"
+
+[messages.output_without_file]
+message = "text printed without a file has no translation; to compute a value use `evaluate`"
+help = "help evaluate"
+
+[messages.here_document_expansion]
+message = "the here-document expands `$` or backticks; quote the delimiter (`<<'EOF'`) or write the text"
+help = "help write"
+
+[messages.unsupported_test]
+message = "only the tests -e, -f, -d, -L, -h and -s of one path have a translation"
+help = "help assert"
+
+[messages.invalid_table]
+message = "invalid bash translation table: {reason}"
+help = "help corrections"
+
+[messages.guard_target]
+message = "`test … &&` has a translation only when the command acts on the tested path; send the steps separately"
+help = "help assert"
+
+[messages.time_not_absolute]
+message = "time `{time}` is not absolute; write `YYYY-MM-DDTHH:MM`"
+help = "help schedule.create"
+
+[messages.unsupported_find_predicate]
+message = "predicate `{predicate}` of `find` has no translation"
+help = "help find"
+
+[messages.invalid_regex]
+message = "pattern `{pattern}` is not a valid regular expression: {reason}"
+help = "help search"
+
+[messages.standard_input]
+message = "`{command}` without a file reads standard input; name the file or use it after `|`"
+help = "help corrections"
+
+[messages.several_patterns]
+message = "several `-e` patterns have no translation; search for each pattern separately"
+help = "help search"
+
+[messages.unsupported_sed_script]
+message = "sed script `{script}` has no translation; only `s/A/B/` in place and line addresses with `p` or `d` are translated"
+help = "help replace"
+
+[messages.sed_without_in_place]
+message = "sed without `-i` prints the changed text and changes nothing; with `-i` it changes the file"
+help = "help replace"
+
+[messages.unsupported_awk_program]
+message = "awk program `{program}` has no translation; only `{print $N}` with a pattern or a field comparison is translated"
+help = "help split"
+
+[messages.unsupported_format]
+message = "printf format `{format}` has no translation; only `%s` and `%%` are translated"
+help = "help write"
+
+[messages.interactive_edit]
+message = "`{command}` opens an interactive editor; create the schedule with `schedule.create`"
+help = "help schedule.create"
+
+[values.find_type]
+f = "file"
+d = "directory"
+l = "link"
+
+[values.find_size]
+c = 1
+w = 2
+b = 512
+k = 1024
+M = 1048576
+G = 1073741824
+
+[values.find_size_decimal]
+k = 1000
+M = 1000000
+G = 1000000000
+
+[values.test]
+-e = "exists"
+-f = "type == file"
+-d = "type == directory"
+-L = "type == link"
+-h = "type == link"
+-s = "size > 0"
+
+[values.host_variables]
+HOME = "the home directory is the field `home` of `host`"
+PWD = "there is no current directory; relative paths use the call parameter `base`"
+OLDPWD = "there is no current directory; relative paths use the call parameter `base`"
+TMPDIR = "the temporary directory is the field `temp` of `host`"
+USER = "the account is the field `user` of `host`"
+
+[values.substitution_field]
+path_entry = "path"
+name_entry = "name"
+line = "text"
+match = "path"
+
+[values.stage_input]
+remove = true
+read = true
+lines = true
+copy = true
+move = true
+attributes = true
+info = true
+rename = true
+hash = true
+convert = true
+compress = true
+decompress = true
+
+[values.git_without_repository]
+clone = true
+
+[values.sed]
+substitute = "replace $pattern $with in: [$all]"
+occurrence = "replace occurrence: $occurrence"
+ignore_case = "replace case_sensitive: false"
+print_range = "read $1 lines: $range"
+print_last = "read $1 last: 1"
+print_match = "lines $1 |> filter text ~ $regex"
+delete_range = "lines $1 $range |> remove"
+delete_last = "lines $1 |> last 1 |> remove"
+delete_match = "lines $1 |> filter text ~ $regex |> remove"
+
+[values.awk]
+source = "lines $1"
+match = "filter text ~ $regex"
+split = "split $delimiter names: $names"
+where = "filter $condition"
+select = "select $fields"
+
+# Files: B01-B09.
+
+[[entry]]
+name = "rm"
+rule = "B01"
+class = "C"
+help = "remove"
+min = 1
+template = "remove $all"
+output = "effect"
+glob = { rule = "B02", stages = "|> remove" }
+option = [
+  { flags = ["-r", "-R", "--recursive"] },
+  { flags = ["-f", "--force"], args = "on_missing: skip", default = true, absent = "on_missing: error" },
+  { flags = ["-v", "--verbose"] },
+]
+stage = [{ input = ["path_entry"], template = "remove" }]
+
+[[entry]]
+name = "mv"
+rule = "B03"
+class = "C"
+help = "move"
+min = 1
+output = "effect"
+glob = { rule = "B02", stages = "|> move into: $last", operands = 2 }
+option = [
+  { flags = ["-f", "--force"], args = "on_conflict: overwrite", default = true },
+  { flags = ["-n", "--no-clobber"], args = "on_conflict: skip" },
+  { flags = ["-v", "--verbose"] },
+  { flags = ["-t", "--target-directory"], value = "path" },
+]
+form = [
+  { when = { options = ["t"] }, template = "move $all into: $t" },
+  { when = { dest_dir = true }, template = "move $init into: $last" },
+  { when = { operands = 2 }, template = "move $1 to: $2" },
+]
+stage = [
+  { input = ["path_entry"], when = { options = ["t"] }, template = "move into: $t" },
+  { input = ["path_entry"], when = { operands = 1 }, template = "move into: $1" },
+]
+
+[[entry]]
+name = "cp"
+rule = "B04"
+class = "C"
+help = "copy"
+min = 1
+output = "effect"
+glob = { rule = "B02", stages = "|> copy into: $last", operands = 2 }
+option = [
+  { flags = ["-r", "-R", "--recursive"] },
+  { flags = ["-a", "--archive", "-p", "--preserve"], id = "a", args = "preserve: true", default = true, absent = "preserve: false" },
+  { flags = ["-f", "--force"], args = "on_conflict: overwrite", default = true },
+  { flags = ["-n", "--no-clobber"], args = "on_conflict: skip" },
+  { flags = ["-v", "--verbose"] },
+  { flags = ["--reflink"], value = "word", args = "clone: $value:ident" },
+  { flags = ["-t", "--target-directory"], value = "path" },
+]
+form = [
+  { when = { options = ["t"] }, template = "copy $all into: $t" },
+  { when = { dest_dir = true }, template = "copy $init into: $last" },
+  { when = { operands = 2 }, template = "copy $1 to: $2" },
+]
+stage = [
+  { input = ["path_entry"], when = { options = ["t"] }, template = "copy into: $t" },
+  { input = ["path_entry"], when = { operands = 1 }, template = "copy into: $1" },
+]
+
+[[entry]]
+name = "mkdir"
+rule = "B05"
+class = "C"
+help = "create"
+min = 1
+template = "create $all type: directory"
+output = "effect"
+option = [
+  { flags = ["-p", "--parents"], args = "parents: true", default = true, absent = "parents: false" },
+  { flags = ["-v", "--verbose"] },
+]
+
+[[entry]]
+name = "touch"
+rule = "B06"
+class = "C"
+help = "create"
+min = 1
+template = "create $all type: file on_exists: touch"
+output = "effect"
+
+[[entry]]
+name = "chmod"
+rule = "B07"
+class = "C"
+help = "attributes"
+min = 2
+template = "attributes $rest mode: $1:text"
+output = "effect"
+glob = { rule = "B02", stages = "|> attributes mode: $1:text", operands = 2 }
+option = [
+  { flags = ["-R", "--recursive"], args = "recursive: true" },
+  { flags = ["-v", "--verbose"] },
+]
+stage = [{ input = ["path_entry"], when = { operands = 1 }, template = "attributes mode: $1:text" }]
+
+[[entry]]
+name = "chown"
+rule = "B08"
+class = "C"
+help = "attributes"
+interpreter = "chown"
+min = 2
+template = "attributes $rest owner: $account:text group: $group:text"
+output = "effect"
+option = [
+  { flags = ["-R", "--recursive"], args = "recursive: true" },
+  { flags = ["-v", "--verbose"] },
+]
+stage = [{ input = ["path_entry"], when = { operands = 1 }, template = "attributes owner: $account:text group: $group:text" }]
+
+[[entry]]
+name = "ln"
+rule = "B09"
+class = "C"
+help = "create"
+min = 2
+max = 2
+template = "create $2 type: link target: $1 hard: true"
+output = "effect"
+option = [{ flags = ["-s", "--symbolic"] }]
+form = [{ when = { options = ["s"] }, template = "create $2 type: link target: $1:text" }]
+
+# Reading and text: B10-B19.
+
+[[entry]]
+name = "cat"
+rule = "B10"
+class = "C"
+help = "read"
+min = 1
+template = "read $all"
+output = "content"
+option = [{ flags = ["-n", "--number"], args = "line_numbers: true" }]
+form = [{ when = { followed = true, operands = 1, without = ["n"] }, template = "lines $1", output = "line" }]
+
+[[entry]]
+name = "head"
+rule = "B11"
+class = "C"
+help = "read"
+min = 1
+max = 1
+template = "read $1"
+output = "line"
+option = [{ flags = ["-n", "--lines", "-#"], id = "n", value = "int", args = "lines: ..$value:int", absent = "lines: ..10" }]
+stage = [
+  { input = ["line", "match", "path_entry", "name_entry", "entry", "process", "port"], when = { options = ["n"] }, template = "first $n:int", options = false },
+  { input = ["line", "match", "path_entry", "name_entry", "entry", "process", "port"], template = "first 10", options = false },
+]
+
+[[entry]]
+name = "tail"
+rule = "B11"
+class = "C"
+help = "read"
+min = 1
+max = 1
+template = "read $1"
+output = "line"
+option = [{ flags = ["-n", "--lines", "-#"], id = "n", value = "int", args = "last: $value:int", absent = "last: 10" }]
+stage = [
+  { input = ["line", "match", "path_entry", "name_entry", "entry", "process", "port"], when = { options = ["n"] }, template = "last $n:int", options = false },
+  { input = ["line", "match", "path_entry", "name_entry", "entry", "process", "port"], template = "last 10", options = false },
+]
+
+[[entry]]
+name = "wc"
+rule = "B12"
+class = "C"
+help = "count"
+min = 1
+max = 1
+output = "other"
+option = [
+  { flags = ["-l", "--lines"] },
+  { flags = ["-c", "--bytes"] },
+]
+form = [
+  { when = { options = ["l"], without = ["c"] }, template = "lines $1 |> count" },
+  { when = { options = ["c"], without = ["l"] }, template = "info $1 |> select size" },
+]
+stage = [{ input = ["line", "match", "path_entry", "name_entry", "entry", "process", "port"], when = { options = ["l"], without = ["c"] }, template = "count", output = "other", options = false }]
+
+[[entry]]
+name = "ls"
+rule = "B13"
+class = "C"
+help = "list"
+min = 1
+max = 1
+template = "list $1"
+output = "name_entry"
+glob = { rule = "B13", stages = "" }
+option = [
+  { flags = ["-l"] },
+  { flags = ["-h", "--human-readable"] },
+  { flags = ["-1"] },
+  { flags = ["-a", "--all", "-A", "--almost-all"], id = "a", args = "hidden: true", default = true, absent = "hidden: false" },
+  { flags = ["-t"], args = "sort: modified order: desc" },
+  { flags = ["-S"], args = "sort: size order: desc" },
+]
+
+[[entry]]
+name = "find"
+rule = "B14"
+class = "C"
+help = "find"
+interpreter = "find"
+template = "find $1"
+output = "path_entry"
+assumption = "binary_units"
+option = [
+  { flags = ["-name"], value = "text", args = "glob: $glob:text" },
+  { flags = ["-iname"], value = "text", args = "glob: $glob:text case_sensitive: false" },
+  { flags = ["-type"], value = "word", args = "type: $type", absent = "type: any" },
+  { flags = ["-maxdepth"], value = "int", args = "depth: $value:int" },
+  { flags = ["-mtime"], value = "word", stages = "|> filter $mtime" },
+  { flags = ["-mmin"], value = "word", stages = "|> filter $mmin" },
+  { flags = ["-size"], value = "word", stages = "|> filter $size" },
+  { flags = ["-delete"], stages = "|> remove" },
+  { flags = ["-print"] },
+  { flags = ["-print0"] },
+]
+
+[[entry]]
+name = "grep"
+rule = "B15"
+class = "C"
+help = "search"
+interpreter = "grep"
+template = "search $pattern $all"
+output = "match"
+option = [
+  { flags = ["-r", "-R", "--recursive"] },
+  { flags = ["-n", "--line-number"] },
+  { flags = ["-H", "--with-filename"] },
+  { flags = ["-s", "--no-messages"] },
+  { flags = ["-i", "--ignore-case"], args = "case_sensitive: false" },
+  { flags = ["-w", "--word-regexp"], args = "whole_word: true" },
+  { flags = ["-v", "--invert-match"], args = "invert: true" },
+  { flags = ["-l", "--files-with-matches"], args = "output: files" },
+  { flags = ["-L", "--files-without-match"], args = "output: unmatched" },
+  { flags = ["-c", "--count"], args = "output: counts" },
+  { flags = ["-o", "--only-matching"], stages = "|> select text" },
+  { flags = ["-E", "--extended-regexp"] },
+  { flags = ["-F", "--fixed-strings"] },
+  { flags = ["-P", "--perl-regexp"] },
+  { flags = ["-G", "--basic-regexp"] },
+  { flags = ["-e", "--regexp"], value = "text" },
+  { flags = ["-A", "--after-context"], value = "int", args = "after: $value:int" },
+  { flags = ["-B", "--before-context"], value = "int", args = "before: $value:int" },
+  { flags = ["-C", "--context"], value = "int", args = "context: $value:int" },
+  { flags = ["-m", "--max-count"], value = "int", args = "max_per_file: $value:int" },
+  { flags = ["--include"], value = "text", args = "glob: $include:text" },
+  { flags = ["--exclude"], value = "text", args = "exclude: [$value:text]" },
+]
+form = [
+  { when = { options = ["l"] }, template = "search $pattern $all", output = "path_entry" },
+  { when = { options = ["L"] }, template = "search $pattern $all", output = "path_entry" },
+  { when = { options = ["c"] }, template = "search $pattern $all", output = "other" },
+]
+stage = [
+  { input = ["line", "content", "match"], when = { without = ["c"] }, template = "search $pattern" },
+  { input = ["line", "content", "match"], when = { options = ["c"] }, template = "search $pattern |> count", output = "other", options = false },
+  { input = ["path_entry"], when = { without = ["v"] }, template = "filter path ~ $regex", options = false },
+  { input = ["path_entry"], when = { options = ["v"] }, template = "filter path !~ $regex", options = false },
+  { input = ["name_entry"], when = { without = ["v"] }, template = "filter name ~ $regex", options = false },
+  { input = ["name_entry"], when = { options = ["v"] }, template = "filter name !~ $regex", options = false },
+]
+
+[[entry]]
+name = "sed"
+rule = "B16"
+class = "P"
+help = "replace"
+interpreter = "sed"
+output = "effect"
+option = [
+  { flags = ["-i", "--in-place"] },
+  { flags = ["-n", "--quiet", "--silent"] },
+  { flags = ["-E", "-r", "--regexp-extended"], id = "E" },
+  { flags = ["-e", "--expression"], value = "text" },
+]
+
+[[entry]]
+name = "awk"
+rule = "B18"
+class = "P"
+help = "split"
+interpreter = "awk"
+output = "line"
+option = [{ flags = ["-F", "--field-separator"], value = "text" }]
+
+[[entry]]
+name = "echo"
+rule = "B19"
+class = "C"
+help = "write"
+interpreter = "echo"
+
+[[entry]]
+name = "printf"
+rule = "B19"
+class = "C"
+help = "write"
+interpreter = "printf"
+
+# Shell constructs: B20-B31.
+
+[[entry]]
+name = "test"
+rule = "B21"
+class = "C"
+help = "assert"
+interpreter = "test"
+
+[[entry]]
+name = "["
+rule = "B21"
+class = "C"
+help = "assert"
+interpreter = "test"
+
+[[entry]]
+name = "env"
+rule = "B35"
+class = "C"
+help = "environment"
+max = 0
+template = "environment"
+output = "other"
+
+[[entry]]
+name = "printenv"
+rule = "B35"
+class = "C"
+help = "environment"
+max = 1
+template = "environment"
+output = "other"
+form = [{ when = { operands = 1 }, template = "environment $1:text" }]
+
+# Network: B32.
+
+[[entry]]
+name = "curl"
+rule = "B32"
+class = "C"
+help = "http.request"
+interpreter = "curl"
+min = 1
+max = 1
+template = "http.request $1:text"
+output = "other"
+option = [
+  { flags = ["-X", "--request"], value = "word", args = "method: $value:ident" },
+  { flags = ["-H", "--header"], value = "text", args = "headers: $headers" },
+  { flags = ["-d", "--data", "--data-raw"], value = "text", args = "body: $value:text method: post" },
+  { flags = ["-o", "--output"], value = "path", args = "save: $value" },
+  { flags = ["-O", "--remote-name"], args = "save: $file" },
+  { flags = ["-L", "--location"], args = "follow_redirects: true", default = true, absent = "follow_redirects: false" },
+  { flags = ["-s", "--silent"] },
+  { flags = ["-S", "--show-error"] },
+  { flags = ["-f", "--fail"] },
+  { flags = ["-I", "--head"], args = "method: head" },
+  { flags = ["-k", "--insecure"], args = "verify_tls: false" },
+  { flags = ["-m", "--max-time"], value = "word", args = "timeout: $value:duration" },
+]
+
+[[entry]]
+name = "wget"
+rule = "B32"
+class = "C"
+help = "http.download"
+interpreter = "curl"
+min = 1
+max = 1
+template = "http.download $1:text $file"
+output = "effect"
+option = [
+  { flags = ["-O", "--output-document"], value = "path" },
+  { flags = ["-q", "--quiet"] },
+  { flags = ["-c", "--continue"] },
+]
+form = [{ when = { options = ["O"] }, template = "http.download $1:text $O" }]
+
+# Archives: B34.
+
+[[entry]]
+name = "tar"
+rule = "B34"
+class = "C"
+help = "archive.extract"
+interpreter = "archive"
+output = "effect"
+option = [
+  { flags = ["-x", "--extract"] },
+  { flags = ["-c", "--create"] },
+  { flags = ["-z", "--gzip"] },
+  { flags = ["-j", "--bzip2"] },
+  { flags = ["-J", "--xz"] },
+  { flags = ["-v", "--verbose"] },
+  { flags = ["-f", "--file"], value = "path" },
+  { flags = ["-C", "--directory"], value = "path" },
+]
+form = [
+  { when = { options = ["x", "f"], without = ["c"], operands = 0 }, template = "archive.extract $archive into: $into" },
+  { when = { options = ["c", "f"], without = ["x"], operands = 1 }, template = "find $1 type: any |> archive.create $archive format: $format base: $base" },
+]
+
+[[entry]]
+name = "zip"
+rule = "B34"
+class = "C"
+help = "archive.create"
+interpreter = "archive"
+min = 2
+max = 2
+output = "effect"
+option = [
+  { flags = ["-r", "--recurse-paths"] },
+  { flags = ["-q", "--quiet"] },
+]
+form = [{ when = { options = ["r"] }, template = "find $2 type: any |> archive.create $1 format: zip base: $base" }]
+
+[[entry]]
+name = "unzip"
+rule = "B34"
+class = "C"
+help = "archive.extract"
+interpreter = "archive"
+min = 1
+max = 1
+template = "archive.extract $1 into: $into"
+output = "effect"
+option = [
+  { flags = ["-d"], value = "path" },
+  { flags = ["-q"] },
+]
+form = [{ when = { options = ["d"] }, template = "archive.extract $1 into: $d" }]
+
+[[entry]]
+name = "gzip"
+rule = "B34"
+class = "C"
+help = "compress"
+min = 1
+template = "compress $all"
+output = "effect"
+option = [
+  { flags = ["-k", "--keep"], args = "keep: true", default = true, absent = "keep: false" },
+  { flags = ["-d", "--decompress"] },
+  { flags = ["-v", "--verbose"] },
+]
+form = [{ when = { options = ["d"] }, template = "decompress $all" }]
+stage = [
+  { input = ["path_entry"], when = { without = ["d"] }, template = "compress" },
+  { input = ["path_entry"], when = { options = ["d"] }, template = "decompress" },
+]
+
+[[entry]]
+name = "gunzip"
+rule = "B34"
+class = "C"
+help = "decompress"
+min = 1
+template = "decompress $all"
+output = "effect"
+option = [{ flags = ["-k", "--keep"], args = "keep: true", default = true, absent = "keep: false" }]
+stage = [{ input = ["path_entry"], template = "decompress" }]
+
+# System and processes: B35-B37.
+
+[[entry]]
+name = "ps"
+rule = "B35"
+class = "C"
+help = "processes"
+max = 1
+output = "process"
+option = [
+  { flags = ["-e", "-A"] },
+  { flags = ["-f"] },
+]
+form = [
+  { when = { words = ["aux"] }, template = "processes" },
+  { when = { operands = 0 }, template = "processes" },
+]
+
+[[entry]]
+name = "df"
+rule = "B35"
+class = "C"
+help = "disks"
+max = 0
+template = "disks"
+output = "other"
+option = [
+  { flags = ["-h", "--human-readable"] },
+  { flags = ["-T", "--print-type"] },
+]
+
+[[entry]]
+name = "ss"
+rule = "B35"
+class = "C"
+help = "ports"
+max = 0
+output = "port"
+option = [
+  { flags = ["-l", "--listening"] },
+  { flags = ["-a", "--all"] },
+  { flags = ["-t", "--tcp"] },
+  { flags = ["-u", "--udp"] },
+  { flags = ["-n", "--numeric"] },
+  { flags = ["-p", "--processes"] },
+]
+form = [
+  { when = { options = ["l", "t"], without = ["u", "a"] }, template = "ports protocol: tcp" },
+  { when = { options = ["l", "u"], without = ["t", "a"] }, template = "ports protocol: udp" },
+  { when = { options = ["l"], without = ["a"] }, template = "ports" },
+  { when = { options = ["a"], without = ["t", "u"] }, template = "ports state: all" },
+]
+
+[[entry]]
+name = "netstat"
+rule = "B35"
+class = "C"
+help = "ports"
+max = 0
+output = "port"
+option = [
+  { flags = ["-l", "--listening"] },
+  { flags = ["-a", "--all"] },
+  { flags = ["-t", "--tcp"] },
+  { flags = ["-u", "--udp"] },
+  { flags = ["-n", "--numeric"] },
+  { flags = ["-p", "--program"] },
+]
+form = [
+  { when = { options = ["l", "t"], without = ["u", "a"] }, template = "ports protocol: tcp" },
+  { when = { options = ["l", "u"], without = ["t", "a"] }, template = "ports protocol: udp" },
+  { when = { options = ["l"], without = ["a"] }, template = "ports" },
+  { when = { options = ["a"], without = ["t", "u"] }, template = "ports state: all" },
+]
+
+[[entry]]
+name = "lsof"
+rule = "B35"
+class = "C"
+help = "open_files"
+max = 1
+output = "other"
+option = [{ flags = ["-i"] }]
+form = [
+  { when = { options = ["i"], operands = 0 }, template = "ports state: all", output = "port" },
+  { when = { operands = 1, without = ["i"] }, template = "open_files $1" },
+]
+
+[[entry]]
+name = "uname"
+rule = "B35"
+class = "C"
+help = "host"
+max = 0
+template = "host"
+output = "other"
+option = [
+  { flags = ["-a", "--all"] },
+  { flags = ["-s"] },
+  { flags = ["-r"] },
+  { flags = ["-m"] },
+  { flags = ["-n"] },
+]
+
+[[entry]]
+name = "whoami"
+rule = "B35"
+class = "C"
+help = "host"
+max = 0
+template = "host"
+output = "other"
+
+[[entry]]
+name = "hostname"
+rule = "B35"
+class = "C"
+help = "host"
+max = 0
+template = "host"
+output = "other"
+
+[[entry]]
+name = "uptime"
+rule = "B35"
+class = "C"
+help = "host"
+max = 0
+template = "host"
+output = "other"
+
+[[entry]]
+name = "which"
+rule = "B35"
+class = "C"
+help = "program.find"
+min = 1
+template = "program.find $all:text"
+output = "other"
+option = [{ flags = ["-a"] }]
+
+[[entry]]
+name = "command -v"
+rule = "B35"
+class = "C"
+help = "program.find"
+min = 1
+max = 1
+template = "program.find $1:text"
+output = "other"
+
+[[entry]]
+name = "kill"
+rule = "B36"
+class = "C"
+help = "stop"
+min = 1
+max = 1
+template = "processes pid: $1:int |> stop"
+output = "effect"
+option = [
+  { flags = ["-9", "-KILL", "-SIGKILL"], id = "kill", args = "signal: kill" },
+  { flags = ["-15", "-TERM", "-SIGTERM"], id = "term", args = "signal: terminate", default = true },
+  { flags = ["-2", "-INT", "-SIGINT"], id = "int", args = "signal: interrupt" },
+  { flags = ["-1", "-HUP", "-SIGHUP"], id = "hup", args = "signal: hangup" },
+]
+
+[[entry]]
+name = "diff"
+rule = "B37"
+class = "C"
+help = "diff"
+min = 2
+max = 2
+template = "diff $1 $2"
+output = "other"
+option = [
+  { flags = ["-u", "--unified"] },
+  { flags = ["-w", "--ignore-all-space"], args = "ignore_whitespace: true" },
+]
+
+[[entry]]
+name = "sort"
+rule = "B37"
+class = "C"
+help = "sort"
+min = 1
+max = 1
+template = "lines $1 |> sort text"
+output = "line"
+option = [
+  { flags = ["-r", "--reverse"], args = "order: desc" },
+  { flags = ["-u", "--unique"], stages = "|> distinct text" },
+]
+stage = [{ input = ["line"], template = "sort text" }]
+
+[[entry]]
+name = "uniq"
+rule = "B37"
+class = "C"
+help = "distinct"
+min = 1
+max = 1
+template = "lines $1 |> distinct text"
+output = "line"
+option = [{ flags = ["-c", "--count"] }]
+form = [{ when = { options = ["c"] }, template = "lines $1 |> group by: text", output = "other" }]
+stage = [
+  { input = ["line"], when = { without = ["c"] }, template = "distinct text" },
+  { input = ["line"], when = { options = ["c"] }, template = "group by: text", output = "other" },
+]
+
+[[entry]]
+name = "du"
+rule = "B37"
+class = "C"
+help = "summarize"
+min = 1
+max = 1
+output = "other"
+option = [
+  { flags = ["-s", "--summarize"] },
+  { flags = ["-h", "--human-readable"] },
+]
+form = [{ when = { options = ["s"] }, template = "find $1 |> summarize size" }]
+
+[[entry]]
+name = "stat"
+rule = "B37"
+class = "C"
+help = "info"
+min = 1
+template = "info $all"
+output = "entry"
+
+[[entry]]
+name = "file"
+rule = "B37"
+class = "C"
+help = "info"
+min = 1
+template = "info $all details: [text]"
+output = "entry"
+
+[[entry]]
+name = "sha256sum"
+rule = "B37"
+class = "C"
+help = "hash"
+min = 1
+template = "hash $all"
+output = "other"
+
+[[entry]]
+name = "sha512sum"
+rule = "B37"
+class = "C"
+help = "hash"
+min = 1
+template = "hash $all algorithm: sha512"
+output = "other"
+
+[[entry]]
+name = "sha1sum"
+rule = "B37"
+class = "C"
+help = "hash"
+min = 1
+template = "hash $all algorithm: sha1"
+output = "other"
+
+[[entry]]
+name = "md5sum"
+rule = "B37"
+class = "C"
+help = "hash"
+min = 1
+template = "hash $all algorithm: md5"
+output = "other"
+
+[[entry]]
+name = "iconv"
+rule = "B37"
+class = "P"
+help = "convert"
+min = 1
+max = 1
+output = "effect"
+assumption = "converted_in_place"
+option = [
+  { flags = ["-f", "--from-code"], value = "text" },
+  { flags = ["-t", "--to-code"], value = "text" },
+]
+form = [{ when = { options = ["t"] }, template = "convert $1 encoding: $t:text" }]
+
+[[entry]]
+name = "dos2unix"
+rule = "B37"
+class = "C"
+help = "convert"
+min = 1
+template = "convert $all line_ending: lf"
+output = "effect"
+
+[[entry]]
+name = "basename"
+rule = "B37"
+class = "C"
+help = "info"
+min = 1
+max = 1
+template = "info $1 |> select name"
+output = "other"
+
+[[entry]]
+name = "dirname"
+rule = "B37"
+class = "C"
+help = "info"
+min = 1
+max = 1
+template = "info $1 |> select parent"
+output = "other"
+
+# Git: B38. The slot `$repo` is the repository from `git -C` or `cd`.
+
+[[entry]]
+name = "git status"
+rule = "B38"
+class = "C"
+help = "git.status"
+max = 0
+template = "git.status $repo"
+output = "other"
+option = [
+  { flags = ["-s", "--short"] },
+  { flags = ["-b", "--branch"] },
+]
+
+[[entry]]
+name = "git diff"
+rule = "B38"
+class = "C"
+help = "git.diff"
+template = "git.diff $repo"
+output = "other"
+option = [
+  { flags = ["--staged", "--cached"], id = "staged", args = "staged: true" },
+  { flags = ["--stat"], args = "stat: true" },
+]
+form = [{ when = { min_operands = 1 }, template = "git.diff $repo path: [$all]" }]
+
+[[entry]]
+name = "git log"
+rule = "B38"
+class = "C"
+help = "git.log"
+max = 0
+template = "git.log $repo"
+output = "other"
+option = [
+  { flags = ["-n", "--max-count", "-#"], id = "n", value = "int", args = "count: $value:int" },
+  { flags = ["--oneline"] },
+  { flags = ["--stat"], args = "stat: true" },
+]
+
+[[entry]]
+name = "git show"
+rule = "B38"
+class = "C"
+help = "git.show"
+min = 1
+max = 1
+template = "git.show $repo $1:text"
+output = "other"
+
+[[entry]]
+name = "git add"
+rule = "B38"
+class = "C"
+help = "git.stage"
+min = 1
+template = "git.stage $repo action: add paths: [$all]"
+output = "effect"
+
+[[entry]]
+name = "git commit"
+rule = "B38"
+class = "C"
+help = "git.commit"
+max = 0
+output = "effect"
+option = [
+  { flags = ["-m", "--message"], value = "text" },
+  { flags = ["-a", "--all"], args = "all: true" },
+  { flags = ["--amend"], args = "amend: true" },
+  { flags = ["-s", "--signoff"], args = "sign_off: true" },
+  { flags = ["--trailer"], value = "text", args = "trailers: [$value:text]" },
+]
+form = [{ when = { options = ["m"] }, template = "git.commit $repo message: $message" }]
+
+[[entry]]
+name = "git push"
+rule = "B38"
+class = "C"
+help = "git.push"
+max = 2
+output = "effect"
+option = [
+  { flags = ["-f", "--force"], args = "force: true" },
+  { flags = ["-u", "--set-upstream"], args = "set_upstream: true" },
+  { flags = ["--tags"], args = "tags: true" },
+]
+form = [{ when = { operands = 2 }, template = "git.push $repo remote: $1:text branch: $2:text" }]
+
+[[entry]]
+name = "git pull"
+rule = "B38"
+class = "C"
+help = "git.pull"
+max = 2
+template = "git.pull $repo"
+output = "effect"
+option = [{ flags = ["--rebase"], args = "mode: rebase" }]
+form = [
+  { when = { operands = 1 }, template = "git.pull $repo remote: $1:text" },
+  { when = { operands = 2 }, template = "git.pull $repo remote: $1:text branch: $2:text" },
+]
+
+[[entry]]
+name = "git fetch"
+rule = "B38"
+class = "C"
+help = "git.fetch"
+max = 1
+template = "git.fetch $repo"
+output = "effect"
+option = [
+  { flags = ["--prune", "-p"], id = "prune", args = "prune: true" },
+  { flags = ["--tags"], args = "tags: true" },
+]
+form = [{ when = { operands = 1 }, template = "git.fetch $repo remote: $1:text" }]
+
+[[entry]]
+name = "git switch"
+rule = "B38"
+class = "C"
+help = "git.switch"
+max = 1
+output = "effect"
+option = [{ flags = ["-c", "--create"], value = "text" }]
+form = [
+  { when = { options = ["c"], operands = 0 }, template = "git.switch $repo branch: $c:text create: true" },
+  { when = { operands = 1, without = ["c"] }, template = "git.switch $repo branch: $1:text" },
+]
+
+[[entry]]
+name = "git checkout"
+rule = "B38"
+class = "C"
+help = "git.switch"
+max = 0
+output = "effect"
+option = [{ flags = ["-b"], value = "text" }]
+form = [{ when = { options = ["b"] }, template = "git.switch $repo branch: $b:text create: true" }]
+
+[[entry]]
+name = "git branch"
+rule = "B38"
+class = "C"
+help = "git.branch"
+max = 1
+template = "git.branch $repo"
+output = "other"
+option = [
+  { flags = ["-d", "--delete"], value = "text", args = "delete: $value:text" },
+  { flags = ["-D"], value = "text", args = "delete: $value:text force: true" },
+]
+form = [{ when = { operands = 1 }, template = "git.branch $repo create: $1:text", output = "effect" }]
+
+[[entry]]
+name = "git stash"
+rule = "B38"
+class = "C"
+help = "git.stash"
+max = 0
+template = "git.stash $repo action: push"
+output = "effect"
+option = [{ flags = ["-m", "--message"], value = "text", args = "message: $value:text" }]
+
+[[entry]]
+name = "git stash pop"
+rule = "B38"
+class = "C"
+help = "git.stash"
+max = 0
+template = "git.stash $repo action: pop"
+output = "effect"
+
+[[entry]]
+name = "git stash list"
+rule = "B38"
+class = "C"
+help = "git.stash"
+max = 0
+template = "git.stash $repo action: list"
+output = "other"
+
+[[entry]]
+name = "git reset"
+rule = "B38"
+class = "C"
+help = "git.reset"
+max = 1
+template = "git.reset $repo revision: \"HEAD\""
+output = "effect"
+option = [
+  { flags = ["--hard"], args = "mode: hard" },
+  { flags = ["--soft"], args = "mode: soft" },
+  { flags = ["--mixed"], args = "mode: mixed", default = true },
+]
+form = [{ when = { operands = 1 }, template = "git.reset $repo revision: $1:text" }]
+
+[[entry]]
+name = "git merge"
+rule = "B38"
+class = "C"
+help = "git.merge"
+max = 1
+output = "effect"
+option = [
+  { flags = ["--abort"] },
+  { flags = ["--continue"] },
+  { flags = ["--no-ff"], args = "fast_forward: never" },
+  { flags = ["--ff-only"], args = "fast_forward: only" },
+]
+form = [
+  { when = { options = ["abort"], operands = 0 }, template = "git.merge $repo action: abort" },
+  { when = { options = ["continue"], operands = 0 }, template = "git.merge $repo action: continue" },
+  { when = { operands = 1 }, template = "git.merge $repo branch: $1:text" },
+]
+
+[[entry]]
+name = "git rebase"
+rule = "B38"
+class = "C"
+help = "git.rebase"
+max = 1
+output = "effect"
+option = [
+  { flags = ["--abort"] },
+  { flags = ["--continue"] },
+]
+form = [
+  { when = { options = ["abort"], operands = 0 }, template = "git.rebase $repo action: abort" },
+  { when = { options = ["continue"], operands = 0 }, template = "git.rebase $repo action: continue" },
+  { when = { operands = 1 }, template = "git.rebase $repo onto: $1:text" },
+]
+
+[[entry]]
+name = "git tag"
+rule = "B38"
+class = "C"
+help = "git.tag"
+min = 1
+max = 1
+template = "git.tag $repo name: $1:text"
+output = "effect"
+option = [
+  { flags = ["-a", "--annotate"] },
+  { flags = ["-m", "--message"], value = "text", args = "message: $value:text" },
+]
+
+[[entry]]
+name = "git clone"
+rule = "B38"
+class = "C"
+help = "git.clone"
+min = 2
+max = 2
+template = "git.clone $1:text $2"
+output = "effect"
+option = [{ flags = ["--depth"], value = "int", args = "depth: $value:int" }]
+
+[[entry]]
+name = "git restore"
+rule = "B38"
+class = "C"
+help = "git.restore"
+min = 1
+template = "git.restore $repo paths: [$all]"
+output = "effect"
+option = [{ flags = ["--staged", "-S"], id = "staged", args = "staged: true" }]
+
+[[entry]]
+name = "git blame"
+rule = "B38"
+class = "C"
+help = "git.blame"
+min = 1
+max = 1
+template = "git.blame $1"
+output = "other"
+
+# Schedules, services, packages and time: B40.
+
+[[entry]]
+name = "crontab -e"
+rule = "B40"
+class = "C"
+help = "schedule.create"
+error = "E_UNCORRECTABLE"
+problem = "interactive_edit"
+
+[[entry]]
+name = "at"
+rule = "B40"
+class = "C"
+help = "schedule.create"
+interpreter = "at"
+
+[[entry]]
+name = "systemctl start"
+rule = "B40"
+class = "C"
+help = "services"
+min = 1
+max = 1
+template = "services name: $1:text |> start"
+output = "effect"
+
+[[entry]]
+name = "systemctl stop"
+rule = "B40"
+class = "C"
+help = "services"
+min = 1
+max = 1
+template = "services name: $1:text |> stop"
+output = "effect"
+
+[[entry]]
+name = "systemctl restart"
+rule = "B40"
+class = "C"
+help = "services"
+min = 1
+max = 1
+template = "services name: $1:text |> restart"
+output = "effect"
+
+[[entry]]
+name = "systemctl enable"
+rule = "B40"
+class = "C"
+help = "services"
+min = 1
+max = 1
+template = "services name: $1:text |> enable"
+output = "effect"
+
+[[entry]]
+name = "systemctl disable"
+rule = "B40"
+class = "C"
+help = "services"
+min = 1
+max = 1
+template = "services name: $1:text |> disable"
+output = "effect"
+
+[[entry]]
+name = "systemctl status"
+rule = "B40"
+class = "C"
+help = "services"
+min = 1
+max = 1
+template = "services name: $1:text"
+output = "other"
+
+[[entry]]
+name = "service"
+rule = "B40"
+class = "C"
+help = "services"
+interpreter = "service"
+
+[[entry]]
+name = "apt install"
+rule = "B40"
+class = "C"
+help = "package.install"
+min = 1
+template = "package.install [$all:text] manager: apt"
+output = "effect"
+option = [{ flags = ["-y", "--yes"] }]
+
+[[entry]]
+name = "apt-get install"
+rule = "B40"
+class = "C"
+help = "package.install"
+min = 1
+template = "package.install [$all:text] manager: apt"
+output = "effect"
+option = [{ flags = ["-y", "--yes"] }]
+
+[[entry]]
+name = "apt remove"
+rule = "B40"
+class = "C"
+help = "package.remove"
+min = 1
+template = "package.remove [$all:text] manager: apt"
+output = "effect"
+option = [{ flags = ["-y", "--yes"] }]
+
+[[entry]]
+name = "brew install"
+rule = "B40"
+class = "C"
+help = "package.install"
+min = 1
+template = "package.install [$all:text] manager: brew"
+output = "effect"
+
+[[entry]]
+name = "brew uninstall"
+rule = "B40"
+class = "C"
+help = "package.remove"
+min = 1
+template = "package.remove [$all:text] manager: brew"
+output = "effect"
+
+[[entry]]
+name = "date"
+rule = "B40"
+class = "C"
+help = "evaluate"
+max = 0
+template = "evaluate now()"
+output = "other"
+option = [{ flags = ["-u", "--utc"] }]
+
+[[entry]]
+name = "sleep"
+rule = "B40"
+class = "C"
+help = "sleep"
+min = 1
+max = 1
+template = "sleep $1:duration"
+output = "exec"
+
+# Commands of the catalog that change the world or run programs.
+[effects]
+change = [
+  "analyze.format", "archive.create", "archive.extract", "attributes", "code.rename", "compress",
+  "convert", "copy", "create", "decompress", "disable", "edit", "enable", "git.branch",
+  "git.checkpoint", "git.clone", "git.commit", "git.fetch", "git.merge", "git.pull", "git.push",
+  "git.rebase", "git.reset", "git.restore", "git.stage", "git.stash", "git.switch", "git.tag",
+  "git.worktree", "http.download", "http.request", "insert", "move", "notebook.clear_outputs",
+  "notebook.copy", "notebook.export", "notebook.insert", "notebook.move", "notebook.normalize",
+  "notebook.ops", "notebook.remove", "notebook.replace", "package.install", "package.remove",
+  "package.upgrade", "patch", "remove", "rename", "replace", "schedule.create", "schedule.pause",
+  "schedule.remove", "schedule.resume", "set", "sql", "write",
+]
+run = [
+  "analyze.check", "restart", "resume", "retry", "run", "schedule.run", "sleep", "start", "stop",
+  "suspend", "test.failed", "test.run",
+]
+
+# Parameters of every target command, matched by long flags (`--case-sensitive=false`).
+[params]
+remove = [
+  "path", "on_missing", "check_references",
+]
+move = [
+  "from", "to", "into", "on_conflict",
+]
+copy = [
+  "from", "to", "into", "on_conflict", "preserve", "clone",
+]
+create = [
+  "path", "type", "target", "hard", "temporary", "parents", "on_exists",
+]
+attributes = [
+  "path", "mode", "owner", "group", "acl", "readonly", "hidden", "modified", "accessed",
+  "created", "xattrs", "recursive",
+]
+read = [
+  "path", "lines", "last", "around", "context", "symbol", "section", "cell", "targets", "key",
+  "depth", "view", "pages", "mode", "encoding", "decompress", "unchanged_since", "since",
+  "known", "line_numbers", "max_line",
+]
+lines = [
+  "path", "range",
+]
+search = [
+  "pattern", "path", "glob", "mode", "case_sensitive", "whole_word", "multiline", "invert",
+  "only_matching", "trim", "dedupe", "scope", "enclosing", "max_line", "exclude",
+  "exclude_preset", "context", "before", "after", "output", "max_per_file", "binary",
+  "whitespace", "hidden", "gitignore", "language", "file_type", "exclude_file_type", "sort",
+  "adaptive",
+]
+replace = [
+  "pattern", "with", "in", "glob", "mode", "occurrence", "case_sensitive", "whole_word",
+  "multiline", "whitespace", "scope", "check_references", "template", "on_missing", "expect",
+  "if_match", "validate", "hidden", "gitignore", "binary", "file_type",
+]
+write = [
+  "path", "text", "mode", "from", "encoding", "line_ending", "bom", "parents", "ensure_newline",
+  "format", "files", "value_type", "file_mode", "size", "data", "offset", "validate", "if_match",
+]
+run = [
+  "command", "cwd", "env", "inherit_env", "stdin", "timeout", "idle_timeout", "wait",
+  "background", "merge_stderr", "show", "head", "tail", "filter", "context", "dedupe",
+  "quiet_on_success", "output_encoding", "watch", "track_changes", "max_cpu", "max_memory",
+  "priority", "label", "description", "progress", "summary", "batch", "parallel", "bail",
+]
+list = [
+  "path", "depth", "type", "hidden", "sort", "order", "view",
+]
+find = [
+  "path", "glob", "type", "depth", "hidden", "follow_links", "gitignore", "exclude",
+  "exclude_preset", "file_type", "fuzzy", "case_sensitive", "sort", "order", "view",
+]
+info = [
+  "path", "hash", "details", "known",
+]
+"http.request" = [
+  "url", "method", "headers", "body", "json", "save", "as", "extract", "table", "main_only",
+  "links", "images", "section", "outline", "query", "query_limit", "find", "find_context",
+  "links_filter", "same_host", "charset", "offset", "cache", "unchanged_since", "timeout",
+  "follow_redirects", "max_redirects", "verify_tls", "retries",
+]
+"http.download" = [
+  "url", "to", "resume", "hash", "headers", "timeout",
+]
+"archive.extract" = [
+  "path", "into", "only", "strip_components", "on_conflict", "preserve_permissions",
+  "allow_outside",
+]
+"archive.create" = [
+  "to", "format", "base", "level", "follow_links",
+]
+compress = [
+  "path", "algorithm", "keep", "level",
+]
+decompress = [
+  "path", "keep",
+]
+processes = [
+  "name", "user", "pid", "cwd", "tree",
+]
+disks = [
+  "type",
+]
+ports = [
+  "state", "protocol",
+]
+environment = [
+  "name", "scope",
+]
+host = [
+  "programs", "versions",
+]
+"program.find" = [
+  "name", "versions",
+]
+open_files = [
+  "path",
+]
+stop = [
+  "signal", "grace",
+]
+diff = [
+  "from", "to", "against", "context", "ignore_whitespace",
+]
+hash = [
+  "path", "algorithm",
+]
+convert = [
+  "path", "encoding", "line_ending", "bom",
+]
+services = [
+  "name", "state", "scope",
+]
+start = [
+  "wait",
+]
+restart = [
+  "wait",
+]
+enable = []
+disable = []
+"package.install" = [
+  "names", "version", "manager",
+]
+"package.remove" = [
+  "names", "manager",
+]
+evaluate = [
+  "expression",
+]
+sleep = [
+  "duration",
+]
+"schedule.create" = [
+  "label", "cron", "every", "at", "action", "timezone", "on_missed", "misfire", "overlap",
+  "timeout", "max_runs", "expires", "run_now", "enabled",
+]
+sort = [
+  "by", "order",
+]
+first = [
+  "count",
+]
+last = [
+  "count",
+]
+count = []
+distinct = [
+  "by",
+]
+group = [
+  "by", "keep_items",
+]
+summarize = [
+  "fields", "by",
+]
+select = [
+  "fields",
+]
+filter = [
+  "condition",
+]
+split = [
+  "delimiter", "names",
+]
+assert = [
+  "count", "paths", "exit_code", "all", "any", "empty", "contains", "if_match",
+]
+"git.status" = [
+  "repo", "untracked", "ignored", "limit", "stat",
+]
+"git.diff" = [
+  "repo", "from", "to", "staged", "path", "context", "stat", "function_context", "symbol",
+  "word_diff", "ignore_whitespace", "ignore_moved",
+]
+"git.log" = [
+  "repo", "count", "skip", "path", "revision", "author", "since", "until", "message", "pickaxe",
+  "follow", "symbol", "stat", "group_by",
+]
+"git.show" = [
+  "repo", "revision", "revs", "file", "paths", "offset", "limit", "stat", "context",
+]
+"git.blame" = [
+  "path", "lines", "revision",
+]
+"git.branch" = [
+  "repo", "remote", "create", "from", "rename", "new_name", "switch", "checkpoint", "delete",
+  "force",
+]
+"git.stage" = [
+  "repo", "action", "paths", "hunks", "staged",
+]
+"git.commit" = [
+  "repo", "message", "paths", "all", "staged", "amend", "trailers", "sign_off", "author",
+  "allow_empty", "hooks",
+]
+"git.tag" = [
+  "repo", "name", "revision", "message", "delete",
+]
+"git.fetch" = [
+  "repo", "remote", "prune", "tags", "depth",
+]
+"git.clone" = [
+  "url", "to", "depth", "branch", "bare",
+]
+"git.switch" = [
+  "repo", "branch", "create", "checkpoint",
+]
+"git.restore" = [
+  "repo", "paths", "source", "staged", "worktree", "hunks",
+]
+"git.reset" = [
+  "repo", "revision", "mode",
+]
+"git.merge" = [
+  "repo", "branch", "action", "fast_forward", "message", "no_commit",
+]
+"git.rebase" = [
+  "repo", "onto", "action",
+]
+"git.stash" = [
+  "repo", "action", "stash", "message", "include_untracked", "paths",
+]
+"git.pull" = [
+  "repo", "remote", "branch", "mode",
+]
+"git.push" = [
+  "repo", "remote", "branch", "force", "force_with_lease", "tags", "set_upstream", "delete",
+]

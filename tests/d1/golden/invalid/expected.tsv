@@ -1,0 +1,17 @@
+file	kind	code	layer	reason
+invalid/ast-bound-members.json	ast	E_AST_SCHEMA	schema	surface schema rejects bound-tree root members
+invalid/ast-bound-stage-member.json	ast	E_AST_SCHEMA	schema	surface stage rejects the member effect
+invalid/ast-field-without-of.json	ast	-	accepted	the surface schema admits a field without of (field of the current record)
+invalid/ast-spread-outside-list.json	ast	E_AST_SCHEMA	schema	spread is admissible only as a list item
+invalid/ast-flags-order.json	ast	E_AST_SCHEMA	schema	regex flags not in canonical order
+invalid/ast-negative-int.json	ast	E_AST_SCHEMA	schema	surface literals are non-negative
+invalid/ast-unsafe-int.json	ast	E_AST_SCHEMA	schema	integer above 2^53 - 1
+invalid/ast-keyword-ident.json	ast	-	accepted	the surface schema admits a reserved word as an identifier
+invalid/ast-path-node.json	ast	E_AST_SCHEMA	schema	bound-only node kind path in a surface tree
+invalid/ast-empty-program.json	ast	E_AST_SCHEMA	schema	a program has at least one statement
+invalid/ast-newer-minor.json	ast	E_AST_VERSION	schema	newer minor version with an unknown node kind
+invalid/ast-other-major.json	ast	E_AST_VERSION	schema	unsupported major version
+invalid/bound-missing-phase.json	bound	E_AST_SCHEMA	schema	bound stage requires phase
+invalid/bound-effect-in-let.json	bound	E_AST_SCHEMA	validate	let pipeline contains a mutate stage
+invalid/bound-after-without-effect.json	bound	E_AST_SCHEMA	validate	after stage without a preceding effect stage
+invalid/bound-relative-path.json	bound	E_AST_SCHEMA	validate	path is not absolute

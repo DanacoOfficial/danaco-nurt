@@ -1,0 +1,901 @@
+===============================================
+spec/golden/ast/task-01-largest-go-files.b.nurt
+===============================================
+
+find("/srv/app", glob: "**/*.go")
+|> filter(size > 1mb and modified > ago(24h))
+|> sort(size, order: desc)
+|> first(20)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (binary_expression
+          (identifier)
+          (size))
+        (binary_expression
+          (identifier)
+          (call_expression
+            (function_name)
+            (duration)))))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (identifier)
+      (named_argument
+        (argument_name)
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (integer))))
+
+================================================================
+spec/golden/ast/task-02-replace-identifier-expected-count.b.nurt
+================================================================
+
+search(/oldName\(/, "/srv/app/src", glob: "**/*.go")
+|> assert(paths: 12)
+|> replace("newName(")
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (regex
+        (regex_pattern))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string))))
+
+=====================================================
+spec/golden/ast/task-03-remove-temporary-files.b.nurt
+=====================================================
+
+find("/srv/app/build", glob: "**/*.tmp")
+|> remove()
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))
+
+===========================================
+spec/golden/ast/task-04-set-json-key.b.nurt
+===========================================
+
+set("/srv/app/package.json", key: "scripts.test", value: "vitest")
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (string)))))
+
+==============================================
+spec/golden/ast/task-05-rename-function.b.nurt
+==============================================
+
+code.symbols("oldName", path: ["/srv/app/src"], kind: function)
+|> code.rename("newName")
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (string)))
+      (named_argument
+        (argument_name)
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string))))
+
+=================================================
+spec/golden/ast/task-06-named-result-count.b.nurt
+=================================================
+
+let recent = find("/srv/app/src", glob: "**/*.ts") |> filter(modified > ago(1h))
+@recent |> count()
+
+---
+
+(source_file
+  (let_statement
+    (identifier)
+    (pipeline
+      (stage
+        (command_name
+          (identifier))
+        (string)
+        (named_argument
+          (argument_name)
+          (string)))
+      (pipe)
+      (stage
+        (command_name
+          (identifier))
+        (binary_expression
+          (identifier)
+          (call_expression
+            (function_name)
+            (duration))))))
+  (pipeline
+    (reference)
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))
+
+==============================================
+spec/golden/ast/task-07-tests-exit-code.b.nurt
+==============================================
+
+run(["go", "test", "./..."], cwd: "/srv/app")
+|> assert(exit_code: 0)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (string)
+        (string)
+        (string))
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (integer)))))
+
+=============================================
+spec/golden/ast/task-08-append-to-file.b.nurt
+=============================================
+
+write("/srv/app/.gitignore", "node_modules/\n", mode: append)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
+
+=====================================================
+spec/golden/ast/task-09-insert-line-after-line.b.nurt
+=====================================================
+
+lines("/srv/app/main.go")
+|> filter(text == "package main")
+|> insert(r#"import "fmt""#, position: after)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (raw_string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
+
+============================================
+spec/golden/ast/task-10-move-old-logs.b.nurt
+============================================
+
+find("/var/log/app", glob: "*.log", depth: 1)
+|> filter(modified < ago(7d))
+|> move(into: "/var/log/app/old")
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (call_expression
+          (function_name)
+          (duration))))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (string)))))
+
+==============================================
+spec/golden/ast/task-11-extract-archive.b.nurt
+==============================================
+
+archive.extract("/srv/dl/data.tar.gz", into: "/srv/data")
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))))
+
+======================================================
+spec/golden/ast/task-12-replace-verify-rollback.b.nurt
+======================================================
+
+search(/oldName\(/, "/srv/app/src", glob: "**/*.go")
+|> replace("newName(")
+|> verify(run(["go", "build", "./..."], cwd: "/srv/app") |> assert(exit_code: 0))
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (regex
+        (regex_pattern))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (subpipeline
+        (pipeline
+          (stage
+            (command_name
+              (identifier))
+            (list
+              (string)
+              (string)
+              (string))
+            (named_argument
+              (argument_name)
+              (string)))
+          (pipe)
+          (stage
+            (command_name
+              (identifier))
+            (named_argument
+              (argument_name)
+              (integer))))))))
+
+==================================================
+spec/golden/ast/task-13-transactional-edits.b.nurt
+==================================================
+
+edit("/srv/app/main.go", changes: [
+  {replace: "oldName(", with: "newName(", occurrence: 1},
+  {insert: "// updated", line: 3, position: before},
+  {delete_lines: 10..12}
+])
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (map
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (integer)))
+          (map
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (integer))
+            (map_entry
+              (map_key)
+              (identifier)))
+          (map
+            (map_entry
+              (map_key)
+              (range
+                (integer)
+                (integer)))))))))
+
+=============================================
+spec/golden/ast/task-14-background-job.b.nurt
+=============================================
+
+run(["npm", "run", "build"], cwd: "/srv/app", background: true)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (string)
+        (string)
+        (string))
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (boolean)))))
+
+===================================================
+tests/d1/golden/ast/b/task-01-largest-go-files.nurt
+===================================================
+
+find("/srv/app", glob: "**/*.go")
+|> filter(size > 1mb and modified > ago(24h))
+|> sort(size, order: desc)
+|> first(20)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (binary_expression
+          (identifier)
+          (size))
+        (binary_expression
+          (identifier)
+          (call_expression
+            (function_name)
+            (duration)))))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (identifier)
+      (named_argument
+        (argument_name)
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (integer))))
+
+====================================================================
+tests/d1/golden/ast/b/task-02-replace-identifier-expected-count.nurt
+====================================================================
+
+search(/oldName\(/, "/srv/app/src", glob: "**/*.go")
+|> assert(paths: 12)
+|> replace("newName(")
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (regex
+        (regex_pattern))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string))))
+
+=========================================================
+tests/d1/golden/ast/b/task-03-remove-temporary-files.nurt
+=========================================================
+
+find("/srv/app/build", glob: "**/*.tmp")
+|> remove()
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))
+
+===============================================
+tests/d1/golden/ast/b/task-04-set-json-key.nurt
+===============================================
+
+set("/srv/app/package.json", key: "scripts.test", value: "vitest")
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (string)))))
+
+==================================================
+tests/d1/golden/ast/b/task-05-rename-function.nurt
+==================================================
+
+code.symbols("oldName", path: ["/srv/app/src"], kind: function)
+|> code.rename("newName")
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (string)))
+      (named_argument
+        (argument_name)
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string))))
+
+=====================================================
+tests/d1/golden/ast/b/task-06-named-result-count.nurt
+=====================================================
+
+let recent = find("/srv/app/src", glob: "**/*.ts") |> filter(modified > ago(1h))
+@recent |> count()
+
+---
+
+(source_file
+  (let_statement
+    (identifier)
+    (pipeline
+      (stage
+        (command_name
+          (identifier))
+        (string)
+        (named_argument
+          (argument_name)
+          (string)))
+      (pipe)
+      (stage
+        (command_name
+          (identifier))
+        (binary_expression
+          (identifier)
+          (call_expression
+            (function_name)
+            (duration))))))
+  (pipeline
+    (reference)
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))
+
+==================================================
+tests/d1/golden/ast/b/task-07-tests-exit-code.nurt
+==================================================
+
+run(["go", "test", "./..."], cwd: "/srv/app")
+|> assert(exit_code: 0)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (string)
+        (string)
+        (string))
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (integer)))))
+
+=================================================
+tests/d1/golden/ast/b/task-08-append-to-file.nurt
+=================================================
+
+write("/srv/app/.gitignore", "node_modules/\n", mode: append)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
+
+=========================================================
+tests/d1/golden/ast/b/task-09-insert-line-after-line.nurt
+=========================================================
+
+lines("/srv/app/main.go")
+|> filter(text == "package main")
+|> insert(r#"import "fmt""#, position: after)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (raw_string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
+
+================================================
+tests/d1/golden/ast/b/task-10-move-old-logs.nurt
+================================================
+
+find("/var/log/app", glob: "*.log", depth: 1)
+|> filter(modified < ago(7d))
+|> move(into: "/var/log/app/old")
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (call_expression
+          (function_name)
+          (duration))))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (string)))))
+
+==================================================
+tests/d1/golden/ast/b/task-11-extract-archive.nurt
+==================================================
+
+archive.extract("/srv/dl/data.tar.gz", into: "/srv/data")
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))))
+
+==========================================================
+tests/d1/golden/ast/b/task-12-replace-verify-rollback.nurt
+==========================================================
+
+search(/oldName\(/, "/srv/app/src", glob: "**/*.go")
+|> replace("newName(")
+|> verify(run(["go", "build", "./..."], cwd: "/srv/app") |> assert(exit_code: 0))
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (regex
+        (regex_pattern))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (subpipeline
+        (pipeline
+          (stage
+            (command_name
+              (identifier))
+            (list
+              (string)
+              (string)
+              (string))
+            (named_argument
+              (argument_name)
+              (string)))
+          (pipe)
+          (stage
+            (command_name
+              (identifier))
+            (named_argument
+              (argument_name)
+              (integer))))))))
+
+======================================================
+tests/d1/golden/ast/b/task-13-transactional-edits.nurt
+======================================================
+
+edit("/srv/app/main.go", changes: [
+  {replace: "oldName(", with: "newName(", occurrence: 1},
+  {insert: "// updated", line: 3, position: before},
+  {delete_lines: 10..12}
+])
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (map
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (integer)))
+          (map
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (integer))
+            (map_entry
+              (map_key)
+              (identifier)))
+          (map
+            (map_entry
+              (map_key)
+              (range
+                (integer)
+                (integer)))))))))
+
+=================================================
+tests/d1/golden/ast/b/task-14-background-job.nurt
+=================================================
+
+run(["npm", "run", "build"], cwd: "/srv/app", background: true)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (string)
+        (string)
+        (string))
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (boolean)))))

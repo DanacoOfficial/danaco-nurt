@@ -1,0 +1,29 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "cat-draft-1",
+  "corr_rev": "corr-draft-1",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "list",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "path",
+                "v": "src/app"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

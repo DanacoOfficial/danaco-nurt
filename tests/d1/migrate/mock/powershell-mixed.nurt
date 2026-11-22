@@ -1,0 +1,42 @@
+# Source: powershell-mixed.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 13; translated: 3; with assumptions: 2; impossible: 8; errors: 0.
+# Untranslated statements run unchanged with: run ["pwsh", "powershell-mixed.ps1"]
+# Relative paths require the invocation parameter base: "C:\\proj"
+
+# Removes large Go sources and copies the result.
+# translated: P32, P02, L19
+let files = find "C:/proj" glob: "**/*.go"
+# translated: P15, P08
+# assumption: the property Length is the file size
+@files |> filter size > 1mb |> remove
+
+# untranslated: E_UNCORRECTABLE: Set-Location C:\proj
+#   problem: the program has no current location; relative paths resolve against the invocation parameter base
+# untranslated: E_PATH_RELATIVE: Remove-Item .\build -Recurse -Force
+#   problem: relative path without the invocation parameter base
+# translated: P36
+# assumption: the script stops on the first error; the shell runs a statement after `;` even when the previous one fails
+evaluate "done"
+# translated: P06, L19
+copy "C:/proj/a.txt" to: "C:/backup"
+# translated: P36
+evaluate "copied"
+
+# untranslated: E_UNCORRECTABLE: foreach ($f in $files) { Remove-Item $f.FullName }
+#   problem: loops have no equivalent; a pattern or a pipeline over records replaces a loop
+# untranslated: E_UNCORRECTABLE: function Get-Size { param($p) (Get-Item $p).Length }
+#   problem: definitions of functions and types have no equivalent
+# untranslated: E_UNCORRECTABLE: Invoke-Expression "Get-Date"
+#   problem: evaluation of text as code has no equivalent
+# untranslated: E_UNCORRECTABLE: . .\settings.ps1
+#   problem: loading a script into the current shell has no equivalent; run executes a script
+
+# Starts the version control status
+# check in the project directory.
+# untranslated: E_AMBIGUOUS: Start-Process -FilePath git -ArgumentList "status --short" -Wait
+#   problem: the argument list is one text; the division into arguments is not determined
+#   fix: run ["git", "status", "--short"] wait: forever
+#   fix: run ["git", "status --short"] wait: forever
+# untranslated: E_UNCORRECTABLE: exit 1
+#   problem: flow control statements have no equivalent

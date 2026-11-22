@@ -1,0 +1,1 @@
+lines("/srv/app/config.ini") |> filter(text ~ /^\s*debug\s*=/) |> remove()

@@ -1,0 +1,3 @@
+let recent = find "/srv/app/src" glob: "**/*.ts"
+|> filter modified > ago(1h)
+@recent |> count

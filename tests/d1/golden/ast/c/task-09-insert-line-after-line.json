@@ -1,0 +1,66 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "lines",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/main.go"
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "args": [
+              {
+                "name": "condition",
+                "value": {
+                  "t": "bin",
+                  "op": "==",
+                  "l": {
+                    "t": "ident",
+                    "v": "text"
+                  },
+                  "r": {
+                    "t": "text",
+                    "v": "package main"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "insert",
+            "args": [
+              {
+                "name": "text",
+                "value": {
+                  "t": "text",
+                  "v": "import \"fmt\""
+                }
+              },
+              {
+                "name": "position",
+                "value": {
+                  "t": "ident",
+                  "v": "after"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,183 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "powershell-mixed.ps1",
+  "summary": {
+    "statements": 13,
+    "translated": 3,
+    "assumption": 2,
+    "impossible": 8,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "$files = Get-ChildItem -Path C:\\proj -Recurse -Filter *.go",
+      "status": "translated",
+      "rules": [
+        "P32",
+        "P02",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "let files = find \"C:/proj\" glob: \"**/*.go\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "$files | Where-Object { $_.Length -gt 1MB } | Remove-Item",
+      "status": "assumption",
+      "rules": [
+        "P15",
+        "P08"
+      ],
+      "assumptions": [
+        "the property Length is the file size"
+      ],
+      "fix": [],
+      "output": "@files |> filter size > 1mb |> remove"
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "source": "Set-Location C:\\proj",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "current_directory",
+      "problem": "the program has no current location; relative paths resolve against the invocation parameter base",
+      "fix": []
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "Remove-Item .\\build -Recurse -Force",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_PATH_RELATIVE",
+      "reason": "current_directory",
+      "problem": "relative path without the invocation parameter base",
+      "fix": []
+    },
+    {
+      "line": 6,
+      "column": 38,
+      "source": "Write-Host \"done\"",
+      "status": "assumption",
+      "rules": [
+        "P36"
+      ],
+      "assumptions": [
+        "the script stops on the first error; the shell runs a statement after `;` even when the previous one fails"
+      ],
+      "fix": [],
+      "output": "evaluate \"done\""
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "Copy-Item -Path C:\\proj\\a.txt -Destination C:\\backup",
+      "status": "translated",
+      "rules": [
+        "P06",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "copy \"C:/proj/a.txt\" to: \"C:/backup\""
+    },
+    {
+      "line": 7,
+      "column": 57,
+      "source": "Write-Output \"copied\"",
+      "status": "translated",
+      "rules": [
+        "P36"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "evaluate \"copied\""
+    },
+    {
+      "line": 9,
+      "column": 1,
+      "source": "foreach ($f in $files) { Remove-Item $f.FullName }",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "loop",
+      "problem": "loops have no equivalent; a pattern or a pipeline over records replaces a loop",
+      "fix": []
+    },
+    {
+      "line": 10,
+      "column": 1,
+      "source": "function Get-Size { param($p) (Get-Item $p).Length }",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "function",
+      "problem": "definitions of functions and types have no equivalent",
+      "fix": []
+    },
+    {
+      "line": 11,
+      "column": 1,
+      "source": "Invoke-Expression \"Get-Date\"",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "eval",
+      "problem": "evaluation of text as code has no equivalent",
+      "fix": []
+    },
+    {
+      "line": 12,
+      "column": 1,
+      "source": ". .\\settings.ps1",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "source",
+      "problem": "loading a script into the current shell has no equivalent; run executes a script",
+      "fix": []
+    },
+    {
+      "line": 16,
+      "column": 1,
+      "source": "Start-Process -FilePath git -ArgumentList \"status --short\" -Wait",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_AMBIGUOUS",
+      "reason": "rule",
+      "problem": "the argument list is one text; the division into arguments is not determined",
+      "fix": [
+        "run [\"git\", \"status\", \"--short\"] wait: forever",
+        "run [\"git\", \"status --short\"] wait: forever"
+      ]
+    },
+    {
+      "line": 17,
+      "column": 1,
+      "source": "exit 1",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "control",
+      "problem": "flow control statements have no equivalent",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"pwsh\", \"powershell-mixed.ps1\"]",
+  "base": "C:\\proj"
+}

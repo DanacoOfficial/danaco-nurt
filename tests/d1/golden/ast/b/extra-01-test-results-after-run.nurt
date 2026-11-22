@@ -1,0 +1,1 @@
+test.run("/srv/app") |> filter(status == "failed")

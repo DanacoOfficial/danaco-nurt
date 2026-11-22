@@ -1,0 +1,141 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Nurt",
+  "scopeName": "source.nurt",
+  "fileTypes": ["nurt"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#raw-string" },
+    { "include": "#string" },
+    { "include": "#regex" },
+    { "include": "#let-binding" },
+    { "include": "#command" },
+    { "include": "#command-call" },
+    { "include": "#parameter" },
+    { "include": "#reference" },
+    { "include": "#size" },
+    { "include": "#duration" },
+    { "include": "#number" },
+    { "include": "#keyword" },
+    { "include": "#operator" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.number-sign.nurt",
+      "match": "#.*$"
+    },
+    "raw-string": {
+      "name": "string.quoted.other.raw.nurt",
+      "begin": "r(#*)\"",
+      "end": "\"\\1",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.nurt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.nurt" }
+      }
+    },
+    "string": {
+      "name": "string.quoted.double.nurt",
+      "begin": "\"",
+      "end": "\"",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.nurt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.nurt" }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.nurt",
+          "match": "\\\\(?:[\\\\\"nrt0]|u\\{[0-9A-Fa-f]+\\})"
+        },
+        {
+          "name": "invalid.illegal.escape.nurt",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "regex": {
+      "name": "string.regexp.nurt",
+      "begin": "(?<![^\\s(\\[{,:=~])/(?=[^\\s/])",
+      "end": "(/)([imsx]*)|$",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.nurt" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.end.nurt" },
+        "2": { "name": "keyword.other.flags.nurt" }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.nurt",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "let-binding": {
+      "match": "\\b(let)\\b[ \\t]+([a-z][a-z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.control.let.nurt" },
+        "2": { "name": "variable.other.definition.nurt" }
+      }
+    },
+    "command": {
+      "match": "(?:^|(?<=\\|>)|(?<=[^=!<>~]=[ \\t])|(?<=[ \\t=]\\())[ \\t]*(?!(?:let|true|false|null|and|or|not|in)\\b)([a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*)(?=$|\\)|[ \\t]+(?![ \\t=!<>~+*]|[/-][ \\t]|and\\b|or\\b|in\\b))",
+      "captures": {
+        "1": { "name": "entity.name.function.nurt" }
+      }
+    },
+    "command-call": {
+      "match": "(?:^|(?<=\\|>)|(?<=[^=!<>~]=[ \\t]))[ \\t]*(?!(?:let|true|false|null|and|or|not|in)\\b)([a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*)(?=\\()",
+      "captures": {
+        "1": { "name": "entity.name.function.nurt" }
+      }
+    },
+    "parameter": {
+      "match": "\\b[a-z][a-z0-9_]*(?=:|=(?!=))",
+      "name": "variable.parameter.nurt"
+    },
+    "reference": {
+      "match": "@[a-z][a-z0-9_]*",
+      "name": "variable.other.reference.nurt"
+    },
+    "size": {
+      "match": "(?<![\\w.])[0-9][0-9_]*(?:\\.[0-9][0-9_]*)?(?:kib|mib|gib|tib|kb|mb|gb|tb|b)\\b",
+      "name": "constant.numeric.size.nurt"
+    },
+    "duration": {
+      "match": "(?<![\\w.])(?:[0-9][0-9_]*(?:ms|s|m|h|d|w))+\\b",
+      "name": "constant.numeric.duration.nurt"
+    },
+    "number": {
+      "match": "(?:(?<![^\\s(\\[{,:=<>~!+*/|])-)?(?<![\\w.])(?:0[xX][0-9A-Fa-f_]+|[0-9][0-9_]*(?:\\.[0-9][0-9_]*)?)\\b",
+      "name": "constant.numeric.nurt"
+    },
+    "keyword": {
+      "patterns": [
+        {
+          "match": "\\b(?:and|or|not|in)\\b",
+          "name": "keyword.operator.word.nurt"
+        },
+        {
+          "match": "\\b(?:true|false)\\b",
+          "name": "keyword.constant.boolean.nurt"
+        },
+        {
+          "match": "\\bnull\\b",
+          "name": "keyword.constant.null.nurt"
+        },
+        {
+          "match": "\\blet\\b",
+          "name": "keyword.control.let.nurt"
+        }
+      ]
+    },
+    "operator": {
+      "match": "\\|>|==|!=|<=|>=|!~|\\.\\.\\.|\\.\\.|[~<>+\\-*/=]",
+      "name": "keyword.operator.nurt"
+    }
+  }
+}

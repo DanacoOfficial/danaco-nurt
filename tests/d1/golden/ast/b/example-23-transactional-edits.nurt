@@ -1,0 +1,1 @@
+edit("/srv/app/main.go", changes: [{replace: "oldName(", with: "newName(", occurrence: 1}, {insert: "// updated", line: 3, position: before}, {delete_lines: 10..12}], expect: 3)

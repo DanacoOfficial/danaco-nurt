@@ -1,0 +1,1 @@
+archive.extract "/srv/dl/data.tar.gz" into: "/srv/data"

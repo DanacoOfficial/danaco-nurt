@@ -1,0 +1,198 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-correction-table/1"
+table = "units"
+summary = "Unit names of sizes and durations, boolean words and relative instants."
+
+# Sizes. Decimal units count in powers of 1000, binary units in powers of 1024.
+
+[[entry]]
+rule = "T01"
+class = "C"
+kind = "size"
+from = ["b", "byte", "bytes"]
+to = "b"
+
+[[entry]]
+rule = "T01"
+class = "C"
+kind = "size"
+from = ["kb", "kilobyte", "kilobytes"]
+to = "kb"
+
+[[entry]]
+rule = "T01"
+class = "C"
+kind = "size"
+from = ["mb", "megabyte", "megabytes"]
+to = "mb"
+
+[[entry]]
+rule = "T01"
+class = "C"
+kind = "size"
+from = ["gb", "gigabyte", "gigabytes"]
+to = "gb"
+
+[[entry]]
+rule = "T01"
+class = "C"
+kind = "size"
+from = ["tb", "terabyte", "terabytes"]
+to = "tb"
+
+[[entry]]
+rule = "T01"
+class = "C"
+kind = "size"
+from = ["kib", "kibibyte", "kibibytes"]
+to = "kib"
+
+[[entry]]
+rule = "T01"
+class = "C"
+kind = "size"
+from = ["mib", "mebibyte", "mebibytes"]
+to = "mib"
+
+[[entry]]
+rule = "T01"
+class = "C"
+kind = "size"
+from = ["gib", "gibibyte", "gibibytes"]
+to = "gib"
+
+[[entry]]
+rule = "T01"
+class = "C"
+kind = "size"
+from = ["tib", "tebibyte", "tebibytes"]
+to = "tib"
+
+# Single-letter size units follow the binary convention of find and coreutils;
+# the decimal reading is the alternative.
+
+[[entry]]
+rule = "T02"
+class = "P"
+kind = "size_letter"
+from = ["k"]
+to = "kib"
+alternative = "kb"
+
+[[entry]]
+rule = "T02"
+class = "P"
+kind = "size_letter"
+from = ["m"]
+to = "mib"
+alternative = "mb"
+
+[[entry]]
+rule = "T02"
+class = "P"
+kind = "size_letter"
+from = ["g"]
+to = "gib"
+alternative = "gb"
+
+[[entry]]
+rule = "T02"
+class = "P"
+kind = "size_letter"
+from = ["t"]
+to = "tib"
+alternative = "tb"
+
+# Durations.
+
+[[entry]]
+rule = "T03"
+class = "C"
+kind = "duration"
+from = ["ms", "msec", "msecs", "millisecond", "milliseconds"]
+to = "ms"
+
+[[entry]]
+rule = "T03"
+class = "C"
+kind = "duration"
+from = ["s", "sec", "secs", "second", "seconds"]
+to = "s"
+
+[[entry]]
+rule = "T03"
+class = "C"
+kind = "duration"
+from = ["m", "min", "mins", "minute", "minutes"]
+to = "m"
+
+[[entry]]
+rule = "T03"
+class = "C"
+kind = "duration"
+from = ["h", "hr", "hrs", "hour", "hours"]
+to = "h"
+
+[[entry]]
+rule = "T03"
+class = "C"
+kind = "duration"
+from = ["d", "day", "days"]
+to = "d"
+
+[[entry]]
+rule = "T03"
+class = "C"
+kind = "duration"
+from = ["w", "wk", "wks", "week", "weeks"]
+to = "w"
+
+# Months and years have no fixed length and are not durations.
+
+[[entry]]
+rule = "T03"
+kind = "duration"
+from = ["mo", "mon", "month", "months", "y", "yr", "yrs", "year", "years"]
+error = "E_UNCORRECTABLE"
+problem = "months and years have no fixed length; write the duration in days or weeks"
+
+# Boolean words.
+
+[[entry]]
+rule = "T04"
+class = "C"
+kind = "bool"
+from = ["true", "yes", "on", "1"]
+to = "true"
+
+[[entry]]
+rule = "T04"
+class = "C"
+kind = "bool"
+from = ["false", "no", "off", "0"]
+to = "false"
+
+# Relative instants.
+
+[[entry]]
+rule = "T08"
+class = "P"
+kind = "instant"
+from = ["yesterday"]
+to = "ago(1d)"
+
+[[entry]]
+rule = "T08"
+class = "P"
+kind = "instant"
+from = ["last week"]
+to = "ago(7d)"
+
+[[entry]]
+rule = "T08"
+class = "P"
+kind = "instant"
+from = ["last hour"]
+to = "ago(1h)"

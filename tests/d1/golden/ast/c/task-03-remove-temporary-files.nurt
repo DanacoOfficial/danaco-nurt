@@ -1,0 +1,2 @@
+find path="/srv/app/build" glob="**/*.tmp"
+|> remove
