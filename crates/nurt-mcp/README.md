@@ -82,13 +82,19 @@ A client that connects to a running HTTP server uses the endpoint `/mcp`:
 
 ## HTTP transport
 
+The transport follows the streamable HTTP transport of MCP, revision `2025-03-26` and later.
+
 | Property | Behavior |
 |---|---|
-| endpoint | `POST /mcp`; `DELETE /mcp` ends a session; `GET /mcp` returns `405` |
+| endpoint | `POST /mcp` sends a message; `GET /mcp` opens the event stream of the session; `DELETE /mcp` ends the session |
 | address | `127.0.0.1` by default; any other address requires an explicit option |
-| session | `initialize` returns `Mcp-Session-Id`; the identifier is the default engine session of the calls of the session |
-| response | `application/json`, or `text/event-stream` with the notifications of the request followed by the response when the client accepts it |
-| `Origin` | origins on a loopback host and origins given in the options are accepted; other origins receive `403` |
+| session | `initialize` returns `Mcp-Session-Id`; the identifier is the default engine session of the calls of the session; a session without messages for one hour is closed; a request of an ended session receives `404` |
+| response | a request is answered with `text/event-stream`: progress notifications of the call as they occur, then the response; notifications and responses of the client receive `202` |
+| session stream | messages that belong to no request, such as log messages, are sent on the stream opened by `GET` |
+| resumption | every event carries an identifier; `GET` with `Last-Event-ID` sends the events of the interrupted stream again |
+| `Accept` | `POST` requires `application/json` and `text/event-stream`, `GET` requires `text/event-stream`; otherwise `406` |
+| `Host` | loopback hosts, the listening address and hosts given in the options are accepted; other hosts receive `403` |
+| `Origin` | loopback origins and origins given in the options are accepted; other origins receive `403` |
 | bearer token | optional, read from a file or an environment variable; without a token no `Authorization` header is required |
 
 The server applies no data policy of its own: every program goes to the engine, which applies the configuration.

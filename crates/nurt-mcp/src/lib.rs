@@ -65,7 +65,9 @@ pub use crate::backend::{
 };
 pub use crate::error::McpError;
 #[cfg(feature = "http")]
-pub use crate::http::{ENDPOINT_PATH, McpHttpOptions, serve_http, serve_http_listener};
+pub use crate::http::{
+    ENDPOINT_PATH, McpHttpOptions, SESSION_IDLE_TIMEOUT, serve_http, serve_http_listener,
+};
 use crate::server::{NurtServer, Shared};
 
 /// Time given to engine calls still in progress when the server stops.

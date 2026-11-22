@@ -119,12 +119,19 @@ impl<B: Backend> NurtServer<B> {
         }
     }
 
+    /// Engine session of a call that names none: the HTTP session of the
+    /// request, or the session the handler was created with.
+    fn engine_session(&self, context: &RequestContext<RoleServer>) -> Option<String> {
+        transport_session(context).or_else(|| self.session.clone())
+    }
+
     async fn run_program(
         &self,
         arguments: Option<JsonObject>,
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
-        let request = match request_from_arguments(arguments, self.session.as_deref()) {
+        let session = self.engine_session(&context);
+        let request = match request_from_arguments(arguments, session.as_deref()) {
             Ok(request) => request,
             Err(message) => return Ok(error_text(message)),
         };
@@ -175,6 +182,16 @@ impl<B: Backend> NurtServer<B> {
             Err(error) => Ok(call_error_text(&error)),
         }
     }
+}
+
+#[cfg(feature = "http")]
+use crate::http::session_of as transport_session;
+
+/// Session of the transport a request arrived on; the stdio transport has
+/// none.
+#[cfg(not(feature = "http"))]
+fn transport_session(_context: &RequestContext<RoleServer>) -> Option<String> {
+    None
 }
 
 /// Tool result of a finished engine run.
