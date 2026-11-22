@@ -47,7 +47,7 @@ summary = "sql with write true changes a database; a later read-only query retur
 fs_before = { entries = [] }
 
 [[case.step]]
-program = 'sql "app.db" "create table users(id integer, name text); insert into users values (1, \"ann\")" write: true'
+program = "sql \"app.db\" \"create table users(id integer, name text); insert into users values (1, 'ann')\" write: true"
 expect = { report = { status = "ok" } }
 
 [[case.step]]
@@ -504,7 +504,7 @@ fs_after = { exhaustive = false, entries = [{ path = "a.log", type = "file", con
 id = "exec/archive/decompress/gzip"
 kind = "exec"
 summary = "decompress restores the original content."
-fs_before = { entries = [{ path = "a.log.gz", type = "file", content_base64 = "H4sIAAAAAAAC/8vJzEvlAgBpDw9TBQAAAA==" }] }
+fs_before = { entries = [{ path = "a.log.gz", type = "file", content_base64 = "H4sIAAAAAAAC/8vJzEvlAgAORdhmBQAAAA==" }] }
 program = 'decompress "a.log.gz"'
 fs_after = { exhaustive = false, entries = [{ path = "a.log", type = "file", content_utf8 = "line\n" }] }
 expect = { report = { status = "ok", kind = "decompress" } }

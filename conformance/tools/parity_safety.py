@@ -60,7 +60,7 @@ def undo_scenarios() -> Collection:
     for name, program, updates in CHANGES:
         c.add(f"undo-last-{name}", f"Undo of the last operation restores the tree after {name}.", fs, feature="journal",
               steps=[step(program, report={"status": "ok"}, after=after(updates)),
-                     step("undo", report={"status": "ok", "kind": "undo"}, after=UNCHANGED)])
+                     step("undo", report={"status": "ok", "kind": "undo"}, after=fs)])
         c.add(f"undo-operation-{name}", f"Undo by operation number restores the tree after {name}.", fs, feature="journal",
               steps=[step(program, report={"status": "ok"}, after=after(updates)),
                      step('write "other.txt" "o\\n" mode: create', report={"status": "ok"}),

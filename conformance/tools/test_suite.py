@@ -20,7 +20,9 @@ import unittest
 from collections import Counter
 from pathlib import Path
 
+import generate_cases
 import generate_correction
+import journal_cases
 import suite
 
 HEADER_KEYS = {
@@ -140,14 +142,18 @@ class CatalogConsistency(unittest.TestCase):
 
     def test_programs_use_catalog_commands_and_parameters(self) -> None:
         for case in CASES:
+            os_only = any(code == "E_OS_ONLY" for key, code in suite.walk([s.get("expect") for s in case.steps()])
+                          if key == "code")
             for where, text in programs(case):
                 with self.subTest(case=case.id, where=where):
                     for stage in suite.scan_program(text, CATALOG):
                         self.assertIn(stage.command, CATALOG)
                         cmd = CATALOG[stage.command]
+                        named_items = any("named_expression" in p.type for p in cmd.params.values())
                         for p in stage.params:
-                            self.assertIn(p, cmd.params, f"{stage.command} {p}")
-                        for system in cmd.os:
+                            if not named_items:
+                                self.assertIn(p, cmd.params, f"{stage.command} {p}")
+                        for system in cmd.os if not os_only else ():
                             self.assertIn(f"os:{system}", case.data.get("requires", []))
 
     def test_codes_and_reasons_exist(self) -> None:
@@ -238,10 +244,40 @@ class Coverage(unittest.TestCase):
     def test_every_journal_coverage_row_has_an_undo_case(self) -> None:
         present = set(ids("journal"))
         for row in suite.journal_coverage():
-            if row["group"] == "git":
+            key = suite.coverage_key(row)
+            if row["group"] == "git" or key in journal_cases.PENDING_ROWS:
                 continue
-            with self.subTest(row=suite.coverage_key(row)):
-                self.assertIn(f"journal/coverage/{suite.coverage_key(row)}", present)
+            with self.subTest(row=key):
+                self.assertIn(f"journal/coverage/{key}", present)
+
+    def test_pending_journal_rows_exist_and_have_no_case(self) -> None:
+        keys = {suite.coverage_key(r) for r in suite.journal_coverage() if r["group"] != "git"}
+        present = set(ids("journal"))
+        for key in journal_cases.PENDING_ROWS:
+            with self.subTest(row=key):
+                self.assertIn(key, keys)
+                self.assertNotIn(f"journal/coverage/{key}", present)
+
+    def test_journal_cases_require_the_journal(self) -> None:
+        for case in CASES:
+            if case.data["kind"] != "journal":
+                continue
+            with self.subTest(case=case.id):
+                declared = case.data.get("class") == "optional:journal"
+                self.assertTrue(declared or "feature:journal" in case.data.get("requires", []))
+
+    def test_undo_restores_a_stated_tree(self) -> None:
+        for case in CASES:
+            if case.data["kind"] != "journal":
+                continue
+            for step in case.steps():
+                report = step.get("expect", {}).get("report", {}) if isinstance(step.get("expect"), dict) else {}
+                if report.get("kind") == "undo" and "fs_after" in step:
+                    with self.subTest(case=case.id):
+                        self.assertNotEqual(step["fs_after"], "unchanged")
+
+    def test_generated_parity_and_journal_files_are_up_to_date(self) -> None:
+        self.assertEqual(generate_cases.main(["--check"]), 0)
 
     def test_journal_topics_are_covered(self) -> None:
         joined = "\n".join(ids("journal"))

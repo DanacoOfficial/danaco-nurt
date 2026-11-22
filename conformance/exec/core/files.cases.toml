@@ -196,7 +196,7 @@ expect = { report = { status = "ok", records = { rows = [
 id = "exec/core/read/cp1250-detected"
 kind = "exec"
 summary = "read detects Windows-1250 when the file is not valid UTF-8."
-fs_before = { entries = [{ path = "l.txt", type = "file", content_base64 = "ilppbGluYQo=" }] }
+fs_before = { entries = [{ path = "l.txt", type = "file", content_base64 = "jmlsaW5hCg==" }] }
 program = 'read "l.txt"'
 expect = { report = { status = "ok", records = { rows = [
   { kind = "content", fields = { text = { t = "text", v = "Žilina\n" }, encoding = { t = "text", v = "windows-1250" } } },
@@ -302,7 +302,7 @@ expect = { report = { status = "ok", records = { matched = 1 } } }
 id = "exec/core/search/cp1250-file"
 kind = "exec"
 summary = "search matches the decoded text of a Windows-1250 file."
-fs_before = { entries = [{ path = "l.txt", type = "file", content_base64 = "ilppbGluYQo=" }] }
+fs_before = { entries = [{ path = "l.txt", type = "file", content_base64 = "jmlsaW5hCg==" }] }
 program = 'search "Žilina" "l.txt"'
 expect = { report = { status = "ok", records = { matched = 1 } } }
 
@@ -630,7 +630,7 @@ kind = "exec"
 summary = "replace keeps the Windows-1250 encoding of the file."
 fs_before = { entries = [{ path = "l.txt", type = "file", content_base64 = "QnJubwo=" }] }
 program = 'replace "Brno" "Žilina" in: ["l.txt"]'
-fs_after = { entries = [{ path = "l.txt", type = "file", content_base64 = "ilppbGluYQo=" }] }
+fs_after = { entries = [{ path = "l.txt", type = "file", content_base64 = "jmlsaW5hCg==" }] }
 expect = { report = { status = "ok" } }
 
 [[case]]

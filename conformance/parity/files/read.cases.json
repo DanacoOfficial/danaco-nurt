@@ -287,6 +287,206 @@
       "fs_after": "unchanged"
     },
     {
+      "id": "parity/files/read/line-1",
+      "kind": "parity",
+      "summary": "Reads line 1 as a range of one line.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 1..1",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "one\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/line-2",
+      "kind": "parity",
+      "summary": "Reads line 2 as a range of one line.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 2..2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "two\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/line-3",
+      "kind": "parity",
+      "summary": "Reads line 3 as a range of one line.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 3..3",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "three\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/line-4",
+      "kind": "parity",
+      "summary": "Reads line 4 as a range of one line.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 4..4",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "four\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/read/line-5",
+      "kind": "parity",
+      "summary": "Reads line 5 as a range of one line.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 5..5",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "content",
+            "rows": [
+              {
+                "kind": "content",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  },
+                  "text": {
+                    "t": "text",
+                    "v": "five\n"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
       "id": "parity/files/read/last-1",
       "kind": "parity",
       "summary": "Reads the last 1 lines of a file.",
@@ -953,7 +1153,7 @@
           {
             "path": "a.log.gz",
             "type": "file",
-            "content_base64": "H4sIAAAAAAAC/8vJzEtVMOTKAVFGXAABtD2FDgAAAA=="
+            "content_base64": "H4sIAAAAAAAA/wEOAPH/bGluZSAxCmxpbmUgMgoBtD2FDgAAAA=="
           }
         ]
       },
@@ -994,7 +1194,7 @@
           {
             "path": "a.log.gz",
             "type": "file",
-            "content_base64": "H4sIAAAAAAAC/6vgAgAfCOpGAgAAAA=="
+            "content_base64": "H4sIAAAAAAAA/wECAP3/eAofCOpGAgAAAA=="
           }
         ]
       },

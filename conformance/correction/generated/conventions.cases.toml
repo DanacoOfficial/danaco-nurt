@@ -2581,6 +2581,58 @@ program = 'git.branch "/home/user/app" force: false'
 corrections = [{ rule = 'L03', class = 'C', from = 'Force', to = 'force' }]
 
 [[case]]
+id = 'correction/generated/conventions/git-branch/param-trash-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter trash of git.branch with a capital letter.'
+method = "correct"
+program = 'git.branch "/home/user/app" Trash: false'
+
+[case.expect]
+program = 'git.branch "/home/user/app" trash: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'Trash', to = 'trash' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-branch/param-check-references-camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter check_references of git.branch in camel case.'
+method = "correct"
+program = 'git.branch "/home/user/app" checkReferences: true'
+
+[case.expect]
+program = 'git.branch "/home/user/app" check_references: true'
+corrections = [{ rule = 'L04', class = 'C', from = 'checkReferences', to = 'check_references' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-branch/param-check-references-kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter check_references of git.branch in kebab case.'
+method = "correct"
+program = 'git.branch "/home/user/app" check-references: true'
+
+[case.expect]
+program = 'git.branch "/home/user/app" check_references: true'
+corrections = [{ rule = 'L04', class = 'C', from = 'check-references', to = 'check_references' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-branch/param-check-references-pascal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter check_references of git.branch in pascal case.'
+method = "correct"
+program = 'git.branch "/home/user/app" CheckReferences: true'
+
+[case.expect]
+program = 'git.branch "/home/user/app" check_references: true'
+corrections = [{ rule = 'L04', class = 'C', from = 'CheckReferences', to = 'check_references' }]
+
+[[case]]
 id = 'correction/generated/conventions/git-checkpoint/upper'
 kind = "correction"
 class = "mandatory"
@@ -2789,6 +2841,58 @@ program = 'git.checkpoint "/home/user/app" action: list index: false'
 corrections = [{ rule = 'L03', class = 'C', from = 'Index', to = 'index' }]
 
 [[case]]
+id = 'correction/generated/conventions/git-checkpoint/param-save-current-camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter save_current of git.checkpoint in camel case.'
+method = "correct"
+program = 'git.checkpoint "/home/user/app" action: list saveCurrent: true'
+
+[case.expect]
+program = 'git.checkpoint "/home/user/app" action: list save_current: true'
+corrections = [{ rule = 'L04', class = 'C', from = 'saveCurrent', to = 'save_current' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-checkpoint/param-save-current-kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter save_current of git.checkpoint in kebab case.'
+method = "correct"
+program = 'git.checkpoint "/home/user/app" action: list save-current: true'
+
+[case.expect]
+program = 'git.checkpoint "/home/user/app" action: list save_current: true'
+corrections = [{ rule = 'L04', class = 'C', from = 'save-current', to = 'save_current' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-checkpoint/param-save-current-pascal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter save_current of git.checkpoint in pascal case.'
+method = "correct"
+program = 'git.checkpoint "/home/user/app" action: list SaveCurrent: true'
+
+[case.expect]
+program = 'git.checkpoint "/home/user/app" action: list save_current: true'
+corrections = [{ rule = 'L04', class = 'C', from = 'SaveCurrent', to = 'save_current' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-checkpoint/param-exclude-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter exclude of git.checkpoint with a capital letter.'
+method = "correct"
+program = 'git.checkpoint "/home/user/app" action: list Exclude: []'
+
+[case.expect]
+program = 'git.checkpoint "/home/user/app" action: list exclude: []'
+corrections = [{ rule = 'L03', class = 'C', from = 'Exclude', to = 'exclude' }]
+
+[[case]]
 id = 'correction/generated/conventions/git-clone/upper'
 kind = "correction"
 class = "mandatory"
@@ -2969,6 +3073,19 @@ program = 'git.commit "/home/user/app" message: "fix: parser" Hooks: true'
 [case.expect]
 program = 'git.commit "/home/user/app" message: "fix: parser" hooks: true'
 corrections = [{ rule = 'L03', class = 'C', from = 'Hooks', to = 'hooks' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-commit/param-exclude-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter exclude of git.commit with a capital letter.'
+method = "correct"
+program = 'git.commit "/home/user/app" message: "fix: parser" Exclude: []'
+
+[case.expect]
+program = 'git.commit "/home/user/app" message: "fix: parser" exclude: []'
+corrections = [{ rule = 'L03', class = 'C', from = 'Exclude', to = 'exclude' }]
 
 [[case]]
 id = 'correction/generated/conventions/git-diff/upper'
@@ -3179,6 +3296,19 @@ program = 'git.diff "/home/user/app" ignore_moved: false'
 corrections = [{ rule = 'L04', class = 'C', from = 'IgnoreMoved', to = 'ignore_moved' }]
 
 [[case]]
+id = 'correction/generated/conventions/git-diff/param-exclude-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter exclude of git.diff with a capital letter.'
+method = "correct"
+program = 'git.diff "/home/user/app" Exclude: []'
+
+[case.expect]
+program = 'git.diff "/home/user/app" exclude: []'
+corrections = [{ rule = 'L03', class = 'C', from = 'Exclude', to = 'exclude' }]
+
+[[case]]
 id = 'correction/generated/conventions/git-fetch/upper'
 kind = "correction"
 class = "mandatory"
@@ -3307,6 +3437,19 @@ program = 'git.log "/home/user/app" Stat: false'
 [case.expect]
 program = 'git.log "/home/user/app" stat: false'
 corrections = [{ rule = 'L03', class = 'C', from = 'Stat', to = 'stat' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-log/param-exclude-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter exclude of git.log with a capital letter.'
+method = "correct"
+program = 'git.log "/home/user/app" Exclude: []'
+
+[case.expect]
+program = 'git.log "/home/user/app" exclude: []'
+corrections = [{ rule = 'L03', class = 'C', from = 'Exclude', to = 'exclude' }]
 
 [[case]]
 id = 'correction/generated/conventions/git-merge/upper'
@@ -3634,6 +3777,19 @@ program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] worktree
 corrections = [{ rule = 'L03', class = 'C', from = 'Worktree', to = 'worktree' }]
 
 [[case]]
+id = 'correction/generated/conventions/git-restore/param-checkpoint-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter checkpoint of git.restore with a capital letter.'
+method = "correct"
+program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] Checkpoint: false'
+
+[case.expect]
+program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] checkpoint: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'Checkpoint', to = 'checkpoint' }]
+
+[[case]]
 id = 'correction/generated/conventions/git-review/upper'
 kind = "correction"
 class = "mandatory"
@@ -3645,6 +3801,71 @@ program = 'GIT.REVIEW "/home/user/app"'
 [case.expect]
 program = 'git.review "/home/user/app"'
 corrections = [{ rule = 'L03', class = 'C', from = 'GIT.REVIEW', to = 'git.review' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-review/param-subject-max-camel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter subject_max of git.review in camel case.'
+method = "correct"
+program = 'git.review "/home/user/app" subjectMax: 72'
+
+[case.expect]
+program = 'git.review "/home/user/app" subject_max: 72'
+corrections = [{ rule = 'L04', class = 'C', from = 'subjectMax', to = 'subject_max' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-review/param-subject-max-kebab'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter subject_max of git.review in kebab case.'
+method = "correct"
+program = 'git.review "/home/user/app" subject-max: 72'
+
+[case.expect]
+program = 'git.review "/home/user/app" subject_max: 72'
+corrections = [{ rule = 'L04', class = 'C', from = 'subject-max', to = 'subject_max' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-review/param-subject-max-pascal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter subject_max of git.review in pascal case.'
+method = "correct"
+program = 'git.review "/home/user/app" SubjectMax: 72'
+
+[case.expect]
+program = 'git.review "/home/user/app" subject_max: 72'
+corrections = [{ rule = 'L04', class = 'C', from = 'SubjectMax', to = 'subject_max' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-review/param-conventional-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter conventional of git.review with a capital letter.'
+method = "correct"
+program = 'git.review "/home/user/app" Conventional: false'
+
+[case.expect]
+program = 'git.review "/home/user/app" conventional: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'Conventional', to = 'conventional' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-review/param-exclude-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter exclude of git.review with a capital letter.'
+method = "correct"
+program = 'git.review "/home/user/app" Exclude: []'
+
+[case.expect]
+program = 'git.review "/home/user/app" exclude: []'
+corrections = [{ rule = 'L03', class = 'C', from = 'Exclude', to = 'exclude' }]
 
 [[case]]
 id = 'correction/generated/conventions/git-show/upper'
@@ -3686,6 +3907,19 @@ program = 'git.show "/home/user/app" "HEAD" context: 3'
 corrections = [{ rule = 'L03', class = 'C', from = 'Context', to = 'context' }]
 
 [[case]]
+id = 'correction/generated/conventions/git-show/param-exclude-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter exclude of git.show with a capital letter.'
+method = "correct"
+program = 'git.show "/home/user/app" "HEAD" Exclude: []'
+
+[case.expect]
+program = 'git.show "/home/user/app" "HEAD" exclude: []'
+corrections = [{ rule = 'L03', class = 'C', from = 'Exclude', to = 'exclude' }]
+
+[[case]]
 id = 'correction/generated/conventions/git-stage/upper'
 kind = "correction"
 class = "mandatory"
@@ -3697,6 +3931,19 @@ program = 'GIT.STAGE "/home/user/app" action: list'
 [case.expect]
 program = 'git.stage "/home/user/app" action: list'
 corrections = [{ rule = 'L03', class = 'C', from = 'GIT.STAGE', to = 'git.stage' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-stage/param-exclude-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter exclude of git.stage with a capital letter.'
+method = "correct"
+program = 'git.stage "/home/user/app" action: list Exclude: []'
+
+[case.expect]
+program = 'git.stage "/home/user/app" action: list exclude: []'
+corrections = [{ rule = 'L03', class = 'C', from = 'Exclude', to = 'exclude' }]
 
 [[case]]
 id = 'correction/generated/conventions/git-stash/upper'
@@ -3749,6 +3996,19 @@ program = 'git.stash "/home/user/app" action: list IncludeUntracked: false'
 [case.expect]
 program = 'git.stash "/home/user/app" action: list include_untracked: false'
 corrections = [{ rule = 'L04', class = 'C', from = 'IncludeUntracked', to = 'include_untracked' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-stash/param-exclude-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter exclude of git.stash with a capital letter.'
+method = "correct"
+program = 'git.stash "/home/user/app" action: list Exclude: []'
+
+[case.expect]
+program = 'git.stash "/home/user/app" action: list exclude: []'
+corrections = [{ rule = 'L03', class = 'C', from = 'Exclude', to = 'exclude' }]
 
 [[case]]
 id = 'correction/generated/conventions/git-status/upper'
@@ -3816,6 +4076,19 @@ program = 'git.status "/home/user/app" stat: false'
 corrections = [{ rule = 'L03', class = 'C', from = 'Stat', to = 'stat' }]
 
 [[case]]
+id = 'correction/generated/conventions/git-status/param-exclude-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter exclude of git.status with a capital letter.'
+method = "correct"
+program = 'git.status "/home/user/app" Exclude: []'
+
+[case.expect]
+program = 'git.status "/home/user/app" exclude: []'
+corrections = [{ rule = 'L03', class = 'C', from = 'Exclude', to = 'exclude' }]
+
+[[case]]
 id = 'correction/generated/conventions/git-switch/upper'
 kind = "correction"
 class = "mandatory"
@@ -3855,6 +4128,19 @@ program = 'git.switch "/home/user/app" branch: "main" checkpoint: false'
 corrections = [{ rule = 'L03', class = 'C', from = 'Checkpoint', to = 'checkpoint' }]
 
 [[case]]
+id = 'correction/generated/conventions/git-switch/param-guess-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter guess of git.switch with a capital letter.'
+method = "correct"
+program = 'git.switch "/home/user/app" branch: "main" Guess: false'
+
+[case.expect]
+program = 'git.switch "/home/user/app" branch: "main" guess: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'Guess', to = 'guess' }]
+
+[[case]]
 id = 'correction/generated/conventions/git-tag/upper'
 kind = "correction"
 class = "mandatory"
@@ -3892,6 +4178,32 @@ program = 'GIT.WORKTREE "/home/user/app" action: list'
 [case.expect]
 program = 'git.worktree "/home/user/app" action: list'
 corrections = [{ rule = 'L03', class = 'C', from = 'GIT.WORKTREE', to = 'git.worktree' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-worktree/param-force-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter force of git.worktree with a capital letter.'
+method = "correct"
+program = 'git.worktree "/home/user/app" action: list Force: false'
+
+[case.expect]
+program = 'git.worktree "/home/user/app" action: list force: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'Force', to = 'force' }]
+
+[[case]]
+id = 'correction/generated/conventions/git-worktree/param-checkpoint-capital'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter checkpoint of git.worktree with a capital letter.'
+method = "correct"
+program = 'git.worktree "/home/user/app" action: list Checkpoint: false'
+
+[case.expect]
+program = 'git.worktree "/home/user/app" action: list checkpoint: false'
+corrections = [{ rule = 'L03', class = 'C', from = 'Checkpoint', to = 'checkpoint' }]
 
 [[case]]
 id = 'correction/generated/conventions/group/upper'

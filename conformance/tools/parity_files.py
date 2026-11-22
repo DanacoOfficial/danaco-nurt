@@ -11,12 +11,11 @@ operations. Every scenario is a program run against a real directory.
 
 from __future__ import annotations
 
-import gzip
 import json
 import re
 
 from parity_model import (
-    REMOVED, UNCHANGED, Collection, changed, entry, records, row, step, tree,
+    REMOVED, UNCHANGED, Collection, changed, entry, gzip_bytes, records, row, step, tree,
 )
 
 TEXT = "one\ntwo\nthree\nfour\nfive\n"
@@ -173,11 +172,11 @@ def read_scenarios() -> Collection:
           tree({"b.txt": b"\xef\xbb\xbfhello\n"}), 'read "b.txt"',
           report={"status": "ok", "records": records("content", [row("content", path="b.txt", text="hello\n", bom=True)])})
     c.add("gzip", "Reads the text of a gzip-compressed file transparently.",
-          tree({"a.log.gz": gzip.compress(b"line 1\nline 2\n", mtime=0)}), 'read "a.log.gz"',
+          tree({"a.log.gz": gzip_bytes(b"line 1\nline 2\n")}), 'read "a.log.gz"',
           report={"status": "ok", "records": records("content", [row("content", text="line 1\nline 2\n")]),
                   "notable": [{"code": "decompressed"}]})
     c.add("gzip-raw", "Reads a compressed file without decompression when asked.",
-          tree({"a.log.gz": gzip.compress(b"x\n", mtime=0)}), 'read "a.log.gz" decompress: none',
+          tree({"a.log.gz": gzip_bytes(b"x\n")}), 'read "a.log.gz" decompress: none',
           report={"status": "ok"})
     two = tree({"a.txt": "a\n", "b.txt": "b\n"})
     c.add("several-files", "Reads several files, one record each.", two, 'read ["a.txt", "b.txt"]',
@@ -534,8 +533,9 @@ def write_scenarios() -> Collection:
           requires=("os:unix",))
     c.add("preview", "A preview of a write changes nothing.", fs, 'write "new.txt" "x\\n" mode: create',
           options={"preview": True}, report={"status": "planned", "kind": "write"})
-    c.add("bytes", "Writes binary data.", fs, 'write "b.bin" data: b64"AAEC" mode: create', report={"status": "ok"},
-          after=changed(base, b_dot_bin=b"\x00\x01\x02"))
+    c.add("append-ensure-newline", "Appends text and adds a final line ending when asked.", fs,
+          'write "keep.txt" "more" mode: append ensure_newline: true', report={"status": "ok"},
+          after=changed(base, keep_dot_txt="keep\nmore\n"))
     return c
 
 

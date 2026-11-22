@@ -1217,6 +1217,814 @@
       "fs_after": "unchanged"
     },
     {
+      "id": "parity/files/find/depth-1-file",
+      "kind": "parity",
+      "summary": "Finds entries of type file up to depth 1.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" type: file depth: 1",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/.env"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": ".env"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.txt"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "b.txt"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/depth-1-directory",
+      "kind": "parity",
+      "summary": "Finds entries of type directory up to depth 1.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" type: directory depth: 1",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "docs"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/empty"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "empty"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "src"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              }
+            ],
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/depth-2-file",
+      "kind": "parity",
+      "summary": "Finds entries of type file up to depth 2.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" type: file depth: 2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/.env"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": ".env"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.txt"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "b.txt"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs/g.md"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "g.md"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "c.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 5
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/depth-2-directory",
+      "kind": "parity",
+      "summary": "Finds entries of type directory up to depth 2.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" type: directory depth: 2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "docs"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/empty"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "empty"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "src"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "d"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              }
+            ],
+            "matched": 4
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/depth-3-file",
+      "kind": "parity",
+      "summary": "Finds entries of type file up to depth 3.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" type: file depth: 3",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/.env"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": ".env"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.txt"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "b.txt"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs/g.md"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "g.md"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "c.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d/e.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "e.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d/f.md"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "f.md"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 7
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/depth-3-directory",
+      "kind": "parity",
+      "summary": "Finds entries of type directory up to depth 3.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" type: directory depth: 3",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "docs"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/empty"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "empty"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "src"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "d"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              }
+            ],
+            "matched": 4
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
       "id": "parity/files/find/any-type",
       "kind": "parity",
       "summary": "Finds files and directories.",

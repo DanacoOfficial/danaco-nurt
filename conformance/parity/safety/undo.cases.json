@@ -96,7 +96,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -334,7 +367,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -567,7 +633,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -800,7 +899,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -1033,7 +1165,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -1266,7 +1431,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -1499,7 +1697,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -1732,7 +1963,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -1960,7 +2224,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -2178,7 +2475,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -2401,7 +2731,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -2629,7 +2992,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -2867,7 +3263,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -3110,7 +3539,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -3347,7 +3809,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -3584,7 +4079,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -3817,7 +4345,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -4050,7 +4611,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },
@@ -4283,7 +4877,40 @@
               "kind": "undo"
             }
           },
-          "fs_after": "unchanged"
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
         }
       ]
     },

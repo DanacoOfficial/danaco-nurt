@@ -11,13 +11,49 @@ short and produce the JSON form of the case format.
 from __future__ import annotations
 
 import base64
+import io
 import json
+import struct
+import zipfile
+import zlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import suite
 
 UNCHANGED = "unchanged"
+
+GZIP_HEADER = b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff"
+"""Gzip member header: deflate, no flags, modification time 0, no extra flags, system 255 (unknown)."""
+STORED_FINAL_BLOCK = b"\x01"
+MAX_STORED_BLOCK = 0xFFFF
+ZIP_TIME = (2020, 1, 1, 0, 0, 0)
+ZIP_SYSTEM_UNIX = 3
+ZIP_FILE_MODE = 0o100644
+
+
+def gzip_bytes(data: bytes) -> bytes:
+    """Returns a gzip member holding `data` in one stored deflate block.
+
+    Stored blocks and a fixed header make the bytes independent of the
+    compression library and of the operating system (RFC 1951, RFC 1952).
+    """
+    if len(data) > MAX_STORED_BLOCK:
+        raise ValueError("data exceeds one stored deflate block")
+    block = STORED_FINAL_BLOCK + struct.pack("<HH", len(data), len(data) ^ MAX_STORED_BLOCK) + data
+    return GZIP_HEADER + block + struct.pack("<II", zlib.crc32(data), len(data))
+
+
+def zip_bytes(files: dict[str, str | bytes]) -> bytes:
+    """Returns a zip archive of stored members with fixed times and modes."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_STORED) as archive:
+        for name, content in files.items():
+            info = zipfile.ZipInfo(name, date_time=ZIP_TIME)
+            info.create_system = ZIP_SYSTEM_UNIX
+            info.external_attr = ZIP_FILE_MODE << 16
+            archive.writestr(info, content)
+    return buffer.getvalue()
 
 FIELD_TYPES = {
     "path": "path",

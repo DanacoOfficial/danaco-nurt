@@ -25,7 +25,7 @@ SNAPSHOT_FORMAT = "nurt-fs-snapshot/1"
 LANGUAGE = "1.0"
 
 KINDS = ("exec", "journal", "correction", "parity")
-METHODS = ("run", "check", "correct", "page", "parse", "history", "cancel")
+METHODS = ("run", "check", "correct", "page", "parse", "history", "cancel", "testkit.clock.advance")
 STATUSES = ("ok", "planned", "running", "partial", "rolled_back", "failed")
 FEATURES = ("journal", "testkit")
 REQUIREMENTS = re.compile(r"^(os:(linux|macos|windows|unix)|feature:[a-z0-9-]+)$")

@@ -1441,13 +1441,13 @@ id = 'correction/generated/parameter-typos/git-branch/checkpoint-prefix'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The prefix che names only the parameter checkpoint.'
+summary = 'The prefix checkp names only the parameter checkpoint.'
 method = "correct"
-program = 'git.branch "/home/user/app" che: false'
+program = 'git.branch "/home/user/app" checkp: false'
 
 [case.expect]
 program = 'git.branch "/home/user/app" checkpoint: false'
-corrections = [{ rule = 'L05', class = 'F', from = 'che', to = 'checkpoint' }]
+corrections = [{ rule = 'L05', class = 'F', from = 'checkp', to = 'checkpoint' }]
 
 [[case]]
 id = 'correction/generated/parameter-typos/git-checkpoint/stat-satt'
@@ -2022,6 +2022,110 @@ program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] worktree
 corrections = [{ rule = 'L05', class = 'F', from = 'wor', to = 'worktree' }]
 
 [[case]]
+id = 'correction/generated/parameter-typos/git-restore/checkpoint-cehckpoint'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cehckpoint is within the distance threshold of checkpoint only.'
+method = "correct"
+program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] cehckpoint: false'
+
+[case.expect]
+program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] checkpoint: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cehckpoint', to = 'checkpoint' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-restore/checkpoint-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix che names only the parameter checkpoint.'
+method = "correct"
+program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] che: false'
+
+[case.expect]
+program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] checkpoint: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'che', to = 'checkpoint' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-review/subject-max-sbuject-max'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name sbuject_max is within the distance threshold of subject_max only.'
+method = "correct"
+program = 'git.review "/home/user/app" sbuject_max: 72'
+
+[case.expect]
+program = 'git.review "/home/user/app" subject_max: 72'
+corrections = [{ rule = 'L02', class = 'F', from = 'sbuject_max', to = 'subject_max' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-review/subject-max-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix sub names only the parameter subject_max.'
+method = "correct"
+program = 'git.review "/home/user/app" sub: 72'
+
+[case.expect]
+program = 'git.review "/home/user/app" subject_max: 72'
+corrections = [{ rule = 'L05', class = 'F', from = 'sub', to = 'subject_max' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-review/conventional-cnoventional'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cnoventional is within the distance threshold of conventional only.'
+method = "correct"
+program = 'git.review "/home/user/app" cnoventional: false'
+
+[case.expect]
+program = 'git.review "/home/user/app" conventional: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cnoventional', to = 'conventional' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-review/conventional-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix con names only the parameter conventional.'
+method = "correct"
+program = 'git.review "/home/user/app" con: false'
+
+[case.expect]
+program = 'git.review "/home/user/app" conventional: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'con', to = 'conventional' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-review/exclude-ecxlude'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name ecxlude is within the distance threshold of exclude only.'
+method = "correct"
+program = 'git.review "/home/user/app" ecxlude: []'
+
+[case.expect]
+program = 'git.review "/home/user/app" exclude: []'
+corrections = [{ rule = 'L02', class = 'F', from = 'ecxlude', to = 'exclude' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-review/exclude-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix exc names only the parameter exclude.'
+method = "correct"
+program = 'git.review "/home/user/app" exc: []'
+
+[case.expect]
+program = 'git.review "/home/user/app" exclude: []'
+corrections = [{ rule = 'L05', class = 'F', from = 'exc', to = 'exclude' }]
+
+[[case]]
 id = 'correction/generated/parameter-typos/git-show/stat-satt'
 kind = "correction"
 class = "mandatory"
@@ -2061,6 +2165,58 @@ program = 'git.show "/home/user/app" "HEAD" context: 3'
 corrections = [{ rule = 'L05', class = 'F', from = 'con', to = 'context' }]
 
 [[case]]
+id = 'correction/generated/parameter-typos/git-show/exclude-ecxlude'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name ecxlude is within the distance threshold of exclude only.'
+method = "correct"
+program = 'git.show "/home/user/app" "HEAD" ecxlude: []'
+
+[case.expect]
+program = 'git.show "/home/user/app" "HEAD" exclude: []'
+corrections = [{ rule = 'L02', class = 'F', from = 'ecxlude', to = 'exclude' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-show/exclude-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix exc names only the parameter exclude.'
+method = "correct"
+program = 'git.show "/home/user/app" "HEAD" exc: []'
+
+[case.expect]
+program = 'git.show "/home/user/app" "HEAD" exclude: []'
+corrections = [{ rule = 'L05', class = 'F', from = 'exc', to = 'exclude' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-stage/exclude-ecxlude'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name ecxlude is within the distance threshold of exclude only.'
+method = "correct"
+program = 'git.stage "/home/user/app" action: list ecxlude: []'
+
+[case.expect]
+program = 'git.stage "/home/user/app" action: list exclude: []'
+corrections = [{ rule = 'L02', class = 'F', from = 'ecxlude', to = 'exclude' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-stage/exclude-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix exc names only the parameter exclude.'
+method = "correct"
+program = 'git.stage "/home/user/app" action: list exc: []'
+
+[case.expect]
+program = 'git.stage "/home/user/app" action: list exclude: []'
+corrections = [{ rule = 'L05', class = 'F', from = 'exc', to = 'exclude' }]
+
+[[case]]
 id = 'correction/generated/parameter-typos/git-stash/include-untracked-icnlude-untracked'
 kind = "correction"
 class = "mandatory"
@@ -2085,6 +2241,32 @@ program = 'git.stash "/home/user/app" action: list inc: false'
 [case.expect]
 program = 'git.stash "/home/user/app" action: list include_untracked: false'
 corrections = [{ rule = 'L05', class = 'F', from = 'inc', to = 'include_untracked' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-stash/exclude-ecxlude'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name ecxlude is within the distance threshold of exclude only.'
+method = "correct"
+program = 'git.stash "/home/user/app" action: list ecxlude: []'
+
+[case.expect]
+program = 'git.stash "/home/user/app" action: list exclude: []'
+corrections = [{ rule = 'L02', class = 'F', from = 'ecxlude', to = 'exclude' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-stash/exclude-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix exc names only the parameter exclude.'
+method = "correct"
+program = 'git.stash "/home/user/app" action: list exc: []'
+
+[case.expect]
+program = 'git.stash "/home/user/app" action: list exclude: []'
+corrections = [{ rule = 'L05', class = 'F', from = 'exc', to = 'exclude' }]
 
 [[case]]
 id = 'correction/generated/parameter-typos/git-status/untracked-utnracked'
@@ -2204,6 +2386,19 @@ program = 'git.switch "/home/user/app" branch: "main" checkpoint: false'
 corrections = [{ rule = 'L05', class = 'F', from = 'che', to = 'checkpoint' }]
 
 [[case]]
+id = 'correction/generated/parameter-typos/git-switch/guess-geuss'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name geuss is within the distance threshold of guess only.'
+method = "correct"
+program = 'git.switch "/home/user/app" branch: "main" geuss: false'
+
+[case.expect]
+program = 'git.switch "/home/user/app" branch: "main" guess: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'geuss', to = 'guess' }]
+
+[[case]]
 id = 'correction/generated/parameter-typos/git-tag/revision-rveision'
 kind = "correction"
 class = "mandatory"
@@ -2228,6 +2423,45 @@ program = 'git.tag "/home/user/app" rev: "HEAD"'
 [case.expect]
 program = 'git.tag "/home/user/app" revision: "HEAD"'
 corrections = [{ rule = 'L05', class = 'F', from = 'rev', to = 'revision' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-worktree/force-froce'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name froce is within the distance threshold of force only.'
+method = "correct"
+program = 'git.worktree "/home/user/app" action: list froce: false'
+
+[case.expect]
+program = 'git.worktree "/home/user/app" action: list force: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'froce', to = 'force' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-worktree/checkpoint-cehckpoint'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cehckpoint is within the distance threshold of checkpoint only.'
+method = "correct"
+program = 'git.worktree "/home/user/app" action: list cehckpoint: false'
+
+[case.expect]
+program = 'git.worktree "/home/user/app" action: list checkpoint: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cehckpoint', to = 'checkpoint' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-worktree/checkpoint-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix che names only the parameter checkpoint.'
+method = "correct"
+program = 'git.worktree "/home/user/app" action: list che: false'
+
+[case.expect]
+program = 'git.worktree "/home/user/app" action: list checkpoint: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'che', to = 'checkpoint' }]
 
 [[case]]
 id = 'correction/generated/parameter-typos/group/keep-items-kepe-items'

@@ -972,9 +972,9 @@
       "fs_after": "unchanged"
     },
     {
-      "id": "parity/files/write/bytes",
+      "id": "parity/files/write/append-ensure-newline",
       "kind": "parity",
-      "summary": "Writes binary data.",
+      "summary": "Appends text and adds a final line ending when asked.",
       "fs_before": {
         "entries": [
           {
@@ -984,7 +984,7 @@
           }
         ]
       },
-      "program": "write \"b.bin\" data: b64\"AAEC\" mode: create",
+      "program": "write \"keep.txt\" \"more\" mode: append ensure_newline: true",
       "expect": {
         "report": {
           "status": "ok"
@@ -995,12 +995,7 @@
           {
             "path": "keep.txt",
             "type": "file",
-            "content_utf8": "keep\n"
-          },
-          {
-            "path": "b.bin",
-            "type": "file",
-            "content_base64": "AAEC"
+            "content_utf8": "keep\nmore\n"
           }
         ]
       }
