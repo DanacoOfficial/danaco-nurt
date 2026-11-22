@@ -1,0 +1,38 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-034",
+  "domain": 11,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Which accounts in etc/passwd have the login shell /bin/bash? List the account names (question 3).",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "answer": {
+      "not_contains": [
+        "daemon\n",
+        "orders\n",
+        "backup\n"
+      ],
+      "regex": [
+        "(?m)^root$|\\broot\\b",
+        "(?m)^user$|\\buser\\b",
+        "(?m)^deploy$|\\bdeploy\\b"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"etc/passwd\" |> split \":\" names: [\"name\", \"x\", \"uid\", \"gid\", \"info\", \"home\", \"shell\"] |> filter shell == \"/bin/bash\" |> select name",
+  "reference_bash": "awk -F: '$7 == \"/bin/bash\" { print $1 }' etc/passwd\n",
+  "reference_pwsh": "Get-Content etc/passwd | ForEach-Object { $f = $_.Split(':'); if ($f[6] -eq '/bin/bash') { $f[0] } }\n",
+  "tags": [
+    "accounts",
+    "report"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,47 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-060",
+  "domain": 11,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Disable the scheduled task \\NurtBench\\NurtBench-Backup-3 without deleting it.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "setup": {
+    "description": "The scheduled task \\NurtBench\\NurtBench-Backup-3 exists and is enabled.",
+    "pwsh": "$a = New-ScheduledTaskAction -Execute 'pwsh.exe' -Argument '-NoProfile -File C:\\Tools\\backup-3.ps1'\n$t = New-ScheduledTaskTrigger -Daily -At '03:00'\nRegister-ScheduledTask -TaskPath '\\NurtBench\\' -TaskName 'NurtBench-Backup-3' -Action $a -Trigger $t | Out-Null"
+  },
+  "teardown": {
+    "pwsh": "Unregister-ScheduledTask -TaskPath '\\NurtBench\\' -TaskName 'NurtBench-Backup-3' -Confirm:$false -ErrorAction SilentlyContinue"
+  },
+  "probes": [
+    {
+      "id": "task",
+      "kind": "scheduled_task",
+      "path": "\\NurtBench\\",
+      "name": "NurtBench-Backup-3"
+    }
+  ],
+  "expect": {
+    "probes": {
+      "task": {
+        "exists": true,
+        "enabled": false
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "schedule.pause \"NurtBench-Backup-3\"",
+  "reference_pwsh": "Disable-ScheduledTask -TaskPath '\\NurtBench\\' -TaskName 'NurtBench-Backup-3' | Out-Null\n",
+  "tags": [
+    "schedule",
+    "windows"
+  ],
+  "license": "CC-BY-4.0"
+}

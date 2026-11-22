@@ -1,0 +1,93 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "git-026",
+  "domain": 10,
+  "split": "public",
+  "platform": "windows",
+  "nl": "local/override.toml is tracked by Git but must not be. Remove it from version control without deleting the file, add the line local/override.toml to .gitignore and commit both changes with the message 'Stop tracking local/override.toml'.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "setup": {
+    "description": "A Git repository that tracks local/override.toml.",
+    "bash": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\nprintf '%s' '# web-4\n' > 'README.md'\nmkdir -p 'src' && printf '%s' 'print('\\''v1'\\'')\n' > 'src/app.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:00:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:00:00 +0000' git commit -qm 'Initial commit'\nmkdir -p 'src' && printf '%s' 'def helper():\n    return 1\n' > 'src/util.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:01:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:01:00 +0000' git commit -qm 'Add helper module'\nprintf '%s' '*.pyc\n' > '.gitignore'\nmkdir -p 'local' && printf '%s' 'TOKEN=dev-4\n' > 'local/override.toml'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:02:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:02:00 +0000' git commit -qm 'Add local settings'",
+    "pwsh": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\n[IO.File]::WriteAllText((Join-Path $PWD 'README.md'), '# web-4\n')\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/app.py'), 'print(''v1'')\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:00:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:00:00 +0000'; git commit -qm 'Initial commit'\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/util.py'), 'def helper():\n    return 1\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:01:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:01:00 +0000'; git commit -qm 'Add helper module'\n[IO.File]::WriteAllText((Join-Path $PWD '.gitignore'), '*.pyc\n')\nNew-Item -ItemType Directory -Force 'local' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'local/override.toml'), 'TOKEN=dev-4\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:02:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:02:00 +0000'; git commit -qm 'Add local settings'"
+  },
+  "probes": [
+    {
+      "id": "subject",
+      "kind": "command",
+      "argv": [
+        "git",
+        "log",
+        "-1",
+        "--format=%s"
+      ]
+    },
+    {
+      "id": "status",
+      "kind": "command",
+      "argv": [
+        "git",
+        "status",
+        "--porcelain"
+      ]
+    },
+    {
+      "id": "tracked",
+      "kind": "command",
+      "argv": [
+        "git",
+        "ls-files",
+        "--",
+        "local/override.toml"
+      ]
+    }
+  ],
+  "expect": {
+    "files": {
+      "local/override.toml": {
+        "text": "TOKEN=dev-4\n"
+      },
+      ".gitignore": {
+        "lines": [
+          "*.pyc",
+          "local/override.toml"
+        ]
+      }
+    },
+    "allowed_changes": [
+      ".git/**"
+    ],
+    "probes": {
+      "subject": {
+        "stdout": "Stop tracking local/override.toml"
+      },
+      "status": {
+        "stdout": ""
+      },
+      "tracked": {
+        "stdout": ""
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "local/override.toml",
+      "change": "delete",
+      "reason": "the local file must stay"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "git.stage \".\" action: untrack paths: [\"local/override.toml\"]\nwrite \".gitignore\" \"local/override.toml\" mode: append ensure_newline: true\ngit.commit \".\" message: \"Stop tracking local/override.toml\" paths: [\".gitignore\", \"local/override.toml\"]",
+  "reference_pwsh": "git rm -q --cached -- 'local/override.toml'\nAdd-Content .gitignore 'local/override.toml'\ngit add .gitignore\ngit commit -qm 'Stop tracking local/override.toml'\n",
+  "tags": [
+    "git",
+    "gitignore"
+  ],
+  "license": "CC-BY-4.0"
+}

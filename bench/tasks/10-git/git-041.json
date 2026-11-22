@@ -1,0 +1,40 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "git-041",
+  "domain": 10,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Which files changed between the tags 2026.1 and 2026.2? List their paths.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "setup": {
+    "description": "A Git repository with the tags 2026.1 and 2026.2 and one commit after 2026.2.",
+    "bash": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\nprintf '%s' '# site-4\n' > 'README.md'\nmkdir -p 'src' && printf '%s' 'print('\\''v1'\\'')\n' > 'src/app.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:00:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:00:00 +0000' git commit -qm 'Initial commit'\nmkdir -p 'src' && printf '%s' 'def helper():\n    return 1\n' > 'src/util.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:01:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:01:00 +0000' git commit -qm 'Add helper module'\ngit tag 2026.1\nmkdir -p 'src' && printf '%s' 'print('\\''v2'\\'')\n' > 'src/app.py'\nmkdir -p 'docs' && printf '%s' 'new\n' > 'docs/new-4.md'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:02:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:02:00 +0000' git commit -qm 'Version 2'\ngit tag 2026.2\nmkdir -p 'src' && printf '%s' 'def helper():\n    return 9\n' > 'src/util.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:03:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:03:00 +0000' git commit -qm 'After release'",
+    "pwsh": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\n[IO.File]::WriteAllText((Join-Path $PWD 'README.md'), '# site-4\n')\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/app.py'), 'print(''v1'')\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:00:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:00:00 +0000'; git commit -qm 'Initial commit'\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/util.py'), 'def helper():\n    return 1\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:01:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:01:00 +0000'; git commit -qm 'Add helper module'\ngit tag 2026.1\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/app.py'), 'print(''v2'')\n')\nNew-Item -ItemType Directory -Force 'docs' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'docs/new-4.md'), 'new\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:02:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:02:00 +0000'; git commit -qm 'Version 2'\ngit tag 2026.2\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/util.py'), 'def helper():\n    return 9\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:03:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:03:00 +0000'; git commit -qm 'After release'"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "src/app.py",
+        "docs/new-4.md"
+      ],
+      "not_contains": [
+        "src/util.py"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "git.diff \".\" from: \"2026.1\" to: \"2026.2\" stat: true |> select path",
+  "reference_pwsh": "git diff --name-only 2026.1 2026.2\n",
+  "tags": [
+    "diff",
+    "git"
+  ],
+  "license": "CC-BY-4.0"
+}

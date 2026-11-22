@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-038",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "In legacy.txt (Windows-1250, CRLF) change 'Status: draft' to 'Status: final'. Keep the encoding and the line endings.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "legacy.txt",
+        "type": "file",
+        "content_base64": "Q2l0eTogo/Nknw0KTm90ZXM6IK95d2llYywgQmWzY2hhdPN3LCBDeupzdG9jaG93YSwgjHdp6nRvY2izb3dpY2UNClN0YXR1czogZHJhZnQNCg=="
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "legacy.txt": {
+        "base64": "Q2l0eTogo/Nknw0KTm90ZXM6IK95d2llYywgQmWzY2hhdPN3LCBDeupzdG9jaG93YSwgjHdp6nRvY2izb3dpY2UNClN0YXR1czogZmluYWwNCg=="
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"Status: draft\" \"Status: final\" in: [\"legacy.txt\"] mode: literal",
+  "reference_bash": "sed -i 's/Status: draft/Status: final/' legacy.txt\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "iconv -f CP1250 -t UTF-8 legacy.txt | sed 's/Status: draft/Status: final/' > legacy.new && mv legacy.new legacy.txt",
+      "defect": "converts the file to UTF-8"
+    }
+  ],
+  "provocation": "encoding-change",
+  "tags": [
+    "encoding-change",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

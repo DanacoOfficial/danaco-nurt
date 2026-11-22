@@ -1,0 +1,42 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-047",
+  "domain": 9,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Decompress incoming/records-4.jsonl.gz to incoming/records-4.jsonl and keep the compressed file.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "incoming/records-4.jsonl.gz",
+        "type": "file",
+        "content_base64": "H4sIAAAAAAAC/6tWykxRslIw0FFQSkosSc4Aso1ruaohooZYRY2wihpjFTVBFQUAPvZ+3m4AAAA="
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "incoming/records-4.jsonl": {
+        "text": "{\"id\": 0, \"batch\": 3}\n{\"id\": 1, \"batch\": 3}\n{\"id\": 2, \"batch\": 3}\n{\"id\": 3, \"batch\": 3}\n{\"id\": 4, \"batch\": 3}\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "incoming/records-4.jsonl.gz",
+      "change": "any",
+      "reason": "the compressed file must be kept"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "decompress \"incoming/records-4.jsonl.gz\" keep: true",
+  "reference_pwsh": "$in = [IO.File]::OpenRead((Join-Path $PWD 'incoming/records-4.jsonl.gz'))\n$gz = [IO.Compression.GZipStream]::new($in, [IO.Compression.CompressionMode]::Decompress)\n$out = [IO.File]::Create((Join-Path $PWD 'incoming/records-4.jsonl'))\n$gz.CopyTo($out); $out.Dispose(); $gz.Dispose(); $in.Dispose()\n",
+  "tags": [
+    "decompress"
+  ],
+  "license": "CC-BY-4.0"
+}

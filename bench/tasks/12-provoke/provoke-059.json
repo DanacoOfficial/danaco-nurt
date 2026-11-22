@@ -1,0 +1,55 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-059",
+  "domain": 12,
+  "split": "public",
+  "platform": "cross",
+  "nl": "tools/legacy.py cp1250 '<text>' prints text in the legacy Windows-1250 encoding. Run tools/legacy.py with the arguments cp1250 and the text from message-3.txt, and save its output as UTF-8 to report-3.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "message-3.txt",
+        "type": "file",
+        "content_utf8": "City: Gda\u0144sk\r\nRegion: \u015awi\u0119tokrzyskie\r\n"
+      },
+      {
+        "path": "tools/legacy.py",
+        "type": "file",
+        "content_utf8": "import sys\n\ntext = sys.argv[2]\nsys.stdout.buffer.write(text.encode(sys.argv[1]))\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "report-3.txt": {
+        "contains": [
+          "City: Gda\u0144sk",
+          "Region: \u015awi\u0119tokrzyskie"
+        ],
+        "encoding": "utf-8"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/legacy.py\", \"cp1250\", (read \"message-3.txt\")] output_encoding: \"cp1250\" save_to: \"report-3.txt\"",
+  "reference_bash": "python3 tools/legacy.py cp1250 \"$(cat message-3.txt)\" | iconv -f CP1250 -t UTF-8 > report-3.txt\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n[Console]::OutputEncoding = [Text.Encoding]::GetEncoding(1250)\n$m = Get-Content message-3.txt -Raw\n& $py tools/legacy.py cp1250 $m | Set-Content -Encoding utf8NoBOM report-3.txt\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "python3 tools/legacy.py cp1250 \"$(cat message-3.txt)\" > report-3.txt",
+      "defect": "stores the legacy bytes unconverted"
+    }
+  ],
+  "provocation": "console-encoding",
+  "tags": [
+    "console-encoding",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

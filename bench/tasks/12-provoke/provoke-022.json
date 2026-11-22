@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-022",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Remove duplicate lines from list.txt in place; the result is sorted.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "list.txt",
+        "type": "file",
+        "content_utf8": "b\na\nb\nc\na\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "list.txt": {
+        "text": "a\nb\nc\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"list.txt\" |> distinct text |> sort text |> write \"list.txt\" mode: overwrite",
+  "reference_bash": "sort -u -o list.txt list.txt\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sort -u list.txt > list.txt",
+      "defect": "the redirection empties the file"
+    }
+  ],
+  "provocation": "truncating-redirect",
+  "tags": [
+    "provocation",
+    "truncating-redirect"
+  ],
+  "license": "CC-BY-4.0"
+}

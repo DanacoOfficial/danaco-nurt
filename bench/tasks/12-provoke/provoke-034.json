@@ -1,0 +1,74 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-034",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Rename all .jpeg files in photos/ to .jpg. If any target name already exists, rename nothing and name the conflicting file.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "photos/a.jpeg",
+        "type": "file",
+        "content_utf8": "a\n"
+      },
+      {
+        "path": "photos/b.jpeg",
+        "type": "file",
+        "content_utf8": "b\n"
+      },
+      {
+        "path": "photos/b.jpg",
+        "type": "file",
+        "content_utf8": "existing b\n"
+      },
+      {
+        "path": "photos/c.jpeg",
+        "type": "file",
+        "content_utf8": "c\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "photos/a.jpeg": {
+        "same_as_before": "photos/a.jpeg"
+      },
+      "photos/b.jpeg": {
+        "same_as_before": "photos/b.jpeg"
+      },
+      "photos/b.jpg": {
+        "same_as_before": "photos/b.jpg"
+      },
+      "photos/c.jpeg": {
+        "same_as_before": "photos/c.jpeg"
+      }
+    },
+    "answer": {
+      "contains": [
+        "b.jpg"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"photos\" glob: \"*.jpeg\" |> rename /\\.jpeg$/ \".jpg\" on_conflict: fail",
+  "reference_bash": "for f in photos/*.jpeg; do t=\"${f%.jpeg}.jpg\"; [ -e \"$t\" ] && { echo \"conflict: $t\"; exit 1; }; done\nfor f in photos/*.jpeg; do mv -- \"$f\" \"${f%.jpeg}.jpg\"; done\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "for f in photos/*.jpeg; do mv -n -- \"$f\" \"${f%.jpeg}.jpg\"; done",
+      "defect": "renames some files and stops halfway"
+    }
+  ],
+  "provocation": "interrupted-bulk",
+  "tags": [
+    "interrupted-bulk",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

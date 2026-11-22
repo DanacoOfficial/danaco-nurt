@@ -1,0 +1,66 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-018",
+  "domain": 7,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Start tools/server.py with the argument bench-server-2 in the background so that it keeps running after your command has finished. Write its process ID to run/server.pid (create run/ if needed).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/server.py",
+        "type": "file",
+        "content_utf8": "import pathlib\nimport time\n\npathlib.Path(\"logs\").mkdir(exist_ok=True)\nwhile True:\n    pathlib.Path(\"logs/heartbeat\").write_text(str(time.time()))\n    time.sleep(0.2)\n"
+      }
+    ]
+  },
+  "teardown": {
+    "bash": "pkill -f -- bench-server-2 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*bench-server-2*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "probes": [
+    {
+      "id": "server",
+      "kind": "process",
+      "match": "bench-server-2"
+    }
+  ],
+  "expect": {
+    "files": {
+      "run/server.pid": {
+        "regex": [
+          "^\\s*\\d+\\s*$"
+        ]
+      }
+    },
+    "allowed_changes": [
+      "logs/**",
+      "run/**"
+    ],
+    "probes": {
+      "server": {
+        "count": 1
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/server.py\", \"bench-server-2\"] background: true |> select pid |> write \"run/server.pid\" parents: true",
+  "reference_bash": "mkdir -p run\nnohup python3 tools/server.py bench-server-2 > /dev/null 2>&1 &\necho $! > run/server.pid\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "mkdir -p run\ntimeout 1 python3 tools/server.py bench-server-2\necho 0 > run/server.pid",
+      "defect": "runs the server in the foreground and lets it stop"
+    }
+  ],
+  "tags": [
+    "background",
+    "detach"
+  ],
+  "license": "CC-BY-4.0"
+}

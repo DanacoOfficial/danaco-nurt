@@ -1,0 +1,53 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-049",
+  "domain": 12,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Run tools/migrate.py to upgrade the database version. It asks you to type MIGRATE to continue.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "db/version",
+        "type": "file",
+        "content_utf8": "1\n"
+      },
+      {
+        "path": "tools/migrate.py",
+        "type": "file",
+        "content_utf8": "import pathlib\n\nif input(\"Type MIGRATE to continue: \") == \"MIGRATE\":\n    pathlib.Path(\"db/version\").write_text(\"2\\n\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "db/version": {
+        "lines": [
+          "2"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 60
+  },
+  "oracle_program": "run [\"python3\", \"tools/migrate.py\"] stdin: \"y\" timeout: 30s",
+  "reference_bash": "echo MIGRATE | python3 tools/migrate.py\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n'MIGRATE' | & $py tools/migrate.py\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "python3 tools/migrate.py",
+      "defect": "waits for input that never arrives"
+    }
+  ],
+  "provocation": "interactive-hang",
+  "tags": [
+    "interactive-hang",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

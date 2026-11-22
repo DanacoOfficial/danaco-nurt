@@ -1,0 +1,31 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-015",
+  "domain": 11,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Harden etc/ssh/sshd_config: set PermitRootLogin no and PasswordAuthentication no. Leave the other settings.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/ssh/sshd_config": {
+        "text": "Port 22\nPermitRootLogin no\nPasswordAuthentication no\nPubkeyAuthentication yes\nX11Forwarding no\nMaxAuthTries 6\nSubsystem sftp /usr/lib/openssh/sftp-server\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "set \"etc/ssh/sshd_config\" key: \"PermitRootLogin\" value: \"no\" format: sshd\nset \"etc/ssh/sshd_config\" key: \"PasswordAuthentication\" value: \"no\" format: sshd",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/ssh/sshd_config'); t = p.read_text()\nassert t.count('PermitRootLogin yes') == 1\np.write_text(t.replace('PermitRootLogin yes', 'PermitRootLogin no'))\nEOF\npython3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/ssh/sshd_config'); t = p.read_text()\nassert t.count('PasswordAuthentication yes') == 1\np.write_text(t.replace('PasswordAuthentication yes', 'PasswordAuthentication no'))\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'etc/ssh/sshd_config'; $t = [IO.File]::ReadAllText($p)\n[IO.File]::WriteAllText($p, $t.Replace('PermitRootLogin yes', 'PermitRootLogin no'))\n$p = Join-Path $PWD 'etc/ssh/sshd_config'; $t = [IO.File]::ReadAllText($p)\n[IO.File]::WriteAllText($p, $t.Replace('PasswordAuthentication yes', 'PasswordAuthentication no'))\n",
+  "tags": [
+    "config",
+    "ssh"
+  ],
+  "license": "CC-BY-4.0"
+}

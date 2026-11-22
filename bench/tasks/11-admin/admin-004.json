@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-004",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Create the cron file etc/cron.d/rotate in the same format as etc/cron.d/backup (SHELL and PATH lines first) that runs `/usr/sbin/logrotate /etc/logrotate.conf` as root at `*/30 * * * *`.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/cron.d/rotate": {
+        "text": "SHELL=/bin/sh\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\n*/30 * * * * root /usr/sbin/logrotate /etc/logrotate.conf\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "etc/cron.d/backup",
+      "change": "any",
+      "reason": "the existing job stays unchanged"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "schedule.create \"rotate\" cron: \"*/30 * * * *\" action: (run [\"/usr/sbin/logrotate\", \"/etc/logrotate.conf\"])",
+  "reference_bash": "mkdir -p 'etc/cron.d'\nprintf '%s' 'SHELL=/bin/sh\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\n*/30 * * * * root /usr/sbin/logrotate /etc/logrotate.conf\n' > 'etc/cron.d/rotate'\n",
+  "tags": [
+    "cron",
+    "schedule"
+  ],
+  "license": "CC-BY-4.0"
+}

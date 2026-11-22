@@ -1,0 +1,64 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-057",
+  "domain": 9,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Archive only data/2026/ as the xz-compressed tar archive archive/data-2026-1.tar.xz (member paths start with data/2026/).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "data/2025/q1.csv",
+        "type": "file",
+        "content_utf8": "q,v\n9,9\n"
+      },
+      {
+        "path": "data/2026/q1.csv",
+        "type": "file",
+        "content_utf8": "q,v\n1,10\n"
+      },
+      {
+        "path": "data/2026/q2.csv",
+        "type": "file",
+        "content_utf8": "q,v\n2,12\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "archive/data-2026-1.tar.xz": {
+        "type": "file"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "data/**",
+      "change": "any",
+      "reason": "the data is only read"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle": {
+    "script": "archive_members",
+    "params": {
+      "path": "archive/data-2026-1.tar.xz",
+      "format": "tar.xz",
+      "members": {
+        "data/2026/q1.csv": "q,v\n1,10\n",
+        "data/2026/q2.csv": "q,v\n2,12\n"
+      }
+    }
+  },
+  "oracle_program": "find \"data/2026\" type: file |> archive.create \"archive/data-2026-1.tar.xz\" base: \".\" format: tar.xz",
+  "reference_bash": "mkdir -p archive && tar -cJf archive/data-2026-1.tar.xz data/2026\n",
+  "tags": [
+    "tar",
+    "xz"
+  ],
+  "license": "CC-BY-4.0"
+}

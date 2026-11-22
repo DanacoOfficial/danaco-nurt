@@ -1,0 +1,60 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-025",
+  "domain": 8,
+  "split": "public",
+  "platform": "linux",
+  "nl": "The symbolic link current points to releases/v4.1.0. Roll back it to releases/v4.0.3 by replacing the link (relative target). Do not modify the release directories.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "current",
+        "type": "symlink",
+        "target": "releases/v4.1.0"
+      },
+      {
+        "path": "releases/v4.0.3/app.txt",
+        "type": "file",
+        "content_utf8": "app 4.0.3\n"
+      },
+      {
+        "path": "releases/v4.1.0/app.txt",
+        "type": "file",
+        "content_utf8": "app 4.1.0\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "current": {
+        "type": "symlink",
+        "target": "releases/v4.0.3"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "releases/**",
+      "change": "any",
+      "reason": "release directories are immutable"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "create \"current\" type: link target: \"releases/v4.0.3\" on_exists: replace",
+  "reference_bash": "ln -sfn releases/v4.0.3 current\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "ln -sf releases/v4.0.3 current",
+      "defect": "creates a link inside the old release directory"
+    }
+  ],
+  "tags": [
+    "symlink"
+  ],
+  "license": "CC-BY-4.0"
+}

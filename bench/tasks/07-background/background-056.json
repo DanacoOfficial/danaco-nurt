@@ -1,0 +1,46 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-056",
+  "domain": 7,
+  "split": "public",
+  "platform": "linux",
+  "nl": "How many instances of tools/consumer.py with the argument bench-queue-1 are running right now? Answer with the number.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/consumer.py",
+        "type": "file",
+        "content_utf8": "import time\n\nwhile True:\n    time.sleep(1)\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "2 instances of tools/consumer.py bench-queue-1 run in the background.",
+    "bash": "setsid python3 tools/consumer.py bench-queue-1 0 > /dev/null 2>&1 < /dev/null &\nsetsid python3 tools/consumer.py bench-queue-1 1 > /dev/null 2>&1 < /dev/null &\nsleep 0.5",
+    "pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nStart-Process $py -ArgumentList 'tools/consumer.py','bench-queue-1','0'\nStart-Process $py -ArgumentList 'tools/consumer.py','bench-queue-1','1'\nStart-Sleep -Seconds 1"
+  },
+  "teardown": {
+    "bash": "pkill -f -- bench-queue-1 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*bench-queue-1*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\d.-])2(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "processes |> filter command ~ \"bench-queue-1\" |> count",
+  "reference_bash": "pgrep -fc -- 'consumer.py bench-queue-1'\n",
+  "tags": [
+    "count",
+    "processes"
+  ],
+  "license": "CC-BY-4.0"
+}

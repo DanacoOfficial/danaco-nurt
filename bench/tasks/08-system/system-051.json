@@ -1,0 +1,67 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-051",
+  "domain": 8,
+  "split": "public",
+  "platform": "windows",
+  "nl": "List the hidden files under share/ (recursively, 2 expected).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "share/plan.xlsx",
+        "type": "file",
+        "content_utf8": "data share/plan.xlsx\r\n"
+      },
+      {
+        "path": "share/report-0.docx",
+        "type": "file",
+        "content_utf8": "data share/report-0.docx\r\n"
+      },
+      {
+        "path": "share/sub/notes.txt",
+        "type": "file",
+        "content_utf8": "data share/sub/notes.txt\r\n"
+      },
+      {
+        "path": "share/sub/thumbs.db",
+        "type": "file",
+        "content_utf8": "data share/sub/thumbs.db\r\n"
+      },
+      {
+        "path": "share/~lock.tmp",
+        "type": "file",
+        "content_utf8": "data share/~lock.tmp\r\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "The files share/~lock.tmp, share/sub/thumbs.db have the hidden attribute.",
+    "pwsh": "$f = Get-Item -LiteralPath 'share/~lock.tmp'; $f.Attributes = $f.Attributes -bor [IO.FileAttributes]::Hidden\n$f = Get-Item -LiteralPath 'share/sub/thumbs.db'; $f.Attributes = $f.Attributes -bor [IO.FileAttributes]::Hidden"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "~lock.tmp",
+        "thumbs.db"
+      ],
+      "not_contains": [
+        "report-0.docx",
+        "plan.xlsx",
+        "notes.txt"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"share\" type: file hidden: true |> filter hidden == true",
+  "reference_pwsh": "Get-ChildItem share -Recurse -File -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::Hidden } | ForEach-Object FullName\n",
+  "tags": [
+    "attributes",
+    "windows"
+  ],
+  "license": "CC-BY-4.0"
+}

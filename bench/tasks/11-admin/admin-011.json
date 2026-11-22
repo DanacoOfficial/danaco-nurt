@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-011",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Disable root login over SSH in etc/ssh/sshd_config (PermitRootLogin no).",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/ssh/sshd_config": {
+        "text": "Port 22\nPermitRootLogin no\nPasswordAuthentication yes\nPubkeyAuthentication yes\nX11Forwarding no\nMaxAuthTries 6\nSubsystem sftp /usr/lib/openssh/sftp-server\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "set \"etc/ssh/sshd_config\" key: \"PermitRootLogin\" value: \"no\" format: sshd",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/ssh/sshd_config'); t = p.read_text()\nassert t.count('PermitRootLogin yes') == 1\np.write_text(t.replace('PermitRootLogin yes', 'PermitRootLogin no'))\nEOF\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sed -i 's/yes/no/g' etc/ssh/sshd_config",
+      "defect": "changes every setting with the value yes"
+    }
+  ],
+  "tags": [
+    "config",
+    "ssh"
+  ],
+  "license": "CC-BY-4.0"
+}

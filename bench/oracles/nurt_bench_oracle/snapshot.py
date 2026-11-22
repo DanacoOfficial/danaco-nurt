@@ -132,10 +132,11 @@ def index_from_entries(entries: list[Mapping[str, Any]]) -> Index:
 def index_from_snapshot(snapshot: Mapping[str, Any]) -> Index:
     """Builds an index from a snapshot object.
 
-    The ``format`` member is optional; when present it must be
-    ``nurt-fs-snapshot/1``.
+    The ``format`` member is optional; when present and not ``null`` it must
+    be ``nurt-fs-snapshot/1``. The member ``exhaustive`` is accepted and not
+    used: a snapshot taken by a runner always covers the whole task root.
     """
-    if snapshot.get("format", SNAPSHOT_FORMAT) != SNAPSHOT_FORMAT:
+    if snapshot.get("format") not in (None, SNAPSHOT_FORMAT):
         raise SnapshotError(f"snapshot format must be {SNAPSHOT_FORMAT}")
     entries = snapshot.get("entries")
     if not isinstance(entries, list):

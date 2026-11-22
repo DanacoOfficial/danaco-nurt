@@ -216,6 +216,222 @@
       "domain": 6,
       "platform": "cross",
       "sha256": "1a4c363ed26072192da6a1bc48f61e45e5a7b62373d930d26d93806588f5a438"
+    },
+    {
+      "id": "background-019",
+      "domain": 7,
+      "platform": "linux",
+      "sha256": "53f4edd42883f5b0eaabd42c0e01b8d8d408d2556d453e1ae993847c96769fde"
+    },
+    {
+      "id": "background-027",
+      "domain": 7,
+      "platform": "linux",
+      "sha256": "63a7dc49c7374c19a5877f5d44e9de7562eae7fa8a7b3232edb242856b8a6e9c"
+    },
+    {
+      "id": "background-035",
+      "domain": 7,
+      "platform": "windows",
+      "sha256": "99576ff102b6964310c9e7966b7c439b21834f0814a25b4fc30a1b358b15298a"
+    },
+    {
+      "id": "background-037",
+      "domain": 7,
+      "platform": "linux",
+      "sha256": "1a07b8f9ed39fb4bee46cce0dbbf3d76be7646270c04ffb12dcf95a2beebb281"
+    },
+    {
+      "id": "background-053",
+      "domain": 7,
+      "platform": "cross",
+      "sha256": "995def54bc2cf4c172f47a25f896a27b0e5d81841ffb949314cd201e36b8c52d"
+    },
+    {
+      "id": "background-055",
+      "domain": 7,
+      "platform": "windows",
+      "sha256": "0fa8164a1d58d5923540099de56b308675c5c9cb7b2aa75f462cedaaeef6371d"
+    },
+    {
+      "id": "system-018",
+      "domain": 8,
+      "platform": "linux",
+      "sha256": "dbfb0fbee7531568a54812eb50fec698f630fe6d3782ba2ee5e71bac17bf32b9"
+    },
+    {
+      "id": "system-022",
+      "domain": 8,
+      "platform": "windows",
+      "sha256": "c1fe51bcbd9396fdc6a02754505b91364cdaf182669a06e69673f246efe62758"
+    },
+    {
+      "id": "system-027",
+      "domain": 8,
+      "platform": "linux",
+      "sha256": "209b7c9f17ac61d01b09eb1d2e3bcff00c12eb1130ec73c4b5f95d500200990b"
+    },
+    {
+      "id": "system-044",
+      "domain": 8,
+      "platform": "linux",
+      "sha256": "a5b10fe0d8fbcf61ab0de2cc189b4b82200358030240807a0fd2ecb6fdb0bb24"
+    },
+    {
+      "id": "system-052",
+      "domain": 8,
+      "platform": "windows",
+      "sha256": "60a20a3d683cc2bce29c7bfa207de45d2b4b6c19c7e7054cb0003ee0cd3319d0"
+    },
+    {
+      "id": "system-054",
+      "domain": 8,
+      "platform": "linux",
+      "sha256": "7efe48af3c99a9343cc88787a41d3c9cea7b1a606e2d5a42072d89bd463eb163"
+    },
+    {
+      "id": "archives-018",
+      "domain": 9,
+      "platform": "linux",
+      "sha256": "49de4f4abefefd57e29e279adac40b5b8e6bb778cd56b5a667c96d2cd5dbdb4c"
+    },
+    {
+      "id": "archives-021",
+      "domain": 9,
+      "platform": "linux",
+      "sha256": "318f2f6f394bd9d3951d37b68f217cdc8af7d8664d98d7cecc5bdd9a693f205e"
+    },
+    {
+      "id": "archives-029",
+      "domain": 9,
+      "platform": "cross",
+      "sha256": "17ece9464eccfa44821d05e51d33ffffb017c1ee850f3a3debef0f84727dd71a"
+    },
+    {
+      "id": "archives-040",
+      "domain": 9,
+      "platform": "linux",
+      "sha256": "592ab00883d08523fde4944543ce45de31b0e8515a39eb5f6015057ceeb7496c"
+    },
+    {
+      "id": "archives-041",
+      "domain": 9,
+      "platform": "linux",
+      "sha256": "60a63def8f76e2670c0f20c72a915bc0fa3f45aa92e46bed71a5be0d8c561044"
+    },
+    {
+      "id": "archives-042",
+      "domain": 9,
+      "platform": "cross",
+      "sha256": "c034db2f334546fcb475fbd20843889426e7d5e94197e32d45b6434c9a0aa601"
+    },
+    {
+      "id": "git-007",
+      "domain": 10,
+      "platform": "linux",
+      "sha256": "637a99c4323fdc3bc0fb1cdf64eed0b6886b96f29f4fb110184d3953667151db"
+    },
+    {
+      "id": "git-023",
+      "domain": 10,
+      "platform": "linux",
+      "sha256": "0701037279bde2b57018c312d0944ad9b00994d77a3cca57084b5b2a679c06fc"
+    },
+    {
+      "id": "git-030",
+      "domain": 10,
+      "platform": "windows",
+      "sha256": "7771d118d4a801711676febd172e3b84f7b1b525af50ba62b1e0157761d58299"
+    },
+    {
+      "id": "git-042",
+      "domain": 10,
+      "platform": "linux",
+      "sha256": "0964ebf54bc17f58d8cfe231624df01f62d1e55d7305aac330a4017c429a9d7a"
+    },
+    {
+      "id": "git-047",
+      "domain": 10,
+      "platform": "linux",
+      "sha256": "bad7796f77bd04a31b678d7940d544ebc69d6497a2602f07161552ff4f2a6264"
+    },
+    {
+      "id": "git-055",
+      "domain": 10,
+      "platform": "windows",
+      "sha256": "2ca793ec3ff0c786861391fb93b5a748f20d9a945f91d332c9712f4f9138e81b"
+    },
+    {
+      "id": "admin-001",
+      "domain": 11,
+      "platform": "linux",
+      "sha256": "60813609d7563e2051ddf98960f04e6381604eeacccf616d56e005fec34b870a"
+    },
+    {
+      "id": "admin-010",
+      "domain": 11,
+      "platform": "cross",
+      "sha256": "720451a9a5aae8fe220dafb4ecc26158d3d1ec3944e6e6517cf1a8224b795cfc"
+    },
+    {
+      "id": "admin-047",
+      "domain": 11,
+      "platform": "windows",
+      "sha256": "bdd5f92c779e0b9af227ea4ba0ee0bf30d41623526b9eeb107f97f5c42f13a2d"
+    },
+    {
+      "id": "admin-048",
+      "domain": 11,
+      "platform": "windows",
+      "sha256": "e874a52f669670906cba4345a567fcf10ec60d39b0c39deec25df793637b273c"
+    },
+    {
+      "id": "admin-055",
+      "domain": 11,
+      "platform": "windows",
+      "sha256": "96f5fec79d9524d1024f368789ef391f548da6effa137bcd3e5d8726ad24c155"
+    },
+    {
+      "id": "admin-057",
+      "domain": 11,
+      "platform": "windows",
+      "sha256": "c5a4cee0ba1d369aecf5d80ddf3949059f5960efc021a05bda8681ac8cccacac"
+    },
+    {
+      "id": "provoke-002",
+      "domain": 12,
+      "platform": "linux",
+      "sha256": "52e3ad6d736ef4e2e6f7a42840086c10a0c2c1fdf1575106bb95356caf2ad4f7"
+    },
+    {
+      "id": "provoke-019",
+      "domain": 12,
+      "platform": "cross",
+      "sha256": "26de2458052d2e3f9fb17825c102028c8b4ab19d819c217c673dc29648b16a68"
+    },
+    {
+      "id": "provoke-024",
+      "domain": 12,
+      "platform": "cross",
+      "sha256": "1db20ec016589d167611f08b7b1a7ce7f4ebee635228d170dc644534fee585bd"
+    },
+    {
+      "id": "provoke-036",
+      "domain": 12,
+      "platform": "cross",
+      "sha256": "6bcb9f91030e516e68995adf43823de24f329e2e49e8a29b479dc109a34262df"
+    },
+    {
+      "id": "provoke-042",
+      "domain": 12,
+      "platform": "windows",
+      "sha256": "b9fc15ec244e9925cf47ba5c6eb7f5382685d54ebf928b7b62884f478ca7cd6b"
+    },
+    {
+      "id": "provoke-046",
+      "domain": 12,
+      "platform": "windows",
+      "sha256": "63b7503f9f28c9d91bc4e2de15433c0a5c522c2890395e7af031dddb3e501124"
     }
   ]
 }

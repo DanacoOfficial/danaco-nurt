@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-033",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Which accounts in etc/passwd cannot log in (shell /usr/sbin/nologin)? List the account names (question 2).",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "answer": {
+      "not_contains": [
+        "root\n",
+        "user\n",
+        "deploy\n"
+      ],
+      "regex": [
+        "(?m)^daemon$|\\bdaemon\\b",
+        "(?m)^orders$|\\borders\\b",
+        "(?m)^backup$|\\bbackup\\b"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"etc/passwd\" |> split \":\" names: [\"name\", \"x\", \"uid\", \"gid\", \"info\", \"home\", \"shell\"] |> filter shell == \"/usr/sbin/nologin\" |> select name",
+  "reference_bash": "awk -F: '$7 == \"/usr/sbin/nologin\" { print $1 }' etc/passwd\n",
+  "tags": [
+    "accounts",
+    "report"
+  ],
+  "license": "CC-BY-4.0"
+}

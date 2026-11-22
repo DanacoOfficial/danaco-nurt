@@ -1,0 +1,48 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-037",
+  "domain": 8,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Make the private key files under certs/ (the .key files and id_ed25519) readable and writable only by their owning account (mode 0600). (set 5)",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "certs/client.key",
+        "type": "file",
+        "content_utf8": "content 1\n",
+        "mode": "0640"
+      },
+      {
+        "path": "certs/server.key",
+        "type": "file",
+        "content_utf8": "content 0\n",
+        "mode": "0644"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "certs/server.key": {
+        "mode": "0600",
+        "same_as_before": "certs/server.key"
+      },
+      "certs/client.key": {
+        "mode": "0600",
+        "same_as_before": "certs/client.key"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"certs\" glob: \"*.key\" type: file |> attributes mode: \"0600\"",
+  "reference_bash": "find certs -type f \\( -name '*.key' -o -name 'id_*' \\) -exec chmod 0600 {} +\n",
+  "tags": [
+    "permissions"
+  ],
+  "license": "CC-BY-4.0"
+}

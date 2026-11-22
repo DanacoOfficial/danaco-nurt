@@ -1,0 +1,50 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-027",
+  "domain": 9,
+  "split": "public",
+  "platform": "linux",
+  "nl": "import/cities-2.csv is encoded in Windows-1250. Write a UTF-8 copy (without a byte order mark, same CRLF line endings) to import/cities-2.utf8.csv and keep the original.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "import/cities-2.csv",
+        "type": "file",
+        "content_base64": "aWQ7Y2l0eQ0KMTtLcmFr83cNCjI7V3JvY7Nhdw0KMztQb3puYfENCjQ7jHdpbm91apxjaWUNCm5vdGU7r3l3aWVjLCBCZbNjaGF083csIEN66nN0b2Nob3dhLCCMd2nqdG9jaLNvd2ljZQ0K"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "import/cities-2.utf8.csv": {
+        "base64": "aWQ7Y2l0eQ0KMTtLcmFrw7N3DQoyO1dyb2PFgmF3DQozO1Bvem5hxYQNCjQ7xZp3aW5vdWrFm2NpZQ0Kbm90ZTvFu3l3aWVjLCBCZcWCY2hhdMOzdywgQ3rEmXN0b2Nob3dhLCDFmndpxJl0b2NoxYJvd2ljZQ0K"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "import/cities-2.csv",
+      "change": "any",
+      "reason": "the original file must be kept"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"import/cities-2.csv\" encoding: \"windows-1250\" |> write \"import/cities-2.utf8.csv\" encoding: \"utf-8\" line_ending: keep",
+  "reference_bash": "iconv -f CP1250 -t UTF-8 import/cities-2.csv > import/cities-2.utf8.csv\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "cp import/cities-2.csv import/cities-2.utf8.csv",
+      "defect": "copies the bytes without converting them"
+    }
+  ],
+  "tags": [
+    "cp1250",
+    "encoding"
+  ],
+  "license": "CC-BY-4.0"
+}

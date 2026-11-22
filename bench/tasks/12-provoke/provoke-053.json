@@ -1,0 +1,51 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-053",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "tools/remote.sh runs its argument as a command line in a second shell. Using tools/remote.sh, create out/home.txt containing the literal text $HOME/data (with the dollar sign).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "out/.keep",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tools/remote.sh",
+        "type": "file",
+        "content_utf8": "#!/bin/sh\n# Runs a command line on the build host (here: locally) through a second shell.\nexec bash -c \"$1\"\n",
+        "mode": "0755"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/home.txt": {
+        "text": "$HOME/data\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \"out/home.txt\" \"$HOME/data\\n\" mode: create",
+  "reference_bash": "./tools/remote.sh 'printf \"%s\\n\" \"\\$HOME/data\" > out/home.txt'\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "./tools/remote.sh \"echo \\$HOME/data > out/home.txt\"",
+      "defect": "the second shell expands $HOME"
+    }
+  ],
+  "provocation": "interpreter-layers",
+  "tags": [
+    "interpreter-layers",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

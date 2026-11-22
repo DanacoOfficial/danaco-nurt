@@ -1,0 +1,55 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-011",
+  "domain": 9,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Extract downloads/release-5.tar.gz into the directory opt/release-5 (create it). Keep the archive.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "downloads/release-5.tar.gz",
+        "type": "file",
+        "content_base64": "H4sIAAAAAAAC/+3XsW6DMBSFYc88haPuYDuGTB2qhqFS2iF9AhduEiQXS/gmyuOXpJ3o0A6Nh3K+xRKLkcxvm4E8uUjF5umxfnmtcz6z+GtqVFl7HUfTUSldCl2a0pplWV2ea21sKaQSCRwju2F8FTFPm66hPpJkOnMmYG6Gr/639cP6+Tb5/6L/atq/Nhr9p7D9XH/ZB6aIDWC2/b91fcEh+FvM8WP/xk77VyuD/lO4W1yXPh4yag5BXj4B7AIz7L8J/a7bFy3t3NFzzuHdp+tfm0n/S6Nw/0/C04m8vJca1c+6/9axKyKxzZt4Sn3+q2///ytTof8UujazSB8AAAAAAAAAAADg//kAlP5DfgAoAAA="
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "opt/release-5/release/LICENSE.txt": {
+        "text": "License text\n"
+      },
+      "opt/release-5/release/README.txt": {
+        "text": "Release notes\n"
+      },
+      "opt/release-5/release/bin/tool": {
+        "text": "#!/bin/sh\necho tool\n"
+      },
+      "opt/release-5/release/config/default.toml": {
+        "text": "level = 1\n"
+      },
+      "opt/release-5/release/data/set4.csv": {
+        "text": "id\n4\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "downloads/release-5.tar.gz",
+      "change": "any",
+      "reason": "the downloaded archive must be kept"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "archive.extract \"downloads/release-5.tar.gz\" into: \"opt/release-5\"",
+  "reference_pwsh": "New-Item -ItemType Directory -Force opt/release-5 | Out-Null\ntar -xzf downloads/release-5.tar.gz -C opt/release-5\n",
+  "tags": [
+    "extract",
+    "tar"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -47,11 +47,8 @@
   "expect": {
     "files": {
       "calc/ops.py": {
-        "contains": [
-          "a - b"
-        ],
-        "not_contains": [
-          "a + b"
+        "regex": [
+          "def sub\\(a, b\\):\\r?\\n    return a \\- b\\r?\\n"
         ]
       }
     },
@@ -76,8 +73,8 @@
     "steps": 15,
     "seconds": 120
   },
-  "oracle_program": "replace \"a + b\" \"a - b\" in: [\"calc/ops.py\"] mode: literal expect: 1 |> verify (test.run \".\" framework: unittest |> assert empty: (filter status == \"failed\"))",
-  "reference_bash": "sed -i 's/a + b/a - b/' calc/ops.py\npython3 -m unittest discover -s tests\n",
+  "oracle_program": "replace \"def sub(a, b):\\n    return a + b\" \"def sub(a, b):\\n    return a - b\" in: [\"calc/ops.py\"] mode: literal expect: 1 |> verify (test.run \".\" framework: unittest |> assert empty: (filter status == \"failed\"))",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\nimport re\npath = pathlib.Path('calc/ops.py')\npath.write_text(re.sub('(def sub\\\\(a, b\\\\):\\\\r?\\\\n)    return a \\\\+ b', lambda m: m.group(1) + '    return a - b', path.read_text(), count=1))\nEOF\npython3 -m unittest discover -s tests\n",
   "negatives": [
     {
       "shell": "bash",

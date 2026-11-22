@@ -1,0 +1,59 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-045",
+  "domain": 8,
+  "split": "public",
+  "platform": "linux",
+  "nl": "What is the working directory of the process whose PID is in run/worker.pid? Answer with the path.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "opt/worker/current/.keep",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "run/.keep",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "srv/other/.keep",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tools/idle.py",
+        "type": "file",
+        "content_utf8": "import time\n\nwhile True:\n    time.sleep(1)\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "tools/idle.py cwd-probe-2 runs with the working directory opt/worker/current.",
+    "bash": "cd opt/worker/current\nsetsid python3 ../../../tools/idle.py cwd-probe-2 > /dev/null 2>&1 < /dev/null &\necho $! > ../../../run/worker.pid\nsleep 0.3"
+  },
+  "teardown": {
+    "bash": "pkill -f -- cwd-probe-2 || true"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "opt/worker/current"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "processes pid: (read \"run/worker.pid\" |> evaluate int(text)) |> select cwd",
+  "reference_bash": "readlink /proc/$(cat run/worker.pid)/cwd\n",
+  "tags": [
+    "processes",
+    "working-directory"
+  ],
+  "license": "CC-BY-4.0"
+}

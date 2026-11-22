@@ -1,0 +1,55 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-029",
+  "domain": 12,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Combine a.txt, b.txt and c.txt in this order into all.txt. If one of them is missing, do not create all.txt and name the missing file.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "a.txt",
+        "type": "file",
+        "content_utf8": "alpha\r\n"
+      },
+      {
+        "path": "c.txt",
+        "type": "file",
+        "content_utf8": "gamma\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "all.txt": {
+        "absent": true
+      }
+    },
+    "answer": {
+      "contains": [
+        "b.txt"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read [\"a.txt\", \"b.txt\", \"c.txt\"] |> write \"all.txt\"",
+  "reference_pwsh": "$parts = 'a.txt', 'b.txt', 'c.txt'\n$missing = $parts | Where-Object { -not (Test-Path -LiteralPath $_) }\nif ($missing) { \"missing: $missing\" } else { Get-Content $parts | Set-Content all.txt }\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "Get-Content a.txt, b.txt, c.txt | Set-Content all.txt",
+      "defect": "the missing file is skipped and a partial file is written"
+    }
+  ],
+  "provocation": "pipeline-error",
+  "tags": [
+    "pipeline-error",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

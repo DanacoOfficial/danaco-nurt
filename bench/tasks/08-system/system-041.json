@@ -1,0 +1,53 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-041",
+  "domain": 8,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Which command line arguments was the process whose PID is in run/indexer.pid started with?",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "run/.keep",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tools/idle.py",
+        "type": "file",
+        "content_utf8": "import time\n\nwhile True:\n    time.sleep(1)\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "tools/idle.py --queue orders-3 --batch 75 --mark cmdline-3 runs; its PID is in run/indexer.pid.",
+    "bash": "setsid python3 tools/idle.py --queue orders-3 --batch 75 --mark cmdline-3 > /dev/null 2>&1 < /dev/null &\necho $! > run/indexer.pid",
+    "pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$p = Start-Process $py -ArgumentList 'tools/idle.py','--queue','orders-3','--batch','75','--mark','cmdline-3' -PassThru\nSet-Content run/indexer.pid $p.Id"
+  },
+  "teardown": {
+    "bash": "pkill -f -- cmdline-3 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*cmdline-3*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "--queue orders-3",
+        "--batch 75"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "processes pid: (read \"run/indexer.pid\" |> evaluate int(text)) |> select command",
+  "reference_bash": "tr '\\0' ' ' < /proc/$(cat run/indexer.pid)/cmdline; echo\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n(Get-Process -Id ([int](Get-Content run/indexer.pid))).CommandLine\n",
+  "tags": [
+    "command-line",
+    "processes"
+  ],
+  "license": "CC-BY-4.0"
+}

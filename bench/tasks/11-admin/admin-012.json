@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-012",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Disable password authentication in etc/ssh/sshd_config.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/ssh/sshd_config": {
+        "text": "Port 22\nPermitRootLogin yes\nPasswordAuthentication no\nPubkeyAuthentication yes\nX11Forwarding no\nMaxAuthTries 6\nSubsystem sftp /usr/lib/openssh/sftp-server\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "set \"etc/ssh/sshd_config\" key: \"PasswordAuthentication\" value: \"no\" format: sshd",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/ssh/sshd_config'); t = p.read_text()\nassert t.count('PasswordAuthentication yes') == 1\np.write_text(t.replace('PasswordAuthentication yes', 'PasswordAuthentication no'))\nEOF\n",
+  "tags": [
+    "config",
+    "ssh"
+  ],
+  "license": "CC-BY-4.0"
+}

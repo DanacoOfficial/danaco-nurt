@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-052",
+  "domain": 7,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Start tools/a.py invoice in the background, run tools/b.py invoice in the foreground meanwhile, then wait for tools/a.py. Write the output of a.py followed by the output of b.py to invoice.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/a.py",
+        "type": "file",
+        "content_utf8": "import sys\nimport time\n\ntime.sleep(1)\nprint(f\"part A of {sys.argv[1]}\")\n"
+      },
+      {
+        "path": "tools/b.py",
+        "type": "file",
+        "content_utf8": "import sys\n\nprint(f\"part B of {sys.argv[1]}\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "invoice.txt": {
+        "lines": [
+          "part A of invoice",
+          "part B of invoice"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/a.py\", \"invoice\"] background: true\nrun [\"python3\", \"tools/b.py\", \"invoice\"]\njobs wait: 30s |> select stdout |> write \"invoice.txt\"",
+  "reference_bash": "python3 tools/a.py invoice > a.out &\npid=$!\nb=$(python3 tools/b.py invoice)\nwait $pid\n{ cat a.out; echo \"$b\"; } > invoice.txt\nrm a.out\n",
+  "tags": [
+    "background",
+    "ordering"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-039",
+  "domain": 7,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Run tools/check.py for each of the services web, api, db in parallel in the background and wait for all of them. Which services failed (non-zero exit code)?",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/check.py",
+        "type": "file",
+        "content_utf8": "import sys\nimport time\n\ntime.sleep(0.3)\nfailing = {\"db\", \"queue\", \"mail\"}\nprint(f\"{sys.argv[1]}: {'failed' if sys.argv[1] in failing else 'ok'}\")\nsys.exit(2 if sys.argv[1] in failing else 0)\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "db"
+      ],
+      "not_contains": [
+        "web: failed",
+        "api: failed",
+        "web failed",
+        "api failed"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/check.py\", \"web\"] background: true label: \"web\"\nrun [\"python3\", \"tools/check.py\", \"api\"] background: true label: \"api\"\nrun [\"python3\", \"tools/check.py\", \"db\"] background: true label: \"db\"\njobs wait: 60s |> filter exit_code != 0 |> select label",
+  "reference_bash": "python3 tools/check.py web > /dev/null & p0=$!\npython3 tools/check.py api > /dev/null & p1=$!\npython3 tools/check.py db > /dev/null & p2=$!\nwait $p0 || echo web failed\nwait $p1 || echo api failed\nwait $p2 || echo db failed\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$p0 = Start-Process $py -ArgumentList 'tools/check.py','web' -PassThru -NoNewWindow -RedirectStandardOutput ([IO.Path]::GetTempFileName())\n$p1 = Start-Process $py -ArgumentList 'tools/check.py','api' -PassThru -NoNewWindow -RedirectStandardOutput ([IO.Path]::GetTempFileName())\n$p2 = Start-Process $py -ArgumentList 'tools/check.py','db' -PassThru -NoNewWindow -RedirectStandardOutput ([IO.Path]::GetTempFileName())\n$p0.WaitForExit(); if ($p0.ExitCode -ne 0) { 'web failed' }\n$p1.WaitForExit(); if ($p1.ExitCode -ne 0) { 'api failed' }\n$p2.WaitForExit(); if ($p2.ExitCode -ne 0) { 'db failed' }\n",
+  "tags": [
+    "background",
+    "exit-code",
+    "parallel"
+  ],
+  "license": "CC-BY-4.0"
+}

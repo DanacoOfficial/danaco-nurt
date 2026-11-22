@@ -1,0 +1,40 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-008",
+  "domain": 7,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Run tools/job.py once for each of the names east, west, all at the same time in the background. When all have finished, write their output lines sorted to summary-2.txt. Leave no other files behind.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/job.py",
+        "type": "file",
+        "content_utf8": "import sys\nimport time\n\ntime.sleep(0.3)\nprint(f\"{sys.argv[1]} done\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "summary-2.txt": {
+        "lines": [
+          "east done",
+          "west done"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/job.py\", \"east\"] background: true label: \"east\"\nrun [\"python3\", \"tools/job.py\", \"west\"] background: true label: \"west\"\njobs wait: 60s |> select stdout |> sort text |> write \"summary-2.txt\"",
+  "reference_bash": "mkdir -p out\npython3 tools/job.py east > out/east.txt &\npython3 tools/job.py west > out/west.txt &\nwait\nsort out/*.txt > summary-2.txt\nrm -r out\n",
+  "tags": [
+    "background",
+    "parallel"
+  ],
+  "license": "CC-BY-4.0"
+}

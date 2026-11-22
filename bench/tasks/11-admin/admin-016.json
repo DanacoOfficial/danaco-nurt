@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-016",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Add the line `203.0.113.20 cache.internal.example.com cache` to etc/hosts.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/hosts": {
+        "text": "127.0.0.1 localhost\n::1 localhost ip6-localhost\n203.0.113.5 db.internal.example.com db\n203.0.113.20 cache.internal.example.com cache\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "etc/passwd",
+      "change": "any",
+      "reason": "unrelated system file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/hosts\" changes: [{replace: \"db.internal.example.com db\\n\", with: \"db.internal.example.com db\\n203.0.113.20 cache.internal.example.com cache\\n\"}]",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/hosts'); t = p.read_text()\nassert t.count('db.internal.example.com db\\n') == 1\np.write_text(t.replace('db.internal.example.com db\\n', 'db.internal.example.com db\\n203.0.113.20 cache.internal.example.com cache\\n'))\nEOF\n",
+  "tags": [
+    "hosts",
+    "network-config"
+  ],
+  "license": "CC-BY-4.0"
+}

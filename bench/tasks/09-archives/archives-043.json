@@ -1,0 +1,50 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-043",
+  "domain": 9,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Compress logs/app-4.log with gzip into logs/app-4.log.gz and keep the original file.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "logs/app-4.log",
+        "type": "file",
+        "content_utf8": "2026-10-04 line 0\n2026-10-04 line 1\n2026-10-04 line 2\n2026-10-04 line 3\n2026-10-04 line 4\n2026-10-04 line 5\n2026-10-04 line 6\n2026-10-04 line 7\n2026-10-04 line 8\n2026-10-04 line 9\n2026-10-04 line 10\n2026-10-04 line 11\n2026-10-04 line 12\n2026-10-04 line 13\n2026-10-04 line 14\n2026-10-04 line 15\n2026-10-04 line 16\n2026-10-04 line 17\n2026-10-04 line 18\n2026-10-04 line 19\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "logs/app-4.log.gz": {
+        "type": "file"
+      },
+      "logs/app-4.log": {
+        "text": "2026-10-04 line 0\n2026-10-04 line 1\n2026-10-04 line 2\n2026-10-04 line 3\n2026-10-04 line 4\n2026-10-04 line 5\n2026-10-04 line 6\n2026-10-04 line 7\n2026-10-04 line 8\n2026-10-04 line 9\n2026-10-04 line 10\n2026-10-04 line 11\n2026-10-04 line 12\n2026-10-04 line 13\n2026-10-04 line 14\n2026-10-04 line 15\n2026-10-04 line 16\n2026-10-04 line 17\n2026-10-04 line 18\n2026-10-04 line 19\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle": {
+    "script": "archive_members",
+    "params": {
+      "path": "logs/app-4.log.gz",
+      "format": "gz",
+      "members": {
+        "": "2026-10-04 line 0\n2026-10-04 line 1\n2026-10-04 line 2\n2026-10-04 line 3\n2026-10-04 line 4\n2026-10-04 line 5\n2026-10-04 line 6\n2026-10-04 line 7\n2026-10-04 line 8\n2026-10-04 line 9\n2026-10-04 line 10\n2026-10-04 line 11\n2026-10-04 line 12\n2026-10-04 line 13\n2026-10-04 line 14\n2026-10-04 line 15\n2026-10-04 line 16\n2026-10-04 line 17\n2026-10-04 line 18\n2026-10-04 line 19\n"
+      }
+    }
+  },
+  "oracle_program": "compress \"logs/app-4.log\" algorithm: gzip keep: true",
+  "reference_pwsh": "$in = [IO.File]::OpenRead((Join-Path $PWD 'logs/app-4.log'))\n$out = [IO.File]::Create((Join-Path $PWD 'logs/app-4.log.gz'))\n$gz = [IO.Compression.GZipStream]::new($out, [IO.Compression.CompressionLevel]::Optimal)\n$in.CopyTo($gz); $gz.Dispose(); $out.Dispose(); $in.Dispose()\n",
+  "tags": [
+    "compress",
+    "gzip"
+  ],
+  "license": "CC-BY-4.0"
+}

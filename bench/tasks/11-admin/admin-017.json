@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-017",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "The database moved: change the address of db.internal.example.com in etc/hosts to 203.0.113.6.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/hosts": {
+        "text": "127.0.0.1 localhost\n::1 localhost ip6-localhost\n203.0.113.6 db.internal.example.com db\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "etc/passwd",
+      "change": "any",
+      "reason": "unrelated system file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/hosts\" changes: [{replace: \"203.0.113.5 db.internal\", with: \"203.0.113.6 db.internal\"}]",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/hosts'); t = p.read_text()\nassert t.count('203.0.113.5 db.internal') == 1\np.write_text(t.replace('203.0.113.5 db.internal', '203.0.113.6 db.internal'))\nEOF\n",
+  "tags": [
+    "hosts",
+    "network-config"
+  ],
+  "license": "CC-BY-4.0"
+}

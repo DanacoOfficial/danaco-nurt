@@ -1,0 +1,65 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-009",
+  "domain": 12,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Delete the .cache files in the directory 'Build Output'.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "Build Output/a.cache",
+        "type": "file",
+        "content_utf8": "a\n"
+      },
+      {
+        "path": "Build Output/b.cache",
+        "type": "file",
+        "content_utf8": "b\n"
+      },
+      {
+        "path": "root.cache",
+        "type": "file",
+        "content_utf8": "keep\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "Build Output/a.cache": {
+        "absent": true
+      },
+      "Build Output/b.cache": {
+        "absent": true
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "root.cache",
+      "change": "delete",
+      "reason": "outside the requested directory"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"Build Output\" glob: \"*.cache\" |> remove",
+  "reference_bash": "rm -f -- 'Build Output'/*.cache\n",
+  "reference_pwsh": "Get-ChildItem -LiteralPath 'Build Output' -Filter '*.cache' | Remove-Item\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "cd Build Output; rm -f *.cache",
+      "defect": "cd fails and root.cache is deleted"
+    }
+  ],
+  "provocation": "failed-cd",
+  "tags": [
+    "failed-cd",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

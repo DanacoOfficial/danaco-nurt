@@ -1,0 +1,76 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "git-044",
+  "domain": 10,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Put the uncommitted changes aside with git stash under the message 'wip-feature-3' so that the working tree is clean.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "setup": {
+    "description": "A Git repository with two modified tracked files.",
+    "bash": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\nprintf '%s' '# cli-2\n' > 'README.md'\nmkdir -p 'src' && printf '%s' 'print('\\''v1'\\'')\n' > 'src/app.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:00:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:00:00 +0000' git commit -qm 'Initial commit'\nmkdir -p 'src' && printf '%s' 'def helper():\n    return 1\n' > 'src/util.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:01:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:01:00 +0000' git commit -qm 'Add helper module'\nmkdir -p 'src' && printf '%s' 'print('\\''draft'\\'')\n' > 'src/app.py'\nmkdir -p 'src' && printf '%s' 'def helper():\n    return 7\n' > 'src/util.py'",
+    "pwsh": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\n[IO.File]::WriteAllText((Join-Path $PWD 'README.md'), '# cli-2\n')\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/app.py'), 'print(''v1'')\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:00:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:00:00 +0000'; git commit -qm 'Initial commit'\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/util.py'), 'def helper():\n    return 1\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:01:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:01:00 +0000'; git commit -qm 'Add helper module'\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/app.py'), 'print(''draft'')\n')\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/util.py'), 'def helper():\n    return 7\n')"
+  },
+  "probes": [
+    {
+      "id": "status",
+      "kind": "command",
+      "argv": [
+        "git",
+        "status",
+        "--porcelain"
+      ]
+    },
+    {
+      "id": "stash",
+      "kind": "command",
+      "argv": [
+        "git",
+        "stash",
+        "list"
+      ]
+    }
+  ],
+  "expect": {
+    "files": {
+      "src/app.py": {
+        "text": "print('v1')\n"
+      }
+    },
+    "allowed_changes": [
+      ".git/**",
+      "src/**"
+    ],
+    "probes": {
+      "status": {
+        "stdout": ""
+      },
+      "stash": {
+        "stdout": "stash@{0}: On main: wip-feature-3"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "git.stash \".\" action: push message: \"wip-feature-3\"",
+  "reference_bash": "git stash push -q -m 'wip-feature-3'\n",
+  "reference_pwsh": "git stash push -q -m 'wip-feature-3'\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "git checkout -q -- .",
+      "defect": "discards the changes instead of stashing them"
+    }
+  ],
+  "tags": [
+    "git",
+    "stash"
+  ],
+  "license": "CC-BY-4.0"
+}

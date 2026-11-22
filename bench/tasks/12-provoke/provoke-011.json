@@ -1,0 +1,79 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-011",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Delete the October 2026 report logs: the files logs/report-2026-10-<day>.log (exactly two files). Other files stay.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "logs/report-2026-10-01.log",
+        "type": "file",
+        "content_utf8": "1\n"
+      },
+      {
+        "path": "logs/report-2026-10-02.log",
+        "type": "file",
+        "content_utf8": "2\n"
+      },
+      {
+        "path": "logs/report-2026-10-02.log.gz",
+        "type": "file",
+        "content_utf8": "gz\n"
+      },
+      {
+        "path": "logs/report-2026-10-summary.txt",
+        "type": "file",
+        "content_utf8": "s\n"
+      },
+      {
+        "path": "logs/report-2026-11-01.log",
+        "type": "file",
+        "content_utf8": "11\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "logs/report-2026-10-01.log": {
+        "absent": true
+      },
+      "logs/report-2026-10-02.log": {
+        "absent": true
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "logs/*.gz",
+      "change": "delete",
+      "reason": "compressed archive"
+    },
+    {
+      "path": "logs/*.txt",
+      "change": "delete",
+      "reason": "summary"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"logs\" glob: \"report-2026-10-[0-9][0-9].log\" |> assert count: 2 |> remove",
+  "reference_bash": "rm -f -- logs/report-2026-10-[0-9][0-9].log\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "rm -f logs/report-2026-10-*",
+      "defect": "also deletes the archive and the summary"
+    }
+  ],
+  "provocation": "glob-mismatch",
+  "tags": [
+    "glob-mismatch",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

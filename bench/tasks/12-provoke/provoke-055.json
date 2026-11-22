@@ -1,0 +1,48 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-055",
+  "domain": 12,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Create out/path.txt containing exactly the line C:\\new\\table\\x41 (backslashes are literal characters).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "README.md",
+        "type": "file",
+        "content_utf8": "paths\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/path.txt": {
+        "lines": [
+          "C:\\new\\table\\x41"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \"out/path.txt\" r#\"C:\\new\\table\\x41\"# mode: create parents: true",
+  "reference_bash": "mkdir -p out && printf '%s\\n' 'C:\\new\\table\\x41' > out/path.txt\n",
+  "reference_pwsh": "New-Item -ItemType Directory -Force out | Out-Null\nSet-Content out/path.txt 'C:\\new\\table\\x41'\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "mkdir -p out && printf 'C:\\new\\table\\x41\\n' > out/path.txt",
+      "defect": "printf interprets the backslash sequences"
+    }
+  ],
+  "provocation": "interpreter-layers",
+  "tags": [
+    "interpreter-layers",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

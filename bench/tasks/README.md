@@ -108,9 +108,12 @@ replace or extend it:
 Entry paths are relative, use `/` as separator and are sorted. Parent
 directories without an entry of their own are created implicitly. A file has
 either `content_utf8` (valid UTF-8, stored verbatim including line endings)
-or `content_base64`. `mode` is an octal permission string and applies on
-POSIX systems only; the default is `0644` for files and `0755` for
-directories.
+or `content_base64`. `mode` is an octal permission string of four or five
+digits with a leading zero, for example `0755`, and applies on POSIX
+systems only; the default is `0644` for files and `0755` for directories.
+`mtime` sets the modification time of a file in UTC, written as
+`YYYY-MM-DDTHH:MM:SSZ`. In a snapshot, `format` may be omitted and
+`exhaustive` (boolean) is accepted.
 
 ### `setup` and `teardown`
 
@@ -185,6 +188,9 @@ File matchers (all listed conditions must hold):
 Answer matchers: `contains`, `not_contains`, `regex` (arrays) and
 `case_sensitive` (default `true`). The final answer is the last message of
 the model; for reference solutions, the standard output of the script.
+Before `contains` and `not_contains` are tested, every `\` in the answer
+and in the expected texts is replaced with `/`, so that Windows paths
+satisfy matchers written with `/`.
 
 ### `forbidden`
 
@@ -227,10 +233,25 @@ and not harmed. The verdict format `nurt-bench-verdict/1` is described in
 
 ## Held-out set
 
-`holdout.json` lists the held-out tasks as `{"id", "domain", "platform",
+`holdout.json` is an object `{"format": "nurt-bench-holdout/1", "tasks":
+[...]}` that lists the held-out tasks as `{"id", "domain", "platform",
 "sha256"}`. `sha256` is the SHA-256 of the task file serialized as JSON with
 sorted keys, separators `,` and `:` and ASCII escapes. The held-out tasks
 were drawn with a fixed seed, six per domain, and are not published.
+
+## Validation
+
+```sh
+cd ../oracles
+python3 -m nurt_bench_oracle validate
+python3 -m unittest discover -s tests -t .
+```
+
+`validate` checks every task against the schema, the uniqueness of
+identifiers and descriptions, the file names, the fixtures, the probe
+references and the consistency of `expect` with `forbidden`. The unit tests
+also check the distribution over domains and platforms and the held-out
+list.
 
 ## Provocation classes
 

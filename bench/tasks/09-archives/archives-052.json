@@ -1,0 +1,63 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-052",
+  "domain": 9,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Which files under letters/ (recursively) are not valid UTF-8? List their names.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "letters/a.txt",
+        "type": "file",
+        "content_utf8": "plain ascii\n"
+      },
+      {
+        "path": "letters/b.txt",
+        "type": "file",
+        "content_utf8": "Pozna\u0144\n"
+      },
+      {
+        "path": "letters/d.txt",
+        "type": "file",
+        "content_utf8": "\ufeffbom file\n"
+      },
+      {
+        "path": "letters/legacy-4.txt",
+        "type": "file",
+        "content_base64": "UG96bmHxIK95d2llYywgQmWzY2hhdPN3LCBDeupzdG9jaG93YSwgjHdp6nRvY2izb3dpY2UK"
+      },
+      {
+        "path": "letters/sub/c.txt",
+        "type": "file",
+        "content_base64": "r3l3aWVjLCBCZbNjaGF083csIEN66nN0b2Nob3dhLCCmd2nqdG9jaLNvd2ljZQo="
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "legacy-4.txt",
+        "c.txt"
+      ],
+      "not_contains": [
+        "a.txt",
+        "b.txt",
+        "d.txt"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"letters\" type: file |> info details: true |> filter encoding not in [\"utf-8\", \"ascii\"]",
+  "reference_pwsh": "$enc = [Text.UTF8Encoding]::new($false, $true)\nGet-ChildItem letters -Recurse -File | Where-Object {\n  try { $null = $enc.GetString([IO.File]::ReadAllBytes($_.FullName)); $false } catch { $true }\n} | ForEach-Object Name\n",
+  "tags": [
+    "detect",
+    "encoding"
+  ],
+  "license": "CC-BY-4.0"
+}

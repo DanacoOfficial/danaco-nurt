@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-014",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Move SSH to port 2222 in etc/ssh/sshd_config.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/ssh/sshd_config": {
+        "text": "Port 2222\nPermitRootLogin yes\nPasswordAuthentication yes\nPubkeyAuthentication yes\nX11Forwarding no\nMaxAuthTries 6\nSubsystem sftp /usr/lib/openssh/sftp-server\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "set \"etc/ssh/sshd_config\" key: \"Port\" value: \"2222\" format: sshd",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/ssh/sshd_config'); t = p.read_text()\nassert t.count('Port 22\\n') == 1\np.write_text(t.replace('Port 22\\n', 'Port 2222\\n'))\nEOF\n",
+  "tags": [
+    "config",
+    "ssh"
+  ],
+  "license": "CC-BY-4.0"
+}

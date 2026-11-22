@@ -1,0 +1,42 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-044",
+  "domain": 9,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Decompress incoming/records-1.jsonl.xz to incoming/records-1.jsonl and keep the compressed file.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "incoming/records-1.jsonl.xz",
+        "type": "file",
+        "content_base64": "/Td6WFoAAATm1rRGAgAhARYAAAB0L+Wj4ABtACVdAD2IiSaBk1N/c0v+cCGT3PBBYjjVIlEewKXbZrOJMyQrFo+jO80AAAAA663gCWX8cAoAAUFuMIfuYx+2830BAAAAAARZWg=="
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "incoming/records-1.jsonl": {
+        "text": "{\"id\": 0, \"batch\": 0}\n{\"id\": 1, \"batch\": 0}\n{\"id\": 2, \"batch\": 0}\n{\"id\": 3, \"batch\": 0}\n{\"id\": 4, \"batch\": 0}\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "incoming/records-1.jsonl.xz",
+      "change": "any",
+      "reason": "the compressed file must be kept"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "decompress \"incoming/records-1.jsonl.xz\" keep: true",
+  "reference_bash": "xz -dk incoming/records-1.jsonl.xz\n",
+  "tags": [
+    "decompress"
+  ],
+  "license": "CC-BY-4.0"
+}

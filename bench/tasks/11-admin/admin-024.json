@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-024",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Create etc/systemd/system/exporter.service following the layout of orders.service: Description=Metrics exporter, After=network.target, User=nobody, ExecStart=/opt/exporter/bin/exporter --listen 127.0.0.1:9100, Restart=on-failure, WantedBy=multi-user.target.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/systemd/system/exporter.service": {
+        "text": "[Unit]\nDescription=Metrics exporter\nAfter=network.target\n\n[Service]\nUser=nobody\nExecStart=/opt/exporter/bin/exporter --listen 127.0.0.1:9100\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \"etc/systemd/system/exporter.service\" \"[Unit]\\nDescription=Metrics exporter\\nAfter=network.target\\n\\n[Service]\\nUser=nobody\\nExecStart=/opt/exporter/bin/exporter --listen 127.0.0.1:9100\\nRestart=on-failure\\n\\n[Install]\\nWantedBy=multi-user.target\\n\" mode: create",
+  "reference_bash": "mkdir -p 'etc/systemd/system'\nprintf '%s' '[Unit]\nDescription=Metrics exporter\nAfter=network.target\n\n[Service]\nUser=nobody\nExecStart=/opt/exporter/bin/exporter --listen 127.0.0.1:9100\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\n' > 'etc/systemd/system/exporter.service'\n",
+  "tags": [
+    "create",
+    "systemd"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,54 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-036",
+  "domain": 8,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Remove the write permission for others from every file under www/ that has it. Other permission bits stay unchanged. (set 4)",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "www/app.js",
+        "type": "file",
+        "content_utf8": "content 1\n",
+        "mode": "0666"
+      },
+      {
+        "path": "www/img/logo.svg",
+        "type": "file",
+        "content_utf8": "content 2\n",
+        "mode": "0644"
+      },
+      {
+        "path": "www/index.html",
+        "type": "file",
+        "content_utf8": "content 0\n",
+        "mode": "0666"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "www/index.html": {
+        "mode": "0664",
+        "same_as_before": "www/index.html"
+      },
+      "www/app.js": {
+        "mode": "0664",
+        "same_as_before": "www/app.js"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"www\" type: file |> filter mode & \"0002\" |> attributes mode: \"o-w\"",
+  "reference_bash": "find www -type f -perm -o+w -exec chmod o-w {} +\n",
+  "tags": [
+    "permissions"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,56 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-010",
+  "domain": 9,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Extract downloads/release-4.tar.gz into the directory opt/release-4 (create it). Keep the archive.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "downloads/release-4.tar.gz",
+        "type": "file",
+        "content_base64": "H4sIAAAAAAAC/+3XvU7DMBSGYc+5CiP2xHZ+OjEgyIBUGMoVmOS0jWRiKT6tevmkhSkMMFAP+HsWS1kcyXltZyJHNlCxfnpoX17bnE8s/pqaNVV1GWfLUSldC12bujJl3Zyfa22qWkglIjgEttP8KiJN66GjMZBkOnEmIDXTV/+b9v7x+Tr5/6L/Ztm/Nhr9x7D5XH85eqaADSDZ/t+GsWDv3TXm+LF/Uy37VyuD/mO4vbksfdhn1O29PH8C2AUS7L/z43bYFT1t7cFxzv7dxetfm0X/pVG4/0fh6EhO3kmN6pPuv7dsi0Bc5l04xj7/1bf//5VB/1EMfVYifQAAAAAAAAAAAID/5wNBAQ7BACgAAA=="
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "opt/release-4/release/LICENSE.txt": {
+        "text": "License text\n"
+      },
+      "opt/release-4/release/README.txt": {
+        "text": "Release notes\n"
+      },
+      "opt/release-4/release/bin/tool": {
+        "text": "#!/bin/sh\necho tool\n"
+      },
+      "opt/release-4/release/config/default.toml": {
+        "text": "level = 1\n"
+      },
+      "opt/release-4/release/data/set3.csv": {
+        "text": "id\n3\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "downloads/release-4.tar.gz",
+      "change": "any",
+      "reason": "the downloaded archive must be kept"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "archive.extract \"downloads/release-4.tar.gz\" into: \"opt/release-4\"",
+  "reference_bash": "mkdir -p opt/release-4 && tar -xzf downloads/release-4.tar.gz -C opt/release-4\n",
+  "reference_pwsh": "New-Item -ItemType Directory -Force opt/release-4 | Out-Null\ntar -xzf downloads/release-4.tar.gz -C opt/release-4\n",
+  "tags": [
+    "extract",
+    "tar"
+  ],
+  "license": "CC-BY-4.0"
+}

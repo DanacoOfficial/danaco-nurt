@@ -1,0 +1,55 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-026",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Concatenate parts/part1.csv, parts/part2.csv and parts/part3.csv in this order into merged.csv. If a part is missing, do not create merged.csv and name the missing part.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "parts/part1.csv",
+        "type": "file",
+        "content_utf8": "id\n1\n"
+      },
+      {
+        "path": "parts/part3.csv",
+        "type": "file",
+        "content_utf8": "3\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "merged.csv": {
+        "absent": true
+      }
+    },
+    "answer": {
+      "contains": [
+        "part2"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read [\"parts/part1.csv\", \"parts/part2.csv\", \"parts/part3.csv\"] |> write \"merged.csv\"",
+  "reference_bash": "for p in parts/part1.csv parts/part2.csv parts/part3.csv; do [ -f \"$p\" ] || { echo \"missing: $p\"; exit 1; }; done\ncat parts/part1.csv parts/part2.csv parts/part3.csv > merged.csv\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "cat parts/part1.csv parts/part2.csv parts/part3.csv > merged.csv",
+      "defect": "writes a partial result"
+    }
+  ],
+  "provocation": "pipeline-error",
+  "tags": [
+    "pipeline-error",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

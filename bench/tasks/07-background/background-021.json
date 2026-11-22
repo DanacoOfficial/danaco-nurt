@@ -1,0 +1,59 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-021",
+  "domain": 7,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Start tools/server.py with the argument bench-server-5 in the background so that it keeps running after your command has finished. Write its process ID to run/server.pid (create run/ if needed).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/server.py",
+        "type": "file",
+        "content_utf8": "import pathlib\r\nimport time\r\n\r\npathlib.Path(\"logs\").mkdir(exist_ok=True)\r\nwhile True:\r\n    pathlib.Path(\"logs/heartbeat\").write_text(str(time.time()))\r\n    time.sleep(0.2)\r\n"
+      }
+    ]
+  },
+  "teardown": {
+    "bash": "pkill -f -- bench-server-5 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*bench-server-5*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "probes": [
+    {
+      "id": "server",
+      "kind": "process",
+      "match": "bench-server-5"
+    }
+  ],
+  "expect": {
+    "files": {
+      "run/server.pid": {
+        "regex": [
+          "^\\s*\\d+\\s*$"
+        ]
+      }
+    },
+    "allowed_changes": [
+      "logs/**",
+      "run/**"
+    ],
+    "probes": {
+      "server": {
+        "count": 1
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/server.py\", \"bench-server-5\"] background: true |> select pid |> write \"run/server.pid\" parents: true",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nNew-Item -ItemType Directory -Force run | Out-Null\n$p = Start-Process $py -ArgumentList 'tools/server.py','bench-server-5' -PassThru\nSet-Content run/server.pid $p.Id\n",
+  "tags": [
+    "background",
+    "detach"
+  ],
+  "license": "CC-BY-4.0"
+}

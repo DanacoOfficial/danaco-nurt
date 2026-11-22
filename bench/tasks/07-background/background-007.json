@@ -1,0 +1,41 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-007",
+  "domain": 7,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Run tools/job.py once for each of the names alpha, beta, gamma, all at the same time in the background. When all have finished, write their output lines sorted to summary-1.txt. Leave no other files behind.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/job.py",
+        "type": "file",
+        "content_utf8": "import sys\nimport time\n\ntime.sleep(0.3)\nprint(f\"{sys.argv[1]} done\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "summary-1.txt": {
+        "lines": [
+          "alpha done",
+          "beta done",
+          "gamma done"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/job.py\", \"alpha\"] background: true label: \"alpha\"\nrun [\"python3\", \"tools/job.py\", \"beta\"] background: true label: \"beta\"\nrun [\"python3\", \"tools/job.py\", \"gamma\"] background: true label: \"gamma\"\njobs wait: 60s |> select stdout |> sort text |> write \"summary-1.txt\"",
+  "reference_bash": "mkdir -p out\npython3 tools/job.py alpha > out/alpha.txt &\npython3 tools/job.py beta > out/beta.txt &\npython3 tools/job.py gamma > out/gamma.txt &\nwait\nsort out/*.txt > summary-1.txt\nrm -r out\n",
+  "tags": [
+    "background",
+    "parallel"
+  ],
+  "license": "CC-BY-4.0"
+}

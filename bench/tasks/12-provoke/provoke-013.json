@@ -1,0 +1,77 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-013",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Delete everything inside tmp/, including hidden files and directories whose names start with a dot. Keep tmp/ itself.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "keep.txt",
+        "type": "file",
+        "content_utf8": "k\n"
+      },
+      {
+        "path": "tmp/.cache/x",
+        "type": "file",
+        "content_utf8": "x\n"
+      },
+      {
+        "path": "tmp/.lock",
+        "type": "file",
+        "content_utf8": "l\n"
+      },
+      {
+        "path": "tmp/a.tmp",
+        "type": "file",
+        "content_utf8": "a\n"
+      },
+      {
+        "path": "tmp/b.tmp",
+        "type": "file",
+        "content_utf8": "b\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "tmp/a.tmp": {
+        "absent": true
+      },
+      "tmp/b.tmp": {
+        "absent": true
+      },
+      "tmp/.lock": {
+        "absent": true
+      },
+      "tmp/.cache": {
+        "absent": true
+      },
+      "tmp": {
+        "type": "dir"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"tmp\" depth: 1 hidden: true |> remove",
+  "reference_bash": "find tmp -mindepth 1 -delete\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "rm -rf tmp/*",
+      "defect": "the pattern skips the hidden entries"
+    }
+  ],
+  "provocation": "glob-mismatch",
+  "tags": [
+    "glob-mismatch",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

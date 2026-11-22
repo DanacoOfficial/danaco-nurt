@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-023",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Append the line `2026-10-05 deploy ok` to deploy.log.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "deploy.log",
+        "type": "file",
+        "content_utf8": "2026-10-03 deploy ok\n2026-10-04 deploy failed\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "deploy.log": {
+        "text": "2026-10-03 deploy ok\n2026-10-04 deploy failed\n2026-10-05 deploy ok\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \"deploy.log\" \"2026-10-05 deploy ok\\n\" mode: append",
+  "reference_bash": "echo '2026-10-05 deploy ok' >> deploy.log\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "echo '2026-10-05 deploy ok' > deploy.log",
+      "defect": "overwrites the history"
+    }
+  ],
+  "provocation": "truncating-redirect",
+  "tags": [
+    "provocation",
+    "truncating-redirect"
+  ],
+  "license": "CC-BY-4.0"
+}

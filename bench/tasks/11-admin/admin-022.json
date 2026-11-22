@@ -1,0 +1,29 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-022",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Add the option delaycompress after compress in etc/logrotate.d/orders, with the same indentation.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/logrotate.d/orders": {
+        "text": "/var/log/orders/*.log {\n    daily\n    rotate 7\n    compress\n    delaycompress\n    missingok\n}\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/logrotate.d/orders\" changes: [{replace: \"    compress\\n\", with: \"    compress\\n    delaycompress\\n\"}]",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/logrotate.d/orders'); t = p.read_text()\nassert t.count('    compress\\n') == 1\np.write_text(t.replace('    compress\\n', '    compress\\n    delaycompress\\n'))\nEOF\n",
+  "tags": [
+    "logrotate"
+  ],
+  "license": "CC-BY-4.0"
+}

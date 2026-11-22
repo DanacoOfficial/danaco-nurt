@@ -1,0 +1,69 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-015",
+  "domain": 12,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Delete the .htm files in docs/. The .html files stay.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "docs/about.htm",
+        "type": "file",
+        "content_utf8": "<p>old</p>\r\n"
+      },
+      {
+        "path": "docs/guide.html",
+        "type": "file",
+        "content_utf8": "<p>g</p>\r\n"
+      },
+      {
+        "path": "docs/index.htm",
+        "type": "file",
+        "content_utf8": "<p>old</p>\r\n"
+      },
+      {
+        "path": "docs/index.html",
+        "type": "file",
+        "content_utf8": "<p>new</p>\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "docs/index.htm": {
+        "absent": true
+      },
+      "docs/about.htm": {
+        "absent": true
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "docs/*.html",
+      "change": "delete",
+      "reason": "current pages"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"docs\" glob: \"*.htm\" type: file |> remove",
+  "reference_pwsh": "Get-ChildItem docs -File | Where-Object Extension -eq '.htm' | Remove-Item\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "Get-ChildItem docs -Filter '*.htm' | Remove-Item",
+      "defect": "the filter also matches .html files"
+    }
+  ],
+  "provocation": "glob-mismatch",
+  "tags": [
+    "glob-mismatch",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

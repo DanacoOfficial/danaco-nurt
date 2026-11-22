@@ -47,11 +47,8 @@
   "expect": {
     "files": {
       "calc/ops.py": {
-        "contains": [
-          "a - b"
-        ],
-        "not_contains": [
-          "a + b"
+        "regex": [
+          "def sub\\(a, b\\):\\r?\\n    return a \\- b\\r?\\n"
         ]
       }
     },
@@ -76,8 +73,8 @@
     "steps": 15,
     "seconds": 120
   },
-  "oracle_program": "replace \"a + b\" \"a - b\" in: [\"calc/ops.py\"] mode: literal expect: 1 |> verify (test.run \".\" framework: unittest |> assert empty: (filter status == \"failed\"))",
-  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$p = Join-Path $PWD 'calc/ops.py'; $t = [IO.File]::ReadAllText($p)\n[IO.File]::WriteAllText($p, $t.Replace('a + b', 'a - b'))\n& $py -m unittest discover -s tests\n",
+  "oracle_program": "replace \"def sub(a, b):\\n    return a + b\" \"def sub(a, b):\\n    return a - b\" in: [\"calc/ops.py\"] mode: literal expect: 1 |> verify (test.run \".\" framework: unittest |> assert empty: (filter status == \"failed\"))",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$p = Join-Path $PWD 'calc/ops.py'; $t = [IO.File]::ReadAllText($p)\n[IO.File]::WriteAllText($p, [regex]::Replace($t, '(def sub\\(a, b\\):\\r?\\n)    return a \\+ b', '$1    return a - b'))\n& $py -m unittest discover -s tests\n",
   "tags": [
     "fix",
     "python",

@@ -1,0 +1,63 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-056",
+  "domain": 11,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Delete the value LegacyMode from the registry key HKCU\\Software\\NurtBench\\Cleaner2. Keep the key and its other values.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "setup": {
+    "description": "The registry key HKEY_CURRENT_USER\\Software\\NurtBench\\Cleaner2 exists with the values LegacyMode, Interval.",
+    "pwsh": "New-Item -Path 'HKCU:\\Software\\NurtBench\\Cleaner2' -Force | Out-Null\nNew-ItemProperty -Path 'HKCU:\\Software\\NurtBench\\Cleaner2' -Name 'LegacyMode' -PropertyType DWord -Value 1 -Force | Out-Null\nNew-ItemProperty -Path 'HKCU:\\Software\\NurtBench\\Cleaner2' -Name 'Interval' -PropertyType DWord -Value 31 -Force | Out-Null"
+  },
+  "teardown": {
+    "pwsh": "Remove-Item -Path 'HKCU:\\Software\\NurtBench\\Cleaner2' -Recurse -Force -ErrorAction SilentlyContinue"
+  },
+  "probes": [
+    {
+      "id": "legacy",
+      "kind": "registry",
+      "key": "HKEY_CURRENT_USER\\Software\\NurtBench\\Cleaner2",
+      "value": "LegacyMode"
+    },
+    {
+      "id": "interval",
+      "kind": "registry",
+      "key": "HKEY_CURRENT_USER\\Software\\NurtBench\\Cleaner2",
+      "value": "Interval"
+    }
+  ],
+  "expect": {
+    "probes": {
+      "legacy": {
+        "exists": false
+      },
+      "interval": {
+        "exists": true,
+        "data": 31
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "remove \"registry:/HKCU/Software/NurtBench/Cleaner2/LegacyMode\"",
+  "reference_pwsh": "Remove-ItemProperty -Path 'HKCU:\\Software\\NurtBench\\Cleaner2' -Name LegacyMode\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "Remove-Item -Path 'HKCU:\\Software\\NurtBench\\Cleaner2' -Recurse",
+      "defect": "deletes the whole key"
+    }
+  ],
+  "tags": [
+    "registry",
+    "windows"
+  ],
+  "license": "CC-BY-4.0"
+}

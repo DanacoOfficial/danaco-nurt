@@ -1,0 +1,73 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "git-048",
+  "domain": 10,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Create the annotated tag v1.5.0 with the message 'Release 1.5.0' on the current commit.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "setup": {
+    "description": "A Git repository with two commits and the tag v1.0.0.",
+    "bash": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\nprintf '%s' '# pkg-2\n' > 'README.md'\nmkdir -p 'src' && printf '%s' 'print('\\''v1'\\'')\n' > 'src/app.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:00:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:00:00 +0000' git commit -qm 'Initial commit'\nmkdir -p 'src' && printf '%s' 'def helper():\n    return 1\n' > 'src/util.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:01:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:01:00 +0000' git commit -qm 'Add helper module'\nGIT_COMMITTER_DATE='2026-10-01 08:02:00 +0000' git tag -a v1.0.0 -m 'Release 1.0.0'",
+    "pwsh": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\n[IO.File]::WriteAllText((Join-Path $PWD 'README.md'), '# pkg-2\n')\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/app.py'), 'print(''v1'')\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:00:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:00:00 +0000'; git commit -qm 'Initial commit'\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/util.py'), 'def helper():\n    return 1\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:01:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:01:00 +0000'; git commit -qm 'Add helper module'\n$env:GIT_COMMITTER_DATE = '2026-10-01 08:02:00 +0000'; git tag -a v1.0.0 -m 'Release 1.0.0'"
+  },
+  "probes": [
+    {
+      "id": "tag",
+      "kind": "command",
+      "argv": [
+        "git",
+        "for-each-ref",
+        "refs/tags/v1.5.0",
+        "--format=%(objecttype) %(contents:subject)"
+      ]
+    },
+    {
+      "id": "target",
+      "kind": "command",
+      "argv": [
+        "git",
+        "log",
+        "-1",
+        "--format=%s",
+        "v1.5.0"
+      ]
+    }
+  ],
+  "expect": {
+    "allowed_changes": [
+      ".git/**"
+    ],
+    "probes": {
+      "tag": {
+        "stdout": "tag Release 1.5.0"
+      },
+      "target": {
+        "stdout": "Add helper module"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "git.tag \".\" name: \"v1.5.0\" message: \"Release 1.5.0\"",
+  "reference_bash": "git tag -a v1.5.0 -m 'Release 1.5.0'\n",
+  "reference_pwsh": "git tag -a v1.5.0 -m 'Release 1.5.0'\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "git tag v1.5.0",
+      "defect": "creates a lightweight tag"
+    }
+  ],
+  "tags": [
+    "git",
+    "tag"
+  ],
+  "license": "CC-BY-4.0"
+}

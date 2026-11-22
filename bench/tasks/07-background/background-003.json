@@ -1,0 +1,51 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-003",
+  "domain": 7,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Start tools/build.py 1 in the background with its standard output written to logs/build-3.log, wait for it to finish, then write its exit code to logs/exit-3.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "logs/.keep",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tools/build.py",
+        "type": "file",
+        "content_utf8": "import sys\nimport time\n\nprint(\"compiling\", flush=True)\ntime.sleep(0.5)\nprint(\"linking\", flush=True)\nprint(f\"result {sys.argv[1]}\", flush=True)\nsys.exit(int(sys.argv[1]))\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "logs/build-3.log": {
+        "lines": [
+          "compiling",
+          "linking",
+          "result 1"
+        ]
+      },
+      "logs/exit-3.txt": {
+        "lines": [
+          "1"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/build.py\", \"1\"] background: true save_to: \"logs/build-3.log\"\njobs \"j1\" wait: 60s |> select exit_code |> write \"logs/exit-3.txt\"",
+  "reference_bash": "python3 tools/build.py 1 > logs/build-3.log 2>&1 &\npid=$!\nwait $pid\necho $? > logs/exit-3.txt\n",
+  "tags": [
+    "background",
+    "exit-code"
+  ],
+  "license": "CC-BY-4.0"
+}

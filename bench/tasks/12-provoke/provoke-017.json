@@ -1,0 +1,64 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-017",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "In photos/, replace every space in the file names with an underscore (two spaces become two underscores).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "photos/Summer 2026.jpg",
+        "type": "file",
+        "content_utf8": "s\n"
+      },
+      {
+        "path": "photos/a  b.jpg",
+        "type": "file",
+        "content_utf8": "ab\n"
+      },
+      {
+        "path": "photos/plain.jpg",
+        "type": "file",
+        "content_utf8": "p\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "photos/Summer 2026.jpg": {
+        "absent": true
+      },
+      "photos/Summer_2026.jpg": {
+        "text": "s\n"
+      },
+      "photos/a  b.jpg": {
+        "absent": true
+      },
+      "photos/a__b.jpg": {
+        "text": "ab\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"photos\" type: file |> filter name ~ / / |> rename / / \"_\"",
+  "reference_bash": "for f in photos/*\\ *; do mv -- \"$f\" \"photos/$(basename \"$f\" | tr \" \" \"_\")\"; done\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "for f in $(ls photos); do mv \"photos/$f\" \"photos/${f// /_}\"; done",
+      "defect": "splits names at spaces"
+    }
+  ],
+  "provocation": "special-names",
+  "tags": [
+    "provocation",
+    "special-names"
+  ],
+  "license": "CC-BY-4.0"
+}

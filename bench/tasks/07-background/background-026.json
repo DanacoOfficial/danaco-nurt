@@ -1,0 +1,49 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-026",
+  "domain": 7,
+  "split": "public",
+  "platform": "windows",
+  "nl": "An export job is running and will create data/export.csv within a few seconds. Wait until the file exists, then copy it to backup/export-5.csv.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/producer.py",
+        "type": "file",
+        "content_utf8": "import os\r\nimport pathlib\r\nimport sys\r\nimport time\r\n\r\ntime.sleep(1.5)\r\npathlib.Path(\"data\").mkdir(exist_ok=True)\r\npathlib.Path(\"data/export.tmp\").write_text(sys.argv[2])\r\nos.replace(\"data/export.tmp\", \"data/export.csv\")\r\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "tools/producer.py runs in the background and creates data/export.csv after 1.5 s.",
+    "bash": "setsid python3 tools/producer.py bench-export-5 $'id,total\\n5,125\\n' > /dev/null 2>&1 < /dev/null &",
+    "pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nStart-Process $py -ArgumentList 'tools/producer.py','bench-export-5',\"id,total`n5,125`n\""
+  },
+  "teardown": {
+    "bash": "pkill -f -- bench-export-5 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*bench-export-5*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "expect": {
+    "files": {
+      "backup/export-5.csv": {
+        "text": "id,total\n5,125\n"
+      }
+    },
+    "allowed_changes": [
+      "data/**"
+    ]
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "jobs wait: 30s\ncopy \"data/export.csv\" \"backup/export-5.csv\"",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nwhile (-not (Test-Path data/export.csv)) { Start-Sleep -Milliseconds 200 }\nNew-Item -ItemType Directory -Force backup | Out-Null\nCopy-Item data/export.csv backup/export-5.csv\n",
+  "tags": [
+    "background",
+    "wait"
+  ],
+  "license": "CC-BY-4.0"
+}

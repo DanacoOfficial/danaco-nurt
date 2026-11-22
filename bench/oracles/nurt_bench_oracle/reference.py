@@ -222,8 +222,14 @@ def collect_probes(
     return results
 
 
-def execute(task: Mapping[str, Any], shell: str, script: str, timeout: float) -> Execution:
+def execute(
+    task: Mapping[str, Any], shell: str, script: str, timeout: float, delete: str | None = None
+) -> Execution:
     """Materializes a task, runs a script and observes the result.
+
+    ``delete`` names a file of the task root that is removed after the
+    script, independent of the directory in which the script ends and of its
+    exit code.
 
     # Errors
     Raises :class:`RuntimeError` when the setup script fails.
@@ -243,6 +249,8 @@ def execute(task: Mapping[str, Any], shell: str, script: str, timeout: float) ->
                 raise RuntimeError(f"setup failed with exit code {code}")
         before = capture(root)
         _, answer, timed_out = run_script(shell, script, root, env, timeout, scratch)
+        if delete is not None:
+            (root / delete).unlink(missing_ok=True)
         probes = collect_probes(list(task.get("probes", [])), root, env)
         teardown = task.get("teardown", {}).get(shell)
         if teardown:
@@ -299,14 +307,6 @@ def collateral_path(task: Mapping[str, Any], execution: Execution) -> str | None
     return None
 
 
-def deletion_suffix(shell: str, path: str) -> str:
-    """Returns a script line that deletes ``path``."""
-    quoted = path.replace("'", "'\\''") if shell == "bash" else path.replace("'", "''")
-    if shell == "bash":
-        return f"\nrm -f -- '{quoted}'\n"
-    return f"\nRemove-Item -LiteralPath '{quoted}' -Force\n"
-
-
 def verify_task(task: Mapping[str, Any], shell: str, timeout: float) -> list[Outcome]:
     """Runs the reference and the defective solutions of a task for a shell."""
     reference = task.get(f"reference_{shell}")
@@ -319,18 +319,18 @@ def verify_task(task: Mapping[str, Any], shell: str, timeout: float) -> list[Out
         return [Outcome("reference", True, None, str(error))]
     outcomes.append(Outcome("reference", True, judge(task, execution)))
     unchanged = check(execution.before, execution.before, task, {"answer": "", "probes": {}})
-    defects: list[tuple[str, str]] = []
+    defects: list[tuple[str, str, str | None]] = []
     if not unchanged["passed"]:
-        defects.append(("empty solution", ""))
+        defects.append(("empty solution", "", None))
     victim = collateral_path(task, execution)
     if victim is not None:
-        defects.append((f"reference and deletion of {victim}", reference + deletion_suffix(shell, victim)))
+        defects.append((f"reference and deletion of {victim}", reference, victim))
     for negative in task.get("negatives", []):
         if negative["shell"] == shell:
-            defects.append((negative["defect"], negative["script"]))
-    for label, script in defects:
+            defects.append((negative["defect"], negative["script"], None))
+    for label, script, delete in defects:
         try:
-            verdict = judge(task, execute(task, shell, script, timeout))
+            verdict = judge(task, execute(task, shell, script, timeout, delete))
         except (RuntimeError, OSError, subprocess.SubprocessError) as error:
             outcomes.append(Outcome(label, False, None, str(error)))
             continue

@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-006",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Change the port of the orders service in etc/systemd/system/orders.service from 8080 to 9000.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/systemd/system/orders.service": {
+        "text": "[Unit]\nDescription=Orders service\nAfter=network.target\n\n[Service]\nUser=orders\nExecStart=/opt/orders/bin/orders --port 9000\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/systemd/system/orders.service\" changes: [{replace: \"--port 8080\", with: \"--port 9000\"}]",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/systemd/system/orders.service'); t = p.read_text()\nassert t.count('--port 8080') == 1\np.write_text(t.replace('--port 8080', '--port 9000'))\nEOF\n",
+  "tags": [
+    "service",
+    "systemd"
+  ],
+  "license": "CC-BY-4.0"
+}

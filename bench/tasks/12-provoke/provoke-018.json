@@ -1,0 +1,81 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-018",
+  "domain": 12,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Delete all .log files in out/. Their names contain brackets, '&' and '#'.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "out/#temp.log",
+        "type": "file",
+        "content_utf8": "#temp.log\n"
+      },
+      {
+        "path": "out/[draft].log",
+        "type": "file",
+        "content_utf8": "[draft].log\n"
+      },
+      {
+        "path": "out/a&b.log",
+        "type": "file",
+        "content_utf8": "a&b.log\n"
+      },
+      {
+        "path": "out/keep.txt",
+        "type": "file",
+        "content_utf8": "keep\n"
+      },
+      {
+        "path": "out/normal.log",
+        "type": "file",
+        "content_utf8": "normal.log\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/[draft].log": {
+        "absent": true
+      },
+      "out/a&b.log": {
+        "absent": true
+      },
+      "out/#temp.log": {
+        "absent": true
+      },
+      "out/normal.log": {
+        "absent": true
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "out/keep.txt",
+      "change": "delete",
+      "reason": "not a log file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"out\" glob: \"*.log\" |> remove",
+  "reference_bash": "rm -f -- out/*.log\n",
+  "reference_pwsh": "Get-ChildItem -LiteralPath out -File | Where-Object Extension -eq '.log' | ForEach-Object { Remove-Item -LiteralPath $_.FullName }\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "Get-ChildItem out -Filter '*.log' | ForEach-Object { Remove-Item -Path ('out/' + $_.Name) }",
+      "defect": "brackets act as wildcards"
+    }
+  ],
+  "provocation": "special-names",
+  "tags": [
+    "provocation",
+    "special-names"
+  ],
+  "license": "CC-BY-4.0"
+}

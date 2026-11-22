@@ -1,0 +1,43 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-030",
+  "domain": 9,
+  "split": "public",
+  "platform": "windows",
+  "nl": "import/cities-5.csv is encoded in Windows-1250. Write a UTF-8 copy (without a byte order mark, same CRLF line endings) to import/cities-5.utf8.csv and keep the original.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "import/cities-5.csv",
+        "type": "file",
+        "content_base64": "aWQ7Y2l0eQ0KMTuMd2lub3VqnGNpZQ0KMjuj82SfDQozO0dkYfFzaw0KNDtLcmFr83cNCm5vdGU7r3l3aWVjLCBCZbNjaGF083csIEN66nN0b2Nob3dhLCCMd2nqdG9jaLNvd2ljZQ0K"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "import/cities-5.utf8.csv": {
+        "base64": "aWQ7Y2l0eQ0KMTvFmndpbm91asWbY2llDQoyO8WBw7NkxboNCjM7R2RhxYRzaw0KNDtLcmFrw7N3DQpub3RlO8W7eXdpZWMsIEJlxYJjaGF0w7N3LCBDesSZc3RvY2hvd2EsIMWad2nEmXRvY2jFgm93aWNlDQo="
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "import/cities-5.csv",
+      "change": "any",
+      "reason": "the original file must be kept"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"import/cities-5.csv\" encoding: \"windows-1250\" |> write \"import/cities-5.utf8.csv\" encoding: \"utf-8\" line_ending: keep",
+  "reference_pwsh": "$t = [IO.File]::ReadAllText((Join-Path $PWD 'import/cities-5.csv'), [Text.Encoding]::GetEncoding(1250))\n[IO.File]::WriteAllText((Join-Path $PWD 'import/cities-5.utf8.csv'), $t, [Text.UTF8Encoding]::new($false))\n",
+  "tags": [
+    "cp1250",
+    "encoding"
+  ],
+  "license": "CC-BY-4.0"
+}

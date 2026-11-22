@@ -1,0 +1,51 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-028",
+  "domain": 12,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Convert data.json (an array of objects with id and name) to data.csv with a header line. If data.json is not valid JSON, do not create data.csv and report the error.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "data.json",
+        "type": "file",
+        "content_utf8": "[{\"id\": 1, \"name\": \"a\"}, {\"id\": 2, \"name\": \"b\",]\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "data.csv": {
+        "absent": true
+      }
+    },
+    "answer": {
+      "regex": [
+        "(?i)invalid|error|expecting|parse|decode"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"data.json\" |> select id name |> write \"data.csv\" format: csv",
+  "reference_bash": "python3 - <<'EOF'\nimport csv, json, sys\ntry:\n    rows = json.load(open('data.json'))\nexcept ValueError as e:\n    print(f'invalid JSON: {e}')\n    sys.exit(1)\nwith open('data.csv', 'w', newline='') as f:\n    w = csv.writer(f)\n    w.writerow(['id', 'name'])\n    w.writerows([r['id'], r['name']] for r in rows)\nEOF\n",
+  "reference_pwsh": "try { $rows = Get-Content data.json -Raw | ConvertFrom-Json -ErrorAction Stop } catch { \"invalid JSON: $($_.Exception.Message)\"; return }\n$rows | Select-Object id, name | ConvertTo-Csv -NoTypeInformation | Set-Content data.csv\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "python3 -c 'import json,csv,sys; r=json.load(open(\"data.json\")); w=csv.writer(sys.stdout); w.writerows([[x[\"id\"],x[\"name\"]] for x in r])' > data.csv",
+      "defect": "the redirection creates an empty file although the conversion fails"
+    }
+  ],
+  "provocation": "pipeline-error",
+  "tags": [
+    "pipeline-error",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

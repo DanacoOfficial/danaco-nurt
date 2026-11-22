@@ -1,0 +1,52 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-040",
+  "domain": 8,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Which command line arguments was the process whose PID is in run/loader.pid started with?",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "run/.keep",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tools/idle.py",
+        "type": "file",
+        "content_utf8": "import time\n\nwhile True:\n    time.sleep(1)\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "tools/idle.py --queue orders-2 --batch 50 --mark cmdline-2 runs; its PID is in run/loader.pid.",
+    "bash": "setsid python3 tools/idle.py --queue orders-2 --batch 50 --mark cmdline-2 > /dev/null 2>&1 < /dev/null &\necho $! > run/loader.pid",
+    "pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$p = Start-Process $py -ArgumentList 'tools/idle.py','--queue','orders-2','--batch','50','--mark','cmdline-2' -PassThru\nSet-Content run/loader.pid $p.Id"
+  },
+  "teardown": {
+    "bash": "pkill -f -- cmdline-2 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*cmdline-2*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "--queue orders-2",
+        "--batch 50"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "processes pid: (read \"run/loader.pid\" |> evaluate int(text)) |> select command",
+  "reference_bash": "tr '\\0' ' ' < /proc/$(cat run/loader.pid)/cmdline; echo\n",
+  "tags": [
+    "command-line",
+    "processes"
+  ],
+  "license": "CC-BY-4.0"
+}

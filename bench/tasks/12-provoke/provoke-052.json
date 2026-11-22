@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-052",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Create out/price.txt containing exactly this line: Total: $5 (50%) - run `make` and \"check\"",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "README.md",
+        "type": "file",
+        "content_utf8": "prices\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/price.txt": {
+        "text": "Total: $5 (50%) - run `make` and \"check\"\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \"out/price.txt\" \"Total: $5 (50%) - run `make` and \\\"check\\\"\\n\" mode: create parents: true",
+  "reference_bash": "mkdir -p out && printf '%s\\n' 'Total: $5 (50%) - run `make` and \"check\"' > out/price.txt\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "mkdir -p out && echo \"Total: $5 (50%) - run `make` and \"check\"\" > out/price.txt",
+      "defect": "the shell expands $5 and the backquotes"
+    }
+  ],
+  "provocation": "interpreter-layers",
+  "tags": [
+    "interpreter-layers",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

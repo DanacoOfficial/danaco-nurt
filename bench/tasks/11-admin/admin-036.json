@@ -1,0 +1,77 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-036",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Change the schedule of the job cleanup in admin/jobs.json to `0 4 * * *`.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "admin/jobs.json",
+        "type": "file",
+        "content_utf8": "[\n  {\n    \"name\": \"cleanup\",\n    \"cron\": \"0 3 * * *\",\n    \"command\": \"cleanup --days 14\",\n    \"enabled\": true\n  },\n  {\n    \"name\": \"sync\",\n    \"cron\": \"*/15 * * * *\",\n    \"command\": \"sync --all\",\n    \"enabled\": true\n  },\n  {\n    \"name\": \"legacy-export\",\n    \"cron\": \"0 1 * * 0\",\n    \"command\": \"export --legacy\",\n    \"enabled\": false\n  }\n]\n"
+      },
+      {
+        "path": "admin/services/legacy.conf",
+        "type": "file",
+        "content_utf8": "name = legacy\nport = 8090\nenabled = true\n"
+      },
+      {
+        "path": "admin/services/orders.conf",
+        "type": "file",
+        "content_utf8": "name = orders\nport = 8080\nenabled = true\n"
+      },
+      {
+        "path": "admin/services/orders.env",
+        "type": "file",
+        "content_utf8": "LOG_LEVEL=info\nWORKERS=4\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "admin/jobs.json": {
+        "json": [
+          {
+            "name": "cleanup",
+            "cron": "0 4 * * *",
+            "command": "cleanup --days 14",
+            "enabled": true
+          },
+          {
+            "name": "sync",
+            "cron": "*/15 * * * *",
+            "command": "sync --all",
+            "enabled": true
+          },
+          {
+            "name": "legacy-export",
+            "cron": "0 1 * * 0",
+            "command": "export --legacy",
+            "enabled": false
+          }
+        ]
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "admin/services/*.conf",
+      "change": "delete",
+      "reason": "service definitions are kept"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "[{\"name\": \"cleanup\", \"cron\": \"0 4 * * *\", \"command\": \"cleanup --days 14\", \"enabled\": true}, {\"name\": \"sync\", \"cron\": \"*/15 * * * *\", \"command\": \"sync --all\", \"enabled\": true}, {\"name\": \"legacy-export\", \"cron\": \"0 1 * * 0\", \"command\": \"export --legacy\", \"enabled\": false}] |> write \"admin/jobs.json\" format: json",
+  "reference_bash": "python3 - <<'EOF'\nimport json\nd = json.load(open('admin/jobs.json'))\nd[0]['cron'] = '0 4 * * *'\nopen('admin/jobs.json', 'w').write(json.dumps(d, indent=2) + '\\n')\nEOF\n",
+  "tags": [
+    "admin",
+    "config"
+  ],
+  "license": "CC-BY-4.0"
+}

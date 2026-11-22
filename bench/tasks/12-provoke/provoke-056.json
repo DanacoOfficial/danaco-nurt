@@ -1,0 +1,47 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-056",
+  "domain": 12,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Create out/hint.txt containing exactly this line: Use $env:USERNAME and `n literally",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "README.md",
+        "type": "file",
+        "content_utf8": "hints\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/hint.txt": {
+        "lines": [
+          "Use $env:USERNAME and `n literally"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \"out/hint.txt\" \"Use $env:USERNAME and `n literally\" mode: create parents: true",
+  "reference_pwsh": "New-Item -ItemType Directory -Force out | Out-Null\nSet-Content out/hint.txt 'Use $env:USERNAME and `n literally'\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "New-Item -ItemType Directory -Force out | Out-Null\nSet-Content out/hint.txt \"Use $env:USERNAME and `n literally\"",
+      "defect": "PowerShell expands the variable and the escape sequence"
+    }
+  ],
+  "provocation": "interpreter-layers",
+  "tags": [
+    "interpreter-layers",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

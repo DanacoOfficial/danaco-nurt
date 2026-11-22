@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-018",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Remove the entry of db.internal.example.com from etc/hosts.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/hosts": {
+        "text": "127.0.0.1 localhost\n::1 localhost ip6-localhost\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "etc/passwd",
+      "change": "any",
+      "reason": "unrelated system file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/hosts\" changes: [{replace: \"203.0.113.5 db.internal.example.com db\\n\", with: \"\"}]",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/hosts'); t = p.read_text()\nassert t.count('203.0.113.5 db.internal.example.com db\\n') == 1\np.write_text(t.replace('203.0.113.5 db.internal.example.com db\\n', ''))\nEOF\n",
+  "tags": [
+    "hosts",
+    "network-config"
+  ],
+  "license": "CC-BY-4.0"
+}

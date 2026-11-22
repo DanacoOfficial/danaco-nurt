@@ -1,0 +1,65 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-025",
+  "domain": 9,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Pack the directory docs/ into the ZIP archive dist/docs-5.zip; member paths start with docs/.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "docs/api/index.md",
+        "type": "file",
+        "content_utf8": "# API\r\n"
+      },
+      {
+        "path": "docs/guide.md",
+        "type": "file",
+        "content_utf8": "# Guide\r\n"
+      },
+      {
+        "path": "docs/img/fig4.svg",
+        "type": "file",
+        "content_utf8": "<svg/>\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "dist/docs-5.zip": {
+        "type": "file"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "docs/**",
+      "change": "any",
+      "reason": "the source directory is only read"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle": {
+    "script": "archive_members",
+    "params": {
+      "path": "dist/docs-5.zip",
+      "format": "zip",
+      "members": {
+        "docs/guide.md": "# Guide\r\n",
+        "docs/api/index.md": "# API\r\n",
+        "docs/img/fig4.svg": "<svg/>\r\n"
+      }
+    }
+  },
+  "oracle_program": "find \"docs\" type: file |> archive.create \"dist/docs-5.zip\" base: \".\"",
+  "reference_pwsh": "New-Item -ItemType Directory -Force dist | Out-Null\nCompress-Archive -Path docs -DestinationPath dist/docs-5.zip\n",
+  "tags": [
+    "create",
+    "zip"
+  ],
+  "license": "CC-BY-4.0"
+}

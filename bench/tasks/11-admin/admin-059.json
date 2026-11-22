@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-059",
+  "domain": 11,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Create the scheduled task \\NurtBench\\NurtBench-Backup-2 that runs pwsh.exe with the arguments `-NoProfile -File C:\\Tools\\backup-2.ps1` every day at 04:00.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "teardown": {
+    "pwsh": "Unregister-ScheduledTask -TaskPath '\\NurtBench\\' -TaskName 'NurtBench-Backup-2' -Confirm:$false -ErrorAction SilentlyContinue"
+  },
+  "probes": [
+    {
+      "id": "task",
+      "kind": "scheduled_task",
+      "path": "\\NurtBench\\",
+      "name": "NurtBench-Backup-2"
+    }
+  ],
+  "expect": {
+    "probes": {
+      "task": {
+        "exists": true,
+        "enabled": true,
+        "execute": "pwsh.exe",
+        "arguments": "-NoProfile -File C:\\Tools\\backup-2.ps1"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "schedule.create \"NurtBench-Backup-2\" cron: \"0 4 * * *\" action: (run [\"pwsh.exe\", \"-NoProfile\", \"-File\", \"C:/Tools/backup-2.ps1\"])",
+  "reference_pwsh": "$a = New-ScheduledTaskAction -Execute 'pwsh.exe' -Argument '-NoProfile -File C:\\Tools\\backup-2.ps1'\n$t = New-ScheduledTaskTrigger -Daily -At '04:00'\nRegister-ScheduledTask -TaskPath '\\NurtBench\\' -TaskName 'NurtBench-Backup-2' -Action $a -Trigger $t | Out-Null\n",
+  "tags": [
+    "schedule",
+    "windows"
+  ],
+  "license": "CC-BY-4.0"
+}

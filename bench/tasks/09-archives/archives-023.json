@@ -1,0 +1,66 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-023",
+  "domain": 9,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Pack the directory docs/ into the ZIP archive dist/docs-3.zip; member paths start with docs/.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "docs/api/index.md",
+        "type": "file",
+        "content_utf8": "# API\n"
+      },
+      {
+        "path": "docs/guide.md",
+        "type": "file",
+        "content_utf8": "# Guide\n"
+      },
+      {
+        "path": "docs/img/fig2.svg",
+        "type": "file",
+        "content_utf8": "<svg/>\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "dist/docs-3.zip": {
+        "type": "file"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "docs/**",
+      "change": "any",
+      "reason": "the source directory is only read"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle": {
+    "script": "archive_members",
+    "params": {
+      "path": "dist/docs-3.zip",
+      "format": "zip",
+      "members": {
+        "docs/guide.md": "# Guide\n",
+        "docs/api/index.md": "# API\n",
+        "docs/img/fig2.svg": "<svg/>\n"
+      }
+    }
+  },
+  "oracle_program": "find \"docs\" type: file |> archive.create \"dist/docs-3.zip\" base: \".\"",
+  "reference_bash": "mkdir -p dist && python3 -m zipfile -c dist/docs-3.zip docs/\n",
+  "reference_pwsh": "New-Item -ItemType Directory -Force dist | Out-Null\nCompress-Archive -Path docs -DestinationPath dist/docs-3.zip\n",
+  "tags": [
+    "create",
+    "zip"
+  ],
+  "license": "CC-BY-4.0"
+}

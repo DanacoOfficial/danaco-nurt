@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-039",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "labels.ini is UTF-16 LE with a byte order mark. Change State=draft to State=final and keep the encoding.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "labels.ini",
+        "type": "file",
+        "content_base64": "//5bAEwAYQBiAGUAbABzAF0ADQAKAFQAaQB0AGwAZQA9AFoAYQBtAPMAdwBpAGUAbgBpAGEADQAKAFMAdABhAHQAZQA9AGQAcgBhAGYAdAANAAoA"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "labels.ini": {
+        "base64": "//5bAEwAYQBiAGUAbABzAF0ADQAKAFQAaQB0AGwAZQA9AFoAYQBtAPMAdwBpAGUAbgBpAGEADQAKAFMAdABhAHQAZQA9AGYAaQBuAGEAbAANAAoA"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"State=draft\" \"State=final\" in: [\"labels.ini\"] mode: literal",
+  "reference_bash": "iconv -f UTF-16 -t UTF-8 labels.ini | sed 's/State=draft/State=final/' | iconv -f UTF-8 -t UTF-16LE | { printf '\\xff\\xfe'; cat; } > labels.new && mv labels.new labels.ini\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "iconv -f UTF-16 -t UTF-8 labels.ini | sed 's/State=draft/State=final/' > labels.new && mv labels.new labels.ini",
+      "defect": "converts the file to UTF-8"
+    }
+  ],
+  "provocation": "encoding-change",
+  "tags": [
+    "encoding-change",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

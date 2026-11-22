@@ -1,0 +1,58 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-030",
+  "domain": 7,
+  "split": "public",
+  "platform": "windows",
+  "nl": "A long job is running and appends its progress to logs/job.log. Report its latest progress value. Do not stop the job (job 4).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/progress.py",
+        "type": "file",
+        "content_utf8": "import pathlib\r\nimport sys\r\nimport time\r\n\r\npathlib.Path(\"logs\").mkdir(exist_ok=True)\r\nwith open(\"logs/job.log\", \"a\") as log:\r\n    for value in range(10, int(sys.argv[2]) + 1, 10):\r\n        log.write(f\"progress {value}%\\n\")\r\n        log.flush()\r\nwhile True:\r\n    time.sleep(1)\r\n"
+      }
+    ]
+  },
+  "setup": {
+    "description": "tools/progress.py runs in the background and has written its progress to logs/job.log.",
+    "bash": "setsid python3 tools/progress.py bench-progress-4 60 > /dev/null 2>&1 < /dev/null &\nfor i in $(seq 100); do [ -s logs/job.log ] && break; sleep 0.1; done",
+    "pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nStart-Process $py -ArgumentList 'tools/progress.py','bench-progress-4','60'\nfor ($i = 0; $i -lt 100 -and -not (Test-Path logs/job.log); $i++) { Start-Sleep -Milliseconds 100 }"
+  },
+  "teardown": {
+    "bash": "pkill -f -- bench-progress-4 || true",
+    "pwsh": "Get-Process | Where-Object { $_.CommandLine -like '*bench-progress-4*' } | Stop-Process -Force -ErrorAction SilentlyContinue"
+  },
+  "probes": [
+    {
+      "id": "job",
+      "kind": "process",
+      "match": "bench-progress-4"
+    }
+  ],
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<!\\d)60\\s*%"
+      ]
+    },
+    "probes": {
+      "job": {
+        "count": 1
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"logs/job.log\" last: 1",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nStart-Sleep -Milliseconds 500; Get-Content logs/job.log -Tail 1\n",
+  "tags": [
+    "background",
+    "logs"
+  ],
+  "license": "CC-BY-4.0"
+}

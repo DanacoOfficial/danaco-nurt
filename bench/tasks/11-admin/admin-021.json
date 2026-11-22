@@ -1,0 +1,29 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-021",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Rotate the orders logs weekly instead of daily (etc/logrotate.d/orders).",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/logrotate.d/orders": {
+        "text": "/var/log/orders/*.log {\n    weekly\n    rotate 7\n    compress\n    missingok\n}\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/logrotate.d/orders\" changes: [{replace: \"    daily\\n\", with: \"    weekly\\n\"}]",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/logrotate.d/orders'); t = p.read_text()\nassert t.count('    daily\\n') == 1\np.write_text(t.replace('    daily\\n', '    weekly\\n'))\nEOF\n",
+  "tags": [
+    "logrotate"
+  ],
+  "license": "CC-BY-4.0"
+}

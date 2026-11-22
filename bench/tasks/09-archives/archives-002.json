@@ -1,0 +1,94 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-002",
+  "domain": 9,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Create the gzip-compressed tar archive out/site-2.tar.gz containing the directory site/ with member paths starting with site/, but without any .log files. Do not change site/.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "site/about.html",
+        "type": "file",
+        "content_utf8": "<h1>About</h1>\n"
+      },
+      {
+        "path": "site/css/main.css",
+        "type": "file",
+        "content_utf8": "body{}\n"
+      },
+      {
+        "path": "site/debug.log",
+        "type": "file",
+        "content_utf8": "trace\n"
+      },
+      {
+        "path": "site/img/photo1.svg",
+        "type": "file",
+        "content_utf8": "<svg/>\n"
+      },
+      {
+        "path": "site/index.html",
+        "type": "file",
+        "content_utf8": "<h1>Home</h1>\n"
+      },
+      {
+        "path": "site/js/app.js",
+        "type": "file",
+        "content_utf8": "init();\n"
+      },
+      {
+        "path": "site/js/build.log",
+        "type": "file",
+        "content_utf8": "built\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/site-2.tar.gz": {
+        "type": "file"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "site/**",
+      "change": "any",
+      "reason": "the source directory is only read"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle": {
+    "script": "archive_members",
+    "params": {
+      "path": "out/site-2.tar.gz",
+      "format": "tar.gz",
+      "members": {
+        "site/index.html": "<h1>Home</h1>\n",
+        "site/about.html": "<h1>About</h1>\n",
+        "site/css/main.css": "body{}\n",
+        "site/js/app.js": "init();\n",
+        "site/img/photo1.svg": "<svg/>\n"
+      }
+    }
+  },
+  "oracle_program": "find \"site\" type: file |> filter not (name ~ /\\.log$/) |> archive.create \"out/site-2.tar.gz\" base: \".\"",
+  "reference_bash": "mkdir -p out && tar -czf out/site-2.tar.gz --exclude='*.log' site\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "mkdir -p out && tar -czf out/site-2.tar.gz site",
+      "defect": "includes the log files"
+    }
+  ],
+  "tags": [
+    "create",
+    "tar"
+  ],
+  "license": "CC-BY-4.0"
+}

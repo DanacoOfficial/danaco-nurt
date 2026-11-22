@@ -53,7 +53,12 @@ def read_members(data: bytes, kind: str) -> dict[str, bytes]:
 
 
 def normalize_name(name: str, prefix: str) -> str:
-    """Removes ``./`` and the configured prefix from a member name."""
+    """Removes ``./`` and the configured prefix from a member name.
+
+    Backslashes are read as separators: some Windows archivers store member
+    names with ``\\``.
+    """
+    name = name.replace("\\", "/")
     while name.startswith("./"):
         name = name[2:]
     if prefix and name.startswith(prefix):

@@ -1,0 +1,90 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "git-001",
+  "domain": 10,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Commit only src/app.py and docs/change-1.md with the message 'Update app output to v2'. The change to src/util.py must stay uncommitted in the working tree.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": []
+  },
+  "setup": {
+    "description": "A Git repository service-1 with two commits and three uncommitted changes.",
+    "bash": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\nprintf '%s' '# service-1\n' > 'README.md'\nmkdir -p 'src' && printf '%s' 'print('\\''v1'\\'')\n' > 'src/app.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:00:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:00:00 +0000' git commit -qm 'Initial commit'\nmkdir -p 'src' && printf '%s' 'def helper():\n    return 1\n' > 'src/util.py'\ngit add -A && GIT_AUTHOR_DATE='2026-10-01 08:01:00 +0000' GIT_COMMITTER_DATE='2026-10-01 08:01:00 +0000' git commit -qm 'Add helper module'\nmkdir -p 'src' && printf '%s' 'print('\\''v2'\\'')\n' > 'src/app.py'\nmkdir -p 'src' && printf '%s' 'def helper():\n    return 2\n' > 'src/util.py'\nmkdir -p 'docs' && printf '%s' 'Notes\n' > 'docs/change-1.md'",
+    "pwsh": "git init -q -b main\ngit config user.name 'Bench User'\ngit config user.email bench@example.com\ngit config core.autocrlf false\n[IO.File]::WriteAllText((Join-Path $PWD 'README.md'), '# service-1\n')\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/app.py'), 'print(''v1'')\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:00:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:00:00 +0000'; git commit -qm 'Initial commit'\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/util.py'), 'def helper():\n    return 1\n')\ngit add -A; $env:GIT_AUTHOR_DATE = '2026-10-01 08:01:00 +0000'; $env:GIT_COMMITTER_DATE = '2026-10-01 08:01:00 +0000'; git commit -qm 'Add helper module'\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/app.py'), 'print(''v2'')\n')\nNew-Item -ItemType Directory -Force 'src' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'src/util.py'), 'def helper():\n    return 2\n')\nNew-Item -ItemType Directory -Force 'docs' | Out-Null; [IO.File]::WriteAllText((Join-Path $PWD 'docs/change-1.md'), 'Notes\n')"
+  },
+  "probes": [
+    {
+      "id": "subject",
+      "kind": "command",
+      "argv": [
+        "git",
+        "log",
+        "-1",
+        "--format=%s"
+      ]
+    },
+    {
+      "id": "status",
+      "kind": "command",
+      "argv": [
+        "git",
+        "status",
+        "--porcelain"
+      ]
+    },
+    {
+      "id": "files",
+      "kind": "command",
+      "argv": [
+        "git",
+        "show",
+        "--name-only",
+        "--format=",
+        "HEAD"
+      ]
+    }
+  ],
+  "expect": {
+    "allowed_changes": [
+      ".git/**"
+    ],
+    "probes": {
+      "subject": {
+        "stdout": "Update app output to v2"
+      },
+      "status": {
+        "stdout": " M src/util.py"
+      },
+      "files": {
+        "stdout": "docs/change-1.md\nsrc/app.py"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "src/util.py",
+      "change": "any",
+      "reason": "the uncommitted change must be kept"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "git.commit \".\" message: \"Update app output to v2\" paths: [\"src/app.py\", \"docs/change-1.md\"]",
+  "reference_bash": "git add src/app.py docs/change-1.md && git commit -qm 'Update app output to v2'\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "git add -A && git commit -qm 'Update app output to v2'",
+      "defect": "commits src/util.py as well"
+    }
+  ],
+  "tags": [
+    "commit",
+    "git"
+  ],
+  "license": "CC-BY-4.0"
+}

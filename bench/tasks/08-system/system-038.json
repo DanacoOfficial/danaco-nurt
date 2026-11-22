@@ -1,0 +1,54 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "system-038",
+  "domain": 8,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Remove the write permission for others from every file under logs/ that has it. Other permission bits stay unchanged. (set 6)",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "logs/a.log",
+        "type": "file",
+        "content_utf8": "content 0\n",
+        "mode": "0666"
+      },
+      {
+        "path": "logs/b.log",
+        "type": "file",
+        "content_utf8": "content 1\n",
+        "mode": "0622"
+      },
+      {
+        "path": "logs/c.log",
+        "type": "file",
+        "content_utf8": "content 2\n",
+        "mode": "0644"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "logs/a.log": {
+        "mode": "0664",
+        "same_as_before": "logs/a.log"
+      },
+      "logs/b.log": {
+        "mode": "0620",
+        "same_as_before": "logs/b.log"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"logs\" type: file |> filter mode & \"0002\" |> attributes mode: \"o-w\"",
+  "reference_bash": "find logs -type f -perm -o+w -exec chmod o-w {} +\n",
+  "tags": [
+    "permissions"
+  ],
+  "license": "CC-BY-4.0"
+}

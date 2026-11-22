@@ -1,0 +1,63 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-049",
+  "domain": 9,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Which files under import/ (recursively) are not valid UTF-8? List their names.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "import/a.txt",
+        "type": "file",
+        "content_utf8": "plain ascii\n"
+      },
+      {
+        "path": "import/b.txt",
+        "type": "file",
+        "content_utf8": "Gda\u0144sk\n"
+      },
+      {
+        "path": "import/d.txt",
+        "type": "file",
+        "content_utf8": "\ufeffbom file\n"
+      },
+      {
+        "path": "import/legacy-1.txt",
+        "type": "file",
+        "content_base64": "R2Rh8XNrIK95d2llYywgQmWzY2hhdPN3LCBDeupzdG9jaG93YSwgjHdp6nRvY2izb3dpY2UK"
+      },
+      {
+        "path": "import/sub/c.txt",
+        "type": "file",
+        "content_base64": "r3l3aWVjLCBCZbNjaGF083csIEN66nN0b2Nob3dhLCCmd2nqdG9jaLNvd2ljZQo="
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "legacy-1.txt",
+        "c.txt"
+      ],
+      "not_contains": [
+        "a.txt",
+        "b.txt",
+        "d.txt"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"import\" type: file |> info details: true |> filter encoding not in [\"utf-8\", \"ascii\"]",
+  "reference_bash": "find import -type f | while IFS= read -r f; do iconv -f UTF-8 -t UTF-8 \"$f\" > /dev/null 2>&1 || echo \"$f\"; done\n",
+  "tags": [
+    "detect",
+    "encoding"
+  ],
+  "license": "CC-BY-4.0"
+}

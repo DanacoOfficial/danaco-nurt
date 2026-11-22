@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-007",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Add the line Environment=LOG_LEVEL=warn to the [Service] section of etc/systemd/system/orders.service, directly after the User line.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/systemd/system/orders.service": {
+        "text": "[Unit]\nDescription=Orders service\nAfter=network.target\n\n[Service]\nUser=orders\nEnvironment=LOG_LEVEL=warn\nExecStart=/opt/orders/bin/orders --port 8080\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"etc/systemd/system/orders.service\" changes: [{replace: \"User=orders\\n\", with: \"User=orders\\nEnvironment=LOG_LEVEL=warn\\n\"}]",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('etc/systemd/system/orders.service'); t = p.read_text()\nassert t.count('User=orders\\n') == 1\np.write_text(t.replace('User=orders\\n', 'User=orders\\nEnvironment=LOG_LEVEL=warn\\n'))\nEOF\n",
+  "tags": [
+    "service",
+    "systemd"
+  ],
+  "license": "CC-BY-4.0"
+}

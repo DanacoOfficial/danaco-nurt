@@ -1,0 +1,48 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-051",
+  "domain": 12,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Run tools/setup.py. It asks for the service name (answer: billing) and the port (answer: 9200).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/setup.py",
+        "type": "file",
+        "content_utf8": "import json\n\nname = input(\"Service name: \")\nport = int(input(\"Port: \"))\nwith open(\"service.json\", \"w\") as handle:\n    json.dump({\"name\": name, \"port\": port}, handle)\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "service.json": {
+        "json": {
+          "name": "billing",
+          "port": 9200
+        }
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 60
+  },
+  "oracle_program": "run [\"python3\", \"tools/setup.py\"] stdin: \"y\" timeout: 30s",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n\"billing`n9200\" | & $py tools/setup.py\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "& $py tools/setup.py",
+      "defect": "waits for input that never arrives"
+    }
+  ],
+  "provocation": "interactive-hang",
+  "tags": [
+    "interactive-hang",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

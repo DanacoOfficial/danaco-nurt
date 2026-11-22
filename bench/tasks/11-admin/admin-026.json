@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-026",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Create etc/systemd/system/cleanup.service following the layout of orders.service: Description=Temporary file cleanup, After=network.target, User=root, ExecStart=/usr/local/bin/cleanup --days 7, Restart=on-failure, WantedBy=multi-user.target.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/systemd/system/cleanup.service": {
+        "text": "[Unit]\nDescription=Temporary file cleanup\nAfter=network.target\n\n[Service]\nUser=root\nExecStart=/usr/local/bin/cleanup --days 7\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \"etc/systemd/system/cleanup.service\" \"[Unit]\\nDescription=Temporary file cleanup\\nAfter=network.target\\n\\n[Service]\\nUser=root\\nExecStart=/usr/local/bin/cleanup --days 7\\nRestart=on-failure\\n\\n[Install]\\nWantedBy=multi-user.target\\n\" mode: create",
+  "reference_bash": "mkdir -p 'etc/systemd/system'\nprintf '%s' '[Unit]\nDescription=Temporary file cleanup\nAfter=network.target\n\n[Service]\nUser=root\nExecStart=/usr/local/bin/cleanup --days 7\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\n' > 'etc/systemd/system/cleanup.service'\n",
+  "tags": [
+    "create",
+    "systemd"
+  ],
+  "license": "CC-BY-4.0"
+}

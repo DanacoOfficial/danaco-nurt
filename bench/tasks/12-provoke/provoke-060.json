@@ -1,0 +1,47 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-060",
+  "domain": 12,
+  "split": "public",
+  "platform": "windows",
+  "nl": "tools/legacy.py cp1250 '<text>' prints text in the legacy Windows-1250 encoding. Run tools/legacy.py with the arguments cp1250 and the text from message-4.txt, and save its output as UTF-8 to report-4.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "message-4.txt",
+        "type": "file",
+        "content_utf8": "Branch: Wroc\u0142aw\r\nOffice: Pozna\u0144\r\n"
+      },
+      {
+        "path": "tools/legacy.py",
+        "type": "file",
+        "content_utf8": "import sys\n\ntext = sys.argv[2]\nsys.stdout.buffer.write(text.encode(sys.argv[1]))\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "report-4.txt": {
+        "contains": [
+          "Branch: Wroc\u0142aw",
+          "Office: Pozna\u0144"
+        ],
+        "encoding": "utf-8"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/legacy.py\", \"cp1250\", (read \"message-4.txt\")] output_encoding: \"cp1250\" save_to: \"report-4.txt\"",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n[Console]::OutputEncoding = [Text.Encoding]::GetEncoding(1250)\n$m = Get-Content message-4.txt -Raw\n& $py tools/legacy.py cp1250 $m | Set-Content -Encoding utf8NoBOM report-4.txt\n",
+  "provocation": "console-encoding",
+  "tags": [
+    "console-encoding",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

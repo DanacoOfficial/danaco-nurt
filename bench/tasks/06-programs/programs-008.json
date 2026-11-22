@@ -47,11 +47,8 @@
   "expect": {
     "files": {
       "calc/ops.py": {
-        "contains": [
-          "len(values)"
-        ],
-        "not_contains": [
-          "(len(values) - 1)"
+        "regex": [
+          "def mean\\(values\\):\\r?\\n    return sum\\(values\\) / len\\(values\\)\\r?\\n"
         ]
       }
     },
@@ -76,8 +73,8 @@
     "steps": 15,
     "seconds": 120
   },
-  "oracle_program": "replace \"(len(values) - 1)\" \"len(values)\" in: [\"calc/ops.py\"] mode: literal expect: 1 |> verify (test.run \".\" framework: unittest |> assert empty: (filter status == \"failed\"))",
-  "reference_bash": "sed -i 's/\\(len\\(values\\) - 1\\)/len(values)/' calc/ops.py\npython3 -m unittest discover -s tests\n",
+  "oracle_program": "replace \"def mean(values):\\n    return sum(values) / (len(values) - 1)\" \"def mean(values):\\n    return sum(values) / len(values)\" in: [\"calc/ops.py\"] mode: literal expect: 1 |> verify (test.run \".\" framework: unittest |> assert empty: (filter status == \"failed\"))",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\nimport re\npath = pathlib.Path('calc/ops.py')\npath.write_text(re.sub('(def mean\\\\(values\\\\):\\\\r?\\\\n)    return sum\\\\(values\\\\) / \\\\(len\\\\(values\\\\) \\\\- 1\\\\)', lambda m: m.group(1) + '    return sum(values) / len(values)', path.read_text(), count=1))\nEOF\npython3 -m unittest discover -s tests\n",
   "negatives": [
     {
       "shell": "bash",

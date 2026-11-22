@@ -1,0 +1,49 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-025",
+  "domain": 12,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Convert all lines of names.txt to upper case, in place.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "names.txt",
+        "type": "file",
+        "content_utf8": "anna\r\nbartek\r\ncelina\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "names.txt": {
+        "lines": [
+          "ANNA",
+          "BARTEK",
+          "CELINA"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"names.txt\" |> evaluate upper(text) |> write \"names.txt\" mode: overwrite",
+  "reference_pwsh": "$l = Get-Content names.txt; $l.ToUpper() | Set-Content names.txt\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "Get-Content names.txt | ForEach-Object { $_.ToUpper() } | Set-Content names.txt",
+      "defect": "reads and writes the same file in one pipeline"
+    }
+  ],
+  "provocation": "truncating-redirect",
+  "tags": [
+    "provocation",
+    "truncating-redirect"
+  ],
+  "license": "CC-BY-4.0"
+}

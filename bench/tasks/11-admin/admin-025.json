@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "admin-025",
+  "domain": 11,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Create etc/systemd/system/queue-worker.service following the layout of orders.service: Description=Queue worker, After=network.target, User=orders, ExecStart=/opt/orders/bin/worker --queue orders, Restart=on-failure, WantedBy=multi-user.target.",
+  "fs_before": {
+    "fixture": "etc-tree"
+  },
+  "expect": {
+    "files": {
+      "etc/systemd/system/queue-worker.service": {
+        "text": "[Unit]\nDescription=Queue worker\nAfter=network.target\n\n[Service]\nUser=orders\nExecStart=/opt/orders/bin/worker --queue orders\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \"etc/systemd/system/queue-worker.service\" \"[Unit]\\nDescription=Queue worker\\nAfter=network.target\\n\\n[Service]\\nUser=orders\\nExecStart=/opt/orders/bin/worker --queue orders\\nRestart=on-failure\\n\\n[Install]\\nWantedBy=multi-user.target\\n\" mode: create",
+  "reference_bash": "mkdir -p 'etc/systemd/system'\nprintf '%s' '[Unit]\nDescription=Queue worker\nAfter=network.target\n\n[Service]\nUser=orders\nExecStart=/opt/orders/bin/worker --queue orders\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\n' > 'etc/systemd/system/queue-worker.service'\n",
+  "tags": [
+    "create",
+    "systemd"
+  ],
+  "license": "CC-BY-4.0"
+}

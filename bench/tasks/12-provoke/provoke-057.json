@@ -1,0 +1,54 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "provoke-057",
+  "domain": 12,
+  "split": "public",
+  "platform": "linux",
+  "nl": "tools/legacy.py cp1250 '<text>' prints text in the legacy Windows-1250 encoding. Run tools/legacy.py with the arguments cp1250 and the text from message-1.txt, and save its output as UTF-8 to report-1.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "message-1.txt",
+        "type": "file",
+        "content_utf8": "Report: \u0141\u00f3d\u017a\r\nNotes: \u017bywiec, Be\u0142chat\u00f3w, Cz\u0119stochowa, \u015awi\u0119toch\u0142owice\r\n"
+      },
+      {
+        "path": "tools/legacy.py",
+        "type": "file",
+        "content_utf8": "import sys\n\ntext = sys.argv[2]\nsys.stdout.buffer.write(text.encode(sys.argv[1]))\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "report-1.txt": {
+        "contains": [
+          "Report: \u0141\u00f3d\u017a",
+          "Notes: \u017bywiec, Be\u0142chat\u00f3w, Cz\u0119stochowa, \u015awi\u0119toch\u0142owice"
+        ],
+        "encoding": "utf-8"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/legacy.py\", \"cp1250\", (read \"message-1.txt\")] output_encoding: \"cp1250\" save_to: \"report-1.txt\"",
+  "reference_bash": "python3 tools/legacy.py cp1250 \"$(cat message-1.txt)\" | iconv -f CP1250 -t UTF-8 > report-1.txt\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "python3 tools/legacy.py cp1250 \"$(cat message-1.txt)\" > report-1.txt",
+      "defect": "stores the legacy bytes unconverted"
+    }
+  ],
+  "provocation": "console-encoding",
+  "tags": [
+    "console-encoding",
+    "provocation"
+  ],
+  "license": "CC-BY-4.0"
+}

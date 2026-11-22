@@ -1,0 +1,46 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "background-054",
+  "domain": 7,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Start tools/a.py export in the background, run tools/b.py export in the foreground meanwhile, then wait for tools/a.py. Write the output of a.py followed by the output of b.py to export.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/a.py",
+        "type": "file",
+        "content_utf8": "import sys\nimport time\n\ntime.sleep(1)\nprint(f\"part A of {sys.argv[1]}\")\n"
+      },
+      {
+        "path": "tools/b.py",
+        "type": "file",
+        "content_utf8": "import sys\n\nprint(f\"part B of {sys.argv[1]}\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "export.txt": {
+        "lines": [
+          "part A of export",
+          "part B of export"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/a.py\", \"export\"] background: true\nrun [\"python3\", \"tools/b.py\", \"export\"]\njobs wait: 30s |> select stdout |> write \"export.txt\"",
+  "reference_bash": "python3 tools/a.py export > a.out &\npid=$!\nb=$(python3 tools/b.py export)\nwait $pid\n{ cat a.out; echo \"$b\"; } > export.txt\nrm a.out\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$a = Start-Job { param($py, $root) Set-Location $root; & $py tools/a.py export } -ArgumentList $py, $PWD.Path\n$b = & $py tools/b.py export\n$r = Receive-Job $a -Wait\nRemove-Job $a\nSet-Content export.txt @($r, $b)\n",
+  "tags": [
+    "background",
+    "ordering"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,50 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "archives-015",
+  "domain": 9,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Which .sql files does the archive archives/backup-4.zip contain? List their paths inside the archive without extracting it.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "archives/README.txt",
+        "type": "file",
+        "content_utf8": "Nightly backups\n"
+      },
+      {
+        "path": "archives/backup-4.zip",
+        "type": "file",
+        "content_base64": "UEsDBBQAAAAIAABgQV1dmbT6DAAAAAoAAAAUAAAAYmFja3VwL2RiL2R1bXAtMC5zcWzT1VVIKc0tUDDgAgBQSwMEFAAAAAgAAGBBXRyor+MMAAAACgAAABQAAABiYWNrdXAvZGIvZHVtcC0xLnNxbNPVVUgpzS1QMOQCAFBLAwQUAAAACAAAYEFd3/uCyAwAAAAKAAAAFAAAAGJhY2t1cC9kYi9kdW1wLTIuc3Fs09VVSCnNLVAw4gIAUEsDBBQAAAAIAABgQV2eypnRDAAAAAoAAAAUAAAAYmFja3VwL2RiL2R1bXAtMy5zcWzT1VVIKc0tUDDmAgBQSwMEFAAAAAgAAGBBXVlc2J4MAAAACgAAABQAAABiYWNrdXAvZGIvZHVtcC00LnNxbNPVVUgpzS1QMOECAFBLAwQUAAAACAAAYEFdAM/0hQYAAAAEAAAAEwAAAGJhY2t1cC9ldGMvYXBwLmNvbmarsDXkAgBQSwECFAMUAAAACAAAYEFdXZm0+gwAAAAKAAAAFAAAAAAAAAAAAAAAgAEAAAAAYmFja3VwL2RiL2R1bXAtMC5zcWxQSwECFAMUAAAACAAAYEFdHKiv4wwAAAAKAAAAFAAAAAAAAAAAAAAAgAE+AAAAYmFja3VwL2RiL2R1bXAtMS5zcWxQSwECFAMUAAAACAAAYEFd3/uCyAwAAAAKAAAAFAAAAAAAAAAAAAAAgAF8AAAAYmFja3VwL2RiL2R1bXAtMi5zcWxQSwECFAMUAAAACAAAYEFdnsqZ0QwAAAAKAAAAFAAAAAAAAAAAAAAAgAG6AAAAYmFja3VwL2RiL2R1bXAtMy5zcWxQSwECFAMUAAAACAAAYEFdWVzYngwAAAAKAAAAFAAAAAAAAAAAAAAAgAH4AAAAYmFja3VwL2RiL2R1bXAtNC5zcWxQSwECFAMUAAAACAAAYEFdAM/0hQYAAAAEAAAAEwAAAAAAAAAAAAAAgAE2AQAAYmFja3VwL2V0Yy9hcHAuY29uZlBLBQYAAAAABgAGAIsBAABtAQAAAAA="
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "backup/db/dump-0.sql",
+        "backup/db/dump-1.sql",
+        "backup/db/dump-2.sql",
+        "backup/db/dump-3.sql",
+        "backup/db/dump-4.sql"
+      ],
+      "not_contains": [
+        "app.conf"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "archive.list \"archives/backup-4.zip\" glob: \"**/*.sql\"",
+  "reference_bash": "python3 -m zipfile -l archives/backup-4.zip | grep '\\.sql'\n",
+  "reference_pwsh": "Add-Type -AssemblyName System.IO.Compression.FileSystem\n$z = [IO.Compression.ZipFile]::OpenRead((Join-Path $PWD 'archives/backup-4.zip')); $z.Entries.FullName | Where-Object { $_ -like '*.sql' }; $z.Dispose()\n",
+  "tags": [
+    "archive",
+    "list"
+  ],
+  "license": "CC-BY-4.0"
+}
