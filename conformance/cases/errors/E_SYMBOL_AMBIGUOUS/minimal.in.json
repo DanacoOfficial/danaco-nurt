@@ -1,0 +1,10 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "replace",
+  "error": {
+    "code": "E_SYMBOL_AMBIGUOUS",
+    "message": "conformance case",
+    "at": { "stage": "2" }
+  }
+}

@@ -1,0 +1,5 @@
+run  running  (wait 3s elapsed)
+job j7  pid 4132  command ["npm","run","build"]  cwd /srv/app  started 2026-11-21T10:14:07Z
+read the output once with: jobs "j7"
+notable
+  - post_stages_deferred  the program moved to the background after the wait of 3s

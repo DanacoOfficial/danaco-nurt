@@ -1,0 +1,9 @@
+op 19  remove  ok  (bulk)
+targets 18 402 files · 1 207 dirs · 3.7gb freed
+by directory (top 3):  /srv/app/build/cache 15 880 3.1gb · /srv/app/build/obj 2 100 402.7mb · /srv/app/build/tmp 422 134.2mb
+by extension (top 4):  .o 9 114 · .tmp 6 001 · .d 2 100 · (none) 1 187
+sample (first 5 / last 2): /srv/app/build/a.tmp · /srv/app/build/b.tmp · /srv/app/build/cache/0001.o · /srv/app/build/cache/0002.o · /srv/app/build/cache/0003.o · … · /srv/app/build/tmp/y.tmp · /srv/app/build/z.tmp
+notable
+  ! mass_delete  /srv/app/build  18 402  18402 files, 3.4gib, 100% of /srv/app/build
+  ! delete_tree  /srv/app/build
+next cursor c_19aa

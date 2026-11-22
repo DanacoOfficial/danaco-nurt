@@ -1,0 +1,13 @@
+op 20  run  ok  exit_code 0  12.4s  pid 4121
+targets 2 files · created 1 · modified 1
+cwd /srv/app   command ["go","test","./..."]   decoded utf-8
+stdout 482 lines 23.7kb · stderr 0 lines
+  stdout (full: /home/user/.local/state/nurt/spool/20-stdout.txt)
+    ok  	example.com/app	0.412s
+changes (scan; watch /srv/app) · 2 files · +1 ~1
+  + /srv/app/.cache/go-test.json  0b → 2.2kb
+  ~ /srv/app/go.sum               1.2kb → 1.3kb  a1a1a1a1 → b2b2b2b2
+notable
+  - detection_scope  changes outside /srv/app are not detected
+irreversible
+  previous_content_not_kept  /srv/app/go.sum  (external program; no copy of the previous content within the time budget)

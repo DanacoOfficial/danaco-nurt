@@ -1,0 +1,22 @@
+op 18  replace  ok
+targets 3 files · replacements 7 · lines +7 −7 · 42.2kb → 42.3kb
+  /srv/app/src/a.go    3 repl  1.1kb → 1.1kb    1a2b3c4d → 9f8e7d6c
+  /srv/app/src/b.go    2 repl  8.2kb → 8.2kb    5e5e5e5e → 77aa77aa
+  /srv/app/src/c/d.go  2 repl  32.9kb → 33.0kb  0badc0de → c0ffee00
+diff (3 hunks)
+  /srv/app/src/a.go:12
+    - func oldName(x int) {
+    + func newName(x int) {
+  /srv/app/src/a.go:40
+    - 	return oldName(n - 1)
+    + 	return newName(n - 1)
+  /srv/app/src/b.go:6
+      func main() {
+    - 	v := oldName(2)
+    + 	v := newName(2)
+      }
+notable
+  ! many_per_file  /srv/app/src/c/d.go  2
+  - encoding_preserved  /srv/app/src/c/d.go  windows-1250
+  - line_ending_preserved  /srv/app/src/c/d.go  crlf
+next cursor c_5d2e
