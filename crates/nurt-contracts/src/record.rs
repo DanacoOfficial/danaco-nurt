@@ -1722,6 +1722,17 @@ text_enum! {
 }
 
 text_enum! {
+    /// Kind of a preserved copy of a deleted reference.
+    GitTrashKind {
+        /// Deleted branch.
+        #[default]
+        Branch = "branch",
+        /// Dropped stash entry.
+        Stash = "stash",
+    }
+}
+
+text_enum! {
     /// Outcome of an update of a reference.
     GitRefStatus {
         /// Created.
@@ -2518,6 +2529,8 @@ record_struct! {
         removed: Option<u64>,
         /// Replacements made.
         replacements: Option<u64>,
+        /// Rows inserted, updated or deleted by SQL statements.
+        rows_changed: Option<u64>,
         /// Notes about the change, for example `crlf_preserved`.
         flags: Option<Vec<String>>,
         /// Encoding before.
@@ -3050,6 +3063,8 @@ record_struct! {
         tree: Option<String>,
         /// Files changed.
         files: Option<Vec<CommitFile>>,
+        /// Branch that received the commit, in the result of `git.commit`.
+        branch: Option<String>,
     }
 }
 
@@ -4018,6 +4033,8 @@ record_struct! {
         duration: Duration,
         /// Fingerprint of the state of the code.
         fingerprint: Option<String>,
+        /// Share of duplicated lines in the analysed files, in percent.
+        duplication_percent: Option<f64>,
         /// Journal operation of the analysis.
         op: Option<u64>,
     }
@@ -4161,6 +4178,24 @@ record_struct! {
     }
 }
 
+record_struct! {
+    /// Preserved copy of a deleted branch or a dropped stash entry.
+    GitTrashEntry (GitTrashEntry) {
+        /// Name of the deleted branch or stash entry.
+        name: String,
+        /// Kind.
+        kind: GitTrashKind,
+        /// Reference that keeps the copy, for example `refs/nurt/trash/feature`.
+        reference as "ref": String,
+        /// Commit identifier.
+        commit: String,
+        /// Time of the deletion.
+        time: Instant,
+        /// First line of the message of the commit.
+        subject: Option<String>,
+    }
+}
+
 macro_rules! typed_records {
     ($( $variant:ident ($ty:ident) = $kind:literal ),+ $(,)?) => {
         /// Typed record of any kind.
@@ -4285,4 +4320,5 @@ typed_records! {
     GitRefUpdate(GitRefUpdate) = "git_ref_update",
     GitConflict(GitConflict) = "git_conflict",
     GitEffect(GitEffect) = "git_effect",
+    GitTrashEntry(GitTrashEntry) = "git_trash_entry",
 }
