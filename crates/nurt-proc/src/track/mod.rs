@@ -18,7 +18,8 @@ mod prepared;
 mod scan;
 mod watch_events;
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
+#[cfg(unix)]
 mod tests;
 
 use std::path::PathBuf;
@@ -48,20 +49,35 @@ impl ChangeTracker for Tracker {
         spec: &TrackSpec,
         tx: &mut dyn MutationTx,
     ) -> Result<Box<dyn PreparedScan>> {
+        Ok(Box::new(self.capture(ctx, spec, tx)?))
+    }
+}
+
+impl Tracker {
+    /// Captures the watched scope before a run and keeps previous content.
+    fn capture(
+        &self,
+        ctx: &ExecCtx,
+        spec: &TrackSpec,
+        tx: &mut dyn MutationTx,
+    ) -> Result<Prepared> {
         let started = ctx.clock().monotonic();
         let watch = absolute(&spec.watch)?;
         let exact = spec.exact.as_deref().map(absolute).transpose()?;
-        let reported: Vec<PathBuf> = watch.iter().map(|path| path.as_path().to_path_buf()).collect();
+        let reported: Vec<PathBuf> = watch
+            .iter()
+            .map(|path| path.as_path().to_path_buf())
+            .collect();
         let detection = match spec.mode {
             TrackMode::None if exact.is_none() => Detection::None,
             TrackMode::None | TrackMode::Scan => Detection::Scan,
             TrackMode::Auto | TrackMode::Events => Detection::Events,
         };
         if detection == Detection::None {
-            return Ok(Box::new(Prepared {
+            return Ok(Prepared {
                 state: State::inactive(reported),
                 watch: None,
-            }));
+            });
         }
         let fs = ctx.require_fs()?;
         let run = &ctx.config().run;
@@ -110,52 +126,16 @@ impl ChangeTracker for Tracker {
             op: tx.op().map(|op| op.0),
             roots,
         };
-        Ok(Box::new(Prepared {
+        Ok(Prepared {
             state,
             watch: watcher,
-        }))
+        })
     }
 }
 
 /// Change tracker used by the run host.
 pub(crate) fn tracker() -> Arc<dyn ChangeTracker> {
     Arc::new(Tracker)
-}
-
-/// Serializes the state of a prepared run for the job file, so that another
-/// process can finish it with [`restore_prepared`].
-///
-/// # Errors
-///
-/// `E_INTERNAL` when `prepared` was not created by this tracker or a watched
-/// path is not valid Unicode.
-pub(crate) fn save_prepared(prepared: &dyn PreparedScan) -> Result<serde_json::Value> {
-    let prepared = prepared
-        .as_any()
-        .downcast_ref::<Prepared>()
-        .ok_or_else(|| Error::new(ErrorCode::Internal, "unknown change detection state"))?;
-    serde_json::to_value(&prepared.state).map_err(|error| {
-        Error::new(
-            ErrorCode::Internal,
-            format!("change detection state cannot be saved: {error}"),
-        )
-    })
-}
-
-/// Restores a state saved by [`save_prepared`]. File system events are not
-/// carried over; the restored run is finished by a full scan.
-///
-/// # Errors
-///
-/// `E_INTERNAL` when `value` is not a saved change detection state.
-pub(crate) fn restore_prepared(value: serde_json::Value) -> Result<Box<dyn PreparedScan>> {
-    let state: State = serde_json::from_value(value).map_err(|error| {
-        Error::new(
-            ErrorCode::Internal,
-            format!("saved change detection state is unreadable: {error}"),
-        )
-    })?;
-    Ok(Box::new(Prepared { state, watch: None }))
 }
 
 fn absolute(paths: &[PathBuf]) -> Result<Vec<AbsPath>> {
@@ -165,7 +145,10 @@ fn absolute(paths: &[PathBuf]) -> Result<Vec<AbsPath>> {
             AbsPath::new(path).map_err(|_| {
                 Error::new(
                     ErrorCode::Arg,
-                    format!("path `{}` is not absolute; give a full path", path.display()),
+                    format!(
+                        "path `{}` is not absolute; give a full path",
+                        path.display()
+                    ),
                 )
             })
         })

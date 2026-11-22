@@ -52,7 +52,11 @@ fn run_args(mode: &[&str], cwd: &Path, extra: Vec<(&str, Value)>) -> BoundArgs {
 }
 
 fn ctx(vars: &[(&str, &str)]) -> ExecCtx {
-    context(TestHost::current(vars), Config::default(), RequestOptions::default())
+    context(
+        TestHost::current(vars),
+        Config::default(),
+        RequestOptions::default(),
+    )
 }
 
 fn records(outcome: EffectOutcome<'_>) -> Vec<Record> {
@@ -97,19 +101,36 @@ mod arguments {
     fn the_program_receives_every_argument_unchanged() {
         let dir = tempfile::tempdir().unwrap();
         let sent = [
-            "a b", "", "quote\"d", "back\\slash\\", "naïve", "日本語", "--x=1", "$HOME", "*", "'",
+            "a b",
+            "",
+            "quote\"d",
+            "back\\slash\\",
+            "naïve",
+            "日本語",
+            "--x=1",
+            "$HOME",
+            "*",
+            "'",
             "&|<>^%!",
         ];
         let mut mode = vec!["print-argv"];
         mode.extend(sent);
         let host = DirectRunHost::new(HostMode::Run);
-        let (records, _, _) =
-            execute(&host, &run_args(&mode, dir.path(), Vec::new()), StageInput::none(), &ctx(&[])).unwrap();
+        let (records, _, _) = execute(
+            &host,
+            &run_args(&mode, dir.path(), Vec::new()),
+            StageInput::none(),
+            &ctx(&[]),
+        )
+        .unwrap();
         let exec = exec_of(&records);
         let received: Vec<String> = serde_json::from_str(exec.stdout.trim()).unwrap();
         assert_eq!(received, sent);
         assert_eq!(exec.exit_code, 0);
-        assert_eq!(exec.program.as_str(), crate::spawn::record_path(&fixture_path(), crate::spawn::Platform::current()).as_str());
+        assert_eq!(
+            exec.program.as_str(),
+            crate::spawn::record_path(&fixture_path(), crate::spawn::Platform::current()).as_str()
+        );
         assert_eq!(exec.command[1], "print-argv");
         assert_eq!(exec.job.as_deref(), Some("j1"));
     }
@@ -197,22 +218,39 @@ mod environment {
         let args = run_args(
             &["print-env"],
             dir.path(),
-            vec![("env", env_map(&[("ADDED", text("1")), ("REMOVED", Value::Null), ("EMPTY", text(""))]))],
+            vec![(
+                "env",
+                env_map(&[
+                    ("ADDED", text("1")),
+                    ("REMOVED", Value::Null),
+                    ("EMPTY", text("")),
+                ]),
+            )],
         );
-        let env = child_env(&args, &ctx(&[("KEPT", "yes"), ("REMOVED", "x"), ("TERM", "xterm")]));
+        let env = child_env(
+            &args,
+            &ctx(&[("KEPT", "yes"), ("REMOVED", "x"), ("TERM", "xterm")]),
+        );
         assert_eq!(env.get("KEPT").map(String::as_str), Some("yes"));
         assert_eq!(env.get("ADDED").map(String::as_str), Some("1"));
         assert_eq!(env.get("EMPTY").map(String::as_str), Some(""));
         assert!(!env.contains_key("REMOVED"));
         assert_eq!(env.get("TERM").map(String::as_str), Some("dumb"));
         assert_eq!(env.get("NO_COLOR").map(String::as_str), Some("1"));
-        assert_eq!(env.get("GIT_TERMINAL_PROMPT").map(String::as_str), Some("0"));
+        assert_eq!(
+            env.get("GIT_TERMINAL_PROMPT").map(String::as_str),
+            Some("0")
+        );
     }
 
     #[test]
     fn an_explicit_variable_overrides_a_default() {
         let dir = tempfile::tempdir().unwrap();
-        let args = run_args(&["print-env"], dir.path(), vec![("env", env_map(&[("TERM", text("xterm"))]))]);
+        let args = run_args(
+            &["print-env"],
+            dir.path(),
+            vec![("env", env_map(&[("TERM", text("xterm"))]))],
+        );
         let env = child_env(&args, &ctx(&[]));
         assert_eq!(env.get("TERM").map(String::as_str), Some("xterm"));
     }
@@ -230,7 +268,8 @@ mod environment {
             ],
         );
         let env = child_env(&args, &ctx(&[("KEPT", "yes")]));
-        let mut expected: Vec<String> = Config::default().run.env_defaults.keys().cloned().collect();
+        let mut expected: Vec<String> =
+            Config::default().run.env_defaults.keys().cloned().collect();
         expected.push("ONLY".to_owned());
         expected.sort();
         assert_eq!(env.keys().cloned().collect::<Vec<_>>(), expected);
@@ -242,12 +281,18 @@ mod environment {
         let args = run_args(
             &["print-argv"],
             dir.path(),
-            vec![("env", env_map(&[("TOKEN", text("secret-value")), ("B", text("2"))]))],
+            vec![(
+                "env",
+                env_map(&[("TOKEN", text("secret-value")), ("B", text("2"))]),
+            )],
         );
         let host = DirectRunHost::new(HostMode::Run);
         let (records, _, _) = execute(&host, &args, StageInput::none(), &ctx(&[])).unwrap();
         let exec = exec_of(&records);
-        assert_eq!(exec.env_keys, Some(vec!["TOKEN".to_owned(), "B".to_owned()]));
+        assert_eq!(
+            exec.env_keys,
+            Some(vec!["TOKEN".to_owned(), "B".to_owned()])
+        );
         let json = serde_json::to_string(&exec).unwrap();
         assert!(!json.contains("secret-value"));
     }
@@ -261,8 +306,13 @@ mod input {
 
     fn counted(extra: Vec<(&str, Value)>, dir: &Path) -> String {
         let host = DirectRunHost::new(HostMode::Run);
-        let (records, _, _) =
-            execute(&host, &run_args(&["count-input"], dir, extra), StageInput::none(), &ctx(&[])).unwrap();
+        let (records, _, _) = execute(
+            &host,
+            &run_args(&["count-input"], dir, extra),
+            StageInput::none(),
+            &ctx(&[]),
+        )
+        .unwrap();
         exec_of(&records).stdout.trim().to_owned()
     }
 
@@ -270,7 +320,10 @@ mod input {
     fn writes_a_large_text_to_standard_input() {
         let dir = tempfile::tempdir().unwrap();
         let input = "x".repeat(LARGE_INPUT);
-        assert_eq!(counted(vec![("stdin", text(&input))], dir.path()), LARGE_INPUT.to_string());
+        assert_eq!(
+            counted(vec![("stdin", text(&input))], dir.path()),
+            LARGE_INPUT.to_string()
+        );
     }
 
     #[test]
@@ -278,11 +331,18 @@ mod input {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("input.txt"), "12345").unwrap();
         assert_eq!(
-            counted(vec![("stdin", path(&dir.path().join("input.txt")))], dir.path()),
+            counted(
+                vec![("stdin", path(&dir.path().join("input.txt")))],
+                dir.path()
+            ),
             "5"
         );
         let host = DirectRunHost::new(HostMode::Run);
-        let args = run_args(&["count-input"], dir.path(), vec![("stdin", path(&dir.path().join("input.txt")))]);
+        let args = run_args(
+            &["count-input"],
+            dir.path(),
+            vec![("stdin", path(&dir.path().join("input.txt")))],
+        );
         execute(&host, &args, StageInput::none(), &ctx(&[])).unwrap();
         assert_eq!(
             host.recorded()[0].0.spawn.stdin,
@@ -300,7 +360,11 @@ mod input {
     fn a_missing_input_file_is_reported() {
         let dir = tempfile::tempdir().unwrap();
         let host = DirectRunHost::new(HostMode::Run);
-        let args = run_args(&["count-input"], dir.path(), vec![("stdin", path(&dir.path().join("none")))]);
+        let args = run_args(
+            &["count-input"],
+            dir.path(),
+            vec![("stdin", path(&dir.path().join("none")))],
+        );
         let error = execute(&host, &args, StageInput::none(), &ctx(&[])).unwrap_err();
         assert_eq!(error.code(), ErrorCode::NotFound);
     }
@@ -314,7 +378,8 @@ mod batches {
         let dir = tempfile::tempdir().unwrap();
         let host = DirectRunHost::new(HostMode::Run);
         let args = run_args(&["print-argv"], dir.path(), vec![("batch", Value::Int(2))]);
-        let (records, _, _) = execute(&host, &args, entries(&["a", "b", "c", "d", "e"]), &ctx(&[])).unwrap();
+        let (records, _, _) =
+            execute(&host, &args, entries(&["a", "b", "c", "d", "e"]), &ctx(&[])).unwrap();
         let exec = exec_of(&records);
         let batches = exec.batches.clone().unwrap();
         assert_eq!(batches.len(), 3);
@@ -333,7 +398,10 @@ mod batches {
         let host = DirectRunHost::new(HostMode::Run);
         let args = run_args(&["print-argv"], dir.path(), Vec::new());
         let (records, _, _) = execute(&host, &args, entries(&["a", "b"]), &ctx(&[])).unwrap();
-        assert_eq!(exec_of(&records).batches.map(|batches| batches.len()), Some(2));
+        assert_eq!(
+            exec_of(&records).batches.map(|batches| batches.len()),
+            Some(2)
+        );
         assert!(host.recorded().iter().all(|(_, wait)| wait.is_none()));
     }
 
@@ -341,8 +409,13 @@ mod batches {
     fn keeps_batch_order_when_batches_run_in_parallel() {
         let dir = tempfile::tempdir().unwrap();
         let host = DirectRunHost::new(HostMode::Run);
-        let args = run_args(&["exit-with", "0"], dir.path(), vec![("parallel", Value::Int(3))]);
-        let (records, _, _) = execute(&host, &args, entries(&["300", "150", "0"]), &ctx(&[])).unwrap();
+        let args = run_args(
+            &["exit-with", "0"],
+            dir.path(),
+            vec![("parallel", Value::Int(3))],
+        );
+        let (records, _, _) =
+            execute(&host, &args, entries(&["300", "150", "0"]), &ctx(&[])).unwrap();
         let exec = exec_of(&records);
         let numbers: Vec<u64> = exec.batches.unwrap().iter().map(|batch| batch.no).collect();
         assert_eq!(numbers, vec![1, 2, 3]);
@@ -354,7 +427,8 @@ mod batches {
         let dir = tempfile::tempdir().unwrap();
         let host = DirectRunHost::new(HostMode::Run);
         let args = run_args(&["exit-with"], dir.path(), Vec::new());
-        let (records, notable, _) = execute(&host, &args, entries(&["0", "5", "0", "7"]), &ctx(&[])).unwrap();
+        let (records, notable, _) =
+            execute(&host, &args, entries(&["0", "5", "0", "7"]), &ctx(&[])).unwrap();
         let exec = exec_of(&records);
         assert_eq!(exec.exit_code, 5);
         assert_eq!(exec.failed_batches, Some(2));
@@ -366,7 +440,11 @@ mod batches {
     fn bail_starts_no_batch_after_the_first_failure() {
         let dir = tempfile::tempdir().unwrap();
         let host = DirectRunHost::new(HostMode::Run);
-        let args = run_args(&["exit-with"], dir.path(), vec![("bail", Value::Bool(true))]);
+        let args = run_args(
+            &["exit-with"],
+            dir.path(),
+            vec![("bail", Value::Bool(true))],
+        );
         let (records, _, _) = execute(&host, &args, entries(&["0", "3", "0"]), &ctx(&[])).unwrap();
         let exec = exec_of(&records);
         assert_eq!(exec.exit_code, 3);
@@ -378,8 +456,13 @@ mod batches {
     fn an_empty_input_starts_no_process() {
         let dir = tempfile::tempdir().unwrap();
         let host = DirectRunHost::new(HostMode::Run);
-        let (records, _, _) =
-            execute(&host, &run_args(&["print-argv"], dir.path(), Vec::new()), entries(&[]), &ctx(&[])).unwrap();
+        let (records, _, _) = execute(
+            &host,
+            &run_args(&["print-argv"], dir.path(), Vec::new()),
+            entries(&[]),
+            &ctx(&[]),
+        )
+        .unwrap();
         assert!(records.is_empty());
         assert!(host.recorded().is_empty());
     }
@@ -389,7 +472,13 @@ mod batches {
         let dir = tempfile::tempdir().unwrap();
         let host = DirectRunHost::new(HostMode::Run);
         let input = StageInput::records(RecordStream::once(Record::new(RecordKind::Entry)));
-        let error = execute(&host, &run_args(&["print-argv"], dir.path(), Vec::new()), input, &ctx(&[])).unwrap_err();
+        let error = execute(
+            &host,
+            &run_args(&["print-argv"], dir.path(), Vec::new()),
+            input,
+            &ctx(&[]),
+        )
+        .unwrap_err();
         assert_eq!(error.code(), ErrorCode::Type);
     }
 }
@@ -402,7 +491,11 @@ mod stage {
         let dir = tempfile::tempdir().unwrap();
         let mut env = Fields::new();
         env.insert("A".to_owned(), text("1"));
-        let args = run_args(&["print-argv", "x"], dir.path(), vec![("env", Value::Map(env))]);
+        let args = run_args(
+            &["print-argv", "x"],
+            dir.path(),
+            vec![("env", Value::Map(env))],
+        );
         let host = DirectRunHost::new(HostMode::Run);
         let stage = RunStage::with_host(Arc::clone(&host) as Arc<dyn RunHost>);
         let ctx = ctx(&[]);
@@ -410,13 +503,16 @@ mod stage {
         assert!(host.recorded().is_empty());
         assert!(!plan.bulk);
         let preview = &plan.preview[0];
-        assert_eq!(preview.get("launcher"), Some(&Value::Enum("direct".to_owned())));
         assert_eq!(
-            preview.get("env_keys"),
-            Some(&Value::List(vec![text("A")]))
+            preview.get("launcher"),
+            Some(&Value::Enum("direct".to_owned()))
         );
+        assert_eq!(preview.get("env_keys"), Some(&Value::List(vec![text("A")])));
         assert_eq!(preview.get("stdin"), Some(&Value::Enum("none".to_owned())));
-        assert_eq!(preview.get("wait"), Some(&Value::Duration(value::Duration::from_millis(3000))));
+        assert_eq!(
+            preview.get("wait"),
+            Some(&Value::Duration(value::Duration::from_millis(3000)))
+        );
         let Some(Value::List(argv)) = preview.get("argv") else {
             panic!("the preview has no argv");
         };
@@ -428,8 +524,13 @@ mod stage {
     fn a_run_past_its_wait_continues_as_a_job() {
         let dir = tempfile::tempdir().unwrap();
         let host = DirectRunHost::new(HostMode::Background);
-        let (records, notable, detached) =
-            execute(&host, &run_args(&["print-argv"], dir.path(), Vec::new()), StageInput::none(), &ctx(&[])).unwrap();
+        let (records, notable, detached) = execute(
+            &host,
+            &run_args(&["print-argv"], dir.path(), Vec::new()),
+            StageInput::none(),
+            &ctx(&[]),
+        )
+        .unwrap();
         let job = Job::try_from(records[0].clone()).unwrap();
         assert_eq!(job.state, JobState::Running);
         assert!(detached);
@@ -441,7 +542,10 @@ mod stage {
     fn background_and_wait_select_the_waiting_time() {
         let dir = tempfile::tempdir().unwrap();
         let cases = [
-            (vec![("background", Value::Bool(true))], Some(Duration::ZERO)),
+            (
+                vec![("background", Value::Bool(true))],
+                Some(Duration::ZERO),
+            ),
             (vec![("wait", Value::Enum("forever".to_owned()))], None),
             (
                 vec![("wait", Value::Duration(value::Duration::from_millis(250)))],
@@ -450,7 +554,13 @@ mod stage {
         ];
         for (extra, expected) in cases {
             let host = DirectRunHost::new(HostMode::Background);
-            execute(&host, &run_args(&["print-argv"], dir.path(), extra), StageInput::none(), &ctx(&[])).unwrap();
+            execute(
+                &host,
+                &run_args(&["print-argv"], dir.path(), extra),
+                StageInput::none(),
+                &ctx(&[]),
+            )
+            .unwrap();
             assert_eq!(host.recorded()[0].1, expected);
         }
     }
@@ -459,8 +569,13 @@ mod stage {
     fn a_nonzero_exit_code_is_a_note_not_an_error() {
         let dir = tempfile::tempdir().unwrap();
         let host = DirectRunHost::new(HostMode::Run);
-        let (records, notable, detached) =
-            execute(&host, &run_args(&["exit-with", "3"], dir.path(), Vec::new()), StageInput::none(), &ctx(&[])).unwrap();
+        let (records, notable, detached) = execute(
+            &host,
+            &run_args(&["exit-with", "3"], dir.path(), Vec::new()),
+            StageInput::none(),
+            &ctx(&[]),
+        )
+        .unwrap();
         assert_eq!(exec_of(&records).exit_code, 3);
         assert_eq!(notable, vec![Notable::ExitNonzero]);
         assert!(!detached);
@@ -476,8 +591,13 @@ mod stage {
             (KilledBy::Cancel, ErrorCode::Cancelled),
         ] {
             let host = DirectRunHost::new(HostMode::KilledBy(by));
-            let error = execute(&host, &run_args(&["print-argv"], dir.path(), Vec::new()), StageInput::none(), &ctx(&[]))
-                .unwrap_err();
+            let error = execute(
+                &host,
+                &run_args(&["print-argv"], dir.path(), Vec::new()),
+                StageInput::none(),
+                &ctx(&[]),
+            )
+            .unwrap_err();
             assert_eq!(error.code(), code);
             assert!(error.data().effect_applied);
             let exec = error.data().details.get("exec").unwrap();
@@ -489,8 +609,13 @@ mod stage {
     fn a_program_stopped_by_stop_is_an_outcome() {
         let dir = tempfile::tempdir().unwrap();
         let host = DirectRunHost::new(HostMode::KilledBy(KilledBy::Stop));
-        let (records, _, _) =
-            execute(&host, &run_args(&["print-argv"], dir.path(), Vec::new()), StageInput::none(), &ctx(&[])).unwrap();
+        let (records, _, _) = execute(
+            &host,
+            &run_args(&["print-argv"], dir.path(), Vec::new()),
+            StageInput::none(),
+            &ctx(&[]),
+        )
+        .unwrap();
         assert_eq!(exec_of(&records).killed_by, Some(KilledBy::Stop));
     }
 
@@ -502,16 +627,28 @@ mod stage {
             &["print-argv"],
             dir.path(),
             vec![
-                ("timeout", Value::Duration(value::Duration::from_millis(5000))),
-                ("idle_timeout", Value::Duration(value::Duration::from_millis(0))),
+                (
+                    "timeout",
+                    Value::Duration(value::Duration::from_millis(5000)),
+                ),
+                (
+                    "idle_timeout",
+                    Value::Duration(value::Duration::from_millis(0)),
+                ),
                 ("max_memory", Value::Size(value::Size::from_bytes(1 << 20))),
                 ("priority", Value::Enum("low".to_owned())),
                 ("label", text("build")),
                 ("description", text("release build")),
                 ("show", Value::Enum("errors".to_owned())),
                 ("head", Value::Int(5)),
-                ("filter", Value::Regex(value::Regex::new("err", "i").unwrap())),
-                ("summary", Value::List(vec![Value::Regex(value::Regex::new("passed", "").unwrap())])),
+                (
+                    "filter",
+                    Value::Regex(value::Regex::new("err", "i").unwrap()),
+                ),
+                (
+                    "summary",
+                    Value::List(vec![Value::Regex(value::Regex::new("passed", "").unwrap())]),
+                ),
                 ("output_encoding", text("auto")),
                 ("merge_stderr", Value::Bool(true)),
                 ("track_changes", Value::Enum("none".to_owned())),
@@ -520,34 +657,84 @@ mod stage {
         execute(&host, &args, StageInput::none(), &ctx(&[])).unwrap();
         let (request, _) = &host.recorded()[0];
         let limits = &request.spawn.limits;
-        assert_eq!(limits.timeout, Some(Duration::from_secs(5)));
-        assert_eq!(limits.idle_timeout, None);
-        assert_eq!(limits.max_memory, Some(1 << 20));
-        assert_eq!(limits.priority, crate::iface::Priority::Low);
-        assert_eq!(limits.kill_grace, Duration::from_secs(5));
-        assert_eq!(request.label.as_deref(), Some("build"));
-        assert_eq!(request.description.as_deref(), Some("release build"));
-        assert_eq!(request.view.show, crate::iface::ShowMode::Errors);
-        assert_eq!(request.view.head, Some(5));
-        assert_eq!(request.view.tail, Some(40));
-        assert_eq!(request.view.filter.as_deref(), Some("(?i)err"));
-        assert_eq!(request.view.summary, vec!["passed".to_owned()]);
-        assert_eq!(request.view.encoding, None);
-        assert!(request.spawn.merge_stderr);
-        assert_eq!(request.track.mode, crate::iface::TrackMode::None);
-        assert_eq!(request.kind, RunKind::Run);
-        assert!(request.finish_data.is_none());
+        assert_eq!(
+            (
+                limits.timeout,
+                limits.idle_timeout,
+                limits.max_memory,
+                limits.priority,
+                limits.kill_grace,
+            ),
+            (
+                Some(Duration::from_secs(5)),
+                None,
+                Some(1 << 20),
+                crate::iface::Priority::Low,
+                Duration::from_secs(5),
+            )
+        );
+        let view = &request.view;
+        assert_eq!(
+            (
+                view.show,
+                view.head,
+                view.tail,
+                view.filter.as_deref(),
+                view.summary.as_slice(),
+                view.encoding.as_deref(),
+            ),
+            (
+                crate::iface::ShowMode::Errors,
+                Some(5),
+                Some(40),
+                Some("(?i)err"),
+                ["passed".to_owned()].as_slice(),
+                None,
+            )
+        );
+        assert_eq!(
+            (
+                request.label.as_deref(),
+                request.description.as_deref(),
+                request.spawn.merge_stderr,
+                request.track.mode,
+                request.kind,
+                request.finish_data.is_none(),
+            ),
+            (
+                Some("build"),
+                Some("release build"),
+                true,
+                crate::iface::TrackMode::None,
+                RunKind::Run,
+                true,
+            )
+        );
     }
 
     #[test]
     fn the_static_check_reports_waiting_programs_and_environment_defaults() {
         let dir = tempfile::tempdir().unwrap();
-        let spec = StageSpec::default();
+        let spec: StageSpec = serde_json::from_value(serde_json::json!({
+            "name": "run",
+            "category": "run",
+            "reversibility": "reversible_if_preserved",
+            "effect": "process",
+            "implementation": "user_program",
+            "input": ["none"],
+            "output": ["exec", "job"],
+            "summary": "Run a program without a shell.",
+        }))
+        .unwrap();
         let host = TestHost::current(&[]);
         let config = Config::default();
         let check = CheckCtx::new(&spec, &host, &config);
         let stage = RunStage::default();
-        let args = run_args(&["print-argv"], dir.path(), vec![("wait", Value::Enum("forever".to_owned()))]);
+        let args = run_args(
+            &["print-argv"],
+            dir.path(),
+            vec![("wait", Value::Enum("forever".to_owned()))],
+        );
         let info = stage.check(&args, &check).unwrap();
         assert!(info.waits);
         assert_eq!(info.programs[0].program, fixture());
@@ -559,7 +746,11 @@ mod stage {
         assert!(!stage.check(&short, &check).unwrap().waits);
         let batch_file = BoundArgs::new("run").with(
             "command",
-            ArgValue::Value(Value::List(vec![text("build.cmd"), text("a&b"), text("plain")])),
+            ArgValue::Value(Value::List(vec![
+                text("build.cmd"),
+                text("a&b"),
+                text("plain"),
+            ])),
             false,
         );
         let info = stage.check(&batch_file, &check).unwrap();
@@ -568,7 +759,10 @@ mod stage {
             Some(&Value::List(vec![Value::from(1_u64)]))
         );
         let zero = run_args(&["print-argv"], dir.path(), vec![("batch", Value::Int(0))]);
-        assert_eq!(stage.check(&zero, &check).unwrap_err().code(), ErrorCode::InvalidValue);
+        assert_eq!(
+            stage.check(&zero, &check).unwrap_err().code(),
+            ErrorCode::InvalidValue
+        );
     }
 
     #[test]
@@ -604,14 +798,18 @@ mod tools {
         let dir = tempfile::tempdir().unwrap();
         let host = DirectRunHost::new(HostMode::Run);
         let shared = Arc::clone(&host) as Arc<dyn RunHost>;
-        let outcome = super::super::run_tool(&ctx(&[]), &shared, tool_run(dir.path()), None).unwrap();
+        let outcome =
+            super::super::run_tool(&ctx(&[]), &shared, tool_run(dir.path()), None).unwrap();
         let ToolOutcome::Finished(result) = outcome else {
             panic!("the tool moved to the background");
         };
         assert_eq!(result.exec.stdout.trim(), "[\"--json\"]");
         let (request, _) = &host.recorded()[0];
         assert_eq!(request.kind, RunKind::Test);
-        assert_eq!(request.finish_data, Some(serde_json::json!({"run": "run-1"})));
+        assert_eq!(
+            request.finish_data,
+            Some(serde_json::json!({"run": "run-1"}))
+        );
         assert_eq!(request.view.show, crate::iface::ShowMode::Both);
     }
 

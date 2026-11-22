@@ -14,8 +14,8 @@ use nurt_contracts::journal::MutationTx;
 use nurt_contracts::record::{Effect, EffectStatus, Job, Signal};
 use nurt_contracts::report::{Irreversible, IrreversibleEntry};
 use nurt_contracts::stage::{
-    BoundArgs, CheckCtx, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds,
-    RecordStream, StageDescriptor, StageImpl, StageInput, StageOutput, StaticInfo,
+    BoundArgs, CheckCtx, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, RecordStream,
+    StageDescriptor, StageImpl, StageInput, StageOutput, StaticInfo,
 };
 use nurt_contracts::value::{Record, RecordKind};
 
@@ -149,7 +149,8 @@ impl EffectStage for Control {
             irreversible.push(entry.clone());
             records.push(Record::from(effect(self.kind.name(), job, entry)));
         }
-        let mut outcome = EffectOutcome::new(StageOutput::records(RecordStream::from_records(records)));
+        let mut outcome =
+            EffectOutcome::new(StageOutput::records(RecordStream::from_records(records)));
         outcome.irreversible = irreversible;
         Ok(outcome)
     }

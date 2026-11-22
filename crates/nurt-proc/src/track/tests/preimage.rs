@@ -61,7 +61,9 @@ fn cloned_content_is_reported_as_clone_and_restored() {
         h.write(name, "0123");
     }
     let mut tx = RecordingTx::with_mode(PreserveMode::Clone);
-    let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |h| h.write("d", "changed"));
+    let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |h| {
+        h.write("d", "changed")
+    });
     assert_eq!(outcome.preimage, Preimage::Clone);
     assert_eq!(outcome.preimage_entries, 4);
     assert_eq!(h.change(&outcome, "d").store.as_deref(), Some("clone"));
@@ -91,7 +93,10 @@ fn budget_stops_keeping_and_marks_the_rest() {
     assert_eq!(first.irreversible, None);
     let last = h.change(&outcome, "f099");
     assert_eq!(last.store.as_deref(), Some("none"));
-    assert_eq!(last.irreversible, Some(Irreversible::PreviousContentNotKept));
+    assert_eq!(
+        last.irreversible,
+        Some(Irreversible::PreviousContentNotKept)
+    );
     assert_eq!(last.flags, Some(vec!["preimage_budget".to_owned()]));
 }
 
@@ -126,7 +131,9 @@ fn copy_limit_marks_files_without_copy() {
         h.write(name, "1234");
     }
     let mut tx = RecordingTx::new();
-    let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |h| h.write("c", "changed"));
+    let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |h| {
+        h.write("c", "changed")
+    });
     assert_eq!(tx.declared.len(), 2);
     assert_eq!(outcome.preimage_bytes, 8);
     assert_eq!(
@@ -186,11 +193,16 @@ fn disabled_preimage_marks_changes_without_flag() {
     }));
     h.write("a.txt", "alpha");
     let mut tx = RecordingTx::new();
-    let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |h| h.write("a.txt", "changed"));
+    let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |h| {
+        h.write("a.txt", "changed")
+    });
     assert_eq!(tx.preserve_calls, 0);
     assert_eq!(outcome.preimage, Preimage::None);
     let change = h.change(&outcome, "a.txt");
-    assert_eq!(change.irreversible, Some(Irreversible::PreviousContentNotKept));
+    assert_eq!(
+        change.irreversible,
+        Some(Irreversible::PreviousContentNotKept)
+    );
     assert_eq!(change.flags, None);
     assert_eq!(tx.declared_indexes(), vec![None]);
 }

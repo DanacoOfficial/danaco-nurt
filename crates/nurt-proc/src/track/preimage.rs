@@ -144,8 +144,7 @@ impl Keeper<'_> {
     fn watched(&mut self, files: &[Candidate], limits: Limits, started: Duration) -> Result<()> {
         let mut batch: Vec<Candidate> = Vec::new();
         let mut batch_bytes = 0;
-        let mut entries = 0;
-        for (path, size) in files {
+        for (entries, (path, size)) in files.iter().enumerate() {
             if batch.is_empty() && self.over_budget(started, limits) {
                 self.preimage.shortfall = Some(Shortfall::Budget);
                 return Ok(());
@@ -158,11 +157,11 @@ impl Keeper<'_> {
                 batch_bytes = 0;
             }
             let copy_exceeded = !self.cloning && self.copied + size > limits.copy_max;
+            let entries = u64::try_from(entries).unwrap_or(u64::MAX);
             if entries >= limits.max_entries || copy_exceeded {
                 self.preimage.shortfall = Some(Shortfall::Limit);
                 break;
             }
-            entries += 1;
             batch_bytes += size;
             batch.push((path.clone(), *size));
             if batch.len() == PRESERVE_BATCH {

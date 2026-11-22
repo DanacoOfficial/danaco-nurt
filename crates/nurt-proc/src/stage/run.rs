@@ -25,16 +25,18 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::MutationTx;
 use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::stage::{
-    BoundArgs, CheckCtx, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds,
-    RecordStream, StageDescriptor, StageImpl, StageInput, StageOutput, StaticInfo,
+    BoundArgs, CheckCtx, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, RecordStream,
+    StageDescriptor, StageImpl, StageInput, StageOutput, StaticInfo,
 };
 use nurt_contracts::value::{Record, RecordKind, Value};
 
 use crate::api::{ToolKind, ToolOutcome, ToolResult, ToolRun};
+use crate::classify::EffectClassifier;
 use crate::iface::{
     OutputView, Priority, ProcessLimits, RunHost, RunKind, RunRequest, RunResult, RunWait,
     ShowMode, StdinSource, TrackMode, TrackSpec,
 };
+use crate::jobs::{exec_record, external_effect};
 use crate::spawn::{self, ChildEnv, InheritEnv, Platform, batch};
 
 use self::params::Settings;
@@ -126,10 +128,19 @@ impl EffectStage for RunStage {
             env_defaults(ctx),
             &settings.env,
         )?;
+        let classifier = effect_classifier(ctx)?;
         let mut launches = Vec::with_capacity(processes.len());
         for (index, (command, batch_args)) in processes.into_iter().enumerate() {
             ctx.checkpoint()?;
-            launches.push(plan_launch(ctx, &settings, &env, index, command, batch_args)?);
+            launches.push(plan_launch(
+                ctx,
+                &settings,
+                &env,
+                &classifier,
+                index,
+                command,
+                batch_args,
+            )?);
         }
         let mut plan = EffectPlan::new();
         plan.preview = launches
@@ -167,6 +178,21 @@ impl EffectStage for RunStage {
             run_single(host.as_ref(), ctx, state)
         }
     }
+}
+
+/// Classifier of external effects with the patterns of
+/// `run.irreversible_patterns`.
+fn effect_classifier(ctx: &ExecCtx) -> Result<EffectClassifier> {
+    EffectClassifier::with_patterns(&ctx.config().run.irreversible_patterns)
+}
+
+/// Rules of the external effect table matched by `command`.
+fn effects_of(classifier: &EffectClassifier, command: &[String]) -> Vec<String> {
+    classifier
+        .classify(command)
+        .into_iter()
+        .map(|found| found.rule)
+        .collect()
 }
 
 /// Variables of `run.env_defaults`, in order.
@@ -234,6 +260,7 @@ fn plan_launch(
     ctx: &ExecCtx,
     settings: &Settings,
     env: &ChildEnv,
+    classifier: &EffectClassifier,
     index: usize,
     command: Vec<String>,
     batch_args: Vec<String>,
@@ -245,13 +272,15 @@ fn plan_launch(
         cwd: settings.cwd.clone(),
         launcher: launch.launcher,
         env_keys: settings.env_keys(),
-        external_effect: Vec::new(),
         platform: settings.platform,
         timeout: settings.limits.timeout,
         idle_timeout: settings.limits.idle_timeout,
     };
+    let external_effect = effects_of(classifier, &command);
     let request = RunRequest {
         command,
+        program: launch.program.clone(),
+        env_keys: settings.env_keys(),
         spawn: launch.request(
             &settings.cwd,
             env.clone(),
@@ -266,7 +295,7 @@ fn plan_launch(
         description: settings.description.clone(),
         session: ctx.options().session.clone(),
         retry_of: None,
-        external_effect: Vec::new(),
+        external_effect,
         finish_data: None,
     };
     Ok(PlannedLaunch {
@@ -304,10 +333,9 @@ fn preview(launch: &PlannedLaunch, settings: &Settings, batched: bool) -> Record
         Some(wait) => Value::Duration(record::duration(wait)),
         None => Value::Enum("forever".to_owned()),
     };
-    let timeout = settings
-        .limits
-        .timeout
-        .map_or(Value::Null, |timeout| Value::Duration(record::duration(timeout)));
+    let timeout = settings.limits.timeout.map_or(Value::Null, |timeout| {
+        Value::Duration(record::duration(timeout))
+    });
     let inherit = match settings.inherit {
         InheritEnv::All => "all",
         InheritEnv::None => "none",
@@ -352,18 +380,22 @@ fn one_record<'a>(record: Record) -> EffectOutcome<'a> {
 
 fn run_single<'a>(host: &dyn RunHost, ctx: &ExecCtx, state: RunPlan) -> Result<EffectOutcome<'a>> {
     let Some(launch) = state.launches.into_iter().next() else {
-        return Ok(EffectOutcome::new(StageOutput::records(RecordStream::empty())));
+        return Ok(EffectOutcome::new(StageOutput::records(
+            RecordStream::empty(),
+        )));
     };
-    match host.run(ctx, launch.request, state.wait)? {
+    let irreversible: Vec<_> = external_effect(&launch.request).into_iter().collect();
+    match host.run(ctx, launch.request.clone(), state.wait)? {
         RunWait::Finished(result) => {
-            let exec = record::exec(&launch.info, &result);
+            let exec = exec_record(&launch.request, &result, launch.info.platform);
             if let Some(error) = record::termination_error(&launch.info, &result.end, &exec) {
                 return Err(error);
             }
-            let changes = record::report_changes(&result.track.changes);
+            let changes = result.track.changes.clone();
             let mut outcome = one_record(Record::from(exec));
             outcome.changes = changes;
             outcome.notable = record::notes(&result);
+            outcome.irreversible = irreversible;
             Ok(outcome)
         }
         RunWait::Background(job) => {
@@ -372,6 +404,7 @@ fn run_single<'a>(host: &dyn RunHost, ctx: &ExecCtx, state: RunPlan) -> Result<E
             outcome
                 .notable
                 .push(NotableEntry::new(Notable::PostStagesDeferred));
+            outcome.irreversible = irreversible;
             Ok(outcome)
         }
     }
@@ -391,7 +424,11 @@ fn finished(wait: RunWait) -> Result<Box<RunResult>> {
     }
 }
 
-fn run_batches<'a>(host: &dyn RunHost, ctx: &ExecCtx, state: &RunPlan) -> Result<EffectOutcome<'a>> {
+fn run_batches<'a>(
+    host: &dyn RunHost,
+    ctx: &ExecCtx,
+    state: &RunPlan,
+) -> Result<EffectOutcome<'a>> {
     let results = batch::run_ordered(&state.launches, state.parallel, state.bail, |launch| {
         let result = host
             .run(ctx, launch.request.clone(), None)
@@ -409,6 +446,7 @@ fn run_batches<'a>(host: &dyn RunHost, ctx: &ExecCtx, state: &RunPlan) -> Result
                 no: launch.no,
                 args: launch.args.clone(),
                 info: &launch.info,
+                request: &launch.request,
                 result,
             }),
             Some(Err(error)) => {
@@ -421,22 +459,29 @@ fn run_batches<'a>(host: &dyn RunHost, ctx: &ExecCtx, state: &RunPlan) -> Result
         return Err(error.with_effect_applied(!runs.is_empty()));
     }
     let Some(exec) = record::combine(&state.command, &runs) else {
-        return Ok(EffectOutcome::new(StageOutput::records(RecordStream::empty())));
+        return Ok(EffectOutcome::new(StageOutput::records(
+            RecordStream::empty(),
+        )));
     };
-    if let Some(error) = runs.iter().find_map(|run| {
-        record::termination_error(run.info, &run.result.end, &exec)
-    }) {
+    if let Some(error) = runs
+        .iter()
+        .find_map(|run| record::termination_error(run.info, &run.result.end, &exec))
+    {
         return Err(error);
     }
-    let changes = record::report_changes(&exec.changes);
+    let changes = exec.changes.clone();
     let mut notable: Vec<NotableEntry> = record::exit_note(exec.exit_code).into_iter().collect();
+    let mut irreversible = Vec::new();
     for run in &runs {
+        notable.extend(crate::jobs::end_notes(run.result));
         notable.extend(run.result.output.notes.iter().cloned());
         notable.extend(run.result.track.notes.iter().cloned());
+        irreversible.extend(external_effect(run.request));
     }
     let mut outcome = one_record(Record::from(exec));
     outcome.changes = changes;
     outcome.notable = notable;
+    outcome.irreversible = irreversible;
     Ok(outcome)
 }
 
@@ -471,18 +516,10 @@ pub(crate) fn run_tool(
         max_memory: None,
         priority: Priority::Normal,
     };
-    let info = LaunchInfo {
-        command: run.command.clone(),
-        program: launch.program.clone(),
-        cwd: run.cwd.clone(),
-        launcher: launch.launcher,
-        env_keys: run.env.iter().map(|var| var.name.clone()).collect(),
-        external_effect: Vec::new(),
-        platform,
-        timeout: limits.timeout,
-        idle_timeout: limits.idle_timeout,
-    };
+    let external_effect = effects_of(&effect_classifier(ctx)?, &run.command);
     let request = RunRequest {
+        program: launch.program.clone(),
+        env_keys: run.env.iter().map(|var| var.name.clone()).collect(),
         command: run.command,
         spawn: launch.request(&run.cwd, env, StdinSource::Null, false, limits),
         track: TrackSpec {
@@ -508,12 +545,12 @@ pub(crate) fn run_tool(
         description: None,
         session: ctx.options().session.clone(),
         retry_of: None,
-        external_effect: Vec::new(),
+        external_effect,
         finish_data: run.finish_data,
     };
-    Ok(match host.run(ctx, request, wait)? {
+    Ok(match host.run(ctx, request.clone(), wait)? {
         RunWait::Finished(result) => ToolOutcome::Finished(Box::new(ToolResult {
-            exec: record::exec(&info, &result),
+            exec: exec_record(&request, &result, platform),
             stdout_file: result
                 .output
                 .stdout_file

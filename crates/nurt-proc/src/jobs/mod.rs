@@ -28,7 +28,7 @@ mod wire;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use record::exec_record;
+pub(crate) use record::{end_notes, exec_record, external_effect};
 pub(crate) use state::{Action, check_action};
 pub(crate) use store::JobStore;
 

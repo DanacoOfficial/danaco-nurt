@@ -260,12 +260,16 @@ fn find_line_end(window: &[u8], unit: LineUnit) -> Option<usize> {
     match unit {
         LineUnit::Byte => memchr::memchr(b'\n', window),
         LineUnit::Utf16Le => window
-            .chunks_exact(2)
-            .position(|pair| pair == [b'\n', 0])
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .position(|pair| *pair == [b'\n', 0])
             .map(|pair| pair * 2),
         LineUnit::Utf16Be => window
-            .chunks_exact(2)
-            .position(|pair| pair == [0, b'\n'])
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .position(|pair| *pair == [0, b'\n'])
             .map(|pair| pair * 2),
     }
 }
@@ -275,7 +279,8 @@ fn append(line: &mut RawLine, bytes: &[u8]) {
     if bytes.len() > room {
         line.shortened = true;
     }
-    line.bytes.extend_from_slice(&bytes[..bytes.len().min(room)]);
+    line.bytes
+        .extend_from_slice(&bytes[..bytes.len().min(room)]);
 }
 
 #[cfg(test)]
@@ -337,7 +342,13 @@ mod tests {
         assert_eq!(position, Position { offset: 8, line: 2 });
         let (ended, end) = lines(&path, position, LineUnit::Byte, true);
         assert_eq!(ended, ["thr"]);
-        assert_eq!(end, Position { offset: 11, line: 3 });
+        assert_eq!(
+            end,
+            Position {
+                offset: 11,
+                line: 3
+            }
+        );
     }
 
     #[test]
@@ -364,7 +375,8 @@ mod tests {
         let mut file = File::create(&path).unwrap();
         file.write_all(&vec![b'a'; MAX_LINE_BYTES + 10]).unwrap();
         file.write_all(b"\nb\n").unwrap();
-        let mut reader = LineReader::open(&path, Position::default(), LineUnit::Byte, true).unwrap();
+        let mut reader =
+            LineReader::open(&path, Position::default(), LineUnit::Byte, true).unwrap();
         let first = reader.next_line(true).unwrap().unwrap();
         assert!(first.shortened);
         assert_eq!(first.bytes.len(), MAX_LINE_BYTES);

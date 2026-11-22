@@ -8,6 +8,7 @@
 //! keep the tree in a new session and process group, Windows in a job object.
 
 use std::io::{Read, Write};
+#[cfg(unix)]
 use std::time::Duration;
 
 use nurt_contracts::error::{Error, ErrorCode};
@@ -27,7 +28,7 @@ mod windows;
 #[cfg(unix)]
 pub(crate) use unix::Tree;
 #[cfg(windows)]
-pub(crate) use windows::Tree;
+pub(crate) use windows::{ServiceJob, Tree};
 
 /// How the main process of a tree ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,6 +88,7 @@ pub(crate) fn unsupported_signal(signal: Signal) -> Error {
 }
 
 /// Converts a duration to whole seconds, rounding up.
+#[cfg(unix)]
 pub(crate) fn ceil_seconds(duration: Duration) -> u64 {
     let whole = duration.as_secs();
     if duration.subsec_nanos() == 0 {

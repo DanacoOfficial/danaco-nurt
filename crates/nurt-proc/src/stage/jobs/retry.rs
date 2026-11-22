@@ -7,14 +7,17 @@ use nurt_contracts::error::Result;
 use nurt_contracts::journal::MutationTx;
 use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::stage::{
-    BoundArgs, CheckCtx, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds,
-    RecordStream, StageDescriptor, StageImpl, StageInput, StageOutput, StaticInfo,
+    BoundArgs, CheckCtx, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, RecordStream,
+    StageDescriptor, StageImpl, StageInput, StageOutput, StaticInfo,
 };
 use nurt_contracts::value::{Record, RecordKind};
 
 use super::args::{Wait, duration, input_jobs, wait};
 use crate::iface::{Components, RunWait};
-use crate::jobs::{Action, JobStore, check_action, exec_record, run_host};
+use crate::jobs::{
+    Action, JobStore, check_action, end_notes, exec_record, external_effect, run_host,
+};
+use crate::spawn::Platform;
 
 /// The `retry` command on job records.
 pub(crate) struct Retry {
@@ -89,8 +92,11 @@ impl EffectStage for Retry {
         let mut records = Vec::with_capacity(ids.len());
         let mut notable = Vec::new();
         let mut detached = false;
+        let mut irreversible = Vec::new();
+        let platform = Platform::of(ctx.host().info().os);
         for id in &ids {
             let request = store.retry_request(id, timeout)?;
+            irreversible.extend(external_effect(&request));
             match host.run(ctx, request.clone(), wait)? {
                 RunWait::Finished(result) => {
                     if let Some(code) = result.end.exit_code.filter(|code| *code != 0) {
@@ -100,8 +106,9 @@ impl EffectStage for Retry {
                             ..NotableEntry::new(Notable::ExitNonzero)
                         });
                     }
+                    notable.extend(end_notes(&result));
                     notable.extend(result.track.notes.iter().cloned());
-                    records.push(Record::from(exec_record(&request, &result)));
+                    records.push(Record::from(exec_record(&request, &result, platform)));
                 }
                 RunWait::Background(job) => {
                     detached = true;
@@ -112,7 +119,8 @@ impl EffectStage for Retry {
         if detached {
             notable.push(NotableEntry::new(Notable::PostStagesDeferred));
         }
-        let mut outcome = EffectOutcome::new(StageOutput::records(RecordStream::from_records(records)));
+        let mut outcome =
+            EffectOutcome::new(StageOutput::records(RecordStream::from_records(records)));
         outcome.notable = notable;
         outcome.detached = detached;
         Ok(outcome)

@@ -37,7 +37,8 @@ With `id` the command returns one job record, filled according to `view`:
 * `output`: the complete lines written after the cursor `since`, or the whole
   output without `since`; `output_cursor` of the result is the cursor for the
   next read. `stream`, `head`, `tail`, `filter`, `context` and `dedupe`
-  select the lines;
+  select the lines; the cursor of a stream left out by `stream` stays where it
+  was, so a later read of that stream misses no line;
 * `result`: the final record of a finished job (`exit_code`, `signal`,
   `elapsed`, `changes`, `op`, output files) with the kept output selected by
   the same parameters. For a job of `test.*` or `analyze.*` the stream header

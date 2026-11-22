@@ -115,7 +115,11 @@ impl TestHost {
                 architecture: "x86_64".to_owned(),
                 hostname: "test".to_owned(),
                 user: "user".to_owned(),
-                home: PathBuf::from(if windows { "C:/Users/user" } else { "/home/user" }),
+                home: PathBuf::from(if windows {
+                    "C:/Users/user"
+                } else {
+                    "/home/user"
+                }),
                 temp: std::env::temp_dir(),
                 path_style: if windows {
                     PathStyle::Windows
@@ -136,7 +140,11 @@ impl TestHost {
     /// Host of the running system whose environment holds `vars` and the
     /// variables a program needs to start there.
     pub(crate) fn current(vars: &[(&str, &str)]) -> Self {
-        let os = if cfg!(windows) { Os::Windows } else { Os::Linux };
+        let os = if cfg!(windows) {
+            Os::Windows
+        } else {
+            Os::Linux
+        };
         let mut host = Self::new(os, vars);
         for name in ["SystemRoot", "ComSpec", "PATHEXT"] {
             if let Some(value) = std::env::var_os(name) {
@@ -180,11 +188,17 @@ pub(crate) struct MemorySink {
 
 impl MemorySink {
     pub(crate) fn stdout(&self) -> Vec<u8> {
-        self.streams.lock().map(|streams| streams.0.clone()).unwrap_or_default()
+        self.streams
+            .lock()
+            .map(|streams| streams.0.clone())
+            .unwrap_or_default()
     }
 
     pub(crate) fn stderr(&self) -> Vec<u8> {
-        self.streams.lock().map(|streams| streams.1.clone()).unwrap_or_default()
+        self.streams
+            .lock()
+            .map(|streams| streams.1.clone())
+            .unwrap_or_default()
     }
 }
 
@@ -233,7 +247,7 @@ impl StdControl {
         sink: Arc<dyn OutputSink>,
     ) -> Result<StdProcess> {
         let mut command = Command::new(&request.program);
-        add_arguments(&mut command, &request);
+        add_arguments(&mut command, request);
         command
             .current_dir(&request.cwd)
             .env_clear()
@@ -354,6 +368,7 @@ impl StdProcess {
             finished: wall_now(),
             usage: crate::iface::ResourceUsage::default(),
             suspended_total: Duration::ZERO,
+            stdin_closed_early: self.closed_input_early(),
         }
     }
 }
@@ -399,10 +414,6 @@ impl RunningProcess for StdProcess {
         }
     }
 
-    fn signal(&mut self, _signal: Signal) -> Result<()> {
-        self.child.kill().map_err(|error| io_error(&error))
-    }
-
     fn stop(&mut self, _signal: Signal, _grace: Duration) -> Result<ProcessEnd> {
         self.child.kill().map_err(|error| io_error(&error))?;
         let status = self.child.wait().map_err(|error| io_error(&error))?;
@@ -412,15 +423,17 @@ impl RunningProcess for StdProcess {
     }
 
     fn suspend(&mut self) -> Result<()> {
-        Err(Error::new(ErrorCode::Unsupported, "test processes cannot be suspended"))
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "test processes cannot be suspended",
+        ))
     }
 
     fn resume(&mut self) -> Result<()> {
-        Err(Error::new(ErrorCode::Unsupported, "test processes cannot be resumed"))
-    }
-
-    fn usage(&self) -> Result<crate::iface::ResourceUsage> {
-        Ok(crate::iface::ResourceUsage::default())
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "test processes cannot be resumed",
+        ))
     }
 }
 
@@ -486,7 +499,10 @@ impl DirectRunHost {
     }
 
     pub(crate) fn recorded(&self) -> Vec<(RunRequest, Option<Duration>)> {
-        self.requests.lock().map(|list| list.clone()).unwrap_or_default()
+        self.requests
+            .lock()
+            .map(|list| list.clone())
+            .unwrap_or_default()
     }
 }
 

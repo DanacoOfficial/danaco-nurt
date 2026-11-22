@@ -15,13 +15,13 @@ fn repository() -> PathBuf {
         .join("..")
 }
 
-fn page() -> String {
-    std::fs::read_to_string(repository().join("docs/commands/run.md")).unwrap()
+fn page() -> std::io::Result<String> {
+    std::fs::read_to_string(repository().join("docs/commands/run.md"))
 }
 
 /// Summary and parameter names of `run` in `catalog/core.toml`.
-fn catalog_run() -> (String, Vec<String>) {
-    let catalog = std::fs::read_to_string(repository().join("catalog/core.toml")).unwrap();
+fn catalog_run() -> std::io::Result<(String, Vec<String>)> {
+    let catalog = std::fs::read_to_string(repository().join("catalog/core.toml"))?;
     let mut lines = catalog.lines().map(str::trim);
     let mut in_command = false;
     let mut summary = String::new();
@@ -58,13 +58,13 @@ fn catalog_run() -> (String, Vec<String>) {
             summary = text;
         }
     }
-    (summary, params)
+    Ok((summary, params))
 }
 
 #[test]
 fn front_matter_agrees_with_the_catalog() {
-    let page = page();
-    let (summary, _) = catalog_run();
+    let page = page().unwrap();
+    let (summary, _) = catalog_run().unwrap();
     let front = page
         .strip_prefix("---\n")
         .and_then(|rest| rest.split("\n---\n").next())
@@ -81,8 +81,8 @@ fn front_matter_agrees_with_the_catalog() {
 
 #[test]
 fn every_parameter_of_the_catalog_is_described_and_no_other() {
-    let page = page();
-    let (_, params) = catalog_run();
+    let page = page().unwrap();
+    let (_, params) = catalog_run().unwrap();
     assert!(params.len() > 20);
     let table: Vec<String> = page
         .split("## Parameters")
@@ -99,7 +99,7 @@ fn every_parameter_of_the_catalog_is_described_and_no_other() {
 
 #[test]
 fn sections_follow_the_order_of_a_command_page() {
-    let page = page();
+    let page = page().unwrap();
     let headings: Vec<&str> = page
         .lines()
         .filter(|line| line.starts_with("## "))
@@ -122,7 +122,7 @@ fn sections_follow_the_order_of_a_command_page() {
 
 #[test]
 fn the_page_has_examples_of_run() {
-    let page = page();
+    let page = page().unwrap();
     let examples: Vec<&str> = page
         .split("```nurt example\n")
         .skip(1)
@@ -131,6 +131,9 @@ fn the_page_has_examples_of_run() {
     assert!(examples.len() >= MIN_EXAMPLES);
     for example in examples {
         assert!(example.contains("run ["), "example without run: {example}");
-        assert!(example.contains("cwd: \"/home/user"), "example without cwd: {example}");
+        assert!(
+            example.contains("cwd: \"/home/user"),
+            "example without cwd: {example}"
+        );
     }
 }

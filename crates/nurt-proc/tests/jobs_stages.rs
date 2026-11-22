@@ -102,7 +102,10 @@ fn registers_the_job_commands() {
     assert_eq!(jobs.input, InputKinds::None);
     for command in ["stop", "suspend", "resume", "retry", "remove"] {
         let stage = find(command);
-        assert_eq!(stage.descriptor().input, InputKinds::Only(vec![RecordKind::Job]));
+        assert_eq!(
+            stage.descriptor().input,
+            InputKinds::Only(vec![RecordKind::Job])
+        );
         assert!(stage.as_effect().is_some());
     }
 }
@@ -112,12 +115,24 @@ fn lists_no_jobs_in_a_new_state_directory() {
     let dir = tempfile::tempdir().unwrap();
     let ctx = context(Some(dir.path()));
     let stages = nurt_proc::stages();
-    let jobs = stages.iter().find(|stage| stage.descriptor().command == "jobs").unwrap();
+    let jobs = stages
+        .iter()
+        .find(|stage| stage.descriptor().command == "jobs")
+        .unwrap();
     let args = BoundArgs::new("jobs");
-    let output = jobs.as_read().unwrap().execute(&args, StageInput::none(), &ctx).unwrap();
+    let output = jobs
+        .as_read()
+        .unwrap()
+        .execute(&args, StageInput::none(), &ctx)
+        .unwrap();
     assert_eq!(StageInput::from(output).into_records().unwrap().count(), 0);
-    let unknown = BoundArgs::new("jobs").with("id", ArgValue::Value(Value::Text("j3".to_owned())), false);
-    let error = jobs.as_read().unwrap().execute(&unknown, StageInput::none(), &ctx).unwrap_err();
+    let unknown =
+        BoundArgs::new("jobs").with("id", ArgValue::Value(Value::Text("j3".to_owned())), false);
+    let error = jobs
+        .as_read()
+        .unwrap()
+        .execute(&unknown, StageInput::none(), &ctx)
+        .unwrap_err();
     assert_eq!(error.code, ErrorCode::UnknownJob);
 }
 

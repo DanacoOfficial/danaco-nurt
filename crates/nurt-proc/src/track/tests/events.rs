@@ -9,8 +9,8 @@ use nurt_contracts::record::Tracking;
 use nurt_contracts::report::{ChangeAction, Notable};
 
 use super::support::{Harness, RecordingTx};
-use crate::iface::TrackMode;
-use crate::track::prepared::Prepared;
+use crate::iface::{PreparedScan, TrackMode};
+use crate::track::Tracker;
 
 #[test]
 fn events_narrow_the_second_scan_to_touched_paths() {
@@ -42,17 +42,15 @@ fn lost_events_fall_back_to_a_full_scan() {
     let h = Harness::new();
     h.write("a.txt", "alpha");
     let mut tx = RecordingTx::new();
-    let prepared = h.prepare(&h.spec(TrackMode::Auto), &mut tx);
-    if let Some(watch) = prepared
-        .as_any()
-        .downcast_ref::<Prepared>()
-        .and_then(|prepared| prepared.watch.as_ref())
-    {
+    let prepared = Tracker
+        .capture(&h.ctx, &h.spec(TrackMode::Auto), &mut tx)
+        .unwrap();
+    if let Some(watch) = prepared.watch.as_ref() {
         watch.lose_events();
     }
     h.write("a.txt", "alpha changed");
     h.write("b.txt", "beta");
-    let outcome = prepared.finish(&h.ctx, &mut tx).unwrap();
+    let outcome = Box::new(prepared).finish(&h.ctx, &mut tx).unwrap();
     assert_eq!(outcome.tracking, Tracking::Scan);
     assert_eq!(
         h.actions(&outcome),

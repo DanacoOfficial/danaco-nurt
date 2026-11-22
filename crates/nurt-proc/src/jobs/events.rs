@@ -44,10 +44,9 @@ pub(crate) fn finished(job: &Job) -> Event {
             .as_ref()
             .or(job.stdout_file.as_ref())
             .map(|path| path.as_str().to_owned()),
-        changes: job
-            .changes
-            .as_ref()
-            .map_or(0, |changes| u64::try_from(changes.len()).unwrap_or(u64::MAX)),
+        changes: job.changes.as_ref().map_or(0, |changes| {
+            u64::try_from(changes.len()).unwrap_or(u64::MAX)
+        }),
     })
 }
 
@@ -87,7 +86,11 @@ impl OutputEvents {
             return;
         }
         let now = Instant::now();
-        if !force && self.last.is_some_and(|last| now.duration_since(last) < OUTPUT_EVENT_INTERVAL) {
+        if !force
+            && self
+                .last
+                .is_some_and(|last| now.duration_since(last) < OUTPUT_EVENT_INTERVAL)
+        {
             return;
         }
         self.last = Some(now);
@@ -95,7 +98,10 @@ impl OutputEvents {
             self.failed = true;
             ctx.emit(Event::Log(LogEvent {
                 level: LogLevel::Warn,
-                message: format!("output events of job `{}` stopped: {}", self.id, error.message),
+                message: format!(
+                    "output events of job `{}` stopped: {}",
+                    self.id, error.message
+                ),
                 source: Some("jobs".to_owned()),
             }));
         }
@@ -117,7 +123,11 @@ impl OutputEvents {
                 let lines: Vec<String> = text.lines().map(str::to_owned).collect();
                 let bytes = lines
                     .iter()
-                    .map(|line| u64::try_from(line.len()).unwrap_or(u64::MAX).saturating_add(1))
+                    .map(|line| {
+                        u64::try_from(line.len())
+                            .unwrap_or(u64::MAX)
+                            .saturating_add(1)
+                    })
                     .sum();
                 ctx.emit(Event::JobOutput(JobOutput {
                     id: self.id.clone(),

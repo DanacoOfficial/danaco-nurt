@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 /// Path of the `proc_fixture` example, which `cargo test` builds next to the
 /// test binaries.
-pub fn fixture_path() -> PathBuf {
+pub(crate) fn fixture_path() -> PathBuf {
     let exe = std::env::current_exe().unwrap_or_default();
     let target_dir = exe
         .parent()

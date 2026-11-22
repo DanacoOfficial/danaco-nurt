@@ -6,8 +6,8 @@
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::record::{Job, JobState};
 use nurt_contracts::stage::{
-    BoundArgs, CheckCtx, ExecCtx, InputKinds, ReadStage, RecordStream, StageDescriptor,
-    StageImpl, StageInput, StageOutput, StaticInfo,
+    BoundArgs, CheckCtx, ExecCtx, InputKinds, ReadStage, RecordStream, StageDescriptor, StageImpl,
+    StageInput, StageOutput, StaticInfo,
 };
 use nurt_contracts::value::Record;
 
@@ -82,7 +82,10 @@ impl ReadStage for Jobs {
         let output_view = output_view(args)?;
         let (job, header): (Job, Option<Record>) = match view(args)? {
             View::Status => (store.status(&file)?, None),
-            View::Output => (store.output(&file, word(args, "since")?, &output_view)?, None),
+            View::Output => (
+                store.output(&file, word(args, "since")?, &output_view)?,
+                None,
+            ),
             View::Result => store.result(&file, &output_view)?,
         };
         let output = StageOutput::records(RecordStream::once(Record::from(job)));

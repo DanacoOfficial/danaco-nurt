@@ -24,9 +24,18 @@ pub(crate) fn stages() -> Vec<Arc<dyn StageImpl>> {
 pub(crate) fn with_components(components: &Components) -> Vec<Arc<dyn StageImpl>> {
     vec![
         Arc::new(list::Jobs::new(components.clone())),
-        Arc::new(control::Control::new(control::Kind::Stop, components.clone())),
-        Arc::new(control::Control::new(control::Kind::Suspend, components.clone())),
-        Arc::new(control::Control::new(control::Kind::Resume, components.clone())),
+        Arc::new(control::Control::new(
+            control::Kind::Stop,
+            components.clone(),
+        )),
+        Arc::new(control::Control::new(
+            control::Kind::Suspend,
+            components.clone(),
+        )),
+        Arc::new(control::Control::new(
+            control::Kind::Resume,
+            components.clone(),
+        )),
         Arc::new(retry::Retry::new(components.clone())),
         Arc::new(remove::Remove::new(components.clone())),
     ]

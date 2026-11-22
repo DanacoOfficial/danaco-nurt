@@ -31,13 +31,23 @@ impl Iterator for ChunkSizes {
 
 /// Reads with `cursor` until the output ends, returning the lines and the
 /// last cursor.
-fn read_all(store: &dyn OutputStore, view: &OutputView, mut cursor: Option<String>, done: &AtomicBool) -> (Vec<String>, Option<String>) {
+fn read_all(
+    store: &dyn OutputStore,
+    view: &OutputView,
+    mut cursor: Option<String>,
+    done: &AtomicBool,
+) -> (Vec<String>, Option<String>) {
     let mut lines = Vec::new();
     loop {
         let ended = done.load(Ordering::Acquire);
         let out = store.read_since(cursor.as_deref(), view).unwrap();
         let progressed = out.output_cursor != cursor;
-        lines.extend(out.stdout.lines().map(str::to_owned).filter(|line| !line.is_empty()));
+        lines.extend(
+            out.stdout
+                .lines()
+                .map(str::to_owned)
+                .filter(|line| !line.is_empty()),
+        );
         cursor = out.output_cursor;
         if ended && !progressed {
             return (lines, cursor);
@@ -119,16 +129,25 @@ fn reads_selected_stream_and_applies_filters() {
         ..view()
     };
     let out = store.read_since(None, &stderr).unwrap();
-    assert_eq!((out.stdout.as_str(), out.stderr.as_str()), ("", "e\nkeep 2"));
+    assert_eq!(
+        (out.stdout.as_str(), out.stderr.as_str()),
+        ("", "e\nkeep 2")
+    );
     let cursor = out.output_cursor.unwrap();
     let rest = store.read_since(Some(&cursor), &view()).unwrap();
-    assert_eq!((rest.stdout.as_str(), rest.stderr.as_str()), ("a\nkeep 1\nb", ""));
+    assert_eq!(
+        (rest.stdout.as_str(), rest.stderr.as_str()),
+        ("a\nkeep 1\nb", "")
+    );
     let filtered = OutputView {
         filter: Some("keep".to_owned()),
         ..view()
     };
     let out = store.read_since(None, &filtered).unwrap();
-    assert_eq!((out.stdout.as_str(), out.stderr.as_str()), ("keep 1", "keep 2"));
+    assert_eq!(
+        (out.stdout.as_str(), out.stderr.as_str()),
+        ("keep 1", "keep 2")
+    );
     let limited = OutputView {
         tail: Some(1),
         ..view()
@@ -157,7 +176,11 @@ fn rejects_cursor_of_other_spool_and_past_end() {
     let bench = Bench::new();
     let first = bench.finished("first", b"a\n", b"");
     let second = bench.finished("second", b"b\n", b"");
-    let cursor = first.render(&view(), Some(0)).unwrap().output_cursor.unwrap();
+    let cursor = first
+        .render(&view(), Some(0))
+        .unwrap()
+        .output_cursor
+        .unwrap();
     let error = second.read_since(Some(&cursor), &view()).unwrap_err();
     assert_eq!(error.code(), ErrorCode::InvalidValue);
     let tag = cursor.split('.').next().unwrap();

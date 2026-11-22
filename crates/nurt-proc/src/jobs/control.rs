@@ -8,19 +8,26 @@
 //! poll, removes it, acts and writes `<name>.reply.json`. The same exchange
 //! serves jobs supervised by this process, by another long-lived process and
 //! by the detached supervisor.
+//!
+//! Whoever removes a request file owns the request: the supervising process
+//! acts only on requests it removed itself, and a requester that cannot
+//! remove its request any more waits for the reply, which the supervising
+//! process writes after the final state of a stopped job.
 
 use std::fs;
+use std::io::ErrorKind;
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::record::{Job, Signal};
+use nurt_contracts::record::{Job, JobState, Signal};
 use nurt_contracts::stage::ExecCtx;
 use serde::{Deserialize, Serialize};
 
 use super::state::{Action, check_action, is_live};
 use super::table::{
-    JobTable, PROTOCOL, create_private_dir, read_json, remove_file, write_json,
+    JobTable, PROTOCOL, create_private_dir, io_error, read_json, remove_file, write_json,
 };
 
 /// Interval at which requesters look for replies.
@@ -58,7 +65,8 @@ pub(crate) enum ControlAction {
 }
 
 impl ControlAction {
-    fn action(self) -> Action {
+    /// Action checked against the state of the job.
+    pub(crate) fn action(self) -> Action {
         match self {
             Self::Stop { .. } | Self::Cancel => Action::Stop,
             Self::Suspend => Action::Suspend,
@@ -105,7 +113,12 @@ pub(crate) fn request_name() -> String {
 /// action or ends before it is performed, with `E_TIMEOUT` when the
 /// supervising process does not answer, with `E_CANCELLED` when the call is
 /// cancelled, and with the error of the supervising process.
-pub(crate) fn send(ctx: &ExecCtx, table: &JobTable, id: &str, action: ControlAction) -> Result<Job> {
+pub(crate) fn send(
+    ctx: &ExecCtx,
+    table: &JobTable,
+    id: &str,
+    action: ControlAction,
+) -> Result<Job> {
     let file = table.get(id)?;
     check_action(id, file.record.state, action.action())?;
     let dir = table.control_dir(id);
@@ -113,26 +126,34 @@ pub(crate) fn send(ctx: &ExecCtx, table: &JobTable, id: &str, action: ControlAct
     let name = request_name();
     let request_path = dir.join(format!("{name}{REQUEST_SUFFIX}"));
     let reply_path = dir.join(format!("{name}{REPLY_SUFFIX}"));
-    write_json(&request_path, &ControlRequest { protocol: PROTOCOL, action }, true)?;
+    write_json(
+        &request_path,
+        &ControlRequest {
+            protocol: PROTOCOL,
+            action,
+        },
+        true,
+    )?;
     let deadline = Instant::now() + action.timeout();
     loop {
-        if let Some(reply) = read_json::<ControlReply>(&reply_path)? {
-            remove_file(&reply_path)?;
-            return match reply {
-                ControlReply::Done(job) => Ok(*job),
-                ControlReply::Failed(error) => Err(error),
-            };
+        if let Some(reply) = take_reply(&reply_path)? {
+            return reply;
         }
         let ended = table.read(id)?.filter(|file| !is_live(file.record.state));
         let cancelled = ctx.cancel().check();
-        if ended.is_some() || cancelled.is_err() || Instant::now() >= deadline {
-            remove_file(&request_path)?;
-            if let Some(reply) = read_json::<ControlReply>(&reply_path)? {
-                remove_file(&reply_path)?;
-                return match reply {
-                    ControlReply::Done(job) => Ok(*job),
-                    ControlReply::Failed(error) => Err(error),
-                };
+        let expired = Instant::now() >= deadline;
+        if ended.is_some() || cancelled.is_err() || expired {
+            let withdrawn = withdraw(&request_path)?;
+            if let Some(reply) = take_reply(&reply_path)? {
+                return reply;
+            }
+            let answer_follows = !withdrawn
+                && ended
+                    .as_ref()
+                    .is_some_and(|file| file.record.state != JobState::Lost);
+            if answer_follows && cancelled.is_ok() && !expired {
+                std::thread::sleep(CONTROL_POLL);
+                continue;
             }
             cancelled?;
             if let Some(file) = ended {
@@ -140,10 +161,34 @@ pub(crate) fn send(ctx: &ExecCtx, table: &JobTable, id: &str, action: ControlAct
             }
             return Err(Error::new(
                 ErrorCode::Timeout,
-                format!("the supervisor of job `{id}` did not answer; read its state with `jobs \"{id}\"`"),
+                format!(
+                    "the supervisor of job `{id}` did not answer; read its state with `jobs \"{id}\"`"
+                ),
             ));
         }
         std::thread::sleep(CONTROL_POLL);
+    }
+}
+
+/// Reads and removes the reply at `path`, when one was written.
+fn take_reply(path: &Path) -> Result<Option<Result<Job>>> {
+    let Some(reply) = read_json::<ControlReply>(path)? else {
+        return Ok(None);
+    };
+    remove_file(path)?;
+    Ok(Some(match reply {
+        ControlReply::Done(job) => Ok(*job),
+        ControlReply::Failed(error) => Err(error),
+    }))
+}
+
+/// Removes a request file; `false` when the supervising process already
+/// took the request.
+fn withdraw(path: &Path) -> Result<bool> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(io_error(&format!("remove {}", path.display()), &error)),
     }
 }
 
@@ -156,10 +201,18 @@ pub(crate) fn post(table: &JobTable, id: &str, action: ControlAction) -> Result<
     let dir = table.control_dir(id);
     create_private_dir(&dir)?;
     let path = dir.join(format!("{}{REQUEST_SUFFIX}", request_name()));
-    write_json(&path, &ControlRequest { protocol: PROTOCOL, action }, true)
+    write_json(
+        &path,
+        &ControlRequest {
+            protocol: PROTOCOL,
+            action,
+        },
+        true,
+    )
 }
 
-/// Takes the pending requests of job `id`, oldest first.
+/// Takes the pending requests of job `id`, oldest first. A request withdrawn
+/// by its requester before it was removed here is not taken.
 pub(crate) fn pending(table: &JobTable, id: &str) -> Vec<(String, ControlAction)> {
     let Ok(entries) = fs::read_dir(table.control_dir(id)) else {
         return Vec::new();
@@ -170,7 +223,7 @@ pub(crate) fn pending(table: &JobTable, id: &str) -> Vec<(String, ControlAction)
             let file_name = entry.file_name().into_string().ok()?;
             let name = file_name.strip_suffix(REQUEST_SUFFIX)?.to_owned();
             let request = read_json::<ControlRequest>(&entry.path()).ok().flatten()?;
-            remove_file(&entry.path()).ok()?;
+            fs::remove_file(entry.path()).ok()?;
             (request.protocol == PROTOCOL).then_some((name, request.action))
         })
         .collect();

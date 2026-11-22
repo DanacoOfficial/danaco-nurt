@@ -22,8 +22,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::iface::{
     OutputView, Priority, ProcessEnd, ProcessLimits, RenderedOutput, ResourceUsage, RunKind,
-    RunRequest, RunResult, ShowMode, SpawnRequest, StdinSource, TrackMode, TrackOutcome,
-    TrackSpec,
+    RunRequest, RunResult, ShowMode, SpawnRequest, StdinSource, TrackMode, TrackOutcome, TrackSpec,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -134,6 +133,8 @@ pub(crate) enum RunKindDef {
 #[serde(remote = "RunRequest")]
 pub(crate) struct RunRequestDef {
     command: Vec<String>,
+    program: PathBuf,
+    env_keys: Vec<String>,
     #[serde(with = "SpawnRequestDef")]
     spawn: SpawnRequest,
     #[serde(with = "TrackSpecDef")]
@@ -169,6 +170,7 @@ struct ProcessEndDef {
     #[serde(with = "ResourceUsageDef")]
     usage: ResourceUsage,
     suspended_total: Duration,
+    stdin_closed_early: bool,
 }
 
 #[derive(Serialize, Deserialize)]

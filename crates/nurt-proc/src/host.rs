@@ -7,7 +7,7 @@
 //! `run`. Programs run to completion go through process control, so they get
 //! the same process group or job object, time limit and cancellation as a
 //! run. Helper processes with piped standard streams are started directly in
-//! their own process group.
+//! their own process group, on Windows in their own job object.
 //!
 //! The service belongs to the console process: the inherited environment is
 //! the environment of that process and the defaults are the defaults of the
@@ -108,7 +108,8 @@ impl ProcessHost for SystemProcessHost {
     fn run_program(&self, spec: &ProgramSpec, cancel: &CancelToken) -> Result<ProgramOutcome> {
         spawn::check_cwd(&spec.cwd)?;
         let env = console_env(&spec.env, spec.inherit_env)?;
-        let launch = spawn::prepare_launch(&command_of(&spec.program, &spec.args), &spec.cwd, &env)?;
+        let launch =
+            spawn::prepare_launch(&command_of(&spec.program, &spec.args), &spec.cwd, &env)?;
         let config = RunConfig::default();
         let limits = ProcessLimits {
             timeout: Some(
@@ -126,7 +127,9 @@ impl ProcessHost for SystemProcessHost {
             _ => StdinSource::Null,
         };
         let before = spec.detect_changes.then(|| scan(&spec.cwd));
-        let capture = Arc::new(Capture::new(spec.output_limit.unwrap_or(DEFAULT_OUTPUT_LIMIT)));
+        let capture = Arc::new(Capture::new(
+            spec.output_limit.unwrap_or(DEFAULT_OUTPUT_LIMIT),
+        ));
         let request = launch.request(&spec.cwd, env, stdin, false, limits);
         let mut process = self.components.control.spawn(
             request,
@@ -155,8 +158,10 @@ impl ProcessHost for SystemProcessHost {
             stderr: streams.stderr,
             stdout_truncated: streams.stdout_truncated,
             stderr_truncated: streams.stderr_truncated,
-            duration_ms: u64::try_from(end.finished.saturating_since(process.started()).as_millis())
-                .unwrap_or(u64::MAX),
+            duration_ms: u64::try_from(
+                end.finished.saturating_since(process.started()).as_millis(),
+            )
+            .unwrap_or(u64::MAX),
             changed_paths,
         })
     }
@@ -173,7 +178,8 @@ impl ProcessHost for SystemProcessHost {
             }
         }
         let env = console_env(&changes, spec.inherit_env)?;
-        let launch = spawn::prepare_launch(&command_of(&spec.program, &spec.args), &spec.cwd, &env)?;
+        let launch =
+            spawn::prepare_launch(&command_of(&spec.program, &spec.args), &spec.cwd, &env)?;
         let mut command = Command::new(&launch.executable);
         add_arguments(&mut command, &launch);
         command
@@ -194,8 +200,12 @@ impl ProcessHost for SystemProcessHost {
             )
             .with_cause(Error::new(ErrorCode::Io, source.to_string()))
         })?;
+        #[cfg(windows)]
+        let job = crate::os::ServiceJob::adopt(&child)?;
         Ok(Box::new(ServiceProcess {
             child,
+            #[cfg(windows)]
+            job,
             started: wall_now(),
             ended: false,
         }))
@@ -235,7 +245,10 @@ fn separate_group(command: &mut Command) {
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
     /// `CREATE_NO_WINDOW`: the helper gets no console window.
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    command.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
+    /// `CREATE_SUSPENDED`: the helper runs only after it was placed in its
+    /// job object, so every process it starts belongs to the job.
+    const CREATE_SUSPENDED: u32 = 0x0000_0004;
+    command.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW | CREATE_SUSPENDED);
 }
 
 #[cfg(not(any(unix, windows)))]
@@ -351,7 +364,10 @@ fn scan(root: &Path) -> BTreeMap<PathBuf, FileStamp> {
                 return files;
             }
             let name = entry.file_name();
-            if ignored.iter().any(|ignored| OsString::from(ignored) == name) {
+            if ignored
+                .iter()
+                .any(|ignored| OsString::from(ignored) == name)
+            {
                 continue;
             }
             let Ok(metadata) = entry.metadata() else {
@@ -368,7 +384,10 @@ fn scan(root: &Path) -> BTreeMap<PathBuf, FileStamp> {
 }
 
 /// Files created, changed or removed between two scans, in path order.
-fn changed(before: &BTreeMap<PathBuf, FileStamp>, after: &BTreeMap<PathBuf, FileStamp>) -> Vec<PathBuf> {
+fn changed(
+    before: &BTreeMap<PathBuf, FileStamp>,
+    after: &BTreeMap<PathBuf, FileStamp>,
+) -> Vec<PathBuf> {
     let mut paths: BTreeSet<&PathBuf> = after
         .iter()
         .filter(|(path, stamp)| before.get(*path) != Some(stamp))
@@ -381,6 +400,9 @@ fn changed(before: &BTreeMap<PathBuf, FileStamp>, after: &BTreeMap<PathBuf, File
 /// Helper process started by [`ProcessHost::spawn_service`].
 struct ServiceProcess {
     child: Child,
+    /// Job object holding the helper and every process it starts.
+    #[cfg(windows)]
+    job: crate::os::ServiceJob,
     started: WallTime,
     ended: bool,
 }
@@ -414,7 +436,12 @@ impl ServiceProcess {
         let _ = rustix::process::kill_process_group(pid, rustix::process::Signal::KILL);
     }
 
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    fn stop_group(&self) {
+        let _ = self.job.kill();
+    }
+
+    #[cfg(not(any(unix, windows)))]
     fn stop_group(&self) {}
 }
 
@@ -534,7 +561,10 @@ mod tests {
     fn runs_a_program_to_completion_and_captures_its_output() {
         let dir = tempfile::tempdir().unwrap();
         let outcome = host()
-            .run_program(&spec(&["print-argv", "a b", "c"], dir.path()), &CancelToken::new())
+            .run_program(
+                &spec(&["print-argv", "a b", "c"], dir.path()),
+                &CancelToken::new(),
+            )
             .unwrap();
         assert_eq!(outcome.exit_code, Some(0));
         let argv: Vec<String> = serde_json::from_slice(&outcome.stdout).unwrap();
@@ -562,7 +592,10 @@ mod tests {
         let outcome = host().run_program(&spec, &CancelToken::new()).unwrap();
         assert_eq!(String::from_utf8_lossy(&outcome.stdout).trim(), "3");
         let exit = host()
-            .run_program(&self::spec(&["exit-with", "7"], dir.path()), &CancelToken::new())
+            .run_program(
+                &self::spec(&["exit-with", "7"], dir.path()),
+                &CancelToken::new(),
+            )
             .unwrap();
         assert_eq!(exit.exit_code, Some(7));
     }
@@ -626,7 +659,11 @@ mod tests {
         stdin.write_all(b"hello").unwrap();
         drop(stdin);
         let mut text = String::new();
-        child.take_stdout().unwrap().read_to_string(&mut text).unwrap();
+        child
+            .take_stdout()
+            .unwrap()
+            .read_to_string(&mut text)
+            .unwrap();
         assert_eq!(text.trim(), "5");
         let exit = child.wait_timeout(Duration::from_secs(10)).unwrap();
         assert_eq!(exit.and_then(|exit| exit.exit_code), Some(0));

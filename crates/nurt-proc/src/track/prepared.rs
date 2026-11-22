@@ -3,7 +3,6 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! State captured before a run and its comparison after the run.
 
-use std::any::Any;
 use std::path::{Path, PathBuf};
 
 use nurt_contracts::error::Result;
@@ -12,7 +11,6 @@ use nurt_contracts::journal::{MutationTx, PreserveMode};
 use nurt_contracts::record::{Preimage as KeptContent, Tracking};
 use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::stage::ExecCtx;
-use serde::{Deserialize, Serialize};
 
 use super::diff;
 use super::journal::Recorder;
@@ -25,8 +23,7 @@ use crate::iface::{PreparedScan, TrackOutcome};
 const FLAG_EXCLUDED: &str = "preimage_excluded";
 
 /// How changes are detected after the run.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Detection {
     /// Not detected.
     None,
@@ -36,8 +33,9 @@ pub(super) enum Detection {
     Events,
 }
 
-/// Serializable state captured before a run.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// State captured before a run. The job thread that prepares a run also
+/// finishes it, so the state never leaves the process.
+#[derive(Debug, Clone, PartialEq)]
 pub(super) struct State {
     /// Detection mechanism.
     pub(super) detection: Detection,
@@ -155,7 +153,7 @@ impl State {
 pub(super) struct Prepared {
     /// Captured state.
     pub(super) state: State,
-    /// Event watcher; absent after the state was restored in another process.
+    /// Event watcher; absent when changes are found by scanning.
     pub(super) watch: Option<EventWatch>,
 }
 
@@ -198,9 +196,5 @@ impl PreparedScan for Prepared {
         outcome.tracking = tracking;
         outcome.notes = state.notes(tracking, ignored, denied);
         Ok(outcome)
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }

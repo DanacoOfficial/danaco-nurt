@@ -39,15 +39,22 @@ impl ProcessControl for SystemControl {
         sink: Arc<dyn OutputSink>,
         cancel: CancelToken,
     ) -> Result<Box<dyn RunningProcess>> {
-        let (tree, streams) = Tree::spawn(&request)?;
-        let stdin = match request.stdin {
-            StdinSource::Bytes(bytes) => Some(bytes),
-            StdinSource::Null | StdinSource::File(_) => None,
-        };
-        let supervised =
-            supervisor::Supervised::start(tree, streams, &request.limits, sink, cancel, stdin)?;
-        Ok(Box::new(supervised))
+        Ok(Box::new(start(request, sink, cancel)?))
     }
+}
+
+/// Starts the program of `request` and supervises its tree.
+fn start(
+    request: SpawnRequest,
+    sink: Arc<dyn OutputSink>,
+    cancel: CancelToken,
+) -> Result<supervisor::Supervised> {
+    let (tree, streams) = Tree::spawn(&request)?;
+    let stdin = match request.stdin {
+        StdinSource::Bytes(bytes) => Some(bytes),
+        StdinSource::Null | StdinSource::File(_) => None,
+    };
+    supervisor::Supervised::start(tree, streams, &request.limits, sink, cancel, stdin)
 }
 
 /// Process control of this system.

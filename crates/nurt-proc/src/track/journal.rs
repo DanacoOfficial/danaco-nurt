@@ -89,8 +89,10 @@ impl Recorder<'_> {
         detected: &[Detected],
         tx: &mut dyn MutationTx,
     ) -> Result<Vec<Change>> {
-        let externals: Vec<ExternalChange> =
-            detected.iter().flat_map(|change| self.externals(change)).collect();
+        let externals: Vec<ExternalChange> = detected
+            .iter()
+            .flat_map(|change| self.externals(change))
+            .collect();
         if externals.is_empty() {
             return Ok(Vec::new());
         }
@@ -162,8 +164,7 @@ impl Recorder<'_> {
             None => {
                 record.store = Some(STORE_NONE.to_owned());
                 record.irreversible = Some(Irreversible::PreviousContentNotKept);
-                record.flags = (self.not_kept)(source)
-                    .map(|flag| vec![flag.to_owned()]);
+                record.flags = (self.not_kept)(source).map(|flag| vec![flag.to_owned()]);
             }
         }
     }

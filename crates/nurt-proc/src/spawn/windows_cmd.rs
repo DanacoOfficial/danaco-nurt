@@ -215,7 +215,10 @@ mod tests {
         );
         assert_eq!(
             line,
-            Ok(r#"cmd.exe /e:ON /v:OFF /d /c ""C:\Tools\build.cmd" release "a b" "x&y"""#.to_owned())
+            Ok(
+                r#"cmd.exe /e:ON /v:OFF /d /c ""C:\Tools\build.cmd" release "a b" "x&y"""#
+                    .to_owned()
+            )
         );
     }
 
@@ -231,10 +234,7 @@ mod tests {
 
     #[test]
     fn reports_the_position_of_an_argument_with_a_line_break() {
-        let result = command_line(
-            r"C:\a.bat",
-            &["ok".to_owned(), "two\nlines".to_owned()],
-        );
+        let result = command_line(r"C:\a.bat", &["ok".to_owned(), "two\nlines".to_owned()]);
         assert_eq!(
             result.map_err(|problem: ArgProblem| (problem.index, problem.problem)),
             Err((2, "line_break_in_batch_argument"))
@@ -285,8 +285,7 @@ mod tests {
                 .raw_arg(tail)
                 .output()
                 .unwrap_or_else(|error| panic!("{error}"));
-            let received: Vec<String> =
-                serde_json::from_slice(&output.stdout).unwrap_or_default();
+            let received: Vec<String> = serde_json::from_slice(&output.stdout).unwrap_or_default();
             assert_eq!(received, vec![case.arg.clone()], "argument {:?}", case.arg);
         }
     }

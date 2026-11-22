@@ -65,7 +65,7 @@ fn emit_encoding(name: &str) -> Option<()> {
         "utf-16le" => line.encode_utf16().flat_map(u16::to_le_bytes).collect(),
         "utf-16be" => line.encode_utf16().flat_map(u16::to_be_bytes).collect(),
         "cp1250" => encoding_rs::WINDOWS_1250.encode(&line).0.into_owned(),
-        "cp852" => SAMPLE_CP852.iter().copied().chain([b'\n']).collect(),
+        "cp852" => SAMPLE_CP852.iter().copied().chain(*b"\n").collect(),
         _ => return None,
     };
     let mut stdout = std::io::stdout().lock();

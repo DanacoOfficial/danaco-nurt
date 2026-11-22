@@ -11,8 +11,8 @@ use nurt_contracts::record::Launcher;
 use nurt_contracts::services::EnvVar;
 
 use super::{
-    ChildEnv, InheritEnv, Platform, check_cwd, prepare_launch, program_text, record_path,
-    resolve, text_literal,
+    ChildEnv, InheritEnv, Platform, check_cwd, prepare_launch, program_text, record_path, resolve,
+    text_literal,
 };
 
 fn command(items: &[&str]) -> Vec<String> {
@@ -109,7 +109,11 @@ mod resolution {
         let cwd = tempfile::tempdir().unwrap();
         touch(&bin.path().join("tool.CMD"), true);
         touch(&bin.path().join("tool.EXE"), true);
-        let env = env_with_path(Platform::Windows, bin.path(), &[("PATHEXT", ".COM;.EXE;.BAT;.CMD")]);
+        let env = env_with_path(
+            Platform::Windows,
+            bin.path(),
+            &[("PATHEXT", ".COM;.EXE;.BAT;.CMD")],
+        );
         let resolved = resolve(&command(&["tool"]), cwd.path(), &env).unwrap();
         assert_eq!(resolved.path, bin.path().join("tool.EXE"));
         assert_eq!(resolved.launcher, Launcher::Direct);
@@ -131,7 +135,7 @@ mod resolution {
     fn batch_files_start_through_the_command_interpreter() {
         let bin = tempfile::tempdir().unwrap();
         let cwd = tempfile::tempdir().unwrap();
-        touch(&bin.path().join("build.bat"), true);
+        touch(&bin.path().join("build.BAT"), true);
         let env = env_with_path(
             Platform::Windows,
             bin.path(),
@@ -139,10 +143,10 @@ mod resolution {
         );
         let launch = prepare_launch(&command(&["build", "a&b"]), cwd.path(), &env).unwrap();
         assert_eq!(launch.launcher, Launcher::Cmd);
-        assert_eq!(launch.program, bin.path().join("build.bat"));
+        assert_eq!(launch.program, bin.path().join("build.BAT"));
         assert_eq!(launch.executable, PathBuf::from(r"D:\Win\System32\cmd.exe"));
         assert!(launch.args.is_empty());
-        let script = bin.path().join("build.bat");
+        let script = bin.path().join("build.BAT");
         assert_eq!(
             launch.command_line,
             Some(OsString::from(format!(
@@ -187,7 +191,10 @@ mod resolution {
         assert_eq!(candidates.first(), Some(&r#"run ["cargo", "build"]"#));
         assert!(!candidates.iter().any(|program| program.contains("\"ls\"")));
         assert!(candidates.len() <= 5);
-        assert_eq!(error.data().fix.first().map(String::as_str), Some(r#"run ["cargo", "build"]"#));
+        assert_eq!(
+            error.data().fix.first().map(String::as_str),
+            Some(r#"run ["cargo", "build"]"#)
+        );
     }
 
     #[test]
@@ -279,7 +286,12 @@ mod environment {
         .unwrap();
         assert_eq!(
             env.into_vars(),
-            vars(&[("TERM", "dumb"), ("KEEP", "1"), ("NO_COLOR", "0"), ("EMPTY", "")])
+            vars(&[
+                ("TERM", "dumb"),
+                ("KEEP", "1"),
+                ("NO_COLOR", "0"),
+                ("EMPTY", "")
+            ])
         );
     }
 
@@ -326,8 +338,14 @@ mod environment {
             ("A\0B", "x", "nul_in_environment"),
             ("A", "x\0y", "nul_in_environment"),
         ] {
-            let error = ChildEnv::build(Platform::Unix, Vec::new(), InheritEnv::All, [], &[set(name, value)])
-                .unwrap_err();
+            let error = ChildEnv::build(
+                Platform::Unix,
+                Vec::new(),
+                InheritEnv::All,
+                [],
+                &[set(name, value)],
+            )
+            .unwrap_err();
             assert_eq!(error.code(), ErrorCode::Arg);
             assert_eq!(problem(&error), Some(expected));
         }
@@ -341,31 +359,44 @@ mod arguments {
     fn rejects_a_nul_character_with_its_position_and_a_fix() {
         let cwd = tempfile::tempdir().unwrap();
         let env = env_with_path(Platform::Unix, cwd.path(), &[]);
-        let error = prepare_launch(&command(&["tool", "ok", "a\0b"]), cwd.path(), &env).unwrap_err();
+        let error =
+            prepare_launch(&command(&["tool", "ok", "a\0b"]), cwd.path(), &env).unwrap_err();
         assert_eq!(error.code(), ErrorCode::Arg);
         assert_eq!(problem(&error), Some("nul_in_argument"));
-        assert_eq!(error.data().details.get("index"), Some(&serde_json::Value::from(2)));
-        assert_eq!(error.data().fix, vec![r#"run ["tool", "ok"] stdin: "a\0b""#.to_owned()]);
+        assert_eq!(
+            error.data().details.get("index"),
+            Some(&serde_json::Value::from(2))
+        );
+        assert_eq!(
+            error.data().fix,
+            vec![r#"run ["tool", "ok"] stdin: "a\0b""#.to_owned()]
+        );
     }
 
     #[test]
     fn rejects_a_line_break_in_an_argument_of_a_batch_file() {
         let bin = tempfile::tempdir().unwrap();
         let cwd = tempfile::tempdir().unwrap();
-        touch(&bin.path().join("job.cmd"), true);
+        touch(&bin.path().join("job.CMD"), true);
         let env = env_with_path(Platform::Windows, bin.path(), &[("PATHEXT", ".CMD")]);
         let error = prepare_launch(&command(&["job", "two\nlines"]), cwd.path(), &env).unwrap_err();
         assert_eq!(error.code(), ErrorCode::Arg);
         assert_eq!(problem(&error), Some("line_break_in_batch_argument"));
-        assert_eq!(error.data().details.get("index"), Some(&serde_json::Value::from(1)));
-        assert_eq!(error.data().fix, vec![r#"run ["job"] stdin: "two\nlines""#.to_owned()]);
+        assert_eq!(
+            error.data().details.get("index"),
+            Some(&serde_json::Value::from(1))
+        );
+        assert_eq!(
+            error.data().fix,
+            vec![r#"run ["job"] stdin: "two\nlines""#.to_owned()]
+        );
     }
 
     #[test]
     fn a_line_break_reaches_a_program_that_is_not_a_batch_file() {
         let bin = tempfile::tempdir().unwrap();
         let cwd = tempfile::tempdir().unwrap();
-        touch(&bin.path().join("tool.exe"), true);
+        touch(&bin.path().join("tool.EXE"), true);
         let env = env_with_path(Platform::Windows, bin.path(), &[("PATHEXT", ".EXE")]);
         let launch = prepare_launch(&command(&["tool", "two\nlines"]), cwd.path(), &env).unwrap();
         assert_eq!(launch.args, vec![OsString::from("two\nlines")]);

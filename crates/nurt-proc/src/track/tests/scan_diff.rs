@@ -65,7 +65,10 @@ fn reports_every_kind_of_change() {
     assert_eq!(modified.size_before.map(|size| size.bytes()), Some(3));
     assert_eq!(modified.size_after.map(|size| size.bytes()), Some(12));
     assert_eq!(modified.store.as_deref(), Some("copy"));
-    assert_eq!(h.change(&outcome, "created.txt").store.as_deref(), Some("created"));
+    assert_eq!(
+        h.change(&outcome, "created.txt").store.as_deref(),
+        Some("created")
+    );
     assert!(h.change(&outcome, "link").link_target.is_some());
     assert_eq!(outcome.tracking, Tracking::Scan);
     assert_eq!(outcome.watch, vec![h.root.clone()]);
@@ -181,7 +184,9 @@ fn without_detection_nothing_is_scanned_or_kept() {
     let h = Harness::new();
     h.write("a.txt", "alpha");
     let mut tx = RecordingTx::new();
-    let outcome = h.run(&h.spec(TrackMode::None), &mut tx, |h| h.write("a.txt", "changed"));
+    let outcome = h.run(&h.spec(TrackMode::None), &mut tx, |h| {
+        h.write("a.txt", "changed")
+    });
     assert_eq!(outcome.tracking, Tracking::None);
     assert!(outcome.changes.is_empty());
     assert!(outcome.notes.is_empty());
@@ -264,7 +269,11 @@ fn changes_made_by_a_child_process_are_detected() {
     let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |h| {
         let status = Command::new(fixture())
             .arg("track-mutate")
-            .args(["write", h.path("edit.txt").to_str().unwrap(), "edited by child"])
+            .args([
+                "write",
+                h.path("edit.txt").to_str().unwrap(),
+                "edited by child",
+            ])
             .args(["write", h.path("out/new.txt").to_str().unwrap(), "new"])
             .args(["remove", h.path("keep.txt").to_str().unwrap()])
             .status()

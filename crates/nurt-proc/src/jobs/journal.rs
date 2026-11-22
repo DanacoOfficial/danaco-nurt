@@ -153,7 +153,10 @@ impl MutationTx for Unjournaled {
             let after = after_state(change);
             self.not_kept(change.path.as_path().to_string_lossy().into_owned());
             let index = change.declared.unwrap_or_else(|| {
-                TargetIndex(self.targets.saturating_add(u32::try_from(position).unwrap_or(0)))
+                TargetIndex(
+                    self.targets
+                        .saturating_add(u32::try_from(position).unwrap_or(0)),
+                )
             });
             applied.push(Applied { index, after });
         }
@@ -209,6 +212,7 @@ fn after_state(change: &ExternalChange) -> AfterState {
                 size: Some(metadata.len()),
                 hash: None,
                 mode: None,
+                meta: None,
             }
         }
         Err(_) => AfterState::default(),

@@ -21,53 +21,152 @@ const EFFECTS: &[(&str, &str)] = &[
     ("git send-email patches/", "git send-email|request-pull"),
     ("docker push registry/app:1", "docker|podman|nerdctl push"),
     ("podman push app", "docker|podman|nerdctl push"),
-    ("docker --context prod image push app", "docker|podman|nerdctl image|manifest push"),
-    ("docker buildx build --push -t app .", "docker|podman buildx build --push"),
-    ("npm publish --access public", "npm|pnpm publish|unpublish|deprecate"),
+    (
+        "docker --context prod image push app",
+        "docker|podman|nerdctl image|manifest push",
+    ),
+    (
+        "docker buildx build --push -t app .",
+        "docker|podman buildx build --push",
+    ),
+    (
+        "npm publish --access public",
+        "npm|pnpm publish|unpublish|deprecate",
+    ),
     ("pnpm publish", "npm|pnpm publish|unpublish|deprecate"),
     ("yarn npm publish", "yarn npm publish|tag"),
     ("cargo publish -p nurt", "cargo publish|yank|owner"),
     ("twine upload dist/*", "twine upload"),
     ("python3 -m twine upload dist/*", "twine upload"),
     ("gem push app.gem", "gem push|yank|owner"),
-    ("kubectl apply -f deploy.yaml", "kubectl|oc apply|delete|create|replace|patch|scale|edit|label|annotate|set|expose|run|drain|cordon|uncordon|taint|autoscale"),
-    ("kubectl -n prod delete pod web-1", "kubectl|oc apply|delete|create|replace|patch|scale|edit|label|annotate|set|expose|run|drain|cordon|uncordon|taint|autoscale"),
-    ("kubectl rollout restart deploy/web", "kubectl|oc rollout restart|undo|pause|resume"),
-    ("helm upgrade --install web chart/", "helm install|upgrade|uninstall|delete|rollback|push"),
-    ("terraform apply -auto-approve", "terraform|tofu apply|destroy|import|taint|untaint"),
-    ("terraform -chdir=infra destroy", "terraform|tofu apply|destroy|import|taint|untaint"),
-    ("tofu apply", "terraform|tofu apply|destroy|import|taint|untaint"),
-    ("pulumi up --yes", "pulumi up|update|destroy|import|refresh|cancel"),
-    ("aws --region eu-west-1 ec2 terminate-instances --instance-ids i-1", "aws * create*|delete*|put-*|update-*|run-*|terminate-*|start-*|stop-*|reboot-*|modify-*|attach-*|detach-*|associate-*|disassociate-*|register-*|deregister-*|deploy|invoke|publish|send-*|tag-*|untag-*|remove-*|add-*|set-*|import-*|restore-*|reset-*|enable-*|disable-*|cancel-*|copy-*|upload-*|replace-*|revoke-*|authorize-*|change-*|apply-*"),
-    ("aws s3 sync build/ s3://bucket", "aws s3 cp|mv|rm|sync|mb|rb|website"),
-    ("gcloud compute instances delete vm-1", "gcloud ** create|delete|update|deploy|patch|start|stop|reset|resize|import|submit|add-*|remove-*|set-iam-policy|enable|disable|publish|undelete|restore|rollback"),
-    ("az group create -n rg -l westeurope", "az ** create|delete|update|set|start|stop|restart|deploy|add|remove|import|purge|upload|upload-batch|delete-batch|swap|scale|resize|assign|grant|revoke"),
-    ("curl -X POST https://api.example.com/items", "curl -X|--request=POST|PUT|DELETE|PATCH"),
-    ("curl -sXDELETE https://api.example.com/items/1", "curl -X|--request=POST|PUT|DELETE|PATCH"),
-    ("curl --request=put https://api.example.com/items/1", "curl -X|--request=POST|PUT|DELETE|PATCH"),
-    ("curl -d name=x https://api.example.com/items", "curl -d|--data*|--json|-F|--form*|-T|--upload-file"),
-    ("curl --data-binary @file https://api.example.com", "curl -d|--data*|--json|-F|--form*|-T|--upload-file"),
-    ("wget --post-data=a=1 https://example.com", "wget --post-data*|--post-file*|--body-data*|--body-file*"),
+    (
+        "kubectl apply -f deploy.yaml",
+        "kubectl|oc apply|delete|create|replace|patch|scale|edit|label|annotate|set|expose|run|drain|cordon|uncordon|taint|autoscale",
+    ),
+    (
+        "kubectl -n prod delete pod web-1",
+        "kubectl|oc apply|delete|create|replace|patch|scale|edit|label|annotate|set|expose|run|drain|cordon|uncordon|taint|autoscale",
+    ),
+    (
+        "kubectl rollout restart deploy/web",
+        "kubectl|oc rollout restart|undo|pause|resume",
+    ),
+    (
+        "helm upgrade --install web chart/",
+        "helm install|upgrade|uninstall|delete|rollback|push",
+    ),
+    (
+        "terraform apply -auto-approve",
+        "terraform|tofu apply|destroy|import|taint|untaint",
+    ),
+    (
+        "terraform -chdir=infra destroy",
+        "terraform|tofu apply|destroy|import|taint|untaint",
+    ),
+    (
+        "tofu apply",
+        "terraform|tofu apply|destroy|import|taint|untaint",
+    ),
+    (
+        "pulumi up --yes",
+        "pulumi up|update|destroy|import|refresh|cancel",
+    ),
+    (
+        "aws --region eu-west-1 ec2 terminate-instances --instance-ids i-1",
+        "aws * create*|delete*|put-*|update-*|run-*|terminate-*|start-*|stop-*|reboot-*|modify-*|attach-*|detach-*|associate-*|disassociate-*|register-*|deregister-*|deploy|invoke|publish|send-*|tag-*|untag-*|remove-*|add-*|set-*|import-*|restore-*|reset-*|enable-*|disable-*|cancel-*|copy-*|upload-*|replace-*|revoke-*|authorize-*|change-*|apply-*",
+    ),
+    (
+        "aws s3 sync build/ s3://bucket",
+        "aws s3 cp|mv|rm|sync|mb|rb|website",
+    ),
+    (
+        "gcloud compute instances delete vm-1",
+        "gcloud ** create|delete|update|deploy|patch|start|stop|reset|resize|import|submit|add-*|remove-*|set-iam-policy|enable|disable|publish|undelete|restore|rollback",
+    ),
+    (
+        "az group create -n rg -l westeurope",
+        "az ** create|delete|update|set|start|stop|restart|deploy|add|remove|import|purge|upload|upload-batch|delete-batch|swap|scale|resize|assign|grant|revoke",
+    ),
+    (
+        "curl -X POST https://api.example.com/items",
+        "curl -X|--request=POST|PUT|DELETE|PATCH",
+    ),
+    (
+        "curl -sXDELETE https://api.example.com/items/1",
+        "curl -X|--request=POST|PUT|DELETE|PATCH",
+    ),
+    (
+        "curl --request=put https://api.example.com/items/1",
+        "curl -X|--request=POST|PUT|DELETE|PATCH",
+    ),
+    (
+        "curl -d name=x https://api.example.com/items",
+        "curl -d|--data*|--json|-F|--form*|-T|--upload-file",
+    ),
+    (
+        "curl --data-binary @file https://api.example.com",
+        "curl -d|--data*|--json|-F|--form*|-T|--upload-file",
+    ),
+    (
+        "wget --post-data=a=1 https://example.com",
+        "wget --post-data*|--post-file*|--body-data*|--body-file*",
+    ),
     ("psql -c 'delete from t' db", "psql|pgcli"),
     ("mysql -e 'drop table t'", "mysql|mariadb|mycli"),
     ("mongosh --eval 'db.x.drop()'", "mongosh|mongo"),
     ("redis-cli flushall", "redis-cli|valkey-cli"),
     ("ssh host uptime", "ssh"),
     ("scp file host:/tmp/", "scp|sftp"),
-    ("rsync -av --exclude target ./ backup:/srv/app", "rsync remote"),
-    ("gh pr merge 12 --squash", "gh pr merge|create|close|comment|edit|review|ready|reopen"),
-    ("gh release create v1.0.0", "gh release create|delete|upload|edit"),
-    ("systemctl restart nginx", "systemctl start|stop|restart|reload|try-restart|reload-or-restart|enable|disable|mask|unmask|kill|isolate|daemon-reload|poweroff|reboot|halt|suspend|hibernate"),
-    ("sudo -u root systemctl --user stop app", "systemctl start|stop|restart|reload|try-restart|reload-or-restart|enable|disable|mask|unmask|kill|isolate|daemon-reload|poweroff|reboot|halt|suspend|hibernate"),
-    ("env AWS_PROFILE=prod nice -n 5 terraform apply", "terraform|tofu apply|destroy|import|taint|untaint"),
-    ("time -p timeout 60 cargo publish", "cargo publish|yank|owner"),
-    ("npx vercel@latest deploy --prod", "vercel|netlify|firebase|wrangler|fly|flyctl|serverless|sls|cdk|sam|eb deploy|publish|destroy|remove|terminate|delete"),
-    ("pnpm exec wrangler deploy", "vercel|netlify|firebase|wrangler|fly|flyctl|serverless|sls|cdk|sam|eb deploy|publish|destroy|remove|terminate|delete"),
-    ("bunx netlify deploy", "vercel|netlify|firebase|wrangler|fly|flyctl|serverless|sls|cdk|sam|eb deploy|publish|destroy|remove|terminate|delete"),
+    (
+        "rsync -av --exclude target ./ backup:/srv/app",
+        "rsync remote",
+    ),
+    (
+        "gh pr merge 12 --squash",
+        "gh pr merge|create|close|comment|edit|review|ready|reopen",
+    ),
+    (
+        "gh release create v1.0.0",
+        "gh release create|delete|upload|edit",
+    ),
+    (
+        "systemctl restart nginx",
+        "systemctl start|stop|restart|reload|try-restart|reload-or-restart|enable|disable|mask|unmask|kill|isolate|daemon-reload|poweroff|reboot|halt|suspend|hibernate",
+    ),
+    (
+        "sudo -u root systemctl --user stop app",
+        "systemctl start|stop|restart|reload|try-restart|reload-or-restart|enable|disable|mask|unmask|kill|isolate|daemon-reload|poweroff|reboot|halt|suspend|hibernate",
+    ),
+    (
+        "env AWS_PROFILE=prod nice -n 5 terraform apply",
+        "terraform|tofu apply|destroy|import|taint|untaint",
+    ),
+    (
+        "time -p timeout 60 cargo publish",
+        "cargo publish|yank|owner",
+    ),
+    (
+        "npx vercel@latest deploy --prod",
+        "vercel|netlify|firebase|wrangler|fly|flyctl|serverless|sls|cdk|sam|eb deploy|publish|destroy|remove|terminate|delete",
+    ),
+    (
+        "pnpm exec wrangler deploy",
+        "vercel|netlify|firebase|wrangler|fly|flyctl|serverless|sls|cdk|sam|eb deploy|publish|destroy|remove|terminate|delete",
+    ),
+    (
+        "bunx netlify deploy",
+        "vercel|netlify|firebase|wrangler|fly|flyctl|serverless|sls|cdk|sam|eb deploy|publish|destroy|remove|terminate|delete",
+    ),
     ("uvx twine upload dist/x.whl", "twine upload"),
     ("C:\\Tools\\git.exe push", "git push"),
-    ("sudo apt-get install -y curl", "apt|apt-get|aptitude install|remove|purge|upgrade|dist-upgrade|full-upgrade|autoremove|reinstall"),
-    ("mvn -B clean deploy", "mvn|mvnw ** deploy|release:perform|deploy:deploy-file"),
+    (
+        "sudo apt-get install -y curl",
+        "apt|apt-get|aptitude install|remove|purge|upgrade|dist-upgrade|full-upgrade|autoremove|reinstall",
+    ),
+    (
+        "mvn -B clean deploy",
+        "mvn|mvnw ** deploy|release:perform|deploy:deploy-file",
+    ),
     ("ansible-playbook site.yml", "ansible-playbook"),
     ("kill -9 1234", "kill|pkill|killall|taskkill"),
 ];
@@ -171,7 +270,11 @@ fn configured_patterns_extend_the_table() {
         classifier.classify(&words("notify build --channel ops"))[0].rule,
         "notify * --channel=ops"
     );
-    assert!(classifier.classify(&words("notify build --channel dev")).is_empty());
+    assert!(
+        classifier
+            .classify(&words("notify build --channel dev"))
+            .is_empty()
+    );
     assert!(classifier.classify(&words("deploy-tool status")).is_empty());
     assert_eq!(classifier.classify(&words("git push"))[0].rule, "git push");
 }
@@ -268,11 +371,26 @@ fn interactive_programs_are_classified() {
 #[test]
 fn opaque_scripts_are_extracted() {
     let cases: &[(&[&str], &str, &str)] = &[
-        (&["bash", "-c", "make && make test"], "bash", "make && make test"),
-        (&["sh", "-ec", "set -x; ls"], "sh", "set -x; ls"),
-        (&["sudo", "sh", "-c", "echo 1 > /proc/x"], "sh", "echo 1 > /proc/x"),
         (
-            &["pwsh", "-NoProfile", "-NonInteractive", "-Command", "Get-ChildItem", "-Recurse"],
+            &["bash", "-c", "make && make test"],
+            "bash",
+            "make && make test",
+        ),
+        (&["sh", "-ec", "set -x; ls"], "sh", "set -x; ls"),
+        (
+            &["sudo", "sh", "-c", "echo 1 > /proc/x"],
+            "sh",
+            "echo 1 > /proc/x",
+        ),
+        (
+            &[
+                "pwsh",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Get-ChildItem",
+                "-Recurse",
+            ],
             "pwsh",
             "Get-ChildItem -Recurse",
         ),
@@ -280,8 +398,16 @@ fn opaque_scripts_are_extracted() {
         (&["python3", "-c", "print(1)"], "python3", "print(1)"),
         (&["node", "-e", "console.log(1)"], "node", "console.log(1)"),
         (&["perl", "-e", "print 1"], "perl", "print 1"),
-        (&["deno", "eval", "console.log(1)"], "deno", "console.log(1)"),
-        (&["ssh", "host", "rm", "-rf", "/tmp/x"], "ssh", "rm -rf /tmp/x"),
+        (
+            &["deno", "eval", "console.log(1)"],
+            "deno",
+            "console.log(1)",
+        ),
+        (
+            &["ssh", "host", "rm", "-rf", "/tmp/x"],
+            "ssh",
+            "rm -rf /tmp/x",
+        ),
     ];
     for (argv, interpreter, script) in cases {
         let opaque = classify_argv(argv)

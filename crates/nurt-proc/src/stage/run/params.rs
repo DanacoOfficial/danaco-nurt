@@ -19,7 +19,9 @@ use nurt_contracts::services::EnvVar;
 use nurt_contracts::stage::{ArgValue, BoundArgs, CheckCtx, ExecCtx, ExternalProgram, StaticInfo};
 use nurt_contracts::value::{Fields, Record, Value};
 
-use crate::iface::{OutputView, Priority, ProcessLimits, ShowMode, StdinSource, TrackMode, TrackSpec};
+use crate::iface::{
+    OutputView, Priority, ProcessLimits, ShowMode, StdinSource, TrackMode, TrackSpec,
+};
 use crate::spawn::{InheritEnv, Platform, metacharacter_arguments};
 
 /// Settings of one `run` stage.
@@ -141,25 +143,25 @@ pub(super) fn static_info(args: &BoundArgs, ctx: &CheckCtx<'_>) -> Result<Static
         waits: waits(args, config),
         ..StaticInfo::default()
     };
-    if let Some(command) = constant_command(args) {
-        if let Some(program) = command.first() {
-            info.programs.push(ExternalProgram {
-                program: program.clone(),
-                implementation: Implementation::UserProgram,
-            });
-            let lower = program.to_ascii_lowercase();
-            if lower.ends_with(".bat") || lower.ends_with(".cmd") {
-                let positions = metacharacter_arguments(&command)
-                    .into_iter()
-                    .map(|index| Value::from(u64::try_from(index).unwrap_or(u64::MAX)))
-                    .collect::<Vec<_>>();
-                info.details.insert(
-                    "launcher".to_owned(),
-                    Value::Enum(Launcher::Cmd.as_str().to_owned()),
-                );
-                info.details
-                    .insert("metacharacter_arguments".to_owned(), Value::List(positions));
-            }
+    if let Some(command) = constant_command(args)
+        && let Some(program) = command.first()
+    {
+        info.programs.push(ExternalProgram {
+            program: program.clone(),
+            implementation: Implementation::UserProgram,
+        });
+        let lower = program.to_ascii_lowercase();
+        if lower.ends_with(".bat") || lower.ends_with(".cmd") {
+            let positions = metacharacter_arguments(&command)
+                .into_iter()
+                .map(|index| Value::from(u64::try_from(index).unwrap_or(u64::MAX)))
+                .collect::<Vec<_>>();
+            info.details.insert(
+                "launcher".to_owned(),
+                Value::Enum(Launcher::Cmd.as_str().to_owned()),
+            );
+            info.details
+                .insert("metacharacter_arguments".to_owned(), Value::List(positions));
         }
     }
     for name in ["cwd", "stdin"] {
@@ -168,10 +170,11 @@ pub(super) fn static_info(args: &BoundArgs, ctx: &CheckCtx<'_>) -> Result<Static
         }
     }
     if let Some(Value::List(paths)) = args.value("watch") {
-        info.paths.extend(paths.iter().filter_map(|path| match path {
-            Value::Path(path) | Value::Text(path) => Some(path.clone()),
-            _ => None,
-        }));
+        info.paths
+            .extend(paths.iter().filter_map(|path| match path {
+                Value::Path(path) | Value::Text(path) => Some(path.clone()),
+                _ => None,
+            }));
     }
     let defaults: Fields = config
         .run
@@ -210,10 +213,9 @@ fn waits(args: &BoundArgs, config: &Config) -> bool {
     }
     match args.value("wait") {
         Some(Value::Enum(word) | Value::Text(word)) => word == "forever",
-        Some(Value::Duration(wait)) if !args.is_defaulted("wait") => {
-            wait.to_std()
-                .is_some_and(|wait| wait > config.run.waits_threshold.as_std())
-        }
+        Some(Value::Duration(wait)) if !args.is_defaulted("wait") => wait
+            .to_std()
+            .is_some_and(|wait| wait > config.run.waits_threshold.as_std()),
         _ => config.run.wait.as_std() > config.run.waits_threshold.as_std(),
     }
 }
@@ -225,7 +227,11 @@ fn waits(args: &BoundArgs, config: &Config) -> bool {
 ///
 /// Fails with `E_MISSING_PARAM` without a command and `E_TYPE` for an
 /// element that is not text.
-pub(super) fn command(args: &BoundArgs, record: Option<&Record>, ctx: &ExecCtx) -> Result<Vec<String>> {
+pub(super) fn command(
+    args: &BoundArgs,
+    record: Option<&Record>,
+    ctx: &ExecCtx,
+) -> Result<Vec<String>> {
     match args.eval("command", record, ctx)? {
         Some(Value::List(items)) => items.iter().map(element_text).collect(),
         Some(other) => Err(type_error("command", "list<text>", &other)),
@@ -368,7 +374,12 @@ fn std_duration(name: &str, value: &Value) -> Result<Duration> {
     }
 }
 
-fn duration_or(args: &BoundArgs, ctx: &ExecCtx, name: &str, configured: Duration) -> Result<Duration> {
+fn duration_or(
+    args: &BoundArgs,
+    ctx: &ExecCtx,
+    name: &str,
+    configured: Duration,
+) -> Result<Duration> {
     match given(args, ctx, name)? {
         Some(value) => std_duration(name, &value),
         None => Ok(configured),
@@ -407,7 +418,9 @@ fn path_value(name: &str, value: &Value, base: Option<&Path>) -> Result<PathBuf>
         Some(base) => Ok(base.join(path)),
         None => Err(Error::new(
             ErrorCode::PathRelative,
-            format!("`{name}` is the relative path {text}; give an absolute path or the call parameter `base`"),
+            format!(
+                "`{name}` is the relative path {text}; give an absolute path or the call parameter `base`"
+            ),
         )),
     }
 }
@@ -433,9 +446,10 @@ fn environment(args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<EnvVar>> {
             .map(|(name, value)| {
                 let value = match value {
                     Value::Null => None,
-                    other => Some(element_text(&other).map_err(|_| {
-                        type_error("env", "text values or null", &other)
-                    })?),
+                    other => Some(
+                        element_text(&other)
+                            .map_err(|_| type_error("env", "text values or null", &other))?,
+                    ),
                 };
                 Ok(EnvVar { name, value })
             })
@@ -506,7 +520,9 @@ fn output_view(args: &BoundArgs, ctx: &ExecCtx, config: &Config) -> Result<Outpu
         Some(other) => {
             return Err(invalid(
                 "show",
-                &format!("does not accept `{other}`; use auto, both, stdout, stderr, errors, summary or none"),
+                &format!(
+                    "does not accept `{other}`; use auto, both, stdout, stderr, errors, summary or none"
+                ),
             ));
         }
     };

@@ -6,10 +6,11 @@
 //! change detection.
 //!
 //! The test program is described by its arguments: `run <milliseconds>
-//! <exit code> <lines>` runs for the given time, writes the given number of
-//! lines `line 1`, `line 2`, … to standard output at its start and, with an
-//! exit code other than 0, the line `failure` to standard error. The program
-//! `missing` cannot be started.
+//! <exit code> <lines> [<gate>]` runs for the given time, writes the given
+//! number of lines `line 1`, `line 2`, … to standard output at its start and,
+//! with an exit code other than 0, the line `failure` to standard error.
+//! With a gate file it runs at least until that file exists, so a test
+//! decides when it ends. The program `missing` cannot be started.
 
 use std::collections::HashSet;
 use std::fs::{self, OpenOptions};
@@ -33,6 +34,7 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::{self, Record, RecordKind, Value};
 
+use super::control::{self, ControlAction};
 use super::host::LocalHost;
 use super::journal::Unjournaled;
 use super::runner::Launch;
@@ -59,6 +61,10 @@ const STEP: Duration = Duration::from_millis(10);
 const SECRET_NAME: &str = "DEPLOY_TOKEN";
 const SECRET_VALUE: &str = "s3cr3t-value-7f";
 
+/// Name of the gate file in the test directory; a gated test program ends
+/// once it exists.
+const GATE: &str = "release";
+
 struct SystemClock {
     origin: Instant,
 }
@@ -84,7 +90,11 @@ impl Clock for SystemClock {
         }
     }
 
-    fn sleep(&self, duration: Duration, cancel: &CancelToken) -> std::result::Result<(), CancelReason> {
+    fn sleep(
+        &self,
+        duration: Duration,
+        cancel: &CancelToken,
+    ) -> std::result::Result<(), CancelReason> {
         match cancel.wait_timeout(duration) {
             Some(reason) => Err(reason),
             None => Ok(()),
@@ -127,7 +137,11 @@ impl EventSink for Recorder {
     }
 }
 
-fn context_with(dir: &Path, config: Config, supervision: Option<Supervision>) -> (ExecCtx, Arc<Recorder>) {
+fn context_with(
+    dir: &Path,
+    config: Config,
+    supervision: Option<Supervision>,
+) -> (ExecCtx, Arc<Recorder>) {
     let recorder = Arc::new(Recorder::default());
     let mut extensions = Extensions::new();
     if let Some(supervision) = supervision {
@@ -180,7 +194,10 @@ impl ProcessControl for FakeControl {
         cancel: CancelToken,
     ) -> Result<Box<dyn RunningProcess>> {
         if request.program.ends_with("missing") {
-            return Err(Error::new(ErrorCode::ProgramNotFound, "program `missing` not found"));
+            return Err(Error::new(
+                ErrorCode::ProgramNotFound,
+                "program `missing` not found",
+            ));
         }
         let number = |index: usize| -> u64 {
             request
@@ -192,6 +209,7 @@ impl ProcessControl for FakeControl {
         };
         let run = Duration::from_millis(number(1));
         let code = i32::try_from(number(2)).unwrap_or(1);
+        let gate = request.args.get(4).map(PathBuf::from);
         for line in 1..=number(3) {
             sink.write(OutputStream::Stdout, format!("line {line}\n").as_bytes())?;
         }
@@ -202,6 +220,7 @@ impl ProcessControl for FakeControl {
             pid: 4000 + u32::try_from(self.spawned.lock().unwrap().len()).unwrap_or(0),
             started: wall_now(),
             left: run,
+            gate,
             code,
             limit: request.limits.timeout,
             active: Duration::ZERO,
@@ -226,6 +245,7 @@ struct FakeProcess {
     pid: u32,
     started: WallTime,
     left: Duration,
+    gate: Option<PathBuf>,
     code: i32,
     limit: Option<Duration>,
     active: Duration,
@@ -248,7 +268,12 @@ impl FakeProcess {
         }
     }
 
-    fn end(&self, exit_code: Option<i32>, signal: Option<Signal>, killed_by: Option<KilledBy>) -> ProcessEnd {
+    fn end(
+        &self,
+        exit_code: Option<i32>,
+        signal: Option<Signal>,
+        killed_by: Option<KilledBy>,
+    ) -> ProcessEnd {
         ProcessEnd {
             exit_code,
             signal,
@@ -258,7 +283,12 @@ impl FakeProcess {
             finished: wall_now(),
             usage: ResourceUsage::default(),
             suspended_total: self.suspended_total,
+            stdin_closed_early: false,
         }
+    }
+
+    fn released(&self) -> bool {
+        self.gate.as_ref().is_none_or(|gate| gate.exists())
     }
 }
 
@@ -276,12 +306,20 @@ impl RunningProcess for FakeProcess {
         loop {
             self.tick();
             if self.cancel.is_cancelled() {
-                return Ok(Some(self.end(None, Some(Signal::Terminate), Some(KilledBy::Cancel))));
+                return Ok(Some(self.end(
+                    None,
+                    Some(Signal::Terminate),
+                    Some(KilledBy::Cancel),
+                )));
             }
             if self.limit.is_some_and(|limit| self.active >= limit) {
-                return Ok(Some(self.end(None, Some(Signal::Kill), Some(KilledBy::Timeout))));
+                return Ok(Some(self.end(
+                    None,
+                    Some(Signal::Kill),
+                    Some(KilledBy::Timeout),
+                )));
             }
-            if self.left.is_zero() && !self.suspended {
+            if self.left.is_zero() && !self.suspended && self.released() {
                 return Ok(Some(self.end(Some(self.code), None, None)));
             }
             if timeout.is_some_and(|timeout| begun.elapsed() >= timeout) {
@@ -289,10 +327,6 @@ impl RunningProcess for FakeProcess {
             }
             std::thread::sleep(Duration::from_millis(2));
         }
-    }
-
-    fn signal(&mut self, _signal: Signal) -> Result<()> {
-        Ok(())
     }
 
     fn stop(&mut self, signal: Signal, _grace: Duration) -> Result<ProcessEnd> {
@@ -310,10 +344,6 @@ impl RunningProcess for FakeProcess {
         self.tick();
         self.suspended = false;
         Ok(())
-    }
-
-    fn usage(&self) -> Result<ResourceUsage> {
-        Ok(ResourceUsage::default())
     }
 }
 
@@ -350,7 +380,10 @@ impl SpoolFactory for FileSpool {
             stderr: dir.join(format!("{id}.stderr")),
         };
         if !store.stdout.exists() {
-            return Err(Error::new(ErrorCode::NotFound, format!("no output of `{id}`")));
+            return Err(Error::new(
+                ErrorCode::NotFound,
+                format!("no output of `{id}`"),
+            ));
         }
         Ok(Arc::new(store))
     }
@@ -388,27 +421,56 @@ impl FileStore {
     fn select(view: &OutputView, lines: &[String]) -> String {
         let filtered: Vec<&String> = lines
             .iter()
-            .filter(|line| view.filter.as_ref().is_none_or(|filter| line.contains(filter.as_str())))
+            .filter(|line| {
+                view.filter
+                    .as_ref()
+                    .is_none_or(|filter| line.contains(filter.as_str()))
+            })
             .collect();
-        let tail = view.tail.map_or(filtered.len(), |tail| usize::try_from(tail).unwrap_or(0));
+        let tail = view
+            .tail
+            .map_or(filtered.len(), |tail| usize::try_from(tail).unwrap_or(0));
         let skip = filtered.len().saturating_sub(tail);
-        filtered[skip..].iter().map(|line| format!("{line}\n")).collect()
+        filtered[skip..]
+            .iter()
+            .map(|line| format!("{line}\n"))
+            .collect()
     }
 
-    fn rendered(&self, view: &OutputView, out: &[String], err: &[String], all_out: usize, all_err: usize) -> RenderedOutput {
+    fn rendered(
+        &self,
+        view: &OutputView,
+        out: &[String],
+        err: &[String],
+        all_out: usize,
+        all_err: usize,
+    ) -> RenderedOutput {
         let progress = view.progress.as_ref().and_then(|pattern| {
-            out.iter().rev().find(|line| line.contains(pattern.as_str())).map(|line| {
-                nurt_contracts::record::Progress {
+            out.iter()
+                .rev()
+                .find(|line| line.contains(pattern.as_str()))
+                .map(|line| nurt_contracts::record::Progress {
                     percent: None,
                     line: line.clone(),
-                }
-            })
+                })
         });
         RenderedOutput {
-            stdout: if Self::shows(view, OutputStream::Stdout) { Self::select(view, out) } else { String::new() },
-            stderr: if Self::shows(view, OutputStream::Stderr) { Self::select(view, err) } else { String::new() },
-            stdout_bytes: fs::metadata(&self.stdout).map(|meta| meta.len()).unwrap_or(0),
-            stderr_bytes: fs::metadata(&self.stderr).map(|meta| meta.len()).unwrap_or(0),
+            stdout: if Self::shows(view, OutputStream::Stdout) {
+                Self::select(view, out)
+            } else {
+                String::new()
+            },
+            stderr: if Self::shows(view, OutputStream::Stderr) {
+                Self::select(view, err)
+            } else {
+                String::new()
+            },
+            stdout_bytes: fs::metadata(&self.stdout)
+                .map(|meta| meta.len())
+                .unwrap_or(0),
+            stderr_bytes: fs::metadata(&self.stderr)
+                .map(|meta| meta.len())
+                .unwrap_or(0),
             stdout_lines: u64::try_from(all_out).unwrap_or(0),
             stderr_lines: u64::try_from(all_err).unwrap_or(0),
             decoded_as: "utf-8".to_owned(),
@@ -454,7 +516,9 @@ impl OutputStore for FileStore {
         let err = self.lines(OutputStream::Stderr);
         let (seen_out, seen_err) = cursor
             .and_then(|cursor| cursor.split_once('.'))
-            .map_or((0, 0), |(left, right)| (left.parse().unwrap_or(0), right.parse().unwrap_or(0)));
+            .map_or((0, 0), |(left, right)| {
+                (left.parse().unwrap_or(0), right.parse().unwrap_or(0))
+            });
         let new_out = out[seen_out.min(out.len())..].to_vec();
         let new_err = err[seen_err.min(err.len())..].to_vec();
         Ok(self.rendered(view, &new_out, &new_err, out.len(), err.len()))
@@ -471,7 +535,12 @@ struct FakeScan {
 }
 
 impl ChangeTracker for FakeTracker {
-    fn prepare(&self, _ctx: &ExecCtx, spec: &TrackSpec, _tx: &mut dyn MutationTx) -> Result<Box<dyn PreparedScan>> {
+    fn prepare(
+        &self,
+        _ctx: &ExecCtx,
+        spec: &TrackSpec,
+        _tx: &mut dyn MutationTx,
+    ) -> Result<Box<dyn PreparedScan>> {
         Ok(Box::new(FakeScan {
             watch: spec.watch.clone(),
             mode: spec.mode,
@@ -505,10 +574,6 @@ impl PreparedScan for FakeScan {
             ..TrackOutcome::default()
         })
     }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
 }
 
 fn components_with(control: Arc<FakeControl>) -> Components {
@@ -536,6 +601,8 @@ fn request(dir: &Path, millis: u64, code: i32, lines: u32) -> RunRequest {
     command.extend(args.iter().cloned());
     RunRequest {
         command,
+        program: dir.join("fake"),
+        env_keys: vec![SECRET_NAME.to_owned()],
         spawn: SpawnRequest {
             program: dir.join("fake"),
             args: args.into_iter().map(Into::into).collect(),
@@ -574,7 +641,27 @@ fn request(dir: &Path, millis: u64, code: i32, lines: u32) -> RunRequest {
     }
 }
 
-fn run(ctx: &ExecCtx, components: &Components, request: RunRequest, wait: Option<Duration>) -> Result<RunWait> {
+/// Request of the test program that writes `lines` lines and runs until the
+/// gate file of `dir` exists.
+fn gated(dir: &Path, lines: u32) -> RunRequest {
+    let mut request = request(dir, 0, 0, lines);
+    let gate = dir.join(GATE);
+    request.command.push(gate.to_string_lossy().into_owned());
+    request.spawn.args.push(gate.into_os_string());
+    request
+}
+
+/// Lets the gated test programs of `dir` end.
+fn release(dir: &Path) {
+    fs::write(dir.join(GATE), b"").unwrap();
+}
+
+fn run(
+    ctx: &ExecCtx,
+    components: &Components,
+    request: RunRequest,
+    wait: Option<Duration>,
+) -> Result<RunWait> {
     LocalHost::new(components.clone(), true).run(ctx, request, wait)
 }
 
@@ -594,7 +681,11 @@ fn wait_until(mut condition: impl FnMut() -> bool) {
 }
 
 fn job_file(dir: &Path, id: &str) -> JobFile {
-    JobTable::at(dir.join("jobs")).unwrap().read(id).unwrap().unwrap()
+    JobTable::at(dir.join("jobs"))
+        .unwrap()
+        .read(id)
+        .unwrap()
+        .unwrap()
 }
 
 fn wait_finished(dir: &Path, id: &str) -> JobFile {
@@ -641,24 +732,53 @@ fn millis(value: i64) -> ArgValue {
     ArgValue::Value(Value::Duration(value::Duration::from_millis(value)))
 }
 
-fn read_jobs(components: &Components, ctx: &ExecCtx, args: &BoundArgs) -> Result<(Vec<Job>, Option<Record>)> {
+fn read_jobs(
+    components: &Components,
+    ctx: &ExecCtx,
+    args: &BoundArgs,
+) -> Result<(Vec<Job>, Option<Record>)> {
     let jobs = stage(components, "jobs");
-    let output = jobs.as_read().unwrap().execute(args, StageInput::none(), ctx)?;
+    let output = jobs
+        .as_read()
+        .unwrap()
+        .execute(args, StageInput::none(), ctx)?;
     let header = output.header.clone();
     let records = StageInput::from(output).into_records()?;
-    let jobs = records.map(|record| Job::try_from(record.unwrap()).unwrap()).collect();
+    let jobs = records
+        .map(|record| Job::try_from(record.unwrap()).unwrap())
+        .collect();
     Ok((jobs, header))
 }
 
-fn effect_on(components: &Components, ctx: &ExecCtx, command: &str, args: &BoundArgs, jobs: Vec<Job>) -> Result<(Vec<Record>, nurt_contracts::stage::EffectOutcome<'static>, Vec<Irreversible>)> {
+fn effect_on(
+    components: &Components,
+    ctx: &ExecCtx,
+    command: &str,
+    args: &BoundArgs,
+    jobs: Vec<Job>,
+) -> Result<(
+    Vec<Record>,
+    nurt_contracts::stage::EffectOutcome<'static>,
+    Vec<Irreversible>,
+)> {
     let stage = stage(components, command);
     let effect = stage.as_effect().unwrap();
-    let input = StageInput::records(RecordStream::from_records(jobs.into_iter().map(Record::from).collect()));
+    let input = StageInput::records(RecordStream::from_records(
+        jobs.into_iter().map(Record::from).collect(),
+    ));
     let plan = effect.plan(args, input, ctx)?;
     let mut tx = Unjournaled::new(OpKind::command(command));
     let outcome = effect.apply(args, plan, &mut tx, ctx)?;
-    let marked: Vec<Irreversible> = Box::new(tx).commit()?.irreversible.into_iter().map(|entry| entry.reason).collect();
-    let records: Vec<Record> = StageInput::from(outcome.output).into_records()?.map(|record| record.unwrap()).collect();
+    let marked: Vec<Irreversible> = Box::new(tx)
+        .commit()?
+        .irreversible
+        .into_iter()
+        .map(|entry| entry.reason)
+        .collect();
+    let records: Vec<Record> = StageInput::from(outcome.output)
+        .into_records()?
+        .map(|record| record.unwrap())
+        .collect();
     let rest = nurt_contracts::stage::EffectOutcome {
         output: nurt_contracts::stage::StageOutput::none(),
         changes: outcome.changes,
@@ -679,7 +799,9 @@ mod jobs_table {
         assert_eq!(table.allocate().unwrap(), "j1");
         let second = table.allocate().unwrap();
         assert_eq!(second, "j2");
-        table.write(&sample_file(dir.path(), &second, JobState::Exited)).unwrap();
+        table
+            .write(&sample_file(dir.path(), &second, JobState::Exited))
+            .unwrap();
         table.remove(&second).unwrap();
         assert_eq!(table.allocate().unwrap(), "j3");
         assert!(table.ids().unwrap().is_empty());
@@ -692,10 +814,17 @@ mod jobs_table {
         let threads: Vec<_> = (0..8)
             .map(|_| {
                 let table = table.clone();
-                std::thread::spawn(move || (0..10).map(|_| table.allocate().unwrap()).collect::<Vec<_>>())
+                std::thread::spawn(move || {
+                    (0..10)
+                        .map(|_| table.allocate().unwrap())
+                        .collect::<Vec<_>>()
+                })
             })
             .collect();
-        let ids: HashSet<String> = threads.into_iter().flat_map(|thread| thread.join().unwrap()).collect();
+        let ids: HashSet<String> = threads
+            .into_iter()
+            .flat_map(|thread| thread.join().unwrap())
+            .collect();
         assert_eq!(ids.len(), 80);
         assert!(ids.contains("j80"));
     }
@@ -726,11 +855,17 @@ mod jobs_table {
         let dir = tempfile::tempdir().unwrap();
         let table = JobTable::at(dir.path().join("jobs")).unwrap();
         for id in ["j1", "j5", "j6", "j9"] {
-            table.write(&sample_file(dir.path(), id, JobState::Exited)).unwrap();
+            table
+                .write(&sample_file(dir.path(), id, JobState::Exited))
+                .unwrap();
         }
         let error = table.get("j7").unwrap_err();
         assert_eq!(error.code, ErrorCode::UnknownJob);
-        let programs: Vec<&str> = error.candidates.iter().map(|candidate| candidate.program.as_str()).collect();
+        let programs: Vec<&str> = error
+            .candidates
+            .iter()
+            .map(|candidate| candidate.program.as_str())
+            .collect();
         assert_eq!(programs, ["jobs \"j6\"", "jobs \"j5\"", "jobs \"j9\""]);
         assert_eq!(table.get("build").unwrap_err().candidates.len(), 3);
     }
@@ -745,7 +880,10 @@ mod jobs_table {
         let job = background(&ctx, &components, request(dir.path(), 0, 0, 1));
         wait_finished(dir.path(), &job.id);
         let jobs = dir.path().join("jobs");
-        let mode = fs::metadata(jobs.join(format!("{}.input.json", job.id))).unwrap().permissions().mode();
+        let mode = fs::metadata(jobs.join(format!("{}.input.json", job.id)))
+            .unwrap()
+            .permissions()
+            .mode();
         assert_eq!(mode & 0o777, 0o600);
         let dir_mode = fs::metadata(&jobs).unwrap().permissions().mode();
         assert_eq!(dir_mode & 0o777, 0o700);
@@ -758,8 +896,12 @@ mod jobs_table {
         let dir = tempfile::tempdir().unwrap();
         let (ctx, _) = context(dir.path());
         let bare = ExecCtx::builder(
-            Arc::new(SystemClock { origin: Instant::now() }),
-            Arc::new(TestHost { info: ctx.host().info().clone() }),
+            Arc::new(SystemClock {
+                origin: Instant::now(),
+            }),
+            Arc::new(TestHost {
+                info: ctx.host().info().clone(),
+            }),
         )
         .build();
         assert_eq!(JobTable::open(&bare).unwrap_err().code, ErrorCode::Config);
@@ -775,7 +917,9 @@ mod jobs_states {
         let (ctx, _) = context(dir.path());
         let components = components();
         for (code, state) in [(0, JobState::Exited), (3, JobState::Failed)] {
-            let RunWait::Finished(result) = run(&ctx, &components, request(dir.path(), 20, code, 2), None).unwrap() else {
+            let RunWait::Finished(result) =
+                run(&ctx, &components, request(dir.path(), 20, code, 2), None).unwrap()
+            else {
                 panic!("the run moved to the background");
             };
             assert_eq!(result.end.exit_code, Some(code));
@@ -812,18 +956,37 @@ mod jobs_states {
         missing.spawn.program = dir.path().join("missing");
         let error = run(&ctx, &components(), missing, Some(Duration::from_secs(1))).unwrap_err();
         assert_eq!(error.code, ErrorCode::ProgramNotFound);
-        assert!(JobTable::at(dir.path().join("jobs")).unwrap().ids().unwrap().is_empty());
+        assert!(
+            JobTable::at(dir.path().join("jobs"))
+                .unwrap()
+                .ids()
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
     fn marks_a_running_job_without_supervisor_lost() {
         let dir = tempfile::tempdir().unwrap();
         let table = JobTable::at(dir.path().join("jobs")).unwrap();
-        table.write(&sample_file(dir.path(), "j1", JobState::Running)).unwrap();
-        table.write(&sample_file(dir.path(), "j2", JobState::Suspended)).unwrap();
-        assert_eq!(table.read("j1").unwrap().unwrap().record.state, JobState::Lost);
-        assert_eq!(table.read("j2").unwrap().unwrap().record.state, JobState::Lost);
-        assert_eq!(table.read_raw("j1").unwrap().unwrap().record.state, JobState::Lost);
+        table
+            .write(&sample_file(dir.path(), "j1", JobState::Running))
+            .unwrap();
+        table
+            .write(&sample_file(dir.path(), "j2", JobState::Suspended))
+            .unwrap();
+        assert_eq!(
+            table.read("j1").unwrap().unwrap().record.state,
+            JobState::Lost
+        );
+        assert_eq!(
+            table.read("j2").unwrap().unwrap().record.state,
+            JobState::Lost
+        );
+        assert_eq!(
+            table.read_raw("j1").unwrap().unwrap().record.state,
+            JobState::Lost
+        );
     }
 
     #[test]
@@ -831,8 +994,13 @@ mod jobs_states {
         let dir = tempfile::tempdir().unwrap();
         let table = JobTable::at(dir.path().join("jobs")).unwrap();
         let _lock = table.lock_job("j1").unwrap();
-        table.write(&sample_file(dir.path(), "j1", JobState::Running)).unwrap();
-        assert_eq!(table.read("j1").unwrap().unwrap().record.state, JobState::Running);
+        table
+            .write(&sample_file(dir.path(), "j1", JobState::Running))
+            .unwrap();
+        assert_eq!(
+            table.read("j1").unwrap().unwrap().record.state,
+            JobState::Running
+        );
     }
 
     #[test]
@@ -846,9 +1014,17 @@ mod jobs_states {
         };
         let (ctx, _) = context_with(dir.path(), config, Some(Supervision::Detached(command)));
         let host = run_host(&ctx, components());
-        let error = host.run(&ctx, request(dir.path(), 0, 0, 0), Some(Duration::ZERO)).unwrap_err();
+        let error = host
+            .run(&ctx, request(dir.path(), 0, 0, 0), Some(Duration::ZERO))
+            .unwrap_err();
         assert_eq!(error.code, ErrorCode::Unsupported);
-        let outcome = host.run(&ctx, request(dir.path(), 100, 0, 0), Some(Duration::from_millis(1))).unwrap();
+        let outcome = host
+            .run(
+                &ctx,
+                request(dir.path(), 100, 0, 0),
+                Some(Duration::from_millis(1)),
+            )
+            .unwrap();
         assert!(matches!(outcome, RunWait::Finished(_)));
     }
 
@@ -857,7 +1033,9 @@ mod jobs_states {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("result.txt"), b"done").unwrap();
         let (ctx, _) = context(dir.path());
-        let RunWait::Finished(result) = run(&ctx, &components(), request(dir.path(), 0, 0, 0), None).unwrap() else {
+        let RunWait::Finished(result) =
+            run(&ctx, &components(), request(dir.path(), 0, 0, 0), None).unwrap()
+        else {
             panic!("the run moved to the background");
         };
         assert_eq!(result.op, None);
@@ -908,7 +1086,10 @@ mod jobs_jobs_views {
         wait_finished(dir.path(), &job.id);
         let args = BoundArgs::new("jobs").with("id", text(&job.id), false);
         let (jobs, _) = read_jobs(&components, &ctx, &args).unwrap();
-        assert_eq!(jobs[0].stdout.as_deref(), Some("line 4\nline 5\nline 6\nline 7\nline 8\n"));
+        assert_eq!(
+            jobs[0].stdout.as_deref(),
+            Some("line 4\nline 5\nline 6\nline 7\nline 8\n")
+        );
         assert_eq!(jobs[0].stdout_lines, Some(8));
     }
 
@@ -919,7 +1100,9 @@ mod jobs_jobs_views {
         let components = components();
         let job = background(&ctx, &components, request(dir.path(), 0, 0, 3));
         wait_finished(dir.path(), &job.id);
-        let first = BoundArgs::new("jobs").with("id", text(&job.id), false).with("view", word("output"), false);
+        let first = BoundArgs::new("jobs")
+            .with("id", text(&job.id), false)
+            .with("view", word("output"), false);
         let (jobs, _) = read_jobs(&components, &ctx, &first).unwrap();
         assert_eq!(jobs[0].stdout.as_deref(), Some("line 1\nline 2\nline 3\n"));
         let cursor = jobs[0].output_cursor.clone().unwrap();
@@ -938,10 +1121,15 @@ mod jobs_jobs_views {
         let (ctx, _) = context(dir.path());
         let components = components();
         let job = background(&ctx, &components, request(dir.path(), 10_000, 0, 1));
-        let args = BoundArgs::new("jobs").with("id", text(&job.id), false).with("view", word("result"), false);
+        let args = BoundArgs::new("jobs")
+            .with("id", text(&job.id), false)
+            .with("view", word("result"), false);
         let error = read_jobs(&components, &ctx, &args).unwrap_err();
         assert_eq!(error.code, ErrorCode::JobState);
-        assert_eq!(error.fix, [format!("jobs \"{}\" view: result wait: 60s", job.id)]);
+        assert_eq!(
+            error.fix,
+            [format!("jobs \"{}\" view: result wait: 60s", job.id)]
+        );
         stop_all(&ctx, &components);
         let (jobs, _) = read_jobs(&components, &ctx, &args).unwrap();
         assert_eq!(jobs[0].state, JobState::Stopped);
@@ -954,7 +1142,10 @@ mod jobs_jobs_views {
         let (ctx, _) = context(dir.path());
         let components = components();
         let args = BoundArgs::new("jobs").with("id", text("j42"), false);
-        assert_eq!(read_jobs(&components, &ctx, &args).unwrap_err().code, ErrorCode::UnknownJob);
+        assert_eq!(
+            read_jobs(&components, &ctx, &args).unwrap_err().code,
+            ErrorCode::UnknownJob
+        );
     }
 }
 
@@ -967,7 +1158,9 @@ mod jobs_wait {
         let (ctx, _) = context(dir.path());
         let components = components();
         let job = background(&ctx, &components, request(dir.path(), 200, 0, 1));
-        let args = BoundArgs::new("jobs").with("id", text(&job.id), false).with("wait", millis(10_000), false);
+        let args = BoundArgs::new("jobs")
+            .with("id", text(&job.id), false)
+            .with("wait", millis(10_000), false);
         let (jobs, _) = read_jobs(&components, &ctx, &args).unwrap();
         assert_eq!(jobs[0].state, JobState::Exited);
     }
@@ -978,7 +1171,9 @@ mod jobs_wait {
         let (ctx, _) = context(dir.path());
         let components = components();
         let job = background(&ctx, &components, request(dir.path(), 10_000, 0, 1));
-        let args = BoundArgs::new("jobs").with("id", text(&job.id), false).with("wait", millis(100), false);
+        let args = BoundArgs::new("jobs")
+            .with("id", text(&job.id), false)
+            .with("wait", millis(100), false);
         let begun = Instant::now();
         let (jobs, _) = read_jobs(&components, &ctx, &args).unwrap();
         assert_eq!(jobs[0].state, JobState::Running);
@@ -991,7 +1186,13 @@ mod jobs_wait {
         let dir = tempfile::tempdir().unwrap();
         let (ctx, _) = context(dir.path());
         let components = components();
-        let outcome = run(&ctx, &components, request(dir.path(), 10_000, 0, 1), Some(Duration::from_millis(100))).unwrap();
+        let outcome = run(
+            &ctx,
+            &components,
+            request(dir.path(), 10_000, 0, 1),
+            Some(Duration::from_millis(100)),
+        )
+        .unwrap();
         let RunWait::Background(job) = outcome else {
             panic!("the run did not move to the background");
         };
@@ -999,7 +1200,10 @@ mod jobs_wait {
         assert!(job.elapsed.as_millis() >= 100);
         assert!(job_file(dir.path(), &job.id).detached);
         stop_all(&ctx, &components);
-        assert_eq!(job_file(dir.path(), &job.id).result.unwrap().0.job, Some(job.id.clone()));
+        assert_eq!(
+            job_file(dir.path(), &job.id).result.unwrap().0.job,
+            Some(job.id.clone())
+        );
     }
 }
 
@@ -1027,13 +1231,17 @@ mod jobs_stop_job {
         let components = components();
         let job = background(&ctx, &components, request(dir.path(), 10_000, 0, 1));
         let args = BoundArgs::new("stop").with("signal", word("interrupt"), false);
-        let (records, outcome, marked) = effect_on(&components, &ctx, "stop", &args, vec![job.clone()]).unwrap();
+        let (records, outcome, marked) =
+            effect_on(&components, &ctx, "stop", &args, vec![job.clone()]).unwrap();
         let effect = Effect::try_from(records[0].clone()).unwrap();
         let stopped = effect.job.unwrap();
         assert_eq!(stopped.state, JobState::Stopped);
         assert_eq!(stopped.killed_by, Some(KilledBy::Stop));
         assert_eq!(stopped.signal, Some(Signal::Interrupt));
-        assert_eq!(effect.target.as_deref(), Some(format!("job:{}", job.id).as_str()));
+        assert_eq!(
+            effect.target.as_deref(),
+            Some(format!("job:{}", job.id).as_str())
+        );
         assert_eq!(outcome.irreversible[0].reason, Irreversible::ProcessStopped);
         assert_eq!(marked, [Irreversible::ProcessStopped]);
     }
@@ -1045,8 +1253,48 @@ mod jobs_stop_job {
         let components = components();
         let job = background(&ctx, &components, request(dir.path(), 0, 0, 0));
         wait_finished(dir.path(), &job.id);
-        let error = effect_on(&components, &ctx, "stop", &BoundArgs::new("stop"), vec![*job]).unwrap_err();
+        let error = effect_on(
+            &components,
+            &ctx,
+            "stop",
+            &BoundArgs::new("stop"),
+            vec![job],
+        )
+        .unwrap_err();
         assert_eq!(error.code, ErrorCode::JobState);
+    }
+
+    #[test]
+    fn answers_a_stop_whose_job_ended_before_the_reply() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let table = JobTable::at(dir.path().join("jobs")).unwrap();
+        let _lock = table.lock_job("j1").unwrap();
+        let mut file = sample_file(dir.path(), "j1", JobState::Running);
+        table.write(&file).unwrap();
+        let requester = {
+            let (ctx, table) = (ctx.clone(), table.clone());
+            std::thread::spawn(move || {
+                let stop = ControlAction::Stop {
+                    signal: Signal::Terminate,
+                    grace: Duration::ZERO,
+                };
+                control::send(&ctx, &table, "j1", stop)
+            })
+        };
+        let mut taken = Vec::new();
+        wait_until(|| {
+            taken.extend(control::pending(&table, "j1"));
+            !taken.is_empty()
+        });
+        file.record.state = JobState::Stopped;
+        table.write(&file).unwrap();
+        // The requester polls the job file several times while the final
+        // state is written and the reply is not.
+        std::thread::sleep(control::CONTROL_POLL * 10);
+        control::reply(&table, "j1", &taken[0].0, Ok(file.record.clone()));
+        let stopped = requester.join().unwrap().unwrap();
+        assert_eq!(stopped.state, JobState::Stopped);
     }
 
     #[test]
@@ -1079,7 +1327,11 @@ mod jobs_stop_dispatch {
         }
     }
 
-    fn select<'a>(stages: &'a [Arc<dyn StageImpl>], command: &str, kind: RecordKind) -> Option<&'a Arc<dyn StageImpl>> {
+    fn select<'a>(
+        stages: &'a [Arc<dyn StageImpl>],
+        command: &str,
+        kind: RecordKind,
+    ) -> Option<&'a Arc<dyn StageImpl>> {
         stages.iter().find(|stage| {
             let descriptor = stage.descriptor();
             descriptor.command == command && descriptor.input.accepts(kind)
@@ -1100,7 +1352,11 @@ mod jobs_stop_dispatch {
         assert!(select(&stages, "remove", RecordKind::Entry).is_none());
         let jobs = select(&stages, "jobs", RecordKind::Job);
         assert!(jobs.is_none());
-        assert!(stages.iter().any(|stage| stage.descriptor().command == "jobs" && stage.descriptor().source));
+        assert!(
+            stages
+                .iter()
+                .any(|stage| stage.descriptor().command == "jobs" && stage.descriptor().source)
+        );
     }
 }
 
@@ -1115,16 +1371,27 @@ mod jobs_retry {
         let components = components_with(control.clone());
         let job = background(&ctx, &components, request(dir.path(), 0, 4, 1));
         wait_finished(dir.path(), &job.id);
-        let args = BoundArgs::new("retry").with("wait", word("forever"), false).with("timeout", millis(30_000), false);
-        let (records, outcome, _) = effect_on(&components, &ctx, "retry", &args, vec![job.clone()]).unwrap();
+        let args = BoundArgs::new("retry")
+            .with("wait", word("forever"), false)
+            .with("timeout", millis(30_000), false);
+        let (records, outcome, _) =
+            effect_on(&components, &ctx, "retry", &args, vec![job.clone()]).unwrap();
         let exec = Exec::try_from(records[0].clone()).unwrap();
         assert_eq!(exec.exit_code, 4);
         assert_eq!(exec.cwd.as_str(), dir.path().to_string_lossy());
-        assert!(outcome.notable.iter().any(|entry| entry.code == Notable::ExitNonzero));
+        assert!(
+            outcome
+                .notable
+                .iter()
+                .any(|entry| entry.code == Notable::ExitNonzero)
+        );
         assert!(!outcome.detached);
         let spawned = control.spawned.lock().unwrap();
         let repeated = spawned.last().unwrap();
-        assert_eq!(repeated.env, vec![(SECRET_NAME.into(), SECRET_VALUE.into())]);
+        assert_eq!(
+            repeated.env,
+            vec![(SECRET_NAME.into(), SECRET_VALUE.into())]
+        );
         assert_eq!(repeated.stdin, StdinSource::Bytes(b"input".to_vec()));
         assert_eq!(repeated.limits.timeout, Some(Duration::from_secs(30)));
         assert_eq!(repeated.cwd, dir.path());
@@ -1144,11 +1411,21 @@ mod jobs_retry {
         slow.spawn.limits.timeout = Some(Duration::from_millis(20));
         let job = background(&ctx, &components, slow);
         wait_finished(dir.path(), &job.id);
-        let args = BoundArgs::new("retry").with("wait", millis(0), false).with("timeout", millis(60_000), false);
-        let (records, outcome, _) = effect_on(&components, &ctx, "retry", &args, vec![job]).unwrap();
+        let args = BoundArgs::new("retry").with("wait", millis(0), false).with(
+            "timeout",
+            millis(60_000),
+            false,
+        );
+        let (records, outcome, _) =
+            effect_on(&components, &ctx, "retry", &args, vec![job]).unwrap();
         assert_eq!(records[0].kind, RecordKind::Job);
         assert!(outcome.detached);
-        assert!(outcome.notable.iter().any(|entry| entry.code == Notable::PostStagesDeferred));
+        assert!(
+            outcome
+                .notable
+                .iter()
+                .any(|entry| entry.code == Notable::PostStagesDeferred)
+        );
         stop_all(&ctx, &components);
     }
 
@@ -1158,7 +1435,14 @@ mod jobs_retry {
         let (ctx, _) = context(dir.path());
         let components = components();
         let job = background(&ctx, &components, request(dir.path(), 10_000, 0, 0));
-        let error = effect_on(&components, &ctx, "retry", &BoundArgs::new("retry"), vec![job.clone()]).unwrap_err();
+        let error = effect_on(
+            &components,
+            &ctx,
+            "retry",
+            &BoundArgs::new("retry"),
+            vec![job.clone()],
+        )
+        .unwrap_err();
         assert_eq!(error.code, ErrorCode::JobState);
         assert_eq!(error.fix, [format!("jobs \"{}\" |> stop", job.id)]);
         stop_all(&ctx, &components);
@@ -1173,18 +1457,50 @@ mod jobs_suspend_resume {
         let dir = tempfile::tempdir().unwrap();
         let (ctx, _) = context(dir.path());
         let components = components();
-        let job = background(&ctx, &components, request(dir.path(), 300, 0, 0));
-        let (records, _, marked) = effect_on(&components, &ctx, "suspend", &BoundArgs::new("suspend"), vec![job.clone()]).unwrap();
+        let job = background(&ctx, &components, gated(dir.path(), 0));
+        let (records, _, marked) = effect_on(
+            &components,
+            &ctx,
+            "suspend",
+            &BoundArgs::new("suspend"),
+            vec![job.clone()],
+        )
+        .unwrap();
         let suspended = Effect::try_from(records[0].clone()).unwrap().job.unwrap();
         assert_eq!(suspended.state, JobState::Suspended);
         assert_eq!(marked, [Irreversible::ProcessStateChanged]);
-        let again = effect_on(&components, &ctx, "suspend", &BoundArgs::new("suspend"), vec![job.clone()]).unwrap_err();
+        let again = effect_on(
+            &components,
+            &ctx,
+            "suspend",
+            &BoundArgs::new("suspend"),
+            vec![job.clone()],
+        )
+        .unwrap_err();
         assert_eq!(again.code, ErrorCode::JobState);
         assert_eq!(again.fix, [format!("jobs \"{}\" |> resume", job.id)]);
         std::thread::sleep(Duration::from_millis(400));
-        assert_eq!(job_file(dir.path(), &job.id).record.state, JobState::Suspended);
-        let (records, _, _) = effect_on(&components, &ctx, "resume", &BoundArgs::new("resume"), vec![job.clone()]).unwrap();
-        assert_eq!(Effect::try_from(records[0].clone()).unwrap().job.unwrap().state, JobState::Running);
+        assert_eq!(
+            job_file(dir.path(), &job.id).record.state,
+            JobState::Suspended
+        );
+        let (records, _, _) = effect_on(
+            &components,
+            &ctx,
+            "resume",
+            &BoundArgs::new("resume"),
+            vec![job.clone()],
+        )
+        .unwrap();
+        assert_eq!(
+            Effect::try_from(records[0].clone())
+                .unwrap()
+                .job
+                .unwrap()
+                .state,
+            JobState::Running
+        );
+        release(dir.path());
         let file = wait_finished(dir.path(), &job.id);
         assert_eq!(file.record.state, JobState::Exited);
         let suspended_total = file.record.suspended_total.unwrap().as_millis();
@@ -1197,7 +1513,14 @@ mod jobs_suspend_resume {
         let (ctx, _) = context(dir.path());
         let components = components();
         let job = background(&ctx, &components, request(dir.path(), 10_000, 0, 0));
-        let error = effect_on(&components, &ctx, "resume", &BoundArgs::new("resume"), vec![job.clone()]).unwrap_err();
+        let error = effect_on(
+            &components,
+            &ctx,
+            "resume",
+            &BoundArgs::new("resume"),
+            vec![job.clone()],
+        )
+        .unwrap_err();
         assert_eq!(error.code, ErrorCode::JobState);
         assert_eq!(error.fix, [format!("jobs \"{}\" |> suspend", job.id)]);
         stop_all(&ctx, &components);
@@ -1214,15 +1537,33 @@ mod jobs_remove {
         let components = components();
         let job = background(&ctx, &components, request(dir.path(), 0, 0, 2));
         wait_finished(dir.path(), &job.id);
-        let (records, outcome, marked) = effect_on(&components, &ctx, "remove", &BoundArgs::new("remove"), vec![job.clone()]).unwrap();
+        let (records, outcome, marked) = effect_on(
+            &components,
+            &ctx,
+            "remove",
+            &BoundArgs::new("remove"),
+            vec![job.clone()],
+        )
+        .unwrap();
         assert_eq!(Effect::try_from(records[0].clone()).unwrap().kind, "remove");
-        assert_eq!(outcome.irreversible[0].reason, Irreversible::JobOutputRemoved);
+        assert_eq!(
+            outcome.irreversible[0].reason,
+            Irreversible::JobOutputRemoved
+        );
         assert_eq!(marked, [Irreversible::JobOutputRemoved]);
         let jobs = dir.path().join("jobs");
         assert!(!jobs.join(format!("{}.json", job.id)).exists());
         assert!(!jobs.join(format!("{}.input.json", job.id)).exists());
-        assert!(!dir.path().join("spool").join(format!("{}.stdout", job.id)).exists());
-        assert_eq!(JobTable::at(jobs).unwrap().get(&job.id).unwrap_err().code, ErrorCode::UnknownJob);
+        assert!(
+            !dir.path()
+                .join("spool")
+                .join(format!("{}.stdout", job.id))
+                .exists()
+        );
+        assert_eq!(
+            JobTable::at(jobs).unwrap().get(&job.id).unwrap_err().code,
+            ErrorCode::UnknownJob
+        );
     }
 
     #[test]
@@ -1231,7 +1572,14 @@ mod jobs_remove {
         let (ctx, _) = context(dir.path());
         let components = components();
         let job = background(&ctx, &components, request(dir.path(), 10_000, 0, 0));
-        let error = effect_on(&components, &ctx, "remove", &BoundArgs::new("remove"), vec![job.clone()]).unwrap_err();
+        let error = effect_on(
+            &components,
+            &ctx,
+            "remove",
+            &BoundArgs::new("remove"),
+            vec![job.clone()],
+        )
+        .unwrap_err();
         assert_eq!(error.code, ErrorCode::JobState);
         assert_eq!(error.fix, [format!("jobs \"{}\" |> stop", job.id)]);
         stop_all(&ctx, &components);
@@ -1264,7 +1612,8 @@ mod jobs_events {
         let (ctx, recorder) = context(dir.path());
         let mut with_progress = request(dir.path(), 300, 2, 3);
         with_progress.view.progress = Some("line 2".to_owned());
-        let RunWait::Finished(result) = run(&ctx, &components(), with_progress, None).unwrap() else {
+        let RunWait::Finished(result) = run(&ctx, &components(), with_progress, None).unwrap()
+        else {
             panic!("the run moved to the background");
         };
         let events = recorder.events();
@@ -1340,9 +1689,16 @@ mod process_entries {
             return;
         };
         let dir = PathBuf::from(dir);
-        let (ctx, _) = context_with(&dir, Config::default(), Some(Supervision::Detached(supervisor_command())));
+        let (ctx, _) = context_with(
+            &dir,
+            Config::default(),
+            Some(Supervision::Detached(supervisor_command())),
+        );
         let host = run_host(&ctx, components());
-        let RunWait::Background(job) = host.run(&ctx, request(&dir, 1_500, 0, 2), Some(Duration::ZERO)).unwrap() else {
+        let RunWait::Background(job) = host
+            .run(&ctx, gated(&dir, 2), Some(Duration::ZERO))
+            .unwrap()
+        else {
             panic!("the run did not move to the background");
         };
         fs::write(dir.join("started-job"), job.id).unwrap();
@@ -1359,7 +1715,12 @@ mod jobs_supervisor_survives_cli {
     fn job_finishes_after_the_command_line_process_exits() {
         let dir = tempfile::tempdir().unwrap();
         let status = Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "jobs::tests::process_entries::command_line_process", "--ignored", "--test-threads=1"])
+            .args([
+                "--exact",
+                "jobs::tests::process_entries::command_line_process",
+                "--ignored",
+                "--test-threads=1",
+            ])
             .env(STATE_ENV, dir.path())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -1368,6 +1729,7 @@ mod jobs_supervisor_survives_cli {
         assert!(status.success());
         let id = fs::read_to_string(dir.path().join("started-job")).unwrap();
         assert_eq!(job_file(dir.path(), &id).record.state, JobState::Running);
+        release(dir.path());
         let file = wait_finished(dir.path(), &id);
         assert_eq!(file.record.state, JobState::Exited);
         assert_eq!(file.record.exit_code, Some(0));
@@ -1389,18 +1751,39 @@ mod jobs_supervisor_survives_cli {
             .unwrap();
         let table = JobTable::at(dir.path().join("jobs")).unwrap();
         wait_until(|| table.host_running().unwrap());
-        let (ctx, _) = context_with(dir.path(), Config::default(), Some(Supervision::Detached(command)));
+        let (ctx, _) = context_with(
+            dir.path(),
+            Config::default(),
+            Some(Supervision::Detached(command)),
+        );
         let components = components();
         let host = run_host(&ctx, components.clone());
-        let RunWait::Background(job) = host.run(&ctx, request(dir.path(), 30_000, 0, 1), Some(Duration::ZERO)).unwrap() else {
+        let RunWait::Background(job) = host
+            .run(
+                &ctx,
+                request(dir.path(), 30_000, 0, 1),
+                Some(Duration::ZERO),
+            )
+            .unwrap()
+        else {
             panic!("the run did not move to the background");
         };
-        assert_eq!(job_file(dir.path(), &job.id).supervisor_pid, supervisor.id());
+        assert_eq!(
+            job_file(dir.path(), &job.id).supervisor_pid,
+            supervisor.id()
+        );
         supervisor.kill().unwrap();
         supervisor.wait().unwrap();
         let (jobs, _) = read_jobs(&components, &ctx, &BoundArgs::new("jobs")).unwrap();
         assert_eq!(jobs[0].state, JobState::Lost);
-        let error = effect_on(&components, &ctx, "stop", &BoundArgs::new("stop"), vec![*job]).unwrap_err();
+        let error = effect_on(
+            &components,
+            &ctx,
+            "stop",
+            &BoundArgs::new("stop"),
+            vec![*job],
+        )
+        .unwrap_err();
         assert_eq!(error.code, ErrorCode::JobState);
     }
 
@@ -1417,9 +1800,19 @@ mod jobs_supervisor_survives_cli {
             .unwrap();
         let table = JobTable::at(dir.path().join("jobs")).unwrap();
         wait_until(|| table.host_running().unwrap());
-        let (ctx, recorder) = context_with(dir.path(), Config::default(), Some(Supervision::Detached(command)));
+        let (ctx, recorder) = context_with(
+            dir.path(),
+            Config::default(),
+            Some(Supervision::Detached(command)),
+        );
         let host = run_host(&ctx, components());
-        let outcome = host.run(&ctx, request(dir.path(), 50, 5, 2), Some(Duration::from_secs(10))).unwrap();
+        let outcome = host
+            .run(
+                &ctx,
+                request(dir.path(), 50, 5, 2),
+                Some(Duration::from_secs(10)),
+            )
+            .unwrap();
         let RunWait::Finished(result) = outcome else {
             panic!("the run moved to the background");
         };
@@ -1430,7 +1823,9 @@ mod jobs_supervisor_survives_cli {
         assert!(matches!(events.last(), Some(Event::JobFinished(_))));
         let mut missing = request(dir.path(), 0, 0, 0);
         missing.spawn.program = dir.path().join("missing");
-        let error = host.run(&ctx, missing, Some(Duration::from_secs(1))).unwrap_err();
+        let error = host
+            .run(&ctx, missing, Some(Duration::from_secs(1)))
+            .unwrap_err();
         assert_eq!(error.code, ErrorCode::ProgramNotFound);
         supervisor.kill().unwrap();
         supervisor.wait().unwrap();
@@ -1466,7 +1861,10 @@ mod jobs_matches_reference_behaviour {
         let failed = wait_finished(dir.path(), &failed.id).record;
         assert_eq!((failed.exit_code, failed.signal), (Some(2), None));
         let killed = job_file(dir.path(), &killed.id).record;
-        assert_eq!((killed.exit_code, killed.signal), (None, Some(Signal::Kill)));
+        assert_eq!(
+            (killed.exit_code, killed.signal),
+            (None, Some(Signal::Kill))
+        );
     }
 
     #[test]
@@ -1482,7 +1880,10 @@ mod jobs_matches_reference_behaviour {
             .with("view", word("result"), false)
             .with("filter", text("line 1"), false);
         let (jobs, _) = read_jobs(&components, &ctx, &args).unwrap();
-        assert_eq!(jobs[0].stdout.as_deref(), Some("line 1\nline 10\nline 11\nline 12\n"));
+        assert_eq!(
+            jobs[0].stdout.as_deref(),
+            Some("line 1\nline 10\nline 11\nline 12\n")
+        );
         assert_eq!(control.spawned.lock().unwrap().len(), 1);
     }
 

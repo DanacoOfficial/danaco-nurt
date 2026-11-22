@@ -5,7 +5,7 @@
 # pattern matches them, such as counters reporting zero errors. Patterns use
 # the syntax of the `regex` crate and match without regard to case.
 
-+ \b(?:error|errors|failed|failure|fatal|exception|traceback|panic|denied|cannot|unable|undefined reference)\b
++ \b(?:error|errors|failed|failure|fatal|exception|traceback|panic|panicked|denied|cannot|unable|undefined reference)\b
 + \bFAIL\b
 + [\x{2717}\x{2716}]
 + \bnot found\b

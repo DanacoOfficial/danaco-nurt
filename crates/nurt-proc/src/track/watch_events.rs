@@ -10,8 +10,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use nurt_contracts::fs::AbsPath;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use nurt_contracts::fs::AbsPath;
 
 /// Time without new events after which delivery is considered complete.
 const SETTLE_QUIET: Duration = Duration::from_millis(50);
@@ -74,6 +74,7 @@ impl EventWatch {
 
     /// Marks events as lost, as an overflow of the event queue does.
     #[cfg(test)]
+    #[cfg(unix)]
     pub(super) fn lose_events(&self) {
         self.lock().lost = true;
     }

@@ -51,9 +51,24 @@ variables of `run.env_defaults` in `env_defaults`.
 
 There is no terminal: standard input is empty (`/dev/null`, `NUL`) unless
 `stdin` gives a text, written to the program and then closed, or a path,
-opened as the input of the program. The program runs in its own process group
-(Windows: job object); `timeout`, `idle_timeout`, `max_cpu` and `max_memory`
-apply to the whole process tree.
+opened as the input of the program. When the program closes its input before
+all of the text is written, the rest is discarded and the report notes
+`stdin_closed_early`. The program runs in its own process group (Windows: job
+object); `timeout`, `idle_timeout`, `max_cpu` and `max_memory` apply to the
+whole process tree.
+
+Output processing. The full output is kept in spool files; the parameters
+below shape only the response. Each line is decoded (`output_encoding`),
+cleaned (terminal control sequences, carriage return redraws and trailing
+white space are removed), checked against `summary` and `progress`, collapsed
+with repeats when `dedupe` is set, selected by `filter` with `context` lines
+around each match (or, for `show: errors` and for `show: auto` after a
+failure of output longer than 20 lines, by the built-in error line patterns
+with 2 lines of context), and finally limited to the first `head` and the
+last `tail` lines. `quiet_on_success` and `show: none` return no text but
+keep the counters, `summary_lines` and `progress`. `shown` reports, per
+stream, the lines kept from the start and from the end, the lines left out
+between them and the lines removed by the filters.
 
 `run` waits up to `wait` for the program. A program that ends within `wait`
 yields an `exec` record. A program still running after `wait` continues as a
@@ -142,6 +157,13 @@ implementation `user_program`.
 Changes of files under `watch` are recorded in the journal and are
 reversible when their previous content was kept; effects outside the file
 system are irreversible. A run that changes no file creates no journal entry.
+
+A command line that matches the built-in table of programs with effects
+outside the computer (for example `git push` or `kubectl apply`, also behind
+wrappers such as `sudo` or `env`) or a pattern of `run.irreversible_patterns`
+lists the matched rules in `exec.external_effect`, and the report marks the
+call `irreversible: external_effect`. The classification describes the
+effect; it never prevents the run.
 
 ## Notes
 

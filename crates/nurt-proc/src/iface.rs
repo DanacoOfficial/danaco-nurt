@@ -10,7 +10,6 @@
 //! background, and the change tracker records what the program changed.
 //! Each part depends on the others only through the types in this module.
 
-use std::any::Any;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -120,6 +119,9 @@ pub(crate) struct ProcessEnd {
     pub(crate) usage: ResourceUsage,
     /// Time spent suspended.
     pub(crate) suspended_total: Duration,
+    /// The program closed its standard input before all given input was
+    /// written.
+    pub(crate) stdin_closed_early: bool,
 }
 
 /// Receiver of the output of a started program.
@@ -131,6 +133,8 @@ pub(crate) trait OutputSink: Send + Sync {
     fn finish(&self, stream: OutputStream) -> Result<()>;
 
     /// Monotonic time of the last byte received; `None` before any output.
+    /// Process control compares the value only with the previous one, so
+    /// the clock of the sink does not have to be the clock of the caller.
     fn last_activity(&self) -> Option<Duration>;
 }
 
@@ -146,9 +150,6 @@ pub(crate) trait RunningProcess: Send {
     /// limits; returns `None` when the program still runs.
     fn wait(&mut self, timeout: Option<Duration>) -> Result<Option<ProcessEnd>>;
 
-    /// Sends a signal to the whole tree.
-    fn signal(&mut self, signal: Signal) -> Result<()>;
-
     /// Requests termination, then stops the whole tree after `grace`.
     fn stop(&mut self, signal: Signal, grace: Duration) -> Result<ProcessEnd>;
 
@@ -157,9 +158,6 @@ pub(crate) trait RunningProcess: Send {
 
     /// Resumes the whole tree.
     fn resume(&mut self) -> Result<()>;
-
-    /// Current resource use of the whole tree.
-    fn usage(&self) -> Result<ResourceUsage>;
 }
 
 /// Starts programs.
@@ -335,9 +333,6 @@ pub(crate) trait PreparedScan: Send {
     /// Compares with the state after the run and records the changes in the
     /// transaction.
     fn finish(self: Box<Self>, ctx: &ExecCtx, tx: &mut dyn MutationTx) -> Result<TrackOutcome>;
-
-    /// The state as `Any`, for serialization by the run host.
-    fn as_any(&self) -> &dyn Any;
 }
 
 /// Detects file changes made by programs.
@@ -370,6 +365,11 @@ pub(crate) enum RunKind {
 pub(crate) struct RunRequest {
     /// Command as written, program first.
     pub(crate) command: Vec<String>,
+    /// Program found in the search path, as reported; for a batch file the
+    /// script, while `spawn.program` is the command interpreter.
+    pub(crate) program: PathBuf,
+    /// Names of the variables set by the command.
+    pub(crate) env_keys: Vec<String>,
     /// Start request.
     pub(crate) spawn: SpawnRequest,
     /// Change detection.

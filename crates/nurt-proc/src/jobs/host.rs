@@ -133,7 +133,11 @@ pub(crate) fn inbox_requests(table: &JobTable) -> Result<Vec<(String, std::path:
 ///
 /// Fails with `E_IO` when the reply cannot be written.
 pub(crate) fn write_start_reply(table: &JobTable, name: &str, reply: &StartReply) -> Result<()> {
-    write_json(&table.inbox().join(format!("{name}{REPLY_SUFFIX}")), reply, true)
+    write_json(
+        &table.inbox().join(format!("{name}{REPLY_SUFFIX}")),
+        reply,
+        true,
+    )
 }
 
 /// Runs supervised by the detached supervisor process, which is started on
@@ -213,8 +217,15 @@ impl DetachedHost {
         Ok(())
     }
 
-    fn follow(&self, ctx: &ExecCtx, table: &JobTable, id: &str, progress: Option<String>) -> Result<RunWait> {
-        let store: Option<std::sync::Arc<dyn OutputStore>> = self.components.spool.open(ctx, id).ok();
+    fn follow(
+        &self,
+        ctx: &ExecCtx,
+        table: &JobTable,
+        id: &str,
+        progress: Option<String>,
+    ) -> Result<RunWait> {
+        let store: Option<std::sync::Arc<dyn OutputStore>> =
+            self.components.spool.open(ctx, id).ok();
         let mut output = OutputEvents::new(id, progress);
         let mut announced = false;
         let mut cancel_sent = false;

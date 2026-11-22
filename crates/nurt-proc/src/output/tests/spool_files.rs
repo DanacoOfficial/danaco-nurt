@@ -29,7 +29,14 @@ fn resident_bytes() -> u64 {
     status
         .lines()
         .find_map(|line| line.strip_prefix("VmRSS:"))
-        .and_then(|value| value.trim().trim_end_matches("kB").trim().parse::<u64>().ok())
+        .and_then(|value| {
+            value
+                .trim()
+                .trim_end_matches("kB")
+                .trim()
+                .parse::<u64>()
+                .ok()
+        })
         .unwrap()
         * KIB
 }
@@ -56,13 +63,19 @@ fn output_spool_large_keeps_memory_flat() {
     store.finish(OutputStream::Stderr).unwrap();
     let out = store.render(&view(), Some(0)).unwrap();
     let growth = resident_bytes().saturating_sub(before);
-    assert!(growth <= LARGE_OUTPUT_MEMORY, "memory grew by {growth} bytes");
+    assert!(
+        growth <= LARGE_OUTPUT_MEMORY,
+        "memory grew by {growth} bytes"
+    );
     let lines = (LARGE_OUTPUT_BYTES / LINE_BYTES) as u64;
     assert_eq!(out.stdout_bytes, LARGE_OUTPUT_BYTES as u64);
     assert_eq!(out.stdout_lines, lines);
     assert_eq!(out.shown.stdout.unwrap().omitted_lines, lines - 60);
     let file = out.stdout_file.unwrap();
-    assert_eq!(std::fs::metadata(file).unwrap().len(), LARGE_OUTPUT_BYTES as u64);
+    assert_eq!(
+        std::fs::metadata(file).unwrap().len(),
+        LARGE_OUTPUT_BYTES as u64
+    );
 }
 
 #[test]
@@ -179,11 +192,16 @@ fn rejects_names_unusable_as_file_names_and_missing_state() {
         let error = bench.factory.create(&bench.ctx, id, false).err().unwrap();
         assert_eq!(error.code(), ErrorCode::Arg, "{id}");
     }
-    let error = bench.factory.create(&bench.ctx, "dup", false).and_then(|_| {
-        bench.factory.create(&bench.ctx, "dup", false)
-    });
+    let error = bench
+        .factory
+        .create(&bench.ctx, "dup", false)
+        .and_then(|_| bench.factory.create(&bench.ctx, "dup", false));
     assert_eq!(error.err().unwrap().code(), ErrorCode::Exists);
-    let stateless = ExecCtx::builder(bench.clock.clone(), std::sync::Arc::new(super::host(bench.dir.path()))).build();
+    let stateless = ExecCtx::builder(
+        bench.clock.clone(),
+        std::sync::Arc::new(super::host(bench.dir.path())),
+    )
+    .build();
     let error = bench.factory.create(&stateless, "x", false).err().unwrap();
     assert_eq!(error.code(), ErrorCode::Config);
 }
@@ -243,7 +261,11 @@ fn creates_files_readable_by_the_account_only() {
     };
     assert_eq!(mode("private-stdout.txt"), 0o600);
     assert_eq!(mode("private.json"), 0o600);
-    let dir = std::fs::metadata(bench.spool_dir()).unwrap().permissions().mode() & MODE_BITS;
+    let dir = std::fs::metadata(bench.spool_dir())
+        .unwrap()
+        .permissions()
+        .mode()
+        & MODE_BITS;
     assert_eq!(dir, 0o700);
 }
 

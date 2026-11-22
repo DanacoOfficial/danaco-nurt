@@ -102,7 +102,8 @@ impl<'a> JobStore<'a> {
             if !is_live(file.record.state) || now >= deadline {
                 return Ok(file);
             }
-            self.ctx.sleep(POLL_INTERVAL.min(deadline.saturating_sub(now)))?;
+            self.ctx
+                .sleep(POLL_INTERVAL.min(deadline.saturating_sub(now)))?;
         }
     }
 
@@ -133,7 +134,12 @@ impl<'a> JobStore<'a> {
     /// # Errors
     ///
     /// Fails with `E_IO` when the output cannot be read.
-    pub(crate) fn output(&self, file: &JobFile, since: Option<&str>, view: &OutputView) -> Result<Job> {
+    pub(crate) fn output(
+        &self,
+        file: &JobFile,
+        since: Option<&str>,
+        view: &OutputView,
+    ) -> Result<Job> {
         let store = self.components.spool.open(self.ctx, file.id())?;
         let output = store.read_since(since, view)?;
         Ok(with_output(self.record(file), &output))
@@ -146,19 +152,29 @@ impl<'a> JobStore<'a> {
     ///
     /// Fails with `E_JOB_STATE` while the job runs and with `E_IO` when the
     /// output cannot be read.
-    pub(crate) fn result(&self, file: &JobFile, view: &OutputView) -> Result<(Job, Option<Record>)> {
+    pub(crate) fn result(
+        &self,
+        file: &JobFile,
+        view: &OutputView,
+    ) -> Result<(Job, Option<Record>)> {
         if is_live(file.record.state) {
             let id = file.id();
             return Err(Error::new(
                 ErrorCode::JobState,
-                format!("job `{id}` is {}; its result exists after the end", file.record.state),
+                format!(
+                    "job `{id}` is {}; its result exists after the end",
+                    file.record.state
+                ),
             )
             .with_found(file.record.state.as_str())
             .with_fix(format!("jobs \"{id}\" view: result wait: 60s")));
         }
         let store = self.components.spool.open(self.ctx, file.id())?;
         let output = store.render(view, exit_code(file))?;
-        Ok((with_output(self.record(file), &output), file.final_record.clone()))
+        Ok((
+            with_output(self.record(file), &output),
+            file.final_record.clone(),
+        ))
     }
 
     /// Stops job `id`: sends `signal` to its process tree and kills the tree
@@ -169,7 +185,12 @@ impl<'a> JobStore<'a> {
     /// Fails with `E_UNKNOWN_JOB`, with `E_JOB_STATE` for a job that does not
     /// run, and with the error of the supervising process.
     pub(crate) fn stop(&self, id: &str, signal: Signal, grace: Duration) -> Result<Job> {
-        control::send(self.ctx, &self.table, id, ControlAction::Stop { signal, grace })
+        control::send(
+            self.ctx,
+            &self.table,
+            id,
+            ControlAction::Stop { signal, grace },
+        )
     }
 
     /// Suspends job `id`.
@@ -242,7 +263,9 @@ impl<'a> JobStore<'a> {
 }
 
 fn exit_code(file: &JobFile) -> Option<i32> {
-    file.record.exit_code.and_then(|code| i32::try_from(code).ok())
+    file.record
+        .exit_code
+        .and_then(|code| i32::try_from(code).ok())
 }
 
 fn with_output(mut job: Job, output: &RenderedOutput) -> Job {
@@ -258,8 +281,20 @@ fn with_output(mut job: Job, output: &RenderedOutput) -> Job {
     if output.progress.is_some() {
         job.progress.clone_from(&output.progress);
     }
-    job.output_file = output.output_file.as_deref().map(path_value).or(job.output_file);
-    job.stdout_file = output.stdout_file.as_deref().map(path_value).or(job.stdout_file);
-    job.stderr_file = output.stderr_file.as_deref().map(path_value).or(job.stderr_file);
+    job.output_file = output
+        .output_file
+        .as_deref()
+        .map(path_value)
+        .or(job.output_file);
+    job.stdout_file = output
+        .stdout_file
+        .as_deref()
+        .map(path_value)
+        .or(job.stdout_file);
+    job.stderr_file = output
+        .stderr_file
+        .as_deref()
+        .map(path_value)
+        .or(job.stderr_file);
     job
 }

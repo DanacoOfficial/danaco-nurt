@@ -75,7 +75,10 @@ fn output_show_auto_returns_error_lines_of_long_failed_output() {
     let bench = Bench::new();
     let store = bench.finished("auto-errors", long_failure().as_bytes(), b"");
     let out = store.render(&view(), Some(2)).unwrap();
-    assert_eq!(out.stdout, "step 13\nstep 14\nerror: broken\nstep 16\nstep 17");
+    assert_eq!(
+        out.stdout,
+        "step 13\nstep 14\nerror: broken\nstep 16\nstep 17"
+    );
     assert_eq!(out.shown.stdout, shown(5, 0, 0, 25));
     let success = store.render(&view(), Some(0)).unwrap();
     assert_eq!(success.stdout.lines().count(), 30);
@@ -97,10 +100,16 @@ fn output_show_both_stdout_and_stderr_select_streams() {
     let both = store.render(&show(ShowMode::Both), Some(0)).unwrap();
     assert_eq!((both.stdout.as_str(), both.stderr.as_str()), ("out", "err"));
     let stdout = store.render(&show(ShowMode::Stdout), Some(1)).unwrap();
-    assert_eq!((stdout.stdout.as_str(), stdout.stderr.as_str()), ("out", ""));
+    assert_eq!(
+        (stdout.stdout.as_str(), stdout.stderr.as_str()),
+        ("out", "")
+    );
     assert_eq!(stdout.shown.stderr, None);
     let stderr = store.render(&show(ShowMode::Stderr), Some(0)).unwrap();
-    assert_eq!((stderr.stdout.as_str(), stderr.stderr.as_str()), ("", "err"));
+    assert_eq!(
+        (stderr.stdout.as_str(), stderr.stderr.as_str()),
+        ("", "err")
+    );
     assert_eq!(stderr.shown.stdout, None);
 }
 
@@ -246,12 +255,19 @@ fn output_summary_progress_reports_last_matches() {
         b"Finished release\n",
     );
     let watch = OutputView {
-        summary: vec!["passed".to_owned(), "^Finished".to_owned(), "absent".to_owned()],
+        summary: vec![
+            "passed".to_owned(),
+            "^Finished".to_owned(),
+            "absent".to_owned(),
+        ],
         progress: Some(r"(\d+)%".to_owned()),
         ..view()
     };
     let out = store.render(&watch, Some(0)).unwrap();
-    assert_eq!(out.summary_lines, ["test result: ok. 5 passed", "Finished release"]);
+    assert_eq!(
+        out.summary_lines,
+        ["test result: ok. 5 passed", "Finished release"]
+    );
     let progress = out.progress.unwrap();
     assert_eq!(progress.percent, Some(75.0));
     assert_eq!(progress.line, "[3/4] 75%");

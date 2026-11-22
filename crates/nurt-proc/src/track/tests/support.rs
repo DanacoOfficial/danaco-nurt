@@ -17,8 +17,8 @@ use nurt_contracts::config::Config;
 use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{
-    AbsPath, ContentHash, DirEntry, ExtendedMeta, FileId, FileKind, FileMeta, Follow, Fs,
-    FsError, FsErrorKind, FsResult, Holder, PathKey, ReadHandle, SpaceInfo, VolumeId, VolumeInfo,
+    AbsPath, ContentHash, DirEntry, ExtendedMeta, FileId, FileKind, FileMeta, Follow, Fs, FsError,
+    FsErrorKind, FsResult, Holder, PathKey, ReadHandle, SpaceInfo, VolumeId, VolumeInfo,
 };
 use nurt_contracts::journal::{
     AfterState, Applied, BeforeState, ExemptWrite, ExternalChange, ExternalChangeKind, Mutation,
@@ -129,8 +129,8 @@ impl Fs for DiskFs {
     }
 
     fn open_read(&self, path: &AbsPath) -> FsResult<Box<dyn ReadHandle>> {
-        let file =
-            fs::File::open(path.as_path()).map_err(|error| fs_error(&error, "open", path.as_path()))?;
+        let file = fs::File::open(path.as_path())
+            .map_err(|error| fs_error(&error, "open", path.as_path()))?;
         Ok(Box::new(DiskRead(file)))
     }
 
@@ -228,7 +228,11 @@ impl Clock for VirtualClock {
         }
     }
 
-    fn sleep(&self, duration: Duration, cancel: &CancelToken) -> std::result::Result<(), CancelReason> {
+    fn sleep(
+        &self,
+        duration: Duration,
+        cancel: &CancelToken,
+    ) -> std::result::Result<(), CancelReason> {
         if let Some(reason) = cancel.reason() {
             return Err(reason);
         }
@@ -398,15 +402,18 @@ impl MutationTx for RecordingTx {
         Ok(preserved)
     }
 
-    fn stage(
-        &mut self,
-        _target: TargetIndex,
-    ) -> Result<Box<dyn nurt_contracts::fs::WriteHandle>> {
-        Err(Error::new(ErrorCode::StageFailed, "not used by change detection"))
+    fn stage(&mut self, _target: TargetIndex) -> Result<Box<dyn nurt_contracts::fs::WriteHandle>> {
+        Err(Error::new(
+            ErrorCode::StageFailed,
+            "not used by change detection",
+        ))
     }
 
     fn apply(&mut self, _target: TargetIndex, _mutation: Mutation) -> Result<Applied> {
-        Err(Error::new(ErrorCode::StageFailed, "not used by change detection"))
+        Err(Error::new(
+            ErrorCode::StageFailed,
+            "not used by change detection",
+        ))
     }
 
     fn observe_external(&mut self, changes: &[ExternalChange]) -> Result<Vec<Applied>> {
@@ -423,6 +430,7 @@ impl MutationTx for RecordingTx {
                         size: content.as_ref().map(|bytes| bytes.len() as u64),
                         hash: content.as_deref().map(digest),
                         mode: None,
+                        meta: None,
                     },
                 }
             })
@@ -435,7 +443,11 @@ impl MutationTx for RecordingTx {
 
     fn commit(self: Box<Self>) -> Result<OpHandle> {
         Ok(OpHandle {
-            op: if self.observed.is_empty() { None } else { self.op },
+            op: if self.observed.is_empty() {
+                None
+            } else {
+                self.op
+            },
             kind: OpKind::command("run"),
             bulk: true,
             targets: Vec::new(),

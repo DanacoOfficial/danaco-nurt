@@ -19,7 +19,12 @@ pub(crate) fn split(args: &[String], size: usize) -> Vec<Vec<String>> {
 /// `task` returns its result and whether the item failed. With `bail`, no
 /// item is started after the first failure; items already running finish,
 /// and items never started are `None`.
-pub(crate) fn run_ordered<T, R, F>(items: &[T], parallel: usize, bail: bool, task: F) -> Vec<Option<R>>
+pub(crate) fn run_ordered<T, R, F>(
+    items: &[T],
+    parallel: usize,
+    bail: bool,
+    task: F,
+) -> Vec<Option<R>>
 where
     T: Sync,
     R: Send,
@@ -84,7 +89,10 @@ mod tests {
             std::thread::sleep(Duration::from_millis(*delay));
             (*delay, false)
         });
-        assert_eq!(results, items.iter().map(|delay| Some(*delay)).collect::<Vec<_>>());
+        assert_eq!(
+            results,
+            items.iter().map(|delay| Some(*delay)).collect::<Vec<_>>()
+        );
     }
 
     #[test]

@@ -14,6 +14,7 @@ use nurt_contracts::error::{ErrorCode, Result};
 use nurt_contracts::record::{KilledBy, Launcher, LimitHit, Signal};
 use nurt_contracts::stage::{CancelReason, CancelToken, OutputStream};
 
+use super::supervisor::Supervised;
 use super::system;
 use crate::iface::{
     OutputSink, Priority, ProcessEnd, ProcessLimits, RunningProcess, SpawnRequest, StdinSource,
@@ -120,7 +121,7 @@ impl OutputSink for Collect {
 }
 
 struct Started {
-    process: Box<dyn RunningProcess>,
+    process: Supervised,
     sink: Arc<Collect>,
     cancel: CancelToken,
 }
@@ -128,8 +129,7 @@ struct Started {
 fn start(request: SpawnRequest) -> Started {
     let sink = Arc::new(Collect::default());
     let cancel = CancelToken::new();
-    let process = system()
-        .spawn(request, sink.clone(), cancel.clone())
+    let process = super::start(request, sink.clone(), cancel.clone())
         .unwrap_or_else(|error| panic!("the fixture did not start: {error:?}"));
     Started {
         process,
@@ -150,6 +150,7 @@ fn finish(started: &mut Started) -> ProcessEnd {
 }
 
 /// Waits until the fixture printed `marker`.
+#[cfg(unix)]
 fn wait_for_output(started: &Started, marker: &str) {
     let deadline = Instant::now() + TEST_BOUND;
     while !started.sink.stdout().contains(marker) {

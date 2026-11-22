@@ -56,7 +56,9 @@ fn wildcard(pattern: &[u8], text: &[u8]) -> bool {
             },
         }
     }
-    pattern.get(p..).is_some_and(|rest| rest.iter().all(|&byte| byte == b'*'))
+    pattern
+        .get(p..)
+        .is_some_and(|rest| rest.iter().all(|&byte| byte == b'*'))
 }
 
 /// One name of an option token.
@@ -115,7 +117,10 @@ impl OptionToken {
     fn value_matches(&self, hit: &OptionHit) -> bool {
         match &self.value {
             None => true,
-            Some(words) => hit.value.as_deref().is_some_and(|value| words.matches(value)),
+            Some(words) => hit
+                .value
+                .as_deref()
+                .is_some_and(|value| words.matches(value)),
         }
     }
 
@@ -172,7 +177,9 @@ fn short_in_group(arg: &str, letter: char) -> Option<Option<String>> {
         .find(|c: char| !c.is_ascii_alphabetic())
         .unwrap_or(group.len());
     let position = group.get(..letters)?.find(letter)?;
-    let attached = group.get(position + letter.len_utf8()..).unwrap_or_default();
+    let attached = group
+        .get(position + letter.len_utf8()..)
+        .unwrap_or_default();
     Some((!attached.is_empty()).then(|| attached.to_owned()))
 }
 
@@ -203,7 +210,8 @@ impl Tail {
             } else if token.starts_with('-') {
                 tail.options.push(OptionToken::parse(token)?);
             } else {
-                tail.positionals.push(Positional::Words(Words::parse(token)?));
+                tail.positionals
+                    .push(Positional::Words(Words::parse(token)?));
             }
         }
         Ok(tail)
@@ -221,7 +229,10 @@ impl Tail {
             return None;
         }
         Some(match consumed.checked_sub(1) {
-            Some(last) => invocation.positionals.get(last).map_or(0, |(index, _)| index + 1),
+            Some(last) => invocation
+                .positionals
+                .get(last)
+                .map_or(0, |(index, _)| index + 1),
             None => 0,
         })
     }

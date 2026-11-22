@@ -248,14 +248,23 @@ struct Pipeline<'a> {
 }
 
 impl<'a> Pipeline<'a> {
-    fn new(lines: Lines, limits: (usize, usize), view: &OutputView, matchers: Matchers<'a>) -> Self {
+    fn new(
+        lines: Lines,
+        limits: (usize, usize),
+        view: &OutputView,
+        matchers: Matchers<'a>,
+    ) -> Self {
         let (head, tail) = limits;
-        let errors = |out| ContextSelect::new(Matcher::Errors(matchers.errors), RUN_ERROR_CONTEXT, out);
+        let errors =
+            |out| ContextSelect::new(Matcher::Errors(matchers.errors), RUN_ERROR_CONTEXT, out);
         let (plain, select) = match (lines, matchers.filter) {
             (Lines::Filter, Some(filter)) => {
                 let context = usize::try_from(view.context).unwrap_or(usize::MAX);
                 let out = HeadTail::new(head, tail);
-                (None, Some(ContextSelect::new(Matcher::Pattern(filter), context, out)))
+                (
+                    None,
+                    Some(ContextSelect::new(Matcher::Pattern(filter), context, out)),
+                )
             }
             (Lines::Errors, _) => (
                 Some(HeadTail::new(0, tail)),
@@ -398,7 +407,11 @@ struct Scan {
 /// `E_REGEX` for an invalid pattern, `E_INVALID_VALUE` for an unknown
 /// encoding or a cursor past the end of the output, and I/O errors of the
 /// spool files.
-pub(super) fn respond(snapshot: &Snapshot, view: &OutputView, mode: Mode) -> Result<RenderedOutput> {
+pub(super) fn respond(
+    snapshot: &Snapshot,
+    view: &OutputView,
+    mode: Mode,
+) -> Result<RenderedOutput> {
     let compiled = Compiled::new(view)?;
     let start = match mode {
         Mode::Since { from: Some(cursor) } => cursor,
@@ -416,12 +429,33 @@ pub(super) fn respond(snapshot: &Snapshot, view: &OutputView, mode: Mode) -> Res
             None => detect_file(source)?,
         };
         let mut pipeline = plan(snapshot, view, mode, source.stream).map(|lines| {
-            Pipeline::new(lines, limits(snapshot, view, mode), view, compiled.matchers())
+            Pipeline::new(
+                lines,
+                limits(snapshot, view, mode),
+                view,
+                compiled.matchers(),
+            )
         });
-        let mut observer = compiled.watch.is_active().then(|| compiled.watch.observer());
+        let mut observer = compiled
+            .watch
+            .is_active()
+            .then(|| compiled.watch.observer());
         let budget = matches!(mode, Mode::Since { .. }).then_some(READ_BUDGET_BYTES);
-        let scan = scan(source, from, encoding, budget, pipeline.as_mut(), observer.as_mut())?;
-        cursor.set_position(source.stream, scan.end);
+        let scan = scan(
+            source,
+            from,
+            encoding,
+            budget,
+            pipeline.as_mut(),
+            observer.as_mut(),
+        )?;
+        // A stream left out by `show` keeps its position, so that a later
+        // read of that stream starts where the previous read of it ended.
+        let left_out =
+            matches!(mode, Mode::Since { .. }) && pipeline.is_none() && view.show != ShowMode::None;
+        if !left_out {
+            cursor.set_position(source.stream, scan.end);
+        }
         shortened += scan.shortened;
         if encoding.unit() != LineUnit::Byte
             && from == Position::default()
@@ -526,7 +560,8 @@ fn plan(snapshot: &Snapshot, view: &OutputView, mode: Mode, stream: OutputStream
             snapshot.merged
                 || !matches!(
                     (view.show, stream),
-                    (ShowMode::Stdout, OutputStream::Stderr) | (ShowMode::Stderr, OutputStream::Stdout)
+                    (ShowMode::Stdout, OutputStream::Stderr)
+                        | (ShowMode::Stderr, OutputStream::Stdout)
                 )
         }
     };
@@ -581,7 +616,10 @@ fn limits(snapshot: &Snapshot, view: &OutputView, mode: Mode) -> (usize, usize) 
 fn detect_file(source: &Source) -> Result<TextEncoding> {
     let mut sample = Vec::new();
     File::open(&source.path)
-        .and_then(|file| file.take(DETECT_SAMPLE_BYTES as u64).read_to_end(&mut sample))
+        .and_then(|file| {
+            file.take(DETECT_SAMPLE_BYTES as u64)
+                .read_to_end(&mut sample)
+        })
         .map_err(|error| io_error("read", &source.path, &error))?;
     let whole = source.ended && sample.len() < DETECT_SAMPLE_BYTES;
     Ok(decode::detect(&sample, whole))
@@ -598,9 +636,7 @@ fn scan(
     mut observer: Option<&mut Observer<'_>>,
 ) -> Result<Scan> {
     let read_error = |error: std::io::Error| io_error("read", &source.path, &error);
-    let length = std::fs::metadata(&source.path)
-        .map_err(read_error)?
-        .len();
+    let length = std::fs::metadata(&source.path).map_err(read_error)?.len();
     if from.offset > length {
         return Err(Error::new(
             ErrorCode::InvalidValue,
@@ -636,12 +672,18 @@ fn scan(
 
 /// Encoding reported for the output: `binary` when a stream with bytes is
 /// binary, else the encoding of the first stream with bytes.
-fn decoded_as(detected: &[(&Source, TextEncoding, u64)], requested: Option<TextEncoding>) -> String {
+fn decoded_as(
+    detected: &[(&Source, TextEncoding, u64)],
+    requested: Option<TextEncoding>,
+) -> String {
     let mut written = detected
         .iter()
         .filter(|(_, _, length)| *length > 0)
         .map(|(_, encoding, _)| *encoding);
-    if written.clone().any(|encoding| encoding == TextEncoding::Binary) {
+    if written
+        .clone()
+        .any(|encoding| encoding == TextEncoding::Binary)
+    {
         return TextEncoding::Binary.name();
     }
     written

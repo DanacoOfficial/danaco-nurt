@@ -373,7 +373,11 @@ mod tests {
         ] {
             assert!(lines.is_error(line), "{line}");
         }
-        for line in ["test result: ok. 3 passed; 0 failed", "all good", "0 errors"] {
+        for line in [
+            "test result: ok. 3 passed; 0 failed",
+            "all good",
+            "0 errors",
+        ] {
             assert!(!lines.is_error(line), "{line}");
         }
     }

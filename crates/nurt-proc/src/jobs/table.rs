@@ -32,8 +32,8 @@ use nurt_contracts::error::{Candidate, Error, ErrorCode, Result};
 use nurt_contracts::record::{Job, JobState};
 use nurt_contracts::stage::ExecCtx;
 use nurt_contracts::value::{Instant, Record};
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 use super::state::is_live;
 use super::wire::{StoredInput, StoredRequest, StoredResult};
@@ -117,11 +117,6 @@ impl JobTable {
         Ok(Self { dir })
     }
 
-    /// Directory of the table.
-    pub(crate) fn dir(&self) -> &Path {
-        &self.dir
-    }
-
     /// Directory of start requests to the detached supervisor.
     pub(crate) fn inbox(&self) -> PathBuf {
         self.dir.join(INBOX_DIR)
@@ -139,14 +134,20 @@ impl JobTable {
     /// Fails with `E_IO` when the sequence cannot be read or written.
     pub(crate) fn allocate(&self) -> Result<String> {
         let lock = open_lock(&self.dir.join(SEQUENCE_LOCK))?;
-        lock.lock().map_err(|error| io_error("lock the job sequence", &error))?;
+        lock.lock()
+            .map_err(|error| io_error("lock the job sequence", &error))?;
         let path = self.dir.join(SEQUENCE_FILE);
         let stored = match fs::read_to_string(&path) {
             Ok(text) => text.trim().parse::<u64>().unwrap_or(0),
             Err(error) if error.kind() == ErrorKind::NotFound => 0,
             Err(error) => return Err(io_error("read the job sequence", &error)),
         };
-        let highest = self.ids()?.iter().filter_map(|id| number(id)).max().unwrap_or(0);
+        let highest = self
+            .ids()?
+            .iter()
+            .filter_map(|id| number(id))
+            .max()
+            .unwrap_or(0);
         let next = stored.max(highest).saturating_add(1);
         write_atomic(&path, next.to_string().as_bytes(), false)?;
         Ok(format!("{ID_PREFIX}{next}"))
@@ -158,8 +159,7 @@ impl JobTable {
     ///
     /// Fails with `E_IO` when the directory cannot be read.
     pub(crate) fn ids(&self) -> Result<Vec<String>> {
-        let entries =
-            fs::read_dir(&self.dir).map_err(|error| io_error("list the jobs", &error))?;
+        let entries = fs::read_dir(&self.dir).map_err(|error| io_error("list the jobs", &error))?;
         let mut ids: Vec<(u64, String)> = entries
             .filter_map(|entry| entry.ok())
             .filter_map(|entry| {
@@ -291,7 +291,8 @@ impl JobTable {
     /// Fails with `E_IO` when the lock cannot be taken.
     pub(crate) fn lock_job(&self, id: &str) -> Result<File> {
         let lock = open_lock(&self.lock_path(id))?;
-        lock.lock().map_err(|error| io_error("lock the job", &error))?;
+        lock.lock()
+            .map_err(|error| io_error("lock the job", &error))?;
         Ok(lock)
     }
 
@@ -325,7 +326,11 @@ impl JobTable {
     ///
     /// Fails with `E_IO` when a file exists but cannot be removed.
     pub(crate) fn remove(&self, id: &str) -> Result<()> {
-        for path in [self.record_path(id), self.input_path(id), self.lock_path(id)] {
+        for path in [
+            self.record_path(id),
+            self.input_path(id),
+            self.lock_path(id),
+        ] {
             remove_file(&path)?;
         }
         match fs::remove_dir_all(self.control_dir(id)) {
@@ -388,7 +393,9 @@ pub(crate) fn wall_time(instant: Instant) -> WallTime {
 
 /// Wall time as the instant of a record.
 pub(crate) fn instant(time: WallTime) -> Instant {
-    let nanos = time.unix_nanos().clamp(i128::from(i64::MIN), i128::from(i64::MAX));
+    let nanos = time
+        .unix_nanos()
+        .clamp(i128::from(i64::MIN), i128::from(i64::MAX));
     Instant::from_unix_nanos(i64::try_from(nanos).unwrap_or_default())
 }
 
@@ -399,7 +406,10 @@ pub(crate) fn instant(time: WallTime) -> Instant {
 /// Fails with `E_IO` when the file cannot be written.
 pub(crate) fn write_json<T: Serialize>(path: &Path, value: &T, private: bool) -> Result<()> {
     let bytes = serde_json::to_vec(value).map_err(|error| {
-        Error::new(ErrorCode::Io, format!("cannot encode {}: {error}", path.display()))
+        Error::new(
+            ErrorCode::Io,
+            format!("cannot encode {}: {error}", path.display()),
+        )
     })?;
     write_atomic(path, &bytes, private)
 }
@@ -416,7 +426,10 @@ pub(crate) fn read_json<T: DeserializeOwned>(path: &Path) -> Result<Option<T>> {
         Err(error) => return Err(io_error(&format!("read {}", path.display()), &error)),
     };
     serde_json::from_slice(&bytes).map(Some).map_err(|error| {
-        Error::new(ErrorCode::Io, format!("cannot decode {}: {error}", path.display()))
+        Error::new(
+            ErrorCode::Io,
+            format!("cannot decode {}: {error}", path.display()),
+        )
     })
 }
 
@@ -456,7 +469,10 @@ pub(crate) fn io_error(what: &str, error: &io::Error) -> Error {
 }
 
 fn write_atomic(path: &Path, bytes: &[u8], private: bool) -> Result<()> {
-    let name = path.file_name().map(|name| name.to_string_lossy()).unwrap_or_default();
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy())
+        .unwrap_or_default();
     let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
     let temp = path.with_file_name(format!(".{name}.{}.{counter}.tmp", std::process::id()));
     let result = write_new(&temp, bytes, private).and_then(|()| fs::rename(&temp, path));

@@ -41,6 +41,10 @@ pub(super) struct EntryState {
     pub(super) modified_ns: i64,
     /// File identity: volume, low and high part.
     pub(super) file_id: [u64; 3],
+    /// Birth time, nanoseconds since the Unix epoch, when the system
+    /// reports it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) created_ns: Option<i64>,
     /// Permission bits.
     pub(super) mode: u32,
     /// Target of a link.
@@ -128,6 +132,7 @@ pub(super) fn stat(fs: &dyn Fs, path: &AbsPath, hash: bool) -> Option<EntryState
         size: meta.size,
         modified_ns: meta.modified_ns,
         file_id: [meta.file_id.volume, meta.file_id.low, meta.file_id.high],
+        created_ns: meta.created_ns,
         mode: meta.mode,
         link,
         hash,
@@ -196,7 +201,12 @@ impl Work<'_> {
         };
         let mut subdirs = Vec::new();
         for entry in entries.flatten() {
-            if self.scope.ignore.iter().any(|name| entry.name == name.as_str()) {
+            if self
+                .scope
+                .ignore
+                .iter()
+                .any(|name| entry.name == name.as_str())
+            {
                 continue;
             }
             let Ok(path) = AbsPath::new(dir.as_path().join(&entry.name)) else {
@@ -208,9 +218,7 @@ impl Work<'_> {
             if state.kind == Kind::Directory {
                 subdirs.push(path.clone());
             }
-            scanned
-                .entries
-                .insert(path.as_path().to_path_buf(), state);
+            scanned.entries.insert(path.as_path().to_path_buf(), state);
         }
         subdirs
     }
@@ -293,7 +301,13 @@ pub(super) fn refresh(
             Some(state) if state.kind == Kind::Directory && !was_dir => {
                 remove_tree(snapshot, path);
                 let roots = [abs];
-                let subtree = scan(fs, Scope { roots: &roots, ..scope });
+                let subtree = scan(
+                    fs,
+                    Scope {
+                        roots: &roots,
+                        ..scope
+                    },
+                );
                 snapshot.extend(subtree.entries);
             }
             Some(state) => {

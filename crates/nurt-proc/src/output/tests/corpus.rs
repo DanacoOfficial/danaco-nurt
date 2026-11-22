@@ -99,7 +99,11 @@ fn output_matches_reference_corpus() {
             assert_eq!(out.summary_lines, expected, "{name}");
         }
         if let Some(percent) = case["progress"].as_f64() {
-            assert_eq!(out.progress.and_then(|progress| progress.percent), Some(percent), "{name}");
+            assert_eq!(
+                out.progress.and_then(|progress| progress.percent),
+                Some(percent),
+                "{name}"
+            );
         }
     }
 }

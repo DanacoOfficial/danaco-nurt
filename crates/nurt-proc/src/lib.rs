@@ -13,7 +13,6 @@
 #![deny(missing_docs)]
 #![allow(unsafe_code, reason = "process control calls of the operating system")]
 #![deny(clippy::undocumented_unsafe_blocks)]
-#![allow(dead_code, reason = "development interval: parts are joined during integration")]
 
 pub mod api;
 
@@ -31,8 +30,8 @@ mod track;
 pub use api::{
     JobFinisher, JobFinishers, ToolOutcome, ToolResult, ToolRun, process_host, run_tool, stages,
 };
-pub use jobs::{Supervision, SupervisorCommand, run_supervisor};
 pub use classify::{
     ArgvClasses, EffectClassifier, EffectMatch, Interactive, OpaqueScript, classify_argv,
     classify_effects,
 };
+pub use jobs::{Supervision, SupervisorCommand, run_supervisor};

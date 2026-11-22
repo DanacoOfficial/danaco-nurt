@@ -24,7 +24,7 @@ use nurt_contracts::stage::{CancelReason, CancelToken, Event, ExecCtx, LogEvent,
 use super::control::{self, ControlAction};
 use super::events::{self, OutputEvents};
 use super::journal::{begin, bound_program};
-use super::record::{finish_job, started_job, tool_result, with_elapsed};
+use super::record::{external_effect, finish_job, started_job, tool_result, with_elapsed};
 use super::state::{Action, check_action};
 use super::table::{JobFile, JobTable, PROTOCOL, io_error};
 use super::wire::{StoredInput, StoredRequest, StoredResult};
@@ -33,6 +33,7 @@ use crate::iface::{
     Components, OutputSink, OutputStore, PreparedScan, ProcessEnd, ResourceUsage, RunKind,
     RunRequest, RunResult, RunWait, RunningProcess, StdinSource, TrackOutcome,
 };
+use crate::spawn::Platform;
 
 /// Interval at which a job thread waits for its program before it looks for
 /// control requests, its waiting time and new output.
@@ -127,7 +128,10 @@ impl Waiter {
                     Ok(_) => Err(thread_ended()),
                 };
             }
-            state = self.changed.wait(state).unwrap_or_else(PoisonError::into_inner);
+            state = self
+                .changed
+                .wait(state)
+                .unwrap_or_else(PoisonError::into_inner);
         }
     }
 
@@ -142,13 +146,19 @@ impl Waiter {
             if let Some(outcome) = &state.outcome {
                 return outcome.clone();
             }
-            state = self.changed.wait(state).unwrap_or_else(PoisonError::into_inner);
+            state = self
+                .changed
+                .wait(state)
+                .unwrap_or_else(PoisonError::into_inner);
         }
     }
 }
 
 fn thread_ended() -> Error {
-    Error::new(ErrorCode::StageFailed, "the job thread ended before the program started")
+    Error::new(
+        ErrorCode::StageFailed,
+        "the job thread ended before the program started",
+    )
 }
 
 /// Settles the waiter when the job thread ends without an outcome,
@@ -224,18 +234,33 @@ impl JobRun {
             self.launch.program.clone(),
             request,
         );
-        let scan = match self.components.tracker.prepare(ctx, &request.track, tx.as_mut()) {
+        if let Some(entry) = external_effect(request) {
+            tx.mark_irreversible(entry);
+        }
+        let scan = match self
+            .components
+            .tracker
+            .prepare(ctx, &request.track, tx.as_mut())
+        {
             Ok(scan) => scan,
             Err(error) => return Err(rolled_back(tx, error)),
         };
-        let store = match self.components.spool.create(ctx, &self.id, request.spawn.merge_stderr) {
+        let store = match self
+            .components
+            .spool
+            .create(ctx, &self.id, request.spawn.merge_stderr)
+        {
             Ok(store) => store,
             Err(error) => return Err(rolled_back(tx, error)),
         };
         let cancel = CancelToken::new();
         let sink: Arc<dyn OutputSink> = store.clone();
         let mut process =
-            match self.components.control.spawn(request.spawn.clone(), sink, cancel.clone()) {
+            match self
+                .components
+                .control
+                .spawn(request.spawn.clone(), sink, cancel.clone())
+            {
                 Ok(process) => process,
                 Err(error) => {
                     let _ = self.components.spool.remove(ctx, &self.id);
@@ -311,16 +336,25 @@ impl JobRun {
             {
                 cancel.cancel(reason);
             }
+            let mut stopped = None;
             for (name, action) in control::pending(&self.table, &self.id) {
-                if let Some(end) = self.control(job, process, cancel, &name, action) {
-                    return end;
+                if stopped.is_some() {
+                    after_stop(&self.table, &self.id, job, &name, action);
+                } else {
+                    stopped = self.control(job, process, cancel, &name, action);
                 }
+            }
+            if let Some(end) = stopped {
+                return end;
             }
             match process.wait(Some(POLL_INTERVAL)) {
                 Ok(Some(end)) => return end,
                 Ok(None) => output.pump(&self.ctx, store, false),
                 Err(error) => {
-                    self.log(&format!("waiting for job `{}` failed: {}", self.id, error.message));
+                    self.log(&format!(
+                        "waiting for job `{}` failed: {}",
+                        self.id, error.message
+                    ));
                     return process
                         .stop(Signal::Kill, Duration::ZERO)
                         .unwrap_or_else(|_| self.unknown_end());
@@ -343,7 +377,8 @@ impl JobRun {
             self.log(&error.message);
         }
         let record = with_elapsed(&job.file.record, self.ctx.clock().now());
-        self.waiter.settle(Ok(RunWait::Background(Box::new(record))));
+        self.waiter
+            .settle(Ok(RunWait::Background(Box::new(record))));
     }
 
     fn control(
@@ -399,6 +434,7 @@ impl JobRun {
             finished: self.ctx.clock().now(),
             usage: ResourceUsage::default(),
             suspended_total: Duration::ZERO,
+            stdin_closed_early: false,
         }
     }
 
@@ -414,20 +450,31 @@ impl JobRun {
         let ctx = &self.ctx;
         let request = &self.launch.request;
         let track = scan.finish(ctx, tx.as_mut()).unwrap_or_else(|error| {
-            self.log(&format!("changes of job `{}` were not detected: {}", self.id, error.message));
+            self.log(&format!(
+                "changes of job `{}` were not detected: {}",
+                self.id, error.message
+            ));
             TrackOutcome::default()
         });
         let op = match tx.commit() {
             Ok(handle) => handle.op.map(|op| op.0),
             Err(error) => {
-                self.log(&format!("changes of job `{}` were not journaled: {}", self.id, error.message));
+                self.log(&format!(
+                    "changes of job `{}` were not journaled: {}",
+                    self.id, error.message
+                ));
                 None
             }
         };
-        let output = store.render(&request.view, end.exit_code).unwrap_or_else(|error| {
-            self.log(&format!("output of job `{}` cannot be read: {}", self.id, error.message));
-            crate::iface::RenderedOutput::default()
-        });
+        let output = store
+            .render(&request.view, end.exit_code)
+            .unwrap_or_else(|error| {
+                self.log(&format!(
+                    "output of job `{}` cannot be read: {}",
+                    self.id, error.message
+                ));
+                crate::iface::RenderedOutput::default()
+            });
         let Supervised {
             mut file,
             stop_requests,
@@ -465,11 +512,14 @@ impl JobRun {
             RunKind::Run | RunKind::Retry => return None,
         };
         let finisher = self.ctx.extensions().get::<JobFinishers>()?.get(kind)?;
-        let tool = tool_result(request, result);
+        let tool = tool_result(request, result, Platform::of(self.ctx.host().info().os));
         match finisher.finish(&self.ctx, &tool, request.finish_data.as_ref()) {
             Ok(record) => Some(record),
             Err(error) => {
-                self.log(&format!("result of job `{}` failed: {}", self.id, error.message));
+                self.log(&format!(
+                    "result of job `{}` failed: {}",
+                    self.id, error.message
+                ));
                 None
             }
         }
@@ -484,6 +534,21 @@ impl JobRun {
     }
 }
 
+/// Handles a request taken in the same poll as a stop request that already
+/// ended the program: a further stop is answered with the final record, a
+/// suspension or resumption is refused.
+fn after_stop(table: &JobTable, id: &str, job: &mut Supervised, name: &str, action: ControlAction) {
+    match action {
+        ControlAction::Stop { .. } => job.stop_requests.push(name.to_owned()),
+        ControlAction::Cancel => {}
+        ControlAction::Suspend | ControlAction::Resume => {
+            let refused = check_action(id, JobState::Stopped, action.action())
+                .map(|()| job.file.record.clone());
+            control::reply(table, id, name, refused);
+        }
+    }
+}
+
 fn rolled_back(tx: Box<dyn MutationTx + '_>, error: Error) -> Error {
     match tx.rollback(RollbackReason::TargetFailed) {
         Ok(report) if report.failed.is_empty() => error,
@@ -491,7 +556,10 @@ fn rolled_back(tx: Box<dyn MutationTx + '_>, error: Error) -> Error {
             ErrorCode::RollbackFailed,
             "the run did not start and its preparation could not be undone completely",
         )
-        .with_detail("failed", serde_json::to_value(&report.failed).unwrap_or_default())
+        .with_detail(
+            "failed",
+            serde_json::to_value(&report.failed).unwrap_or_default(),
+        )
         .with_cause(error),
         Err(rollback) => rollback.with_cause(error),
     }

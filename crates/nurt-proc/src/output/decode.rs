@@ -113,10 +113,7 @@ impl TextEncoding {
 }
 
 fn decode_plain(encoding: &'static Encoding, bytes: &[u8]) -> String {
-    encoding
-        .decode_without_bom_handling(bytes)
-        .0
-        .into_owned()
+    encoding.decode_without_bom_handling(bytes).0.into_owned()
 }
 
 fn cp852_char(byte: u8) -> char {
@@ -152,9 +149,7 @@ pub(super) fn requested(label: Option<&str>) -> Result<Option<TextEncoding>> {
         return Ok(Some(TextEncoding::Cp852));
     }
     match Encoding::for_label(label.as_bytes()) {
-        Some(encoding) if encoding != encoding_rs::REPLACEMENT => {
-            Ok(Some(from_encoding(encoding)))
-        }
+        Some(encoding) if encoding != encoding_rs::REPLACEMENT => Ok(Some(from_encoding(encoding))),
         _ => Err(Error::new(
             ErrorCode::InvalidValue,
             format!("output_encoding: unknown encoding {label}"),
@@ -209,7 +204,7 @@ fn by_zero_bytes(sample: &[u8]) -> Option<TextEncoding> {
         return None;
     }
     let (mut even, mut odd) = (0, 0);
-    for pair in sample.chunks_exact(2) {
+    for pair in sample.as_chunks::<2>().0 {
         even += usize::from(pair[0] == 0);
         odd += usize::from(pair[1] == 0);
     }
@@ -413,7 +408,10 @@ mod tests {
             requested(Some("utf-16be")).unwrap(),
             Some(TextEncoding::Utf16Be)
         );
-        assert_eq!(requested(Some("ibm852")).unwrap(), Some(TextEncoding::Cp852));
+        assert_eq!(
+            requested(Some("ibm852")).unwrap(),
+            Some(TextEncoding::Cp852)
+        );
         let error = requested(Some("klingon")).unwrap_err();
         assert_eq!(error.code(), ErrorCode::InvalidValue);
         assert!(requested(Some("iso-2022-kr")).is_err());

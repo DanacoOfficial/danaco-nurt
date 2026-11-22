@@ -395,12 +395,10 @@ impl Spool {
     }
 
     fn writer(&self) -> Result<MutexGuard<'_, Writer>> {
-        self.writer.as_ref().map(lock).ok_or_else(|| {
-            Error::new(
-                ErrorCode::Internal,
-                "output of an earlier run is read only",
-            )
-        })
+        self.writer
+            .as_ref()
+            .map(lock)
+            .ok_or_else(|| Error::new(ErrorCode::Internal, "output of an earlier run is read only"))
     }
 
     fn snapshot(&self) -> Result<Snapshot> {
@@ -562,10 +560,7 @@ impl SpoolFactory for SpoolDir {
     /// run of another process.
     fn open(&self, ctx: &ExecCtx, id: &str) -> Result<Arc<dyn OutputStore>> {
         let paths = SpoolPaths::new(ctx, id)?;
-        if let Some(spool) = lock(&self.live)
-            .get(&paths.meta())
-            .and_then(Weak::upgrade)
-        {
+        if let Some(spool) = lock(&self.live).get(&paths.meta()).and_then(Weak::upgrade) {
             return Ok(spool);
         }
         Ok(Arc::new(Spool::open(ctx, paths)?))

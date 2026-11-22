@@ -85,15 +85,17 @@ pub(crate) fn check_action(id: &str, state: JobState, action: Action) -> Result<
     let state_name = state.as_str();
     let error = Error::new(
         ErrorCode::JobState,
-        format!("job `{id}` is {state_name}; `{}` needs {}", action.name(), needs(action)),
+        format!(
+            "job `{id}` is {state_name}; `{}` needs {}",
+            action.name(),
+            needs(action)
+        ),
     )
     .with_found(state_name);
     let fix = match action {
         Action::Remove | Action::Retry => Some(format!("jobs \"{id}\" |> stop")),
         Action::Resume if state == JobState::Running => Some(format!("jobs \"{id}\" |> suspend")),
-        Action::Suspend if state == JobState::Suspended => {
-            Some(format!("jobs \"{id}\" |> resume"))
-        }
+        Action::Suspend if state == JobState::Suspended => Some(format!("jobs \"{id}\" |> resume")),
         _ => None,
     };
     Err(match fix {
@@ -130,6 +132,7 @@ mod tests {
             finished: WallTime::UNIX_EPOCH,
             usage: ResourceUsage::default(),
             suspended_total: Duration::ZERO,
+            stdin_closed_early: false,
         }
     }
 
@@ -138,11 +141,26 @@ mod tests {
         assert_eq!(final_state(&end(Some(0), None)), JobState::Exited);
         assert_eq!(final_state(&end(Some(3), None)), JobState::Failed);
         assert_eq!(final_state(&end(None, None)), JobState::Failed);
-        assert_eq!(final_state(&end(None, Some(KilledBy::Stop))), JobState::Stopped);
-        assert_eq!(final_state(&end(None, Some(KilledBy::Cancel))), JobState::Stopped);
-        assert_eq!(final_state(&end(None, Some(KilledBy::Timeout))), JobState::TimedOut);
-        assert_eq!(final_state(&end(None, Some(KilledBy::Idle))), JobState::Stalled);
-        assert_eq!(final_state(&end(None, Some(KilledBy::Limit))), JobState::Limit);
+        assert_eq!(
+            final_state(&end(None, Some(KilledBy::Stop))),
+            JobState::Stopped
+        );
+        assert_eq!(
+            final_state(&end(None, Some(KilledBy::Cancel))),
+            JobState::Stopped
+        );
+        assert_eq!(
+            final_state(&end(None, Some(KilledBy::Timeout))),
+            JobState::TimedOut
+        );
+        assert_eq!(
+            final_state(&end(None, Some(KilledBy::Idle))),
+            JobState::Stalled
+        );
+        assert_eq!(
+            final_state(&end(None, Some(KilledBy::Limit))),
+            JobState::Limit
+        );
     }
 
     #[test]

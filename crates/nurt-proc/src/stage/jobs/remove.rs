@@ -83,7 +83,8 @@ impl EffectStage for Remove {
             irreversible.push(entry.clone());
             records.push(Record::from(effect("remove", job, entry)));
         }
-        let mut outcome = EffectOutcome::new(StageOutput::records(RecordStream::from_records(records)));
+        let mut outcome =
+            EffectOutcome::new(StageOutput::records(RecordStream::from_records(records)));
         outcome.irreversible = irreversible;
         Ok(outcome)
     }

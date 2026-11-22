@@ -395,6 +395,63 @@ impl Tree {
     }
 }
 
+/// Job object of a helper process started outside process control; every
+/// process of the helper ends when the job is closed.
+pub(crate) struct ServiceJob {
+    job: OwnedHandle,
+}
+
+impl ServiceJob {
+    /// Places `process`, created with `CREATE_SUSPENDED`, in a new job
+    /// object and resumes it, so every process it starts belongs to the job.
+    ///
+    /// # Errors
+    ///
+    /// `E_SPAWN` when the job object cannot be created or the process cannot
+    /// be assigned to it or resumed; the process is then terminated.
+    pub(crate) fn adopt(process: &std::process::Child) -> Result<Self> {
+        let handle: HANDLE = process.as_raw_handle();
+        let fail = |error: io::Error| {
+            // SAFETY: the process handle stays open while `process` lives.
+            unsafe { TerminateProcess(handle, TERMINATED_EXIT_CODE) };
+            Error::new(
+                ErrorCode::Spawn,
+                format!("cannot place the helper process in a job object: {error}"),
+            )
+        };
+        let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let job = new_job(&info).map_err(fail)?;
+        // SAFETY: both handles are open; the process has not run yet.
+        if unsafe { AssignProcessToJobObject(raw(&job), handle) } == 0 {
+            return Err(fail(io::Error::last_os_error()));
+        }
+        // SAFETY: the process handle has full access; resuming the process
+        // releases the main thread created suspended.
+        let status = unsafe { NtResumeProcess(handle) };
+        if status < 0 {
+            return Err(fail(io::Error::other(format!("status {status:#x}"))));
+        }
+        Ok(Self { job })
+    }
+
+    /// Ends every process of the job.
+    ///
+    /// # Errors
+    ///
+    /// `E_IO` when the job cannot be terminated.
+    pub(crate) fn kill(&self) -> Result<()> {
+        // SAFETY: the job handle is open for the lifetime of `self`.
+        if unsafe { TerminateJobObject(raw(&self.job), TERMINATED_EXIT_CODE) } == 0 {
+            return Err(io_error(
+                "end the helper process",
+                &io::Error::last_os_error(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Standard handles passed to the program.
 #[derive(Clone, Copy)]
 struct StdHandles {
@@ -480,7 +537,8 @@ fn raw(handle: &OwnedHandle) -> HANDLE {
     handle.as_raw_handle()
 }
 
-fn create_job(request: &SpawnRequest) -> io::Result<OwnedHandle> {
+/// New job object with the limits of `info`.
+fn new_job(info: &JOBOBJECT_EXTENDED_LIMIT_INFORMATION) -> io::Result<OwnedHandle> {
     // SAFETY: an unnamed job with default security.
     let handle = unsafe { CreateJobObjectW(ptr::null(), ptr::null()) };
     if handle.is_null() {
@@ -488,6 +546,11 @@ fn create_job(request: &SpawnRequest) -> io::Result<OwnedHandle> {
     }
     // SAFETY: `CreateJobObjectW` returned an open handle owned by the caller.
     let job = unsafe { OwnedHandle::from_raw_handle(handle) };
+    set_job(&job, JobObjectExtendedLimitInformation, info)?;
+    Ok(job)
+}
+
+fn create_job(request: &SpawnRequest) -> io::Result<OwnedHandle> {
     let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
     info.BasicLimitInformation.LimitFlags =
         JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION;
@@ -500,8 +563,7 @@ fn create_job(request: &SpawnRequest) -> io::Result<OwnedHandle> {
         let units = cpu.as_nanos() / u128::from(TIME_UNIT_NANOS);
         info.BasicLimitInformation.PerJobUserTimeLimit = i64::try_from(units).unwrap_or(i64::MAX);
     }
-    set_job(&job, JobObjectExtendedLimitInformation, &info)?;
-    Ok(job)
+    new_job(&info)
 }
 
 fn associate_port(job: &OwnedHandle) -> io::Result<OwnedHandle> {

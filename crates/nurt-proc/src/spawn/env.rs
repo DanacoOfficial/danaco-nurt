@@ -108,6 +108,7 @@ impl ChildEnv {
     }
 
     /// Names of all variables, in order.
+    #[cfg(test)]
     pub(crate) fn names(&self) -> impl Iterator<Item = &OsStr> {
         self.vars.iter().map(|(name, _)| name.as_os_str())
     }
@@ -118,10 +119,12 @@ impl ChildEnv {
     }
 
     fn position(&self, name: &OsStr) -> Option<usize> {
-        self.vars.iter().position(|(existing, _)| match self.platform {
-            Platform::Unix => existing == name,
-            Platform::Windows => existing.eq_ignore_ascii_case(name),
-        })
+        self.vars
+            .iter()
+            .position(|(existing, _)| match self.platform {
+                Platform::Unix => existing == name,
+                Platform::Windows => existing.eq_ignore_ascii_case(name),
+            })
     }
 
     fn set(&mut self, name: OsString, value: OsString) {

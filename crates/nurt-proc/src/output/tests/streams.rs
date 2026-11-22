@@ -38,8 +38,18 @@ fn capture(bench: &Bench, id: &str, args: &[&str]) -> Arc<dyn OutputStore> {
     let output = Command::new(fixture_program()).args(args).output().unwrap();
     assert!(output.status.success(), "{args:?}");
     let store = bench.create(id, false);
-    pump(output.stdout.as_slice(), store.as_ref(), OutputStream::Stdout, SPLIT_CHUNK);
-    pump(output.stderr.as_slice(), store.as_ref(), OutputStream::Stderr, SPLIT_CHUNK);
+    pump(
+        output.stdout.as_slice(),
+        store.as_ref(),
+        OutputStream::Stdout,
+        SPLIT_CHUNK,
+    );
+    pump(
+        output.stderr.as_slice(),
+        store.as_ref(),
+        OutputStream::Stderr,
+        SPLIT_CHUNK,
+    );
     store
 }
 
@@ -167,6 +177,9 @@ fn output_cursor_concurrent_with_paced_program() {
     });
     assert!(child.wait().unwrap().success());
     let read: Vec<String> = lines.into_iter().filter(|line| !line.is_empty()).collect();
-    let expected: Vec<String> = expected.into_iter().filter(|line| !line.is_empty()).collect();
+    let expected: Vec<String> = expected
+        .into_iter()
+        .filter(|line| !line.is_empty())
+        .collect();
     assert_eq!(read, expected);
 }

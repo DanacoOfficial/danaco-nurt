@@ -34,7 +34,10 @@ pub(crate) fn duration(args: &BoundArgs, name: &str) -> Result<Option<Duration>>
         Some(Value::Duration(value)) => value.to_std().map(Some).ok_or_else(|| {
             Error::new(
                 ErrorCode::InvalidValue,
-                format!("`{}` needs a positive duration for `{name}`", args.command()),
+                format!(
+                    "`{}` needs a positive duration for `{name}`",
+                    args.command()
+                ),
             )
         }),
         Some(other) => Err(type_error(args, name, "duration", other)),

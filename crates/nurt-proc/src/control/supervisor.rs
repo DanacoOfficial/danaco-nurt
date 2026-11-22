@@ -45,6 +45,7 @@ struct State {
     open_streams: u8,
     collected: bool,
     abandoned: bool,
+    stdin_closed_early: bool,
     error: Option<Error>,
 }
 
@@ -159,7 +160,10 @@ impl Supervised {
             supervised.start_reader(stderr, OutputStream::Stderr)?;
         }
         if let (Some(writer), Some(bytes)) = (streams.stdin, stdin) {
-            start_thread("nurt-proc-input", move || write_input(writer, &bytes))?;
+            let shared = Arc::clone(&supervised.shared);
+            start_thread("nurt-proc-input", move || {
+                write_input(writer, &bytes, &shared);
+            })?;
         }
         Ok(supervised)
     }
@@ -327,9 +331,11 @@ impl Supervised {
         let mut state = self.shared.lock();
         state.collected = true;
         let error = state.error.take();
+        let stdin_closed_early = state.stdin_closed_early;
         drop(state);
         let finished = self.tree.finish()?;
-        let end = self.process_end(&finished, reason);
+        let mut end = self.process_end(&finished, reason);
+        end.stdin_closed_early = stdin_closed_early;
         self.end = Some(end.clone());
         match error {
             Some(error) => Err(error),
@@ -360,6 +366,7 @@ impl Supervised {
                 max_rss: self.peak.max_rss.max(finished.usage.max_rss),
             },
             suspended_total: self.suspended_total,
+            stdin_closed_early: false,
         }
     }
 
@@ -414,11 +421,6 @@ impl RunningProcess for Supervised {
         }
     }
 
-    fn signal(&mut self, signal: Signal) -> Result<()> {
-        self.ensure_running()?;
-        self.tree.signal(signal)
-    }
-
     fn stop(&mut self, signal: Signal, grace: Duration) -> Result<ProcessEnd> {
         if let Some(end) = &self.end {
             return Ok(end.clone());
@@ -455,8 +457,18 @@ impl RunningProcess for Supervised {
         self.end_suspension(Instant::now());
         Ok(())
     }
+}
 
-    fn usage(&self) -> Result<ResourceUsage> {
+#[cfg(test)]
+impl Supervised {
+    /// Sends `signal` to the whole tree without waiting for its end.
+    pub(super) fn signal(&mut self, signal: Signal) -> Result<()> {
+        self.ensure_running()?;
+        self.tree.signal(signal)
+    }
+
+    /// Current resource use of the whole tree.
+    pub(super) fn usage(&self) -> Result<ResourceUsage> {
         if let Some(end) = &self.end {
             return Ok(end.usage);
         }
@@ -537,10 +549,17 @@ fn copy_output(
     shared.stream_closed();
 }
 
-fn write_input(mut writer: Box<dyn Write + Send>, bytes: &[u8]) {
-    // A program may end or close its input before reading all of it; the
-    // rest of the input is then discarded.
-    writer.write_all(bytes).ok();
+/// Writes the given input and closes it. A program may end or close its
+/// input before reading all of it; the rest is discarded and the run
+/// reports it.
+fn write_input(mut writer: Box<dyn Write + Send>, bytes: &[u8], shared: &Shared) {
+    if writer
+        .write_all(bytes)
+        .and_then(|()| writer.flush())
+        .is_err()
+    {
+        shared.lock().stdin_closed_early = true;
+    }
 }
 
 fn wall_now() -> WallTime {

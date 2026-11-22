@@ -68,6 +68,22 @@ fn identity(state: &EntryState) -> Option<([u64; 3], Kind)> {
     (state.file_id[1] != 0 || state.file_id[2] != 0).then_some((state.file_id, state.kind))
 }
 
+/// Whether `after` is the entry `before` under a new path. A rename keeps
+/// the birth time of an entry, while an entry created after a deletion may
+/// reuse the freed identity with a new birth time; without birth times on
+/// both sides the identity alone decides. A file must also keep its size
+/// and modification time: a file renamed and changed in the same run is
+/// reported as deleted and created, so its new content is recorded.
+fn renamed(before: &EntryState, after: &EntryState) -> bool {
+    let same_birth = match (before.created_ns, after.created_ns) {
+        (Some(old), Some(new)) => old == new,
+        _ => true,
+    };
+    same_birth
+        && (before.kind != Kind::File
+            || (before.size == after.size && before.modified_ns == after.modified_ns))
+}
+
 /// Changes between `old` and `new`, ordered by path.
 pub(super) fn compare(old: &Snapshot, new: &Snapshot) -> Vec<Detected> {
     let mut detected = Vec::new();
@@ -95,7 +111,13 @@ pub(super) fn compare(old: &Snapshot, new: &Snapshot) -> Vec<Detected> {
     }
     let mut renamed_from = Vec::new();
     for (path, after) in new.iter().filter(|(path, _)| !old.contains_key(*path)) {
-        let from = identity(after).and_then(|id| deleted.remove(&id));
+        let from = identity(after)
+            .and_then(|id| deleted.get(&id).map(|from| (id, *from)))
+            .filter(|(_, from)| old.get(*from).is_some_and(|before| renamed(before, after)))
+            .map(|(id, from)| {
+                deleted.remove(&id);
+                from
+            });
         let action = match from {
             Some(from) => {
                 renamed_from.push(from);
@@ -135,7 +157,10 @@ fn mark_implied(detected: &mut [Detected]) {
         .iter()
         .filter_map(|change| match &change.action {
             Action::Rename { from, .. }
-                if change.after.as_ref().is_some_and(|state| state.kind == Kind::Directory) =>
+                if change
+                    .after
+                    .as_ref()
+                    .is_some_and(|state| state.kind == Kind::Directory) =>
             {
                 Some((from.clone(), change.path.clone()))
             }
@@ -151,5 +176,87 @@ fn mark_implied(detected: &mut [Detected]) {
                         .is_ok_and(|relative| change.path.strip_prefix(new_dir) == Ok(relative))
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// File of `size` bytes with identity `inode`, modified at `modified_ns`
+    /// and born at `created_ns`.
+    fn file(inode: u64, size: u64, modified_ns: i64, created_ns: Option<i64>) -> EntryState {
+        EntryState {
+            kind: Kind::File,
+            size,
+            modified_ns,
+            file_id: [1, inode, 0],
+            created_ns,
+            mode: 0o644,
+            link: None,
+            hash: None,
+        }
+    }
+
+    fn actions(before: EntryState, after: EntryState) -> Vec<(String, Action)> {
+        let old = Snapshot::from([(PathBuf::from("/w/old.txt"), before)]);
+        let new = Snapshot::from([(PathBuf::from("/w/new.txt"), after)]);
+        compare(&old, &new)
+            .into_iter()
+            .map(|change| (change.path.to_string_lossy().into_owned(), change.action))
+            .collect()
+    }
+
+    fn rename() -> Vec<(String, Action)> {
+        vec![(
+            "/w/new.txt".to_owned(),
+            Action::Rename {
+                from: PathBuf::from("/w/old.txt"),
+                implied: false,
+            },
+        )]
+    }
+
+    fn delete_and_create() -> Vec<(String, Action)> {
+        vec![
+            ("/w/new.txt".to_owned(), Action::Create),
+            ("/w/old.txt".to_owned(), Action::Delete),
+        ]
+    }
+
+    #[test]
+    fn same_identity_and_birth_time_is_a_rename() {
+        assert_eq!(
+            actions(file(7, 5, 100, Some(50)), file(7, 5, 100, Some(50))),
+            rename()
+        );
+    }
+
+    #[test]
+    fn reused_identity_with_a_new_birth_time_is_a_new_file() {
+        assert_eq!(
+            actions(file(7, 5, 100, Some(50)), file(7, 5, 100, Some(90))),
+            delete_and_create()
+        );
+    }
+
+    #[test]
+    fn renamed_and_changed_file_is_deleted_and_created() {
+        assert_eq!(
+            actions(file(7, 5, 100, Some(50)), file(7, 9, 120, Some(50))),
+            delete_and_create()
+        );
+    }
+
+    #[test]
+    fn without_birth_times_an_unchanged_file_with_the_same_identity_is_a_rename() {
+        assert_eq!(
+            actions(file(7, 5, 100, None), file(7, 5, 100, None)),
+            rename()
+        );
+        assert_eq!(
+            actions(file(7, 5, 100, None), file(7, 6, 100, None)),
+            delete_and_create()
+        );
     }
 }
