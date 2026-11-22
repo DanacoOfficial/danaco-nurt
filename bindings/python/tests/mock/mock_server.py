@@ -84,7 +84,7 @@ class Server:
 
     def event(self, identifier: Any, kind: str, seq: int) -> None:
         if self.events:
-            params = {"t": kind, "seq": seq, "time": "2026-01-01T00:00:00Z", "request_id": identifier, "progress": seq}
+            params = {"t": kind, "seq": seq, "time": "2026-01-01T00:00:00Z", "request": str(identifier), "progress": seq}
             self.send({"jsonrpc": "2.0", "method": "nurt/event", "params": params})
 
     def serve(self) -> int:
@@ -205,7 +205,7 @@ class Server:
         return response("failed", "page", None, error={"code": "E_ARG", "message": "the cursor has expired"})
 
     def on_describe(self, _identifier: Any, params: Dict[str, Any]) -> Dict[str, Any]:
-        return {"text": "description " + json.dumps(params, separators=(",", ":"))}
+        return {"description": "description " + json.dumps(params, separators=(",", ":"))}
 
     def on_help(self, _identifier: Any, params: Dict[str, Any]) -> Dict[str, Any]:
         return {"text": "help " + str(params.get("topic", "index"))}
@@ -214,7 +214,7 @@ class Server:
         return {"catalog_rev": "mock", "groups": []}
 
     def on_schema(self, _identifier: Any, params: Dict[str, Any]) -> Dict[str, Any]:
-        which = params.get("which")
+        which = params.get("name")
         if which not in SCHEMAS:
             raise CallFailure(3, "unknown schema name")
         return {"title": f"nurt-{which}/1"}

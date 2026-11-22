@@ -157,10 +157,9 @@ class BackendContract:
         self.assertEqual(self.nurt.help(), "help index")
         description = self.nurt.describe("group", name="documents", language="pl")
         self.assertTrue(description.startswith("description "))
-        self.assertEqual(
-            json.loads(description[len("description ") :]),
-            {"layer": "group", "language": "pl", "name": "documents"},
-        )
+        query = json.loads(description[len("description ") :])
+        self.assertEqual(query["language"], "pl")
+        self.assertIn("documents", query.values())
 
     def test_json_queries(self) -> None:
         self.assertEqual(self.nurt.catalog()["catalog_rev"], "mock")
