@@ -142,7 +142,7 @@ fn program_with_a_language_error_exits_nonzero_and_names_the_fix() {
     let outcome = call(&["remvoe", "\"/tmp/a\""]);
     assert_eq!(outcome.code, exit::FAILURE);
     assert!(outcome.out.contains("E_UNKNOWN_COMMAND"));
-    assert!(outcome.out.starts_with("failed program"));
+    assert!(outcome.out.starts_with("error E_UNKNOWN_COMMAND"));
 }
 
 #[test]
@@ -213,8 +213,7 @@ fn usage_errors_exit_with_two() {
 #[test]
 fn unavailable_subcommands_exit_with_three() {
     for args in [
-        &["serve", "--stdio"][..],
-        &["serve", "--socket", "/run/nurt.sock"],
+        &["serve", "--socket", "/run/nurt.sock"][..],
         &["mcp"],
         &["lsp"],
         &["migrate", "x.sh"],
@@ -301,9 +300,10 @@ fn ast_converts_a_tree_between_json_and_cbor() {
 }
 
 #[test]
-fn catalog_and_help_topics_report_the_missing_components() {
+fn catalog_lists_the_groups_and_help_topics_report_the_missing_components() {
     let catalog = call(&["catalog"]);
-    assert_eq!(catalog.code, exit::for_error_code(ErrorCode::Unsupported));
+    assert_eq!(catalog.code, exit::SUCCESS);
+    assert!(catalog.out.contains("nurt-catalog-result/1"));
     let topic = call(&["help", "remove"]);
     assert!(topic.err.contains("E_UNSUPPORTED"));
 }

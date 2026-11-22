@@ -72,9 +72,7 @@ pub const COMPONENTS: &[Component] = &[
 ///
 /// A linked crate without an entry point for the command line is not
 /// connected either.
-pub const NOT_CONNECTED: &[&str] = &[
-    "serve", "mcp", "lsp", "migrate", "service", "journal", "ext",
-];
+pub const NOT_CONNECTED: &[&str] = &["mcp", "lsp", "migrate", "service", "journal", "ext"];
 
 /// Language front end of the executable.
 ///

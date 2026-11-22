@@ -5,6 +5,7 @@
 //! the dispatcher of invocations.
 
 use std::io::{self, BufRead, Write};
+use std::process::ExitCode;
 use std::sync::Arc;
 
 use nurt_contracts::env::Host;
@@ -155,6 +156,24 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> u8 {
         Ok(code) => code,
         Err(error) => report(&error, io),
     }
+}
+
+/// Runs one invocation of the executable and returns its exit code.
+///
+/// The protocol server of `serve` owns the standard output of the process, so
+/// it is started here; every other invocation runs through [`run`].
+pub fn run_process(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> ExitCode {
+    if let Invocation::Subcommand {
+        name: "serve",
+        args: rest,
+    } = args::resolve(args)
+    {
+        return match integrations::serve::start(&rest, source, &mut *io.input, io::stdout()) {
+            Ok(code) => code,
+            Err(error) => ExitCode::from(report(&error, io)),
+        };
+    }
+    ExitCode::from(run(args, io, source))
 }
 
 fn dispatch(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8, CliError> {

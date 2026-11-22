@@ -170,7 +170,41 @@ fn banner_is_not_printed_to_the_protocol_server() {
     let output = nurt(&["serve", "--stdio"], "");
     assert_no_banner(&output);
     assert!(output.stdout.is_empty());
+    assert_eq!(output.status.code(), Some(0));
+}
+
+#[test]
+fn protocol_server_answers_requests_on_the_standard_streams() {
+    let requests = concat!(
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol":"nurt-rpc/1"}}"#,
+        "\n",
+        r#"{"jsonrpc":"2.0","id":2,"method":"shutdown"}"#,
+        "\n",
+    );
+    let output = nurt(&["serve", "--stdio"], requests);
+    assert_eq!(output.status.code(), Some(0));
+    let replies: Vec<serde_json::Value> = stdout(&output)
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(replies.len(), 2);
+    assert_eq!(replies[0]["result"]["protocol"], "nurt-rpc/1");
+    assert_eq!(replies[1]["id"], 2);
+}
+
+#[test]
+fn protocol_server_on_a_socket_is_not_available() {
+    let output = nurt(&["serve", "--socket", "/run/nurt.sock"], "");
     assert_eq!(output.status.code(), Some(3));
+    assert!(output.stdout.is_empty());
+    assert!(stderr(&output).contains("serve --socket is not available in this build"));
+}
+
+#[test]
+fn protocol_server_rejects_invalid_arguments() {
+    let output = nurt(&["serve", "--stdio", "--framing", "xml"], "");
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
 }
 
 #[test]

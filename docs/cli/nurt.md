@@ -299,10 +299,17 @@ Serves the request protocol to a client process.
 Syntax:
 
 ```
-nurt serve --stdio | --socket <path>
+nurt serve --stdio | --socket <path> [--framing ndjson|content-length] [--stub <directory>]
 ```
 
-Nothing is written to the standard output except protocol messages. Without the server in the build the command ends with exit code 3.
+| Parameter | Type | Default | Meaning |
+|---|---|---|---|
+| `--stdio` | flag | none | Serves one client on the standard input and output. |
+| `--socket <path>` | path | none | Serves a client on a local socket. Ends with exit code 3. |
+| `--framing` | `ndjson` or `content-length` | `ndjson` | Framing of the messages. |
+| `--stub <directory>` | path | none | Answers requests from recorded cases instead of the engine. Needs the `stub` feature; without it the command ends with exit code 3. |
+
+Exactly one attachment is required. Nothing is written to the standard output except protocol messages, and no banner is printed. The exit code is 0 after `shutdown` or at the end of the input and 1 when the input cannot be read or the output cannot be written. Invalid arguments end with exit code 2.
 
 Example:
 

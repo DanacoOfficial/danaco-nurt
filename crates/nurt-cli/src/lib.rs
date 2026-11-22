@@ -58,5 +58,5 @@ pub fn main_with_args<I: IntoIterator<Item = OsString>>(args: I) -> ExitCode {
         input: &mut input,
         terminal,
     };
-    ExitCode::from(run(&words, &mut io, &SystemEngine))
+    app::run_process(&words, &mut io, &SystemEngine)
 }

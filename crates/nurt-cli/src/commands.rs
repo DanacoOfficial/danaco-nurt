@@ -175,9 +175,17 @@ fn check(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<
         writeln!(io.out, "{json}")?;
     } else {
         writeln!(io.out, "{}", context.out_style.success("ok"))?;
-        writeln!(io.out, "corrections: {}", report.corrections.len())?;
-        for (key, value) in &report.summary {
-            writeln!(io.out, "{key}: {value}")?;
+        writeln!(io.out, "corrections: {}", report.summary.corrections.len())?;
+        let summary = serde_json::to_value(&report.summary)
+            .map_err(|error| CliError::Failure(format!("cannot encode the result: {error}")))?;
+        for (key, value) in summary.as_object().into_iter().flatten() {
+            if key == "corrections" {
+                continue;
+            }
+            match value.as_str() {
+                Some(text) => writeln!(io.out, "{key}: {text}")?,
+                None => writeln!(io.out, "{key}: {value}")?,
+            }
         }
     }
     Ok(exit::SUCCESS)

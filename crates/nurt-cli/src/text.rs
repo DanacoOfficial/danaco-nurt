@@ -8,53 +8,42 @@
 //! `NURT_BUILD_COMMIT` and `NURT_BUILD_DATE`; a build that does not know them
 //! omits the parenthesis of the full version line.
 
+use nurt_contracts::product;
+
 /// Version of the program.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Canonical description of the product. It is a single constant of the
-/// command line interface until the shared constant of the contracts replaces
-/// it.
-const TAGLINE: &str = "Command shell and language where every change can be undone";
-
-const COPYRIGHT: &str = "Copyright (c) 2026 Danaco Holding Group Sp. z o.o. All rights reserved.";
-const LICENSE: &str = "Apache-2.0";
 const BUILD_COMMIT: Option<&str> = option_env!("NURT_BUILD_COMMIT");
 const BUILD_DATE: Option<&str> = option_env!("NURT_BUILD_DATE");
 
 /// Output of `nurt -V`.
 #[must_use]
 pub fn short_version() -> String {
-    format!("nurt {VERSION}")
+    product::version_line(VERSION)
 }
 
 /// Output of `nurt --version` and `nurt version`: version with the build
 /// data, copyright and license.
 #[must_use]
 pub fn full_version() -> String {
-    let build = match (BUILD_COMMIT, BUILD_DATE) {
-        (Some(commit), Some(date)) => format!(" ({commit} {date})"),
-        _ => String::new(),
-    };
-    format!("nurt {VERSION}{build}\n{COPYRIGHT}\nLicense: {LICENSE}")
+    let build = BUILD_COMMIT.zip(BUILD_DATE);
+    product::long_version(VERSION, build)
 }
 
 /// Banner of an interactive session.
 #[must_use]
 pub fn banner() -> String {
-    format!("Danaco Nurt {VERSION}\n{COPYRIGHT}\nType 'help' to get started.")
+    product::banner(VERSION)
 }
 
 /// Introduction printed by `help` without a topic.
 #[must_use]
 pub fn help_intro() -> String {
-    let mut tagline = TAGLINE.to_owned();
-    if let Some(first) = tagline.get_mut(..1) {
-        first.make_ascii_lowercase();
-    }
     format!(
-        "Danaco Nurt {VERSION} - {tagline}\n\n\
+        "{}\n\n\
          Run 'help <topic>' for a command or a topic.\n\
-         Run 'catalog' to list the commands."
+         Run 'catalog' to list the commands.",
+        product::session_help_heading(VERSION)
     )
 }
 
@@ -62,7 +51,7 @@ pub fn help_intro() -> String {
 #[must_use]
 pub fn usage() -> String {
     format!(
-        "{TAGLINE}.\n\n\
+        "{}\n\n\
          Usage: nurt [OPTIONS] <PROGRAM>\n\
          \x20      nurt <COMMAND> [ARGS]\n\n\
          Commands:\n\
@@ -78,7 +67,8 @@ pub fn usage() -> String {
          \x20 --cursor C            read a further page of an earlier result\n\
          \x20 --verbosity V         quiet, normal or detailed\n\
          \x20 -V, --version         print the version\n\
-         \x20 -h, --help            print this help"
+         \x20 -h, --help            print this help",
+        product::help_summary()
     )
 }
 

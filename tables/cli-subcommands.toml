@@ -74,7 +74,7 @@ arguments = ["[arguments of the redo command]"]
 [[subcommand]]
 name = "serve"
 description = "Serve the request protocol to a client process."
-arguments = ["--stdio | --socket <path>"]
+arguments = ["--stdio | --socket <path>", "[--framing ndjson|content-length]", "[--stub <directory>]"]
 
 [[subcommand]]
 name = "mcp"
