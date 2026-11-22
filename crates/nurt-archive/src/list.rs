@@ -136,12 +136,14 @@ pub enum ArchiveError {
         /// Recognised format.
         format: Format,
     },
-    /// The content of a member is encrypted.
+    /// The content of a member, or the header of a 7z archive, is encrypted.
     Encrypted {
-        /// Path of the member inside the archive.
+        /// Path of the member inside the archive; empty when the header of
+        /// the archive is encrypted.
         path: String,
     },
-    /// Extraction would exceed a limit of [`crate::extract::Limits`].
+    /// Extraction would exceed a limit of [`crate::extract::Limits`], or a
+    /// new 7z archive would exceed [`crate::create::MAX_SEVEN_Z_SIZE`].
     Limit {
         /// Exceeded limit.
         limit: LimitKind,
@@ -191,15 +193,19 @@ pub enum LimitKind {
     Size,
     /// Ratio of the extracted size to the size of the archive.
     Ratio,
+    /// Size of a new 7z archive, which is assembled in memory before it is
+    /// written.
+    Memory,
 }
 
 impl LimitKind {
-    /// Stable name of the limit (`size`, `ratio`).
+    /// Stable name of the limit (`size`, `ratio`, `memory`).
     #[must_use]
     pub fn name(self) -> &'static str {
         match self {
             Self::Size => "size",
             Self::Ratio => "ratio",
+            Self::Memory => "memory",
         }
     }
 }
@@ -266,6 +272,9 @@ impl fmt::Display for ArchiveError {
                     "{format} archives are not supported by this build"
                 )
             }
+            Self::Encrypted { path } if path.is_empty() => {
+                formatter.write_str("the archive is encrypted; decrypt it with its own tool first")
+            }
             Self::Encrypted { path } => write!(
                 formatter,
                 "member {path} is encrypted; decrypt the archive with its own tool first"
@@ -285,6 +294,14 @@ impl fmt::Display for ArchiveError {
             } => write!(
                 formatter,
                 "compression ratio {actual} exceeds the limit of {allowed}; the archive may be a decompression bomb"
+            ),
+            Self::Limit {
+                limit: LimitKind::Memory,
+                allowed,
+                actual,
+            } => write!(
+                formatter,
+                "a 7z archive of {actual} bytes exceeds the in-memory limit of {allowed} bytes; create a zip or tar archive instead"
             ),
             Self::InvalidPath { path, violation } => write!(
                 formatter,
@@ -561,7 +578,7 @@ pub(crate) fn visit<R: Read + Seek + Send>(
     match format {
         Format::Zip => crate::zip::visit(reader, visitor)?,
         Format::Tar(compression) => crate::tar::visit(reader, compression, visitor)?,
-        Format::SevenZ => return Err(ArchiveError::Unsupported { format }),
+        Format::SevenZ => crate::sevenz::visit(reader, visitor)?,
     }
     Ok(format)
 }
@@ -660,7 +677,7 @@ mod tests {
     }
 
     #[test]
-    fn detects_seven_z_and_reports_it_unsupported() {
+    fn detects_seven_z_and_rejects_a_damaged_header() {
         let mut bytes = SEVEN_Z_SIGNATURE.to_vec();
         bytes.extend_from_slice(&[0; 26]);
         assert_eq!(
@@ -670,8 +687,9 @@ mod tests {
         let error = list(Cursor::new(bytes), None, |_| Ok(())).unwrap_err();
         assert!(matches!(
             error,
-            ArchiveError::Unsupported {
-                format: Format::SevenZ
+            ArchiveError::Format {
+                format: Some(Format::SevenZ),
+                ..
             }
         ));
         assert_eq!(error.code(), ErrorCode::Format);
