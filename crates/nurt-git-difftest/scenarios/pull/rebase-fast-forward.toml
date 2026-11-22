@@ -1,0 +1,33 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "pull/rebase-fast-forward"
+description = "Pull with mode rebase and no local commits fast-forwards instead of rebasing."
+corpus = "empty"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "a.txt"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  ["remote", "add", "origin", "../upstream"],
+  ["fetch", "-q", "origin"],
+  ["reset", "-q", "--hard", "origin/main"],
+  ["branch", "-q", "--set-upstream-to=origin/main", "main"],
+  { write = "../upstream/a.txt", content = "a\nb\n" },
+  { git = ["commit", "-q", "-a", "-m", "second"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["pull", "--rebase"]
+expect_exit = 0
+
+[nurt]
+command = "git.pull"
+params = { mode = "rebase" }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD", "config"]
+undo = true
+ignore = []

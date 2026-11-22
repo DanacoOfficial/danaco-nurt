@@ -20,6 +20,7 @@ workspace = true
 [features]
 default = ["git-ssh"]
 git-ssh = ["dep:russh", "dep:tokio"]
+testutil = ["dep:tempfile"]
 
 [dependencies]
 nurt-contracts = { workspace = true }
@@ -51,6 +52,8 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 jiff = { workspace = true }
 rand = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true, optional = true }
 thiserror = { workspace = true }
 rusqlite = { workspace = true }
 

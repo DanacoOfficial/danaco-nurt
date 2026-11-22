@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "pull/rebase-conflict"
+description = "Pull with mode rebase stops at the conflicting commit with the rebase-merge directory."
+corpus = "empty"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "a.txt"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  ["remote", "add", "origin", "../upstream"],
+  ["fetch", "-q", "origin"],
+  ["reset", "-q", "--hard", "origin/main"],
+  ["branch", "-q", "--set-upstream-to=origin/main", "main"],
+  { write = "../upstream/a.txt", content = "a\nupstream\n" },
+  { git = ["commit", "-q", "-a", "-m", "upstream change"], cwd = "../upstream" },
+  { write = "a.txt", content = "a\nlocal\n" },
+  ["commit", "-q", "-a", "-m", "local change"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["pull", "--rebase"]
+expect_exit = 1
+
+[nurt]
+command = "git.pull"
+params = { mode = "rebase" }
+expect = "error:E_GIT_CONFLICT"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD", "config"]
+undo = true
+ignore = []
