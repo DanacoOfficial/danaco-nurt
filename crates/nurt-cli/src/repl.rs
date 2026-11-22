@@ -20,12 +20,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+use crossterm::cursor::SetCursorStyle;
 use nurt_contracts::envelope::{OutputFormat, Request};
 use nurt_core::{DeliveredEvent, Engine, EventListener, ExecHandle};
 use reedline::{
-    Color, ColumnarMenu, CompletionResult, DefaultPrompt, DefaultPromptSegment, Emacs,
-    FileBackedHistory, Highlighter, KeyCode, KeyModifiers, MenuBuilder, Reedline, ReedlineEvent,
-    ReedlineMenu, Signal, Span, StyledText, Suggestion, default_emacs_keybindings,
+    Color, ColumnarMenu, CompletionResult, CursorConfig, DefaultPrompt, DefaultPromptSegment,
+    Emacs, FileBackedHistory, Highlighter, KeyCode, KeyModifiers, MenuBuilder, Reedline,
+    ReedlineEvent, ReedlineMenu, Signal, Span, StyledText, Suggestion, default_emacs_keybindings,
 };
 
 use crate::EngineSource;
@@ -207,7 +208,13 @@ impl EditorLines {
             .with_menu(ReedlineMenu::EngineCompleter(Box::new(
                 ColumnarMenu::default().with_name(MENU_NAME),
             )))
-            .with_edit_mode(Box::new(Emacs::new(keybindings)));
+            .with_edit_mode(Box::new(Emacs::new(keybindings)))
+            .with_cursor_config(CursorConfig {
+                // A blinking underscore while a line is typed; the line editor
+                // restores the shape of the terminal when the line is read.
+                emacs: Some(SetCursorStyle::BlinkingUnderScore),
+                ..CursorConfig::default()
+            });
         if let Some(history) = history {
             editor = editor.with_history(history);
         }

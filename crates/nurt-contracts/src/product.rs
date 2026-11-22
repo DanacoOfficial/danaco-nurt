@@ -33,6 +33,16 @@ pub const LICENSE_NOTICE: &str = "License: Apache-2.0";
 /// Last line of the session banner.
 pub const BANNER_HINT: &str = "Type 'help' to get started.";
 
+/// Name of the product drawn with characters, the first part of the session
+/// banner. Each row is at most 28 characters wide and has no trailing space.
+pub const BANNER_ART: [&str; 5] = [
+    r" _   _  _   _  ____   _____",
+    r"| \ | || | | ||  _ \ |_   _|",
+    r"|  \| || | | || |_) |  | |",
+    r"| |\  || |_| ||  _ <   | |",
+    r"|_| \_| \___/ |_| \_\  |_|",
+];
+
 /// Returns the output of `nurt -V`, the program name and the version.
 ///
 /// # Examples
@@ -88,14 +98,18 @@ pub fn session_help_heading(version: &str) -> String {
     format!("{PRODUCT_NAME} {version} - {}", lowercase_first(TAGLINE))
 }
 
-/// Returns the banner of an interactive session, three lines without a final
-/// line break.
+/// Returns the banner of an interactive session without a final line break:
+/// the product name drawn with characters, an empty line and three lines of
+/// text (the name with the version, the copyright and a hint).
 ///
 /// The banner is written only to an interactive terminal; scripts, pipes and
 /// `serve --stdio` receive nothing.
 #[must_use]
 pub fn banner(version: &str) -> String {
-    format!("{PRODUCT_NAME} {version}\n{COPYRIGHT_NOTICE}\n{BANNER_HINT}")
+    format!(
+        "{}\n\n{PRODUCT_NAME} {version}\n{COPYRIGHT_NOTICE}\n{BANNER_HINT}",
+        BANNER_ART.join("\n")
+    )
 }
 
 /// Returns the line of the `NAME` section of the manual page, which joins
@@ -127,6 +141,18 @@ mod tests {
         LICENSE_NOTICE,
         BANNER_HINT,
     ];
+
+    const BANNER_TEXT: &str = concat!(
+        " _   _  _   _  ____   _____\n",
+        "| \\ | || | | ||  _ \\ |_   _|\n",
+        "|  \\| || | | || |_) |  | |\n",
+        "| |\\  || |_| ||  _ <   | |\n",
+        "|_| \\_| \\___/ |_| \\_\\  |_|\n",
+        "\n",
+        "Danaco Nurt 1.2.3\n",
+        "Copyright (c) 2026 Danaco Holding Group Sp. z o.o. All rights reserved.\n",
+        "Type 'help' to get started."
+    );
 
     #[test]
     fn canonical_sentence_is_exact() {
@@ -167,12 +193,16 @@ mod tests {
 
     #[test]
     fn banner_is_exact() {
-        assert_eq!(
-            banner("1.2.3"),
-            "Danaco Nurt 1.2.3\n\
-             Copyright (c) 2026 Danaco Holding Group Sp. z o.o. All rights reserved.\n\
-             Type 'help' to get started."
-        );
+        assert_eq!(banner("1.2.3"), BANNER_TEXT);
+    }
+
+    #[test]
+    fn banner_art_is_narrow_ascii_without_trailing_space() {
+        for row in BANNER_ART {
+            assert!(row.is_ascii(), "{row}");
+            assert!(row.len() <= 28, "{row}");
+            assert_eq!(row, row.trim_end(), "{row}");
+        }
     }
 
     #[test]

@@ -104,7 +104,7 @@ Syntax:
 nurt repl
 ```
 
-On a terminal the session offers a history kept in the state directory, completion of command names and parameters from the command catalog, highlighting and a banner. Input that is not a terminal is read line by line without the banner. A line is a program, or one of these session words:
+On a terminal the session offers a history kept in the state directory, completion of command names and parameters from the command catalog, highlighting and a banner: the name of the product drawn with characters above the version, the copyright line and a hint. The cursor is a blinking underscore while a line is typed. Input that is not a terminal is read line by line without the banner. A line is a program, or one of these session words:
 
 | Word | Meaning |
 |---|---|

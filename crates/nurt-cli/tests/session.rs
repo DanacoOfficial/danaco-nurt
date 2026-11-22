@@ -348,14 +348,16 @@ fn banner_is_printed_only_on_an_interactive_terminal() {
         stderr: true,
     };
     let version = env!("CARGO_PKG_VERSION");
-    assert_eq!(
-        banner_for(interactive).as_deref(),
-        Some(
-            format!(
-                "Danaco Nurt {version}\nCopyright (c) 2026 Danaco Holding Group Sp. z o.o. All rights reserved.\nType 'help' to get started."
-            )
-            .as_str()
-        )
+    let banner = banner_for(interactive).expect("an interactive terminal gets the banner");
+    assert!(
+        banner.starts_with(" _   _  _   _  ____   _____\n"),
+        "{banner}"
+    );
+    assert!(
+        banner.ends_with(&format!(
+            "\n\nDanaco Nurt {version}\nCopyright (c) 2026 Danaco Holding Group Sp. z o.o. All rights reserved.\nType 'help' to get started."
+        )),
+        "{banner}"
     );
     let script = Terminal {
         stdin: false,

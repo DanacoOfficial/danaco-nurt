@@ -50,6 +50,7 @@ nurt-help = { workspace = true, optional = true }
 nurt-ext = { workspace = true }
 ciborium = { workspace = true }
 comfy-table = { workspace = true }
+crossterm = { workspace = true }
 ctrlc = { workspace = true }
 reedline = { workspace = true }
 serde = { workspace = true }

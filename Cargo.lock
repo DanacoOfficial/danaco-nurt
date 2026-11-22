@@ -6092,6 +6092,7 @@ version = "0.1.0"
 dependencies = [
  "ciborium",
  "comfy-table",
+ "crossterm",
  "ctrlc",
  "jsonschema",
  "nurt-bind",
