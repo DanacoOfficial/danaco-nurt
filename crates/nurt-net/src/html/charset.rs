@@ -43,7 +43,7 @@ pub struct Decoded {
 /// let bytes = b"<meta charset=\"windows-1250\"><p>\xb9\xe6";
 /// let decoded = decode(bytes, None, None, true).unwrap();
 /// assert_eq!(decoded.charset, "windows-1250");
-/// assert!(decoded.text.ends_with("ąć"));
+/// assert!(decoded.text.ends_with("\u{105}\u{107}"));
 /// ```
 pub fn decode(
     bytes: &[u8],
@@ -147,7 +147,7 @@ mod tests {
             decode(latin2, None, Some("iso-8859-2"), false)
                 .unwrap()
                 .text,
-            "ąć"
+            "\u{105}\u{107}"
         );
         let bom = b"\xef\xbb\xbfa\xc5\xbc";
         let decoded = decode(bom, Some("iso-8859-2"), None, false).unwrap();
@@ -157,7 +157,7 @@ mod tests {
             decode(b"\xb9", Some("windows-1250"), None, false)
                 .unwrap()
                 .text,
-            "ą"
+            "\u{105}"
         );
     }
 

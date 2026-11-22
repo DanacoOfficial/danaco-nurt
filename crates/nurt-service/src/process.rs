@@ -148,7 +148,7 @@ mod imp {
     }
 
     /// SID of the account running the process, in string form
-    /// (`S-1-5-21-…`).
+    /// (`S-1-5-21-...`).
     pub(crate) fn current_user_sid() -> io::Result<String> {
         let token = process_token()?;
         let mut buffer = [0_u64; TOKEN_USER_BUFFER];

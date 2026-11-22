@@ -9,10 +9,10 @@
 //!
 //! | Message | Form |
 //! |---|---|
-//! | request | `{"v":1,"id":<id>,"op":<op>,"body":{…}}`; `body` is optional |
-//! | success | `{"v":1,"id":<id>,"ok":true,"result":{…}}` |
-//! | failure | `{"v":1,"id":<id>,"ok":false,"error":{"code":…,"message":…}}` |
-//! | event | `{"v":1,"event":<name>,"data":{…}}` |
+//! | request | `{"v":1,"id":<id>,"op":<op>,"body":{...}}`; `body` is optional |
+//! | success | `{"v":1,"id":<id>,"ok":true,"result":{...}}` |
+//! | failure | `{"v":1,"id":<id>,"ok":false,"error":{"code":...,"message":...}}` |
+//! | event | `{"v":1,"event":<name>,"data":{...}}` |
 //!
 //! `id` is a string or a number chosen by the client and returned unchanged.
 //! Operations handled by the host are [`OP_PING`], [`OP_STATUS`],

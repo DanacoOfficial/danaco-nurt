@@ -28,7 +28,7 @@ macro_rules! fixture {
 }
 
 const UID: u32 = 501;
-const HOME: &str = "/Users/tester";
+const HOME: &str = "/Users/user";
 
 /// Daemon started by a calendar interval, defined in XML.
 const BACKUP_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -788,7 +788,7 @@ fn launchd_gui_domain_fallback_to_user_domain() {
     assert_eq!(agent.start_type, StartType::Automatic);
     assert_eq!(
         agent.path.as_ref().map(Path::as_str),
-        Some("/Users/tester/Library/LaunchAgents/org.example.agent.plist")
+        Some("/Users/user/Library/LaunchAgents/org.example.agent.plist")
     );
     backend
         .restart("org.example.agent", ServiceScope::User)

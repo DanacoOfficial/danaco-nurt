@@ -226,7 +226,7 @@ const ENTITIES: &[(&str, &str)] = &[
     ("rdquo", "”"),
     ("bdquo", "„"),
     ("laquo", "«"),
-    ("raquo", "»"),
+    ("raquo", "\u{bb}"),
     ("bull", "•"),
     ("middot", "·"),
     ("euro", "€"),
@@ -240,7 +240,7 @@ const ENTITIES: &[(&str, &str)] = &[
     ("times", "×"),
     ("divide", "÷"),
     ("frac12", "½"),
-    ("frac14", "¼"),
+    ("frac14", "\u{bc}"),
     ("frac34", "¾"),
     ("ensp", "\u{2002}"),
     ("emsp", "\u{2003}"),
@@ -251,8 +251,8 @@ const ENTITIES: &[(&str, &str)] = &[
     ("rarr", "→"),
     ("uarr", "↑"),
     ("darr", "↓"),
-    ("oacute", "ó"),
-    ("Oacute", "Ó"),
+    ("oacute", "\u{f3}"),
+    ("Oacute", "\u{d3}"),
     ("eacute", "é"),
     ("aacute", "á"),
     ("uuml", "ü"),
@@ -320,7 +320,7 @@ mod tests {
     fn decodes_named_and_numeric_references() {
         assert_eq!(
             decode_entities("a &amp; b &#261;&#x142; &unknown; &"),
-            "a & b ął &unknown; &"
+            "a & b \u{105}\u{142} &unknown; &"
         );
     }
 
