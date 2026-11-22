@@ -368,6 +368,105 @@ fn run_with_a_command_and_no_framework_uses_the_custom_runner() {
     assert_eq!(field(&plan.preview[0], "framework"), Some("custom"));
 }
 
+fn preview_of(project: &Path, extra: &[(&str, Value)]) -> Record {
+    let state = tempfile::tempdir().unwrap();
+    let mut values = vec![("path", Value::Path(project.to_string_lossy().into_owned()))];
+    values.extend(extra.iter().map(|(name, value)| (*name, value.clone())));
+    let plan = RunStage
+        .plan(
+            &args("test.run", &values),
+            StageInput::none(),
+            &ctx(state.path()),
+        )
+        .unwrap();
+    plan.preview[0].clone()
+}
+
+fn command_of(record: &Record) -> Vec<String> {
+    record
+        .get("command")
+        .and_then(Value::as_list)
+        .unwrap()
+        .iter()
+        .filter_map(|item| item.as_str().map(str::to_owned))
+        .collect()
+}
+
+#[test]
+fn run_with_a_command_and_a_named_framework_runs_the_command_unchanged() {
+    let project = tempfile::tempdir().unwrap();
+    let preview = preview_of(
+        project.path(),
+        &[
+            ("framework", text("go")),
+            ("command", Value::List(vec![text("gotestsum"), text("--")])),
+        ],
+    );
+    assert_eq!(field(&preview, "framework"), Some("go"));
+    assert_eq!(command_of(&preview), ["gotestsum", "--"]);
+}
+
+#[test]
+fn run_prefers_the_program_installed_in_the_project() {
+    let project = tempfile::tempdir().unwrap();
+    let local = write(project.path(), "node_modules/.bin/jest", "");
+    let preview = preview_of(project.path(), &[("framework", text("jest"))]);
+    assert_eq!(command_of(&preview)[0], local.to_string_lossy());
+}
+
+#[test]
+fn run_plans_a_coverage_directory_for_script_runners() {
+    let project = tempfile::tempdir().unwrap();
+    let preview = preview_of(
+        project.path(),
+        &[
+            ("framework", text("vitest")),
+            ("coverage", Value::Bool(true)),
+        ],
+    );
+    assert!(
+        command_of(&preview)
+            .iter()
+            .any(|word| word.contains("coverage"))
+    );
+}
+
+#[test]
+fn run_without_a_path_or_base_uses_the_working_directory() {
+    let state = tempfile::tempdir().unwrap();
+    let plan = RunStage
+        .plan(
+            &args("test.run", &[("framework", text("cargo"))]),
+            StageInput::none(),
+            &ctx(state.path()),
+        )
+        .unwrap();
+    let cwd = plan.preview[0].get("cwd").and_then(Value::as_str).unwrap();
+    assert_eq!(Path::new(cwd), std::env::current_dir().unwrap());
+}
+
+#[test]
+fn run_rejects_a_negative_count_with_the_default_as_the_fix() {
+    let project = tempfile::tempdir().unwrap();
+    let state = tempfile::tempdir().unwrap();
+    let values = [
+        (
+            "path",
+            Value::Path(project.path().to_string_lossy().into_owned()),
+        ),
+        ("message_lines", Value::Int(-2)),
+    ];
+    let error = RunStage
+        .plan(
+            &args("test.run", &values),
+            StageInput::none(),
+            &ctx(state.path()),
+        )
+        .err()
+        .unwrap();
+    assert_eq!(error.code(), ErrorCode::InvalidValue);
+}
+
 fn tool_result(dir: &Path, exit_code: i64, stdout: &str) -> ToolResult {
     let file = write(dir, "stdout.txt", stdout);
     ToolResult {
