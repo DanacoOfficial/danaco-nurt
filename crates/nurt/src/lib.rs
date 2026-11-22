@@ -1,8 +1,8 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Rust interface of Danaco Nurt, the command console for AI agents and
-//! people.
+//! Rust interface of Danaco Nurt, a command shell and language where every
+//! change can be undone.
 //!
 //! A [`Nurt`] client runs programs of the Nurt command language through a
 //! `nurt serve` process and returns their effect reports. Requests are

@@ -2,7 +2,7 @@
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 name: Setup Danaco Nurt
-description: Install the Danaco Nurt command console and add it to the PATH.
+description: Install Danaco Nurt and add it to the PATH.
 author: Danaco Holding Group
 branding:
   icon: terminal

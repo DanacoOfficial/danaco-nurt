@@ -1,7 +1,7 @@
 {
   "name": "nurt",
   "version": "0.1.0",
-  "description": "Node.js client and command-line launcher for Danaco Nurt, a command language and console.",
+  "description": "Command shell and language where every change can be undone",
   "keywords": [
     "nurt",
     "shell",

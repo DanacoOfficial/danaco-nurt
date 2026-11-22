@@ -3,7 +3,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 [package]
 name = "nurt"
-description = "Rust interface of Danaco Nurt, the command console for AI agents and people."
+description = "Command shell and language where every change can be undone"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

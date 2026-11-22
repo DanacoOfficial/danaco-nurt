@@ -1,7 +1,7 @@
 {
   "name": "nurt-linux-arm64-gnu",
   "version": "0.1.0",
-  "description": "The nurt executable of Danaco Nurt for Linux arm64 with glibc.",
+  "description": "Command shell and language where every change can be undone",
   "homepage": "https://nurt.danaco-group.pl",
   "repository": {
     "type": "git",

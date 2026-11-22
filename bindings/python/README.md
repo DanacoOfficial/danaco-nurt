@@ -3,7 +3,7 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # nurt
 
-Python binding of Danaco Nurt, the command console for AI agents and people.
+Danaco Nurt is a command shell and language where every change can be undone. This package is the Python binding.
 
 ## Installation
 

@@ -140,5 +140,74 @@ class RenderedManifestsTest(unittest.TestCase):
         self.assertRegex(text, r"(?m)^ExclusiveArch:\s+x86_64 aarch64$")
 
 
+# Product description required in every package manifest and package manager
+# listing. The value comes from the product text decision; no other literal of it
+# exists in this suite.
+PRODUCT_DESCRIPTION = "Command shell and language where every change can be undone"
+
+
+class ProductDescriptionTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp = tempfile.TemporaryDirectory()
+        root = Path(cls.temp.name)
+        checksums = root / "checksums.txt"
+        checksums.write_text(checksums_text(VERSION, digest="0123456789abcdef" * 4), encoding="utf-8")
+        cls.out = root / "out"
+        subprocess.run(
+            ["python3", "-I", str(support.PACKAGING / "release" / "render.py"),
+             "--checksums", str(checksums), "--output", str(cls.out), "--epoch", EPOCH],
+            check=True, capture_output=True,
+        )
+        cls.deb_script = (support.PACKAGING / "deb" / "build-deb.sh").read_text(encoding="utf-8")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.temp.cleanup()
+
+    def read(self, relative):
+        return (self.out / relative).read_text(encoding="utf-8")
+
+    def test_description_is_ascii_without_trailing_period(self):
+        self.assertTrue(PRODUCT_DESCRIPTION.isascii())
+        self.assertFalse(PRODUCT_DESCRIPTION.endswith("."))
+
+    def test_deb_summary_uses_product_description(self):
+        self.assertIn(f'summary="{PRODUCT_DESCRIPTION}"\n', self.deb_script)
+        self.assertIn('"Description: $summary" \\\n', self.deb_script)
+
+    def test_rpm_summary_uses_product_description(self):
+        self.assertRegex(self.read("rpm/nurt.spec"), rf"(?m)^Summary:\s+{re.escape(PRODUCT_DESCRIPTION)}$")
+
+    def test_homebrew_formulas_use_product_description(self):
+        for name in ("homebrew/nurt.rb", "homebrew/core/nurt.rb"):
+            self.assertIn(f'desc "{PRODUCT_DESCRIPTION}"\n', self.read(name))
+
+    def test_winget_short_description_uses_product_description(self):
+        text = self.read(f"winget/manifests/d/Danaco/Nurt/{VERSION}/Danaco.Nurt.locale.en-US.yaml")
+        self.assertRegex(text, rf"(?m)^ShortDescription: {re.escape(PRODUCT_DESCRIPTION)}$")
+
+    def test_scoop_description_uses_product_description(self):
+        self.assertEqual(json.loads(self.read("scoop/nurt.json"))["description"], PRODUCT_DESCRIPTION)
+
+    def test_chocolatey_summary_uses_product_description(self):
+        root = ElementTree.fromstring(self.read("chocolatey/nurt.nuspec"))
+        summary = root.find(".//{*}summary")
+        self.assertIsNotNone(summary)
+        self.assertEqual(summary.text, PRODUCT_DESCRIPTION)
+
+    def test_templates_do_not_carry_retired_wording(self):
+        retired = ("command console", "for people and AI agents", "for AI agents")
+        for path in support.PACKAGING.rglob("*"):
+            if not path.is_file() or "tests" in path.relative_to(support.PACKAGING).parts:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8").lower()
+            except UnicodeDecodeError:
+                continue
+            for phrase in retired:
+                self.assertNotIn(phrase.lower(), text, str(path))
+
+
 if __name__ == "__main__":
     unittest.main()

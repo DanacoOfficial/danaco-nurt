@@ -13,7 +13,7 @@
   <packaging>pom</packaging>
 
   <name>Danaco Nurt for Java (parent)</name>
-  <description>Java interface of Danaco Nurt, the command console for AI agents and people.</description>
+  <description>Command shell and language where every change can be undone</description>
   <url>https://nurt.danaco-group.pl</url>
 
   <organization>

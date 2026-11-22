@@ -3,7 +3,7 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # setup-nurt
 
-GitHub Action that installs the Danaco Nurt command console and adds `nurt` to the `PATH`.
+GitHub Action that installs Danaco Nurt and adds `nurt` to the `PATH`.
 
 ## Usage
 

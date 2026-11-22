@@ -1,5 +1,5 @@
 class Nurt < Formula
-  desc "Command console with typed pipelines and per-operation undo"
+  desc "Command shell and language where every change can be undone"
   homepage "https://nurt.danaco-group.pl"
   version "@VERSION@"
   license "Apache-2.0"

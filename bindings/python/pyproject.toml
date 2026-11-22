@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 [project]
 name = "nurt"
 dynamic = ["version"]
-description = "Python binding of Danaco Nurt, the command console for AI agents and people."
+description = "Command shell and language where every change can be undone"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "Apache-2.0"

@@ -16,7 +16,7 @@
   <PropertyGroup>
     <PackageId>Danaco.Nurt</PackageId>
     <Title>Danaco Nurt</Title>
-    <Description>.NET client of Danaco Nurt, a command console with its own language, through the libnurt library or the nurt executable.</Description>
+    <Description>Command shell and language where every change can be undone</Description>
     <PackageTags>nurt;console;shell;automation;mcp</PackageTags>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://nurt.danaco-group.pl</PackageProjectUrl>

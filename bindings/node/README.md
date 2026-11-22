@@ -3,8 +3,9 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # nurt
 
-Node.js client and command-line launcher for [Danaco Nurt](https://nurt.danaco-group.pl),
-a command language and console.
+[Danaco Nurt](https://nurt.danaco-group.pl) is a command shell and language
+where every change can be undone. This package is the Node.js client and
+command-line launcher.
 
 The package runs `nurt serve --stdio` as a child process and speaks the
 `nurt-rpc/1` protocol with it. It has no run-time dependencies and works in

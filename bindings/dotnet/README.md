@@ -3,8 +3,9 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Danaco.Nurt
 
-.NET client of Danaco Nurt, a command console with its own language, through the
-`libnurt` library or the `nurt` executable.
+Danaco Nurt is a command shell and language where every change can be undone.
+This package is the .NET client; it works through the `libnurt` library or the
+`nurt` executable.
 
 ## Installation
 

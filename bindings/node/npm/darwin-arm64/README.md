@@ -3,7 +3,7 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # nurt-darwin-arm64
 
-The `nurt` executable of [Danaco Nurt](https://nurt.danaco-group.pl) for macOS
+[Danaco Nurt](https://nurt.danaco-group.pl) is a command shell and language where every change can be undone. This package contains the `nurt` executable for macOS
 arm64.
 
 The package is an optional dependency of the [`nurt`](https://www.npmjs.com/package/nurt)

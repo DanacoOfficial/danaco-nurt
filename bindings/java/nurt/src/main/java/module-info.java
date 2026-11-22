@@ -2,7 +2,8 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 /**
- * Java interface of Danaco Nurt, the command console for AI agents and people.
+ * Danaco Nurt is a command shell and language where every change can be
+ * undone. This module is its Java interface.
  *
  * <p>The package {@code pl.danacogroup.nurt} holds the client. The package
  * {@code pl.danacogroup.nurt.spi} is the service interface implemented by

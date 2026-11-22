@@ -3,8 +3,8 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Danaco Nurt for Go
 
-Go binding of [Danaco Nurt](https://github.com/DanacoOfficial/nurt), the
-command console for AI agents and people.
+[Danaco Nurt](https://github.com/DanacoOfficial/nurt) is a command shell and
+language where every change can be undone. This module is the Go binding.
 
 ## Installation
 

@@ -3,7 +3,7 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # nurt-linux-x64-musl
 
-The `nurt` executable of [Danaco Nurt](https://nurt.danaco-group.pl) for Linux
+[Danaco Nurt](https://nurt.danaco-group.pl) is a command shell and language where every change can be undone. This package contains the `nurt` executable for Linux
 x64 with musl.
 
 The package is an optional dependency of the [`nurt`](https://www.npmjs.com/package/nurt)

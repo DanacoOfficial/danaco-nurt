@@ -3,7 +3,7 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Danaco Nurt for Java
 
-Java interface of Danaco Nurt, the command console for AI agents and people.
+Danaco Nurt is a command shell and language where every change can be undone. This library is the Java interface.
 
 The artifact `pl.danaco-group:nurt` runs `nurt serve --stdio` as a child process and needs Java 17 or later. The artifact `pl.danaco-group:nurt-ffm` adds a backend that calls `libnurt` in the process through the Foreign Function and Memory API and needs Java 22 or later. Neither artifact has runtime dependencies.
 

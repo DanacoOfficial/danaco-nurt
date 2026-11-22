@@ -3,7 +3,7 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # nurt-linux-arm64-gnu
 
-The `nurt` executable of [Danaco Nurt](https://nurt.danaco-group.pl) for Linux
+[Danaco Nurt](https://nurt.danaco-group.pl) is a command shell and language where every change can be undone. This package contains the `nurt` executable for Linux
 arm64 with glibc.
 
 The package is an optional dependency of the [`nurt`](https://www.npmjs.com/package/nurt)

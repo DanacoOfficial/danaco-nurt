@@ -3,7 +3,7 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # nurt
 
-Rust interface of Danaco Nurt, the command console for AI agents and people.
+Danaco Nurt is a command shell and language where every change can be undone. The crate is the Rust interface.
 
 The crate runs programs of the Nurt command language through a `nurt serve`
 process and returns their effect reports.

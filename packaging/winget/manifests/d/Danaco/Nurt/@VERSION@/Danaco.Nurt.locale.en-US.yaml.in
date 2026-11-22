@@ -11,7 +11,7 @@ PackageUrl: https://nurt.danaco-group.pl
 License: Apache-2.0
 LicenseUrl: https://github.com/DanacoOfficial/nurt/blob/main/LICENSE
 Copyright: Copyright (c) 2026 Danaco Holding Group Sp. z o.o.
-ShortDescription: Command console with typed pipelines and per-operation undo
+ShortDescription: Command shell and language where every change can be undone
 Moniker: nurt
 Tags:
 - console

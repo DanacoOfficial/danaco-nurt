@@ -3,7 +3,7 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Packaging
 
-Package definitions and installers of Danaco Nurt.
+Danaco Nurt is a command shell and language where every change can be undone. This directory holds its package definitions and installers.
 
 ## Installation
 

@@ -2,8 +2,8 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 
-// Package nurt is the Go binding of Danaco Nurt, the command console for AI
-// agents and people.
+// Package nurt is the Go binding of Danaco Nurt, a command shell and language
+// where every change can be undone.
 //
 // The binding is thin: requests, reports, syntax trees and events are JSON
 // documents defined by the published schemas, and the binding passes them

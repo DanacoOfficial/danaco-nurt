@@ -6,7 +6,7 @@
 Name:           nurt
 Version:        @RPM_VERSION@
 Release:        @RPM_RELEASE@%{?dist}
-Summary:        Command console with typed pipelines and per-operation undo
+Summary:        Command shell and language where every change can be undone
 License:        Apache-2.0
 URL:            https://nurt.danaco-group.pl
 Source0:        %{release_url}/nurt-@VERSION@-%{target_triple}.tar.gz
@@ -14,7 +14,7 @@ ExclusiveArch:  x86_64 aarch64
 AutoReqProv:    no
 
 %description
-Danaco Nurt is a command console with its own command language. The program is
+Danaco Nurt is a command shell with its own command language. The program is
 a single executable.
 
 %package -n libnurt
@@ -23,7 +23,7 @@ Provides:       libnurt.so.1()(64bit)
 
 %description -n libnurt
 The shared library libnurt provides the C interface of the Danaco Nurt command
-console, declared in nurt.h.
+shell, declared in nurt.h.
 
 %package -n libnurt-devel
 Summary:        C interface of Danaco Nurt, development files

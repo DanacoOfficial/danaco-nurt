@@ -3,7 +3,7 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Danaco Nurt devcontainer Feature
 
-Development container Feature that installs the Danaco Nurt command console and recommends the `danaco.nurt` VS Code extension.
+Development container Feature that installs Danaco Nurt, a command shell and language where every change can be undone, and recommends the `danaco.nurt` VS Code extension.
 
 ## Usage
 

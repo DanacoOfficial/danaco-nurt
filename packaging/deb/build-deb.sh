@@ -19,7 +19,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 
 maintainer="Danaco Official <support@danaco-group.pl>"
 homepage="https://nurt.danaco-group.pl"
-summary="command console with typed pipelines and per-operation undo"
+summary="Command shell and language where every change can be undone"
 
 usage() {
     echo "usage: build-deb.sh --artifact PATH --version VERSION --arch amd64|arm64 --output DIR" >&2
@@ -167,7 +167,7 @@ write_control nurt "$nurt_dir" \
     "Priority: optional" \
     "Multi-Arch: foreign" \
     "Description: $summary" \
-    " Danaco Nurt is a command console with its own command language. The" \
+    " Danaco Nurt is a command shell with its own command language. The" \
     " program is a single executable."
 build_package nurt "$nurt_dir"
 
@@ -182,7 +182,7 @@ write_control libnurt1 "$lib_dir" \
     "Depends: libc6 (>= 2.17)" \
     "Description: C interface library of Danaco Nurt" \
     " The shared library libnurt provides the C interface of the Danaco Nurt" \
-    " command console, declared in nurt.h."
+    " command shell, declared in nurt.h."
 printf 'libnurt 1 libnurt1 (>= %s)\n' "$deb_version" >"$lib_dir/DEBIAN/shlibs"
 printf 'activate-noawait ldconfig\n' >"$lib_dir/DEBIAN/triggers"
 chmod 644 "$lib_dir/DEBIAN/shlibs" "$lib_dir/DEBIAN/triggers"

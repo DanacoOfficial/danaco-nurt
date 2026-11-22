@@ -3,7 +3,7 @@ ARG TARGETARCH
 ARG VERSION=0.0.0
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="nurt-devcontainer" \
-      org.opencontainers.image.description="Development container with Danaco Nurt and the Danaco Nurt VS Code extension" \
+      org.opencontainers.image.description="Command shell and language where every change can be undone" \
       org.opencontainers.image.source="https://github.com/DanacoOfficial/nurt" \
       org.opencontainers.image.url="https://nurt.danaco-group.pl" \
       org.opencontainers.image.documentation="https://nurt.danaco-group.pl" \
