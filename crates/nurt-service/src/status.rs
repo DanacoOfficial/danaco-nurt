@@ -242,16 +242,24 @@ mod tests {
             Liveness::Inactive { reason, .. } => Some(reason),
             Liveness::Active { .. } => None,
         };
-        assert_eq!(inactive(heartbeat_liveness(None, at, limit, alive)), Some(InactiveReason::NoHeartbeat));
+        assert_eq!(
+            inactive(heartbeat_liveness(None, at, limit, alive)),
+            Some(InactiveReason::NoHeartbeat)
+        );
         let fresh = at.saturating_add(Duration::from_millis(2_000));
-        assert_eq!(inactive(heartbeat_liveness(Some(beat(at, 7)), fresh, limit, alive)), None);
+        assert_eq!(
+            inactive(heartbeat_liveness(Some(beat(at, 7)), fresh, limit, alive)),
+            None
+        );
         let stale = at.saturating_add(Duration::from_millis(2_001));
         assert_eq!(
             inactive(heartbeat_liveness(Some(beat(at, 7)), stale, limit, alive)),
             Some(InactiveReason::StaleHeartbeat)
         );
         assert_eq!(
-            inactive(heartbeat_liveness(Some(beat(at, 7)), fresh, limit, |_| false)),
+            inactive(heartbeat_liveness(Some(beat(at, 7)), fresh, limit, |_| {
+                false
+            })),
             Some(InactiveReason::ProcessGone)
         );
         let mut garbled = beat(at, 7);

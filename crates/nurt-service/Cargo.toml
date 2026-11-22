@@ -19,6 +19,7 @@ workspace = true
 
 [dependencies]
 nurt-contracts = { workspace = true }
+nurt-sched = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 jiff = { workspace = true }
@@ -50,8 +51,12 @@ windows = { workspace = true, features = [
   "Win32_Foundation",
   "Win32_System_Com",
   "Win32_System_TaskScheduler",
+  "Win32_System_Ole",
   "Win32_System_Variant",
 ] }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+zbus = { workspace = true, features = ["p2p"] }

@@ -32,7 +32,9 @@ use windows_sys::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
 use windows_sys::Win32::Storage::FileSystem::{
     FILE_FLAG_FIRST_PIPE_INSTANCE, FILE_FLAG_OVERLAPPED, PIPE_ACCESS_DUPLEX, ReadFile, WriteFile,
 };
-use windows_sys::Win32::System::IO::{CancelIoEx, GetOverlappedResult, GetOverlappedResultEx, OVERLAPPED};
+use windows_sys::Win32::System::IO::{
+    CancelIoEx, GetOverlappedResult, GetOverlappedResultEx, OVERLAPPED,
+};
 use windows_sys::Win32::System::Pipes::{
     ConnectNamedPipe, CreateNamedPipeW, PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS,
     PIPE_TYPE_BYTE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
@@ -133,7 +135,7 @@ impl PipeListener {
     }
 
     fn instance(&self, first: bool) -> io::Result<Arc<Handle>> {
-        let mut attributes = SECURITY_ATTRIBUTES {
+        let attributes = SECURITY_ATTRIBUTES {
             nLength: u32::try_from(std::mem::size_of::<SECURITY_ATTRIBUTES>()).unwrap_or(0),
             lpSecurityDescriptor: self.descriptor.0,
             bInheritHandle: 0,
@@ -153,7 +155,7 @@ impl PipeListener {
                 BUFFER_SIZE,
                 BUFFER_SIZE,
                 0,
-                &mut attributes,
+                &attributes,
             )
         };
         if handle == INVALID_HANDLE_VALUE {
@@ -165,7 +167,11 @@ impl PipeListener {
 
 impl Listener for PipeListener {
     fn accept(&self) -> io::Result<Accepted> {
-        let taken = self.next.lock().unwrap_or_else(PoisonError::into_inner).take();
+        let taken = self
+            .next
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
         let handle = match taken {
             Some(handle) => handle,
             None => self.instance(false)?,
@@ -205,7 +211,10 @@ impl Listener for PipeListener {
     }
 
     fn remove(&self) {
-        self.next.lock().unwrap_or_else(PoisonError::into_inner).take();
+        self.next
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
     }
 }
 
@@ -224,7 +233,9 @@ impl Completion {
         match unsafe { GetLastError() } {
             ERROR_IO_PENDING => Self::Pending,
             ERROR_BROKEN_PIPE => Self::Done(0),
-            code => Self::Failed(io::Error::from_raw_os_error(i32::try_from(code).unwrap_or(i32::MAX))),
+            code => Self::Failed(io::Error::from_raw_os_error(
+                i32::try_from(code).unwrap_or(i32::MAX),
+            )),
         }
     }
 }
@@ -271,7 +282,9 @@ where
             Err(io::Error::from(io::ErrorKind::TimedOut))
         }
         ERROR_BROKEN_PIPE => Ok(0),
-        code => Err(io::Error::from_raw_os_error(i32::try_from(code).unwrap_or(i32::MAX))),
+        code => Err(io::Error::from_raw_os_error(
+            i32::try_from(code).unwrap_or(i32::MAX),
+        )),
     }
 }
 
@@ -288,7 +301,15 @@ impl Read for PipeStream {
         overlapped(&handle, self.idle, |state| {
             // SAFETY: `buffer` holds `length` bytes and outlives the
             // operation, which completes before `overlapped` returns.
-            let ok = unsafe { ReadFile(handle.0, buffer.as_mut_ptr(), length, ptr::null_mut(), state) };
+            let ok = unsafe {
+                ReadFile(
+                    handle.0,
+                    buffer.as_mut_ptr(),
+                    length,
+                    ptr::null_mut(),
+                    state,
+                )
+            };
             Completion::from_call(ok)
         })
     }
@@ -301,7 +322,8 @@ impl Write for PipeStream {
         overlapped(&handle, self.idle, |state| {
             // SAFETY: `buffer` holds `length` bytes and outlives the
             // operation, which completes before `overlapped` returns.
-            let ok = unsafe { WriteFile(handle.0, buffer.as_ptr(), length, ptr::null_mut(), state) };
+            let ok =
+                unsafe { WriteFile(handle.0, buffer.as_ptr(), length, ptr::null_mut(), state) };
             Completion::from_call(ok)
         })
     }

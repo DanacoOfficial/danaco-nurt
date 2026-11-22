@@ -27,7 +27,7 @@ use nurt_contracts::stage::CancelToken;
 use serde_json::{Value, json};
 
 use crate::hub::{Closer, Hub, SharedWriter, write_line};
-use crate::module::{ModuleRequest, SCHEDULE_MODULE};
+use crate::module::ModuleRequest;
 use crate::paths::ServicePaths;
 use protocol::{LineRead, Request};
 
@@ -73,6 +73,7 @@ pub(crate) trait Control: Send + Sync {
     fn ping(&self) -> Value;
     fn status(&self) -> Value;
     fn reload(&self) -> Result<Value, Error>;
+    fn hosts(&self, module: &str) -> bool;
     fn module_request(&self, module: &str, request: ModuleRequest) -> Result<Value, RouteError>;
     fn client_closed(&self, client: &str);
 }
@@ -94,7 +95,9 @@ pub(crate) fn bind(paths: &ServicePaths) -> io::Result<Arc<dyn Listener>> {
 }
 
 /// Opens a client connection to the control channel.
-pub(crate) fn connect(paths: &ServicePaths) -> io::Result<(Box<dyn Read + Send>, Box<dyn Write + Send>)> {
+pub(crate) fn connect(
+    paths: &ServicePaths,
+) -> io::Result<(Box<dyn Read + Send>, Box<dyn Write + Send>)> {
     #[cfg(unix)]
     {
         unix::connect(&paths.socket_file())
@@ -140,7 +143,8 @@ impl Server {
 
     /// Stops accepting, closes every connection and removes the endpoint.
     pub(crate) fn shutdown(mut self) {
-        self.stop.cancel(nurt_contracts::stage::CancelReason::Shutdown);
+        self.stop
+            .cancel(nurt_contracts::stage::CancelReason::Shutdown);
         self.listener.wake();
         if let Some(thread) = self.thread.take() {
             let _ended = thread.join();
@@ -150,7 +154,12 @@ impl Server {
     }
 }
 
-fn accept_loop(listener: &dyn Listener, hub: &Arc<Hub>, control: &Arc<dyn Control>, stop: &CancelToken) {
+fn accept_loop(
+    listener: &dyn Listener,
+    hub: &Arc<Hub>,
+    control: &Arc<dyn Control>,
+    stop: &CancelToken,
+) {
     let sequence = AtomicU64::new(1);
     while !stop.is_cancelled() {
         match listener.accept() {
@@ -231,26 +240,35 @@ pub(crate) fn handle_line(client: &str, line: &[u8], hub: &Hub, control: &dyn Co
     }
 }
 
-fn dispatch(client: &str, request: &Request, hub: &Hub, control: &dyn Control) -> Result<Value, Value> {
+fn dispatch(
+    client: &str,
+    request: &Request,
+    hub: &Hub,
+    control: &dyn Control,
+) -> Result<Value, Value> {
     let op = request.op.as_str();
     match op {
         protocol::OP_PING => Ok(control.ping()),
         protocol::OP_STATUS => Ok(control.status()),
-        protocol::OP_RELOAD => control.reload().map_err(|error| protocol::language_error(&error)),
+        protocol::OP_RELOAD => control
+            .reload()
+            .map_err(|error| protocol::language_error(&error)),
         protocol::OP_SUBSCRIBE => {
             hub.subscribe(client);
             Ok(json!({ "subscribed": true }))
         }
-        _ if protocol::SCHEDULE_PREFIXES.iter().any(|prefix| op.starts_with(prefix)) => {
+        _ if protocol::module_of(op).is_some_and(|module| control.hosts(module)) => {
+            let module = protocol::module_of(op).unwrap_or_default();
             let module_request = ModuleRequest::new(op, request.body.clone()).from_client(client);
-            let result = control
-                .module_request(SCHEDULE_MODULE, module_request)
-                .map_err(|error| match error {
-                    RouteError::Unavailable(message) => {
-                        protocol::error_object(protocol::ERR_MODULE_UNAVAILABLE, &message)
-                    }
-                    RouteError::Module(error) => protocol::language_error(&error),
-                })?;
+            let result =
+                control
+                    .module_request(module, module_request)
+                    .map_err(|error| match error {
+                        RouteError::Unavailable(message) => {
+                            protocol::error_object(protocol::ERR_MODULE_UNAVAILABLE, &message)
+                        }
+                        RouteError::Module(error) => protocol::language_error(&error),
+                    })?;
             if op == REGISTER_ACTION_OP {
                 hub.mark_listening(client);
             }

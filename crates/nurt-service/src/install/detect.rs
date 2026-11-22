@@ -115,7 +115,8 @@ pub fn graphical_from_env(var: impl Fn(&str) -> Option<String>) -> bool {
     let set = |name: &str| var(name).is_some_and(|value| !value.is_empty());
     set("DISPLAY")
         || set("WAYLAND_DISPLAY")
-        || var("XDG_SESSION_TYPE").is_some_and(|kind| matches!(kind.as_str(), "x11" | "wayland" | "mir"))
+        || var("XDG_SESSION_TYPE")
+            .is_some_and(|kind| matches!(kind.as_str(), "x11" | "wayland" | "mir"))
 }
 
 /// Facts about the running host.
@@ -157,7 +158,9 @@ mod imp {
 
     pub(super) fn host_facts() -> HostFacts {
         let uid = nix::unistd::getuid().as_raw();
-        let console_owner = std::fs::metadata(CONSOLE).map(|metadata| metadata.uid()).ok();
+        let console_owner = std::fs::metadata(CONSOLE)
+            .map(|metadata| metadata.uid())
+            .ok();
         HostFacts {
             elevated: crate::process::is_elevated(),
             graphical_session: console_owner == Some(uid),
@@ -203,16 +206,66 @@ mod tests {
             ..HostFacts::default()
         };
         let cases = [
-            (HostFacts { elevated: false, server_edition: true, ..base.clone() }, ServiceMode::User, ModeReason::NoPrivilege),
-            (HostFacts { default_target: Some("multi-user.target".into()), ..base.clone() }, ServiceMode::System, ModeReason::Server),
-            (HostFacts { default_target: Some("graphical.target".into()), ..base.clone() }, ServiceMode::User, ModeReason::Desktop),
-            (HostFacts { graphical_session: true, default_target: Some("multi-user.target".into()), ..base.clone() }, ServiceMode::User, ModeReason::Desktop),
-            (HostFacts { graphical_session: true, service_account: true, ..base.clone() }, ServiceMode::System, ModeReason::Server),
-            (HostFacts { graphical_session: true, server_edition: true, ..base.clone() }, ServiceMode::System, ModeReason::Server),
+            (
+                HostFacts {
+                    elevated: false,
+                    server_edition: true,
+                    ..base.clone()
+                },
+                ServiceMode::User,
+                ModeReason::NoPrivilege,
+            ),
+            (
+                HostFacts {
+                    default_target: Some("multi-user.target".into()),
+                    ..base.clone()
+                },
+                ServiceMode::System,
+                ModeReason::Server,
+            ),
+            (
+                HostFacts {
+                    default_target: Some("graphical.target".into()),
+                    ..base.clone()
+                },
+                ServiceMode::User,
+                ModeReason::Desktop,
+            ),
+            (
+                HostFacts {
+                    graphical_session: true,
+                    default_target: Some("multi-user.target".into()),
+                    ..base.clone()
+                },
+                ServiceMode::User,
+                ModeReason::Desktop,
+            ),
+            (
+                HostFacts {
+                    graphical_session: true,
+                    service_account: true,
+                    ..base.clone()
+                },
+                ServiceMode::System,
+                ModeReason::Server,
+            ),
+            (
+                HostFacts {
+                    graphical_session: true,
+                    server_edition: true,
+                    ..base.clone()
+                },
+                ServiceMode::System,
+                ModeReason::Server,
+            ),
             (base.clone(), ServiceMode::System, ModeReason::Server),
         ];
         for (facts, mode, reason) in cases {
-            assert_eq!(choose_mode(&facts), ModeChoice { mode, reason }, "{facts:?}");
+            assert_eq!(
+                choose_mode(&facts),
+                ModeChoice { mode, reason },
+                "{facts:?}"
+            );
         }
     }
 
@@ -222,11 +275,19 @@ mod tests {
         assert!(is_non_login_shell("/bin/false"));
         assert!(!is_non_login_shell("/bin/bash"));
         let env = |pairs: &'static [(&'static str, &'static str)]| {
-            move |name: &str| pairs.iter().find(|(key, _)| *key == name).map(|(_, value)| (*value).to_owned())
+            move |name: &str| {
+                pairs
+                    .iter()
+                    .find(|(key, _)| *key == name)
+                    .map(|(_, value)| (*value).to_owned())
+            }
         };
         assert!(graphical_from_env(env(&[("WAYLAND_DISPLAY", "wayland-0")])));
         assert!(graphical_from_env(env(&[("XDG_SESSION_TYPE", "x11")])));
-        assert!(!graphical_from_env(env(&[("XDG_SESSION_TYPE", "tty"), ("DISPLAY", "")])));
+        assert!(!graphical_from_env(env(&[
+            ("XDG_SESSION_TYPE", "tty"),
+            ("DISPLAY", "")
+        ])));
         let _ = host_facts();
     }
 }

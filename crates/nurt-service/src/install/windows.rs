@@ -29,8 +29,12 @@ fn scm_error(action: &str, error: &windows_service::Error) -> Error {
 }
 
 fn account_id() -> Result<String, Error> {
-    let user = std::env::var("USERNAME")
-        .map_err(|_| Error::new(ErrorCode::Io, "USERNAME is not set; cannot name the account of the task"))?;
+    let user = std::env::var("USERNAME").map_err(|_| {
+        Error::new(
+            ErrorCode::Io,
+            "USERNAME is not set; cannot name the account of the task",
+        )
+    })?;
     Ok(match std::env::var("USERDOMAIN") {
         Ok(domain) if !domain.is_empty() => format!("{domain}\\{user}"),
         _ => user,
@@ -38,7 +42,11 @@ fn account_id() -> Result<String, Error> {
 }
 
 /// Installs the service in the chosen mode.
-pub(crate) fn install(request: &InstallRequest, executable: &Path, choice: ModeChoice) -> Result<InstallReport, Error> {
+pub(crate) fn install(
+    request: &InstallRequest,
+    executable: &Path,
+    choice: ModeChoice,
+) -> Result<InstallReport, Error> {
     let backend = match choice.mode {
         ServiceMode::User => {
             let task = task_scheduler::definition(&account_id()?, executable);
@@ -101,8 +109,9 @@ pub(crate) fn uninstall(manifest: &Manifest) -> Result<UninstallReport, Error> {
             if !crate::process::is_elevated() {
                 return Err(privilege_error("removing"));
             }
-            let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
-                .map_err(|error| scm_error("open", &error))?;
+            let manager =
+                ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
+                    .map_err(|error| scm_error("open", &error))?;
             let service = manager
                 .open_service(
                     SERVICE_NAME,
@@ -115,7 +124,9 @@ pub(crate) fn uninstall(manifest: &Manifest) -> Result<UninstallReport, Error> {
             {
                 let _ = service.stop();
             }
-            service.delete().map_err(|error| scm_error("delete", &error))?;
+            service
+                .delete()
+                .map_err(|error| scm_error("delete", &error))?;
         }
     }
     Ok(UninstallReport {

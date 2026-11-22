@@ -14,7 +14,10 @@ use zbus::connection::Builder;
 use zbus::{Connection, DBusError, Message, OwnedObjectPath, OwnedVariant, block_on};
 
 use super::detect::ModeChoice;
-use super::{Backend, InstallReport, InstallRequest, Manifest, UninstallReport, io_error, privilege_error, remove_files, write_file};
+use super::{
+    Backend, InstallReport, InstallRequest, Manifest, UninstallReport, privilege_error,
+    remove_files, write_file,
+};
 
 /// Name of the systemd unit.
 pub(crate) const UNIT_NAME: &str = "nurt-service.service";
@@ -62,7 +65,9 @@ impl From<zbus::Error> for BusError {
 
 impl BusError {
     fn denied(&self) -> bool {
-        self.name.as_deref().is_some_and(|name| DENIED_ERRORS.contains(&name))
+        self.name
+            .as_deref()
+            .is_some_and(|name| DENIED_ERRORS.contains(&name))
     }
 }
 
@@ -105,19 +110,36 @@ impl DbusPeer {
         }
     }
 
-    fn call<B>(&self, destination: &str, path: &str, interface: &str, method: &str, body: &B) -> Result<Message, BusError>
+    fn call<B>(
+        &self,
+        destination: &str,
+        path: &str,
+        interface: &str,
+        method: &str,
+        body: &B,
+    ) -> Result<Message, BusError>
     where
         B: serde::Serialize + zbus::DynamicType,
     {
         let destination = (!self.peer_to_peer).then_some(destination);
-        block_on(self.connection.call_method(destination, path, Some(interface), method, body)).map_err(BusError::from)
+        block_on(
+            self.connection
+                .call_method(destination, path, Some(interface), method, body),
+        )
+        .map_err(BusError::from)
     }
 
     fn manager<B>(&self, method: &str, body: &B) -> Result<Message, BusError>
     where
         B: serde::Serialize + zbus::DynamicType,
     {
-        self.call(SYSTEMD_DESTINATION, SYSTEMD_PATH, SYSTEMD_MANAGER, method, body)
+        self.call(
+            SYSTEMD_DESTINATION,
+            SYSTEMD_PATH,
+            SYSTEMD_MANAGER,
+            method,
+            body,
+        )
     }
 }
 
@@ -127,11 +149,13 @@ impl Manager for DbusPeer {
     }
 
     fn enable(&self, unit: &str) -> Result<(), BusError> {
-        self.manager("EnableUnitFiles", &(vec![unit], false, true)).map(drop)
+        self.manager("EnableUnitFiles", &(vec![unit], false, true))
+            .map(drop)
     }
 
     fn disable(&self, unit: &str) -> Result<(), BusError> {
-        self.manager("DisableUnitFiles", &(vec![unit], false)).map(drop)
+        self.manager("DisableUnitFiles", &(vec![unit], false))
+            .map(drop)
     }
 
     fn start(&self, unit: &str) -> Result<(), BusError> {
@@ -150,16 +174,34 @@ impl Manager for DbusPeer {
 
 impl Login for DbusPeer {
     fn set_linger(&self, uid: u32) -> Result<(), BusError> {
-        self.call(LOGIN_DESTINATION, LOGIN_PATH, LOGIN_MANAGER, "SetUserLinger", &(uid, true, false))
-            .map(drop)
+        self.call(
+            LOGIN_DESTINATION,
+            LOGIN_PATH,
+            LOGIN_MANAGER,
+            "SetUserLinger",
+            &(uid, true, false),
+        )
+        .map(drop)
     }
 
     fn linger(&self, uid: u32) -> Result<bool, BusError> {
-        let reply = self.call(LOGIN_DESTINATION, LOGIN_PATH, LOGIN_MANAGER, "GetUser", &(uid,))?;
+        let reply = self.call(
+            LOGIN_DESTINATION,
+            LOGIN_PATH,
+            LOGIN_MANAGER,
+            "GetUser",
+            &(uid,),
+        )?;
         let user: OwnedObjectPath = reply.body().deserialize().map_err(BusError::from)?;
-        let reply = self.call(LOGIN_DESTINATION, user.as_str(), PROPERTIES, "Get", &(LOGIN_USER, "Linger"))?;
+        let reply = self.call(
+            LOGIN_DESTINATION,
+            user.as_str(),
+            PROPERTIES,
+            "Get",
+            &(LOGIN_USER, "Linger"),
+        )?;
         let value: OwnedVariant = reply.body().deserialize().map_err(BusError::from)?;
-        bool::try_from(value).map_err(|error| BusError::from(zbus::Error::from(error)))
+        bool::try_from(value).map_err(BusError::from)
     }
 }
 
@@ -207,7 +249,12 @@ impl Layout {
             .map(PathBuf::from)
             .filter(|dir| dir.is_absolute())
             .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
-            .ok_or_else(|| Error::new(ErrorCode::Io, "HOME is not set; cannot locate the systemd user unit directory"))?;
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Io,
+                    "HOME is not set; cannot locate the systemd user unit directory",
+                )
+            })?;
         let uid = nix::unistd::getuid();
         let user = nix::unistd::User::from_uid(uid)
             .ok()
@@ -260,13 +307,22 @@ pub(crate) fn system_unit(executable: &Path, user: &str, group: &str) -> String 
 }
 
 fn service_error(action: &str, error: &BusError) -> Error {
-    Error::new(ErrorCode::Service, format!("systemd refused to {action} {UNIT_NAME}: {}", error.message))
+    Error::new(
+        ErrorCode::Service,
+        format!("systemd refused to {action} {UNIT_NAME}: {}", error.message),
+    )
 }
 
 fn register(manager: &dyn Manager) -> Result<(), Error> {
-    manager.reload().map_err(|error| service_error("reload before enabling", &error))?;
-    manager.enable(UNIT_NAME).map_err(|error| service_error("enable", &error))?;
-    manager.start(UNIT_NAME).map_err(|error| service_error("start", &error))
+    manager
+        .reload()
+        .map_err(|error| service_error("reload before enabling", &error))?;
+    manager
+        .enable(UNIT_NAME)
+        .map_err(|error| service_error("enable", &error))?;
+    manager
+        .start(UNIT_NAME)
+        .map_err(|error| service_error("start", &error))
 }
 
 /// Installs the unit of the chosen mode.
@@ -357,14 +413,27 @@ fn install_system(
     let user = request
         .account
         .clone()
-        .or_else(|| std::env::var("SUDO_USER").ok().filter(|name| !name.is_empty()))
+        .or_else(|| {
+            std::env::var("SUDO_USER")
+                .ok()
+                .filter(|name| !name.is_empty())
+        })
         .unwrap_or_else(|| layout.user.clone());
     let group = primary_group(&user)?;
     let unit_file = layout.system_unit_dir.join(UNIT_NAME);
     let manager = buses.system().map_err(|error| {
-        Error::new(ErrorCode::Service, format!("the systemd system manager is not reachable: {}", error.message))
+        Error::new(
+            ErrorCode::Service,
+            format!(
+                "the systemd system manager is not reachable: {}",
+                error.message
+            ),
+        )
     })?;
-    write_file(&unit_file, system_unit(executable, &user, &group).as_bytes())?;
+    write_file(
+        &unit_file,
+        system_unit(executable, &user, &group).as_bytes(),
+    )?;
     let mut manifest = Manifest::new(ServiceMode::System, Backend::SystemdSystem, executable);
     manifest.files.push(unit_file);
     manifest.account = Some(user);
@@ -385,7 +454,12 @@ fn primary_group(user: &str) -> Result<String, Error> {
     let account = nix::unistd::User::from_name(user)
         .ok()
         .flatten()
-        .ok_or_else(|| Error::new(ErrorCode::NotFound, format!("there is no account `{user}`; name an existing account")))?;
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::NotFound,
+                format!("there is no account `{user}`; name an existing account"),
+            )
+        })?;
     Ok(nix::unistd::Group::from_gid(account.gid)
         .ok()
         .flatten()
@@ -393,7 +467,10 @@ fn primary_group(user: &str) -> Result<String, Error> {
 }
 
 /// Stops and disables the unit and deletes the files of the manifest.
-pub(crate) fn uninstall_with(manifest: &Manifest, buses: &dyn Buses) -> Result<UninstallReport, Error> {
+pub(crate) fn uninstall_with(
+    manifest: &Manifest,
+    buses: &dyn Buses,
+) -> Result<UninstallReport, Error> {
     if manifest.mode == ServiceMode::System && !crate::process::is_elevated() {
         return Err(privilege_error("removing"));
     }
@@ -429,12 +506,13 @@ pub(crate) fn uninstall_with(manifest: &Manifest, buses: &dyn Buses) -> Result<U
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::paths::ServicePaths;
-    use crate::test_support::dbus::{FakeSystem, LingerPolicy};
     use crate::install::detect::ModeReason;
+    use crate::install::io_error;
+    use crate::install::test_bus::{FakeSystem, LingerPolicy};
+    use crate::paths::ServicePaths;
 
-    const GOLDEN_USER: &str = include_str!("../../../../tests/d7/u12/golden/nurt-service.user.service");
-    const GOLDEN_SYSTEM: &str = include_str!("../../../../tests/d7/u12/golden/nurt-service.system.service");
+    const GOLDEN_USER: &str = include_str!("../../tests/golden/nurt-service.user.service");
+    const GOLDEN_SYSTEM: &str = include_str!("../../tests/golden/nurt-service.system.service");
 
     struct FakeBuses {
         system: FakeSystem,
@@ -482,13 +560,22 @@ mod tests {
     #[test]
     fn install_linux_user_unit_golden() {
         assert_eq!(user_unit(Path::new("/opt/nurt/bin/nurt")), GOLDEN_USER);
-        assert_eq!(exec_start(Path::new("/opt/My Tools/nurt")), "\"/opt/My Tools/nurt\" service run");
-        assert_eq!(exec_start(Path::new("/opt/100%/nurt")), "\"/opt/100%%/nurt\" service run");
+        assert_eq!(
+            exec_start(Path::new("/opt/My Tools/nurt")),
+            "\"/opt/My Tools/nurt\" service run"
+        );
+        assert_eq!(
+            exec_start(Path::new("/opt/100%/nurt")),
+            "\"/opt/100%%/nurt\" service run"
+        );
     }
 
     #[test]
     fn install_linux_system_unit_golden() {
-        assert_eq!(system_unit(Path::new("/opt/nurt/bin/nurt"), "nurt", "nurt"), GOLDEN_SYSTEM);
+        assert_eq!(
+            system_unit(Path::new("/opt/nurt/bin/nurt"), "nurt", "nurt"),
+            GOLDEN_SYSTEM
+        );
     }
 
     #[test]
@@ -499,14 +586,29 @@ mod tests {
             system: FakeSystem::start(LingerPolicy::Allow),
             session_available: true,
         };
-        let report = install_with(&request, Path::new("/opt/nurt/bin/nurt"), user_choice(), &buses, &layout, false).unwrap();
+        let report = install_with(
+            &request,
+            Path::new("/opt/nurt/bin/nurt"),
+            user_choice(),
+            &buses,
+            &layout,
+            false,
+        )
+        .unwrap();
         assert_eq!(report.linger, Some(true));
         assert!(report.notes.is_empty());
         assert_eq!(
             buses.system.calls(),
-            ["Reload", "EnableUnitFiles nurt-service.service", "StartUnit nurt-service.service replace", "SetUserLinger 1000 true false"]
+            [
+                "Reload",
+                "EnableUnitFiles nurt-service.service",
+                "StartUnit nurt-service.service replace",
+                "SetUserLinger 1000 true false"
+            ]
         );
-        let manifest = Manifest::read(&request.paths.install_manifest()).unwrap().unwrap();
+        let manifest = Manifest::read(&request.paths.install_manifest())
+            .unwrap()
+            .unwrap();
         assert_eq!(manifest.linger, Some(true));
         assert_eq!(manifest.files, [layout.user_unit_dir.join(UNIT_NAME)]);
         let removed = uninstall_with(&manifest, &buses).unwrap();
@@ -526,7 +628,15 @@ mod tests {
             system: FakeSystem::start(LingerPolicy::Deny),
             session_available: true,
         };
-        let report = install_with(&request, Path::new("/opt/nurt/bin/nurt"), user_choice(), &buses, &layout, false).unwrap();
+        let report = install_with(
+            &request,
+            Path::new("/opt/nurt/bin/nurt"),
+            user_choice(),
+            &buses,
+            &layout,
+            false,
+        )
+        .unwrap();
         assert!(report.started);
         assert_eq!(report.linger, Some(false));
         assert!(report.notes[0].contains("service_not_running"));
@@ -540,12 +650,22 @@ mod tests {
             system: FakeSystem::start(LingerPolicy::Allow),
             session_available: false,
         };
-        let error = install_with(&request, Path::new("/opt/nurt/bin/nurt"), user_choice(), &buses, &layout, false).unwrap_err();
+        let error = install_with(
+            &request,
+            Path::new("/opt/nurt/bin/nurt"),
+            user_choice(),
+            &buses,
+            &layout,
+            false,
+        )
+        .unwrap_err();
         assert_eq!(error.code, ErrorCode::Service);
         assert_eq!(error.problem.as_deref(), Some("no_user_bus"));
         assert!(error.message.contains("mode `system`"));
         assert!(layout.user_unit_dir.join(UNIT_NAME).is_file());
-        let manifest = Manifest::read(&request.paths.install_manifest()).unwrap().unwrap();
+        let manifest = Manifest::read(&request.paths.install_manifest())
+            .unwrap()
+            .unwrap();
         assert_eq!(manifest.files.len(), 1);
     }
 
@@ -561,11 +681,27 @@ mod tests {
             mode: ServiceMode::System,
             reason: ModeReason::Server,
         };
-        let error = install_with(&request, Path::new("/opt/nurt/bin/nurt"), choice, &buses, &layout, false).unwrap_err();
+        let error = install_with(
+            &request,
+            Path::new("/opt/nurt/bin/nurt"),
+            choice,
+            &buses,
+            &layout,
+            false,
+        )
+        .unwrap_err();
         assert_eq!(error.code, ErrorCode::Privilege);
         assert_eq!(error.details["required"], "administrator");
         request.account = Some("root".to_owned());
-        let report = install_with(&request, Path::new("/opt/nurt/bin/nurt"), choice, &buses, &layout, true).unwrap();
+        let report = install_with(
+            &request,
+            Path::new("/opt/nurt/bin/nurt"),
+            choice,
+            &buses,
+            &layout,
+            true,
+        )
+        .unwrap();
         assert_eq!(report.backend, Backend::SystemdSystem);
         let text = std::fs::read_to_string(layout.system_unit_dir.join(UNIT_NAME)).unwrap();
         assert!(text.contains("User=root\nGroup=root\n"));
@@ -574,8 +710,14 @@ mod tests {
             primary_group("no-such-account-for-tests").unwrap_err().code,
             ErrorCode::NotFound
         );
-        assert_eq!(buses.system().unwrap().default_target().unwrap(), "multi-user.target");
-        let missing = io_error(Path::new("/x"), &std::io::Error::from(std::io::ErrorKind::NotFound));
+        assert_eq!(
+            buses.system().unwrap().default_target().unwrap(),
+            "multi-user.target"
+        );
+        let missing = io_error(
+            Path::new("/x"),
+            &std::io::Error::from(std::io::ErrorKind::NotFound),
+        );
         assert_eq!(missing.code, ErrorCode::Io);
     }
 }

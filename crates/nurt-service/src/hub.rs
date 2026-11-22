@@ -112,10 +112,10 @@ impl ModuleEvents for Hub {
     fn publish(&self, event: ModuleEvent) {
         let line = protocol::event_line(&event.event, &event.data);
         for (client, writer) in self.targets(&event.target) {
-            if write_line(&writer, &line).is_err() {
-                if let Some(peer) = self.lock().remove(&client) {
-                    (peer.closer)();
-                }
+            if write_line(&writer, &line).is_err()
+                && let Some(peer) = self.lock().remove(&client)
+            {
+                (peer.closer)();
             }
         }
     }

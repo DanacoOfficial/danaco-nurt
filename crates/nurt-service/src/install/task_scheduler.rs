@@ -51,15 +51,23 @@ pub(crate) use com::{delete, register};
 
 #[cfg(windows)]
 mod com {
-    #![allow(unsafe_code, reason = "the Task Scheduler is reachable only through COM calls")]
+    #![allow(
+        unsafe_code,
+        reason = "the Task Scheduler is reachable only through COM calls"
+    )]
 
     use nurt_contracts::error::{Error, ErrorCode};
-    use windows::Win32::Foundation::{RPC_E_CHANGED_MODE, VARIANT_BOOL, VARIANT_FALSE, VARIANT_TRUE};
-    use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoUninitialize};
+    use windows::Win32::Foundation::{
+        RPC_E_CHANGED_MODE, VARIANT_BOOL, VARIANT_FALSE, VARIANT_TRUE,
+    };
+    use windows::Win32::System::Com::{
+        CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx,
+        CoUninitialize,
+    };
     use windows::Win32::System::TaskScheduler::{
-        IExecAction, ILogonTrigger, ITaskFolder, ITaskService, TASK_ACTION_EXEC, TASK_CREATE_OR_UPDATE,
-        TASK_INSTANCES_IGNORE_NEW, TASK_INSTANCES_PARALLEL, TASK_LOGON_INTERACTIVE_TOKEN, TASK_LOGON_PASSWORD,
-        TASK_TRIGGER_LOGON, TaskScheduler,
+        IExecAction, ILogonTrigger, ITaskFolder, ITaskService, TASK_ACTION_EXEC,
+        TASK_CREATE_OR_UPDATE, TASK_INSTANCES_IGNORE_NEW, TASK_INSTANCES_PARALLEL,
+        TASK_LOGON_INTERACTIVE_TOKEN, TASK_LOGON_PASSWORD, TASK_TRIGGER_LOGON, TaskScheduler,
     };
     use windows::Win32::System::Variant::VARIANT;
     use windows::core::{BSTR, Interface};
@@ -67,7 +75,10 @@ mod com {
     use super::TaskDefinition;
 
     fn com_error(action: &str, error: &windows::core::Error) -> Error {
-        Error::new(ErrorCode::Service, format!("the Task Scheduler refused to {action}: {error}"))
+        Error::new(
+            ErrorCode::Service,
+            format!("the Task Scheduler refused to {action}: {error}"),
+        )
     }
 
     fn flag(value: bool) -> VARIANT_BOOL {
@@ -103,34 +114,39 @@ mod com {
         }
     }
 
-    fn root_folder() -> Result<ITaskFolder, Error> {
+    fn connect() -> Result<(ITaskService, ITaskFolder), Error> {
         // SAFETY: COM is initialised by the caller; the arguments are valid
         // for the duration of every call.
         unsafe {
-            let service: ITaskService = CoCreateInstance(&TaskScheduler, None, CLSCTX_INPROC_SERVER)
-                .map_err(|error| com_error("start", &error))?;
+            let service: ITaskService =
+                CoCreateInstance(&TaskScheduler, None, CLSCTX_INPROC_SERVER)
+                    .map_err(|error| com_error("start", &error))?;
             let empty = VARIANT::default();
             service
                 .Connect(&empty, &empty, &empty, &empty)
                 .map_err(|error| com_error("connect", &error))?;
-            service.GetFolder(&BSTR::from("\\")).map_err(|error| com_error("open the root folder", &error))
+            let folder = service
+                .GetFolder(&BSTR::from("\\"))
+                .map_err(|error| com_error("open the root folder", &error))?;
+            Ok((service, folder))
         }
     }
 
     /// Registers the task and starts it.
     pub(crate) fn register(task: &TaskDefinition) -> Result<(), Error> {
         let _apartment = Apartment::enter()?;
-        let folder = root_folder()?;
+        let (service, folder) = connect()?;
         let user = BSTR::from(task.user_id.as_str());
+        let empty = VARIANT::default();
         // SAFETY: COM is initialised; every interface pointer comes from the
         // Task Scheduler and lives across the calls.
         unsafe {
-            let service: ITaskService = CoCreateInstance(&TaskScheduler, None, CLSCTX_INPROC_SERVER)
-                .map_err(|error| com_error("start", &error))?;
-            let empty = VARIANT::default();
-            service.Connect(&empty, &empty, &empty, &empty).map_err(|error| com_error("connect", &error))?;
-            let definition = service.NewTask(0).map_err(|error| com_error("create a task", &error))?;
-            let settings = definition.Settings().map_err(|error| com_error("read task settings", &error))?;
+            let definition = service
+                .NewTask(0)
+                .map_err(|error| com_error("create a task", &error))?;
+            let settings = definition
+                .Settings()
+                .map_err(|error| com_error("read task settings", &error))?;
             settings
                 .SetExecutionTimeLimit(&BSTR::from(task.execution_time_limit))
                 .and_then(|()| {
@@ -140,15 +156,22 @@ mod com {
                         TASK_INSTANCES_PARALLEL
                     })
                 })
-                .and_then(|()| settings.SetDisallowStartIfOnBatteries(flag(task.disallow_start_if_on_batteries)))
-                .and_then(|()| settings.SetStopIfGoingOnBatteries(flag(task.stop_if_going_on_batteries)))
+                .and_then(|()| {
+                    settings
+                        .SetDisallowStartIfOnBatteries(flag(task.disallow_start_if_on_batteries))
+                })
+                .and_then(|()| {
+                    settings.SetStopIfGoingOnBatteries(flag(task.stop_if_going_on_batteries))
+                })
                 .map_err(|error| com_error("set task settings", &error))?;
             let logon_type = if task.interactive_token {
                 TASK_LOGON_INTERACTIVE_TOKEN
             } else {
                 TASK_LOGON_PASSWORD
             };
-            let principal = definition.Principal().map_err(|error| com_error("read the task principal", &error))?;
+            let principal = definition
+                .Principal()
+                .map_err(|error| com_error("read the task principal", &error))?;
             principal
                 .SetUserId(&user)
                 .and_then(|()| principal.SetLogonType(logon_type))
@@ -158,7 +181,9 @@ mod com {
                 .and_then(|triggers| triggers.Create(TASK_TRIGGER_LOGON))
                 .and_then(|trigger| trigger.cast::<ILogonTrigger>())
                 .map_err(|error| com_error("create the logon trigger", &error))?;
-            trigger.SetUserId(&user).map_err(|error| com_error("set the logon trigger", &error))?;
+            trigger
+                .SetUserId(&user)
+                .map_err(|error| com_error("set the logon trigger", &error))?;
             let action = definition
                 .Actions()
                 .and_then(|actions| actions.Create(TASK_ACTION_EXEC))
@@ -173,13 +198,15 @@ mod com {
                     &BSTR::from(task.name),
                     &definition,
                     TASK_CREATE_OR_UPDATE.0,
-                    &VARIANT::from(task.user_id.as_str()),
+                    &empty,
                     &empty,
                     logon_type,
                     &empty,
                 )
                 .map_err(|error| com_error("register the task", &error))?;
-            registered.Run(&empty).map_err(|error| com_error("start the task", &error))?;
+            registered
+                .Run(&empty)
+                .map_err(|error| com_error("start the task", &error))?;
         }
         Ok(())
     }
@@ -187,13 +214,15 @@ mod com {
     /// Stops and deletes the task.
     pub(crate) fn delete(name: &str) -> Result<(), Error> {
         let _apartment = Apartment::enter()?;
-        let folder = root_folder()?;
+        let (_service, folder) = connect()?;
         // SAFETY: COM is initialised and `folder` is a valid interface.
         unsafe {
             if let Ok(task) = folder.GetTask(&BSTR::from(name)) {
                 let _ = task.Stop(0);
             }
-            folder.DeleteTask(&BSTR::from(name), 0).map_err(|error| com_error("delete the task", &error))
+            folder
+                .DeleteTask(&BSTR::from(name), 0)
+                .map_err(|error| com_error("delete the task", &error))
         }
     }
 }
@@ -204,10 +233,16 @@ mod tests {
 
     #[test]
     fn install_windows_task_definition_fields() {
-        let task = definition(r"WORKSTATION\dev", Path::new(r"C:\Program Files\Nurt\nurt.exe"));
+        let task = definition(
+            r"WORKSTATION\dev",
+            Path::new(r"C:\Program Files\Nurt\nurt.exe"),
+        );
         assert_eq!(task.name, "Nurt Service");
         assert_eq!(task.user_id, r"WORKSTATION\dev");
-        assert_eq!(task.executable, Path::new(r"C:\Program Files\Nurt\nurt.exe"));
+        assert_eq!(
+            task.executable,
+            Path::new(r"C:\Program Files\Nurt\nurt.exe")
+        );
         assert_eq!(task.arguments, "service run");
         assert_eq!(task.execution_time_limit, "PT0S");
         assert!(task.ignore_new_instances);

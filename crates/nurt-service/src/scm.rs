@@ -22,8 +22,7 @@ use std::time::Duration;
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::stage::CancelReason;
 use windows_service::service::{
-    ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceState, ServiceStatus,
-    ServiceType,
+    ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceState, ServiceStatus, ServiceType,
 };
 use windows_service::service_control_handler::{self, ServiceControlHandlerResult};
 use windows_service::{define_windows_service, service_dispatcher};
@@ -48,7 +47,7 @@ pub(crate) enum Dispatch {
     /// The service ran under the service control manager and ended.
     Done(Result<(), Error>),
     /// The process was not started by the service control manager.
-    Console(ServiceSetup, Vec<Arc<dyn ServiceModule>>),
+    Console(Box<ServiceSetup>, Vec<Arc<dyn ServiceModule>>),
 }
 
 define_windows_service!(ffi_service_main, service_main);
@@ -58,7 +57,10 @@ define_windows_service!(ffi_service_main, service_main);
 pub(crate) fn dispatch(setup: ServiceSetup, modules: Vec<Arc<dyn ServiceModule>>) -> Dispatch {
     *PENDING.lock().unwrap_or_else(PoisonError::into_inner) = Some((setup, modules));
     let started = service_dispatcher::start(SERVICE_NAME, ffi_service_main);
-    let pending = PENDING.lock().unwrap_or_else(PoisonError::into_inner).take();
+    let pending = PENDING
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .take();
     match started {
         Ok(()) => Dispatch::Done(
             OUTCOME
@@ -71,7 +73,7 @@ pub(crate) fn dispatch(setup: ServiceSetup, modules: Vec<Arc<dyn ServiceModule>>
             if error.raw_os_error() == Some(ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) =>
         {
             match pending {
-                Some((setup, modules)) => Dispatch::Console(setup, modules),
+                Some((setup, modules)) => Dispatch::Console(Box::new(setup), modules),
                 None => Dispatch::Done(Err(Error::new(
                     ErrorCode::Internal,
                     "the service setup was consumed by the service control manager",
@@ -103,7 +105,10 @@ fn status(state: ServiceState, exit_code: ServiceExitCode) -> ServiceStatus {
 }
 
 fn service_main(_arguments: Vec<OsString>) {
-    let Some((setup, modules)) = PENDING.lock().unwrap_or_else(PoisonError::into_inner).take()
+    let Some((setup, modules)) = PENDING
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .take()
     else {
         return;
     };
@@ -122,12 +127,11 @@ fn service_main(_arguments: Vec<OsString>) {
                 ServiceState::StartPending,
                 ServiceExitCode::Win32(0),
             ));
-            let _ = handle.set_service_status(status(ServiceState::Running, ServiceExitCode::Win32(0)));
+            let _ =
+                handle.set_service_status(status(ServiceState::Running, ServiceExitCode::Win32(0)));
             let outcome = serve(setup, modules);
-            let _ = handle.set_service_status(status(
-                ServiceState::StopPending,
-                ServiceExitCode::Win32(0),
-            ));
+            let _ = handle
+                .set_service_status(status(ServiceState::StopPending, ServiceExitCode::Win32(0)));
             let exit_code = match outcome {
                 Ok(()) => ServiceExitCode::Win32(0),
                 Err(_) => ServiceExitCode::ServiceSpecific(FAILURE_EXIT_CODE),

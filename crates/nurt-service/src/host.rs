@@ -50,7 +50,6 @@ pub struct ServiceSetup {
     extensions: Arc<Extensions>,
     stop: CancelToken,
     signals: bool,
-    policy: RestartPolicy,
 }
 
 impl ServiceSetup {
@@ -81,7 +80,6 @@ impl ServiceSetup {
             extensions: Arc::new(Extensions::new()),
             stop: CancelToken::new(),
             signals: true,
-            policy: RestartPolicy::default(),
         }
     }
 
@@ -133,12 +131,6 @@ impl ServiceSetup {
     pub fn stop(&self) -> CancelToken {
         self.stop.clone()
     }
-
-    #[cfg(test)]
-    pub(crate) fn restart_policy(mut self, policy: RestartPolicy) -> Self {
-        self.policy = policy;
-        self
-    }
 }
 
 impl fmt::Debug for ServiceSetup {
@@ -170,17 +162,26 @@ pub fn run(setup: ServiceSetup, modules: Vec<Arc<dyn ServiceModule>>) -> Result<
     #[cfg(windows)]
     let (setup, modules) = match crate::scm::dispatch(setup, modules) {
         crate::scm::Dispatch::Done(result) => return result,
-        crate::scm::Dispatch::Console(setup, modules) => (setup, modules),
+        crate::scm::Dispatch::Console(setup, modules) => (*setup, modules),
     };
     serve(setup, modules)
 }
 
-pub(crate) fn serve(setup: ServiceSetup, modules: Vec<Arc<dyn ServiceModule>>) -> Result<(), Error> {
+pub(crate) fn serve(
+    setup: ServiceSetup,
+    modules: Vec<Arc<dyn ServiceModule>>,
+) -> Result<(), Error> {
     let mut names = HashSet::new();
-    if let Some(module) = modules.iter().find(|module| !names.insert(module.name().to_owned())) {
+    if let Some(module) = modules
+        .iter()
+        .find(|module| !names.insert(module.name().to_owned()))
+    {
         return Err(Error::new(
             ErrorCode::InvalidValue,
-            format!("two modules are named `{}`; give every module its own name", module.name()),
+            format!(
+                "two modules are named `{}`; give every module its own name",
+                module.name()
+            ),
         ));
     }
     #[cfg(unix)]
@@ -194,7 +195,12 @@ pub(crate) fn serve(setup: ServiceSetup, modules: Vec<Arc<dyn ServiceModule>>) -
         LockOutcome::Acquired(lock) => lock,
         LockOutcome::Busy => return Err(already_running(&paths)),
     };
-    let outcome = serve_locked(&setup, modules, #[cfg(unix)] signals);
+    let outcome = serve_locked(
+        &setup,
+        modules,
+        #[cfg(unix)]
+        signals,
+    );
     lock.release();
     outcome
 }
@@ -212,7 +218,7 @@ fn serve_locked(
         state_dir: setup.paths.state_dir().to_owned(),
         hub: Arc::clone(&hub),
         extensions: Arc::clone(&setup.extensions),
-        policy: setup.policy,
+        policy: RestartPolicy::default(),
     };
     let supervisors: Vec<Arc<Supervisor>> = modules
         .into_iter()
@@ -225,8 +231,12 @@ fn serve_locked(
         source: setup.config_source.clone(),
         supervisors: supervisors.clone(),
     });
-    let server = Server::start(listener, Arc::clone(&hub), Arc::clone(&core) as Arc<dyn Control>)
-        .map_err(io_error)?;
+    let server = Server::start(
+        listener,
+        Arc::clone(&hub),
+        Arc::clone(&core) as Arc<dyn Control>,
+    )
+    .map_err(io_error)?;
     let module_stop = CancelToken::new();
     let mut threads: Vec<JoinHandle<()>> = Vec::new();
     for supervisor in &supervisors {
@@ -293,7 +303,9 @@ fn already_running(paths: &ServicePaths) -> Error {
         .flatten()
         .map(|heartbeat| heartbeat.pid);
     let message = match pid {
-        Some(pid) => format!("the service is already running (pid {pid}); stop it before starting another"),
+        Some(pid) => {
+            format!("the service is already running (pid {pid}); stop it before starting another")
+        }
         None => "the service is already running; stop it before starting another".to_owned(),
     };
     let error = Error::new(ErrorCode::Exists, message);
@@ -321,7 +333,9 @@ impl HostCore {
     }
 
     fn supervisor(&self, name: &str) -> Option<&Arc<Supervisor>> {
-        self.supervisors.iter().find(|supervisor| supervisor.name() == name)
+        self.supervisors
+            .iter()
+            .find(|supervisor| supervisor.name() == name)
     }
 }
 
@@ -365,6 +379,10 @@ impl Control for HostCore {
             modules.insert(supervisor.name().to_owned(), outcome);
         }
         Ok(json!({ "modules": modules }))
+    }
+
+    fn hosts(&self, module: &str) -> bool {
+        self.supervisor(module).is_some()
     }
 
     fn module_request(&self, module: &str, request: ModuleRequest) -> Result<Value, RouteError> {

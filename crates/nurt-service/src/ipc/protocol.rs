@@ -16,8 +16,9 @@
 //!
 //! `id` is a string or a number chosen by the client and returned unchanged.
 //! Operations handled by the host are [`OP_PING`], [`OP_STATUS`],
-//! [`OP_RELOAD`] and [`OP_SUBSCRIBE`]; operations starting with `schedule.`
-//! or `schedule/` go to the schedule module.
+//! [`OP_RELOAD`] and [`OP_SUBSCRIBE`]. An operation that starts with the
+//! name of a hosted module followed by `.` or `/`, for example `schedule.run`
+//! or `schedule/ack`, goes to that module ([`module_of`]).
 //!
 //! Error codes of the protocol itself are lowercase words ([`ERR_BAD_REQUEST`]
 //! and the other `ERR_` constants). Errors reported by a module are errors of
@@ -51,8 +52,24 @@ pub const OP_STATUS: &str = "status";
 pub const OP_RELOAD: &str = "reload";
 /// Subscribes the connection to events addressed to all connections.
 pub const OP_SUBSCRIBE: &str = "subscribe";
-/// Prefixes of operations routed to the schedule module.
-pub const SCHEDULE_PREFIXES: &[&str] = &["schedule.", "schedule/"];
+
+/// Name of the module an operation is addressed to: the part before the
+/// first `.` or `/`.
+///
+/// ```
+/// use nurt_service::ipc::protocol::module_of;
+///
+/// assert_eq!(module_of("schedule.run"), Some("schedule"));
+/// assert_eq!(module_of("schedule/register_action"), Some("schedule"));
+/// assert_eq!(module_of("ping"), None);
+/// assert_eq!(module_of(".run"), None);
+/// ```
+#[must_use]
+pub fn module_of(op: &str) -> Option<&str> {
+    op.split_once(['.', '/'])
+        .map(|(module, _)| module)
+        .filter(|module| !module.is_empty())
+}
 
 /// The request is not a JSON object with `v` and `op`, or `body` is not an
 /// object.
@@ -104,13 +121,16 @@ pub struct ProtocolError {
 /// let error = parse_request(br#"{"v":2,"id":4,"op":"ping"}"#).unwrap_err();
 /// assert_eq!(error.error["code"], "unsupported_version");
 /// ```
-pub fn parse_request(line: &[u8]) -> Result<Request, ProtocolError> {
+pub fn parse_request(line: &[u8]) -> Result<Request, Box<ProtocolError>> {
     let Ok(Value::Object(mut object)) = serde_json::from_slice::<Value>(line) else {
         return Err(bad_request(Value::Null, "the line is not a JSON object"));
     };
     let id = object.remove("id").unwrap_or(Value::Null);
     if !matches!(id, Value::Null | Value::String(_) | Value::Number(_)) {
-        return Err(bad_request(Value::Null, "`id` must be a string or a number"));
+        return Err(bad_request(
+            Value::Null,
+            "`id` must be a string or a number",
+        ));
     }
     let Some(version) = object.get("v").and_then(Value::as_u64) else {
         return Err(bad_request(id, "`v` with the protocol version is missing"));
@@ -120,10 +140,10 @@ pub fn parse_request(line: &[u8]) -> Result<Request, ProtocolError> {
             ERR_UNSUPPORTED_VERSION,
             &format!("protocol version {version} is not supported; use version {PROTOCOL_VERSION}"),
         );
-        return Err(ProtocolError {
+        return Err(Box::new(ProtocolError {
             id,
             error: with_field(error, "supported", json!(SUPPORTED_VERSIONS)),
-        });
+        }));
     }
     let Some(Value::String(op)) = object.remove("op") else {
         return Err(bad_request(id, "`op` with the operation name is missing"));
@@ -136,11 +156,11 @@ pub fn parse_request(line: &[u8]) -> Result<Request, ProtocolError> {
     Ok(Request { id, op, body })
 }
 
-fn bad_request(id: Value, message: &str) -> ProtocolError {
-    ProtocolError {
+fn bad_request(id: Value, message: &str) -> Box<ProtocolError> {
+    Box::new(ProtocolError {
         id,
         error: error_object(ERR_BAD_REQUEST, message),
-    }
+    })
 }
 
 /// Error object of the protocol.
@@ -329,22 +349,34 @@ mod tests {
         );
         let error = language_error(&Error::new(ErrorCode::NotFound, "no schedule `s1`"));
         let line = failure_line(&id, &error);
-        let Some(Message::Response { outcome: Err(error), .. }) = parse_message(&line) else {
+        let Some(Message::Response {
+            outcome: Err(error),
+            ..
+        }) = parse_message(&line)
+        else {
             panic!("failure line must parse");
         };
         assert_eq!(error["code"], "E_NOT_FOUND");
         let line = event_line("schedule.finished", &json!({"x": 1}));
-        assert!(matches!(parse_message(&line), Some(Message::Event { event, .. }) if event == "schedule.finished"));
+        assert!(
+            matches!(parse_message(&line), Some(Message::Event { event, .. }) if event == "schedule.finished")
+        );
         assert_eq!(parse_message(br#"{"v":7,"event":"x"}"#), None);
         assert_eq!(parse_message(br#"{"v":1,"id":1}"#), None);
         let request = request_line(&json!("r"), "status", &json!({}));
-        assert_eq!(parse_request(&request[..request.len() - 1]).unwrap().op, "status");
+        assert_eq!(
+            parse_request(&request[..request.len() - 1]).unwrap().op,
+            "status"
+        );
     }
 
     #[test]
     fn read_line_reports_eof_and_split_lines() {
         let mut reader = io::BufReader::with_capacity(4, &b"abcdefgh\npartial"[..]);
-        assert_eq!(read_line(&mut reader, 64).unwrap(), LineRead::Line(b"abcdefgh".to_vec()));
+        assert_eq!(
+            read_line(&mut reader, 64).unwrap(),
+            LineRead::Line(b"abcdefgh".to_vec())
+        );
         assert_eq!(read_line(&mut reader, 64).unwrap(), LineRead::Eof);
         let mut reader = io::BufReader::with_capacity(4, &b"abcdefgh\n"[..]);
         assert_eq!(read_line(&mut reader, 6).unwrap(), LineRead::TooLong);

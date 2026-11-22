@@ -110,7 +110,7 @@ impl Heartbeat {
 ///
 /// let instant = WallTime::from_unix_nanos(1_795_000_000_500_000_000);
 /// let text = format_instant(instant);
-/// assert_eq!(text, "2026-11-19T07:46:40.5Z");
+/// assert_eq!(text, "2026-11-18T11:06:40.5Z");
 /// assert_eq!(parse_instant(&text), Some(instant));
 /// ```
 #[must_use]
@@ -205,8 +205,13 @@ impl HeartbeatWriter {
     ///
     /// A failed write is retried at the next period; the readers see the
     /// heartbeat age grow meanwhile.
-    pub(crate) fn run<F>(&self, clock: &dyn Clock, interval: Duration, stop: &CancelToken, modules: F)
-    where
+    pub(crate) fn run<F>(
+        &self,
+        clock: &dyn Clock,
+        interval: Duration,
+        stop: &CancelToken,
+        modules: F,
+    ) where
         F: Fn() -> BTreeMap<String, ModuleState>,
     {
         loop {
@@ -252,7 +257,7 @@ mod tests {
         writer.write(now, modules()).unwrap();
         let read_back = read(&path).unwrap().unwrap();
         assert_eq!(read_back.pid, 77);
-        assert_eq!(read_back.started, "2026-11-19T07:46:40Z");
+        assert_eq!(read_back.started, "2026-11-18T11:06:40Z");
         assert_eq!(read_back.modules["space"], ModuleState::Failed);
         let later = now.saturating_add(Duration::from_millis(700));
         assert_eq!(read_back.age(later), Some(Duration::from_millis(700)));

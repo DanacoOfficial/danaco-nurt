@@ -20,6 +20,11 @@ mod linux;
 mod macos;
 #[cfg(any(windows, test))]
 mod task_scheduler;
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+mod test_bus;
+#[cfg(test)]
+mod test_host;
 #[cfg(windows)]
 mod windows;
 
@@ -107,7 +112,10 @@ impl Manifest {
             Ok(bytes) => serde_json::from_slice(&bytes).map(Some).map_err(|error| {
                 Error::new(
                     ErrorCode::Io,
-                    format!("{} is not an installation manifest: {error}", path.display()),
+                    format!(
+                        "{} is not an installation manifest: {error}",
+                        path.display()
+                    ),
                 )
             }),
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
@@ -116,7 +124,8 @@ impl Manifest {
     }
 
     pub(crate) fn write(&self, paths: &ServicePaths) -> Result<(), Error> {
-        create_private_dir(paths.state_dir()).map_err(|error| io_error(paths.state_dir(), &error))?;
+        create_private_dir(paths.state_dir())
+            .map_err(|error| io_error(paths.state_dir(), &error))?;
         let bytes = serde_json::to_vec_pretty(self)
             .map_err(|error| Error::new(ErrorCode::Internal, error.to_string()))?;
         write_file(&paths.install_manifest(), &bytes)
@@ -262,16 +271,16 @@ pub fn uninstall(request: &UninstallRequest) -> Result<UninstallReport, Error> {
         )
         .with_detail("path", json!(manifest_path.display().to_string())));
     };
-    if let Some(mode) = request.mode {
-        if mode != manifest.mode {
-            return Err(Error::new(
-                ErrorCode::InvalidValue,
-                format!(
-                    "the service is installed in mode `{}`; remove it with that mode",
-                    mode_name(manifest.mode)
-                ),
-            ));
-        }
+    if let Some(mode) = request.mode
+        && mode != manifest.mode
+    {
+        return Err(Error::new(
+            ErrorCode::InvalidValue,
+            format!(
+                "the service is installed in mode `{}`; remove it with that mode",
+                mode_name(manifest.mode)
+            ),
+        ));
     }
     let report = uninstall_platform(request, &manifest)?;
     fs::remove_file(&manifest_path).map_err(|error| io_error(&manifest_path, &error))?;
@@ -295,7 +304,10 @@ fn install_platform(
 }
 
 #[cfg(target_os = "linux")]
-fn uninstall_platform(request: &UninstallRequest, manifest: &Manifest) -> Result<UninstallReport, Error> {
+fn uninstall_platform(
+    request: &UninstallRequest,
+    manifest: &Manifest,
+) -> Result<UninstallReport, Error> {
     let _ = request;
     linux::uninstall_with(manifest, &linux::SystemBuses)
 }
@@ -311,7 +323,10 @@ fn install_platform(
 }
 
 #[cfg(target_os = "macos")]
-fn uninstall_platform(request: &UninstallRequest, manifest: &Manifest) -> Result<UninstallReport, Error> {
+fn uninstall_platform(
+    request: &UninstallRequest,
+    manifest: &Manifest,
+) -> Result<UninstallReport, Error> {
     let host = macos::required_host(request.process_host.as_deref())?;
     macos::uninstall_with(manifest, host)
 }
@@ -326,7 +341,10 @@ fn install_platform(
 }
 
 #[cfg(windows)]
-fn uninstall_platform(request: &UninstallRequest, manifest: &Manifest) -> Result<UninstallReport, Error> {
+fn uninstall_platform(
+    request: &UninstallRequest,
+    manifest: &Manifest,
+) -> Result<UninstallReport, Error> {
     let _ = request;
     windows::uninstall(manifest)
 }
@@ -341,7 +359,10 @@ fn install_platform(
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
-fn uninstall_platform(_request: &UninstallRequest, _manifest: &Manifest) -> Result<UninstallReport, Error> {
+fn uninstall_platform(
+    _request: &UninstallRequest,
+    _manifest: &Manifest,
+) -> Result<UninstallReport, Error> {
     Err(unsupported())
 }
 
@@ -358,13 +379,21 @@ fn unsupported() -> Error {
 fn current_executable() -> Result<PathBuf, Error> {
     let executable = std::env::current_exe()
         .and_then(fs::canonicalize)
-        .map_err(|error| Error::new(ErrorCode::Io, format!("cannot locate the running program: {error}")))?;
+        .map_err(|error| {
+            Error::new(
+                ErrorCode::Io,
+                format!("cannot locate the running program: {error}"),
+            )
+        })?;
     Ok(strip_verbatim(executable))
 }
 
 fn strip_verbatim(path: PathBuf) -> PathBuf {
     const VERBATIM_DISK: &str = r"\\?\";
-    match path.to_str().and_then(|text| text.strip_prefix(VERBATIM_DISK)) {
+    match path
+        .to_str()
+        .and_then(|text| text.strip_prefix(VERBATIM_DISK))
+    {
         Some(rest) if rest.as_bytes().get(1) == Some(&b':') => PathBuf::from(rest),
         _ => path,
     }
@@ -407,6 +436,7 @@ pub(crate) fn write_file(path: &Path, bytes: &[u8]) -> Result<(), Error> {
 }
 
 /// Deletes the files of a manifest; files already gone count as deleted.
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
 pub(crate) fn remove_files(files: &[PathBuf]) -> Result<Vec<PathBuf>, Error> {
     let mut removed = Vec::new();
     for file in files {
@@ -433,10 +463,17 @@ mod tests {
         let foreign = units.join("other.service");
         fs::write(&listed, "unit").unwrap();
         fs::write(&foreign, "unit of another program").unwrap();
-        let mut manifest = Manifest::new(ServiceMode::User, Backend::SystemdUser, Path::new("/opt/nurt/bin/nurt"));
+        let mut manifest = Manifest::new(
+            ServiceMode::User,
+            Backend::SystemdUser,
+            Path::new("/opt/nurt/bin/nurt"),
+        );
         manifest.files = vec![listed.clone(), units.join("already-gone.service")];
         manifest.write(&paths).unwrap();
-        assert_eq!(Manifest::read(&paths.install_manifest()).unwrap(), Some(manifest.clone()));
+        assert_eq!(
+            Manifest::read(&paths.install_manifest()).unwrap(),
+            Some(manifest.clone())
+        );
         let removed = remove_files(&manifest.files).unwrap();
         assert_eq!(removed, vec![listed.clone()]);
         assert!(!listed.exists());
@@ -453,22 +490,38 @@ mod tests {
             process_host: None,
         };
         assert_eq!(uninstall(&request).unwrap_err().code, ErrorCode::NotFound);
-        Manifest::new(ServiceMode::User, Backend::SystemdUser, Path::new("/usr/bin/nurt"))
-            .write(&paths)
-            .unwrap();
+        Manifest::new(
+            ServiceMode::User,
+            Backend::SystemdUser,
+            Path::new("/usr/bin/nurt"),
+        )
+        .write(&paths)
+        .unwrap();
         let request = UninstallRequest {
             mode: Some(ServiceMode::System),
             ..request
         };
-        assert_eq!(uninstall(&request).unwrap_err().code, ErrorCode::InvalidValue);
+        assert_eq!(
+            uninstall(&request).unwrap_err().code,
+            ErrorCode::InvalidValue
+        );
         fs::write(paths.install_manifest(), b"[]").unwrap();
-        assert_eq!(Manifest::read(&paths.install_manifest()).unwrap_err().code, ErrorCode::Io);
+        assert_eq!(
+            Manifest::read(&paths.install_manifest()).unwrap_err().code,
+            ErrorCode::Io
+        );
     }
 
     #[test]
     fn verbatim_prefix_is_removed_from_disk_paths_only() {
-        assert_eq!(strip_verbatim(PathBuf::from(r"\\?\C:\Nurt\nurt.exe")), PathBuf::from(r"C:\Nurt\nurt.exe"));
-        assert_eq!(strip_verbatim(PathBuf::from(r"\\?\UNC\host\share")), PathBuf::from(r"\\?\UNC\host\share"));
+        assert_eq!(
+            strip_verbatim(PathBuf::from(r"\\?\C:\Nurt\nurt.exe")),
+            PathBuf::from(r"C:\Nurt\nurt.exe")
+        );
+        assert_eq!(
+            strip_verbatim(PathBuf::from(r"\\?\UNC\host\share")),
+            PathBuf::from(r"\\?\UNC\host\share")
+        );
         assert_eq!(privilege_error("installing").code, ErrorCode::Privilege);
         assert_eq!(mode_name(ServiceMode::System), "system");
     }

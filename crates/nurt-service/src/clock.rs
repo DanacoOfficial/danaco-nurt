@@ -95,7 +95,11 @@ mod tests {
             clock.sleep(Duration::from_secs(5), &cancel),
             Err(CancelReason::Shutdown)
         );
-        assert!(clock.sleep(Duration::from_millis(1), &CancelToken::new()).is_ok());
+        assert!(
+            clock
+                .sleep(Duration::from_millis(1), &CancelToken::new())
+                .is_ok()
+        );
     }
 
     #[test]

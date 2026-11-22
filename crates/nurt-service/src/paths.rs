@@ -129,3 +129,52 @@ pub fn default_state_dir() -> std::io::Result<PathBuf> {
 fn missing(message: &str) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::NotFound, message.to_owned())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn files_live_in_the_configured_state_directory() {
+        let mut config = Config::default();
+        config.state.dir = Some("/srv/nurt-state".to_owned());
+        let paths = ServicePaths::from_config(&config).unwrap();
+        assert_eq!(paths.state_dir(), Path::new("/srv/nurt-state"));
+        assert_eq!(paths.lock_file(), Path::new("/srv/nurt-state/service.lock"));
+        assert_eq!(
+            paths.heartbeat_file(),
+            Path::new("/srv/nurt-state/service.hb")
+        );
+        assert_eq!(
+            paths.socket_file(),
+            Path::new("/srv/nurt-state/service.sock")
+        );
+        assert_eq!(
+            paths.install_manifest(),
+            Path::new("/srv/nurt-state/service.install.json")
+        );
+        assert_eq!(
+            missing("HOME is not set").kind(),
+            std::io::ErrorKind::NotFound
+        );
+    }
+
+    #[test]
+    fn default_state_directory_follows_the_system_convention() {
+        let Ok(dir) = default_state_dir() else {
+            return;
+        };
+        let name = dir.file_name().and_then(|name| name.to_str());
+        if cfg!(any(windows, target_os = "macos")) {
+            assert_eq!(name, Some(STATE_DIR_NAME_NATIVE));
+        } else {
+            assert_eq!(name, Some(STATE_DIR_NAME_POSIX));
+        }
+        assert_eq!(
+            ServicePaths::from_config(&Config::default())
+                .unwrap()
+                .state_dir(),
+            dir
+        );
+    }
+}

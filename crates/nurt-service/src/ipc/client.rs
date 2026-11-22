@@ -130,9 +130,8 @@ pub fn ping(paths: &ServicePaths, timeout: Duration) -> io::Result<(u32, Duratio
     thread::Builder::new()
         .name("nurt-service-ping".to_owned())
         .spawn(move || {
-            let outcome = ControlClient::connect(&paths).and_then(|mut client| {
-                client.call(protocol::OP_PING, json!({}))
-            });
+            let outcome = ControlClient::connect(&paths)
+                .and_then(|mut client| client.call(protocol::OP_PING, json!({})));
             let _ = sender.send(outcome);
         })?;
     let outcome = receiver
@@ -172,7 +171,12 @@ impl ControlLink {
 impl ServiceLink for ControlLink {
     fn running(&self) -> bool {
         matches!(
-            status::liveness(&self.paths, status::wall_now(), self.max_age, self.ping_timeout),
+            status::liveness(
+                &self.paths,
+                status::wall_now(),
+                self.max_age,
+                self.ping_timeout
+            ),
             Liveness::Active { .. }
         )
     }
@@ -197,11 +201,14 @@ impl ServiceLink for ControlLink {
 /// Converts an error object of a response to an error of the language.
 #[must_use]
 pub fn response_error(error: &Value) -> Error {
-    let code = error.get("code").and_then(Value::as_str).unwrap_or_default();
-    if code.starts_with("E_") {
-        if let Ok(error) = serde_json::from_value::<Error>(error.clone()) {
-            return error;
-        }
+    let code = error
+        .get("code")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if code.starts_with("E_")
+        && let Ok(error) = serde_json::from_value::<Error>(error.clone())
+    {
+        return error;
     }
     let message = error
         .get("message")
@@ -218,7 +225,9 @@ mod tests {
     fn response_errors_keep_language_codes() {
         let error = response_error(&json!({"code": "E_NOT_FOUND", "message": "no schedule `s1`"}));
         assert_eq!(error.code, ErrorCode::NotFound);
-        let error = response_error(&json!({"code": "module_unavailable", "message": "the module `schedule` is failed"}));
+        let error = response_error(
+            &json!({"code": "module_unavailable", "message": "the module `schedule` is failed"}),
+        );
         assert_eq!(error.code, ErrorCode::Service);
         assert_eq!(error.problem.as_deref(), Some("module_unavailable"));
         assert_eq!(response_error(&Value::Null).code, ErrorCode::Service);

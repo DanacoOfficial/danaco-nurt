@@ -44,7 +44,7 @@ mod imp {
 }
 
 #[cfg(windows)]
-pub(crate) use imp::current_user_sid;
+pub(crate) use imp::{current_user_sid, is_server_edition};
 
 #[cfg(windows)]
 mod imp {
@@ -58,6 +58,7 @@ mod imp {
     use std::mem;
     use std::ptr;
 
+    use windows_sys::Wdk::System::SystemServices::RtlGetVersion;
     use windows_sys::Win32::Foundation::{
         CloseHandle, ERROR_ACCESS_DENIED, GetLastError, HANDLE, LocalFree, STILL_ACTIVE,
     };
@@ -65,12 +66,28 @@ mod imp {
     use windows_sys::Win32::Security::{
         GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TOKEN_USER, TokenElevation, TokenUser,
     };
+    use windows_sys::Win32::System::SystemInformation::{OSVERSIONINFOEXW, OSVERSIONINFOW};
+    use windows_sys::Win32::System::SystemServices::VER_NT_WORKSTATION;
     use windows_sys::Win32::System::Threading::{
         GetCurrentProcess, GetExitCodeProcess, OpenProcess, OpenProcessToken,
         PROCESS_QUERY_LIMITED_INFORMATION,
     };
 
     const TOKEN_USER_BUFFER: usize = 256;
+
+    /// Whether the system is a server edition: the product type reported by
+    /// `RtlGetVersion` is a domain controller or a server, not a workstation.
+    pub(crate) fn is_server_edition() -> bool {
+        // SAFETY: `OSVERSIONINFOEXW` is plain data for which all zero bytes
+        // are a valid value.
+        let mut info: OSVERSIONINFOEXW = unsafe { mem::zeroed() };
+        info.dwOSVersionInfoSize = u32::try_from(mem::size_of::<OSVERSIONINFOEXW>()).unwrap_or(0);
+        // SAFETY: the size field announces the extended structure, which
+        // `RtlGetVersion` accepts in place of `OSVERSIONINFOW`; `info`
+        // outlives the call.
+        let status = unsafe { RtlGetVersion((&raw mut info).cast::<OSVERSIONINFOW>()) };
+        status >= 0 && u32::from(info.wProductType) != VER_NT_WORKSTATION
+    }
 
     struct OwnedHandle(HANDLE);
 
