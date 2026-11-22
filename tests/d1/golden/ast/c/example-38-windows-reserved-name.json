@@ -1,0 +1,38 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "write",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "C:/proj/aux.txt"
+              }
+            },
+            {
+              "name": "text",
+              "value": {
+                "t": "text",
+                "v": "x"
+              }
+            },
+            {
+              "name": "mode",
+              "value": {
+                "t": "ident",
+                "v": "create"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

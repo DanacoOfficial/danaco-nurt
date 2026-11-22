@@ -1,0 +1,2 @@
+find("/srv/app/build", glob: "*", depth: 1)
+|> remove()

@@ -1,0 +1,43 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "sql",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/app.db"
+              }
+            },
+            {
+              "name": "query",
+              "value": {
+                "t": "text",
+                "v": "select id, name from users where active = ? limit 5"
+              }
+            },
+            {
+              "name": "params",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "int",
+                    "v": 1
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,2 @@
+read("/srv/app/config.go")
+|> replace("timeout = 30", "timeout = 60")

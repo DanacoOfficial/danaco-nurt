@@ -1,0 +1,70 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "read",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/main.go"
+              }
+            },
+            {
+              "name": "around",
+              "value": {
+                "t": "regex",
+                "v": "func main",
+                "flags": ""
+              }
+            },
+            {
+              "name": "context",
+              "value": {
+                "t": "int",
+                "v": 3
+              }
+            },
+            {
+              "name": "line_numbers",
+              "value": {
+                "t": "bool",
+                "v": true
+              }
+            }
+          ]
+        },
+        "stages": []
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "read",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/main.go"
+              }
+            },
+            {
+              "name": "unchanged_since",
+              "value": {
+                "t": "text",
+                "v": "1a2b3c4d"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

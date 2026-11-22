@@ -75,6 +75,7 @@ fn query_from(args: &BoundArgs, ctx: &ExecCtx) -> Result<HelpQuery> {
             HelpFormat::Text
         },
         language: options.language.unwrap_or_default(),
+        variant: ctx.config().syntax.variant,
     })
 }
 

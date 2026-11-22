@@ -1,0 +1,2 @@
+read path="/srv/app/config.go"
+|> replace pattern="timeout = 30" with="timeout = 60"

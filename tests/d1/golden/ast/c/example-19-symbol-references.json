@@ -1,0 +1,38 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "code.references",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/src/a.go"
+              }
+            },
+            {
+              "name": "line",
+              "value": {
+                "t": "int",
+                "v": 12
+              }
+            },
+            {
+              "name": "column",
+              "value": {
+                "t": "int",
+                "v": 6
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "git.status",
+          "args": [
+            {
+              "name": "repo",
+              "value": {
+                "t": "text",
+                "v": "/srv/app"
+              }
+            }
+          ]
+        },
+        "stages": []
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "git.commit",
+          "args": [
+            {
+              "name": "repo",
+              "value": {
+                "t": "text",
+                "v": "/srv/app"
+              }
+            },
+            {
+              "name": "message",
+              "value": {
+                "t": "text",
+                "v": "fix: parser"
+              }
+            },
+            {
+              "name": "paths",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "/srv/app/a.go"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "trailers",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "Co-Authored-By: User <user@example.com>"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

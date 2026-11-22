@@ -3,11 +3,14 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Golden programs of the call notation (variant B).
 //!
-//! Every program in `tests/d1/golden/ast/b` has a word notation counterpart
-//! of the same name in `spec/golden/ast`. Both notations describe the same
-//! program, so the variant B text parses into the surface tree of the word
-//! notation, compared without spans and metadata, and has its recorded
-//! `ast_hash`.
+//! Every task, example and extra program of `spec/golden/ast` has a variant B
+//! text of the same name in `tests/d1/golden/ast/b`. Both notations describe
+//! the same program, so the variant B text parses into the surface tree of
+//! the word notation, compared without spans and metadata, and has its
+//! recorded `ast_hash`. The task programs and some examples are written by
+//! hand; the other examples are the variant B print of the word notation
+//! tree. With `NURT_BLESS=1` a missing variant B text is written from the
+//! printer and must be reviewed before it is kept.
 
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -17,13 +20,16 @@ use std::path::{Path, PathBuf};
 
 use nurt_contracts::ast::{AST_HASH_PREFIX, AstDocument, strip_for_hash};
 use nurt_syntax::parse::{ParseOptions, Variant, parse};
+use nurt_syntax::print;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 /// Number of golden task programs.
 const TASK_PROGRAMS: usize = 14;
-/// Smallest number of golden example programs written in variant B.
-const MIN_EXAMPLE_PROGRAMS: usize = 10;
+/// Number of golden example programs.
+const EXAMPLE_PROGRAMS: usize = 48;
+/// File name prefixes of the golden programs of `spec/golden/ast`.
+const PROGRAM_PREFIXES: [&str; 3] = ["task-", "example-", "extra-"];
 
 fn repository_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -35,6 +41,14 @@ fn variant_b_dir() -> PathBuf {
 
 fn word_notation_dir() -> PathBuf {
     repository_root().join("spec/golden/ast")
+}
+
+fn canonical_word_notation_dir() -> PathBuf {
+    repository_root().join("tests/d1/golden/ast/a")
+}
+
+fn blessing() -> bool {
+    std::env::var_os("NURT_BLESS").is_some_and(|value| value == "1")
 }
 
 /// Returns the variant B programs whose file name starts with `prefix`,
@@ -53,6 +67,27 @@ fn programs(prefix: &str) -> Vec<PathBuf> {
     paths
 }
 
+/// Returns the names of the golden programs of the word notation, sorted.
+fn word_notation_programs() -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(word_notation_dir())
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "json")
+        })
+        .map(|path| stem(&path))
+        .filter(|name| {
+            !name.contains('.')
+                && PROGRAM_PREFIXES
+                    .iter()
+                    .any(|prefix| name.starts_with(prefix))
+        })
+        .collect();
+    names.sort();
+    names
+}
+
 fn stem(path: &Path) -> String {
     path.file_stem().unwrap().to_string_lossy().into_owned()
 }
@@ -65,29 +100,42 @@ fn ast_hash(document: &Value) -> String {
     )
 }
 
+fn word_notation_tree(name: &str) -> Value {
+    let path = word_notation_dir().join(format!("{name}.json"));
+    serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap()
+}
+
+fn parse_text(text: &str, context: &str) -> Value {
+    let document = parse(text, Variant::B, &ParseOptions::default())
+        .unwrap_or_else(|error| panic!("{context}: {error:?}\n{text}"));
+    serde_json::to_value(&document).unwrap()
+}
+
 fn parse_b(path: &Path) -> (String, Value) {
     let text = fs::read_to_string(path).unwrap();
-    let document = parse(&text, Variant::B, &ParseOptions::default())
-        .unwrap_or_else(|error| panic!("{}: {error:?}", path.display()));
-    (text, serde_json::to_value(&document).unwrap())
+    let tree = parse_text(&text, &path.display().to_string());
+    (text, tree)
+}
+
+/// Checks that a variant B tree is the tree of its word notation
+/// counterpart, with the recorded hash.
+fn assert_same_as_word_notation_tree(name: &str, actual: &Value) {
+    let expected = word_notation_tree(name);
+    assert_eq!(
+        strip_for_hash(actual),
+        strip_for_hash(&expected),
+        "{name}: tree differs from the word notation"
+    );
+    let recorded = fs::read_to_string(word_notation_dir().join(format!("{name}.hash"))).unwrap();
+    assert_eq!(ast_hash(actual), recorded.trim(), "{name}: ast_hash");
+    assert_eq!(ast_hash(actual), ast_hash(&expected), "{name}: ast_hash");
 }
 
 /// Checks that a variant B program has the tree and the hash of its word
 /// notation counterpart.
 fn assert_same_as_word_notation(path: &Path) {
-    let name = stem(path);
     let (_, actual) = parse_b(path);
-    let expected_path = word_notation_dir().join(format!("{name}.json"));
-    let expected: Value =
-        serde_json::from_str(&fs::read_to_string(&expected_path).unwrap()).unwrap();
-    assert_eq!(
-        strip_for_hash(&actual),
-        strip_for_hash(&expected),
-        "{name}: tree differs from the word notation"
-    );
-    let recorded = fs::read_to_string(word_notation_dir().join(format!("{name}.hash"))).unwrap();
-    assert_eq!(ast_hash(&actual), recorded.trim(), "{name}: ast_hash");
-    assert_eq!(ast_hash(&actual), ast_hash(&expected), "{name}: ast_hash");
+    assert_same_as_word_notation_tree(&stem(path), &actual);
 }
 
 /// A span as `[line, column, end_line, end_column]`.
@@ -203,6 +251,31 @@ fn assert_stage_spans_cover_parentheses(text: &str, node: &Value, context: &str)
 }
 
 #[test]
+fn every_word_notation_program_has_a_variant_b_text() {
+    let names = word_notation_programs();
+    let count = |prefix: &str| names.iter().filter(|name| name.starts_with(prefix)).count();
+    assert_eq!(count("task-"), TASK_PROGRAMS);
+    assert_eq!(count("example-"), EXAMPLE_PROGRAMS);
+    let mut missing = Vec::new();
+    for name in &names {
+        let path = variant_b_dir().join(format!("{name}.nurt"));
+        if path.exists() {
+            continue;
+        }
+        if blessing() {
+            let document: AstDocument = serde_json::from_value(word_notation_tree(name)).unwrap();
+            fs::write(&path, print::try_print(&document, Variant::B).unwrap()).unwrap();
+        } else {
+            missing.push(name.as_str());
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "no variant B text for {missing:?}; run the test with NURT_BLESS=1 and review the result"
+    );
+}
+
+#[test]
 fn task_programs_match_word_notation_trees_and_hashes() {
     let paths = programs("task-");
     assert_eq!(paths.len(), TASK_PROGRAMS);
@@ -214,11 +287,7 @@ fn task_programs_match_word_notation_trees_and_hashes() {
 #[test]
 fn example_programs_match_word_notation_trees_and_hashes() {
     let paths = programs("example-");
-    assert!(
-        paths.len() >= MIN_EXAMPLE_PROGRAMS,
-        "{} examples",
-        paths.len()
-    );
+    assert_eq!(paths.len(), EXAMPLE_PROGRAMS);
     for path in &paths {
         assert_same_as_word_notation(path);
     }
@@ -228,6 +297,38 @@ fn example_programs_match_word_notation_trees_and_hashes() {
 fn extra_programs_match_word_notation_trees_and_hashes() {
     for path in &programs("extra-") {
         assert_same_as_word_notation(path);
+    }
+}
+
+#[test]
+fn printed_word_notation_trees_read_back_in_variant_b() {
+    for name in &word_notation_programs() {
+        let document: AstDocument = serde_json::from_value(word_notation_tree(name)).unwrap();
+        let text = print::try_print(&document, Variant::B)
+            .unwrap_or_else(|error| panic!("{name}: {error}"));
+        let tree = parse_text(&text, name);
+        assert_same_as_word_notation_tree(name, &tree);
+        let parsed: AstDocument = serde_json::from_value(tree).unwrap();
+        assert_eq!(
+            print::print(&parsed, Variant::B),
+            text,
+            "{name}: printing the parse changes the text"
+        );
+    }
+}
+
+#[test]
+fn task_programs_print_as_canonical_word_notation() {
+    for path in &programs("task-") {
+        let name = stem(path);
+        let (_, tree) = parse_b(path);
+        let document: AstDocument = serde_json::from_value(tree).unwrap();
+        let canonical = canonical_word_notation_dir().join(format!("{name}.canonical.nurt"));
+        assert_eq!(
+            print::print(&document, Variant::A),
+            fs::read_to_string(&canonical).unwrap(),
+            "{name}: canonical word notation"
+        );
     }
 }
 

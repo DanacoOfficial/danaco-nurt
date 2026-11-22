@@ -1,0 +1,43 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "replace",
+          "args": [
+            {
+              "name": "pattern",
+              "value": {
+                "t": "text",
+                "v": "Zürich"
+              }
+            },
+            {
+              "name": "with",
+              "value": {
+                "t": "text",
+                "v": "Genève"
+              }
+            },
+            {
+              "name": "in",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "/srv/legacy/file.txt"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

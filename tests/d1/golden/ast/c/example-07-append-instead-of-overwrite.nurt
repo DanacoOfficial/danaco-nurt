@@ -1,0 +1,1 @@
+write path="/srv/app/.gitignore" text="dist/\n" mode=append

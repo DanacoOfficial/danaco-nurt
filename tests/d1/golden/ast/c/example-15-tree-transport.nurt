@@ -1,0 +1,1 @@
+find path="C:/proj" glob="*.go"

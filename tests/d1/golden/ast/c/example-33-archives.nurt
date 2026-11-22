@@ -1,0 +1,3 @@
+archive.extract path="/srv/dl/data.tar.gz" into="/srv/data"
+find path="/srv/app/dist"
+|> archive.create to="/srv/out/dist.zip" base="/srv/app"

@@ -1,0 +1,66 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "schedule.create",
+          "args": [
+            {
+              "name": "label",
+              "value": {
+                "t": "text",
+                "v": "backup"
+              }
+            },
+            {
+              "name": "cron",
+              "value": {
+                "t": "text",
+                "v": "0 3 * * *"
+              }
+            },
+            {
+              "name": "action",
+              "value": {
+                "t": "sub",
+                "p": {
+                  "t": "pipeline",
+                  "head": {
+                    "t": "stage",
+                    "name": "run",
+                    "args": [
+                      {
+                        "name": "command",
+                        "value": {
+                          "t": "list",
+                          "items": [
+                            {
+                              "t": "text",
+                              "v": "backup"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "cwd",
+                        "value": {
+                          "t": "text",
+                          "v": "/srv"
+                        }
+                      }
+                    ]
+                  },
+                  "stages": []
+                }
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

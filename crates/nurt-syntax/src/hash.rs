@@ -70,10 +70,9 @@ impl TreeDocument for BoundDocument {}
 /// # Ok::<(), serde_json::Error>(())
 /// ```
 pub fn hash_input<T: TreeDocument>(document: &T) -> Result<String, SyntaxError> {
-    let value = serde_json::to_value(document)
-        .map_err(|error| violation("", format!("the tree cannot be serialized: {error}")))?;
-    serde_json_canonicalizer::to_string(&strip_for_hash(&value))
-        .map_err(|error| violation("", format!("the tree cannot be canonicalized: {error}")))
+    serde_json::to_value(document)
+        .and_then(|value| serde_json_canonicalizer::to_string(&strip_for_hash(&value)))
+        .map_err(|error| violation("", format!("the tree cannot be serialized: {error}")))
 }
 
 /// Computes the tree hash, `sha256:` followed by 64 lowercase hex digits.

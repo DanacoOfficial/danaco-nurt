@@ -1,0 +1,56 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "run",
+          "args": [
+            {
+              "name": "command",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "gofmt"
+                  },
+                  {
+                    "t": "text",
+                    "v": "-w"
+                  },
+                  {
+                    "t": "text",
+                    "v": "."
+                  }
+                ]
+              }
+            },
+            {
+              "name": "cwd",
+              "value": {
+                "t": "text",
+                "v": "/srv/app"
+              }
+            },
+            {
+              "name": "watch",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "/srv/app"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

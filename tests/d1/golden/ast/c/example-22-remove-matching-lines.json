@@ -1,0 +1,52 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "lines",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/config.ini"
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "args": [
+              {
+                "name": "condition",
+                "value": {
+                  "t": "bin",
+                  "op": "~",
+                  "l": {
+                    "t": "ident",
+                    "v": "text"
+                  },
+                  "r": {
+                    "t": "regex",
+                    "v": "^\\s*debug\\s*=",
+                    "flags": ""
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "remove",
+            "args": []
+          }
+        ]
+      }
+    ]
+  }
+}

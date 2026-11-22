@@ -1,0 +1,5 @@
+processes
+|> filter condition=memory > 0.5gb
+|> sort by=memory order=desc
+|> select fields=[pid, name, memory]
+processes |> describe

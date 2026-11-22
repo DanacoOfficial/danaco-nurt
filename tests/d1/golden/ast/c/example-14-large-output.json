@@ -1,0 +1,61 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "run",
+          "args": [
+            {
+              "name": "command",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "npm"
+                  },
+                  {
+                    "t": "text",
+                    "v": "test"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "cwd",
+              "value": {
+                "t": "text",
+                "v": "/srv/app"
+              }
+            },
+            {
+              "name": "show",
+              "value": {
+                "t": "ident",
+                "v": "errors"
+              }
+            },
+            {
+              "name": "head",
+              "value": {
+                "t": "int",
+                "v": 5
+              }
+            },
+            {
+              "name": "tail",
+              "value": {
+                "t": "int",
+                "v": 10
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

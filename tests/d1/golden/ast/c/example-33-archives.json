@@ -1,0 +1,69 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "archive.extract",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/dl/data.tar.gz"
+              }
+            },
+            {
+              "name": "into",
+              "value": {
+                "t": "text",
+                "v": "/srv/data"
+              }
+            }
+          ]
+        },
+        "stages": []
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/dist"
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "archive.create",
+            "args": [
+              {
+                "name": "to",
+                "value": {
+                  "t": "text",
+                  "v": "/srv/out/dist.zip"
+                }
+              },
+              {
+                "name": "base",
+                "value": {
+                  "t": "text",
+                  "v": "/srv/app"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,1 @@
+run(["npm", "test"], cwd: "/srv/app", show: errors, head: 5, tail: 10)

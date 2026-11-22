@@ -20,6 +20,7 @@ use crate::errors::{NOTES, error_note};
 use crate::lookup;
 use crate::signature::{self, named_label, named_params, positional_label, value_hint};
 use crate::text::{self, Labels};
+use crate::variant::{self, Variant};
 
 /// Number of examples shown when the call gives none.
 pub const DEFAULT_EXAMPLES: usize = 3;
@@ -127,6 +128,8 @@ pub struct HelpQuery {
     pub format: HelpFormat,
     /// Language of the fixed texts.
     pub language: Language,
+    /// Syntax variant of the programs in examples.
+    pub variant: Variant,
 }
 
 impl Default for HelpQuery {
@@ -140,6 +143,7 @@ impl Default for HelpQuery {
             examples: DEFAULT_EXAMPLES,
             format: HelpFormat::Text,
             language: Language::En,
+            variant: Variant::A,
         }
     }
 }
@@ -185,6 +189,13 @@ impl HelpQuery {
     #[must_use]
     pub fn with_language(mut self, language: Language) -> Self {
         self.language = language;
+        self
+    }
+
+    /// Sets the syntax variant of the programs in examples.
+    #[must_use]
+    pub fn with_variant(mut self, variant: Variant) -> Self {
+        self.variant = variant;
         self
     }
 
@@ -248,11 +259,11 @@ pub fn render(query: &HelpQuery, catalog: &Catalog) -> Result<HelpText, Error> {
     let subject = subject(query, catalog)?;
     let labels = text::labels(query.language);
     let (text, document) = match subject {
-        Subject::Overview => overview(catalog, query.language, labels),
-        Subject::Command(spec) => command(catalog, spec, query.examples, labels),
-        Subject::Group(name) => group(catalog, name, query.language)?,
+        Subject::Overview => overview(catalog, query.language, query.variant, labels)?,
+        Subject::Command(spec) => command(catalog, spec, query.examples, query.variant, labels)?,
+        Subject::Group(name) => group(catalog, name, query.language, query.variant)?,
         Subject::Error(code) => error_topic(code, labels),
-        Subject::Skill(guide) => skill(guide),
+        Subject::Skill(guide) => skill(catalog, guide, query.variant)?,
         Subject::Syntax => plain("syntax", "syntax", text::syntax(query.language).join("\n")),
         Subject::Corrections => plain(
             "corrections",
@@ -388,7 +399,15 @@ fn core_names(catalog: &Catalog) -> Vec<&str> {
         .collect()
 }
 
-fn overview(catalog: &Catalog, language: Language, labels: &Labels) -> (String, Value) {
+/// Indentation of a program in the introduction of the overview.
+const INTRO_PROGRAM_INDENT: &str = "  ";
+
+fn overview(
+    catalog: &Catalog,
+    language: Language,
+    variant: Variant,
+    labels: &Labels,
+) -> Result<(String, Value), Error> {
     let first = text::first_line();
     let commands = core_names(catalog);
     let groups: Vec<&str> = catalog
@@ -402,7 +421,19 @@ fn overview(catalog: &Catalog, language: Language, labels: &Labels) -> (String, 
         .map(|guide| guide.name.as_str())
         .collect();
     let mut lines = vec![first.clone(), String::new()];
-    lines.extend(labels.intro.iter().map(|line| (*line).to_owned()));
+    for line in labels.intro {
+        match line.strip_prefix(INTRO_PROGRAM_INDENT) {
+            Some(program) => {
+                let shown = variant::convert_program(catalog, program, variant)?;
+                let breaks = format!("\n{INTRO_PROGRAM_INDENT}");
+                lines.push(format!(
+                    "{INTRO_PROGRAM_INDENT}{}",
+                    shown.replace('\n', &breaks)
+                ));
+            }
+            None => lines.push((*line).to_owned()),
+        }
+    }
     lines.push(String::new());
     lines.push(format!("{} {}", labels.commands, commands.join(" ")));
     lines.push(format!("{} {}", labels.groups, groups.join(" ")));
@@ -420,7 +451,7 @@ fn overview(catalog: &Catalog, language: Language, labels: &Labels) -> (String, 
         "skills": skills,
         "topics": ["syntax", "corrections"],
     });
-    (lines.join("\n"), document)
+    Ok((lines.join("\n"), document))
 }
 
 fn parameter_items(spec: &StageSpec) -> Vec<String> {
@@ -437,8 +468,9 @@ fn command(
     catalog: &Catalog,
     spec: &StageSpec,
     examples: usize,
+    variant: Variant,
     labels: &Labels,
-) -> (String, Value) {
+) -> Result<(String, Value), Error> {
     let page = catalog.docs().page(&spec.name);
     let usages = signature::usages(spec);
     let mut lines = vec![format!("{} — {}", spec.name, spec.summary)];
@@ -468,14 +500,15 @@ fn command(
         labels.effect,
         signature::effect_text(spec)
     ));
-    let shown: Vec<&str> = page
+    let shown: Vec<String> = page
         .map(|page| {
             page.examples
                 .iter()
                 .take(examples)
-                .map(|example| example.program.as_str())
-                .collect()
+                .map(|example| variant::convert_program(catalog, &example.program, variant))
+                .collect::<Result<_, _>>()
         })
+        .transpose()?
         .unwrap_or_default();
     if !shown.is_empty() {
         lines.push(labels.examples.to_owned());
@@ -505,13 +538,13 @@ fn command(
         lines.push(format!("{} {}", labels.related, related.join(", ")));
     }
     let document = command_document(spec, &usages, &shown, &errors, &related);
-    (lines.join("\n"), document)
+    Ok((lines.join("\n"), document))
 }
 
 fn command_document(
     spec: &StageSpec,
     usages: &[signature::Usage],
-    examples: &[&str],
+    examples: &[String],
     errors: &[(&str, &str)],
     related: &[&str],
 ) -> Value {
@@ -548,8 +581,20 @@ fn command_document(
     })
 }
 
-fn group(catalog: &Catalog, name: &str, language: Language) -> Result<(String, Value), Error> {
-    let description = describe::layer(catalog, Layer::Group, name, language, Length::Default)?;
+fn group(
+    catalog: &Catalog,
+    name: &str,
+    language: Language,
+    variant: Variant,
+) -> Result<(String, Value), Error> {
+    let description = describe::layer_in_variant(
+        catalog,
+        Layer::Group,
+        name,
+        language,
+        Length::Default,
+        variant,
+    )?;
     let commands: Vec<Value> = catalog
         .group(name)
         .map(|file| {
@@ -568,8 +613,8 @@ fn group(catalog: &Catalog, name: &str, language: Language) -> Result<(String, V
     Ok((description.text, document))
 }
 
-fn skill(guide: &Guide) -> (String, Value) {
-    let text = guide.render();
+fn skill(catalog: &Catalog, guide: &Guide, variant: Variant) -> Result<(String, Value), Error> {
+    let text = variant::convert_fenced(catalog, &guide.render(), variant)?;
     let document = json!({
         "kind": "skill",
         "name": guide.name,
@@ -577,7 +622,7 @@ fn skill(guide: &Guide) -> (String, Value) {
         "commands": guide.commands,
         "text": text,
     });
-    (text, document)
+    Ok((text, document))
 }
 
 fn error_topic(code: ErrorCode, labels: &Labels) -> (String, Value) {

@@ -13,13 +13,14 @@
 use nurt_contracts::envelope::Language;
 use nurt_contracts::error::Error;
 use nurt_contracts::kinds::{Category, EffectKind};
-use nurt_contracts::spec::{CORE_GROUP, CatalogFile, StageSpec};
+use nurt_contracts::spec::{CORE_GROUP, CatalogFile, ParamSpec, StageSpec};
 
 use crate::catalog::Catalog;
 use crate::lookup;
 use crate::signature::{self, named_params};
-use crate::text::{self, Block, Line};
+use crate::text::{self, Block};
 use crate::tokens::{EstimateCounter, TokenCounter};
+use crate::variant::{self, Variant};
 
 /// Token budget of the English core layer.
 pub const CORE_TOKENS_EN: u32 = 2230;
@@ -90,6 +91,36 @@ pub fn layer(
     layer_with_counter(&EstimateCounter, catalog, layer, name, language, length)
 }
 
+/// Generates a layer like [`layer`] with the programs of the examples
+/// written in `variant`.
+///
+/// The examples are the same programs in every variant: they are parsed in
+/// variant A and printed in `variant`, so the layer differs only in the
+/// notation. The length is fitted to the notation that is shown.
+///
+/// # Errors
+///
+/// Fails like [`layer`], and with `E_INTERNAL` when an example does not
+/// convert to `variant`.
+pub fn layer_in_variant(
+    catalog: &Catalog,
+    layer: Layer,
+    name: &str,
+    language: Language,
+    length: Length,
+    variant: Variant,
+) -> Result<Description, Error> {
+    build(
+        &EstimateCounter,
+        catalog,
+        layer,
+        name,
+        language,
+        length,
+        variant,
+    )
+}
+
 /// Generates a layer and counts its tokens with `counter`.
 ///
 /// # Errors
@@ -104,10 +135,22 @@ pub fn layer_with_counter(
     language: Language,
     length: Length,
 ) -> Result<Description, Error> {
+    build(counter, catalog, layer, name, language, length, Variant::A)
+}
+
+fn build(
+    counter: &dyn TokenCounter,
+    catalog: &Catalog,
+    layer: Layer,
+    name: &str,
+    language: Language,
+    length: Length,
+    variant: Variant,
+) -> Result<Description, Error> {
     let text = match layer {
-        Layer::Core => core_text(counter, catalog, language, length),
-        Layer::Group => group_text(counter, catalog, name, language, length)?,
-        Layer::Guide => guide_text(catalog, name)?,
+        Layer::Core => core_text(counter, catalog, language, length, variant)?,
+        Layer::Group => group_text(counter, catalog, name, language, length, variant)?,
+        Layer::Guide => guide_text(catalog, name, variant)?,
         Layer::Reference => reference_text(catalog, name)?,
     };
     Ok(Description {
@@ -181,6 +224,8 @@ const PARAM_ROUNDS_BEFORE_DETAIL: usize = 4;
 
 struct CoreModel<'a> {
     blocks: Vec<&'static Block>,
+    /// Programs of the blocks that hold programs, in the shown variant.
+    converted: Vec<Vec<Option<String>>>,
     commands: &'a [StageSpec],
     groups: Vec<(&'a str, &'a str)>,
     language: Language,
@@ -194,7 +239,7 @@ struct Selection {
 }
 
 impl<'a> CoreModel<'a> {
-    fn new(catalog: &'a Catalog, language: Language) -> Self {
+    fn new(catalog: &'a Catalog, language: Language, variant: Variant) -> Result<Self, Error> {
         let blocks: Vec<&'static Block> = text::HEAD
             .iter()
             .chain(text::MIDDLE)
@@ -205,12 +250,30 @@ impl<'a> CoreModel<'a> {
             .filter(|file| file.group != CORE_GROUP)
             .map(|file| (file.group.as_str(), file.summary.as_str()))
             .collect();
-        Self {
+        let converted = blocks
+            .iter()
+            .map(|block| {
+                block
+                    .lines
+                    .iter()
+                    .map(|line| {
+                        if block.programs {
+                            variant::convert_program(catalog, line.text(language), variant)
+                                .map(Some)
+                        } else {
+                            Ok(None)
+                        }
+                    })
+                    .collect::<Result<Vec<_>, Error>>()
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        Ok(Self {
             blocks,
+            converted,
             commands: catalog.core_commands(),
             groups,
             language,
-        }
+        })
     }
 
     fn lines_of_priority(&self, priority: u32) -> Vec<Step> {
@@ -293,12 +356,17 @@ impl<'a> CoreModel<'a> {
 
     fn render_block(&self, block: usize, selection: &Selection, out: &mut Vec<String>) {
         let content = self.blocks[block];
-        let shown: Vec<&Line> = content
+        let shown: Vec<String> = content
             .lines
             .iter()
             .zip(&selection.lines[block])
-            .filter(|(_, on)| **on)
-            .map(|(line, _)| line)
+            .zip(&self.converted[block])
+            .filter(|((_, on), _)| **on)
+            .map(|((line, _), program)| {
+                program
+                    .clone()
+                    .unwrap_or_else(|| line.text(self.language).to_owned())
+            })
             .collect();
         if shown.is_empty() {
             return;
@@ -307,7 +375,7 @@ impl<'a> CoreModel<'a> {
         if let Some(header) = content.header(self.language) {
             lines.push(header.to_owned());
         }
-        lines.extend(shown.iter().map(|line| line.text(self.language).to_owned()));
+        lines.extend(shown);
         out.push(lines.join("\n"));
     }
 
@@ -394,20 +462,21 @@ fn core_text(
     catalog: &Catalog,
     language: Language,
     length: Length,
-) -> String {
+    variant: Variant,
+) -> Result<String, Error> {
     let default = match language {
         Language::Pl => CORE_TOKENS_PL,
         _ => CORE_TOKENS_EN,
     };
-    let model = CoreModel::new(catalog, language);
+    let model = CoreModel::new(catalog, language, variant)?;
     let plan = model.plan();
     let groups: Vec<GroupModel<'_>> = catalog
         .groups()
         .filter(|file| file.group != CORE_GROUP)
-        .map(GroupModel::new)
-        .collect();
+        .map(|file| GroupModel::new(catalog, file, variant))
+        .collect::<Result<_, _>>()?;
     let extension: usize = groups.iter().map(|group| group.plan.len()).sum();
-    fit(
+    Ok(fit(
         counter,
         target_tokens(length, default),
         plan.len() + extension,
@@ -428,25 +497,28 @@ fn core_text(
             }
             text
         },
-    )
+    ))
 }
 
 /// A group with the order in which its detail is added.
 struct GroupModel<'a> {
     file: &'a CatalogFile,
-    examples: Vec<&'static str>,
+    examples: Vec<String>,
     plan: Vec<GroupStep>,
 }
 
 impl<'a> GroupModel<'a> {
-    fn new(file: &'a CatalogFile) -> Self {
-        let examples = group_examples(&file.group);
+    fn new(catalog: &Catalog, file: &'a CatalogFile, variant: Variant) -> Result<Self, Error> {
+        let examples = group_examples(&file.group)
+            .into_iter()
+            .map(|program| variant::convert_program(catalog, program, variant))
+            .collect::<Result<Vec<_>, _>>()?;
         let plan = group_plan(&file.commands, examples.len());
-        Self {
+        Ok(Self {
             file,
             examples,
             plan,
-        }
+        })
     }
 
     fn render(&self, language: Language, steps: usize) -> String {
@@ -646,7 +718,7 @@ fn render_group(
     name: &str,
     summary: &str,
     commands: &[StageSpec],
-    examples: &[&str],
+    examples: &[String],
     language: Language,
     steps: &[GroupStep],
 ) -> String {
@@ -676,11 +748,7 @@ fn render_group(
     }
     if !shown_examples.is_empty() {
         lines.push(pick(("Examples:", "Przykłady:"), language).to_owned());
-        lines.extend(
-            shown_examples
-                .iter()
-                .map(|index| examples[*index].to_owned()),
-        );
+        lines.extend(shown_examples.iter().map(|index| examples[*index].clone()));
     }
     lines.join("\n")
 }
@@ -691,12 +759,13 @@ fn group_text(
     name: &str,
     language: Language,
     length: Length,
+    variant: Variant,
 ) -> Result<String, Error> {
     let Some(file) = catalog.group(name) else {
         let names: Vec<String> = catalog.groups().map(|file| file.group.clone()).collect();
         return Err(lookup::unknown("group", name, &names));
     };
-    let group = GroupModel::new(file);
+    let group = GroupModel::new(catalog, file, variant)?;
     Ok(fit(
         counter,
         target_tokens(length, GROUP_TOKENS),
@@ -705,9 +774,9 @@ fn group_text(
     ))
 }
 
-fn guide_text(catalog: &Catalog, name: &str) -> Result<String, Error> {
+fn guide_text(catalog: &Catalog, name: &str, variant: Variant) -> Result<String, Error> {
     match catalog.docs().guide(name) {
-        Some(guide) => Ok(guide.render()),
+        Some(guide) => variant::convert_fenced(catalog, &guide.render(), variant),
         None => {
             let names: Vec<String> = catalog
                 .docs()
@@ -720,7 +789,7 @@ fn guide_text(catalog: &Catalog, name: &str) -> Result<String, Error> {
 }
 
 /// Markdown reference of one command, or of all commands for an empty name.
-fn reference_text(catalog: &Catalog, name: &str) -> Result<String, Error> {
+pub(crate) fn reference_text(catalog: &Catalog, name: &str) -> Result<String, Error> {
     if name.is_empty() {
         let pages: Vec<String> = catalog.commands().map(reference_page).collect();
         return Ok(format!("# Command reference\n\n{}", pages.join("\n\n")));
@@ -731,6 +800,14 @@ fn reference_text(catalog: &Catalog, name: &str) -> Result<String, Error> {
             let names: Vec<String> = catalog.commands().map(|c| c.name.clone()).collect();
             Err(lookup::unknown("command", name, &names))
         }
+    }
+}
+
+pub(crate) fn default_cell(param: &ParamSpec) -> String {
+    match (&param.default, param.required) {
+        (Some(value), _) => value.as_str().to_owned(),
+        (None, true) => "required".to_owned(),
+        (None, false) => "-".to_owned(),
     }
 }
 

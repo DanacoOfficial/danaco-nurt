@@ -1,0 +1,4 @@
+find path="/srv/app" glob="**/*.go"
+|> filter condition=size > 1mb and modified > ago(1d)
+|> sort by=size order=desc
+|> first count=20

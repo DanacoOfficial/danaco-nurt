@@ -1,0 +1,44 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "read",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/data/missing.csv"
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "search",
+            "args": [
+              {
+                "name": "pattern",
+                "value": {
+                  "t": "regex",
+                  "v": "foo",
+                  "flags": ""
+                }
+              }
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "count",
+            "args": []
+          }
+        ]
+      }
+    ]
+  }
+}

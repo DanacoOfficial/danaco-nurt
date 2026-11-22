@@ -1,0 +1,1 @@
+replace pattern="Zürich" with="Genève" in=["/srv/legacy/file.txt"]

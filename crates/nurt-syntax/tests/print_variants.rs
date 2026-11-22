@@ -16,10 +16,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use nurt_contracts::ast::{
-    Arg, AstDocument, Expr, Head, Pipeline, Program, Span, Stage, Statement, strip_for_hash,
+    Arg, AstDocument, BinOp, Expr, Head, KeySeg, Let, MapEntry, Pipeline, Program, Span, Stage,
+    Statement, UnOp, strip_for_hash,
 };
 use nurt_syntax::parse::{self, ParseOptions, Variant};
-use nurt_syntax::print::{self, PositionalNames, PrintError};
+use nurt_syntax::print::{self, MAX_NESTING_DEPTH, PositionalNames, PrintError};
 use nurt_syntax::{fmt, json};
 
 const B_TEXTS: [&str; 14] = [
@@ -283,5 +284,152 @@ fn naming_skips_named_arguments_when_counting_positions() {
     assert_eq!(
         print::try_print(&named, Variant::C),
         Ok("first order=desc count=20\n".to_owned())
+    );
+}
+
+fn argument(name: Option<&str>, value: Expr) -> Arg {
+    Arg {
+        name: name.map(str::to_owned),
+        value,
+        span: None,
+    }
+}
+
+fn first(count: Option<&str>, value: i64) -> Stage {
+    Stage {
+        name: "first".to_owned(),
+        args: vec![argument(
+            count,
+            Expr::Int {
+                v: value,
+                span: None,
+            },
+        )],
+        span: None,
+    }
+}
+
+/// `let recent = find <path> … |> first <count>`, where the named arguments
+/// of `find` hold the sub-pipeline `(first <count>)` in every expression
+/// position that can contain one. With `named` the positional arguments carry
+/// their parameter names.
+fn nested_positions(named: bool) -> AstDocument {
+    let path = named.then_some("path");
+    let count = named.then_some("count");
+    let inner = || Expr::Sub {
+        p: Pipeline {
+            head: Head::Stage(first(count, 20)),
+            stages: Vec::new(),
+            span: None,
+        },
+        span: None,
+    };
+    let boxed = || Box::new(inner());
+    let args = vec![
+        argument(
+            path,
+            Expr::Text {
+                v: "/srv".to_owned(),
+                span: None,
+            },
+        ),
+        argument(
+            Some("map"),
+            Expr::Map {
+                entries: vec![MapEntry {
+                    k: "a".to_owned(),
+                    v: inner(),
+                    span: None,
+                }],
+                span: None,
+            },
+        ),
+        argument(
+            Some("field"),
+            Expr::Field {
+                name: "size".to_owned(),
+                of: Some(boxed()),
+                span: None,
+            },
+        ),
+        argument(
+            Some("key"),
+            Expr::Key {
+                segs: vec![
+                    KeySeg::Name("a".to_owned()),
+                    KeySeg::Filter { filter: boxed() },
+                ],
+                span: None,
+            },
+        ),
+        argument(
+            Some("call"),
+            Expr::List {
+                items: vec![Expr::Call {
+                    function: "f".to_owned(),
+                    args: vec![inner()],
+                    span: None,
+                }],
+                span: None,
+            },
+        ),
+        argument(
+            Some("not"),
+            Expr::Un {
+                op: UnOp::Not,
+                x: boxed(),
+                span: None,
+            },
+        ),
+        argument(
+            Some("bin"),
+            Expr::Bin {
+                op: BinOp::Eq,
+                l: boxed(),
+                r: boxed(),
+                span: None,
+            },
+        ),
+    ];
+    AstDocument::new(Program {
+        statements: vec![Statement::Let(Let {
+            name: "recent".to_owned(),
+            value: Pipeline {
+                head: Head::Stage(Stage {
+                    name: "find".to_owned(),
+                    args,
+                    span: None,
+                }),
+                stages: vec![first(count, 5)],
+                span: None,
+            },
+            span: None,
+        })],
+    })
+}
+
+#[test]
+fn naming_reaches_let_values_and_nested_expressions() {
+    let named = print::name_positional(&nested_positions(false), &TaskCatalog)
+        .expect("every argument is named");
+    assert_eq!(named, nested_positions(true));
+}
+
+#[test]
+fn naming_reports_nesting_beyond_the_limit() {
+    let mut value = Expr::Int { v: 1, span: None };
+    for _ in 0..=MAX_NESTING_DEPTH {
+        value = Expr::Un {
+            op: UnOp::Neg,
+            x: Box::new(value),
+            span: None,
+        };
+    }
+    let document = single_stage(vec![argument(Some("count"), value)]);
+    assert_eq!(
+        print::name_positional(&document, &TaskCatalog).err(),
+        Some(PrintError::TooDeep {
+            limit: MAX_NESTING_DEPTH
+        })
     );
 }

@@ -1,0 +1,38 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "notebook.replace",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/a.ipynb"
+              }
+            },
+            {
+              "name": "index",
+              "value": {
+                "t": "int",
+                "v": 3
+              }
+            },
+            {
+              "name": "source",
+              "value": {
+                "t": "text",
+                "v": "print(1)"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

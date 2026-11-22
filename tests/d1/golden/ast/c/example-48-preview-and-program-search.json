@@ -1,0 +1,68 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/build"
+              }
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "text",
+                "v": "**/*.o"
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "remove",
+            "args": []
+          }
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "program.search",
+          "args": [
+            {
+              "name": "query",
+              "value": {
+                "t": "text",
+                "v": "ocr pdf"
+              }
+            },
+            {
+              "name": "kind",
+              "value": {
+                "t": "ident",
+                "v": "programs"
+              }
+            },
+            {
+              "name": "limit",
+              "value": {
+                "t": "int",
+                "v": 3
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

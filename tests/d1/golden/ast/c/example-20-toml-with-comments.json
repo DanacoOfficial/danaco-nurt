@@ -1,0 +1,38 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "set",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/Cargo.toml"
+              }
+            },
+            {
+              "name": "key",
+              "value": {
+                "t": "text",
+                "v": "package.version"
+              }
+            },
+            {
+              "name": "value",
+              "value": {
+                "t": "text",
+                "v": "0.4.0"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

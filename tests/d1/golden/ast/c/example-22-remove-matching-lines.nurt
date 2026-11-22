@@ -1,0 +1,3 @@
+lines path="/srv/app/config.ini"
+|> filter condition=text ~ /^\s*debug\s*=/
+|> remove

@@ -38,7 +38,8 @@ fn overview_introduces_the_product_and_lists_the_topics() {
     assert!(body.contains("undo reverts one"));
     assert!(body.contains("commands: list find info read"));
     assert!(body.contains("groups: documents text code"));
-    assert!(body.contains("skills: bash-migration powershell-migration"));
+    assert!(body.contains("skills: administration bash-migration documents encodings"));
+    assert!(body.contains("unix windows"));
     assert!(body.contains("topics: syntax, corrections"));
 }
 

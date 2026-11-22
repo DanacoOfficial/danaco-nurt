@@ -40,6 +40,7 @@ fn task_names() -> Vec<String> {
                 .to_string_lossy()
                 .into_owned()
         })
+        .filter(|name| name.starts_with("task-"))
         .collect();
     names.sort();
     names

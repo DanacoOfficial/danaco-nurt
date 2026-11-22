@@ -1,0 +1,24 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "history",
+          "args": [
+            {
+              "name": "limit",
+              "value": {
+                "t": "int",
+                "v": 5
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,1 @@
+sql path="/srv/app/app.db" query="select id, name from users where active = ? limit 5" params=[1]
