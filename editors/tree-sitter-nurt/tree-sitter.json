@@ -1,0 +1,40 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "nurt",
+      "camelcase": "Nurt",
+      "title": "Nurt",
+      "scope": "source.nurt",
+      "path": ".",
+      "file-types": ["nurt"],
+      "highlights": "queries/highlights.scm",
+      "injections": "queries/injections.scm",
+      "injection-regex": "^nurt$"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "Apache-2.0",
+    "description": "Tree-sitter grammar for Nurt program text.",
+    "authors": [
+      {
+        "name": "Danaco Holding Group Sp. z o.o.",
+        "email": "support@danaco-group.pl"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/DanacoOfficial/nurt"
+    }
+  },
+  "bindings": {
+    "c": true,
+    "go": false,
+    "java": false,
+    "node": false,
+    "python": false,
+    "rust": false,
+    "swift": false,
+    "zig": false
+  }
+}

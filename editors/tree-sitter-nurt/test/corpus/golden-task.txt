@@ -1,0 +1,317 @@
+========================
+task-01-largest-go-files
+========================
+
+find "/srv/app" glob: "**/*.go"
+|> filter size > 1mb and modified > ago(24h)
+|> sort size order: desc
+|> first 20
+
+---
+
+(source_file)
+
+=========================================
+task-02-replace-identifier-expected-count
+=========================================
+
+search /oldName\(/ "/srv/app/src" glob: "**/*.go"
+|> assert paths: 12
+|> replace "newName("
+
+---
+
+(source_file)
+
+==============================
+task-03-remove-temporary-files
+==============================
+
+find "/srv/app/build" glob: "**/*.tmp"
+|> remove
+
+---
+
+(source_file)
+
+====================
+task-04-set-json-key
+====================
+
+set "/srv/app/package.json" key: "scripts.test" value: "vitest"
+
+---
+
+(source_file)
+
+=======================
+task-05-rename-function
+=======================
+
+code.symbols "oldName" path: ["/srv/app/src"] kind: function
+|> code.rename "newName"
+
+---
+
+(source_file)
+
+==========================
+task-06-named-result-count
+==========================
+
+let recent = find "/srv/app/src" glob: "**/*.ts" |> filter modified > ago(1h)
+@recent |> count
+
+---
+
+(source_file)
+
+=======================
+task-07-tests-exit-code
+=======================
+
+run ["go", "test", "./..."] cwd: "/srv/app"
+|> assert exit_code: 0
+
+---
+
+(source_file)
+
+======================
+task-08-append-to-file
+======================
+
+write "/srv/app/.gitignore" "node_modules/\n" mode: append
+
+---
+
+(source_file)
+
+==============================
+task-09-insert-line-after-line
+==============================
+
+lines "/srv/app/main.go"
+|> filter text == "package main"
+|> insert r#"import "fmt""# position: after
+
+---
+
+(source_file)
+
+=====================
+task-10-move-old-logs
+=====================
+
+find "/var/log/app" glob: "*.log" depth: 1
+|> filter modified < ago(7d)
+|> move into: "/var/log/app/old"
+
+---
+
+(source_file)
+
+=======================
+task-11-extract-archive
+=======================
+
+archive.extract "/srv/dl/data.tar.gz" into: "/srv/data"
+
+---
+
+(source_file)
+
+===============================
+task-12-replace-verify-rollback
+===============================
+
+search /oldName\(/ "/srv/app/src" glob: "**/*.go"
+|> replace "newName("
+|> verify (run ["go", "build", "./..."] cwd: "/srv/app" |> assert exit_code: 0)
+
+---
+
+(source_file)
+
+===========================
+task-13-transactional-edits
+===========================
+
+edit "/srv/app/main.go" changes: [
+  {replace: "oldName(", with: "newName(", occurrence: 1},
+  {insert: "// updated", line: 3, position: before},
+  {delete_lines: 10..12}
+]
+
+---
+
+(source_file)
+
+======================
+task-14-background-job
+======================
+
+run ["npm", "run", "build"] cwd: "/srv/app" background: true
+
+---
+
+(source_file)
+
+========================
+task-01-largest-go-files
+========================
+
+find("/srv/app", glob: "**/*.go")
+|> filter(size > 1mb and modified > ago(24h))
+|> sort(size, order: desc)
+|> first(20)
+
+---
+
+(source_file)
+
+=========================================
+task-02-replace-identifier-expected-count
+=========================================
+
+search(/oldName\(/, "/srv/app/src", glob: "**/*.go")
+|> assert(paths: 12)
+|> replace("newName(")
+
+---
+
+(source_file)
+
+==============================
+task-03-remove-temporary-files
+==============================
+
+find("/srv/app/build", glob: "**/*.tmp")
+|> remove()
+
+---
+
+(source_file)
+
+====================
+task-04-set-json-key
+====================
+
+set("/srv/app/package.json", key: "scripts.test", value: "vitest")
+
+---
+
+(source_file)
+
+=======================
+task-05-rename-function
+=======================
+
+code.symbols("oldName", path: ["/srv/app/src"], kind: function)
+|> code.rename("newName")
+
+---
+
+(source_file)
+
+==========================
+task-06-named-result-count
+==========================
+
+let recent = find("/srv/app/src", glob: "**/*.ts") |> filter(modified > ago(1h))
+@recent |> count()
+
+---
+
+(source_file)
+
+=======================
+task-07-tests-exit-code
+=======================
+
+run(["go", "test", "./..."], cwd: "/srv/app")
+|> assert(exit_code: 0)
+
+---
+
+(source_file)
+
+======================
+task-08-append-to-file
+======================
+
+write("/srv/app/.gitignore", "node_modules/\n", mode: append)
+
+---
+
+(source_file)
+
+==============================
+task-09-insert-line-after-line
+==============================
+
+lines("/srv/app/main.go")
+|> filter(text == "package main")
+|> insert(r#"import "fmt""#, position: after)
+
+---
+
+(source_file)
+
+=====================
+task-10-move-old-logs
+=====================
+
+find("/var/log/app", glob: "*.log", depth: 1)
+|> filter(modified < ago(7d))
+|> move(into: "/var/log/app/old")
+
+---
+
+(source_file)
+
+=======================
+task-11-extract-archive
+=======================
+
+archive.extract("/srv/dl/data.tar.gz", into: "/srv/data")
+
+---
+
+(source_file)
+
+===============================
+task-12-replace-verify-rollback
+===============================
+
+search(/oldName\(/, "/srv/app/src", glob: "**/*.go")
+|> replace("newName(")
+|> verify(run(["go", "build", "./..."], cwd: "/srv/app") |> assert(exit_code: 0))
+
+---
+
+(source_file)
+
+===========================
+task-13-transactional-edits
+===========================
+
+edit("/srv/app/main.go", changes: [
+  {replace: "oldName(", with: "newName(", occurrence: 1},
+  {insert: "// updated", line: 3, position: before},
+  {delete_lines: 10..12}
+])
+
+---
+
+(source_file)
+
+======================
+task-14-background-job
+======================
+
+run(["npm", "run", "build"], cwd: "/srv/app", background: true)
+
+---
+
+(source_file)

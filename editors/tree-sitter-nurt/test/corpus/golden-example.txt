@@ -1,0 +1,595 @@
+===========================
+example-01-largest-go-files
+===========================
+
+find "/srv/app" glob: "**/*.go" |> filter size > 1mb and modified > ago(24h) |> sort size order: desc |> first 20
+
+---
+
+(source_file)
+
+============================================
+example-02-replace-identifier-expected-count
+============================================
+
+search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> assert paths: 12 |> replace "newName("
+
+---
+
+(source_file)
+
+=====================================
+example-03-more-matches-than-expected
+=====================================
+
+search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> assert paths: 12 |> replace "newName("
+
+---
+
+(source_file)
+
+====================================
+example-04-remove-directory-contents
+====================================
+
+find "/srv/app/build" glob: "*" depth: 1 |> remove
+
+---
+
+(source_file)
+
+====================================
+example-05-missing-working-directory
+====================================
+
+run ["make", "clean"] cwd: "/srv/app/new"
+
+---
+
+(source_file)
+
+===========================
+example-06-path-with-spaces
+===========================
+
+remove "/srv/data/my file.txt"
+
+---
+
+(source_file)
+
+======================================
+example-07-append-instead-of-overwrite
+======================================
+
+write "/srv/app/.gitignore" "dist/\n" mode: append
+
+---
+
+(source_file)
+
+==============================
+example-08-sort-into-same-file
+==============================
+
+lines "/srv/data/data.txt" |> sort text |> write "/srv/data/data.txt" mode: overwrite
+
+---
+
+(source_file)
+
+================================
+example-09-error-inside-pipeline
+================================
+
+read "/srv/data/missing.csv" |> search /foo/ |> count
+
+---
+
+(source_file)
+
+====================
+example-10-bulk-move
+====================
+
+find "/srv/in" glob: "*.log" depth: 1 |> move into: "/srv/arch"
+
+---
+
+(source_file)
+
+============================
+example-11-preserve-encoding
+============================
+
+replace "Zürich" "Genève" in: ["/srv/legacy/file.txt"]
+
+---
+
+(source_file)
+
+=====================
+example-12-stale-file
+=====================
+
+read "/srv/app/config.go" |> replace "timeout = 30" "timeout = 60"
+
+---
+
+(source_file)
+
+==============================
+example-13-interactive-program
+==============================
+
+run ["apt-get", "install", "foo"] cwd: "/srv"
+
+---
+
+(source_file)
+
+=======================
+example-14-large-output
+=======================
+
+run ["npm", "test"] cwd: "/srv/app" show: errors head: 5 tail: 10
+
+---
+
+(source_file)
+
+=========================
+example-15-tree-transport
+=========================
+
+find "C:/proj" glob: "*.go"
+
+---
+
+(source_file)
+
+==================================
+example-16-legacy-console-encoding
+==================================
+
+run ["cmd.exe", "/c", "dir", "C:\\proj"] cwd: "C:/proj"
+
+---
+
+(source_file)
+
+==========================
+example-17-json-key-layout
+==========================
+
+set "/srv/app/package.json" key: "scripts.test" value: "vitest"
+
+---
+
+(source_file)
+
+=================================
+example-18-rename-function-syntax
+=================================
+
+code.symbols "oldName" path: ["/srv/app/src"] kind: function |> code.rename "newName"
+
+---
+
+(source_file)
+
+============================
+example-19-symbol-references
+============================
+
+code.references "/srv/app/src/a.go" line: 12 column: 6
+
+---
+
+(source_file)
+
+=============================
+example-20-toml-with-comments
+=============================
+
+set "/srv/app/Cargo.toml" key: "package.version" value: "0.4.0"
+
+---
+
+(source_file)
+
+=================================
+example-21-insert-line-after-line
+=================================
+
+lines "/srv/app/main.go" |> filter text == "package main" |> insert r#"import "fmt""# position: after
+
+---
+
+(source_file)
+
+================================
+example-22-remove-matching-lines
+================================
+
+lines "/srv/app/config.ini" |> filter text ~ /^\s*debug\s*=/ |> remove
+
+---
+
+(source_file)
+
+==============================
+example-23-transactional-edits
+==============================
+
+edit "/srv/app/main.go" changes: [{replace: "oldName(", with: "newName(", occurrence: 1}, {insert: "// updated", line: 3, position: before}, {delete_lines: 10..12}] expect: 3
+
+---
+
+(source_file)
+
+===================================
+example-24-read-range-and-unchanged
+===================================
+
+read "/srv/app/main.go" around: /func main/ context: 3 line_numbers: true
+read "/srv/app/main.go" unchanged_since: "1a2b3c4d"
+
+---
+
+(source_file)
+
+=========================
+example-25-multiline-file
+=========================
+
+write "/srv/app/Dockerfile" r#"FROM alpine:3.20
+RUN apk add --no-cache curl
+CMD ["sh"]
+"# mode: create
+
+---
+
+(source_file)
+
+==================================
+example-26-replace-verify-rollback
+==================================
+
+search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> replace "newName(" |> verify (run ["go", "build", "./..."] cwd: "/srv/app" |> assert exit_code: 0)
+
+---
+
+(source_file)
+
+=======================
+example-27-move-by-date
+=======================
+
+find "/var/log/app" glob: "*.log" depth: 1 |> filter modified < ago(7d) |> move into: "/var/log/app/old"
+
+---
+
+(source_file)
+
+==========================
+example-28-copy-with-clone
+==========================
+
+copy "/srv/app" into: "/srv/backup" preserve: true clone: auto
+
+---
+
+(source_file)
+
+============================
+example-29-formatter-changes
+============================
+
+run ["gofmt", "-w", "."] cwd: "/srv/app" watch: ["/srv/app"]
+
+---
+
+(source_file)
+
+=========================
+example-30-background-job
+=========================
+
+run ["npm", "run", "build"] cwd: "/srv/app" background: true
+jobs "j1" tail: 20
+
+---
+
+(source_file)
+
+=========================
+example-31-listening-port
+=========================
+
+ports state: listen |> filter port == 8080
+
+---
+
+(source_file)
+
+========================
+example-32-host-programs
+========================
+
+host programs: ["git", "python3", "node"] versions: true
+
+---
+
+(source_file)
+
+====================
+example-33-archives
+====================
+
+archive.extract "/srv/dl/data.tar.gz" into: "/srv/data"
+find "/srv/app/dist" |> archive.create "/srv/out/dist.zip" base: "/srv/app"
+
+---
+
+(source_file)
+
+=======================
+example-34-sqlite-query
+=======================
+
+sql "/srv/app/app.db" "select id, name from users where active = ? limit 5" params: [1]
+
+---
+
+(source_file)
+
+=============================
+example-35-undo-with-conflict
+=============================
+
+undo 18
+
+---
+
+(source_file)
+
+============================
+example-36-operation-history
+============================
+
+history limit: 5
+
+---
+
+(source_file)
+
+========================
+example-37-journal-space
+========================
+
+journal.space
+
+---
+
+(source_file)
+
+================================
+example-38-windows-reserved-name
+================================
+
+write "C:/proj/aux.txt" "x" mode: create
+
+---
+
+(source_file)
+
+================================
+example-39-windows-symbolic-link
+================================
+
+create "C:/proj/link" type: link target: "C:/proj/src"
+
+---
+
+(source_file)
+
+==============================
+example-40-windows-file-in-use
+==============================
+
+remove "C:/proj/out/app.exe"
+
+---
+
+(source_file)
+
+===========================
+example-41-windows-registry
+===========================
+
+write "registry:/HKCU/Software/Example/Mode" 3 value_type: dword mode: overwrite
+read "registry:/HKCU/Software/Example/Mode"
+
+---
+
+(source_file)
+
+==========================
+example-42-service-restart
+==========================
+
+services name: "nginx" |> restart
+
+---
+
+(source_file)
+
+================================
+example-43-git-status-and-commit
+================================
+
+git.status "/srv/app"
+git.commit "/srv/app" message: "fix: parser" paths: ["/srv/app/a.go"] trailers: ["Co-Authored-By: User <user@example.com>"]
+
+---
+
+(source_file)
+
+====================
+example-44-schedule
+====================
+
+schedule.create "backup" cron: "0 3 * * *" action: (run ["backup"] cwd: "/srv")
+
+---
+
+(source_file)
+
+========================
+example-45-notebook-cell
+========================
+
+notebook.replace "/srv/a.ipynb" index: 3 source: "print(1)"
+
+---
+
+(source_file)
+
+====================================
+example-46-http-request-and-download
+====================================
+
+http.request "https://api.example.com/health" |> assert count: 1
+http.download "https://example.com/a.tar.gz" "/srv/dl/a.tar.gz" hash: "sha256:50d858e0985ecc7f60418aaf0cc5ab587f42c2570a884095a9e8ccacd0f6545c"
+
+---
+
+(source_file)
+
+==========================
+example-47-object-pipeline
+==========================
+
+processes |> filter memory > 500mb |> sort memory order: desc |> select pid name memory
+processes |> describe
+
+---
+
+(source_file)
+
+=====================================
+example-48-preview-and-program-search
+=====================================
+
+find "/srv/app/build" glob: "**/*.o" |> remove
+program.search "ocr pdf" kind: programs limit: 3
+
+---
+
+(source_file)
+
+===========================
+example-01-largest-go-files
+===========================
+
+find("/srv/app", glob: "**/*.go") |> filter(size > 1mb and modified > ago(24h)) |> sort(size, order: desc) |> first(20)
+
+---
+
+(source_file)
+
+==============================
+example-08-sort-into-same-file
+==============================
+
+lines("/srv/data/data.txt") |> sort(text) |> write("/srv/data/data.txt", mode: overwrite)
+
+---
+
+(source_file)
+
+============================
+example-11-preserve-encoding
+============================
+
+replace("Zürich", "Genève", in: ["/srv/legacy/file.txt"])
+
+---
+
+(source_file)
+
+================================
+example-22-remove-matching-lines
+================================
+
+lines("/srv/app/config.ini") |> filter(text ~ /^\s*debug\s*=/) |> remove()
+
+---
+
+(source_file)
+
+==============================
+example-23-transactional-edits
+==============================
+
+edit("/srv/app/main.go", changes: [{replace: "oldName(", with: "newName(", occurrence: 1}, {insert: "// updated", line: 3, position: before}, {delete_lines: 10..12}], expect: 3)
+
+---
+
+(source_file)
+
+===================================
+example-24-read-range-and-unchanged
+===================================
+
+read("/srv/app/main.go", around: /func main/, context: 3, line_numbers: true)
+read("/srv/app/main.go", unchanged_since: "1a2b3c4d")
+
+---
+
+(source_file)
+
+=========================
+example-25-multiline-file
+=========================
+
+write("/srv/app/Dockerfile", r#"FROM alpine:3.20
+RUN apk add --no-cache curl
+CMD ["sh"]
+"#, mode: create)
+
+---
+
+(source_file)
+
+==================================
+example-26-replace-verify-rollback
+==================================
+
+search(/oldName\(/, "/srv/app/src", glob: "**/*.go") |> replace("newName(") |> verify(run(["go", "build", "./..."], cwd: "/srv/app") |> assert(exit_code: 0))
+
+---
+
+(source_file)
+
+====================
+example-44-schedule
+====================
+
+schedule.create("backup", cron: "0 3 * * *", action: (run(["backup"], cwd: "/srv")))
+
+---
+
+(source_file)
+
+==========================
+example-47-object-pipeline
+==========================
+
+processes() |> filter(memory > 500mb) |> sort(memory, order: desc) |> select(pid, name, memory)
+processes() |> describe()
+
+---
+
+(source_file)

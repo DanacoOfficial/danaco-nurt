@@ -1,0 +1,27 @@
+{
+  "name": "tree-sitter-nurt",
+  "version": "0.1.0",
+  "description": "Tree-sitter grammar for Nurt program text.",
+  "private": true,
+  "license": "Apache-2.0",
+  "author": "Danaco Holding Group Sp. z o.o. <support@danaco-group.pl>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DanacoOfficial/nurt.git",
+    "directory": "editors/tree-sitter-nurt"
+  },
+  "scripts": {
+    "generate": "tree-sitter generate",
+    "test": "tree-sitter test",
+    "corpus": "node scripts/generate-corpus.js"
+  },
+  "tree-sitter": [
+    {
+      "scope": "source.nurt",
+      "file-types": ["nurt"],
+      "highlights": "queries/highlights.scm",
+      "injections": "queries/injections.scm",
+      "injection-regex": "^nurt$"
+    }
+  ]
+}
