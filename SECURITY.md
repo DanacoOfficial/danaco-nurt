@@ -65,8 +65,37 @@ repository and in [CHANGELOG.md](CHANGELOG.md); a CVE identifier is requested
 where appropriate. Reporters are credited in the advisory unless they ask
 otherwise.
 
+## Verifying a release
+
+Every release has the file `checksums.txt` with the SHA-256 digests of its
+archives and the detached OpenPGP signature `checksums.txt.asc` of that file.
+The signature is made with the key
+
+```text
+Danaco Nurt (Danaco Holding Group Sp. z o.o.) <support@danaco-group.pl>
+5BEC C5F4 067A 8392 8961  8DB7 65E3 E606 1204 E0FC
+```
+
+The public key is the file `packaging/release/danaco-nurt.asc`. The release is
+verified with:
+
+```sh
+gpg --import danaco-nurt.asc
+gpg --verify checksums.txt.asc checksums.txt
+sha256sum --check checksums.txt
+```
+
+The tag of every release is signed with the same key and is verified with
+`git tag -v`. The executable `nurt.exe` carries an Authenticode signature. Its
+certificate is the file `packaging/release/danaco-nurt-codesign.pem` with the
+subject `C=PL, O=Danaco Holding Group Sp. z o.o., CN=Danaco Nurt`. Danaco
+Holding Group Sp. z o.o. issued this certificate itself, so Windows does not
+chain it to a public certification authority and reports the publisher as
+unverified until the certificate is replaced.
+
 ## Supported versions
 
-No release has been published yet. Until the first stable release, security
-fixes are applied to the `main` branch only. The support period of stable and
-long-term support releases will be stated in this file when they are published.
+Version 0.1.0 is the first release. Until the first stable release, security
+fixes are applied to the `main` branch and published in a new release. The
+support period of stable and long-term support releases will be stated in this
+file when they are published.

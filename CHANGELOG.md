@@ -46,6 +46,9 @@ First release.
 - Packaging for Linux, macOS and Windows, release automation and integrations
   for editors and containers.
 - License, notice, contribution guide, security policy and code of conduct.
+- OpenPGP signature of `checksums.txt` and of the release tag, the Authenticode
+  signature of `nurt.exe`, and the public key and certificate in
+  `packaging/release`; see `SECURITY.md` for the verification.
 - Dependency policy for `cargo-deny`, continuous integration on Linux, macOS
   and Windows, and a repository hygiene check.
 
@@ -62,7 +65,10 @@ First release.
   are commands of the language.
 - The recovery time of 5 seconds for a journal of one million entries is not
   confirmed: the last measurement was 6.2 seconds, before later corrections.
-- The release is not signed.
+- The certificate that signs `nurt.exe` is issued by Danaco Holding Group
+  Sp. z o.o. itself, not by a public certification authority. Windows reports
+  the publisher as unverified until a certificate of a public authority replaces
+  it.
 
 [Unreleased]: https://github.com/DanacoOfficial/nurt/compare/v0.1.0...main
 [0.1.0]: https://github.com/DanacoOfficial/nurt/releases/tag/v0.1.0
