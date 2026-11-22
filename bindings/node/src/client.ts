@@ -4,11 +4,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EventEmitter } from "node:events";
+import type { Channel, ChannelEvents } from "./channel.js";
 import { Connection } from "./connection.js";
 import { NurtError, NurtLanguageError } from "./errors.js";
 import { Execution } from "./execution.js";
 import { isObject, type JsonObject } from "./json.js";
 import { locateExecutable } from "./locate.js";
+import { locateAddon, NativeChannel } from "./native.js";
 import { toResponse, type Response } from "./response.js";
 import type {
   Ast,
@@ -41,17 +43,18 @@ const SHUTDOWN_GRACE_MS = 5000;
 const CLIENT_OPTIONS: ReadonlySet<string> = new Set(["signal", "raiseOnError", "onEvent"]);
 
 interface Session {
-  readonly connection: Connection;
+  readonly connection: Channel;
   readonly server: JsonObject;
 }
 
 /**
  * Client of Danaco Nurt.
  *
- * The client runs `nurt serve --stdio` as a child process on the first call and
- * speaks `nurt-rpc/1` with it. Calls may run concurrently. When the server
- * exits unexpectedly, the calls in progress fail with `NURT_E_INTERNAL` and
- * the next call starts a new server.
+ * On the first call the client opens its backend: the library (the addon
+ * `nurt.node`, loaded into this process) or the process (`nurt serve --stdio`
+ * as a child process, speaking `nurt-rpc/1`). Calls may run concurrently. When
+ * the server process exits unexpectedly, the calls in progress fail with
+ * `NURT_E_INTERNAL` and the next call starts a new server.
  *
  * Events of the server are emitted as `event` ({@link NurtEvent}); the end of
  * a server that exits unexpectedly is emitted as `exit` with the
@@ -75,8 +78,8 @@ export class Nurt extends EventEmitter {
   constructor(options: NurtOptions = {}) {
     super();
     const backend: unknown = options.backend ?? "auto";
-    if (backend !== "auto" && backend !== "process") {
-      throw new NurtError("NURT_E_ARG", `unknown backend ${String(backend)}; use auto or process`);
+    if (backend !== "auto" && backend !== "library" && backend !== "process") {
+      throw new NurtError("NURT_E_ARG", `unknown backend ${String(backend)}; use auto, library or process`);
     }
     this.#options = options;
   }
@@ -106,6 +109,7 @@ export class Nurt extends EventEmitter {
         try {
           const result = await session.connection.call("run", requestEnvelope(program, options), {
             signal: control.signal,
+            onEvent: control.deliver,
             onSent: (id) => {
               route = String(id);
               this.#routes.set(route, control.deliver);
@@ -154,7 +158,7 @@ export class Nurt extends EventEmitter {
 
   /** Returns the description of a layer of the language. */
   async describe(options: DescribeOptions = {}): Promise<string> {
-    const params = compact({ layer: options.layer ?? "core", name: options.name, language: options.language ?? "en" });
+    const params = compact({ subject: options.name ?? options.layer ?? "core", language: options.language ?? "en" });
     return textResult(await this.#call("describe", params), "describe");
   }
 
@@ -170,7 +174,7 @@ export class Nurt extends EventEmitter {
 
   /** Returns a JSON schema of the interface. */
   async schema(which: string): Promise<JsonObject> {
-    return objectResult(await this.#call("schema", { which }), "schema");
+    return objectResult(await this.#call("schema", { name: which }), "schema");
   }
 
   /** Returns operations of the journal. */
@@ -243,12 +247,7 @@ export class Nurt extends EventEmitter {
   async #open(): Promise<Session> {
     const options = this.#options;
     const env = options.env === undefined ? process.env : { ...process.env, ...options.env };
-    const executable = locateExecutable({ executable: options.executable, env, includePath: true });
-    const connection: Connection = new Connection({
-      executable,
-      args: options.args ?? SERVE_ARGUMENTS,
-      env,
-      cwd: options.cwd,
+    const events: ChannelEvents = {
       onNotification: (method, params) => {
         this.#notification(method, params);
       },
@@ -259,7 +258,8 @@ export class Nurt extends EventEmitter {
           this.emit("exit", error);
         }
       },
-    });
+    };
+    const connection: Channel = this.#channel(env, events);
     try {
       const result = await connection.call(
         "initialize",
@@ -286,12 +286,40 @@ export class Nurt extends EventEmitter {
     }
   }
 
+  /** Creates the channel of the backend: the library when it is wanted and available, otherwise the process. */
+  #channel(env: NodeJS.ProcessEnv, events: ChannelEvents): Channel {
+    const options = this.#options;
+    const backend = options.backend ?? "auto";
+    if (backend !== "process") {
+      const located = locateAddon({ library: options.library, env });
+      if (located.path !== undefined) {
+        try {
+          return new NativeChannel(located.path, events);
+        } catch (error) {
+          if (backend === "library") {
+            throw error;
+          }
+        }
+      } else if (backend === "library") {
+        throw new NurtError("NURT_E_IO", `no library found; checked: ${located.checked.join("; ")}`);
+      }
+    }
+    const executable = locateExecutable({ executable: options.executable, env, includePath: true });
+    return new Connection({
+      ...events,
+      executable,
+      args: options.args ?? SERVE_ARGUMENTS,
+      env,
+      cwd: options.cwd,
+    });
+  }
+
   #notification(method: string, params: unknown): void {
     if (method !== EVENT_METHOD || !isObject(params) || typeof params["t"] !== "string") {
       return;
     }
     const event = params as NurtEvent;
-    const requestId = event.request_id;
+    const requestId = event.request ?? event.request_id;
     if (requestId !== undefined) {
       this.#routes.get(String(requestId))?.(event);
     }

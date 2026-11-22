@@ -249,7 +249,7 @@ function handle(message) {
       send(result(id, response(`page ${params.cursor} ${params.limit ?? "default"}`, report("ok", "page"))));
       return;
     case "describe":
-      send(result(id, { text: `${params.layer} ${params.name ?? "all"} ${params.language}` }));
+      send(result(id, { text: `${params.subject} ${params.language}` }));
       return;
     case "help":
       send(result(id, { text: params.topic ?? "index" }));

@@ -10,7 +10,8 @@
 // nurt-<version>-<target>.tar.gz, or .zip for Windows, where <target> is the
 // Rust target triple. Every archive is checked against SHA256SUMS before it is
 // extracted; a missing archive or a checksum mismatch stops the script. The
-// executable found in the archive is copied to npm/<platform>/bin/. Requires
+// executable found in the archive is copied to npm/<platform>/bin/, together
+// with the addon nurt.node when the archive contains it. Requires
 // the build (dist/) and the programs tar and unzip.
 
 import { spawnSync } from "node:child_process";
@@ -26,6 +27,7 @@ const require = createRequire(import.meta.url);
 const { PLATFORM_PACKAGES, executableName } = require("../dist/platform.js");
 
 const EXECUTABLE_MODE = 0o755;
+const ADDON_FILE = "nurt.node";
 const CHECKSUM_LINE = /^([0-9a-f]{64}) [ *](.+)$/;
 
 const { values } = parseArgs({ options: { assets: { type: "string" }, version: { type: "string" } } });
@@ -103,6 +105,10 @@ try {
     mkdirSync(dirname(target), { recursive: true });
     copyFileSync(source, target);
     chmodSync(target, EXECUTABLE_MODE);
+    const addon = findFile(destination, ADDON_FILE);
+    if (addon !== undefined) {
+      copyFileSync(addon, join(dirname(target), ADDON_FILE));
+    }
     process.stdout.write(`${entry.id}: ${name} (sha256 ${actual})\n`);
   }
 } finally {

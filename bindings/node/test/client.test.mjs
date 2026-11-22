@@ -62,12 +62,12 @@ describe("Nurt", () => {
       assert.equal(await client.print({ nurt: "1.0", program: { statements: [] } }, "c"), "print c");
       assert.equal((await client.correct("echo a")).program, "echo a");
       assert.equal((await client.page("cursor-1")).text, "page cursor-1 default");
-      assert.equal(await client.describe(), "core all en");
-      assert.equal(await client.describe({ layer: "group", name: "git", language: "pl" }), "group git pl");
+      assert.equal(await client.describe(), "core en");
+      assert.equal(await client.describe({ layer: "group", name: "git", language: "pl" }), "git pl");
       assert.equal(await client.help(), "index");
       assert.equal(await client.help("syntax"), "syntax");
       assert.deepEqual(await client.catalog("core"), { method: "catalog", params: { what: "core" } });
-      assert.deepEqual(await client.schema("report"), { method: "schema", params: { which: "report" } });
+      assert.deepEqual(await client.schema("report"), { method: "schema", params: { name: "report" } });
       assert.deepEqual(await client.history(), { method: "history", params: {} });
       assert.deepEqual(await client.space("/"), { method: "space", params: { volume: "/" } });
     });
@@ -102,7 +102,7 @@ describe("Nurt", () => {
   });
 
   it("rejects an unknown backend", () => {
-    assert.throws(() => new Nurt({ backend: "library" }), { name: "NurtError", status: "NURT_E_ARG" });
+    assert.throws(() => new Nurt({ backend: /** @type {any} */ ("thread") }), { name: "NurtError", status: "NURT_E_ARG" });
   });
 
   it("rejects calls after close", async () => {

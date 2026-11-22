@@ -1,0 +1,218 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { join } from "node:path";
+import { describe, it } from "node:test";
+import { fakeServe, internal, nurt, packageDirectory, withClient } from "./support.mjs";
+
+const require = createRequire(import.meta.url);
+const { Nurt, NurtError, Response } = nurt;
+const { locateAddon, nativeFailure } = internal("native");
+
+const addonPath = join(packageDirectory, "test", "fixtures", "fake-addon.cjs");
+const { observed } = require(addonPath);
+const LIBRARY = { backend: "library", library: addonPath };
+const CONCURRENT_CALLS = 100;
+
+describe("library backend", () => {
+  it("returns the response of a program", async () => {
+    await withClient(LIBRARY, async (client) => {
+      const response = await client.run("echo hello");
+      assert.ok(response instanceof Response);
+      assert.equal(response.ok, true);
+      assert.equal(response.text, "hello");
+    });
+  });
+
+  it("opens the engine with the session of the client", async () => {
+    observed.engines.length = 0;
+    await withClient({ ...LIBRARY, session: "work" }, async (client) => {
+      await client.info();
+    });
+    assert.deepEqual(observed.engines, [{ session: "work" }]);
+  });
+
+  it("delivers the events of an execution", async () => {
+    await withClient(LIBRARY, async (client) => {
+      const seen = /** @type {string[]} */ ([]);
+      const execution = client.start("echo done", { onEvent: (event) => seen.push(event.t) });
+      const iterated = /** @type {string[]} */ ([]);
+      for await (const event of execution) {
+        iterated.push(event.t);
+      }
+      await execution.wait();
+      assert.deepEqual(seen, ["exec.started", "job.output", "exec.finished"]);
+      assert.deepEqual(iterated, seen);
+    });
+  });
+
+  it("emits every event on the client", async () => {
+    await withClient(LIBRARY, async (client) => {
+      const seen = /** @type {string[]} */ ([]);
+      client.on("event", (/** @type {any} */ event) => seen.push(event.t));
+      await client.run("echo done");
+      assert.deepEqual(seen, ["exec.started", "job.output", "exec.finished"]);
+    });
+  });
+
+  it("cancels the execution when the signal is aborted", async () => {
+    await withClient(LIBRARY, async (client) => {
+      const before = observed.cancelled;
+      const controller = new AbortController();
+      const pending = client.run("slow", { signal: controller.signal });
+      setTimeout(() => {
+        controller.abort();
+      }, 10);
+      await assert.rejects(pending, { name: "NurtError", status: "NURT_E_CANCELLED" });
+      assert.equal(observed.cancelled, before + 1);
+    });
+  });
+
+  it("cancels an execution through its handle", async () => {
+    await withClient(LIBRARY, async (client) => {
+      const execution = client.start("slow");
+      setTimeout(() => {
+        execution.cancel();
+      }, 10);
+      await assert.rejects(execution.wait(), { status: "NURT_E_CANCELLED" });
+    });
+  });
+
+  it("fails the calls in progress when the client is closed", async () => {
+    const client = new Nurt(LIBRARY);
+    const pending = client.run("slow");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await client.close();
+    await assert.rejects(pending, { status: "NURT_E_CANCELLED" });
+    await assert.rejects(client.run("echo late"), { status: "NURT_E_ARG" });
+  });
+
+  it("maps the failures of the library to call failures", async () => {
+    await withClient(LIBRARY, async (client) => {
+      await assert.rejects(client.run("bad"), { name: "NurtError", status: "NURT_E_ARG", message: "the request is not valid" });
+      await assert.rejects(client.run("broken"), { status: "NURT_E_INTERNAL", message: "the engine failed" });
+      await assert.rejects(client.help("core"), { status: "NURT_E_IO" });
+    });
+  });
+
+  it("returns the results of the other operations", async () => {
+    await withClient(LIBRARY, async (client) => {
+      assert.deepEqual(await client.parse("echo a", "b"), { operation: "parse", params: { program: "echo a", variant: "b" } });
+      assert.deepEqual(await client.schema("report"), { operation: "schema", params: { name: "report" } });
+      assert.equal(await client.describe({ layer: "group", name: "git", language: "pl" }), "git pl");
+    });
+  });
+
+  it("reports a language error of an operation as a call failure with the error code", async () => {
+    await withClient(LIBRARY, async (client) => {
+      await assert.rejects(client.parse("bad"), (/** @type {any} */ error) => {
+        assert.ok(error instanceof NurtError);
+        assert.equal(error.status, "NURT_E_ARG");
+        assert.match(error.message, /^E_SYNTAX: unexpected token$/);
+        assert.equal(error.detail.code, "E_SYNTAX");
+        return true;
+      });
+    });
+  });
+
+  it("rejects configuration overrides", async () => {
+    await withClient({ ...LIBRARY, config: { journal: { max_ops: 5 } } }, async (client) => {
+      await assert.rejects(client.info(), { status: "NURT_E_ARG" });
+    });
+  });
+
+  it("runs calls concurrently", async () => {
+    await withClient(LIBRARY, async (client) => {
+      const responses = await Promise.all(Array.from({ length: CONCURRENT_CALLS }, (_, index) => client.run(`echo ${index}`)));
+      assert.deepEqual(
+        responses.map((response) => response.text),
+        Array.from({ length: CONCURRENT_CALLS }, (_, index) => String(index)),
+      );
+    });
+  });
+});
+
+describe("backend selection", () => {
+  it("fails without a library when the library backend is required", async () => {
+    await withClient({ backend: "library", library: join(packageDirectory, "missing.node"), env: { NURT_LIBRARY: "" } }, async (client) => {
+      await assert.rejects(client.info(), (/** @type {any} */ error) => {
+        assert.equal(error.status, "NURT_E_IO");
+        assert.match(error.message, /missing\.node/);
+        return true;
+      });
+    });
+  });
+
+  it("fails when the file is not a library", async () => {
+    await withClient({ backend: "library", library: join(packageDirectory, "package.json") }, async (client) => {
+      await assert.rejects(client.info(), { name: "NurtError" });
+    });
+  });
+
+  it("uses the library in the automatic mode when one is found", async () => {
+    await withClient({ library: addonPath, executable: "/nonexistent/nurt" }, async (client) => {
+      assert.equal((await client.run("echo auto")).text, "auto");
+    });
+  });
+
+  it("uses the process in the automatic mode when no library is found", async () => {
+    await withClient({ ...fakeServe(), env: { NURT_LIBRARY: "" } }, async (client) => {
+      assert.equal((await client.run("echo process")).text, "process");
+    });
+  });
+
+  it("never loads a library for the process backend", async () => {
+    await withClient({ ...fakeServe(), backend: "process", library: addonPath }, async (client) => {
+      assert.equal((await client.run("echo process")).text, "process");
+    });
+  });
+
+  it("falls back to the process when the library cannot be loaded in the automatic mode", async () => {
+    await withClient({ ...fakeServe(), library: join(packageDirectory, "package.json") }, async (client) => {
+      assert.equal((await client.run("echo process")).text, "process");
+    });
+  });
+});
+
+describe("locateAddon", () => {
+  it("prefers the option to the variable", () => {
+    const located = locateAddon({ library: addonPath, env: { NURT_LIBRARY: "/elsewhere/nurt.node" } });
+    assert.equal(located.path, addonPath);
+  });
+
+  it("uses the variable when there is no option", () => {
+    assert.equal(locateAddon({ env: { NURT_LIBRARY: addonPath } }).path, addonPath);
+  });
+
+  it("does not fall back after an explicit path that names no file", () => {
+    const located = locateAddon({ library: "/nonexistent/nurt.node", env: {}, resolvePackage: () => packageDirectory });
+    assert.equal(located.path, undefined);
+    assert.match(located.checked[0], /the library option names .*nurt\.node, which is not a file/);
+  });
+
+  it("finds the addon in the bin directory of the platform package", () => {
+    const located = locateAddon({ env: {}, resolvePackage: () => join(packageDirectory, "test", "fixtures", "package") });
+    assert.equal(located.path, join(packageDirectory, "test", "fixtures", "package", "bin", "nurt.node"));
+  });
+
+  it("lists the packages that were checked", () => {
+    const located = locateAddon({ env: {}, resolvePackage: () => undefined });
+    assert.equal(located.path, undefined);
+    assert.ok(located.checked.every((entry) => entry.includes("is not installed") || entry.startsWith("no platform package")));
+  });
+});
+
+describe("nativeFailure", () => {
+  it("reads the status from the message", () => {
+    const failure = nativeFailure(new Error("NURT_E_TIMEOUT: too slow"));
+    assert.equal(failure.status, "NURT_E_TIMEOUT");
+    assert.equal(failure.message, "too slow");
+  });
+
+  it("treats other exceptions as internal failures", () => {
+    assert.equal(nativeFailure(new Error("boom")).status, "NURT_E_INTERNAL");
+    assert.equal(nativeFailure("text").message, "text");
+  });
+});

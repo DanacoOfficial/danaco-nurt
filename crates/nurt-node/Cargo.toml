@@ -1,0 +1,28 @@
+[package]
+name = "nurt-node"
+description = "Node.js addon of the Danaco Nurt library."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+nurt-contracts = { workspace = true }
+nurt-core = { workspace = true }
+napi = { workspace = true, features = ["napi4"] }
+napi-derive = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[build-dependencies]
+napi-build = { workspace = true }

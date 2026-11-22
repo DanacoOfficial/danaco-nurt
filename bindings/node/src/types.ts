@@ -43,7 +43,9 @@ export interface NurtEvent {
   readonly seq: number;
   /** Time of the event (RFC 3339). */
   readonly time: string;
-  /** Identifier of the request the event belongs to. */
+  /** Identifier of the request the event belongs to, as text (`nurt-event/1`). */
+  readonly request?: string | null;
+  /** Identifier of the request the event belongs to, in the form used by earlier servers. */
   readonly request_id?: number | string;
   /** Identifier of the background job the event belongs to. */
   readonly job_id?: string;
@@ -83,8 +85,17 @@ export interface DescribeOptions {
 
 /** Options of the {@link Nurt} client. */
 export interface NurtOptions {
-  /** Backend; `auto` and `process` both run `nurt serve --stdio`. Default `auto`. */
-  readonly backend?: "auto" | "process" | undefined;
+  /**
+   * Backend. `library` loads the addon into this process, `process` runs
+   * `nurt serve --stdio`, and `auto` uses the library when an addon is found
+   * and can be loaded, and the process otherwise. Default `auto`.
+   */
+  readonly backend?: "auto" | "library" | "process" | undefined;
+  /**
+   * Path of the addon (`nurt.node`). Default: the variable `NURT_LIBRARY`,
+   * then the platform package.
+   */
+  readonly library?: string | undefined;
   /**
    * Path or command name of the `nurt` executable. Default: the variable
    * `NURT_EXECUTABLE`, then the platform package, then `PATH`.
