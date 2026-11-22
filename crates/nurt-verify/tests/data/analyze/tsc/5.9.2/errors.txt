@@ -1,0 +1,5 @@
+src/types.ts(1,14): error TS2322: Type 'string' is not assignable to type 'number'.
+src/util/parse.ts(12,5): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/old.ts(3,1): warning TS6133: 'unused' is declared but its value is never read.
+Found 3 errors in 3 files.

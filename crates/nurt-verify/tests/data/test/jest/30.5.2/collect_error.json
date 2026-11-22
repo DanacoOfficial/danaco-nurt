@@ -1,0 +1,1 @@
+{"numTotalTests":0,"testResults":[{"name":"/work/b.test.js","status":"failed","message":"  ● Test suite failed to run\n\n    SyntaxError: Unexpected token\n\n      at Runtime.createScriptFromCode (node_modules/jest-runtime/build/index.js:1:1)\n      at b.test.js:1:1","assertionResults":[]}]}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<testsuites name="vitest tests" tests="3" failures="0" errors="0">
+    <testsuite name="a.test.js" tests="3" failures="0" errors="0" skipped="0">
+        <testcase classname="a.test.js" name="math &gt; adds" time="0.001">
+        </testcase>
+        <testcase classname="a.test.js" name="math &gt; sub

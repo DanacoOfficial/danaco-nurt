@@ -1,0 +1,30 @@
+
+running 5 tests
+test tests::skipped ... ignored
+test tests::adds ... ok
+test tests::failure ... FAILED
+test tests::group::nested ... FAILED
+test tests::panic - should panic ... ok
+
+failures:
+
+---- tests::failure stdout ----
+
+thread 'tests::failure' (1533514) panicked at src/lib.rs:21:9:
+assertion `left == right` failed: wrong sum
+  left: 2
+ right: 3
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- tests::group::nested stdout ----
+
+thread 'tests::group::nested' (1533516) panicked at src/lib.rs:37:13:
+failure in group
+
+
+failures:
+    tests::failure
+    tests::group::nested
+
+test result: FAILED. 2 passed; 2 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<testsuites name="vitest tests" tests="7" failures="3" errors="0" time="0.004805326">
+    <testsuite name="sum.test.js" timestamp="2026-11-19T16:59:17.672Z" hostname="host" tests="7" failures="3" errors="0" skipped="2" time="0.004805326">
+        <testcase classname="sum.test.js" name="sum &gt; adds numbers" time="0.000684953">
+        </testcase>
+        <testcase classname="sum.test.js" name="sum &gt; characters &lt;a&gt; &amp; &quot;b&quot;" time="0.00267112">
+            <failure message="expected 2 to be 3 // Object.is equality" type="AssertionError">
+AssertionError: expected 2 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 2
+
+ ❯ sum.test.js:6:19
+            </failure>
+        </testcase>
+        <testcase classname="sum.test.js" name="sum &gt; nested &gt; skipped test" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="sum.test.js" name="sum &gt; nested &gt; to do" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="sum.test.js" name="sum &gt; nested &gt; case 1" time="0.000124463">
+        </testcase>
+        <testcase classname="sum.test.js" name="sum &gt; nested &gt; case 2" time="0.000269835">
+            <failure message="expected 2 to be less than 2" type="AssertionError">
+AssertionError: expected 2 to be less than 2
+ ❯ sum.test.js:12:21
+            </failure>
+        </testcase>
+        <testcase classname="sum.test.js" name="throws" time="0.000319669">
+            <failure message="input failure" type="Error">
+Error: input failure
+ ❯ sum.test.js:17:9
+            </failure>
+        </testcase>
+    </testsuite>
+</testsuites>

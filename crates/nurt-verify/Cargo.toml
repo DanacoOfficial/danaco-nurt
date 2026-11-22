@@ -24,3 +24,11 @@ nurt-proc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 regex = { workspace = true }
+quick-xml = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+ignore = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+nurt-testkit = { workspace = true }

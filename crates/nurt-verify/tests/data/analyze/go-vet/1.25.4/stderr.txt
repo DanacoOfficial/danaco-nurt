@@ -1,0 +1,4 @@
+# example.com/project/internal/store
+vet: internal/store/store.go:42:3: declared and not used: unused
+internal/store/store.go:57:2: fmt.Printf format %d has arg name of wrong type string
+internal/cache/cache.go:18:9: self-assignment of x to x

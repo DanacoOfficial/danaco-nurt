@@ -1,0 +1,5 @@
+{"path":"sample.c","threshold":5,"highest":6,"functions":[
+{"name":"simple","container":null,"start":1,"end":3,"cyclomatic":1},
+{"name":"conditions","container":null,"start":5,"end":15,"cyclomatic":6},
+{"name":"loops","container":null,"start":17,"end":30,"cyclomatic":6}],
+"findings":[["conditions",6],["loops",6]]}

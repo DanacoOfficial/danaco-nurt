@@ -1,0 +1,25 @@
+   Compiling libc v0.2.150
+   Compiling serde v1.0.190
+   Compiling util v0.1.0 (/src/util)
+warning: unused variable: `x`
+  --> util/src/lib.rs:4:9
+   |
+4  |     let x = 1;
+   |         ^ help: prefix it with an underscore: `_x`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+   Compiling app v0.1.0 (/src/app)
+   Compiling cli v0.1.0 (/src/cli)
+   Compiling web v0.1.0 (/src/web)
+   Compiling api v0.1.0 (/src/api)
+   Compiling db v0.1.0 (/src/db)
+   Compiling ui v0.1.0 (/src/ui)
+error[E0425]: cannot find value `y` in this scope
+  --> app/src/main.rs:7:13
+   |
+7  |     let z = y + 1;
+   |             ^ not found in this scope
+
+For more information about this error, try `rustc --explain E0425`.
+error: could not compile `app` (bin "app") due to 1 previous error

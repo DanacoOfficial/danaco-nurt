@@ -1,0 +1,6 @@
+{"path":"Sample.java","threshold":5,"highest":6,"functions":[
+{"name":"simple","container":"Sample","start":3,"end":5,"cyclomatic":1},
+{"name":"conditions","container":"Sample","start":7,"end":15,"cyclomatic":6},
+{"name":"loops","container":"Sample","start":17,"end":25,"cyclomatic":4},
+{"name":"choice","container":"Sample","start":27,"end":40,"cyclomatic":5}],
+"findings":[["Sample.conditions",6]]}

@@ -1,0 +1,10 @@
+Resolving dependencies
+Downloading package
+Downloading package
+Downloading package
+[32mResolved[0m 3 packages
+10%40%100%
+Downloading package
+
+
+Done   

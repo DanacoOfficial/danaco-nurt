@@ -1,0 +1,5 @@
+::error title=lint/suspicious/noDoubleEquals,file=src/a.ts,line=4,endLine=4,col=7,endColumn=9::Use === instead of ==.
+::warning title=lint/correctness/noUnusedVariables,file=src/b.ts,line=1,endLine=1,col=7,endColumn=8::This variable is unused.
+::notice title=lint/style/useConst,file=src/b.ts,line=9,endLine=9,col=5,endColumn=8::This let declares a variable that is only assigned once.
+Checked 2 files in 3ms. No fixes applied.
+Found 1 error.

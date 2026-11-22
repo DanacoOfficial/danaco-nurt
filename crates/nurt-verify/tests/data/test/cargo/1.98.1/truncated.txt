@@ -1,0 +1,5 @@
+
+running 3 tests
+test tests::adds ... ok
+test tests::subtracts ... ok
+test tests::mul

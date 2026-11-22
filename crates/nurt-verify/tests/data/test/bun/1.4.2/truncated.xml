@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<testsuites name="bun test" tests="3" failures="0" skipped="0">
+  <testsuite name="a.test.ts" file="a.test.ts" tests="3" failures="0">
+    <testcase name="adds" classname="a.test.ts" time="0.001" file="a.test.ts" line="2" />
+    <testcase name="subtracts" classname="a.test.ts" time="0.002" file="a.test.ts" line="5" />
+    <testcase name="multi

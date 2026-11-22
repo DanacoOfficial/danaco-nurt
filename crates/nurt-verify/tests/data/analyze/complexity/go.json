@@ -1,0 +1,8 @@
+{"path":"sample.go","threshold":4,"highest":5,"functions":[
+{"name":"Simple","container":null,"start":5,"end":7,"cyclomatic":1},
+{"name":"Conditions","container":null,"start":9,"end":16,"cyclomatic":5},
+{"name":"Loops","container":null,"start":18,"end":27,"cyclomatic":3},
+{"name":"Choice","container":null,"start":29,"end":45,"cyclomatic":4},
+{"name":"Method","container":"Kind","start":47,"end":55,"cyclomatic":3},
+{"name":"WithLiteral","container":null,"start":57,"end":62,"cyclomatic":2}],
+"findings":[["Conditions",5]]}

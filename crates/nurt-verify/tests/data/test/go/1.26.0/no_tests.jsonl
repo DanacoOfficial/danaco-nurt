@@ -1,0 +1,3 @@
+{"Action":"start","Package":"example.com/p"}
+{"Action":"output","Package":"example.com/p","Output":"?   \texample.com/p\t[no test files]\n"}
+{"Action":"skip","Package":"example.com/p","Elapsed":0}

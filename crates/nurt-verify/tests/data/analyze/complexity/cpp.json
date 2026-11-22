@@ -1,0 +1,4 @@
+{"path":"sample.cpp","threshold":2,"highest":3,"functions":[
+{"name":"select","container":"Choice","start":3,"end":10,"cyclomatic":3},
+{"name":"empty","container":"Choice","start":12,"end":12,"cyclomatic":1}],
+"findings":[["Choice.select",3]]}

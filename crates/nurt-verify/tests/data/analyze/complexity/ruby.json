@@ -1,0 +1,4 @@
+{"path":"sample.rb","threshold":2,"highest":3,"functions":[
+{"name":"select","container":"Choice","start":2,"end":9,"cyclomatic":3},
+{"name":"empty","container":"Choice","start":11,"end":12,"cyclomatic":1}],
+"findings":[["Choice.select",3]]}

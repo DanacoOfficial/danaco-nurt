@@ -1,0 +1,4 @@
+{"path":"sample.php","threshold":2,"highest":3,"functions":[
+{"name":"select","container":"Choice","start":4,"end":11,"cyclomatic":3},
+{"name":"empty","container":"Choice","start":13,"end":13,"cyclomatic":1}],
+"findings":[["Choice.select",3]]}

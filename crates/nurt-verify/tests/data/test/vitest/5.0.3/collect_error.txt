@@ -1,0 +1,2 @@
+ FAIL  a.test.js [ a.test.js ]
+Error: Failed to resolve import "./missing" from "a.test.js". Does the file exist?
