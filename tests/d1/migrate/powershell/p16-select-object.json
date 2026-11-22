@@ -49,7 +49,7 @@
       ],
       "assumptions": [],
       "fix": [],
-      "output": "lines \"C:/a.txt\""
+      "output": "lines \"C:/a.txt\"\n|> distinct"
     },
     {
       "line": 5,

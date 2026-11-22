@@ -229,14 +229,21 @@ impl<'a> Work<'a> {
     }
 
     /// Step 3: statements written as habits of other shells; a statement
-    /// that the token rules make valid is not a habit.
+    /// that the token rules make valid is not a habit, unless it starts with
+    /// a word that is both a habit and a command and shows a shell feature
+    /// (`sort -u /a/b`).
     fn translate_habits(&mut self, context: &TokenContext<'_>) -> Result<(), Error> {
         let variant = context.variant;
         let locator = self.locator();
         let mut edits = Vec::new();
         for range in statements(&self.text) {
             let statement = self.text.get(range.clone()).unwrap_or_default();
-            if parses(statement, variant) || parses(&rewrite(statement, context).text, variant) {
+            if parses(statement, variant) {
+                continue;
+            }
+            if parses(&rewrite(statement, context).text, variant)
+                && !is_command_habit(statement, context)
+            {
                 continue;
             }
             let Some(habit) = translate_statement(statement)? else {
@@ -265,12 +272,13 @@ impl<'a> Work<'a> {
         let locator = self.locator();
         let mut edits = Vec::new();
         for range in statements(&self.text) {
-            let statement = self.text.get(range.clone()).unwrap_or_default();
+            let owned = self.text.get(range.clone()).unwrap_or_default().to_owned();
+            let statement = owned.as_str();
             if parses(statement, variant) || parses(&rewrite(statement, context).text, variant) {
                 continue;
             }
             match other_readings(statement, variant, context.catalog).as_slice() {
-                [] => {}
+                [] => self.other_variant_stages(&range, context, &locator, &mut edits)?,
                 [(_, reading)] => {
                     let at = locator.at(range.clone());
                     self.corrections.push(Rule::L20.record(
@@ -285,6 +293,58 @@ impl<'a> Work<'a> {
             }
         }
         self.edit(&edits);
+        Ok(())
+    }
+
+    /// Stage by stage `L20` for a statement that reads in no other variant
+    /// as a whole: each stage that does not read in the configured variant
+    /// is written in it when exactly one other variant reads it. The
+    /// statement is changed only when the result reads in the configured
+    /// variant.
+    fn other_variant_stages(
+        &mut self,
+        range: &Range<usize>,
+        context: &TokenContext<'_>,
+        locator: &Locator<'_>,
+        edits: &mut Vec<Edit>,
+    ) -> Result<(), Error> {
+        let variant = context.variant;
+        let text = self.text.clone();
+        let mut staged = Vec::new();
+        for stage in stage_ranges(&text, range) {
+            let source = text.get(stage.clone()).unwrap_or_default();
+            if parses(source, variant) || parses(&rewrite(source, context).text, variant) {
+                continue;
+            }
+            match other_readings(source, variant, context.catalog).as_slice() {
+                [] => return Ok(()),
+                [(_, reading)] => staged.push((stage, reading.clone())),
+                readings => return Err(self.ambiguous_variant(&stage, readings, locator)),
+            }
+        }
+        if staged.is_empty() {
+            return Ok(());
+        }
+        let mut changed = text.clone();
+        for (stage, reading) in staged.iter().rev() {
+            changed.replace_range(stage.clone(), reading);
+        }
+        let statement = changed
+            .get(range.start..changed.len() - (text.len() - range.end))
+            .unwrap_or_default();
+        if !parses(statement, variant) && !parses(&rewrite(statement, context).text, variant) {
+            return Ok(());
+        }
+        for (stage, reading) in staged {
+            let source = text.get(stage.clone()).unwrap_or_default();
+            self.corrections.push(Rule::L20.record(
+                locator.at(stage.clone()),
+                source,
+                reading.clone(),
+                CorrectionKind::Syntax,
+            ));
+            edits.push(Edit::new(stage, reading));
+        }
         Ok(())
     }
 
@@ -390,6 +450,63 @@ impl<'a> Work<'a> {
             source: repaired.source,
         }
     }
+}
+
+/// Whether a statement starts with a word that is a habit of another shell
+/// and also a Nurt command, and has an argument written as a dashed flag
+/// (`sort -u`), which Nurt has no notation for.
+fn is_command_habit(statement: &str, context: &TokenContext<'_>) -> bool {
+    let first = statement
+        .split(char::is_whitespace)
+        .next()
+        .unwrap_or_default();
+    if !(context.is_habit)(first) || !context.catalog.is_command(first) {
+        return false;
+    }
+    let pieces = scan(statement);
+    let has_flag = pieces.windows(3).any(|window| {
+        let [space, dash, word] = window else {
+            return false;
+        };
+        space.kind == PieceKind::Space
+            && dash.kind == PieceKind::Punct
+            && matches!(dash.text(statement), "-" | "--")
+            && word.kind == PieceKind::Word
+    });
+    has_flag && bash::detect(statement)
+}
+
+/// Byte ranges of the stages of a statement: the parts between the pipes
+/// `|>` and `|` outside brackets and literals, without surrounding space.
+fn stage_ranges(text: &str, statement: &Range<usize>) -> Vec<Range<usize>> {
+    let slice = text.get(statement.clone()).unwrap_or_default();
+    let mut stages = Vec::new();
+    let mut depth = 0usize;
+    let mut start = statement.start;
+    for piece in scan(slice) {
+        if piece.kind != PieceKind::Punct {
+            continue;
+        }
+        match piece.text(slice) {
+            "(" | "[" | "{" => depth += 1,
+            ")" | "]" | "}" => depth = depth.saturating_sub(1),
+            "|>" | "|" if depth == 0 => {
+                stages.push(start..statement.start + piece.range.start);
+                start = statement.start + piece.range.end;
+            }
+            _ => {}
+        }
+    }
+    stages.push(start..statement.end);
+    stages
+        .into_iter()
+        .filter_map(|stage| {
+            let source = text.get(stage.clone())?;
+            let lead = source.len() - source.trim_start().len();
+            let trimmed = source.trim();
+            (!trimmed.is_empty()).then(|| stage.start + lead..stage.start + lead + trimmed.len())
+        })
+        .collect()
 }
 
 fn parses(text: &str, variant: Variant) -> bool {
@@ -589,8 +706,9 @@ mod tests {
     use crate::lexical::ArgumentShape;
     use crate::tables::load_embedded;
 
-    const COMMANDS: [&str; 10] = [
+    const COMMANDS: [&str; 11] = [
         "find", "search", "count", "verify", "run", "replace", "remove", "list", "first", "filter",
+        "sort",
     ];
 
     struct Commands;
@@ -704,6 +822,50 @@ mod tests {
         )
         .expect("corrected");
         assert_eq!(rules(&called), ["L20"]);
+    }
+
+    #[test]
+    fn writes_the_stages_of_a_mixed_statement_in_the_configured_variant() {
+        let result = run("find(\"/srv\", glob: \"*.go\") |> first 5 |> count()");
+        assert_eq!(rules(&result), ["L20", "L20"]);
+        assert_eq!(
+            canonical(&result),
+            "find \"/srv\" glob: \"*.go\"\n|> first 5\n|> count"
+        );
+        let piped = run("find(\"/srv\") | count()");
+        assert_eq!(rules(&piped), ["L13", "L20"]);
+        let ordered: Vec<u32> = result
+            .corrections
+            .iter()
+            .filter_map(|correction| correction.at.map(|at| at.column))
+            .collect();
+        assert_eq!(ordered, [1, 42]);
+    }
+
+    #[test]
+    fn leaves_a_mixed_statement_whose_stages_do_not_read_alone() {
+        let result = run_with(
+            "find(\"/srv\") |> count(",
+            &syntax(Variant::A, true),
+            &CorrectionConfig::default(),
+        );
+        assert!(result.is_err());
+        let strict = run_with(
+            "find(\"/srv\") |> count()",
+            &syntax(Variant::A, false),
+            &CorrectionConfig::default(),
+        );
+        assert!(strict.is_err());
+    }
+
+    #[test]
+    fn translates_a_habit_that_is_also_a_command_after_the_token_rules() {
+        let result = run("sort -u /a/b\nfind /srv -name x");
+        let rules = rules(&result);
+        assert!(rules.contains(&"B37".to_owned()), "{rules:?}");
+        assert!(canonical(&result).starts_with("lines \"/a/b\""));
+        let called = run("sort size\nfind \"/srv\" |> count)");
+        assert!(canonical(&called).starts_with("sort size"));
     }
 
     #[test]

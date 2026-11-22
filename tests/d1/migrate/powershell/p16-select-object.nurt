@@ -10,6 +10,7 @@ list "C:/logs" hidden: false
 |> select name size
 # translated: P03, L19, P16
 lines "C:/a.txt"
+|> distinct
 # translated: P03, L19, P16
 lines "C:/a.txt"
 |> last 3

@@ -13,12 +13,16 @@
 
 use std::fmt;
 
+use nurt_bind::{BindContext, Catalog, bind};
 use nurt_contracts::ast::AstDocument;
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::report::Correction;
+use nurt_contracts::spec::Os;
 use nurt_correct::bash::{self, Assumption, BashTable, Mode, TranslateContext};
+use nurt_correct::policy::{InvariantInput, check_invariants, is_effecting};
 use nurt_correct::powershell::{self, PowerShellTable};
 use nurt_correct::record::Log;
+use nurt_correct::tables::{Tables, load_embedded};
 use nurt_syntax::parse::{ParseOptions, Variant, parse};
 use nurt_syntax::print::print;
 
@@ -127,6 +131,14 @@ pub trait Translator {
 pub struct TableTranslator {
     bash: Option<BashTable>,
     powershell: Option<PowerShellTable>,
+    binding: Option<Binding>,
+}
+
+/// Catalog and correction tables used to bind every translated statement.
+struct Binding {
+    host_os: Os,
+    catalog: Catalog,
+    tables: Tables,
 }
 
 impl TableTranslator {
@@ -148,6 +160,34 @@ impl TableTranslator {
     pub fn with_powershell_table(mut self, table: PowerShellTable) -> Self {
         self.powershell = Some(table);
         self
+    }
+
+    /// Binds every translated statement to `catalog` for a script that runs on
+    /// `host_os` and checks that binding keeps its meaning. Paths foreign to
+    /// `host_os`, such as a drive letter on Linux, fail the binding.
+    ///
+    /// The check of a statement then also fails with the binding error of
+    /// stage `1`, or with `E_INTERNAL_CORRECTION` when the bound program does
+    /// not keep the meaning of the printed one; the migration reports such a
+    /// statement as an error, not as translated.
+    ///
+    /// # Errors
+    ///
+    /// Returns `E_INTERNAL_CORRECTION` when the embedded correction tables
+    /// are invalid.
+    pub fn with_catalog(mut self, catalog: Catalog, host_os: Os) -> Result<Self, Error> {
+        let tables = load_embedded().map_err(|error| {
+            Error::new(
+                ErrorCode::InternalCorrection,
+                format!("invalid correction tables: {error}"),
+            )
+        })?;
+        self.binding = Some(Binding {
+            host_os,
+            catalog,
+            tables,
+        });
+        Ok(self)
     }
 
     fn translate_bash(
@@ -232,6 +272,7 @@ impl fmt::Debug for TableTranslator {
         f.debug_struct("TableTranslator")
             .field("custom_bash_table", &self.bash.is_some())
             .field("custom_powershell_table", &self.powershell.is_some())
+            .field("binds", &self.binding.is_some())
             .finish()
     }
 }
@@ -262,9 +303,29 @@ impl Translator for TableTranslator {
     }
 
     fn check(&self, script: &str) -> Result<(), Error> {
-        parse(script, Variant::A, &ParseOptions::default())
-            .map(drop)
-            .map_err(Error::from)
+        let tree = parse(script, Variant::A, &ParseOptions::default()).map_err(Error::from)?;
+        match &self.binding {
+            Some(binding) => binding.check(&tree),
+            None => Ok(()),
+        }
+    }
+}
+
+impl Binding {
+    /// Binds the program and checks the invariants of the result.
+    fn check(&self, tree: &AstDocument) -> Result<(), Error> {
+        let bound = bind(tree, &self.catalog, &BindContext::new(self.host_os))
+            .map_err(|e| e.into_error())?;
+        let effecting = |name: &str| self.catalog.command(name).is_some_and(is_effecting);
+        check_invariants(&InvariantInput {
+            before: Some(tree),
+            after: &bound,
+            corrections: &[],
+            base: None,
+            tables: &self.tables,
+            effecting: &effecting,
+        })
+        .map_err(|violation| violation.to_error())
     }
 }
 

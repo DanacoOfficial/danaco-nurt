@@ -1,11 +1,12 @@
 # Source: p28-data.ps1 (powershell)
 # Statements run in order; the first error stops the script.
-# Statements: 4; translated: 0; with assumptions: 2; impossible: 2; errors: 0.
+# Statements: 4; translated: 0; with assumptions: 3; impossible: 1; errors: 0.
 # Untranslated statements run unchanged with: run ["pwsh", "p28-data.ps1"]
 
 # P28: JSON and CSV conversions.
-# untranslated: E_UNCORRECTABLE: Get-Content C:\data.json | ConvertFrom-Json
-#   problem: the conversion applies to the output of read; read the file first (conversion_input)
+# translated: P03, L19, P28
+# assumption: the document is read as a whole and its values are returned as items
+read "C:/data.json" key: "$"
 # translated: P28, L19
 # assumption: every row of the file is returned as an item keyed by the header
 read "C:/data.csv" key: "[*]"

@@ -1,4 +1,4 @@
-translated without error: 219 of 250
+translated without error: 223 of 250
 translated	Get-ChildItem C:\proj	list "C:/proj" hidden: false
 translated	Get-ChildItem -Path C:\Users\dev\Documents	list "C:/Users/dev/Documents" hidden: false
 translated	gci C:\Windows\Temp	list "C:/Windows/Temp" hidden: false
@@ -97,7 +97,7 @@ translated	Get-ItemProperty C:\proj\app.exe	info "C:/proj/app.exe"
 translated	Get-ItemPropertyValue -Path HKCU:\Software\MyApp -Name Version	read "registry:/HKCU/Software/MyApp/Version"
 translated	Get-Item C:\proj\app.exe | Select-Object Name, Length	info "C:/proj/app.exe" |> select name size
 translated	Set-ItemProperty -Path HKCU:\Software\MyApp -Name Version -Value 2	write "registry:/HKCU/Software/MyApp/Version" 2 mode: overwrite
-failed	Set-ItemProperty -Path C:\proj\a.txt -Name IsReadOnly -Value $true	E_UNCORRECTABLE: properties of files are changed with attributes (not_registry)
+translated	Set-ItemProperty -Path C:\proj\a.txt -Name IsReadOnly -Value $true	attributes "C:/proj/a.txt" readonly: true
 translated	New-ItemProperty -Path HKCU:\Software\MyApp -Name Mode -Value Fast	write "registry:/HKCU/Software/MyApp/Mode" "Fast" mode: overwrite
 translated	Get-Acl C:\proj	info "C:/proj"
 translated	Get-Acl -Path C:\proj\secret.txt	info "C:/proj/secret.txt"
@@ -124,7 +124,7 @@ translated	Get-ChildItem C:\proj | Sort-Object Length	list "C:/proj" hidden: fal
 translated	Get-ChildItem C:\logs | Sort-Object LastWriteTime -Descending	list "C:/logs" hidden: false |> sort modified order: desc
 translated	Get-Service | sort Name	services |> sort name
 translated	Get-Process | Sort-Object -Property WorkingSet -Descending | Select-Object -First 5	processes |> sort memory order: desc |> first 5
-failed	Get-Content C:\data\names.txt | Sort-Object -Unique	E_UNCORRECTABLE: -Unique of Sort-Object has no Nurt translation; translated parameters: -Property, -Descending (unknown_parameter)
+translated	Get-Content C:\data\names.txt | Sort-Object -Unique	lines "C:/data/names.txt" |> sort text |> distinct
 translated	Get-ChildItem C:\proj -Recurse | Measure-Object	find "C:/proj" type: any hidden: false |> count
 translated	Get-ChildItem C:\proj -Recurse -File | Measure-Object -Property Length -Sum	find "C:/proj" type: file hidden: false |> summarize size
 translated	Get-Content C:\logs\app.log | Measure-Object -Line	lines "C:/logs/app.log" |> count
@@ -187,7 +187,7 @@ translated	gcm git	program.find "git"
 translated	Get-Help Get-ChildItem	help "Get-ChildItem"
 translated	help Copy-Item	help "Copy-Item"
 translated	Get-Process | Get-Member	processes |> describe
-failed	Get-Content C:\proj\config.json | ConvertFrom-Json	E_UNCORRECTABLE: the conversion applies to the output of read; read the file first (conversion_input)
+translated	Get-Content C:\proj\config.json | ConvertFrom-Json	read "C:/proj/config.json" key: "$"
 failed	Get-Process | ConvertTo-Json	E_UNCORRECTABLE: ConvertTo-Json only shows text unless a file is written; write the records with write format: json (conversion_without_write)
 translated	Import-Csv C:\data\people.csv	read "C:/data/people.csv" key: "[*]"
 translated	Get-Process | Export-Csv C:\temp\processes.csv	processes |> write "C:/temp/processes.csv" format: csv mode: overwrite
@@ -232,7 +232,7 @@ translated	Get-EventLog -LogName System -EntryType Error -Newest 20	logs source:
 translated	Test-Connection example.com	network.ping "example.com"
 translated	Test-Connection -ComputerName server01 -Count 2	network.ping "server01" count: 2
 translated	Get-NetTCPConnection	ports protocol: tcp state: all
-failed	Get-NetTCPConnection -LocalPort 443	E_UNCORRECTABLE: -LocalPort of Get-NetTCPConnection has no Nurt translation; translated parameters: -State (unknown_parameter)
+translated	Get-NetTCPConnection -LocalPort 443	ports protocol: tcp state: all |> filter port == 443
 translated	Resolve-DnsName example.com	network.resolve "example.com"
 translated	Get-NetIPAddress	network.interfaces
 translated	Get-CimInstance Win32_OperatingSystem	windows.cim "Win32_OperatingSystem"
