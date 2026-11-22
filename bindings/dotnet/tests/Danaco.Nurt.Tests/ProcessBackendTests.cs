@@ -53,7 +53,7 @@ public sealed class ProcessBackendTests
         Assert.AreEqual("2000ms", sent.GetProperty("timeout").GetString());
         Assert.AreEqual("markdown", sent.GetProperty("format").GetString());
         Assert.AreEqual("tests", sent.GetProperty("session").GetString());
-        Assert.AreEqual("en", sent.GetProperty("language").GetString());
+        Assert.IsFalse(sent.TryGetProperty("language", out _));
         Assert.IsFalse(sent.TryGetProperty("script", out _));
     }
 

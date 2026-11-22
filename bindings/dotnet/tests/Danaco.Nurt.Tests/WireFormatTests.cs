@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -11,17 +12,28 @@ public sealed class WireFormatTests
     private static readonly string[] Fields = { "path", "size" };
 
     [TestMethod]
-    public void ProgramEnvelopeHasVersionVariantAndClientLanguage()
+    public void ProgramEnvelopeHasVersionAndVariantAndOnlyTheOptionsThatAreSet()
     {
         JsonElement envelope = Envelope(Request.FromProgram("find \"/home/user\"", NotationVariant.B), null, new ClientOptions());
 
         Assert.AreEqual("1.0", envelope.GetProperty("nurt").GetString());
         Assert.AreEqual("find \"/home/user\"", envelope.GetProperty("program").GetString());
         Assert.AreEqual("b", envelope.GetProperty("variant").GetString());
-        JsonElement options = envelope.GetProperty("options");
-        Assert.AreEqual("en", options.GetProperty("language").GetString());
-        Assert.IsFalse(options.TryGetProperty("session", out _));
+        Assert.AreEqual(0, envelope.GetProperty("options").EnumerateObject().Count());
         Assert.IsFalse(envelope.TryGetProperty("ast", out _));
+    }
+
+    [TestMethod]
+    public void ClientLanguageAndSessionApplyWhenTheCallSetsNone()
+    {
+        var client = new ClientOptions { Language = "pl", Session = "client" };
+
+        JsonElement inherited = Envelope(Request.FromProgram("x"), null, client).GetProperty("options");
+        JsonElement overridden = Envelope(Request.FromProgram("x"), new RunOptions { Language = "en" }, client).GetProperty("options");
+
+        Assert.AreEqual("pl", inherited.GetProperty("language").GetString());
+        Assert.AreEqual("client", inherited.GetProperty("session").GetString());
+        Assert.AreEqual("en", overridden.GetProperty("language").GetString());
     }
 
     [TestMethod]

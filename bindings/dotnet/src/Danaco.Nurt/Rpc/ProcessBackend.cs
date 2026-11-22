@@ -50,7 +50,7 @@ internal sealed class ProcessBackend : IBackend
     {
         var parameters = new SyntaxParams { Program = program, Variant = WireFormat.VariantName(variant) };
         JsonElement result = await CallAsync("parse", Serialize(parameters), cancellationToken).ConfigureAwait(false);
-        return new ParseResult(JsonRead.Property(result, "ast"), JsonRead.Property(result, "diagnostics"));
+        return new ParseResult(JsonRead.Property(result, "ast"), JsonRead.Property(result, "diagnostics"), JsonRead.Property(result, "error"));
     }
 
     public async Task<string> PrintAsync(JsonElement ast, NotationVariant variant, CancellationToken cancellationToken)
@@ -84,13 +84,13 @@ internal sealed class ProcessBackend : IBackend
     }
 
     public Task<JsonElement> CatalogAsync(JsonElement? what, CancellationToken cancellationToken) =>
-        CallAsync("catalog", what is { } value ? Compact(value) : null, cancellationToken);
+        CallAsync("catalog", Named("what", what), cancellationToken);
 
     public Task<JsonElement> SchemaAsync(string which, CancellationToken cancellationToken) =>
         CallAsync("schema", JsonSerializer.SerializeToUtf8Bytes(new SchemaParams { Which = which }, WireJsonContext.Default.SchemaParams), cancellationToken);
 
     public Task<JsonElement> HistoryAsync(JsonElement? query, CancellationToken cancellationToken) =>
-        CallAsync("history", query is { } value ? Compact(value) : null, cancellationToken);
+        CallAsync("history", Named("query", query), cancellationToken);
 
     public Task<JsonElement> SpaceAsync(string? volume, CancellationToken cancellationToken) =>
         CallAsync("space", JsonSerializer.SerializeToUtf8Bytes(new SpaceParams { Volume = volume }, WireJsonContext.Default.SpaceParams), cancellationToken);
@@ -114,7 +114,25 @@ internal sealed class ProcessBackend : IBackend
     private static byte[] Serialize(SyntaxParams parameters) =>
         JsonSerializer.SerializeToUtf8Bytes(parameters, WireJsonContext.Default.SyntaxParams);
 
-    private static byte[] Compact(JsonElement value) => WireFormat.Compact(value);
+    /// <summary>Writes the parameters <c>{"name": value}</c>; no parameters when the value is absent.</summary>
+    private static byte[]? Named(string name, JsonElement? value)
+    {
+        if (value is not { } present)
+        {
+            return null;
+        }
+
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            writer.WritePropertyName(name);
+            present.WriteTo(writer);
+            writer.WriteEndObject();
+        }
+
+        return stream.ToArray();
+    }
 
     /// <summary>Reads a text result, given either as a JSON string or as an object with the member <c>text</c>.</summary>
     private static string Text(JsonElement result, string method) => result.ValueKind == JsonValueKind.String

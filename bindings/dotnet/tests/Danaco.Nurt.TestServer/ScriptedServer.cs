@@ -24,6 +24,7 @@ namespace Danaco.Nurt.TestServer;
 /// <item><c>fail STATUS</c>: answers with the JSON-RPC error <c>-32000 - STATUS</c>.</item>
 /// <item><c>page</c>: report with the cursor <c>c1</c>; the cursor <c>c1</c> returns the last page.</item>
 /// </list>
+/// The method <c>parse</c> of the text <c>error</c> returns the language error <c>E_LEXICAL</c>.
 /// Every response to <c>run</c> and <c>page</c> also carries the received parameters in the
 /// member <c>request</c>.
 /// </summary>
@@ -78,6 +79,23 @@ internal sealed class ScriptedServer
         ["status"] = status,
         ["kind"] = kind,
     };
+
+    /// <summary>Result of <c>parse</c>: the language error <c>E_LEXICAL</c> for the text <c>error</c>, otherwise an empty tree.</summary>
+    private static JsonObject ParseResultOf(string? program) => program == "error"
+        ? new JsonObject
+        {
+            ["error"] = new JsonObject
+            {
+                ["code"] = "E_LEXICAL",
+                ["message"] = "unterminated text",
+                ["at"] = new JsonObject { ["line"] = 1, ["column"] = 1, ["stage"] = "1" },
+            },
+        }
+        : new JsonObject
+        {
+            ["ast"] = new JsonObject { ["nurt"] = "1.0", ["program"] = new JsonArray() },
+            ["diagnostics"] = new JsonArray(),
+        };
 
     private static JsonObject ResponseOf(JsonObject report, string? text, JsonNode? request)
     {
@@ -138,11 +156,7 @@ internal sealed class ScriptedServer
                 }).ConfigureAwait(false);
                 break;
             case "parse":
-                await ResultAsync(id, new JsonObject
-                {
-                    ["ast"] = new JsonObject { ["nurt"] = "1.0", ["program"] = new JsonArray() },
-                    ["diagnostics"] = new JsonArray(),
-                }).ConfigureAwait(false);
+                await ResultAsync(id, ParseResultOf(parameters?["program"]?.GetValue<string>())).ConfigureAwait(false);
                 break;
             case "print":
                 await ResultAsync(id, new JsonObject { ["text"] = "echo printed" }).ConfigureAwait(false);
@@ -169,10 +183,10 @@ internal sealed class ScriptedServer
 
                 break;
             case "catalog":
-                await ResultAsync(id, new JsonObject { ["groups"] = new JsonArray(), ["what"] = parameters?.DeepClone() }).ConfigureAwait(false);
+                await ResultAsync(id, new JsonObject { ["groups"] = new JsonArray(), ["what"] = parameters?["what"]?.DeepClone() }).ConfigureAwait(false);
                 break;
             case "history":
-                await ResultAsync(id, new JsonObject { ["entries"] = new JsonArray(), ["query"] = parameters?.DeepClone() }).ConfigureAwait(false);
+                await ResultAsync(id, new JsonObject { ["entries"] = new JsonArray(), ["query"] = parameters?["query"]?.DeepClone() }).ConfigureAwait(false);
                 break;
             case "space":
                 await ResultAsync(id, new JsonObject { ["volumes"] = new JsonArray(), ["volume"] = parameters?["volume"]?.DeepClone() }).ConfigureAwait(false);
@@ -215,8 +229,7 @@ internal sealed class ScriptedServer
                 {
                     ["code"] = "E_SYNTAX",
                     ["message"] = "unexpected token",
-                    ["stage"] = "1",
-                    ["at"] = new JsonObject { ["line"] = 1, ["column"] = 1, ["length"] = 5 },
+                    ["at"] = new JsonObject { ["line"] = 1, ["column"] = 1, ["length"] = 5, ["stage"] = "1" },
                     ["fix"] = new JsonArray("echo error"),
                     ["help"] = "syntax",
                     ["candidates"] = new JsonArray(new JsonObject { ["rank"] = 1, ["ref"] = "k1", ["program"] = "echo error" }),

@@ -14,10 +14,10 @@ public sealed class LanguageError
         Element = element;
         Code = JsonRead.String(element, "code") ?? string.Empty;
         Message = JsonRead.String(element, "message") ?? string.Empty;
-        Stage = JsonRead.String(element, "stage");
         JsonElement? at = JsonRead.Property(element, "at");
         if (at is { ValueKind: JsonValueKind.Object } position)
         {
+            Stage = JsonRead.String(position, "stage");
             Line = JsonRead.Int32(position, "line");
             Column = JsonRead.Int32(position, "column");
             Length = JsonRead.Int32(position, "length");
@@ -34,7 +34,7 @@ public sealed class LanguageError
     /// <summary>Description of the error.</summary>
     public string Message { get; }
 
-    /// <summary>Execution stage in which the error was raised; <see langword="null"/> when not reported.</summary>
+    /// <summary>Execution stage in which the error was raised (<c>at.stage</c>), for example <c>1</c> or <c>5a</c>; <see langword="null"/> when not reported.</summary>
     public string? Stage { get; }
 
     /// <summary>Line of the program text, from 1; <see langword="null"/> when not reported.</summary>
@@ -57,6 +57,12 @@ public sealed class LanguageError
 
     /// <summary>The whole error object as JSON.</summary>
     public JsonElement Element { get; }
+
+    /// <summary>Reads the member <c>error</c> of a result object; <see langword="null"/> when the member is absent.</summary>
+    internal static LanguageError? FromMember(JsonElement? container) =>
+        container is { ValueKind: JsonValueKind.Object } value && JsonRead.Property(value, "error") is { ValueKind: JsonValueKind.Object } error
+            ? new LanguageError(error)
+            : null;
 
     private static List<AmbiguityCandidate> ReadCandidates(JsonElement element)
     {

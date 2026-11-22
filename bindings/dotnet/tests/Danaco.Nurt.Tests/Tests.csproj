@@ -6,6 +6,8 @@
     <RootNamespace>Danaco.Nurt.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- CA2007: test methods run without a synchronization context, so ConfigureAwait has no effect. -->
+    <NoWarn>$(NoWarn);CA2007</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

@@ -35,8 +35,11 @@ public sealed class ClientOptions
     /// <summary>Session identifier used by requests that do not set <see cref="RunOptions.Session"/>.</summary>
     public string? Session { get; init; }
 
-    /// <summary>Language of messages and help, <c>en</c> or <c>pl</c>. Default: <c>en</c>.</summary>
-    public string Language { get; init; } = "en";
+    /// <summary>
+    /// Language of messages and help, <c>en</c> or <c>pl</c>, used by requests that do not set
+    /// <see cref="RunOptions.Language"/>; <see langword="null"/> for the language of the configuration.
+    /// </summary>
+    public string? Language { get; init; }
 
     /// <summary>
     /// Time allowed for <c>nurt serve</c> to finish its operations and exit when the client

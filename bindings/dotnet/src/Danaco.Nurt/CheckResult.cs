@@ -12,6 +12,7 @@ public sealed class CheckResult
     {
         Result = result;
         Diagnostics = diagnostics;
+        Error = LanguageError.FromMember(result) ?? LanguageError.FromMember(diagnostics);
     }
 
     /// <summary>Classification of the request as JSON, in the format <c>nurt-check/1</c>.</summary>
@@ -19,4 +20,7 @@ public sealed class CheckResult
 
     /// <summary>Diagnostics of binding as JSON; <see langword="null"/> when there are none.</summary>
     public JsonElement? Diagnostics { get; }
+
+    /// <summary>Error of the language raised while binding the request; <see langword="null"/> when the request was bound.</summary>
+    public LanguageError? Error { get; }
 }
