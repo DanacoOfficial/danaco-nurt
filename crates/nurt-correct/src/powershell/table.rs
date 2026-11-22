@@ -20,9 +20,10 @@
 //! | `name`, `aliases` | parameter name and aliases; unique prefixes are accepted as in PowerShell |
 //! | `position` | position of an unnamed argument, from 0 |
 //! | `switch` | the parameter takes no value |
-//! | `type` | conversion of the value: `path`, `text`, `texts`, `line_text`, `int`, `depth`, `upto`, `seconds`, `milliseconds`, `fields`, `field`, `enum`, `enum_text`, `name`, `name_glob`, `regex`, `map`, `value`, `program`, `arguments`, `type_check`, `context`, `new_name`, `content_path`, `output`, `cim_equals` (a CIM filter that compares the property named as the parameter with the value) |
+//! | `type` | conversion of the value: `path`, `text`, `texts`, `line_text`, `int`, `depth`, `upto`, `seconds`, `milliseconds`, `fields`, `field`, `enum`, `enum_text`, `name`, `name_glob`, `regex`, `map`, `value`, `program`, `arguments`, `type_check`, `context`, `new_name`, `content_path`, `output`, `cim_equals` (a CIM filter that compares the property named as the parameter with the value), `int_equals` (a condition that compares the Nurt field named by `arg` with a whole number; use with `emit = "filter"`) |
 //! | `arg`, `positional` | the Nurt argument the value becomes |
 //! | `stage`, `emit` | the Nurt stage that receives the argument; `emit` appends a stage of its own |
+//! | `emit_with` | the emitted stage receives the converted value of the named parameter instead of its own |
 //! | `set` | value of the argument given by a switch |
 //! | `values` | PowerShell values and the Nurt values that replace them |
 //! | `drop` | the parameter is removed; the text explains why |
@@ -262,7 +263,10 @@ impl PowerShellTable {
                             .iter()
                             .any(|(known, _)| known.eq_ignore_ascii_case(name))
                 };
-                for param in cmdlet.params.iter().filter(|param| !excluded(&param.name)) {
+                let named = |param: &&Param| {
+                    !excluded(&param.name) && param.ty != Some(ValueType::IntEquals)
+                };
+                for param in cmdlet.params.iter().filter(named) {
                     let arg = variant
                         .args
                         .iter()
@@ -738,10 +742,12 @@ pub(crate) enum ValueType {
     ContentPath,
     Output,
     CimEquals,
+    /// A condition that compares the Nurt field named by `arg` with a whole number.
+    IntEquals,
 }
 
 impl ValueType {
-    const NAMES: [(&'static str, Self); 26] = [
+    const NAMES: [(&'static str, Self); 27] = [
         ("path", Self::Path),
         ("text", Self::Text),
         ("texts", Self::Texts),
@@ -768,6 +774,7 @@ impl ValueType {
         ("content_path", Self::ContentPath),
         ("output", Self::Output),
         ("cim_equals", Self::CimEquals),
+        ("int_equals", Self::IntEquals),
     ];
 }
 
@@ -829,6 +836,7 @@ pub(crate) struct Param {
     pub(crate) positional: bool,
     pub(crate) stage: Option<String>,
     pub(crate) emit: Option<String>,
+    pub(crate) emit_with: Option<String>,
     pub(crate) set: Option<SetValue>,
     pub(crate) values: Vec<(String, String)>,
     pub(crate) drop: Option<String>,
@@ -855,6 +863,7 @@ impl Param {
             "positional",
             "stage",
             "emit",
+            "emit_with",
             "set",
             "values",
             "drop",
@@ -910,6 +919,7 @@ impl Param {
             positional: node.flag("positional")?,
             stage: node.opt_string("stage")?,
             emit: node.opt_string("emit")?,
+            emit_with: node.opt_string("emit_with")?,
             set: node.opt_set_value("set")?,
             values: node.opt_pairs("values")?,
             drop: node.opt_string("drop")?,

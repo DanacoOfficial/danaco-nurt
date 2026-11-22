@@ -1132,6 +1132,16 @@ set = [{ arg = "mode", ident = "overwrite" }]
 
 [[entry.variant]]
 rule = "P13"
+class = "C"
+registry = false
+when = ["Value"]
+unless = ["Type"]
+when_value = { Name = "IsReadOnly" }
+stages = ["attributes"]
+args = { Value = "readonly" }
+
+[[entry.variant]]
+rule = "P13"
 error = "E_UNCORRECTABLE"
 problem = "not_registry"
 message = "properties of files are changed with attributes"
@@ -1270,6 +1280,21 @@ name = "Descending"
 switch = true
 arg = "order"
 set = "desc"
+
+[[entry.param]]
+name = "Unique"
+switch = true
+emit = "distinct"
+emit_with = "Property"
+
+[[entry.variant]]
+rule = "P17"
+class = "P"
+when = ["Unique"]
+piped = true
+stages = ["sort"]
+absent = [{ params = ["Property"], self_field = true }]
+assumption = "distinct compares text values as written, while -Unique ignores case"
 
 [[entry.variant]]
 rule = "P17"
@@ -2238,6 +2263,24 @@ name = "State"
 type = "enum"
 arg = "state"
 values = { Listen = "listen" }
+
+[[entry.param]]
+name = "LocalPort"
+type = "int_equals"
+arg = "port"
+emit = "filter"
+
+[[entry.param]]
+name = "RemotePort"
+type = "int_equals"
+arg = "remote_port"
+emit = "filter"
+
+[[entry.param]]
+name = "OwningProcess"
+type = "int_equals"
+arg = "pid"
+emit = "filter"
 
 [[entry.variant]]
 rule = "P38"
