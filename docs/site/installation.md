@@ -29,6 +29,44 @@ Danaco Nurt is one executable for each operating system: `nurt` on Linux and mac
 
 Every release publishes SHA-256 sums of its artifacts. The installers `install.sh` and `install.ps1` verify the sum before they place the executable.
 
+## Install on Linux and macOS
+
+```text
+curl -fsSL https://nurt.danaco-group.pl/install.sh | sh
+```
+
+The script installs `nurt` into `$HOME/.local/bin` and needs no privileges. On Linux it takes the static musl archive when the release has one and the glibc archive otherwise. For a system-wide installation run the script as root with `--bin-dir /usr/local/bin`. The option `--public-key` verifies the signature of `checksums.txt`; the key and the procedure are in `SECURITY.md`.
+
+## Install on Windows
+
+```text
+irm https://nurt.danaco-group.pl/install.ps1 | iex
+```
+
+By default the script installs for the current user. `nurt.exe` goes to `%LOCALAPPDATA%\Programs\Nurt\bin`, the documentation to `%LOCALAPPDATA%\Programs\Nurt\doc`, and the directory of the executable is added to the `PATH` of the user. No administrator privileges are needed.
+
+To install for all users, start PowerShell with "Run as administrator" and set the scope before the call:
+
+```text
+$env:NURT_SCOPE = 'machine'
+irm https://nurt.danaco-group.pl/install.ps1 | iex
+```
+
+The scope `machine` installs into `%ProgramFiles%\Nurt` and changes the `PATH` of the machine. The variable `NURT_INSTALL_DIR` selects another directory for the executable.
+
+### Administrator rights
+
+`nurt.exe` does not ask for elevation. Its manifest declares the execution level `asInvoker`, so the program runs with the rights of the terminal that starts it. Operations that need administrator rights, such as `nurt service install`, changes in the machine part of the registry and writes to system directories, work in a terminal that runs as administrator. The manifest also declares long path support and UTF-8 as the code page of the process.
+
+## Contents of the archives
+
+| Archive | Files |
+|---|---|
+| Linux and macOS, directory `nurt-<version>-<target>/` | `nurt`, `libnurt.so.1`, `nurt.h`, `nurt.pc` (glibc targets), `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `man/`, `completions/`, `doc/` |
+| Windows, files at the top level | `nurt.exe`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `completions/`, `doc/` |
+
+The directory `doc/` holds this documentation as a site that works offline; open `doc/index.html`. The directory `completions/` holds the completion scripts for Bash, Zsh, Fish, PowerShell and Elvish.
+
 ## Build from source
 
 The build needs a Rust toolchain installed with rustup and a C compiler. The toolchain version is pinned in `rust-toolchain.toml`.
