@@ -1,0 +1,41 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Resources of nurt.exe. The build script substitutes the version and the icon
+// line (present when windows/nurt.ico exists) and passes the result to the
+// resource compiler. Numeric values are written out so that
+// no Windows header is needed: 24 is RT_MANIFEST, 0x40004 is VOS_NT_WINDOWS32
+// and 1 is VFT_APP.
+
+@ICON@
+1 24 "nurt.manifest"
+
+1 VERSIONINFO
+FILEVERSION @VERSION_COMMA@
+PRODUCTVERSION @VERSION_COMMA@
+FILEFLAGSMASK 0x3f
+FILEFLAGS 0x0
+FILEOS 0x40004
+FILETYPE 1
+FILESUBTYPE 0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "Danaco Holding Group Sp. z o.o."
+            VALUE "FileDescription", "Danaco Nurt command shell"
+            VALUE "FileVersion", "@VERSION@"
+            VALUE "InternalName", "nurt"
+            VALUE "LegalCopyright", "Copyright (c) 2026 Danaco Holding Group Sp. z o.o. All rights reserved."
+            VALUE "OriginalFilename", "nurt.exe"
+            VALUE "ProductName", "Danaco Nurt"
+            VALUE "ProductVersion", "@VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 0x04B0
+    END
+END
