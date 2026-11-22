@@ -1,0 +1,887 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Cross-system test matrix of the system, administration, package, network,
+# schedule and program commands and of the background service.
+#
+# [[suite]]    named set of tests run by run-linux.sh, run-windows.ps1 and
+#              run-macos.sh; `test_arguments` follow `--` of `cargo test`.
+# [[case]]     one test of one command. `level` is `native` (synthetic data,
+#              doubles, loopback servers), `system` (the running system),
+#              `differential` (comparison with a system program, skipped when
+#              the program is missing) or `os_only` (the command reports
+#              `E_OS_ONLY`). `systems` lists the systems whose run executes
+#              the case. `requires` describes the precondition that a test
+#              marked `#[ignore]` checks before it runs.
+# [[scenario]] end-to-end scenario with the tests that implement it; `gap`
+#              describes the part that no test covers yet.
+#
+# The static test `matrix_covers_all_36_commands` checks that every command
+# has a case on every system that runs it and an `os_only` case on every
+# other system, and that every named test exists.
+
+[[suite]]
+name = "container"
+test_arguments = ""
+description = "tests that need neither the running system nor privileges"
+
+[[suite]]
+name = "system"
+test_arguments = "--include-ignored"
+description = "all tests, including the tests of the running system"
+
+[[suite]]
+name = "scenarios"
+test_arguments = "--ignored"
+description = "only the tests of the running system"
+
+# processes
+
+[[case]]
+command = "processes"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "processes_reads_synthetic_proc_tree"
+
+[[case]]
+command = "processes"
+level = "system"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "it_processes_contains_self_with_argv"
+requires = "process table of the running system"
+
+[[case]]
+command = "processes"
+level = "system"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "it_processes_cpu_percent_busy_loop"
+requires = "an idle processor core for a 500 ms sample"
+
+# ports
+
+[[case]]
+command = "ports"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "ports_parse_proc_net_tcp_ipv4"
+
+[[case]]
+command = "ports"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "ports_decode_win32_tcp_table_buffer"
+
+[[case]]
+command = "ports"
+level = "system"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "it_ports_finds_own_loopback_listener"
+requires = "sockets on the loopback interface"
+
+# disks
+
+[[case]]
+command = "disks"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "disks_reads_synthetic_mount_table"
+
+[[case]]
+command = "disks"
+level = "system"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "it_disks_contains_root_volume"
+requires = "mounted volumes of the running system"
+
+# host
+
+[[case]]
+command = "host"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "host_versions_never_spawns_process"
+
+[[case]]
+command = "host"
+level = "system"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "it_host_fields_present_three_systems"
+requires = "the running operating system"
+
+[[case]]
+command = "host"
+level = "differential"
+systems = ["linux", "macos"]
+crate = "nurt-sys"
+test = "it_host_matches_uname_id_differential"
+requires = "uname and id in PATH"
+
+# environment
+
+[[case]]
+command = "environment"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "environment_regex_filter_and_non_utf8_warning"
+
+[[case]]
+command = "environment"
+level = "os_only"
+systems = ["linux", "macos"]
+crate = "nurt-sys"
+test = "environment_scope_user_on_linux_os_only"
+
+[[case]]
+command = "environment"
+level = "system"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "it_environment_windows_user_scope_reads_registry"
+requires = "registry of a Windows account"
+
+# open_files
+
+[[case]]
+command = "open_files"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "open_files_target_matches_file_or_subtree"
+
+[[case]]
+command = "open_files"
+level = "system"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "it_open_files_finds_self_holding_temp_file"
+requires = "process table of the running system"
+
+[[case]]
+command = "open_files"
+level = "system"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "it_windows_restart_manager_lists_holder"
+requires = "Restart Manager of the running system"
+
+# accounts
+
+[[case]]
+command = "accounts"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "accounts_passwd_group_parse_and_system_flag"
+
+[[case]]
+command = "accounts"
+level = "system"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "it_accounts_contains_current_user"
+requires = "account database of the running system"
+
+# sleep
+
+[[case]]
+command = "sleep"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "sleep_cancel_returns_cancelled_within_100ms"
+
+# logs
+
+[[case]]
+command = "logs"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-syslog"
+test = "logs_level_maps_priority"
+
+[[case]]
+command = "logs"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-syslog"
+test = "eventlog_reverse_order_merge_channels"
+
+[[case]]
+command = "logs"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-syslog"
+test = "unified_query_returns_messages_newest_first"
+
+[[case]]
+command = "logs"
+level = "system"
+systems = ["linux"]
+crate = "nurt-syslog"
+test = "reads_the_journal_of_the_running_system"
+requires = "a systemd journal"
+
+[[case]]
+command = "logs"
+level = "differential"
+systems = ["linux"]
+crate = "nurt-syslog"
+test = "reader_matches_journalctl_on_the_local_journal"
+requires = "journalctl in PATH and a readable system journal"
+
+[[case]]
+command = "logs"
+level = "system"
+systems = ["windows"]
+crate = "nurt-syslog"
+test = "eventlog_system_channel_pages_newest_first"
+requires = "the Windows event log"
+
+[[case]]
+command = "logs"
+level = "differential"
+systems = ["windows"]
+crate = "nurt-syslog"
+test = "eventlog_matches_get_winevent"
+requires = "the Windows event log and PowerShell"
+
+[[case]]
+command = "logs"
+level = "system"
+systems = ["macos"]
+crate = "nurt-syslog"
+test = "unified_local_store_pages_newest_first"
+requires = "the unified log and root"
+
+[[case]]
+command = "logs"
+level = "differential"
+systems = ["macos"]
+crate = "nurt-syslog"
+test = "unified_local_store_finds_a_message_written_by_logger"
+requires = "the unified log, root and the logger program"
+
+# services
+
+[[case]]
+command = "services"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "services_exact_name_uses_the_manager_resolution"
+
+[[case]]
+command = "services"
+level = "native"
+systems = ["linux"]
+crate = "nurt-sys"
+test = "systemd_list_merges_units_and_unit_files"
+
+[[case]]
+command = "services"
+level = "native"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "scm_state_and_start_type_mapping_tables"
+
+[[case]]
+command = "services"
+level = "native"
+systems = ["macos"]
+crate = "nurt-sys"
+test = "launchd_list_merges_definitions_listing_and_overrides"
+
+[[case]]
+command = "services"
+level = "system"
+systems = ["linux"]
+crate = "nurt-sys"
+test = "it_systemd_lists_cron_service"
+requires = "systemd"
+
+[[case]]
+command = "services"
+level = "system"
+systems = ["linux"]
+crate = "nurt-sys"
+test = "it_systemd_user_scope_lists_user_units"
+requires = "a systemd user manager on the session bus"
+
+[[case]]
+command = "services"
+level = "system"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "it_scm_lists_spooler"
+requires = "the Windows service control manager"
+
+[[case]]
+command = "services"
+level = "system"
+systems = ["macos"]
+crate = "nurt-sys"
+test = "it_launchd_lists_system_daemons"
+requires = "launchd"
+
+# start
+
+[[case]]
+command = "start"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "start_waits_until_running_virtual_clock"
+
+[[case]]
+command = "start"
+level = "native"
+systems = ["macos"]
+crate = "nurt-sys"
+test = "launchd_start_bootstrap_then_kickstart_argv"
+
+[[case]]
+command = "start"
+level = "system"
+systems = ["macos"]
+crate = "nurt-sys"
+test = "it_launchd_test_agent_start_restart_disable"
+requires = "a logged-in user session"
+
+# restart
+
+[[case]]
+command = "restart"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "restart_effect_before_after"
+
+[[case]]
+command = "restart"
+level = "native"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "restart_stops_waits_and_starts"
+
+[[case]]
+command = "restart"
+level = "system"
+systems = ["linux"]
+crate = "nurt-sys"
+test = "it_systemd_restart_cron_running_after"
+requires = "systemd, root and a running cron service"
+
+[[case]]
+command = "restart"
+level = "system"
+systems = ["macos"]
+crate = "nurt-sys"
+test = "it_launchd_test_agent_start_restart_disable"
+requires = "a logged-in user session"
+
+# enable
+
+[[case]]
+command = "enable"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "service_control_enable_and_disable_report_start_type"
+
+[[case]]
+command = "enable"
+level = "native"
+systems = ["macos"]
+crate = "nurt-sys"
+test = "launchd_enable_bootstraps_unloaded_service"
+
+[[case]]
+command = "enable"
+level = "system"
+systems = ["linux"]
+crate = "nurt-sys"
+test = "it_systemd_enable_disable_test_unit"
+requires = "systemd and root"
+
+# disable
+
+[[case]]
+command = "disable"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "service_control_enable_and_disable_report_start_type"
+
+[[case]]
+command = "disable"
+level = "native"
+systems = ["macos"]
+crate = "nurt-sys"
+test = "launchd_disable_disable_then_bootout"
+
+[[case]]
+command = "disable"
+level = "system"
+systems = ["linux"]
+crate = "nurt-sys"
+test = "it_systemd_enable_disable_test_unit"
+requires = "systemd and root"
+
+[[case]]
+command = "disable"
+level = "system"
+systems = ["macos"]
+crate = "nurt-sys"
+test = "it_launchd_test_agent_start_restart_disable"
+requires = "a logged-in user session"
+
+# windows.cim
+
+[[case]]
+command = "windows.cim"
+level = "native"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "cim_check_validates_query_on_every_system"
+
+[[case]]
+command = "windows.cim"
+level = "os_only"
+systems = ["linux", "macos"]
+crate = "nurt-sys"
+test = "cim_non_windows_os_only"
+
+[[case]]
+command = "windows.cim"
+level = "system"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "it_cim_win32_service_where_name"
+requires = "Windows Management Instrumentation"
+
+[[case]]
+command = "windows.cim"
+level = "system"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "it_cim_invalid_class_not_found"
+requires = "Windows Management Instrumentation"
+
+# package.*
+
+[[case]]
+command = "package.list"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "list_filters_by_name_and_reads_without_starting_programs"
+
+[[case]]
+command = "package.list"
+level = "differential"
+systems = ["linux"]
+crate = "nurt-sys"
+test = "it_apt_list_matches_dpkg_query"
+requires = "a Debian-based system with dpkg-query"
+
+[[case]]
+command = "package.list"
+level = "system"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "it_scoop_choco_list_if_present"
+requires = "Windows with Scoop or Chocolatey"
+
+[[case]]
+command = "package.list"
+level = "system"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "it_winget_list_on_windows"
+requires = "Windows with App Installer"
+
+[[case]]
+command = "package.list"
+level = "system"
+systems = ["macos"]
+crate = "nurt-sys"
+test = "it_brew_list_on_macos_runner"
+requires = "Homebrew"
+
+[[case]]
+command = "package.search"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "search_exact_name_first_case_insensitive"
+
+[[case]]
+command = "package.install"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "install_effect_before_after_irreversible_package_change"
+
+[[case]]
+command = "package.install"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "install_without_root_is_privilege_error_before_any_program"
+
+[[case]]
+command = "package.remove"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "install_missing_manager_external_missing"
+
+[[case]]
+command = "package.upgrade"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "upgrade_without_names_targets_outdated_packages"
+
+# http.*
+
+[[case]]
+command = "http.request"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-net"
+test = "tf_01_markdown_keeps_main_content"
+
+[[case]]
+command = "http.request"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-net"
+test = "every_catalog_parameter_passes_the_check"
+
+[[case]]
+command = "http.download"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-net"
+test = "download_resume_range"
+
+[[case]]
+command = "http.download"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-net"
+test = "td_02_hash_mismatch_keeps_previous_file"
+
+# network.*
+
+[[case]]
+command = "network.ping"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-net"
+test = "ping_rejects_zero_count"
+
+[[case]]
+command = "network.ping"
+level = "system"
+systems = ["linux", "macos"]
+crate = "nurt-net"
+test = "ping_loopback"
+requires = "ICMP datagram sockets allowed by net.ipv4.ping_group_range"
+
+[[case]]
+command = "network.resolve"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-net"
+test = "resolve_returns_a_records_of_the_server"
+
+[[case]]
+command = "network.interfaces"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-net"
+test = "stage_lists_loopback_of_host"
+
+[[case]]
+command = "network.interfaces"
+level = "native"
+systems = ["linux"]
+crate = "nurt-net"
+test = "interfaces_linux_sysroot"
+
+# schedule.*
+
+[[case]]
+command = "schedule.create"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sched"
+test = "tc_01_every_ten_minutes_runs_at_14_40"
+
+[[case]]
+command = "schedule.create"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sched"
+test = "tc_26_create_without_service_reports_inactive"
+
+[[case]]
+command = "schedule.list"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sched"
+test = "tc_24_list_filters_by_state_and_shows_details_of_one_schedule"
+
+[[case]]
+command = "schedule.remove"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sched"
+test = "remove_undo_restores_next_run_from_now"
+
+[[case]]
+command = "schedule.pause"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sched"
+test = "tc_21_pause_of_a_paused_schedule_is_unchanged"
+
+[[case]]
+command = "schedule.resume"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sched"
+test = "tc_21_resume_counts_next_run_from_the_resume"
+
+[[case]]
+command = "schedule.run"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sched"
+test = "tc_20_time_limit_ends_the_run_with_timeout"
+
+[[case]]
+command = "schedule.run"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sched"
+test = "run_without_service_runs_the_pipeline_here"
+
+[[case]]
+command = "schedule.history"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sched"
+test = "history_limit_and_order"
+
+[[case]]
+command = "schedule.history"
+level = "system"
+systems = ["linux"]
+crate = "nurt-service"
+test = "e2e_linux_schedule_every_30s_10min_with_service_restart"
+requires = "ten minutes of wall-clock time"
+
+# program.*
+
+[[case]]
+command = "program.find"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-programs"
+test = "find_path_order_and_all"
+
+[[case]]
+command = "program.find"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-programs"
+test = "find_five_names_within_target"
+
+[[case]]
+command = "program.search"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-programs"
+test = "search_ranking_exact_name_first"
+
+[[case]]
+command = "program.search"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-programs"
+test = "parity_first_hits_of_reference_queries"
+
+[[case]]
+command = "program.describe"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-programs"
+test = "describe_unknown_name_with_candidates_and_guides"
+
+[[case]]
+command = "program.describe"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-programs"
+test = "refuses_listed_and_configured_programs"
+
+[[case]]
+command = "program.catalog"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-programs"
+test = "catalog_minimal_example_valid"
+
+[[case]]
+command = "program.catalog"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-programs"
+test = "reads_catalog_named_by_its_index_and_reports_errors_with_location"
+
+# Scenarios
+
+[[scenario]]
+name = "e2e_linux_cron_restart"
+systems = ["linux"]
+tests = [{ crate = "nurt-sys", test = "it_systemd_restart_cron_running_after" }]
+
+[[scenario]]
+name = "e2e_linux_schedule_every_30s_10min_with_service_restart"
+systems = ["linux"]
+tests = [
+  { crate = "nurt-service", test = "e2e_linux_schedule_every_30s_10min_with_service_restart" },
+]
+
+[[scenario]]
+name = "e2e_linux_logs_unit_matches_journalctl_json"
+systems = ["linux"]
+tests = [
+  { crate = "nurt-syslog", test = "reader_matches_journalctl_on_the_local_journal" },
+  { crate = "nurt-syslog", test = "reader_matches_journalctl_on_writer_files" },
+]
+gap = "the comparison reads the journal files directly; the logs stage with unit cron.service is compared once the stage is registered"
+
+[[scenario]]
+name = "e2e_linux_user_mode_linger_survives_logout"
+systems = ["linux"]
+tests = [
+  { crate = "nurt-service", test = "e2e_linux_user_mode_linger_survives_logout" },
+]
+
+[[scenario]]
+name = "e2e_windows_test_service_lifecycle"
+systems = ["windows"]
+tests = [
+  { crate = "nurt-sys", test = "it_scm_lists_spooler" },
+  { crate = "nurt-sys", test = "restart_stops_waits_and_starts" },
+]
+gap = "start, restart and disable of a test service installed through the service control manager need a test service program"
+
+[[scenario]]
+name = "e2e_windows_registry_write_remove_undo"
+systems = ["windows"]
+tests = [
+  { crate = "nurt-sys", test = "it_registry_hkcu_write_undo_roundtrip" },
+  { crate = "nurt-sys", test = "it_registry_remove_subtree_undo" },
+  { crate = "nurt-sys", test = "it_registry_wow64_views_differ" },
+]
+
+[[scenario]]
+name = "e2e_windows_logs_scm_event"
+systems = ["windows"]
+tests = [
+  { crate = "nurt-syslog", test = "eventlog_system_channel_pages_newest_first" },
+  { crate = "nurt-syslog", test = "eventlog_matches_get_winevent" },
+  { crate = "nurt-sys", test = "it_cim_win32_service_where_name" },
+]
+gap = "event 7036 of the started test service needs the test service program"
+
+[[scenario]]
+name = "e2e_macos_launch_agent_lifecycle"
+systems = ["macos"]
+tests = [{ crate = "nurt-sys", test = "it_launchd_test_agent_start_restart_disable" }]
+
+[[scenario]]
+name = "e2e_macos_logs_subsystem_filter"
+systems = ["macos"]
+tests = [
+  { crate = "nurt-syslog", test = "unified_local_store_finds_a_message_written_by_logger" },
+  { crate = "nurt-service", test = "e2e_macos_user_mode_launch_agent_install_status_uninstall" },
+]
+
+[[scenario]]
+name = "parity_tc_real_service_subset"
+systems = ["linux", "windows", "macos"]
+tests = [
+  { crate = "nurt-sched", test = "tc_17_missed_run_times_are_skipped_after_the_service_stops" },
+  { crate = "nurt-sched", test = "tc_19_single_time_missed_during_a_pause" },
+  { crate = "nurt-sched", test = "tc_20_time_limit_ends_the_run_with_timeout" },
+  { crate = "nurt-sched", test = "remove_undo_restores_next_run_from_now" },
+  { crate = "nurt-sched", test = "tc_26_create_without_service_reports_inactive" },
+  { crate = "nurt-sched", test = "tc_27_remote_action_fired_to_its_client_and_acknowledged" },
+  { crate = "nurt-sched", test = "tc_29_cron_in_warsaw_runs_once_on_both_changes_of_time" },
+  { crate = "nurt-service", test = "e2e_linux_schedule_every_30s_10min_with_service_restart" },
+]
+gap = "the cases run on the virtual clock; on a running service only the ten-minute run is covered"
+
+[[scenario]]
+name = "parity_tf_td_system_subset"
+systems = ["linux", "windows", "macos"]
+tests = [
+  { crate = "nurt-net", test = "tf_01_markdown_keeps_main_content" },
+  { crate = "nurt-net", test = "download_resume_range" },
+  { crate = "nurt-net", test = "download_complete_part_answers_416" },
+  { crate = "nurt-net", test = "td_02_hash_mismatch_keeps_previous_file" },
+]
+gap = "TLS with the certificate store of the system and undo of a download on Windows and macOS"
+
+[[scenario]]
+name = "parity_ty_01_04"
+systems = ["linux"]
+tests = [
+  { crate = "nurt-sys", test = "it_host_matches_uname_id_differential" },
+  { crate = "nurt-sys", test = "it_processes_cpu_percent_busy_loop" },
+  { crate = "nurt-sys", test = "sleep_cancel_returns_cancelled_within_100ms" },
+  { crate = "nurt-sys", test = "it_apt_list_matches_dpkg_query" },
+]
+gap = "the outdated packages are not compared with apt list --upgradable"
+
+[[scenario]]
+name = "e2e_os_only_on_foreign_systems"
+systems = ["linux", "macos"]
+tests = [
+  { crate = "nurt-sys", test = "cim_non_windows_os_only" },
+  { crate = "nurt-sys", test = "registry_path_on_linux_os_only" },
+  { crate = "nurt-sys", test = "environment_scope_user_on_linux_os_only" },
+]
+
+[[scenario]]
+name = "service_system_mode_on_three_systems"
+systems = ["linux", "windows", "macos"]
+tests = [
+  { crate = "nurt-service", test = "e2e_linux_system_mode_service_runs" },
+  { crate = "nurt-service", test = "e2e_windows_system_mode_service_runs" },
+]
+gap = "a restart of the operating system with the service installed in mode system runs only on a virtual machine; macOS mode system is not tested"
+
+[[scenario]]
+name = "windows_user_mode_task_scheduler"
+systems = ["windows"]
+tests = [
+  { crate = "nurt-service", test = "it_windows_user_mode_task_scheduler" },
+]

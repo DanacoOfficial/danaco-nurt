@@ -127,6 +127,27 @@ const SITES: [Site; 4] = [
     },
 ];
 
+/// File outside the approved sites that runs program specifications built by
+/// an approved site.
+#[derive(Debug, Clone, Copy)]
+struct Delegation {
+    /// Path of the file relative to the workspace root.
+    path: &'static str,
+    /// Path of the approved site that builds the specifications.
+    site: &'static str,
+    /// Pattern of the call of the site that builds a specification.
+    builder: &'static str,
+}
+
+/// The package stages run the command lines of the package managers in the
+/// stage module, between the checks of the transaction; every specification
+/// comes from the builder of the package manager site.
+const DELEGATIONS: [Delegation; 1] = [Delegation {
+    path: "crates/nurt-sys/src/package/mod.rs",
+    site: "crates/nurt-sys/src/package/exec.rs",
+    builder: r"exec\s*::\s*program_spec\s*\(",
+}];
+
 fn workspace_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
@@ -622,6 +643,76 @@ fn exec_sites(scanned: &Scanned) -> Vec<ExecSite> {
     sites
 }
 
+/// File name of a program given by path; programs are compared by it.
+fn program_file_name(program: &str) -> &str {
+    program.rsplit(['/', '\\']).next().unwrap_or(program)
+}
+
+/// The `run_program` calls of a delegating file run only specifications
+/// bound from the builder of an approved site.
+fn runs_delegated_specs(file: &ProductionFile) -> bool {
+    let Some(delegation) = DELEGATIONS.iter().find(|d| d.path == file.rel) else {
+        return false;
+    };
+    if !site_for(delegation.site).is_some_and(|site| site.approved) {
+        return false;
+    }
+    let call = Regex::new(r"\brun_program\s*\(\s*&?\s*([A-Za-z_][A-Za-z0-9_]*)\s*,")
+        .expect("call pattern is valid");
+    let arguments: Vec<String> = call
+        .captures_iter(&file.scanned.code)
+        .map(|c| c[1].to_owned())
+        .collect();
+    !arguments.is_empty()
+        && arguments.iter().all(|argument| {
+            let binding = format!(
+                r"\blet\s+(?:mut\s+)?{}\s*=\s*{}",
+                regex::escape(argument),
+                delegation.builder
+            );
+            Regex::new(&binding).is_ok_and(|b| b.is_match(&file.scanned.code))
+        })
+}
+
+/// Offset after the method calls without arguments that follow `offset`, as
+/// in `"x".to_owned()`.
+fn skip_method_calls(code: &str, mut offset: usize) -> usize {
+    let call = Regex::new(r"^\s*\.\s*[A-Za-z_][A-Za-z0-9_]*\s*(?:::\s*<[^>]*>\s*)?\(\s*\)")
+        .expect("call pattern is valid");
+    while let Some(found) = call.find(&code[offset..]) {
+        offset += found.end();
+    }
+    skip_spaces(code, offset)
+}
+
+/// The literal `--version` at `offset` ends its argument list and asks the
+/// program for its own version. Followed by another argument, the option
+/// selects the version of a package.
+fn is_version_probe(scanned: &Scanned, offset: usize, value: &str) -> bool {
+    if value != "--version" {
+        return false;
+    }
+    let code = scanned.code.as_bytes();
+    let quote = |from: usize| {
+        code.get(from..)
+            .and_then(|rest| rest.iter().position(|&b| b == b'"'))
+            .map(|i| from + i)
+    };
+    let Some(close) = quote(offset).and_then(|open| quote(open + 1)) else {
+        return true;
+    };
+    let mut next = close + 1;
+    while code.get(next) == Some(&b'#') {
+        next += 1;
+    }
+    let next = skip_method_calls(&scanned.code, next);
+    if code.get(next) != Some(&b',') {
+        return true;
+    }
+    let after = skip_spaces(&scanned.code, next + 1);
+    matches!(code.get(after), Some(b']' | b')') | None)
+}
+
 fn site_for(rel: &str) -> Option<&'static Site> {
     SITES.iter().find(|site| {
         let dir = site.path.trim_end_matches(".rs");
@@ -712,7 +803,9 @@ fn program_findings(site: &Site, rel: &str, exec: &ExecSite) -> Option<String> {
     let program = exec.program.as_ref()?;
     let location = format!("{rel}:{}", exec.line);
     match (site.allowed, program) {
-        (Allowed::Only(names), ProgramName::Literal(name)) if !names.contains(&name.as_str()) => {
+        (Allowed::Only(names), ProgramName::Literal(name))
+            if !names.contains(&program_file_name(name)) =>
+        {
             Some(format!(
                 "{location}: program `{name}` is not permitted here"
             ))
@@ -738,7 +831,7 @@ fn option_findings(rel: &str, scanned: &Scanned, site: Option<&Site>) -> Vec<Str
     let mut findings = Vec::new();
     for (offset, value) in &scanned.literals {
         let line = line_of(&scanned.code, *offset);
-        if value.starts_with("--version") && !VERSION_PROBE_APPROVED {
+        if !VERSION_PROBE_APPROVED && is_version_probe(scanned, *offset, value) {
             findings.push(format!("{rel}:{line}: `--version` probe awaits approval"));
         }
         if value.starts_with("--help") && !help_permitted {
@@ -753,13 +846,19 @@ fn option_findings(rel: &str, scanned: &Scanned, site: Option<&Site>) -> Vec<Str
 fn file_exec_findings(file: &ProductionFile, sites: &[ExecSite]) -> Vec<String> {
     let site = site_for(&file.rel);
     let mut findings = option_findings(&file.rel, &file.scanned, site);
+    let delegated = runs_delegated_specs(file);
     match site {
-        None => findings.extend(sites.iter().map(|s| {
-            format!(
-                "{}:{}: `{}` outside an approved site",
-                file.rel, s.line, s.construct
-            )
-        })),
+        None => findings.extend(
+            sites
+                .iter()
+                .filter(|s| !(delegated && s.construct == "run_program"))
+                .map(|s| {
+                    format!(
+                        "{}:{}: `{}` outside an approved site",
+                        file.rel, s.line, s.construct
+                    )
+                }),
+        ),
         Some(site) if !site.approved => findings.extend(sites.iter().map(|s| {
             format!(
                 "{}:{}: `{}` awaits approval of the site",
@@ -882,7 +981,7 @@ fn used_programs(files: &[ProductionFile], site: &Site) -> Option<Vec<String>> {
         for exec in exec_sites(&file.scanned) {
             any = true;
             if let Some(ProgramName::Literal(name)) = exec.program {
-                used.insert(name);
+                used.insert(program_file_name(&name).to_owned());
             }
         }
     }
@@ -963,10 +1062,15 @@ fn is_header_line(index: usize, line: &str) -> bool {
             || line.contains(&contact))
 }
 
+/// The line names the producer other than in the product name and in the
+/// address of the product repository.
 fn names_producer_outside_product_name(line: &str) -> bool {
     let name = ["dan", "aco"].concat();
     let lower = line.to_lowercase();
-    lower.replace(&format!("{name} nurt"), "").contains(&name)
+    lower
+        .replace(&format!("{name} nurt"), "")
+        .replace(&format!("github.com/{name}official/nurt"), "")
+        .contains(&name)
 }
 
 /// Polish letters with diacritical marks.
@@ -1021,19 +1125,34 @@ fn portability_rules() -> Vec<PortabilityRule> {
     .collect()
 }
 
+/// Parts of the default Homebrew prefix on Linux, assembled so that this file
+/// does not contain the prefix.
+const HOMEBREW_LINUX_PREFIX_PARTS: [&str; 2] = ["/home/", "linuxbrew/.linuxbrew"];
+
+/// The default Homebrew prefix on Linux is product data, not the home
+/// directory of an account, and is exempt from the home directory check.
+fn homebrew_linux_prefix() -> String {
+    HOMEBREW_LINUX_PREFIX_PARTS.concat()
+}
+
 /// Home directories other than the placeholder account `user`.
 fn foreign_home_directories(line: &str) -> Vec<String> {
     let pattern = Regex::new(r"(?:/home/|/Users/|[A-Za-z]:[\\/]+Users[\\/]+)([A-Za-z0-9._-]+)")
         .expect("home pattern is valid");
+    let line = line.replace(&homebrew_linux_prefix(), "");
     pattern
-        .captures_iter(line)
+        .captures_iter(&line)
         .filter(|c| c[1].trim_end_matches('.') != "user")
         .map(|c| c[0].to_owned())
         .collect()
 }
 
 /// Findings of one line as pairs of hygiene check and description.
-fn line_findings(rules: &[PortabilityRule], index: usize, line: &str) -> Vec<(&'static str, String)> {
+fn line_findings(
+    rules: &[PortabilityRule],
+    index: usize,
+    line: &str,
+) -> Vec<(&'static str, String)> {
     let mut found = Vec::new();
     if !is_header_line(index, line) && names_producer_outside_product_name(line) {
         found.push(("external-pattern", "producer name".to_owned()));
@@ -1276,6 +1395,22 @@ fn site_rules_reject_programs_outside_the_site() {
     );
     assert!(program_findings(help, rel, &exec(ProgramName::Dynamic("path".to_owned()))).is_none());
     assert!(program_findings(help, rel, &exec(ProgramName::Literal("man".to_owned()))).is_some());
+    assert!(
+        program_findings(
+            launchd,
+            rel,
+            &exec(ProgramName::Literal("/bin/launchctl".to_owned()))
+        )
+        .is_none()
+    );
+    assert!(
+        program_findings(
+            launchd,
+            rel,
+            &exec(ProgramName::Literal("/bin/sh".to_owned()))
+        )
+        .is_some()
+    );
     assert_eq!(
         site_for("crates/nurt-sys/src/services/macos/plist.rs").map(|s| s.path),
         Some(launchd.path)
@@ -1294,4 +1429,303 @@ fn allow_list_entries_apply_by_check_group_and_glob() {
     assert!(is_allowed(&allow, "polish-text", "docs/a.md"));
     assert!(!is_allowed(&allow, "producer-header", "docs/a.md"));
     assert!(!is_allowed(&allow, "polish-text", "crates/a.rs"));
+}
+
+#[test]
+fn version_option_with_a_value_is_not_a_probe() {
+    let source = concat!(
+        "fn a(v: &str) { args.extend([\"--version\".to_owned(), v.to_owned()]); }\n",
+        "fn b(v: &str) { args.extend([\"--version\", v]); }\n",
+        "fn c() { ProgramSpec::new(\"tool\", vec![\"--version\".into()], cwd); }\n",
+        "fn d() { run(&[\"--version\"]); }\n",
+    );
+    let scanned = scan(source);
+    let probes: Vec<usize> = scanned
+        .literals
+        .iter()
+        .filter(|(offset, value)| is_version_probe(&scanned, **offset, value))
+        .map(|(offset, _)| line_of(&scanned.code, *offset))
+        .collect();
+    assert_eq!(probes, [3, 4]);
+}
+
+#[test]
+fn delegated_runs_require_specs_from_the_site_builder() {
+    let file = |source: &str| ProductionFile {
+        rel: DELEGATIONS[0].path.to_owned(),
+        scanned: scan(source),
+    };
+    let built = file(concat!(
+        "let spec = exec::program_spec(call, &defaults, cwd, timeout);\n",
+        "let outcome = process.run_program(&spec, ctx.cancel());\n",
+    ));
+    assert!(runs_delegated_specs(&built));
+    let own = file(concat!(
+        "let spec = ProgramSpec::new(name, args, cwd);\n",
+        "let outcome = process.run_program(&spec, ctx.cancel());\n",
+    ));
+    assert!(!runs_delegated_specs(&own));
+    let elsewhere = ProductionFile {
+        rel: "crates/nurt-sys/src/host/mod.rs".to_owned(),
+        scanned: built.scanned,
+    };
+    assert!(!runs_delegated_specs(&elsewhere));
+}
+
+/// Systems of the cross-system matrix.
+const SYSTEMS: [&str; 3] = ["linux", "windows", "macos"];
+
+/// Number of commands in the catalog groups of [`GROUPS`].
+const COMMAND_COUNT: usize = 36;
+
+/// Levels of a matrix case: a test on synthetic data or doubles, a test on
+/// the running system, a comparison with a system program, and the
+/// `E_OS_ONLY` error on a system without the command.
+const LEVELS: [&str; 4] = ["native", "system", "differential", "os_only"];
+
+/// End-to-end scenarios that the matrix assigns to tests.
+const SCENARIOS: [&str; 15] = [
+    "e2e_linux_cron_restart",
+    "e2e_linux_schedule_every_30s_10min_with_service_restart",
+    "e2e_linux_logs_unit_matches_journalctl_json",
+    "e2e_linux_user_mode_linger_survives_logout",
+    "e2e_windows_test_service_lifecycle",
+    "e2e_windows_registry_write_remove_undo",
+    "e2e_windows_logs_scm_event",
+    "e2e_macos_launch_agent_lifecycle",
+    "e2e_macos_logs_subsystem_filter",
+    "parity_tc_real_service_subset",
+    "parity_tf_td_system_subset",
+    "parity_ty_01_04",
+    "e2e_os_only_on_foreign_systems",
+    "service_system_mode_on_three_systems",
+    "windows_user_mode_task_scheduler",
+];
+
+/// Run scripts of the matrix suites.
+const RUN_SCRIPTS: [&str; 3] = ["run-linux.sh", "run-windows.ps1", "run-macos.sh"];
+
+fn matrix_dir(root: &Path) -> PathBuf {
+    root.join("tests").join("d7").join("system")
+}
+
+fn matrix(root: &Path) -> toml::Table {
+    read_text(&matrix_dir(root).join("matrix.toml"))
+        .expect("the matrix is readable")
+        .parse()
+        .expect("the matrix is valid TOML")
+}
+
+fn tables<'a>(table: &'a toml::Table, key: &str) -> Vec<&'a toml::Table> {
+    table
+        .get(key)
+        .and_then(toml::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(toml::Value::as_table)
+        .collect()
+}
+
+fn strings(table: &toml::Table, key: &str) -> Vec<String> {
+    table
+        .get(key)
+        .and_then(toml::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|v| v.as_str().map(str::to_owned))
+        .collect()
+}
+
+/// Names of the functions defined in the Rust files of each crate of
+/// [`CRATES`], including the test targets below `tests/d7`.
+fn test_index(root: &Path) -> BTreeMap<&'static str, BTreeSet<String>> {
+    let function = Regex::new(r"\bfn\s+([a-z][a-z0-9_]*)\s*[(<]").expect("pattern is valid");
+    let names_in = |files: Vec<PathBuf>| {
+        let mut names = BTreeSet::new();
+        for path in files.iter().filter(|p| has_extension(p, &["rs"])) {
+            if let Some(text) = read_text(path) {
+                names.extend(function.captures_iter(&text).map(|c| c[1].to_owned()));
+            }
+        }
+        names
+    };
+    let shared = names_in(files_under(&root.join("tests").join("d7")));
+    CRATES
+        .iter()
+        .map(|krate| {
+            let mut names = names_in(files_under(&root.join("crates").join(krate)));
+            names.extend(shared.iter().cloned());
+            (*krate, names)
+        })
+        .collect()
+}
+
+/// Findings of one test reference `{ crate, test }` of the matrix.
+fn reference_findings(
+    index: &BTreeMap<&'static str, BTreeSet<String>>,
+    owner: &str,
+    reference: &toml::Table,
+) -> Option<String> {
+    let krate = string_field(reference, "crate").unwrap_or_default();
+    let test = string_field(reference, "test").unwrap_or_default();
+    match index.get(krate) {
+        None => Some(format!(
+            "{owner}: crate `{krate}` is not a crate of the matrix"
+        )),
+        Some(names) if !names.contains(test) => Some(format!(
+            "{owner}: test `{test}` does not exist in `{krate}`"
+        )),
+        Some(_) => None,
+    }
+}
+
+/// Findings of one case of the matrix.
+fn case_findings(
+    index: &BTreeMap<&'static str, BTreeSet<String>>,
+    commands: &BTreeMap<String, toml::Table>,
+    case: &toml::Table,
+) -> Vec<String> {
+    let command = string_field(case, "command").unwrap_or_default();
+    let level = string_field(case, "level").unwrap_or_default();
+    let owner = format!("case {command}/{level}");
+    let mut findings = Vec::new();
+    if !commands.contains_key(command) {
+        findings.push(format!("{owner}: command is not in the catalog"));
+    }
+    if !LEVELS.contains(&level) {
+        findings.push(format!("{owner}: unknown level"));
+    }
+    let systems = strings(case, "systems");
+    if systems.is_empty() || systems.iter().any(|s| !SYSTEMS.contains(&s.as_str())) {
+        findings.push(format!("{owner}: systems must be a subset of {SYSTEMS:?}"));
+    }
+    let needs_condition = matches!(level, "system" | "differential");
+    if needs_condition && string_field(case, "requires").is_none_or(str::is_empty) {
+        findings.push(format!("{owner}: the precondition is not described"));
+    }
+    findings.extend(reference_findings(index, &owner, case));
+    findings
+}
+
+/// Findings of the coverage of one command on every system.
+fn coverage_findings(name: &str, command: &toml::Table, cases: &[&toml::Table]) -> Vec<String> {
+    let mut supported = strings(command, "os");
+    if supported.is_empty() {
+        supported = SYSTEMS.iter().map(|s| (*s).to_owned()).collect();
+    }
+    let mut findings = Vec::new();
+    for system in SYSTEMS {
+        let levels: Vec<&str> = cases
+            .iter()
+            .filter(|c| string_field(c, "command") == Some(name))
+            .filter(|c| strings(c, "systems").iter().any(|s| s == system))
+            .filter_map(|c| string_field(c, "level"))
+            .collect();
+        if supported.iter().any(|s| s == system) {
+            if !levels.iter().any(|l| *l != "os_only") {
+                findings.push(format!("{name}: no case on {system}"));
+            }
+        } else if !levels.contains(&"os_only") {
+            findings.push(format!("{name}: no `E_OS_ONLY` case on {system}"));
+        }
+    }
+    findings
+}
+
+#[test]
+fn matrix_covers_all_36_commands() {
+    let root = workspace_root();
+    let commands = domain_commands(&root);
+    assert_eq!(
+        commands.len(),
+        COMMAND_COUNT,
+        "the catalog groups define {COMMAND_COUNT} commands"
+    );
+    let matrix = matrix(&root);
+    let cases = tables(&matrix, "case");
+    let index = test_index(&root);
+    let mut findings = Vec::new();
+    for case in &cases {
+        findings.extend(case_findings(&index, &commands, case));
+    }
+    for (name, command) in &commands {
+        findings.extend(coverage_findings(name, command, &cases));
+    }
+    assert!(
+        findings.is_empty(),
+        "every command has a case on every system:\n{}",
+        findings.join("\n")
+    );
+}
+
+#[test]
+fn matrix_scenarios_name_existing_tests() {
+    let root = workspace_root();
+    let matrix = matrix(&root);
+    let index = test_index(&root);
+    let scenarios = tables(&matrix, "scenario");
+    let mut findings = Vec::new();
+    for name in SCENARIOS {
+        let Some(scenario) = scenarios
+            .iter()
+            .find(|s| string_field(s, "name") == Some(name))
+        else {
+            findings.push(format!("scenario {name}: missing from the matrix"));
+            continue;
+        };
+        let tests = tables(scenario, "tests");
+        let gap = string_field(scenario, "gap").unwrap_or_default();
+        if tests.is_empty() && gap.is_empty() {
+            findings.push(format!("scenario {name}: neither tests nor a gap"));
+        }
+        let owner = format!("scenario {name}");
+        findings.extend(
+            tests
+                .iter()
+                .filter_map(|t| reference_findings(&index, &owner, t)),
+        );
+    }
+    assert!(
+        findings.is_empty(),
+        "the scenarios of the matrix name existing tests:\n{}",
+        findings.join("\n")
+    );
+}
+
+#[test]
+fn matrix_suites_match_the_run_scripts() {
+    let root = workspace_root();
+    let matrix = matrix(&root);
+    let suites = tables(&matrix, "suite");
+    assert!(!suites.is_empty(), "the matrix defines suites");
+    let mut findings = Vec::new();
+    for script in RUN_SCRIPTS {
+        let path = matrix_dir(&root).join(script);
+        let Some(text) = read_text(&path) else {
+            findings.push(format!("{script}: missing"));
+            continue;
+        };
+        for suite in &suites {
+            let name = string_field(suite, "name").unwrap_or_default();
+            let arguments = string_field(suite, "test_arguments").unwrap_or_default();
+            if !text.contains(&format!("{name})")) && !text.contains(&format!("'{name}'")) {
+                findings.push(format!("{script}: suite `{name}` is not handled"));
+            }
+            if !arguments.is_empty() && !text.contains(arguments) {
+                findings.push(format!(
+                    "{script}: suite `{name}` does not pass `{arguments}`"
+                ));
+            }
+        }
+        for krate in CRATES {
+            if !text.contains(krate) {
+                findings.push(format!("{script}: crate `{krate}` is not tested"));
+            }
+        }
+    }
+    assert!(
+        findings.is_empty(),
+        "the run scripts implement the suites of the matrix:\n{}",
+        findings.join("\n")
+    );
 }
