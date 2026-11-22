@@ -45,6 +45,7 @@
 #![forbid(unsafe_code)]
 
 mod backend;
+mod engine;
 mod error;
 mod events;
 #[cfg(feature = "http")]
