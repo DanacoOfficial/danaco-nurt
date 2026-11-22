@@ -7,9 +7,11 @@ order: 1
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Danaco Nurt
 
-Danaco Nurt (`nurt`) is a command console with its own language for working with files, text, structured documents, source code, version control, processes and the operating system. A program is a pipeline of typed records. Each program is checked before it runs, and each run returns a report of its effects.
+Danaco Nurt (`nurt`) is a command shell and language where every change can be undone.
 
-The console serves people and AI agents. A person uses the command line program; an agent calls the same engine as a tool through the Model Context Protocol, a JSON-RPC server or a library.
+The language works with files, text, structured documents, source code, version control, processes and the operating system. A program is a pipeline of typed records. Each program is checked before it runs, and each run returns a report of its effects.
+
+The command line program `nurt` runs programs in a terminal and in scripts. Other programs call the same engine as a tool through the Model Context Protocol, a JSON-RPC server or a library.
 
 ## Documentation
 

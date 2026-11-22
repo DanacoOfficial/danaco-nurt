@@ -44,10 +44,10 @@ The executable is written to `target/release/nurt` (`target\release\nurt.exe` on
 ## Verification
 
 ```text
-nurt version
+nurt --version
 ```
 
-The command prints the product name, the version and the owner of the product. `nurt doctor` reports the properties of the file system, the permissions, the service and the language servers that the console found.
+The command prints the version, the copyright line and the license; the format is described in [Command line](command-line.md). `nurt doctor` reports the properties of the file system, the permissions, the service and the language servers that it found.
 
 ## License
 

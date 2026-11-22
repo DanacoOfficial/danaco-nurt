@@ -24,12 +24,6 @@ pub fn escape(text: &str) -> String {
 }
 
 /// Converts a heading text to an identifier of lower-case letters, digits and hyphens.
-///
-/// # Examples
-///
-/// ```
-/// assert_eq!(nurt_docgen::html::slugify("Input and output"), "input-and-output");
-/// ```
 #[must_use]
 pub fn slugify(text: &str) -> String {
     let mut slug = String::new();
@@ -152,16 +146,16 @@ impl Renderer<'_> {
                     self.out.push_str(&escape(text));
                     self.out.push_str("</code></pre>\n");
                 }
-                Block::List { ordered, items } => {
+                Block::List {
+                    ordered,
+                    tight,
+                    items,
+                } => {
                     let tag = if *ordered { "ol" } else { "ul" };
                     self.out.push_str(&format!("<{tag}>\n"));
                     for item in items {
-                        let paragraphs = item
-                            .iter()
-                            .filter(|b| matches!(b, Block::Paragraph(_)))
-                            .count();
                         self.out.push_str("<li>");
-                        self.blocks(item, paragraphs <= 1);
+                        self.blocks(item, *tight);
                         self.out.push_str("</li>\n");
                     }
                     self.out.push_str(&format!("</{tag}>\n"));
@@ -224,6 +218,7 @@ impl Renderer<'_> {
                     self.out.push_str("</a>");
                 }
                 Inline::SoftBreak => self.out.push('\n'),
+                Inline::HardBreak => self.out.push_str("<br>\n"),
             }
         }
     }
@@ -350,6 +345,12 @@ mod tests {
     }
 
     #[test]
+    fn slugifies_heading_text() {
+        assert_eq!(slugify("Input and output"), "input-and-output");
+        assert_eq!(slugify("`git.status` (1)"), "git-status-1");
+    }
+
+    #[test]
     fn assigns_unique_heading_ids() {
         let rendered = html_of("## Same\n\n## Same\n");
         let ids: Vec<&str> = rendered.headings.iter().map(|h| h.id.as_str()).collect();
@@ -376,6 +377,21 @@ mod tests {
     fn renders_tight_list_without_paragraphs() {
         let rendered = html_of("- a\n- b\n");
         assert_eq!(rendered.html, "<ul>\n<li>a\n</li>\n<li>b\n</li>\n</ul>\n");
+    }
+
+    #[test]
+    fn renders_loose_list_with_paragraphs() {
+        let rendered = html_of("- a\n\n- b\n");
+        assert_eq!(
+            rendered.html,
+            "<ul>\n<li><p>a</p>\n</li>\n<li><p>b</p>\n</li>\n</ul>\n"
+        );
+    }
+
+    #[test]
+    fn renders_hard_break_as_line_break_element() {
+        let rendered = html_of("a\\\nb");
+        assert_eq!(rendered.html, "<p>a<br>\nb</p>\n");
     }
 
     #[test]

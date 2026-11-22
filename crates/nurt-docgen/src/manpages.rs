@@ -2,6 +2,11 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Manual pages: `nurt(1)`, `nurt-<command>(1)` and `nurt-commands(7)`.
+//!
+//! The pages come from the sources of the site: the catalog, the command
+//! pages and the page `docs/site/command-line.md`. `nurt-docgen man` writes
+//! them into the directory given with `--out`; the repository keeps only the
+//! sources.
 
 use std::path::Path;
 
@@ -16,6 +21,12 @@ use crate::page::{compose, load_page};
 
 /// Manual title shown in the page header.
 pub const MANUAL: &str = "Danaco Nurt";
+
+/// Description of the program in the NAME section of `nurt(1)`.
+pub const PROGRAM_SUMMARY: &str = "command shell and language where every change can be undone";
+
+/// Heading before which `nurt(1)` lists the command groups of the catalog.
+const SEE_ALSO_HEADING: &str = "\n## See also";
 
 /// Version and date written to the footer of every page.
 #[derive(Debug, Clone, Copy)]
@@ -88,17 +99,69 @@ pub fn commands_index(catalog: &Catalog, options: &ManOptions<'_>) -> String {
     )
 }
 
-/// Returns the page `nurt(1)` from the Markdown of the command line description.
+/// Returns the section of `nurt(1)` that lists the command groups of the catalog.
+fn commands_section(catalog: &Catalog) -> String {
+    let mut out = format!(
+        "## Commands\n\nThe language has {} commands in {} groups. `nurt-commands(7)` lists them and `nurt-<command>(1)` describes one command.\n\n| Group | Commands | Summary |\n|---|---|---|\n",
+        catalog.total(),
+        catalog.groups.len()
+    );
+    for file in &catalog.groups {
+        out.push_str(&format!(
+            "| `{}` | {} | {} |\n",
+            file.group,
+            file.commands.len(),
+            file.summary
+        ));
+    }
+    out
+}
+
+/// Returns the page `nurt(1)`.
+///
+/// The body is the Markdown of the command line description; the section on
+/// the command groups of the catalog is inserted before the section
+/// "See also", or appended when the description has none.
 #[must_use]
-pub fn program_page(markdown: &str, options: &ManOptions<'_>) -> String {
+pub fn program_page(markdown: &str, catalog: &Catalog, options: &ManOptions<'_>) -> String {
     let (_, body) = split_front_matter(markdown);
-    page(
-        "nurt",
-        1,
-        "command console with typed pipelines and per-operation undo",
-        body,
-        options,
-    )
+    let section = commands_section(catalog);
+    let body = match body.find(SEE_ALSO_HEADING) {
+        Some(at) => format!("{}\n{section}{}", &body[..at], &body[at..]),
+        None => format!("{body}\n{section}"),
+    };
+    page("nurt", 1, PROGRAM_SUMMARY, &body, options)
+}
+
+/// Returns the line of the NAME section of a manual page with the roff
+/// escapes `\-`, `\e` and `\&` resolved, or `None` when the page has no
+/// NAME section.
+#[must_use]
+pub fn name_line(page: &str) -> Option<String> {
+    let mut lines = page.lines().skip_while(|line| *line != ".SH NAME");
+    lines.next()?;
+    lines.next().map(unescape)
+}
+
+fn unescape(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut chars = line.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('-') => out.push('-'),
+            Some('e') => out.push('\\'),
+            Some('&') | None => {}
+            Some(other) => {
+                out.push('\\');
+                out.push(other);
+            }
+        }
+    }
+    out
 }
 
 /// Writes all manual pages into a directory and returns their number.
@@ -114,7 +177,10 @@ pub fn build(
 ) -> Result<usize> {
     let mut written = 0;
     let program = read_text(&layout.site().join("command-line.md"))?;
-    write_text(&out.join("nurt.1"), &program_page(&program, options))?;
+    write_text(
+        &out.join("nurt.1"),
+        &program_page(&program, catalog, options),
+    )?;
     write_text(
         &out.join("nurt-commands.7"),
         &commands_index(catalog, options),
@@ -171,12 +237,51 @@ mod tests {
     }
 
     #[test]
-    fn program_page_drops_front_matter() {
+    fn program_page_names_the_program_with_the_product_sentence() {
         let text = program_page(
             "---\ntitle: Command line\n---\n## Synopsis\n\nnurt exec\n",
+            &catalog(),
             &OPTIONS,
         );
-        assert!(text.contains(".SH NAME\nnurt \\- command console"));
+        assert_eq!(
+            name_line(&text).as_deref(),
+            Some("nurt - command shell and language where every change can be undone")
+        );
+        assert!(text.contains(
+            ".SH NAME\nnurt \\- command shell and language where every change can be undone\n"
+        ));
         assert!(!text.contains("title"));
+    }
+
+    #[test]
+    fn program_page_lists_groups_before_see_also() {
+        let catalog = catalog();
+        let text = program_page(
+            "## Description\n\nText.\n\n## See also\n\n`nurt-commands(7)`\n",
+            &catalog,
+            &OPTIONS,
+        );
+        let commands = text.find(".SH COMMANDS").expect("commands section");
+        let see_also = text.find(".SH SEE ALSO").expect("see also section");
+        assert!(commands < see_also);
+        assert!(text.contains(&format!(
+            "The language has {} commands in {} groups.",
+            catalog.total(),
+            catalog.groups.len()
+        )));
+        assert!(text.contains(".TP\n\\fBcore\\fR\n"));
+    }
+
+    #[test]
+    fn program_page_appends_groups_without_see_also() {
+        let text = program_page("## Description\n\nText.\n", &catalog(), &OPTIONS);
+        assert!(text.contains(".SH COMMANDS"));
+    }
+
+    #[test]
+    fn name_line_resolves_roff_escapes() {
+        let page = ".TH \"X\" \"1\"\n.SH NAME\nnurt\\-find \\- a\\eb \\&.c\n.SH SYNOPSIS\n";
+        assert_eq!(name_line(page).as_deref(), Some("nurt-find - a\\b .c"));
+        assert_eq!(name_line(".TH \"X\" \"1\"\n"), None);
     }
 }

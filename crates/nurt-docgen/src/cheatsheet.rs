@@ -51,7 +51,7 @@ pub struct Entry {
     pub habit: String,
     /// Canonical form in Nurt; the fix when the outcome is an error.
     pub canonical: String,
-    /// What the console does with the habit.
+    /// What Nurt does with the habit.
     pub outcome: Outcome,
     /// Remark, empty when there is none.
     #[serde(default)]
@@ -156,7 +156,7 @@ pub fn render(table: &Table) -> String {
         }
     }
     let mut out = format!(
-        "---\ntitle: {}\n---\n# {}\n\nEvery row pairs a {shell_title} command with its form in Nurt. The last column states whether the console corrects the habit automatically or rejects it with an error that carries the fix.\n",
+        "---\ntitle: {}\n---\n# {}\n\nEvery row pairs a {shell_title} command with its form in Nurt. The last column states whether Nurt corrects the habit automatically or rejects it with an error that carries the fix.\n",
         table.title, table.title
     );
     for topic in topics {

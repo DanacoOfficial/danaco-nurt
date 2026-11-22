@@ -21,6 +21,37 @@ use nurt_docgen::tasks::{CheckOptions, check_repository};
 /// Minimum number of recipes in the cookbook of the first wave.
 const MIN_RECIPES: usize = 150;
 
+/// NAME line of `nurt(1)` as fixed by the product texts.
+const PROGRAM_NAME_LINE: &str =
+    "nurt - command shell and language where every change can be undone";
+
+/// Sentence of the product description used on the site and in the pages.
+const PRODUCT_SENTENCE: &str = "is a command shell and language where every change can be undone.";
+
+/// Former product tagline, replaced by the product sentence.
+const FORMER_TAGLINE: &str = "command console for AI agents and people";
+
+/// Audience suffix reserved for the repository README and description.
+const PEOPLE_AND_AGENTS: &str = "for people and AI agents";
+
+#[test]
+fn site_pages_use_the_product_sentence_only() {
+    let layout = layout();
+    let mut files = Vec::new();
+    collect_files(&layout.site(), "md", &mut files);
+    collect_files(&layout.site(), "html", &mut files);
+    for path in &files {
+        let text = std::fs::read_to_string(path).expect("page is readable");
+        assert!(!text.contains(FORMER_TAGLINE), "{}", path.display());
+        assert!(!text.contains(PEOPLE_AND_AGENTS), "{}", path.display());
+    }
+    let index = std::fs::read_to_string(layout.site().join("index.md")).expect("index exists");
+    assert!(index.contains(&format!("Danaco Nurt (`nurt`) {PRODUCT_SENTENCE}")));
+    let command_line =
+        std::fs::read_to_string(layout.site().join("command-line.md")).expect("page exists");
+    assert!(command_line.contains(&format!("`nurt` {PRODUCT_SENTENCE}")));
+}
+
 fn layout() -> Layout {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
     Layout::new(&root)
@@ -112,6 +143,26 @@ fn manual_pages_exist_for_every_command_and_lint_when_mandoc_is_available() {
     };
     let count = manpages::build(&layout, &catalog, out.path(), &options).expect("man pages build");
     assert_eq!(count, catalog.total() + 2);
+    let program = std::fs::read_to_string(out.path().join("nurt.1")).expect("nurt.1 is readable");
+    assert_eq!(
+        manpages::name_line(&program).as_deref(),
+        Some(PROGRAM_NAME_LINE)
+    );
+    assert!(program.contains(".SH COMMANDS\n"));
+    assert!(!program.contains(PEOPLE_AND_AGENTS));
+    if let Ok(output) = Command::new("groff")
+        .args(["-man", "-T", "ascii", "-P", "-cbou"])
+        .arg(out.path().join("nurt.1"))
+        .output()
+        && output.status.success()
+        && !output.stdout.is_empty()
+    {
+        let text = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            text.lines().any(|line| line.trim() == PROGRAM_NAME_LINE),
+            "{text}"
+        );
+    }
     let Ok(status) = Command::new("mandoc")
         .args(["-T", "lint", "-W", "error"])
         .arg(out.path().join("nurt.1"))
