@@ -109,7 +109,7 @@ pub fn plan_two_way(
         return Err(std::mem::take(&mut changes.rejections).into_error("the update", &[]));
     }
     changes.carried = local_changes(ctx, &mut worktree, &new, &changes)?;
-    super::layout::finish(ctx, &mut worktree, changes, true)
+    super::layout::finish(ctx, &mut worktree, changes, true, false)
 }
 
 /// Paths whose entries differ between two flattened trees, in path order.

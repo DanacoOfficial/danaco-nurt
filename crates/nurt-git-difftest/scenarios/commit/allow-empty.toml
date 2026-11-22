@@ -1,0 +1,24 @@
+id = "commit/allow-empty"
+description = "allow_empty records a commit without changes."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "--allow-empty", "-m", "empty"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "empty", staged = true, allow_empty = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []

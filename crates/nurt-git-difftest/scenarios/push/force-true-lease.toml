@@ -1,0 +1,28 @@
+id = "push/force-true-lease"
+description = "Force true takes a lease on the remote-tracking reference and replaces the branch."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["push", "-q", "origin", "main"],
+  ["commit", "-q", "--amend", "-m", "rewritten"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "--force-with-lease", "origin", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main", force = true }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = true
+ignore = []

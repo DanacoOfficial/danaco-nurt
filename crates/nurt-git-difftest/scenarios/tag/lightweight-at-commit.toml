@@ -1,0 +1,11 @@
+id = "tag/lightweight-at-commit"
+description = "Create the lightweight tag rel at HEAD~3."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "rel", "HEAD~3"]
+
+[nurt]
+command = "git.tag"
+params = { name = "rel", revision = "HEAD~3" }
+

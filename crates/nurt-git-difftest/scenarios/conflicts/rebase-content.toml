@@ -1,0 +1,18 @@
+id = "conflicts/rebase-content"
+description = "Rebase of main onto topic stops at the commit that changes the first line of a.txt."
+corpus = "branchy-small"
+setup = [
+  ["switch", "-q", "topic"],
+  ["@write", "a.txt", "alpha (topic)\nbeta\ngamma\ndelta\nepsilon\n"],
+  ["commit", "-q", "-a", "-m", "topic: edit first line"],
+  ["switch", "-q", "main"],
+]
+
+[git]
+args = ["rebase", "topic"]
+expect_exit = 1
+
+[nurt]
+command = "git.rebase"
+params = { onto = "topic" }
+expect = "error:E_GIT_CONFLICT"

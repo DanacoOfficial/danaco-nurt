@@ -114,7 +114,7 @@ pub fn plan_reset(
             return Err(std::mem::take(&mut changes.rejections).into_error("the reset", &[]));
         }
     }
-    super::layout::finish(ctx, &mut worktree, changes, true)
+    super::layout::finish(ctx, &mut worktree, changes, true, false)
 }
 
 /// Plans the checkout of `tree` into an empty working tree with an empty
@@ -157,5 +157,5 @@ pub fn plan_new_tree(ctx: &ApplyContext<'_>, tree: &gix::oid) -> Result<ApplyPla
     if !changes.rejections.is_empty() {
         return Err(std::mem::take(&mut changes.rejections).into_error("the checkout", &[]));
     }
-    super::layout::finish(ctx, &mut worktree, changes, true)
+    super::layout::finish(ctx, &mut worktree, changes, true, false)
 }

@@ -1,0 +1,10 @@
+id = "common/switch-create"
+description = "Create branch work at HEAD and switch to it."
+corpus = "linear-small"
+
+[git]
+args = ["switch", "-q", "-c", "work"]
+
+[nurt]
+command = "git.switch"
+params = { branch = "work", create = true }

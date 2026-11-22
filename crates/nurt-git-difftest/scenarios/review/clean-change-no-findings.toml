@@ -1,0 +1,27 @@
+id = "review/clean-change-no-findings"
+description = "A clean change yields no findings."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "ok.txt", content = "fine\n" },
+  ["add", "--", "ok.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "--cached", "--check"]
+expect_exit = 0
+
+[nurt]
+command = "git.review"
+params = { scope = "staged" }
+expect = "ok"
+record_count = 0
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

@@ -1,0 +1,32 @@
+id = "clone/depth-with-branch"
+description = "Shallow clone of a chosen branch fetches only that branch."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c3"], cwd = "../upstream" },
+  { git = ["branch", "topic", "HEAD~1"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["clone", "-q", "--depth", "1", "-b", "topic", "$SERVER/upstream", "../cloned"]
+expect_exit = 0
+
+[nurt]
+command = "git.clone"
+params = { url = "$SERVER/upstream", to = "../cloned", depth = 1, branch = "topic" }
+expect = "ok"
+
+[compare]
+state = ["refs@../cloned", "reflog@../cloned", "config@../cloned", "state_files@../cloned", "fsck@../cloned", "worktree@../cloned", "index@../cloned"]
+undo = false
+ignore = []

@@ -1,0 +1,33 @@
+id = "commit/merge-in-progress-completes"
+description = "staged during a merge records both parents."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "t.txt", content = "t\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "topic"],
+  ["switch", "-q", "main"],
+  { write = "m.txt", content = "m\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main"],
+  ["merge", "-q", "--no-commit", "--no-ff", "topic"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "--no-edit"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "Merge branch 'topic'", staged = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []

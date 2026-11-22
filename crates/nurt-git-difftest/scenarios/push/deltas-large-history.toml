@@ -1,0 +1,34 @@
+id = "push/deltas-large-history"
+description = "Push of a packed history copies the stored deltas and passes fsck on the remote."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  { write = "big.txt", content = "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\n" },
+  ["add", "big.txt"],
+  ["commit", "-q", "-m", "big"],
+  { write = "big.txt", content = "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\n" },
+  ["commit", "-q", "-a", "-m", "nine"],
+  { write = "big.txt", content = "zero\none\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\n" },
+  ["commit", "-q", "-a", "-m", "zero"],
+  ["gc", "-q"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "origin", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = true
+ignore = []

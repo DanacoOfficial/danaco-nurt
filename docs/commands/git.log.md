@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-git.log <repo: path> [revision: <text>] [count: <int>] [skip: <int>] [path: <list<path>>] [author: <text>] [since: <instant>] [until: <instant>] [message: <regex>] [pickaxe: <text|regex>] [diff_regex: <regex>] [follow: <bool>] [symbol: <text>] [stat: <bool>] [group_by: type|author|day] [exclude: <list<glob>>]
+git.log <repo: path> [revision: <text>] [count: <int>] [skip: <int>] [path: <list<path>>] [author: <text>] [since: <instant>] [until: <instant>] [message: <regex>] [pickaxe: <text|regex>] [diff_regex: <regex>] [follow: <bool>] [symbol: <text>] [stat: <bool>] [find_renames: <bool>] [find_copies: <bool>] [group_by: type|author|day] [exclude: <list<glob>>]
 ```
 
 ## Description
@@ -73,6 +73,8 @@ or per author day, most frequent first.
 | `follow` | `bool` | `false` | Follow the single file in `path` across renames and copies. |
 | `symbol` | `text` | none | Only commits that change the lines of this element of the single file in `path`. |
 | `stat` | `bool` | `false` | Add the changed files with added and removed lines. |
+| `find_renames` | `bool` | `true` | Pair deleted and added files into renames in `stat`, `pickaxe` and `diff_regex`. |
+| `find_copies` | `bool` | `false` | As `find_renames`, and also pair an added file with a file that the same commit modified (`git log -C`). |
 | `group_by` | `enum(type\|author\|day)` | none | Count commits per Conventional Commits type, author or day. |
 | `exclude` | `list<glob>` | `[]` | Paths left out of `stat`, `pickaxe` and `diff_regex`; a pattern without `/` matches the file name in any directory. |
 

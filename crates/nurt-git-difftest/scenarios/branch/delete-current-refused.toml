@@ -1,0 +1,12 @@
+id = "branch/delete-current-refused"
+description = "The checked out branch main is never deleted."
+corpus = "linear-small"
+
+[git]
+args = ["branch", "-D", "main"]
+expect_exit = 1
+
+[nurt]
+command = "git.branch"
+params = { delete = "main", force = true }
+expect = "error:E_GIT_REF"

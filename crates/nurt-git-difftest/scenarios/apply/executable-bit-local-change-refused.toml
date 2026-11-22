@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "apply/executable-bit-local-change-refused"
+description = "A local change of the executable bit refuses an update that changes the file."
+corpus = "empty"
+setup = [
+  { write = "tool", content = "echo\n" },
+  { write = "top.txt", content = "t\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  { write = "tool", content = "echo two\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+]
+files = { "tool" = { content = "echo\n", executable = true } }
+platforms = ["linux", "macos"]
+
+[git]
+args = ["switch", "side"]
+expect_exit = 1
+
+[nurt]
+command = "git.switch"
+params = { branch = "side" }
+expect = "error:E_GIT_DIRTY"

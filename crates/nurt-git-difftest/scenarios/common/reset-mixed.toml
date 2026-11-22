@@ -1,0 +1,10 @@
+id = "common/reset-mixed"
+description = "Mixed reset to HEAD unstages every staged change and keeps the working tree."
+corpus = "dirty-worktree"
+
+[git]
+args = ["reset", "-q"]
+
+[nurt]
+command = "git.reset"
+params = { revision = "HEAD" }

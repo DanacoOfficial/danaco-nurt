@@ -1,0 +1,25 @@
+id = "sign/commit-ssh-literal-without-agent"
+description = "A key literal needs a running SSH agent; without one the commit is refused. `git` leaves COMMIT_EDITMSG behind after refusing, which Nurt does not write."
+corpus = "empty"
+platforms = ["linux"]
+setup = [
+  ["config", "gpg.format", "ssh"],
+  ["config", "user.signingKey", "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGRkJtd+lwolSpXWYlVnGuoQjlYRHm2e/meOmuaQOxol nurt-signing-test"],
+  ["config", "gpg.ssh.program", "false"],
+  { write = "a.txt", content = '''
+signed content
+''' },
+  ["add", "-A"],
+]
+
+[git]
+args = ["commit", "-q", "-S", "-m", "x"]
+expect_exit = 128
+
+[nurt]
+command = "git.commit"
+params = { staged = true, message = "x", sign = true }
+expect = "error:E_GIT_SIGN"
+
+[compare]
+ignore = ["state_files COMMIT_EDITMSG"]

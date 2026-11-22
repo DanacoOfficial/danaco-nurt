@@ -1,0 +1,10 @@
+id = "common/reset-soft"
+description = "Soft reset to HEAD~2 moves main only; index and working tree keep the newer content."
+corpus = "linear-small"
+
+[git]
+args = ["reset", "-q", "--soft", "HEAD~2"]
+
+[nurt]
+command = "git.reset"
+params = { revision = "HEAD~2", mode = "soft" }

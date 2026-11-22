@@ -1,0 +1,40 @@
+id = "rebase/continue-stops-again"
+description = "continue stops at the next conflicting commit."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "f.txt", content = "1\ntopic\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t1"],
+  { write = "a.txt", content = "a topic\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t2"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "a main\n" },
+  { write = "f.txt", content = "1\nmain\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "m1"],
+  ["switch", "-q", "topic"],
+  ["-c", "alias.rbstop=!git rebase main || true", "rbstop"],
+  { write = "f.txt", content = "1\nresolved\n3\n" },
+  ["add", "f.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "--continue"]
+expect_exit = 1
+
+[nurt]
+command = "git.rebase"
+params = { action = "continue" }
+expect = "error:E_GIT_CONFLICT"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = ["state_files COMMIT_EDITMSG"]

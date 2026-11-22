@@ -1,0 +1,18 @@
+id = "common/hook-post-commit-failure-ignored"
+description = "A post-commit hook that exits 1 does not undo the commit."
+corpus = "linear-small"
+setup = [
+  { write = "new.txt", content = "new\n" },
+  ["add", "new.txt"],
+  { write = ".git/hooks/post-commit", content = "#!/bin/sh\nexit 1\n", executable = true },
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["commit", "-q", "-m", "hooked commit"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "hooked commit", staged = true, hooks = true }
+expect = "ok"

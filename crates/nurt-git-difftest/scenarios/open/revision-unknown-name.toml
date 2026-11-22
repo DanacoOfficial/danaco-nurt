@@ -1,0 +1,36 @@
+id = "open/revision-unknown-name"
+description = "An unknown branch name fails with candidates instead of a guess."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "1\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "one"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "t.txt", content = "t\n" },
+  ["add", "t.txt"],
+  ["commit", "-q", "-m", "topic work"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "2\n" },
+  ["commit", "-q", "-a", "-m", "two"],
+  ["merge", "-q", "--no-edit", "topic"],
+  { write = "a.txt", content = "3\n" },
+  ["commit", "-q", "-a", "-m", "three"],
+  ["tag", "-a", "-m", "release", "v1"],
+  { write = "a.txt", content = "4\n" },
+  ["commit", "-q", "-a", "-m", "four"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["log", "-1", "--format=%H", "mian"]
+expect_exit = 128
+
+[nurt]
+command = "git.log"
+params = { revision = "mian", count = 1 }
+expect = "error:E_GIT_REVISION"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog"]
+undo = false
+ignore = []

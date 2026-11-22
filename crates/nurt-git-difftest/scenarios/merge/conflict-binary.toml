@@ -1,0 +1,33 @@
+id = "merge/conflict-binary"
+description = "A binary file changed on both sides keeps the current version."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n4\n5\n" },
+  { write = "u.txt", content = "u\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "data.bin", content = "topic\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "topic"],
+  ["switch", "-q", "main"],
+  { write = "data.bin", content = "main\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "main"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["merge", "--no-edit", "topic"]
+expect_exit = 1
+
+[nurt]
+command = "git.merge"
+params = { branch = "topic" }
+expect = "error:E_GIT_CONFLICT"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

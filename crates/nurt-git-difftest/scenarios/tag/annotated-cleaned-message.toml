@@ -1,0 +1,11 @@
+id = "tag/annotated-cleaned-message"
+description = "The message of an annotated tag is cleaned as git tag -m cleans it: trailing blanks and repeated blank lines removed."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "-a", "rel", "-m", "release\n\n\nnotes  \n\n"]
+
+[nurt]
+command = "git.tag"
+params = { name = "rel", message = "release\n\n\nnotes  \n\n" }
+

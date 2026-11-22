@@ -1,0 +1,36 @@
+id = "conflicts/matrix-pull-modify-delete"
+description = "Pull with mode merge stops with a modify-delete conflict: the side deletes docs/guide.md that main modifies."
+corpus = "empty"
+setup = [
+  { write = "../upstream/README.md", content = "# Sample\n" },
+  { write = "../upstream/src/lib.txt", content = "one\ntwo\nthree\nfour\n" },
+  { write = "../upstream/docs/guide.md", content = "Guide\n=====\n\nStep one.\n" },
+  { write = "../upstream/binary.bin", hex = "00010203" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "base"], cwd = "../upstream" },
+  ["remote", "add", "origin", "../upstream"],
+  ["fetch", "-q", "origin"],
+  ["reset", "-q", "--hard", "origin/main"],
+  ["branch", "-q", "--set-upstream-to=origin/main", "main"],
+  { git = ["rm", "-q", "docs/guide.md"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "upstream change"], cwd = "../upstream" },
+  { write = "docs/guide.md", content = "Guide\n=====\n\nrewritten on main\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "local change"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["pull", "--no-rebase"]
+expect_exit = 1
+
+[nurt]
+command = "git.pull"
+params = { mode = "merge" }
+expect = "error:E_GIT_CONFLICT"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD", "config"]
+undo = true

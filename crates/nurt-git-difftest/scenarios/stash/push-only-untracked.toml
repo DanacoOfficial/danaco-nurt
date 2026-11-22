@@ -1,0 +1,24 @@
+id = "stash/push-only-untracked"
+description = "Push of untracked files alone creates an entry."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "u.txt", content = "u\n" },
+]
+
+[git]
+args = ["stash", "push", "-q", "--include-untracked"]
+
+[nurt]
+command = "git.stash"
+params = { action = "push", include_untracked = true }
+
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:refs/stash"]
+undo = true
+ignore = []

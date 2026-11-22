@@ -1,0 +1,28 @@
+id = "blame/older-revision"
+description = "revision annotates the file of an older commit."
+corpus = "empty"
+setup = [
+  ["@clock", "2026-01-01T10:00:00Z"],
+  { write = "a.txt", content = "one\ntwo\nthree\n" }, ["add", "a.txt"], ["commit", "-q", "-m", "feat: add a"],
+  ["@clock", "2026-01-02T10:00:00Z"],
+  { write = "b.txt", content = "b\n" }, ["add", "b.txt"], ["commit", "-q", "-m", "fix(core): add b"],
+  ["@clock", "2026-01-03T10:00:00Z"],
+  { write = "a.txt", content = "one\nTWO\nthree\n" }, ["commit", "-q", "-a", "-m", "docs: change a"],
+
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["blame", "--porcelain", "HEAD~1", "--", "a.txt"]
+expect_exit = 0
+
+[nurt]
+command = "git.blame"
+params = { path = "a.txt", revision = "HEAD~1" }
+expect = "ok"
+record_count = 3
+records = [{ kind = "blame_line", no = 2, text = "two", boundary = true }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

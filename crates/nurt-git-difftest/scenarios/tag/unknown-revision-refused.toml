@@ -1,0 +1,12 @@
+id = "tag/unknown-revision-refused"
+description = "A tag at a revision that does not exist is rejected and nothing changes."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "x", "nope"]
+expect_exit = 128
+
+[nurt]
+command = "git.tag"
+params = { name = "x", revision = "nope" }
+expect = "error:E_GIT_REVISION"

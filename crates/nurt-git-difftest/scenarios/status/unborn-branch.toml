@@ -1,0 +1,27 @@
+id = "status/unborn-branch"
+description = "Files in the index of a branch without commits are added."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\n" },
+  ["add", "a.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["status", "--porcelain=v2"]
+expect_exit = 0
+
+[nurt]
+command = "git.status"
+params = {  }
+expect = "ok"
+record_count = 1
+[[nurt.records]]
+kind = "git_status"
+path = "a.txt"
+index = "added"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

@@ -1,0 +1,25 @@
+id = "commit/all-records-deletion"
+description = "all records the deletion of a tracked file."
+corpus = "empty"
+files = { "b.txt" = { delete = true } }
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "-a", "-m", "tracked"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "tracked", all = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []

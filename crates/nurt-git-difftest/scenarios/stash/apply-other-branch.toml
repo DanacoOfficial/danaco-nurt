@@ -1,0 +1,22 @@
+id = "stash/apply-other-branch"
+description = "Apply on another branch merges the entry with its commits."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "1\n2\n3\n4\n5\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "a.txt", content = "1\n2\n3\n4\nfive\n" },
+  ["stash", "push", "-q"],
+  ["switch", "-q", "-c", "other"],
+  { write = "a.txt", content = "one\n2\n3\n4\n5\n" },
+  ["commit", "-q", "-a", "-m", "other"],
+]
+
+[git]
+args = ["stash", "apply", "-q"]
+
+[nurt]
+command = "git.stash"
+params = { action = "apply" }
+
+

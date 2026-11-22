@@ -1,0 +1,29 @@
+id = "commit/all-with-deletion-and-untracked"
+description = "all records modifications, deletions and untracked files."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "a.txt", content = "a2\n" },
+  { write = "u.txt", content = "u\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+steps = [
+  ["add", "-A"],
+  ["commit", "-q", "-m", "all"],
+]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "all", all = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []

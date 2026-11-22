@@ -1,0 +1,28 @@
+id = "log/path-directory"
+description = "A directory path covers every file below it."
+corpus = "empty"
+setup = [
+  ["@clock", "2026-01-01T10:00:00Z"],
+  { write = "dir/x", content = "x\n" }, ["add", "."], ["commit", "-q", "-m", "add x"],
+  ["@clock", "2026-01-02T10:00:00Z"],
+  { write = "other", content = "o\n" }, ["add", "."], ["commit", "-q", "-m", "add other"],
+  ["@clock", "2026-01-03T10:00:00Z"],
+  { write = "dir/sub/y", content = "y\n" }, ["add", "."], ["commit", "-q", "-m", "add y"],
+
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["log", "--", "dir"]
+expect_exit = 0
+
+[nurt]
+command = "git.log"
+params = { path = ["dir"] }
+expect = "ok"
+record_count = 2
+records = [{ kind = "commit", subject = "add y" }, { kind = "commit", subject = "add x" }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

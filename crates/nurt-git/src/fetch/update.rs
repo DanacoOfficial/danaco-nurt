@@ -105,6 +105,7 @@ pub(crate) fn select(
     ref_map: &RefMap,
     resolved: &Resolved,
     action: &str,
+    shallow: &HashSet<ObjectId>,
 ) -> Result<Selection> {
     let checked_out = if repo.is_bare() {
         None
@@ -149,6 +150,7 @@ pub(crate) fn select(
                 force,
                 checked_out: checked_out.as_deref(),
                 action,
+                shallow,
             };
             fetched.push(update.change(repo)?);
         }
@@ -243,6 +245,7 @@ struct Update<'a> {
     remote: &'a RemoteRef,
     force: bool,
     checked_out: Option<&'a str>,
+    shallow: &'a HashSet<ObjectId>,
     action: &'a str,
 }
 
@@ -276,7 +279,7 @@ impl Update<'_> {
         if !(is_commit(gix, previous) && is_commit(gix, new)) {
             return Ok(self.result(old, GitRefStatus::Updated, None, self.storing()));
         }
-        if is_ancestor(gix, previous, new) {
+        if is_ancestor(gix, previous, new, self.shallow) {
             Ok(self.result(old, GitRefStatus::Updated, None, "fast-forward"))
         } else if self.force {
             Ok(self.result(old, GitRefStatus::Forced, None, "forced-update"))
@@ -327,7 +330,18 @@ fn is_commit(repo: &gix::Repository, id: ObjectId) -> bool {
 
 /// Whether `ancestor` is reachable from `descendant`; false when the
 /// history needed to decide is missing, as in a shallow repository.
-fn is_ancestor(repo: &gix::Repository, ancestor: ObjectId, descendant: ObjectId) -> bool {
+/// `shallow` holds the commits that become the boundary of the history with
+/// this fetch: their parents are not followed, as `git` does once it has
+/// updated the `shallow` file.
+fn is_ancestor(
+    repo: &gix::Repository,
+    ancestor: ObjectId,
+    descendant: ObjectId,
+    shallow: &HashSet<ObjectId>,
+) -> bool {
+    if !shallow.is_empty() {
+        return reaches(repo, ancestor, descendant, shallow);
+    }
     repo.merge_base(ancestor, descendant)
         .is_ok_and(|base| base.is_some_and(|base| base.detach() == ancestor))
 }
@@ -423,6 +437,38 @@ fn reverse_map(src: &str, dst: &str, local: &str) -> Option<String> {
         (None, None) => (local == dst).then(|| src.to_owned()),
         _ => None,
     }
+}
+
+/// Whether `ancestor` is found walking the parents from `start`, without
+/// leaving the commits of the shallow boundary.
+fn reaches(
+    repo: &gix::Repository,
+    ancestor: ObjectId,
+    start: ObjectId,
+    shallow: &HashSet<ObjectId>,
+) -> bool {
+    let mut seen = HashSet::new();
+    let mut pending = vec![start];
+    while let Some(id) = pending.pop() {
+        if id == ancestor {
+            return true;
+        }
+        if shallow.contains(&id) || !seen.insert(id) {
+            continue;
+        }
+        if let Ok(commit) = repo.find_commit(id) {
+            pending.extend(commit.parent_ids().map(gix::Id::detach));
+        }
+    }
+    false
+}
+
+/// Commits listed in the content of a `shallow` file.
+pub(crate) fn shallow_commits(content: &[u8]) -> HashSet<ObjectId> {
+    content
+        .lines()
+        .filter_map(|line| ObjectId::from_hex(line.trim()).ok())
+        .collect()
 }
 
 #[cfg(test)]

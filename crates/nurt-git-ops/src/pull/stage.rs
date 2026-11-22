@@ -483,7 +483,7 @@ impl EffectStage for GitPull {
         match self.integrate(&plan, &repo, &fetched, tx, ctx) {
             Ok(local) => Ok(outcome(&plan, fetched, local)),
             Err(Failure::Refused(error)) => {
-                integrate::write_transfer(repo.git(), &fetched, tx)?;
+                integrate::write_transfer(repo.git(), &fetched, &error, tx)?;
                 Err(errors::after_transfer(error, &fetched.ref_updates))
             }
             Err(Failure::Failed(error)) if error.effect_applied => {

@@ -1,0 +1,22 @@
+id = "sign/tag-x509"
+description = "The x509 signature format is not supported; the tag is refused."
+corpus = "empty"
+platforms = ["linux"]
+setup = [
+  ["config", "gpg.format", "x509"],
+  ["config", "gpg.x509.program", "false"],
+  { write = "a.txt", content = '''
+one
+''' },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+]
+
+[git]
+args = ["tag", "-s", "v1", "-m", "x", "HEAD"]
+expect_exit = 128
+
+[nurt]
+command = "git.tag"
+params = { name = "v1", message = "x", sign = true }
+expect = "error:E_GIT_SIGN"

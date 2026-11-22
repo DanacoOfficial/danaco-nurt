@@ -1,0 +1,10 @@
+id = "branch/rename-current"
+description = "Rename the current branch main to trunk; HEAD follows and both logs receive the rename entry."
+corpus = "linear-small"
+
+[git]
+args = ["branch", "-m", "main", "trunk"]
+
+[nurt]
+command = "git.branch"
+params = { rename = "main", new_name = "trunk" }

@@ -389,7 +389,12 @@ pub fn plan_fetch(
         .reflog_action
         .clone()
         .unwrap_or_else(|| reflog_action(request, true));
-    let selection = update::select(repo, &ref_map, &resolved, &action)?;
+    let boundary = received
+        .shallow
+        .as_deref()
+        .map(update::shallow_commits)
+        .unwrap_or_default();
+    let selection = update::select(repo, &ref_map, &resolved, &action, &boundary)?;
     let remote_head =
         remote::new_remote_head(repo, &resolved, remote_head.as_deref(), &selection.changes);
     let display_url = head::display_url(&resolved.url);

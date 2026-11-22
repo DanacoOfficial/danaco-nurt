@@ -99,8 +99,9 @@ number of removed untracked files as `untracked_removed`. `delete` removes the
 loose reference, its line in `packed-refs` and its log; `undo` restores all
 three.
 
-Symbolic links recorded in a checkpoint are not written by `restore`, and the
-executable bit of a restored file is not changed.
+`restore` writes symbolic links recorded in a checkpoint and sets or clears the
+executable bit of a restored file as the checkpoint recorded it. A directory
+replaced by a file gives a file with the permissions of a plain file.
 
 ## Examples
 
@@ -146,7 +147,7 @@ git.checkpoint "/home/user/repo" action: delete keep: 10
 | `E_GIT_REF` | The checkpoint does not exist (`not_found`) or was written by another tool (`read_only`). | `git.checkpoint "/home/user/repo" action: list` |
 | `E_GIT_CHECKPOINT` | `index: true` is requested from a checkpoint without a recorded index (`no_index`). | Restore without `index` |
 | `E_GIT_REVISION` | `against` names neither a checkpoint nor a revision. | Pass an existing revision |
-| `E_GIT_UNSUPPORTED` | A comparison option is not available (`diff_option`), the checkpoint holds a symbolic link to restore (`symlink_restore`), or the repository is bare. | `git.diff` with the checkpoint reference; `git.restore` |
+| `E_GIT_UNSUPPORTED` | A comparison option is not available (`diff_option`) or the repository is bare. | `git.diff` with the checkpoint reference |
 | `E_GIT_NOT_REPOSITORY` | `repo` is not inside a repository, or a path lies outside the working tree (`path_outside_repo`). | Pass a path inside the working tree |
 | `E_GIT_LOCKED` | A reference, `packed-refs` or the index is locked by another process. | Wait for the other process or remove the stale lock file |
 | `E_STALE` | A file, a reference or the index changed between planning and writing. | Run the command again |

@@ -1,0 +1,28 @@
+id = "push/update-hook-declines"
+description = "An update hook of the remote declines one branch and accepts the other."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  { write = ".git/remote.git/hooks/update", content = "#!/bin/sh\ntest \"$1\" != refs/heads/blocked\n", executable = true },
+  ["branch", "blocked"],
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["push", "origin", "main", "blocked"]
+expect_exit = 1
+
+[nurt]
+command = "git.push"
+params = { branch = "main" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = true
+ignore = []

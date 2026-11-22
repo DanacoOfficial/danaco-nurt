@@ -1,0 +1,11 @@
+id = "common/commit-all"
+description = "Commit every change of tracked files with all."
+corpus = "linear-small"
+files = { "README.md" = "# Sample\n\nChanged before the commit.\n" }
+
+[git]
+args = ["commit", "-q", "-a", "-m", "update readme"]
+
+[nurt]
+command = "git.commit"
+params = { message = "update readme", all = true }

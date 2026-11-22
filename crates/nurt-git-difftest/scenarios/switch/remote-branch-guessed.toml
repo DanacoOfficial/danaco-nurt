@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "switch/remote-branch-guessed"
+description = "With guess the only remote-tracking branch of the name creates a tracking branch."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "same.txt", content = "s\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  ["rm", "-q", "-r", "--", "b.txt"],
+  { write = "a.txt", content = "side\n" },
+  { write = "new.txt", content = "n\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+  { write = "../upstream/f.txt", content = "f\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "f.txt"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "upstream"], cwd = "../upstream" },
+  { git = ["branch", "feature"], cwd = "../upstream" },
+  ["remote", "add", "origin", "../upstream"],
+  ["fetch", "-q", "origin"],
+]
+
+[git]
+args = ["switch", "--guess", "feature"]
+
+[nurt]
+command = "git.switch"
+params = { branch = "feature", guess = true }

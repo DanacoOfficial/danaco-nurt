@@ -1,0 +1,19 @@
+id = "branch/create-from-remote-no-tracking"
+description = "With branch.autoSetupMerge false a branch created from origin/feature gets no upstream configuration."
+corpus = "linear-small"
+setup = [
+  ["config", "remote.origin.url", "../upstream"],
+  ["config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"],
+  ["config", "branch.autoSetupMerge", "false"],
+  ["update-ref", "refs/remotes/origin/feature", "HEAD~1"],
+]
+
+[git]
+args = ["branch", "feature", "origin/feature"]
+
+[nurt]
+command = "git.branch"
+params = { create = "feature", from = "origin/feature" }
+
+[compare]
+state = ["refs", "reflog", "config"]

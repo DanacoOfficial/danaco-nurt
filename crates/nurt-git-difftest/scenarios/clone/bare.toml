@@ -1,0 +1,29 @@
+id = "clone/bare"
+description = "Bare clone maps branches to local branches and keeps no reflog."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+  { git = ["branch", "topic", "HEAD~1"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["clone", "-q", "--bare", "$SERVER/upstream", "../cloned"]
+expect_exit = 0
+
+[nurt]
+command = "git.clone"
+params = { url = "$SERVER/upstream", to = "../cloned", bare = true }
+expect = "ok"
+
+[compare]
+state = ["refs@../cloned", "reflog@../cloned", "config@../cloned", "fsck@../cloned"]
+undo = false
+ignore = []

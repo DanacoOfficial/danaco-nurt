@@ -1,0 +1,26 @@
+id = "diff/ignore-whitespace"
+description = "White space changes are ignored."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "a.txt", content = "one\n  two\nthree\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "-w"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = { ignore_whitespace = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

@@ -1,0 +1,25 @@
+id = "log/find-renames-off-stat"
+description = "With find_renames false, a renamed file is a deletion and an addition."
+corpus = "empty"
+setup = [
+  ["@clock", "2026-01-01T10:00:00Z"],
+  { write = "a.txt", content = "one\ntwo\nthree\nfour\nfive\n" }, ["add", "a.txt"], ["commit", "-q", "-m", "feat: add a"],
+  ["@clock", "2026-01-02T10:00:00Z"],
+  ["mv", "a.txt", "z.txt"], ["commit", "-q", "-m", "refactor: rename a to z"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["log", "-n", "1", "--no-renames", "--numstat"]
+expect_exit = 0
+
+[nurt]
+command = "git.log"
+params = { count = 1, stat = true, find_renames = false }
+expect = "ok"
+record_count = 1
+records = [{ kind = "commit", subject = "refactor: rename a to z", stats = { files = 2, added = 5, removed = 5 } }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

@@ -1,0 +1,24 @@
+id = "commit/all-without-changes"
+description = "all without changes is refused; git still writes the refused message to COMMIT_EDITMSG, Nurt does not."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "-a", "-m", "none"]
+expect_exit = 1
+
+[nurt]
+command = "git.commit"
+params = { message = "none", all = true }
+expect = "error:E_GIT_NOTHING_TO_COMMIT"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = ["state_files COMMIT_EDITMSG"]

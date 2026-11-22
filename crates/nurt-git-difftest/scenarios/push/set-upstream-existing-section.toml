@@ -1,0 +1,27 @@
+id = "push/set-upstream-existing-section"
+description = "Push with set_upstream adds the keys to an existing branch section."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["config", "branch.main.rebase", "true"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "-u", "origin", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main", set_upstream = true }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = true
+ignore = []

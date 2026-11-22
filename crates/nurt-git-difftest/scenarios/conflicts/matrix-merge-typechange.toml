@@ -1,0 +1,27 @@
+id = "conflicts/matrix-merge-typechange"
+description = "Merge of side with a typechange conflict: the side replaces src/lib.txt by a link, main edits it."
+corpus = "linear-small"
+setup = [
+  { write = "binary.bin", hex = "00010203" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "add binary.bin"],
+  ["switch", "-q", "-c", "side"],
+  ["rm", "-q", "src/lib.txt"],
+  { write = "src/lib.txt", symlink = "../README.md" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side change"],
+  ["switch", "-q", "main"],
+  { write = "src/lib.txt", content = "one\ntwo\nthree\nfour\nfive\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main change"],
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["merge", "--no-edit", "side"]
+expect_exit = 1
+
+[nurt]
+command = "git.merge"
+params = { branch = "side" }
+expect = "error:E_GIT_CONFLICT"

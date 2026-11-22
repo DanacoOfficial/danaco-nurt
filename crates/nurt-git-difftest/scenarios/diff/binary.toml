@@ -1,0 +1,26 @@
+id = "diff/binary"
+description = "A binary file yields one record without lines."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "bin.dat", content = "a" }, ["add", "bin.dat"], ["commit", "-q", "-m", "bin"], { write = "bin.dat", content = "\u0000\u0001" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = {  }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

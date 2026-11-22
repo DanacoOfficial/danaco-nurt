@@ -1,0 +1,21 @@
+id = "common/hook-commit-msg-rejects"
+description = "A commit-msg hook that exits 1 stops the commit; git keeps the hook-edited message in COMMIT_EDITMSG after the rejected commit, Nurt leaves the repository unchanged."
+corpus = "linear-small"
+setup = [
+  { write = "new.txt", content = "new\n" },
+  ["add", "new.txt"],
+  { write = ".git/hooks/commit-msg", content = "#!/bin/sh\nexit 1\n", executable = true },
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["commit", "-q", "-m", "hooked commit"]
+expect_exit = 1
+
+[nurt]
+command = "git.commit"
+params = { message = "hooked commit", staged = true, hooks = true }
+expect = "error:E_GIT_HOOK"
+
+[compare]
+ignore = ["state_files COMMIT_EDITMSG"]

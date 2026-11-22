@@ -1,0 +1,10 @@
+id = "common/stash-push"
+description = "Stash the tracked changes with a message; untracked files stay."
+corpus = "dirty-worktree"
+
+[git]
+args = ["stash", "push", "-q", "-m", "wip"]
+
+[nurt]
+command = "git.stash"
+params = { action = "push", message = "wip" }

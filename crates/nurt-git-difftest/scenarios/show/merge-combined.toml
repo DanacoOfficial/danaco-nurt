@@ -1,0 +1,30 @@
+id = "show/merge-combined"
+description = "A merge that resolves a conflict shows the combined difference."
+corpus = "empty"
+setup = [
+  ["@clock", "2026-01-01T10:00:00Z"],
+  { write = "f", content = "a\nb\nc\n" }, ["add", "f"], ["commit", "-q", "-m", "base"],
+  ["@clock", "2026-01-02T10:00:00Z"],
+  ["checkout", "-q", "-b", "topic"], { write = "f", content = "a\nR\nc\n" }, ["commit", "-q", "-a", "-m", "right"],
+  ["@clock", "2026-01-03T10:00:00Z"],
+  ["checkout", "-q", "main"], { write = "f", content = "a\nL\nc\n" }, ["commit", "-q", "-a", "-m", "left"],
+  ["@clock", "2026-01-04T10:00:00Z"],
+  ["merge", "-q", "-s", "ours", "--no-commit", "topic"], { write = "f", content = "a\nM\nc\n" }, ["add", "f"], ["commit", "-q", "-m", "merge"],
+
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["show", "HEAD"]
+expect_exit = 0
+
+[nurt]
+command = "git.show"
+params = { revision = "HEAD" }
+expect = "ok"
+record_count = 2
+records = [{ kind = "commit", subject = "merge" }, { kind = "hunk", path = "f", old_start = 1, old_len = 3, new_start = 1, new_len = 3, lines = ["  a", "- L", " -R", "++M", "  c"] }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

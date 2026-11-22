@@ -1,0 +1,28 @@
+id = "push/delete-colon-refspec"
+description = "A refspec without source deletes the remote branch."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["branch", "topic"],
+  ["push", "-q", "origin", "main", "topic"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "origin", ":topic"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = ":topic" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = true
+ignore = []

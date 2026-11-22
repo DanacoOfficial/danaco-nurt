@@ -1,0 +1,16 @@
+id = "stage/no-final-newline"
+description = "Stage a hunk of a file without a final line feed; the bytes are kept."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\nb" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+]
+files = { "a.txt" = "a\nB", "sel.patch" = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1,2 +1,2 @@\n a\n-b\n\\ No newline at end of file\n+B\n\\ No newline at end of file\n" }
+
+[git]
+args = ["apply", "--cached", "sel.patch"]
+
+[nurt]
+command = "git.stage"
+params = { action = "add", hunks = ["a.txt#1"] }

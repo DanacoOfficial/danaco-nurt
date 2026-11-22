@@ -1,0 +1,20 @@
+id = "conflicts/merge-binary"
+description = "Both branches change the binary bytes.dat: the working tree keeps the version of main, without markers."
+corpus = "binary"
+setup = [
+  ["switch", "-q", "-c", "side"],
+  { write = "bytes.dat", hex = "00ff00ff" },
+  ["commit", "-q", "-a", "-m", "side: change bytes"],
+  ["switch", "-q", "main"],
+  { write = "bytes.dat", hex = "ff00ff00" },
+  ["commit", "-q", "-a", "-m", "main: change bytes"],
+]
+
+[git]
+args = ["merge", "--no-edit", "side"]
+expect_exit = 1
+
+[nurt]
+command = "git.merge"
+params = { branch = "side" }
+expect = "error:E_GIT_CONFLICT"

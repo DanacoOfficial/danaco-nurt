@@ -37,7 +37,7 @@ use nurt_contracts::value::{Path as RecordPath, Record};
 use sha2::{Digest, Sha256};
 
 use crate::checkpoint::args;
-use crate::checkpoint::snapshot::{Blobs, index_entries, snapshot_worktree};
+use crate::checkpoint::snapshot::{Blobs, ignored_paths, index_entries, snapshot_worktree};
 use crate::checkpoint::support::{
     Filters, TreeEntry, TxPlan, check_expected_state, committer, content_hash, display_path, feed,
     finish_token, flatten_tree, open_repo, problem, quote, ref_content, reflog_line, repo_error,
@@ -87,7 +87,7 @@ const EXECUTABLE_MODE: u32 = 0o755;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AddRequest {
     /// Directory of the new working tree; a relative path is taken relative
-    /// to the `repo` argument. The directory must not exist.
+    /// to the `repo` argument. The directory must not exist or must be empty.
     pub path: PathBuf,
     /// Branch to check out or to create; named after the directory when
     /// absent.
@@ -110,6 +110,7 @@ pub struct AddPlan {
     tree: ObjectId,
     created_from: Option<String>,
     who: gix::actor::Signature,
+    replaces_empty_dir: bool,
 }
 
 impl AddPlan {
@@ -175,12 +176,12 @@ impl AddPlan {
 pub fn plan_add(repo_path: &Path, request: &AddRequest, ctx: &ExecCtx) -> Result<AddPlan> {
     let repo = open_repo(repo_path)?;
     let path = absolute_target(repo_path, &request.path);
-    if std::fs::symlink_metadata(&path).is_ok() {
+    if std::fs::symlink_metadata(&path).is_ok() && !is_empty_directory(&path) {
         return Err(problem(
             ErrorCode::GitWorktree,
             "path_exists",
             format!(
-                "`{}` already exists; pass a path that does not exist",
+                "`{}` already exists and is not an empty directory; pass another path",
                 path.display()
             ),
         ));
@@ -274,6 +275,7 @@ fn finish_plan(
         .and_then(|found| found.tree_id())
         .map_err(|err| repo_error(&format!("read commit {commit}"), err))?
         .detach();
+    let replaces_empty_dir = is_empty_directory(&path);
     Ok(AddPlan {
         repo: repo_path.to_path_buf(),
         common_dir: common_dir(repo),
@@ -284,7 +286,14 @@ fn finish_plan(
         tree,
         created_from,
         who: committer(repo, ctx),
+        replaces_empty_dir,
     })
+}
+
+/// Whether `path` is a directory, not a link to one, without entries.
+fn is_empty_directory(path: &Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|meta| meta.is_dir())
+        && std::fs::read_dir(path).is_ok_and(|mut entries| entries.next().is_none())
 }
 
 fn is_local_branch(repo: &gix::Repository, spec: &str) -> Result<bool> {
@@ -314,7 +323,11 @@ pub fn apply_add(plan: &AddPlan, tx: &mut dyn MutationTx) -> Result<GitWorktree>
         declare_branch(&mut writes, plan, &full, null, source)?;
     }
     writes.create_dirs(&registration.join(REFS_DIR))?;
-    writes.create_tree(&plan.path)?;
+    if plan.replaces_empty_dir {
+        writes.replace_with_tree(&plan.path)?;
+    } else {
+        writes.create_tree(&plan.path)?;
+    }
     let dot_git = plan.path.join(DOT_GIT);
     writes.create_file(
         &dot_git,
@@ -770,6 +783,10 @@ fn feed_files(hasher: &mut Sha256, path: &Path) {
         feed(hasher, file);
         feed(hasher, format!("{kind:?} {id}").as_bytes());
     }
+    for file in ignored_paths(&repo, &index).unwrap_or_default() {
+        feed(hasher, b"ignored");
+        feed(hasher, &file);
+    }
 }
 
 /// Whether the working tree at `path` differs from its index or the index
@@ -1187,6 +1204,51 @@ mod tests {
 
     fn read(path: &Path) -> String {
         std::fs::read_to_string(path).unwrap()
+    }
+
+    #[test]
+    fn add_uses_an_existing_empty_directory_and_undo_restores_it() {
+        let fixture = Fixture::new(&[("a.txt", "a\n"), ("d/b.txt", "b\n")]);
+        let journal = RecordingJournal::default();
+        let path = fixture.base().join("wt");
+        std::fs::create_dir(&path).unwrap();
+        let before = fixture.state();
+        add(&fixture, &journal, &request(&path, Some("feat"), None));
+        assert_eq!(read(&path.join("d/b.txt")), "b\n");
+        journal.undo_last();
+        assert_eq!(fixture.state(), before);
+        assert!(path.is_dir());
+    }
+
+    #[test]
+    fn add_refuses_a_directory_with_entries() {
+        let fixture = Fixture::new(&[("a.txt", "a\n")]);
+        let path = fixture.base().join("wt");
+        std::fs::create_dir(&path).unwrap();
+        std::fs::write(path.join("x"), "x").unwrap();
+        let err =
+            plan_add(&fixture.root, &request(&path, Some("f"), None), &test_ctx()).unwrap_err();
+        assert_eq!(err.data().problem.as_deref(), Some("path_exists"));
+    }
+
+    #[test]
+    fn state_token_changes_with_the_names_of_ignored_files() {
+        let fixture = Fixture::build(
+            RepoBuilder::new()
+                .file(".gitignore", "*.log\nbuild/\n")
+                .file("a.txt", "a\n")
+                .commit("initial"),
+        );
+        let journal = RecordingJournal::default();
+        let path = fixture.base().join("wt");
+        add(&fixture, &journal, &request(&path, Some("feat"), None));
+        let first = state_token(&fixture.root).unwrap();
+        std::fs::write(path.join("debug.log"), "x").unwrap();
+        let second = state_token(&fixture.root).unwrap();
+        assert_ne!(first, second);
+        std::fs::create_dir(path.join("build")).unwrap();
+        std::fs::write(path.join("build/out.bin"), "x").unwrap();
+        assert_ne!(second, state_token(&fixture.root).unwrap());
     }
 
     #[test]

@@ -1,0 +1,27 @@
+id = "commit/detached-head"
+description = "A commit on a detached HEAD moves HEAD only."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["checkout", "-q", "--detach", "HEAD"],
+  { write = "a.txt", content = "a2\n" },
+  ["add", "a.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "-m", "detached"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "detached", staged = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []

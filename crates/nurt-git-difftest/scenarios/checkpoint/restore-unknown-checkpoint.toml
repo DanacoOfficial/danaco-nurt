@@ -1,0 +1,25 @@
+id = "checkpoint/restore-unknown-checkpoint"
+description = "Restore of an unknown checkpoint fails with E_GIT_REF."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+]
+
+[git]
+args = ["rev-parse", "--verify", "refs/nurt/checkpoints/cp-9"]
+expect_exit = 128
+
+[nurt]
+command = "git.checkpoint"
+params = { "action" = "restore", "checkpoint_id" = "cp-9" }
+expect = "error:E_GIT_REF"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog"]
+undo = true
+ignore = []

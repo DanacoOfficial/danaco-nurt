@@ -1,0 +1,28 @@
+id = "ssh/push-tags"
+description = "Push over SSH with tags sends the branch, a lightweight and an annotated tag."
+corpus = "empty"
+transport = "ssh"
+setup = [
+  { git = ["init", "-q", "--bare", "-b", "main", "upstream"], cwd = ".." },
+  ["remote", "add", "origin", "$SERVER/upstream"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["tag", "v1"],
+  ["tag", "-a", "-m", "release", "v2"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "--tags", "origin", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main", tags = true }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@../upstream", "objects@../upstream", "fsck@../upstream"]
+undo = false
+ignore = []

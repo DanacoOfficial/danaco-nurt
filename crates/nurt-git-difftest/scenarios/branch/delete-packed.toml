@@ -1,0 +1,14 @@
+id = "branch/delete-packed"
+description = "Delete a branch stored only in packed-refs; its line is removed from packed-refs."
+corpus = "linear-small"
+setup = [
+  ["branch", "old", "HEAD~1"],
+  ["pack-refs", "--all"],
+]
+
+[git]
+args = ["branch", "-d", "old"]
+
+[nurt]
+command = "git.branch"
+params = { delete = "old" }

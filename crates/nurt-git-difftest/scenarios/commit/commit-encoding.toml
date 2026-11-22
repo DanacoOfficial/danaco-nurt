@@ -1,0 +1,28 @@
+id = "commit/commit-encoding"
+description = "i18n.commitEncoding adds the encoding header and converts the message."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["config", "i18n.commitEncoding", "ISO-8859-2"],
+  { write = "a.txt", content = "a2\n" },
+  ["add", "a.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "-m", "za\u017c\u00f3\u0142\u0107"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "za\u017c\u00f3\u0142\u0107", staged = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []
+strict = true

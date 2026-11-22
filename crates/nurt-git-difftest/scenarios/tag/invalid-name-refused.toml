@@ -1,0 +1,12 @@
+id = "tag/invalid-name-refused"
+description = "A tag name with two dots is rejected and nothing changes."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "a..b"]
+expect_exit = 128
+
+[nurt]
+command = "git.tag"
+params = { name = "a..b" }
+expect = "error:E_GIT_REF"

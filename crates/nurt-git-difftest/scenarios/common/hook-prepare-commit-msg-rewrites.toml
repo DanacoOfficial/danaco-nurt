@@ -1,0 +1,18 @@
+id = "common/hook-prepare-commit-msg-rewrites"
+description = "A prepare-commit-msg hook replaces the message before it is checked."
+corpus = "linear-small"
+setup = [
+  { write = "new.txt", content = "new\n" },
+  ["add", "new.txt"],
+  { write = ".git/hooks/prepare-commit-msg", content = "#!/bin/sh\nprintf 'prepared by hook\\n' > \"$1\"\n", executable = true },
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["commit", "-q", "-m", "hooked commit"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "hooked commit", staged = true, hooks = true }
+expect = "ok"

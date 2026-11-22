@@ -14,7 +14,7 @@ since: 0.1.0
 
 ```text
 git.stage <repo: path> action: list [paths: <list<path>>] [staged: <bool>] [exclude: <list<glob>>]
-git.stage <repo: path> action: add [paths: <list<path>>] [hunks: <list<text>>] [exclude: <list<glob>>]
+git.stage <repo: path> action: add [paths: <list<path>>] [hunks: <list<text>>] [exclude: <list<glob>>] [intent_to_add: <bool>]
 git.stage <repo: path> action: unstage [paths: <list<path>>] [hunks: <list<text>>]
 ```
 
@@ -62,6 +62,7 @@ file status, as entries written by `git apply --cached`.
 | `hunks` | `list<text>` | `[]` | Hunks by identifier, such as `file#2` or `file#2@3-5,8` for selected lines. |
 | `staged` | `bool` | `false` | With `list`: show staged instead of unstaged changes. |
 | `exclude` | `list<glob>` | `[]` | Paths left out of `add`; a pattern without `/` matches the file name in any directory. |
+| `intent_to_add` | `bool` | `false` | With `add`: record the paths in the index without their content. |
 
 `add` and `unstage` need `paths` or `hunks`.
 

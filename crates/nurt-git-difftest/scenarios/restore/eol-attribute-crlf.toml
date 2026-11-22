@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "restore/eol-attribute-crlf"
+description = "A restored file is written with the line endings of its attributes."
+corpus = "empty"
+setup = [
+  { write = ".gitattributes", content = "*.txt text eol=crlf\n" },
+  { write = "a.txt", content = "one\ntwo\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  { write = "a.txt", content = "side\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+]
+files = { "a.txt" = "changed\r\n" }
+
+[git]
+args = ["restore", "a.txt"]
+
+[nurt]
+command = "git.restore"
+params = { paths = ["a.txt"] }

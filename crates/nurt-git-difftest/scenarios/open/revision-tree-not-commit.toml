@@ -1,0 +1,36 @@
+id = "open/revision-tree-not-commit"
+description = "Revision HEAD^{tree} is a tree: git log lists no commit, Nurt rejects the revision."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "1\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "one"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "t.txt", content = "t\n" },
+  ["add", "t.txt"],
+  ["commit", "-q", "-m", "topic work"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "2\n" },
+  ["commit", "-q", "-a", "-m", "two"],
+  ["merge", "-q", "--no-edit", "topic"],
+  { write = "a.txt", content = "3\n" },
+  ["commit", "-q", "-a", "-m", "three"],
+  ["tag", "-a", "-m", "release", "v1"],
+  { write = "a.txt", content = "4\n" },
+  ["commit", "-q", "-a", "-m", "four"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["log", "-1", "--format=%H", "HEAD^{tree}"]
+expect_exit = 0
+
+[nurt]
+command = "git.log"
+params = { revision = "HEAD^{tree}", count = 1 }
+expect = "error:E_GIT_REVISION"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog"]
+undo = false
+ignore = []

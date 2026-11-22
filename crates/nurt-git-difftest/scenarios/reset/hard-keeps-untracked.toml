@@ -1,0 +1,25 @@
+id = "reset/hard-keeps-untracked"
+description = "A hard reset leaves untracked files alone."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "a.txt", content = "a2\n" },
+  ["rm", "-q", "b.txt"],
+  { write = "new.txt", content = "n2\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "second"],
+  { write = "untracked.txt", content = "u\n" },
+  { write = "dir/u2.txt", content = "u2\n" },
+]
+
+[git]
+args = ["reset", "-q", "--hard", "HEAD~1"]
+
+[nurt]
+command = "git.reset"
+params = { revision = "HEAD~1", mode = "hard" }
+

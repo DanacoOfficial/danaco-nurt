@@ -1,0 +1,26 @@
+id = "reset/mixed-keeps-local"
+description = "A mixed reset unstages changes and keeps the working tree versions."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "a.txt", content = "a2\n" },
+  ["rm", "-q", "b.txt"],
+  { write = "new.txt", content = "n2\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "second"],
+  { write = "a.txt", content = "staged\n" },
+  ["add", "a.txt"],
+  { write = "a.txt", content = "work\n" },
+]
+
+[git]
+args = ["reset", "-q", "HEAD"]
+
+[nurt]
+command = "git.reset"
+params = { revision = "HEAD" }
+

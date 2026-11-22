@@ -1,0 +1,28 @@
+id = "commit/paths-subdirectory"
+description = "paths selects a file in a subdirectory."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "d/x.txt", content = "x\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+steps = [
+  ["add", "--", "d/x.txt"],
+  ["commit", "-q", "-m", "sub", "--only", "--", "d/x.txt"],
+]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "sub", paths = ["d/x.txt"] }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []

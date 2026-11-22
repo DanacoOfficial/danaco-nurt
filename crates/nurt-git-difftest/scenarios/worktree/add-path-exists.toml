@@ -1,0 +1,30 @@
+id = "worktree/add-path-exists"
+description = "Add refuses an existing directory."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "a.txt", content = "a2\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "second"],
+  ["branch", "side"],
+  { write = "../wt/f.txt", content = "f\n" },
+]
+
+[git]
+args = ["worktree", "add", "../wt", "side"]
+expect_exit = 128
+
+[nurt]
+command = "git.worktree"
+params = { "action" = "add", "path" = "../wt", "branch" = "side" }
+expect = "error:E_GIT_WORKTREE"
+
+[compare]
+state = ["refs", "state_files"]
+undo = true
+ignore = []

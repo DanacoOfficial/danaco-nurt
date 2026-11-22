@@ -1,0 +1,34 @@
+id = "clone/branch-option"
+description = "Clone with a branch that is not the default branch."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+  { git = ["branch", "topic", "HEAD~1"], cwd = "../upstream" },
+  { git = ["switch", "-q", "-c", "dev"], cwd = "../upstream" },
+  { write = "../upstream/d.txt", content = "d\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "dev"], cwd = "../upstream" },
+  { git = ["switch", "-q", "main"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["clone", "-q", "-b", "topic", "$SERVER/upstream", "../cloned"]
+expect_exit = 0
+
+[nurt]
+command = "git.clone"
+params = { url = "$SERVER/upstream", to = "../cloned", branch = "topic" }
+expect = "ok"
+
+[compare]
+state = ["refs@../cloned", "reflog@../cloned", "config@../cloned", "state_files@../cloned", "fsck@../cloned", "worktree@../cloned", "index@../cloned"]
+undo = false
+ignore = []

@@ -1,0 +1,37 @@
+id = "diff/added-staged"
+description = "A staged new file is one added hunk."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "new.txt", content = "alpha\nbeta\n" },
+  ["add", "new.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "--cached"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = { staged = true }
+expect = "ok"
+record_count = 1
+[[nurt.records]]
+kind = "hunk"
+path = "new.txt"
+status = "added"
+staged = true
+old_start = 0
+old_len = 0
+new_start = 1
+new_len = 2
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

@@ -6,12 +6,16 @@
 //! Files of the checkpoint that differ from the working tree are written,
 //! tracked and untracked files that are not ignored and are absent from the
 //! checkpoint are removed, and ignored files stay. Directories left empty by
-//! the removals are removed as a whole. `HEAD` and references do not change.
+//! the removals are removed as a whole. Symbolic links and the executable bit
+//! are restored. `HEAD` and references do not change.
+//!
+//! The changes are executed by the working tree update engine of
+//! [`crate::apply`].
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-use gix::bstr::{BString, ByteSlice};
+use gix::bstr::{BStr, BString, ByteSlice};
 use gix::hash::ObjectId;
 use gix::objs::tree::EntryKind;
 use nurt_contracts::error::{ErrorCode, Result};
@@ -21,9 +25,12 @@ use nurt_contracts::report::{Change, ChangeAction, Notable, NotableEntry};
 use super::snapshot::{Blobs, snapshot_worktree};
 use super::support::{
     Filters, TreeEntry, TxPlan, display_path, expect_current, flatten_tree, in_scope, open_repo,
-    problem, quote, repo_error, repo_path, repo_relative, serialize_index, workdir, worktree_path,
+    problem, quote, repo_error, repo_path, repo_relative, workdir, worktree_path,
 };
 use super::{CreatePlan, read_commit, resolve};
+use crate::apply::{
+    self, ApplyContext, ApplyPlan, Content, EntryAction, EntryKind as ApplyKind, PlanEntry,
+};
 use crate::repo::pathspec::PathFilter;
 
 /// Parameters of a restore.
@@ -39,26 +46,24 @@ pub struct RestoreRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Removal {
-    File { expect: Expect },
-    Directory,
+struct Removal {
+    expect: Expect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Write {
-    kind: EntryKind,
+    kind: ApplyKind,
     id: ObjectId,
+    action: EntryAction,
     expect: Expect,
-    existed: bool,
-    replaces_directory: bool,
 }
 
 #[derive(Debug, Clone)]
-struct IndexPlan {
+struct IndexRestore {
     tree: ObjectId,
     scopes: Vec<BString>,
     excluded: PathFilter,
-    expected: Option<Vec<u8>>,
+    expect: Expect,
 }
 
 /// Changes computed by [`plan_restore`]: file contents are referenced by
@@ -68,9 +73,8 @@ pub struct RestorePlan {
     repo: PathBuf,
     root: PathBuf,
     index_path: PathBuf,
-    removals: BTreeMap<PathBuf, Removal>,
-    writes: BTreeMap<PathBuf, Write>,
-    index: Option<IndexPlan>,
+    entries: Vec<PlanEntry>,
+    index: Option<IndexRestore>,
     untracked_removed: u64,
     saved: Option<CreatePlan>,
 }
@@ -91,25 +95,29 @@ impl RestorePlan {
     /// Whether the working tree and index already match the checkpoint.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.removals.is_empty() && self.writes.is_empty() && self.index.is_none()
+        self.entries.is_empty() && self.index.is_none()
     }
 
     /// Planned changes of files, in the form of the effect report.
     #[must_use]
     pub fn changes(&self) -> Vec<Change> {
         let mut out: Vec<Change> = self
-            .removals
-            .keys()
-            .map(|path| Change::new(display_path(path), ChangeAction::Delete))
+            .entries
+            .iter()
+            .filter(|entry| entry.kind != Some(ApplyKind::Directory))
+            .filter_map(|entry| {
+                let action = match entry.action {
+                    EntryAction::Delete | EntryAction::Rmdir => ChangeAction::Delete,
+                    EntryAction::Create | EntryAction::Symlink => ChangeAction::Create,
+                    EntryAction::Modify | EntryAction::Chmod | EntryAction::TypeChange => {
+                        ChangeAction::Modify
+                    }
+                    EntryAction::Mkdir => return None,
+                };
+                let file = worktree_path(&self.root, entry.path.as_bstr()).ok()?;
+                Some(Change::new(display_path(&file), action))
+            })
             .collect();
-        out.extend(self.writes.iter().map(|(path, write)| {
-            let action = if write.existed {
-                ChangeAction::Modify
-            } else {
-                ChangeAction::Create
-            };
-            Change::new(display_path(path), action)
-        }));
         if self.index.is_some() {
             out.push(Change::new(
                 display_path(&self.index_path),
@@ -138,6 +146,25 @@ impl RestorePlan {
             out.push(NotableEntry::new(Notable::NothingMatched));
         }
         out
+    }
+}
+
+/// Expected state of the entry at `path`, without following a final link.
+fn observed_expect(path: &Path) -> Result<Expect> {
+    match std::fs::symlink_metadata(path) {
+        Ok(meta) if meta.is_file() => expect_current(path),
+        Ok(_) => Ok(Expect::Unchecked),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(Expect::Absent),
+        Err(err) => Err(repo_error(&format!("read `{}`", path.display()), err)),
+    }
+}
+
+fn apply_kind(kind: EntryKind) -> Option<ApplyKind> {
+    match kind {
+        EntryKind::Blob => Some(ApplyKind::File),
+        EntryKind::BlobExecutable => Some(ApplyKind::Executable),
+        EntryKind::Link => Some(ApplyKind::Symlink),
+        EntryKind::Tree | EntryKind::Commit => None,
     }
 }
 
@@ -205,56 +232,144 @@ pub fn plan_restore(repo_path: &Path, request: &RestoreRequest) -> Result<Restor
         untracked_removed += u64::from(current.untracked.contains(path));
         deleted.insert(path.clone());
         removals.insert(
-            file.clone(),
-            Removal::File {
-                expect: expect_current(&file)?,
+            path.clone(),
+            Removal {
+                expect: observed_expect(&file)?,
             },
         );
     }
+    let symlinks = repo
+        .filesystem_options()
+        .map_err(|err| repo_error("read the core settings", err))?
+        .symlink;
     let mut writes = BTreeMap::new();
     for (path, entry) in &target {
+        let Some(kind) = apply_kind(entry.0) else {
+            continue;
+        };
         if current.files.get(path) == Some(entry) {
             continue;
         }
         let file = worktree_path(&root, path.as_bstr())?;
         let metadata = std::fs::symlink_metadata(&file).ok();
-        let replaces_directory = metadata.as_ref().is_some_and(std::fs::Metadata::is_dir);
-        let expect = if replaces_directory {
-            Expect::Unchecked
-        } else {
-            expect_current(&file)?
+        let link = kind == ApplyKind::Symlink && symlinks;
+        let (action, expect) = match &metadata {
+            None => (
+                if link {
+                    EntryAction::Symlink
+                } else {
+                    EntryAction::Create
+                },
+                Expect::Absent,
+            ),
+            Some(found) if found.is_file() && !link => {
+                (EntryAction::Modify, expect_current(&file)?)
+            }
+            Some(_) => (EntryAction::TypeChange, observed_expect(&file)?),
         };
-        if replaces_directory {
-            removals.retain(|removed, _| !removed.starts_with(&file));
+        if metadata.as_ref().is_some_and(std::fs::Metadata::is_dir) {
+            removals.retain(|removed, _| !is_inside(removed, path));
         }
         writes.insert(
-            file,
+            path.clone(),
             Write {
-                kind: entry.0,
+                kind,
                 id: entry.1,
+                action,
                 expect,
-                existed: metadata.is_some(),
-                replaces_directory,
             },
         );
     }
     collapse_directories(&root, &deleted, &target, &writes, &mut removals)?;
-    let index = index_tree.map(|tree| IndexPlan {
-        tree,
-        scopes,
-        excluded,
-        expected: std::fs::read(repo.index_path()).ok(),
-    });
+    let entries = layout(&root, removals, writes)?;
+    let index = index_tree
+        .map(|tree| -> Result<IndexRestore> {
+            Ok(IndexRestore {
+                tree,
+                scopes,
+                excluded,
+                expect: expect_current(&repo.index_path())?,
+            })
+        })
+        .transpose()?;
     Ok(RestorePlan {
         repo: repo_path.to_path_buf(),
         root,
         index_path: repo.index_path(),
-        removals,
-        writes,
+        entries,
         index,
         untracked_removed,
         saved: None,
     })
+}
+
+/// Orders the changes as `git` does: removals, new directories (shallowest
+/// first), then files and links.
+fn layout(
+    root: &Path,
+    removals: BTreeMap<BString, Removal>,
+    writes: BTreeMap<BString, Write>,
+) -> Result<Vec<PlanEntry>> {
+    let mut removals = removals;
+    let mut directories: BTreeMap<BString, PlanEntry> = BTreeMap::new();
+    let mut fresh: Vec<BString> = Vec::new();
+    let needed: BTreeSet<BString> = writes
+        .keys()
+        .flat_map(|path| ancestors(path.as_bstr()))
+        .collect();
+    for dir in needed {
+        let file = worktree_path(root, dir.as_bstr())?;
+        let metadata = if fresh.iter().any(|parent| is_inside(&dir, parent)) {
+            None
+        } else {
+            std::fs::symlink_metadata(&file).ok()
+        };
+        let (action, expect) = match &metadata {
+            Some(found) if found.is_dir() => continue,
+            None => (EntryAction::Mkdir, Expect::Absent),
+            Some(_) => (EntryAction::TypeChange, observed_expect(&file)?),
+        };
+        removals.remove(&dir);
+        fresh.push(dir.clone());
+        directories.insert(
+            dir.clone(),
+            PlanEntry {
+                path: dir,
+                action,
+                expect,
+                content: None,
+                kind: Some(ApplyKind::Directory),
+            },
+        );
+    }
+    let mut entries: Vec<PlanEntry> = removals
+        .into_iter()
+        .map(|(path, removal)| PlanEntry {
+            path,
+            action: EntryAction::Delete,
+            expect: removal.expect,
+            content: None,
+            kind: None,
+        })
+        .collect();
+    entries.extend(directories.into_values());
+    entries.extend(writes.into_iter().map(|(path, write)| PlanEntry {
+        path,
+        action: write.action,
+        expect: write.expect,
+        content: Some(Content::Blob(write.id)),
+        kind: Some(write.kind),
+    }));
+    Ok(entries)
+}
+
+/// Leading directories of `path`, shallowest first.
+fn ancestors(path: &BStr) -> Vec<BString> {
+    path.iter()
+        .enumerate()
+        .filter(|(_, byte)| **byte == b'/')
+        .map(|(position, _)| path[..position].to_owned())
+        .collect()
 }
 
 /// Replaces the removal of every file of a directory by the removal of the
@@ -263,8 +378,8 @@ fn collapse_directories(
     root: &Path,
     deleted: &BTreeSet<BString>,
     target: &BTreeMap<BString, TreeEntry>,
-    writes: &BTreeMap<PathBuf, Write>,
-    removals: &mut BTreeMap<PathBuf, Removal>,
+    writes: &BTreeMap<BString, Write>,
+    removals: &mut BTreeMap<BString, Removal>,
 ) -> Result<()> {
     let mut candidates = BTreeSet::new();
     for path in deleted {
@@ -279,21 +394,22 @@ fn collapse_directories(
         if chosen.iter().any(|parent| is_inside(&dir, parent)) {
             continue;
         }
-        if target.keys().any(|path| is_inside(path, &dir)) {
+        if target.keys().any(|path| is_inside(path, &dir)) || writes.contains_key(&dir) {
             continue;
         }
         let absolute = worktree_path(root, dir.as_bstr())?;
-        if writes.contains_key(&absolute) {
-            continue;
-        }
         if only_deleted_files(&absolute, &dir, deleted)? {
             chosen.push(dir);
         }
     }
     for dir in chosen {
-        let absolute = worktree_path(root, dir.as_bstr())?;
-        removals.retain(|path, _| !path.starts_with(&absolute));
-        removals.insert(absolute, Removal::Directory);
+        removals.retain(|path, _| !is_inside(path, &dir));
+        removals.insert(
+            dir,
+            Removal {
+                expect: Expect::Unchecked,
+            },
+        );
     }
     Ok(())
 }
@@ -327,67 +443,52 @@ fn only_deleted_files(dir: &Path, rela: &BString, deleted: &BTreeSet<BString>) -
 /// # Errors
 ///
 /// Fails with `E_STALE` when a file or the index changed after planning.
-/// Fails with `E_GIT_LOCKED` when the index is locked. Fails with
-/// `E_GIT_UNSUPPORTED` and problem `symlink_restore` when a symbolic link
-/// must be written. Errors of the journal are passed on.
+/// Fails with `E_GIT_LOCKED` when the index is locked. Errors of the journal
+/// are passed on.
 pub fn apply_restore(plan: &RestorePlan, tx: &mut dyn MutationTx) -> Result<()> {
     if plan.is_empty() {
         return Ok(());
     }
     let repo = open_repo(&plan.repo)?;
-    let index = repo
-        .index_or_empty()
-        .map_err(|err| repo_error("read the index", err))?;
-    let mut filters = Filters::new(&repo, &index)?;
-    let mut changes = TxPlan::default();
-    if let Some(saved) = &plan.saved {
-        saved.declare(&mut changes, tx)?;
+    let ctx = ApplyContext::open(&repo)?;
+    let mut saved = TxPlan::default();
+    if let Some(checkpoint) = &plan.saved {
+        checkpoint.declare(&mut saved, tx)?;
     }
-    for (path, removal) in &plan.removals {
-        let expect = match removal {
-            Removal::File { expect } => expect.clone(),
-            Removal::Directory => Expect::Unchecked,
-        };
-        changes.delete(path, expect)?;
-    }
-    for (path, write) in &plan.writes {
-        if write.kind == EntryKind::Link {
-            return Err(problem(
-                ErrorCode::GitUnsupported,
-                "symlink_restore",
-                format!(
-                    "`{}` is a symbolic link in the checkpoint; restore it with `git.restore`",
-                    path.display()
-                ),
-            ));
+    saved.preserve(tx)?;
+    let index = match &plan.index {
+        Some(restore) => {
+            let current = repo
+                .index_or_empty()
+                .map_err(|err| repo_error("read the index", err))?;
+            Some(apply::IndexPlan {
+                state: restored_index(&repo, &current, restore)?,
+                expect: restore.expect.clone(),
+                record_resolve_undo: false,
+            })
         }
-        let blob = repo
-            .find_blob(write.id)
-            .map_err(|err| repo_error(&format!("read the content of `{}`", path.display()), err))?;
-        let rela = match path.strip_prefix(&plan.root) {
-            Ok(rela) => repo_path(rela)?,
-            Err(_) => BString::default(),
-        };
-        let content = filters.convert_to_worktree(rela.as_bstr(), &blob.data)?;
-        if write.replaces_directory {
-            changes.replace_with_file(path, content)?;
-        } else {
-            changes.write_file(path, content, write.expect.clone())?;
-        }
-    }
-    if let Some(index_plan) = &plan.index {
-        let bytes = restored_index(&repo, &index, index_plan)?;
-        changes.write_locked(&plan.index_path, bytes, index_plan.expected.clone())?;
-    }
-    changes.preserve(tx)?;
-    changes.apply_rest(tx)
+        None => None,
+    };
+    apply::apply_plan(
+        tx,
+        &ctx,
+        ApplyPlan {
+            entries: plan.entries.clone(),
+            index,
+            refs: Vec::new(),
+            state_files: Vec::new(),
+            carried: Vec::new(),
+            notable: Vec::new(),
+        },
+    )?;
+    saved.apply_rest(tx)
 }
 
 fn restored_index(
     repo: &gix::Repository,
     current: &gix::index::State,
-    plan: &IndexPlan,
-) -> Result<Vec<u8>> {
+    plan: &IndexRestore,
+) -> Result<gix::index::State> {
     let mut state = gix::index::State::new(repo.object_hash());
     for entry in current.entries() {
         let path = entry.path(current);
@@ -407,7 +508,8 @@ fn restored_index(
         }
     }
     state.sort_entries();
-    serialize_index(state, &repo.index_path())
+    state.remove_tree();
+    Ok(state)
 }
 
 fn index_mode(kind: EntryKind) -> gix::index::entry::Mode {
@@ -581,6 +683,91 @@ mod tests {
         let before = fixture.state();
         restore(&fixture, &journal, &request(&[], false));
         assert_eq!(fixture.read("item"), "file\n");
+        journal.undo_last();
+        assert_eq!(fixture.state(), before);
+    }
+
+    #[cfg(unix)]
+    fn mode(fixture: &Fixture, path: &str) -> u32 {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::symlink_metadata(fixture.root.join(path))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn restore_brings_back_symbolic_links_and_the_executable_bit() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        let fixture = Fixture::new(&[("a.txt", "a\n"), ("run.sh", "#!/bin/sh\n")]);
+        std::fs::set_permissions(
+            fixture.root.join("run.sh"),
+            std::fs::Permissions::from_mode(0o755),
+        )
+        .unwrap();
+        symlink("a.txt", fixture.root.join("link")).unwrap();
+        let journal = RecordingJournal::default();
+        checkpoint(&fixture, &journal, false);
+        std::fs::remove_file(fixture.root.join("link")).unwrap();
+        fixture.write("link", "plain\n");
+        std::fs::set_permissions(
+            fixture.root.join("run.sh"),
+            std::fs::Permissions::from_mode(0o644),
+        )
+        .unwrap();
+        fixture.write("run.sh", "changed\n");
+        let before = fixture.state();
+        restore(&fixture, &journal, &request(&[], false));
+        assert_eq!(
+            std::fs::read_link(fixture.root.join("link")).unwrap(),
+            Path::new("a.txt")
+        );
+        assert_eq!(fixture.read("run.sh"), "#!/bin/sh\n");
+        assert_ne!(mode(&fixture, "run.sh") & 0o100, 0);
+        journal.undo_last();
+        assert_eq!(fixture.state(), before);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn restore_recreates_a_removed_symbolic_link() {
+        use std::os::unix::fs::symlink;
+        let fixture = Fixture::new(&[("a.txt", "a\n")]);
+        symlink("a.txt", fixture.root.join("link")).unwrap();
+        let journal = RecordingJournal::default();
+        checkpoint(&fixture, &journal, false);
+        std::fs::remove_file(fixture.root.join("link")).unwrap();
+        restore(&fixture, &journal, &request(&[], false));
+        assert_eq!(
+            std::fs::read_link(fixture.root.join("link")).unwrap(),
+            Path::new("a.txt")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn restore_replacing_a_directory_by_a_file_gives_a_plain_file() {
+        let fixture = Fixture::new(&[("item", "file\n")]);
+        let journal = RecordingJournal::default();
+        checkpoint(&fixture, &journal, false);
+        fixture.remove("item");
+        fixture.write("item/inner.txt", "inner\n");
+        restore(&fixture, &journal, &request(&[], false));
+        assert_eq!(mode(&fixture, "item") & 0o111, 0);
+    }
+
+    #[test]
+    fn restore_replaces_a_file_that_blocks_a_directory() {
+        let fixture = Fixture::new(&[("dir/inner.txt", "inner\n")]);
+        let journal = RecordingJournal::default();
+        checkpoint(&fixture, &journal, false);
+        fixture.remove("dir");
+        fixture.write("dir", "blocker\n");
+        let before = fixture.state();
+        restore(&fixture, &journal, &request(&[], false));
+        assert_eq!(fixture.read("dir/inner.txt"), "inner\n");
         journal.undo_last();
         assert_eq!(fixture.state(), before);
     }

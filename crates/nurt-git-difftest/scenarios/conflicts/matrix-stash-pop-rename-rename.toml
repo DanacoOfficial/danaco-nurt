@@ -1,0 +1,24 @@
+id = "conflicts/matrix-stash-pop-rename-rename"
+description = "Pop of a stash that conflicts with a later commit, rename-rename: both sides rename src/lib.txt to different names."
+corpus = "linear-small"
+setup = [
+  { write = "binary.bin", hex = "00010203" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "add binary.bin"],
+  ["mv", "src/lib.txt", "src/left.txt"],
+  ["add", "-A"],
+  ["stash", "push", "-q"],
+  ["mv", "src/lib.txt", "src/right.txt"],
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main change"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["stash", "pop"]
+expect_exit = 1
+
+[nurt]
+command = "git.stash"
+params = { action = "pop" }
+expect = "error:E_GIT_CONFLICT"

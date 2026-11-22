@@ -87,10 +87,16 @@ pub fn apply_plan(
     {
         let mut state = index.state;
         run.refresh_stats(&plan.entries, &mut state)?;
+        let resolved = if index.record_resolve_undo {
+            super::resolve_undo::payload(&ctx.index, &state)
+        } else {
+            Vec::new()
+        };
         let mut bytes = Vec::new();
         gix_index::File::from_state(state, ctx.index_path.clone())
             .write_to(&mut bytes, gix_index::write::Options::default())
             .map_err(|err| repo_error(err, "serialize the index"))?;
+        super::resolve_undo::append(&mut bytes, &resolved, ctx.repo.object_hash());
         run.mutate(lock, Mutation::WriteBytes(bytes))?;
         run.mutate(rename, Mutation::Rename)?;
         run.report.index_written = true;

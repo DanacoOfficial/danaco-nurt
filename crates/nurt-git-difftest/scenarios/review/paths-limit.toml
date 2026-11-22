@@ -1,0 +1,32 @@
+id = "review/paths-limit"
+description = "paths limit the review to the selected files."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "p.txt", content = "<<<<<<< HEAD\n" },
+  ["add", "--", "p.txt"],
+  { write = "q.txt", content = "<<<<<<< HEAD\n" },
+  ["add", "q.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "--cached", "--check", "--", "p.txt"]
+expect_exit = 2
+
+[nurt]
+command = "git.review"
+params = { scope = "staged", paths = ["p.txt"], checks = ["conflict_markers"] }
+expect = "ok"
+records = [
+  { kind = "finding", path = "p.txt" },
+]
+record_count = 1
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

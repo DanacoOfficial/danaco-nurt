@@ -1,0 +1,11 @@
+id = "tag/delete-packed-lightweight"
+description = "Delete the lightweight tag v0.2 stored only in packed-refs; its line is removed."
+corpus = "packed-refs"
+
+[git]
+args = ["tag", "-d", "v0.2"]
+
+[nurt]
+command = "git.tag"
+params = { delete = "v0.2" }
+

@@ -1,0 +1,23 @@
+id = "clone/empty-remote"
+description = "Clone of an empty repository leaves an unborn branch with its branch section."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/keep.txt", content = "k\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["clone", "-q", "$SERVER/upstream", "../cloned"]
+expect_exit = 0
+
+[nurt]
+command = "git.clone"
+params = { url = "$SERVER/upstream", to = "../cloned" }
+expect = "ok"
+
+[compare]
+state = ["refs@../cloned", "reflog@../cloned", "config@../cloned", "worktree@../cloned", "fsck@../cloned"]
+undo = false
+ignore = []

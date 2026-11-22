@@ -1,0 +1,11 @@
+id = "branch/delete-merged"
+description = "Delete a branch whose commit is reachable from HEAD; the reference and its log are removed."
+corpus = "linear-small"
+setup = [["branch", "old", "HEAD~1"]]
+
+[git]
+args = ["branch", "-d", "old"]
+
+[nurt]
+command = "git.branch"
+params = { delete = "old" }

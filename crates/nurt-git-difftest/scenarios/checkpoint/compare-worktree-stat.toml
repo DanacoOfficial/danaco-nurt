@@ -1,0 +1,32 @@
+id = "checkpoint/compare-worktree-stat"
+description = "Compare of a checkpoint with the working tree lists the changed files."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "cptmp"],
+  { write = "a.txt", content = "a-old\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "nurt checkpoint cp-1: saved"],
+  ["update-ref", "refs/nurt/checkpoints/cp-1", "cptmp"],
+  ["switch", "-q", "main"],
+  ["branch", "-q", "-D", "cptmp"],
+]
+files = { "b.txt" = "b-work\n" }
+
+[git]
+args = ["rev-parse", "--git-dir"]
+
+[nurt]
+command = "git.checkpoint"
+params = { "action" = "compare", "checkpoint_id" = "cp-1", "stat" = true }
+record_count = 2
+
+[compare]
+state = ["index", "worktree", "refs", "reflog"]
+undo = true
+ignore = []

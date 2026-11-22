@@ -1,0 +1,27 @@
+id = "review/subject-past-tense"
+description = "A subject in the past tense is reported."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["status", "--short"]
+expect_exit = 0
+
+[nurt]
+command = "git.review"
+params = { scope = "staged", checks = ["subject"], message = "Added parser" }
+expect = "ok"
+records = [
+  { kind = "finding", rule = "subject_mood" },
+]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

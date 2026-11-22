@@ -12,13 +12,20 @@ use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 
 use nurt_contracts::error::ErrorCode;
+use nurt_contracts::value::{Record, RecordKind};
 use serde::Deserialize;
 
-use crate::error::{HarnessError, Result, io_error, scenario_error};
+use crate::error::{DifftestError, Result, io_error, scenario_error};
+use crate::normalize::ROOT_PLACEHOLDER;
+use crate::output::{OutputSpec, RawOutput};
 use crate::time::ScenarioClock;
 
 /// Extension of scenario files.
 pub const SCENARIO_EXTENSION: &str = "toml";
+
+/// Forms of the setup directives, for messages.
+const DIRECTIVE_USAGE: &str =
+    "use [\"@clock\", \"<date>\"] or [\"@write\", \"<path>\", \"<text>\"]";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -101,6 +108,9 @@ struct RawNurt {
     #[serde(default)]
     params: toml::Table,
     expect: Option<String>,
+    #[serde(default)]
+    records: Vec<toml::Table>,
+    record_count: Option<usize>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -112,6 +122,7 @@ struct RawCompare {
     ignore: Vec<String>,
     #[serde(default)]
     strict: bool,
+    output: Option<RawOutput>,
 }
 
 /// Operating system on which a scenario runs.
@@ -182,7 +193,9 @@ impl FromStr for Transport {
             "file" => Ok(Self::File),
             "http" => Ok(Self::Http),
             "ssh" => Ok(Self::Ssh),
-            other => Err(format!("unknown transport `{other}`, use file, http or ssh")),
+            other => Err(format!(
+                "unknown transport `{other}`, use file, http or ssh"
+            )),
         }
     }
 }
@@ -221,6 +234,8 @@ pub enum SetupStep {
     },
     /// A file write.
     Write(FileWrite),
+    /// The clock of the following `git` steps.
+    Clock(ScenarioClock),
 }
 
 /// The operation performed with the `git` program on copy A.
@@ -278,6 +293,80 @@ pub struct NurtAction {
     pub params: toml::Table,
     /// Expected result.
     pub expect: Expectation,
+    /// Records the command must output; each pattern matches a different
+    /// record.
+    pub records: Vec<RecordPattern>,
+    /// Exact number of output records, when set.
+    pub record_count: Option<usize>,
+}
+
+/// Expected output record of the Nurt command: its kind and the values of
+/// some of its fields, compared in plain JSON form.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RecordPattern {
+    /// Record kind, for example `finding`.
+    pub kind: RecordKind,
+    /// Expected fields; text values may contain `$ROOT`, the case directory
+    /// of the Nurt side.
+    pub fields: serde_json::Map<String, serde_json::Value>,
+}
+
+impl RecordPattern {
+    /// Returns `true` when `record` has the kind of the pattern and every
+    /// field of the pattern with an equal value.
+    ///
+    /// The directory `case_root` in text values of the record is read as
+    /// `$ROOT`.
+    #[must_use]
+    pub fn matches(&self, record: &Record, case_root: &Path) -> bool {
+        if record.kind != self.kind {
+            return false;
+        }
+        let serde_json::Value::Object(actual) = record.to_plain_json() else {
+            return false;
+        };
+        let native = case_root.to_string_lossy().into_owned();
+        let forward = native.replace('\\', "/");
+        self.fields.iter().all(|(name, expected)| {
+            actual
+                .get(name)
+                .is_some_and(|value| with_root_placeholder(value, &native, &forward) == *expected)
+        })
+    }
+}
+
+impl fmt::Display for RecordPattern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let fields = serde_json::Value::Object(self.fields.clone());
+        write!(f, "{} {fields}", self.kind.as_str())
+    }
+}
+
+/// `value` with the case directory replaced by `$ROOT` in every text.
+fn with_root_placeholder(
+    value: &serde_json::Value,
+    native: &str,
+    forward: &str,
+) -> serde_json::Value {
+    use serde_json::Value as Json;
+    match value {
+        Json::String(text) => Json::String(
+            text.replace(native, ROOT_PLACEHOLDER)
+                .replace(forward, ROOT_PLACEHOLDER),
+        ),
+        Json::Array(items) => Json::Array(
+            items
+                .iter()
+                .map(|item| with_root_placeholder(item, native, forward))
+                .collect(),
+        ),
+        Json::Object(map) => Json::Object(
+            map.iter()
+                .map(|(key, item)| (key.clone(), with_root_placeholder(item, native, forward)))
+                .collect(),
+        ),
+        other => other.clone(),
+    }
 }
 
 /// Part of the normalized state of a repository.
@@ -478,6 +567,8 @@ pub struct CompareSpec {
     pub ignore: Vec<IgnoreRule>,
     /// Compare dates, identities and raw object identifiers as well.
     pub strict: bool,
+    /// Comparison of the output records with the output of a `git` command.
+    pub output: Option<OutputSpec>,
 }
 
 /// A validated scenario.
@@ -517,7 +608,7 @@ impl Scenario {
     ///
     /// # Errors
     ///
-    /// Returns [`HarnessError::Scenario`] naming the first invalid field.
+    /// Returns [`DifftestError::Scenario`] naming the first invalid field.
     ///
     /// # Examples
     ///
@@ -533,12 +624,12 @@ impl Scenario {
     /// args = ["branch", "topic"]
     /// [nurt]
     /// command = "git.branch"
-    /// params = { name = "topic" }
+    /// params = { create = "topic" }
     /// "#;
     /// let scenario = Scenario::parse(text, Path::new("branch/create.toml"), "branch/create")?;
     /// assert_eq!(scenario.nurt.expect, Expectation::Ok);
     /// assert!(scenario.compare.undo);
-    /// # Ok::<(), nurt_git_difftest::error::HarnessError>(())
+    /// # Ok::<(), nurt_git_difftest::error::DifftestError>(())
     /// ```
     pub fn parse(text: &str, source: &Path, expected_id: &str) -> Result<Self> {
         let raw: RawScenario = toml::from_str(text)
@@ -551,7 +642,9 @@ impl Scenario {
             )));
         }
         if raw.description.trim().is_empty() {
-            return Err(fail("description is empty, describe the scenario".to_owned()));
+            return Err(fail(
+                "description is empty, describe the scenario".to_owned(),
+            ));
         }
         if raw.corpus.trim().is_empty() {
             return Err(fail(
@@ -601,8 +694,8 @@ impl Scenario {
     ///
     /// # Errors
     ///
-    /// Returns [`HarnessError::Io`] when the file cannot be read and
-    /// [`HarnessError::Scenario`] when it is invalid.
+    /// Returns [`DifftestError::Io`] when the file cannot be read and
+    /// [`DifftestError::Scenario`] when it is invalid.
     pub fn load(root: &Path, file: &Path) -> Result<Self> {
         let text = std::fs::read_to_string(file).map_err(io_error("read", file))?;
         let expected_id = scenario_id(root, file)?;
@@ -621,7 +714,7 @@ impl Scenario {
 ///
 /// # Errors
 ///
-/// Returns [`HarnessError::Scenario`] when the file is not below `root` or
+/// Returns [`DifftestError::Scenario`] when the file is not below `root` or
 /// its path is not valid Unicode.
 pub fn scenario_id(root: &Path, file: &Path) -> Result<String> {
     let relative = file
@@ -635,7 +728,12 @@ pub fn scenario_id(root: &Path, file: &Path) -> Result<String> {
                     .ok_or_else(|| scenario_error(file, "the file name is not valid Unicode"))?
                     .to_owned(),
             ),
-            _ => return Err(scenario_error(file, "the file path is not a plain relative path")),
+            _ => {
+                return Err(scenario_error(
+                    file,
+                    "the file path is not a plain relative path",
+                ));
+            }
         }
     }
     Ok(parts.join("/"))
@@ -645,7 +743,7 @@ pub fn scenario_id(root: &Path, file: &Path) -> Result<String> {
 ///
 /// # Errors
 ///
-/// Returns [`HarnessError::Io`] when a directory cannot be read.
+/// Returns [`DifftestError::Io`] when a directory cannot be read.
 pub fn find_files(root: &Path) -> Result<Vec<PathBuf>> {
     let mut found = Vec::new();
     let mut pending = vec![root.to_path_buf()];
@@ -654,7 +752,10 @@ pub fn find_files(root: &Path) -> Result<Vec<PathBuf>> {
             let path = entry.map_err(io_error("read directory", &dir))?.path();
             if path.is_dir() {
                 pending.push(path);
-            } else if path.extension().is_some_and(|ext| ext == SCENARIO_EXTENSION) {
+            } else if path
+                .extension()
+                .is_some_and(|ext| ext == SCENARIO_EXTENSION)
+            {
                 found.push(path);
             }
         }
@@ -670,8 +771,8 @@ pub fn find_files(root: &Path) -> Result<Vec<PathBuf>> {
 ///
 /// # Errors
 ///
-/// Returns [`HarnessError::Io`] when the directory tree cannot be listed.
-pub fn load_all(root: &Path) -> Result<(Vec<Scenario>, Vec<HarnessError>)> {
+/// Returns [`DifftestError::Io`] when the directory tree cannot be listed.
+pub fn load_all(root: &Path) -> Result<(Vec<Scenario>, Vec<DifftestError>)> {
     let mut scenarios = Vec::new();
     let mut errors = Vec::new();
     for file in find_files(root)? {
@@ -685,16 +786,16 @@ pub fn load_all(root: &Path) -> Result<(Vec<Scenario>, Vec<HarnessError>)> {
 
 fn convert_step(step: RawStep) -> Result<SetupStep, String> {
     match step {
+        RawStep::Args(args) if args.first().is_some_and(|first| first.starts_with('@')) => {
+            convert_directive(&args)
+        }
         RawStep::Args(args) => Ok(SetupStep::Git {
             args: check_git_args(args, "setup step")?,
             cwd: None,
         }),
         RawStep::Git(step) => Ok(SetupStep::Git {
             args: check_git_args(step.git, "setup step")?,
-            cwd: step
-                .cwd
-                .map(|cwd| check_relative_path(&cwd, PathScope::Case))
-                .transpose()?,
+            cwd: step.cwd.map(|cwd| check_cwd(&cwd)).transpose()?,
         }),
         RawStep::Write(step) => {
             let spec = RawFileSpec {
@@ -707,6 +808,26 @@ fn convert_step(step: RawStep) -> Result<SetupStep, String> {
             let path = check_relative_path(&step.write, PathScope::Case)?;
             Ok(SetupStep::Write(file_write(path, spec)?))
         }
+    }
+}
+
+/// Converts a setup step written as `["@clock", "<date>"]` or
+/// `["@write", "<path>", "<text>"]`.
+fn convert_directive(args: &[String]) -> Result<SetupStep, String> {
+    match args {
+        [name, date] if name == "@clock" => ScenarioClock::parse(date).map(SetupStep::Clock),
+        [name, path, text] if name == "@write" => Ok(SetupStep::Write(FileWrite {
+            path: check_relative_path(path, PathScope::Case)?,
+            content: FileContent::Bytes(text.clone().into_bytes()),
+            executable: false,
+        })),
+        [name, ..] if name == "@clock" || name == "@write" => Err(format!(
+            "setup step `{name}` has the wrong number of arguments, {DIRECTIVE_USAGE}"
+        )),
+        [name, ..] => Err(format!(
+            "unknown setup directive `{name}`, {DIRECTIVE_USAGE}"
+        )),
+        [] => Err("setup step is empty, give the git arguments".to_owned()),
     }
 }
 
@@ -778,10 +899,7 @@ fn convert_git(git: RawGit) -> Result<GitAction, String> {
             .collect::<Result<_, _>>()?,
         _ => return Err("[git] needs exactly one of args or a non-empty steps".to_owned()),
     };
-    let cwd = git
-        .cwd
-        .map(|cwd| check_relative_path(&cwd, PathScope::Case))
-        .transpose()?;
+    let cwd = git.cwd.map(|cwd| check_cwd(&cwd)).transpose()?;
     Ok(GitAction {
         steps,
         expect_exit: git.expect_exit,
@@ -801,11 +919,40 @@ fn convert_nurt(nurt: RawNurt) -> Result<NurtAction, String> {
         ));
     }
     let expect = nurt.expect.as_deref().unwrap_or("ok").parse()?;
+    let records = nurt
+        .records
+        .into_iter()
+        .map(convert_record)
+        .collect::<Result<Vec<_>, String>>()?;
+    if nurt.record_count.is_some_and(|count| count < records.len()) {
+        return Err(
+            "[nurt] record_count is smaller than the number of [[nurt.records]], correct one of them"
+                .to_owned(),
+        );
+    }
     Ok(NurtAction {
         command: nurt.command,
         params: nurt.params,
         expect,
+        records,
+        record_count: nurt.record_count,
     })
+}
+
+fn convert_record(mut table: toml::Table) -> Result<RecordPattern, String> {
+    let kind = match table.remove("kind") {
+        Some(toml::Value::String(name)) => name
+            .parse::<RecordKind>()
+            .map_err(|_| format!("[[nurt.records]] kind `{name}` is not a record kind"))?,
+        _ => return Err("[[nurt.records]] needs kind = \"<record kind>\"".to_owned()),
+    };
+    let mut fields = serde_json::Map::new();
+    for (name, value) in table {
+        let json = serde_json::to_value(&value)
+            .map_err(|error| format!("[[nurt.records]] field `{name}`: {error}"))?;
+        fields.insert(name, json);
+    }
+    Ok(RecordPattern { kind, fields })
 }
 
 fn convert_compare(compare: RawCompare) -> Result<CompareSpec, String> {
@@ -831,11 +978,13 @@ fn convert_compare(compare: RawCompare) -> Result<CompareSpec, String> {
         .iter()
         .map(|rule| rule.parse())
         .collect::<Result<Vec<IgnoreRule>, String>>()?;
+    let output = compare.output.map(OutputSpec::from_raw).transpose()?;
     Ok(CompareSpec {
         state,
         undo: compare.undo.unwrap_or(true),
         ignore,
         strict: compare.strict,
+        output,
     })
 }
 
@@ -869,9 +1018,14 @@ fn check_relative_path(path: &str, scope: PathScope) -> Result<String, String> {
         ));
     }
     if path.starts_with('/') || path.as_bytes().get(1) == Some(&b':') {
-        return Err(format!("path `{path}` must be relative to the repository root"));
+        return Err(format!(
+            "path `{path}` must be relative to the repository root"
+        ));
     }
-    let parts: Vec<&str> = path.split('/').filter(|part| !part.is_empty() && *part != ".").collect();
+    let parts: Vec<&str> = path
+        .split('/')
+        .filter(|part| !part.is_empty() && *part != ".")
+        .collect();
     let ups = parts.iter().take_while(|part| **part == "..").count();
     let rest = &parts[ups..];
     if rest.contains(&"..") || ups > 1 || (ups == 1 && scope == PathScope::Worktree) {
@@ -899,13 +1053,24 @@ fn check_relative_path(path: &str, scope: PathScope) -> Result<String, String> {
     })
 }
 
+/// Validates the working directory of a `git` step: a path of the case
+/// directory, or `..` for the case directory itself.
+fn check_cwd(cwd: &str) -> Result<String, String> {
+    if cwd.trim_end_matches('/') == ".." {
+        return Ok("..".to_owned());
+    }
+    check_relative_path(cwd, PathScope::Case)
+}
+
 fn is_git_dir_name(name: &str) -> bool {
-    name.trim_end_matches(['.', ' ']).eq_ignore_ascii_case(".git")
+    name.trim_end_matches(['.', ' '])
+        .eq_ignore_ascii_case(".git")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nurt_contracts::value::Value;
 
     const MINIMAL: &str = r#"
 id = "merge/minimal"
@@ -933,6 +1098,8 @@ command = "git.status"
         assert_eq!(scenario.clock, ScenarioClock::default());
         assert_eq!(scenario.git.expect_exit, 0);
         assert_eq!(scenario.nurt.expect, Expectation::Ok);
+        assert!(scenario.nurt.records.is_empty());
+        assert_eq!(scenario.nurt.record_count, None);
         assert_eq!(scenario.compare.state.len(), Section::STANDARD.len());
         assert!(scenario.compare.undo);
         assert!(!scenario.compare.strict);
@@ -975,11 +1142,14 @@ ignore = ["worktree build/*", "config"]
             }
         );
         assert_eq!(scenario.files.len(), 3);
-        assert_eq!(scenario.files[0].content, FileContent::Bytes(vec![0, 0xff]));
+        assert_eq!(scenario.files[1].content, FileContent::Bytes(vec![0, 0xff]));
         assert_eq!(scenario.files[2].content, FileContent::Delete);
         assert_eq!(scenario.platforms, vec![Platform::Linux, Platform::Macos]);
         assert_eq!(scenario.git.expect_exit, 1);
-        assert_eq!(scenario.nurt.expect, Expectation::Error(ErrorCode::GitConflict));
+        assert_eq!(
+            scenario.nurt.expect,
+            Expectation::Error(ErrorCode::GitConflict)
+        );
         assert_eq!(
             scenario.compare.state[5].section,
             Section::Objects(Some("HEAD".into()))
@@ -992,6 +1162,81 @@ ignore = ["worktree build/*", "config"]
         assert!(scenario.compare.ignore[0].matches(&worktree, "build/out.txt"));
         assert!(!scenario.compare.ignore[0].matches(&worktree, "src/out.txt"));
         assert!(scenario.compare.ignore[1].matches(&StateSelector::main(Section::Config), "x"));
+    }
+
+    #[test]
+    fn converts_clock_and_write_directives() {
+        let text = format!(
+            "setup = [[\"@clock\", \"2026-02-01T00:00:00Z\"], [\"@write\", \"a.txt\", \"x\\n\"], [\"add\", \"a.txt\"]]\n{MINIMAL}"
+        );
+        let scenario = parse(&text).unwrap();
+        assert_eq!(
+            scenario.setup[0],
+            SetupStep::Clock(ScenarioClock::parse("2026-02-01T00:00:00Z").unwrap())
+        );
+        assert!(matches!(
+            &scenario.setup[1],
+            SetupStep::Write(write) if write.content == FileContent::Bytes(b"x\n".to_vec())
+        ));
+        assert!(matches!(&scenario.setup[2], SetupStep::Git { .. }));
+        assert!(error_of(&format!("setup = [[\"@clock\"]]\n{MINIMAL}")).contains("wrong number"));
+        assert!(
+            error_of(&format!("setup = [[\"@sleep\", \"1\"]]\n{MINIMAL}"))
+                .contains("unknown setup directive")
+        );
+        assert!(
+            error_of(&format!("setup = [[\"@clock\", \"noon\"]]\n{MINIMAL}")).contains("clock")
+        );
+    }
+
+    #[test]
+    fn parses_expected_records_and_matches_them() {
+        let text = format!(
+            "{MINIMAL}record_count = 1\n[[nurt.records]]\nkind = \"finding\"\ncheck = \"final_newline\"\npath = \"$ROOT/repo/a.txt\"\n"
+        );
+        let scenario = parse(&text).unwrap();
+        assert_eq!(scenario.nurt.record_count, Some(1));
+        let pattern = &scenario.nurt.records[0];
+        let root = Path::new("/case/b");
+        let record = Record::new(RecordKind::Finding)
+            .with("check", Value::from("final_newline"))
+            .with("path", Value::Text("/case/b/repo/a.txt".into()))
+            .with("line", Value::Int(3));
+        assert!(pattern.matches(&record, root));
+        let other = record.clone().with("check", Value::from("whitespace"));
+        assert!(!pattern.matches(&other, root));
+        let status = Record::new(RecordKind::GitStatus).with("check", Value::from("final_newline"));
+        assert!(!pattern.matches(&status, root));
+        assert!(pattern.to_string().starts_with("finding {"));
+        assert!(
+            error_of(&format!("{MINIMAL}[[nurt.records]]\ncheck = \"x\"\n")).contains("needs kind")
+        );
+        assert!(
+            error_of(&format!("{MINIMAL}[[nurt.records]]\nkind = \"nope\"\n"))
+                .contains("not a record kind")
+        );
+        let too_few = format!("{MINIMAL}record_count = 0\n[[nurt.records]]\nkind = \"finding\"\n");
+        assert!(error_of(&too_few).contains("record_count is smaller"));
+    }
+
+    #[test]
+    fn parses_output_comparisons_in_both_forms() {
+        let preset = parse(&format!("{MINIMAL}[compare]\noutput = \"status\"\n")).unwrap();
+        let output = preset.compare.output.unwrap();
+        assert_eq!(output.format, crate::output::OutputFormat::Status);
+        assert_eq!(output.git[0], "status");
+        assert!(output.sort);
+        let table = parse(&format!(
+            "{MINIMAL}[compare.output]\ngit = [\"log\", \"--format=%H\"]\nrecord = \"{{id}}\"\nkind = \"commit\"\n"
+        ))
+        .unwrap();
+        let output = table.compare.output.unwrap();
+        assert_eq!(output.kind, Some(RecordKind::Commit));
+        assert!(!output.sort);
+        assert!(
+            error_of(&format!("{MINIMAL}[compare]\noutput = \"porcelain\"\n"))
+                .contains("is unknown")
+        );
     }
 
     #[test]
@@ -1072,7 +1317,15 @@ ignore = ["worktree build/*", "config"]
 
     #[test]
     fn rejects_file_paths_outside_the_working_tree() {
-        for path in ["../x", "/etc/x", ".git/config", ".GIT/x", "a/../../x", "a\\\\b", "C:/x"] {
+        for path in [
+            "../x",
+            "/etc/x",
+            ".git/config",
+            ".GIT/x",
+            "a/../../x",
+            "a\\\\b",
+            "C:/x",
+        ] {
             let text = format!("files = {{ \"{path}\" = \"x\" }}\n{MINIMAL}");
             assert!(parse(&text).is_err(), "{path}");
         }
@@ -1088,8 +1341,14 @@ ignore = ["worktree build/*", "config"]
 
     #[test]
     fn normalizes_relative_paths() {
-        assert_eq!(check_relative_path("./a//b/", PathScope::Worktree).unwrap(), "a/b");
-        assert_eq!(check_relative_path("../up/x", PathScope::Case).unwrap(), "../up/x");
+        assert_eq!(
+            check_relative_path("./a//b/", PathScope::Worktree).unwrap(),
+            "a/b"
+        );
+        assert_eq!(
+            check_relative_path("../up/x", PathScope::Case).unwrap(),
+            "../up/x"
+        );
         assert_eq!(check_relative_path("sub", PathScope::Case).unwrap(), "sub");
         assert!(check_relative_path("../../x", PathScope::Case).is_err());
         assert!(check_relative_path("..", PathScope::Case).is_err());
@@ -1105,14 +1364,20 @@ ignore = ["worktree build/*", "config"]
     fn formats_selectors_and_expectations_back() {
         let selector: StateSelector = "objects:main@../up".parse().unwrap();
         assert_eq!(selector.to_string(), "objects:main@../up");
-        assert_eq!(Expectation::Error(ErrorCode::GitDirty).to_string(), "error:E_GIT_DIRTY");
+        assert_eq!(
+            Expectation::Error(ErrorCode::GitDirty).to_string(),
+            "error:E_GIT_DIRTY"
+        );
         assert_eq!(Expectation::Ok.to_string(), "ok");
     }
 
     #[test]
     fn derives_identifiers_from_paths() {
         let root = Path::new("/s");
-        assert_eq!(scenario_id(root, Path::new("/s/merge/a.toml")).unwrap(), "merge/a");
+        assert_eq!(
+            scenario_id(root, Path::new("/s/merge/a.toml")).unwrap(),
+            "merge/a"
+        );
         assert!(scenario_id(root, Path::new("/t/a.toml")).is_err());
     }
 

@@ -1,0 +1,31 @@
+id = "checkpoint/restore-removes-untracked"
+description = "Restore removes untracked files that the checkpoint does not contain."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "cptmp"],
+  { write = "a.txt", content = "a-cp\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "nurt checkpoint cp-1: saved"],
+  ["update-ref", "refs/nurt/checkpoints/cp-1", "cptmp"],
+  ["switch", "-q", "main"],
+  ["branch", "-q", "-D", "cptmp"],
+]
+files = { "extra.txt" = "e\n", "tmp/deep/x.txt" = "x\n" }
+
+[git]
+steps = [["clean", "-fdq"], ["restore", "--source=refs/nurt/checkpoints/cp-1", "--worktree", "--", "."]]
+
+[nurt]
+command = "git.checkpoint"
+params = { "action" = "restore", "checkpoint_id" = "cp-1", "save_current" = false }
+
+[compare]
+state = ["index", "worktree", "refs", "reflog"]
+undo = true
+ignore = []

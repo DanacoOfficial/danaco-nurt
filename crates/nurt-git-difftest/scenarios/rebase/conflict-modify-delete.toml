@@ -1,0 +1,32 @@
+id = "rebase/conflict-modify-delete"
+description = "the branch modifies a file that main deleted."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "f.txt", content = "1\ntopic\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t1"],
+  ["switch", "-q", "main"],
+  ["rm", "-q", "f.txt"],
+  ["commit", "-q", "-m", "delete"],
+  ["switch", "-q", "topic"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "main"]
+expect_exit = 1
+
+[nurt]
+command = "git.rebase"
+params = { onto = "main" }
+expect = "error:E_GIT_CONFLICT"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

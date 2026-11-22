@@ -1,0 +1,12 @@
+id = "branch/delete-unmerged-refused"
+description = "Deleting topic, which has commits not reachable from HEAD, fails without force."
+corpus = "branchy-small"
+
+[git]
+args = ["branch", "-d", "topic"]
+expect_exit = 1
+
+[nurt]
+command = "git.branch"
+params = { delete = "topic" }
+expect = "error:E_GIT_REF"

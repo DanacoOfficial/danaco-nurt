@@ -1,0 +1,18 @@
+id = "conflicts/merge-modify-delete"
+description = "Merge of topic, which deletes a.txt that main modified: modify/delete conflict with stages 1 and 2."
+corpus = "branchy-small"
+setup = [
+  ["switch", "-q", "topic"],
+  ["rm", "-q", "a.txt"],
+  ["commit", "-q", "-m", "topic: delete a"],
+  ["switch", "-q", "main"],
+]
+
+[git]
+args = ["merge", "--no-edit", "topic"]
+expect_exit = 1
+
+[nurt]
+command = "git.merge"
+params = { branch = "topic" }
+expect = "error:E_GIT_CONFLICT"

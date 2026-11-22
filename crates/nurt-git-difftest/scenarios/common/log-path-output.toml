@@ -1,0 +1,13 @@
+id = "common/log-path-output"
+description = "The commits that touch docs/guide.md equal the ones of git log."
+corpus = "linear-small"
+
+[git]
+args = ["log", "--format=%s", "--", "docs/guide.md"]
+
+[nurt]
+command = "git.log"
+params = { count = 100, path = ["docs/guide.md"] }
+
+[compare]
+output = { format = "lines", git = ["log", "--format=%s", "--", "docs/guide.md"], record = "{subject}", kind = "commit" }

@@ -1,0 +1,28 @@
+id = "commit/paths-new-file"
+description = "paths records a new file with its whole content."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "n.txt", content = "new\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+steps = [
+  ["add", "--", "n.txt"],
+  ["commit", "-q", "-m", "paths", "--only", "--", "n.txt"],
+]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "paths", paths = ["n.txt"] }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []

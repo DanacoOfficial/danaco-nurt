@@ -1,0 +1,29 @@
+id = "push/deny-deletes"
+description = "receive.denyDeletes rejects the deletion of a branch."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  { git = ["config", "receive.denyDeletes", "true"], cwd = ".git/remote.git" },
+  ["branch", "topic"],
+  ["push", "-q", "origin", "main", "topic"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "origin", "--delete", "topic"]
+expect_exit = 1
+
+[nurt]
+command = "git.push"
+params = { branch = "topic", delete = true }
+expect = "error:E_GIT_PUSH_REJECTED"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = false
+ignore = []

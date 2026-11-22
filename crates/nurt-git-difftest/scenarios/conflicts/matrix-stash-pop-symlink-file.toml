@@ -1,0 +1,24 @@
+id = "conflicts/matrix-stash-pop-symlink-file"
+description = "Pop of a stash that conflicts with a later commit, symlink-file: the side adds the link ref, main adds the file ref."
+corpus = "linear-small"
+setup = [
+  { write = "binary.bin", hex = "00010203" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "add binary.bin"],
+  { write = "ref", symlink = "README.md" },
+  ["add", "-A"],
+  ["stash", "push", "-q"],
+  { write = "ref", content = "a regular file\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main change"],
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["stash", "pop"]
+expect_exit = 1
+
+[nurt]
+command = "git.stash"
+params = { action = "pop" }
+expect = "error:E_GIT_CONFLICT"

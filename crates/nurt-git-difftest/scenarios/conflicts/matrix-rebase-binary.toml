@@ -1,0 +1,26 @@
+id = "conflicts/matrix-rebase-binary"
+description = "Rebase of main onto side stops with a binary conflict: both sides change binary.bin to different bytes."
+corpus = "linear-small"
+setup = [
+  { write = "binary.bin", hex = "00010203" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "add binary.bin"],
+  ["switch", "-q", "-c", "side"],
+  { write = "binary.bin", hex = "00ff00ff" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side change"],
+  ["switch", "-q", "main"],
+  { write = "binary.bin", hex = "00aa00aa" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main change"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "side"]
+expect_exit = 1
+
+[nurt]
+command = "git.rebase"
+params = { onto = "side" }
+expect = "error:E_GIT_CONFLICT"

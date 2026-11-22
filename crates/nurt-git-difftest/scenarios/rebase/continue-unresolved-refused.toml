@@ -1,0 +1,41 @@
+id = "rebase/continue-unresolved-refused"
+description = "continue refuses an index with unresolved paths."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t1"],
+  { write = "f.txt", content = "1\ntopic\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t2"],
+  { write = "c.txt", content = "c\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t3"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "a main\n" },
+  { write = "f.txt", content = "1\nmain\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "m1"],
+  ["switch", "-q", "topic"],
+  ["-c", "alias.rbstop=!git rebase main || true", "rbstop"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "--continue"]
+expect_exit = 1
+
+[nurt]
+command = "git.rebase"
+params = { action = "continue" }
+expect = "error:E_GIT_CONFLICT"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

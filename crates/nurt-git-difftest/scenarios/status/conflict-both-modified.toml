@@ -1,0 +1,35 @@
+id = "status/conflict-both-modified"
+description = "Both sides modify the same lines of a file."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "base"],
+  ["checkout", "-q", "-b", "theirs"],
+  { write = "a.txt", content = "one\ntheirs\nthree\n" }, ["add", "a.txt"],
+  ["commit", "-q", "-m", "theirs"],
+  ["checkout", "-q", "-"],
+  { write = "a.txt", content = "one\nours\nthree\n" }, ["add", "a.txt"],
+  ["commit", "-q", "-m", "ours"],
+  ["-c", "alias.merge-stop=!git merge --no-edit theirs || :", "merge-stop"],
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["status", "--porcelain=v2"]
+expect_exit = 0
+
+[nurt]
+command = "git.status"
+params = {  }
+expect = "ok"
+record_count = 1
+[[nurt.records]]
+kind = "git_status"
+path = "a.txt"
+conflict = "both_modified"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

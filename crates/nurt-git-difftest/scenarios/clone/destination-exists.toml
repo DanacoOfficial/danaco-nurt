@@ -1,0 +1,29 @@
+id = "clone/destination-exists"
+description = "An existing destination is refused and left alone."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+  { write = "../cloned/keep.txt", content = "k\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["clone", "-q", "$SERVER/upstream", "../cloned"]
+expect_exit = 128
+
+[nurt]
+command = "git.clone"
+params = { url = "$SERVER/upstream", to = "../cloned" }
+expect = "error:E_EXISTS"
+
+[compare]
+state = ["refs"]
+undo = false
+ignore = []

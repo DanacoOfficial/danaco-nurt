@@ -1,0 +1,29 @@
+id = "show/exclude"
+description = "exclude leaves out matching files."
+corpus = "empty"
+setup = [
+  ["@clock", "2026-01-01T10:00:00Z"],
+  { write = "a.txt", content = "one\ntwo\nthree\n" }, ["add", "a.txt"], ["commit", "-q", "-m", "feat: add a"],
+  ["@clock", "2026-01-02T10:00:00Z"],
+  { write = "b.txt", content = "b\n" }, ["add", "b.txt"], ["commit", "-q", "-m", "fix(core): add b"],
+  ["@clock", "2026-01-03T10:00:00Z"],
+  { write = "a.txt", content = "one\nTWO\nthree\n" }, ["commit", "-q", "-a", "-m", "docs: change a"],
+  ["@clock", "2026-01-04T10:00:00Z"],
+  { write = "a.txt", content = "ONE\nTWO\nthree\n" }, { write = "b.txt", content = "B\n" }, ["commit", "-q", "-a", "-m", "change both"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["show", "HEAD", "--", ".", ":(exclude)a.txt"]
+expect_exit = 0
+
+[nurt]
+command = "git.show"
+params = { revision = "HEAD", exclude = ["a.*"] }
+expect = "ok"
+record_count = 2
+records = [{ kind = "hunk", path = "b.txt" }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

@@ -1,0 +1,10 @@
+id = "common/branch-create-from-revision"
+description = "Create branch topic at HEAD~2."
+corpus = "linear-small"
+
+[git]
+args = ["branch", "topic", "HEAD~2"]
+
+[nurt]
+command = "git.branch"
+params = { create = "topic", from = "HEAD~2" }

@@ -1,0 +1,12 @@
+id = "tag/existing-refused"
+description = "Creating the existing tag v1 fails and changes nothing."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "v1"]
+expect_exit = 128
+
+[nurt]
+command = "git.tag"
+params = { name = "v1" }
+expect = "error:E_GIT_REF"

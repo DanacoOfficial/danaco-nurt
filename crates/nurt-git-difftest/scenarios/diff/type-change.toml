@@ -1,0 +1,35 @@
+id = "diff/type-change"
+description = "A file replaced by a link is a deletion and an addition."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "dir/b.txt", symlink = "../a.txt" },
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["diff"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = {  }
+expect = "ok"
+record_count = 2
+[[nurt.records]]
+kind = "hunk"
+path = "dir/b.txt"
+status = "deleted"
+[[nurt.records]]
+kind = "hunk"
+path = "dir/b.txt"
+status = "added"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

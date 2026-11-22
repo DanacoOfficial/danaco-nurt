@@ -1,0 +1,25 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "apply/submodule-gitlink-added"
+description = "A gitlink added by the target is checked out as an empty directory without updating the submodule."
+corpus = "empty"
+setup = [
+  { write = "top.txt", content = "t\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  { write = "top.txt", content = "t2\n" },
+  ["add", "-A"],
+  ["update-index", "--add", "--cacheinfo", "160000,1111111111111111111111111111111111111111,sub"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+]
+
+[git]
+args = ["switch", "side"]
+
+[nurt]
+command = "git.switch"
+params = { branch = "side" }

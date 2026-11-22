@@ -1,0 +1,35 @@
+id = "fetch/depth-one"
+description = "Shallow fetch of one commit."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c3"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\nx\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c4"], cwd = "../upstream" },
+  ["remote", "add", "origin", "../upstream"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["fetch", "--depth=1", "origin"]
+expect_exit = 0
+
+[nurt]
+command = "git.fetch"
+params = { depth = 1, remote = "origin" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "state_files", "config", "fsck"]
+undo = true
+ignore = []

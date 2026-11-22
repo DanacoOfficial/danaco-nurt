@@ -13,7 +13,8 @@ use nurt_contracts::report::Notable;
 use nurt_contracts::services::{
     ProcessHost, ProgramOutcome, ProgramSpec, ServiceChild, ServiceSpawnSpec, Services,
 };
-use nurt_contracts::stage::{CancelToken, StageFrame};
+use nurt_contracts::stage::{ArgValue, CancelToken, StageFrame};
+use nurt_contracts::value::Value;
 
 use super::*;
 use crate::hooks::Hook;
@@ -949,4 +950,166 @@ fn sign_true_signs_without_commit_gpg_sign() {
     assert_eq!(error.code(), ErrorCode::GitSign);
     request.sign = None;
     assert!(commit(&fixture, &request).is_ok());
+}
+
+fn bound(pairs: &[(&str, Value)]) -> BoundArgs {
+    pairs
+        .iter()
+        .fold(BoundArgs::new(COMMAND), |args, (name, value)| {
+            args.with(*name, ArgValue::Value(value.clone()), false)
+        })
+}
+
+fn path_value(fixture: &Fixture) -> Value {
+    Value::Path(fixture.path().to_string_lossy().into_owned())
+}
+
+fn text_value(text: &str) -> Value {
+    Value::Text(text.to_owned())
+}
+
+#[test]
+fn stage_plans_and_applies_a_commit_from_bound_arguments() {
+    let fixture = with_identity(RepoBuilder::new())
+        .file("a.txt", "1\n")
+        .file("b.txt", "2\n")
+        .commit("one")
+        .build();
+    std::fs::write(fixture.path().join("a.txt"), "1+\n").unwrap();
+    std::fs::write(fixture.path().join("b.txt"), "2+\n").unwrap();
+    let ctx = context(None);
+    let command = GitCommit;
+    assert_eq!(command.descriptor().command, COMMAND);
+    let args = bound(&[
+        ("repo", path_value(&fixture)),
+        ("message", text_value("two")),
+        ("all", Value::Bool(true)),
+    ]);
+    let effect = command.as_effect().unwrap();
+    let plan = effect.plan(&args, StageInput::none(), &ctx).unwrap();
+    assert!(plan.changes.len() >= 2);
+    assert!(plan.bulk);
+    let journal = RecordingJournal::new();
+    let mut tx = journal.begin();
+    let outcome = effect.apply(&args, plan, tx.as_mut(), &ctx).unwrap();
+    tx.commit().unwrap();
+    assert!(outcome.changes.len() >= 2);
+    match outcome.output.data {
+        nurt_contracts::stage::StageData::Records(stream) => {
+            let records = stream.collect::<Result<Vec<_>>>().unwrap();
+            assert_eq!(records.len(), 2);
+        }
+        _ => panic!("expected records"),
+    }
+}
+
+#[test]
+fn stage_apply_rejects_a_plan_of_another_stage() {
+    let fixture = with_identity(RepoBuilder::new())
+        .file("a.txt", "1\n")
+        .commit("one")
+        .build();
+    let args = bound(&[("repo", path_value(&fixture))]);
+    let error = GitCommit
+        .apply(
+            &args,
+            EffectPlan::new(),
+            journal_tx().as_mut(),
+            &context(None),
+        )
+        .map(|_| ())
+        .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::StageFailed);
+}
+
+fn journal_tx() -> Box<dyn MutationTx> {
+    RecordingJournal::new().begin()
+}
+
+#[test]
+fn bound_arguments_are_validated() {
+    let fixture = RepoBuilder::new().file("a.txt", "1\n").build();
+    let repo = path_value(&fixture);
+    let missing_message = bound(&[("repo", repo.clone()), ("staged", Value::Bool(true))]);
+    assert_eq!(
+        request_from_args(&missing_message).unwrap_err().code(),
+        ErrorCode::MissingParam
+    );
+    let wrong_type = bound(&[("message", Value::Int(1)), ("staged", Value::Bool(true))]);
+    assert_eq!(
+        request_from_args(&wrong_type).unwrap_err().code(),
+        ErrorCode::Type
+    );
+    let wrong_list = bound(&[
+        ("message", text_value("m")),
+        ("paths", Value::List(vec![Value::Int(1)])),
+    ]);
+    assert_eq!(
+        request_from_args(&wrong_list).unwrap_err().code(),
+        ErrorCode::Type
+    );
+    let bad_trailer = bound(&[
+        ("message", text_value("m")),
+        ("staged", Value::Bool(true)),
+        ("trailers", Value::List(vec![text_value("no separator")])),
+    ]);
+    let error = request_from_args(&bad_trailer).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::InvalidValue);
+    assert_eq!(error.data().problem.as_deref(), Some("invalid_trailer"));
+    let no_repo = bound(&[("message", text_value("m")), ("staged", Value::Bool(true))]);
+    assert_eq!(
+        GitCommit
+            .as_effect()
+            .unwrap()
+            .plan(&no_repo, StageInput::none(), &context(None))
+            .map(|_| ())
+            .unwrap_err()
+            .code(),
+        ErrorCode::MissingParam
+    );
+    let full = bound(&[
+        ("message", text_value("m")),
+        ("paths", path_value(&fixture)),
+        ("author", text_value("A <a@x.invalid>")),
+        ("allow_empty", Value::Bool(true)),
+        ("hooks", Value::Bool(false)),
+        ("sign", Value::Bool(false)),
+        ("sign_off", Value::Bool(true)),
+        (
+            "exclude",
+            Value::List(vec![Value::Glob("*.log".to_owned())]),
+        ),
+        ("expect_state", text_value("token")),
+        (
+            "trailers",
+            Value::List(vec![text_value("Reviewed-by: R <r@x.invalid>")]),
+        ),
+    ]);
+    let request = request_from_args(&full).unwrap();
+    assert!(matches!(request.selection, Selection::Paths(ref paths) if paths.len() == 1));
+    assert!(request.allow_empty && request.sign_off && !request.hooks);
+    assert_eq!(request.sign, Some(false));
+    assert_eq!(request.exclude, ["*.log"]);
+    assert_eq!(request.expect_state.as_deref(), Some("token"));
+    assert_eq!(request.trailers.len(), 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn file_list_reports_type_changes_and_binary_files() {
+    let fixture = with_identity(RepoBuilder::new())
+        .file("a.txt", "1\n")
+        .file("b.txt", "2\n")
+        .commit("one")
+        .build();
+    std::fs::remove_file(fixture.path().join("a.txt")).unwrap();
+    std::os::unix::fs::symlink("b.txt", fixture.path().join("a.txt")).unwrap();
+    std::fs::write(fixture.path().join("blob.bin"), [0_u8, 1, 2, 0]).unwrap();
+    let outcome = commit(&fixture, &CommitRequest::new("two", Selection::All)).unwrap();
+    let files = outcome.commit.files.unwrap();
+    let find = |name: &str| files.iter().find(|file| file.path == name).unwrap();
+    assert_eq!(find("a.txt").status, GitFileState::TypeChanged);
+    assert_eq!(find("blob.bin").status, GitFileState::Added);
+    assert_eq!(find("blob.bin").binary, Some(true));
+    assert_eq!(find("a.txt").binary, Some(false));
 }

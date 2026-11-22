@@ -1,0 +1,33 @@
+id = "push/force-lease-stale"
+description = "A lease on a stale remote-tracking reference rejects the forced push."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["push", "-q", "origin", "main"],
+  ["clone", "-q", ".git/remote.git", "../other"],
+  { write = "../other/b.txt", content = "b\n" },
+  { git = ["add", "b.txt"], cwd = "../other" },
+  { git = ["commit", "-q", "-m", "other"], cwd = "../other" },
+  { git = ["push", "-q", "origin", "main"], cwd = "../other" },
+  ["commit", "-q", "--amend", "-m", "rewritten"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "--force-with-lease", "origin", "main"]
+expect_exit = 1
+
+[nurt]
+command = "git.push"
+params = { branch = "main", force = "lease" }
+expect = "error:E_GIT_PUSH_REJECTED"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = false
+ignore = []

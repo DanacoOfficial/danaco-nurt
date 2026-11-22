@@ -1,0 +1,10 @@
+id = "common/tag-annotated-at-revision"
+description = "Create the annotated tag release at HEAD~1 with a message."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "-a", "release", "-m", "release notes", "HEAD~1"]
+
+[nurt]
+command = "git.tag"
+params = { name = "release", message = "release notes", revision = "HEAD~1" }

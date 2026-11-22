@@ -1,0 +1,10 @@
+id = "branch/delete-several"
+description = "Delete topic and feature in one call with force."
+corpus = "branchy-small"
+
+[git]
+args = ["branch", "-D", "topic", "feature"]
+
+[nurt]
+command = "git.branch"
+params = { delete = ["topic", "feature"], force = true }

@@ -1,0 +1,27 @@
+id = "push/hidden-ref"
+description = "receive.hideRefs rejects updates of hidden references."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  { git = ["config", "receive.hideRefs", "refs/hidden"], cwd = ".git/remote.git" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "origin", "main:refs/hidden/x"]
+expect_exit = 1
+
+[nurt]
+command = "git.push"
+params = { branch = "main:refs/hidden/x" }
+expect = "error:E_GIT_PUSH_REJECTED"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = false
+ignore = []

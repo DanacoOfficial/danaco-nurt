@@ -1,0 +1,12 @@
+id = "common/branch-list-output"
+description = "The local branches listed by git.branch equal the ones of git branch."
+corpus = "branchy-small"
+
+[git]
+args = ["branch", "--format=%(refname:short)"]
+
+[nurt]
+command = "git.branch"
+
+[compare]
+output = { format = "lines", git = ["branch", "--format=%(refname:short)"], record = "{name}", kind = "branch", sort = true }

@@ -1,0 +1,27 @@
+id = "worktree/remove-dirty-force"
+description = "Remove with force deletes a working tree with untracked files."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["worktree", "add", "-q", "-b", "feat", "../wt"],
+  { write = "../wt/dirty.txt", content = "x\n" },
+]
+
+[git]
+args = ["worktree", "remove", "--force", "../wt"]
+expect_exit = 0
+
+[nurt]
+command = "git.worktree"
+params = { "action" = "remove", "path" = "../wt", "force" = true }
+expect = "ok"
+
+[compare]
+state = ["refs", "state_files"]
+undo = true
+ignore = []

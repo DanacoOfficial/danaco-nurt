@@ -1,0 +1,37 @@
+id = "rebase/onto-annotated-tag"
+description = "an annotated tag is peeled to its commit."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t1"],
+  { write = "c.txt", content = "c\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t2"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "a main\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "m1"],
+  ["switch", "-q", "topic"],
+  ["tag", "-a", "-m", "v1", "v1", "main"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "v1"]
+expect_exit = 0
+
+[nurt]
+command = "git.rebase"
+params = { onto = "v1" }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

@@ -1,0 +1,23 @@
+id = "show/file-binary"
+description = "Binary content is reported without text."
+corpus = "empty"
+setup = [
+  { write = "bin", hex = "0001020300ff" }, ["add", "bin"], ["commit", "-q", "-m", "binary"],
+
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["show", "HEAD:bin"]
+expect_exit = 0
+
+[nurt]
+command = "git.show"
+params = { revision = "HEAD", file = "bin" }
+expect = "ok"
+record_count = 1
+records = [{ kind = "content", binary = true, text = "", encoding = "binary" }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

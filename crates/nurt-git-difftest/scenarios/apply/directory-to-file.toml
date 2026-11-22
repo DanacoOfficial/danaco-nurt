@@ -1,0 +1,27 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "apply/directory-to-file"
+description = "A directory of tracked files replaced by a file in the target."
+corpus = "empty"
+setup = [
+  { write = "d/x.txt", content = "x\n" },
+  { write = "d/y.txt", content = "y\n" },
+  { write = "top.txt", content = "t\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  ["rm", "-q", "-r", "--", "d"],
+  { write = "d", content = "now a file\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+]
+
+[git]
+args = ["switch", "side"]
+
+[nurt]
+command = "git.switch"
+params = { branch = "side" }

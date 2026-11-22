@@ -1,0 +1,10 @@
+id = "common/commit-allow-empty"
+description = "Commit with an unchanged tree and allow_empty."
+corpus = "linear-small"
+
+[git]
+args = ["commit", "-q", "--allow-empty", "-m", "empty commit"]
+
+[nurt]
+command = "git.commit"
+params = { message = "empty commit", allow_empty = true, staged = true }

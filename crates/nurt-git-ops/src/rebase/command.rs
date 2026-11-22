@@ -1281,7 +1281,11 @@ fn conflict_index(
             entry.flags = old.flags;
         }
     }
-    IndexPlan { state, expect }
+    IndexPlan {
+        state,
+        expect,
+        record_resolve_undo: false,
+    }
 }
 
 fn with_dirty_fixes(error: Error, label: &str) -> Error {

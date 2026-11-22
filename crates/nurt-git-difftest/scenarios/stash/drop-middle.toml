@@ -1,0 +1,25 @@
+id = "stash/drop-middle"
+description = "Drop of a middle entry rewrites the reflog of refs/stash."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "a.txt", content = "one\n" },
+  ["stash", "push", "-q", "-m", "one"],
+  { write = "a.txt", content = "two\n" },
+  ["stash", "push", "-q", "-m", "two"],
+  { write = "a.txt", content = "three\n" },
+  ["stash", "push", "-q", "-m", "three"],
+]
+
+[git]
+args = ["stash", "drop", "-q", "stash@{1}"]
+
+[nurt]
+command = "git.stash"
+params = { action = "drop", stash = "stash@{1}" }
+
+

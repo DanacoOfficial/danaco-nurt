@@ -1,0 +1,26 @@
+id = "push/http-set-upstream"
+description = "Push over smart HTTP with set_upstream records the upstream of the branch in the configuration."
+corpus = "empty"
+transport = "http"
+setup = [
+  { git = ["init", "-q", "--bare", "-b", "main", "upstream"], cwd = ".." },
+  ["remote", "add", "origin", "$SERVER/upstream"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "-u", "origin", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main", set_upstream = true }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@../upstream", "objects@../upstream", "fsck@../upstream"]
+undo = false
+ignore = []

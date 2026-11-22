@@ -1,0 +1,28 @@
+id = "commit/staged-records-index-only"
+description = "staged records the index; unstaged and untracked changes stay."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "a.txt", content = "a2\n" },
+  ["add", "a.txt"],
+  { write = "b.txt", content = "b2\n" },
+  { write = "new.txt", content = "n\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "-m", "staged"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "staged", staged = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []

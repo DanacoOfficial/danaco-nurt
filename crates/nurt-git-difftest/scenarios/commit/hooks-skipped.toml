@@ -1,0 +1,26 @@
+id = "commit/hooks-skipped"
+description = "hooks false skips the hooks like --no-verify."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "a.txt", content = "a2\n" },
+  ["add", "a.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "--no-verify", "-m", "no hooks"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "no hooks", staged = true, hooks = false }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []

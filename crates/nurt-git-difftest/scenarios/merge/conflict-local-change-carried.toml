@@ -1,0 +1,34 @@
+id = "merge/conflict-local-change-carried"
+description = "A local change of an untouched path stays while the merge stops."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n4\n5\n" },
+  { write = "u.txt", content = "u\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "f.txt", content = "1\ntopic\n3\n4\n5\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "topic"],
+  ["switch", "-q", "main"],
+  { write = "f.txt", content = "1\nmain\n3\n4\n5\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "main"],
+]
+files = { "u.txt" = "local\n" }
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["merge", "--no-edit", "topic"]
+expect_exit = 1
+
+[nurt]
+command = "git.merge"
+params = { branch = "topic" }
+expect = "error:E_GIT_CONFLICT"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

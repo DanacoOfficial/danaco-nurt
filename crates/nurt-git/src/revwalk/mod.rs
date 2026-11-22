@@ -15,6 +15,7 @@ pub(crate) mod changes;
 pub(crate) mod combined;
 pub(crate) mod graph;
 pub(crate) mod lines;
+pub(crate) mod moves;
 pub(crate) mod paths;
 pub(crate) mod record;
 pub(crate) mod repo;

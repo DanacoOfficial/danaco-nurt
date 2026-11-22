@@ -1,0 +1,47 @@
+id = "sign/commit-ssh-config-gpgsign"
+description = "commit.gpgSign signs the commit without an explicit request. The configured signing program is ignored by Nurt, which signs with the key file; the program of the `git` side replays a signature made by ssh-keygen."
+corpus = "empty"
+platforms = ["linux"]
+setup = [
+  { write = "../signing-key", content = '''
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACBkZCbXfpcKJUqV1mJVZxrqEI5WER5tnv5njprmkDsaJQAAAJgURvgTFEb4
+EwAAAAtzc2gtZWQyNTUxOQAAACBkZCbXfpcKJUqV1mJVZxrqEI5WER5tnv5njprmkDsaJQ
+AAAEB02Y7717nVCALFs4L+jWhyuUj/Tg2fqs+CbxZeIS931WRkJtd+lwolSpXWYlVnGuoQ
+jlYRHm2e/meOmuaQOxolAAAAEW51cnQtc2lnbmluZy10ZXN0AQIDBA==
+-----END OPENSSH PRIVATE KEY-----
+''' },
+  { write = "../ssh-keygen-replay", content = '''
+#!/bin/sh
+[ "$1" = "-Y" ] && [ "$2" = "sign" ] && [ "$3" = "-n" ] && [ "$4" = "git" ] || exit 1
+for last; do :; done
+cat > "$last.sig" <<'SIG'
+-----BEGIN SSH SIGNATURE-----
+U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgZGQm136XCiVKldZiVWca6hCOVh
+EebZ7+Z46a5pA7GiUAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5
+AAAAQI4dq8p4ep4aaAe5403A2fryPiD5Q8TTkLVDdYrrGcfOGhZBGAalTd+MYvf1w8MlVk
+qBRpm7k5G42dIwKNRviAE=
+-----END SSH SIGNATURE-----
+SIG
+''', executable = true },
+  ["-c", 'alias.install-key=!mkdir -p "$HOME/.ssh" && cp ../signing-key "$HOME/.ssh/id_ed25519" && chmod 600 "$HOME/.ssh/id_ed25519"', "install-key"],
+  ["config", "gpg.format", "ssh"],
+  ["config", "user.signingKey", "~/.ssh/id_ed25519"],
+  ["config", "gpg.ssh.program", "../ssh-keygen-replay"],
+  ["config", "commit.gpgSign", "true"],
+  { write = "a.txt", content = '''
+signed content
+''' },
+  ["add", "-A"],
+]
+
+[git]
+args = ["commit", "-q", "-m", "signed root"]
+
+[nurt]
+command = "git.commit"
+params = { staged = true, message = "signed root" }
+
+[compare]
+strict = true

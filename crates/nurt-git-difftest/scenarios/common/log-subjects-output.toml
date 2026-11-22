@@ -1,0 +1,13 @@
+id = "common/log-subjects-output"
+description = "The subjects listed by git.log equal the ones of git log."
+corpus = "linear-small"
+
+[git]
+args = ["log", "--format=%s"]
+
+[nurt]
+command = "git.log"
+params = { count = 100 }
+
+[compare]
+output = { format = "lines", git = ["log", "--format=%s"], record = "{subject}", kind = "commit" }

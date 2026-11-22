@@ -1,0 +1,31 @@
+id = "review/conflict-markers-staged"
+description = "Staged conflict markers are errors."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "c.txt", content = "one\n<<<<<<< HEAD\nx\n>>>>>>> topic\n" },
+  ["add", "--", "c.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "--cached", "--check"]
+expect_exit = 2
+
+[nurt]
+command = "git.review"
+params = { scope = "staged", checks = ["conflict_markers"] }
+expect = "ok"
+records = [
+  { kind = "finding", rule = "conflict_markers", path = "c.txt", line = 2, severity = "error" },
+  { kind = "finding", rule = "conflict_markers", path = "c.txt", line = 4, severity = "error" },
+]
+record_count = 2
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

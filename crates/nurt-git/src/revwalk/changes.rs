@@ -7,10 +7,11 @@
 use bstr::{BStr, BString, ByteSlice};
 use gix::ObjectId;
 use gix::diff::tree_with_rewrites::Change;
-use gix::objs::tree::EntryMode;
+use gix::objs::tree::{EntryKind, EntryMode};
 use nurt_contracts::error::Error;
 use nurt_contracts::record::GitFileState;
 
+use super::lines;
 use super::paths::{PathFilter, entry_at};
 use super::repo::OpenRepo;
 
@@ -60,8 +61,11 @@ pub(crate) enum Detect {
     Nothing,
     /// Deleted and added files are paired into renames.
     Renames,
+    /// As [`Detect::Renames`], and an added file may also be a copy of a file
+    /// that the same change modified (`-C`).
+    Copies,
     /// As [`Detect::Renames`], and an added file may also be a copy of any
-    /// file of the old tree, changed or not.
+    /// file of the old tree, changed or not (`-C -C`).
     RenamesAndCopies,
 }
 
@@ -100,14 +104,82 @@ pub(crate) fn tree_changes(
         .filter_map(convert)
         .filter(|change| limit.is_none_or(|filter| filter.matches(change.path.as_ref())))
         .collect();
+    if detect == Detect::Copies {
+        pair_copies(repo, &mut changes)?;
+    }
     changes.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(changes)
+}
+
+/// Turns each added file that is similar enough to the previous content of a
+/// modified file into a copy of it.
+///
+/// `gix` pairs copies with the new content of modified files, so the pairing
+/// is done here against the content before the change, as `git diff -C`
+/// does.
+fn pair_copies(repo: &OpenRepo, changes: &mut [FileChange]) -> Result<(), Error> {
+    let sources: Vec<(BString, Side)> = changes
+        .iter()
+        .filter(|change| change.status == GitFileState::Modified)
+        .filter_map(|change| {
+            change
+                .old
+                .filter(|side| side.mode.kind() != EntryKind::Commit)
+                .map(|side| (change.path.clone(), side))
+        })
+        .collect();
+    if sources.is_empty() {
+        return Ok(());
+    }
+    for change in changes
+        .iter_mut()
+        .filter(|change| change.status == GitFileState::Added)
+    {
+        let Some(new) = change
+            .new
+            .filter(|side| side.mode.kind() != EntryKind::Commit)
+        else {
+            continue;
+        };
+        let target = repo.blob(new.id)?;
+        let mut best: Option<(f32, &(BString, Side))> = None;
+        for source in &sources {
+            let score = similarity(&repo.blob(source.1.id)?, &target);
+            if score >= SIMILARITY && best.is_none_or(|(top, _)| score > top) {
+                best = Some((score, source));
+            }
+        }
+        if let Some((_, (path, side))) = best {
+            change.status = GitFileState::Copied;
+            change.old_path = Some(path.clone());
+            change.old = Some(*side);
+        }
+    }
+    Ok(())
+}
+
+/// Fraction of the larger content that the two contents share as lines.
+fn similarity(old: &[u8], new: &[u8]) -> f32 {
+    let largest = old.len().max(new.len());
+    if largest == 0 || lines::is_binary(old) || lines::is_binary(new) {
+        return 0.0;
+    }
+    let new_lines = lines::split_lines(new);
+    let changed: usize = lines::edits(old, new)
+        .iter()
+        .map(|edit| {
+            new_lines
+                .get(edit.after.start as usize..edit.after.end as usize)
+                .map_or(0, |added| added.iter().map(|line| line.len()).sum())
+        })
+        .sum();
+    (new.len() - changed.min(new.len())) as f32 / largest as f32
 }
 
 fn rewrites(detect: Detect) -> Option<gix::diff::Rewrites> {
     let copies = match detect {
         Detect::Nothing => return None,
-        Detect::Renames => None,
+        Detect::Renames | Detect::Copies => None,
         Detect::RenamesAndCopies => Some(gix::diff::rewrites::Copies {
             source: gix::diff::rewrites::CopySource::FromSetOfModifiedFilesAndAllSources,
             percentage: Some(SIMILARITY),

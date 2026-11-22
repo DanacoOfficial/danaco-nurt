@@ -1,0 +1,10 @@
+id = "common/branch-rename"
+description = "Rename branch feature to feature-renamed, moving its reflog and adding the rename entry."
+corpus = "branchy-small"
+
+[git]
+args = ["branch", "-m", "feature", "feature-renamed"]
+
+[nurt]
+command = "git.branch"
+params = { rename = "feature", new_name = "feature-renamed" }

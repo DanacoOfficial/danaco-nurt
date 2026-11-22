@@ -1,0 +1,28 @@
+id = "fetch/explicit-remote-address"
+description = "Fetch from an address leaves only FETCH_HEAD."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["fetch", "$SERVER/upstream"]
+expect_exit = 0
+
+[nurt]
+command = "git.fetch"
+params = { remote = "$SERVER/upstream" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "state_files", "fsck"]
+undo = true
+ignore = []

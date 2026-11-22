@@ -20,7 +20,8 @@ git.worktree <repo> action: remove path: <path> [force: <bool>] [checkpoint: <bo
 
 ## Description
 
-`add` creates a linked working tree in a directory that does not exist yet.
+`add` creates a linked working tree in a directory that does not exist or is
+empty.
 The registration is written to `.git/worktrees/<name>/` with the files `HEAD`,
 `ORIG_HEAD`, `commondir`, `gitdir`, `index` and `logs/HEAD`, as `git worktree
 add` writes them, and the new directory receives a `.git` file that points at
@@ -54,12 +55,12 @@ deleted.
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
 | `action` | `enum(add\|list\|remove)` | required | Operation on working trees. |
-| `path` | `path` | required for `add` and `remove` | Directory of the working tree; a relative path is taken relative to `repo`. |
+| `path` | `path` | required for `add` and `remove` | Directory of the working tree; a relative path is taken relative to `repo`. For `add` the directory must not exist or must be empty. |
 | `branch` | `text` | last component of `path` | With `add`: branch checked out in the new working tree. |
 | `start_point` | `text` | `HEAD` | With `add`: revision a new branch starts from; not allowed for an existing branch. Without `branch`: local branch to check out, or revision to check out detached. |
 | `force` | `bool` | `false` | With `remove`: remove a working tree that has uncommitted changes or untracked files. |
 | `checkpoint` | `bool` | `false` | With `remove`: record the content of the working tree as a checkpoint (`git.checkpoint`) in the same operation; the effect names it in `checkpoint`. |
-| `expect_state` | `text` | none | State token from an earlier effect. The operation fails with `E_STALE` and problem `state_changed` when `HEAD`, the branches, a registration or a working tree changed since. |
+| `expect_state` | `text` | none | State token from an earlier effect. The operation fails with `E_STALE` and problem `state_changed` when `HEAD`, the branches, a registration or a working tree, including the names of its ignored files, changed since. |
 
 ## Input and output
 
@@ -110,7 +111,7 @@ git.worktree "/home/user/repo" action: remove path: "/home/user/repo-hotfix" for
 | Code | Meaning | Typical fix |
 |---|---|---|
 | `E_MISSING_PARAM` | `action` or, with `add` and `remove`, `path` is missing. | Pass `path` |
-| `E_GIT_WORKTREE` | The directory exists (`path_exists`), a registration names it (`already_registered`), the path is the main working tree (`main_worktree`), no working tree is registered there (`not_found`), or the working tree is locked (`locked`). | `git.worktree "/home/user/repo" action: list`; remove the `locked` file of the registration |
+| `E_GIT_WORKTREE` | The directory exists and is not empty (`path_exists`), a registration names it (`already_registered`), the path is the main working tree (`main_worktree`), no working tree is registered there (`not_found`), or the working tree is locked (`locked`). | `git.worktree "/home/user/repo" action: list`; remove the `locked` file of the registration |
 | `E_GIT_REF` | The branch is checked out in another working tree (`checked_out_elsewhere`), `start_point` is given for an existing branch (`branch_exists`), or the branch name is invalid (`invalid_name`). | Pass another `branch` |
 | `E_GIT_REVISION` | `start_point`, or `HEAD` of a repository without commits, names no commit. | Pass an existing revision as `start_point` |
 | `E_GIT_DIRTY` | The working tree to remove has modified, staged or untracked files (`local_changes`). | `git.worktree "/home/user/repo" action: remove path: "/home/user/repo-hotfix" force: true` |

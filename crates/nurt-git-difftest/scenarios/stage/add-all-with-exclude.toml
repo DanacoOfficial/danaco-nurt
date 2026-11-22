@@ -1,0 +1,16 @@
+id = "stage/add-all-with-exclude"
+description = "Stage the whole working tree except files matching *.log in any directory."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+]
+files = { "a.txt" = "b\n", "build.log" = "l\n", "d/x.log" = "l\n", "d/n.txt" = "n\n" }
+
+[git]
+args = ["add", "--", ".", ":(exclude)*.log"]
+
+[nurt]
+command = "git.stage"
+params = { action = "add", paths = ["."], exclude = ["*.log"] }

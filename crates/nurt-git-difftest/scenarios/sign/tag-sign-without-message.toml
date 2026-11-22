@@ -1,0 +1,22 @@
+id = "sign/tag-sign-without-message"
+description = "A signed tag needs a message; none is given and the tag is refused."
+corpus = "empty"
+platforms = ["linux"]
+setup = [
+  ["config", "gpg.format", "ssh"],
+  ["config", "gpg.ssh.program", "false"],
+  { write = "a.txt", content = '''
+one
+''' },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+]
+
+[git]
+args = ["tag", "-s", "v1", "HEAD"]
+expect_exit = 128
+
+[nurt]
+command = "git.tag"
+params = { name = "v1", sign = true }
+expect = "error:E_MISSING_PARAM"

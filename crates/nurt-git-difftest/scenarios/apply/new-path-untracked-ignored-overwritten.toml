@@ -1,0 +1,27 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "apply/new-path-untracked-ignored-overwritten"
+description = "An ignored untracked file where the target adds a tracked file is overwritten."
+corpus = "empty"
+setup = [
+  { write = ".gitignore", content = "*.log\n" },
+  { write = "a.txt", content = "a\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  { write = "build.log", content = "tracked\n" },
+  ["add", "-A"],
+  ["add", "-f", "build.log"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+]
+files = { "build.log" = "local log\n" }
+
+[git]
+args = ["switch", "side"]
+
+[nurt]
+command = "git.switch"
+params = { branch = "side" }

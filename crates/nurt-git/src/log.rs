@@ -8,6 +8,9 @@
 //! as `git log -- <path>` simplifies it. Filters that need the changes of a
 //! commit (`follow`, `pickaxe`, `diff_regex`) consider commits with one
 //! parent or none; merges have no changes of their own and never match them.
+//! The files of those changes are paired into renames unless `find_renames`
+//! is `false`, and into copies of files changed by the same commit with
+//! `find_copies`.
 
 use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap, HashSet};
@@ -128,6 +131,8 @@ struct Query {
     stat: bool,
     group_by: Option<GroupBy>,
     exclude: Vec<BString>,
+    /// Detection of moved files in the changes of a commit.
+    detect: Detect,
 }
 
 impl Query {
@@ -181,6 +186,13 @@ impl Query {
                 format!("`symbol` cannot be combined with `{other}`"),
             ));
         }
+        let detect = if args::flag(bound, "find_copies")? {
+            Detect::Copies
+        } else if args::flag_or(bound, "find_renames", true)? {
+            Detect::Renames
+        } else {
+            Detect::Nothing
+        };
         Ok(Self {
             revision: args::text(bound, "revision")?.unwrap_or_else(|| "HEAD".to_owned()),
             count: args::count(bound, "count")?.unwrap_or(DEFAULT_COUNT),
@@ -197,6 +209,7 @@ impl Query {
             stat,
             group_by,
             exclude: args::globs(bound, "exclude")?,
+            detect,
         })
     }
 }
@@ -369,9 +382,13 @@ impl Selector<'_, '_> {
                 }
                 changes
             }
-            None => {
-                changes::tree_changes(repo, old, info.tree, Detect::Renames, self.filter.as_ref())?
-            }
+            None => changes::tree_changes(
+                repo,
+                old,
+                info.tree,
+                self.query.detect,
+                self.filter.as_ref(),
+            )?,
         };
         found.retain(|change| !excluded(&self.query.exclude, change.path.as_ref()));
         if let Some(pickaxe) = &self.query.pickaxe {
@@ -1053,6 +1070,154 @@ mod tests {
         assert_eq!(files[0].path, "z.txt");
         assert_eq!(files[0].old_path.as_deref(), Some("a.txt"));
         assert_eq!(commit.stats.unwrap().files, 1);
+    }
+
+    #[test]
+    fn find_renames_and_find_copies_control_the_pairing_of_files() {
+        let mut fixture = Fixture::new();
+        let text = "one line of text\ntwo lines of text\nthree lines of text\nfour lines of text\n";
+        fixture.commit("first", &[("a.txt", Some(text)), ("b.txt", Some("b\n"))]);
+        fixture.commit(
+            "second",
+            &[
+                ("a.txt", Some(&format!("{text}more\n"))),
+                ("c.txt", Some(text)),
+                ("b.txt", None),
+                ("d.txt", Some("d\n")),
+            ],
+        );
+        let files = |values: &[(&str, Value)]| {
+            let mut all = vec![("stat", Value::Bool(true)), ("count", Value::Int(1))];
+            all.extend(values.iter().cloned());
+            let commit = Commit::try_from(log(&fixture, &all)[0].clone()).unwrap();
+            commit
+                .files
+                .unwrap()
+                .into_iter()
+                .map(|file| (file.path, file.status))
+                .collect::<Vec<_>>()
+        };
+        let added = (
+            "c.txt".to_owned(),
+            nurt_contracts::record::GitFileState::Added,
+        );
+        let copied = (
+            "c.txt".to_owned(),
+            nurt_contracts::record::GitFileState::Copied,
+        );
+        assert!(files(&[]).contains(&added));
+        assert!(files(&[("find_copies", Value::Bool(true))]).contains(&copied));
+        assert!(files(&[("find_renames", Value::Bool(false))]).contains(&added));
+    }
+
+    /// Number of commits of the history used to compare the speed of the
+    /// command with `git log`.
+    const LARGE_HISTORY: u32 = 100_000;
+
+    /// Fields of a `commit` record that `git log` is asked for: identifiers,
+    /// authors, times, parents, tree, names of references and message.
+    const LOG_FORMAT: &str =
+        "--format=%H%x00%h%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%P%x00%T%x00%D%x00%s%x00%B";
+
+    /// Slowest accepted time of the command, as a multiple of the time of
+    /// `git log`.
+    const SLOWDOWN_LIMIT: f64 = 2.0;
+
+    /// A linear history of `LARGE_HISTORY` commits, each changing one file,
+    /// created with `git fast-import` and indexed by a commit graph.
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "the measurement compares with the git program, which the test starts directly"
+    )]
+    fn large_repository(root: &std::path::Path) {
+        use std::io::Write as _;
+        use std::process::{Command, Stdio};
+
+        let git = |args: &[&str]| {
+            let status = Command::new("git")
+                .args(args)
+                .current_dir(root)
+                .env("LC_ALL", "C")
+                .status()
+                .unwrap();
+            assert!(status.success(), "git {args:?} failed");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        let mut stream = Vec::new();
+        for number in 1..=LARGE_HISTORY {
+            let message = format!("commit {number}");
+            let content = format!("line {number}\n");
+            let parent = if number > 1 {
+                format!("from :{}\n", number - 1)
+            } else {
+                String::new()
+            };
+            write!(
+                stream,
+                "commit refs/heads/main\nmark :{number}\ncommitter A <a@example.com> {} +0000\ndata {}\n{message}\n{parent}M 100644 inline f{}.txt\ndata {}\n{content}\n",
+                1_700_000_000 + i64::from(number),
+                message.len(),
+                number % 50,
+                content.len(),
+            )
+            .unwrap();
+        }
+        let mut import = Command::new("git")
+            .args(["fast-import", "--quiet"])
+            .current_dir(root)
+            .stdin(Stdio::piped())
+            .spawn()
+            .unwrap();
+        import.stdin.take().unwrap().write_all(&stream).unwrap();
+        assert!(import.wait().unwrap().success());
+        git(&["commit-graph", "write", "--reachable"]);
+    }
+
+    #[test]
+    #[ignore = "creates a history of 100000 commits and needs git; run with --release --ignored"]
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "the measurement compares with the git program, which the test starts directly"
+    )]
+    fn lists_a_history_of_one_hundred_thousand_commits_within_twice_the_time_of_git() {
+        use std::time::Instant as Clock;
+
+        let dir = tempfile::tempdir().unwrap();
+        large_repository(dir.path());
+        let root = dir.path().display().to_string();
+        let measure = |run: &dyn Fn()| {
+            run();
+            let start = Clock::now();
+            run();
+            start.elapsed().as_secs_f64()
+        };
+        let git_seconds = measure(&|| {
+            let output = std::process::Command::new("git")
+                .args(["log", LOG_FORMAT])
+                .current_dir(dir.path())
+                .output()
+                .unwrap();
+            assert!(output.status.success());
+        });
+        let args = bound(
+            COMMAND,
+            &[
+                ("repo", Value::Path(root)),
+                ("count", Value::Int(i64::from(LARGE_HISTORY))),
+            ],
+        );
+        let nurt_seconds = measure(&|| {
+            let records = execute(&GitLog, &args, &exec_ctx(None)).unwrap();
+            assert_eq!(records.len(), LARGE_HISTORY as usize);
+        });
+        eprintln!(
+            "git log: {git_seconds:.3} s, git.log: {nurt_seconds:.3} s, ratio {:.2}",
+            nurt_seconds / git_seconds
+        );
+        assert!(
+            nurt_seconds <= git_seconds * SLOWDOWN_LIMIT,
+            "git.log took {nurt_seconds:.3} s, git log {git_seconds:.3} s"
+        );
     }
 
     #[test]

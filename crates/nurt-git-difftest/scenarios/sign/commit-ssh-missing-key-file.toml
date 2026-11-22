@@ -1,0 +1,25 @@
+id = "sign/commit-ssh-missing-key-file"
+description = "A signing key path that does not exist is refused; nothing is written. `git` leaves COMMIT_EDITMSG behind after refusing, which Nurt does not write."
+corpus = "empty"
+platforms = ["linux"]
+setup = [
+  ["config", "gpg.format", "ssh"],
+  ["config", "user.signingKey", "~/.ssh/absent"],
+  ["config", "gpg.ssh.program", "false"],
+  { write = "a.txt", content = '''
+signed content
+''' },
+  ["add", "-A"],
+]
+
+[git]
+args = ["commit", "-q", "-S", "-m", "x"]
+expect_exit = 128
+
+[nurt]
+command = "git.commit"
+params = { staged = true, message = "x", sign = true }
+expect = "error:E_GIT_SIGN"
+
+[compare]
+ignore = ["state_files COMMIT_EDITMSG"]

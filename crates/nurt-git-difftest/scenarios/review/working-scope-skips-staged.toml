@@ -1,0 +1,27 @@
+id = "review/working-scope-skips-staged"
+description = "The working scope leaves staged changes out."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "s.txt", content = "<<<<<<< HEAD\n" },
+  ["add", "--", "s.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["status", "--short"]
+expect_exit = 0
+
+[nurt]
+command = "git.review"
+params = { scope = "working", checks = ["conflict_markers"] }
+expect = "ok"
+record_count = 0
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

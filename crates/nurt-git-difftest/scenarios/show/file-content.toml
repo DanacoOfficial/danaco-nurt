@@ -1,0 +1,28 @@
+id = "show/file-content"
+description = "file returns the content of a file at the revision."
+corpus = "empty"
+setup = [
+  ["@clock", "2026-01-01T10:00:00Z"],
+  { write = "a.txt", content = "one\ntwo\nthree\n" }, ["add", "a.txt"], ["commit", "-q", "-m", "feat: add a"],
+  ["@clock", "2026-01-02T10:00:00Z"],
+  { write = "b.txt", content = "b\n" }, ["add", "b.txt"], ["commit", "-q", "-m", "fix(core): add b"],
+  ["@clock", "2026-01-03T10:00:00Z"],
+  { write = "a.txt", content = "one\nTWO\nthree\n" }, ["commit", "-q", "-a", "-m", "docs: change a"],
+
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["show", "HEAD~1:a.txt"]
+expect_exit = 0
+
+[nurt]
+command = "git.show"
+params = { revision = "HEAD~1", file = "a.txt" }
+expect = "ok"
+record_count = 1
+records = [{ kind = "content", text = "one\ntwo\nthree\n", lines = 3, total_lines = 3, encoding = "utf-8" }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

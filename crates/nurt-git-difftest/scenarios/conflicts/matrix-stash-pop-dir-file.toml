@@ -1,0 +1,24 @@
+id = "conflicts/matrix-stash-pop-dir-file"
+description = "Pop of a stash that conflicts with a later commit, directory-file: the side adds the file thing, main adds thing/inner.txt."
+corpus = "linear-small"
+setup = [
+  { write = "binary.bin", hex = "00010203" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "add binary.bin"],
+  { write = "thing", content = "a file\n" },
+  ["add", "-A"],
+  ["stash", "push", "-q"],
+  { write = "thing/inner.txt", content = "inside\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main change"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["stash", "pop"]
+expect_exit = 1
+
+[nurt]
+command = "git.stash"
+params = { action = "pop" }
+expect = "error:E_GIT_CONFLICT"

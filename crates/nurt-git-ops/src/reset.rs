@@ -215,6 +215,7 @@ fn mixed_index(repo: &GitRepo, context: &ApplyContext<'_>, tree: ObjectId) -> Re
     Ok(IndexPlan {
         state: index::with_stats(repo.root(), state, old, &sources),
         expect: context.index_expect().clone(),
+        record_resolve_undo: false,
     })
 }
 

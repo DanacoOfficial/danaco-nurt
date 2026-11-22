@@ -1,0 +1,34 @@
+id = "fetch/forced-update"
+description = "A rewritten remote branch is updated with a forced update."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c3"], cwd = "../upstream" },
+  ["remote", "add", "origin", "../upstream"],
+  ["fetch", "-q", "origin"],
+  { git = ["commit", "-q", "--amend", "-m", "rewritten"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["fetch", "origin"]
+expect_exit = 0
+
+[nurt]
+command = "git.fetch"
+params = { remote = "origin" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "state_files", "config", "fsck"]
+undo = true
+ignore = []

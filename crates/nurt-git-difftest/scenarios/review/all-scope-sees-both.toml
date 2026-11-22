@@ -1,0 +1,31 @@
+id = "review/all-scope-sees-both"
+description = "The all scope reviews staged and unstaged changes against HEAD."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "s.txt", content = "<<<<<<< HEAD\n" },
+  ["add", "--", "s.txt"],
+  { write = "w.txt", content = "trail \n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["status", "--short"]
+expect_exit = 0
+
+[nurt]
+command = "git.review"
+params = { scope = "all", checks = ["conflict_markers", "whitespace"] }
+expect = "ok"
+records = [
+  { kind = "finding", path = "s.txt", line = 1 },
+]
+record_count = 2
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

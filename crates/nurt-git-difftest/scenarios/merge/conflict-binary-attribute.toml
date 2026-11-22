@@ -1,0 +1,36 @@
+id = "merge/conflict-binary-attribute"
+description = "The merge attribute binary keeps the current version of a text file."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n4\n5\n" },
+  { write = "u.txt", content = "u\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "f.txt", content = "1\ntopic\n3\n4\n5\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "topic"],
+  ["switch", "-q", "main"],
+  { write = "f.txt", content = "1\nmain\n3\n4\n5\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "main"],
+  { write = ".gitattributes", content = "f.txt merge=binary\n" },
+  ["add", ".gitattributes"],
+  ["commit", "-q", "-m", "attributes"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["merge", "--no-edit", "topic"]
+expect_exit = 1
+
+[nurt]
+command = "git.merge"
+params = { branch = "topic" }
+expect = "error:E_GIT_CONFLICT"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

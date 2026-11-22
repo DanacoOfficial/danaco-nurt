@@ -1,0 +1,18 @@
+id = "common/hook-pre-commit-rejects"
+description = "A pre-commit hook that exits 1 stops the commit and leaves the index and HEAD unchanged."
+corpus = "linear-small"
+setup = [
+  { write = "new.txt", content = "new\n" },
+  ["add", "new.txt"],
+  { write = ".git/hooks/pre-commit", content = "#!/bin/sh\necho rejected >&2\nexit 1\n", executable = true },
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["commit", "-q", "-m", "hooked commit"]
+expect_exit = 1
+
+[nurt]
+command = "git.commit"
+params = { message = "hooked commit", staged = true, hooks = true }
+expect = "error:E_GIT_HOOK"

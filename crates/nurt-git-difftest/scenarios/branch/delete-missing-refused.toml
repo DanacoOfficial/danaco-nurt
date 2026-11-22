@@ -1,0 +1,12 @@
+id = "branch/delete-missing-refused"
+description = "Deleting a branch that does not exist fails."
+corpus = "linear-small"
+
+[git]
+args = ["branch", "-d", "nope"]
+expect_exit = 1
+
+[nurt]
+command = "git.branch"
+params = { delete = "nope" }
+expect = "error:E_GIT_REF"

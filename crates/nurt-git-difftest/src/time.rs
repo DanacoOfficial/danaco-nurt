@@ -307,6 +307,10 @@ mod tests {
             WallTime::from_unix_nanos(1_767_268_800 * NANOSECONDS_PER_SECOND)
         );
         assert_eq!(clock.stamp().wall, clock.now());
-        assert!(clock.sleep(Duration::from_secs(5), &CancelToken::new()).is_ok());
+        assert!(
+            clock
+                .sleep(Duration::from_secs(5), &CancelToken::new())
+                .is_ok()
+        );
     }
 }

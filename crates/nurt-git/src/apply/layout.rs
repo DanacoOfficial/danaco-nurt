@@ -26,6 +26,7 @@ pub(crate) fn finish(
     worktree: &mut Worktree<'_>,
     changes: Changes,
     write_index: bool,
+    record_resolve_undo: bool,
 ) -> Result<ApplyPlan> {
     let mut layout = Layout::default();
     layout.removals(worktree, &changes)?;
@@ -36,6 +37,7 @@ pub(crate) fn finish(
         Some(IndexPlan {
             state: build_index(&ctx.index, &changes)?,
             expect: ctx.index_expect.clone(),
+            record_resolve_undo,
         })
     } else {
         None

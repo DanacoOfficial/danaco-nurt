@@ -1,0 +1,10 @@
+id = "common/status-dirty"
+description = "Status of staged, unstaged, deleted and untracked changes changes nothing, the index included."
+corpus = "dirty-worktree"
+
+[git]
+args = ["status", "--porcelain=v2", "--untracked-files=all"]
+
+[nurt]
+command = "git.status"
+params = { untracked = "all" }

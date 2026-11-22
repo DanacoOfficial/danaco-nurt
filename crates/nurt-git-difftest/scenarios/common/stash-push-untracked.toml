@@ -1,0 +1,10 @@
+id = "common/stash-push-untracked"
+description = "Stash tracked changes together with untracked files."
+corpus = "dirty-worktree"
+
+[git]
+args = ["stash", "push", "-q", "-u"]
+
+[nurt]
+command = "git.stash"
+params = { action = "push", include_untracked = true }

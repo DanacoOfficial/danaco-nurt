@@ -1,0 +1,16 @@
+id = "stage/intent-to-add"
+description = "Record a new file as intent-to-add with an empty entry."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+]
+files = { "n.txt" = "new\n" }
+
+[git]
+args = ["add", "-N", "n.txt"]
+
+[nurt]
+command = "git.stage"
+params = { action = "add", paths = ["n.txt"], intent_to_add = true }

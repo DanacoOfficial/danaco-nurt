@@ -1,0 +1,18 @@
+id = "conflicts/stash-pop-content"
+description = "Pop of a stash whose change of README.md conflicts with a later commit: markers, stash entry kept."
+corpus = "linear-small"
+setup = [
+  ["@write", "README.md", "stash version\n"],
+  ["stash", "push", "-q"],
+  ["@write", "README.md", "committed version\n"],
+  ["commit", "-q", "-a", "-m", "change readme"],
+]
+
+[git]
+args = ["stash", "pop"]
+expect_exit = 1
+
+[nurt]
+command = "git.stash"
+params = { action = "pop" }
+expect = "error:E_GIT_CONFLICT"

@@ -1,0 +1,23 @@
+id = "blame/crlf"
+description = "Carriage returns are not part of the line text."
+corpus = "empty"
+setup = [
+  { write = "w.txt", content = "a\r\nb\r\n" }, ["add", "w.txt"], ["commit", "-q", "-m", "crlf"],
+
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["blame", "--porcelain", "HEAD", "--", "w.txt"]
+expect_exit = 0
+
+[nurt]
+command = "git.blame"
+params = { path = "w.txt", revision = "HEAD" }
+expect = "ok"
+record_count = 2
+records = [{ kind = "blame_line", no = 1, text = "a" }, { kind = "blame_line", no = 2, text = "b" }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

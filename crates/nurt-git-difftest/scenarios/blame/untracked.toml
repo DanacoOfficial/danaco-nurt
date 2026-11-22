@@ -1,0 +1,26 @@
+id = "blame/untracked"
+description = "An untracked file has no history."
+corpus = "empty"
+setup = [
+  ["@clock", "2026-01-01T10:00:00Z"],
+  { write = "a.txt", content = "one\ntwo\nthree\n" }, ["add", "a.txt"], ["commit", "-q", "-m", "feat: add a"],
+  ["@clock", "2026-01-02T10:00:00Z"],
+  { write = "b.txt", content = "b\n" }, ["add", "b.txt"], ["commit", "-q", "-m", "fix(core): add b"],
+  ["@clock", "2026-01-03T10:00:00Z"],
+  { write = "a.txt", content = "one\nTWO\nthree\n" }, ["commit", "-q", "-a", "-m", "docs: change a"],
+  { write = "u.txt", content = "u\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["blame", "--", "u.txt"]
+expect_exit = 128
+
+[nurt]
+command = "git.blame"
+params = { path = "u.txt" }
+expect = "error:E_NOT_FOUND"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

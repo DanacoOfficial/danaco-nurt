@@ -1,0 +1,26 @@
+id = "push/refspec-full-destination"
+description = "A refspec with a full destination creates a nested branch."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "origin", "main:refs/heads/deploy/prod"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main:refs/heads/deploy/prod" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = true
+ignore = []

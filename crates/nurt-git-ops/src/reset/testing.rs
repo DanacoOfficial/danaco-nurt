@@ -166,23 +166,6 @@ fn file_stat(path: &Path) -> Stat {
         .unwrap_or_default()
 }
 
-/// Builds the repository and records the file status data of the working
-/// tree files in the index, as `git` leaves it after a checkout.
-pub(crate) fn built(builder: RepoBuilder) -> Fixture {
-    let fx = builder.build();
-    let mut file = load_index(&fx);
-    let paths: Vec<_> = file
-        .entries()
-        .iter()
-        .map(|entry| entry.path(&file).to_owned())
-        .collect();
-    for (entry, path) in file.entries_mut().iter_mut().zip(paths) {
-        entry.stat = file_stat(&fx.path().join(path.to_str_lossy().as_ref()));
-    }
-    store_index(&fx, file);
-    fx
-}
-
 /// Records the working tree content of `rel` in the index, or removes the
 /// entry when the file does not exist, like `git add`.
 pub(crate) fn stage(fx: &Fixture, rel: &str) {
@@ -287,15 +270,14 @@ pub(crate) fn reflog_messages(fx: &Fixture, name: &str) -> Vec<String> {
 /// Two commits on `main`: `first` with `a.txt`, `b.txt`, `dir/c.txt`;
 /// `second` changes `a.txt`, removes `b.txt` and adds `new.txt`.
 pub(crate) fn two_commits() -> Fixture {
-    built(
-        RepoBuilder::new()
-            .file("a.txt", "a1\n")
-            .file("b.txt", "b1\n")
-            .file("dir/c.txt", "c1\n")
-            .commit("first")
-            .file("a.txt", "a2\n")
-            .remove("b.txt")
-            .file("new.txt", "n2\n")
-            .commit("second"),
-    )
+    RepoBuilder::new()
+        .file("a.txt", "a1\n")
+        .file("b.txt", "b1\n")
+        .file("dir/c.txt", "c1\n")
+        .commit("first")
+        .file("a.txt", "a2\n")
+        .remove("b.txt")
+        .file("new.txt", "n2\n")
+        .commit("second")
+        .build()
 }

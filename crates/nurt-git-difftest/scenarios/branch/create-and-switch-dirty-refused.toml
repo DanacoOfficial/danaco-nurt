@@ -1,0 +1,21 @@
+id = "branch/create-and-switch-dirty-refused"
+description = "A local change of a file that differs between the commits refuses the switch; no branch is created."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "a.txt", content = "two\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "second"],
+]
+files = { "a.txt" = "local\n" }
+
+[git]
+args = ["switch", "-c", "old", "HEAD~1"]
+expect_exit = 1
+
+[nurt]
+command = "git.branch"
+params = { create = "old", from = "HEAD~1", switch = true }
+expect = "error:E_GIT_DIRTY"

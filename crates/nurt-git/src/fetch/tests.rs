@@ -383,3 +383,13 @@ fn reflog_action_names_options_and_remote() {
     );
     assert_eq!(reflog_action(&FetchRequest::new("origin"), false), "fetch");
 }
+
+#[test]
+fn shallow_commits_reads_listed_identifiers_only() {
+    let first = "8a45cf70a2d766acccaddafc8d74b7ef939807a8";
+    let content = format!("{first}\nnot an identifier\n");
+    let commits = update::shallow_commits(content.as_bytes());
+    assert_eq!(commits.len(), 1);
+    assert!(commits.contains(&ObjectId::from_hex(first.as_bytes()).unwrap()));
+    assert!(update::shallow_commits(b"").is_empty());
+}

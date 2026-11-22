@@ -112,6 +112,15 @@ pub(crate) fn flag(args: &BoundArgs, name: &str) -> Result<bool, Error> {
     }
 }
 
+/// A boolean argument, `default` when absent.
+pub(crate) fn flag_or(args: &BoundArgs, name: &str, default: bool) -> Result<bool, Error> {
+    match args.value(name) {
+        None | Some(Value::Null) => Ok(default),
+        Some(Value::Bool(flag)) => Ok(*flag),
+        Some(_) => Err(type_error(args, name, "a boolean")),
+    }
+}
+
 /// A count: an integer that is 0 or more.
 pub(crate) fn count(args: &BoundArgs, name: &str) -> Result<Option<u64>, Error> {
     match args.value(name) {

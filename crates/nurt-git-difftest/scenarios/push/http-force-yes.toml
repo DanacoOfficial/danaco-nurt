@@ -1,0 +1,28 @@
+id = "push/http-force-yes"
+description = "Forced push over smart HTTP replaces a rewritten branch and moves the remote-tracking reference."
+corpus = "empty"
+transport = "http"
+setup = [
+  { git = ["init", "-q", "--bare", "-b", "main", "upstream"], cwd = ".." },
+  ["remote", "add", "origin", "$SERVER/upstream"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["push", "-q", "origin", "main"],
+  ["commit", "-q", "--amend", "-m", "rewritten"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "--force", "origin", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main", force = "yes" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@../upstream", "objects@../upstream", "fsck@../upstream"]
+undo = false
+ignore = []

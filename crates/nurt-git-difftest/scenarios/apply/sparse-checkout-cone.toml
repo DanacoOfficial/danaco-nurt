@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "apply/sparse-checkout-cone"
+description = "In cone mode, changed and new paths outside the selection get skip-worktree and no file."
+corpus = "empty"
+setup = [
+  { write = "keep/k.txt", content = "k\n" },
+  { write = "other/o.txt", content = "o\n" },
+  { write = "root.txt", content = "r\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  { write = "other/o.txt", content = "o2\n" },
+  { write = "other/new.txt", content = "n\n" },
+  { write = "keep/k2.txt", content = "k2\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+  ["sparse-checkout", "set", "--cone", "keep"],
+]
+
+[git]
+args = ["switch", "side"]
+
+[nurt]
+command = "git.switch"
+params = { branch = "side" }

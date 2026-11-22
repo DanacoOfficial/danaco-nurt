@@ -1,0 +1,17 @@
+id = "stage/add-deleted-file"
+description = "Staging a file deleted from the working tree removes its index entry."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+]
+files = { "b.txt" = { delete = true } }
+
+[git]
+args = ["add", "b.txt"]
+
+[nurt]
+command = "git.stage"
+params = { action = "add", paths = ["b.txt"] }

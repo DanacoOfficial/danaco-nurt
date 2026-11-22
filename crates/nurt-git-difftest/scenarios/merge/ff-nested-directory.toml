@@ -1,0 +1,30 @@
+id = "merge/ff-nested-directory"
+description = "A file in new nested directories is created by a fast-forward."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n4\n5\n" },
+  { write = "u.txt", content = "u\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "d/e/g.txt", content = "g\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "topic"],
+  ["switch", "-q", "main"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["merge", "--no-edit", "topic"]
+expect_exit = 0
+
+[nurt]
+command = "git.merge"
+params = { branch = "topic" }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

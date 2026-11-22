@@ -1,0 +1,16 @@
+id = "stage/crlf-lines"
+description = "Stage a hunk of a file with CRLF line endings; the carriage returns are kept."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\r\nb\r\nc\r\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+]
+files = { "a.txt" = "a\r\nB\r\nc\r\n", "sel.patch" = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1,3 +1,3 @@\n a\r\n-b\r\n+B\r\n c\r\n" }
+
+[git]
+args = ["apply", "--cached", "sel.patch"]
+
+[nurt]
+command = "git.stage"
+params = { action = "add", hunks = ["a.txt#1"] }

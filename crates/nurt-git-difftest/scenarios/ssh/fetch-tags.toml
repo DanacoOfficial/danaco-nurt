@@ -1,0 +1,31 @@
+id = "ssh/fetch-tags"
+description = "Fetch over SSH with tags receives a lightweight and an annotated tag created upstream."
+corpus = "empty"
+transport = "ssh"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "a.txt"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  ["remote", "add", "origin", "$SERVER/upstream"],
+  ["fetch", "-q", "origin"],
+  ["reset", "-q", "--hard", "origin/main"],
+  ["branch", "-q", "--set-upstream-to=origin/main", "main"],
+  { git = ["tag", "v1"], cwd = "../upstream" },
+  { git = ["tag", "-a", "-m", "release", "v2"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["fetch", "--tags", "origin"]
+expect_exit = 0
+
+[nurt]
+command = "git.fetch"
+params = { tags = true, remote = "origin" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "state_files", "config", "fsck"]
+undo = true
+ignore = []

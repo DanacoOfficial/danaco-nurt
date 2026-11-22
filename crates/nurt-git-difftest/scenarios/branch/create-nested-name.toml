@@ -1,0 +1,10 @@
+id = "branch/create-nested-name"
+description = "Create branch feature/login; the reference and its log live in nested directories."
+corpus = "linear-small"
+
+[git]
+args = ["branch", "feature/login"]
+
+[nurt]
+command = "git.branch"
+params = { create = "feature/login" }

@@ -1,0 +1,27 @@
+id = "push/pre-push-declines"
+description = "A pre-push hook that exits with an error stops the push before the request."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  { write = ".git/hooks/pre-push", content = "#!/bin/sh\nexit 1\n", executable = true },
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["push", "origin", "main"]
+expect_exit = 1
+
+[nurt]
+command = "git.push"
+params = { branch = "main" }
+expect = "error:E_GIT_HOOK"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = false
+ignore = []

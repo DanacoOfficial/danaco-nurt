@@ -1,0 +1,10 @@
+id = "common/tag-delete"
+description = "Delete the annotated tag v1.0."
+corpus = "branchy-small"
+
+[git]
+args = ["tag", "-d", "v1.0"]
+
+[nurt]
+command = "git.tag"
+params = { delete = "v1.0" }

@@ -1,0 +1,34 @@
+id = "diff/deleted-file"
+description = "A deleted file is one hunk without new lines."
+corpus = "empty"
+setup = [
+  { write = "gone.txt", content = "gone one\ngone two\n" },
+  ["add", "gone.txt"],
+  ["commit", "-q", "-m", "init"],
+]
+files = { "gone.txt" = { delete = true } }
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = {  }
+expect = "ok"
+record_count = 1
+[[nurt.records]]
+kind = "hunk"
+path = "gone.txt"
+status = "deleted"
+old_start = 1
+old_len = 2
+new_start = 0
+new_len = 0
+id = "gone.txt#1"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

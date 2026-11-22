@@ -1032,3 +1032,106 @@ fn plan_without_changes_is_empty_and_actions_have_stable_names() {
         ]
     );
 }
+
+#[test]
+fn reset_removes_paths_absent_from_target_and_restores_changed_files() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    let old = tree(
+        &repo,
+        &[
+            ("a.txt", F, "1\n"),
+            ("b.txt", F, "1\n"),
+            ("d/c.txt", F, "c\n"),
+        ],
+    );
+    let new = tree(&repo, &[("a.txt", F, "1\n"), ("b.txt", F, "2\n")]);
+    checkout(&repo, &journal, old);
+    std::fs::remove_file(repo.workdir().expect("workdir").join("a.txt")).expect("remove");
+    write(&repo, "b.txt", "local\n");
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let plan = plan_reset(&ctx, &new, ResetOptions::default()).expect("plan");
+    run(&repo, &journal, plan);
+    assert_eq!(read(&repo, "a.txt"), "1\n");
+    assert_eq!(read(&repo, "b.txt"), "2\n");
+    assert!(!exists(&repo, "d"));
+    assert_eq!(index_paths(&repo), ["a.txt", "b.txt"]);
+}
+
+#[test]
+fn reset_overwrites_untracked_file_when_allowed() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    let old = tree(&repo, &[("a.txt", F, "1\n")]);
+    let new = tree(&repo, &[("a.txt", F, "1\n"), ("n.txt", F, "n\n")]);
+    checkout(&repo, &journal, old);
+    write(&repo, "n.txt", "local\n");
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let plan = plan_reset(
+        &ctx,
+        &new,
+        ResetOptions {
+            overwrite_untracked: true,
+        },
+    )
+    .expect("plan");
+    run(&repo, &journal, plan);
+    assert_eq!(read(&repo, "n.txt"), "n\n");
+}
+
+#[test]
+fn new_tree_refuses_untracked_file_in_the_way() {
+    let (_dir, repo) = init();
+    let target = tree(&repo, &[("n.txt", F, "n\n")]);
+    write(&repo, "n.txt", "local\n");
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let error = plan_new_tree(&ctx, &target).expect_err("refused");
+    assert_eq!(error.code(), ErrorCode::GitDirty);
+    assert_eq!(detail(&error, "untracked_overwritten"), ["n.txt"]);
+}
+
+#[test]
+fn paths_with_malformed_pathspec_fail_with_arg_error() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    checkout(&repo, &journal, tree(&repo, &[("a.txt", F, "1\n")]));
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let error = plan_paths(
+        &ctx,
+        &PathsRequest {
+            source: PathSource::Index,
+            pathspec: vec![BString::from(":(bogus)a.txt")],
+            to_index: false,
+            to_worktree: true,
+        },
+    )
+    .expect_err("malformed");
+    assert_eq!(error.code(), ErrorCode::Arg);
+}
+
+#[test]
+fn paths_with_glob_restore_only_matching_files() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    checkout(
+        &repo,
+        &journal,
+        tree(&repo, &[("a.txt", F, "1\n"), ("b.md", F, "1\n")]),
+    );
+    write(&repo, "a.txt", "local\n");
+    write(&repo, "b.md", "local\n");
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let plan = plan_paths(
+        &ctx,
+        &PathsRequest {
+            source: PathSource::Index,
+            pathspec: vec![BString::from("*.txt")],
+            to_index: false,
+            to_worktree: true,
+        },
+    )
+    .expect("plan");
+    run(&repo, &journal, plan);
+    assert_eq!(read(&repo, "a.txt"), "1\n");
+    assert_eq!(read(&repo, "b.md"), "local\n");
+}

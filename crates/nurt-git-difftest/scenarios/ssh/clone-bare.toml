@@ -1,0 +1,31 @@
+id = "ssh/clone-bare"
+description = "Bare clone over SSH copies the branches of the remote without a working tree."
+corpus = "empty"
+transport = "ssh"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { write = "../upstream/dir/b.txt", content = "b\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "a.txt", "dir/b.txt"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { git = ["switch", "-q", "-c", "topic"], cwd = "../upstream" },
+  { write = "../upstream/t.txt", content = "t\n" },
+  { git = ["add", "t.txt"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "topic"], cwd = "../upstream" },
+  { git = ["switch", "-q", "main"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["clone", "-q", "--bare", "$SERVER/upstream", "../clone.git"]
+expect_exit = 0
+
+[nurt]
+command = "git.clone"
+params = { url = "$SERVER/upstream", to = "../clone.git", bare = true }
+expect = "ok"
+
+[compare]
+state = ["refs@../clone.git", "config@../clone.git", "fsck@../clone.git"]
+undo = true
+ignore = []

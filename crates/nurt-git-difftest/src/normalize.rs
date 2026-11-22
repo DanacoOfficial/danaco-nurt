@@ -16,13 +16,17 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest as _, Sha256};
 
-use crate::error::{HarnessError, Result};
+use crate::error::{DifftestError, Result};
 use crate::fsutil::{self, Entry};
 use crate::git::{GitEnv, GitProgram, join_args};
 use crate::scenario::{Section, StateSelector};
 
 /// Placeholder of the case directory in normalized values.
 pub const ROOT_PLACEHOLDER: &str = "$ROOT";
+
+/// Placeholder of the address of a case directory on the transport test
+/// server in normalized values.
+pub const SERVER_PLACEHOLDER: &str = "$SERVER";
 
 /// Longest file content shown as text in the `worktree` section.
 const INLINE_CONTENT_LIMIT: usize = 1024;
@@ -124,6 +128,7 @@ pub struct Normalizer<'a> {
     git: &'a GitProgram,
     env: GitEnv,
     strict: bool,
+    server: Option<String>,
 }
 
 impl<'a> Normalizer<'a> {
@@ -135,18 +140,57 @@ impl<'a> Normalizer<'a> {
             git,
             env: env.with_var("GIT_OPTIONAL_LOCKS", "0"),
             strict,
+            server: None,
         }
+    }
+
+    /// Replaces the address `<base>/<side>` of the transport test server by
+    /// [`SERVER_PLACEHOLDER`] in every value, `<side>` being the name of the
+    /// case directory of the snapshot. The address without the user name,
+    /// which `git` writes into reflog messages and `FETCH_HEAD`, is replaced
+    /// as well.
+    #[must_use]
+    pub fn with_server(mut self, base: Option<&str>) -> Self {
+        self.server = base.map(str::to_owned);
+        self
+    }
+
+    fn substitute(&self, section: SectionState, case_root: &Path) -> SectionState {
+        let section = match (&self.server, case_root.file_name()) {
+            (Some(base), Some(side)) => {
+                let address = format!("{base}/{}", side.to_string_lossy());
+                let without_user = without_userinfo(&address);
+                section
+                    .into_iter()
+                    .map(|(key, value)| {
+                        let value = value.replace(&address, SERVER_PLACEHOLDER);
+                        let value = match &without_user {
+                            Some(short) => value.replace(short, SERVER_PLACEHOLDER),
+                            None => value,
+                        };
+                        (key, value)
+                    })
+                    .collect()
+            }
+            _ => section,
+        };
+        substitute_root(section, case_root)
     }
 
     /// Records the initial object identifiers of every repository in `selectors`.
     ///
     /// # Errors
     ///
-    /// Fails with [`HarnessError`] when a repository cannot be read.
+    /// Fails with [`DifftestError`] when a repository cannot be read.
     pub fn baseline(&self, repo_root: &Path, selectors: &[StateSelector]) -> Result<Baseline> {
         let mut baseline = Baseline::default();
         for repo in repos_of(selectors) {
-            let view = self.view(&locate(repo_root, repo.as_deref()))?;
+            let dir = locate(repo_root, repo.as_deref());
+            if !dir.exists() {
+                baseline.tips.insert(repo, BTreeSet::new());
+                continue;
+            }
+            let view = self.view(&dir)?;
             let tips = self.tips(&view)?.into_iter().map(|(_, oid)| oid).collect();
             baseline.tips.insert(repo, tips);
         }
@@ -161,7 +205,7 @@ impl<'a> Normalizer<'a> {
     ///
     /// # Errors
     ///
-    /// Fails with [`HarnessError`] when a repository cannot be read; a
+    /// Fails with [`DifftestError`] when a repository cannot be read; a
     /// repository missing after the operation is reported as a section value
     /// instead.
     pub fn snapshot(
@@ -174,11 +218,14 @@ impl<'a> Normalizer<'a> {
         let mut state = RepoState::default();
         for repo in repos_of(selectors) {
             let dir = locate(repo_root, repo.as_deref());
-            let wanted: Vec<&StateSelector> =
-                selectors.iter().filter(|selector| selector.repo == repo).collect();
+            let wanted: Vec<&StateSelector> = selectors
+                .iter()
+                .filter(|selector| selector.repo == repo)
+                .collect();
             if !dir.exists() {
                 for selector in wanted {
-                    let missing = SectionState::from([("repository".to_owned(), "missing".to_owned())]);
+                    let missing =
+                        SectionState::from([("repository".to_owned(), "missing".to_owned())]);
                     state.insert(selector.clone(), missing);
                 }
                 continue;
@@ -189,7 +236,7 @@ impl<'a> Normalizer<'a> {
             let new_objects = self.new_objects(&view, old)?;
             for selector in wanted {
                 let section = self.section(&view, &selector.section, old, &new_objects)?;
-                state.insert(selector.clone(), substitute_root(section, case_root));
+                state.insert(selector.clone(), self.substitute(section, case_root));
             }
         }
         Ok(state)
@@ -233,10 +280,13 @@ impl<'a> Normalizer<'a> {
         let output = String::from_utf8_lossy(&self.run(dir, &args)?).into_owned();
         let mut lines = output.lines();
         let mut next = || {
-            lines.next().map(str::to_owned).ok_or_else(|| HarnessError::GitOutput {
-                args: join_args(&args),
-                detail: "fewer than three lines".to_owned(),
-            })
+            lines
+                .next()
+                .map(str::to_owned)
+                .ok_or_else(|| DifftestError::GitOutput {
+                    args: join_args(&args),
+                    detail: "fewer than three lines".to_owned(),
+                })
         };
         let git_dir = PathBuf::from(next()?);
         let common = PathBuf::from(next()?);
@@ -265,7 +315,11 @@ impl<'a> Normalizer<'a> {
         for (name, (oid, _)) in self.ref_values(view)? {
             tips.push((name, oid));
         }
-        for (name, text) in self.state_files(view)?.into_iter().chain(self.reflog(view)?) {
+        for (name, text) in self
+            .state_files(view)?
+            .into_iter()
+            .chain(self.reflog(view)?)
+        {
             for oid in find_oids(&text) {
                 tips.push((name.clone(), oid));
             }
@@ -276,19 +330,27 @@ impl<'a> Normalizer<'a> {
     }
 
     fn head_oid(&self, view: &RepoView) -> Result<Option<String>> {
-        let output = self.git.run(&self.env, &view.dir, &["rev-parse", "-q", "--verify", "HEAD"])?;
+        let output = self.git.run(
+            &self.env,
+            &view.dir,
+            &["rev-parse", "-q", "--verify", "HEAD"],
+        )?;
         Ok((output.code == 0).then(|| output.stdout_text()))
     }
 
     fn ref_values(&self, view: &RepoView) -> Result<BTreeMap<String, (String, String)>> {
-        let args = ["for-each-ref", "--format=%(refname)%00%(objectname)%00%(symref)"];
+        let args = [
+            "for-each-ref",
+            "--format=%(refname)%00%(objectname)%00%(symref)",
+        ];
         let output = String::from_utf8_lossy(&self.run(&view.dir, &args)?).into_owned();
         let mut refs = BTreeMap::new();
         for line in output.lines() {
             let mut fields = line.split('\0');
-            let (Some(name), Some(oid), Some(symref)) = (fields.next(), fields.next(), fields.next())
+            let (Some(name), Some(oid), Some(symref)) =
+                (fields.next(), fields.next(), fields.next())
             else {
-                return Err(HarnessError::GitOutput {
+                return Err(DifftestError::GitOutput {
                     args: join_args(&args),
                     detail: format!("line `{line}` has fewer than three fields"),
                 });
@@ -310,9 +372,9 @@ impl<'a> Normalizer<'a> {
         }
         let input: String = unique.iter().map(|oid| format!("{oid}\n")).collect();
         let args = ["cat-file", "--batch-check=%(objectname) %(objecttype)"];
-        let output = self
-            .git
-            .run_with_input(&self.env, &view.dir, &args, Some(input.as_bytes()))?;
+        let output =
+            self.git
+                .run_with_input(&self.env, &view.dir, &args, Some(input.as_bytes()))?;
         Ok(String::from_utf8_lossy(&output.stdout)
             .lines()
             .filter_map(|line| line.split_once(' '))
@@ -356,9 +418,9 @@ impl<'a> Normalizer<'a> {
             input.push('\n');
         }
         let args = ["rev-list", "--ignore-missing", "--stdin"];
-        let output = self
-            .git
-            .run_with_input(&self.env, &view.dir, &args, Some(input.as_bytes()))?;
+        let output =
+            self.git
+                .run_with_input(&self.env, &view.dir, &args, Some(input.as_bytes()))?;
         crate::git::expect_exit(&output, 0, &view.dir, &args)?;
         Ok(String::from_utf8_lossy(&output.stdout)
             .lines()
@@ -366,16 +428,20 @@ impl<'a> Normalizer<'a> {
             .collect())
     }
 
-    fn read_objects(&self, view: &RepoView, oids: &[String]) -> Result<HashMap<String, ObjectRecord>> {
+    fn read_objects(
+        &self,
+        view: &RepoView,
+        oids: &[String],
+    ) -> Result<HashMap<String, ObjectRecord>> {
         if oids.is_empty() {
             return Ok(HashMap::new());
         }
         let input: String = oids.iter().map(|oid| format!("{oid}\n")).collect();
         let args = ["cat-file", "--batch"];
-        let output = self
-            .git
-            .run_with_input(&self.env, &view.dir, &args, Some(input.as_bytes()))?;
-        parse_batch(&output.stdout).map_err(|detail| HarnessError::GitOutput {
+        let output =
+            self.git
+                .run_with_input(&self.env, &view.dir, &args, Some(input.as_bytes()))?;
+        parse_batch(&output.stdout).map_err(|detail| DifftestError::GitOutput {
             args: join_args(&args),
             detail,
         })
@@ -387,11 +453,11 @@ impl<'a> Normalizer<'a> {
             return Ok(state);
         }
         let index_file = view.git_dir.join("index");
-        if let Ok(bytes) = std::fs::read(&index_file) {
-            if let Some(version) = bytes.get(4..8) {
-                let version = u32::from_be_bytes([version[0], version[1], version[2], version[3]]);
-                state.insert("version".to_owned(), version.to_string());
-            }
+        if let Ok(bytes) = std::fs::read(&index_file)
+            && let Some(version) = bytes.get(4..8)
+        {
+            let version = u32::from_be_bytes([version[0], version[1], version[2], version[3]]);
+            state.insert("version".to_owned(), version.to_string());
         }
         let listing = self.run(&view.dir, &["ls-files", "-s", "--debug", "-z"])?;
         for (header, flags) in parse_debug_listing(&listing) {
@@ -409,7 +475,10 @@ impl<'a> Normalizer<'a> {
             state.insert(format!("{path} [{stage}]"), value);
         }
         let undo = self.run(&view.dir, &["ls-files", "--resolve-undo", "-z"])?;
-        for record in undo.split(|byte| *byte == 0).filter(|record| !record.is_empty()) {
+        for record in undo
+            .split(|byte| *byte == 0)
+            .filter(|record| !record.is_empty())
+        {
             let record = String::from_utf8_lossy(record);
             if let Some((fields, path)) = record.split_once('\t') {
                 state
@@ -435,7 +504,9 @@ impl<'a> Normalizer<'a> {
             "--ignored",
         ];
         let output = self.run(&view.dir, &args)?;
-        let mut records = output.split(|byte| *byte == 0).filter(|record| !record.is_empty());
+        let mut records = output
+            .split(|byte| *byte == 0)
+            .filter(|record| !record.is_empty());
         while let Some(record) = records.next() {
             let line = String::from_utf8_lossy(record).into_owned();
             let key = if let Some(header) = line.strip_prefix("# ") {
@@ -469,7 +540,10 @@ impl<'a> Normalizer<'a> {
                 (name, value)
             })
             .collect();
-        state.insert("HEAD".to_owned(), read_text_or_missing(&view.git_dir.join("HEAD")));
+        state.insert(
+            "HEAD".to_owned(),
+            read_text_or_missing(&view.git_dir.join("HEAD")),
+        );
         let worktrees = view.common_dir.join("worktrees");
         if let Ok(names) = std::fs::read_dir(&worktrees) {
             for name in names.flatten() {
@@ -492,7 +566,10 @@ impl<'a> Normalizer<'a> {
             }
         }
         if view.git_dir != view.common_dir {
-            files.push(("logs/HEAD@worktree".to_owned(), view.git_dir.join("logs/HEAD")));
+            files.push((
+                "logs/HEAD@worktree".to_owned(),
+                view.git_dir.join("logs/HEAD"),
+            ));
         }
         for (key, path) in files {
             if let Ok(bytes) = std::fs::read(&path) {
@@ -585,7 +662,10 @@ impl<'a> Normalizer<'a> {
             }
             let file_arg = file.to_string_lossy().into_owned();
             let output = self.run(&view.dir, &["config", "--file", &file_arg, "--list", "-z"])?;
-            for record in output.split(|byte| *byte == 0).filter(|record| !record.is_empty()) {
+            for record in output
+                .split(|byte| *byte == 0)
+                .filter(|record| !record.is_empty())
+            {
                 let record = String::from_utf8_lossy(record);
                 let (key, value) = record.split_once('\n').unwrap_or((&record, "(no value)"));
                 let slot = state.entry(format!("{prefix}{key}")).or_default();
@@ -608,9 +688,14 @@ impl<'a> Normalizer<'a> {
         let reachable = match rev {
             None => None,
             Some(rev) => {
-                let output = self.git.run(&self.env, &view.dir, &["rev-parse", "-q", "--verify", rev])?;
+                let output =
+                    self.git
+                        .run(&self.env, &view.dir, &["rev-parse", "-q", "--verify", rev])?;
                 if output.code != 0 {
-                    return Ok(SectionState::from([(rev.to_owned(), "unresolved".to_owned())]));
+                    return Ok(SectionState::from([(
+                        rev.to_owned(),
+                        "unresolved".to_owned(),
+                    )]));
                 }
                 let tip = output.stdout_text();
                 Some(self.rev_list(view, std::iter::once(tip.as_str()), old)?)
@@ -688,7 +773,11 @@ impl NewObjects {
                 continue;
             };
             if expanded {
-                let prefix = if record.kind == "tag" { "newtag" } else { "new" };
+                let prefix = if record.kind == "tag" {
+                    "newtag"
+                } else {
+                    "new"
+                };
                 let label = format!("{prefix}#{}", self.order.len() + 1);
                 self.labels.insert(oid.clone(), label.clone());
                 self.order.push((oid, label));
@@ -739,7 +828,12 @@ fn worktree(view: &RepoView) -> Result<SectionState> {
         return Ok(SectionState::new());
     }
     let git_dir = view.git_dir.clone();
-    let skip = move |path: &Path| path == git_dir || path.file_name().is_some_and(|name| name == ".git" && path.is_dir());
+    let skip = move |path: &Path| {
+        path == git_dir
+            || path
+                .file_name()
+                .is_some_and(|name| name == ".git" && path.is_dir())
+    };
     Ok(fsutil::walk(&view.dir, &skip)?
         .into_iter()
         .map(|(key, entry)| (key, describe_entry(&entry)))
@@ -763,8 +857,19 @@ fn describe_entry(entry: &Entry) -> String {
 fn describe_bytes(bytes: &[u8]) -> String {
     match std::str::from_utf8(bytes) {
         Ok(text) if bytes.len() <= INLINE_CONTENT_LIMIT => format!("{text:?}"),
-        _ => format!("{} bytes sha256:{}", bytes.len(), hex::encode(Sha256::digest(bytes))),
+        _ => format!(
+            "{} bytes sha256:{}",
+            bytes.len(),
+            hex::encode(Sha256::digest(bytes))
+        ),
     }
+}
+
+/// The address `scheme://user@host/path` as `scheme://host/path`.
+fn without_userinfo(address: &str) -> Option<String> {
+    let (scheme, rest) = address.split_once("://")?;
+    let (_, host) = rest.split_once('@')?;
+    Some(format!("{scheme}://{host}"))
 }
 
 fn read_text_or_missing(path: &Path) -> String {
@@ -807,7 +912,10 @@ fn parse_debug_listing(bytes: &[u8]) -> Vec<(String, u32)> {
         rest = &rest[end + 1..];
         let mut flags = 0;
         while rest.starts_with(b"  ") {
-            let line_end = rest.iter().position(|byte| *byte == b'\n').unwrap_or(rest.len());
+            let line_end = rest
+                .iter()
+                .position(|byte| *byte == b'\n')
+                .unwrap_or(rest.len());
             let line = String::from_utf8_lossy(&rest[..line_end]);
             if let Some(value) = line.split("flags: ").nth(1) {
                 flags = u32::from_str_radix(value.trim(), 16).unwrap_or(0);
@@ -905,12 +1013,12 @@ fn replace_oids(text: &str, mut label: impl FnMut(&str) -> Option<String>) -> St
             index += 1;
         }
         let run = &text[run_start..index];
-        if is_oid_length(run.len()) {
-            if let Some(replacement) = label(run) {
-                out.push_str(&text[start..run_start]);
-                out.push_str(&replacement);
-                start = index;
-            }
+        if is_oid_length(run.len())
+            && let Some(replacement) = label(run)
+        {
+            out.push_str(&text[start..run_start]);
+            out.push_str(&replacement);
+            start = index;
         }
     }
     out.push_str(&text[start..]);
@@ -951,7 +1059,19 @@ mod tests {
         let text = format!("{OID_A} {OID_B}x abc {OID_A}0");
         let replaced = replace_oids(&text, |oid| (oid == OID_A).then(|| "new#1".to_owned()));
         assert_eq!(replaced, format!("new#1 {OID_B}x abc {OID_A}0"));
-        assert_eq!(find_oids(&format!("{} {OID_B}", "0".repeat(40))), vec![OID_B]);
+        assert_eq!(
+            find_oids(&format!("{} {OID_B}", "0".repeat(40))),
+            vec![OID_B]
+        );
+    }
+
+    #[test]
+    fn address_without_user_name_drops_the_user_of_a_url() {
+        assert_eq!(
+            without_userinfo("ssh://nurt@127.0.0.1:2222/a").as_deref(),
+            Some("ssh://127.0.0.1:2222/a")
+        );
+        assert_eq!(without_userinfo("http://127.0.0.1:80/a"), None);
     }
 
     #[test]
@@ -972,7 +1092,10 @@ mod tests {
         let commit = format!(
             "tree {OID_A}\nparent {OID_B}\nauthor A <a@x> 1 +0000\ncommitter A <a@x> 1 +0000\ngpgsig -----BEGIN\n line\n -----END\n\nsubject\n\nbody\n"
         );
-        let batch = format!("{OID_A} commit {}\n{commit}\n{OID_B} blob 1\nx\n", commit.len());
+        let batch = format!(
+            "{OID_A} commit {}\n{commit}\n{OID_B} blob 1\nx\n",
+            commit.len()
+        );
         let objects = parse_batch(batch.as_bytes()).unwrap();
         let record = &objects[OID_A];
         assert_eq!(record.kind, "commit");
@@ -986,7 +1109,10 @@ mod tests {
     fn numbers_new_objects_parents_first() {
         let record = |parents: &[&str]| ObjectRecord {
             kind: "commit".into(),
-            headers: parents.iter().map(|p| ("parent".to_owned(), (*p).to_owned())).collect(),
+            headers: parents
+                .iter()
+                .map(|p| ("parent".to_owned(), (*p).to_owned()))
+                .collect(),
             message: Vec::new(),
         };
         let records = HashMap::from([
@@ -1001,7 +1127,10 @@ mod tests {
 
     #[test]
     fn extracts_status_paths_by_record_type() {
-        assert_eq!(status_path("1 .M N... 100644 100644 100644 a b c d e"), "c d e");
+        assert_eq!(
+            status_path("1 .M N... 100644 100644 100644 a b c d e"),
+            "c d e"
+        );
         assert_eq!(status_path("? new file.txt"), "new file.txt");
         assert_eq!(status_path("u UU N... 1 2 3 4 a b c x y"), "x y");
     }
@@ -1021,7 +1150,8 @@ mod tests {
 
     #[test]
     fn substitutes_the_case_directory() {
-        let section = SectionState::from([("k".to_owned(), "gitdir: /tmp/case/a/repo/.git".to_owned())]);
+        let section =
+            SectionState::from([("k".to_owned(), "gitdir: /tmp/case/a/repo/.git".to_owned())]);
         let replaced = substitute_root(section, Path::new("/tmp/case/a"));
         assert_eq!(replaced["k"], "gitdir: $ROOT/repo/.git");
     }

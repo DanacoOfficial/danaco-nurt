@@ -1,0 +1,21 @@
+id = "stage/unstage-directory"
+description = "Unstaging a directory restores the HEAD entries below it."
+corpus = "empty"
+setup = [
+  { write = "dir/a.txt", content = "one\n" },
+  { write = "top.txt", content = "t\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "dir/a.txt", content = "two\n" },
+  { write = "dir/n.txt", content = "new\n" },
+  { write = "top.txt", content = "T\n" },
+  ["add", "-A"],
+]
+files = {}
+
+[git]
+args = ["restore", "--staged", "dir"]
+
+[nurt]
+command = "git.stage"
+params = { action = "unstage", paths = ["dir"] }

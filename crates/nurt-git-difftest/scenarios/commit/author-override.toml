@@ -1,0 +1,27 @@
+id = "commit/author-override"
+description = "author sets the author and keeps the committer."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "a.txt", content = "a2\n" },
+  ["add", "a.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "--author=Other Person <other@example.com>", "-m", "by other"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "by other", staged = true, author = "Other Person <other@example.com>" }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []
+strict = true

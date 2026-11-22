@@ -957,7 +957,11 @@ fn conflict_index(
             entry.flags = old.flags;
         }
     }
-    IndexPlan { state, expect }
+    IndexPlan {
+        state,
+        expect,
+        record_resolve_undo: false,
+    }
 }
 
 fn write_commit(

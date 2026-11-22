@@ -1,0 +1,32 @@
+id = "status/executable-bit"
+description = "A staged change of the executable bit keeps the content."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "a.txt", content = "one\ntwo\nthree\n", executable = true },
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["status", "--porcelain=v2"]
+expect_exit = 0
+
+[nurt]
+command = "git.status"
+params = {  }
+expect = "ok"
+record_count = 1
+[[nurt.records]]
+kind = "git_status"
+path = "a.txt"
+mode_before = "100644"
+mode_after = "100755"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

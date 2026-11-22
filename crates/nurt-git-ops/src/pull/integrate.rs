@@ -12,11 +12,11 @@
 //! does not start.
 
 use bstr::BString;
-use nurt_contracts::error::{Error, Result};
-use nurt_contracts::journal::MutationTx;
+use nurt_contracts::error::{Error, ErrorCode, Result};
+use nurt_contracts::journal::{Expect, MutationTx};
 use nurt_contracts::report::{Irreversible, IrreversibleEntry};
 use nurt_contracts::stage::ExecCtx;
-use nurt_git::apply::{ApplyContext, apply_plan};
+use nurt_git::apply::{ApplyContext, StateFilePlan, apply_plan};
 use nurt_git::repo::GitRepo;
 
 use super::settings::FfPolicy;
@@ -31,6 +31,9 @@ pub(crate) const INITIAL_PULL: &str = "initial pull";
 const NANOSECONDS_PER_SECOND: i128 = 1_000_000_000;
 
 /// Prefix of the full names of remote branches.
+/// File of the repository directory that keeps the commit before an update.
+const ORIG_HEAD: &str = "ORIG_HEAD";
+
 const HEADS: &str = "refs/heads/";
 
 /// Why the integration did not complete.
@@ -160,6 +163,9 @@ fn local_outcome(repo: &GitRepo, result: &MergeResult) -> LocalOutcome {
 
 /// Writes the remote-tracking references and `FETCH_HEAD` alone.
 ///
+/// A refusal because of local changes also records the current commit in
+/// `ORIG_HEAD`, as `git` does before it checks out the merge result.
+///
 /// # Errors
 ///
 /// The errors of [`apply_plan`]: `E_GIT_LOCKED`, `E_STALE` and the errors
@@ -167,10 +173,21 @@ fn local_outcome(repo: &GitRepo, result: &MergeResult) -> LocalOutcome {
 pub(crate) fn write_transfer(
     repo: &GitRepo,
     fetched: &FetchOutcome,
+    refusal: &Error,
     tx: &mut dyn MutationTx,
 ) -> Result<()> {
     let apply_ctx = ApplyContext::open(repo.gix())?;
-    apply_plan(tx, &apply_ctx, fetched.local_plan()).map(|_| ())
+    let mut plan = fetched.local_plan();
+    if refusal.code() == ErrorCode::GitDirty
+        && let Ok(head) = repo.gix().head_id()
+    {
+        plan.state_files.push(StateFilePlan {
+            path: ORIG_HEAD.to_owned(),
+            content: Some(format!("{head}\n").into_bytes()),
+            expect: Expect::Unchecked,
+        });
+    }
+    apply_plan(tx, &apply_ctx, plan).map(|_| ())
 }
 
 /// Author and committer of a merge commit: `GIT_AUTHOR_*` and
