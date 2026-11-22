@@ -133,7 +133,11 @@ struct PoolInner {
 
 impl Drop for PoolInner {
     fn drop(&mut self) {
-        let slots: Vec<Arc<Slot>> = lock(&self.state).entries.drain().map(|(_, slot)| slot).collect();
+        let slots: Vec<Arc<Slot>> = lock(&self.state)
+            .entries
+            .drain()
+            .map(|(_, slot)| slot)
+            .collect();
         for slot in slots {
             slot.stop();
         }
@@ -160,7 +164,11 @@ impl ServerPool {
     /// Pool that starts servers through `host` and measures idle and retry
     /// periods on `clock`. A background thread stops idle servers.
     #[must_use]
-    pub fn new(host: Arc<dyn ProcessHost>, clock: Arc<dyn Clock>, settings: ClientSettings) -> Self {
+    pub fn new(
+        host: Arc<dyn ProcessHost>,
+        clock: Arc<dyn Clock>,
+        settings: ClientSettings,
+    ) -> Self {
         let inner = Arc::new(PoolInner {
             host,
             clock,
@@ -194,10 +202,12 @@ impl ServerPool {
     /// allowed for the language or its program is not found.
     pub fn command_for(&self, language: &str, root: &Path) -> Result<ResolvedCommand, LspError> {
         let settings = &self.inner.settings;
-        let command = settings.command(language).ok_or_else(|| LspError::Missing {
-            server: String::new(),
-            message: format!("no language server is configured for {language}"),
-        })?;
+        let command = settings
+            .command(language)
+            .ok_or_else(|| LspError::Missing {
+                server: String::new(),
+                message: format!("no language server is configured for {language}"),
+            })?;
         let program = command.first().map(String::as_str).unwrap_or_default();
         if !settings.allows(language, program) {
             return Err(LspError::Missing {
@@ -241,7 +251,12 @@ impl ServerPool {
         let now = inner.clock.monotonic();
         let mut stopped = reap(inner, now);
         let mut state = lock(&inner.state);
-        if let Some(slot) = state.entries.get(key).filter(|slot| !slot.is_dead()).cloned() {
+        if let Some(slot) = state
+            .entries
+            .get(key)
+            .filter(|slot| !slot.is_dead())
+            .cloned()
+        {
             *lock(&slot.last_used) = now;
             slot.requests.fetch_add(1, Ordering::Relaxed);
             drop(state);
@@ -258,7 +273,10 @@ impl ServerPool {
             return Err(error);
         }
         state.failures.remove(key);
-        stopped.extend(evict(&mut state, inner.settings.max_servers.saturating_sub(1)));
+        stopped.extend(evict(
+            &mut state,
+            inner.settings.max_servers.saturating_sub(1),
+        ));
         let slot = Arc::new(Slot {
             name: command.name.clone(),
             root: request.root.to_path_buf(),
@@ -326,7 +344,8 @@ impl ServerPool {
             .filter(|slot| !slot.is_dead())
             .map(|slot| slot_status(slot, now))
             .collect();
-        statuses.sort_by(|left, right| (&left.server, &left.root).cmp(&(&right.server, &right.root)));
+        statuses
+            .sort_by(|left, right| (&left.server, &left.root).cmp(&(&right.server, &right.root)));
         statuses
     }
 
@@ -343,7 +362,10 @@ impl ServerPool {
             })
             .map(|(key, _)| key.clone())
             .collect();
-        let slots: Vec<Arc<Slot>> = keys.iter().filter_map(|key| state.entries.remove(key)).collect();
+        let slots: Vec<Arc<Slot>> = keys
+            .iter()
+            .filter_map(|key| state.entries.remove(key))
+            .collect();
         if filter.is_none() {
             state.failures.clear();
         }
@@ -362,7 +384,9 @@ fn slot_status(slot: &Slot, now: Duration) -> ServerStatus {
         languages: lock(&slot.languages).iter().cloned().collect(),
         pid: server.as_ref().map(LanguageServer::pid),
         ready: server.is_some(),
-        loading: server.as_ref().is_some_and(|server| server.progress().busy()),
+        loading: server
+            .as_ref()
+            .is_some_and(|server| server.progress().busy()),
         requests: slot.requests.load(Ordering::Relaxed),
         idle: now.saturating_sub(*lock(&slot.last_used)),
     }
@@ -373,7 +397,10 @@ fn spawn_reaper(inner: Weak<PoolInner>) -> Option<Sender<()>> {
     thread::Builder::new()
         .name("lsp-pool-reaper".to_owned())
         .spawn(move || {
-            while stopped.recv_timeout(REAP_INTERVAL).is_err_and(|error| error.is_timeout()) {
+            while stopped
+                .recv_timeout(REAP_INTERVAL)
+                .is_err_and(|error| error.is_timeout())
+            {
                 let Some(inner) = inner.upgrade() else {
                     return;
                 };
@@ -408,7 +435,7 @@ fn evict(state: &mut PoolState, keep: usize) -> Vec<Arc<Slot>> {
         .iter()
         .map(|(key, slot)| (*lock(&slot.last_used), key.clone()))
         .collect();
-    ordered.sort_by(|left, right| left.0.cmp(&right.0));
+    ordered.sort_by_key(|entry| entry.0);
     let excess = ordered.len().saturating_sub(keep);
     ordered
         .into_iter()
@@ -429,23 +456,22 @@ fn set_state(slot: &Slot, state: SlotState) {
 }
 
 fn run_start(inner: &PoolInner, key: &PoolKey, spec: &ServerSpec, slot: &Arc<Slot>) {
-    let started = LanguageServer::spawn(inner.host.as_ref(), spec).and_then(|server| {
-        match server.initialize(
+    let started = LanguageServer::spawn(inner.host.as_ref(), spec).and_then(|server| match server
+        .initialize(
             spec.init_options.as_ref(),
             inner.settings.timeout_max,
             &slot.start_cancel,
         ) {
-            Ok(()) => Ok(server),
-            Err(error) => {
-                server.shutdown();
-                Err(match error {
-                    LspError::Closed { .. } => error,
-                    other => LspError::Unavailable {
-                        server: spec.name.clone(),
-                        message: format!("language server {} did not start: {other}", spec.name),
-                    },
-                })
-            }
+        Ok(()) => Ok(server),
+        Err(error) => {
+            server.shutdown();
+            Err(match error {
+                LspError::Closed { .. } => error,
+                other => LspError::Unavailable {
+                    server: spec.name.clone(),
+                    message: format!("language server {} did not start: {other}", spec.name),
+                },
+            })
         }
     });
     match started {
@@ -458,7 +484,11 @@ fn run_start(inner: &PoolInner, key: &PoolKey, spec: &ServerSpec, slot: &Arc<Slo
         Err(error) => {
             let until = inner.clock.monotonic().saturating_add(inner.settings.retry);
             let mut state = lock(&inner.state);
-            if state.entries.get(key).is_some_and(|known| Arc::ptr_eq(known, slot)) {
+            if state
+                .entries
+                .get(key)
+                .is_some_and(|known| Arc::ptr_eq(known, slot))
+            {
                 state.entries.remove(key);
             }
             if !slot.start_cancel.is_cancelled() {
@@ -470,7 +500,11 @@ fn run_start(inner: &PoolInner, key: &PoolKey, spec: &ServerSpec, slot: &Arc<Slo
     }
 }
 
-fn wait_ready(slot: &Slot, timeout: Duration, cancel: &CancelToken) -> Result<LanguageServer, LspError> {
+fn wait_ready(
+    slot: &Slot,
+    timeout: Duration,
+    cancel: &CancelToken,
+) -> Result<LanguageServer, LspError> {
     let started = Instant::now();
     let mut state = lock(&slot.state);
     loop {

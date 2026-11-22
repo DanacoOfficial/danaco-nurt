@@ -103,7 +103,10 @@ const INSTALL_HINTS: &[(&str, &str)] = &[
     ),
     ("gopls", "go install golang.org/x/tools/gopls@latest"),
     ("rust-analyzer", "rustup component add rust-analyzer"),
-    ("clangd", "install clangd from the LLVM packages of the system"),
+    (
+        "clangd",
+        "install clangd from the LLVM packages of the system",
+    ),
 ];
 
 /// Settings of the client, derived from the `[code]` configuration.
@@ -292,11 +295,17 @@ pub fn project_root(target: &Path) -> PathBuf {
     let start = if target.is_dir() {
         target.to_path_buf()
     } else {
-        target.parent().map_or_else(|| target.to_path_buf(), Path::to_path_buf)
+        target
+            .parent()
+            .map_or_else(|| target.to_path_buf(), Path::to_path_buf)
     };
     start
         .ancestors()
-        .find(|directory| ROOT_MARKERS.iter().any(|marker| directory.join(marker).exists()))
+        .find(|directory| {
+            ROOT_MARKERS
+                .iter()
+                .any(|marker| directory.join(marker).exists())
+        })
         .map_or_else(|| start.clone(), Path::to_path_buf)
 }
 
@@ -313,8 +322,7 @@ pub struct ResolvedCommand {
 
 /// Resolves a configured server command through the process host.
 ///
-/// A Windows batch wrapper written by `npm` is replaced by its interpreter
-/// and script.
+/// An `npm` batch wrapper on Windows is replaced by its interpreter and script.
 ///
 /// # Errors
 ///
@@ -424,7 +432,7 @@ fn script_of_line(line: &str) -> Option<String> {
         })
         .filter(|relative| !relative.to_ascii_lowercase().ends_with("node.exe"))
         .map(str::to_owned)
-        .next_back()
+        .last()
 }
 
 fn join_windows_relative(directory: &Path, relative: &str) -> PathBuf {
@@ -440,7 +448,9 @@ fn join_windows_relative(directory: &Path, relative: &str) -> PathBuf {
             path.push(part);
         }
     }
-    let text = path.to_string_lossy().replace(['\\', '/'], MAIN_SEPARATOR_STR);
+    let text = path
+        .to_string_lossy()
+        .replace(['\\', '/'], MAIN_SEPARATOR_STR);
     PathBuf::from(text)
 }
 

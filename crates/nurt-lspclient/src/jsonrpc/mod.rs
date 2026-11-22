@@ -162,13 +162,13 @@ impl Message {
         let Value::Object(mut object) = value else {
             return Err(MessageError::new("the message is not an object"));
         };
-        let id = match object.remove("id") {
-            None | Some(Value::Null) => None,
-            Some(raw) => Some(
-                serde_json::from_value::<RequestId>(raw)
-                    .map_err(|_| MessageError::new("the identifier is neither a number nor text"))?,
-            ),
-        };
+        let id =
+            match object.remove("id") {
+                None | Some(Value::Null) => None,
+                Some(raw) => Some(serde_json::from_value::<RequestId>(raw).map_err(|_| {
+                    MessageError::new("the identifier is neither a number nor text")
+                })?),
+            };
         match object.remove("method") {
             Some(Value::String(method)) => {
                 let params = object.remove("params").unwrap_or(Value::Null);
@@ -182,7 +182,10 @@ impl Message {
         }
     }
 
-    fn response_from(id: Option<RequestId>, mut object: Map<String, Value>) -> Result<Self, MessageError> {
+    fn response_from(
+        id: Option<RequestId>,
+        mut object: Map<String, Value>,
+    ) -> Result<Self, MessageError> {
         let id = id.ok_or(MessageError::new("a response has no identifier"))?;
         if let Some(error) = object.remove("error") {
             let error = serde_json::from_value::<RpcError>(error)
@@ -211,10 +214,16 @@ impl Message {
             Self::Notification { method, params } => {
                 json!({"jsonrpc": "2.0", "method": method, "params": params})
             }
-            Self::Response { id, result: Ok(result) } => {
+            Self::Response {
+                id,
+                result: Ok(result),
+            } => {
                 json!({"jsonrpc": "2.0", "id": id, "result": result})
             }
-            Self::Response { id, result: Err(error) } => {
+            Self::Response {
+                id,
+                result: Err(error),
+            } => {
                 json!({"jsonrpc": "2.0", "id": id, "error": error})
             }
         }

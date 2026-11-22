@@ -294,7 +294,8 @@ pub fn contains_word(text: &str, word: &str) -> bool {
     if word.is_empty() {
         return false;
     }
-    let is_ident = |character: char| character.is_alphanumeric() || character == '_' || character == '$';
+    let is_ident =
+        |character: char| character.is_alphanumeric() || character == '_' || character == '$';
     text.match_indices(word).any(|(start, _)| {
         let before = text[..start].chars().next_back();
         let after = text[start + word.len()..].chars().next();

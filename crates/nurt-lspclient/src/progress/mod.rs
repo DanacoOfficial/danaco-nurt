@@ -80,7 +80,9 @@ impl ProgressTracker {
             None => String::new(),
         };
         let value = params.get("value");
-        let kind = value.and_then(|value| value.get("kind")).and_then(Value::as_str);
+        let kind = value
+            .and_then(|value| value.get("kind"))
+            .and_then(Value::as_str);
         let mut state = self.lock();
         match kind {
             Some("begin") => {

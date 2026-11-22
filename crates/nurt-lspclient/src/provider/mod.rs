@@ -21,7 +21,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use lsp_types::{Diagnostic, DiagnosticSeverity as LspSeverity, NumberOrString, PositionEncodingKind};
+use lsp_types::{
+    Diagnostic, DiagnosticSeverity as LspSeverity, NumberOrString, PositionEncodingKind,
+};
 use nurt_code::semantic::{
     CallDirection, CallEdge, CodeActionInfo, DocumentPosition, HoverInfo, Location, RelatedInfo,
     SemanticDiagnostic, SemanticError, SemanticErrorKind, SemanticProvider, SemanticResult,
@@ -77,7 +79,11 @@ impl LspProvider {
 
     /// Provider with explicit settings.
     #[must_use]
-    pub fn with_settings(host: Arc<dyn ProcessHost>, clock: Arc<dyn Clock>, settings: ClientSettings) -> Self {
+    pub fn with_settings(
+        host: Arc<dyn ProcessHost>,
+        clock: Arc<dyn Clock>,
+        settings: ClientSettings,
+    ) -> Self {
         Self {
             pool: ServerPool::new(host, clock, settings),
         }
@@ -94,7 +100,12 @@ impl LspProvider {
         self.pool.stop(None)
     }
 
-    fn session<'a>(&'a self, ctx: &'a ExecCtx, scope: &SemanticScope, path: &Path) -> SemanticResult<Session<'a>> {
+    fn session<'a>(
+        &'a self,
+        ctx: &'a ExecCtx,
+        scope: &SemanticScope,
+        path: &Path,
+    ) -> SemanticResult<Session<'a>> {
         let language = match &scope.language {
             Some(language) => config::normalize_language(language.as_str()),
             None => config::language_for_path(path)
@@ -102,7 +113,10 @@ impl LspProvider {
                 .ok_or_else(|| {
                     SemanticError::new(
                         SemanticErrorKind::Unavailable,
-                        format!("no language server is known for {}; set language", path.display()),
+                        format!(
+                            "no language server is known for {}; set language",
+                            path.display()
+                        ),
                     )
                 })?,
         };
@@ -174,7 +188,11 @@ pub fn semantic_error(error: LspError) -> SemanticError {
                 )
             };
             let error = SemanticError::new(SemanticErrorKind::Unavailable, message).with_fix(hint);
-            if server.is_empty() { error } else { error.with_server(server) }
+            if server.is_empty() {
+                error
+            } else {
+                error.with_server(server)
+            }
         }
         LspError::Unavailable { server, .. }
         | LspError::Closed { server, .. }
@@ -213,7 +231,9 @@ impl Session<'_> {
     }
 
     fn remaining(&self) -> Duration {
-        self.deadline.saturating_duration_since(Instant::now()).max(REQUEST_MIN)
+        self.deadline
+            .saturating_duration_since(Instant::now())
+            .max(REQUEST_MIN)
     }
 
     fn require(&self, capability: &str, method: &str) -> SemanticResult<()> {
@@ -222,7 +242,10 @@ impl Session<'_> {
         }
         Err(SemanticError::new(
             SemanticErrorKind::Unsupported,
-            format!("language server {} does not support {method}", self.server.name()),
+            format!(
+                "language server {} does not support {method}",
+                self.server.name()
+            ),
         )
         .with_server(self.server.name()))
     }
@@ -240,7 +263,9 @@ impl Session<'_> {
     fn open(&self, path: &Path, text: Option<&str>) -> SemanticResult<()> {
         let language_id = config::language_id(path, &self.language);
         if let Some(text) = text {
-            self.texts.borrow_mut().insert(path.to_path_buf(), Some(text.to_owned()));
+            self.texts
+                .borrow_mut()
+                .insert(path.to_path_buf(), Some(text.to_owned()));
             self.server.sync_document(path, &language_id, text, None);
             return Ok(());
         }
@@ -254,7 +279,8 @@ impl Session<'_> {
                 ),
             )
         })?;
-        self.server.sync_document(path, &language_id, &content, stamp);
+        self.server
+            .sync_document(path, &language_id, &content, stamp);
         Ok(())
     }
 
@@ -294,7 +320,10 @@ impl Session<'_> {
     }
 
     fn location_of(&self, item: &Value) -> Option<Location> {
-        let uri = item.get("uri").or_else(|| item.get("targetUri"))?.as_str()?;
+        let uri = item
+            .get("uri")
+            .or_else(|| item.get("targetUri"))?
+            .as_str()?;
         let path = uri_to_path(uri)?;
         let range = item
             .get("range")
@@ -338,7 +367,8 @@ impl Session<'_> {
             let wait = if answer.empty {
                 self.remaining()
             } else {
-                self.remaining().min(patience.saturating_duration_since(Instant::now()))
+                self.remaining()
+                    .min(patience.saturating_duration_since(Instant::now()))
             };
             let ready = !wait.is_zero() && self.server.progress().wait_settled(wait, self.cancel());
             if !ready && answer.empty {
@@ -374,7 +404,9 @@ impl Session<'_> {
         let progress = self.server.progress();
         let loads = progress.loads();
         let busy_before = progress.busy();
-        let result = self.server.request(method, params.clone(), self.remaining(), self.cancel());
+        let result = self
+            .server
+            .request(method, params.clone(), self.remaining(), self.cancel());
         let loading = busy_before || progress.busy() || progress.loads() != loads;
         match result {
             Ok(value) => Ok(Answer {
@@ -436,7 +468,13 @@ impl Session<'_> {
         }
     }
 
-    fn symbol(&self, item: &Value, path: Option<&Path>, container: Option<&str>, depth: u32) -> Option<SemanticSymbol> {
+    fn symbol(
+        &self,
+        item: &Value,
+        path: Option<&Path>,
+        container: Option<&str>,
+        depth: u32,
+    ) -> Option<SemanticSymbol> {
         let name = item.get("name")?.as_str()?.to_owned();
         let (path, whole, selection) = match item.get("location") {
             Some(location) => {
@@ -449,7 +487,11 @@ impl Session<'_> {
                     Some(uri) => uri_to_path(uri)?,
                     None => path?.to_path_buf(),
                 };
-                (path, item.get("range"), item.get("selectionRange").or_else(|| item.get("range")))
+                (
+                    path,
+                    item.get("range"),
+                    item.get("selectionRange").or_else(|| item.get("range")),
+                )
             }
         };
         let fallback = Location {
@@ -484,7 +526,14 @@ impl Session<'_> {
         })
     }
 
-    fn flatten(&self, items: &[Value], path: &Path, container: Option<&str>, depth: u32, into: &mut Vec<SemanticSymbol>) {
+    fn flatten(
+        &self,
+        items: &[Value],
+        path: &Path,
+        container: Option<&str>,
+        depth: u32,
+        into: &mut Vec<SemanticSymbol>,
+    ) {
         for item in items {
             let Some(symbol) = self.symbol(item, Some(path), container, depth) else {
                 continue;
@@ -520,7 +569,9 @@ impl Session<'_> {
             })
             .collect();
         SemanticDiagnostic {
-            range: self.location(path.to_path_buf(), &range).unwrap_or(fallback),
+            range: self
+                .location(path.to_path_buf(), &range)
+                .unwrap_or(fallback),
             severity: severity(item.severity),
             message: collapse_whitespace(&item.message),
             code: item.code.as_ref().map(|code| match code {
@@ -547,8 +598,17 @@ impl Session<'_> {
             .wait(&uri, version, &wait, || progress.busy()))
     }
 
-    fn call_edge(&self, call: &Value, direction: CallDirection, origin: Option<&Path>) -> Option<CallEdge> {
-        let key = if direction == CallDirection::Incoming { "from" } else { "to" };
+    fn call_edge(
+        &self,
+        call: &Value,
+        direction: CallDirection,
+        origin: Option<&Path>,
+    ) -> Option<CallEdge> {
+        let key = if direction == CallDirection::Incoming {
+            "from"
+        } else {
+            "to"
+        };
         let item = call.get(key)?;
         let symbol = self.symbol(item, None, None, 0)?;
         let sites_path = match direction {
@@ -562,12 +622,21 @@ impl Session<'_> {
             .flatten()
             .filter_map(|range| self.location(sites_path.clone(), range))
             .collect();
-        Some(CallEdge { direction, symbol, calls })
+        Some(CallEdge {
+            direction,
+            symbol,
+            calls,
+        })
     }
 }
 
 impl SemanticProvider for LspProvider {
-    fn workspace_symbols(&self, ctx: &ExecCtx, scope: &SemanticScope, query: &str) -> SemanticResult<Vec<SemanticSymbol>> {
+    fn workspace_symbols(
+        &self,
+        ctx: &ExecCtx,
+        scope: &SemanticScope,
+        query: &str,
+    ) -> SemanticResult<Vec<SemanticSymbol>> {
         let session = self.session(ctx, scope, &scope.root)?;
         session.require("workspaceSymbolProvider", "workspace/symbol")?;
         let answer = session.ask("workspace/symbol", &json!({"query": query}))?;
@@ -579,7 +648,12 @@ impl SemanticProvider for LspProvider {
             .collect())
     }
 
-    fn document_symbols(&self, ctx: &ExecCtx, scope: &SemanticScope, path: &Path) -> SemanticResult<Vec<SemanticSymbol>> {
+    fn document_symbols(
+        &self,
+        ctx: &ExecCtx,
+        scope: &SemanticScope,
+        path: &Path,
+    ) -> SemanticResult<Vec<SemanticSymbol>> {
         let session = self.session(ctx, scope, path)?;
         session.require("documentSymbolProvider", "textDocument/documentSymbol")?;
         session.open(path, None)?;
@@ -592,8 +666,19 @@ impl SemanticProvider for LspProvider {
         Ok(symbols)
     }
 
-    fn definition(&self, ctx: &ExecCtx, scope: &SemanticScope, at: &DocumentPosition) -> SemanticResult<Vec<Location>> {
-        self.positional(ctx, scope, at, ("definitionProvider", "textDocument/definition"), None)
+    fn definition(
+        &self,
+        ctx: &ExecCtx,
+        scope: &SemanticScope,
+        at: &DocumentPosition,
+    ) -> SemanticResult<Vec<Location>> {
+        self.positional(
+            ctx,
+            scope,
+            at,
+            ("definitionProvider", "textDocument/definition"),
+            None,
+        )
     }
 
     fn references(
@@ -609,13 +694,21 @@ impl SemanticProvider for LspProvider {
         session.open_candidates(at);
         let mut params = session.position_params(at);
         if let Some(object) = params.as_object_mut() {
-            object.insert("context".to_owned(), json!({"includeDeclaration": include_declaration}));
+            object.insert(
+                "context".to_owned(),
+                json!({"includeDeclaration": include_declaration}),
+            );
         }
         let answer = session.ask("textDocument/references", &params)?;
         Ok(session.locations(&answer))
     }
 
-    fn hover(&self, ctx: &ExecCtx, scope: &SemanticScope, at: &DocumentPosition) -> SemanticResult<Option<HoverInfo>> {
+    fn hover(
+        &self,
+        ctx: &ExecCtx,
+        scope: &SemanticScope,
+        at: &DocumentPosition,
+    ) -> SemanticResult<Option<HoverInfo>> {
         let session = self.session(ctx, scope, &at.path)?;
         session.require("hoverProvider", "textDocument/hover")?;
         session.open(&at.path, None)?;
@@ -634,12 +727,34 @@ impl SemanticProvider for LspProvider {
         }))
     }
 
-    fn implementations(&self, ctx: &ExecCtx, scope: &SemanticScope, at: &DocumentPosition) -> SemanticResult<Vec<Location>> {
-        self.positional(ctx, scope, at, ("implementationProvider", "textDocument/implementation"), None)
+    fn implementations(
+        &self,
+        ctx: &ExecCtx,
+        scope: &SemanticScope,
+        at: &DocumentPosition,
+    ) -> SemanticResult<Vec<Location>> {
+        self.positional(
+            ctx,
+            scope,
+            at,
+            ("implementationProvider", "textDocument/implementation"),
+            None,
+        )
     }
 
-    fn type_definition(&self, ctx: &ExecCtx, scope: &SemanticScope, at: &DocumentPosition) -> SemanticResult<Vec<Location>> {
-        self.positional(ctx, scope, at, ("typeDefinitionProvider", "textDocument/typeDefinition"), None)
+    fn type_definition(
+        &self,
+        ctx: &ExecCtx,
+        scope: &SemanticScope,
+        at: &DocumentPosition,
+    ) -> SemanticResult<Vec<Location>> {
+        self.positional(
+            ctx,
+            scope,
+            at,
+            ("typeDefinitionProvider", "textDocument/typeDefinition"),
+            None,
+        )
     }
 
     fn call_hierarchy(
@@ -652,11 +767,17 @@ impl SemanticProvider for LspProvider {
         let session = self.session(ctx, scope, &at.path)?;
         session.require("callHierarchyProvider", "textDocument/prepareCallHierarchy")?;
         session.open(&at.path, None)?;
-        let prepared = session.ask("textDocument/prepareCallHierarchy", &session.position_params(at))?;
+        let prepared = session.ask(
+            "textDocument/prepareCallHierarchy",
+            &session.position_params(at),
+        )?;
         let Some(item) = prepared.as_array().and_then(|items| items.first()).cloned() else {
             return Ok(Vec::new());
         };
-        let origin = item.get("uri").and_then(Value::as_str).and_then(uri_to_path);
+        let origin = item
+            .get("uri")
+            .and_then(Value::as_str)
+            .and_then(uri_to_path);
         let mut edges = Vec::new();
         for side in [CallDirection::Incoming, CallDirection::Outgoing] {
             if direction != CallDirection::Both && direction != side {
@@ -679,7 +800,12 @@ impl SemanticProvider for LspProvider {
         Ok(edges)
     }
 
-    fn code_actions(&self, ctx: &ExecCtx, scope: &SemanticScope, range: &Location) -> SemanticResult<Vec<CodeActionInfo>> {
+    fn code_actions(
+        &self,
+        ctx: &ExecCtx,
+        scope: &SemanticScope,
+        range: &Location,
+    ) -> SemanticResult<Vec<CodeActionInfo>> {
         let session = self.session(ctx, scope, &range.path)?;
         session.require("codeActionProvider", "textDocument/codeAction")?;
         session.open(&range.path, None)?;
@@ -717,7 +843,10 @@ impl SemanticProvider for LspProvider {
     ) -> SemanticResult<Vec<SemanticDiagnostic>> {
         let session = self.session(ctx, scope, path)?;
         session.open(path, text)?;
-        let items = if session.server.supports("diagnosticProvider", "textDocument/diagnostic") {
+        let items = if session
+            .server
+            .supports("diagnosticProvider", "textDocument/diagnostic")
+        {
             let params = json!({"textDocument": {"uri": session.uri(path)?}});
             let report = session.ask("textDocument/diagnostic", &params)?;
             report
@@ -730,10 +859,19 @@ impl SemanticProvider for LspProvider {
                 .published(path, session.remaining())?
                 .ok_or_else(|| session.loading_error_for_diagnostics())?
         };
-        Ok(items.iter().map(|item| session.diagnostic(path, item)).collect())
+        Ok(items
+            .iter()
+            .map(|item| session.diagnostic(path, item))
+            .collect())
     }
 
-    fn rename(&self, ctx: &ExecCtx, scope: &SemanticScope, at: &DocumentPosition, new_name: &str) -> SemanticResult<WorkspaceChange> {
+    fn rename(
+        &self,
+        ctx: &ExecCtx,
+        scope: &SemanticScope,
+        at: &DocumentPosition,
+        new_name: &str,
+    ) -> SemanticResult<WorkspaceChange> {
         let session = self.session(ctx, scope, &at.path)?;
         session.require("renameProvider", "textDocument/rename")?;
         session.open(&at.path, None)?;
@@ -751,7 +889,11 @@ impl SemanticProvider for LspProvider {
         let settings = self.pool.settings();
         let languages: Vec<String> = match language {
             Some(language) => vec![config::normalize_language(language.as_str())],
-            None => settings.languages().into_iter().map(str::to_owned).collect(),
+            None => settings
+                .languages()
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
         };
         let cwd = PathBuf::from(ctx.options().base.clone().unwrap_or_else(|| ".".to_owned()));
         let running = self.pool.status();
@@ -759,7 +901,10 @@ impl SemanticProvider for LspProvider {
             .iter()
             .filter_map(|name| {
                 let id = LanguageId::new(name.clone()).ok()?;
-                let program = settings.command(name).and_then(|command| command.first()).cloned();
+                let program = settings
+                    .command(name)
+                    .and_then(|command| command.first())
+                    .cloned();
                 let server = program.as_deref().map(config::program_name);
                 let allowed = program
                     .as_deref()
@@ -767,7 +912,9 @@ impl SemanticProvider for LspProvider {
                 let found = self.pool.command_for(name, &cwd).is_ok();
                 let active = running.iter().find(|status| {
                     Some(&status.server) == server.as_ref()
-                        && (status.languages.is_empty() || status.languages.contains(name) || shares_server(settings, name, &status.languages))
+                        && (status.languages.is_empty()
+                            || status.languages.contains(name)
+                            || shares_server(settings, name, &status.languages))
                 });
                 Some(ServerStatus {
                     language: id,
@@ -804,10 +951,16 @@ impl Session<'_> {
 /// `served`.
 fn shares_server(settings: &ClientSettings, language: &str, served: &[String]) -> bool {
     let command = settings.command(language);
-    served.iter().any(|other| settings.command(other) == command)
+    served
+        .iter()
+        .any(|other| settings.command(other) == command)
 }
 
-fn code_action(item: &Value, unit: PositionUnit, text_of: &dyn Fn(&Path) -> Option<String>) -> Option<CodeActionInfo> {
+fn code_action(
+    item: &Value,
+    unit: PositionUnit,
+    text_of: &dyn Fn(&Path) -> Option<String>,
+) -> Option<CodeActionInfo> {
     let title = item.get("title")?.as_str()?.to_owned();
     if let Some(command) = item.get("command").and_then(Value::as_str) {
         return Some(CodeActionInfo {
@@ -859,7 +1012,10 @@ pub fn hover_text(contents: &Value) -> String {
             .collect::<Vec<_>>()
             .join("\n\n"),
         Value::Object(_) => {
-            let value = contents.get("value").and_then(Value::as_str).unwrap_or_default();
+            let value = contents
+                .get("value")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
             match contents.get("language").and_then(Value::as_str) {
                 Some(language) => format!("```{language}\n{value}\n```"),
                 None => value.to_owned(),
@@ -920,7 +1076,11 @@ pub fn to_lsp(text: Option<&str>, position: TextPosition, unit: PositionUnit) ->
     let columns = usize::try_from(position.column.saturating_sub(1)).unwrap_or(usize::MAX);
     let character = match text.and_then(|text| line_text(text, position.line)) {
         Some(line_text) => {
-            let counted: u32 = line_text.chars().take(columns).map(|character| width(character, unit)).sum();
+            let counted: u32 = line_text
+                .chars()
+                .take(columns)
+                .map(|character| width(character, unit))
+                .sum();
             let beyond = columns.saturating_sub(line_text.chars().count());
             counted.saturating_add(u32::try_from(beyond).unwrap_or(u32::MAX))
         }
@@ -932,7 +1092,9 @@ pub fn to_lsp(text: Option<&str>, position: TextPosition, unit: PositionUnit) ->
 /// One-based line and character column of a protocol position.
 #[must_use]
 pub fn from_lsp(text: Option<&str>, position: &Value, unit: PositionUnit) -> Option<TextPosition> {
-    let line = u32::try_from(position.get("line")?.as_u64()?).ok()?.saturating_add(1);
+    let line = u32::try_from(position.get("line")?.as_u64()?)
+        .ok()?
+        .saturating_add(1);
     let character = u32::try_from(position.get("character")?.as_u64()?).ok()?;
     let column = match text.and_then(|text| line_text(text, line)) {
         Some(line_text) => {
@@ -960,10 +1122,13 @@ pub fn from_lsp(text: Option<&str>, position: &Value, unit: PositionUnit) -> Opt
 pub fn word_at(text: &str, position: TextPosition) -> Option<String> {
     let line = line_text(text, position.line)?;
     let characters: Vec<char> = line.chars().collect();
-    let is_ident = |character: &char| character.is_alphanumeric() || *character == '_' || *character == '$';
+    let is_ident =
+        |character: &char| character.is_alphanumeric() || *character == '_' || *character == '$';
     let mut index = usize::try_from(position.column.checked_sub(1)?).ok()?;
     if index >= characters.len() || !is_ident(&characters[index]) {
-        index = index.checked_sub(1).filter(|before| characters.get(*before).is_some_and(is_ident))?;
+        index = index
+            .checked_sub(1)
+            .filter(|before| characters.get(*before).is_some_and(is_ident))?;
     }
     let start = characters[..index]
         .iter()

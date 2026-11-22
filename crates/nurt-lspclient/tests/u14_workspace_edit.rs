@@ -3,6 +3,9 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Tests of the conversion of `WorkspaceEdit` answers to workspace changes.
 
+// Tests report failures by panicking.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use std::path::{Path, PathBuf};
 
 use nurt_code::semantic::{DocumentChange, ResourceChange, SemanticErrorKind, TextChange};

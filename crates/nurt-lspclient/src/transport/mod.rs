@@ -139,7 +139,9 @@ impl<R: Read> FrameReader<R> {
     fn header_line(&mut self) -> io::Result<Option<Header>> {
         let mut line = Vec::new();
         let limit = u64::try_from(HEADER_LINE_MAX).unwrap_or(u64::MAX);
-        let read = (&mut self.reader).take(limit).read_until(b'\n', &mut line)?;
+        let read = (&mut self.reader)
+            .take(limit)
+            .read_until(b'\n', &mut line)?;
         if read == 0 {
             return Ok(None);
         }

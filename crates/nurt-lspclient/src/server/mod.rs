@@ -210,10 +210,7 @@ impl LanguageServer {
             server: spec.name.clone(),
             message,
         };
-        let temp_dir = tempfile::Builder::new()
-            .prefix(TEMP_PREFIX)
-            .tempdir()
-            .ok();
+        let temp_dir = tempfile::Builder::new().prefix(TEMP_PREFIX).tempdir().ok();
         let spawn = ServiceSpawnSpec {
             program: spec.program.clone(),
             args: spec.args.clone(),
@@ -296,7 +293,8 @@ impl LanguageServer {
             object.insert("initializationOptions".to_owned(), options.clone());
         }
         let result = self.request("initialize", params, timeout, cancel)?;
-        *lock(&self.shared.capabilities) = result.get("capabilities").cloned().unwrap_or(Value::Null);
+        *lock(&self.shared.capabilities) =
+            result.get("capabilities").cloned().unwrap_or(Value::Null);
         self.notify("initialized", json!({}));
         Ok(())
     }
@@ -439,7 +437,13 @@ impl LanguageServer {
     }
 
     /// Opens the document in the server or sends its new content.
-    pub fn sync_document(&self, path: &Path, language_id: &str, text: &str, stamp: Option<FileStamp>) {
+    pub fn sync_document(
+        &self,
+        path: &Path,
+        language_id: &str,
+        text: &str,
+        stamp: Option<FileStamp>,
+    ) {
         let notification = lock(&self.shared.documents).sync(path, language_id, text, stamp);
         if let Some(notification) = notification {
             send(&self.shared, &notification);
@@ -537,7 +541,11 @@ fn spawn_stderr_reader(stream: Box<dyn Read + Send>, shared: &Shared) -> Receive
     finished
 }
 
-fn read_loop(shared: &Arc<Shared>, stdout: Box<dyn Read + Send>, stderr_done: Option<Receiver<()>>) {
+fn read_loop(
+    shared: &Arc<Shared>,
+    stdout: Box<dyn Read + Send>,
+    stderr_done: Option<Receiver<()>>,
+) {
     let mut reader = FrameReader::new(stdout);
     while let Ok(Some(frame)) = reader.next_frame() {
         if let Frame::Message(value) = frame
