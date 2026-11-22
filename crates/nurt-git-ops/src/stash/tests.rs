@@ -11,20 +11,19 @@ use super::*;
 use crate::reset::index;
 use crate::reset::repo::{commit_parents, commit_tree};
 use crate::reset::testing::{
-    Fixture, Journal, RepoBuilder, blob_id, built, ctx, git_file, index_entries, index_id, read,
+    Fixture, Journal, RepoBuilder, blob_id, ctx, git_file, index_entries, index_id, read,
     reflog_messages, remove, rev, stage, state, write,
 };
 use nurt_git::repo::GitRepo;
 
 /// One commit `first` with `a.txt`, `b.txt` and `dir/c.txt`.
 fn base() -> Fixture {
-    built(
-        RepoBuilder::new()
-            .file("a.txt", "a1\n")
-            .file("b.txt", "b1\n")
-            .file("dir/c.txt", "c1\n")
-            .commit("first"),
-    )
+    RepoBuilder::new()
+        .file("a.txt", "a1\n")
+        .file("b.txt", "b1\n")
+        .file("dir/c.txt", "c1\n")
+        .commit("first")
+        .build()
 }
 
 fn run(fx: &Fixture, journal: &Journal, request: &StashRequest) -> Result<StashOutcome> {
@@ -301,12 +300,11 @@ fn apply_keeps_new_files_added() {
 
 #[test]
 fn apply_on_another_commit_merges_cleanly() {
-    let fx = built(
-        RepoBuilder::new()
-            .file("a.txt", "1\n2\n3\n4\n5\n")
-            .file("b.txt", "b\n")
-            .commit("first"),
-    );
+    let fx = RepoBuilder::new()
+        .file("a.txt", "1\n2\n3\n4\n5\n")
+        .file("b.txt", "b\n")
+        .commit("first")
+        .build();
     let journal = Journal::new();
     write(&fx, "a.txt", "1\n2\n3\n4\nfive\n");
     push(&fx, &journal);

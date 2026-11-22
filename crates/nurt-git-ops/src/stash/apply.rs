@@ -234,8 +234,9 @@ pub(crate) fn plan_apply(
             },
         ),
         expect: context.index_expect().clone(),
+        record_resolve_undo: false,
     });
-    if !clean {
+    if base != work {
         change.plan.state_files.push(state_write(
             repo,
             AUTO_MERGE,

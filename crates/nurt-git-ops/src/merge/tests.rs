@@ -578,3 +578,57 @@ fn driver_mode_formats_for_debugging() {
     assert_eq!(format!("{:?}", DriverMode::Defer), "Defer");
     assert_eq!(format!("{:?}", DriverMode::Run(&ctx)), "Run");
 }
+
+#[test]
+fn separates_link_and_regular_file_of_a_type_change_conflict() {
+    let fx = Fixture::new();
+    let base = fx.tree(&[("f", "1\n2\n3\n")]);
+    let ours = fx.tree(&[("f", "1\n2\n3\n4\n")]);
+    let theirs = fx.tree_with(&[("f", EntryKind::Link, b"target")]);
+    let out = merge_trees(
+        &fx.repo,
+        &base,
+        &ours,
+        &theirs,
+        &options("topic"),
+        DriverMode::Defer,
+    )
+    .unwrap();
+    let kinds: Vec<_> = out
+        .conflicts
+        .iter()
+        .map(|c| (c.path.to_string(), c.kind))
+        .collect();
+    assert_eq!(
+        kinds,
+        vec![
+            ("f".to_owned(), GitConflictKind::AddedByThem),
+            ("f~HEAD".to_owned(), GitConflictKind::DeletedByThem),
+        ]
+    );
+    assert_eq!(fx.mode(out.tree, "f"), Some(EntryKind::Link));
+    assert_eq!(fx.read(out.tree, "f~HEAD").as_deref(), Some("1\n2\n3\n4\n"));
+}
+
+#[test]
+fn records_the_original_blob_for_rename_delete_conflict() {
+    let fx = Fixture::new();
+    let text = "1\n2\n3\n4\n5\n6\n7\n8\n9\n";
+    let base = fx.tree(&[("a", text), ("z", "z\n")]);
+    let ours = fx.tree(&[("z", "z\n")]);
+    let theirs = fx.tree(&[("b", text), ("z", "z\n")]);
+    let out = merge_trees(
+        &fx.repo,
+        &base,
+        &ours,
+        &theirs,
+        &options("topic"),
+        DriverMode::Defer,
+    )
+    .unwrap();
+    assert_eq!(out.conflicts.len(), 1);
+    let conflict = &out.conflicts[0];
+    assert_eq!(conflict.path, "b");
+    assert_eq!(conflict.kind, GitConflictKind::RenameDelete);
+    assert!(conflict.base.is_some() && conflict.theirs.is_some() && conflict.ours.is_none());
+}

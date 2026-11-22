@@ -1566,7 +1566,8 @@ impl PlannedPush {
     /// transaction back. Rejected updates are not errors here; see
     /// [`PushOutcome::check`].
     pub fn apply(self, tx: &mut dyn MutationTx, context: &PushContext<'_>) -> Result<PushOutcome> {
-        let repo = open_local(&self.root)?;
+        let mut repo = open_local(&self.root)?;
+        repo.objects.prevent_pack_unload();
         let hooks_skipped = self.run_pre_push(context)?;
         let mut outcome = self.preview();
         outcome.hooks_skipped = hooks_skipped;
@@ -1909,6 +1910,9 @@ impl EffectStage for PushCommand {
 
 #[cfg(test)]
 mod http_tests;
+
+#[cfg(test)]
+mod ssh_tests;
 
 #[cfg(test)]
 mod tests {

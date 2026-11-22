@@ -546,6 +546,7 @@ fn refuses_local_changes_in_the_way_of_a_fast_forward() {
     assert_eq!(scenario.read("a.txt"), "mine\n");
     assert_eq!(scenario.branch(), scenario.base);
     assert!(scenario.git_path("FETCH_HEAD").exists());
+    assert_eq!(scenario.reference("ORIG_HEAD"), scenario.base);
 }
 
 #[test]
