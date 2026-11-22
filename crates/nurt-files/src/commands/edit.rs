@@ -687,13 +687,11 @@ fn occurrence_value(name: &str, value: Option<&Value>) -> Result<Option<NonZeroU
     }
 }
 
-/// Error of a change that cannot be planned in `path`.
-///
-/// A line outside the text and an occurrence above the number of matches
-/// are `E_OUT_OF_RANGE`; every other failure keeps the code of the planner.
+/// Error of a change that cannot be planned in `path`, with the code of the
+/// planner.
 #[must_use]
 pub(crate) fn edit_error(error: &EditError, path: &AbsPath) -> Error {
-    let base = Error::new(edit_code(error), format!("`{path}`: {error}"))
+    let base = Error::new(error.code(), format!("`{path}`: {error}"))
         .with_detail("path", Json::from(path.to_language_string()));
     match error {
         EditError::Match { source, .. } => with_match_details(base, source),
@@ -708,30 +706,14 @@ pub(crate) fn edit_error(error: &EditError, path: &AbsPath) -> Error {
     }
 }
 
-/// Error of a literal pattern that cannot be matched or selected in `path`;
-/// an occurrence above the number of matches is `E_OUT_OF_RANGE`.
+/// Error of a literal pattern that cannot be matched or selected in `path`.
 #[must_use]
 pub(crate) fn match_error(error: &MatchError, path: &AbsPath) -> Error {
     with_match_details(
-        Error::new(match_code(error), format!("`{path}`: {error}"))
+        Error::new(error.code(), format!("`{path}`: {error}"))
             .with_detail("path", Json::from(path.to_language_string())),
         error,
     )
-}
-
-fn edit_code(error: &EditError) -> ErrorCode {
-    match error {
-        EditError::LineOutOfRange { .. } => ErrorCode::OutOfRange,
-        EditError::Match { source, .. } => match_code(source),
-        other => other.code(),
-    }
-}
-
-fn match_code(error: &MatchError) -> ErrorCode {
-    match error {
-        MatchError::OccurrenceMissing { .. } => ErrorCode::OutOfRange,
-        other => other.code(),
-    }
 }
 
 /// Error of a replacement template that is not valid.

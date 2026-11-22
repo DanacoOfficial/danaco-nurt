@@ -172,7 +172,7 @@ pub(crate) fn glob_matches(globs: Option<&GlobSet>, relative: &Path) -> bool {
 }
 
 /// Text in Unicode normalization form C; borrowed when already composed.
-fn nfc_text(text: &str) -> Cow<'_, str> {
+pub(super) fn nfc_text(text: &str) -> Cow<'_, str> {
     if is_nfc(text) {
         Cow::Borrowed(text)
     } else {
@@ -183,7 +183,7 @@ fn nfc_text(text: &str) -> Cow<'_, str> {
 /// Path in Unicode normalization form C, so that names stored decomposed,
 /// as on macOS volumes, match patterns written composed. A path that is not
 /// valid Unicode is returned unchanged.
-fn nfc_path(path: &Path) -> Cow<'_, Path> {
+pub(super) fn nfc_path(path: &Path) -> Cow<'_, Path> {
     match path.to_str() {
         Some(text) if !is_nfc(text) => Cow::Owned(PathBuf::from(text.nfc().collect::<String>())),
         _ => Cow::Borrowed(path),
