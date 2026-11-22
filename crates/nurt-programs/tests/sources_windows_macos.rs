@@ -76,14 +76,14 @@ fn package<'a>(data: &'a SourceData, name: &str) -> &'a RawPackage {
 fn mac_env(root: &Path) -> HostEnv {
     HostEnv::new(Os::Macos)
         .with_root(root)
-        .with_home("/Users/ada")
+        .with_home("/Users/user")
 }
 
 fn windows_env(root: &Path) -> HostEnv {
     HostEnv::new(Os::Windows)
         .with_root(root)
-        .with_home("C:\\Users\\ada")
-        .with_var("LOCALAPPDATA", "C:\\Users\\ada\\AppData\\Local")
+        .with_home("C:\\Users\\user")
+        .with_var("LOCALAPPDATA", "C:\\Users\\user\\AppData\\Local")
         .with_var("ProgramFiles", "C:\\Program Files")
 }
 
@@ -200,14 +200,14 @@ fn brew_api_cache_fills_missing_descriptions() {
 
 #[test]
 fn brew_prefixes_and_cache_follow_the_system() {
-    let linux = HostEnv::new(Os::Linux).with_home("/home/ada");
+    let linux = HostEnv::new(Os::Linux).with_home("/home/user");
     assert_eq!(
         brew::prefixes(&linux),
         [Path::new("/home/linuxbrew/.linuxbrew")]
     );
     assert_eq!(
         brew::cache_dir(&linux).unwrap(),
-        Path::new("/home/ada/.cache/Homebrew")
+        Path::new("/home/user/.cache/Homebrew")
     );
     let xdg = linux.clone().with_var("XDG_CACHE_HOME", "/var/cache/ada");
     assert_eq!(
@@ -215,13 +215,13 @@ fn brew_prefixes_and_cache_follow_the_system() {
         Path::new("/var/cache/ada/Homebrew")
     );
     let mac = HostEnv::new(Os::Macos)
-        .with_home("/Users/ada")
+        .with_home("/Users/user")
         .with_var("HOMEBREW_PREFIX", "/opt/custom");
     assert_eq!(brew::prefixes(&mac)[0], Path::new("/opt/custom"));
     assert_eq!(brew::prefixes(&mac).len(), 3);
     assert_eq!(
         brew::cache_dir(&mac).unwrap(),
-        Path::new("/Users/ada/Library/Caches/Homebrew")
+        Path::new("/Users/user/Library/Caches/Homebrew")
     );
     assert!(brew::prefixes(&HostEnv::new(Os::Windows)).is_empty());
 }
@@ -277,12 +277,12 @@ fn tracking_db(path: &Path) {
 fn winget_links_registry_and_tracking_database() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
-    let local = "c/Users/ada/AppData/Local";
+    let local = "c/Users/user/AppData/Local";
     let package_dir = "BurntSushi.ripgrep.MSVC_Microsoft.Winget.Source_8wekyb3d8bbwe";
     std::fs::create_dir_all(root.join(format!("{local}/Microsoft/WinGet/Packages/{package_dir}")))
         .unwrap();
     let target = format!(
-        "C:\\Users\\ada\\AppData\\Local\\Microsoft\\WinGet\\Packages\\{package_dir}\\rg.exe"
+        "C:\\Users\\user\\AppData\\Local\\Microsoft\\WinGet\\Packages\\{package_dir}\\rg.exe"
     );
     let linked = link(
         &target,
@@ -335,7 +335,7 @@ fn winget_links_registry_and_tracking_database() {
 fn winget_unknown_tracking_schema_warns() {
     let dir = tempfile::tempdir().unwrap();
     let db_dir = dir.path().join(format!(
-        "c/Users/ada/AppData/Local/{}",
+        "c/Users/user/AppData/Local/{}",
         winget::TRACKING_DIR.replace('\\', "/")
     ));
     std::fs::create_dir_all(&db_dir).unwrap();
@@ -354,7 +354,7 @@ fn winget_unknown_tracking_schema_warns() {
 fn winget_package_names_from_directories_and_links() {
     assert_eq!(winget::package_of_dir("NoSource"), None);
     assert_eq!(
-        winget::package_of_link("C:/Users/a/AppData/Local/Microsoft/WinGet/Packages/jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe/jq.exe")
+        winget::package_of_link("C:/Users/user/AppData/Local/Microsoft/WinGet/Packages/jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe/jq.exe")
             .as_deref(),
         Some("jqlang.jq")
     );
@@ -365,7 +365,7 @@ fn winget_package_names_from_directories_and_links() {
 fn scoop_manifest_shim() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
-    let scoop = "c/Users/ada/scoop";
+    let scoop = "c/Users/user/scoop";
     write(
         root,
         &format!("{scoop}/apps/ripgrep/current/manifest.json"),
@@ -380,7 +380,7 @@ fn scoop_manifest_shim() {
     write(
         root,
         &format!("{scoop}/shims/rg.shim"),
-        "path = \"C:\\Users\\ada\\scoop\\apps\\ripgrep\\current\\rg.exe\"\n",
+        "path = \"C:\\Users\\user\\scoop\\apps\\ripgrep\\current\\rg.exe\"\n",
     );
     write(
         root,
@@ -902,8 +902,8 @@ fn macapp_info_plist_localized() {
     );
     write(
         root,
-        &format!("{bundle}/Resources/pl.lproj/InfoPlist.strings"),
-        "\"CFBundleName\" = \"Przeglądarka\";\n",
+        &format!("{bundle}/Resources/it.lproj/InfoPlist.strings"),
+        "\"CFBundleName\" = \"Visualizzatore\";\n",
     );
     write(
         root,
@@ -911,7 +911,7 @@ fn macapp_info_plist_localized() {
         "\"CFBundleName\" = \"Visionneuse\";",
     );
     write(root, &format!("{bundle}/_MASReceipt/receipt"), "x");
-    let env = mac_env(root).with_languages(vec!["de".to_owned(), "pl".to_owned(), "en".to_owned()]);
+    let env = mac_env(root).with_languages(vec!["de".to_owned(), "it".to_owned(), "en".to_owned()]);
     let source = MacAppSource::new();
     assert!(source.detect(&env));
     assert!(!source.detect(&HostEnv::new(Os::Linux).with_root(root)));
@@ -941,7 +941,7 @@ fn assert_localized_viewer_name(viewer: &RawProgram) {
     assert_eq!(name.text, "Image Viewer");
     assert_eq!(name.lang.as_deref(), Some("en"));
     assert_eq!(name.pick(&["de".to_owned()]).0, "Bildbetrachter");
-    assert_eq!(name.pick(&["pl".to_owned()]).0, "Przeglądarka");
+    assert_eq!(name.pick(&["it".to_owned()]).0, "Visualizzatore");
     assert!(!name.translations.contains_key("fr"));
 }
 
@@ -975,7 +975,7 @@ fn macapp_binary_plist_and_nested_bundles() {
     );
     write(
         root,
-        "Users/ada/Applications/Broken.app/Contents/Info.plist",
+        "Users/user/Applications/Broken.app/Contents/Info.plist",
         "not a plist",
     );
     write(

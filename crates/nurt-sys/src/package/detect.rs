@@ -84,9 +84,9 @@ mod tests {
     use std::fs;
 
     /// Profile directory of a synthetic Windows account.
-    const PROFILE: &str = "C:\\Users\\example";
+    const PROFILE: &str = "C:\\Users\\user";
     /// The same profile below a test root.
-    const PROFILE_DIR: &str = "c/Users/example";
+    const PROFILE_DIR: &str = "c/Users/user";
 
     fn tree(paths: &[String]) -> tempfile::TempDir {
         let dir = tempfile::tempdir().expect("temporary directory");

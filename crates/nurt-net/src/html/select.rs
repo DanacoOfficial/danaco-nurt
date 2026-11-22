@@ -37,8 +37,8 @@ const OUTLINE_START: usize = 300;
 /// ```
 /// use nurt_net::html::{convert_markdown, select};
 ///
-/// let page = convert_markdown("# A\n\none\n\n## Instalacja\n\ntwo\n\n# B\n\nthree");
-/// let found = select::section(&page.blocks, "instalacja").unwrap();
+/// let page = convert_markdown("# A\n\none\n\n## Setup\n\ntwo\n\n# B\n\nthree");
+/// let found = select::section(&page.blocks, "setup").unwrap();
 /// assert_eq!(found.len(), 2);
 /// assert!(select::section(&page.blocks, "missing").is_err());
 /// ```
@@ -250,20 +250,20 @@ pub fn fold(text: &str) -> String {
     text.chars()
         .flat_map(char::to_lowercase)
         .map(|c| match c {
-            'ą' | 'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ā' | 'ă' => 'a',
-            'ć' | 'ç' | 'č' | 'ĉ' => 'c',
+            '\u{105}' | 'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ā' | 'ă' => 'a',
+            '\u{107}' | 'ç' | 'č' | 'ĉ' => 'c',
             'ď' | 'đ' => 'd',
-            'ę' | 'è' | 'é' | 'ê' | 'ë' | 'ē' | 'ě' => 'e',
+            '\u{119}' | 'è' | 'é' | 'ê' | 'ë' | 'ē' | 'ě' => 'e',
             'ì' | 'í' | 'î' | 'ï' | 'ī' => 'i',
-            'ł' | 'ľ' | 'ĺ' => 'l',
-            'ń' | 'ñ' | 'ň' => 'n',
-            'ó' | 'ò' | 'ô' | 'õ' | 'ö' | 'ø' | 'ō' | 'ő' => 'o',
+            '\u{142}' | 'ľ' | 'ĺ' => 'l',
+            '\u{144}' | 'ñ' | 'ň' => 'n',
+            '\u{f3}' | 'ò' | 'ô' | 'õ' | 'ö' | 'ø' | 'ō' | 'ő' => 'o',
             'ř' | 'ŕ' => 'r',
-            'ś' | 'š' | 'ş' => 's',
+            '\u{15b}' | 'š' | 'ş' => 's',
             'ť' | 'ţ' => 't',
             'ù' | 'ú' | 'û' | 'ü' | 'ū' | 'ů' | 'ű' => 'u',
             'ý' | 'ÿ' => 'y',
-            'ź' | 'ż' | 'ž' => 'z',
+            '\u{17a}' | '\u{17c}' | 'ž' => 'z',
             other => other,
         })
         .collect()

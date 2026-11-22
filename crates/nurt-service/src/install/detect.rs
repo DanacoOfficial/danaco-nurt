@@ -10,9 +10,9 @@
 //! | Fact | Linux | macOS | Windows |
 //! |---|---|---|---|
 //! | graphical session | `DISPLAY`, `WAYLAND_DISPLAY` or a graphical `XDG_SESSION_TYPE` | the account owns `/dev/console` | always |
-//! | default target | `org.freedesktop.systemd1.Manager.GetDefaultTarget` | — | — |
-//! | service account | login shell `nologin` or `false` | login shell `nologin` or `false` | — |
-//! | server edition | — | — | `ProductType` of `RtlGetVersion` is not a workstation |
+//! | default target | `org.freedesktop.systemd1.Manager.GetDefaultTarget` | none | none |
+//! | service account | login shell `nologin` or `false` | login shell `nologin` or `false` | none |
+//! | server edition | none | none | `ProductType` of `RtlGetVersion` is not a workstation |
 
 use nurt_contracts::config::ServiceMode;
 use serde::Serialize;

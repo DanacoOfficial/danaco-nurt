@@ -478,7 +478,7 @@ mod procfs_tree {
         write(
             root,
             "/etc/passwd",
-            "root:x:0:0::/root:/bin/sh\nalice:x:1000:1000::/home/alice:/bin/sh\n",
+            "root:x:0:0::/root:/bin/sh\nalice:x:1000:1000::/home/user:/bin/sh\n",
         );
         write(root, "/proc/1/stat", stat_line(1, "init", 'S', 0, 50));
         write(root, "/proc/1/cmdline", b"/sbin/init\0splash\0");

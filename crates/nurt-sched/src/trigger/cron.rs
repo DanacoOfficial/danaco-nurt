@@ -349,7 +349,7 @@ fn value(text: &str, rule: &FieldRule) -> Result<u16, Error> {
 fn bits(values: &[u16]) -> u64 {
     values
         .iter()
-        .filter(|value| **value < 64)
+        .filter(|value| u32::from(**value) < u64::BITS)
         .fold(0, |acc, value| acc | (1 << value))
 }
 
@@ -358,5 +358,5 @@ fn narrow<T: TryFrom<u64> + Default>(bits: u64) -> T {
 }
 
 fn set_bits(bits: u64) -> impl Iterator<Item = u32> {
-    (0..64).filter(move |bit| bits & (1 << bit) != 0)
+    (0..u64::BITS).filter(move |bit| bits & (1 << bit) != 0)
 }

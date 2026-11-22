@@ -156,7 +156,7 @@ fn file_stem(path: &str) -> Option<String> {
 /// ```
 /// use nurt_programs::sources::scoop::shim_application;
 ///
-/// let shim = "path = \"C:\\Users\\a\\scoop\\apps\\ripgrep\\current\\rg.exe\"\n";
+/// let shim = "path = \"C:\\Users\\user\\scoop\\apps\\ripgrep\\current\\rg.exe\"\n";
 /// assert_eq!(shim_application(shim).as_deref(), Some("ripgrep"));
 /// ```
 #[must_use]

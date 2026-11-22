@@ -335,7 +335,7 @@ mod tests {
         assert_eq!(domain(ServiceMode::User, 501, false), "user/501");
         assert_eq!(domain(ServiceMode::System, 501, true), "system");
         assert_eq!(
-            property_list_path(ServiceMode::System, Path::new("/Users/dev")),
+            property_list_path(ServiceMode::System, Path::new("/Users/user")),
             Path::new("/Library/LaunchDaemons/nurt.service.plist")
         );
         let dir = tempfile::tempdir().unwrap();

@@ -5,7 +5,7 @@
 //! installer, for tests without a system bus.
 //!
 //! Every client connection gets its own server connection over a socket
-//! pair. Calls that change state are recorded as `Method arg…`;
+//! pair. Calls that change state are recorded as `Method arg...`;
 //! `GetDefaultTarget`, `GetUser` and property reads are not recorded.
 
 use std::os::unix::net::UnixStream;

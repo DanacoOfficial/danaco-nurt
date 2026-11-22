@@ -641,7 +641,7 @@ fn status_assembles_installed_running_modules() {
         executable: "/opt/nurt/bin/nurt".into(),
         account: None,
         domain: None,
-        files: vec!["/home/dev/.config/systemd/user/nurt-service.service".into()],
+        files: vec!["/home/user/.config/systemd/user/nurt-service.service".into()],
         linger: Some(false),
     };
     fs::write(

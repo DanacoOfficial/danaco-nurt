@@ -383,22 +383,22 @@ mod tests {
         let dir = tempfile::tempdir().expect("temporary directory");
         put(
             dir.path(),
-            "c/Users/example/scoop/buckets/main/bucket/git.json",
+            "c/Users/user/scoop/buckets/main/bucket/git.json",
             br#"{"version": "2.44.0", "description": "Distributed VCS"}"#,
         );
         put(
             dir.path(),
-            "c/Users/example/scoop/buckets/extras/bucket/vlc.json",
+            "c/Users/user/scoop/buckets/extras/bucket/vlc.json",
             br#"{"version": "3.0.20", "description": "Media player"}"#,
         );
         put(
             dir.path(),
-            "c/Users/example/scoop/buckets/main/bucket/broken.json",
+            "c/Users/user/scoop/buckets/main/bucket/broken.json",
             b"{not json",
         );
         let env = HostEnv::new(Os::Windows)
             .with_root(dir.path())
-            .with_home("C:\\Users\\example");
+            .with_home("C:\\Users\\user");
         let (entries, report) = collect(&env, PackageManager::Scoop);
         let names: Vec<_> = entries
             .iter()
@@ -453,7 +453,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("temporary directory");
         let database = dir
             .path()
-            .join("c/Users/example/AppData/Local/Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/LocalState/Microsoft.Winget.Source_8wekyb3d8bbwe/Public/index.db");
+            .join("c/Users/user/AppData/Local/Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/LocalState/Microsoft.Winget.Source_8wekyb3d8bbwe/Public/index.db");
         fs::create_dir_all(database.parent().expect("parent")).expect("directories");
         let connection = rusqlite::Connection::open(&database).expect("database");
         connection
@@ -467,7 +467,7 @@ mod tests {
         drop(connection);
         let env = HostEnv::new(Os::Windows)
             .with_root(dir.path())
-            .with_var("LOCALAPPDATA", "C:\\Users\\example\\AppData\\Local");
+            .with_var("LOCALAPPDATA", "C:\\Users\\user\\AppData\\Local");
         let (entries, _) = collect(&env, PackageManager::Winget);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "Git.Git");
