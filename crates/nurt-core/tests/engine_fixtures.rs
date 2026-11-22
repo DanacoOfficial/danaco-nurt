@@ -284,7 +284,7 @@ fn planned_programs_stop_before_execution() {
             assert_eq!(response.report.status, ReportStatus::Failed, "{what}");
             let error = response.report.error.as_ref().unwrap();
             assert_eq!(error.code, ErrorCode::Unsupported, "{what}");
-            assert!(error.details["operations"].as_u64().unwrap() >= 1, "{what}");
+            assert!(error.message.contains("file system"), "{what}");
             let rendered = response.rendered.as_ref().unwrap();
             assert_eq!(rendered.format, OutputFormat::Text, "{what}");
             assert!(!rendered.text.is_empty(), "{what}");
