@@ -190,7 +190,6 @@ fn every_golden_program_without_assert_is_checked_without_effect() {
 }
 
 #[test]
-#[ignore = "the planner passes literal ranges to the static check of `assert` as expressions"]
 fn golden_programs_with_assert_are_checked_without_effect() {
     let f = fixture();
     for (name, text) in f.programs.iter().filter(|(name, _)| uses_assert(name)) {
