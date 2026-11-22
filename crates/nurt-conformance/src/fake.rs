@@ -344,7 +344,11 @@ impl FakeServer {
                 .bound_hash
                 .clone()
                 .unwrap_or_else(|| ast_hash(bound).unwrap_or_default());
-            Answer::result(json!({member::BOUND: bound, member::AST_HASH: hash}))
+            Answer::result(json!({
+                member::BOUND: bound,
+                member::AST_HASH: hash,
+                member::DIAGNOSTICS: [],
+            }))
         });
         let mut texts: BTreeMap<String, String> = golden.texts.iter().cloned().collect();
         if texts.is_empty() {
@@ -358,7 +362,7 @@ impl FakeServer {
             self.add(
                 method::PARSE,
                 &protocol::text_params(text, variant),
-                Answer::result(json!({member::AST: tree})),
+                Answer::result(json!({member::AST: tree, member::DIAGNOSTICS: []})),
             );
             self.add(
                 method::PRINT,
@@ -395,14 +399,17 @@ impl FakeServer {
                     .find(|s| s.call == call && s.execution == Some(number))
             };
             let answer = if step.call == "start" {
-                let expect = on_execution("wait").map(|wait| wait.expect.answer(View::Response));
+                let expect =
+                    on_execution("wait").map(|wait| wait.expect.answer("wait", View::Response));
                 Answer {
                     start: true,
                     hold: on_execution("cancel").is_some(),
-                    ..binding_answer(expect.unwrap_or_else(|| default_response(View::Response)))
+                    ..binding_answer(
+                        expect.unwrap_or_else(|| default_response("wait", View::Response)),
+                    )
                 }
             } else {
-                binding_answer(step.expect.answer(binding::view(&step.call)))
+                binding_answer(step.expect.answer(&step.call, binding::view(&step.call)))
             };
             self.add(method_name, &params, answer);
         }
@@ -440,7 +447,7 @@ impl FakeServer {
             method::INFO => self.reply(vec![protocol::response(&id, self.info())]),
             method::SHUTDOWN => Reply {
                 exit: true,
-                ..self.reply(vec![protocol::response(&id, json!({}))])
+                ..self.reply(vec![protocol::response(&id, Value::Null)])
             },
             method::SCHEMA => self.schema(&id, &params),
             method::CANCEL => self.cancel(&id, &params),
@@ -509,10 +516,13 @@ impl FakeServer {
         let result = json!({
             "protocol": protocol::PROTOCOL,
             "version": env!("CARGO_PKG_VERSION"),
+            "abi": null,
             "language": LANGUAGE,
             "ast": LANGUAGE,
             "report": LANGUAGE,
+            "catalog_rev": null,
             "features": self.features,
+            "groups": [],
             "limits": {"max_inflight": 1, "max_message_bytes": MAX_MESSAGE_BYTES},
         });
         let mut reply = self.reply(vec![protocol::response(id, result)]);
@@ -529,7 +539,7 @@ impl FakeServer {
             return self.reply(vec![protocol::response(id, json!({"type": 12}))]);
         }
         let which = params
-            .get(member::WHICH)
+            .get(member::NAME)
             .and_then(Value::as_str)
             .unwrap_or_default();
         let message = match self.schemas.document(which) {
@@ -549,11 +559,16 @@ impl FakeServer {
             .get(member::REQUEST_ID)
             .cloned()
             .unwrap_or(Value::Null);
-        let mut messages = vec![protocol::response(id, json!({}))];
-        if let Some(index) = self.held.iter().position(|(held, _)| *held == target) {
-            let (_, response) = self.held.remove(index);
-            messages.push(response);
-        }
+        let held = self
+            .held
+            .iter()
+            .position(|(held, _)| *held == target)
+            .map(|index| self.held.remove(index).1);
+        let mut messages = vec![protocol::response(
+            id,
+            json!({member::CANCELLED: held.is_some()}),
+        )];
+        messages.extend(held);
         self.reply(messages)
     }
 
@@ -606,6 +621,7 @@ impl FakeServer {
             Err((code, data)) => protocol::error_response(id, code, "call error", Some(data)),
         };
         let mut messages = Vec::new();
+        self.seq = 0;
         if self.events {
             for event in events {
                 messages.push(self.event(id, event));
@@ -619,16 +635,20 @@ impl FakeServer {
         self.reply(messages)
     }
 
-    /// Completes an event with its sequence number, the time of the clock
-    /// and, when it has none, the identifier of the request.
+    /// Completes an event with its sequence number within the request, the
+    /// time of the clock, the identifier of the request as text and, for
+    /// `exec.finished`, the status `ok` unless the event names one.
     fn event(&mut self, request_id: &Value, mut event: Value) -> Value {
         self.seq += 1;
         if let Value::Object(members) = &mut event {
             members.insert("seq".to_owned(), json!(self.seq));
             members.insert("time".to_owned(), json!(self.clock.to_string()));
             members
-                .entry(member::REQUEST_ID)
-                .or_insert_with(|| request_id.clone());
+                .entry(member::REQUEST)
+                .or_insert_with(|| protocol::request_text(request_id));
+            if members.get("t") == Some(&json!("exec.finished")) {
+                members.entry(member::STATUS).or_insert_with(|| json!("ok"));
+            }
         }
         protocol::notification(method::EVENT, event)
     }
@@ -849,7 +869,7 @@ fn binding_answer(answer: BindingAnswer) -> Answer {
     }
 }
 
-fn default_response(view: View) -> BindingAnswer {
+fn default_response(call: &str, view: View) -> BindingAnswer {
     let expect = binding::BindingExpect {
         outcome: binding::Outcome::Ok,
         status: None,
@@ -858,7 +878,7 @@ fn default_response(view: View) -> BindingAnswer {
         present: Vec::new(),
         absent: Vec::new(),
     };
-    expect.answer(view)
+    expect.answer(call, view)
 }
 
 fn clear_directory(dir: &Path) -> std::io::Result<()> {
@@ -1031,7 +1051,7 @@ mod tests {
             json!({"nurt": "1.0", "program": "count"}),
         ));
         assert_eq!(ran.messages[0]["params"]["time"], "2026-01-01T02:30:00Z");
-        assert_eq!(ran.messages[0]["params"]["request_id"], 5);
+        assert_eq!(ran.messages[0]["params"]["request"], "5");
 
         let mut fake = server(Vec::new(), Some(Break::NoClock));
         let missing = fake.handle(&request(1, "testkit.clock.advance", json!({"by": "2h"})));
@@ -1040,7 +1060,7 @@ mod tests {
 
     #[test]
     fn expected_events_are_sent_before_the_response() {
-        let started = json!({"t": "exec.started", "request_id": "r"});
+        let started = json!({"t": "exec.started", "request": "r"});
         let finished = json!({"t": "exec.finished", "status": "ok"});
         let run = Step {
             events: Some(crate::case::EventExpectation {
@@ -1058,12 +1078,16 @@ mod tests {
             protocol::initialize_params("t", "1", true),
         ));
         let reply = fake.handle(&call);
+        let schemas = SchemaSet::shared().unwrap();
+        for message in &reply.messages {
+            assert_eq!(schemas.validate_message(message), Ok(()), "{message}");
+        }
         let methods: Vec<&Value> = reply.messages.iter().map(|m| &m["method"]).collect();
         assert_eq!(
             methods,
             [&json!("nurt/event"), &json!("nurt/event"), &Value::Null]
         );
-        assert_eq!(reply.messages[0]["params"]["request_id"], "r");
+        assert_eq!(reply.messages[0]["params"]["request"], "r");
         assert_eq!(reply.messages[1]["params"]["seq"], 2);
         assert_eq!(reply.messages[1]["params"]["status"], "ok");
 
@@ -1173,6 +1197,30 @@ mod tests {
     }
 
     #[test]
+    fn native_answers_follow_the_protocol_schema() {
+        let schemas = SchemaSet::shared().unwrap();
+        let mut fake = server(Vec::new(), None);
+        let calls = [
+            ("initialize", protocol::initialize_params("t", "1", true)),
+            ("info", json!({})),
+            ("schema", json!({"name": "rpc"})),
+            ("cancel", json!({"request_id": 9})),
+            ("shutdown", json!({})),
+        ];
+        for (id, (name, params)) in calls.into_iter().enumerate() {
+            let reply = fake.handle(&request(id as u64 + 1, name, params));
+            for message in &reply.messages {
+                assert_eq!(schemas.validate_message(message), Ok(()), "{name}");
+            }
+            assert_eq!(
+                schemas.validate_result(name, result_of(&reply)),
+                Ok(()),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
     fn native_methods_answer_without_cases() {
         let mut fake = server(Vec::new(), None);
         assert!(fake.is_empty());
@@ -1186,9 +1234,9 @@ mod tests {
             result_of(&fake.handle(&request(2, "info", json!({}))))["name"],
             SERVER_NAME
         );
-        let schema = fake.handle(&request(3, "schema", json!({"which": "report"})));
+        let schema = fake.handle(&request(3, "schema", json!({"name": "report"})));
         assert_eq!(result_of(&schema)["title"], "nurt-report/1");
-        let unknown = fake.handle(&request(4, "schema", json!({"which": "none"})));
+        let unknown = fake.handle(&request(4, "schema", json!({"name": "none"})));
         assert_eq!(unknown.messages[0]["error"]["code"], code::INVALID_PARAMS);
         let unmatched = fake.handle(&request(5, "run", json!({"nurt": "1.0", "program": "x"})));
         assert_eq!(
@@ -1318,7 +1366,7 @@ mod tests {
         assert_eq!(result_of(&fake.handle(&run))["report"]["status"], "failed");
         let mut fake = server(cases.clone(), Some(Break::Schema));
         assert_eq!(
-            result_of(&fake.handle(&request(5, "schema", json!({"which": "ast"})))),
+            result_of(&fake.handle(&request(5, "schema", json!({"name": "ast"})))),
             &json!({"type": 12})
         );
         let mut fake = server(cases.clone(), Some(Break::Protocol));

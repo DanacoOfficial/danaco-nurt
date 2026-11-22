@@ -6,7 +6,8 @@
 //! has a case, golden cases are copies of the golden files of the
 //! specification, every invalid surface tree of the specification has an
 //! error case, every published schema is checked against the meta-schema, and
-//! the binding cases cover the whole interface.
+//! the binding cases cover the whole interface. Requests that the cases and the
+//! binding cases make follow the schema of the protocol.
 
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -18,6 +19,7 @@ use std::path::{Path, PathBuf};
 use nurt_conformance::binding::{self, CALLS, Outcome};
 use nurt_conformance::case::{Kind, Plan, Suite};
 use nurt_conformance::compare::ast_hash;
+use nurt_conformance::protocol;
 use nurt_conformance::schemas::{METASCHEMA, SchemaSet};
 use nurt_contracts::error::ErrorCode;
 use serde_json::Value;
@@ -276,7 +278,7 @@ fn every_published_schema_has_a_case_that_checks_it_against_the_metaschema() {
             case.kind == Kind::Golden
                 && steps.iter().any(|step| {
                     step.method == "schema"
-                        && step.params.get("which").and_then(Value::as_str) == Some(*name)
+                        && step.params.get("name").and_then(Value::as_str) == Some(*name)
                         && step.validate == Some((String::new(), METASCHEMA.to_owned()))
                 })
         });
@@ -293,4 +295,61 @@ fn suite_has_cases_of_every_kind_of_this_directory() {
     }
     let ids: BTreeSet<&str> = suite.cases.iter().map(|case| case.id.as_str()).collect();
     assert_eq!(ids.len(), suite.cases.len());
+}
+
+#[test]
+fn binding_calls_without_call_errors_map_to_requests_of_the_protocol_schema() {
+    let schemas = SchemaSet::new().unwrap();
+    let files = binding::load_dir(&conformance().join("bindings"), &schemas).unwrap();
+    for (_, file) in &files {
+        for case in &file.cases {
+            for step in &case.steps {
+                let Some((method, params)) = step.rpc() else {
+                    continue;
+                };
+                if step.expect.outcome == Outcome::CallError {
+                    continue;
+                }
+                let message = protocol::request(1, method, &params);
+                assert_eq!(
+                    schemas.validate_message(&message),
+                    Ok(()),
+                    "{}: {}",
+                    case.id,
+                    step.call
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn steps_of_the_golden_bind_and_error_cases_are_requests_of_the_protocol_schema() {
+    let schemas = SchemaSet::new().unwrap();
+    for case in &suite().cases {
+        let Plan::Steps(steps) = &case.plan else {
+            continue;
+        };
+        if !matches!(case.kind, Kind::Golden | Kind::Bind | Kind::Error) {
+            continue;
+        }
+        let protocol_steps = steps.iter().filter(|step| {
+            step.expect_error.is_none()
+                && !step.method.starts_with(protocol::method::TESTKIT_PREFIX)
+        });
+        for step in protocol_steps {
+            let mut params = step.params.clone();
+            if protocol::takes_request(&step.method) {
+                protocol::set_base(&mut params, "/work");
+            }
+            let message = protocol::request(1, &step.method, &params);
+            assert_eq!(
+                schemas.validate_message(&message),
+                Ok(()),
+                "{}: {}",
+                case.id,
+                step.method
+            );
+        }
+    }
 }

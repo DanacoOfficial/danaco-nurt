@@ -58,29 +58,39 @@ nurt-conformance run --impl "nurt serve --stdio" --report /home/user/nurt-confor
 
 The runner sends one JSON-RPC 2.0 message per line (NDJSON, UTF-8) and reads
 one message per line from standard output. The first call is `initialize`;
-the last is `shutdown`, followed by the end of standard input.
+the last is `shutdown`, followed by the end of standard input. The messages
+are defined by the schema `nurt-rpc/1` of the specification (`nurt schema
+rpc`). The runner validates every message it receives, and the result of
+`initialize`, against that schema; a message that does not follow it fails the
+case as a protocol violation.
 
 | Method | Parameters | Result used by the suite |
 |---|---|---|
-| `initialize` | `protocol` (`"nurt-rpc/1"`), `client` (`name`, `version`), `capabilities` (`events`) | `protocol`, `version`, `language`, `features` (list of feature names) |
+| `initialize` | `protocol` (`"nurt-rpc/1"`), `client` (`name`, `version`), `capabilities` (`events`) | `protocol`, `version`, `abi`, `language`, `ast`, `report`, `catalog_rev`, `features` (list of feature names), `groups`, `limits` |
 | `info` | none | object describing the implementation; copied into the conformance report |
-| `parse` | `program`, `variant` | `ast` (surface tree `nurt-ast/1`) or `error` |
+| `parse` | `program`, `variant` | `ast` (surface tree `nurt-ast/1`), `diagnostics`, or `error` |
 | `print` | `ast`, `variant` | `text` |
-| `check` | request `nurt-request/1` | `bound` (bound tree `nurt-bound/1`), `ast_hash`, or `error`; no effect on the world |
+| `check` | request `nurt-request/1` | `diagnostics`, `bound` (bound tree `nurt-bound/1`), `ast_hash`, or `error`; no effect on the world |
 | `correct` | `program`, `variant` | correction result |
 | `run` | request `nurt-request/1` | response `nurt-response/1` |
 | `page` | `cursor`, `limit` | response `nurt-response/1` |
-| `schema` | `which` | JSON Schema document |
-| `describe`, `help`, `catalog`, `history`, `space` | as named by the cases | as named by the cases |
-| `cancel` | `request_id` or `job_id` | empty object |
-| `shutdown` | none | empty object |
+| `schema` | `name` | JSON Schema document |
+| `describe` | `subject`, `language` | `description` |
+| `help` | `topic`, `language` | `text` |
+| `catalog`, `history`, `space` | as named by the cases | as named by the cases |
+| `cancel` | `request_id` or `job_id` | `cancelled` |
+| `shutdown` | none | `null` |
 
 Errors of the language are part of the result (`error`, or `report.error` of a
 response). JSON-RPC errors are reserved for protocol and call errors: the codes
 `-32700`, `-32600`, `-32601`, `-32602` and `-32603`, and `-32000 - status` for
 a status of the C interface (`NURT_E_ARG` is `-32003`), with the name of the
-status in `error.data.status`. Events are notifications `nurt/event` and are
-sent only after `initialize` with `capabilities.events` set to `true`. The
+status in `error.data.status`. Events are notifications `nurt/event` whose
+parameters follow `nurt-event/1`, and are sent only after `initialize` with
+`capabilities.events` set to `true`. A call of the feature
+`testkit` (`testkit.*`) is outside `nurt-rpc/1` and is made only by cases that
+require the feature. A case that sets `options.base` to `null` is sent without
+a base. The
 events of a request are sent before its response: the runner attributes to a
 call the events received between the request and the response.
 
@@ -401,7 +411,10 @@ disk image, serve the same purpose.
 A snapshot describes a directory tree. The same format is used for the initial
 and the expected states of conformance cases, benchmark tasks and examples of
 the documentation. Schema:
-[`schema/fs-snapshot-1.schema.json`](schema/fs-snapshot-1.schema.json).
+the published schema `nurt-fs-snapshot/1` of the specification
+(`spec/schemas/nurt-fs-snapshot-1.schema.json`). The suite validates snapshots
+against it, after taking out the member `exhaustive`, which only the suite
+defines, and adding `format` to a snapshot embedded in a case.
 
 ```json
 {
@@ -423,7 +436,7 @@ the documentation. Schema:
 | `entries[].type` | text | `file`, `dir` or `symlink` |
 | `entries[].content_utf8` | text | content of a file as UTF-8 text |
 | `entries[].content_base64` | text | content of a file in standard Base64 with padding; exactly one of the two content members is present for a file |
-| `entries[].mode` | text | permission bits in octal, for example `"0755"`; applied and compared only on Unix |
+| `entries[].mode` | text | permission bits as four octal digits, for example `"0755"`; applied and compared only on Unix |
 | `entries[].mtime` | text | modification time of a file, RFC 3339 in UTC with whole seconds |
 | `entries[].target` | text | target of a symbolic link, written as stored in the link |
 
@@ -528,8 +541,9 @@ For a case that requires fixtures the runner also sets
 The fake server rewrites these values to `${http_base}` and `${second_volume}`
 before it matches a request, and creates the expected state of the second
 volume; implementations ignore the variables. The fake server sends the
-`events` of a step before its response, completed with `seq`, `time` and
-`request_id`, and leaves out of its answers the members named by `absent`. It
+`events` of a step before its response, completed with `seq` (from 1 within
+the request), `time`, `request` (the identifier of the request as text) and,
+for `exec.finished`, `status`, and leaves out of its answers the members named by `absent`. It
 answers `testkit.clock.advance` from its own clock, which starts at
 2026-01-01T00:00:00Z and gives the `time` of its events.
 

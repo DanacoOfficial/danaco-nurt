@@ -16,6 +16,7 @@ use serde_json::Value;
 
 use crate::Error;
 use crate::protocol::{self, method};
+use crate::schemas::SchemaSet;
 
 /// Error of a call.
 #[derive(Debug, Clone, PartialEq)]
@@ -283,6 +284,15 @@ impl ProcessConnection {
                     ));
                 }
             };
+            SchemaSet::shared()
+                .map_err(|error| CallError::Protocol(error.to_string()))?
+                .validate_message(&message)
+                .map_err(|errors| {
+                    CallError::Protocol(format!(
+                        "message does not follow nurt-rpc/1: {}: {message}",
+                        errors.join("; ")
+                    ))
+                })?;
             if message.get("method").and_then(Value::as_str) == Some(method::EVENT) {
                 self.events
                     .push(message.get("params").cloned().unwrap_or(Value::Null));

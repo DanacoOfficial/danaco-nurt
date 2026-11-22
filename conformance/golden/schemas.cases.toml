@@ -8,7 +8,7 @@ id = "golden/schema/ast"
 kind = "golden"
 summary = "The published schema of the surface tree is a valid JSON Schema 2020-12."
 method = "schema"
-params = { which = "ast" }
+params = { name = "ast" }
 validate = "metaschema"
 
 [[case]]
@@ -16,7 +16,7 @@ id = "golden/schema/bound"
 kind = "golden"
 summary = "The published schema of the bound tree is a valid JSON Schema 2020-12."
 method = "schema"
-params = { which = "bound" }
+params = { name = "bound" }
 validate = "metaschema"
 
 [[case]]
@@ -24,7 +24,7 @@ id = "golden/schema/report"
 kind = "golden"
 summary = "The published schema of the effect report is a valid JSON Schema 2020-12."
 method = "schema"
-params = { which = "report" }
+params = { name = "report" }
 validate = "metaschema"
 
 [[case]]
@@ -32,7 +32,7 @@ id = "golden/schema/request"
 kind = "golden"
 summary = "The published schema of requests and responses is a valid JSON Schema 2020-12."
 method = "schema"
-params = { which = "request" }
+params = { name = "request" }
 validate = "metaschema"
 
 [[case]]
@@ -40,7 +40,7 @@ id = "golden/schema/config"
 kind = "golden"
 summary = "The published schema of the configuration is a valid JSON Schema 2020-12."
 method = "schema"
-params = { which = "config" }
+params = { name = "config" }
 validate = "metaschema"
 
 [[case]]
@@ -48,7 +48,7 @@ id = "golden/schema/catalog"
 kind = "golden"
 summary = "The published schema of the command catalog is a valid JSON Schema 2020-12."
 method = "schema"
-params = { which = "catalog" }
+params = { name = "catalog" }
 validate = "metaschema"
 
 [[case]]
@@ -56,7 +56,7 @@ id = "golden/schema/value"
 kind = "golden"
 summary = "The published schema of values and records is a valid JSON Schema 2020-12."
 method = "schema"
-params = { which = "value" }
+params = { name = "value" }
 validate = "metaschema"
 
 [[case]]
@@ -64,7 +64,55 @@ id = "golden/schema/tool"
 kind = "golden"
 summary = "The published schema of the neutral tool definition is a valid JSON Schema 2020-12."
 method = "schema"
-params = { which = "tool" }
+params = { name = "tool" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/response"
+kind = "golden"
+summary = "The published schema of responses is a valid JSON Schema 2020-12."
+method = "schema"
+params = { name = "response" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/catalog-result"
+kind = "golden"
+summary = "The published schema of catalog query results is a valid JSON Schema 2020-12."
+method = "schema"
+params = { name = "catalog-result" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/fs-snapshot"
+kind = "golden"
+summary = "The published schema of file tree snapshots is a valid JSON Schema 2020-12."
+method = "schema"
+params = { name = "fs-snapshot" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/check"
+kind = "golden"
+summary = "The published schema of the result of the check without effect is a valid JSON Schema 2020-12."
+method = "schema"
+params = { name = "check" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/rpc"
+kind = "golden"
+summary = "The published schema of the messages of the server protocol is a valid JSON Schema 2020-12."
+method = "schema"
+params = { name = "rpc" }
+validate = "metaschema"
+
+[[case]]
+id = "golden/schema/event"
+kind = "golden"
+summary = "The published schema of execution events is a valid JSON Schema 2020-12."
+method = "schema"
+params = { name = "event" }
 validate = "metaschema"
 
 [[case]]
@@ -72,5 +120,5 @@ id = "golden/schema/unknown-name"
 kind = "golden"
 summary = "Asking for an unknown schema is an invalid parameter."
 method = "schema"
-params = { which = "no-such-schema" }
+params = { name = "no-such-schema" }
 expect_error = -32602

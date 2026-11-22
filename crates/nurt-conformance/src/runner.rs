@@ -270,9 +270,19 @@ fn toml_escape(text: &str) -> String {
 
 fn initialize(connection: &mut ProcessConnection) -> Result<Value, String> {
     let params = protocol::initialize_params(CLIENT, env!("CARGO_PKG_VERSION"), true);
-    connection
+    let result = connection
         .call(method::INITIALIZE, &params)
-        .map_err(|error| format!("initialize: {error}"))
+        .map_err(|error| format!("initialize: {error}"))?;
+    let schemas = SchemaSet::shared().map_err(|error| error.to_string())?;
+    schemas
+        .validate_result(method::INITIALIZE, &result)
+        .map_err(|errors| {
+            format!(
+                "initialize: the result does not follow nurt-rpc/1: {}",
+                errors.join("; ")
+            )
+        })?;
+    Ok(result)
 }
 
 fn probe(command: &CommandLine, startup: Duration, timeout: Duration) -> Result<Probe, Error> {
