@@ -125,7 +125,7 @@ fn reports_enumerations_contain_the_documented_values() {
     ] {
         assert!(reasons.contains(reason), "{reason}");
     }
-    assert_eq!(Notable::ALL.len(), 94);
+    assert_eq!(Notable::ALL.len(), 98);
     assert_eq!(
         Notable::ProjectConfigIgnored.as_str(),
         "project_config_ignored"
@@ -171,6 +171,7 @@ fn report_builder_computes_the_change_derived_codes_only() {
         "size_shrunk",
         "many_per_file",
         "target_count_high",
+        "nothing_matched",
     ]
     .into_iter()
     .collect();

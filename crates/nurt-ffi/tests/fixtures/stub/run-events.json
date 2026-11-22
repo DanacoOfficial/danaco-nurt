@@ -1,0 +1,11 @@
+{
+  "description": "Read request that emits progress and a log message before its response.",
+  "function": "run",
+  "input": {"nurt": "1.0", "program": "find \"/srv/app\" glob: \"*.rs\""},
+  "events": [
+    {"t": "log", "level": "info", "message": "scan started", "source": "find"},
+    {"t": "progress", "command": "find", "phase": "scan", "done": 64, "total": 148, "bytes": null, "message": null},
+    {"t": "progress", "command": "find", "phase": "scan", "done": 148, "total": 148, "bytes": null, "message": null}
+  ],
+  "output": [{"nurt": "1.0", "report": {"nurt": "1.0", "status": "ok", "kind": "find"}}]
+}

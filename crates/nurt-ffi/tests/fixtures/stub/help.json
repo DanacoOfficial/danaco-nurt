@@ -1,0 +1,6 @@
+{
+  "description": "Index of help topics.",
+  "function": "help",
+  "input": null,
+  "output": ["Topics: commands, lists, paths."]
+}

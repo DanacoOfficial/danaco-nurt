@@ -1,0 +1,9 @@
+{
+  "description": "Parse of a one-stage program in the word notation.",
+  "function": "parse",
+  "input": {"program": "find \"/srv/app\"", "variant": "a"},
+  "output": [
+    {"nurt": "1.0", "pipelines": [{"stages": [{"command": "find", "args": ["/srv/app"]}]}]},
+    {"diagnostics": []}
+  ]
+}

@@ -1,0 +1,172 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+name: node-binding
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bindings/node/**"
+      - "spec/schemas/**"
+  pull_request:
+    paths:
+      - "bindings/node/**"
+      - "spec/schemas/**"
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Release tag whose executables are packed, for example v0.1.0"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+    working-directory: bindings/node
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, Node.js ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+        node: ["18", "20", "22"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install development dependencies
+        run: npm install --no-audit --no-fund --ignore-scripts
+      - name: Build
+        run: npm run build
+      - name: Test
+        run: npm test
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund --ignore-scripts
+      - run: npm run build
+      - name: Test with coverage
+        run: node scripts/run-tests.mjs --experimental-test-coverage
+
+  runtimes:
+    name: runtime (${{ matrix.runtime }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [bun, deno]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund --ignore-scripts
+      - run: npm run build
+      - if: matrix.runtime == 'bun'
+        uses: oven-sh/setup-bun@v2
+      - if: matrix.runtime == 'bun'
+        name: Smoke test in Bun
+        run: bun test/runtime-smoke.mjs
+      - if: matrix.runtime == 'deno'
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - if: matrix.runtime == 'deno'
+        name: Smoke test in Deno
+        run: deno run --allow-read --allow-env --allow-run test/runtime-smoke.mjs
+
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the Rust toolchain of rust-toolchain.toml
+        working-directory: .
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Build nurt-conformance
+        working-directory: .
+        run: cargo build --locked -p nurt-conformance
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund --ignore-scripts
+      - run: npm run build
+      - name: Run the conformance cases of the bindings
+        env:
+          NURT_CONFORMANCE_EXECUTABLE: ${{ github.workspace }}/target/debug/nurt-conformance
+        run: node --test test/conformance.test.mjs
+
+  pack:
+    needs: [test, runtimes]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund --ignore-scripts
+      - run: npm run build
+      - name: Download and verify the release executables
+        if: inputs.release != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ inputs.release }}
+        run: |
+          version="${RELEASE#v}"
+          assets="$RUNNER_TEMP/release"
+          gh release download "$RELEASE" --repo "$GITHUB_REPOSITORY" --dir "$assets" \
+            --pattern "nurt-${version}-*" --pattern SHA256SUMS
+          node scripts/set-version.mjs "$version"
+          node scripts/stage-binaries.mjs --assets "$assets" --version "$version"
+      - name: Pack the packages
+        env:
+          RELEASE: ${{ inputs.release }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/packages"
+          node scripts/prepare-pack.mjs
+          npm pack --pack-destination "$RUNNER_TEMP/packages"
+          if [ -n "$RELEASE" ]; then
+            for directory in npm/*/; do
+              npm pack "./$directory" --pack-destination "$RUNNER_TEMP/packages"
+            done
+          fi
+      - name: Check the contents of the packages
+        run: |
+          status=0
+          for tarball in "$RUNNER_TEMP"/packages/*.tgz; do
+            listing="$(tar -tzf "$tarball")"
+            required="package/package.json package/README.md package/LICENSE package/NOTICE"
+            case "$(basename "$tarball")" in
+              nurt-[0-9]*) required="$required package/bin/nurt.js package/dist/index.js package/dist/index.d.ts package/esm/index.mjs package/esm/index.d.mts" ;;
+              nurt-win32-*) required="$required package/bin/nurt.exe" ;;
+              *) required="$required package/bin/nurt" ;;
+            esac
+            for file in $required; do
+              if ! grep -qx "$file" <<<"$listing"; then
+                echo "::error::$(basename "$tarball") does not contain $file"
+                status=1
+              fi
+            done
+            if grep -q '^package/\(src\|test\|scripts\|ci\)/' <<<"$listing"; then
+              echo "::error::$(basename "$tarball") contains sources or tests"
+              status=1
+            fi
+          done
+          exit "$status"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-packages
+          path: ${{ runner.temp }}/packages/*.tgz
+          if-no-files-found: error

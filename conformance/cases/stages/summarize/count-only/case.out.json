@@ -1,0 +1,4 @@
+{"records": [
+  {"kind": "summary", "fields": {"extension": {"t": "text", "v": "md"}, "count": {"t": "int", "v": 1}}},
+  {"kind": "summary", "fields": {"extension": {"t": "text", "v": "rs"}, "count": {"t": "int", "v": 2}}}
+]}

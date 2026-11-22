@@ -1,0 +1,104 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+name: vscode-extension
+
+on:
+  pull_request:
+    paths:
+      - integrations/vscode/**
+      - editors/textmate/**
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: integrations/vscode
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Test the grammar copy script
+        shell: bash
+        run: bash scripts/test-copy-grammar.sh
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Copy the grammar and compile
+        shell: bash
+        run: npm run build:grammar && npm run compile
+      - name: Run unit tests
+        run: npm run test:unit
+      - name: Run extension tests
+        if: runner.os != 'Linux'
+        run: node ./out/test/runTest.js
+      - name: Run extension tests under a virtual display
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum node ./out/test/runTest.js
+
+  package:
+    name: Package
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npm run build:grammar && npm run compile
+      - run: npm run package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nurt-vscode-extension
+          path: integrations/vscode/dist/*.vsix
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    if: github.event_name == 'release'
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - uses: actions/download-artifact@v5
+        with:
+          name: nurt-vscode-extension
+          path: integrations/vscode/dist
+      - name: Publish to the Visual Studio Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npm run publish:marketplace
+      - name: Publish to Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: npm run publish:openvsx

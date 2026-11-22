@@ -1,0 +1,7 @@
+{
+  "description": "Extension that needs the next major version of the extension interface.",
+  "function": "ext_load",
+  "input": "/opt/nurt/ext/future/nurt-ext.toml",
+  "status": "abi",
+  "message": "the extension needs nurt:ext@2; this library implements nurt:ext@1"
+}

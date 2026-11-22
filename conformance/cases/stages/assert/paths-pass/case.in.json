@@ -1,0 +1,9 @@
+{"program": "search /oldName\\(/ \"/home/user/project/src\" |> assert paths: 2",
+ "command": "assert",
+ "step": "3",
+ "args": {"paths": {"kind": "value", "value": {"t": "range", "v": {"start": 2, "end": 2}}}},
+ "input": [
+  {"kind": "match", "fields": {"path": {"t": "path", "v": "/home/user/project/src/a.go"}, "no": {"t": "int", "v": 4}, "text": {"t": "text", "v": "oldName("}}},
+  {"kind": "match", "fields": {"path": {"t": "path", "v": "/home/user/project/src/a.go"}, "no": {"t": "int", "v": 9}, "text": {"t": "text", "v": "oldName("}}},
+  {"kind": "match", "fields": {"path": {"t": "path", "v": "/home/user/project/src/b.go"}, "no": {"t": "int", "v": 2}, "text": {"t": "text", "v": "oldName("}}}
+ ]}

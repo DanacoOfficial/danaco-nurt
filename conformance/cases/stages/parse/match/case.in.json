@@ -1,0 +1,6 @@
+{"program": "search /port/ \"/home/user/app.conf\" |> parse /(?<name>\\w+)\\s*=\\s*(?<value>\\d+)/",
+ "command": "parse",
+ "args": {"pattern": {"kind": "value", "value": {"t": "regex", "v": {"pattern": "(?<name>\\w+)\\s*=\\s*(?<value>\\d+)"}}}},
+ "input": [
+  {"kind": "match", "fields": {"path": {"t": "path", "v": "/home/user/app.conf"}, "no": {"t": "int", "v": 3}, "text": {"t": "text", "v": "port"}, "line": {"t": "text", "v": "port = 8080"}}}
+ ]}

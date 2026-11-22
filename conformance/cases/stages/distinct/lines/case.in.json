@@ -1,0 +1,8 @@
+{"program": "lines \"/home/user/words.txt\" |> distinct text",
+ "command": "distinct",
+ "args": {"by": {"kind": "expr", "value": {"t": "list", "items": [{"t": "field", "name": "text"}]}}},
+ "input": [
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/words.txt"}, "no": {"t": "int", "v": 1}, "text": {"t": "text", "v": "alpha"}}},
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/words.txt"}, "no": {"t": "int", "v": 2}, "text": {"t": "text", "v": "beta"}}},
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/words.txt"}, "no": {"t": "int", "v": 3}, "text": {"t": "text", "v": "alpha"}}}
+ ]}

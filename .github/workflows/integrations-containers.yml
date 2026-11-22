@@ -1,0 +1,148 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+name: containers
+
+on:
+  pull_request:
+    paths:
+      - integrations/containers/**
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version to package, without the v prefix.
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/danacoofficial
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Check image definitions
+        run: bash integrations/containers/tests/check-dockerfiles.sh
+      - name: Run hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: integrations/containers/nurt/Dockerfile
+          config: integrations/containers/.hadolint.yaml
+      - name: Run hadolint on the CI image
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: integrations/containers/ci/Dockerfile
+          config: integrations/containers/.hadolint.yaml
+      - name: Run hadolint on the development container image
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: integrations/containers/devcontainer/Dockerfile
+          config: integrations/containers/.hadolint.yaml
+      - name: Run ShellCheck
+        run: shellcheck --shell=bash integrations/containers/tests/*.sh
+
+  publish:
+    name: Build and publish
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: nurt
+            directory: nurt
+          - name: nurt-ci
+            directory: ci
+          - name: nurt-devcontainer
+            directory: devcontainer
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Resolve the version
+        id: version
+        env:
+          EVENT: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$EVENT" = release ]; then
+            echo "value=${RELEASE_TAG#v}" >>"$GITHUB_OUTPUT"
+          else
+            echo "value=$INPUT_VERSION" >>"$GITHUB_OUTPUT"
+          fi
+      - name: Stage the build context
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          context="$RUNNER_TEMP/context"
+          downloads="$RUNNER_TEMP/downloads"
+          mkdir -p "$context/amd64" "$context/arm64" "$downloads"
+          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --dir "$downloads" \
+            --pattern "nurt-$VERSION-*-unknown-linux-musl.tar.gz" --pattern SHA256SUMS
+          (cd "$downloads" && grep -F -- "-unknown-linux-musl.tar.gz" SHA256SUMS | sha256sum --check --strict)
+          tar -xzf "$downloads/nurt-$VERSION-x86_64-unknown-linux-musl.tar.gz" -C "$context/amd64" nurt
+          tar -xzf "$downloads/nurt-$VERSION-aarch64-unknown-linux-musl.tar.gz" -C "$context/arm64" nurt
+          cp LICENSE NOTICE "$context/"
+          echo "CONTEXT=$context" >>"$GITHUB_ENV"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: sigstore/cosign-installer@v3
+      - name: Log in to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Collect image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.image.name }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.value }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.value }}
+            type=semver,pattern={{major}},value=${{ steps.version.outputs.value }}
+            type=raw,value=latest,enable=${{ !contains(steps.version.outputs.value, '-') }}
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.CONTEXT }}
+          file: integrations/containers/${{ matrix.image.directory }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          sbom: true
+          provenance: mode=max
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.value }}
+            REVISION=${{ github.sha }}
+      - name: Sign the image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ env.IMAGE_PREFIX }}/${{ matrix.image.name }}
+        run: cosign sign --yes "$IMAGE@$DIGEST"
+      - name: Smoke test
+        env:
+          IMAGE: ${{ env.IMAGE_PREFIX }}/${{ matrix.image.name }}:${{ steps.version.outputs.value }}
+          KIND: ${{ matrix.image.directory }}
+        run: bash integrations/containers/tests/smoke.sh "$IMAGE" "$KIND"

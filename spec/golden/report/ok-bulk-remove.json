@@ -33,7 +33,7 @@
   "notable": [
     {
       "code": "mass_delete",
-      "severity": "warning",
+      "severity": "alert",
       "path": "/srv/app/build",
       "count": 18402,
       "detail": "18402 files, 3.4gib, 100% of /srv/app/build"
