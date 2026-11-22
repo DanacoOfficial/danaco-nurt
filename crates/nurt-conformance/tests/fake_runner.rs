@@ -6,10 +6,12 @@
 //! conforming fake server, and every deviation of the fake server makes a
 //! mandatory case fail.
 //!
-//! Every fake server process loads the whole suite before it answers
-//! `initialize`, which takes long on a loaded machine. The limits of the start
-//! and of the cases are therefore large; only the hanging fake server runs
-//! with a short case limit, because reaching that limit is the checked result.
+//! A fake server process started for one case parses only the case files that
+//! name it, but the probe process of every run loads the whole suite before it
+//! answers `initialize`, which takes long on a loaded machine. The limits of
+//! the start and of the cases are therefore large; only the hanging fake server
+//! runs with a short case limit, because reaching that limit is the checked
+//! result. The runs of the deviations are independent and run in parallel.
 
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -127,17 +129,37 @@ fn every_deviation_of_the_fake_server_is_detected() {
         (Break::Crash, "golden/task-03-"),
         (Break::Hang, "golden/task-04-"),
     ];
-    for (deviation, filter) in probes {
+    let outcomes: Vec<(Break, &str, Result<ConformanceReport, Error>)> =
+        std::thread::scope(|scope| {
+            let runs: Vec<_> = probes
+                .iter()
+                .map(|&(deviation, filter)| {
+                    let limit = if deviation == Break::Hang {
+                        HANG_LIMIT
+                    } else {
+                        CASE_LIMIT
+                    };
+                    scope.spawn(move || {
+                        run(
+                            Vec::new(),
+                            vec![filter.to_owned()],
+                            Some(deviation),
+                            1,
+                            limit,
+                        )
+                    })
+                })
+                .collect();
+            probes
+                .iter()
+                .zip(runs)
+                .map(|(&(deviation, filter), run)| (deviation, filter, run.join().unwrap()))
+                .collect()
+        });
+    for (deviation, filter, outcome) in outcomes {
         let name = deviation.name();
         let hangs = deviation == Break::Hang;
-        let limit = if hangs { HANG_LIMIT } else { CASE_LIMIT };
-        match run(
-            Vec::new(),
-            vec![filter.to_owned()],
-            Some(deviation),
-            1,
-            limit,
-        ) {
+        match outcome {
             Ok(report) => {
                 assert_eq!(report.results.len(), 1, "{name}: {filter}");
                 assert!(

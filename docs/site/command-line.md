@@ -10,6 +10,8 @@ order: 5
 ## Synopsis
 
 ```text
+nurt -V | --version
+nurt -h | --help
 nurt <program>
 nurt exec [--variant a|b|c] [--preview] [--json | --format F] [--limit N] [--cursor C] [--verbosity V] <program>
 nurt script <file.nurt> [--preview]
@@ -33,9 +35,27 @@ nurt version
 
 ## Description
 
+`nurt` is a command shell and language where every change can be undone.
+
 `nurt` runs programs of the Danaco Nurt language and serves the engine to other programs. A first argument that is not a subcommand is a program: `nurt run ["go", "test"] cwd: "/home/user/app"`. `nurt exec` is always unambiguous.
 
 The options with `--` belong to the program `nurt`. The language has no options with a hyphen; the corrections translate such habits.
+
+## Options
+
+| Option | Function |
+|---|---|
+| `-V` | prints `nurt <version>` |
+| `--version` | prints `nurt <version> (<commit> <date>)`, the copyright line and the license |
+| `-h`, `--help` | prints the help; the first line is the description of the program |
+
+The output of `--version` has three lines. The part in parentheses is omitted when the executable is built without repository data.
+
+```text
+nurt <version> (<commit> <date>)
+Copyright (c) 2026 Danaco Holding Group Sp. z o.o. All rights reserved.
+License: Apache-2.0
+```
 
 ## Subcommands
 

@@ -1034,6 +1034,30 @@
       "fs_after": "unchanged"
     },
     {
+      "id": "parity/files/edit/insert-after-end",
+      "kind": "parity",
+      "summary": "Inserting at a line after the end of the file fails with E_OUT_OF_RANGE.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "e.go",
+            "type": "file",
+            "content_utf8": "line1\nline2 oldName(\nline3\nline4\nline5\n"
+          }
+        ]
+      },
+      "program": "insert \"x\" in: \"e.go\" line: 99",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_OUT_OF_RANGE"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
       "id": "parity/files/edit/edit-expect-count",
       "kind": "parity",
       "summary": "An edit with the expected number of changes applies.",

@@ -4442,6 +4442,29 @@
             }
           },
           "fs_after": "unchanged"
+        },
+        {
+          "program": "history ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "state": {
+                        "t": "enum",
+                        "v": "expired"
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
         }
       ]
     },

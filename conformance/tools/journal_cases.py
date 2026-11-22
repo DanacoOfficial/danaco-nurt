@@ -26,6 +26,14 @@ from parity_model import (
 JOURNAL = "journal"
 NO_PREIMAGE = "../exec/config/no-preimage.toml"
 JOURNAL_DISABLED = "../exec/config/journal-disabled.toml"
+BELOW_RESERVE = "../exec/config/below-reserve.toml"
+OP_SIZE_LIMIT = "../exec/config/op-size-limit.toml"
+SIZE_BUDGET = "../exec/config/size-budget.toml"
+SIZE_BUDGET_KEEP = "../exec/config/size-budget-keep.toml"
+BIG = "x" * 4095 + "\n"
+"""File content above the size limits of 1 KiB set by the configurations of the size cases."""
+HALF_BUDGET = "y" * 699 + "\n"
+"""File content of which one copy fits a size limit of 1 KiB and two copies do not."""
 FIXTURE = "nurt-conformance-fixture"
 REGISTRY = "registry:/HKCU/Software/NurtConformance"
 OLD_TIME = "2020-01-01T00:00:00Z"
@@ -46,6 +54,12 @@ PENDING_ROWS = {
     "http.download": "the runner provides no HTTP fixture",
 }
 """Coverage rows without a case, with the precondition the suite cannot yet establish."""
+
+INACTIVE_CASES = {
+    "journal/semantics/journal-inactive": "disabled",
+    "journal/semantics/journal-below-reserve": "below_reserve",
+}
+"""Cases whose configuration makes the journal inactive, with the reason of the inactive journal."""
 
 TEXT = {"a.txt": "alpha\nbeta\n", "b.txt": "bravo\n"}
 DIRS = {
@@ -478,6 +492,7 @@ def schedule_and_tool_rows(b: Coverage) -> None:
                 call(f"journal.pin [{op(1)}] release: true",
                      report=irreversible("journal.pin", "journal_entries_expired")),
                 call(f"undo {op(1)}", report=failed("E_JOURNAL_EXPIRED"), after=UNCHANGED),
+                call(f"history {op(1)}", report={"status": "ok", "records": operation(state=enum("expired"))}),
             ])
     b.steps("journal.limits", "Lowered limits expire entries; undo of the limits does not restore them.", text, [
         call('write "n.txt" "new\\n" mode: create', report=ok("write")),
@@ -741,11 +756,54 @@ def expiry_semantics(c: Collection) -> None:
               call(f"undo {op(2)}", report=failed("E_JOURNAL_EXPIRED"), after=UNCHANGED),
               call(f"history {op(2)}", report={"status": "ok", "records": operation(state=enum("expired"))}),
           ])
+    halves = {"x.txt": HALF_BUDGET, "y.txt": HALF_BUDGET}
+    c.add("expiry-size", "The oldest entry expires when the kept content exceeds the size limit.", tree(halves),
+          feature=JOURNAL, steps=[
+              call("journal.limits size: 1kib", report=ok("journal.limits")),
+              call('write "x.txt" "new\\n" mode: overwrite', report=ok("write")),
+              call('write "y.txt" "new\\n" mode: overwrite', report=ok("write")),
+              call(f"undo {op(2)}", report=failed("E_JOURNAL_EXPIRED"), after=UNCHANGED),
+              undo(3, tree({"x.txt": "new\n", "y.txt": HALF_BUDGET})),
+          ])
+    c.add("pin-protects-from-limits", "A pinned entry survives lowered limits and can still be undone.", text,
+          feature=JOURNAL, steps=[
+              call('write "n.txt" "new\\n" mode: create', report=ok("write")),
+              call(f"journal.pin [{op(1)}]", report=ok("journal.pin")),
+              call('write "m.txt" "more\\n" mode: create', report=ok("write")),
+              call("journal.limits steps: 1", report=irreversible("journal.limits", "journal_entries_expired")),
+              undo(1, changed(TEXT, m_dot_txt="more\n")),
+          ])
+    c.add("pin-release-within-limits", "Releasing a pin within the limits expires nothing; the entry can be undone.",
+          text, feature=JOURNAL, steps=[
+              call('write "n.txt" "new\\n" mode: create', report=ok("write")),
+              call(f"journal.pin [{op(1)}]", report=ok("journal.pin")),
+              call(f"journal.pin [{op(1)}] release: true", report=ok("journal.pin")),
+              undo(1, text),
+          ])
     c.add("journal-inactive", "A change with the journal disabled is reported as irreversible and cannot be undone.",
           text, feature=JOURNAL, config=JOURNAL_DISABLED, steps=[
               call('remove "b.txt"', report=irreversible("remove", "journal_inactive"),
                    after=changed(TEXT, b_dot_txt=REMOVED)),
               call("undo", report=failed("E_JOURNAL_NOOP"), after=UNCHANGED),
+          ])
+    c.add("journal-below-reserve", "A change on a volume below the space reserve is made without a copy and "
+          "reported as no_space_for_copy.", text, feature=JOURNAL, config=BELOW_RESERVE, steps=[
+              call('remove "b.txt"', report=irreversible("remove", "no_space_for_copy"),
+                   after=changed(TEXT, b_dot_txt=REMOVED)),
+          ])
+    big = {"big.txt": BIG}
+    c.add("journal-op-too-large", "An operation larger than the limit of one entry is made without a copy and "
+          "reported as too_large_for_journal.", tree(big), feature=JOURNAL, config=OP_SIZE_LIMIT, steps=[
+              call('remove "big.txt"', report=irreversible("remove", "too_large_for_journal"), after=tree({})),
+          ])
+    c.add("journal-oversize-skip", "An operation larger than the size budget is made without a copy by default.",
+          tree(big), feature=JOURNAL, config=SIZE_BUDGET, steps=[
+              call('remove "big.txt"', report=irreversible("remove", "too_large_for_journal"), after=tree({})),
+          ])
+    c.add("journal-oversize-keep", "With oversize keep, an operation larger than the size budget is kept and can "
+          "be undone.", tree(big), feature=JOURNAL, config=SIZE_BUDGET_KEEP, steps=[
+              call('remove "big.txt"', report=ok("remove"), after=tree({})),
+              undo(1, tree(big)),
           ])
 
 

@@ -46,7 +46,7 @@ Positional arguments follow the order of the positions in the catalog. Named arg
 
 ## Corrections
 
-The console accepts the habits of other shells and forms with small errors. A correction changes the form of the program and never its meaning. Corrections that touch a target of a change are reported with ranked candidates instead of being applied. The habits of bash and PowerShell and the form of each in Nurt are listed on the cheat sheets for [bash](../cheatsheets/nurt-for-bash-users.md) and [PowerShell](../cheatsheets/nurt-for-powershell-users.md).
+Nurt accepts the habits of other shells and forms with small errors. A correction changes the form of the program and never its meaning. Corrections that touch a target of a change are reported with ranked candidates instead of being applied. The habits of bash and PowerShell and the form of each in Nurt are listed on the cheat sheets for [bash](../cheatsheets/nurt-for-bash-users.md) and [PowerShell](../cheatsheets/nurt-for-powershell-users.md).
 
 ## Errors
 

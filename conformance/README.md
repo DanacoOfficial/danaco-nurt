@@ -209,7 +209,7 @@ parser on the tree alone.
 | `expect_at` | text | `""` | JSON pointer into the result. |
 | `match` | text | `"subset"` | `subset`, `exact` or `tree`, see "Comparison". |
 | `expect_error` | integer | none | The call must fail with this JSON-RPC error code. |
-| `validate` | text | none | The part of the result named by `expect_at` must be valid under the schema with this name: `ast`, `bound`, `report`, `request`, `config`, `catalog`, `value` or `metaschema` (JSON Schema 2020-12). |
+| `validate` | text | none | The part of the result named by `expect_at` must be valid under the schema with this name: `ast`, `bound`, `report`, `request`, `config`, `catalog`, `value`, `tool` or `metaschema` (JSON Schema 2020-12). |
 | `fs_after` | text or table | none | Expected state of `work` after the call; `"unchanged"` requires the state before the call. |
 
 For the methods `run` and `check` the runner builds the request
@@ -394,9 +394,11 @@ implementation is available. The form `serve --stdio` reads the directory from
 the environment variable `NURT_CONFORMANCE_CASES` and the kind of deviation
 from `NURT_CONFORMANCE_BREAK`, so the program can replace `nurt` in a process
 backend unchanged. The runner sets `NURT_CONFORMANCE_CASE` to the identifier
-of the case of each server process; the fake server then answers only that
-case. Without it, a request that matches calls of several cases is answered
-from the first of them in identifier order.
+of the case of each server process; the fake server then parses only the case
+files that contain the identifier and answers only that case or the binding
+case with that identifier. Without it, the fake server loads the whole
+directory, and a request that matches calls of several cases is answered from
+the first of them in identifier order.
 
 `--break` makes the server deviate in one way, to show that the runner detects
 it:

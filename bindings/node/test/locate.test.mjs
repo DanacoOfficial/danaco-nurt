@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
 import assert from "node:assert/strict";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -27,6 +30,7 @@ function packages(installed) {
   return (name) => installed[name];
 }
 
+/** @returns {any} the error thrown by `locateExecutable` */
 function failure(options) {
   try {
     locateExecutable(options);

@@ -60,6 +60,14 @@ params = { which = "value" }
 validate = "metaschema"
 
 [[case]]
+id = "golden/schema/tool"
+kind = "golden"
+summary = "The published schema of the neutral tool definition is a valid JSON Schema 2020-12."
+method = "schema"
+params = { which = "tool" }
+validate = "metaschema"
+
+[[case]]
 id = "golden/schema/unknown-name"
 kind = "golden"
 summary = "Asking for an unknown schema is an invalid parameter."

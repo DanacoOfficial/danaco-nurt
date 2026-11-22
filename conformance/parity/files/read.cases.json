@@ -801,6 +801,30 @@
       "fs_after": "unchanged"
     },
     {
+      "id": "parity/files/read/lines-after-end",
+      "kind": "parity",
+      "summary": "Reading a line range after the end of the file fails with E_OUT_OF_RANGE.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\nthree\nfour\nfive\n"
+          }
+        ]
+      },
+      "program": "read \"a.txt\" lines: 100..120",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_OUT_OF_RANGE"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
       "id": "parity/files/read/empty-file",
       "kind": "parity",
       "summary": "Reads an empty file.",

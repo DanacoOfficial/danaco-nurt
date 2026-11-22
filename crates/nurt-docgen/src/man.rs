@@ -65,6 +65,7 @@ fn inline_text(inlines: &[Inline], out: &mut String) {
                 }
             }
             Inline::SoftBreak => out.push(' '),
+            Inline::HardBreak => out.push_str("\n.br\n"),
         }
     }
 }
@@ -152,7 +153,7 @@ fn blocks(items: &[Block], out: &mut String) {
                 }
                 out.push_str(".fi\n.RE\n");
             }
-            Block::List { ordered, items } => list(*ordered, items, out),
+            Block::List { ordered, items, .. } => list(*ordered, items, out),
             Block::Table { header, rows } => table(header, rows, out),
             Block::Quote(inner) => {
                 out.push_str(".RS 4\n");
@@ -268,5 +269,11 @@ mod tests {
         let out = render(&HEADER, &parse("- a\n\n1. b\n"));
         assert!(out.contains(".IP \\(bu 2\na\n"));
         assert!(out.contains(".IP 1. 4\nb\n"));
+    }
+
+    #[test]
+    fn writes_hard_break_as_break_request() {
+        let out = render(&HEADER, &parse("a\\\nb\n"));
+        assert!(out.contains(".PP\na\n.br\nb\n"));
     }
 }

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -16,8 +19,8 @@ function readJson(...parts) {
 
 /** Replaces `process.platform` and `process.arch` while `body` runs. */
 function withProcessPlatform(platform, arch, body) {
-  const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
-  const archDescriptor = Object.getOwnPropertyDescriptor(process, "arch");
+  const platformDescriptor = /** @type {PropertyDescriptor} */ (Object.getOwnPropertyDescriptor(process, "platform"));
+  const archDescriptor = /** @type {PropertyDescriptor} */ (Object.getOwnPropertyDescriptor(process, "arch"));
   Object.defineProperty(process, "platform", { value: platform, configurable: true });
   Object.defineProperty(process, "arch", { value: arch, configurable: true });
   try {

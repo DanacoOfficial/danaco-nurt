@@ -21,7 +21,7 @@ def nurt_plugin():
 
     return MCPStdioPlugin(
         name="nurt",
-        description="Danaco Nurt console",
+        description="Command shell and language where every change can be undone",
         command=os.environ.get("NURT_EXECUTABLE", "nurt"),
         args=["mcp", "--stdio"],
     )

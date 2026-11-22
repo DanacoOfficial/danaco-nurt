@@ -344,7 +344,8 @@ pub struct Suite {
     pub root: PathBuf,
     /// Version of the suite.
     pub version: String,
-    /// SHA-256 digest of the files of the suite.
+    /// SHA-256 digest of the files of the suite; empty for a suite loaded
+    /// with [`Suite::load_case`].
     pub digest: String,
     /// Cases sorted by identifier.
     pub cases: Vec<Case>,
@@ -358,6 +359,27 @@ impl Suite {
     /// Returns the first case file that cannot be read or does not follow
     /// the format, a duplicate identifier, or a missing version file.
     pub fn load(root: &Path, schemas: &SchemaSet) -> Result<Self, Error> {
+        Self::load_selected(root, schemas, None)
+    }
+
+    /// Loads only the case with the identifier `id`.
+    ///
+    /// Only case files that contain the identifier as a quoted text are
+    /// parsed and validated, so a server process started for one case does
+    /// not read the whole suite. The version is checked as by
+    /// [`Suite::load`]; the digest is left empty. A suite without the case
+    /// has no cases.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first case file that names `id` and cannot be read or
+    /// does not follow the format, a duplicate definition of `id`, or a
+    /// missing version file.
+    pub fn load_case(root: &Path, schemas: &SchemaSet, id: &str) -> Result<Self, Error> {
+        Self::load_selected(root, schemas, Some(id))
+    }
+
+    fn load_selected(root: &Path, schemas: &SchemaSet, only: Option<&str>) -> Result<Self, Error> {
         let version_path = root.join(VERSION_FILE);
         let version = fs::read_to_string(&version_path)
             .map_err(|e| Error::io(&version_path, e))?
@@ -374,17 +396,26 @@ impl Suite {
         files.sort();
         let mut loader = Loader {
             schemas,
+            only,
             cases: Vec::new(),
         };
-        let mut digest_input = Vec::new();
+        let mut digest_input = only.is_none().then(Vec::new);
         for path in &files {
+            let case_file = is_case_file(path);
+            if digest_input.is_none() && !case_file {
+                continue;
+            }
             let content = fs::read(path).map_err(|e| Error::io(path, e))?;
-            let relative = path.strip_prefix(root).unwrap_or(path);
-            digest_input.extend(relative.to_string_lossy().replace('\\', "/").as_bytes());
-            digest_input.push(0);
-            digest_input.extend(&content);
-            digest_input.push(0);
-            loader.load_file(path)?;
+            if let Some(input) = &mut digest_input {
+                let relative = path.strip_prefix(root).unwrap_or(path);
+                input.extend(relative.to_string_lossy().replace('\\', "/").as_bytes());
+                input.push(0);
+                input.extend(&content);
+                input.push(0);
+            }
+            if case_file {
+                loader.load_file(path, &content)?;
+            }
         }
         let mut cases = loader.cases;
         cases.sort_by(|a, b| a.id.cmp(&b.id));
@@ -401,7 +432,7 @@ impl Suite {
         Ok(Self {
             root: root.to_path_buf(),
             version,
-            digest: sha256(&digest_input),
+            digest: digest_input.map(|input| sha256(&input)).unwrap_or_default(),
             cases,
         })
     }
@@ -521,39 +552,61 @@ impl RawStep {
     }
 }
 
+/// Whether the file defines cases: a case file or a collection file.
+fn is_case_file(path: &Path) -> bool {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy())
+        .unwrap_or_default();
+    name == CASE_FILE
+        || COLLECTION_SUFFIXES
+            .iter()
+            .any(|suffix| name.ends_with(suffix))
+}
+
+/// Whether a case file may define the case `id`. Identifiers consist of
+/// characters that TOML and JSON write without escapes, so a file that
+/// defines the case contains the identifier in double or single quotes.
+fn may_define(text: &str, id: &str) -> bool {
+    text.contains(&format!("\"{id}\"")) || text.contains(&format!("'{id}'"))
+}
+
 struct Loader<'a> {
     schemas: &'a SchemaSet,
+    only: Option<&'a str>,
     cases: Vec<Case>,
 }
 
 impl Loader<'_> {
-    fn load_file(&mut self, path: &Path) -> Result<(), Error> {
-        let name = path
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        if name == CASE_FILE {
-            let document = read_document(path)?;
-            self.validate(path, &document)?;
-            let dir = path.parent().unwrap_or(path);
-            let case = build_case(path, dir, document, true)?;
-            self.cases.push(case);
-        } else if COLLECTION_SUFFIXES
-            .iter()
-            .any(|suffix| name.ends_with(suffix))
-        {
-            let document = read_document(path)?;
-            self.validate(path, &document)?;
-            let dir = path.parent().unwrap_or(path);
-            let entries = match document.get("case") {
-                Some(Value::Array(entries)) => entries.clone(),
-                _ => Vec::new(),
-            };
-            for entry in entries {
+    fn load_file(&mut self, path: &Path, content: &[u8]) -> Result<(), Error> {
+        let text = std::str::from_utf8(content).map_err(|e| Error::format(path, e.to_string()))?;
+        if self.only.is_some_and(|id| !may_define(text, id)) {
+            return Ok(());
+        }
+        let document = parse_document(path, text)?;
+        self.validate(path, &document)?;
+        let dir = path.parent().unwrap_or(path);
+        if path.ends_with(CASE_FILE) {
+            if self.selects(&document) {
+                self.cases.push(build_case(path, dir, document, true)?);
+            }
+            return Ok(());
+        }
+        let entries = match document.get("case") {
+            Some(Value::Array(entries)) => entries.clone(),
+            _ => Vec::new(),
+        };
+        for entry in entries {
+            if self.selects(&entry) {
                 self.cases.push(build_case(path, dir, entry, false)?);
             }
         }
         Ok(())
+    }
+
+    fn selects(&self, document: &Value) -> bool {
+        self.only
+            .is_none_or(|id| document.get("id").and_then(Value::as_str) == Some(id))
     }
 
     fn validate(&self, path: &Path, document: &Value) -> Result<(), Error> {
@@ -566,15 +619,20 @@ impl Loader<'_> {
 /// Reads a TOML or JSON document into its JSON form.
 fn read_document(path: &Path) -> Result<Value, Error> {
     let text = fs::read_to_string(path).map_err(|e| Error::io(path, e))?;
+    parse_document(path, &text)
+}
+
+/// Parses the text of the TOML or JSON document `path` into its JSON form.
+fn parse_document(path: &Path, text: &str) -> Result<Value, Error> {
     let is_toml = path
         .extension()
         .is_some_and(|extension| extension == "toml");
     if is_toml {
         let value: toml::Value =
-            toml::from_str(&text).map_err(|e| Error::format(path, e.to_string()))?;
+            toml::from_str(text).map_err(|e| Error::format(path, e.to_string()))?;
         serde_json::to_value(value).map_err(|e| Error::format(path, e.to_string()))
     } else {
-        serde_json::from_str(&text).map_err(|e| Error::format(path, e.to_string()))
+        serde_json::from_str(text).map_err(|e| Error::format(path, e.to_string()))
     }
 }
 
@@ -1024,6 +1082,55 @@ mod tests {
         assert_eq!(suite.select(&[], &[Kind::Bind]).len(), 1);
         assert_eq!(suite.select(&["errors".to_owned()], &[]).len(), 1);
         assert_eq!(suite.select(&[], &[]).len(), 3);
+    }
+
+    #[test]
+    fn one_case_is_loaded_from_the_files_that_name_it() {
+        let (root, full) = convention_suite();
+        let r = root.path();
+        write(
+            r,
+            "exec/set.cases.toml",
+            r#"
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = 'exec/quoted'
+kind = "exec"
+summary = "Refers to \"golden/g\" without defining it."
+program = "count"
+expect = {}
+
+[[case]]
+id = "exec/other"
+kind = "exec"
+summary = "s"
+program = "count"
+expect = {}
+"#,
+        );
+        write(r, "broken/case.toml", "id = [");
+        let schemas = SchemaSet::new().unwrap();
+        let ids = |id: &str| -> Vec<String> {
+            let suite = Suite::load_case(r, &schemas, id).unwrap();
+            assert_eq!(suite.version, full.version);
+            assert!(suite.digest.is_empty());
+            suite.cases.into_iter().map(|case| case.id).collect()
+        };
+        assert_eq!(ids("golden/g"), ["golden/g"]);
+        assert_eq!(ids("exec/quoted"), ["exec/quoted"]);
+        assert_eq!(ids("exec/other"), ["exec/other"]);
+        assert!(ids("run.syntax-error").is_empty());
+        assert!(load(r).unwrap_err().to_string().contains("broken"));
+
+        write(
+            r,
+            "copy/case.toml",
+            "id = \"errors/e\"\nkind = \"exec\"\nsummary = \"s\"\nprogram = \"count\"\nexpect = {}\n",
+        );
+        fs::remove_file(r.join("broken/case.toml")).unwrap();
+        let error = Suite::load_case(r, &schemas, "errors/e").unwrap_err();
+        assert!(error.to_string().contains("also defined"), "{error}");
     }
 
     #[test]

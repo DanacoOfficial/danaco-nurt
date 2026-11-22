@@ -76,6 +76,26 @@ HABITS = (
 
 JOURNAL_CHANGING = ("undo", "redo", "journal.purge", "journal.pin", "journal.limits")
 
+INACTIVE_IRREVERSIBLE = {
+    "network_volume": "network_volume",
+    "removable_volume": "removable_volume",
+    "below_reserve": "no_space_for_copy",
+    "service_down": "journal_inactive",
+    "memory_volume": "journal_inactive",
+    "no_anchor": "journal_inactive",
+    "disabled": "journal_inactive",
+    "not_durable": "journal_inactive",
+}
+"""Irreversible reason reported for a change on a volume where the journal is inactive, by inactive reason."""
+
+OS_CONDITIONS = {
+    "linux": {"os:linux", "os:unix"},
+    "macos": {"os:macos", "os:unix"},
+    "windows": {"os:windows"},
+    "unix": {"os:linux", "os:macos", "os:unix"},
+}
+"""Conditions of `requires` under which a case can run on each system named by the catalog."""
+
 
 @dataclass(frozen=True)
 class Param:

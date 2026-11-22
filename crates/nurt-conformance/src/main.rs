@@ -10,25 +10,20 @@
 #![forbid(unsafe_code)]
 
 use std::io::Write as _;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use nurt_conformance::Error;
-use nurt_conformance::binding;
-use nurt_conformance::case::{Kind, Suite};
+use nurt_conformance::case::Kind;
 use nurt_conformance::fake::{BREAK_ENV, Break, CASE_ENV, CASES_ENV, FakeServer};
 use nurt_conformance::runner::{self, RunOptions};
-use nurt_conformance::schemas::SchemaSet;
 
 /// Exit code when a mandatory case failed.
 const EXIT_FAILED: u8 = 1;
 
 /// Exit code of an invalid invocation or an unreadable suite.
 const EXIT_INVALID: u8 = 2;
-
-/// Directory of the binding cases below the case directory.
-const BINDINGS_DIR: &str = "bindings";
 
 #[derive(Debug, Parser)]
 #[command(
@@ -181,25 +176,12 @@ fn fake_serve(cases: Option<PathBuf>, deviation: Option<String>) -> Result<ExitC
                 .ok_or_else(|| Error::Invalid(format!("unknown kind of --break {name:?}")))
         })
         .transpose()?;
-    let schemas = SchemaSet::new()?;
-    let suite = Suite::load(&cases, &schemas)?;
-    let bindings = load_bindings(&cases.join(BINDINGS_DIR), &schemas)?;
     let case_id = std::env::var(CASE_ENV).ok();
-    let mut server = FakeServer::new(&suite, &bindings, case_id.as_deref(), deviation)?;
+    let mut server = FakeServer::load(&cases, case_id.as_deref(), deviation)?;
     let stdin = std::io::stdin().lock();
     let stdout = std::io::stdout().lock();
     server
         .serve(stdin, stdout)
         .map_err(|e| Error::Invalid(format!("standard input or output failed: {e}")))?;
     Ok(ExitCode::SUCCESS)
-}
-
-fn load_bindings(dir: &Path, schemas: &SchemaSet) -> Result<Vec<binding::BindingFile>, Error> {
-    if !dir.is_dir() {
-        return Ok(Vec::new());
-    }
-    Ok(binding::load_dir(dir, schemas)?
-        .into_iter()
-        .map(|(_, file)| file)
-        .collect())
 }

@@ -21,7 +21,7 @@ for (let index = 2; index < process.argv.length; index += 2) {
   if (name === "--max-inflight") {
     options.maxInflight = Number(value);
   } else if (name === "--protocol") {
-    options.protocol = value;
+    options.protocol = value ?? options.protocol;
   } else {
     process.stderr.write(`fake-serve: unknown option ${name}\n`);
     process.exit(2);

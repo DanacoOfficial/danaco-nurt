@@ -47,13 +47,17 @@ UNSPECIFIED_RULES = {"B21", "B26", "P20", "P28"}
 
 EXEC_TOPICS = (
     "preview", "page", "fields", "stale", "utf-16", "cp852", "cp1250", "crlf",
-    "bulk", "notable", "irreversible",
+    "bulk", "notable", "irreversible", "out-of-range", "link-loop", "named-params",
+    "rows-changed",
 )
 JOURNAL_TOPICS = (
     "undo-last", "redo", "undo-to", "conflict-report", "conflict-force",
     "conflict-include-later", "conflict-partial", "conflict-abort", "history",
-    "no-expiry",
+    "no-expiry", "expiry-size", "pin-protects-from-limits", "pin-release-within-limits",
+    "journal-below-reserve", "journal-op-too-large", "journal-oversize-skip",
+    "journal-oversize-keep",
 )
+FIELD_NAME = re.compile(r"^[a-z_][a-z0-9_]*$")
 PARITY_MINIMUM = {"files": 250, "safety": 90}
 
 CATALOG = suite.load_catalog()
@@ -142,19 +146,34 @@ class CatalogConsistency(unittest.TestCase):
 
     def test_programs_use_catalog_commands_and_parameters(self) -> None:
         for case in CASES:
-            os_only = any(code == "E_OS_ONLY" for key, code in suite.walk([s.get("expect") for s in case.steps()])
-                          if key == "code")
             for where, text in programs(case):
                 with self.subTest(case=case.id, where=where):
                     for stage in suite.scan_program(text, CATALOG):
                         self.assertIn(stage.command, CATALOG)
                         cmd = CATALOG[stage.command]
-                        named_items = any("named_expression" in p.type for p in cmd.params.values())
+                        items = [p for p in cmd.params.values() if "named_expression" in p.type]
                         for p in stage.params:
-                            if not named_items:
-                                self.assertIn(p, cmd.params, f"{stage.command} {p}")
-                        for system in cmd.os if not os_only else ():
-                            self.assertIn(f"os:{system}", case.data.get("requires", []))
+                            if p in cmd.params:
+                                continue
+                            self.assertTrue(items and items[0].position is not None, f"{stage.command} {p}")
+                            self.assertRegex(p, FIELD_NAME)
+
+    def test_cases_of_system_commands_name_the_system(self) -> None:
+        for case in CASES:
+            os_only = any(key == "code" and code == "E_OS_ONLY"
+                          for key, code in suite.walk([s.get("expect") for s in case.steps()]))
+            conditions = {r for r in case.data.get("requires", []) if r.startswith("os:")}
+            systems = {s for _, text in programs(case) for stage in suite.scan_program(text, CATALOG)
+                       for s in CATALOG[stage.command].os}
+            with self.subTest(case=case.id):
+                if os_only:
+                    self.assertTrue(systems, "E_OS_ONLY without a command restricted to a system")
+                    self.assertTrue(conditions, "E_OS_ONLY case without a system condition")
+                    for system in systems:
+                        self.assertEqual(conditions & suite.OS_CONDITIONS[system], set(), system)
+                else:
+                    for system in systems:
+                        self.assertIn(f"os:{system}", conditions)
 
     def test_codes_and_reasons_exist(self) -> None:
         for case in CASES:
@@ -174,6 +193,26 @@ class CatalogConsistency(unittest.TestCase):
                             self.assertIn(value, suite.STATUSES + ("available", "partial", "expired", "undone"))
                         elif key == "rule" and isinstance(value, str):
                             self.assertRegex(value, suite.RULE_ID)
+
+    def test_out_of_range_changes_nothing(self) -> None:
+        for case in CASES:
+            for step in case.steps():
+                codes = {v for k, v in suite.walk(step.get("expect")) if k == "code"}
+                if "E_OUT_OF_RANGE" in codes:
+                    with self.subTest(case=case.id):
+                        self.assertEqual(step.get("fs_after"), "unchanged")
+
+    def test_inactive_journal_reasons_follow_the_contract(self) -> None:
+        by_id = {c.id: c for c in CASES}
+        self.assertLessEqual(set(suite.INACTIVE_IRREVERSIBLE.values()), IRREVERSIBLE)
+        for case_id, inactive in journal_cases.INACTIVE_CASES.items():
+            with self.subTest(case=case_id):
+                self.assertIn(case_id, by_id)
+                case = by_id[case_id]
+                self.assertIn("config", case.data)
+                report = case.steps()[0]["expect"]["report"]
+                expected = suite.INACTIVE_IRREVERSIBLE[inactive]
+                self.assertEqual([e["reason"] for e in report["irreversible"]], [expected])
 
     def test_report_kind_is_a_command(self) -> None:
         for case in CASES:

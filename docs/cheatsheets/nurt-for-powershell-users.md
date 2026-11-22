@@ -6,7 +6,7 @@ title: Nurt for PowerShell users
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Nurt for PowerShell users
 
-Every row pairs a PowerShell command with its form in Nurt. The last column states whether the console corrects the habit automatically or rejects it with an error that carries the fix.
+Every row pairs a PowerShell command with its form in Nurt. The last column states whether Nurt corrects the habit automatically or rejects it with an error that carries the fix.
 
 ## Files and directories
 

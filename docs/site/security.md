@@ -11,7 +11,7 @@ order: 12
 
 Suspected vulnerabilities are reported by e-mail to `support@danaco-group.pl` with a subject that starts with `[security] nurt`, not in a public issue. The policy, the scope and the handling times are in [SECURITY.md](https://github.com/DanacoOfficial/nurt/blob/main/SECURITY.md).
 
-## Properties of the console
+## Properties of the shell
 
 | Property | Description |
 |---|---|

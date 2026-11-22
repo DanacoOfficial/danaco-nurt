@@ -696,6 +696,37 @@ fs_after = { entries = [{ path = "w.txt", type = "file", content_utf8 = "a\r\nb\
 expect = { report = { status = "ok" } }
 
 [[case]]
+id = "exec/core/insert/line-out-of-range"
+kind = "exec"
+summary = "insert at a line after the end of the file fails with E_OUT_OF_RANGE and changes nothing."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a\nb\n" }] }
+program = 'insert "c" in: "a.txt" line: 9'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_OUT_OF_RANGE" } } }
+
+[[case]]
+id = "exec/core/read/lines-out-of-range"
+kind = "exec"
+summary = "read of a line range after the end of the file fails with E_OUT_OF_RANGE."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a\nb\n" }] }
+program = 'read "a.txt" lines: 5..6'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_OUT_OF_RANGE" } } }
+
+[[case]]
+id = "exec/core/find/link-loop"
+kind = "exec"
+requires = ["os:unix"]
+summary = "find that follows links skips a link back to a parent directory and reports link_loop_skipped."
+fs_before = { entries = [
+  { path = "dir/x.txt", type = "file", content_utf8 = "x\n" },
+  { path = "dir/loop", type = "symlink", target = ".." },
+] }
+program = 'find "." glob: "**/*.txt" follow_links: true'
+fs_after = "unchanged"
+expect = { report = { status = "ok", notable = [{ code = "link_loop_skipped" }], records = { type = "entry", matched = 1 } } }
+
+[[case]]
 id = "exec/core/edit/changes"
 kind = "exec"
 summary = "edit applies a list of changes in one operation."

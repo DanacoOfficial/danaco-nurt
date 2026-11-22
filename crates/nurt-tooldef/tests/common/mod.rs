@@ -35,6 +35,12 @@ pub(crate) fn provider_schema(file: &str) -> Value {
     read_json(&crate_dir().join("tests/provider-schemas").join(file))
 }
 
+/// The published schema `nurt-tool/1` of the neutral definition.
+pub(crate) fn tool_schema() -> Value {
+    serde_json::from_str(nurt_contracts::schema::TOOL)
+        .unwrap_or_else(|error| panic!("nurt-tool/1: {error}"))
+}
+
 pub(crate) fn validator(schema: &Value) -> jsonschema::Validator {
     jsonschema::validator_for(schema).unwrap_or_else(|error| panic!("invalid schema: {error}"))
 }

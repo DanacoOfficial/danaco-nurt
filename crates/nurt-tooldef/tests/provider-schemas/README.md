@@ -22,7 +22,10 @@ definition that its schema accepts.
 | `openai-strict-parameters.schema.json` | `parameters` of `openai-strict` and `openai-responses-strict` | OpenAI, structured outputs guide, supported schemas: <https://platform.openai.com/docs/guides/structured-outputs> |
 | `gemini-function-declaration.schema.json` | `gemini` | Google, Gemini API reference, `FunctionDeclaration` and `Schema`: <https://ai.google.dev/api/caching#FunctionDeclaration> |
 | `mcp-tool.schema.json` | `mcp` | Model Context Protocol specification, revision 2025-11-25, server tools: <https://modelcontextprotocol.io/specification/2025-11-25/server/tools> |
-| `neutral-tool.schema.json` | `json-schema` | Neutral definition `nurt-tool/1` of this project |
+
+The `json-schema` format is validated against the published schema
+`nurt-tool/1` in `spec/schemas/nurt-tool-1.schema.json`, embedded as
+`nurt_contracts::schema::TOOL`; this directory keeps no copy of it.
 
 Constraints recorded in the schemas:
 

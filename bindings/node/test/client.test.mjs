@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -31,7 +34,7 @@ describe("Nurt", () => {
 
   it("throws NurtLanguageError when raiseOnError is set", async () => {
     await withClient(fakeServe(), async (client) => {
-      await assert.rejects(client.run("fail", { raiseOnError: true }), (error) => {
+      await assert.rejects(client.run("fail", { raiseOnError: true }), (/** @type {any} */ error) => {
         assert.ok(error instanceof NurtLanguageError);
         assert.equal(error.code, "E_SYNTAX");
         assert.deepEqual(error.fix, ["echo text"]);
@@ -83,7 +86,7 @@ describe("Nurt", () => {
 
   it("rejects a server of another protocol version with NURT_E_ABI", async () => {
     await withClient(fakeServe("--protocol", "nurt-rpc/2"), async (client) => {
-      await assert.rejects(client.info(), (error) => {
+      await assert.rejects(client.info(), (/** @type {any} */ error) => {
         assert.ok(error instanceof NurtError);
         assert.equal(error.status, "NURT_E_ABI");
         assert.match(error.message, /nurt-rpc\/2/);

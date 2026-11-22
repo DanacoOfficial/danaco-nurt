@@ -113,6 +113,16 @@ expect = { report = { status = "failed", error = { code = "E_PATCH_REJECTED" } }
 fs_after = "unchanged"
 
 [[case]]
+id = "errors/execution/read-line-after-end"
+kind = "error"
+code = "E_OUT_OF_RANGE"
+summary = "Reading a line after the end of a file is an out of range error."
+program = 'read "a.txt" lines: 7..9'
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "one\ntwo\n" }] }
+expect = { report = { status = "failed", error = { code = "E_OUT_OF_RANGE" } } }
+fs_after = "unchanged"
+
+[[case]]
 id = "errors/execution/create-existing-file"
 kind = "error"
 code = "E_EXISTS"

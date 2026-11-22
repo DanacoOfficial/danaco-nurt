@@ -13,6 +13,7 @@
 //! | `call-error` | call error `NURT_E_IO` |
 //! | `progress` | emits stage progress, job progress, job output and two log messages, then `ok` |
 //! | `wait` | blocks until the call is cancelled, then reports `E_CANCELLED` |
+//! | `progress-wait` | emits stage progress, then behaves as `wait` |
 //! | `rendezvous` | waits until the configured number of calls run at once |
 //! | `session` | rendered text is the engine session of the request |
 
@@ -120,6 +121,23 @@ impl MockBackend {
     }
 }
 
+impl MockBackend {
+    /// Blocks until the call is cancelled; reports `ok` after [`WAIT`].
+    fn wait_for_cancellation(&self, request: &Request, cancel: &CancelToken) -> Response {
+        match cancel.wait_timeout(WAIT) {
+            Some(reason) => {
+                self.cancelled.increment();
+                response(
+                    request,
+                    failed(reason.error_code(), "the execution was cancelled"),
+                    "cancelled",
+                )
+            }
+            None => response(request, Report::new(ReportStatus::Ok, "find"), "ok"),
+        }
+    }
+}
+
 fn response(request: &Request, report: Report, text: &str) -> Response {
     let mut response = Response::new(report);
     let format = request.options.format();
@@ -195,17 +213,18 @@ impl Backend for MockBackend {
                 }));
                 Ok(ok())
             }
-            "wait" => match cancel.wait_timeout(WAIT) {
-                Some(reason) => {
-                    self.cancelled.increment();
-                    Ok(response(
-                        request,
-                        failed(reason.error_code(), "the execution was cancelled"),
-                        "cancelled",
-                    ))
-                }
-                None => Ok(ok()),
-            },
+            "wait" => Ok(self.wait_for_cancellation(request, &cancel)),
+            "progress-wait" => {
+                events.emit(Event::Progress(Progress {
+                    command: "find".to_owned(),
+                    phase: "scan".to_owned(),
+                    done: 1,
+                    total: None,
+                    bytes: None,
+                    message: Some("scanning".to_owned()),
+                }));
+                Ok(self.wait_for_cancellation(request, &cancel))
+            }
             "rendezvous" => {
                 self.arrived.increment();
                 let text = if self.arrived.wait_for(self.rendezvous) {

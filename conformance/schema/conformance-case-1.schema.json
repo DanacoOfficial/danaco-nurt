@@ -65,7 +65,7 @@
         "match": { "enum": ["subset", "exact", "tree"], "default": "subset" },
         "expect_error": { "type": "integer" },
         "validate": {
-          "enum": ["ast", "bound", "report", "request", "config", "catalog", "value", "metaschema"]
+          "enum": ["ast", "bound", "report", "request", "config", "catalog", "value", "tool", "metaschema"]
         },
         "fs_after": { "$ref": "#/$defs/data" }
       }

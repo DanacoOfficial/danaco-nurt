@@ -3,59 +3,76 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Streamable HTTP transport.
 //!
-//! One endpoint, [`ENDPOINT_PATH`], accepts JSON-RPC messages by `POST`. An
-//! `initialize` request opens a session whose identifier the server returns
-//! in the `Mcp-Session-Id` header; every later message carries the header
-//! and `DELETE` ends the session. Each session is served by its own protocol
-//! handler, with the session identifier as the default engine session.
+//! The transport follows the streamable HTTP transport of the Model Context
+//! Protocol, revision 2025-03-26 and later, at one endpoint,
+//! [`ENDPOINT_PATH`]:
 //!
-//! The response to a request is a JSON document, or, when the client
-//! accepts `text/event-stream`, an event stream with the notifications of
-//! the request followed by the response. The server opens no stream of its
-//! own, so `GET` is answered with `405 Method Not Allowed`.
+//! | Method | Effect |
+//! |---|---|
+//! | `POST` | carries one JSON-RPC message; a request is answered with an event stream that carries the notifications of the request while it runs and then its response, a notification or a response with `202 Accepted` |
+//! | `GET` | opens the event stream of the session, which carries the messages that belong to no request, such as log messages |
+//! | `DELETE` | ends the session |
 //!
-//! Every request with an `Origin` header is checked against the allowed
-//! origins to prevent DNS rebinding: origins on a loopback host and origins
-//! given in [`McpHttpOptions::with_allowed_origin`] are accepted.
+//! An `initialize` request opens a session whose identifier the server
+//! returns in the `Mcp-Session-Id` header; every later message carries the
+//! header. Each session is served by its own protocol handler, and the
+//! session identifier is the default engine session of its calls. A session
+//! without any message for [`SESSION_IDLE_TIMEOUT`] is closed.
+//!
+//! Every event of a stream carries an identifier. A client that lost a
+//! stream sends `GET` with the `Last-Event-ID` header and receives the
+//! events of that stream again, from the named event on.
+//!
+//! The `Host` header must name a loopback host, the address the listener is
+//! bound to or a host given in [`McpHttpOptions::with_allowed_host`]; a
+//! request with an `Origin` header must come from a loopback origin or an
+//! origin given in [`McpHttpOptions::with_allowed_origin`]. Both checks
+//! prevent DNS rebinding.
 
-use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{Ipv4Addr, SocketAddr};
 use std::path::Path;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
+use std::sync::Arc;
+use std::time::Duration;
 
 use axum::Router;
-use axum::body::{Body, Bytes};
-use axum::extract::State;
-use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
+use axum::extract::{Request, State};
+use axum::http::{HeaderValue, Method, StatusCode, header};
+use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::post;
-use rmcp::ServiceExt;
-use rmcp::model::ProtocolVersion;
-use serde_json::{Value, json};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, DuplexStream, ReadHalf, WriteHalf};
+use rmcp::RoleServer;
+use rmcp::service::RequestContext;
+use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+use rmcp::transport::streamable_http_server::{
+    SessionId, SessionManager, StreamableHttpServerConfig, StreamableHttpService,
+};
 use tokio::net::TcpListener;
-use tokio::sync::oneshot;
 
 use crate::backend::Backend;
 use crate::error::McpError;
-use crate::server::{MAX_PROTOCOL_VERSION, NurtServer, Shared};
+use crate::server::{NurtServer, Shared};
 
 /// Path of the single endpoint.
 pub const ENDPOINT_PATH: &str = "/mcp";
 
+/// Time after which a session without any message is closed.
+pub const SESSION_IDLE_TIMEOUT: Duration = Duration::from_secs(60 * 60);
+
 const SESSION_HEADER: &str = "mcp-session-id";
-const PROTOCOL_HEADER: &str = "mcp-protocol-version";
-const EVENT_STREAM: &str = "text/event-stream";
-const JSON_MEDIA: &str = "application/json";
 const BEARER_PREFIX: &str = "Bearer ";
 
-/// Bytes buffered in each direction between the HTTP layer and the protocol
-/// handler of a session.
-const PIPE_CAPACITY: usize = 64 * 1024;
+/// Hosts accepted in the `Host` header whatever the options say.
+const LOOPBACK_HOSTS: [&str; 3] = ["localhost", "127.0.0.1", "::1"];
 
-/// JSON-RPC 2.0 error codes used by the transport.
-const PARSE_ERROR: i32 = -32700;
-const INVALID_REQUEST: i32 = -32600;
+/// Origins accepted in the `Origin` header whatever the options say, on any
+/// port.
+const LOOPBACK_ORIGINS: [&str; 6] = [
+    "http://localhost:*",
+    "https://localhost:*",
+    "http://127.0.0.1:*",
+    "https://127.0.0.1:*",
+    "http://[::1]:*",
+    "https://[::1]:*",
+];
 
 /// Options of the HTTP server.
 #[derive(Clone, PartialEq, Eq)]
@@ -66,8 +83,12 @@ pub struct McpHttpOptions {
     pub address: SocketAddr,
     /// Whether an address other than a loopback address is accepted.
     pub allow_remote: bool,
-    /// Origins accepted in addition to the origins on a loopback host, for
-    /// example `https://example.com`.
+    /// Hosts accepted in the `Host` header in addition to the loopback hosts
+    /// and the address of the listener, for example `example.com` or
+    /// `example.com:8443`; an entry without a port accepts any port.
+    pub allowed_hosts: Vec<String>,
+    /// Origins accepted in addition to the loopback origins, for example
+    /// `https://example.com:443`; `:*` in place of the port accepts any port.
     pub allowed_origins: Vec<String>,
     /// Token that every request must carry as `Authorization: Bearer
     /// <token>`; `None` disables the check.
@@ -79,6 +100,7 @@ impl std::fmt::Debug for McpHttpOptions {
         f.debug_struct("McpHttpOptions")
             .field("address", &self.address)
             .field("allow_remote", &self.allow_remote)
+            .field("allowed_hosts", &self.allowed_hosts)
             .field("allowed_origins", &self.allowed_origins)
             .field(
                 "bearer_token",
@@ -96,6 +118,7 @@ impl McpHttpOptions {
         Self {
             address: SocketAddr::from((Ipv4Addr::LOCALHOST, port)),
             allow_remote: false,
+            allowed_hosts: Vec::new(),
             allowed_origins: Vec::new(),
             bearer_token: None,
         }
@@ -113,6 +136,13 @@ impl McpHttpOptions {
     #[must_use]
     pub fn allow_remote(mut self, allow: bool) -> Self {
         self.allow_remote = allow;
+        self
+    }
+
+    /// Returns the options with one more accepted `Host` header value.
+    #[must_use]
+    pub fn with_allowed_host(mut self, host: impl Into<String>) -> Self {
+        self.allowed_hosts.push(host.into());
         self
     }
 
@@ -186,6 +216,23 @@ impl McpHttpOptions {
         }
         Ok(())
     }
+
+    /// Configuration of the transport for a listener bound to `address`.
+    fn transport_config(&self, address: SocketAddr) -> StreamableHttpServerConfig {
+        let mut hosts: Vec<String> = LOOPBACK_HOSTS.iter().map(|&host| host.to_owned()).collect();
+        if !address.ip().is_unspecified() {
+            hosts.push(address.ip().to_string());
+        }
+        hosts.extend(self.allowed_hosts.iter().cloned());
+        let origins = LOOPBACK_ORIGINS
+            .iter()
+            .map(|&origin| origin.to_owned())
+            .chain(self.allowed_origins.iter().cloned());
+        StreamableHttpServerConfig::default()
+            .with_allowed_hosts(hosts)
+            .with_allowed_origins(origins)
+            .enforce_origin_validation()
+    }
 }
 
 fn non_empty_token(text: &str) -> Option<String> {
@@ -229,533 +276,84 @@ pub async fn serve_http_listener<B: Backend>(
     options: McpHttpOptions,
     listener: TcpListener,
 ) -> Result<(), McpError> {
-    options.validate(listener.local_addr()?)?;
-    let state = Arc::new(HttpState {
-        shared: Shared::new(backend),
-        options,
-        sessions: Mutex::new(HashMap::new()),
+    let address = listener.local_addr()?;
+    options.validate(address)?;
+    let shared = Shared::new(backend);
+    let mut sessions = LocalSessionManager::default();
+    sessions.session_config.keep_alive = Some(SESSION_IDLE_TIMEOUT);
+    let sessions = Arc::new(sessions);
+    let service = StreamableHttpService::new(
+        move || Ok(NurtServer::new(Arc::clone(&shared), None)),
+        Arc::clone(&sessions),
+        options.transport_config(address),
+    );
+    let guard = Arc::new(Guard {
+        sessions,
+        bearer_token: options.bearer_token,
     });
     let router = Router::new()
-        .route(
-            ENDPOINT_PATH,
-            post(post_message::<B>)
-                .get(open_stream)
-                .delete(end_session::<B>),
-        )
-        .with_state(state);
+        .route_service(ENDPOINT_PATH, service)
+        .layer(middleware::from_fn_with_state(guard, check_request));
     axum::serve(listener, router).await?;
     Ok(())
 }
 
-/// State of the HTTP server.
-struct HttpState<B> {
-    shared: Arc<Shared<B>>,
-    options: McpHttpOptions,
-    sessions: Mutex<HashMap<String, Arc<Session>>>,
+/// Identifier of the HTTP session of a request; `None` for a request that
+/// did not arrive over HTTP or opens the session.
+pub(crate) fn session_of(context: &RequestContext<RoleServer>) -> Option<String> {
+    context
+        .extensions
+        .get::<axum::http::request::Parts>()?
+        .headers
+        .get(SESSION_HEADER)?
+        .to_str()
+        .ok()
+        .map(str::to_owned)
 }
 
-impl<B: Backend> HttpState<B> {
-    fn sessions(&self) -> MutexGuard<'_, HashMap<String, Arc<Session>>> {
-        self.sessions.lock().unwrap_or_else(PoisonError::into_inner)
-    }
+/// State of the checks that precede the transport.
+struct Guard {
+    sessions: Arc<LocalSessionManager>,
+    bearer_token: Option<String>,
+}
 
-    /// Checks the origin and the bearer token of a request.
-    fn authorize(&self, headers: &HeaderMap) -> Result<(), Rejection> {
-        if let Some(origin) = headers.get(header::ORIGIN) {
-            let accepted = origin.to_str().is_ok_and(|origin| {
-                is_loopback_origin(origin)
-                    || self
-                        .options
-                        .allowed_origins
-                        .iter()
-                        .any(|allowed| allowed == origin)
-            });
-            if !accepted {
-                return Err(Rejection::Origin);
-            }
+/// Checks the bearer token of every request, and answers `DELETE` of an
+/// unknown session with `404 Not Found`, as the transport requires for any
+/// request of a session that has ended.
+async fn check_request(State(guard): State<Arc<Guard>>, request: Request, next: Next) -> Response {
+    if let Some(expected) = &guard.bearer_token {
+        let given = request
+            .headers()
+            .get(header::AUTHORIZATION)
+            .and_then(|value| value.as_bytes().strip_prefix(BEARER_PREFIX.as_bytes()));
+        if !given.is_some_and(|given| same_token(given, expected.as_bytes())) {
+            return unauthorized();
         }
-        if let Some(expected) = &self.options.bearer_token {
-            let given = headers
-                .get(header::AUTHORIZATION)
-                .and_then(|value| value.as_bytes().strip_prefix(BEARER_PREFIX.as_bytes()));
-            if !given.is_some_and(|given| same_token(given, expected.as_bytes())) {
-                return Err(Rejection::Token);
-            }
-        }
-        Ok(())
     }
-
-    /// Returns the session named by the request headers.
-    fn session(&self, headers: &HeaderMap) -> Result<Arc<Session>, Rejection> {
-        let id = headers
+    if request.method() == Method::DELETE
+        && let Some(id) = request
+            .headers()
             .get(SESSION_HEADER)
-            .ok_or(Rejection::MissingSession)?;
-        id.to_str()
-            .ok()
-            .and_then(|id| self.sessions().get(id).cloned())
-            .ok_or(Rejection::UnknownSession)
-    }
-
-    /// Opens a session, sends it the `initialize` request and keeps the
-    /// session when the initialization succeeds.
-    async fn initialize(self: &Arc<Self>, message: Value, event_stream: bool) -> Response {
-        let Some(id) = message.get("id").cloned() else {
-            return rpc_error(
-                StatusCode::BAD_REQUEST,
-                INVALID_REQUEST,
-                "initialize must be a request with an id",
-            );
-        };
-        let session_id = uuid::Uuid::new_v4().to_string();
-        let (http_side, server_side) = tokio::io::duplex(PIPE_CAPACITY);
-        let (reader, writer) = tokio::io::split(http_side);
-        let session = Arc::new(Session::new(writer));
-        self.sessions()
-            .insert(session_id.clone(), Arc::clone(&session));
-
-        let server = NurtServer::new(Arc::clone(&self.shared), Some(session_id.clone()));
-        tokio::spawn(async move {
-            match server.serve(server_side).await {
-                Ok(running) => {
-                    if let Err(error) = running.waiting().await {
-                        tracing::debug!(%error, "session task failed");
-                    }
-                }
-                Err(error) => tracing::debug!(%error, "session not initialized"),
-            }
-        });
-        tokio::spawn(read_server(
-            Arc::clone(&session),
-            reader,
-            Arc::downgrade(self),
-            session_id.clone(),
-        ));
-
-        let outcome = exchange(&session, &message, id).await;
-        let initialized = matches!(
-            &outcome,
-            Some(Outcome::Response { message, .. }) if message.get("result").is_some()
-        );
-        let mut response = respond(outcome, event_stream);
-        if initialized {
-            if let Ok(value) = HeaderValue::from_str(&session_id) {
-                response.headers_mut().insert(SESSION_HEADER, value);
-            }
-        } else {
-            self.end(&session_id).await;
-        }
-        response
-    }
-
-    /// Removes a session and closes the input of its protocol handler.
-    async fn end(&self, session_id: &str) -> bool {
-        let session = self.sessions().remove(session_id);
-        match session {
-            Some(session) => {
-                session.close().await;
-                true
-            }
-            None => false,
+            .and_then(|id| id.to_str().ok())
+    {
+        let known = guard.sessions.has_session(&SessionId::from(id)).await;
+        if !matches!(known, Ok(true)) {
+            return (StatusCode::NOT_FOUND, "Not Found: Session not found").into_response();
         }
     }
+    next.run(request).await
 }
 
-/// Reason to refuse a request before it reaches a session.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Rejection {
-    /// The `Origin` header names an origin that is not allowed.
-    Origin,
-    /// The bearer token is missing or wrong.
-    Token,
-    /// The request has no `Mcp-Session-Id` header.
-    MissingSession,
-    /// The session is unknown or has ended.
-    UnknownSession,
-}
-
-impl IntoResponse for Rejection {
-    fn into_response(self) -> Response {
-        match self {
-            Self::Origin => rpc_error(
-                StatusCode::FORBIDDEN,
-                INVALID_REQUEST,
-                "origin not allowed; add it to the allowed origins of the server",
-            ),
-            Self::Token => {
-                let mut response = rpc_error(
-                    StatusCode::UNAUTHORIZED,
-                    INVALID_REQUEST,
-                    "missing or wrong bearer token; send `Authorization: Bearer <token>`",
-                );
-                response
-                    .headers_mut()
-                    .insert(header::WWW_AUTHENTICATE, HeaderValue::from_static("Bearer"));
-                response
-            }
-            Self::MissingSession => rpc_error(
-                StatusCode::BAD_REQUEST,
-                INVALID_REQUEST,
-                "missing Mcp-Session-Id header; send initialize first",
-            ),
-            Self::UnknownSession => session_ended(),
-        }
-    }
-}
-
-/// Result of a request forwarded to a session.
-enum Outcome {
-    /// The response with the notifications sent before it.
-    Response {
-        notifications: Vec<Value>,
-        message: Value,
-    },
-    /// The client cancelled the request; no response follows.
-    Cancelled { notifications: Vec<Value> },
-}
-
-/// A request waiting for its response.
-struct Pending {
-    progress_token: Option<String>,
-    notifications: Vec<Value>,
-    reply: oneshot::Sender<Outcome>,
-}
-
-/// One session: the input of its protocol handler and its pending requests.
-struct Session {
-    writer: tokio::sync::Mutex<Option<WriteHalf<DuplexStream>>>,
-    pending: Mutex<HashMap<String, Pending>>,
-}
-
-impl Session {
-    fn new(writer: WriteHalf<DuplexStream>) -> Self {
-        Self {
-            writer: tokio::sync::Mutex::new(Some(writer)),
-            pending: Mutex::new(HashMap::new()),
-        }
-    }
-
-    fn pending(&self) -> MutexGuard<'_, HashMap<String, Pending>> {
-        self.pending.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    /// Writes one message to the protocol handler; `false` when the session
-    /// has ended.
-    async fn send(&self, message: &Value) -> bool {
-        let mut line = message.to_string().into_bytes();
-        line.push(b'\n');
-        let mut writer = self.writer.lock().await;
-        let Some(stream) = writer.as_mut() else {
-            return false;
-        };
-        stream.write_all(&line).await.is_ok() && stream.flush().await.is_ok()
-    }
-
-    /// Closes the input of the protocol handler, which then ends.
-    async fn close(&self) {
-        if let Some(mut writer) = self.writer.lock().await.take()
-            && let Err(error) = writer.shutdown().await
-        {
-            tracing::debug!(%error, "session input not closed cleanly");
-        }
-    }
-
-    fn register(&self, key: String, progress_token: Option<String>) -> oneshot::Receiver<Outcome> {
-        let (reply, receiver) = oneshot::channel();
-        self.pending().insert(
-            key,
-            Pending {
-                progress_token,
-                notifications: Vec::new(),
-                reply,
-            },
-        );
-        receiver
-    }
-
-    fn cancel(&self, request_id: &Value) {
-        if let Some(pending) = self.pending().remove(&request_id.to_string()) {
-            let _ignored = pending.reply.send(Outcome::Cancelled {
-                notifications: pending.notifications,
-            });
-        }
-    }
-
-    /// Routes one message of the protocol handler to the request it belongs
-    /// to. A response goes to the request with its identifier; an error
-    /// without an identifier, sent for a message that could not be read,
-    /// goes to the only pending request. A notification goes to the request
-    /// with its progress token, or to the only pending request; otherwise it
-    /// is dropped, because the server keeps no stream outside requests.
-    fn dispatch(&self, message: Value) {
-        let mut pending = self.pending();
-        let is_response = message.get("method").is_none()
-            && (message.get("result").is_some() || message.get("error").is_some());
-        if is_response {
-            let id = message.get("id").cloned().unwrap_or_default();
-            let key = if id.is_null() && pending.len() == 1 {
-                pending.keys().next().cloned().unwrap_or_default()
-            } else {
-                id.to_string()
-            };
-            if let Some(entry) = pending.remove(&key) {
-                let _ignored = entry.reply.send(Outcome::Response {
-                    notifications: entry.notifications,
-                    message,
-                });
-            }
-            return;
-        }
-        let token = message
-            .pointer("/params/progressToken")
-            .map(Value::to_string);
-        let target = match token {
-            Some(token) => pending
-                .values_mut()
-                .find(|entry| entry.progress_token.as_deref() == Some(token.as_str())),
-            None if pending.len() == 1 => pending.values_mut().next(),
-            None => None,
-        };
-        match target {
-            Some(entry) => entry.notifications.push(message),
-            None => tracing::debug!("server message without a request stream dropped"),
-        }
-    }
-
-    /// Ends every pending request without a response.
-    fn fail_pending(&self) {
-        self.pending().clear();
-    }
-}
-
-/// Reads the messages of a protocol handler until it ends, then removes the
-/// session.
-async fn read_server<B: Backend>(
-    session: Arc<Session>,
-    reader: ReadHalf<DuplexStream>,
-    state: Weak<HttpState<B>>,
-    session_id: String,
-) {
-    let mut lines = BufReader::new(reader).lines();
-    while let Ok(Some(line)) = lines.next_line().await {
-        match serde_json::from_str(&line) {
-            Ok(message) => session.dispatch(message),
-            Err(error) => tracing::debug!(%error, "invalid message of the protocol handler"),
-        }
-    }
-    session.fail_pending();
-    if let Some(state) = state.upgrade() {
-        state.sessions().remove(&session_id);
-    }
-}
-
-/// Sends a request to a session and waits for its outcome; `None` when the
-/// session ends first.
-async fn exchange(session: &Session, message: &Value, id: Value) -> Option<Outcome> {
-    let key = id.to_string();
-    let token = message
-        .pointer("/params/_meta/progressToken")
-        .map(Value::to_string);
-    let receiver = session.register(key.clone(), token);
-    if !session.send(message).await {
-        session.pending().remove(&key);
-        return None;
-    }
-    receiver.await.ok()
-}
-
-async fn post_message<B: Backend>(
-    State(state): State<Arc<HttpState<B>>>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Response {
-    if let Err(response) = state.authorize(&headers) {
-        return response.into_response();
-    }
-    let message: Value = match serde_json::from_slice(&body) {
-        Ok(message) => message,
-        Err(error) => {
-            return rpc_error(
-                StatusCode::BAD_REQUEST,
-                PARSE_ERROR,
-                &format!("body is not valid JSON: {error}"),
-            );
-        }
-    };
-    if !message.is_object() {
-        return rpc_error(
-            StatusCode::BAD_REQUEST,
-            INVALID_REQUEST,
-            "body must be one JSON-RPC message object; batches are not supported",
-        );
-    }
-    if let Some(version) = headers.get(PROTOCOL_HEADER) {
-        let supported = ProtocolVersion::known_up_to(&MAX_PROTOCOL_VERSION);
-        if !supported
-            .iter()
-            .any(|known| version.as_bytes() == known.as_str().as_bytes())
-        {
-            let names: Vec<&str> = supported.iter().map(ProtocolVersion::as_str).collect();
-            return rpc_error(
-                StatusCode::BAD_REQUEST,
-                INVALID_REQUEST,
-                &format!(
-                    "unsupported MCP-Protocol-Version header; supported: {}",
-                    names.join(", ")
-                ),
-            );
-        }
-    }
-    let event_stream = accepts_event_stream(&headers);
-    let method = message.get("method").and_then(Value::as_str);
-    if method == Some("initialize") {
-        return state.initialize(message, event_stream).await;
-    }
-    let session = match state.session(&headers) {
-        Ok(session) => session,
-        Err(rejection) => return rejection.into_response(),
-    };
-    match (method.is_some(), message.get("id").cloned()) {
-        (true, Some(id)) => respond(exchange(&session, &message, id).await, event_stream),
-        _ => {
-            if !session.send(&message).await {
-                return session_ended();
-            }
-            if method == Some("notifications/cancelled")
-                && let Some(request_id) = message.pointer("/params/requestId")
-            {
-                session.cancel(request_id);
-            }
-            StatusCode::ACCEPTED.into_response()
-        }
-    }
-}
-
-async fn open_stream() -> Response {
-    let mut response = rpc_error(
-        StatusCode::METHOD_NOT_ALLOWED,
-        INVALID_REQUEST,
-        "the server opens no stream outside requests; send requests by POST",
-    );
-    response
-        .headers_mut()
-        .insert(header::ALLOW, HeaderValue::from_static("POST, DELETE"));
-    response
-}
-
-async fn end_session<B: Backend>(
-    State(state): State<Arc<HttpState<B>>>,
-    headers: HeaderMap,
-) -> Response {
-    if let Err(response) = state.authorize(&headers) {
-        return response.into_response();
-    }
-    let session_id = headers
-        .get(SESSION_HEADER)
-        .and_then(|id| id.to_str().ok())
-        .map(str::to_owned);
-    let Some(session_id) = session_id else {
-        return rpc_error(
-            StatusCode::BAD_REQUEST,
-            INVALID_REQUEST,
-            "missing Mcp-Session-Id header",
-        );
-    };
-    if state.end(&session_id).await {
-        StatusCode::NO_CONTENT.into_response()
-    } else {
-        session_ended()
-    }
-}
-
-fn respond(outcome: Option<Outcome>, event_stream: bool) -> Response {
-    match outcome {
-        None => session_ended(),
-        Some(Outcome::Response {
-            notifications,
-            message,
-        }) => {
-            if event_stream {
-                let mut messages = notifications;
-                messages.push(message);
-                sse(&messages)
-            } else {
-                json_body(StatusCode::OK, &message)
-            }
-        }
-        Some(Outcome::Cancelled { notifications }) => {
-            if event_stream {
-                sse(&notifications)
-            } else {
-                StatusCode::ACCEPTED.into_response()
-            }
-        }
-    }
-}
-
-/// Event stream with one `message` event per JSON-RPC message.
-fn sse(messages: &[Value]) -> Response {
-    let body: String = messages
-        .iter()
-        .map(|message| format!("event: message\ndata: {message}\n\n"))
-        .collect();
-    let mut response = Response::new(Body::from(body));
-    response
-        .headers_mut()
-        .insert(header::CONTENT_TYPE, HeaderValue::from_static(EVENT_STREAM));
-    response
-        .headers_mut()
-        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
-    response
-}
-
-fn json_body(status: StatusCode, message: &Value) -> Response {
-    let mut response = Response::new(Body::from(message.to_string()));
-    *response.status_mut() = status;
-    response
-        .headers_mut()
-        .insert(header::CONTENT_TYPE, HeaderValue::from_static(JSON_MEDIA));
-    response
-}
-
-fn rpc_error(status: StatusCode, code: i32, message: &str) -> Response {
-    json_body(
-        status,
-        &json!({
-            "jsonrpc": "2.0",
-            "id": null,
-            "error": { "code": code, "message": message }
-        }),
+fn unauthorized() -> Response {
+    let mut response = (
+        StatusCode::UNAUTHORIZED,
+        "Unauthorized: missing or wrong bearer token; send `Authorization: Bearer <token>`",
     )
-}
-
-fn session_ended() -> Response {
-    rpc_error(
-        StatusCode::NOT_FOUND,
-        INVALID_REQUEST,
-        "session ended; send initialize to open a new one",
-    )
-}
-
-fn accepts_event_stream(headers: &HeaderMap) -> bool {
-    headers
-        .get_all(header::ACCEPT)
-        .iter()
-        .filter_map(|value| value.to_str().ok())
-        .any(|value| value.contains(EVENT_STREAM))
-}
-
-/// Whether an origin names a loopback host: `localhost`, `127.0.0.0/8` or
-/// `[::1]`.
-fn is_loopback_origin(origin: &str) -> bool {
-    let Some((_, authority)) = origin.split_once("://") else {
-        return false;
-    };
-    let host = match authority.strip_prefix('[') {
-        Some(rest) => rest.split(']').next().unwrap_or_default(),
-        None => authority.split([':', '/']).next().unwrap_or_default(),
-    };
-    host.eq_ignore_ascii_case("localhost")
-        || host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
+        .into_response();
+    response
+        .headers_mut()
+        .insert(header::WWW_AUTHENTICATE, HeaderValue::from_static("Bearer"));
+    response
 }
 
 /// Compares tokens in time that does not depend on the position of the
@@ -775,48 +373,13 @@ fn same_token(given: &[u8], expected: &[u8]) -> bool {
 mod tests {
     use std::net::SocketAddr;
 
-    use axum::http::{HeaderMap, HeaderValue, header};
-
-    use super::{McpHttpOptions, accepts_event_stream, is_loopback_origin, same_token};
-
-    #[test]
-    fn loopback_origins_are_recognized() {
-        for origin in [
-            "http://localhost:3000",
-            "http://LOCALHOST",
-            "http://127.0.0.1:8080",
-            "http://127.1.2.3",
-            "http://[::1]:9000",
-        ] {
-            assert!(is_loopback_origin(origin), "{origin}");
-        }
-        for origin in [
-            "http://example.com",
-            "http://localhost.example.com",
-            "http://10.0.0.1",
-            "null",
-            "http://[::2]",
-        ] {
-            assert!(!is_loopback_origin(origin), "{origin}");
-        }
-    }
+    use super::{LOOPBACK_HOSTS, LOOPBACK_ORIGINS, McpHttpOptions, same_token};
 
     #[test]
     fn tokens_match_only_when_equal() {
         assert!(same_token(b"secret", b"secret"));
         assert!(!same_token(b"secret", b"secreT"));
         assert!(!same_token(b"secret", b"secret2"));
-    }
-
-    #[test]
-    fn event_stream_is_detected_in_accept() {
-        let mut headers = HeaderMap::new();
-        assert!(!accepts_event_stream(&headers));
-        headers.insert(
-            header::ACCEPT,
-            HeaderValue::from_static("application/json, text/event-stream"),
-        );
-        assert!(accepts_event_stream(&headers));
     }
 
     #[test]
@@ -831,6 +394,28 @@ mod tests {
                 .with_bearer_token(" ")
                 .validate("127.0.0.1:1".parse().unwrap())
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn transport_accepts_loopback_the_listener_and_listed_names() {
+        let options = McpHttpOptions::new(0)
+            .with_allowed_host("example.com")
+            .with_allowed_origin("https://example.com:443");
+        let config = options.transport_config("192.0.2.7:8080".parse().unwrap());
+        let mut hosts: Vec<&str> = LOOPBACK_HOSTS.to_vec();
+        hosts.extend(["192.0.2.7", "example.com"]);
+        assert_eq!(config.allowed_hosts, hosts);
+        let mut origins: Vec<&str> = LOOPBACK_ORIGINS.to_vec();
+        origins.push("https://example.com:443");
+        assert_eq!(config.allowed_origins, origins);
+
+        let unspecified = options.transport_config("0.0.0.0:8080".parse().unwrap());
+        assert!(
+            !unspecified
+                .allowed_hosts
+                .iter()
+                .any(|host| host == "0.0.0.0")
         );
     }
 

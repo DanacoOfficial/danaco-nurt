@@ -132,7 +132,11 @@ mod tests {
     #[test]
     fn every_schema_is_a_valid_2020_12_schema() {
         let set = SchemaSet::new().unwrap();
-        assert!(set.names().len() >= SUITE_SCHEMAS.len() + 7);
+        assert_eq!(
+            set.names().len(),
+            SUITE_SCHEMAS.len() + nurt_contracts::schema::ALL.len()
+        );
+        assert!(set.document("tool").is_some());
         for name in set.names() {
             let document = set.document(name).unwrap();
             assert_eq!(validate_metaschema(document), Ok(()), "{name}");
