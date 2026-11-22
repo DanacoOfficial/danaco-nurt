@@ -656,6 +656,15 @@
           "format": "uint64",
           "minimum": 0
         },
+        "rows_changed": {
+          "description": "Rows inserted, updated or deleted by SQL statements.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
         "flags": {
           "description": "Notes about the change, for example `crlf_preserved`.",
           "type": [
@@ -1645,6 +1654,11 @@
           "description": "Effect of an operation on a repository (part `git` of an effect).",
           "type": "string",
           "const": "git_effect"
+        },
+        {
+          "description": "Preserved copy of a deleted branch or stash entry (`git.branch`).",
+          "type": "string",
+          "const": "git_trash_entry"
         },
         {
           "description": "Record of computed or source-defined fields without a fixed kind\n(`select` with computed fields, `parse`, `windows.cim`).",
@@ -2659,6 +2673,46 @@
           "description": "A checkpoint was created without the index because the index has\nconflicts.",
           "type": "string",
           "const": "checkpoint_without_index"
+        },
+        {
+          "description": "A symbolic link that leads back to one of its parent directories was\nnot followed while walking a directory tree.",
+          "type": "string",
+          "const": "link_loop_skipped"
+        },
+        {
+          "description": "Verification of TLS certificates is disabled by the repository\nconfiguration.",
+          "type": "string",
+          "const": "tls_verification_disabled"
+        },
+        {
+          "description": "An HTTP setting of the repository configuration is not supported and\nwas ignored.",
+          "type": "string",
+          "const": "http_option_ignored"
+        },
+        {
+          "description": "A push sent objects without new delta compression.",
+          "type": "string",
+          "const": "pack_without_deltas"
+        },
+        {
+          "description": "The remote did not report the outcome of a reference update.",
+          "type": "string",
+          "const": "push_status_unknown"
+        },
+        {
+          "description": "The host key of a remote was accepted without verification.",
+          "type": "string",
+          "const": "host_key_unverified"
+        },
+        {
+          "description": "A `Match exec` condition of the SSH configuration was not run.",
+          "type": "string",
+          "const": "match_exec_ignored"
+        },
+        {
+          "description": "A signing program named by the repository configuration was not run;\nthe signature was created without it.",
+          "type": "string",
+          "const": "signing_program_ignored"
         }
       ]
     },
@@ -3091,6 +3145,11 @@
           "const": "E_PATCH_REJECTED"
         },
         {
+          "description": "A line number, a page or a position lies outside the content, for\nexample a line after the end of the file.",
+          "type": "string",
+          "const": "E_OUT_OF_RANGE"
+        },
+        {
           "description": "A file changed after it was read; the whole operation was rolled\nback.",
           "type": "string",
           "const": "E_STALE"
@@ -3339,6 +3398,11 @@
           "description": "A worktree is unknown, is the main worktree, is locked or contains\nthe working directory.",
           "type": "string",
           "const": "E_GIT_WORKTREE"
+        },
+        {
+          "description": "The configuration of the repository is not valid: a value cannot be\nparsed or a required key is missing.",
+          "type": "string",
+          "const": "E_GIT_CONFIG"
         },
         {
           "description": "An internal error; the report is complete up to this point.",

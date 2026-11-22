@@ -50,8 +50,8 @@ use crate::envelope::RequestOptions;
 use crate::error::{Error, ErrorCode, Result};
 use crate::fs::Fs;
 use crate::journal::{JournalStore, MutationTx};
-use crate::kinds::Implementation;
-use crate::report::{Change, IrreversibleEntry, NotableEntry};
+use crate::kinds::{EffectKind, Implementation};
+use crate::report::{Change, IrreversibleEntry, NotableEntry, ReportStatus};
 use crate::services::{CodeService, DocService, FileListService, ProcessHost, Services};
 use crate::spec::StageSpec;
 use crate::value::{self, Record, RecordKind, Value};
@@ -998,6 +998,58 @@ pub trait StageImpl: Send + Sync {
     }
 }
 
+/// Destination of the stage implementations supplied by a command crate.
+///
+/// Every command crate exposes one function of the form
+/// `pub fn register(registrar: &mut dyn StageRegistrar) -> Result<()>` that
+/// adds all its implementations. The registry of the engine implements the
+/// trait and checks each implementation against the catalog; a vector
+/// collects implementations without checks.
+///
+/// ```
+/// use std::sync::Arc;
+/// use nurt_contracts::error::Result;
+/// use nurt_contracts::stage::{InputKinds, StageDescriptor, StageImpl, StageRegistrar};
+///
+/// struct Hello;
+///
+/// impl StageImpl for Hello {
+///     fn descriptor(&self) -> StageDescriptor {
+///         StageDescriptor {
+///             command: "hello".to_owned(),
+///             source: true,
+///             input: InputKinds::None,
+///         }
+///     }
+/// }
+///
+/// fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
+///     registrar.register(Arc::new(Hello))
+/// }
+///
+/// let mut stages: Vec<Arc<dyn StageImpl>> = Vec::new();
+/// assert!(register(&mut stages).is_ok());
+/// assert_eq!(stages[0].descriptor().command, "hello");
+/// ```
+pub trait StageRegistrar {
+    /// Adds an implementation described by its
+    /// [`descriptor`](StageImpl::descriptor).
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_UNKNOWN_COMMAND` when the command is not in the catalog
+    /// and with `E_TYPE` when the accepted record kinds are not declared for
+    /// the command.
+    fn register(&mut self, stage: Arc<dyn StageImpl>) -> Result<()>;
+}
+
+impl StageRegistrar for Vec<Arc<dyn StageImpl>> {
+    fn register(&mut self, stage: Arc<dyn StageImpl>) -> Result<()> {
+        self.push(stage);
+        Ok(())
+    }
+}
+
 /// A stage that reads the world or transforms records and never changes the
 /// world.
 pub trait ReadStage: Send + Sync {
@@ -1519,11 +1571,29 @@ pub struct LogEvent {
     pub source: Option<String>,
 }
 
+/// Start of the execution of a request; the first event of an execution.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct ExecStarted {
+    /// Hash of the executed program, when it was parsed.
+    pub ast_hash: Option<String>,
+    /// Strongest effect class of the program.
+    pub effect: EffectKind,
+}
+
+/// End of the execution of a request; the last event of an execution.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct ExecFinished {
+    /// Status of the report.
+    pub status: ReportStatus,
+    /// Code of the error that ended the execution.
+    pub error: Option<ErrorCode>,
+}
+
 /// Event emitted while a program executes.
 ///
 /// The JSON form carries the event type in the member `"t"`. The engine adds
 /// the sequence number, the time and the request identifier when it delivers
-/// the event to the embedding application.
+/// the event to the embedding application ([`DeliveredEvent`]).
 ///
 /// ```
 /// use nurt_contracts::stage::{Event, LogEvent, LogLevel};
@@ -1558,6 +1628,52 @@ pub enum Event {
     /// Diagnostic message.
     #[serde(rename = "log")]
     Log(LogEvent),
+    /// The execution of a request started.
+    #[serde(rename = "exec.started")]
+    ExecStarted(ExecStarted),
+    /// The execution of a request ended.
+    #[serde(rename = "exec.finished")]
+    ExecFinished(ExecFinished),
+}
+
+/// Event as delivered to the embedding application.
+///
+/// Events of one execution are delivered in the order of `seq`, from
+/// [`Event::ExecStarted`] to [`Event::ExecFinished`]. The JSON form is the
+/// form of the event with the members `seq`, `time` and `request` added.
+///
+/// ```
+/// use nurt_contracts::kinds::EffectKind;
+/// use nurt_contracts::stage::{DeliveredEvent, Event, ExecStarted};
+/// use nurt_contracts::value::Instant;
+///
+/// let delivered = DeliveredEvent {
+///     seq: 1,
+///     time: Instant::UNIX_EPOCH,
+///     request: Some("r1".to_owned()),
+///     event: Event::ExecStarted(ExecStarted {
+///         ast_hash: None,
+///         effect: EffectKind::Read,
+///     }),
+/// };
+/// let json = serde_json::to_value(&delivered).unwrap();
+/// assert_eq!(json["t"], "exec.started");
+/// assert_eq!(json["seq"], 1);
+/// assert_eq!(json["time"], "1970-01-01T00:00:00Z");
+/// let back: DeliveredEvent = serde_json::from_value(json).unwrap();
+/// assert_eq!(back, delivered);
+/// ```
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct DeliveredEvent {
+    /// Sequence number, increasing within one execution, starting at 1.
+    pub seq: u64,
+    /// Time of emission.
+    pub time: value::Instant,
+    /// Identifier of the request, when the request has one.
+    pub request: Option<String>,
+    /// The event.
+    #[serde(flatten)]
+    pub event: Event,
 }
 
 /// Receiver of events.

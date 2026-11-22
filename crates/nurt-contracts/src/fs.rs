@@ -614,7 +614,7 @@ pub struct VolumeInfo {
 }
 
 /// Space figures of a volume as seen by ordinary programs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct SpaceInfo {
     /// Total capacity, or the account quota when smaller.
     pub total: u64,
@@ -622,6 +622,10 @@ pub struct SpaceInfo {
     pub available: u64,
     /// Remaining account quota, when quotas are enforced.
     pub quota_remaining: Option<u64>,
+    /// Size of the account quota, when quotas are enforced; reported together
+    /// with `quota_remaining`.
+    #[serde(default)]
+    pub quota_limit: Option<u64>,
     /// Purgeable bytes reported by the system (macOS); informational only.
     pub purgeable_system: Option<u64>,
 }
