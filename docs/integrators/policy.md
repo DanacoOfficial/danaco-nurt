@@ -24,7 +24,9 @@ The answer of `check` is the document `nurt-check/1`:
 | `programs` | one entry per external program: `command`, `program`, `implementation`, `launcher`, `source` |
 | `groups` | command groups the plan uses, in order of first use |
 | `corrections` | corrections applied to the program text before binding: `id`, `rule`, `class`, `at`, `from`, `to`, `kind`, `alternatives` |
-| `details` | facts reported by the static check of a command: `command`, `index`, `details` |
+| `details` | facts reported by the static check of the commands of the program: `command`, `index`, `details` |
+
+The method `check` of `nurt serve` returns this document with the member `diagnostics` (the diagnostics of parsing and binding); both parts are required in the result. `nurt_check` of the C ABI returns the document `nurt-check/1`.
 
 The examples use the Python binding, where `CheckResult.raw` holds the document.
 
@@ -48,6 +50,32 @@ An example of the document for a program that pushes a branch:
   "groups": ["git"],
   "corrections": [],
   "details": []
+}
+```
+
+The reply of `nurt serve` to `check` for the program above:
+
+<!-- schema: rpc -->
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "format": "nurt-check/1",
+    "effect": "external",
+    "reversibility": "irreversible",
+    "operations": 1,
+    "waits": false,
+    "paths": ["/home/user/app"],
+    "network": [
+      {"command": "git.push", "param": null, "source": "remote", "target": null, "remote": "origin"}
+    ],
+    "programs": [],
+    "groups": ["git"],
+    "corrections": [],
+    "details": [],
+    "diagnostics": []
+  }
 }
 ```
 

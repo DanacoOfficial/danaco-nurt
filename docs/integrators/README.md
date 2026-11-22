@@ -21,10 +21,12 @@ Examples for model SDKs and agent frameworks: `integrations/examples/`.
 | Interface | Transport | Use | Events | Isolation |
 |---|---|---|---|---|
 | `nurt serve --stdio` | JSON-RPC 2.0 (`nurt-rpc/1`) over standard input and output of a child process | agent runtimes and services; one process per session or workspace | notifications `nurt/event` in the same stream | separate process; a crash of the console does not stop the host |
-| `nurt serve --socket <path>` | as above, over a Unix domain socket or a named pipe | a console shared by several host processes | as above | as above |
+| `nurt serve --socket <path>` | as above, over a Unix domain socket or a named pipe | a console shared by several host processes | as above | as above; reported as unavailable by builds that do not link the transport |
 | `libnurt` (`nurt.h`) | C ABI in the host process | short calls without effects: `nurt_check`, `nurt_describe`, `nurt_correct`; hosts without child processes | callback `nurt_event_cb` | none; a fault in the library stops the host |
 | `nurt mcp --stdio` | Model Context Protocol over standard input and output | MCP clients: desktop and editor assistants, frameworks with MCP support | MCP notifications | separate process |
 | `nurt mcp --http <address>` | Model Context Protocol, streamable HTTP | a server shared over the network | MCP notifications | separate process |
+
+The `nurt mcp` subcommand is present in builds that link the feature `mcp`; a build without it reports the subcommand as unavailable. `nurt serve` is present in every build. Framing, methods, lifecycle, events and error codes of `nurt serve` are defined in [`docs/reference/serve-protocol.md`](../reference/serve-protocol.md); this guide does not repeat them.
 
 Selection:
 
@@ -36,16 +38,16 @@ The language bindings (`bindings/`) wrap `nurt serve` and `libnurt` with the sam
 
 Every interface accepts the request envelope `nurt-request/1` and returns the response `nurt-response/1` with the effect report `nurt-report/1`. Errors of the language (an unknown command, a failed assertion) are part of the report; call errors (malformed JSON, an unknown method, a stopped process) are errors of the interface.
 
-## Call errors of `nurt serve`
+## Calls to `nurt serve`
 
-A request is a JSON-RPC 2.0 message of `nurt-rpc/1`; `check` takes the same parameters as `run`:
+A request is a JSON-RPC 2.0 message of `nurt-rpc/1`; `check` takes the same parameters as `run`. Methods, parameters and results are listed in the [protocol reference](../reference/serve-protocol.md):
 
 <!-- schema: rpc -->
 ```json
 {"jsonrpc": "2.0", "id": 1, "method": "check", "params": {"nurt": "1.0", "program": "list \"/home/user/app\""}}
 ```
 
-A call error replaces the result with the `error` object. Codes from `-32700` to `-32603` are those of JSON-RPC. A status of the C ABI is reported as the code `-32000` minus the number of the status, with the name of the status in `data.status` (`NURT_E_TIMEOUT`, `NURT_E_CANCELLED`, `NURT_E_ARG`, `NURT_E_ABI`, `NURT_E_IO`, `NURT_E_INTERNAL`):
+A call error replaces the result with the `error` object; the codes and their mapping to the statuses of the C ABI (`-32000` minus the status) are defined in the protocol reference:
 
 <!-- schema: rpc -->
 ```json
