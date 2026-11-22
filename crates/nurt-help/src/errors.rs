@@ -565,13 +565,16 @@ const COMMAND_CODES: &[ErrorCode] = &[
 /// Name of the detail of an error that holds the command.
 const COMMAND_DETAIL: &str = "command";
 
+/// Prefix of an error code, which a program writes as a quoted text.
+const ERROR_CODE_PREFIX: &str = "E_";
+
 /// The line `help: help <topic>` that points an error at the part of the
 /// help that applies.
 ///
 /// An explicit help topic of the error wins. Syntax and correction errors
 /// point at `syntax` and `corrections`, `E_ASSERT` at `assert`, and the
 /// errors of a command (`E_TYPE`, `E_MISSING_PARAM`, …) at the command named
-/// in the detail `command`. Every other code points at its own entry.
+/// in the detail `command`. Every other code points at its own entry, written as a quoted text.
 ///
 /// # Examples
 ///
@@ -598,6 +601,8 @@ pub fn help_reference(error: &Error) -> String {
     };
     if topic.is_empty() {
         "help: help".to_owned()
+    } else if topic.starts_with(ERROR_CODE_PREFIX) {
+        format!("help: help \"{topic}\"")
     } else {
         format!("help: help {topic}")
     }
@@ -637,7 +642,7 @@ mod tests {
     #[test]
     fn type_error_without_a_command_points_at_its_own_entry() {
         let error = Error::new(ErrorCode::Type, "wrong input");
-        assert_eq!(help_reference(&error), "help: help E_TYPE");
+        assert_eq!(help_reference(&error), "help: help \"E_TYPE\"");
     }
 
     #[test]
@@ -663,6 +668,6 @@ mod tests {
     #[test]
     fn other_codes_point_at_their_own_entry() {
         let error = Error::new(ErrorCode::Stale, "changed");
-        assert_eq!(help_reference(&error), "help: help E_STALE");
+        assert_eq!(help_reference(&error), "help: help \"E_STALE\"");
     }
 }

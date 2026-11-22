@@ -27,8 +27,10 @@ pub mod docs;
 pub mod errors;
 pub mod help;
 mod lookup;
+pub mod reference;
 pub mod signature;
 mod text;
 pub mod tokens;
+pub mod variant;
 
 pub use text::{TAGLINE, first_line};

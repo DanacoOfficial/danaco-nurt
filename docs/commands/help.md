@@ -109,7 +109,7 @@ GROUP documents
 Show the meaning and the fix of an error code.
 
 ```nurt example
-help E_ASSERT
+help "E_ASSERT"
 ```
 
 ```text expected

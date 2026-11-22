@@ -51,6 +51,8 @@ impl Line {
 pub(crate) struct Block {
     pub(crate) header_en: Option<&'static str>,
     pub(crate) header_pl: Option<&'static str>,
+    /// The lines are programs, shown in the syntax variant of the request.
+    pub(crate) programs: bool,
     pub(crate) lines: &'static [Line],
 }
 
@@ -66,6 +68,7 @@ impl Block {
 const INTRO: Block = Block {
     header_en: None,
     header_pl: None,
+    programs: false,
     lines: &[Line {
         priority: 0,
         en: "Danaco Nurt (`nurt`) — console for files, text, programs and the system (replaces bash and PowerShell; identical on Linux, macOS and Windows). Call parameter: `program` (Nurt text).",
@@ -76,6 +79,7 @@ const INTRO: Block = Block {
 const PROGRAM: Block = Block {
     header_en: Some("PROGRAM"),
     header_pl: Some("PROGRAM"),
+    programs: false,
     lines: &[
         Line {
             priority: 0,
@@ -112,6 +116,7 @@ const PROGRAM: Block = Block {
 const RULES: Block = Block {
     header_en: Some("RULES"),
     header_pl: Some("ZASADY"),
+    programs: false,
     lines: &[
         Line {
             priority: 0,
@@ -173,6 +178,7 @@ pub(crate) const CHANGES_HEADING: (&str, &str) = ("changes:", "zmiany:");
 const RECORDS: Block = Block {
     header_en: None,
     header_pl: None,
+    programs: false,
     lines: &[Line::same(
         2,
         "RECORDS (fields): entry(path name stem extension parent type size modified created mode owner link_target encoding line_ending binary hash etag) · content(path text lines etag encoding line_ending) · line(path no text) · match(path no column text line groups) · exec(command cwd exit_code signal timed_out stdout stderr changes) · job(id state exit_code elapsed stdout stderr) · operation(id time kind summary state files irreversible)",
@@ -182,6 +188,7 @@ const RECORDS: Block = Block {
 const CALLS: Block = Block {
     header_en: None,
     header_pl: None,
+    programs: false,
     lines: &[Line {
         priority: 2,
         en: "CALL PARAMETERS: preview (only targets and effect), base (directory for relative paths), limit=50, cursor, fields, format=text|json|markdown|compact, verbosity=quiet|normal|detailed, diff=none|stat|unified, max_chars, save_to, timeout, session, language.",
@@ -192,6 +199,7 @@ const CALLS: Block = Block {
 const EXAMPLES: Block = Block {
     header_en: Some("EXAMPLES"),
     header_pl: Some("PRZYKŁADY"),
+    programs: true,
     lines: &[
         Line::same(
             2,
@@ -218,10 +226,11 @@ const EXAMPLES: Block = Block {
 const HELP_POINTER: Block = Block {
     header_en: None,
     header_pl: None,
+    programs: false,
     lines: &[Line {
         priority: 1,
-        en: r#"Help: help, help search: "words", help group: "documents", help E_ASSERT, help skill: "bash-migration". Help is optional; it is never required before running a program."#,
-        pl: r#"Pomoc: help, help search: "słowa", help group: "documents", help E_ASSERT, help skill: "bash-migration". Pomoc jest opcjonalna; nigdy nie jest wymagana przed uruchomieniem programu."#,
+        en: r#"Help: help, help search: "words", help group: "documents", help "E_ASSERT", help skill: "bash-migration". Help is optional; it is never required before running a program."#,
+        pl: r#"Pomoc: help, help search: "słowa", help group: "documents", help "E_ASSERT", help skill: "bash-migration". Pomoc jest opcjonalna; nigdy nie jest wymagana przed uruchomieniem programu."#,
     }],
 };
 
