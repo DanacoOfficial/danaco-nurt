@@ -12,17 +12,23 @@
 )]
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::Duration;
 
+use nurt_cli::complete::Vocabulary;
 use nurt_cli::exit;
-use nurt_cli::repl::{Input, LineSource, PlainLines, Session, banner_for};
+use nurt_cli::repl::{EditorLines, Input, Interrupt, LineSource, PlainLines, Session, banner_for};
 use nurt_cli::{EngineSource, Io, Terminal, run};
+use nurt_contracts::ast::AstDocument;
+use nurt_contracts::bound::BoundDocument;
+use nurt_contracts::config::Config;
 use nurt_contracts::env::Host;
-use nurt_contracts::envelope::Response;
+use nurt_contracts::envelope::{Language, Response};
 use nurt_contracts::error::{Error, ErrorCode};
+use nurt_contracts::kinds::SyntaxVariant;
 use nurt_core::config::ConfigSources;
 use nurt_core::fixtures::FixtureFrontend;
-use nurt_core::{Engine, EngineConfig, EngineError};
+use nurt_core::{Compiled, Corrected, Engine, EngineConfig, EngineError, Frontend};
 use nurt_testkit::clock::VirtualClock;
 use nurt_testkit::fixtures::empty_program;
 use nurt_testkit::host::TestHost;
@@ -425,4 +431,144 @@ fn plain_lines_end_at_the_end_of_the_input() {
     assert_eq!(lines.read_line(), Input::Line("one".to_owned()));
     assert_eq!(lines.read_line(), Input::Line("two".to_owned()));
     assert_eq!(lines.read_line(), Input::End);
+}
+
+struct Gate {
+    state: Mutex<(bool, bool)>,
+    changed: Condvar,
+}
+
+impl Gate {
+    fn new() -> Arc<Self> {
+        Arc::new(Self {
+            state: Mutex::new((false, false)),
+            changed: Condvar::new(),
+        })
+    }
+
+    fn enter_and_wait(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.0 = true;
+        self.changed.notify_all();
+        while !state.1 {
+            state = self.changed.wait(state).unwrap();
+        }
+    }
+
+    fn wait_entered(&self) {
+        let mut state = self.state.lock().unwrap();
+        while !state.0 {
+            state = self.changed.wait(state).unwrap();
+        }
+    }
+
+    fn open(&self) {
+        self.state.lock().unwrap().1 = true;
+        self.changed.notify_all();
+    }
+}
+
+struct Gated {
+    inner: FixtureFrontend,
+    gate: Arc<Gate>,
+}
+
+impl Frontend for Gated {
+    fn parse(
+        &self,
+        text: &str,
+        variant: Option<SyntaxVariant>,
+        config: &Config,
+    ) -> Result<AstDocument, Error> {
+        self.inner.parse(text, variant, config)
+    }
+
+    fn correct(
+        &self,
+        text: &str,
+        variant: Option<SyntaxVariant>,
+        config: &Config,
+    ) -> Result<Corrected, Error> {
+        self.inner.correct(text, variant, config)
+    }
+
+    fn bind(&self, ast: &AstDocument, config: &Config) -> Result<BoundDocument, Error> {
+        self.inner.bind(ast, config)
+    }
+
+    fn print(&self, ast: &AstDocument, variant: SyntaxVariant) -> Result<String, Error> {
+        self.inner.print(ast, variant)
+    }
+
+    fn describe(&self, subject: &str, language: Language) -> Result<serde_json::Value, Error> {
+        self.inner.describe(subject, language)
+    }
+
+    fn help(&self, topic: &str, language: Language) -> Result<String, Error> {
+        self.inner.help(topic, language)
+    }
+
+    fn compile(
+        &self,
+        text: &str,
+        variant: Option<SyntaxVariant>,
+        config: &Config,
+    ) -> Result<Compiled, Error> {
+        self.gate.enter_and_wait();
+        self.inner.compile(text, variant, config)
+    }
+}
+
+#[test]
+fn interrupt_cancels_the_running_program_and_the_session_continues() {
+    let temp = tempfile::tempdir().unwrap();
+    let gate = Gate::new();
+    let frontend = Gated {
+        inner: FixtureFrontend::new().with_bound("find \"/srv\"", empty_program()),
+        gate: Arc::clone(&gate),
+    };
+    let engine = Engine::open(
+        EngineConfig::new(Arc::new(VirtualClock::new()), Arc::new(TestHost::linux()))
+            .with_sources(ConfigSources::isolated())
+            .with_state_dir(temp.path().join("state"))
+            .with_frontend(Arc::new(frontend)),
+    )
+    .unwrap();
+    let interrupt = Interrupt::new();
+    let mut session =
+        Session::new(&engine, nurt_cli::output::Style::plain()).with_interrupt(interrupt.clone());
+    let mut lines = Scripted(vec![
+        Input::Line("find \"/srv\"".to_owned()),
+        Input::Line("find \"/srv\"".to_owned()),
+    ]);
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    std::thread::scope(|scope| {
+        scope.spawn(|| {
+            gate.wait_entered();
+            interrupt.raise();
+            while interrupt.is_raised() {
+                std::thread::yield_now();
+            }
+            std::thread::sleep(Duration::from_millis(200));
+            gate.open();
+        });
+        session.run(&mut lines, &mut out, &mut err).unwrap();
+    });
+    let out = String::from_utf8(out).unwrap();
+    assert_eq!(out.matches("E_CANCELLED").count(), 1, "{out}");
+    assert_eq!(out.matches("E_UNSUPPORTED").count(), 1, "{out}");
+    assert!(lines.0.is_empty());
+    assert_eq!(
+        session.last_exit_code(),
+        exit::for_error_code(ErrorCode::Unsupported)
+    );
+}
+
+#[test]
+fn editor_lines_are_created_for_an_engine_catalog() {
+    let temp = tempfile::tempdir().unwrap();
+    let engine = source(&temp).open().unwrap();
+    let vocabulary = Vocabulary::from_engine(&engine);
+    let _ = EditorLines::without_history(&vocabulary);
+    assert!(EditorLines::new(&vocabulary, temp.path().join("history.txt")).is_ok());
 }
