@@ -26,7 +26,7 @@ static const char *const SLOW = "{\"nurt\":\"1.0\",\"program\":\"find \\\"/srv/a
 static const char *const PROGRAM = "find \"/srv/app\"";
 static const char *const MISSPELT = "fnd \"/srv/app\"";
 static const char *const AST =
-    "{\"nurt\":\"1.0\",\"pipelines\":[{\"stages\":[{\"command\":\"find\",\"args\":[\"/srv/app\"]}]}]}";
+    "{\"nurt\":\"1.0\",\"program\":{\"statements\":[{\"t\":\"pipeline\",\"head\":{\"t\":\"stage\",\"name\":\"find\",\"args\":[{\"value\":{\"t\":\"text\",\"v\":\"/srv/app\"}}]},\"stages\":[]}]}}";
 
 static int failures = 0;
 

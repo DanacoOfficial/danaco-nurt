@@ -2,7 +2,7 @@
 {"jsonrpc":"2.0","id":2,"result":{"nurt":"1.0","report":{"nurt":"1.0","status":"ok","kind":"find","records":{"type":"entry","matched":148,"rows":[{"kind":"entry","fields":{"path":{"t":"path","v":"/srv/app/src/a.go"},"name":{"t":"text","v":"a.go"},"type":{"t":"enum","v":"file"},"size":{"t":"size","v":1127},"modified":{"t":"instant","v":"2026-11-21T09:12:00Z"}}}]},"next_cursor":"c_91fe"}}}
 {"jsonrpc":"2.0","id":3,"result":{"nurt":"1.0","report":{"nurt":"1.0","status":"failed","kind":"find","error":{"code":"E_SYNTAX","message":"unclosed list","found":"end of program","help":"lists"}}}}
 {"jsonrpc":"2.0","id":4,"result":{"nurt":"1.0","effect":"read","paths":["/srv/app"],"programs":[],"network":[],"diagnostics":[]}}
-{"jsonrpc":"2.0","id":5,"result":{"ast":{"nurt":"1.0","pipelines":[{"stages":[{"command":"find","args":["/srv/app"]}]}]},"diagnostics":[]}}
+{"jsonrpc":"2.0","id":5,"result":{"ast":{"nurt":"1.0","program":{"statements":[{"t":"pipeline","head":{"t":"stage","name":"find","args":[{"value":{"t":"text","v":"/srv/app"}}]},"stages":[]}]}},"diagnostics":[]}}
 {"jsonrpc":"2.0","id":6,"result":{"text":"find \"/srv/app\""}}
 {"jsonrpc":"2.0","id":7,"result":{"program":"find \"/srv/app\"","corrections":[{"from":"fnd","to":"find"}]}}
 {"jsonrpc":"2.0","id":8,"result":{"nurt":"1.0","report":{"nurt":"1.0","status":"ok","kind":"find"}}}

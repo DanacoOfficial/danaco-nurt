@@ -2,7 +2,7 @@
   "description": "Canonical text of a one-stage tree in the word notation.",
   "function": "print",
   "input": {
-    "ast": {"nurt": "1.0", "pipelines": [{"stages": [{"command": "find", "args": ["/srv/app"]}]}]},
+    "ast": {"nurt": "1.0", "program": {"statements": [{"t": "pipeline", "head": {"t": "stage", "name": "find", "args": [{"value": {"t": "text", "v": "/srv/app"}}]}, "stages": []}]}},
     "variant": "a"
   },
   "output": ["find \"/srv/app\""]

@@ -27,7 +27,7 @@ EVENTS = b'{"nurt":"1.0","program":"find \\"/srv/app\\" glob: \\"*.rs\\""}'
 SLOW = b'{"nurt":"1.0","program":"find \\"/srv/archive\\""}'
 PROGRAM = b'find "/srv/app"'
 MISSPELT = b'fnd "/srv/app"'
-AST = b'{"nurt":"1.0","pipelines":[{"stages":[{"command":"find","args":["/srv/app"]}]}]}'
+AST = b'{"nurt":"1.0","program":{"statements":[{"t":"pipeline","head":{"t":"stage","name":"find","args":[{"value":{"t":"text","v":"/srv/app"}}]},"stages":[]}]}}'
 
 MATRIX = {
     "nurt_abi_check": [OK, ABI],
