@@ -239,3 +239,29 @@ pub(crate) fn assert_same(label: &str, nurt: &[String], reference: &[String]) {
         diff.only_reference
     );
 }
+
+/// Runs `program` with the default limit and returns its output.
+///
+/// # Panics
+///
+/// Panics when the program cannot be run or exits with a code outside
+/// `accepted`; the message carries the program name, the code and the standard
+/// error text.
+// The helper is called from test functions only; a failure aborts the test.
+#[allow(clippy::expect_used)]
+pub(crate) fn run_expect<S: AsRef<OsStr>>(
+    program: &Path,
+    args: &[S],
+    cwd: &Path,
+    accepted: &[i32],
+) -> Output {
+    let output = run(program, args, cwd, DEFAULT_TIMEOUT).expect("reference program runs");
+    assert!(
+        output.code.is_some_and(|code| accepted.contains(&code)),
+        "{} exited with {:?}: {}",
+        program.display(),
+        output.code,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    output
+}

@@ -54,16 +54,16 @@ const WORDS: [&str; 16] = [
     "ledger", "vector", "kernel", "socket", "parser", "schema",
 ];
 const POLISH_WORDS: [&str; 8] = [
-    "zażółć",
-    "gęślą",
-    "jaźń",
-    "łódź",
-    "śćma",
-    "źdźbło",
-    "wąż",
-    "dźwięk",
+    "za\u{17c}\u{f3}\u{142}\u{107}",
+    "g\u{119}\u{15b}l\u{105}",
+    "ja\u{17a}\u{144}",
+    "\u{142}\u{f3}d\u{17a}",
+    "\u{15b}\u{107}ma",
+    "\u{17a}d\u{17a}b\u{142}o",
+    "w\u{105}\u{17c}",
+    "d\u{17a}wi\u{119}k",
 ];
-const POLISH_SENTENCE: &str = "Zażółć gęślą jaźń, łódź śćma wąż.";
+const POLISH_SENTENCE: &str = "Za\u{17c}\u{f3}\u{142}\u{107} g\u{119}\u{15b}l\u{105} ja\u{17a}\u{144}, \u{142}\u{f3}d\u{17a} \u{15b}\u{107}ma w\u{105}\u{17c}.";
 const GITIGNORE_BODIES: [&str; 3] = [
     "*.log\nbuild/\n",
     "*.tmp\n!keep.tmp\n/local/\n",
@@ -300,24 +300,24 @@ pub(crate) fn generate_replace_tree(
 /// Encodes text in code page 852; characters outside the Polish set and ASCII become `?`.
 pub(crate) fn encode_cp852(text: &str) -> Vec<u8> {
     const MAP: [(char, u8); 18] = [
-        ('ą', 0xA5),
-        ('Ą', 0xA4),
-        ('ć', 0x86),
-        ('Ć', 0x8F),
-        ('ę', 0xA9),
-        ('Ę', 0xA8),
-        ('ł', 0x88),
-        ('Ł', 0x9D),
-        ('ń', 0xE4),
-        ('Ń', 0xE3),
-        ('ó', 0xA2),
-        ('Ó', 0xE0),
-        ('ś', 0x98),
-        ('Ś', 0x97),
-        ('ź', 0xAB),
-        ('Ź', 0x8D),
-        ('ż', 0xBE),
-        ('Ż', 0xBD),
+        ('\u{105}', 0xA5),
+        ('\u{104}', 0xA4),
+        ('\u{107}', 0x86),
+        ('\u{106}', 0x8F),
+        ('\u{119}', 0xA9),
+        ('\u{118}', 0xA8),
+        ('\u{142}', 0x88),
+        ('\u{141}', 0x9D),
+        ('\u{144}', 0xE4),
+        ('\u{143}', 0xE3),
+        ('\u{f3}', 0xA2),
+        ('\u{d3}', 0xE0),
+        ('\u{15b}', 0x98),
+        ('\u{15a}', 0x97),
+        ('\u{17a}', 0xAB),
+        ('\u{179}', 0x8D),
+        ('\u{17c}', 0xBE),
+        ('\u{17b}', 0xBD),
     ];
     text.chars()
         .map(|c| {
@@ -400,7 +400,7 @@ fn create_directories(root: &Path, spec: &CorpusSpec, rng: &mut Rng) -> io::Resu
         }
         let base = match rng.below(10) {
             0 => format!(".hidden_{index}"),
-            1 => normalized(rng, &format!("zażółć_{index}")),
+            1 => normalized(rng, &format!("za\u{17c}\u{f3}\u{142}\u{107}_{index}")),
             2 => format!("dir with space {index}"),
             _ => format!("{}_{index}", WORDS[rng.below(WORDS.len() as u64) as usize]),
         };

@@ -50,4 +50,22 @@ Before comparison both results are converted to the same form: UTF-8 text, line 
 | Name form | Unicode normalization form C | bytes as stored |
 | Binary files | skipped with a count | searched or reported as binary |
 
+| Patch that empties a file, new side stamped with the epoch | file kept, empty | file removed by `patch` |
+| Hunk at the start of a file when the target gained leading lines | hunk placed by offset search | `patch` may report a rejected hunk |
+
+## Test files
+
+| File | Library | Reference programs |
+|---|---|---|
+| `differential_codec.rs` | `nurt_text::codec` | `iconv` |
+| `differential_diff.rs` | `nurt_text::diff` | `diff -u` |
+| `differential_patch.rs` | `nurt_text::patch` | `patch -p1`, `diff -urN` |
+| `differential_hash.rs` | `nurt_text::hash` | `sha256sum`, `sha512sum`, `sha1sum`, `md5sum`, `b3sum` |
+| `differential_archive.rs` | `nurt_archive` zip, tar, 7z | `unzip -l`, `zip`, `tar -tvf`, `bsdtar -tf`, `7z l` |
+| `differential_search.rs` | `nurt_text::search` with the walker | `rg` |
+| `differential_walk.rs` | walker | `fd` |
+| `perf_search.rs`, `perf_walk.rs` | search over 1 GiB, walk over 10^6 entries | `rg`, `fd`; ignored tests, ratio at most 1.3 |
+
+Ignored tests run with `--ignored`; the corpus directory is set with `NURT_PERF_DIR`.
+
 A test that depends on an intended difference asserts the difference itself, not only the equal part.

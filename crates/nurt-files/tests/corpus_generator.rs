@@ -195,10 +195,10 @@ fn writes_polish_text_in_legacy_and_wide_encodings() {
 #[test]
 fn encodes_cp852_with_the_documented_byte_values() {
     assert_eq!(
-        encode_cp852("ąęłńóśźż"),
+        encode_cp852("\u{105}\u{119}\u{142}\u{144}\u{f3}\u{15b}\u{17a}\u{17c}"),
         [0xA5, 0xA9, 0x88, 0xE4, 0xA2, 0x98, 0xAB, 0xBE]
     );
-    assert_eq!(encode_cp852("a€"), b"a?");
+    assert_eq!(encode_cp852("a\u{20ac}"), b"a?");
 }
 
 #[cfg(unix)]
