@@ -23,16 +23,27 @@ workspace = true
 default = ["embedded", "process"]
 embedded = ["dep:nurt-core", "dep:nurt-contracts", "dep:serde"]
 process = []
+cli = ["dep:nurt-cli"]
 
 [dependencies]
 serde_json = { workspace = true }
 nurt-core = { workspace = true, optional = true }
 nurt-contracts = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
+nurt-cli = { workspace = true, optional = true }
 
 [dev-dependencies]
 nurt-contracts = { workspace = true }
 tempfile = { workspace = true }
+
+[[bin]]
+name = "nurt"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "cli_binary"
+required-features = ["cli", "process"]
 
 [[test]]
 name = "process_backend"

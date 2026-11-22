@@ -143,7 +143,6 @@ fn calls_that_need_a_missing_component_report_unsupported() {
         engine.parse(PROGRAM, Variant::A).unwrap_err(),
         engine.correct(PROGRAM, Variant::B).unwrap_err(),
         engine.check(&Request::program(PROGRAM)).unwrap_err(),
-        engine.catalog().unwrap_err(),
         engine.history(None).unwrap_err(),
         engine.space(None).unwrap_err(),
         engine.help("core", None).unwrap_err(),
@@ -153,6 +152,18 @@ fn calls_that_need_a_missing_component_report_unsupported() {
         assert_eq!(error.kind(), ErrorKind::Language);
         assert_eq!(error.code(), Some("E_UNSUPPORTED"), "{error}");
     }
+}
+
+#[test]
+fn catalog_lists_groups_with_a_revision() {
+    let dir = tempfile::tempdir().unwrap();
+    let catalog = engine(&dir).catalog().unwrap();
+    assert_eq!(catalog["format"], "nurt-catalog-result/1");
+    assert!(
+        catalog["groups"]
+            .as_array()
+            .is_some_and(|groups| !groups.is_empty())
+    );
 }
 
 #[test]

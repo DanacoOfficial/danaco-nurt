@@ -24,6 +24,8 @@
 //!   connections given by the application. It depends only on `serde_json`.
 //!   An application that needs only this client disables the default
 //!   features and enables `process`.
+//! - `cli`: the `nurt` executable, which runs `nurt_cli::main_with_args`.
+//!   `cargo install nurt --features cli` installs it.
 //!
 //! # Examples
 //!

@@ -21,6 +21,8 @@ talks to a `nurt serve` process through `Nurt` and depends only on
 `serde_json`; an application that needs only that client uses
 `default-features = false, features = ["process"]`.
 
+The `cli` feature builds the `nurt` executable: `cargo install nurt --features cli`.
+
 The process client starts the `nurt` executable named by `Builder::executable`, by the
 `NURT_EXECUTABLE` environment variable or found in `PATH`.
 
