@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn global_rules_match_names_in_either_form() {
-        let source = AbsPath::new("/home/ignore").expect("absolute source");
+        let source = AbsPath::new("/config/ignore").expect("absolute source");
         let global = build_rules(Path::new(""), &source, format!("{COMPOSED}\n").as_bytes());
         let repo = Arc::new(Repo {
             dir: AbsPath::new("/work").expect("absolute repository"),

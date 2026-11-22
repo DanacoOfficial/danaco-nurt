@@ -27,6 +27,10 @@ searches the files of input `entry` records (a directory entry is walked as
 in the source form), the text of input `content` records and the text of
 input `line` records. Without matches the result is empty.
 
+`glob` and `exclude` compare patterns and paths in Unicode normalization
+form C (NFC). A name stored decomposed, as on macOS volumes, matches a
+pattern written composed, and a decomposed pattern matches a composed name.
+
 A pattern is text, a regular expression written as `/…/flags`, or a list of
 both. With `mode: auto` text is matched literally and `/…/` is a regular
 expression; `mode: literal` and `mode: regex` treat every pattern one way.
