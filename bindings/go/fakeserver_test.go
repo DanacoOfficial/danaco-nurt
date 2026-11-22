@@ -133,7 +133,7 @@ func (s *fakeServer) initialize(req fakeRequest, mode string) {
 	var p initializeParams
 	_ = json.Unmarshal(req.Params, &p)
 	s.events = p.Capabilities.Events
-	protocol, abi := protocolName, abiVersion{Major: ABIMajor, Minor: ABIMinor}
+	protocol, abi := protocolName, uint32(abiRequired)
 	switch mode {
 	case modeExitOnInitialize:
 		fmt.Fprintln(os.Stderr, "fake failure during initialize")
@@ -141,7 +141,7 @@ func (s *fakeServer) initialize(req fakeRequest, mode string) {
 	case modeOldProtocol:
 		protocol = "nurt-rpc/0"
 	case modeNextABI:
-		abi.Major++
+		abi += 1 << abiMajorShift
 	}
 	s.reply(req.ID, map[string]any{
 		"protocol": protocol,
@@ -197,15 +197,15 @@ func (s *fakeServer) handle(req fakeRequest, stop <-chan struct{}) {
 	case "page":
 		s.reply(req.ID, response(report("ok", "page"), "page "+str("cursor")))
 	case "describe":
-		s.reply(req.ID, map[string]any{"text": "describe " + str("layer") + " " + str("language")})
+		s.reply(req.ID, map[string]any{"description": "describe " + str("subject") + " " + str("language")})
 	case "help":
 		s.reply(req.ID, map[string]any{"text": "help " + str("topic")})
 	case "schema":
-		if str("which") == "unknown" {
+		if str("name") == "unknown" {
 			s.replyError(req.ID, appErrorFirst-int(StatusArg), "unknown schema")
 			return
 		}
-		s.reply(req.ID, map[string]any{"$id": str("which")})
+		s.reply(req.ID, map[string]any{"$id": str("name")})
 	case "catalog", "history", "space":
 		s.reply(req.ID, map[string]any{"method": req.Method, "params": p})
 	case "info":
@@ -232,7 +232,7 @@ func (s *fakeServer) run(req fakeRequest, program string, stop <-chan struct{}) 
 		if s.events {
 			for i, t := range []string{"exec.started", "job.output", EventFinished} {
 				s.send(map[string]any{"jsonrpc": "2.0", "method": eventMethod, "params": map[string]any{
-					"t": t, "seq": i + 1, "time": "2026-01-01T00:00:00Z", "request_id": req.ID,
+					"t": t, "seq": i + 1, "time": "2026-01-01T00:00:00Z", "request": string(req.ID),
 				}})
 			}
 		}
