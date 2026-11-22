@@ -147,7 +147,7 @@
         "initialize": {"$ref": "#/$defs/initialize_result"},
         "run": {"$ref": "nurt-response-1.schema.json"},
         "page": {"$ref": "nurt-response-1.schema.json"},
-        "check": {"type": "object", "required": ["diagnostics"], "properties": {"diagnostics": {"type": "array"}}},
+        "check": {"description": "The check result nurt-check/1 with the diagnostics of binding.", "allOf": [{"$ref": "nurt-check-1.schema.json"}], "type": "object", "required": ["diagnostics"], "properties": {"diagnostics": {"type": "array"}}},
         "parse": {"type": "object", "required": ["ast", "diagnostics"], "properties": {"ast": {"$ref": "nurt-ast-1.schema.json"}, "diagnostics": {"type": "array"}}},
         "print": {"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}}},
         "correct": {"type": "object"},

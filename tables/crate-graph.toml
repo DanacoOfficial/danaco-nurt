@@ -238,7 +238,7 @@ deps = ["nurt-contracts", "nurt-types", "nurt-syntax", "nurt-catalog", "nurt-cor
 layer = "component"
 area = "language"
 summary = "Translation of shell scripts to programs."
-deps = ["nurt-contracts", "nurt-types", "nurt-syntax", "nurt-catalog", "nurt-correct"]
+deps = ["nurt-contracts", "nurt-types", "nurt-syntax", "nurt-catalog", "nurt-correct", "nurt-bind"]
 
 [crate.nurt-exec]
 layer = "component"

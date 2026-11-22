@@ -31,9 +31,9 @@ fn parse(content: &str) -> Value {
     serde_json::from_str(content).unwrap()
 }
 
-/// Validator for the published schema `name`, with every published schema
-/// registered under its `$id`.
-fn validator(name: &str) -> jsonschema::Validator {
+/// Validator for `document`, with every published schema registered under
+/// its `$id`.
+fn validator_for(document: &Value) -> jsonschema::Validator {
     let registry = schema::ALL
         .iter()
         .fold(jsonschema::Registry::new(), |builder, (other, content)| {
@@ -45,8 +45,13 @@ fn validator(name: &str) -> jsonschema::Validator {
         .unwrap();
     jsonschema::options()
         .with_registry(&registry)
-        .build(&parse(schema::by_name(name).unwrap()))
-        .unwrap_or_else(|error| panic!("schema {name} does not compile: {error}"))
+        .build(document)
+        .unwrap_or_else(|error| panic!("schema {document} does not compile: {error}"))
+}
+
+/// Validator for the published schema `name`.
+fn validator(name: &str) -> jsonschema::Validator {
+    validator_for(&parse(schema::by_name(name).unwrap()))
 }
 
 #[test]
@@ -380,6 +385,20 @@ fn rpc_schema_rejects_invalid_messages() {
     ];
     for document in &documents {
         assert!(!validator.is_valid(document), "accepted {document}");
+    }
+}
+
+#[test]
+fn rpc_check_result_is_a_check_summary_with_diagnostics() {
+    let validator = validator_for(&json!({
+        "$ref": format!("{ID_BASE}{}#/$defs/results/properties/check", file_name("rpc"))
+    }));
+    let mut result = check_summary();
+    result["diagnostics"] = json!([]);
+    assert!(validator.is_valid(&result), "rejected {result}");
+    let only_diagnostics = json!({ "diagnostics": [] });
+    for document in [check_summary(), only_diagnostics] {
+        assert!(!validator.is_valid(&document), "accepted {document}");
     }
 }
 
