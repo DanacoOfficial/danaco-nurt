@@ -69,10 +69,12 @@ const PROPERTY_TIMEOUT_MS: u32 = 5_000;
 /// Time limit of the search for a smaller failing case, in milliseconds.
 const PROPERTY_SHRINK_MS: u32 = 60_000;
 
-/// Characters inserted by the mutation run.
-const INSERTED: [char; 22] = [
+/// Characters inserted by the mutation run, among them Unicode spaces and
+/// line separators, which every kind of literal has to survive.
+const INSERTED: [char; 27] = [
     '"', '\'', '|', '>', '(', ')', '[', ']', '{', '}', ',', ':', '=', ' ', '\n', '\u{a0}', '-',
-    '/', '\\', '#', '\u{201e}', '\u{201d}',
+    '/', '\\', '#', '\u{201e}', '\u{201d}', '\u{2003}', '\u{3000}', '\u{2028}', '\u{85}',
+    '\u{1680}',
 ];
 
 /// Multiplier and increment of the linear congruential generator.
