@@ -33,6 +33,7 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+mod context;
 mod effect;
 mod env;
 mod eval;

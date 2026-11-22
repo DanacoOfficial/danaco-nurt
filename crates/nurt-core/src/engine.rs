@@ -355,7 +355,7 @@ struct Inner {
     catalog_rev: String,
     loader: ConfigLoader,
     default_config: Arc<LoadedConfig>,
-    projects: Mutex<HashMap<Option<PathBuf>, Arc<LoadedConfig>>>,
+    projects: Mutex<HashMap<Option<PathBuf>, CachedConfig>>,
     state: Option<StateDir>,
     sessions: Sessions,
     candidates: CandidateStore,
@@ -363,6 +363,31 @@ struct Inner {
     read_cache: Arc<ReadCache>,
     default_session: Option<SessionId>,
     requests: AtomicU64,
+    results: AtomicU64,
+}
+
+/// Configuration of one project with the state of its file at load time.
+struct CachedConfig {
+    stamp: Option<FileStamp>,
+    loaded: Arc<LoadedConfig>,
+}
+
+/// Modification time and size of a project file; a change of either reloads
+/// the configuration of the project.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct FileStamp {
+    modified: Option<std::time::SystemTime>,
+    len: u64,
+}
+
+impl FileStamp {
+    fn of(file: Option<&std::path::Path>) -> Option<Self> {
+        let metadata = std::fs::metadata(file?).ok()?;
+        Some(Self {
+            modified: metadata.modified().ok(),
+            len: metadata.len(),
+        })
+    }
 }
 
 /// Request after the envelope rules, with every option set.
@@ -467,7 +492,13 @@ impl Engine {
             ),
             cursors,
             read_cache: Arc::new(read_cache),
-            projects: Mutex::new(HashMap::from([(project, Arc::clone(&loaded))])),
+            projects: Mutex::new(HashMap::from([(
+                project.clone(),
+                CachedConfig {
+                    stamp: FileStamp::of(project.as_deref()),
+                    loaded: Arc::clone(&loaded),
+                },
+            )])),
             default_config: loaded,
             clock: config.clock,
             host: config.host,
@@ -481,6 +512,7 @@ impl Engine {
             state,
             default_session,
             requests: AtomicU64::new(0),
+            results: AtomicU64::new(0),
         };
         Ok(Self {
             inner: Arc::new(inner),
@@ -947,13 +979,13 @@ impl Engine {
                 ..Timing::default()
             });
         }
-        if let Some(path) = prepared.options.save_to.as_deref()
-            && has_items(&report)
+        if has_items(&report)
+            && let Some(path) = self.result_path(prepared)
         {
-            match save_result(path, &report) {
+            match save_result(&path, &report) {
                 Ok(()) => {
                     strip_items(&mut report);
-                    report.result_file = Some(path.to_owned());
+                    report.result_file = Some(path);
                 }
                 Err(error) if report.error.is_none() => report.error = Some(error),
                 Err(_) => {}
@@ -967,6 +999,21 @@ impl Engine {
                 .first_page(report, limit, program, self.now());
         }
         respond_with(&report, &prepared.options)
+    }
+
+    /// File that receives the full result: `save_to`, else a new file in
+    /// `output.results_dir` when that key is set.
+    fn result_path(&self, prepared: &Prepared) -> Option<String> {
+        if let Some(path) = &prepared.options.save_to {
+            return Some(path.clone());
+        }
+        let dir = prepared.config.config().output.results_dir.as_deref()?;
+        let millis = self.now().unix_nanos() / 1_000_000;
+        let serial = self.inner.results.fetch_add(1, Ordering::Relaxed) + 1;
+        Some(format!(
+            "{}/result-{millis}-{serial}.json",
+            dir.trim_end_matches(['/', '\\'])
+        ))
     }
 
     fn read_page(&self, cursor: &str, prepared: &Prepared) -> Response {
@@ -1053,8 +1100,11 @@ impl Engine {
 
     fn config_for(&self, base: Option<&str>) -> Result<Arc<LoadedConfig>, Error> {
         let project = self.inner.loader.project_for(base);
-        if let Some(found) = self.projects().get(&project) {
-            return Ok(Arc::clone(found));
+        let stamp = FileStamp::of(project.as_deref());
+        if let Some(found) = self.projects().get(&project)
+            && found.stamp == stamp
+        {
+            return Ok(Arc::clone(&found.loaded));
         }
         let loaded = Arc::new(
             self.inner
@@ -1062,7 +1112,13 @@ impl Engine {
                 .load(project.as_deref())
                 .map_err(|error| error.to_error())?,
         );
-        self.projects().insert(project, Arc::clone(&loaded));
+        self.projects().insert(
+            project,
+            CachedConfig {
+                stamp,
+                loaded: Arc::clone(&loaded),
+            },
+        );
         Ok(loaded)
     }
 
@@ -1116,7 +1172,7 @@ impl Engine {
             .ok_or_else(|| unavailable("journal"))
     }
 
-    fn projects(&self) -> MutexGuard<'_, HashMap<Option<PathBuf>, Arc<LoadedConfig>>> {
+    fn projects(&self) -> MutexGuard<'_, HashMap<Option<PathBuf>, CachedConfig>> {
         self.inner
             .projects
             .lock()
@@ -1576,6 +1632,119 @@ mod tests {
         );
         assert_eq!(response.report.error.as_ref().unwrap().code, ErrorCode::Io);
         assert_eq!(response.report.changes.len(), 2);
+    }
+
+    fn engine_with(overrides: &str, state: &std::path::Path) -> Engine {
+        Engine::open(
+            EngineConfig::new(Arc::new(VirtualClock::new()), Arc::new(TestHost::linux()))
+                .with_sources(
+                    ConfigSources::isolated()
+                        .with_overrides(crate::config::toml_table(overrides, "test").unwrap()),
+                )
+                .with_state_dir(state),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn results_dir_receives_the_full_result() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("results");
+        let overrides = format!(
+            "[output]\nresults_dir = {:?}\n",
+            dir.to_string_lossy().replace('\\', "/")
+        );
+        let engine = engine_with(&overrides, &temp.path().join("state"));
+        let first = engine.finish(
+            removal(3),
+            &prepared(&engine, RequestOptions::default()),
+            None,
+            Duration::ZERO,
+        );
+        let second = engine.finish(
+            removal(2),
+            &prepared(&engine, RequestOptions::default()),
+            None,
+            Duration::ZERO,
+        );
+        let named = |response: &Response| response.report.result_file.clone().unwrap();
+        assert_ne!(named(&first), named(&second));
+        assert!(first.report.changes.is_empty());
+        first.validate().unwrap();
+        let saved: Report = serde_json::from_slice(&std::fs::read(named(&first)).unwrap()).unwrap();
+        assert_eq!(saved.changes.len(), 3);
+        assert!(std::path::Path::new(&named(&second)).starts_with(&dir));
+    }
+
+    #[test]
+    fn save_to_takes_precedence_over_results_dir() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("results");
+        let overrides = format!(
+            "[output]\nresults_dir = {:?}\n",
+            dir.to_string_lossy().replace('\\', "/")
+        );
+        let engine = engine_with(&overrides, &temp.path().join("state"));
+        let file = temp.path().join("chosen.json");
+        let options = RequestOptions {
+            save_to: Some(file.to_string_lossy().into_owned()),
+            ..RequestOptions::default()
+        };
+        let response = engine.finish(
+            removal(2),
+            &prepared(&engine, options),
+            None,
+            Duration::ZERO,
+        );
+        assert_eq!(response.report.result_file.as_deref(), file.to_str());
+        assert!(!dir.exists());
+    }
+
+    #[test]
+    fn results_without_items_are_not_saved_to_results_dir() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("results");
+        let overrides = format!(
+            "[output]\nresults_dir = {:?}\n",
+            dir.to_string_lossy().replace('\\', "/")
+        );
+        let engine = engine_with(&overrides, &temp.path().join("state"));
+        let response = engine.finish(
+            removal(0),
+            &prepared(&engine, RequestOptions::default()),
+            None,
+            Duration::ZERO,
+        );
+        assert!(response.report.result_file.is_none());
+        assert!(!dir.exists());
+    }
+
+    #[test]
+    fn changed_project_file_reloads_the_cached_configuration() {
+        let temp = tempfile::tempdir().unwrap();
+        let project = temp.path().join("project");
+        std::fs::create_dir_all(&project).unwrap();
+        let file = project.join(nurt_contracts::config::PROJECT_FILE_NAME);
+        std::fs::write(&file, "[report]\nmass_threshold = 11\n").unwrap();
+        let engine = Engine::open(
+            EngineConfig::new(Arc::new(VirtualClock::new()), Arc::new(TestHost::linux()))
+                .with_sources(ConfigSources::isolated().with_project_dir(&project))
+                .without_state_dir(),
+        )
+        .unwrap();
+        let threshold = |engine: &Engine| {
+            engine
+                .config_for(None)
+                .unwrap()
+                .config()
+                .report
+                .mass_threshold
+        };
+        assert_eq!(threshold(&engine), 11);
+        std::fs::write(&file, "[report]\nmass_threshold = 222\n").unwrap();
+        assert_eq!(threshold(&engine), 222);
+        std::fs::remove_file(&file).unwrap();
+        assert_ne!(threshold(&engine), 222);
     }
 
     #[test]

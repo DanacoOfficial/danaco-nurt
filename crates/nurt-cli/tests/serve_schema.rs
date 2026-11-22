@@ -158,11 +158,6 @@ fn engine() -> nurt_core::Engine {
     .unwrap()
 }
 
-/// The recorded stub cases of these methods carry a syntax tree that does
-/// not follow `nurt-ast/1`; the cases belong to the C interface.
-#[cfg(feature = "stub")]
-const STUB_TREE_METHODS: &[&str] = &["parse", "print"];
-
 #[cfg(feature = "stub")]
 #[test]
 fn stub_transcript_conforms_to_the_schemas() {

@@ -50,6 +50,8 @@ mod abi;
 mod backend;
 mod boundary;
 mod buffer;
+#[cfg(feature = "e2e")]
+pub mod e2e;
 mod engine;
 #[cfg_attr(
     feature = "stub",

@@ -24,6 +24,9 @@ crate-type = ["rlib", "cdylib", "staticlib"]
 # Used by the interface tests of embedding applications; never enabled in a
 # release build.
 stub = ["dep:serde_json_canonicalizer", "dep:sha2"]
+# Engine over a virtual file system with the stages `find` and `remove`, for
+# the pipeline tests of the interfaces; never enabled in a release build.
+e2e = ["dep:nurt-testkit", "nurt-core/fixtures"]
 
 [dependencies]
 nurt-catalog = { workspace = true }
@@ -33,6 +36,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_json_canonicalizer = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }
+nurt-testkit = { workspace = true, optional = true }
 
 [dev-dependencies]
 nurt-core = { workspace = true, features = ["fixtures"] }

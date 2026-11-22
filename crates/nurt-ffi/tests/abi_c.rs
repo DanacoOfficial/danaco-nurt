@@ -49,3 +49,22 @@ fn c_program_passes_the_interface_checks_on_the_engine() {
     let output = common::run_isolated(&mut Command::new(&program), work.path());
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ok");
 }
+
+#[cfg(all(feature = "e2e", not(feature = "stub")))]
+#[test]
+fn c_program_runs_find_filter_count_and_remove_pipelines() {
+    let Some(clang) = common::find_program("clang") else {
+        return;
+    };
+    let work = tempfile::tempdir().unwrap();
+    let program = work.path().join("pipeline_test");
+    let source = common::manifest_dir().join("tests/abi/c/pipeline_test.c");
+    common::compile_c(&clang, &[source], &program, &[]);
+    let output = common::run_isolated_with(
+        &mut Command::new(&program),
+        work.path(),
+        "NURT_E2E_ENGINE",
+        "1",
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ok");
+}

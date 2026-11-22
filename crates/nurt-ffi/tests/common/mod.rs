@@ -75,6 +75,18 @@ pub(crate) fn run_isolated(command: &mut Command, work: &Path) -> Output {
     run(command.env_clear().env("HOME", &home))
 }
 
+/// Like [`run_isolated`], with the environment variable `name` set to `value`.
+pub(crate) fn run_isolated_with(
+    command: &mut Command,
+    work: &Path,
+    name: &str,
+    value: &str,
+) -> Output {
+    let home = work.join("home");
+    fs::create_dir_all(&home).expect("home directory of the test");
+    run(command.env_clear().env("HOME", &home).env(name, value))
+}
+
 /// Compiles a C program with `clang` against the header and links it with
 /// the shared library.
 pub(crate) fn compile_c(clang: &Path, sources: &[PathBuf], output: &Path, extra: &[&str]) {
