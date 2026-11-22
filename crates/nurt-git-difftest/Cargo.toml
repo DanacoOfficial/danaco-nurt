@@ -1,0 +1,33 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+[package]
+name = "nurt-git-difftest"
+description = "Differential tests of the Danaco Nurt Git commands against the git program."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+nurt-contracts = { workspace = true }
+nurt-types = { workspace = true }
+nurt-testkit = { workspace = true }
+nurt-git = { workspace = true }
+nurt-git-ops = { workspace = true }
+nurt-git-transport = { workspace = true }
+gix = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+tempfile = { workspace = true }

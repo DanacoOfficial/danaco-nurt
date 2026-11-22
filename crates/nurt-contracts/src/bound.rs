@@ -76,6 +76,21 @@ pub const BOUND_FORMAT: &str = "nurt-bound/1";
 /// the contract.
 pub const BOUND_VERSION: &str = "1.0";
 
+/// Media type of a bound tree encoded as JSON.
+pub const BOUND_MEDIA_TYPE_JSON: &str = "application/vnd.nurt.bound+json; v=1";
+
+/// Media type of a bound tree encoded as deterministic CBOR.
+pub const BOUND_MEDIA_TYPE_CBOR: &str = "application/vnd.nurt.bound+cbor; v=1";
+
+/// Node kinds of the bound tree: the admissible values of the member `"t"`.
+///
+/// A reader reports node kinds outside this list with `E_AST_VERSION`.
+pub const BOUND_KINDS: [&str; 26] = [
+    "let", "pipeline", "stage", "ref", "null", "bool", "int", "num", "text", "path", "glob", "key",
+    "enum", "instant", "size", "dur", "regex", "list", "map", "range", "sub", "field", "call",
+    "un", "bin", "spread",
+];
+
 /// Root of a bound tree document.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -136,6 +151,9 @@ pub enum BoundStatement {
 
 /// Bound named result.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+// The enclosing tagged union adds the member `t`, so the struct schema stays open.
+#[schemars(extend("additionalProperties" = true))]
 pub struct BoundLet {
     /// Name of the result, `[a-z][a-z0-9_]*`.
     pub name: String,
@@ -153,6 +171,9 @@ pub struct BoundLet {
 
 /// Bound pipeline.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+// The enclosing tagged union adds the member `t`, so the struct schema stays open.
+#[schemars(extend("additionalProperties" = true))]
 pub struct BoundPipeline {
     /// First element: a stage or a reference to a named result.
     pub head: BoundHead,
@@ -181,6 +202,9 @@ pub enum BoundHead {
 
 /// Bound command invocation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+// The enclosing tagged union adds the member `t`, so the struct schema stays open.
+#[schemars(extend("additionalProperties" = true))]
 pub struct BoundStage {
     /// Canonical command name from the catalog, after correction: one
     /// identifier or a group and an identifier joined by `.`.
@@ -276,6 +300,9 @@ impl BoundArg {
 
 /// Reference to a named result in a bound tree.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+// The enclosing tagged union adds the member `t`, so the struct schema stays open.
+#[schemars(extend("additionalProperties" = true))]
 pub struct BoundRef {
     /// Name of the result, without `@`.
     pub name: String,
@@ -286,7 +313,7 @@ pub struct BoundRef {
 
 /// A typed value or expression of a bound tree.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "t", rename_all = "snake_case")]
+#[serde(tag = "t", rename_all = "snake_case", deny_unknown_fields)]
 #[non_exhaustive]
 pub enum BoundExpr {
     /// No value.

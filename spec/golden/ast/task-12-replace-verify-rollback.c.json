@@ -1,0 +1,116 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "search",
+          "args": [
+            {
+              "name": "pattern",
+              "value": {
+                "t": "regex",
+                "v": "oldName\\(",
+                "flags": ""
+              }
+            },
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/src"
+              }
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "text",
+                "v": "**/*.go"
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "replace",
+            "args": [
+              {
+                "name": "with",
+                "value": {
+                  "t": "text",
+                  "v": "newName("
+                }
+              }
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "verify",
+            "args": [
+              {
+                "name": "check",
+                "value": {
+                  "t": "sub",
+                  "p": {
+                    "t": "pipeline",
+                    "head": {
+                      "t": "stage",
+                      "name": "run",
+                      "args": [
+                        {
+                          "name": "command",
+                          "value": {
+                            "t": "list",
+                            "items": [
+                              {
+                                "t": "text",
+                                "v": "go"
+                              },
+                              {
+                                "t": "text",
+                                "v": "build"
+                              },
+                              {
+                                "t": "text",
+                                "v": "./..."
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "name": "cwd",
+                          "value": {
+                            "t": "text",
+                            "v": "/srv/app"
+                          }
+                        }
+                      ]
+                    },
+                    "stages": [
+                      {
+                        "t": "stage",
+                        "name": "assert",
+                        "args": [
+                          {
+                            "name": "exit_code",
+                            "value": {
+                              "t": "int",
+                              "v": 0
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

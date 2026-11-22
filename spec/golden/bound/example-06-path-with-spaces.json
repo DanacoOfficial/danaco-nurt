@@ -9,65 +9,32 @@
         "t": "pipeline",
         "head": {
           "t": "stage",
-          "name": "find",
+          "name": "info",
           "effect": "read",
           "phase": "source",
           "args": [
             {
               "name": "path",
               "value": {
-                "t": "path",
-                "v": "/srv/data/my file.txt"
+                "t": "list",
+                "items": [
+                  {
+                    "t": "path",
+                    "v": "/srv/data/my file.txt"
+                  }
+                ]
               }
             },
             {
-              "name": "glob",
-              "value": {
-                "t": "glob",
-                "v": "**"
-              },
-              "default": true
-            },
-            {
-              "name": "type",
+              "name": "hash",
               "value": {
                 "t": "enum",
-                "v": "any"
-              }
-            },
-            {
-              "name": "depth",
-              "value": {
-                "t": "int",
-                "v": 0
-              }
-            },
-            {
-              "name": "hidden",
-              "value": {
-                "t": "bool",
-                "v": true
+                "v": "none"
               },
               "default": true
             },
             {
-              "name": "follow_links",
-              "value": {
-                "t": "bool",
-                "v": false
-              },
-              "default": true
-            },
-            {
-              "name": "gitignore",
-              "value": {
-                "t": "bool",
-                "v": false
-              },
-              "default": true
-            },
-            {
-              "name": "exclude",
+              "name": "details",
               "value": {
                 "t": "list",
                 "items": []
@@ -75,49 +42,9 @@
               "default": true
             },
             {
-              "name": "exclude_preset",
-              "value": {
-                "t": "list",
-                "items": []
-              },
-              "default": true
-            },
-            {
-              "name": "fuzzy",
+              "name": "known",
               "value": {
                 "t": "null"
-              },
-              "default": true
-            },
-            {
-              "name": "case_sensitive",
-              "value": {
-                "t": "bool",
-                "v": true
-              },
-              "default": true
-            },
-            {
-              "name": "sort",
-              "value": {
-                "t": "enum",
-                "v": "path"
-              },
-              "default": true
-            },
-            {
-              "name": "order",
-              "value": {
-                "t": "enum",
-                "v": "asc"
-              },
-              "default": true
-            },
-            {
-              "name": "view",
-              "value": {
-                "t": "enum",
-                "v": "flat"
               },
               "default": true
             }

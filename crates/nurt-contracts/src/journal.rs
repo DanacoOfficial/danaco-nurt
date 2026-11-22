@@ -44,10 +44,46 @@ use crate::config::{
 use crate::env::WallTime;
 use crate::error::Result;
 use crate::fs::{
-    AbsPath, ContentHash, Etag, FileKind, LinkKind, MetaChange, ProviderKey, ProviderValue,
-    VolumeId, VolumeInfo, WriteHandle,
+    AbsPath, ContentHash, Etag, FileKind, FileMeta, LinkKind, MetaChange, ProviderKey,
+    ProviderValue, VolumeId, VolumeInfo, WriteHandle,
 };
 use crate::report::{Correction, Irreversible, IrreversibleEntry};
+
+pub use crate::record::UndoScope;
+
+/// One entry of `history`: the `operation` record of the language.
+///
+/// The journal fills it from its entry: the number, the kind split into
+/// `kind` (command) and `action`, hashes in the text form `sha256:<hex>`. It
+/// contains no expiry time and nothing from which one can be derived.
+pub type OperationRecord = crate::record::Operation;
+
+/// State of an operation as shown to the language (`operation.state`).
+pub type OpState = crate::record::OperationState;
+
+impl crate::record::OperationState {
+    /// Language state for a persistent entry state.
+    ///
+    /// Entries in transient states (prepared, rolling back) are not listed
+    /// and yield `None`; expiring and corrupt entries are shown as expired.
+    ///
+    /// ```
+    /// use nurt_contracts::journal::{EntryState, OpState};
+    ///
+    /// assert_eq!(OpState::from_entry(EntryState::Corrupt), Some(OpState::Expired));
+    /// assert_eq!(OpState::from_entry(EntryState::Prepared), None);
+    /// ```
+    #[must_use]
+    pub fn from_entry(state: EntryState) -> Option<Self> {
+        match state {
+            EntryState::Committed => Some(Self::Available),
+            EntryState::Partial => Some(Self::Partial),
+            EntryState::Undone => Some(Self::Undone),
+            EntryState::Expiring | EntryState::Expired | EntryState::Corrupt => Some(Self::Expired),
+            EntryState::Prepared | EntryState::RollingBack => None,
+        }
+    }
+}
 
 /// Operation number: one sequence per account, starting at 1.
 ///
@@ -140,47 +176,6 @@ pub enum EntryState {
     Expired,
     /// The entry failed its integrity check; data is kept for manual salvage.
     Corrupt,
-}
-
-/// State of an operation as shown to the language (`operation.state`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-#[non_exhaustive]
-pub enum OpState {
-    /// Can be undone.
-    Available,
-    /// Can be undone for the remaining items only.
-    Partial,
-    /// Can no longer be undone.
-    Expired,
-    /// Has been undone.
-    Undone,
-}
-
-impl OpState {
-    /// Language state for a persistent entry state.
-    ///
-    /// Entries in transient states (prepared, rolling back) are not listed
-    /// and yield `None`; expiring and corrupt entries are shown as expired.
-    pub fn from_entry(state: EntryState) -> Option<Self> {
-        match state {
-            EntryState::Committed => Some(Self::Available),
-            EntryState::Partial => Some(Self::Partial),
-            EntryState::Undone => Some(Self::Undone),
-            EntryState::Expiring | EntryState::Expired | EntryState::Corrupt => Some(Self::Expired),
-            EntryState::Prepared | EntryState::RollingBack => None,
-        }
-    }
-
-    /// Stable name used by the language.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Available => "available",
-            Self::Partial => "partial",
-            Self::Expired => "expired",
-            Self::Undone => "undone",
-        }
-    }
 }
 
 /// Why an entry reached [`EntryState::Undone`].
@@ -419,6 +414,12 @@ pub struct AfterState {
     pub hash: Option<ContentHash>,
     /// Permission bits after the change.
     pub mode: Option<u32>,
+    /// Metadata of the entry read after the change, when the journal had to
+    /// read it anyway (for example after a rename into place); callers that
+    /// record file status, such as a repository index, use it instead of a
+    /// second `stat`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub meta: Option<FileMeta>,
 }
 
 /// Unusual effect of journal handling, shown in the report as a notable
@@ -720,6 +721,8 @@ pub trait MutationTx: Send + Sync {
     /// After a crash during or after this call, recovery rolls the entry
     /// back; the previous state of every target is intact or restorable.
     ///
+    /// # Errors
+    ///
     /// Fails with `E_NOT_FOUND` when a target that must exist does not,
     /// `E_EXISTS` when a target declared with [`TargetAction::Create`] exists,
     /// `E_PERMISSION`, `E_IN_USE` or `E_IO` for the target itself, and
@@ -733,6 +736,8 @@ pub trait MutationTx: Send + Sync {
     /// Precondition: the target was declared with an action that writes
     /// content. The staged file is removed by rollback and by recovery.
     ///
+    /// # Errors
+    ///
     /// Fails with `E_NO_SPACE`, `E_PERMISSION` or `E_IO` for the target
     /// directory.
     fn stage(&mut self, target: TargetIndex) -> Result<Box<dyn WriteHandle>>;
@@ -745,6 +750,8 @@ pub trait MutationTx: Send + Sync {
     ///
     /// After a crash, recovery restores the previous state of every target
     /// changed so far.
+    ///
+    /// # Errors
     ///
     /// Fails with `E_STALE` when the expected state does not match, and with
     /// `E_NOT_FOUND`, `E_PERMISSION`, `E_IN_USE`, `E_NO_SPACE`, `E_IO` or
@@ -760,6 +767,8 @@ pub trait MutationTx: Send + Sync {
     /// Declared external targets not reported here are treated as unchanged
     /// at commit: they are omitted from the entry and their preserved copies
     /// are released.
+    ///
+    /// # Errors
     ///
     /// Fails with `E_IO` when the after-state of a reported entry cannot be
     /// read; the transaction is then rolled back.
@@ -778,6 +787,8 @@ pub trait MutationTx: Send + Sync {
     /// After a crash before this call returns, the entry is either committed
     /// or rolled back by recovery, never half applied.
     ///
+    /// # Errors
+    ///
     /// Fails with `E_IO` when the targets cannot be made durable; the
     /// transaction is then rolled back. A failure to update the journal
     /// index after the entry became durable does not fail the commit.
@@ -791,6 +802,197 @@ pub trait MutationTx: Send + Sync {
     /// [`RollbackReport::failed`]; an error is returned only when the entry
     /// itself cannot be read (`E_JOURNAL_CORRUPT`).
     fn rollback(self: Box<Self>, reason: RollbackReason) -> Result<RollbackReport>;
+}
+
+/// A file system change described at the level of a command: the declaration
+/// of the target and the mutation that performs the change.
+///
+/// The constructors pair the declared action with the matching mutation, so
+/// a command does not choose preserve modes, the order of the protocol or the
+/// strategy across volumes. [`apply_ops`] runs a list of operations as one
+/// protocol pass. Streamed content uses [`MutationTx::stage`] and
+/// [`Mutation::CommitStaged`] directly after [`MutationTx::preserve`].
+///
+/// ```
+/// use nurt_contracts::fs::AbsPath;
+/// use nurt_contracts::journal::{Expect, FileOp, Mutation, TargetAction};
+///
+/// let path = AbsPath::new("/home/user/notes.txt").unwrap();
+/// let op = FileOp::write(path, b"new text".to_vec()).expect(Expect::Absent);
+/// assert_eq!(op.target.action, TargetAction::Modify);
+/// assert_eq!(op.target.expect, Expect::Absent);
+/// assert_eq!(op.mutation, Mutation::WriteBytes(b"new text".to_vec()));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileOp {
+    /// Declaration of the target.
+    pub target: TargetSpec,
+    /// Change applied after every target of the pass is preserved.
+    pub mutation: Mutation,
+}
+
+impl FileOp {
+    fn new(path: AbsPath, action: TargetAction, mutation: Mutation) -> Self {
+        Self {
+            target: TargetSpec {
+                path: TargetPath::Fs(path),
+                action,
+                expect: Expect::Unchecked,
+                size_hint: None,
+            },
+            mutation,
+        }
+    }
+
+    /// Replaces the content of a file, creating it when absent.
+    #[must_use]
+    pub fn write(path: AbsPath, content: Vec<u8>) -> Self {
+        Self::new(path, TargetAction::Modify, Mutation::WriteBytes(content))
+    }
+
+    /// Creates a file that must not exist.
+    #[must_use]
+    pub fn create(path: AbsPath, content: Vec<u8>) -> Self {
+        Self::new(path, TargetAction::Create, Mutation::WriteBytes(content)).expect(Expect::Absent)
+    }
+
+    /// Appends bytes to a file; undo truncates it to the previous length.
+    #[must_use]
+    pub fn append(path: AbsPath, bytes: Vec<u8>) -> Self {
+        Self::new(path, TargetAction::Append, Mutation::AppendBytes(bytes))
+    }
+
+    /// Writes bytes at an offset, keeping the rest of the content.
+    #[must_use]
+    pub fn write_at(path: AbsPath, offset: u64, bytes: Vec<u8>) -> Self {
+        Self::new(
+            path,
+            TargetAction::Modify,
+            Mutation::WriteAt { offset, bytes },
+        )
+    }
+
+    /// Changes the length of a file.
+    #[must_use]
+    pub fn set_length(path: AbsPath, length: u64) -> Self {
+        Self::new(path, TargetAction::Truncate, Mutation::SetLength(length))
+    }
+
+    /// Removes a file, a link or a directory tree (one target).
+    #[must_use]
+    pub fn remove(path: AbsPath) -> Self {
+        Self::new(path, TargetAction::Delete, Mutation::Remove)
+    }
+
+    /// Renames or moves an entry, also across volumes; an existing
+    /// destination is overwritten and preserved when `replace` is true.
+    #[must_use]
+    pub fn rename(from: AbsPath, to: AbsPath, replace: bool) -> Self {
+        Self::new(from, TargetAction::Rename { to, replace }, Mutation::Rename)
+    }
+
+    /// Copies the content of `source` into a new file.
+    #[must_use]
+    pub fn copy(source: AbsPath, to: AbsPath, clone: CloneMode) -> Self {
+        Self::new(
+            to,
+            TargetAction::Create,
+            Mutation::CopyFrom { source, clone },
+        )
+        .expect(Expect::Absent)
+    }
+
+    /// Copies the content of `source` over an existing file, creating it
+    /// when absent.
+    #[must_use]
+    pub fn copy_over(source: AbsPath, to: AbsPath, clone: CloneMode) -> Self {
+        Self::new(
+            to,
+            TargetAction::Modify,
+            Mutation::CopyFrom { source, clone },
+        )
+    }
+
+    /// Creates a directory.
+    #[must_use]
+    pub fn create_dir(path: AbsPath, mode: u32) -> Self {
+        Self::new(path, TargetAction::Create, Mutation::CreateDir { mode }).expect(Expect::Absent)
+    }
+
+    /// Creates a symbolic link or a junction.
+    #[must_use]
+    pub fn create_link(path: AbsPath, target: PathBuf, kind: LinkKind) -> Self {
+        Self::new(
+            path,
+            TargetAction::Link,
+            Mutation::CreateLink { target, kind },
+        )
+    }
+
+    /// Creates a hard link to an existing file.
+    #[must_use]
+    pub fn create_hard_link(path: AbsPath, existing: AbsPath) -> Self {
+        Self::new(
+            path,
+            TargetAction::Link,
+            Mutation::CreateHardLink { existing },
+        )
+    }
+
+    /// Changes metadata (times, permissions, attributes).
+    #[must_use]
+    pub fn set_meta(path: AbsPath, change: MetaChange) -> Self {
+        Self::new(path, TargetAction::Attributes, Mutation::SetMeta(change))
+    }
+
+    /// Sets the state the target must have immediately before the change,
+    /// for example the entity tag observed by the read stage.
+    #[must_use]
+    pub fn expect(mut self, expect: Expect) -> Self {
+        self.target.expect = expect;
+        self
+    }
+
+    /// Sets the size of the previous content, when already known.
+    #[must_use]
+    pub fn size_hint(mut self, size: u64) -> Self {
+        self.target.size_hint = Some(size);
+        self
+    }
+}
+
+/// Outcome of one [`FileOp`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct FileOpOutcome {
+    /// How the previous state was kept.
+    pub preserved: Preserved,
+    /// State after the change.
+    pub applied: Applied,
+}
+
+/// Runs file operations as one protocol pass: declares and preserves every
+/// target, then applies the mutations in order.
+///
+/// Precondition: no change has been applied in this transaction before the
+/// call. Several calls in one transaction are allowed only when every target
+/// is declared by the first call; otherwise use [`MutationTx::preserve`] for
+/// all targets and [`MutationTx::apply`] for each.
+///
+/// # Errors
+///
+/// Fails with the errors of [`MutationTx::preserve`] and
+/// [`MutationTx::apply`]; the transaction is then rolled back by the journal.
+pub fn apply_ops(tx: &mut dyn MutationTx, ops: Vec<FileOp>) -> Result<Vec<FileOpOutcome>> {
+    let targets: Vec<TargetSpec> = ops.iter().map(|op| op.target.clone()).collect();
+    let preserved = tx.preserve(&targets)?;
+    preserved
+        .into_iter()
+        .zip(ops)
+        .map(|(preserved, op)| {
+            let applied = tx.apply(preserved.index, op.mutation)?;
+            Ok(FileOpOutcome { preserved, applied })
+        })
+        .collect()
 }
 
 /// Parameters of a new transaction.
@@ -912,20 +1114,6 @@ pub struct RedoRequest {
     pub program: BoundDocument,
 }
 
-/// Scope recorded in an undo entry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum UndoScope {
-    /// Whole entry.
-    Op,
-    /// Range of entries.
-    To,
-    /// One file across entries.
-    File,
-    /// Selected items of one entry.
-    Paths,
-}
-
 /// Entry skipped by `undo to:`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct SkippedEntry {
@@ -1013,48 +1201,6 @@ pub struct HistoryQuery {
     pub path: Option<AbsPath>,
     /// Entries containing deletions only.
     pub deleted_only: bool,
-}
-
-/// One entry of `history` (the `operation` record).
-///
-/// It contains no expiry time and nothing from which one can be derived.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct OperationRecord {
-    /// Number.
-    pub id: OpId,
-    /// Commit time.
-    pub time: WallTime,
-    /// Kind.
-    pub kind: OpKind,
-    /// One-line summary of the effect.
-    pub summary: String,
-    /// State.
-    pub state: OpState,
-    /// Number of items.
-    pub files: u64,
-    /// Logical bytes changed.
-    pub bytes: u64,
-    /// Irreversible markers.
-    pub irreversible: Vec<IrreversibleEntry>,
-    /// Bulk operation.
-    pub bulk: bool,
-    /// Session.
-    pub session: Option<SessionId>,
-    /// Entries this entry undid.
-    pub undo_of: Vec<OpId>,
-    /// Undo entry this entry redid.
-    pub redo_of: Option<OpId>,
-    /// Scope, for undo entries.
-    pub undo_scope: Option<UndoScope>,
-    /// Hash of the canonical bound program.
-    pub ast_hash: ContentHash,
-    /// Hash of the entry manifest.
-    pub manifest_hash: ContentHash,
-    /// Hash chain link: manifest hash of the previous entry of the account;
-    /// `None` for the first entry.
-    pub chain: Option<ContentHash>,
-    /// Protected from expiry by steps, age and size (not by space need).
-    pub pinned: bool,
 }
 
 /// One item of `history details: true`.
@@ -1367,6 +1513,8 @@ pub trait JournalStore: Send + Sync {
     /// space service calls it at start. Idempotent: a crash during recovery is
     /// repaired by the next recovery.
     ///
+    /// # Errors
+    ///
     /// Fails with `E_IO` when a journal directory cannot be read; affected
     /// volumes are then treated as inactive and user operations proceed.
     fn recover(&self) -> Result<RecoveryReport>;
@@ -1383,16 +1531,22 @@ pub trait JournalStore: Send + Sync {
     /// commit (validation, entity tag mismatch) use [`MutationTx::rollback`]
     /// instead and create no new entry.
     ///
+    /// # Errors
+    ///
     /// Fails with `E_JOURNAL_NOOP` when the entry does not exist or is not
     /// committed, and with `E_ROLLBACK_FAILED` listing the items not restored.
     fn rollback_committed(&self, op: OpId, reason: RollbackReason) -> Result<UndoOutcome>;
 
     /// Lists entries, newest first.
     ///
+    /// # Errors
+    ///
     /// Fails with `E_IO` when the journal index cannot be read.
     fn history(&self, query: &HistoryQuery) -> Result<Vec<OperationRecord>>;
 
     /// Details of one entry.
+    ///
+    /// # Errors
     ///
     /// Fails with `E_JOURNAL_NOOP` for an unknown entry and with
     /// `E_JOURNAL_CORRUPT` for an entry that failed its integrity check.
@@ -1404,6 +1558,8 @@ pub trait JournalStore: Send + Sync {
     /// on any failure nothing is changed. The undo is itself a transaction:
     /// the current state of every restored item is preserved in the undo
     /// entry, so it can be redone.
+    ///
+    /// # Errors
     ///
     /// Fails with `E_JOURNAL_NOOP` (nothing to undo, already undone),
     /// `E_JOURNAL_EXPIRED` (an entry in the selection expired; details list
@@ -1418,16 +1574,22 @@ pub trait JournalStore: Send + Sync {
 
     /// Pins or releases entries.
     ///
+    /// # Errors
+    ///
     /// Fails with `E_IO` when an entry cannot be updated; entries that are
     /// not available are reported, not failed.
     fn pin(&self, request: &PinRequest) -> Result<PinOutcome>;
 
     /// Releases entries immediately; irreversible.
     ///
+    /// # Errors
+    ///
     /// Fails with `E_IO` when a journal directory cannot be changed.
     fn purge(&self, request: &PurgeRequest) -> Result<PurgeOutcome>;
 
     /// Retention state per volume; the only place where it is reported.
+    ///
+    /// # Errors
     ///
     /// Fails with `E_NOT_FOUND` for an unknown volume.
     fn status(&self, volume: Option<&AbsPath>) -> Result<Vec<JournalState>>;
@@ -1435,17 +1597,25 @@ pub trait JournalStore: Send + Sync {
     /// Shows or changes limits.
     ///
     /// Lowering a limit expires entries immediately; raising it never
-    /// restores expired entries. Fails with `E_IO` when the user
-    /// configuration file cannot be written.
+    /// restores expired entries.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_IO` when the user configuration file cannot be
+    /// written.
     fn limits(&self, request: &LimitsRequest) -> Result<LimitsOutcome>;
 
     /// Space report per volume.
+    ///
+    /// # Errors
     ///
     /// Fails with `E_NOT_FOUND` for an unknown volume.
     fn space(&self, volume: Option<&AbsPath>) -> Result<Vec<VolumeSpace>>;
 
     /// Expires entries over any limit (steps, age, size); reclaim for space is
     /// driven by the space service through [`Admission`].
+    ///
+    /// # Errors
     ///
     /// Fails with `E_IO` when a journal directory cannot be changed.
     fn sweep(&self) -> Result<SweepReport>;

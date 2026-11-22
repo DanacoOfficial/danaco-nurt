@@ -49,6 +49,12 @@ type = "bool"
 default = "false"
 summary = "Include the numbers of added and removed lines."
 
+[[command.param]]
+name = "exclude"
+type = "list<glob>"
+default = "[]"
+summary = "Paths to leave out; the report counts the excluded files."
+
 [[command]]
 name = "git.diff"
 category = "source"
@@ -129,6 +135,12 @@ name = "ignore_moved"
 type = "bool"
 default = "false"
 summary = "Hide blocks of lines that were only moved."
+
+[[command.param]]
+name = "exclude"
+type = "list<glob>"
+default = "[]"
+summary = "Paths to leave out; the report counts the excluded files."
 
 [[command]]
 name = "git.log"
@@ -218,6 +230,17 @@ type = "enum(type|author|day)"
 values = ["type", "author", "day"]
 summary = "Group commits by conventional commit type, author or day."
 
+[[command.param]]
+name = "diff_regex"
+type = "regex"
+summary = "Only commits whose changed lines match this pattern."
+
+[[command.param]]
+name = "exclude"
+type = "list<glob>"
+default = "[]"
+summary = "Paths to leave out, also from the pickaxe and diff_regex filters."
+
 [[command]]
 name = "git.show"
 category = "source"
@@ -278,6 +301,12 @@ name = "context"
 type = "int"
 default = "3"
 summary = "Lines of context around each change."
+
+[[command.param]]
+name = "exclude"
+type = "list<glob>"
+default = "[]"
+summary = "Paths to leave out; the report counts the excluded files."
 
 [[command]]
 name = "git.blame"
@@ -380,6 +409,29 @@ type = "bool"
 default = "false"
 summary = "Delete branches that are not merged."
 
+[[command.param]]
+name = "trash"
+type = "bool"
+default = "false"
+summary = "List the preserved copies of deleted branches instead of the branches."
+
+[[command.param]]
+name = "purge"
+type = "list<text> | enum(all)"
+values = ["all"]
+summary = "Preserved copies of deleted branches to remove."
+
+[[command.param]]
+name = "check_references"
+type = "bool"
+default = "true"
+summary = "After delete or rename, report other references that still name the old branch."
+
+[[command.param]]
+name = "expect_state"
+type = "text"
+summary = "State token from an earlier read; nothing changes when the repository state differs."
+
 [[command]]
 name = "git.stage"
 category = "change"
@@ -421,6 +473,12 @@ summary = "Hunks by identifier, such as file#2 or file#2@3-5,8 for selected line
 name = "staged"
 type = "bool"
 summary = "With list: show staged instead of unstaged changes."
+
+[[command.param]]
+name = "exclude"
+type = "list<glob>"
+default = "[]"
+summary = "Paths to leave out of add; the report counts the excluded files."
 
 [[command]]
 name = "git.checkpoint"
@@ -524,6 +582,23 @@ name = "keep"
 type = "int"
 summary = "With delete: keep only this many newest checkpoints."
 
+[[command.param]]
+name = "save_current"
+type = "bool"
+default = "true"
+summary = "Create a checkpoint of the current changes before restore."
+
+[[command.param]]
+name = "exclude"
+type = "list<glob>"
+default = "[]"
+summary = "Paths to leave out of create; the report counts the excluded files."
+
+[[command.param]]
+name = "expect_state"
+type = "text"
+summary = "State token from an earlier read; nothing changes when the repository state differs."
+
 [[command]]
 name = "git.review"
 category = "source"
@@ -570,9 +645,27 @@ summary = "Planned commit message to check."
 
 [[command.param]]
 name = "checks"
-type = "list<enum(conflict_markers|whitespace|large_files|binary|secrets|subject|tests)>"
-values = ["conflict_markers", "whitespace", "large_files", "binary", "secrets", "subject", "tests"]
+type = "list<enum(conflict_markers|whitespace|large_files|binary|secrets|subject|tests|debug_statements|final_newline)>"
+values = ["conflict_markers", "whitespace", "large_files", "binary", "secrets", "subject", "tests", "debug_statements", "final_newline"]
 summary = "Checks to run; all when omitted."
+
+[[command.param]]
+name = "subject_max"
+type = "int"
+default = "72"
+summary = "Longest allowed subject line of the commit message, at least 20."
+
+[[command.param]]
+name = "conventional"
+type = "bool"
+default = "false"
+summary = "Require a Conventional Commits subject line."
+
+[[command.param]]
+name = "exclude"
+type = "list<glob>"
+default = "[]"
+summary = "Paths to leave out; the report counts the excluded files."
 
 [[command]]
 name = "git.worktree"
@@ -616,6 +709,23 @@ summary = "Branch checked out in the new working tree."
 name = "start_point"
 type = "text"
 summary = "Revision the new branch starts from."
+
+[[command.param]]
+name = "force"
+type = "bool"
+default = "false"
+summary = "Remove a working tree that has uncommitted changes."
+
+[[command.param]]
+name = "checkpoint"
+type = "bool"
+default = "false"
+summary = "Create a checkpoint of the changes before remove."
+
+[[command.param]]
+name = "expect_state"
+type = "text"
+summary = "State token from an earlier read; nothing changes when the repository state differs."
 
 [[command]]
 name = "git.commit"
@@ -694,6 +804,17 @@ name = "hooks"
 type = "bool"
 default = "true"
 summary = "Run the pre-commit and commit-msg hooks of the repository as user programs."
+
+[[command.param]]
+name = "exclude"
+type = "list<glob>"
+default = "[]"
+summary = "Paths to leave out of the commit; the report counts the excluded files."
+
+[[command.param]]
+name = "expect_state"
+type = "text"
+summary = "State token from an earlier read; nothing changes when the repository state differs."
 
 [[command]]
 name = "git.tag"
@@ -856,6 +977,12 @@ type = "bool"
 default = "false"
 summary = "Create a checkpoint of the working tree before switching."
 
+[[command.param]]
+name = "guess"
+type = "bool"
+default = "false"
+summary = "Create a local branch from a remote branch of the same name when no local branch exists."
+
 [[command]]
 name = "git.restore"
 category = "change"
@@ -902,6 +1029,17 @@ summary = "Restore the working tree."
 name = "hunks"
 type = "list<text>"
 summary = "Only these hunks, by identifier as in git.stage."
+
+[[command.param]]
+name = "checkpoint"
+type = "bool"
+default = "false"
+summary = "Create a checkpoint of the changes before they are discarded."
+
+[[command.param]]
+name = "expect_state"
+type = "text"
+summary = "State token from an earlier read; nothing changes when the repository state differs."
 
 [[command]]
 name = "git.reset"
@@ -1063,6 +1201,17 @@ name = "paths"
 type = "list<path>"
 summary = "With push: only changes in these files or directories."
 
+[[command.param]]
+name = "exclude"
+type = "list<glob>"
+default = "[]"
+summary = "Paths to leave out of push; the report counts the excluded files."
+
+[[command.param]]
+name = "expect_state"
+type = "text"
+summary = "State token from an earlier read; nothing changes when the repository state differs."
+
 [[command]]
 name = "git.pull"
 category = "change"
@@ -1131,9 +1280,10 @@ summary = "Branch to push."
 
 [[command.param]]
 name = "force"
-type = "bool"
+type = "bool | enum(no|lease|yes)"
+values = ["no", "lease", "yes"]
 default = "false"
-summary = "Overwrite the remote branch even when it is not an ancestor."
+summary = "Overwrite a remote branch that is not an ancestor: lease or true only while it is unchanged since the last fetch, yes always."
 
 [[command.param]]
 name = "force_with_lease"

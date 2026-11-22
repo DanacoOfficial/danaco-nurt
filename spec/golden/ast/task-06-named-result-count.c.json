@@ -1,0 +1,77 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "let",
+        "name": "recent",
+        "value": {
+          "t": "pipeline",
+          "head": {
+            "t": "stage",
+            "name": "find",
+            "args": [
+              {
+                "name": "path",
+                "value": {
+                  "t": "text",
+                  "v": "/srv/app/src"
+                }
+              },
+              {
+                "name": "glob",
+                "value": {
+                  "t": "text",
+                  "v": "**/*.ts"
+                }
+              }
+            ]
+          },
+          "stages": [
+            {
+              "t": "stage",
+              "name": "filter",
+              "args": [
+                {
+                  "name": "condition",
+                  "value": {
+                    "t": "bin",
+                    "op": ">",
+                    "l": {
+                      "t": "ident",
+                      "v": "modified"
+                    },
+                    "r": {
+                      "t": "call",
+                      "fn": "ago",
+                      "args": [
+                        {
+                          "t": "dur",
+                          "v": 3600000
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "ref",
+          "name": "recent"
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "count",
+            "args": []
+          }
+        ]
+      }
+    ]
+  }
+}
