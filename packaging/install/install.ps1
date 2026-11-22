@@ -9,15 +9,28 @@ Installs the nurt executable of a Danaco Nurt release.
 .DESCRIPTION
 Downloads the release archive for the processor architecture, verifies its
 SHA-256 digest against the checksums.txt file of the release, installs
-nurt.exe and adds the installation directory to the PATH of the current user.
-No administrator privileges are needed.
+nurt.exe and the documentation and adds the installation directory to PATH.
+
+The default scope is the current user: no administrator privileges are needed
+and the files go to %LOCALAPPDATA%\Programs\Nurt. The scope "machine" installs
+for all users into %ProgramFiles%\Nurt, changes the PATH of the machine and
+needs a terminal that runs as administrator. nurt.exe runs with the rights of
+the terminal that starts it, so operations that need administrator rights
+(services, the machine part of the registry, system directories) are run from
+a terminal started with "Run as administrator".
 
     irm https://nurt.danaco-group.pl/install.ps1 | iex
 
+    $env:NURT_SCOPE = 'machine'; irm https://nurt.danaco-group.pl/install.ps1 | iex
+
 Environment variables:
     NURT_VERSION        release version to install (default: the latest release)
-    NURT_INSTALL_DIR    installation directory
-                        (default: %LOCALAPPDATA%\Programs\Nurt\bin)
+    NURT_SCOPE          user (default) or machine
+    NURT_INSTALL_DIR    installation directory of nurt.exe
+                        (default: %LOCALAPPDATA%\Programs\Nurt\bin, or
+                        %ProgramFiles%\Nurt\bin for the scope machine); when
+                        its name is bin, the documentation goes to the doc
+                        directory next to it
     NURT_NO_PATH_UPDATE set to 1 to leave PATH unchanged
     NURT_RELEASES_URL   release location; URL or directory with the layout of
                         GitHub releases (default:
@@ -38,10 +51,23 @@ function Get-NurtFile {
     }
 }
 
+function Test-NurtAdministrator {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    return ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
 function Install-Nurt {
+    $scope = if ($env:NURT_SCOPE) { $env:NURT_SCOPE.ToLowerInvariant() } else { 'user' }
+    if ($scope -notin 'user', 'machine') {
+        throw "invalid NURT_SCOPE: $scope; use user or machine"
+    }
+    if ($scope -eq 'machine' -and -not (Test-NurtAdministrator)) {
+        throw 'NURT_SCOPE=machine needs a terminal that runs as administrator: start PowerShell with "Run as administrator"'
+    }
     $releasesUrl = if ($env:NURT_RELEASES_URL) { $env:NURT_RELEASES_URL.TrimEnd('/', '\') } else { 'https://github.com/DanacoOfficial/nurt/releases' }
     $version = if ($env:NURT_VERSION) { $env:NURT_VERSION.TrimStart('v') } else { '' }
-    $installDir = if ($env:NURT_INSTALL_DIR) { $env:NURT_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\Nurt\bin' }
+    $defaultRoot = if ($scope -eq 'machine') { Join-Path $env:ProgramFiles 'Nurt' } else { Join-Path $env:LOCALAPPDATA 'Programs\Nurt' }
+    $installDir = if ($env:NURT_INSTALL_DIR) { $env:NURT_INSTALL_DIR } else { Join-Path $defaultRoot 'bin' }
 
     if ($version -and $version -notmatch '^[0-9A-Za-z.+-]+$') {
         throw "invalid version: $version"
@@ -83,23 +109,37 @@ function Install-Nurt {
 
         $extract = Join-Path $work 'extract'
         Expand-Archive -LiteralPath $archivePath -DestinationPath $extract
-        $binary = Join-Path $extract 'nurt.exe'
-        if (-not (Test-Path -LiteralPath $binary)) { throw "$archive does not contain nurt.exe" }
+        $binary = Get-ChildItem -LiteralPath $extract -Filter 'nurt.exe' -File -Recurse | Select-Object -First 1
+        if (-not $binary) { throw "$archive does not contain nurt.exe" }
 
         New-Item -ItemType Directory -Force -Path $installDir | Out-Null
-        Copy-Item -LiteralPath $binary -Destination (Join-Path $installDir 'nurt.exe') -Force
+        Copy-Item -LiteralPath $binary.FullName -Destination (Join-Path $installDir 'nurt.exe') -Force
+
+        if ((Split-Path -Leaf $installDir) -eq 'bin') {
+            $docDir = Join-Path (Split-Path -Parent $installDir) 'doc'
+            New-Item -ItemType Directory -Force -Path $docDir | Out-Null
+            foreach ($item in Get-ChildItem -LiteralPath $binary.Directory.FullName -Force | Where-Object { $_.Name -ne 'nurt.exe' }) {
+                if ($item.PSIsContainer -and $item.Name -eq 'doc') {
+                    Copy-Item -Path (Join-Path $item.FullName '*') -Destination $docDir -Recurse -Force
+                }
+                else {
+                    Copy-Item -LiteralPath $item.FullName -Destination $docDir -Recurse -Force
+                }
+            }
+        }
     }
     finally {
         Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     if ($env:NURT_NO_PATH_UPDATE -ne '1') {
-        $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-        $entries = if ($userPath) { $userPath.Split(';') } else { @() }
+        $pathScope = if ($scope -eq 'machine') { 'Machine' } else { 'User' }
+        $current = [Environment]::GetEnvironmentVariable('Path', $pathScope)
+        $entries = if ($current) { $current.Split(';') } else { @() }
         if ($entries -notcontains $installDir) {
-            $updated = if ($userPath) { "$userPath;$installDir" } else { $installDir }
-            [Environment]::SetEnvironmentVariable('Path', $updated, 'User')
-            Write-Host "added $installDir to the user PATH; open a new terminal to use nurt"
+            $updated = if ($current) { "$current;$installDir" } else { $installDir }
+            [Environment]::SetEnvironmentVariable('Path', $updated, $pathScope)
+            Write-Host "added $installDir to the $($pathScope.ToLowerInvariant()) PATH; open a new terminal to use nurt"
         }
     }
     Write-Host "installed nurt $version to $(Join-Path $installDir 'nurt.exe')"
