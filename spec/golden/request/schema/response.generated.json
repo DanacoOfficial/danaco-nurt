@@ -2713,6 +2713,26 @@
           "description": "A signing program named by the repository configuration was not run;\nthe signature was created without it.",
           "type": "string",
           "const": "signing_program_ignored"
+        },
+        {
+          "description": "Credentials written in the URL of a remote were used.",
+          "type": "string",
+          "const": "credentials_in_url"
+        },
+        {
+          "description": "The output stopped at the number of entries given by `limit`; `count`\ngives the number of entries left out.",
+          "type": "string",
+          "const": "limit_reached"
+        },
+        {
+          "description": "A program classified as interactive was run: an editor, a pager, a\nterminal monitor or an interpreter without a script. It can wait for\nterminal input.",
+          "type": "string",
+          "const": "interactive_program"
+        },
+        {
+          "description": "A program ran a script given in its arguments, for example `bash -c`\nor `python -c`; the effects of the script are not classified.",
+          "type": "string",
+          "const": "opaque_script"
         }
       ]
     },

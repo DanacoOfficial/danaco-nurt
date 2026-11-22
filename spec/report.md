@@ -213,6 +213,10 @@ command that observed the condition.
 | `push_status_unknown` | warning | command | the remote did not report the outcome of a reference update |
 | `host_key_unverified` | warning | command | the host key of a remote was accepted without verification |
 | `match_exec_ignored` | notice | command | a `Match exec` condition of the SSH configuration was not run |
+| `credentials_in_url` | warning | command | credentials written in the URL of a remote were used |
+| `limit_reached` | info | command | the output stopped at the number of entries given by `limit` (`count` holds the number of entries left out) |
+| `interactive_program` | notice | command | a program classified as interactive was run (editor, pager, terminal monitor, interpreter without a script); it can wait for terminal input |
+| `opaque_script` | notice | command | a program ran a script given in its arguments (`bash -c`, `python -c`); the effects of the script are not classified |
 
 ## 7. Irreversible effects (`irreversible`)
 

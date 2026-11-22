@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-fs-snapshot-1.schema.json",
+  "title": "nurt-fs-snapshot/1",
+  "description": "Snapshot of a file tree below a base directory, used for initial and expected final states of tests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "entries"],
+  "properties": {
+    "format": { "const": "nurt-fs-snapshot/1" },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "type"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*//)(?!(.*/)?\\.\\.?(/|$)).*[^/]$",
+          "description": "Path relative to the base, with / as separator, without empty, . or .. segments."
+        },
+        "type": { "enum": ["file", "dir", "symlink"] },
+        "content_utf8": { "type": "string", "description": "Content of a file that is valid UTF-8." },
+        "content_base64": { "type": "string", "contentEncoding": "base64", "description": "Content of any other file, standard alphabet with padding." },
+        "mode": { "type": "string", "pattern": "^[0-7]{4}$", "x-nurt-system-specific": true, "description": "Permission bits as four octal digits; not compared on Windows." },
+        "mtime": { "type": "string", "format": "date-time", "x-nurt-volatile": true, "description": "Modification time as an RFC 3339 instant in UTC; compared only on request." },
+        "target": { "type": "string", "description": "Link target as stored in the link." }
+      },
+      "allOf": [
+        { "not": { "required": ["content_utf8", "content_base64"] } },
+        {
+          "if": { "properties": { "type": { "const": "symlink" } } },
+          "then": { "required": ["target"], "not": { "anyOf": [{ "required": ["content_utf8"] }, { "required": ["content_base64"] }] } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "dir" } } },
+          "then": { "not": { "anyOf": [{ "required": ["content_utf8"] }, { "required": ["content_base64"] }, { "required": ["target"] }] } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "file" } } },
+          "then": { "not": { "required": ["target"] } }
+        }
+      ]
+    }
+  }
+}

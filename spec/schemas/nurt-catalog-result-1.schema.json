@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-catalog-result-1.schema.json",
+  "title": "nurt-catalog-result/1",
+  "description": "Output of the nurt_catalog function: a summary of groups, the commands of one group, or the specification of one command.",
+  "type": "object",
+  "required": ["format", "catalog_rev"],
+  "properties": {
+    "format": { "const": "nurt-catalog-result/1" },
+    "catalog_rev": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  },
+  "oneOf": [
+    {
+      "required": ["total", "groups"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "groups": { "type": "array", "items": { "$ref": "#/$defs/group" } }
+      }
+    },
+    {
+      "required": ["group", "commands"],
+      "properties": {
+        "group": { "$ref": "#/$defs/group" },
+        "commands": { "type": "array", "items": { "$ref": "#/$defs/command_brief" } }
+      }
+    },
+    {
+      "required": ["command"],
+      "properties": {
+        "command": { "$ref": "nurt-catalog-1.schema.json#/$defs/StageSpec" }
+      }
+    }
+  ],
+  "$defs": {
+    "group": {
+      "type": "object",
+      "required": ["name", "summary", "origin", "commands"],
+      "properties": {
+        "name": { "type": "string" },
+        "summary": { "type": "string" },
+        "origin": { "enum": ["core", "optional", "extension"] },
+        "commands": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "command_brief": {
+      "type": "object",
+      "required": ["name", "summary", "category", "effect", "reversibility", "implementation"],
+      "properties": {
+        "name": { "type": "string" },
+        "summary": { "type": "string" },
+        "category": { "enum": ["source", "transform", "check", "change", "run", "system", "journal", "help"] },
+        "effect": { "enum": ["read", "local", "external", "process"] },
+        "reversibility": { "enum": ["read", "reversible", "reversible_if_preserved", "irreversible"] },
+        "implementation": { "enum": ["builtin", "user_program", "language_server", "package_manager", "system_program"] }
+      },
+      "additionalProperties": false
+    }
+  }
+}
