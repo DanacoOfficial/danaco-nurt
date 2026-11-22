@@ -83,7 +83,8 @@ public final class FakeServer {
             case "run" -> run(request, Json.string(params, "program"));
             case "cancel" -> cancel(request, params);
             case "page" -> reply(request, envelope(report("ok")));
-            case "print", "describe", "help" -> reply(request, method + ":" + Json.write(params));
+            case "print", "help" -> reply(request, map("text", method + ":" + Json.write(params)));
+            case "describe" -> reply(request, map("description", method + ":" + Json.write(params)));
             default -> reply(request, map("method", method, "params", params));
         }
     }
@@ -100,13 +101,13 @@ public final class FakeServer {
             slow.put((Long) request.get("id"), request);
         } else if (text.equals("events")) {
             Object id = request.get("id");
-            send(map("jsonrpc", "2.0", "method", "nurt/event", "params", map("t", "job.output", "seq", 0L, "job_id", "j-1")));
+            send(map("jsonrpc", "2.0", "method", "nurt/event", "params", map("t", "job.output", "seq", 0L, "id", "j-1")));
             for (long seq = 1; seq <= 3; seq++) {
                 send(map("jsonrpc", "2.0", "method", "nurt/event",
-                        "params", map("t", "exec.progress", "seq", seq, "request_id", id)));
+                        "params", map("t", "progress", "seq", seq, "request", String.valueOf(id))));
             }
             send(map("jsonrpc", "2.0", "method", "nurt/event",
-                    "params", map("t", "exec.finished", "seq", 4L, "request_id", String.valueOf(id))));
+                    "params", map("t", "exec.finished", "seq", 4L, "request", String.valueOf(id))));
             reply(request, envelope(report("ok")));
         } else if (text.startsWith("error:")) {
             send(map("jsonrpc", "2.0", "id", request.get("id"),

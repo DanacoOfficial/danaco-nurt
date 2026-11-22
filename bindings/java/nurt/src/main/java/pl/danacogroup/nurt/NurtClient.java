@@ -243,7 +243,7 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public String describe() {
-        return text("describe", backend.call("describe", params("layer", "core")));
+        return text("describe", backend.call("describe", params("subject", "core")));
     }
 
     /**
@@ -255,7 +255,7 @@ public final class NurtClient implements AutoCloseable {
      * @throws NurtCallException when the call fails
      */
     public String describe(String group, Request.Language language) {
-        Map<String, Object> params = params("layer", "group", "name", group);
+        Map<String, Object> params = params("subject", group);
         if (language != null) {
             params.put("language", language.wire());
         }
@@ -313,7 +313,7 @@ public final class NurtClient implements AutoCloseable {
      *     {@link NurtCallException.Kind#INVALID_ARGUMENT}
      */
     public Map<String, Object> schema(String which) {
-        return object("schema", backend.call("schema", params("which", which)));
+        return object("schema", backend.call("schema", params("name", which)));
     }
 
     /**
@@ -420,6 +420,11 @@ public final class NurtClient implements AutoCloseable {
         if (result instanceof String text) {
             return text;
         }
-        throw new NurtCallException(NurtCallException.Kind.PROTOCOL, "result of `" + method + "` is not a string");
+        if (Json.object(result) != null
+                && (Json.string(result, "text") != null || Json.string(result, "description") != null)) {
+            String text = Json.string(result, "text");
+            return text != null ? text : Json.string(result, "description");
+        }
+        throw new NurtCallException(NurtCallException.Kind.PROTOCOL, "result of `" + method + "` is neither a string nor an object with `text` or `description`");
     }
 }

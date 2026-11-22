@@ -198,7 +198,7 @@ class ProcessClientTest {
                 execution.events().subscribe(own);
                 own.done.get(WAIT.toSeconds(), TimeUnit.SECONDS);
                 List<String> kinds = own.events.stream().map(NurtEvent::kind).toList();
-                assertEquals(List.of("exec.progress", "exec.progress", "exec.progress", "exec.finished"), kinds);
+                assertEquals(List.of("progress", "progress", "progress", "exec.finished"), kinds);
                 assertEquals(4L, own.events.get(3).seq().orElseThrow());
             }
             NurtEvent job = outside.first.get(WAIT.toSeconds(), TimeUnit.SECONDS);
@@ -266,14 +266,14 @@ class ProcessClientTest {
             assertEquals(Map.of("program", "find /srv", "variant", "a"),
                     client.correct("find /srv", Request.Variant.A).get("params"));
             assertEquals("check", client.check(Request.program("x")).get("method"));
-            assertEquals("describe:{\"layer\":\"core\"}", client.describe());
-            assertEquals("describe:{\"layer\":\"group\",\"name\":\"git\",\"language\":\"pl\"}",
+            assertEquals("describe:{\"subject\":\"core\"}", client.describe());
+            assertEquals("describe:{\"subject\":\"git\",\"language\":\"pl\"}",
                     client.describe("git", Request.Language.PL));
             assertEquals("help:{}", client.help());
             assertEquals("help:{\"topic\":\"lists\"}", client.help("lists"));
             assertEquals(Map.of(), client.catalog().get("params"));
             assertEquals(Map.of("group", "git"), client.catalog(Map.of("group", "git")).get("params"));
-            assertEquals(Map.of("which", "report"), client.schema("report").get("params"));
+            assertEquals(Map.of("name", "report"), client.schema("report").get("params"));
             assertEquals(Map.of(), client.history().get("params"));
             assertEquals(Map.of("limit", 3L), client.history(Map.of("limit", 3L)).get("params"));
             assertEquals(Map.of(), client.space().get("params"));

@@ -102,7 +102,7 @@ class RequestResponseTest {
 
     @Test
     void eventExposesTypeSequenceAndJob() {
-        NurtEvent event = new NurtEvent(Json.object(Json.parse("{\"t\":\"job.progress\",\"seq\":4,\"job_id\":\"j-2\"}")));
+        NurtEvent event = new NurtEvent(Json.object(Json.parse("{\"t\":\"job.progress\",\"seq\":4,\"id\":\"j-2\"}")));
         assertEquals("job.progress", event.kind());
         assertEquals(4L, event.seq().orElseThrow());
         assertEquals(Optional.of("j-2"), event.jobId());
