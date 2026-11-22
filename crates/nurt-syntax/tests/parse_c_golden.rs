@@ -7,6 +7,9 @@
 //! text, `<name>.json` the expected surface tree without spans and `<name>.hash`
 //! its `ast_hash`.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 

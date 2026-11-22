@@ -11,7 +11,9 @@ use nurt_contracts::ast::{Expr, Head, Statement};
 use nurt_contracts::error::ErrorCode;
 use nurt_syntax::parse::{DEFAULT_MAX_DEPTH, ParseOptions, Variant, parse};
 
-fn parse_c(text: &str) -> Result<nurt_contracts::ast::AstDocument, nurt_syntax::error::SyntaxError> {
+fn parse_c(
+    text: &str,
+) -> Result<nurt_contracts::ast::AstDocument, nurt_syntax::error::SyntaxError> {
     parse(text, Variant::C, &ParseOptions::default())
 }
 

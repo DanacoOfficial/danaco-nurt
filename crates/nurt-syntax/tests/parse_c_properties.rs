@@ -4,6 +4,9 @@
 //! Properties of the variant C parser over arbitrary input: it never panics,
 //! and every tree it accepts names every stage argument.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use nurt_contracts::ast::{AstDocument, Expr, Head, Pipeline, Statement};
 use nurt_syntax::parse::{ParseOptions, Variant, parse};
 use proptest::prelude::*;

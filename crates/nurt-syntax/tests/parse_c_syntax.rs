@@ -4,6 +4,9 @@
 //! Strict parser of variant C: stages, assignments, values, sub-pipelines,
 //! spans and errors.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use nurt_contracts::ast::{
     AstDocument, BinOp, Expr, Head, Pipeline, Span, Stage, Statement, UnOp, strip_for_hash,
 };
@@ -90,7 +93,11 @@ fn assert_positional(error: &SyntaxError) {
 fn assert_syntax_error(error: &SyntaxError, line: u32, column: u32) {
     assert_eq!(error.code, ErrorCode::Syntax, "{error:?}");
     let at = error.at.as_ref().expect("error has a position");
-    assert_eq!((at.line, at.column), (line, column), "{error:?}");
+    assert_eq!(
+        (at.line, at.column),
+        (Some(line), Some(column)),
+        "{error:?}"
+    );
     assert_eq!(error.help.as_deref(), Some(SYNTAX_HELP), "{error:?}");
 }
 

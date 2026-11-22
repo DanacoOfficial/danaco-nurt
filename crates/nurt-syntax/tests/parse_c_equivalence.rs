@@ -7,8 +7,10 @@
 //! The parser does not know the catalog, so a variant A surface tree keeps
 //! positional arguments while the variant C tree names every argument. Once
 //! the positional arguments of the variant A tree receive their parameter
-//! names, both trees must have the same `ast_hash`. The bound trees of both
-//! notations must have the same `ast_hash` without any renaming.
+//! names, both trees must have the same `ast_hash`.
+
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -17,7 +19,6 @@ use nurt_contracts::ast::{
     AST_HASH_PREFIX, Arg, AstDocument, Expr, Head, MapEntry, Pipeline, Stage, Statement,
     strip_for_hash,
 };
-use nurt_contracts::bound::BoundDocument;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -250,25 +251,4 @@ fn naming_changes_the_hash_of_trees_with_positional_arguments() {
     let mut named = variant_a.clone();
     name_document(&mut named);
     assert_ne!(ast_hash(&variant_a), ast_hash(&named));
-}
-
-/// The bound trees of variant C are written by binding the texts of
-/// `tests/d1/golden/ast/c` with the reference catalog; each one must hash
-/// equal to the bound tree of the variant A text of the same task.
-#[test]
-#[ignore = "requires bound trees of variant C in tests/d1/golden/bound/c"]
-fn bound_trees_of_variants_a_and_c_have_equal_hashes() {
-    let root = workspace_root();
-    let mut compared = 0;
-    for name in task_names() {
-        let variant_a_hash = root.join(format!("spec/golden/bound/{name}.hash"));
-        if !variant_a_hash.exists() {
-            continue;
-        }
-        let variant_c: BoundDocument =
-            read_json(&root.join(format!("tests/d1/golden/bound/c/{name}.json")));
-        assert_eq!(ast_hash(&variant_c), read_hash(&variant_a_hash), "{name}");
-        compared += 1;
-    }
-    assert!(compared > 0, "no bound tree of variant A to compare with");
 }

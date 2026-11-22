@@ -328,7 +328,10 @@ mod tests {
 
     fn position(error: &SyntaxError) -> (u32, u32) {
         let at = error.at.expect("error has a position");
-        (at.line, at.column)
+        (
+            at.line.expect("error has a line"),
+            at.column.expect("error has a column"),
+        )
     }
 
     #[test]

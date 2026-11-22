@@ -8,6 +8,9 @@
 //! tree or an error for each input without panicking, and every accepted tree
 //! must name all stage arguments.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use std::fs;
 use std::path::Path;
 
