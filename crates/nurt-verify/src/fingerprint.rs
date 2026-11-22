@@ -44,9 +44,9 @@ pub(crate) struct Fingerprint {
 ///
 /// Fails when the repository service cannot answer.
 pub(crate) fn compute(ctx: &ExecCtx, dir: &Path, exclude: &[String]) -> Result<Fingerprint> {
-    let listed = match ctx.extensions().get::<dyn GitQueryService>() {
+    let listed = match ctx.services().git_query() {
         Some(git) => match git.repo_root(dir)? {
-            Some(root) => Some(repository_files(git.as_ref(), &root, dir)?),
+            Some(root) => Some(repository_files(git, &root, dir)?),
             None => None,
         },
         None => None,

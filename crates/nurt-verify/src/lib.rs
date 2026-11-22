@@ -14,7 +14,8 @@
 
 use std::sync::Arc;
 
-use nurt_contracts::stage::StageImpl;
+use nurt_contracts::error::Result;
+use nurt_contracts::stage::{StageImpl, StageRegistrar};
 use nurt_proc::{JobFinishers, ToolKind};
 
 mod analyze;
@@ -34,6 +35,36 @@ pub fn stages() -> Vec<Arc<dyn StageImpl>> {
     let mut stages = stage::test::stages();
     stages.extend(stage::analyze::stages());
     stages
+}
+
+/// Adds the stages of the test and analysis commands to `registrar`.
+///
+/// The stages are the ones returned by [`stages`], added in the same order.
+///
+/// # Errors
+///
+/// Fails with the first error of the registrar, for example
+/// `E_UNKNOWN_COMMAND` when a command is missing from its catalog; the
+/// stages after the failing one are not added.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+///
+/// use nurt_contracts::stage::StageImpl;
+///
+/// let mut registered: Vec<Arc<dyn StageImpl>> = Vec::new();
+/// nurt_verify::register(&mut registered)?;
+///
+/// assert!(registered.iter().any(|stage| stage.descriptor().command == "test.run"));
+/// assert!(registered.iter().any(|stage| stage.descriptor().command == "analyze.check"));
+/// # Ok::<(), nurt_contracts::error::Error>(())
+/// ```
+pub fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
+    stages()
+        .into_iter()
+        .try_for_each(|stage| registrar.register(stage))
 }
 
 /// Finishers of the test runs and analyses that continue in the background.
@@ -72,7 +103,63 @@ pub fn job_finishers() -> JobFinishers {
 
 #[cfg(test)]
 mod tests {
+    use nurt_contracts::error::{Error, ErrorCode};
+
     use super::*;
+
+    /// Registrar that accepts a fixed number of stages and rejects the next.
+    struct Limited {
+        accepted: Vec<String>,
+        capacity: usize,
+    }
+
+    impl StageRegistrar for Limited {
+        fn register(&mut self, stage: Arc<dyn StageImpl>) -> Result<()> {
+            if self.accepted.len() == self.capacity {
+                return Err(Error::new(ErrorCode::UnknownCommand, "unknown command"));
+            }
+            self.accepted.push(stage.descriptor().command);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn register_adds_every_stage_of_the_crate() {
+        let mut registered: Vec<Arc<dyn StageImpl>> = Vec::new();
+        register(&mut registered).unwrap();
+        let commands: Vec<String> = registered
+            .iter()
+            .map(|stage| stage.descriptor().command)
+            .collect();
+        let expected: Vec<String> = stages()
+            .iter()
+            .map(|stage| stage.descriptor().command)
+            .collect();
+        assert_eq!(commands, expected);
+        for command in [
+            "test.run",
+            "test.failed",
+            "test.show",
+            "test.list",
+            "analyze.check",
+            "analyze.show",
+            "analyze.format",
+            "analyze.tools",
+        ] {
+            assert!(commands.iter().any(|name| name == command), "{command}");
+        }
+    }
+
+    #[test]
+    fn register_stops_at_the_first_rejected_stage() {
+        let mut registrar = Limited {
+            accepted: Vec::new(),
+            capacity: 2,
+        };
+        let error = register(&mut registrar).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::UnknownCommand);
+        assert_eq!(registrar.accepted.len(), 2);
+    }
 
     #[test]
     fn job_finishers_cover_test_runs_and_analyses() {

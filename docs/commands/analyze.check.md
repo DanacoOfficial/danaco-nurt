@@ -60,6 +60,11 @@ No input. Output: one `analysis` record, then `finding` records ordered by
 severity, check, file and line. A job record is returned when the analysis
 continues in the background.
 
+The field `duplication_percent` of the `analysis` record holds the share of
+lines of code in the analysed files that belong to a duplicated block, in
+both copies, in percent with one decimal. A line counts once however many
+blocks cover it. The field is empty when the duplication check did not run.
+
 ## Effect
 
 Category `run`, effect `process`, implementation `user_program`. Files that

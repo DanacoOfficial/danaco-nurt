@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::services::{GitQueryService, WalkSpec};
+use nurt_contracts::services::WalkSpec;
 use nurt_contracts::stage::ExecCtx;
 
 /// Directories skipped when no file listing service is available.
@@ -85,17 +85,14 @@ pub(crate) fn resolve(
 }
 
 fn restrict_to_changed(ctx: &ExecCtx, dir: &Path, scope: &mut Scope) -> Result<()> {
-    let git = ctx
-        .extensions()
-        .get::<dyn GitQueryService>()
-        .ok_or_else(|| {
-            Error::new(
-                ErrorCode::ExternalMissing,
-                "changed files are not available",
-            )
-            .with_problem("no repository query service is registered")
-            .with_fix("analyze.check changed_only: false")
-        })?;
+    let git = ctx.services().git_query().ok_or_else(|| {
+        Error::new(
+            ErrorCode::ExternalMissing,
+            "changed files are not available",
+        )
+        .with_problem("no repository query service is registered")
+        .with_fix("analyze.check changed_only: false")
+    })?;
     let Some(root) = git.repo_root(dir)? else {
         scope.notes.push(
             "changed_only: the directory is not in a repository, the whole scope is used"
