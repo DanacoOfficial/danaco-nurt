@@ -29,6 +29,9 @@ pub const CATALOG: &str = include_str!("../../../spec/schemas/nurt-catalog-1.sch
 /// Schema of values and records `nurt-value/1`.
 pub const VALUE: &str = include_str!("../../../spec/schemas/nurt-value-1.schema.json");
 
+/// Schema of the neutral tool definition `nurt-tool/1` for AI agents.
+pub const TOOL: &str = include_str!("../../../spec/schemas/nurt-tool-1.schema.json");
+
 /// Name and content of every published schema, in a stable order.
 pub const ALL: &[(&str, &str)] = &[
     ("ast", AST),
@@ -38,17 +41,20 @@ pub const ALL: &[(&str, &str)] = &[
     ("config", CONFIG),
     ("catalog", CATALOG),
     ("value", VALUE),
+    ("tool", TOOL),
 ];
 
 /// Returns the schema with the given name.
 ///
-/// Known names: `ast`, `bound`, `report`, `request`, `config`, `catalog` and `value`.
+/// Known names: `ast`, `bound`, `report`, `request`, `config`, `catalog`,
+/// `value` and `tool`.
 ///
 /// # Examples
 ///
 /// ```
 /// let schema = nurt_contracts::schema::by_name("ast");
 /// assert!(schema.is_some());
+/// assert!(nurt_contracts::schema::by_name("tool").is_some());
 /// assert!(nurt_contracts::schema::by_name("unknown").is_none());
 /// ```
 #[must_use]

@@ -868,6 +868,11 @@
         },
         {
           "type": "string",
+          "const": "git_trash_entry",
+          "description": "Preserved copy of a deleted branch or stash entry (`git.branch`)."
+        },
+        {
+          "type": "string",
           "const": "map",
           "description": "Record of computed or source-defined fields without a fixed kind\n(`select` with computed fields, `parse`, `windows.cim`)."
         }
@@ -2045,6 +2050,24 @@
           ],
           "additionalProperties": false,
           "description": "Record of kind `git_effect`."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "git_trash_entry"
+            },
+            "record": {
+              "$ref": "#/$defs/GitTrashEntry"
+            }
+          },
+          "required": [
+            "kind",
+            "record"
+          ],
+          "additionalProperties": false,
+          "description": "Record of kind `git_trash_entry`."
         }
       ],
       "description": "Typed record of any kind.\n\nThe JSON form is `{\"kind\": \"entry\", \"record\": {…}}`."
@@ -4195,6 +4218,15 @@
           "format": "uint64",
           "minimum": 0,
           "description": "Replacements made."
+        },
+        "rows_changed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Rows inserted, updated or deleted by SQL statements."
         },
         "flags": {
           "type": [
@@ -6924,6 +6956,13 @@
             "$ref": "#/$defs/CommitFile"
           },
           "description": "Files changed."
+        },
+        "branch": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Branch that received the commit, in the result of `git.commit`."
         }
       },
       "required": [
@@ -9463,6 +9502,14 @@
           ],
           "description": "Fingerprint of the state of the code."
         },
+        "duplication_percent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double",
+          "description": "Share of duplicated lines in the analysed files, in percent."
+        },
         "op": {
           "type": [
             "integer",
@@ -11508,6 +11555,61 @@
       ],
       "description": "Checkpoint of a working tree."
     },
+    "GitTrashEntry": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the deleted branch or stash entry."
+        },
+        "kind": {
+          "$ref": "#/$defs/GitTrashKind",
+          "description": "Kind."
+        },
+        "ref": {
+          "type": "string",
+          "description": "Reference that keeps the copy, for example `refs/nurt/trash/feature`."
+        },
+        "commit": {
+          "type": "string",
+          "description": "Commit identifier."
+        },
+        "time": {
+          "$ref": "#/$defs/Instant",
+          "description": "Time of the deletion."
+        },
+        "subject": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "First line of the message of the commit."
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "ref",
+        "commit",
+        "time"
+      ],
+      "description": "Preserved copy of a deleted branch or a dropped stash entry."
+    },
+    "GitTrashKind": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "branch",
+          "description": "Deleted branch."
+        },
+        {
+          "type": "string",
+          "const": "stash",
+          "description": "Dropped stash entry."
+        }
+      ],
+      "description": "Kind of a preserved copy of a deleted reference."
+    },
     "Error": {
       "$ref": "#/$defs/ErrorData"
     },
@@ -11876,6 +11978,11 @@
         },
         {
           "type": "string",
+          "const": "E_OUT_OF_RANGE",
+          "description": "A line number, a page or a position lies outside the content, for\nexample a line after the end of the file."
+        },
+        {
+          "type": "string",
           "const": "E_STALE",
           "description": "A file changed after it was read; the whole operation was rolled\nback."
         },
@@ -12123,6 +12230,11 @@
           "type": "string",
           "const": "E_GIT_WORKTREE",
           "description": "A worktree is unknown, is the main worktree, is locked or contains\nthe working directory."
+        },
+        {
+          "type": "string",
+          "const": "E_GIT_CONFIG",
+          "description": "The configuration of the repository is not valid: a value cannot be\nparsed or a required key is missing."
         },
         {
           "type": "string",

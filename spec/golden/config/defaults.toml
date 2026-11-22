@@ -184,7 +184,7 @@ known_hosts = "strict"
 identity_files = []
 
 [git.signing]
-# The key key_file is not set by default.
+# The keys key_file and openpgp_source are not set by default.
 
 [git.checkpoint]
 keep = 50
