@@ -17,13 +17,37 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["archive"]
+archive = ["dep:zip", "dep:tar", "dep:flate2", "dep:zstd"]
+mutation-audit = []
+conformance = []
+failpoints = []
+
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true }
 xattr = { workspace = true }
 libc = { workspace = true }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = { workspace = true }
+
 [target.'cfg(windows)'.dependencies]
-windows-sys = { workspace = true }
+windows-sys = { workspace = true, features = [
+  "Win32_Foundation",
+  "Win32_Storage_FileSystem",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_System_RestartManager",
+  "Win32_System_IO",
+  "Win32_System_Ioctl",
+  "Win32_System_Threading",
+  "Win32_System_SystemServices",
+  "Win32_System_SystemInformation",
+  "Win32_System_Time",
+  "Win32_System_WindowsProgramming",
+  "Win32_System_Registry",
+] }
 
 [dependencies]
 nurt-contracts = { workspace = true }
@@ -36,6 +60,13 @@ filetime = { workspace = true }
 file-id = { workspace = true }
 same-file = { workspace = true }
 unicode-normalization = { workspace = true }
+serde = { workspace = true }
+sha2 = { workspace = true }
+zip = { workspace = true, optional = true }
+tar = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
+zstd = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+proptest = { workspace = true }

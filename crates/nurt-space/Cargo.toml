@@ -22,6 +22,11 @@ nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
 nurt-fs = { workspace = true }
 nurt-journal = { workspace = true }
+rayon = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+crc32fast = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+proptest = { workspace = true }
