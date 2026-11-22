@@ -11,3 +11,12 @@
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+pub mod cbor;
+pub mod error;
+pub mod fmt;
+pub mod json;
+pub mod lex;
+pub mod parse;
+pub mod print;
+pub mod schema;

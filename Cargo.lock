@@ -3660,6 +3660,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "insta"
+version = "1.49.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b67d3d2e287e4b86c10b3f3b641033d1f89b74bdb39d05f34952e2b9a6fe21cd"
+dependencies = [
+ "once_cell",
+ "serde",
+ "similar 2.7.0",
+ "tempfile",
+]
+
+[[package]]
 name = "interpolate_name"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4983,9 +4995,20 @@ dependencies = [
 name = "nurt-correct"
 version = "0.1.0"
 dependencies = [
+ "hex",
+ "insta",
+ "jiff 1.0.2",
  "nurt-catalog",
  "nurt-contracts",
  "nurt-syntax",
+ "proptest",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_json_canonicalizer",
+ "sha2 0.11.1",
+ "toml_edit",
+ "unicode-normalization",
 ]
 
 [[package]]
@@ -5172,6 +5195,11 @@ version = "0.1.0"
 dependencies = [
  "nurt-contracts",
  "nurt-syntax",
+ "serde",
+ "serde_json",
+ "tree-sitter",
+ "tree-sitter-bash",
+ "tree-sitter-powershell",
 ]
 
 [[package]]
@@ -5270,6 +5298,8 @@ version = "0.1.0"
 dependencies = [
  "ciborium",
  "hex",
+ "insta",
+ "jsonschema",
  "logos",
  "nurt-contracts",
  "proptest",
@@ -5336,7 +5366,7 @@ dependencies = [
  "regex",
  "sha1",
  "sha2 0.11.1",
- "similar",
+ "similar 3.2.1",
  "unicode-normalization",
  "unicode-width 0.2.3",
 ]
@@ -6765,6 +6795,12 @@ checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
 name = "similar"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
+
+[[package]]
+name = "similar"
 version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2f8bec09ae8fae0f4f265a4559a9334be3929d8504e9b536df0a41302bd1733"
@@ -7334,10 +7370,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-bash"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e5ec769279cc91b561d3df0d8a5deb26b0ad40d183127f409494d6d8fc53062"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
 name = "tree-sitter-language"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0af592be68c579aa78a16846bd19422978c3c52e438523d45ff5d1bff1f9d4a"
+
+[[package]]
+name = "tree-sitter-powershell"
+version = "0.26.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa49d15e5b291030a548447445e0547992eff1438e7cd9133bfec99a9ba962a9"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
 
 [[package]]
 name = "ttf-parser"

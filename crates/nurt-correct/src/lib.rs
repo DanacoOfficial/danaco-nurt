@@ -11,3 +11,15 @@
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+pub mod bash;
+pub mod candidates;
+pub mod distance;
+pub mod lexical;
+pub mod normalize;
+pub mod policy;
+pub mod powershell;
+pub mod record;
+pub mod tables;
+pub mod types;
+pub mod values;
