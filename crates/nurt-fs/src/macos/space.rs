@@ -94,6 +94,7 @@ pub fn space_info(figures: &SpaceFigures) -> SpaceInfo {
         total: hard_limit.map_or(total, |limit| total.min(limit)),
         available: quota_remaining.map_or(available, |remaining| available.min(remaining)),
         quota_remaining,
+        quota_limit: hard_limit,
         purgeable_system: figures
             .important_capacity
             .map(|important| important.saturating_sub(available)),
@@ -183,6 +184,7 @@ mod tests {
         };
         let info = space_info(&figures);
         assert_eq!(info.quota_remaining, Some(60 * BLOCK));
+        assert_eq!(info.quota_limit, Some(100 * BLOCK));
         assert_eq!(info.available, 60 * BLOCK);
         assert_eq!(info.total, 100 * BLOCK);
     }
@@ -198,6 +200,7 @@ mod tests {
         };
         let info = space_info(&figures);
         assert_eq!(info.quota_remaining, None);
+        assert_eq!(info.quota_limit, None);
         assert_eq!(info.available, 250 * BLOCK);
         assert_eq!(info.total, 1_000 * BLOCK);
     }

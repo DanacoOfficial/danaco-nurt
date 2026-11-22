@@ -392,6 +392,7 @@ pub(super) fn space(cache: &VolumeCache, id: &VolumeId) -> FsResult<SpaceInfo> {
         total: quota.map_or(total, |quota| total.min(quota.limit)),
         available: quota.map_or(available, |quota| available.min(quota.remaining)),
         quota_remaining: quota.map(|quota| quota.remaining),
+        quota_limit: quota.map(|quota| quota.limit),
         purgeable_system: None,
     })
 }
