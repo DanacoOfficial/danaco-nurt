@@ -119,6 +119,7 @@ pub(crate) fn registry_with(
     nurt_net::register(&mut compiled)?;
     nurt_sched::register(&mut compiled)?;
     nurt_programs::register(&mut compiled)?;
+    crate::builtin::register(&mut compiled)?;
     for stage in extra {
         registry.register_impl(Arc::clone(stage))?;
     }
@@ -143,5 +144,16 @@ mod tests {
             );
         }
         assert!(registry.validate_implementations().is_empty());
+    }
+
+    #[test]
+    fn every_command_of_the_catalog_has_an_implementation() {
+        let registry = standard_registry().unwrap();
+        let missing: Vec<String> = registry
+            .commands()
+            .filter(|command| registry.implementations(&command.name).next().is_none())
+            .map(|command| command.name.clone())
+            .collect();
+        assert!(missing.is_empty(), "{missing:?}");
     }
 }

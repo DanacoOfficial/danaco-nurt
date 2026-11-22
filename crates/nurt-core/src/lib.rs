@@ -15,6 +15,7 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+mod builtin;
 pub mod candidates;
 pub mod config;
 pub mod cursor;
