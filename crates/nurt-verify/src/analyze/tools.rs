@@ -399,6 +399,30 @@ fn executable_in(directory: &Path, name: &str) -> Option<PathBuf> {
 }
 
 impl Tool {
+    /// Stable key of the tool, unique among the variants that share a
+    /// program; stored with a background run.
+    pub(crate) fn key(self) -> &'static str {
+        match self {
+            Tool::Tsc => "tsc",
+            Tool::Eslint => "eslint",
+            Tool::BiomeLint => "biome-lint",
+            Tool::Prettier => "prettier",
+            Tool::BiomeFormat => "biome-format",
+            Tool::RuffLint => "ruff-lint",
+            Tool::RuffFormat => "ruff-format",
+            Tool::Mypy => "mypy",
+            Tool::GoVet => "go-vet",
+            Tool::Gofmt => "gofmt",
+            Tool::Clippy => "clippy",
+            Tool::Rustfmt => "rustfmt",
+        }
+    }
+
+    /// Tool with the given key.
+    pub(crate) fn from_key(key: &str) -> Option<Tool> {
+        Tool::ALL.iter().copied().find(|tool| tool.key() == key)
+    }
+
     /// Arguments that print the version of the tool, after the program;
     /// `None` when the tool has no version output.
     pub(crate) fn version_args(self) -> Option<Vec<String>> {

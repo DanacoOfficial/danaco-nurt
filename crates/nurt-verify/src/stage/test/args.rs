@@ -78,7 +78,12 @@ pub(super) fn project_dir(ctx: &ExecCtx, args: &BoundArgs) -> Result<PathBuf> {
 }
 
 pub(super) fn base_dir(ctx: &ExecCtx) -> Result<PathBuf> {
-    if let Some(base) = ctx.options().base.as_ref().or(ctx.config().scope.base.as_ref()) {
+    if let Some(base) = ctx
+        .options()
+        .base
+        .as_ref()
+        .or(ctx.config().scope.base.as_ref())
+    {
         return Ok(PathBuf::from(base));
     }
     std::env::current_dir().map_err(|failure| {

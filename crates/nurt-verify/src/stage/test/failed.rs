@@ -65,19 +65,29 @@ fn source_run(
         if let Some(earlier) = entry.header.get("retry_of").and_then(Value::as_str) {
             repeated.push(earlier.to_owned());
         }
-        let failed = entry.header.get("failed").and_then(Value::as_int).unwrap_or(0)
-            + entry.header.get("errors").and_then(Value::as_int).unwrap_or(0);
+        let failed = entry
+            .header
+            .get("failed")
+            .and_then(Value::as_int)
+            .unwrap_or(0)
+            + entry
+                .header
+                .get("errors")
+                .and_then(Value::as_int)
+                .unwrap_or(0);
         if failed > 0 && !repeated.contains(&entry.id) {
             return Ok(entry);
         }
     }
-    Err(Error::new(ErrorCode::UnknownRun, "no test run with failures was found")
-        .with_fix("test.list"))
+    Err(
+        Error::new(ErrorCode::UnknownRun, "no test run with failures was found")
+            .with_fix("test.list"),
+    )
 }
 
 fn unknown_run(id: &str, known: &[String]) -> Error {
-    let mut error = Error::new(ErrorCode::UnknownRun, format!("unknown test run `{id}`"))
-        .with_fix("test.list");
+    let mut error =
+        Error::new(ErrorCode::UnknownRun, format!("unknown test run `{id}`")).with_fix("test.list");
     for (rank, known) in (1_u32..).zip(known.iter().take(3)) {
         error = error.with_candidate(Candidate {
             rank,
@@ -127,7 +137,12 @@ fn rerun(ctx: &ExecCtx, args: &BoundArgs) -> Result<Rerun> {
     let command: Vec<String> = header
         .get("command")
         .and_then(Value::as_list)
-        .map(|items| items.iter().filter_map(|item| item.as_str().map(str::to_owned)).collect())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_owned))
+                .collect()
+        })
         .unwrap_or_default();
     let request = Request {
         dir,

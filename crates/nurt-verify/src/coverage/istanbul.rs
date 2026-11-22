@@ -63,8 +63,8 @@ struct SummaryFile {
 /// Reads either form of the report; the summary form is recognized by its
 /// `total` entry.
 pub(crate) fn parse(text: &str, dir: &Path) -> Result<Vec<FileData>, String> {
-    let document: Value =
-        serde_json::from_str(text).map_err(|failure| format!("the report is not valid JSON: {failure}"))?;
+    let document: Value = serde_json::from_str(text)
+        .map_err(|failure| format!("the report is not valid JSON: {failure}"))?;
     let Value::Object(entries) = document else {
         return Err("the report is not a JSON object".to_owned());
     };

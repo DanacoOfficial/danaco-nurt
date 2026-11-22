@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use nurt_contracts::record::{TestResult, TestStatus};
+use nurt_contracts::record::TestResult;
 use nurt_contracts::value::{Duration, Path};
 
 use super::{Framework, ParseError, ParseInput};
@@ -37,7 +37,10 @@ const LCOV_FILE_NAME: &str = "lcov.info";
 
 /// Coverage report of a script test runner in its coverage directory.
 pub(crate) fn js_coverage_file(directory: &std::path::Path) -> String {
-    directory.join(LCOV_FILE_NAME).to_string_lossy().into_owned()
+    directory
+        .join(LCOV_FILE_NAME)
+        .to_string_lossy()
+        .into_owned()
 }
 
 /// Reads the results of a run from the output of the framework.
@@ -122,9 +125,4 @@ pub(crate) fn non_blank(text: &str) -> Option<String> {
     } else {
         Some(trimmed.to_owned())
     }
-}
-
-/// Failed outcome shared by results of every framework.
-pub(crate) fn is_failure(status: TestStatus) -> bool {
-    matches!(status, TestStatus::Failed | TestStatus::Error)
 }

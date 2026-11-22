@@ -13,8 +13,7 @@ use crate::test::xml::{self, Element};
 
 /// Covered and total conditions in a `condition-coverage` attribute, as in
 /// `50% (1/2)`.
-static CONDITIONS: LazyLock<Option<Regex>> =
-    LazyLock::new(|| Regex::new(r"\((\d+)/(\d+)\)").ok());
+static CONDITIONS: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"\((\d+)/(\d+)\)").ok());
 
 /// Reads the classes of a report as files. A class that appears in more than
 /// one package entry is one file.
@@ -89,7 +88,9 @@ fn class_file(class: &Element, dir: &Path, prefix: &str) -> FileData {
 }
 
 fn line_hits(file: &mut FileData, line: &Element) {
-    let number = line.attribute("number").and_then(|text| text.parse::<u64>().ok());
+    let number = line
+        .attribute("number")
+        .and_then(|text| text.parse::<u64>().ok());
     let hits = line
         .attribute("hits")
         .and_then(|text| text.parse::<u64>().ok())

@@ -28,7 +28,8 @@ mod stage;
 mod track;
 
 pub use api::{
-    JobFinisher, JobFinishers, ToolOutcome, ToolResult, ToolRun, process_host, run_tool, stages,
+    JobFinisher, JobFinishers, ToolKind, ToolOutcome, ToolResult, ToolRun, process_host, run_tool,
+    stages,
 };
 pub use classify::{
     ArgvClasses, EffectClassifier, EffectMatch, Interactive, OpaqueScript, classify_argv,

@@ -104,9 +104,9 @@ impl EffectStage for TestRun {
         _tx: &mut dyn MutationTx,
         ctx: &'a ExecCtx,
     ) -> Result<EffectOutcome<'a>> {
-        let prepared = plan.take_state::<Prepared>().ok_or_else(|| {
-            Error::new(ErrorCode::Internal, "the test run has no prepared state")
-        })?;
+        let prepared = plan
+            .take_state::<Prepared>()
+            .ok_or_else(|| Error::new(ErrorCode::Internal, "the test run has no prepared state"))?;
         launch::execute(ctx, prepared)
     }
 }

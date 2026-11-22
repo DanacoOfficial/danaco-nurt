@@ -100,7 +100,6 @@ fn ignores_block_shorter_than_minimum() {
     let second = source("b.rs", &function("two", ["x", "f", "y"], 3));
     let report = detect(&[first, second], DUPLICATION_MIN_LINES);
     assert!(report.findings.is_empty());
-    assert_eq!(report.duplicated_lines, 0);
 }
 
 #[test]
@@ -132,16 +131,6 @@ fn result_does_not_depend_on_input_order() {
 }
 
 #[test]
-fn reports_share_of_duplicated_lines() {
-    let first = source("a.rs", &function("one", ["x", "f", "y"], 10));
-    let second = source("b.rs", &function("two", ["x", "f", "y"], 10));
-    let report = detect(&[first, second], DUPLICATION_MIN_LINES);
-    assert_eq!(report.code_lines, 26);
-    assert_eq!(report.duplicated_lines, 26);
-    assert_eq!(report.percent(), 100.0);
-}
-
-#[test]
 fn skips_dependency_declarations() {
     let imports: String = (0..12)
         .map(|index| format!("import module{index};\n"))
@@ -151,7 +140,6 @@ fn skips_dependency_declarations() {
         DUPLICATION_MIN_LINES,
     );
     assert!(report.findings.is_empty());
-    assert_eq!(report.code_lines, 0);
 }
 
 #[test]

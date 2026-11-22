@@ -75,7 +75,6 @@ impl Request {
         let coverage = self.coverage.as_ref().map(Path::new);
         plan(&PlanRequest {
             framework: self.framework,
-            dir: Path::new("/p"),
             targets: &self.targets,
             filter: self.filter.as_deref(),
             bail: self.bail,
@@ -120,7 +119,11 @@ fn detect_orders_frameworks_by_precedence() {
 #[test]
 fn detect_uses_package_script_only_as_last_node_option() {
     let dir = tempfile::tempdir().unwrap();
-    write(dir.path(), "package.json", r#"{"scripts":{"test":"node --test"}}"#);
+    write(
+        dir.path(),
+        "package.json",
+        r#"{"scripts":{"test":"node --test"}}"#,
+    );
     write(dir.path(), "pyproject.toml", "[tool.pytest.ini_options]\n");
     assert_eq!(detect(dir.path()), [Framework::Npm, Framework::Pytest]);
     write(
@@ -157,8 +160,16 @@ fn command_for_bun_selects_report_filter_bail_and_coverage() {
     assert_eq!(
         planned.argv,
         words(&[
-            "bun", "test", "a.test.ts", "--reporter=junit", "--reporter-outfile=/s/run-1.xml",
-            "-t", "name", "--bail", "--coverage", "--coverage-reporter=lcov",
+            "bun",
+            "test",
+            "a.test.ts",
+            "--reporter=junit",
+            "--reporter-outfile=/s/run-1.xml",
+            "-t",
+            "name",
+            "--bail",
+            "--coverage",
+            "--coverage-reporter=lcov",
             "--coverage-dir=/s/cov",
         ])
     );
@@ -172,8 +183,13 @@ fn command_for_bun_reruns_failed_names_in_their_files() {
     assert_eq!(
         request.plan("/s/run-1.xml").argv,
         words(&[
-            "bun", "test", "a.test.ts", "--reporter=junit", "--reporter-outfile=/s/run-1.xml",
-            "-t", "(?:bad \\(1\\))$",
+            "bun",
+            "test",
+            "a.test.ts",
+            "--reporter=junit",
+            "--reporter-outfile=/s/run-1.xml",
+            "-t",
+            "(?:bad \\(1\\))$",
         ])
     );
 }
@@ -187,8 +203,15 @@ fn command_for_vitest_and_jest_write_reports_and_coverage() {
     assert_eq!(
         vitest.plan("/s/run-1.xml").argv,
         words(&[
-            "vitest", "run", "--reporter=junit", "--outputFile=/s/run-1.xml", "-t", "x",
-            "--bail=1", "--coverage", "--coverage.reporter=lcov",
+            "vitest",
+            "run",
+            "--reporter=junit",
+            "--outputFile=/s/run-1.xml",
+            "-t",
+            "x",
+            "--bail=1",
+            "--coverage",
+            "--coverage.reporter=lcov",
             "--coverage.reportsDirectory=/s/c",
         ])
     );
@@ -199,8 +222,15 @@ fn command_for_vitest_and_jest_write_reports_and_coverage() {
     assert_eq!(
         jest.plan("/s/run-1.json").argv,
         words(&[
-            "jest", "--json", "--outputFile=/s/run-1.json", "-t", "x", "--bail", "--coverage",
-            "--coverageReporters=lcov", "--coverageDirectory=/s/c",
+            "jest",
+            "--json",
+            "--outputFile=/s/run-1.json",
+            "-t",
+            "x",
+            "--bail",
+            "--coverage",
+            "--coverageReporters=lcov",
+            "--coverageDirectory=/s/c",
         ])
     );
 }
@@ -224,13 +254,26 @@ fn command_for_pytest_builds_nodes_and_coverage_environment() {
     assert_eq!(
         planned.argv,
         words(&[
-            "python3", "-m", "pytest", "-q", "--junitxml=/s/run-1.xml", "-o", "junit_family=xunit2",
-            "-k", "abc", "-x", "--cov=.", "--cov-report=lcov:/s/run-1.coverage",
+            "python3",
+            "-m",
+            "pytest",
+            "-q",
+            "--junitxml=/s/run-1.xml",
+            "-o",
+            "junit_family=xunit2",
+            "-k",
+            "abc",
+            "-x",
+            "--cov=.",
+            "--cov-report=lcov:/s/run-1.coverage",
         ])
     );
     assert_eq!(
         planned.env,
-        [("COVERAGE_FILE".to_owned(), "/s/run-1.coverage.data".to_owned())]
+        [(
+            "COVERAGE_FILE".to_owned(),
+            "/s/run-1.coverage.data".to_owned()
+        )]
     );
     let mut rerun = Request::new(Framework::Pytest);
     rerun.only = vec![
@@ -252,7 +295,16 @@ fn command_for_go_selects_packages_and_top_level_names() {
     request.coverage = Some("/s/c.out".to_owned());
     assert_eq!(
         request.plan("/s/unused").argv,
-        words(&["go", "test", "-json", "-run", "TestA", "-failfast", "-coverprofile=/s/c.out", "./..."])
+        words(&[
+            "go",
+            "test",
+            "-json",
+            "-run",
+            "TestA",
+            "-failfast",
+            "-coverprofile=/s/c.out",
+            "./..."
+        ])
     );
     let mut rerun = Request::new(Framework::Go);
     rerun.only = vec![failed_case("", Some("example.com/p"), "TestA/sub")];
@@ -318,14 +370,31 @@ fn parse_bun_reads_nested_suites_failures_and_todo() {
     assert_eq!(results[0].id, "sum.test.ts::sum::adds numbers");
     let failed = &results[1];
     assert_eq!(failed.name, "characters <a> & \"b\"");
-    assert!(failed.message.as_deref().unwrap_or_default().contains("Expected: 3"));
-    assert!(failed.stack.as_deref().unwrap_or_default().contains("sum.test.ts:8:19"));
+    assert!(
+        failed
+            .message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("Expected: 3")
+    );
+    assert!(
+        failed
+            .stack
+            .as_deref()
+            .unwrap_or_default()
+            .contains("sum.test.ts:8:19")
+    );
     assert_eq!(failed.line, Some(7));
 }
 
 #[test]
 fn parse_bun_without_report_reads_printed_lines() {
-    let results = read(Framework::Bun, "(pass) a > b [1.50ms]\n(fail) a > c\n", None, Path::new("/p"));
+    let results = read(
+        Framework::Bun,
+        "(pass) a > b [1.50ms]\n(fail) a > c\n",
+        None,
+        Path::new("/p"),
+    );
     assert_eq!(statuses(&results), (1, 1, 0, 0, 0));
     assert_eq!(results[0].duration.map(|d| d.as_millis()), Some(2));
 }
@@ -341,7 +410,13 @@ fn parse_vitest_splits_groups_from_test_names() {
     assert_eq!(statuses(&results), (2, 3, 2, 0, 0));
     assert_eq!(results[1].id, "sum.test.js::sum::characters <a> & \"b\"");
     assert_eq!(results[1].suite.as_deref(), Some("sum"));
-    assert!(results[1].stack.as_deref().unwrap_or_default().contains("sum.test.js:6:19"));
+    assert!(
+        results[1]
+            .stack
+            .as_deref()
+            .unwrap_or_default()
+            .contains("sum.test.js:6:19")
+    );
     assert_eq!(results[6].suite, None);
 }
 
@@ -351,14 +426,25 @@ fn parse_jest_reads_file_failures_pending_and_todo() {
         Framework::Jest,
         "",
         Some(&corpus("jest/30.5.2/mixed.json")),
-        Path::new("/projekt"),
+        Path::new("/project"),
     );
     assert_eq!(statuses(&results), (2, 3, 1, 1, 1));
     let file = &results[0];
     assert_eq!(file.id, "broken.test.js::(file)");
     assert_eq!(file.status, TestStatus::Error);
-    assert!(file.message.as_deref().unwrap_or_default().contains("Cannot find module"));
-    assert!(!file.stack.as_deref().unwrap_or_default().contains("node_modules"));
+    assert!(
+        file.message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("Cannot find module")
+    );
+    assert!(
+        !file
+            .stack
+            .as_deref()
+            .unwrap_or_default()
+            .contains("node_modules")
+    );
 }
 
 #[test]
@@ -376,27 +462,55 @@ fn parse_pytest_finds_modules_and_separates_errors_from_failures() {
     assert_eq!(results[0].id, "test_sample.py::test_adds");
     assert_eq!(results[6].id, "test_sample.py::TestGroup::test_method");
     assert_eq!(results[9].id, "tests/test_sub.py::test_in_directory");
-    assert_eq!(results[1].message.as_deref().map(|m| m.lines().next().unwrap_or_default()), Some("AssertionError: bad <result> & \"quote\""));
+    assert_eq!(
+        results[1]
+            .message
+            .as_deref()
+            .map(|m| m.lines().next().unwrap_or_default()),
+        Some("AssertionError: bad <result> & \"quote\"")
+    );
 }
 
 #[test]
 fn parse_pytest_keeps_class_name_when_module_is_missing() {
     let dir = tempfile::tempdir().unwrap();
-    let results = read(Framework::Pytest, "", Some(&corpus("pytest/9.1.1/mixed.xml")), dir.path());
+    let results = read(
+        Framework::Pytest,
+        "",
+        Some(&corpus("pytest/9.1.1/mixed.xml")),
+        dir.path(),
+    );
     assert_eq!(results[0].id, "test_sample::test_adds");
     assert_eq!(results[0].path, None);
 }
 
 #[test]
 fn parse_go_reports_build_failures_subtests_and_skips() {
-    let results = read(Framework::Go, &corpus("go/1.26.0/mixed.jsonl"), None, Path::new("/p"));
+    let results = read(
+        Framework::Go,
+        &corpus("go/1.26.0/mixed.jsonl"),
+        None,
+        Path::new("/p"),
+    );
     assert_eq!(statuses(&results), (2, 2, 1, 1, 0));
     let package = &results[0];
     assert_eq!(package.name, "(package)");
-    assert!(package.message.as_deref().unwrap_or_default().contains("cannot use"));
+    assert!(
+        package
+            .message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("cannot use")
+    );
     assert!(results.iter().all(|r| r.name != "TestTable"));
     let failure = results.iter().find(|r| r.name == "TestFailure").unwrap();
-    assert!(failure.message.as_deref().unwrap_or_default().contains("<input> & \"quote\""));
+    assert!(
+        failure
+            .message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("<input> & \"quote\"")
+    );
 }
 
 #[test]
@@ -415,10 +529,21 @@ fn parse_go_without_tests_has_no_results() {
 
 #[test]
 fn parse_cargo_reads_statuses_and_failure_blocks() {
-    let results = read(Framework::Cargo, &corpus("cargo/1.98.1/mixed.txt"), None, Path::new("/p"));
+    let results = read(
+        Framework::Cargo,
+        &corpus("cargo/1.98.1/mixed.txt"),
+        None,
+        Path::new("/p"),
+    );
     assert_eq!(statuses(&results), (2, 2, 1, 0, 0));
     assert_eq!(results[3].name, "tests::group::nested");
-    assert!(results[2].message.as_deref().unwrap_or_default().contains("left: 2"));
+    assert!(
+        results[2]
+            .message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("left: 2")
+    );
     assert_eq!(results[4].name, "tests::panic - should panic");
 }
 
@@ -441,20 +566,20 @@ fn parse_plain_reads_tap_directives_and_repeated_names() {
 #[test]
 fn parse_junit_reports_a_truncated_document_with_its_partial_results() {
     let text = "<testsuites><testsuite name=\"s\"><testcase name=\"a\" classname=\"c\" time=\"0.1\"/><testcase name=\"b\" cl";
-    let failure = junit::parse(text, Flavor::Generic, None).unwrap_err();
+    let failure = junit::parse(text, Flavor::Pytest, None).unwrap_err();
     assert_eq!(failure.partial.len(), 1);
     assert_eq!(failure.partial[0].name, "a");
 }
 
 #[test]
 fn parse_junit_rejects_a_document_without_suites() {
-    assert!(junit::parse("<html></html>", Flavor::Generic, None).is_err());
+    assert!(junit::parse("<html></html>", Flavor::Pytest, None).is_err());
 }
 
 #[test]
 fn parse_junit_distinguishes_failure_from_error_and_numbers_repeats() {
     let text = "<testsuites><testsuite name=\"a.test.ts\"><testcase name=\"bad\" classname=\"g\" time=\"0.25\"><failure type=\"AssertionError\" message=\"short\">long body</failure></testcase><testcase name=\"bad\" classname=\"g\"><error message=\"boom\"/></testcase></testsuite></testsuites>";
-    let results = junit::parse(text, Flavor::Generic, None).unwrap();
+    let results = junit::parse(text, Flavor::Pytest, None).unwrap();
     assert_eq!(results[0].status, TestStatus::Failed);
     assert_eq!(results[0].message.as_deref(), Some("short"));
     assert_eq!(results[0].stack.as_deref(), Some("long body"));

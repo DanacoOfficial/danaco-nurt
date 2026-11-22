@@ -12,8 +12,7 @@ use super::{milliseconds, unique_ids};
 use crate::test::{CommandPlan, Framework, ParseInput, PlanRequest};
 
 const RERUN_NOTE: &str = "this framework does not select single tests: the whole scope runs again";
-const COVERAGE_NOTE: &str =
-    "coverage is not measured for this framework: give coverage_file";
+const COVERAGE_NOTE: &str = "coverage is not measured for this framework: give coverage_file";
 
 /// Line of the Test Anything Protocol.
 static TAP_LINE: LazyLock<Option<Regex>> = LazyLock::new(|| {
@@ -70,7 +69,9 @@ pub(crate) fn parse(input: &ParseInput<'_>) -> Vec<TestResult> {
 
 fn tap_result(line: &str) -> Option<TestResult> {
     let captures = TAP_LINE.as_ref()?.captures(line)?;
-    let directive = captures.get(4).map(|found| found.as_str().to_ascii_lowercase());
+    let directive = captures
+        .get(4)
+        .map(|found| found.as_str().to_ascii_lowercase());
     let status = match directive.as_deref() {
         Some("skip") => TestStatus::Skipped,
         Some(_) => TestStatus::Todo,

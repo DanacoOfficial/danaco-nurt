@@ -35,7 +35,10 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
     if let Some(directory) = request.coverage {
         argv.push("--coverage".to_owned());
         argv.push("--coverage.reporter=lcov".to_owned());
-        argv.push(format!("--coverage.reportsDirectory={}", path_text(directory)));
+        argv.push(format!(
+            "--coverage.reportsDirectory={}",
+            path_text(directory)
+        ));
     }
     CommandPlan {
         framework: Framework::Vitest,

@@ -101,7 +101,10 @@ impl DirStore {
             items: entry.items.clone(),
         };
         let text = serde_json::to_vec(&stored).map_err(|failure| {
-            Error::new(ErrorCode::Internal, format!("cannot encode the entry: {failure}"))
+            Error::new(
+                ErrorCode::Internal,
+                format!("cannot encode the entry: {failure}"),
+            )
         })?;
         let target = self.file(kind, &entry.id);
         let temporary = target.with_extension(TEMP_EXTENSION);
@@ -167,7 +170,10 @@ impl DirStore {
 }
 
 fn io_error(failure: std::io::Error) -> Error {
-    Error::new(ErrorCode::Io, format!("cannot access the run history: {failure}"))
+    Error::new(
+        ErrorCode::Io,
+        format!("cannot access the run history: {failure}"),
+    )
 }
 
 /// Store that resolves its directory and size from the execution context.
@@ -175,8 +181,11 @@ struct ContextStore;
 
 fn directory_store(ctx: &ExecCtx) -> Result<DirStore> {
     let state = ctx.state_dir().ok_or_else(|| {
-        Error::new(ErrorCode::Unsupported, "the state directory is not configured")
-            .with_fix("set state.dir")
+        Error::new(
+            ErrorCode::Unsupported,
+            "the state directory is not configured",
+        )
+        .with_fix("set state.dir")
     })?;
     Ok(DirStore::new(state, ctx.config().verify.history_max))
 }

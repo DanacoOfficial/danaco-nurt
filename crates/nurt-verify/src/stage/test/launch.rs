@@ -157,9 +157,9 @@ fn lookup(ctx: &ExecCtx, dir: &Path) -> impl Fn(&str) -> Option<String> {
         if local.is_file() {
             return Some(local.to_string_lossy().into_owned());
         }
-        let found = search
-            .as_ref()
-            .is_some_and(|paths| std::env::split_paths(paths).any(|entry| entry.join(name).is_file()));
+        let found = search.as_ref().is_some_and(|paths| {
+            std::env::split_paths(paths).any(|entry| entry.join(name).is_file())
+        });
         found.then(|| name.to_owned())
     }
 }
@@ -188,21 +188,20 @@ fn command_for(ctx: &ExecCtx, prepared: &Prepared, run_id: &str) -> CommandPlan 
         reports.join(format!("{run_id}.coverage"))
     };
     let program = lookup(ctx, &request.dir);
-    if let Some(command) = &request.command {
-        if framework != Framework::Custom {
-            return CommandPlan {
-                framework,
-                argv: command.clone(),
-                report: None,
-                coverage_file: None,
-                env: Vec::new(),
-                notes: Vec::new(),
-            };
-        }
+    if let Some(command) = &request.command
+        && framework != Framework::Custom
+    {
+        return CommandPlan {
+            framework,
+            argv: command.clone(),
+            report: None,
+            coverage_file: None,
+            env: Vec::new(),
+            notes: Vec::new(),
+        };
     }
     let plan_request = PlanRequest {
         framework,
-        dir: &request.dir,
         targets: &request.targets,
         filter: request.filter.as_deref(),
         bail: request.bail,
@@ -227,12 +226,14 @@ pub(super) fn preview(ctx: &ExecCtx, prepared: &Prepared) -> EffectPlan {
             "cwd",
             Value::Path(prepared.request.dir.to_string_lossy().into_owned()),
         )
-        .with("framework", Value::Text(prepared.framework.name().to_owned()));
+        .with(
+            "framework",
+            Value::Text(prepared.framework.name().to_owned()),
+        );
     let mut plan = EffectPlan::new();
     plan.preview.push(record);
     plan.with_state(prepared.clone())
 }
-
 
 /// Starts the run and, when it ends within the waiting time, finishes it.
 pub(super) fn execute<'a>(ctx: &ExecCtx, prepared: Prepared) -> Result<EffectOutcome<'a>> {
@@ -287,7 +288,10 @@ pub(super) fn execute<'a>(ctx: &ExecCtx, prepared: Prepared) -> Result<EffectOut
         value: Some(value.clone()),
     }));
     let finish_data = serde_json::to_value(&spec).map_err(|failure| {
-        Error::new(ErrorCode::Internal, format!("cannot encode the run: {failure}"))
+        Error::new(
+            ErrorCode::Internal,
+            format!("cannot encode the run: {failure}"),
+        )
     })?;
     let tool = ToolRun {
         command: plan.argv,

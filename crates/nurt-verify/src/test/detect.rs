@@ -26,10 +26,8 @@ const PLACEHOLDER_TEST_SCRIPT: &str = "no test specified";
 static BUN_SCRIPT: LazyLock<Regex> = LazyLock::new(|| compile(r"\bbun test\b"));
 static SCRIPT_TEST_FILE: LazyLock<Regex> =
     LazyLock::new(|| compile(r"\.(?:test|spec)\.[cm]?[jt]sx?$"));
-static PYTHON_TEST_FILE: LazyLock<Regex> =
-    LazyLock::new(|| compile(r"^test_.*\.py$|_test\.py$"));
-static PYTEST_SECTION: LazyLock<Regex> =
-    LazyLock::new(|| compile(r"\[tool[.:]pytest|\[pytest\]"));
+static PYTHON_TEST_FILE: LazyLock<Regex> = LazyLock::new(|| compile(r"^test_.*\.py$|_test\.py$"));
+static PYTEST_SECTION: LazyLock<Regex> = LazyLock::new(|| compile(r"\[tool[.:]pytest|\[pytest\]"));
 
 fn compile(pattern: &str) -> Regex {
     match Regex::new(pattern) {
@@ -63,9 +61,12 @@ fn read_manifest(dir: &Path) -> Option<Value> {
 }
 
 fn has_package(manifest: &Value, name: &str) -> bool {
-    ["dependencies", "devDependencies"]
-        .iter()
-        .any(|section| manifest.get(section).and_then(|deps| deps.get(name)).is_some())
+    ["dependencies", "devDependencies"].iter().any(|section| {
+        manifest
+            .get(section)
+            .and_then(|deps| deps.get(name))
+            .is_some()
+    })
 }
 
 fn node_frameworks(dir: &Path) -> Vec<Framework> {

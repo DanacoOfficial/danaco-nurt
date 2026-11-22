@@ -42,13 +42,13 @@ pub(crate) fn parse(text: &str, dir: &Path) -> Result<Vec<FileData>, String> {
                 file.branches.found = value;
             } else if let Some(value) = counter(line, "BRH:") {
                 file.branches.hit = value;
-            } else if line == "end_of_record" {
-                if let Some(mut done) = current.take() {
-                    if done.lines.is_empty() && totals.found > 0 {
-                        done.line_tally = Some(totals);
-                    }
-                    files.push(done);
+            } else if line == "end_of_record"
+                && let Some(mut done) = current.take()
+            {
+                if done.lines.is_empty() && totals.found > 0 {
+                    done.line_tally = Some(totals);
                 }
+                files.push(done);
             }
         }
     }

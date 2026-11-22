@@ -35,8 +35,12 @@ fn next_id_follows_the_highest_stored_number() {
     let dir = tempfile::tempdir().unwrap();
     let store = DirStore::new(dir.path(), 50);
     assert_eq!(store.next_id(EntryKind::TestRun), "run-1");
-    store.save(EntryKind::TestRun, &entry("run-1", &[])).unwrap();
-    store.save(EntryKind::TestRun, &entry("run-7", &[])).unwrap();
+    store
+        .save(EntryKind::TestRun, &entry("run-1", &[]))
+        .unwrap();
+    store
+        .save(EntryKind::TestRun, &entry("run-7", &[]))
+        .unwrap();
     assert_eq!(store.next_id(EntryKind::TestRun), "run-8");
     assert_eq!(store.next_id(EntryKind::Analysis), "an-1");
 }
@@ -47,7 +51,10 @@ fn save_then_load_returns_header_and_items_in_order() {
     let store = DirStore::new(dir.path(), 50);
     let saved = entry("run-1", &["b", "a"]);
     store.save(EntryKind::TestRun, &saved).unwrap();
-    assert_eq!(store.load(EntryKind::TestRun, "run-1").unwrap(), Some(saved));
+    assert_eq!(
+        store.load(EntryKind::TestRun, "run-1").unwrap(),
+        Some(saved)
+    );
 }
 
 #[test]
@@ -74,8 +81,12 @@ fn save_removes_the_oldest_entries_beyond_the_history_size() {
 fn history_size_is_kept_per_kind() {
     let dir = tempfile::tempdir().unwrap();
     let store = DirStore::new(dir.path(), 1);
-    store.save(EntryKind::TestRun, &entry("run-1", &[])).unwrap();
-    store.save(EntryKind::Analysis, &entry("an-1", &[])).unwrap();
+    store
+        .save(EntryKind::TestRun, &entry("run-1", &[]))
+        .unwrap();
+    store
+        .save(EntryKind::Analysis, &entry("an-1", &[]))
+        .unwrap();
     assert_eq!(store.ids(EntryKind::TestRun), ["run-1"]);
     assert_eq!(store.ids(EntryKind::Analysis), ["an-1"]);
 }
@@ -101,8 +112,12 @@ fn list_returns_newest_headers_first_up_to_the_limit() {
 fn save_replaces_an_entry_with_the_same_identifier() {
     let dir = tempfile::tempdir().unwrap();
     let store = DirStore::new(dir.path(), 50);
-    store.save(EntryKind::TestRun, &entry("run-1", &["a"])).unwrap();
-    store.save(EntryKind::TestRun, &entry("run-1", &["b"])).unwrap();
+    store
+        .save(EntryKind::TestRun, &entry("run-1", &["a"]))
+        .unwrap();
+    store
+        .save(EntryKind::TestRun, &entry("run-1", &["b"]))
+        .unwrap();
     let loaded = store.load(EntryKind::TestRun, "run-1").unwrap().unwrap();
     assert_eq!(loaded.items.len(), 1);
     assert_eq!(store.ids(EntryKind::TestRun).len(), 1);
@@ -112,7 +127,9 @@ fn save_replaces_an_entry_with_the_same_identifier() {
 fn load_reports_a_corrupt_entry_with_a_fix() {
     let dir = tempfile::tempdir().unwrap();
     let store = DirStore::new(dir.path(), 50);
-    store.save(EntryKind::TestRun, &entry("run-1", &[])).unwrap();
+    store
+        .save(EntryKind::TestRun, &entry("run-1", &[]))
+        .unwrap();
     let path = dir.path().join("verify/runs/run-1.json");
     std::fs::write(path, "{").unwrap();
     let error = store.load(EntryKind::TestRun, "run-1").unwrap_err();

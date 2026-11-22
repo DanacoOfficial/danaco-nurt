@@ -54,7 +54,9 @@ impl Framework {
 
     /// Framework with the given name.
     pub(crate) fn from_name(name: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|framework| framework.name() == name)
+        Self::ALL
+            .into_iter()
+            .find(|framework| framework.name() == name)
     }
 
     /// Framework as recorded in a `test_run`; scripts of the package manager
@@ -75,7 +77,6 @@ impl Framework {
 /// Everything a framework command needs to know about a run.
 pub(crate) struct PlanRequest<'a> {
     pub(crate) framework: Framework,
-    pub(crate) dir: &'a Path,
     pub(crate) targets: &'a [String],
     pub(crate) filter: Option<&'a str>,
     pub(crate) bail: bool,
@@ -125,5 +126,9 @@ pub(crate) struct ParseError {
     pub(crate) partial: Vec<TestResult>,
 }
 
+#[cfg(test)]
+mod corpus_tests;
+#[cfg(test)]
+mod external_tests;
 #[cfg(test)]
 mod tests;

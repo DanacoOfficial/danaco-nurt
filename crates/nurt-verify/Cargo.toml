@@ -17,6 +17,11 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Tests that run test frameworks, analyzers and formatters installed on the
+# system; without the feature they are ignored.
+external-tools = []
+
 [dependencies]
 nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }

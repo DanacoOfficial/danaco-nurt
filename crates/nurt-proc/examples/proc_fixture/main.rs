@@ -8,7 +8,6 @@
 
 use std::process::ExitCode;
 
-mod analyze;
 mod control;
 mod jobs;
 mod output;
@@ -21,14 +20,7 @@ const UNKNOWN_MODE: u8 = 64;
 /// Handler of the modes of one test area.
 type AreaHandler = fn(&str, &[String]) -> Option<ExitCode>;
 
-const AREAS: [AreaHandler; 6] = [
-    spawn::run,
-    control::run,
-    output::run,
-    jobs::run,
-    track::run,
-    analyze::run,
-];
+const AREAS: [AreaHandler; 5] = [spawn::run, control::run, output::run, jobs::run, track::run];
 
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);

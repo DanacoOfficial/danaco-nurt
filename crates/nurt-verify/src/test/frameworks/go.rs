@@ -41,7 +41,11 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
         request.targets.to_vec()
     };
     let mut names: Vec<String> = Vec::new();
-    for case in request.only.iter().filter(|case| case.name != PACKAGE_MARKER) {
+    for case in request
+        .only
+        .iter()
+        .filter(|case| case.name != PACKAGE_MARKER)
+    {
         let top = case.name.split('/').next().unwrap_or(&case.name);
         let escaped = escape_pattern(top);
         if !names.contains(&escaped) {
@@ -52,11 +56,11 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
     if !names.is_empty() {
         argv.push("-run".to_owned());
         argv.push(format!("^({})$", names.join("|")));
-    } else if request.only.is_empty() {
-        if let Some(filter) = request.filter {
-            argv.push("-run".to_owned());
-            argv.push(filter.to_owned());
-        }
+    } else if request.only.is_empty()
+        && let Some(filter) = request.filter
+    {
+        argv.push("-run".to_owned());
+        argv.push(filter.to_owned());
     }
     if request.bail {
         argv.push("-failfast".to_owned());
@@ -183,10 +187,10 @@ fn collect_result(state: &mut State, event: &Event) {
 
 fn failure_text(state: &State, event: &Event) -> Option<String> {
     let mut text = String::new();
-    if let Some(import) = &event.failed_build {
-        if let Some(build) = state.outputs.get(&format!("build{ID_SEPARATOR}{import}")) {
-            text.push_str(build);
-        }
+    if let Some(import) = &event.failed_build
+        && let Some(build) = state.outputs.get(&format!("build{ID_SEPARATOR}{import}"))
+    {
+        text.push_str(build);
     }
     if let Some(output) = state.outputs.get(&key(&event.package, &event.test)) {
         text.push_str(output);

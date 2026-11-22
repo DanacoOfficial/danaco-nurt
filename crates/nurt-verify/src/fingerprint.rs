@@ -85,7 +85,8 @@ pub(crate) fn digest(entries: &BTreeMap<String, String>) -> String {
 }
 
 fn excluded(path: &str, exclude: &[String]) -> bool {
-    path.split('/').any(|part| exclude.iter().any(|name| name == part))
+    path.split('/')
+        .any(|part| exclude.iter().any(|name| name == part))
 }
 
 fn repository_files(
@@ -123,7 +124,11 @@ fn walk_files(dir: &Path) -> (Vec<String>, bool) {
         if !entry.file_type().is_some_and(|kind| kind.is_file()) {
             continue;
         }
-        let relative: PathBuf = entry.path().strip_prefix(dir).map(Path::to_path_buf).unwrap_or_default();
+        let relative: PathBuf = entry
+            .path()
+            .strip_prefix(dir)
+            .map(Path::to_path_buf)
+            .unwrap_or_default();
         let text = relative.to_string_lossy().replace('\\', "/");
         if text.is_empty() || text == ".git" || text.starts_with(".git/") {
             continue;

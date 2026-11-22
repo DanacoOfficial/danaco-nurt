@@ -7,14 +7,19 @@ use std::path::Path;
 
 use nurt_contracts::record::CoverageFormat;
 
-use super::{detect_format, parse, percent, Tally};
+use super::{Tally, detect_format, parse, percent};
 use crate::stage::test::support::{corpus, write};
 
 #[test]
 fn lcov_counts_lines_and_functions_per_file() {
-    let coverage = parse(&corpus("coverage/sample.lcov"), CoverageFormat::Lcov, Path::new("/p")).unwrap();
+    let coverage = parse(
+        &corpus("coverage/sample.lcov"),
+        CoverageFormat::Lcov,
+        Path::new("/p"),
+    )
+    .unwrap();
     assert!((coverage.lines_pct - 50.0).abs() < f64::EPSILON);
-    assert_eq!(coverage.functions_pct, None);
+    assert_eq!(coverage.functions_pct, Some(50.0));
     let files = coverage.files.unwrap();
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].path.as_str(), "sum.ts");
@@ -74,14 +79,24 @@ fn cobertura_reads_branch_conditions_and_methods() {
 
 #[test]
 fn cobertura_rejects_broken_xml() {
-    assert!(parse("<coverage><packages>", CoverageFormat::Cobertura, Path::new("/p")).is_err());
+    assert!(
+        parse(
+            "<coverage><packages>",
+            CoverageFormat::Cobertura,
+            Path::new("/p")
+        )
+        .is_err()
+    );
 }
 
 #[test]
 fn go_profile_counts_statements_once_per_block() {
     let dir = tempfile::tempdir().unwrap();
     write(dir.path(), "go.mod", "module example.com/covgo\n");
-    let text = format!("{}example.com/covgo/sum.go:3.24,5.2 1 3\n", corpus("coverage/sample.go.txt"));
+    let text = format!(
+        "{}example.com/covgo/sum.go:3.24,5.2 1 3\n",
+        corpus("coverage/sample.go.txt")
+    );
     let coverage = parse(&text, CoverageFormat::Go, dir.path()).unwrap();
     assert!((coverage.lines_pct - 25.0).abs() < f64::EPSILON);
     let files = coverage.files.unwrap();
@@ -96,7 +111,12 @@ fn go_profile_without_mode_line_is_rejected() {
 
 #[test]
 fn istanbul_detail_report_derives_statements_functions_and_branches() {
-    let coverage = parse(&corpus("coverage/sample.istanbul.json"), CoverageFormat::Istanbul, Path::new("/work")).unwrap();
+    let coverage = parse(
+        &corpus("coverage/sample.istanbul.json"),
+        CoverageFormat::Istanbul,
+        Path::new("/work"),
+    )
+    .unwrap();
     assert_eq!(coverage.statements_pct, Some(66.67));
     assert_eq!(coverage.functions_pct, Some(100.0));
     assert_eq!(coverage.branches_pct, Some(50.0));
@@ -105,7 +125,12 @@ fn istanbul_detail_report_derives_statements_functions_and_branches() {
 
 #[test]
 fn istanbul_summary_report_uses_the_stated_totals() {
-    let coverage = parse(&corpus("coverage/sample.istanbul-summary.json"), CoverageFormat::Istanbul, Path::new("/work")).unwrap();
+    let coverage = parse(
+        &corpus("coverage/sample.istanbul-summary.json"),
+        CoverageFormat::Istanbul,
+        Path::new("/work"),
+    )
+    .unwrap();
     assert!((coverage.lines_pct - 80.0).abs() < f64::EPSILON);
     assert_eq!(coverage.functions_pct, Some(50.0));
 }
@@ -118,7 +143,12 @@ fn istanbul_rejects_text_that_is_not_an_object() {
 
 #[test]
 fn llvm_export_reads_summary_and_uncovered_segments() {
-    let coverage = parse(&corpus("coverage/sample.llvm.json"), CoverageFormat::Llvm, Path::new("/work")).unwrap();
+    let coverage = parse(
+        &corpus("coverage/sample.llvm.json"),
+        CoverageFormat::Llvm,
+        Path::new("/work"),
+    )
+    .unwrap();
     assert!((coverage.lines_pct - 90.0).abs() < f64::EPSILON);
     assert_eq!(coverage.functions_pct, Some(100.0));
     assert_eq!(coverage.files.unwrap()[0].path.as_str(), "src/lib.rs");
@@ -132,8 +162,14 @@ fn llvm_rejects_other_json() {
 #[test]
 fn format_is_detected_from_content() {
     assert_eq!(detect_format("mode: set\n"), CoverageFormat::Go);
-    assert_eq!(detect_format("<?xml version=\"1.0\"?>"), CoverageFormat::Cobertura);
-    assert_eq!(detect_format("{\"type\":\"llvm.coverage.json.export\"}"), CoverageFormat::Llvm);
+    assert_eq!(
+        detect_format("<?xml version=\"1.0\"?>"),
+        CoverageFormat::Cobertura
+    );
+    assert_eq!(
+        detect_format("{\"type\":\"llvm.coverage.json.export\"}"),
+        CoverageFormat::Llvm
+    );
     assert_eq!(detect_format("{\"/a.js\":{}}"), CoverageFormat::Istanbul);
     assert_eq!(detect_format("SF:a\n"), CoverageFormat::Lcov);
 }

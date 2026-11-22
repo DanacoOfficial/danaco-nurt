@@ -11,7 +11,7 @@ use regex::Regex;
 use serde::Deserialize;
 
 use super::{
-    FILE_MARKER, GROUP_SEPARATOR, make_id, milliseconds, non_blank, path_of, js_coverage_file,
+    FILE_MARKER, GROUP_SEPARATOR, js_coverage_file, make_id, milliseconds, non_blank, path_of,
     unique_ids,
 };
 use crate::test::command::{files_of, names_pattern, path_text};
@@ -44,11 +44,11 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
     if !named.is_empty() {
         argv.push("-t".to_owned());
         argv.push(names_pattern(&named));
-    } else if request.only.is_empty() {
-        if let Some(filter) = request.filter {
-            argv.push("-t".to_owned());
-            argv.push(filter.to_owned());
-        }
+    } else if request.only.is_empty()
+        && let Some(filter) = request.filter
+    {
+        argv.push("-t".to_owned());
+        argv.push(filter.to_owned());
     }
     if request.bail {
         argv.push("--bail".to_owned());
@@ -179,8 +179,14 @@ fn assertion_result(assertion: &Assertion, file: &str, dir: &Path) -> TestResult
         duration: assertion.duration.and_then(milliseconds),
         message,
         stack,
-        line: assertion.location.as_ref().and_then(|location| location.line),
-        column: assertion.location.as_ref().and_then(|location| location.column),
+        line: assertion
+            .location
+            .as_ref()
+            .and_then(|location| location.line),
+        column: assertion
+            .location
+            .as_ref()
+            .and_then(|location| location.column),
         ..TestResult::default()
     }
 }

@@ -23,8 +23,6 @@ pub(crate) enum Flavor {
     Vitest,
     /// Module in the class name, found relative to the project directory.
     Pytest,
-    /// File and group as the attributes say.
-    Generic,
 }
 
 struct Place {
@@ -116,7 +114,10 @@ fn case(element: &Element, flavor: Flavor, dir: Option<&Path>, suites: &[Suite<'
         suites,
         Place {
             file: element.attribute("file").unwrap_or(suite_file).to_owned(),
-            group: element.attribute("classname").unwrap_or_default().to_owned(),
+            group: element
+                .attribute("classname")
+                .unwrap_or_default()
+                .to_owned(),
             name: element.attribute("name").unwrap_or_default().to_owned(),
         },
     );
@@ -143,7 +144,10 @@ fn case(element: &Element, flavor: Flavor, dir: Option<&Path>, suites: &[Suite<'
             _ => {}
         }
     }
-    if matches!(result.status, TestStatus::Passed | TestStatus::Skipped | TestStatus::Todo) {
+    if matches!(
+        result.status,
+        TestStatus::Passed | TestStatus::Skipped | TestStatus::Todo
+    ) {
         result.stdout = None;
         result.stderr = None;
     }
@@ -220,7 +224,9 @@ fn bun_place(place: Place, suites: &[Suite<'_>]) -> Place {
 /// A vitest class name is the file and the test name carries the groups.
 fn vitest_place(place: Place) -> Place {
     let parts: Vec<&str> = place.name.split(GROUP_SEPARATOR).collect();
-    let (name, groups) = parts.split_last().map_or((place.name.as_str(), &[][..]), |(last, rest)| (*last, rest));
+    let (name, groups) = parts
+        .split_last()
+        .map_or((place.name.as_str(), &[][..]), |(last, rest)| (*last, rest));
     let file = if place.file.is_empty() {
         place.group.clone()
     } else {

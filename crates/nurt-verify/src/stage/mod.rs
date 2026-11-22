@@ -4,8 +4,8 @@
 //! Command stages.
 
 pub(crate) mod analyze;
-pub(crate) mod test;
 pub(crate) mod analyze_check;
 pub(crate) mod analyze_format;
 pub(crate) mod analyze_show;
 pub(crate) mod analyze_tools;
+pub(crate) mod test;

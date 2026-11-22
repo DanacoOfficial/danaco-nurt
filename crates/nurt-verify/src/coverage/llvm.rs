@@ -75,10 +75,13 @@ fn source_file(source: &SourceFile, dir: &Path) -> FileData {
         if !has_count || is_gap {
             continue;
         }
-        let end = source
-            .segments
-            .get(index + 1)
-            .map_or(line, |next| if next.1 > 1 { next.0 } else { next.0.saturating_sub(1).max(line) });
+        let end = source.segments.get(index + 1).map_or(line, |next| {
+            if next.1 > 1 {
+                next.0
+            } else {
+                next.0.saturating_sub(1).max(line)
+            }
+        });
         for covered in line..=end {
             file.hit_line(covered, count);
         }

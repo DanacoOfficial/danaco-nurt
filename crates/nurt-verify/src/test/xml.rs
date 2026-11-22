@@ -54,10 +54,10 @@ pub(crate) fn parse(text: &str) -> Parsed {
             Ok(Event::Start(start)) => stack.push(element(&start)),
             Ok(Event::Empty(start)) => attach(&mut stack, element(&start)),
             Ok(Event::End(_)) => {
-                if stack.len() > 1 {
-                    if let Some(done) = stack.pop() {
-                        attach(&mut stack, done);
-                    }
+                if stack.len() > 1
+                    && let Some(done) = stack.pop()
+                {
+                    attach(&mut stack, done);
                 }
             }
             Ok(Event::Text(chunk)) => push_text(&mut stack, &chunk.xml10_content()),

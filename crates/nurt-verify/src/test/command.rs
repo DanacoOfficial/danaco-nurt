@@ -58,10 +58,11 @@ pub(crate) fn names_pattern(cases: &[&TestResult]) -> String {
 pub(crate) fn files_of(cases: &[TestResult]) -> Vec<String> {
     let mut files: Vec<String> = Vec::new();
     for case in cases {
-        if let Some(path) = case.path.as_ref().map(|path| path.as_str().to_owned()) {
-            if !path.is_empty() && !files.contains(&path) {
-                files.push(path);
-            }
+        if let Some(path) = case.path.as_ref().map(|path| path.as_str().to_owned())
+            && !path.is_empty()
+            && !files.contains(&path)
+        {
+            files.push(path);
         }
     }
     files

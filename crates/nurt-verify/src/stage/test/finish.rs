@@ -27,7 +27,7 @@ const TAIL_LINES: usize = 12;
 
 /// Name and identifier of the result that stands for a run that produced
 /// no test results.
-const RUN_MARKER: &str = "(run)";
+pub(super) const RUN_MARKER: &str = "(run)";
 
 /// Runs of the same project that a run is compared with.
 const COMPARE_DEPTH: usize = 20;
@@ -51,9 +51,8 @@ impl JobFinisher for TestFinisher {
         result: &ToolResult,
         data: Option<&serde_json::Value>,
     ) -> Result<Record> {
-        let data = data.ok_or_else(|| {
-            Error::new(ErrorCode::Internal, "the test job has no run data")
-        })?;
+        let data =
+            data.ok_or_else(|| Error::new(ErrorCode::Internal, "the test job has no run data"))?;
         let spec: RunSpec = serde_json::from_value(data.clone()).map_err(|failure| {
             Error::new(
                 ErrorCode::Internal,
@@ -126,9 +125,8 @@ fn analyze(ctx: &ExecCtx, spec: &RunSpec, result: &ToolResult) -> Result<Analysi
         Err(failure) => return Err(parse_error(&failure, &output, exec)),
     };
     if !spec.only_ids.is_empty() {
-        results.retain(|case| {
-            case.status != TestStatus::Skipped || spec.only_ids.contains(&case.id)
-        });
+        results
+            .retain(|case| case.status != TestStatus::Skipped || spec.only_ids.contains(&case.id));
     }
     let status = run_status(exec, &results);
     if results.is_empty() && status == TestRunStatus::Error {
@@ -167,7 +165,11 @@ fn parse_error(failure: &ParseError, output: &str, exec: &Exec) -> Error {
         format!("cannot read the test output: {}", failure.reason),
     )
     .with_fix("run the tests with command: to see the output");
-    for line in output.lines().filter(|line| !line.trim().is_empty()).take(SAMPLE_LINES) {
+    for line in output
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .take(SAMPLE_LINES)
+    {
         error = error.with_sample(line);
     }
     if let Ok(value) = serde_json::to_value(exec) {
@@ -205,7 +207,10 @@ fn run_status(exec: &Exec, results: &[TestResult]) -> TestRunStatus {
 }
 
 fn tail(output: &str) -> String {
-    let lines: Vec<&str> = output.lines().filter(|line| !line.trim().is_empty()).collect();
+    let lines: Vec<&str> = output
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .collect();
     let start = lines.len().saturating_sub(TAIL_LINES);
     lines[start..].join("\n")
 }
@@ -242,10 +247,10 @@ fn previous_runs(ctx: &ExecCtx, store: &dyn VerifyStore, dir: &str) -> Vec<Store
         if runs.len() >= COMPARE_DEPTH {
             break;
         }
-        if let Ok(Some(entry)) = store.load(ctx, EntryKind::TestRun, &id) {
-            if entry.header.get("cwd").and_then(Value::as_str) == Some(dir) {
-                runs.push(entry);
-            }
+        if let Ok(Some(entry)) = store.load(ctx, EntryKind::TestRun, &id)
+            && entry.header.get("cwd").and_then(Value::as_str) == Some(dir)
+        {
+            runs.push(entry);
         }
     }
     runs
@@ -283,7 +288,12 @@ fn compare(previous: &[StoredEntry], current: &[TestResult]) -> Comparison {
     }
     comparison.baseline = previous
         .iter()
-        .map(|entry| (entry.id.as_str(), hits.get(entry.id.as_str()).copied().unwrap_or(0)))
+        .map(|entry| {
+            (
+                entry.id.as_str(),
+                hits.get(entry.id.as_str()).copied().unwrap_or(0),
+            )
+        })
         .filter(|(_, count)| *count > 0)
         .max_by_key(|(_, count)| *count)
         .map(|(id, _)| id.to_owned());

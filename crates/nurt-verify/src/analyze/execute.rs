@@ -9,7 +9,7 @@ use std::time::Duration;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::services::EnvVar;
 use nurt_contracts::stage::ExecCtx;
-use nurt_proc::{ToolKind, ToolOutcome, ToolRun, run_tool};
+use nurt_proc::{ToolKind, ToolOutcome, ToolResult, ToolRun, run_tool};
 
 use crate::analyze::output::ToolOutput;
 
@@ -43,6 +43,20 @@ fn read_text(file: Option<&PathBuf>, fallback: &str) -> String {
     )
 }
 
+/// Complete output of a finished run, read from the spooled files when the
+/// run has them.
+pub(crate) fn captured_of(result: &ToolResult) -> Captured {
+    let exec = &result.exec;
+    Captured {
+        output: ToolOutput {
+            stdout: read_text(result.stdout_file.as_ref(), &exec.stdout),
+            stderr: read_text(result.stderr_file.as_ref(), &exec.stderr),
+            exit_code: i32::try_from(exec.exit_code).ok(),
+        },
+        timed_out: exec.timed_out,
+    }
+}
+
 /// Runs a program in `dir` and captures its output.
 ///
 /// `exact` lists the files the program is expected to change; they are kept
@@ -69,17 +83,7 @@ pub(crate) fn run_captured(
         finish_data: None,
     };
     match run_tool(ctx, run, None)? {
-        ToolOutcome::Finished(result) => {
-            let exec = &result.exec;
-            Ok(Captured {
-                output: ToolOutput {
-                    stdout: read_text(result.stdout_file.as_ref(), &exec.stdout),
-                    stderr: read_text(result.stderr_file.as_ref(), &exec.stderr),
-                    exit_code: i32::try_from(exec.exit_code).ok(),
-                },
-                timed_out: exec.timed_out,
-            })
-        }
+        ToolOutcome::Finished(result) => Ok(captured_of(&result)),
         ToolOutcome::Background(_) => Err(Error::new(
             ErrorCode::Unsupported,
             "the tool continued in the background",
