@@ -4,6 +4,11 @@
 //! Correction invariants checked on surface and bound trees, and a property
 //! test of path literals.
 
+#![allow(
+    clippy::unwrap_used,
+    reason = "helpers of the test build trees from fixed JSON; a malformed tree fails the test"
+)]
+
 use nurt_contracts::ast::AstDocument;
 use nurt_contracts::bound::BoundDocument;
 use nurt_contracts::error::ErrorCode;
@@ -22,7 +27,8 @@ fn effecting(name: &str) -> bool {
 }
 
 fn surface(statements: Value) -> AstDocument {
-    serde_json::from_value(json!({ "nurt": "1.0", "program": { "statements": statements } })).unwrap()
+    serde_json::from_value(json!({ "nurt": "1.0", "program": { "statements": statements } }))
+        .unwrap()
 }
 
 fn bound(statements: Value) -> BoundDocument {
@@ -45,7 +51,13 @@ fn pipeline(stages: &[Value]) -> Value {
 fn written(name: &str, args: &[(&str, Value)]) -> Value {
     let args: Vec<Value> = args
         .iter()
-        .map(|(arg, value)| if arg.is_empty() { json!({ "value": value }) } else { json!({ "name": arg, "value": value }) })
+        .map(|(arg, value)| {
+            if arg.is_empty() {
+                json!({ "value": value })
+            } else {
+                json!({ "name": arg, "value": value })
+            }
+        })
         .collect();
     json!({ "t": "stage", "name": name, "args": args })
 }
@@ -93,7 +105,10 @@ fn violated(result: Result<(), InvariantViolation>) -> Invariant {
 }
 
 fn remove_program(written_path: &str, bound_path: &str) -> (AstDocument, BoundDocument) {
-    let before = surface(json!([pipeline(&[written("remove", &[("", text(written_path))])])]));
+    let before = surface(json!([pipeline(&[written(
+        "remove",
+        &[("", text(written_path))]
+    )])]));
     let after = bound(json!([pipeline(&[
         resolved(
             "find",
@@ -105,7 +120,12 @@ fn remove_program(written_path: &str, bound_path: &str) -> (AstDocument, BoundDo
                 ("depth", int(0), false),
             ]
         ),
-        resolved("remove", "local", "mutate", &[("on_missing", json!({ "t": "enum", "v": "skip" }), true)]),
+        resolved(
+            "remove",
+            "local",
+            "mutate",
+            &[("on_missing", json!({ "t": "enum", "v": "skip" }), true)]
+        ),
     ])]));
     (before, after)
 }
@@ -120,12 +140,29 @@ fn accepts_the_expansion_of_a_source_form() {
 #[test]
 fn accepts_a_corrected_command_name() {
     let tables = load_embedded().unwrap();
-    let before = surface(json!([pipeline(&[written("remvoe", &[("", text("/srv/a.log"))])])]));
+    let before = surface(json!([pipeline(&[written(
+        "remvoe",
+        &[("", text("/srv/a.log"))]
+    )])]));
     let after = bound(json!([pipeline(&[
-        resolved("find", "read", "source", &[("path", path("/srv/a.log"), false), ("depth", int(0), false)]),
+        resolved(
+            "find",
+            "read",
+            "source",
+            &[
+                ("path", path("/srv/a.log"), false),
+                ("depth", int(0), false)
+            ]
+        ),
         resolved("remove", "local", "mutate", &[]),
     ])]));
-    let corrections = [Correction::new(RuleId::L01, Class::Fuzzy, "remvoe", "remove", CorrectionKind::Command)];
+    let corrections = [Correction::new(
+        RuleId::L01,
+        Class::Fuzzy,
+        "remvoe",
+        "remove",
+        CorrectionKind::Command,
+    )];
     assert_eq!(check(&before, &after, &corrections, None, &tables), Ok(()));
 }
 
@@ -133,7 +170,10 @@ fn accepts_a_corrected_command_name() {
 fn rejects_changed_path_bytes() {
     let tables = load_embedded().unwrap();
     let (before, after) = remove_program("/srv/Data/a.txt", "/srv/data/a.txt");
-    assert_eq!(violated(check(&before, &after, &[], None, &tables)), Invariant::LiteralBytes);
+    assert_eq!(
+        violated(check(&before, &after, &[], None, &tables)),
+        Invariant::LiteralBytes
+    );
     let (before, after) = remove_program("c:\\proj\\out\\", "C:/proj/out");
     assert_eq!(check(&before, &after, &[], None, &tables), Ok(()));
 }
@@ -142,9 +182,18 @@ fn rejects_changed_path_bytes() {
 fn resolves_relative_paths_only_against_an_explicit_base() {
     let tables = load_embedded().unwrap();
     let (before, after) = remove_program("./build", "/srv/app/build");
-    assert_eq!(violated(check(&before, &after, &[], None, &tables)), Invariant::Base);
-    assert_eq!(check(&before, &after, &[], Some("/srv/app"), &tables), Ok(()));
-    assert_eq!(violated(check(&before, &after, &[], Some("/srv/other"), &tables)), Invariant::LiteralBytes);
+    assert_eq!(
+        violated(check(&before, &after, &[], None, &tables)),
+        Invariant::Base
+    );
+    assert_eq!(
+        check(&before, &after, &[], Some("/srv/app"), &tables),
+        Ok(())
+    );
+    assert_eq!(
+        violated(check(&before, &after, &[], Some("/srv/other"), &tables)),
+        Invariant::LiteralBytes
+    );
 }
 
 fn first_program(written_count: Value, bound_count: i64) -> (AstDocument, BoundDocument) {
@@ -154,7 +203,12 @@ fn first_program(written_count: Value, bound_count: i64) -> (AstDocument, BoundD
     ])]));
     let after = bound(json!([pipeline(&[
         resolved("list", "read", "source", &[("path", path("/srv"), false)]),
-        resolved("first", "read", "transform", &[("count", int(bound_count), false)]),
+        resolved(
+            "first",
+            "read",
+            "transform",
+            &[("count", int(bound_count), false)]
+        ),
     ])]));
     (before, after)
 }
@@ -165,7 +219,10 @@ fn keeps_counts_of_counting_stages() {
     let (before, after) = first_program(int(10), 10);
     assert_eq!(check(&before, &after, &[], None, &tables), Ok(()));
     let (before, after) = first_program(int(10), 1);
-    assert_eq!(violated(check(&before, &after, &[], None, &tables)), Invariant::Numbers);
+    assert_eq!(
+        violated(check(&before, &after, &[], None, &tables)),
+        Invariant::Numbers
+    );
     let (before, after) = first_program(text("1,000"), 1_000);
     assert_eq!(check(&before, &after, &[], None, &tables), Ok(()));
     let (before, after) = first_program(json!({ "t": "num", "v": 40.0 }), 40);
@@ -177,7 +234,10 @@ fn keeps_durations_of_timeouts() {
     let tables = load_embedded().unwrap();
     let before = surface(json!([pipeline(&[written(
         "run",
-        &[("", json!({ "t": "list", "items": [text("make")] })), ("timeout", text("2 minutes"))]
+        &[
+            ("", json!({ "t": "list", "items": [text("make")] })),
+            ("timeout", text("2 minutes"))
+        ]
     )])]));
     let after = |millis: u64| {
         bound(json!([pipeline(&[resolved(
@@ -185,13 +245,20 @@ fn keeps_durations_of_timeouts() {
             "process",
             "run",
             &[
-                ("command", json!({ "t": "list", "items": [{ "t": "text", "v": "make" }] }), false),
+                (
+                    "command",
+                    json!({ "t": "list", "items": [{ "t": "text", "v": "make" }] }),
+                    false
+                ),
                 ("timeout", json!({ "t": "dur", "v": millis }), false),
             ]
         )])]))
     };
     assert_eq!(check(&before, &after(120_000), &[], None, &tables), Ok(()));
-    assert_eq!(violated(check(&before, &after(60_000), &[], None, &tables)), Invariant::Numbers);
+    assert_eq!(
+        violated(check(&before, &after(60_000), &[], None, &tables)),
+        Invariant::Numbers
+    );
 }
 
 #[test]
@@ -217,10 +284,25 @@ fn keeps_the_stages_that_select_targets() {
 fn never_replaces_or_adds_a_changing_stage() {
     let tables = load_embedded().unwrap();
     let (before, after) = remove_program("/srv/a", "/srv/a");
-    let renamed = [Correction::new(RuleId::L01, Class::Fuzzy, "move", "remove", CorrectionKind::Command)];
-    assert_eq!(violated(check(&before, &after, &renamed, None, &tables)), Invariant::EffectKind);
-    let reading = surface(json!([pipeline(&[written("find", &[("", text("/srv/a"))])])]));
-    assert_eq!(violated(check(&reading, &after, &[], None, &tables)), Invariant::EffectKind);
+    let renamed = [Correction::new(
+        RuleId::L01,
+        Class::Fuzzy,
+        "move",
+        "remove",
+        CorrectionKind::Command,
+    )];
+    assert_eq!(
+        violated(check(&before, &after, &renamed, None, &tables)),
+        Invariant::EffectKind
+    );
+    let reading = surface(json!([pipeline(&[written(
+        "find",
+        &[("", text("/srv/a"))]
+    )])]));
+    assert_eq!(
+        violated(check(&reading, &after, &[], None, &tables)),
+        Invariant::EffectKind
+    );
 }
 
 fn write_program(written_mode: Option<&str>, bound_mode: &str) -> (AstDocument, BoundDocument) {
@@ -248,10 +330,42 @@ fn takes_mode_parameters_only_from_the_program_or_a_value_correction() {
     let (before, after) = write_program(Some("append"), "append");
     assert_eq!(check(&before, &after, &[], None, &tables), Ok(()));
     let (before, after) = write_program(None, "overwrite");
-    assert_eq!(violated(check(&before, &after, &[], None, &tables)), Invariant::ModeParameters);
+    assert_eq!(
+        violated(check(&before, &after, &[], None, &tables)),
+        Invariant::ModeParameters
+    );
     let (before, after) = write_program(Some("truncate"), "overwrite");
-    let table = [Correction::new(RuleId::T09, Class::Certain, "truncate", "overwrite", CorrectionKind::Value)];
+    let table = [Correction::new(
+        RuleId::T09,
+        Class::Certain,
+        "truncate",
+        "overwrite",
+        CorrectionKind::Value,
+    )];
     assert_eq!(check(&before, &after, &table, None, &tables), Ok(()));
+    let (before, after) = write_program(Some("over"), "overwrite");
+    let prefix = [Correction::new(
+        RuleId::L05,
+        Class::Fuzzy,
+        "over",
+        "overwrite",
+        CorrectionKind::Value,
+    )];
+    assert_eq!(
+        violated(check(&before, &after, &prefix, None, &tables)),
+        Invariant::ModeParameters
+    );
+    let unrelated = [Correction::new(
+        RuleId::L01,
+        Class::Fuzzy,
+        "overwirte",
+        "overwrite",
+        CorrectionKind::Command,
+    )];
+    assert_eq!(
+        violated(check(&before, &after, &unrelated, None, &tables)),
+        Invariant::ModeParameters
+    );
 }
 
 #[test]
@@ -267,8 +381,17 @@ fn checks_only_renamed_effects_without_a_surface_tree() {
         effecting: &effecting,
     };
     assert_eq!(check_invariants(&input(&[])), Ok(()));
-    let renamed = [Correction::new(RuleId::L01, Class::Fuzzy, "copy", "remove", CorrectionKind::Command)];
-    assert_eq!(check_invariants(&input(&renamed)).unwrap_err().invariant, Invariant::EffectKind);
+    let renamed = [Correction::new(
+        RuleId::L01,
+        Class::Fuzzy,
+        "copy",
+        "remove",
+        CorrectionKind::Command,
+    )];
+    assert_eq!(
+        check_invariants(&input(&renamed)).unwrap_err().invariant,
+        Invariant::EffectKind
+    );
 }
 
 #[test]
@@ -286,15 +409,36 @@ fn numbers_the_invariants_from_one_to_six() {
 
 #[test]
 fn compares_paths_with_the_allowed_rewrites() {
-    assert_eq!(path_check("/srv//app/", "/srv/app", None), PathCheck::Preserved);
-    assert_eq!(path_check("//server/share/", "//server/share", None), PathCheck::Preserved);
+    assert_eq!(
+        path_check("/srv//app/", "/srv/app", None),
+        PathCheck::Preserved
+    );
+    assert_eq!(
+        path_check("//server/share/", "//server/share", None),
+        PathCheck::Preserved
+    );
     assert_eq!(path_check("/", "/", None), PathCheck::Preserved);
     assert_eq!(path_check("C:\\", "C:/", None), PathCheck::Preserved);
-    assert_eq!(path_check("~/notes", "/home/user/notes", None), PathCheck::Preserved);
-    assert_eq!(path_check("~/notes", "/home/user/other", None), PathCheck::Changed);
-    assert_eq!(path_check("registry:/HKCU/Software", "registry:/HKCU/Software", None), PathCheck::Preserved);
-    assert_eq!(path_check(".", "/srv/app", Some("/srv/app")), PathCheck::Preserved);
-    assert_eq!(path_check("src", "/srv/other/src", Some("/srv/app")), PathCheck::Changed);
+    assert_eq!(
+        path_check("~/notes", "/home/user/notes", None),
+        PathCheck::Preserved
+    );
+    assert_eq!(
+        path_check("~/notes", "/home/user/other", None),
+        PathCheck::Changed
+    );
+    assert_eq!(
+        path_check("registry:/HKCU/Software", "registry:/HKCU/Software", None),
+        PathCheck::Preserved
+    );
+    assert_eq!(
+        path_check(".", "/srv/app", Some("/srv/app")),
+        PathCheck::Preserved
+    );
+    assert_eq!(
+        path_check("src", "/srv/other/src", Some("/srv/app")),
+        PathCheck::Changed
+    );
     assert_eq!(path_check("src", "/srv/app/lib", None), PathCheck::Changed);
 }
 
@@ -328,10 +472,18 @@ fn rewrite(canonical: &str, rewrites: &[Rewrite]) -> String {
 }
 
 fn canonical_path() -> impl Strategy<Value = String> {
-    (any::<bool>(), prop::collection::vec("[A-Za-z0-9 ._-]{1,8}", 1..5)).prop_map(|(windows, segments)| {
-        let joined = segments.join("/");
-        if windows { format!("C:/{joined}") } else { format!("/{joined}") }
-    })
+    (
+        any::<bool>(),
+        prop::collection::vec("[A-Za-z0-9 ._-]{1,8}", 1..5),
+    )
+        .prop_map(|(windows, segments)| {
+            let joined = segments.join("/");
+            if windows {
+                format!("C:/{joined}")
+            } else {
+                format!("/{joined}")
+            }
+        })
 }
 
 fn rewrites() -> impl Strategy<Value = Vec<Rewrite>> {

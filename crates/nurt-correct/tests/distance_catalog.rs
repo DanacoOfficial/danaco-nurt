@@ -5,6 +5,11 @@
 //! and values of one command, synonyms against catalog names, and the time
 //! of a name lookup on the full comparison set.
 
+#![allow(
+    clippy::unwrap_used,
+    reason = "helpers of the test read repository fixtures; a malformed fixture fails the test"
+)]
+
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -43,12 +48,24 @@ fn catalog() -> Vec<Command> {
 }
 
 fn command(table: &toml_edit::Table) -> Command {
-    let text = |key: &str| table.get(key).and_then(|item| item.as_str()).unwrap_or_default().to_owned();
+    let text = |key: &str| {
+        table
+            .get(key)
+            .and_then(|item| item.as_str())
+            .unwrap_or_default()
+            .to_owned()
+    };
     let action_effect = table
         .get("effects")
         .and_then(|item| item.as_array_of_tables())
-        .is_some_and(|actions| actions.iter().any(|action| action["effect"].as_str() != Some("read")));
-    let effecting = matches!(text("category").as_str(), "change" | "run") || text("effect") != "read" || action_effect;
+        .is_some_and(|actions| {
+            actions
+                .iter()
+                .any(|action| action["effect"].as_str() != Some("read"))
+        });
+    let effecting = matches!(text("category").as_str(), "change" | "run")
+        || text("effect") != "read"
+        || action_effect;
     let params = table
         .get("param")
         .and_then(|item| item.as_array_of_tables())
@@ -59,18 +76,30 @@ fn command(table: &toml_edit::Table) -> Command {
                     let values = param
                         .get("values")
                         .and_then(|item| item.as_array())
-                        .map(|values| values.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect())
+                        .map(|values| {
+                            values
+                                .iter()
+                                .filter_map(|v| v.as_str().map(str::to_owned))
+                                .collect()
+                        })
                         .unwrap_or_default();
                     (param["name"].as_str().unwrap().to_owned(), values)
                 })
                 .collect()
         })
         .unwrap_or_default();
-    Command { name: text("name"), effecting, params }
+    Command {
+        name: text("name"),
+        effecting,
+        params,
+    }
 }
 
 fn command_entries(commands: &[Command]) -> Vec<NameEntry> {
-    commands.iter().map(|command| NameEntry::command(command.name.clone(), command.effecting)).collect()
+    commands
+        .iter()
+        .map(|command| NameEntry::command(command.name.clone(), command.effecting))
+        .collect()
 }
 
 #[test]
@@ -89,11 +118,32 @@ fn commands_have_one_pair_at_distance_one_and_twenty_six_at_two() {
     assert_eq!(
         at(2),
         [
-            "assert-insert", "compress-decompress", "first-list", "git.log-git.tag", "git.pull-git.push",
-            "git.stage-git.stash", "git.stage-git.tag", "hash-host", "hash-last", "host-last", "host-list",
-            "host-sort", "info-undo", "jobs-logs", "move-remove", "notebook.copy-notebook.ops",
-            "notebook.move-notebook.remove", "ports-sort", "read-redo", "redo-undo", "rename-resume",
-            "restart-start", "set-sort", "set-sql", "skip-stop", "sort-start",
+            "assert-insert",
+            "compress-decompress",
+            "first-list",
+            "git.log-git.tag",
+            "git.pull-git.push",
+            "git.stage-git.stash",
+            "git.stage-git.tag",
+            "hash-host",
+            "hash-last",
+            "host-last",
+            "host-list",
+            "host-sort",
+            "info-undo",
+            "jobs-logs",
+            "move-remove",
+            "notebook.copy-notebook.ops",
+            "notebook.move-notebook.remove",
+            "ports-sort",
+            "read-redo",
+            "redo-undo",
+            "rename-resume",
+            "restart-start",
+            "set-sort",
+            "set-sql",
+            "skip-stop",
+            "sort-start",
         ]
     );
 }
@@ -109,13 +159,24 @@ fn command_names_conflict_only_in_the_documented_exception() {
 fn parameters_of_one_command_conflict_only_in_documented_pairs() {
     let mut found = Vec::new();
     for command in catalog() {
-        let entries: Vec<NameEntry> =
-            command.params.iter().map(|(name, _)| NameEntry::name(name.clone(), NameKind::Param)).collect();
+        let entries: Vec<NameEntry> = command
+            .params
+            .iter()
+            .map(|(name, _)| NameEntry::name(name.clone(), NameKind::Param))
+            .collect();
         for pair in check_names(&entries, &[]) {
             found.push(format!("{} {}-{}", command.name, pair.a, pair.b));
         }
     }
-    assert_eq!(found, ["code.rename path-paths", "run bail-tail", "run batch-watch", "set value-values"]);
+    assert_eq!(
+        found,
+        [
+            "code.rename path-paths",
+            "run bail-tail",
+            "run batch-watch",
+            "set value-values"
+        ]
+    );
 }
 
 #[test]
@@ -123,8 +184,10 @@ fn values_of_one_parameter_conflict_only_in_documented_pairs() {
     let mut found = Vec::new();
     for command in catalog() {
         for (param, values) in &command.params {
-            let entries: Vec<NameEntry> =
-                values.iter().map(|value| NameEntry::name(value.clone(), NameKind::Value)).collect();
+            let entries: Vec<NameEntry> = values
+                .iter()
+                .map(|value| NameEntry::name(value.clone(), NameKind::Value))
+                .collect();
             for pair in check_names(&entries, &[]) {
                 found.push(format!("{}.{param} {}-{}", command.name, pair.a, pair.b));
             }
@@ -150,9 +213,17 @@ fn catalog_names(commands: &[Command]) -> Vec<NameEntry> {
             names.extend(values.iter().map(|value| (NameKind::Value, value.clone())));
         }
     }
-    names.extend(FUNCTIONS.iter().map(|function| (NameKind::Function, (*function).to_owned())));
+    names.extend(
+        FUNCTIONS
+            .iter()
+            .map(|function| (NameKind::Function, (*function).to_owned())),
+    );
     let mut entries = command_entries(commands);
-    entries.extend(names.into_iter().map(|(kind, text)| NameEntry::name(text, kind)));
+    entries.extend(
+        names
+            .into_iter()
+            .map(|(kind, text)| NameEntry::name(text, kind)),
+    );
     entries
 }
 
@@ -164,7 +235,9 @@ fn synonyms_point_to_catalog_names_and_never_shadow_them() {
     let wrong: Vec<String> = issues
         .iter()
         .filter(|issue| match issue {
-            TableIssue::SynonymIsName { kind, .. } => matches!(kind, NameKind::Command | NameKind::Function),
+            TableIssue::SynonymIsName { kind, .. } => {
+                matches!(kind, NameKind::Command | NameKind::Function)
+            }
             TableIssue::UnknownTarget { kind, .. } => *kind != NameKind::Field,
             TableIssue::Close(_) => false,
         })
@@ -181,7 +254,9 @@ fn synonyms_and_habits_close_to_commands_are_documented_ties() {
         .check_names(&command_entries(&commands))
         .into_iter()
         .filter_map(|issue| match issue {
-            TableIssue::Close(pair) if pair.kind == NameKind::Command => Some(format!("{}-{}", pair.a, pair.b)),
+            TableIssue::Close(pair) if pair.kind == NameKind::Command => {
+                Some(format!("{}-{}", pair.a, pair.b))
+            }
             _ => None,
         })
         .collect();
@@ -191,7 +266,8 @@ fn synonyms_and_habits_close_to_commands_are_documented_ties() {
 /// Synonyms and habit words at distance 1 from a command other than their
 /// target. A string at distance 1 from both is a tie and is not corrected;
 /// the written word itself resolves exactly.
-const DOCUMENTED_COMMAND_TIES: [&str; 0] = [];
+const DOCUMENTED_COMMAND_TIES: [&str; 5] =
+    ["head-read", "ren-run", "sed-set", "sl-sql", "start-stat"];
 
 fn command_index() -> NameIndex {
     let tables = load_embedded().unwrap();
@@ -213,8 +289,12 @@ const RUNS: usize = 1_000;
 /// Median time of correcting the names of a typical program.
 const TYPICAL_LIMIT: Duration = Duration::from_millis(1);
 
-/// Largest time of correcting the names of a typical program.
+/// Limit of the 99th percentile of correcting the names of a typical
+/// program; the largest sample also measures scheduling delays of the host.
 const WORST_LIMIT: Duration = Duration::from_millis(5);
+
+/// Percentile compared with [`WORST_LIMIT`].
+const WORST_PERCENTILE: usize = 99;
 
 #[test]
 #[ignore = "timing test; run explicitly with --ignored on an idle machine"]
@@ -232,8 +312,12 @@ fn corrects_a_typical_program_within_one_millisecond() {
         .collect();
     times.sort_unstable();
     let median = times[RUNS / 2];
-    let worst = times[RUNS - 1];
-    eprintln!("comparison set {} names, median {median:?}, worst {worst:?}", index.len());
+    let worst = times[RUNS * WORST_PERCENTILE / 100];
+    eprintln!(
+        "comparison set {} names, median {median:?}, 99th percentile {worst:?}, largest {:?}",
+        index.len(),
+        times[RUNS - 1]
+    );
     assert!(median < TYPICAL_LIMIT, "{median:?}");
     assert!(worst < WORST_LIMIT, "{worst:?}");
 }

@@ -235,6 +235,8 @@ pub enum CorrectionKind {
     Order,
     /// White space.
     Whitespace,
+    /// Reserved word of the language (`let`, `and`, `not`, …).
+    Keyword,
     /// Syntax of another variant.
     Syntax,
     /// Translation of a habit of another shell.
@@ -243,7 +245,7 @@ pub enum CorrectionKind {
 
 impl CorrectionKind {
     /// Every kind, in declaration order.
-    pub const ALL: [Self; 24] = [
+    pub const ALL: [Self; 25] = [
         Self::Command,
         Self::Param,
         Self::Value,
@@ -266,6 +268,7 @@ impl CorrectionKind {
         Self::Separator,
         Self::Order,
         Self::Whitespace,
+        Self::Keyword,
         Self::Syntax,
         Self::Habit,
     ];
@@ -296,6 +299,7 @@ impl CorrectionKind {
             Self::Separator => "separator",
             Self::Order => "order",
             Self::Whitespace => "whitespace",
+            Self::Keyword => "keyword",
             Self::Syntax => "syntax",
             Self::Habit => "habit",
         }
@@ -580,6 +584,10 @@ mod tests {
 
     #[test]
     fn round_trips_kinds() {
+        assert_eq!(
+            "keyword".parse::<CorrectionKind>(),
+            Ok(CorrectionKind::Keyword)
+        );
         for kind in CorrectionKind::ALL {
             assert_eq!(kind.as_str().parse::<CorrectionKind>(), Ok(kind));
             assert_eq!(kind.to_string(), kind.as_str());

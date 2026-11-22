@@ -397,7 +397,7 @@ mod tests {
         clock.advance(Duration::from_millis(1));
         let error = store.accept("c1").unwrap_err();
         assert_eq!(error.code(), ErrorCode::ExpiredCandidate);
-        assert_eq!(error.stage, Some(Stage::Parse));
+        assert_eq!(error.stage(), Some(Stage::Parse));
         assert_eq!(error.found.as_deref(), Some("c1"));
         assert!(store.is_empty());
     }

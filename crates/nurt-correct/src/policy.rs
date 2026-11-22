@@ -29,7 +29,7 @@ use nurt_contracts::spec::StageSpec;
 pub use nurt_contracts::report::CorrectionClass as Class;
 
 use crate::distance::{EFFECTING_MAX_DISTANCE, fold};
-use crate::record::{Correction, CorrectionKind};
+use crate::record::{Correction, CorrectionKind, RuleId};
 use crate::tables::Tables;
 use crate::types::{self, Outcome, Written};
 
@@ -284,7 +284,7 @@ impl From<&CorrectionConfig> for Budget {
 /// ```
 #[must_use]
 pub fn over_budget(count: usize, program: ProgramKind, budget: &Budget) -> bool {
-    u64::try_from(count).map_or(true, |count| count > u64::from(budget.limit(program)))
+    count > usize::try_from(budget.limit(program)).unwrap_or(usize::MAX)
 }
 
 /// Stages that select the targets of a change.
@@ -456,12 +456,21 @@ pub enum PathCheck {
 pub fn path_check(written: &str, bound: &str, base: Option<&str>) -> PathCheck {
     let normalized = normalize_path(written);
     if is_absolute(&normalized) {
-        return if normalized == bound { PathCheck::Preserved } else { PathCheck::Changed };
+        return if normalized == bound {
+            PathCheck::Preserved
+        } else {
+            PathCheck::Changed
+        };
     }
     if let Some(home) = normalized.strip_prefix('~') {
         let tail = home.trim_start_matches('/');
-        let preserved = is_absolute(bound) && (tail.is_empty() || bound.ends_with(&format!("/{tail}")));
-        return if preserved { PathCheck::Preserved } else { PathCheck::Changed };
+        let preserved =
+            is_absolute(bound) && (tail.is_empty() || bound.ends_with(&format!("/{tail}")));
+        return if preserved {
+            PathCheck::Preserved
+        } else {
+            PathCheck::Changed
+        };
     }
     let relative = strip_current(&normalized);
     match base {
@@ -491,12 +500,15 @@ fn has_drive(path: &str) -> bool {
 }
 
 fn is_absolute(path: &str) -> bool {
-    path.starts_with('/') || (has_drive(path) && path.as_bytes().get(2) == Some(&b'/')) || is_scheme(path)
+    path.starts_with('/')
+        || (has_drive(path) && path.as_bytes().get(2) == Some(&b'/'))
+        || is_scheme(path)
 }
 
 fn is_scheme(path: &str) -> bool {
-    path.split_once(":/")
-        .is_some_and(|(scheme, _)| scheme.len() > 1 && scheme.bytes().all(|b| b.is_ascii_lowercase()))
+    path.split_once(":/").is_some_and(|(scheme, _)| {
+        scheme.len() > 1 && scheme.bytes().all(|b| b.is_ascii_lowercase())
+    })
 }
 
 fn normalize_path(path: &str) -> String {
@@ -566,7 +578,9 @@ impl SurfaceFacts {
 
     fn walk(&mut self, expr: &Expr) {
         match expr {
-            Expr::Text { v, .. } | Expr::Ident { v, .. } | Expr::Regex { v, .. } => self.texts.push(v.clone()),
+            Expr::Text { v, .. } | Expr::Ident { v, .. } | Expr::Regex { v, .. } => {
+                self.texts.push(v.clone())
+            }
             Expr::Int { v, .. } => self.ints.push(*v),
             Expr::Num { v, .. } => self.add_number(*v),
             Expr::Bool { v, .. } => self.texts.push(v.to_string()),
@@ -586,7 +600,8 @@ impl SurfaceFacts {
         }
     }
 
-    #[expect(clippy::cast_possible_truncation, reason = "only integral values within the i64 range are kept")]
+    /// Keeps a number with a zero fraction as an integer; the range check
+    /// makes the conversion exact.
     fn add_number(&mut self, value: f64) {
         if value.fract() == 0.0 && value.abs() < I64_LIMIT {
             self.ints.push(value as i64);
@@ -642,14 +657,17 @@ fn command_renames(corrections: &[Correction]) -> HashMap<String, String> {
 }
 
 fn rename(renames: &HashMap<String, String>, name: &str) -> String {
-    renames.get(&fold(name)).cloned().unwrap_or_else(|| name.to_owned())
+    renames
+        .get(&fold(name))
+        .cloned()
+        .unwrap_or_else(|| name.to_owned())
 }
 
-#[derive(Debug, Default)]
 /// Statement index of a value and whether it belongs to the head stage of
 /// the statement.
 type Origin = (usize, bool);
 
+#[derive(Debug)]
 struct BoundFacts {
     literals: Vec<(LiteralKind, String)>,
     ints: Vec<(Origin, i64)>,
@@ -669,15 +687,22 @@ impl BoundFacts {
             modes: Vec::new(),
             at: (0, false),
         };
-        let pipelines = document.program.statements.iter().filter_map(|statement| match statement {
-            BoundStatement::Let(binding) => Some(&binding.value),
-            BoundStatement::Pipeline(pipeline) => Some(pipeline),
-            _ => None,
-        });
+        let pipelines =
+            document
+                .program
+                .statements
+                .iter()
+                .filter_map(|statement| match statement {
+                    BoundStatement::Let(binding) => Some(&binding.value),
+                    BoundStatement::Pipeline(pipeline) => Some(pipeline),
+                    _ => None,
+                });
         for (position, pipeline) in pipelines.enumerate() {
-            facts
-                .pipelines
-                .push(bound_stages(pipeline).map(|stage| (stage.name.clone(), stage.phase)).collect());
+            facts.pipelines.push(
+                bound_stages(pipeline)
+                    .map(|stage| (stage.name.clone(), stage.phase))
+                    .collect(),
+            );
             facts.walk_pipeline(pipeline, position, false);
         }
         facts
@@ -693,11 +718,14 @@ impl BoundFacts {
     }
 
     fn add_arg(&mut self, stage: &BoundStage, arg: &BoundArg) {
-        let protected = COUNTING_STAGES.contains(&stage.name.as_str()) || NUMBER_PARAMS.contains(&arg.name.as_str());
+        let protected = COUNTING_STAGES.contains(&stage.name.as_str())
+            || NUMBER_PARAMS.contains(&arg.name.as_str());
         self.walk(&arg.value, protected);
-        let mode = MODE_PARAMS.contains(&arg.name.as_str()) || (stage.name == CREATE_STAGE && arg.name == TYPE_PARAM);
+        let mode = MODE_PARAMS.contains(&arg.name.as_str())
+            || (stage.name == CREATE_STAGE && arg.name == TYPE_PARAM);
         if let (true, Some(value)) = (mode, scalar_text(&arg.value)) {
-            self.modes.push((stage.name.clone(), arg.name.clone(), value));
+            self.modes
+                .push((stage.name.clone(), arg.name.clone(), value));
         }
     }
 
@@ -711,10 +739,13 @@ impl BoundFacts {
             BoundExpr::Dur { v } if protected => self.durations.push((self.at, *v)),
             BoundExpr::Range { lo, hi } => {
                 let at = self.at;
-                self.ints.extend(lo.iter().chain(hi.iter()).map(|bound| (at, *bound)));
+                self.ints
+                    .extend(lo.iter().chain(hi.iter()).map(|bound| (at, *bound)));
             }
             BoundExpr::List { items } => items.iter().for_each(|item| self.walk(item, protected)),
-            BoundExpr::Map { entries } => entries.iter().for_each(|entry| self.walk(&entry.v, protected)),
+            BoundExpr::Map { entries } => entries
+                .iter()
+                .for_each(|entry| self.walk(&entry.v, protected)),
             BoundExpr::Spread { x } | BoundExpr::Un { x, .. } => self.walk(x, protected),
             BoundExpr::Field { of: Some(of), .. } => self.walk(of, protected),
             BoundExpr::Call { args, .. } => args.iter().for_each(|arg| self.walk(arg, protected)),
@@ -749,13 +780,20 @@ fn check_renamed_effects(input: &InvariantInput<'_>) -> Result<(), InvariantViol
     match renamed {
         Some(correction) => Err(InvariantViolation::new(
             Invariant::EffectKind,
-            format!("the changing command `{}` was replaced by `{}`", correction.from, correction.to),
+            format!(
+                "the changing command `{}` was replaced by `{}`",
+                correction.from, correction.to
+            ),
         )),
         None => Ok(()),
     }
 }
 
-fn check_literals(before: &SurfaceFacts, after: &BoundFacts, base: Option<&str>) -> Result<(), InvariantViolation> {
+fn check_literals(
+    before: &SurfaceFacts,
+    after: &BoundFacts,
+    base: Option<&str>,
+) -> Result<(), InvariantViolation> {
     let mut unused: Vec<&str> = before.texts.iter().map(String::as_str).collect();
     for (kind, value) in &after.literals {
         let found = unused.iter().position(|text| match kind {
@@ -767,11 +805,19 @@ fn check_literals(before: &SurfaceFacts, after: &BoundFacts, base: Option<&str>)
             continue;
         }
         let base_chosen = *kind == LiteralKind::Path
-            && unused.iter().any(|text| path_check(text, value, base) == PathCheck::BaseChosen);
+            && unused
+                .iter()
+                .any(|text| path_check(text, value, base) == PathCheck::BaseChosen);
         return Err(if base_chosen {
-            InvariantViolation::new(Invariant::Base, format!("the relative path was resolved to `{value}` without a base"))
+            InvariantViolation::new(
+                Invariant::Base,
+                format!("the relative path was resolved to `{value}` without a base"),
+            )
         } else {
-            InvariantViolation::new(Invariant::LiteralBytes, format!("the literal `{value}` does not appear in the program"))
+            InvariantViolation::new(
+                Invariant::LiteralBytes,
+                format!("the literal `{value}` does not appear in the program"),
+            )
         });
     }
     Ok(())
@@ -795,13 +841,27 @@ fn expanded_heads(before: &SurfaceFacts, after: &BoundFacts) -> Vec<bool> {
 
 fn check_numbers(before: &SurfaceFacts, after: &BoundFacts) -> Result<(), InvariantViolation> {
     let expanded = expanded_heads(before, after);
-    let checked = |&((statement, head), _): &(Origin, _)| !(head && expanded.get(statement).copied().unwrap_or(false));
-    let mut ints = after.ints.iter().filter(|item| checked(item)).map(|(_, value)| value);
-    if let Some(value) = ints.find(|value| !before.ints.contains(value)) {
-        return Err(InvariantViolation::new(Invariant::Numbers, format!("the number {value} does not appear in the program")));
+    let checked =
+        |&(statement, head): &Origin| !(head && expanded.get(statement).copied().unwrap_or(false));
+    let int = after
+        .ints
+        .iter()
+        .filter(|(origin, _)| checked(origin))
+        .map(|&(_, value)| value)
+        .find(|value| !before.ints.contains(value));
+    if let Some(value) = int {
+        return Err(InvariantViolation::new(
+            Invariant::Numbers,
+            format!("the number {value} does not appear in the program"),
+        ));
     }
-    let mut durations = after.durations.iter().filter(|item| checked(item)).map(|(_, value)| value);
-    match durations.find(|value| !before.durations.contains(value)) {
+    let duration = after
+        .durations
+        .iter()
+        .filter(|(origin, _)| checked(origin))
+        .map(|&(_, value)| value)
+        .find(|value| !before.durations.contains(value));
+    match duration {
         Some(value) => Err(InvariantViolation::new(
             Invariant::Numbers,
             format!("the duration of {value} ms does not appear in the program"),
@@ -810,9 +870,16 @@ fn check_numbers(before: &SurfaceFacts, after: &BoundFacts) -> Result<(), Invari
     }
 }
 
-fn check_stages(before: &SurfaceFacts, after: &BoundFacts, input: &InvariantInput<'_>) -> Result<(), InvariantViolation> {
+fn check_stages(
+    before: &SurfaceFacts,
+    after: &BoundFacts,
+    input: &InvariantInput<'_>,
+) -> Result<(), InvariantViolation> {
     if before.pipelines.len() != after.pipelines.len() {
-        return Err(InvariantViolation::new(Invariant::Targets, "the number of statements changed"));
+        return Err(InvariantViolation::new(
+            Invariant::Targets,
+            "the number of statements changed",
+        ));
     }
     for (written, bound) in before.pipelines.iter().zip(&after.pipelines) {
         check_selecting(written, bound)?;
@@ -821,10 +888,21 @@ fn check_stages(before: &SurfaceFacts, after: &BoundFacts, input: &InvariantInpu
     Ok(())
 }
 
-fn check_selecting(written: &[String], bound: &[(String, Phase)]) -> Result<(), InvariantViolation> {
+fn check_selecting(
+    written: &[String],
+    bound: &[(String, Phase)],
+) -> Result<(), InvariantViolation> {
     let selecting = |name: &str| SELECTING_STAGES.contains(&name);
-    let mut before: Vec<&str> = written.iter().map(String::as_str).filter(|name| selecting(name)).collect();
-    let mut after: Vec<&str> = bound.iter().map(|(name, _)| name.as_str()).filter(|name| selecting(name)).collect();
+    let mut before: Vec<&str> = written
+        .iter()
+        .map(String::as_str)
+        .filter(|name| selecting(name))
+        .collect();
+    let mut after: Vec<&str> = bound
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .filter(|name| selecting(name))
+        .collect();
     let expanded_head = written.first().is_some_and(|head| !selecting(head))
         && bound.first().is_some_and(|(head, _)| selecting(head));
     if expanded_head && after.len() == before.len() + 1 {
@@ -847,7 +925,11 @@ fn check_effects(
     bound: &[(String, Phase)],
     effecting: &dyn Fn(&str) -> bool,
 ) -> Result<(), InvariantViolation> {
-    let mut before: Vec<&str> = written.iter().map(String::as_str).filter(|name| effecting(name)).collect();
+    let mut before: Vec<&str> = written
+        .iter()
+        .map(String::as_str)
+        .filter(|name| effecting(name))
+        .collect();
     let mut after: Vec<&str> = bound
         .iter()
         .filter(|(_, phase)| matches!(phase, Phase::Mutate | Phase::Run))
@@ -865,10 +947,17 @@ fn check_effects(
     }
 }
 
-fn check_modes(before: &SurfaceFacts, after: &BoundFacts, input: &InvariantInput<'_>) -> Result<(), InvariantViolation> {
+fn check_modes(
+    before: &SurfaceFacts,
+    after: &BoundFacts,
+    input: &InvariantInput<'_>,
+) -> Result<(), InvariantViolation> {
     for (stage, param, value) in &after.modes {
         let written = before.texts.iter().any(|text| fold(text) == fold(value));
-        let corrected = input.corrections.iter().any(|correction| fold(&correction.to) == fold(value));
+        let corrected = input
+            .corrections
+            .iter()
+            .any(|correction| is_mode_correction(correction, value));
         if !written && !corrected {
             return Err(InvariantViolation::new(
                 Invariant::ModeParameters,
@@ -877,6 +966,16 @@ fn check_modes(before: &SurfaceFacts, after: &BoundFacts, input: &InvariantInput
         }
     }
     Ok(())
+}
+
+/// A mode value may come from a value correction of the written text (an
+/// exact, table or fuzzy match), never from a prefix.
+fn is_mode_correction(correction: &Correction, value: &str) -> bool {
+    matches!(
+        correction.kind,
+        CorrectionKind::Value | CorrectionKind::Bool
+    ) && correction.rule != RuleId::L05
+        && fold(&correction.to) == fold(value)
 }
 
 #[cfg(test)]

@@ -11,6 +11,11 @@
 //! repository must equal a fresh generation; set `NURT_REGENERATE_CORPUS=1`
 //! to rewrite it.
 
+#![allow(
+    clippy::unwrap_used,
+    reason = "helpers of the test read repository fixtures; a malformed fixture fails the test"
+)]
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -29,8 +34,9 @@ const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
 const MODE_PARAMS: [&str; 3] = ["mode", "on_conflict", "recursive"];
 const MIN_PREFIX: usize = 3;
 
-// ---------------------------------------------------------------------------
-// Catalog and seeds.
+/// Largest number of cases of one mutation operator; cases of golden
+/// programs come first.
+const MAX_PER_OPERATOR: usize = 80;
 
 struct Command {
     name: String,
@@ -66,17 +72,34 @@ fn catalog() -> Vec<Command> {
 
 fn strings(item: Option<&toml_edit::Item>) -> Vec<String> {
     item.and_then(|item| item.as_array())
-        .map(|array| array.iter().filter_map(|value| value.as_str().map(str::to_owned)).collect())
+        .map(|array| {
+            array
+                .iter()
+                .filter_map(|value| value.as_str().map(str::to_owned))
+                .collect()
+        })
         .unwrap_or_default()
 }
 
 fn command(table: &toml_edit::Table) -> Command {
-    let text = |key: &str| table.get(key).and_then(|item| item.as_str()).unwrap_or_default().to_owned();
+    let text = |key: &str| {
+        table
+            .get(key)
+            .and_then(|item| item.as_str())
+            .unwrap_or_default()
+            .to_owned()
+    };
     let action_effect = table
         .get("effects")
         .and_then(|item| item.as_array_of_tables())
-        .is_some_and(|actions| actions.iter().any(|action| action["effect"].as_str() != Some("read")));
-    let effecting = matches!(text("category").as_str(), "change" | "run") || text("effect") != "read" || action_effect;
+        .is_some_and(|actions| {
+            actions
+                .iter()
+                .any(|action| action["effect"].as_str() != Some("read"))
+        });
+    let effecting = matches!(text("category").as_str(), "change" | "run")
+        || text("effect") != "read"
+        || action_effect;
     let params = table
         .get("param")
         .and_then(|item| item.as_array_of_tables())
@@ -84,20 +107,34 @@ fn command(table: &toml_edit::Table) -> Command {
             params
                 .iter()
                 .map(|param| {
-                    let required = param.get("required").and_then(|item| item.as_bool()).unwrap_or(false);
+                    let required = param
+                        .get("required")
+                        .and_then(|item| item.as_bool())
+                        .unwrap_or(false);
                     let positional = param.get("position").is_some();
                     let shape = format!(
                         "{}{}{}",
-                        param.get("type").and_then(|item| item.as_str()).unwrap_or_default(),
+                        param
+                            .get("type")
+                            .and_then(|item| item.as_str())
+                            .unwrap_or_default(),
                         if required { " required" } else { "" },
                         if positional { " positional" } else { "" }
                     );
-                    (param["name"].as_str().unwrap().to_owned(), strings(param.get("values")), shape)
+                    (
+                        param["name"].as_str().unwrap().to_owned(),
+                        strings(param.get("values")),
+                        shape,
+                    )
                 })
                 .collect()
         })
         .unwrap_or_default();
-    Command { name: text("name"), effecting, params }
+    Command {
+        name: text("name"),
+        effecting,
+        params,
+    }
 }
 
 /// One-command programs of the catalog: the command alone, or with a path
@@ -106,8 +143,11 @@ fn catalog_seeds(commands: &[Command]) -> Vec<(String, String)> {
     commands
         .iter()
         .filter_map(|command| {
-            let required: Vec<&(String, Vec<String>, String)> =
-                command.params.iter().filter(|(_, _, shape)| shape.contains("required")).collect();
+            let required: Vec<&(String, Vec<String>, String)> = command
+                .params
+                .iter()
+                .filter(|(_, _, shape)| shape.contains("required"))
+                .collect();
             let program = match required.as_slice() {
                 [] => command.name.clone(),
                 [(_, _, shape)] if shape.starts_with("path") && shape.contains("positional") => {
@@ -120,17 +160,23 @@ fn catalog_seeds(commands: &[Command]) -> Vec<(String, String)> {
         .collect()
 }
 
+/// Golden programs of variant A; the files of variants B and C are named
+/// `<stem>.b.nurt` and `<stem>.c.nurt`.
 fn golden_seeds() -> Vec<(String, String)> {
     sorted_files(&root().join("spec/golden/ast"), "nurt")
         .iter()
-        .map(|path| {
+        .filter_map(|path| {
             let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
-            (stem, std::fs::read_to_string(path).unwrap().trim_end().to_owned())
+            (!stem.contains('.')).then(|| {
+                (
+                    stem,
+                    std::fs::read_to_string(path).unwrap().trim_end().to_owned(),
+                )
+            })
         })
         .collect()
 }
 
-// ---------------------------------------------------------------------------
 // Deterministic pseudo-random numbers (SplitMix64).
 
 struct Random(u64);
@@ -152,9 +198,6 @@ impl Random {
         char::from(ALPHABET[self.below(ALPHABET.len())])
     }
 }
-
-// ---------------------------------------------------------------------------
-// Scanner of canonical programs.
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum TokenKind {
@@ -244,7 +287,9 @@ impl<'a> Scanner<'a> {
     }
 
     fn raw_string(&mut self) {
-        let end = self.text[self.position + 3..].find("\"#").map_or(self.bytes.len(), |index| self.position + 3 + index + 2);
+        let end = self.text[self.position + 3..]
+            .find("\"#")
+            .map_or(self.bytes.len(), |index| self.position + 3 + index + 2);
         self.position = end;
         self.expect_command = false;
     }
@@ -310,7 +355,8 @@ impl<'a> Scanner<'a> {
         }
         let token = &self.text[start..self.position];
         let unit_start = token.find(|c: char| c.is_ascii_alphabetic());
-        if unit_start.is_some_and(|index| ["b", "kb", "mb", "gb", "tb"].contains(&&token[index..])) {
+        if unit_start.is_some_and(|index| ["b", "kb", "mb", "gb", "tb"].contains(&&token[index..]))
+        {
             self.push(TokenKind::Size, start, self.position);
         }
         self.expect_command = false;
@@ -366,7 +412,6 @@ impl<'a> Scanner<'a> {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Naive acceptance rules, independent of the crate.
 
 fn naive_distance(a: &str, b: &str) -> usize {
@@ -376,13 +421,15 @@ fn naive_distance(a: &str, b: &str) -> usize {
     for (i, row) in table.iter_mut().enumerate() {
         row[0] = i;
     }
-    for j in 0..=b.len() {
-        table[0][j] = j;
+    for (j, cell) in table[0].iter_mut().enumerate() {
+        *cell = j;
     }
     for i in 1..=a.len() {
         for j in 1..=b.len() {
             let cost = usize::from(a[i - 1] != b[j - 1]);
-            let mut best = (table[i - 1][j] + 1).min(table[i][j - 1] + 1).min(table[i - 1][j - 1] + cost);
+            let mut best = (table[i - 1][j] + 1)
+                .min(table[i][j - 1] + 1)
+                .min(table[i - 1][j - 1] + cost);
             if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
                 best = best.min(table[i - 2][j - 2] + 1);
             }
@@ -417,9 +464,17 @@ enum Verdict {
 }
 
 fn naive_fuzzy(written: &str, set: &[Candidate]) -> Option<Verdict> {
-    let distances: Vec<usize> = set.iter().map(|candidate| naive_distance(written, &candidate.text)).collect();
+    let distances: Vec<usize> = set
+        .iter()
+        .map(|candidate| naive_distance(written, &candidate.text))
+        .collect();
     let best = *distances.iter().min()?;
-    let winners: Vec<&Candidate> = set.iter().zip(&distances).filter(|(_, d)| **d == best).map(|(c, _)| c).collect();
+    let winners: Vec<&Candidate> = set
+        .iter()
+        .zip(&distances)
+        .filter(|(_, d)| **d == best)
+        .map(|(c, _)| c)
+        .collect();
     let texts: BTreeSet<&str> = winners.iter().map(|winner| winner.text.as_str()).collect();
     let name = winners.iter().find(|winner| winner.name)?;
     if texts.len() > 1 {
@@ -428,7 +483,11 @@ fn naive_fuzzy(written: &str, set: &[Candidate]) -> Option<Verdict> {
     let accepted = best <= naive_threshold(name.text.chars().count())
         && written.chars().next() == name.text.chars().next()
         && !(name.effecting && best > 1);
-    Some(if accepted { Verdict::Fuzzy(name.text.clone()) } else { Verdict::None })
+    Some(if accepted {
+        Verdict::Fuzzy(name.text.clone())
+    } else {
+        Verdict::None
+    })
 }
 
 fn naive_prefix(written: &str, set: &[Candidate]) -> Option<String> {
@@ -439,7 +498,12 @@ fn naive_prefix(written: &str, set: &[Candidate]) -> Option<String> {
         .iter()
         .filter(|candidate| candidate.name || candidate.target.is_some())
         .filter(|candidate| candidate.text.starts_with(written))
-        .map(|candidate| candidate.target.clone().unwrap_or_else(|| candidate.text.clone()))
+        .map(|candidate| {
+            candidate
+                .target
+                .clone()
+                .unwrap_or_else(|| candidate.text.clone())
+        })
         .collect();
     (targets.len() == 1).then(|| targets.into_iter().next().unwrap_or_default())
 }
@@ -448,7 +512,11 @@ fn naive_prefix(written: &str, set: &[Candidate]) -> Option<String> {
 /// `intended`.
 fn naive_verdict(written: &str, set: &[Candidate], prefix: bool) -> Verdict {
     if let Some(exact) = set.iter().find(|candidate| candidate.text == written) {
-        return if exact.name || exact.target.is_some() { Verdict::Other } else { Verdict::None };
+        return if exact.name || exact.target.is_some() {
+            Verdict::Other
+        } else {
+            Verdict::None
+        };
     }
     let fuzzy = naive_fuzzy(written, set);
     if !prefix {
@@ -464,17 +532,22 @@ fn naive_verdict(written: &str, set: &[Candidate], prefix: bool) -> Verdict {
 }
 
 fn set_has_tie(written: &str, set: &[Candidate]) -> bool {
-    let distances: Vec<usize> = set.iter().map(|candidate| naive_distance(written, &candidate.text)).collect();
+    let distances: Vec<usize> = set
+        .iter()
+        .map(|candidate| naive_distance(written, &candidate.text))
+        .collect();
     let Some(best) = distances.iter().min() else {
         return false;
     };
-    let winners: Vec<&Candidate> = set.iter().zip(&distances).filter(|(_, d)| *d == best).map(|(c, _)| c).collect();
+    let winners: Vec<&Candidate> = set
+        .iter()
+        .zip(&distances)
+        .filter(|(_, d)| *d == best)
+        .map(|(c, _)| c)
+        .collect();
     let texts: BTreeSet<&str> = winners.iter().map(|winner| winner.text.as_str()).collect();
     winners.iter().any(|winner| winner.name) && texts.len() > 1
 }
-
-// ---------------------------------------------------------------------------
-// Comparison sets.
 
 struct World {
     commands: Vec<Command>,
@@ -486,22 +559,51 @@ impl World {
     fn new() -> Self {
         let commands = catalog();
         let tables = load_embedded().unwrap();
-        let names: Vec<(String, bool)> = commands.iter().map(|c| (c.name.clone(), c.effecting)).collect();
+        let names: Vec<(String, bool)> = commands
+            .iter()
+            .map(|c| (c.name.clone(), c.effecting))
+            .collect();
         let command_set = Self::set(&tables, NameKind::Command, &names, true);
-        Self { commands, tables, command_set }
+        Self {
+            commands,
+            tables,
+            command_set,
+        }
     }
 
-    fn set(tables: &Tables, kind: NameKind, names: &[(String, bool)], habits: bool) -> Vec<Candidate> {
+    fn set(
+        tables: &Tables,
+        kind: NameKind,
+        names: &[(String, bool)],
+        habits: bool,
+    ) -> Vec<Candidate> {
         let mut set: Vec<Candidate> = names
             .iter()
-            .map(|(text, effecting)| Candidate { text: text.clone(), target: None, name: true, effecting: *effecting })
+            .map(|(text, effecting)| Candidate {
+                text: text.clone(),
+                target: None,
+                name: true,
+                effecting: *effecting,
+            })
             .collect();
         for entry in tables.name_entries() {
             let candidate = match &entry.role {
-                NameRole::Synonym { to } if entry.kind == kind && names.iter().any(|(name, _)| name == to) => {
-                    Candidate { text: entry.text.clone(), target: Some(to.clone()), name: false, effecting: false }
+                NameRole::Synonym { to }
+                    if entry.kind == kind && names.iter().any(|(name, _)| name == to) =>
+                {
+                    Candidate {
+                        text: entry.text.clone(),
+                        target: Some(to.clone()),
+                        name: false,
+                        effecting: false,
+                    }
                 }
-                NameRole::Habit if habits => Candidate { text: entry.text.clone(), target: None, name: false, effecting: false },
+                NameRole::Habit if habits => Candidate {
+                    text: entry.text.clone(),
+                    target: None,
+                    name: false,
+                    effecting: false,
+                },
                 _ => continue,
             };
             set.push(candidate);
@@ -520,7 +622,13 @@ impl World {
     fn param_set(&self, command: &str) -> Vec<Candidate> {
         let names: Vec<(String, bool)> = self
             .command(command)
-            .map(|command| command.params.iter().map(|(name, _, _)| (name.clone(), false)).collect())
+            .map(|command| {
+                command
+                    .params
+                    .iter()
+                    .map(|(name, _, _)| (name.clone(), false))
+                    .collect()
+            })
             .unwrap_or_default();
         Self::set(&self.tables, NameKind::Param, &names, false)
     }
@@ -533,7 +641,11 @@ impl World {
     }
 
     fn value_set(&self, command: &str, param: &str) -> Vec<Candidate> {
-        let names: Vec<(String, bool)> = self.values(command, param).into_iter().map(|value| (value, false)).collect();
+        let names: Vec<(String, bool)> = self
+            .values(command, param)
+            .into_iter()
+            .map(|value| (value, false))
+            .collect();
         Self::set(&self.tables, NameKind::Value, &names, false)
     }
 
@@ -545,9 +657,6 @@ impl World {
 fn is_mode(command: &str, param: &str) -> bool {
     MODE_PARAMS.contains(&param) || (command == "create" && param == "type")
 }
-
-// ---------------------------------------------------------------------------
-// Mutations.
 
 fn typo(word: &str, random: &mut Random) -> String {
     let chars: Vec<char> = word.chars().collect();
@@ -641,14 +750,32 @@ impl Generator<'_> {
             Verdict::None => json!({ "error": unknown }),
             _ => return None,
         };
-        Some(Case { operator, input: replace(program, token, &written), expect, kind, from: word.to_owned(), to: written, scope })
+        Some(Case {
+            operator,
+            input: replace(program, token, &written),
+            expect,
+            kind,
+            from: word.to_owned(),
+            to: written,
+            scope,
+        })
     }
 
     fn command(&mut self, seed: &str, program: &str, token: &Token) {
         let word = program[token.start..token.end].to_owned();
-        for (operator, written) in [("typo-command", typo(&word, &mut self.random)), ("far-command", far_typo(&word, &mut self.random))] {
+        for (operator, written) in [
+            ("typo-command", typo(&word, &mut self.random)),
+            ("far-command", far_typo(&word, &mut self.random)),
+        ] {
             let verdict = naive_verdict(&written, &self.world.command_set, false);
-            if let Some(case) = self.name_case(operator, program, token, written, &verdict, ("command", "E_UNKNOWN_COMMAND", None)) {
+            if let Some(case) = self.name_case(
+                operator,
+                program,
+                token,
+                written,
+                &verdict,
+                ("command", "E_UNKNOWN_COMMAND", None),
+            ) {
                 self.add(seed, program, case);
             }
         }
@@ -657,7 +784,15 @@ impl Generator<'_> {
         self.add(
             seed,
             program,
-            Case { operator: "case-command", input: replace(program, token, &capital), expect: canonical(program, "L03", "C"), kind: "command", from: word.clone(), to: capital, scope: None },
+            Case {
+                operator: "case-command",
+                input: replace(program, token, &capital),
+                expect: canonical(program, "L03", "C"),
+                kind: "command",
+                from: word.clone(),
+                to: capital,
+                scope: None,
+            },
         );
         self.synonym(seed, program, token, &word);
     }
@@ -667,7 +802,9 @@ impl Generator<'_> {
             .world
             .command_set
             .iter()
-            .filter(|candidate| candidate.target.as_deref() == Some(word) && !self.world.habit(&candidate.text))
+            .filter(|candidate| {
+                candidate.target.as_deref() == Some(word) && !self.world.habit(&candidate.text)
+            })
             .map(|candidate| candidate.text.clone())
             .filter(|text| text.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
             .collect();
@@ -678,19 +815,37 @@ impl Generator<'_> {
         self.add(
             seed,
             program,
-            Case { operator: "synonym-command", input: replace(program, token, &written), expect: canonical(program, "L06", "C"), kind: "command", from: word.to_owned(), to: written, scope: None },
+            Case {
+                operator: "synonym-command",
+                input: replace(program, token, &written),
+                expect: canonical(program, "L06", "C"),
+                kind: "command",
+                from: word.to_owned(),
+                to: written,
+                scope: None,
+            },
         );
     }
 
     fn param(&mut self, seed: &str, program: &str, token: &Token, command: &str) {
         let word = program[token.start..token.end].to_owned();
         let set = self.world.param_set(command);
-        if !set.iter().any(|candidate| candidate.name && candidate.text == word) {
+        if !set
+            .iter()
+            .any(|candidate| candidate.name && candidate.text == word)
+        {
             return;
         }
         let written = typo(&word, &mut self.random);
         let verdict = naive_verdict(&written, &set, true);
-        if let Some(case) = self.name_case("typo-param", program, token, written, &verdict, ("param", "E_UNKNOWN_PARAM", Some(command.to_owned()))) {
+        if let Some(case) = self.name_case(
+            "typo-param",
+            program,
+            token,
+            written,
+            &verdict,
+            ("param", "E_UNKNOWN_PARAM", Some(command.to_owned())),
+        ) {
             self.add(seed, program, case);
         }
         if word.contains('_') {
@@ -698,7 +853,15 @@ impl Generator<'_> {
             self.add(
                 seed,
                 program,
-                Case { operator: "convention-param", input: replace(program, token, &camel), expect: canonical(program, "L04", "C"), kind: "param", from: word, to: camel, scope: Some(command.to_owned()) },
+                Case {
+                    operator: "convention-param",
+                    input: replace(program, token, &camel),
+                    expect: canonical(program, "L04", "C"),
+                    kind: "param",
+                    from: word,
+                    to: camel,
+                    scope: Some(command.to_owned()),
+                },
             );
         }
     }
@@ -712,7 +875,14 @@ impl Generator<'_> {
         let set = self.world.value_set(command, param);
         let verdict = naive_verdict(&written, &set, !is_mode(command, param));
         let scope = Some(format!("{command}.{param}"));
-        if let Some(case) = self.name_case("typo-value", program, token, written, &verdict, ("value", "E_UNKNOWN_VALUE", scope)) {
+        if let Some(case) = self.name_case(
+            "typo-value",
+            program,
+            token,
+            written,
+            &verdict,
+            ("value", "E_UNKNOWN_VALUE", scope),
+        ) {
             self.add(seed, program, case);
         }
     }
@@ -723,19 +893,41 @@ impl Generator<'_> {
         self.add(
             seed,
             program,
-            Case { operator: "word-bool", input: replace(program, token, written), expect: canonical(program, "T04", "C"), kind: "bool", from: word.to_owned(), to: written.to_owned(), scope: None },
+            Case {
+                operator: "word-bool",
+                input: replace(program, token, written),
+                expect: canonical(program, "T04", "C"),
+                kind: "bool",
+                from: word.to_owned(),
+                to: written.to_owned(),
+                scope: None,
+            },
         );
     }
 
     fn size(&mut self, seed: &str, program: &str, token: &Token) {
         let word = &program[token.start..token.end];
-        let split = word.find(|c: char| c.is_ascii_alphabetic()).unwrap_or(word.len());
+        let split = word
+            .find(|c: char| c.is_ascii_alphabetic())
+            .unwrap_or(word.len());
         let (number, unit) = word.split_at(split);
-        let written = if self.random.below(2) == 0 { format!("{number} {}", unit.to_ascii_uppercase()) } else { format!("{number} {}", spelled_unit(unit)) };
+        let written = if self.random.below(2) == 0 {
+            format!("{number} {}", unit.to_ascii_uppercase())
+        } else {
+            format!("{number} {}", spelled_unit(unit))
+        };
         self.add(
             seed,
             program,
-            Case { operator: "unit-size", input: replace(program, token, &written), expect: canonical(program, "T01", "C"), kind: "size", from: word.to_owned(), to: written, scope: None },
+            Case {
+                operator: "unit-size",
+                input: replace(program, token, &written),
+                expect: canonical(program, "T01", "C"),
+                kind: "size",
+                from: word.to_owned(),
+                to: written,
+                scope: None,
+            },
         );
     }
 
@@ -747,7 +939,10 @@ impl Generator<'_> {
     }
 
     fn pipe(&mut self, seed: &str, program: &str, tokens: &[Token]) {
-        let pipes: Vec<&Token> = tokens.iter().filter(|token| token.kind == TokenKind::Pipe).collect();
+        let pipes: Vec<&Token> = tokens
+            .iter()
+            .filter(|token| token.kind == TokenKind::Pipe)
+            .collect();
         if pipes.is_empty() {
             return;
         }
@@ -756,31 +951,70 @@ impl Generator<'_> {
             self.add(
                 seed,
                 program,
-                Case { operator: "pipe", input: replace(program, token, written), expect: canonical(program, "L13", "C"), kind: "pipe", from: "|>".into(), to: written.into(), scope: None },
+                Case {
+                    operator: "pipe",
+                    input: replace(program, token, written),
+                    expect: canonical(program, "L13", "C"),
+                    kind: "pipe",
+                    from: "|>".into(),
+                    to: written.into(),
+                    scope: None,
+                },
             );
         }
     }
 
     fn separators(&mut self, seed: &str, program: &str, tokens: &[Token]) {
-        let params: Vec<&Token> = tokens.iter().filter(|token| matches!(token.kind, TokenKind::Param { .. })).collect();
+        let params: Vec<&Token> = tokens
+            .iter()
+            .filter(|token| matches!(token.kind, TokenKind::Param { .. }))
+            .collect();
         if params.is_empty() {
             return;
         }
         let token = params[self.random.below(params.len())];
-        let colon = Token { kind: TokenKind::Text, start: token.end, end: token.end + 2 };
+        let colon = Token {
+            kind: TokenKind::Text,
+            start: token.end,
+            end: token.end + 2,
+        };
         if program.get(colon.start..colon.end) == Some(": ") {
             self.add(
                 seed,
                 program,
-                Case { operator: "separator-equals", input: replace(program, &colon, "="), expect: canonical(program, "L16", "C"), kind: "separator", from: ": ".into(), to: "=".into(), scope: None },
+                Case {
+                    operator: "separator-equals",
+                    input: replace(program, &colon, "="),
+                    expect: canonical(program, "L16", "C"),
+                    kind: "separator",
+                    from: ": ".into(),
+                    to: "=".into(),
+                    scope: None,
+                },
             );
         }
-        let before = Token { kind: TokenKind::Text, start: token.start - 1, end: token.start };
-        if program.get(before.start..before.end) == Some(" ") && !program[..token.start].trim_end().ends_with(['(', '[', '{', ',', '>']) {
+        let before = Token {
+            kind: TokenKind::Text,
+            start: token.start - 1,
+            end: token.start,
+        };
+        if program.get(before.start..before.end) == Some(" ")
+            && !program[..token.start]
+                .trim_end()
+                .ends_with(['(', '[', '{', ',', '>'])
+        {
             self.add(
                 seed,
                 program,
-                Case { operator: "separator-comma", input: replace(program, &before, ", "), expect: canonical(program, "L15", "S"), kind: "separator", from: " ".into(), to: ", ".into(), scope: None },
+                Case {
+                    operator: "separator-comma",
+                    input: replace(program, &before, ", "),
+                    expect: canonical(program, "L15", "S"),
+                    kind: "separator",
+                    from: " ".into(),
+                    to: ", ".into(),
+                    scope: None,
+                },
             );
         }
     }
@@ -801,14 +1035,25 @@ impl Generator<'_> {
         if texts.is_empty() {
             return;
         }
-        for (operator, open, close) in [("quote-single", '\'', '\''), ("quote-typographic", '\u{201c}', '\u{201d}')] {
+        for (operator, open, close) in [
+            ("quote-single", '\'', '\''),
+            ("quote-typographic", '\u{201c}', '\u{201d}'),
+        ] {
             let token = texts[self.random.below(texts.len())];
             let inner = &program[token.start + 1..token.end - 1];
             let written = format!("{open}{inner}{close}");
             self.add(
                 seed,
                 program,
-                Case { operator, input: replace(program, token, &written), expect: canonical(program, "L07", "C"), kind: "quote", from: program[token.start..token.end].to_owned(), to: written, scope: None },
+                Case {
+                    operator,
+                    input: replace(program, token, &written),
+                    expect: canonical(program, "L07", "C"),
+                    kind: "quote",
+                    from: program[token.start..token.end].to_owned(),
+                    to: written,
+                    scope: None,
+                },
             );
         }
     }
@@ -818,7 +1063,10 @@ impl Generator<'_> {
             .into_iter()
             .filter(|token| {
                 let inner = &program[token.start + 1..token.end - 1];
-                (inner.starts_with('/') || inner.starts_with("C:/")) && inner.len() > 1 && !inner.contains([' ', '*', '?']) && !inner.ends_with('/')
+                (inner.starts_with('/') || inner.starts_with("C:/"))
+                    && inner.len() > 1
+                    && !inner.contains([' ', '*', '?'])
+                    && !inner.ends_with('/')
             })
             .collect();
         if paths.is_empty() {
@@ -830,20 +1078,44 @@ impl Generator<'_> {
         self.add(
             seed,
             program,
-            Case { operator: "path-trailing", input: replace(program, token, &quoted), expect: canonical(program, "L19", "C"), kind: "path", from: format!("\"{inner}\""), to: quoted, scope: None },
+            Case {
+                operator: "path-trailing",
+                input: replace(program, token, &quoted),
+                expect: canonical(program, "L19", "C"),
+                kind: "path",
+                from: format!("\"{inner}\""),
+                to: quoted,
+                scope: None,
+            },
         );
         if let Some(rest) = inner.strip_prefix("C:") {
             let lower = format!("\"c:{rest}\"");
             self.add(
                 seed,
                 program,
-                Case { operator: "path-drive", input: replace(program, token, &lower), expect: canonical(program, "L19", "C"), kind: "path", from: format!("\"{inner}\""), to: lower, scope: None },
+                Case {
+                    operator: "path-drive",
+                    input: replace(program, token, &lower),
+                    expect: canonical(program, "L19", "C"),
+                    kind: "path",
+                    from: format!("\"{inner}\""),
+                    to: lower,
+                    scope: None,
+                },
             );
         } else if unquoted_is_path(&inner) {
             self.add(
                 seed,
                 program,
-                Case { operator: "path-unquoted", input: replace(program, token, &inner), expect: canonical(program, "L21", "C"), kind: "path", from: format!("\"{inner}\""), to: inner.clone(), scope: None },
+                Case {
+                    operator: "path-unquoted",
+                    input: replace(program, token, &inner),
+                    expect: canonical(program, "L21", "C"),
+                    kind: "path",
+                    from: format!("\"{inner}\""),
+                    to: inner.clone(),
+                    scope: None,
+                },
             );
         }
     }
@@ -854,9 +1126,14 @@ impl Generator<'_> {
 fn unquoted_is_path(path: &str) -> bool {
     let mut segments = path.trim_start_matches('/').splitn(2, '/');
     let _first = segments.next();
-    segments
-        .next()
-        .is_some_and(|rest| !rest.split('/').next().unwrap_or_default().chars().all(|c| "imsx".contains(c)))
+    segments.next().is_some_and(|rest| {
+        !rest
+            .split('/')
+            .next()
+            .unwrap_or_default()
+            .chars()
+            .all(|c| "imsx".contains(c))
+    })
 }
 
 fn camel_case(word: &str) -> String {
@@ -885,9 +1162,6 @@ fn spelled_unit(unit: &str) -> &'static str {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Corpus file.
-
 fn program_kind(world: &World, program: &str) -> &'static str {
     let effect = Scanner::scan(program)
         .iter()
@@ -897,7 +1171,11 @@ fn program_kind(world: &World, program: &str) -> &'static str {
 }
 
 fn generate(world: &World) -> String {
-    let mut generator = Generator { world, random: Random(SEED), cases: Vec::new() };
+    let mut generator = Generator {
+        world,
+        random: Random(SEED),
+        cases: Vec::new(),
+    };
     let mut seeds = golden_seeds();
     seeds.extend(catalog_seeds(&world.commands));
     for (seed, program) in &seeds {
@@ -911,6 +1189,9 @@ fn generate(world: &World) -> String {
             continue;
         }
         let counter = counters.entry(case.operator).or_default();
+        if *counter == MAX_PER_OPERATOR {
+            continue;
+        }
         *counter += 1;
         let id = format!("mutate-{}-{:04}", case.operator, counter);
         let mut mutation = json!({ "operator": case.operator, "kind": case.kind, "from": case.from, "to": case.to });
@@ -944,12 +1225,14 @@ fn generated_corpus_matches_the_repository() {
         std::fs::write(&path, &generated).unwrap();
     }
     let stored = std::fs::read_to_string(&path).unwrap_or_default();
-    assert!(stored == generated, "{CORPUS} is out of date; run the test with {REGENERATE}=1");
+    assert!(
+        stored == generated,
+        "{CORPUS} is out of date; run the test with {REGENERATE}=1"
+    );
     let count = generated.lines().count();
     assert!((700..=1_100).contains(&count), "{count} cases");
 }
 
-// ---------------------------------------------------------------------------
 // Component check: name, unit and boolean correction against the corpus.
 
 #[derive(Debug, Default)]
@@ -967,17 +1250,37 @@ fn resolve_mutation(world: &World, mutation: &Value) -> Option<Match> {
     let tables = &world.tables;
     match mutation["kind"].as_str()? {
         "command" => {
-            let names = world.commands.iter().map(|c| NameEntry::command(c.name.clone(), c.effecting));
+            let names = world
+                .commands
+                .iter()
+                .map(|c| NameEntry::command(c.name.clone(), c.effecting));
             let index = values::index(NameKind::Command, names, tables);
-            Some(values::resolve(written, NameKind::Command, &index, tables, &options))
+            Some(values::resolve(
+                written,
+                NameKind::Command,
+                &index,
+                tables,
+                &options,
+            ))
         }
         "param" => {
-            let params: Vec<String> = world.command(scope)?.params.iter().map(|(name, _, _)| name.clone()).collect();
+            let params: Vec<String> = world
+                .command(scope)?
+                .params
+                .iter()
+                .map(|(name, _, _)| name.clone())
+                .collect();
             let params: Vec<&str> = params.iter().map(String::as_str).collect();
-            Some(values::resolve_in(written, NameKind::Param, &params, tables, &options))
+            Some(values::resolve_in(
+                written,
+                NameKind::Param,
+                &params,
+                tables,
+                &options,
+            ))
         }
         "value" => {
-            let (command, param) = scope.split_once('.')?;
+            let (command, param) = scope.rsplit_once('.')?;
             let allowed = world.values(command, param);
             let allowed: Vec<&str> = allowed.iter().map(String::as_str).collect();
             Some(if is_mode(command, param) {
@@ -995,11 +1298,15 @@ fn check_name_case(tally: &mut Tally, id: &str, expect: &Value, mutation: &Value
     let intended = mutation["from"].as_str().unwrap_or_default();
     let expected_rule = expect["rules"][0].as_str();
     match (found, expected_rule) {
-        (Match::Corrected(correction), Some(rule)) if correction.to == intended && correction.rule.to_string() == rule => {
+        (Match::Corrected(correction), Some(rule))
+            if correction.to == intended && correction.rule.to_string() == rule =>
+        {
             tally.corrected += 1;
         }
         (Match::Corrected(correction), _) if correction.to != intended => {
-            tally.false_corrections.push(format!("{id}: {} -> {}", mutation["to"], correction.to));
+            tally
+                .false_corrections
+                .push(format!("{id}: {} -> {}", mutation["to"], correction.to));
         }
         (Match::Tie(_) | Match::Unknown, None) => {}
         (found, _) => tally.mismatches.push(format!("{id}: {found:?}")),
@@ -1016,8 +1323,14 @@ fn check_literal_case(tally: &mut Tally, world: &World, id: &str, mutation: &Val
     };
     tally.checked += 1;
     match outcome {
-        Outcome::Converted(converted) if converted.to == intended && converted.class == Class::Certain => tally.corrected += 1,
-        Outcome::Converted(converted) => tally.false_corrections.push(format!("{id}: {written} -> {}", converted.to)),
+        Outcome::Converted(converted)
+            if converted.to == intended && converted.class == Class::Certain =>
+        {
+            tally.corrected += 1
+        }
+        Outcome::Converted(converted) => tally
+            .false_corrections
+            .push(format!("{id}: {written} -> {}", converted.to)),
         other => tally.mismatches.push(format!("{id}: {other:?}")),
     }
 }
@@ -1032,7 +1345,10 @@ fn generated_cases_agree_with_name_and_literal_correction() {
         let id = case["id"].as_str().unwrap_or_default();
         let mutation = &case["mutation"];
         if let Some(found) = resolve_mutation(&world, mutation) {
-            if mutation["operator"].as_str().is_some_and(|operator| operator.starts_with("typo") || operator.starts_with("far")) {
+            if mutation["operator"]
+                .as_str()
+                .is_some_and(|operator| operator.starts_with("typo") || operator.starts_with("far"))
+            {
                 check_name_case(&mut tally, id, &case["expect"], mutation, found);
             }
         } else {
@@ -1046,17 +1362,33 @@ fn generated_cases_agree_with_name_and_literal_correction() {
         100.0 * tally.corrected as f64 / tally.checked.max(1) as f64,
         tally.false_corrections.len()
     );
-    assert!(tally.false_corrections.is_empty(), "{:#?}", tally.false_corrections);
+    assert!(
+        tally.false_corrections.is_empty(),
+        "{:#?}",
+        tally.false_corrections
+    );
     assert!(tally.mismatches.is_empty(), "{:#?}", tally.mismatches);
 }
 
 #[test]
 fn naive_rules_follow_the_documented_examples() {
     let world = World::new();
-    assert_eq!(naive_verdict("remvoe", &world.command_set, false), Verdict::Fuzzy("remove".into()));
-    assert_eq!(naive_verdict("lest", &world.command_set, false), Verdict::None);
-    assert_eq!(naive_verdict("rnu", &world.command_set, false), Verdict::None);
-    assert_eq!(naive_verdict("work", &world.command_set, false), Verdict::Other);
+    assert_eq!(
+        naive_verdict("remvoe", &world.command_set, false),
+        Verdict::Fuzzy("remove".into())
+    );
+    assert_eq!(
+        naive_verdict("lest", &world.command_set, false),
+        Verdict::None
+    );
+    assert_eq!(
+        naive_verdict("rnu", &world.command_set, false),
+        Verdict::None
+    );
+    assert_eq!(
+        naive_verdict("work", &world.command_set, false),
+        Verdict::Other
+    );
     assert_eq!(naive_distance("ca", "abc"), 3);
     assert!(unquoted_is_path("/srv/app"));
     assert!(!unquoted_is_path("/srv/x"));
