@@ -1,0 +1,6 @@
+{"program": "read \"/home/user/app.env\" |> parse /^(?<key>\\w+)=(?<value>.*)$/m",
+ "command": "parse",
+ "args": {"pattern": {"kind": "value", "value": {"t": "regex", "v": {"pattern": "^(?<key>\\w+)=(?<value>.*)$", "flags": "m"}}}},
+ "input": [
+  {"kind": "content", "fields": {"path": {"t": "path", "v": "/home/user/app.env"}, "text": {"t": "text", "v": "HOST=example.com\nPORT=8080\n"}}}
+ ]}

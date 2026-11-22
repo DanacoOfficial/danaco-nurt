@@ -1,0 +1,10 @@
+{"program": "write \"/home/user/project/config.toml\" text: \"name = 1\" mode: overwrite |> verify (lines \"/home/user/project/config.toml\" |> assert contains: \"version\")",
+ "command": "verify",
+ "step": "6",
+ "args": {"check": {"kind": "pipeline", "value": {
+   "head": {"t": "stage", "name": "lines", "effect": "read", "phase": "source", "args": [{"name": "path", "value": {"t": "path", "v": "/home/user/project/config.toml"}}]},
+   "stages": [{"t": "stage", "name": "assert", "effect": "read", "phase": "check", "args": [{"name": "contains", "value": {"t": "text", "v": "version"}}]}]}}},
+ "check": {"error": {"code": "E_ASSERT", "message": "none of the 1 records contains `version`"}},
+ "input": [
+  {"kind": "effect", "fields": {"status": {"t": "enum", "v": "ok"}, "changed": {"t": "int", "v": 1}}}
+ ]}

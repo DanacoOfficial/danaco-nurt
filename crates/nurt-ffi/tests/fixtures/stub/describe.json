@@ -1,0 +1,6 @@
+{
+  "description": "Core description of the language.",
+  "function": "describe",
+  "input": null,
+  "output": ["Programs are pipelines of commands joined by |>."]
+}

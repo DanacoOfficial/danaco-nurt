@@ -1,0 +1,10 @@
+{"program": "search /oldName\\(/ \"/home/user/project/src\" |> replace \"newName(\" |> verify (run [\"go\", \"build\", \"./...\"] cwd: \"/home/user/project\" |> assert exit_code: 0)",
+ "command": "verify",
+ "step": "6",
+ "args": {"check": {"kind": "pipeline", "value": {
+   "head": {"t": "stage", "name": "run", "effect": "process", "phase": "run", "args": [{"name": "command", "value": {"t": "list", "items": [{"t": "text", "v": "go"}, {"t": "text", "v": "build"}, {"t": "text", "v": "./..."}]}}]},
+   "stages": [{"t": "stage", "name": "assert", "effect": "read", "phase": "after", "args": [{"name": "exit_code", "value": {"t": "range", "lo": 0, "hi": 0}}]}]}}},
+ "check": {"records": [{"kind": "exec", "fields": {"exit_code": {"t": "int", "v": 0}}}]},
+ "input": [
+  {"kind": "effect", "fields": {"status": {"t": "enum", "v": "ok"}, "changed": {"t": "int", "v": 2}}}
+ ]}

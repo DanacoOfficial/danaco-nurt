@@ -5,13 +5,25 @@
 //!
 //! [`VirtualClock`] implements [`Clock`] without reading the system clock.
 //! Time moves only when the test moves it ([`VirtualClock::advance`],
-//! [`VirtualClock::set_wall`], [`VirtualClock::suspend`],
-//! [`VirtualClock::reboot`]) or when a stage sleeps: [`Clock::sleep`] returns
-//! immediately and advances the clock by the requested duration.
+//! [`VirtualClock::set_wall`], [`VirtualClock::jump_wall_back`],
+//! [`VirtualClock::jump_wall_forward`], [`VirtualClock::set_local`],
+//! [`VirtualClock::suspend`], [`VirtualClock::reboot`]) or when a stage
+//! sleeps: [`Clock::sleep`] returns immediately and advances the clock by the
+//! requested duration.
+//!
+//! Local time is computed with the rules of a time zone given either by an
+//! IANA name (`Europe/Warsaw`, read from the time zone database of the
+//! system) or by a POSIX TZ string (`CET-1CEST,M3.5.0,M10.5.0/3`). POSIX
+//! strings need no database, so tests that use them behave the same on every
+//! host.
 
+use std::fmt;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
+use jiff::Timestamp;
+use jiff::civil::DateTime;
+use jiff::tz::TimeZone;
 use nurt_contracts::env::{BootId, Clock, ClockStamp, WallTime};
 use nurt_contracts::stage::{CancelReason, CancelToken};
 
@@ -21,6 +33,42 @@ pub const DEFAULT_START: WallTime = WallTime::from_unix_nanos(1_767_225_600_000_
 
 /// Boot identifier of the first boot of a virtual clock.
 pub const DEFAULT_BOOT: &str = "boot-1";
+
+/// Failure of the local time helpers of [`VirtualClock`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ZoneError {
+    /// The rejected time zone or local time.
+    pub input: String,
+    /// Description of the problem.
+    pub message: String,
+}
+
+impl fmt::Display for ZoneError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "invalid local time input `{}`: {}",
+            self.input, self.message
+        )
+    }
+}
+
+impl std::error::Error for ZoneError {}
+
+fn zone_error(input: &str, error: &jiff::Error) -> ZoneError {
+    ZoneError {
+        input: input.to_owned(),
+        message: error.to_string(),
+    }
+}
+
+/// Time zone of an IANA name or, when no such zone is known, of a POSIX TZ
+/// string.
+fn time_zone(zone: &str) -> Result<TimeZone, ZoneError> {
+    TimeZone::get(zone)
+        .or_else(|_| TimeZone::posix(zone))
+        .map_err(|error| zone_error(zone, &error))
+}
 
 #[derive(Debug, Clone)]
 struct ClockState {
@@ -100,6 +148,70 @@ impl VirtualClock {
     /// readings (a wall-clock adjustment).
     pub fn set_wall(&self, wall: WallTime) {
         self.lock().wall = wall;
+    }
+
+    /// Moves wall time backwards by `duration` without touching the
+    /// monotonic readings, as a clock correction of the system does.
+    pub fn jump_wall_back(&self, duration: Duration) {
+        let mut state = self.lock();
+        let delta = i128::try_from(duration.as_nanos()).unwrap_or(i128::MAX);
+        state.wall = WallTime(state.wall.0.saturating_sub(delta));
+    }
+
+    /// Moves wall time forwards by `duration` without touching the
+    /// monotonic readings.
+    pub fn jump_wall_forward(&self, duration: Duration) {
+        let mut state = self.lock();
+        state.wall = state.wall.saturating_add(duration);
+    }
+
+    /// Sets wall time to the instant of the local time `civil` in the time
+    /// zone `tz`.
+    ///
+    /// The local time is a date and a time of day without offset, as in the
+    /// example below. A local time skipped by a transition moves forwards by
+    /// the length of
+    /// the gap; a repeated local time takes the earlier instant. The
+    /// monotonic readings do not change.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`ZoneError`] when `tz` is neither a known IANA name nor a
+    /// valid POSIX TZ string, or `civil` is not a local date and time.
+    ///
+    /// ```
+    /// use nurt_testkit::clock::VirtualClock;
+    ///
+    /// const CENTRAL_EUROPE: &str = "CET-1CEST,M3.5.0,M10.5.0/3";
+    /// let clock = VirtualClock::new();
+    /// clock.set_local("2026-03-29T02:30", CENTRAL_EUROPE).unwrap();
+    /// assert!(clock.local(CENTRAL_EUROPE).unwrap().starts_with("2026-03-29T03:30:00"));
+    /// ```
+    pub fn set_local(&self, civil: &str, tz: &str) -> Result<(), ZoneError> {
+        let tz = time_zone(tz)?;
+        let local: DateTime = civil.parse().map_err(|error| zone_error(civil, &error))?;
+        let instant = tz
+            .to_timestamp(local)
+            .map_err(|error| zone_error(civil, &error))?;
+        self.set_wall(WallTime(instant.as_nanosecond()));
+        Ok(())
+    }
+
+    /// Returns the local time of the current wall time in the time zone `tz`.
+    ///
+    /// The text holds the date, the time of day and the UTC offset in force.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`ZoneError`] for an unknown zone and for a wall time
+    /// outside the range of local times.
+    pub fn local(&self, tz: &str) -> Result<String, ZoneError> {
+        let tz = time_zone(tz)?;
+        let wall = self.lock().wall;
+        let instant = Timestamp::from_nanosecond(wall.0)
+            .map_err(|error| zone_error(&wall.0.to_string(), &error))?;
+        let zoned = instant.to_zoned_datetime(tz);
+        Ok(format!("{}{}", zoned.datetime(), zoned.offset()))
     }
 
     /// Simulates a suspend of `duration`: wall time and the suspend-inclusive
@@ -183,6 +295,11 @@ mod tests {
 
     use super::{DEFAULT_BOOT, DEFAULT_START, VirtualClock};
 
+    /// Central European rules as a POSIX TZ string: standard time UTC+1,
+    /// summer time from the last Sunday of March 02:00 to the last Sunday of
+    /// October 03:00.
+    const CENTRAL_EUROPE: &str = "CET-1CEST,M3.5.0,M10.5.0/3";
+
     #[test]
     fn starts_at_the_default_instant() {
         let clock = VirtualClock::new();
@@ -212,6 +329,53 @@ mod tests {
         clock.set_wall(WallTime::UNIX_EPOCH);
         assert_eq!(clock.now(), WallTime::UNIX_EPOCH);
         assert_eq!(clock.monotonic(), Duration::from_secs(10));
+    }
+
+    #[test]
+    fn wall_jumps_leave_monotonic_time_alone() {
+        let clock = VirtualClock::new();
+        clock.jump_wall_back(Duration::from_secs(3_600));
+        assert_eq!(
+            DEFAULT_START.saturating_since(clock.now()),
+            Duration::from_secs(3_600)
+        );
+        clock.jump_wall_forward(Duration::from_secs(7_200));
+        assert_eq!(
+            clock.now().saturating_since(DEFAULT_START),
+            Duration::from_secs(3_600)
+        );
+        assert_eq!(clock.monotonic(), Duration::ZERO);
+    }
+
+    #[test]
+    fn local_time_follows_daylight_saving_transitions() {
+        let clock = VirtualClock::new();
+        clock
+            .set_local("2026-03-29T01:59:00", CENTRAL_EUROPE)
+            .unwrap();
+        assert!(
+            clock
+                .local(CENTRAL_EUROPE)
+                .unwrap()
+                .starts_with("2026-03-29T01:59:00")
+        );
+        clock.advance(Duration::from_secs(120));
+        assert!(
+            clock
+                .local(CENTRAL_EUROPE)
+                .unwrap()
+                .starts_with("2026-03-29T03:01:00")
+        );
+        assert_eq!(clock.monotonic(), Duration::from_secs(120));
+    }
+
+    #[test]
+    fn local_time_rejects_unknown_zones_and_bad_times() {
+        let clock = VirtualClock::new();
+        assert!(clock.local("not a zone").is_err());
+        let error = clock.set_local("yesterday", CENTRAL_EUROPE).unwrap_err();
+        assert_eq!(error.input, "yesterday");
+        assert!(error.to_string().contains("yesterday"));
     }
 
     #[test]
