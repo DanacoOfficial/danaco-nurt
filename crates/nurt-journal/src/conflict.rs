@@ -1,4 +1,570 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Undo conflict detection.
+//! Undo check: comparison of the current state of items with the journal.
+//!
+//! Before an undo or redo writes anything, every item of the plan is compared
+//! with the state the journal recorded after the change: the target must have
+//! the recorded hash, kind, size and permission bits, a deleted target must
+//! still be absent, and the preserved content of an overwritten or deleted
+//! file must still have the hash it had before the change. The module also
+//! builds the language errors of `undo` and `redo`.
+#![cfg_attr(
+    not(test),
+    expect(dead_code, reason = "entry points are called by the journal store")
+)]
+
+use nurt_contracts::error::{Error, ErrorCode, Result};
+use nurt_contracts::fs::{
+    AbsPath, ContentHash, FileKind, Follow, Fs, FsErrorKind, PathKey, ProviderKey,
+};
+use nurt_contracts::journal::{
+    AfterState, BeforeState, Conflict, ConflictKind, EntryState, Expect, OpId, OpState,
+    PreserveMode, TargetAction, TargetIndex, TargetOutcome, TargetPath,
+};
+use serde_json::Value;
+
+use crate::manifest::TargetRole;
+
+/// Identity of an item address: the volume path key of a file system entry,
+/// or the provider key. Spellings that denote the same entry have equal keys.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum ItemKey {
+    /// File system entry.
+    Fs(PathKey),
+    /// Provider key or value.
+    Provider(ProviderKey),
+}
+
+/// Current state of an address.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct Observed {
+    /// The entry exists.
+    pub(crate) exists: bool,
+    /// Kind of the entry.
+    pub(crate) kind: Option<FileKind>,
+    /// Size of a regular file.
+    pub(crate) size: Option<u64>,
+    /// Permission bits.
+    pub(crate) mode: Option<u32>,
+    /// Content hash, computed only when requested.
+    pub(crate) hash: Option<ContentHash>,
+}
+
+/// Read access to the current state of items and to preserved content.
+pub(crate) trait TargetProbe {
+    /// Current state of an address; the content hash is computed only when
+    /// `with_hash` is true and the address is a regular file or a value.
+    fn observe(&self, path: &TargetPath, with_hash: bool) -> Result<Observed>;
+
+    /// Identity key of an address.
+    fn item_key(&self, path: &TargetPath) -> Result<ItemKey>;
+
+    /// Hash of the content preserved for an item; `None` when the entry keeps
+    /// no preserved content for it.
+    fn blob_hash(&self, op: OpId, index: TargetIndex) -> Result<Option<ContentHash>>;
+}
+
+/// State an address must have for the undo of an item to proceed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Expected {
+    /// Nothing exists at the address.
+    Absent,
+    /// An entry exists; every known field must match.
+    Present {
+        /// Kind.
+        kind: Option<FileKind>,
+        /// Size of a regular file.
+        size: Option<u64>,
+        /// Permission bits.
+        mode: Option<u32>,
+        /// Content hash.
+        hash: Option<ContentHash>,
+    },
+}
+
+impl Expected {
+    /// State recorded after the change.
+    pub(crate) fn after(after: &AfterState) -> Self {
+        if after.exists {
+            Self::Present {
+                kind: after.kind,
+                size: after.size,
+                mode: after.mode,
+                hash: after.hash,
+            }
+        } else {
+            Self::Absent
+        }
+    }
+
+    /// State recorded before the change; it is the state after an older
+    /// change of the same address.
+    pub(crate) fn before(before: &BeforeState) -> Self {
+        if before.exists {
+            Self::Present {
+                kind: before.kind,
+                size: before.size,
+                mode: before.mode,
+                hash: before.hash,
+            }
+        } else {
+            Self::Absent
+        }
+    }
+
+    /// Recorded content hash.
+    pub(crate) fn hash(&self) -> Option<ContentHash> {
+        match self {
+            Self::Absent => None,
+            Self::Present { hash, .. } => *hash,
+        }
+    }
+
+    /// Expected state handed to the restoring transaction, which checks it
+    /// atomically with the change.
+    pub(crate) fn to_expect(&self) -> Expect {
+        match self {
+            Self::Absent => Expect::Absent,
+            Self::Present {
+                hash: Some(hash), ..
+            } => Expect::Hash(*hash),
+            Self::Present { hash: None, .. } => Expect::Unchecked,
+        }
+    }
+
+    /// Difference between the expected and the observed state.
+    pub(crate) fn classify(&self, observed: &Observed) -> Option<ConflictKind> {
+        let Self::Present {
+            kind,
+            size,
+            mode,
+            hash,
+        } = self
+        else {
+            return observed.exists.then_some(ConflictKind::Created);
+        };
+        if !observed.exists {
+            return Some(ConflictKind::Deleted);
+        }
+        if differs(*kind, observed.kind) {
+            return Some(ConflictKind::TypeChanged);
+        }
+        let changed = differs(*size, observed.size)
+            || differs(*mode, observed.mode)
+            || differs(*hash, observed.hash);
+        changed.then_some(ConflictKind::Modified)
+    }
+
+    fn wants_hash(&self) -> bool {
+        self.hash().is_some()
+    }
+}
+
+fn differs<T: PartialEq>(expected: Option<T>, observed: Option<T>) -> bool {
+    matches!((expected, observed), (Some(expected), Some(observed)) if expected != observed)
+}
+
+/// Current state of a file system entry, without following a final link.
+///
+/// A missing entry, or a missing directory on the way to it, is reported as
+/// absent. Fails with the file system error otherwise.
+pub(crate) fn observe_fs(fs: &dyn Fs, path: &AbsPath, with_hash: bool) -> Result<Observed> {
+    let meta = match fs.metadata(path, Follow::NoFollow) {
+        Ok(meta) => meta,
+        Err(error) if matches!(error.kind, FsErrorKind::NotFound | FsErrorKind::NotADirectory) => {
+            return Ok(Observed::default());
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let is_file = meta.kind == FileKind::File;
+    let hash = if with_hash && is_file {
+        Some(fs.content_hash(path)?)
+    } else {
+        None
+    };
+    Ok(Observed {
+        exists: true,
+        kind: Some(meta.kind),
+        size: is_file.then_some(meta.size),
+        mode: Some(meta.mode),
+        hash,
+    })
+}
+
+/// Identity key of an address on the file system interface.
+///
+/// Fails when the volume of a file system path cannot be determined.
+pub(crate) fn fs_item_key(fs: &dyn Fs, path: &TargetPath) -> Result<ItemKey> {
+    match path {
+        TargetPath::Fs(path) => Ok(ItemKey::Fs(fs.path_key(path)?)),
+        TargetPath::Provider(key) => Ok(ItemKey::Provider(key.clone())),
+    }
+}
+
+/// Destination of a rename within one volume, recorded by a single record.
+/// A rename across volumes has one record per volume, each describing its
+/// own address.
+fn local_rename(target: &TargetOutcome, role: TargetRole) -> Option<&AbsPath> {
+    match &target.action {
+        TargetAction::Rename { to, .. } if role == TargetRole::Whole => Some(to),
+        _ => None,
+    }
+}
+
+/// Addresses changed by a recorded target: the target and, for a rename
+/// within one volume, its destination.
+pub(crate) fn addresses(target: &TargetOutcome, role: TargetRole) -> Vec<TargetPath> {
+    match local_rename(target, role) {
+        Some(to) => vec![target.path.clone(), TargetPath::Fs(to.clone())],
+        None => vec![target.path.clone()],
+    }
+}
+
+/// Address where the entry changed by a target is found after the change:
+/// the destination of a rename within one volume, otherwise the target
+/// itself.
+pub(crate) fn primary(target: &TargetOutcome, role: TargetRole) -> TargetPath {
+    match local_rename(target, role) {
+        Some(to) => TargetPath::Fs(to.clone()),
+        None => target.path.clone(),
+    }
+}
+
+/// Expected current state of every address of a target: the state recorded
+/// after the change. For a rename within one volume the source must be free
+/// and the after-state describes the entry at the destination.
+pub(crate) fn expected_after(
+    target: &TargetOutcome,
+    role: TargetRole,
+) -> Vec<(TargetPath, Expected)> {
+    let Some(after) = &target.after else {
+        return Vec::new();
+    };
+    match local_rename(target, role) {
+        Some(to) => vec![
+            (target.path.clone(), Expected::Absent),
+            (TargetPath::Fs(to.clone()), Expected::after(after)),
+        ],
+        None => vec![(target.path.clone(), Expected::after(after))],
+    }
+}
+
+/// Address in the form shown to the language: a path, or a provider key as
+/// `scheme:segment/segment` with `@value` for a value.
+pub(crate) fn display_path(path: &TargetPath) -> String {
+    match path {
+        TargetPath::Fs(path) => path.to_language_string(),
+        TargetPath::Provider(key) => {
+            let mut text = format!("{}:{}", key.scheme.0, key.segments.join("/"));
+            if let Some(value) = &key.value {
+                text.push('@');
+                text.push_str(value);
+            }
+            text
+        }
+    }
+}
+
+/// Compares one address with its expected state.
+///
+/// Fails when the address cannot be read.
+pub(crate) fn check_address<P>(
+    probe: &P,
+    op: OpId,
+    path: &TargetPath,
+    expected: &Expected,
+) -> Result<Option<Conflict>>
+where
+    P: TargetProbe + ?Sized,
+{
+    let observed = probe.observe(path, expected.wants_hash())?;
+    Ok(expected.classify(&observed).map(|kind| Conflict {
+        op,
+        path: path.clone(),
+        kind,
+        expected: expected.hash(),
+        actual: observed.hash,
+    }))
+}
+
+/// Compares the preserved content of an item with the hash recorded before
+/// the change.
+///
+/// Deleted and overwritten files are preserved by keeping the old file
+/// itself; a process that kept it open can still write to it. Copies and
+/// clones are private to the journal and are not checked.
+///
+/// Fails with `E_JOURNAL_CORRUPT` when the preserved content is missing.
+pub(crate) fn check_blob<P>(probe: &P, op: OpId, target: &TargetOutcome) -> Result<Option<Conflict>>
+where
+    P: TargetProbe + ?Sized,
+{
+    let keeps_old_file = matches!(
+        target.mode,
+        PreserveMode::Moved
+            | PreserveMode::Exchange
+            | PreserveMode::ReplaceBackup
+            | PreserveMode::Hardlink
+    );
+    let Some(recorded) = target.before.hash else {
+        return Ok(None);
+    };
+    if !keeps_old_file || target.before.kind != Some(FileKind::File) {
+        return Ok(None);
+    }
+    match probe.blob_hash(op, target.index)? {
+        None => Err(corrupt_error(op).with_problem("missing_preserved_content")),
+        Some(found) if found != recorded => Ok(Some(Conflict {
+            op,
+            path: target.path.clone(),
+            kind: ConflictKind::BlobModified,
+            expected: Some(recorded),
+            actual: Some(found),
+        })),
+        Some(_) => Ok(None),
+    }
+}
+
+/// `E_JOURNAL_NOOP` for an entry that cannot be undone or redone in its
+/// state, or that does not exist (`state: None`).
+pub(crate) fn noop_error(op: OpId, state: Option<EntryState>) -> Error {
+    let message = match state.and_then(OpState::from_entry) {
+        None if state.is_some() => {
+            format!("operation {} is still in progress; retry after it completes", op.0)
+        }
+        None => format!("operation {} is not in the journal; list operations with history", op.0),
+        Some(OpState::Undone) => format!(
+            "operation {} is already undone; list operations with history",
+            op.0
+        ),
+        Some(_) => format!("operation {} has nothing left to restore", op.0),
+    };
+    let error = Error::new(ErrorCode::JournalNoop, message).with_detail("op", Value::from(op.0));
+    match state {
+        Some(state) => error.with_detail("state", state_value(state)),
+        None => error,
+    }
+}
+
+/// `E_JOURNAL_NOOP` when the selection is empty.
+pub(crate) fn nothing_error(message: &str) -> Error {
+    Error::new(ErrorCode::JournalNoop, message)
+}
+
+/// `E_JOURNAL_EXPIRED` listing the expired entries of the selection.
+pub(crate) fn expired_error(ops: &[OpId]) -> Error {
+    let numbers: Vec<u64> = ops.iter().map(|op| op.0).collect();
+    let message = format!(
+        "{} of the selection expired and can no longer be undone; nothing changed, select later operations",
+        count_phrase(numbers.len(), "operation")
+    );
+    Error::new(ErrorCode::JournalExpired, message).with_detail("expired", Value::from(numbers))
+}
+
+/// `E_JOURNAL_CORRUPT` for an entry that failed its integrity check.
+pub(crate) fn corrupt_error(op: OpId) -> Error {
+    Error::new(
+        ErrorCode::JournalCorrupt,
+        format!(
+            "operation {} failed its integrity check; its data is kept for salvage",
+            op.0
+        ),
+    )
+    .with_detail("op", Value::from(op.0))
+}
+
+/// `E_JOURNAL_CONFLICT` listing the differences, with ready programs that
+/// resolve them.
+pub(crate) fn conflict_error(conflicts: &[Conflict], fixes: &[String]) -> Error {
+    let message = format!(
+        "{} changed after the operation; nothing changed, choose on_conflict: force or include_later",
+        count_phrase(conflicts.len(), "item")
+    );
+    let mut error = Error::new(ErrorCode::JournalConflict, message)
+        .with_detail("conflicts", serde_json::to_value(conflicts).unwrap_or_default());
+    for fix in fixes {
+        error = error.with_fix(fix.clone());
+    }
+    error
+}
+
+/// `E_JOURNAL_CONFLICT` for `on_conflict: abort`: only the fact of the abort
+/// and the number of differences are reported.
+pub(crate) fn aborted_error(count: usize) -> Error {
+    Error::new(
+        ErrorCode::JournalConflict,
+        format!(
+            "the undo found {} and was aborted; nothing changed",
+            count_phrase(count, "difference")
+        ),
+    )
+    .with_problem("aborted")
+    .with_detail("count", Value::from(count))
+}
+
+/// `E_JOURNAL_PARTIAL` for a selection with items released for space when
+/// the call asked for whole entries.
+pub(crate) fn partial_error(
+    ops: &[OpId],
+    available: &[TargetPath],
+    unavailable: &[TargetPath],
+) -> Error {
+    let numbers: Vec<u64> = ops.iter().map(|op| op.0).collect();
+    let released = match unavailable.len() {
+        1 => "1 item was".to_owned(),
+        count => format!("{count} items were"),
+    };
+    let message = format!(
+        "{released} released for space; nothing changed, use on_conflict: partial to undo the remaining items"
+    );
+    let error = Error::new(ErrorCode::JournalPartial, message)
+        .with_detail(
+            "available",
+            serde_json::to_value(available).unwrap_or_default(),
+        )
+        .with_detail(
+            "unavailable",
+            serde_json::to_value(unavailable).unwrap_or_default(),
+        );
+    match numbers.as_slice() {
+        [single] => error.with_detail("op", Value::from(*single)),
+        _ => error.with_detail("ops", Value::from(numbers)),
+    }
+}
+
+/// `E_ROLLBACK_FAILED` listing the items that were not restored.
+pub(crate) fn rollback_failed_error(failed: &[TargetPath]) -> Error {
+    Error::new(
+        ErrorCode::RollbackFailed,
+        format!(
+            "{} could not be restored; restore them from the listed paths",
+            count_phrase(failed.len(), "item")
+        ),
+    )
+    .with_detail("failed", serde_json::to_value(failed).unwrap_or_default())
+}
+
+fn state_value(state: EntryState) -> Value {
+    match OpState::from_entry(state) {
+        Some(listed) => Value::from(listed.as_str()),
+        None => serde_json::to_value(state).unwrap_or_default(),
+    }
+}
+
+fn count_phrase(count: usize, noun: &str) -> String {
+    if count == 1 {
+        format!("1 {noun}")
+    } else {
+        format!("{count} {noun}s")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::error::ErrorCode;
+    use nurt_contracts::fs::{ContentHash, FileKind};
+    use nurt_contracts::journal::{
+        AfterState, BeforeState, ConflictKind, EntryState, Expect, OpId, TargetPath,
+    };
+
+    use super::{
+        Expected, Observed, aborted_error, noop_error, observe_fs, partial_error,
+        rollback_failed_error,
+    };
+    use crate::undo::testkit::{TestJournal, abs, hash_of};
+
+    fn file(hash: ContentHash) -> Observed {
+        Observed {
+            exists: true,
+            kind: Some(FileKind::File),
+            size: Some(1),
+            mode: Some(0o644),
+            hash: Some(hash),
+        }
+    }
+
+    fn present(hash: ContentHash) -> Expected {
+        Expected::Present {
+            kind: Some(FileKind::File),
+            size: Some(1),
+            mode: Some(0o644),
+            hash: Some(hash),
+        }
+    }
+
+    #[test]
+    fn classify_reports_each_kind_of_difference() {
+        let a = hash_of(b"a");
+        let b = hash_of(b"b");
+        assert_eq!(present(a).classify(&file(a)), None);
+        assert_eq!(present(a).classify(&file(b)), Some(ConflictKind::Modified));
+        assert_eq!(present(a).classify(&Observed::default()), Some(ConflictKind::Deleted));
+        let directory = Observed { kind: Some(FileKind::Directory), hash: None, ..file(a) };
+        assert_eq!(present(a).classify(&directory), Some(ConflictKind::TypeChanged));
+        let chmod = Observed { mode: Some(0o600), ..file(a) };
+        assert_eq!(present(a).classify(&chmod), Some(ConflictKind::Modified));
+        assert_eq!(Expected::Absent.classify(&file(a)), Some(ConflictKind::Created));
+        assert_eq!(Expected::Absent.classify(&Observed::default()), None);
+    }
+
+    #[test]
+    fn unknown_fields_are_not_compared() {
+        let a = hash_of(b"a");
+        let loose = Expected::Present { kind: None, size: None, mode: None, hash: None };
+        assert_eq!(loose.classify(&file(a)), None);
+        assert_eq!(loose.to_expect(), Expect::Unchecked);
+        assert_eq!(present(a).to_expect(), Expect::Hash(a));
+        assert_eq!(Expected::Absent.to_expect(), Expect::Absent);
+    }
+
+    #[test]
+    fn expected_states_follow_recorded_existence() {
+        let gone = AfterState { exists: false, ..AfterState::default() };
+        assert_eq!(Expected::after(&gone), Expected::Absent);
+        let absent = BeforeState { exists: false, ..BeforeState::default() };
+        assert_eq!(Expected::before(&absent), Expected::Absent);
+        let kept = BeforeState { exists: true, hash: Some(hash_of(b"x")), ..BeforeState::default() };
+        assert_eq!(Expected::before(&kept).hash(), Some(hash_of(b"x")));
+    }
+
+    #[test]
+    fn observe_fs_reports_missing_entries_as_absent() {
+        let journal = TestJournal::new();
+        journal.put("/home/user/a", b"abc");
+        journal.put_dir("/home/user/d");
+        journal.with_fs(|fs| {
+            let found = observe_fs(fs, &abs("/home/user/a"), true).unwrap();
+            assert!(found.exists);
+            assert_eq!(found.size, Some(3));
+            assert_eq!(found.hash, Some(hash_of(b"abc")));
+            let unhashed = observe_fs(fs, &abs("/home/user/a"), false).unwrap();
+            assert_eq!(unhashed.hash, None);
+            let directory = observe_fs(fs, &abs("/home/user/d"), true).unwrap();
+            assert_eq!((directory.kind, directory.size, directory.hash), (Some(FileKind::Directory), None, None));
+            let missing = observe_fs(fs, &abs("/home/user/none"), true).unwrap();
+            assert_eq!(missing, Observed::default());
+            let failing = observe_fs(fs, &abs("/denied/a"), true).unwrap_err();
+            assert_eq!(failing.code, ErrorCode::Permission);
+        });
+    }
+
+    #[test]
+    fn errors_carry_codes_and_details() {
+        let noop = noop_error(OpId(4), Some(EntryState::Undone));
+        assert_eq!(noop.code, ErrorCode::JournalNoop);
+        assert_eq!(noop.details["state"], "undone");
+        let running = noop_error(OpId(4), Some(EntryState::Prepared));
+        assert_eq!(running.details["state"], "prepared");
+        assert!(running.message.contains("in progress"));
+        let aborted = aborted_error(2);
+        assert_eq!(aborted.code, ErrorCode::JournalConflict);
+        assert!(!aborted.details.contains_key("conflicts"));
+        let path = TargetPath::Fs(abs("/home/user/a"));
+        let partial = partial_error(&[OpId(1), OpId(2)], &[], &[path.clone()]);
+        assert_eq!(partial.details["ops"], serde_json::json!([1, 2]));
+        let failed = rollback_failed_error(&[path]);
+        assert_eq!(failed.code, ErrorCode::RollbackFailed);
+        assert_eq!(failed.details["failed"].as_array().map(Vec::len), Some(1));
+    }
+}

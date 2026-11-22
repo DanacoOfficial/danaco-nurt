@@ -4989,6 +4989,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "nurt-crashfs"
+version = "0.1.0"
+dependencies = [
+ "nurt-contracts",
+ "nurt-fs",
+ "nurt-journal",
+ "nurt-space",
+ "proptest",
+ "rand 0.10.4",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
 name = "nurt-doc"
 version = "0.1.0"
 dependencies = [
@@ -5061,20 +5078,28 @@ name = "nurt-fs"
 version = "0.1.0"
 dependencies = [
  "camino",
+ "core-foundation 0.10.1",
  "dunce",
  "file-id",
  "filetime",
+ "flate2",
  "fs4",
  "libc",
  "nurt-contracts",
  "nurt-types",
+ "proptest",
  "reflink-copy",
  "rustix",
  "same-file",
+ "serde",
+ "sha2 0.11.1",
+ "tar",
  "tempfile",
  "unicode-normalization",
  "windows-sys 0.61.2",
  "xattr",
+ "zip",
+ "zstd",
 ]
 
 [[package]]
@@ -5120,6 +5145,7 @@ dependencies = [
 name = "nurt-journal"
 version = "0.1.0"
 dependencies = [
+ "crc32fast",
  "hex",
  "nurt-contracts",
  "nurt-fs",
@@ -5127,8 +5153,11 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
+ "serde_json_canonicalizer",
  "sha2 0.11.1",
  "tempfile",
+ "toml_edit",
+ "uuid",
 ]
 
 [[package]]
@@ -5257,10 +5286,15 @@ dependencies = [
 name = "nurt-space"
 version = "0.1.0"
 dependencies = [
+ "crc32fast",
  "nurt-contracts",
  "nurt-fs",
  "nurt-journal",
  "nurt-types",
+ "proptest",
+ "rayon",
+ "serde",
+ "serde_json",
  "tempfile",
 ]
 
