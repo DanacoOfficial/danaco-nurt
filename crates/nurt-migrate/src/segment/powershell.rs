@@ -71,7 +71,7 @@ fn comment(builder: &mut Builder<'_>, node: Node<'_>) {
     builder.comment(node, lines);
 }
 
-/// Converts the text of a block comment `<# … #>` to `#` comment lines.
+/// Converts the text of a block comment `<# ... #>` to `#` comment lines.
 fn block_comment(inner: &str) -> Vec<String> {
     let lines: Vec<&str> = inner.lines().map(str::trim).collect();
     let first = lines.iter().position(|line| !line.is_empty());
@@ -182,7 +182,7 @@ fn multiplier_suffix(source: &str, error: Node<'_>) -> bool {
 /// Multipliers of PowerShell numeric literals, in lower case.
 const MULTIPLIERS: &[&str] = &["kb", "mb", "gb", "tb", "pb"];
 
-/// Script blocks passed to cmdlets (`Where-Object { … }`) are arguments
+/// Script blocks passed to cmdlets (`Where-Object { ... }`) are arguments
 /// translated by the habit tables, not statements of the script.
 fn descend(node: Node<'_>) -> bool {
     node.kind() != "script_block_expression"

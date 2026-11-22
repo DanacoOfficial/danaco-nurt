@@ -95,13 +95,13 @@ pub enum Reason {
     Condition,
     /// A definition of a function, class or enumeration.
     Function,
-    /// A command group, subshell or block statement (`( … )`, `{ … }`, `try`).
+    /// A command group, subshell or block statement (`( ... )`, `{ ... }`, `try`).
     Block,
     /// Evaluation of text as code (`eval`, `Invoke-Expression`).
     Eval,
     /// Loading of another script into the current shell (`source`, `.`).
     Source,
-    /// Script parameters (`param( … )`).
+    /// Script parameters (`param( ... )`).
     Parameters,
     /// Flow control (`exit`, `return`, `break`, `throw`).
     Control,

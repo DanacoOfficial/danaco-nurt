@@ -28,8 +28,8 @@ pub struct Translation {
 /// Shell variable that an earlier statement of the script bound to a named
 /// result.
 ///
-/// The assignment `X=$(find …)` translated to `let x = find …` produces the
-/// binding `X` → `x`; later statements refer to the result as `@x`.
+/// The assignment `X=$(find ...)` translated to `let x = find ...` binds the
+/// variable `X` to the name `x`; later statements refer to the result as `@x`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LetBinding {
     /// Variable name in the script, without `$`.

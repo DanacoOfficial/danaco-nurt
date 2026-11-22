@@ -577,7 +577,7 @@ fn powershell_block_comment_becomes_line_comments() {
 #[test]
 fn columns_count_unicode_scalar_values() {
     let mock = MockTranslator::new();
-    let migration = run("echo \"zażółć\"; rm /srv/a\n", BASH, &mock);
+    let migration = run("echo \"résumé\"; rm /srv/a\n", BASH, &mock);
     assert_eq!(
         migration.report.items.get(1).map(|item| item.column),
         Some(16)

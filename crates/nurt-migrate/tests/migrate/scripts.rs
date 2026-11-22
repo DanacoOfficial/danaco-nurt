@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Test scripts of the bash and PowerShell habit table entries.
 //!
-//! Each entry `B01`–`B40` and `P01`–`P42` has at least one script named
+//! Each entry `B01` to `B40` and `P01` to `P42` has at least one script named
 //! after the entry in lower case (`b01-remove.sh`, `p02-find.ps1`).
 
 use std::fs;
