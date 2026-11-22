@@ -2,11 +2,21 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 
-//! SSH transport and commit signatures for Danaco Nurt.
+//! Transports and signatures for the Git operations of Danaco Nurt.
 //!
-//! The crate provides the built-in `ssh://` transport used by fetch, clone,
-//! pull and push, with key and SSH agent authentication, and creates and
-//! verifies OpenPGP and SSH commit signatures.
+//! The crate provides the smart HTTP, SSH and local transports used by fetch,
+//! clone, pull and push, the client side of the send-pack protocol, credential
+//! sources, and creates and verifies OpenPGP and SSH signatures. No external
+//! program is run.
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+pub mod connect;
+pub mod credentials;
+pub mod http;
+pub mod local;
+pub mod send_pack;
+pub mod sign;
+#[cfg(feature = "git-ssh")]
+pub mod ssh;

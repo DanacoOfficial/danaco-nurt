@@ -20,7 +20,7 @@ workspace = true
 nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
 nurt-testkit = { workspace = true }
-nurt-git = { workspace = true }
+nurt-git = { workspace = true, features = ["testutil"] }
 nurt-git-ops = { workspace = true }
 nurt-git-transport = { workspace = true }
 gix = { workspace = true }
@@ -31,3 +31,8 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 thiserror = { workspace = true }
 tempfile = { workspace = true }
+indexmap = { workspace = true }
+
+[[test]]
+name = "scenarios"
+harness = false

@@ -17,6 +17,9 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+testutil = ["dep:tempfile"]
+
 [dependencies]
 nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
@@ -54,8 +57,10 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 smallvec = { workspace = true }
 indexmap = { workspace = true }
+tempfile = { workspace = true, optional = true }
 
 [dev-dependencies]
 nurt-testkit = { workspace = true }
 tempfile = { workspace = true }
 proptest = { workspace = true }
+toml = { workspace = true }

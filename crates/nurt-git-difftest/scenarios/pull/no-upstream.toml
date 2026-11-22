@@ -1,0 +1,34 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "pull/no-upstream"
+description = "Pull on a branch without upstream fetches the remote, then refuses with no_upstream."
+corpus = "empty"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "a.txt"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  ["remote", "add", "origin", "../upstream"],
+  ["fetch", "-q", "origin"],
+  ["reset", "-q", "--hard", "origin/main"],
+  ["branch", "-q", "--set-upstream-to=origin/main", "main"],
+  { write = "../upstream/a.txt", content = "a\nb\n" },
+  { git = ["commit", "-q", "-a", "-m", "second"], cwd = "../upstream" },
+  ["switch", "-q", "-c", "feature"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["pull"]
+expect_exit = 1
+
+[nurt]
+command = "git.pull"
+params = {  }
+expect = "error:E_GIT_REF"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD", "config"]
+undo = true
+ignore = []

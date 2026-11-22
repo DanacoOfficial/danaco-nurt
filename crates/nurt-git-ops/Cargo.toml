@@ -23,6 +23,9 @@ nurt-types = { workspace = true }
 nurt-git = { workspace = true }
 nurt-git-transport = { workspace = true }
 gix = { workspace = true }
+gix-actor = { workspace = true }
+gix-config = { workspace = true }
+gix-date = { workspace = true }
 gix-diff = { workspace = true }
 gix-dir = { workspace = true }
 gix-filter = { workspace = true }
@@ -37,11 +40,17 @@ gix-status = { workspace = true }
 gix-worktree = { workspace = true }
 bstr = { workspace = true }
 sha1 = { workspace = true }
+sha2 = { workspace = true }
+serde_json = { workspace = true }
 hex = { workspace = true }
 jiff = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+nurt-git = { workspace = true, features = ["testutil"] }
+nurt-git-transport = { workspace = true, features = ["testutil"] }
 nurt-testkit = { workspace = true }
 tempfile = { workspace = true }
 proptest = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
