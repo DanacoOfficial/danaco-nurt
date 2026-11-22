@@ -18,7 +18,7 @@ use std::sync::Arc;
 use common::Fake;
 use nurt_catalog::Registry;
 use nurt_contracts::error::ErrorCode;
-use nurt_contracts::stage::{InputKinds, StageImpl};
+use nurt_contracts::stage::{InputKinds, StageImpl, StageRegistrar};
 use nurt_contracts::value::RecordKind;
 
 fn registry() -> Registry {
@@ -251,4 +251,15 @@ fn verify_resolves_as_a_command_and_group_members_resolve_separately() {
     assert!(registry.resolve("verify", RecordKind::Effect).is_ok());
     assert!(registry.resolve("test.run", RecordKind::Exec).is_ok());
     assert!(registry.resolve("verify", RecordKind::Exec).is_err());
+}
+
+#[test]
+fn registrar_trait_registers_into_the_registry_and_reports_conflicts() {
+    let mut registry = registry();
+    let registrar: &mut dyn StageRegistrar = &mut registry;
+    registrar.register(Fake::any("count")).unwrap();
+    let error = registrar.register(Fake::any("count")).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::Catalog);
+    assert!(registry.resolve("count", RecordKind::Entry).is_ok());
+    assert_eq!(registry.implementations("count").count(), 1);
 }

@@ -12,11 +12,12 @@
 //!
 //! A request passes these steps: envelope rules and defaults, session,
 //! language front end (correction and binding, or `accept` of a candidate),
-//! planning, execution, report assembly, rendering and paging. A request
-//! with `cursor` reads a kept page and runs nothing. Planning, execution,
-//! report assembly and rendering are connected when the engine is assembled
-//! with all components; until then a program that reaches planning fails
-//! with `E_UNSUPPORTED`.
+//! planning against the command registry, execution, report assembly,
+//! rendering and paging. A request with `cursor` reads a kept page and runs
+//! nothing. Reports of programs that fail before execution are assembled by
+//! the report rules, and every response carries the rendered result for the
+//! requested format. This build contains no executor of plans: a program
+//! that is planned, previews included, fails with `E_UNSUPPORTED`.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -25,6 +26,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
+use nurt_catalog::{CatalogQuery, Registry};
 use nurt_contracts::ast::{AST_VERSION, AstDocument};
 use nurt_contracts::bound::{BOUND_VERSION, BoundDocument, BoundHead, BoundStatement};
 use nurt_contracts::config::{CONFIG_FORMAT, Config, DurationSetting, Language as ConfigLanguage};
@@ -37,13 +39,17 @@ use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::fs::{AbsPath, Fs};
 use nurt_contracts::journal::{HistoryQuery, JournalStore, OperationRecord, VolumeSpace};
 use nurt_contracts::kinds::SyntaxVariant;
-use nurt_contracts::report::{Correction, REPORT_VERSION, Report, ReportStatus, Timing};
+use nurt_contracts::report::{REPORT_VERSION, Report, ReportStatus, Timing};
 use nurt_contracts::schema;
 use nurt_contracts::services::Services;
 use nurt_contracts::stage::{CancelReason, CancelToken, ExecCtx, Extensions, Limits};
+use nurt_plan::{CheckSummary, Plan, PlanOptions};
+use nurt_report::assemble::{ReportBuilder, ReportContext};
+use nurt_report::rules::PathContext;
+use nurt_report::{RenderOptions, respond};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value as Json, json};
+use serde_json::{Value as Json, json};
 
 use crate::candidates::CandidateStore;
 use crate::config::{ConfigLoader, ConfigSources, LoadedConfig};
@@ -52,6 +58,7 @@ use crate::error::{EngineError, envelope_error, unavailable};
 use crate::events::{EventListener, Lifecycle, Sequencer};
 use crate::frontend::{Compiled, Corrected, Frontend, UnavailableFrontend};
 use crate::readcache::ReadCache;
+use crate::registry::standard_registry;
 use crate::session::{SessionId, Sessions};
 use crate::state::{StateArea, StateDir, write_atomic};
 
@@ -195,17 +202,18 @@ impl EngineConfig {
 
 /// Result of [`Engine::check`]: the bound program and what running it would
 /// touch, without running it.
+///
+/// In JSON the members of the summary (`nurt-check/1`) and the member
+/// `bound` form one object.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CheckReport {
     /// The bound program.
     pub bound: BoundDocument,
-    /// Corrections applied to the program text.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub corrections: Vec<Correction>,
-    /// Targets, network addresses, external programs, waits and the class of
-    /// the effect, as computed by the planner.
+    /// Class of the effect and reversibility, paths, network endpoints,
+    /// external programs, waits, command groups and the corrections applied
+    /// to the program text.
     #[serde(flatten)]
-    pub summary: Map<String, Json>,
+    pub summary: CheckSummary,
 }
 
 /// Versions of the formats spoken by the engine.
@@ -320,6 +328,8 @@ struct Inner {
     journal: Option<Arc<dyn JournalStore>>,
     frontend: Arc<dyn Frontend>,
     services: Arc<Services>,
+    registry: Registry,
+    catalog_rev: String,
     loader: ConfigLoader,
     default_config: Arc<LoadedConfig>,
     projects: Mutex<HashMap<Option<PathBuf>, Arc<LoadedConfig>>>,
@@ -387,9 +397,13 @@ impl Engine {
     /// # Errors
     ///
     /// Returns [`EngineError`] when the configuration is invalid, the
-    /// session identifier is invalid or the state directory cannot be
-    /// created.
+    /// session identifier is invalid, the state directory cannot be created
+    /// or the command registry of the build cannot be assembled.
     pub fn open(config: EngineConfig) -> Result<Self, EngineError> {
+        let registry = standard_registry().map_err(|error| EngineError::registry(&error))?;
+        let catalog_rev = registry
+            .catalog_rev()
+            .map_err(|error| EngineError::registry(&error))?;
         let loader = ConfigLoader::new(&config.sources, config.host.as_ref())?;
         let project = loader.project_for(None);
         let loaded = Arc::new(loader.load(project.as_deref())?);
@@ -436,6 +450,8 @@ impl Engine {
             journal: config.journal,
             frontend: config.frontend,
             services: Arc::new(config.services),
+            registry,
+            catalog_rev,
             loader,
             state,
             default_session,
@@ -508,37 +524,39 @@ impl Engine {
         let kind = input_kind(request);
         let sequencer = Sequencer::new(listener, Arc::clone(&self.inner.clock), request_id);
         let engine = self.clone();
-        let request = request.clone();
+        let owned = request.clone();
         let finished = Arc::clone(&completion);
         let spawned = std::thread::Builder::new()
             .name(EXEC_THREAD_NAME.to_owned())
             .spawn(move || {
                 sequencer.lifecycle(Lifecycle::Started);
-                let response = engine.execute(&request, &cancel);
+                let response = engine.execute(&owned, &cancel);
                 sequencer.lifecycle(Lifecycle::Finished {
                     status: response.report.status,
                 });
                 finished.complete(response);
             });
         if let Err(error) = spawned {
-            completion.complete(Response::new(failed_report(
+            let report = failed_report(
                 kind,
                 Error::new(
                     ErrorCode::Internal,
                     format!("cannot start the execution thread: {error}"),
                 ),
-            )));
+            );
+            completion.complete(respond_with(&report, &request.options));
         }
         handle
     }
 
-    /// Binds a request and computes what running it would touch, without
-    /// running it.
+    /// Binds and plans a request and computes what running it would touch,
+    /// without running it.
     ///
     /// # Errors
     ///
-    /// Returns the language error of the envelope, the front end or the
-    /// planner; a request with `cursor` is `E_ARG`.
+    /// Returns the language error of the envelope, the front end, the planner
+    /// (for example `E_ONE_EFFECT` with the split program in `next_steps`) or
+    /// the static check of a stage; a request with `cursor` is `E_ARG`.
     pub fn check(&self, request: &Request) -> Result<CheckReport, Error> {
         let prepared = self.prepare(request)?;
         let compiled = match request
@@ -553,7 +571,17 @@ impl Engine {
                 "check needs `program`, `ast` or `accept`",
             )),
         }?;
-        Err(unavailable("planner").with_detail("command", json!(kind_of(&compiled.bound))))
+        let plan = self.plan(&compiled, &prepared)?;
+        let summary = nurt_plan::check(
+            &plan,
+            &self.inner.registry,
+            self.inner.host.as_ref(),
+            prepared.config.config(),
+        )?;
+        Ok(CheckReport {
+            bound: compiled.bound,
+            summary,
+        })
     }
 
     /// Parses program text without correcting it.
@@ -622,13 +650,33 @@ impl Engine {
         )
     }
 
-    /// The command catalog as JSON.
+    /// The command catalog as JSON (`nurt-catalog-result/1`): the revision
+    /// `catalog_rev`, the number of commands `total` and the groups with the
+    /// number of their commands.
     ///
     /// # Errors
     ///
-    /// Returns `E_UNSUPPORTED` while no command catalog is connected.
+    /// Returns `E_INTERNAL` when the catalog cannot be serialized.
     pub fn catalog(&self) -> Result<Json, Error> {
-        Err(unavailable("command catalog"))
+        self.catalog_query(&CatalogQuery::Summary)
+    }
+
+    /// One query of the command catalog as JSON: the groups, the commands of
+    /// one group or the full specification of one command.
+    ///
+    /// # Errors
+    ///
+    /// Returns `E_UNKNOWN_NAME` for an unknown group and `E_UNKNOWN_COMMAND`
+    /// for an unknown command.
+    pub fn catalog_query(&self, query: &CatalogQuery<'_>) -> Result<Json, Error> {
+        self.inner.registry.catalog_json(query)
+    }
+
+    /// Revision of the command catalog: `sha256:` and the digest of its
+    /// canonical form.
+    #[must_use]
+    pub fn catalog_rev(&self) -> &str {
+        &self.inner.catalog_rev
     }
 
     /// Published JSON Schema `name`: `ast`, `bound`, `report`, `request`,
@@ -721,7 +769,10 @@ impl Engine {
         let started = self.inner.clock.monotonic();
         let prepared = match self.prepare(request) {
             Ok(prepared) => prepared,
-            Err(error) => return Response::new(failed_report(input_kind(request), error)),
+            Err(error) => {
+                let report = failed_report(input_kind(request), error);
+                return respond_with(&report, &request.options);
+            }
         };
         let compiled = match request.input() {
             Ok(RequestInput::Cursor(cursor)) => return self.read_page(cursor, &prepared),
@@ -731,29 +782,49 @@ impl Engine {
             Ok(_) => Err(Error::new(ErrorCode::Arg, "unsupported request input")),
             Err(error) => Err(envelope_error(&error, request)),
         };
+        let reports = self.report_context(prepared.config.config());
         let compiled = match compiled {
             Ok(compiled) => compiled,
             Err(error) => {
-                let report = failed_report(input_kind(request), error);
+                let report = failure(&reports, &ProgramKind::input(request), None, error);
                 return self.finish(report, &prepared, None, started);
             }
         };
-        let kind = kind_of(&compiled.bound);
+        let kind = ProgramKind::of(&compiled.bound);
         let program = ProgramRef::of(
             &compiled.bound.program,
             compiled.ran.clone().or_else(|| request.program.clone()),
         );
-        let error = match cancel.check() {
-            Err(error) => error,
-            Ok(()) => unavailable("planner"),
-        };
-        let mut report = failed_report(&kind, error);
-        report.ran = compiled.ran.filter(|_| !compiled.corrections.is_empty());
-        report.corrections = compiled.corrections;
+        let report = cancel
+            .check()
+            .and_then(|()| self.plan(&compiled, &prepared))
+            .and_then(|plan| execute_plan(&plan))
+            .unwrap_or_else(|error| failure(&reports, &kind, Some(&compiled), error));
         self.finish(report, &prepared, Some(&program), started)
     }
 
-    /// Completes a report: durations, result file and the first page.
+    /// Plans a bound program against the command registry. The fields
+    /// requested by the caller reach the planner; the page size does not,
+    /// because a kept result serves every later page.
+    fn plan(&self, compiled: &Compiled, prepared: &Prepared) -> Result<Plan, Error> {
+        let mut options = PlanOptions::new().with_corrections(compiled.corrections.clone());
+        if let Some(fields) = &prepared.options.fields {
+            options = options.with_fields(fields.iter().cloned());
+        }
+        nurt_plan::plan_with(&compiled.bound, &self.inner.registry, &options)
+    }
+
+    /// Context of the report rules for the configuration of one request.
+    fn report_context(&self, config: &Config) -> ReportContext {
+        ReportContext::new(
+            config.report.clone(),
+            PathContext::from_host(self.inner.host.as_ref()),
+        )
+        .with_scope(&config.scope)
+    }
+
+    /// Completes a report: durations, result file, the first page and the
+    /// rendered result.
     fn finish(
         &self,
         mut report: Report,
@@ -787,7 +858,7 @@ impl Engine {
                 .cursors
                 .first_page(report, limit, program, self.now());
         }
-        Response::new(report)
+        respond_with(&report, &prepared.options)
     }
 
     fn read_page(&self, cursor: &str, prepared: &Prepared) -> Response {
@@ -796,7 +867,7 @@ impl Engine {
             .cursors
             .page(cursor, prepared.options.limit(), self.now())
             .unwrap_or_else(|error| failed_report(PAGE_KIND, error));
-        Response::new(report)
+        respond_with(&report, &prepared.options)
     }
 
     fn compile(
@@ -1002,9 +1073,34 @@ fn input_kind(request: &Request) -> &'static str {
     }
 }
 
-/// Kind of the report of a bound program: its last effect command, or the
-/// source command of its first pipeline.
-fn kind_of(bound: &BoundDocument) -> String {
+/// Report kind of a program and whether it changes targets.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ProgramKind {
+    kind: String,
+    changing: bool,
+}
+
+impl ProgramKind {
+    /// Kind of a request whose program is not bound: `program`, `accept` or
+    /// `page`.
+    fn input(request: &Request) -> Self {
+        Self {
+            kind: input_kind(request).to_owned(),
+            changing: false,
+        }
+    }
+
+    /// Kind of a bound program: its last effect command, or the source
+    /// command of its first pipeline.
+    fn of(bound: &BoundDocument) -> Self {
+        let (kind, changing) = kind_of(bound);
+        Self { kind, changing }
+    }
+}
+
+/// Last effect command of a bound program, or the source command of its
+/// first pipeline, and whether the program has an effect command.
+fn kind_of(bound: &BoundDocument) -> (String, bool) {
     let pipelines = bound
         .program
         .statements
@@ -1031,7 +1127,49 @@ fn kind_of(bound: &BoundDocument) -> String {
             effect = Some(stage.name.clone());
         }
     }
-    effect.or(source).unwrap_or_else(|| PROGRAM_KIND.to_owned())
+    let changing = effect.is_some();
+    let kind = effect.or(source).unwrap_or_else(|| PROGRAM_KIND.to_owned());
+    (kind, changing)
+}
+
+/// Runs a plan and assembles its report.
+///
+/// This build contains no executor of plans: every plan, a preview
+/// included, fails with `E_UNSUPPORTED`, and `details.operations` gives the
+/// number of operations of the plan.
+fn execute_plan(plan: &Plan) -> Result<Report, Error> {
+    Err(unavailable("executor").with_detail("operations", json!(plan.operations().count())))
+}
+
+/// Report of a program that failed before execution, assembled by the report
+/// rules for a reading or a changing program, with the corrections applied
+/// to its text.
+fn failure(
+    ctx: &ReportContext,
+    program: &ProgramKind,
+    compiled: Option<&Compiled>,
+    error: Error,
+) -> Report {
+    let builder = if program.changing {
+        ReportBuilder::changing(ctx, program.kind.clone(), ReportStatus::Failed)
+    } else {
+        ReportBuilder::reading(ctx, program.kind.clone(), ReportStatus::Failed)
+    };
+    let mut builder = builder.error(error.clone());
+    if let Some(compiled) = compiled.filter(|compiled| !compiled.corrections.is_empty()) {
+        builder = builder.corrections(compiled.corrections.clone());
+        if let Some(ran) = &compiled.ran {
+            builder = builder.ran(ran.clone());
+        }
+    }
+    builder
+        .build()
+        .unwrap_or_else(|_| failed_report(&program.kind, error))
+}
+
+/// Response with the result rendered for the options of the request.
+fn respond_with(report: &Report, options: &RequestOptions) -> Response {
+    respond(report, &RenderOptions::from_request(options))
 }
 
 fn failed_report(kind: &str, error: Error) -> Report {
@@ -1191,6 +1329,36 @@ mod tests {
     }
 
     #[test]
+    fn failures_before_execution_follow_the_report_rules() {
+        let ctx = ReportContext::default();
+        let compiled = Compiled {
+            bound: nurt_testkit::fixtures::empty_program(),
+            corrections: vec![
+                serde_json::from_value(json!({
+                    "id": "k1", "rule": "L01", "class": "F", "from": "fnd", "to": "find"
+                }))
+                .unwrap(),
+            ],
+            ran: Some("find \"/srv\"".to_owned()),
+        };
+        let changing = ProgramKind {
+            kind: "remove".to_owned(),
+            changing: true,
+        };
+        let error = Error::new(ErrorCode::OneEffect, "two effect stages");
+        let report = failure(&ctx, &changing, Some(&compiled), error.clone());
+        assert_eq!(report.status, ReportStatus::Failed);
+        assert_eq!(report.kind, "remove");
+        assert_eq!(report.error.as_ref(), Some(&error));
+        assert_eq!(report.ran.as_deref(), Some("find \"/srv\""));
+        assert_eq!(report.corrections.len(), 1);
+        assert!(report.notable.is_empty());
+        let reading = failure(&ctx, &ProgramKind::of(&compiled.bound), None, error);
+        assert_eq!(reading.kind, PROGRAM_KIND);
+        assert!(reading.corrections.is_empty());
+    }
+
+    #[test]
     fn report_kind_is_the_effect_command() {
         let bound: BoundDocument = serde_json::from_value(json!({
             "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
@@ -1201,10 +1369,10 @@ mod tests {
             }]}
         }))
         .unwrap();
-        assert_eq!(kind_of(&bound), "remove");
+        assert_eq!(kind_of(&bound), ("remove".to_owned(), true));
         assert_eq!(
             kind_of(&nurt_testkit::fixtures::empty_program()),
-            PROGRAM_KIND
+            (PROGRAM_KIND.to_owned(), false)
         );
     }
 }

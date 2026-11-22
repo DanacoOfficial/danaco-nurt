@@ -1,0 +1,20 @@
+{"jsonrpc":"2.0","id":1,"result":{"protocol":"nurt-rpc/1","version":"*","abi":"*","language":null,"ast":"1.0","report":"1.0","catalog_rev":null,"features":["stub"],"groups":[],"limits":{"max_inflight":16,"max_message_bytes":16777216}}}
+{"jsonrpc":"2.0","id":2,"result":{"nurt":"1.0","report":{"nurt":"1.0","status":"ok","kind":"find","records":{"type":"entry","matched":148,"rows":[{"kind":"entry","fields":{"path":{"t":"path","v":"/srv/app/src/a.go"},"name":{"t":"text","v":"a.go"},"type":{"t":"enum","v":"file"},"size":{"t":"size","v":1127},"modified":{"t":"instant","v":"2026-11-21T09:12:00Z"}}}]},"next_cursor":"c_91fe"}}}
+{"jsonrpc":"2.0","id":3,"result":{"nurt":"1.0","report":{"nurt":"1.0","status":"failed","kind":"find","error":{"code":"E_SYNTAX","message":"unclosed list","found":"end of program","help":"lists"}}}}
+{"jsonrpc":"2.0","id":4,"result":{"nurt":"1.0","effect":"read","paths":["/srv/app"],"programs":[],"network":[],"diagnostics":[]}}
+{"jsonrpc":"2.0","id":5,"result":{"ast":{"nurt":"1.0","pipelines":[{"stages":[{"command":"find","args":["/srv/app"]}]}]},"diagnostics":[]}}
+{"jsonrpc":"2.0","id":6,"result":{"text":"find \"/srv/app\""}}
+{"jsonrpc":"2.0","id":7,"result":{"program":"find \"/srv/app\"","corrections":[{"from":"fnd","to":"find"}]}}
+{"jsonrpc":"2.0","id":8,"result":{"nurt":"1.0","report":{"nurt":"1.0","status":"ok","kind":"find"}}}
+{"jsonrpc":"2.0","id":9,"result":{"description":"Programs are pipelines of commands joined by |>."}}
+{"jsonrpc":"2.0","id":10,"result":{"text":"Topics: commands, lists, paths."}}
+{"jsonrpc":"2.0","id":11,"result":{"nurt":"1.0","report":{"status":"failed","kind":"schema","error":{"code":"E_UNKNOWN_VALUE","found":"nothing"}}}}
+{"jsonrpc":"2.0","id":12,"result":{"catalog_rev":"stub","commands":[{"name":"find","group":"files"}]}}
+{"jsonrpc":"2.0","id":13,"result":{"operations":[]}}
+{"jsonrpc":"2.0","id":14,"result":{"volumes":[]}}
+{"jsonrpc":"2.0","id":15,"result":{"version":"*","formats":{"ast":"1.0","report":"1.0","envelope":"1.0"},"features":["stub"],"cases":"*"}}
+{"jsonrpc":"2.0","id":16,"error":{"code":-32601}}
+{"jsonrpc":"2.0","id":17,"result":{"cancelled":false}}
+{"jsonrpc":"2.0","id":18,"result":{"nurt":"1.0","report":{"status":"failed","kind":"cancel","error":{"code":"E_UNSUPPORTED","found":"j1"}}}}
+{"jsonrpc":"2.0","id":19,"error":{"code":-32602}}
+{"jsonrpc":"2.0","id":20,"result":null}

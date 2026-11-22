@@ -23,6 +23,10 @@ fixtures = []
 
 [dependencies]
 nurt-contracts = { workspace = true }
+nurt-catalog = { workspace = true }
+nurt-exec = { workspace = true }
+nurt-plan = { workspace = true }
+nurt-report = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -30,5 +34,6 @@ sha2 = { workspace = true }
 toml = { workspace = true }
 
 [dev-dependencies]
+jsonschema = { workspace = true }
 nurt-testkit = { workspace = true }
 tempfile = { workspace = true }
