@@ -105,6 +105,63 @@ fn builds_check_commands_with_machine_readable_output() {
 }
 
 #[test]
+fn every_tool_has_a_unique_key_a_program_and_command_lines() {
+    let mut keys = BTreeSet::new();
+    for tool in Tool::ALL {
+        assert!(keys.insert(tool.key()), "duplicate key {}", tool.key());
+        assert_eq!(Tool::from_key(tool.key()), Some(*tool));
+        assert!(!tool.name().is_empty());
+        assert!(!tool.program().is_empty());
+        assert!(!tool.language().is_empty());
+        assert!(!tool.extensions().is_empty());
+        assert!(!tool.check_args(&[]).is_empty());
+        assert_eq!(tool.write_args(&[]).is_some(), tool.formats());
+    }
+    assert_eq!(Tool::from_key("unknown"), None);
+}
+
+#[test]
+fn version_arguments_follow_the_tool() {
+    assert_eq!(Tool::GoVet.version_args(), Some(vec!["version".to_owned()]));
+    assert_eq!(Tool::Gofmt.version_args(), None);
+    assert_eq!(
+        Tool::Clippy.version_args(),
+        Some(vec!["clippy".to_owned(), "--version".to_owned()])
+    );
+    assert_eq!(
+        Tool::Rustfmt.version_args(),
+        Some(vec!["fmt".to_owned(), "--version".to_owned()])
+    );
+    assert_eq!(
+        Tool::Mypy.version_args(),
+        Some(vec!["--version".to_owned()])
+    );
+}
+
+#[test]
+fn tools_that_check_the_whole_project_take_no_paths() {
+    let paths = vec!["src/a.rs".to_owned()];
+    for tool in [Tool::GoVet, Tool::Clippy, Tool::Rustfmt, Tool::Tsc] {
+        assert!(!tool.accepts_paths());
+        assert!(!tool.check_args(&paths).contains(&"src/a.rs".to_owned()));
+    }
+    for tool in [Tool::Mypy, Tool::BiomeLint, Tool::RuffFormat, Tool::Eslint] {
+        assert!(tool.check_args(&paths).contains(&"src/a.rs".to_owned()));
+    }
+}
+
+#[test]
+fn clean_output_gives_no_findings_for_any_tool() {
+    let output = crate::analyze::output::ToolOutput {
+        exit_code: Some(0),
+        ..Default::default()
+    };
+    for tool in Tool::ALL {
+        assert!(tool.parse(&output, std::path::Path::new("/p")).is_empty());
+    }
+}
+
+#[test]
 fn builds_write_commands_only_for_formatters() {
     let paths = vec!["a.ts".to_owned()];
     assert_eq!(

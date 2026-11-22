@@ -16,6 +16,8 @@
 //!   trailing white space and ends with exactly one line feed.
 //! * Reporters (`tsc`, `eslint`) print the file `<tool>.report` of the working
 //!   directory and exit with code 1 when it is not empty.
+//! * Test runners (`go`, `tap`) print the file `<tool>.report` and exit with the
+//!   code in the file `<tool>.exit`.
 
 use std::fs;
 use std::io::Write;
@@ -50,7 +52,10 @@ fn main() -> ExitCode {
     let Some(name) = program_name() else {
         return ExitCode::from(UNKNOWN_TOOL);
     };
-    if !matches!(name.as_str(), "prettier" | "gofmt" | "tsc" | "eslint") {
+    if !matches!(
+        name.as_str(),
+        "prettier" | "gofmt" | "tsc" | "eslint" | "go" | "tap"
+    ) {
         return ExitCode::from(UNKNOWN_TOOL);
     }
     if args.first().is_some_and(|arg| arg == "--version") {
@@ -76,8 +81,21 @@ fn main() -> ExitCode {
             },
             &args,
         ),
+        "go" | "tap" => replay(&name),
         _ => report(&name),
     }
+}
+
+/// Prints the file `<tool>.report` of the working directory and exits with
+/// the code in the file `<tool>.exit` (0 when there is none), like a test
+/// framework that ends with the status of its run.
+fn replay(name: &str) -> ExitCode {
+    write_out(&fs::read_to_string(format!("{name}.report")).unwrap_or_default());
+    let code = fs::read_to_string(format!("{name}.exit"))
+        .ok()
+        .and_then(|text| text.trim().parse::<u8>().ok())
+        .unwrap_or(0);
+    ExitCode::from(code)
 }
 
 fn write_out(text: &str) {

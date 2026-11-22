@@ -23,6 +23,8 @@ use crate::iface::{
 /// Bound on any single wait in these tests.
 const TEST_BOUND: Duration = Duration::from_secs(5);
 
+mod tree;
+
 fn fixture() -> PathBuf {
     let exe = std::env::current_exe().unwrap_or_default();
     let target = exe

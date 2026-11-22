@@ -10,15 +10,20 @@
 )]
 
 mod disk;
+mod services;
+
+pub(crate) use services::{DiskFiles, FakeCode, FakeGit};
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use nurt_contracts::env::{BootId, Clock, ClockStamp, WallTime};
 use nurt_contracts::envelope::RequestOptions;
 use nurt_contracts::error::Result;
 use nurt_contracts::journal::JournalStore;
+use nurt_contracts::services::{GitQueryService, Services};
+use nurt_contracts::stage::Extensions;
 use nurt_contracts::stage::{
     ArgValue, BoundArgs, CancelReason, CancelToken, EffectOutcome, EffectStage, ExecCtx, StageData,
     StageInput, StageOutput,
@@ -65,22 +70,42 @@ impl Clock for RealClock {
 /// Example of the crate that imitates analyzers and formatters.
 const FIXTURE: &str = "tool_fixture";
 
-/// Path of the `tool_fixture` example, which `cargo test` builds next to the
-/// test binaries.
+/// Path of the `tool_fixture` example.
+///
+/// `cargo test` builds the example next to the test binaries; runners that
+/// build test targets only (coverage measurement) leave it out, so the source
+/// is then compiled once with `rustc`.
 pub(crate) fn fixture_path() -> PathBuf {
+    static COMPILED: OnceLock<PathBuf> = OnceLock::new();
     let exe = std::env::current_exe().unwrap();
-    let path = exe
+    let built = exe
         .parent()
         .and_then(Path::parent)
         .unwrap()
         .join("examples")
         .join(format!("{FIXTURE}{}", std::env::consts::EXE_SUFFIX));
-    assert!(
-        path.is_file(),
-        "the {FIXTURE} example is missing at {}: run `cargo test -p nurt-verify` without a target filter, which builds the examples",
-        path.display()
-    );
-    path
+    if built.is_file() {
+        return built;
+    }
+    COMPILED.get_or_init(compile_fixture).clone()
+}
+
+fn compile_fixture() -> PathBuf {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("examples")
+        .join(format!("{FIXTURE}.rs"));
+    let dir = std::env::temp_dir().join(format!("nurt-verify-{FIXTURE}-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let output = dir.join(format!("{FIXTURE}{}", std::env::consts::EXE_SUFFIX));
+    let rustc = std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into());
+    let status = std::process::Command::new(rustc)
+        .args(["--edition", "2024", "-o"])
+        .arg(&output)
+        .arg(&source)
+        .status()
+        .unwrap();
+    assert!(status.success(), "compiling the {FIXTURE} example failed");
+    output
 }
 
 /// Directories of one test: a project, a state directory and a directory of
@@ -133,6 +158,22 @@ impl Workspace {
     pub(crate) fn system_context(&self) -> ExecCtx {
         let path = std::env::var_os("PATH").unwrap_or_default();
         self.builder(&path).build()
+    }
+
+    /// Context with the code service and the file listing of the doubles and,
+    /// when given, repository queries.
+    pub(crate) fn serviced(&self, git: Option<FakeGit>) -> ExecCtx {
+        let services = Services::new()
+            .with_code(Arc::new(FakeCode))
+            .with_file_list(Arc::new(DiskFiles));
+        let mut extensions = Extensions::new();
+        if let Some(git) = git {
+            extensions.insert::<dyn GitQueryService>(Arc::new(git));
+        }
+        self.builder(self.bin.path().as_os_str())
+            .services(Arc::new(services))
+            .extensions(extensions)
+            .build()
     }
 
     /// Context that has a recording journal store.

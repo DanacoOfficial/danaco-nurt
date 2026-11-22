@@ -789,6 +789,11 @@ fn effect_on(
     Ok((records, rest, marked))
 }
 
+mod arguments;
+mod exchange;
+mod tools;
+mod transactions;
+
 mod jobs_table {
     use super::*;
 
