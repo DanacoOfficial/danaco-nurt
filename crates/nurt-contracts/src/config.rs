@@ -1747,8 +1747,9 @@ pub struct NotableThresholds {
     /// Key `report.notable.mass_ratio`: share of a directory deleted from
     /// which `mass_delete` is reported. Default `0.8`.
     pub mass_ratio: f64,
-    /// Key `report.notable.shrink_ratio`: size ratio below which
-    /// `size_shrunk` is reported. Default `0.5`.
+    /// Key `report.notable.shrink_ratio`: share of its size by which a file
+    /// of at least 1 KiB shrinks from which `size_shrunk` is reported.
+    /// Default `0.5`.
     pub shrink_ratio: f64,
     /// Key `report.notable.per_file_repl`: replacements in one file from which
     /// `many_per_file` is reported. Default `100`.

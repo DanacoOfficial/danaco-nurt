@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-response-1.schema.json",
+  "title": "nurt-response/1",
+  "description": "Response to a request: the effect report nurt-report/1 and, for text formats, the rendered text.",
+  "type": "object",
+  "required": [
+    "nurt",
+    "report"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "nurt": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$"
+    },
+    "report": {
+      "type": "object",
+      "required": [
+        "nurt",
+        "status",
+        "kind"
+      ],
+      "description": "Effect report nurt-report/1."
+    },
+    "rendered": {
+      "$ref": "#/$defs/rendered"
+    }
+  },
+  "$defs": {
+    "rendered": {
+      "type": "object",
+      "required": [
+        "format",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "enum": [
+            "text",
+            "markdown",
+            "compact"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

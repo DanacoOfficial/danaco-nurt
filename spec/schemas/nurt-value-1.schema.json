@@ -3243,6 +3243,11 @@
           "type": "string",
           "const": "binary",
           "description": "Binary file changed."
+        },
+        {
+          "type": "string",
+          "const": "copied",
+          "description": "File copied from another file."
         }
       ],
       "description": "Status of a file in a difference."

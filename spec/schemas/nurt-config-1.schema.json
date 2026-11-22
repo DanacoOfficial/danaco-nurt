@@ -863,7 +863,7 @@
           "default": 0.8
         },
         "shrink_ratio": {
-          "description": "Key `report.notable.shrink_ratio`: size ratio below which\n`size_shrunk` is reported. Default `0.5`.",
+          "description": "Key `report.notable.shrink_ratio`: share of its size by which a file\nof at least 1 KiB shrinks from which `size_shrunk` is reported.\nDefault `0.5`.",
           "type": "number",
           "format": "double",
           "default": 0.5

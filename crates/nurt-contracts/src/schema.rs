@@ -24,6 +24,23 @@ pub const REPORT: &str = include_str!("../../../spec/schemas/nurt-report-1.schem
 /// Schema of the request envelope `nurt-request/1`.
 pub const REQUEST: &str = include_str!("../../../spec/schemas/nurt-request-1.schema.json");
 
+/// Schema of the response envelope `nurt-response/1`, returned by
+/// `nurt_run_json` and by the methods `run` and `page` of `nurt serve`.
+///
+/// The content equals the definition `$defs/response` of [`REQUEST`].
+pub const RESPONSE: &str = include_str!("../../../spec/schemas/nurt-response-1.schema.json");
+
+/// Schema of the result of the check without effect `nurt-check/1`,
+/// returned by `nurt_check`.
+pub const CHECK: &str = include_str!("../../../spec/schemas/nurt-check-1.schema.json");
+
+/// Schema of the messages of the `nurt serve` protocol `nurt-rpc/1`.
+pub const RPC: &str = include_str!("../../../spec/schemas/nurt-rpc-1.schema.json");
+
+/// Schema of a delivered execution event `nurt-event/1`: the parameters of
+/// the notification `nurt/event` and the JSON passed to `nurt_event_cb`.
+pub const EVENT: &str = include_str!("../../../spec/schemas/nurt-event-1.schema.json");
+
 /// Schema of the configuration file `nurt-config/1`.
 pub const CONFIG: &str = include_str!("../../../spec/schemas/nurt-config-1.schema.json");
 
@@ -55,18 +72,23 @@ pub const ALL: &[(&str, &str)] = &[
     ("bound", BOUND),
     ("report", REPORT),
     ("request", REQUEST),
+    ("response", RESPONSE),
     ("config", CONFIG),
     ("catalog", CATALOG),
     ("catalog-result", CATALOG_RESULT),
     ("value", VALUE),
     ("tool", TOOL),
     ("fs-snapshot", FS_SNAPSHOT),
+    ("check", CHECK),
+    ("rpc", RPC),
+    ("event", EVENT),
 ];
 
 /// Returns the schema with the given name.
 ///
-/// Known names: `ast`, `bound`, `report`, `request`, `config`, `catalog`,
-/// `catalog-result`, `value`, `tool` and `fs-snapshot`.
+/// Known names: `ast`, `bound`, `report`, `request`, `response`, `config`,
+/// `catalog`, `catalog-result`, `value`, `tool`, `fs-snapshot`, `check`,
+/// `rpc` and `event`.
 ///
 /// # Examples
 ///

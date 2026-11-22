@@ -138,7 +138,7 @@ command that observed the condition.
 | `size_shrunk` | warning | report | size shrank by `shrink_ratio` (50%, files from 1 KiB) or more |
 | `many_per_file` | notice | report | `per_file_repl` (100) or more replacements in one file |
 | `target_count_high` | notice | report | `targets_high` (500) or more targets |
-| `nothing_matched` | notice | command | a changing stage received no targets |
+| `nothing_matched` | notice | report | a changing stage received no targets |
 | `unchanged` | info | command | a write produced identical content |
 | `binary_target` | warning | command | a binary file was changed |
 | `binary_skipped` | notice | command | binary files were skipped (`count`) |

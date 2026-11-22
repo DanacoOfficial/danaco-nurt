@@ -171,6 +171,7 @@ fn report_builder_computes_the_change_derived_codes_only() {
         "size_shrunk",
         "many_per_file",
         "target_count_high",
+        "nothing_matched",
     ]
     .into_iter()
     .collect();
