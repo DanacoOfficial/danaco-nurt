@@ -463,6 +463,7 @@ fn summary_of(markdown: &str) -> String {
 pub fn build(layout: &Layout, catalog: &Catalog, out: &Path, version: &str) -> Result<SiteReport> {
     let template = read_text(&layout.site().join("template.html"))?;
     let style = read_text(&layout.site().join("style.css"))?;
+    let favicon = read_text(&layout.site().join("favicon.svg"))?;
     let categories = load_cookbook(&layout.cookbook())?;
     let mut pages = guide_pages(layout)?;
     pages.extend(command_pages(layout, catalog)?);
@@ -513,6 +514,7 @@ pub fn build(layout: &Layout, catalog: &Catalog, out: &Path, version: &str) -> R
         }));
     }
     write_text(&out.join("style.css"), &style)?;
+    write_text(&out.join("favicon.svg"), &favicon)?;
     let index = serde_json::to_string_pretty(&search)
         .map_err(|e| DocgenError::invalid("search index", e.to_string()))?;
     write_text(&out.join("search-index.json"), &index)?;
