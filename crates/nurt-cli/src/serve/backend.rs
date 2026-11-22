@@ -17,7 +17,9 @@ use nurt_contracts::value::Instant;
 use nurt_core::{Engine, EventBody, EventListener, Lifecycle};
 use serde_json::{Map, Value};
 
-use super::call::{self, Call, DEFAULT_SUBJECT, PageParams, PrintParams, SpaceParams};
+use super::call::{
+    self, Call, CatalogSelection, DEFAULT_SUBJECT, PageParams, PrintParams, SpaceParams,
+};
 use super::protocol::{self, EVENT_METHOD, RpcError};
 
 /// Interval at which a running request checks whether it was cancelled.
@@ -179,6 +181,11 @@ impl EngineBackend {
         call::to_json(&self.engine.page(&params.cursor, &options))
     }
 
+    fn catalog(&self, what: &Value) -> Result<Value, RpcError> {
+        let selection = CatalogSelection::from_value(what)?;
+        call::answer("catalog", self.engine.catalog_query(&selection.query()))
+    }
+
     fn history(&self, query: Value) -> Result<Value, RpcError> {
         let query: HistoryQuery = if query.is_null() {
             HistoryQuery::default()
@@ -267,7 +274,7 @@ impl Backend for EngineBackend {
                 call::answer(kind, help.map(|text| call::member("text", text.into())))
             }
             Call::Schema(params) => call::schema(&params.name),
-            Call::Catalog(_) => call::answer(kind, self.engine.catalog()),
+            Call::Catalog(what) => self.catalog(&what),
             Call::History(query) => self.history(query),
             Call::Space(params) => self.space(params),
             Call::Info => call::to_json(&self.engine.info()),

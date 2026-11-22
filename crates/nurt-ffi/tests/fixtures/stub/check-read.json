@@ -1,9 +1,22 @@
 {
-  "description": "Static check of a read request: bound tree summary and no diagnostics.",
+  "description": "Static check of a read request: the check document nurt-check/1 and no diagnostics.",
   "function": "check",
   "input": {"nurt": "1.0", "program": "find \"/srv/app\" glob: \"*.go\""},
   "output": [
-    {"nurt": "1.0", "effect": "read", "paths": ["/srv/app"], "programs": [], "network": []},
+    {
+      "nurt": "1.0",
+      "format": "nurt-check/1",
+      "effect": "read",
+      "reversibility": "read",
+      "operations": 1,
+      "waits": false,
+      "paths": ["/srv/app"],
+      "network": [],
+      "programs": [],
+      "groups": ["core"],
+      "corrections": [],
+      "details": []
+    },
     {"diagnostics": []}
   ]
 }
