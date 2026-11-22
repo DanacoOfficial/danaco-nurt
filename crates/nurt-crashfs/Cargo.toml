@@ -1,0 +1,55 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+[package]
+name = "nurt-crashfs"
+description = "Crash and fault injection harness of the Danaco Nurt journal."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+nurt-contracts = { workspace = true }
+nurt-fs = { workspace = true, features = ["failpoints", "mutation-audit", "conformance"] }
+nurt-journal = { workspace = true, features = ["failpoints"] }
+nurt-space = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[[test]]
+name = "crash"
+path = "../../tests/d2/crash/main.rs"
+
+[[test]]
+name = "retention"
+path = "../../tests/d2/retention/main.rs"
+
+[[test]]
+name = "coverage"
+path = "../../tests/d2/coverage/main.rs"
+
+[[test]]
+name = "property"
+path = "../../tests/d2/property/main.rs"
+
+[[test]]
+name = "perf"
+path = "../../tests/d2/perf/main.rs"
+
+[[test]]
+name = "volumes"
+path = "../../tests/d2/volumes/main.rs"

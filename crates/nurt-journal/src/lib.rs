@@ -13,3 +13,21 @@
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+pub(crate) mod blob;
+pub mod commands;
+pub(crate) mod conflict;
+pub(crate) mod history;
+pub(crate) mod integrity;
+pub mod layout;
+pub mod manifest;
+pub(crate) mod overwrite;
+pub(crate) mod pin;
+pub(crate) mod recovery;
+pub(crate) mod retention;
+pub(crate) mod salvage;
+pub(crate) mod seq;
+pub mod store;
+pub(crate) mod tx;
+pub(crate) mod undo;
+pub(crate) mod volumes;

@@ -14,3 +14,18 @@
 #![deny(missing_docs)]
 #![allow(unsafe_code, reason = "file system calls of the operating system")]
 #![deny(clippy::undocumented_unsafe_blocks)]
+
+#[cfg(feature = "archive")]
+pub mod archive;
+#[cfg(feature = "mutation-audit")]
+pub mod audit;
+pub mod clock;
+#[cfg(any(test, feature = "conformance"))]
+pub mod conformance;
+pub mod failpoint;
+pub mod key;
+pub mod linux;
+pub mod macos;
+pub mod mem;
+pub mod path;
+pub mod windows;
