@@ -23,6 +23,7 @@ pub mod walk;
 
 mod commands {
     pub(crate) mod attributes;
+    pub(crate) mod compress;
     pub(crate) mod conflict;
     pub(crate) mod convert;
     pub(crate) mod copy;
@@ -57,6 +58,7 @@ mod details;
 pub fn stages() -> Vec<Arc<dyn StageImpl>> {
     [
         commands::attributes::stages(),
+        commands::compress::stages(),
         commands::convert::stages(),
         commands::copy::stages(),
         commands::create::stages(),
