@@ -64,7 +64,7 @@ fn inserts_rows_and_reports_changed_row_count() {
     let change = &written.changes[0];
     assert_eq!(change.path.as_str(), text(&db));
     assert_eq!(change.action, ChangeAction::Modify);
-    assert_eq!(change.replacements, Some(2));
+    assert_eq!(change.rows_changed, Some(2));
     assert!(written.irreversible.is_empty());
     assert_eq!(tx.declared.len(), 4);
     assert!(tx.observed.iter().any(|observed| {
@@ -119,7 +119,7 @@ fn wal_database_stays_in_wal_mode_with_checkpointed_file() {
     assert_eq!(journal_mode(&db), "wal");
     let call = args(&db, "update users set name = 'eve'", Vec::new(), true);
     let written = write(&call, &ctx(), &mut RecordingTx::new()).unwrap();
-    assert_eq!(written.changes[0].replacements, Some(1));
+    assert_eq!(written.changes[0].rows_changed, Some(1));
     let files = database_files(&db);
     assert!(
         !files[1].exists(),
@@ -336,7 +336,7 @@ fn select_only_change_reports_no_file_change() {
     let mut tx = RecordingTx::new();
     let call = args(&db, "select count(*) as n from users", Vec::new(), true);
     let written = write(&call, &ctx(), &mut tx).unwrap();
-    assert_eq!(written.changes[0].replacements, Some(0));
+    assert_eq!(written.changes[0].rows_changed, Some(0));
     assert!(tx.observed.is_empty());
     assert_eq!(cells(&written.rows[0]), [("n".to_owned(), Value::Int(1))]);
 }

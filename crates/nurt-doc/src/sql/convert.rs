@@ -13,9 +13,10 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::value::{Bytes, Value};
 use rusqlite::types::{Value as SqlValue, ValueRef};
 
-/// Converts a parameter value for binding; `number` counts parameters from 1
-/// across all statements.
-pub(super) fn to_sqlite(value: &Value, number: usize) -> Result<SqlValue> {
+/// Converts a parameter value for binding; `label` names the parameter in
+/// errors: its number across all statements for a list, its placeholder
+/// for a map.
+pub(super) fn to_sqlite(value: &Value, label: &str) -> Result<SqlValue> {
     let converted = match value {
         Value::Null => SqlValue::Null,
         Value::Bool(flag) => SqlValue::Integer(i64::from(*flag)),
@@ -27,20 +28,20 @@ pub(super) fn to_sqlite(value: &Value, number: usize) -> Result<SqlValue> {
         | Value::Glob(text)
         | Value::Key(text)
         | Value::Enum(text) => SqlValue::Text(text.clone()),
-        Value::Size(size) => SqlValue::Integer(
-            i64::try_from(size.bytes()).map_err(|_| out_of_range(number, "size"))?,
-        ),
+        Value::Size(size) => {
+            SqlValue::Integer(i64::try_from(size.bytes()).map_err(|_| out_of_range(label, "size"))?)
+        }
         Value::Duration(duration) => SqlValue::Integer(duration.as_millis()),
         Value::Instant(instant) => SqlValue::Text(instant.to_string()),
         Value::Date(date) => SqlValue::Text(date.text.clone()),
         Value::Regex(regex) => SqlValue::Text(regex.pattern.clone()),
         Value::Bytes(bytes) => SqlValue::Blob(bytes.as_slice().to_vec()),
-        Value::BigInt(_) => return Err(out_of_range(number, "int")),
+        Value::BigInt(_) => return Err(out_of_range(label, "int")),
         other => {
             return Err(Error::new(
                 ErrorCode::Sql,
                 format!(
-                    "parameter {number} has type {}; bind null, bool, int, number, text or bytes",
+                    "parameter {label} has type {}; bind null, bool, int, number, text or bytes",
                     other.type_name()
                 ),
             )
@@ -66,11 +67,11 @@ pub(super) fn from_sqlite(value: ValueRef<'_>) -> Value {
     }
 }
 
-fn out_of_range(number: usize, type_name: &str) -> Error {
+fn out_of_range(label: &str, type_name: &str) -> Error {
     Error::new(
         ErrorCode::Sql,
         format!(
-            "parameter {number} is a {type_name} outside the 64-bit integer range of SQLite; pass it as text"
+            "parameter {label} is a {type_name} outside the 64-bit integer range of SQLite; pass it as text"
         ),
     )
     .with_problem("parameter_range")
@@ -84,33 +85,38 @@ mod tests {
     #[test]
     fn binds_scalars_by_storage_class() {
         assert_eq!(
-            to_sqlite(&Value::Bool(true), 1).ok(),
+            to_sqlite(&Value::Bool(true), "1").ok(),
             Some(SqlValue::Integer(1))
         );
         assert_eq!(
-            to_sqlite(&Value::Size(Size::from_bytes(4096)), 1).ok(),
+            to_sqlite(&Value::Size(Size::from_bytes(4096)), "1").ok(),
             Some(SqlValue::Integer(4096))
         );
         assert_eq!(
-            to_sqlite(&Value::Duration(Duration::from_millis(1500)), 1).ok(),
+            to_sqlite(&Value::Duration(Duration::from_millis(1500)), "1").ok(),
             Some(SqlValue::Integer(1500))
         );
         assert_eq!(
-            to_sqlite(&Value::Decimal("1.10".to_owned()), 1).ok(),
+            to_sqlite(&Value::Decimal("1.10".to_owned()), "`:price`").ok(),
             Some(SqlValue::Text("1.10".to_owned()))
         );
     }
 
     #[test]
     fn rejects_values_without_storage_class() {
-        let error = to_sqlite(&Value::List(Vec::new()), 3).err();
+        let error = to_sqlite(&Value::List(Vec::new()), "`:ids`").err();
         assert_eq!(error.as_ref().map(Error::code), Some(ErrorCode::Sql));
-        let big = to_sqlite(&Value::BigInt("99999999999999999999".to_owned()), 2).err();
+        assert!(
+            error
+                .as_ref()
+                .is_some_and(|error| error.message.starts_with("parameter `:ids` has type"))
+        );
+        let big = to_sqlite(&Value::BigInt("99999999999999999999".to_owned()), "2").err();
         assert_eq!(
             big.map(|error| error.problem.clone()),
             Some(Some("parameter_range".to_owned()))
         );
-        let size = to_sqlite(&Value::Size(Size::from_bytes(u64::MAX)), 1).err();
+        let size = to_sqlite(&Value::Size(Size::from_bytes(u64::MAX)), "1").err();
         assert_eq!(size.map(|error| error.code()), Some(ErrorCode::Sql));
     }
 

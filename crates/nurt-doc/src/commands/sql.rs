@@ -13,7 +13,7 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::Value;
 
-use crate::sql::{self, SqlRequest};
+use crate::sql::{self, SqlParams, SqlRequest};
 
 const COMMAND: &str = "sql";
 
@@ -193,11 +193,12 @@ fn query_arg(args: &BoundArgs) -> Result<String> {
     }
 }
 
-fn params_arg(args: &BoundArgs) -> Result<Vec<Value>> {
+fn params_arg(args: &BoundArgs) -> Result<SqlParams> {
     match args.value("params") {
-        None | Some(Value::Null) => Ok(Vec::new()),
-        Some(Value::List(values)) => Ok(values.clone()),
-        Some(other) => Err(type_error("params", "list", other)),
+        None | Some(Value::Null) => Ok(SqlParams::List(Vec::new())),
+        Some(Value::List(values)) => Ok(SqlParams::List(values.clone())),
+        Some(Value::Map(fields)) => Ok(SqlParams::Map(fields.clone())),
+        Some(other) => Err(type_error("params", "list or map", other)),
     }
 }
 

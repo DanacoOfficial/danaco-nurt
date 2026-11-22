@@ -26,7 +26,7 @@ use nurt_contracts::stage::{
     ArgValue, BoundArgs, CancelReason, CancelToken, ExecCtx, Limits, StageData, StageImpl,
     StageInput,
 };
-use nurt_contracts::value::{Record, Value};
+use nurt_contracts::value::{Fields, Record, Value};
 use nurt_doc::commands::sql::SqlStage;
 use rusqlite::Connection;
 
@@ -151,6 +151,19 @@ pub(crate) fn args(path: &Path, query: &str, params: Vec<Value>, write: bool) ->
             false,
         )
         .with("params", ArgValue::Value(Value::List(params)), defaulted)
+        .with("write", ArgValue::Value(Value::Bool(write)), !write)
+}
+
+/// Bound arguments of one call with a map of named parameters.
+pub(crate) fn args_map(path: &Path, query: &str, params: Fields, write: bool) -> BoundArgs {
+    BoundArgs::new("sql")
+        .with("path", ArgValue::Value(Value::Path(text(path))), false)
+        .with(
+            "query",
+            ArgValue::Value(Value::Text(query.to_owned())),
+            false,
+        )
+        .with("params", ArgValue::Value(Value::Map(params)), false)
         .with("write", ArgValue::Value(Value::Bool(write)), !write)
 }
 

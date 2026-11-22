@@ -191,14 +191,13 @@ fn refuses_changing_statement_without_write_and_offers_fix() {
 }
 
 #[test]
-fn refuses_attach_detach_and_vacuum_into() {
+fn refuses_attach_detach_and_directory_pragmas() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let other = dir.path().join("other.db");
     let cases = [
         (format!("attach '{}' as other", text(&other)), "attach"),
         ("detach other".to_owned(), "attach"),
-        (format!("vacuum into '{}'", text(&other)), "vacuum_into"),
         ("pragma temp_store_directory = '/tmp'".to_owned(), "pragma"),
     ];
     for (query, problem) in cases {
@@ -217,6 +216,24 @@ fn refuses_attach_detach_and_vacuum_into() {
 }
 
 #[test]
+fn refuses_vacuum_into_without_creating_the_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let other = dir.path().join("other.db");
+    let query = format!("vacuum into '{}'", text(&other));
+    let read_error = failure(read(&args(&db, &query, Vec::new(), false), &ctx()));
+    assert_eq!(read_error.code(), ErrorCode::Sql);
+    assert_eq!(read_error.problem.as_deref(), Some("write_required"));
+    let write_error = failure(write(
+        &args(&db, &query, Vec::new(), true),
+        &ctx(),
+        &mut RecordingTx::new(),
+    ));
+    assert_eq!(write_error.code(), ErrorCode::Sql);
+    assert!(!other.exists());
+}
+
+#[test]
 fn refuses_loading_extensions() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
@@ -230,7 +247,7 @@ fn refuses_loading_extensions() {
     let error = failure(read(&call, &ctx()));
     assert_eq!(error.code(), ErrorCode::Sql);
     assert!(
-        error.message.contains("not authorized"),
+        error.problem.as_deref() == Some("extension"),
         "{}",
         error.message
     );
