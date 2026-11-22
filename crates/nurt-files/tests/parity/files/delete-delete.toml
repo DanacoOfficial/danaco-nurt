@@ -1,0 +1,113 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+source = "delete/tests/delete.test.ts"
+cases = 17
+
+[[scenario]]
+name = "preview deletes nothing, apply moves to trash, restore brings back"
+class = "preview"
+parity_rows = ["DL-01", "DL-08", "DL-11", "DL-12", "DL-13", "DL-17"]
+fs_before = [{ path = "notes.txt", content = "alfa\n" }]
+native_call = 'Delete { paths: ["notes.txt"] } then Delete { action: "apply", plan_id } then Delete { action: "restore", operation_id: "op-1" }'
+nurt_program = 'remove "{root}/notes.txt" preview: true; remove "{root}/notes.txt"; undo 1'
+expect = { fs_after = [{ path = "notes.txt", content = "alfa\n" }], fields = [{ field = "effect.status", value = "reverted" }] }
+
+[[scenario]]
+name = "apply without a plan and with an unknown plan is rejected"
+class = "preview"
+parity_rows = ["DL-01"]
+fs_before = [{ path = "a.txt", content = "tre\u015B\u0107\n" }]
+native_call = 'Delete { action: "apply", plan_id: "plan-9" }'
+nurt_program = 'remove "{root}/a.txt" if_match: "<unknown etag>"'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }
+
+[[scenario]]
+name = "plan becomes stale after a file change and is single-use"
+class = "preview"
+parity_rows = ["DL-01", "DL-17"]
+fs_before = [{ path = "a.txt", content = "dwa\n" }]
+native_call = 'Delete { paths: ["a.txt"] } then external change of a.txt then Delete { action: "apply", plan_id }'
+nurt_program = 'remove "{root}/a.txt" if_match: "<etag of the preview>" after a.txt changed'
+expect = { fs_after = [{ path = "a.txt", content = "dwa\n" }], fields = [{ field = "error.code", value = "E_STALE" }] }
+
+[[scenario]]
+name = "remaining references raise an alert and hold the deletion until confirmed"
+class = "notable"
+parity_rows = ["DL-18", "DL-05"]
+fs_before = [{ path = "src/helper.ts", content = "export const value = 1;\n" }, { path = "src/app.ts", content = "import { value } from \"./helper\";\nconsole.log(value);\n" }, { path = "README.md", content = "Modu\u0142 `src/helper.ts` liczy warto\u015B\u0107.\n" }, { path = "src/other.ts", content = "const helper = 2; // przypadkowa zbie\u017Cno\u015B\u0107 nazwy\n" }]
+native_call = 'Delete { paths: ["src/helper.ts"] } then Delete { action: "apply", plan_id, intended: ["src/app.ts", "README.md"] }'
+nurt_program = 'remove "{root}/src/helper.ts" check_references: true'
+expect = { fs_after = [{ path = "src/app.ts", contains = "./helper" }], fields = [{ field = "notable", value = "references_left" }, { field = "undoable", value = true }] }
+
+[[scenario]]
+name = "reference check is disabled by a parameter and by an Operator setting"
+class = "direct"
+parity_rows = ["DL-05", "DL-28"]
+fs_before = [{ path = "src/helper.ts", content = "tre\u015B\u0107\n" }, { path = "src/app.ts", content = "import \"./helper\";\n" }]
+native_call = 'Delete { paths: ["src/helper.ts"], check_references: false }'
+nurt_program = 'remove "{root}/src/helper.ts" check_references: false'
+expect = { fs_after = [{ path = "src/app.ts", content = "import \"./helper\";\n" }], fields = [{ field = "check_references", value = false }] }
+
+[[scenario]]
+name = "non-empty directory requires recursive, and restore recreates the content"
+class = "notable"
+parity_rows = ["DL-02", "DL-09", "DL-17"]
+fs_before = [{ path = "build/a.js", content = "a" }, { path = "build/deep/b.js", content = "bb" }]
+native_call = 'Delete { paths: ["build"] } -> recursive_required; Delete { paths: ["build"], recursive: true } then apply then restore'
+nurt_program = 'remove "{root}/build"; undo 1'
+expect = { fs_after = [{ path = "build/a.js", content = "a" }, { path = "build/deep/b.js", content = "bb" }], fields = [{ field = "notable", value = "directory_removed" }] }
+
+[[scenario]]
+name = "name patterns, nonexistent paths and skip mode"
+class = "direct"
+parity_rows = ["DL-01", "DL-03", "DL-23"]
+fs_before = [{ path = "logs/a.log", content = "tre\u015B\u0107\n" }, { path = "logs/b.log", content = "tre\u015B\u0107\n" }, { path = "logs/keep.txt", content = "tre\u015B\u0107\n" }]
+native_call = 'Delete { paths: ["logs/*.log", "nope.txt"], on_missing: "skip" } then apply'
+nurt_program = 'find "{root}/logs" glob: "*.log" |> remove on_missing: skip'
+expect = { fs_after = [{ path = "logs/keep.txt", content = "tre\u015B\u0107\n" }] }
+
+[[scenario]]
+name = "restore of selected entries, conflict and force"
+class = "direct"
+parity_rows = ["DL-09", "DL-10", "DL-25", "UN-01", "UN-04"]
+fs_before = [{ path = "a.txt", content = "a\n" }, { path = "b.txt", content = "b\n" }]
+native_call = 'Delete { paths: ["a.txt", "b.txt"] } then apply then restore { paths: ["a.txt"] } then restore with conflict then restore { force: true }'
+nurt_program = 'remove "{root}/a.txt" "{root}/b.txt"; undo 1 paths: ["{root}/a.txt"]; undo 1 on_conflict: force'
+expect = { fs_after = [{ path = "a.txt", content = "a\n" }, { path = "b.txt", content = "b\n" }], fields = [{ field = "error.code", value = "E_JOURNAL_CONFLICT" }] }
+
+[[scenario]]
+name = "restore rejects an operation without deletions"
+class = "direct"
+parity_rows = ["DL-25"]
+fs_before = [{ path = "a.txt", content = "tre\u015B\u0107\n" }]
+native_call = 'Delete { paths: ["a.txt"] } then apply then restore op-1 then restore of the restoring operation'
+nurt_program = 'remove "{root}/a.txt"; undo 1; undo 2'
+expect = { fs_after = [{ path = "a.txt", content = "tre\u015B\u0107\n" }], fields = [{ field = "error.code", value = "E_JOURNAL_NOOP" }] }
+
+[[scenario]]
+name = "symlink is deleted without touching its target"
+class = "direct"
+parity_rows = ["DL-16"]
+fs_before = [{ path = "data/real.txt", content = "dane\n" }, { path = "link.txt", symlink_to = "data/real.txt" }]
+native_call = 'Delete { paths: ["link.txt"], check_references: false } then apply'
+nurt_program = 'remove "{root}/link.txt"'
+expect = { fs_after = [{ path = "data/real.txt", content = "dane\n" }] }
+
+[[scenario]]
+name = "trash listing limits the number of entries"
+class = "direct"
+parity_rows = ["DL-12"]
+fs_before = [{ path = "a.txt", content = "tre\u015B\u0107\n" }, { path = "b.txt", content = "tre\u015B\u0107\n" }, { path = "c.txt", content = "tre\u015B\u0107\n" }]
+native_call = 'Delete { action: "list", limit: 2 } after three deletions'
+nurt_program = 'remove "{root}/a.txt"; remove "{root}/b.txt"; remove "{root}/c.txt"; history deleted: true limit: 2'
+expect = { fs_unchanged = false, fields = [{ field = "entries", value = 2 }, { field = "total", value = 3 }] }
+
+[[scenario]]
+name = "restore recreates the bytes of a file with BOM and CRLF endings, file permissions and the symlink"
+class = "direct"
+parity_rows = ["DL-09", "DL-16", "DL-11"]
+fs_before = [{ path = "data/a.bin", generate = "bytes:efbbbf610d0a620d0a00fffe", mode = "0751" }, { path = "data/real.txt", content = "dane\r\n" }, { path = "data/link.txt", symlink_to = "real.txt" }]
+native_call = 'Delete { paths: ["data"], recursive: true } then apply then restore op-1'
+nurt_program = 'remove "{root}/data"; undo 1'
+expect = { fs_after = [{ path = "data/a.bin", generate = "bytes:efbbbf610d0a620d0a00fffe", mode = "0751" }, { path = "data/link.txt", symlink_to = "real.txt" }] }

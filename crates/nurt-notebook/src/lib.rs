@@ -4,8 +4,32 @@
 
 //! Jupyter notebooks for Danaco Nurt.
 //!
-//! The crate reads and edits cells of `.ipynb` notebooks (nbformat 4) while
-//! preserving key order, and exports notebooks to scripts and Markdown.
+//! The crate reads and edits cells of `.ipynb` notebooks (nbformat 4) and
+//! exports notebooks to scripts, Markdown and plain text. Edits keep the
+//! text of unchanged cells and members byte for byte, so a difference of the
+//! file shows only the changed cells.
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+mod address;
+mod cell;
+mod changes;
+mod content;
+mod error;
+mod export;
+mod find;
+mod json;
+mod notebook;
+mod ops;
+mod source;
+
+pub use address::{CellRef, Position, Selection};
+pub use cell::{CellData, OutputsDetail, View};
+pub use changes::{Change, ChangeOutcome, PatternFactory, literal_pattern};
+pub use content::{NotebookContent, cells_as_content};
+pub use error::NotebookError;
+pub use export::ExportFormat;
+pub use find::{Literal, Pattern};
+pub use notebook::{IdGenerator, Notebook};
+pub use ops::{CellQuery, Inserted, Normalized, Replace, Replaced, Scope};

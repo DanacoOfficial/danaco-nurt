@@ -4513,18 +4513,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "insta"
-version = "1.49.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b67d3d2e287e4b86c10b3f3b641033d1f89b74bdb39d05f34952e2b9a6fe21cd"
-dependencies = [
- "once_cell",
- "serde",
- "similar 2.7.0",
- "tempfile",
-]
-
-[[package]]
 name = "interpolate_name"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6009,37 +5997,9 @@ dependencies = [
 name = "nurt-correct"
 version = "0.1.0"
 dependencies = [
- "hex",
- "insta",
- "jiff 1.0.2",
  "nurt-catalog",
  "nurt-contracts",
  "nurt-syntax",
- "proptest",
- "regex",
- "serde",
- "serde_json",
- "serde_json_canonicalizer",
- "sha2 0.11.1",
- "toml_edit",
- "unicode-normalization",
-]
-
-[[package]]
-name = "nurt-crashfs"
-version = "0.1.0"
-dependencies = [
- "nurt-contracts",
- "nurt-fs",
- "nurt-journal",
- "nurt-space",
- "proptest",
- "rand 0.10.4",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "tempfile",
- "toml",
 ]
 
 [[package]]
@@ -6115,28 +6075,20 @@ name = "nurt-fs"
 version = "0.1.0"
 dependencies = [
  "camino",
- "core-foundation 0.10.1",
  "dunce",
  "file-id",
  "filetime",
- "flate2",
  "fs4",
  "libc",
  "nurt-contracts",
  "nurt-types",
- "proptest",
  "reflink-copy",
  "rustix",
  "same-file",
- "serde",
- "sha2 0.11.1",
- "tar",
  "tempfile",
  "unicode-normalization",
  "windows-sys 0.61.2",
  "xattr",
- "zip",
- "zstd",
 ]
 
 [[package]]
@@ -6293,7 +6245,6 @@ dependencies = [
 name = "nurt-journal"
 version = "0.1.0"
 dependencies = [
- "crc32fast",
  "hex",
  "nurt-contracts",
  "nurt-fs",
@@ -6301,11 +6252,8 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
- "serde_json_canonicalizer",
  "sha2 0.11.1",
  "tempfile",
- "toml_edit",
- "uuid",
 ]
 
 [[package]]
@@ -6349,10 +6297,6 @@ version = "0.1.0"
 dependencies = [
  "nurt-contracts",
  "nurt-syntax",
- "serde_json",
- "tree-sitter",
- "tree-sitter-bash",
- "tree-sitter-powershell",
 ]
 
 [[package]]
@@ -6447,15 +6391,10 @@ dependencies = [
 name = "nurt-space"
 version = "0.1.0"
 dependencies = [
- "crc32fast",
  "nurt-contracts",
  "nurt-fs",
  "nurt-journal",
  "nurt-types",
- "proptest",
- "rayon",
- "serde",
- "serde_json",
  "tempfile",
 ]
 
@@ -6465,8 +6404,6 @@ version = "0.1.0"
 dependencies = [
  "ciborium",
  "hex",
- "insta",
- "jsonschema",
  "logos",
  "nurt-contracts",
  "proptest",
@@ -6540,7 +6477,7 @@ dependencies = [
  "regex",
  "sha1 0.11.0",
  "sha2 0.11.1",
- "similar 3.2.1",
+ "similar",
  "unicode-normalization",
  "unicode-width 0.2.3",
 ]
@@ -8749,12 +8686,6 @@ checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
 name = "similar"
-version = "2.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
-
-[[package]]
-name = "similar"
 version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2f8bec09ae8fae0f4f265a4559a9334be3929d8504e9b536df0a41302bd1733"
@@ -9490,30 +9421,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "tree-sitter-bash"
-version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e5ec769279cc91b561d3df0d8a5deb26b0ad40d183127f409494d6d8fc53062"
-dependencies = [
- "cc",
- "tree-sitter-language",
-]
-
-[[package]]
 name = "tree-sitter-language"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0af592be68c579aa78a16846bd19422978c3c52e438523d45ff5d1bff1f9d4a"
-
-[[package]]
-name = "tree-sitter-powershell"
-version = "0.26.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa49d15e5b291030a548447445e0547992eff1438e7cd9133bfec99a9ba962a9"
-dependencies = [
- "cc",
- "tree-sitter-language",
-]
 
 [[package]]
 name = "ttf-parser"

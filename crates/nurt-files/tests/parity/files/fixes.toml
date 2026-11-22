@@ -1,0 +1,32 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+source = "tests/fixes.test.ts"
+cases = 8
+
+[[scenario]]
+name = "pattern with ! restores an entry excluded by an earlier pattern; the last matching pattern decides"
+class = "direct"
+parity_rows = ["SF-13"]
+fs_before = [{ path = "logs/a.log", content = "a\n" }, { path = "logs/keep.log", content = "k\n" }, { path = "logs/b.txt", content = "b\n" }]
+native_call = 'SearchFile { pattern: "logs/*", exclude: ["*.log", "!keep.log"], sort: "name" }'
+nurt_program = 'find "{root}" glob: "logs/*" exclude: ["*.log", "!keep.log"]'
+expect = { fs_unchanged = true, fields = [{ field = "entries[*].path", value = ["logs/b.txt", "logs/keep.log"] }] }
+
+[[scenario]]
+name = "per-pattern counters: the (?i) flag is counted, syntax without an equivalent gets a question mark"
+class = "direct"
+parity_rows = ["SC-02"]
+fs_before = [{ path = "p/a.txt", content = "Alfa alfa\nbeta\n" }]
+native_call = 'SearchContent { patterns: ["(?i)alfa", "beta"], path: "p", output_mode: "content" }'
+nurt_program = 'search [/(?i)alfa/, "beta"] "{root}/p" output: matches'
+expect = { fs_unchanged = true, fields = [{ field = "per_pattern", value = [2, 1] }] }
+
+[[scenario]]
+name = "reading a WebP image reports the dimensions in the description line"
+class = "direct"
+parity_rows = ["RD-33"]
+fs_before = [{ path = "obraz.webp", generate = "webp:VP8X,320x240" }]
+native_call = 'Read { file_path: "obraz.webp" }'
+nurt_program = 'read "{root}/obraz.webp"'
+expect = { fs_unchanged = true, fields = [{ field = "content.image.width", value = 320 }, { field = "content.image.height", value = 240 }] }

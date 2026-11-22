@@ -1,0 +1,78 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+source = "write/tests/freshness.test.ts"
+cases = 10
+
+[[scenario]]
+name = "plan without reading the files is rejected with a single error listing the files and no plan is created"
+class = "freshness"
+parity_rows = ["WR-20", "ED-43"]
+fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\nexport const other = 2;\n" }, { path = "src/b.ts", content = "import { limit } from \"./a.ts\";\nexport const twice = limit * 2;\n" }]
+native_call = 'Edit { action: "plan", files: ["src/a.ts", "src/b.ts"], old_string: "limit", new_string: "quota" } with the read ledger attached and no earlier read'
+nurt_program = 'replace "limit" with: "quota" in: ["{root}/src/a.ts", "{root}/src/b.ts"] if_match: "sha256:00000000"'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }
+
+[[scenario]]
+name = "reading some of the files is not enough; the error names only the unread file"
+class = "freshness"
+parity_rows = ["WR-20"]
+fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\nexport const other = 2;\n" }, { path = "src/b.ts", content = "import { limit } from \"./a.ts\";\nexport const twice = limit * 2;\n" }]
+native_call = 'Edit { action: "plan", files: ["src/a.ts", "src/b.ts"], ... } after a read of src/a.ts only'
+nurt_program = 'read "{root}/src/a.ts"; replace "limit" with: "quota" in: ["{root}/src/a.ts", "{root}/src/b.ts"]'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }, { field = "error.at", value = "src/b.ts" }] }
+
+[[scenario]]
+name = "scope file without a match does not require a read"
+class = "freshness"
+parity_rows = ["WR-20"]
+fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\n" }, { path = "src/c.ts", content = "export const none = 0;\n" }]
+native_call = 'Edit { action: "plan", files: ["src/a.ts", "src/c.ts"], old_string: "limit", new_string: "quota" } after reads of the files with a match'
+nurt_program = 'replace "limit" with: "quota" in: ["{root}/src/a.ts", "{root}/src/c.ts"] preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "targets", value = 1 }] }
+
+[[scenario]]
+name = "after the read the plan is created, and the apply writes and records the new content in the read ledger"
+class = "freshness"
+parity_rows = ["WR-20", "ED-28"]
+fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\nexport const other = 2;\n" }]
+native_call = 'Edit { action: "plan", ... } then Edit { action: "apply", plan_id }'
+nurt_program = 'read "{root}/src/a.ts"; replace "limit" with: "quota" in: ["{root}/src/a.ts"]'
+expect = { fs_after = [{ path = "src/a.ts", content = "export const quota = 1;\nexport const other = 2;\n" }] }
+
+[[scenario]]
+name = "file changed after the read yields stale in the plan"
+class = "freshness"
+parity_rows = ["WR-20", "ED-43"]
+fs_before = [{ path = "src/b.ts", content = "import { limit } from \"./a.ts\";\n// dopisek\n" }]
+native_call = 'Edit { action: "plan", ... } after a read followed by an external change of src/b.ts'
+nurt_program = 'read "{root}/src/b.ts"; replace "limit" with: "quota" in: ["{root}/src/b.ts"]'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }
+
+[[scenario]]
+name = "known and expect_sha256 replace a read; a mismatched hash rejects the plan"
+class = "freshness"
+parity_rows = ["WR-08", "ED-23"]
+open_gap = "LP-19"
+fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\nexport const other = 2;\n" }]
+native_call = 'Edit { action: "plan", file_path: "src/a.ts", old_string: "other", new_string: "second", expect_sha256: "00000000" }'
+nurt_program = 'replace "other" with: "second" in: ["{root}/src/a.ts"] if_match: "sha256:00000000"'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }
+
+[[scenario]]
+name = "apply checks the hashes from the preview: a file change after the preview rejects apply, files unchanged"
+class = "freshness"
+parity_rows = ["ED-43", "WR-20"]
+fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\n" }, { path = "src/b.ts", content = "import { limit } from \"./a.ts\";\n// zmiana po podgl\u0105dzie\n" }]
+native_call = 'Edit { action: "apply", plan_id } after an external change of src/b.ts'
+nurt_program = 'replace "limit" with: "quota" in: ["{root}/src/a.ts", "{root}/src/b.ts"] if_match: "<etag of the preview>"'
+expect = { fs_after = [{ path = "src/a.ts", content = "export const limit = 1;\n" }], fields = [{ field = "error.code", value = "E_STALE" }] }
+
+[[scenario]]
+name = "stopping the task interrupts the computation before writing and creates no plan"
+class = "direct"
+parity_rows = ["ED-42"]
+fs_before = [{ path = "many/f0.ts", content = "export const limit = 0;\n" }]
+native_call = 'Edit { action: "plan", glob: "many/*.ts", old_string: "limit", new_string: "quota" } stopped while running'
+nurt_program = 'replace "limit" with: "quota" glob: "{root}/many/*.ts" preview: true, cancelled during the run'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_CANCELLED" }] }

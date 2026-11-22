@@ -1,0 +1,41 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+source = "delete/tests/sidecontent.test.ts"
+cases = 5
+
+[[scenario]]
+name = "directory: reference to a file inside the deleted directory appears in the preview, holds the apply and returns in the result"
+class = "notable"
+parity_rows = ["DL-18", "DL-15", "DL-02"]
+fs_before = [{ path = "lib/inner/util.ts", content = "export const util = 1;\n" }, { path = "src/app.ts", content = "import { util } from \"../lib/inner/util\";\nconsole.log(util);\n" }]
+native_call = 'Delete { paths: ["lib"], recursive: true } then Delete { action: "apply", plan_id, intended: [...] }'
+nurt_program = 'remove "{root}/lib" check_references: true'
+expect = { fs_after = [{ path = "src/app.ts", contains = "../lib/inner/util" }], fields = [{ field = "notable", value = "references_left" }] }
+
+[[scenario]]
+name = "name pattern deletes only matching files; neighbors with similar names stay character for character"
+class = "direct"
+parity_rows = ["DL-01", "DL-03"]
+fs_before = [{ path = "logs/app.log", content = "a\n" }, { path = "logs/app.log.bak", content = "b\n" }, { path = "logs/app.logx", content = "c\n" }]
+native_call = 'Delete { paths: ["logs/*.log"], check_references: false } then apply'
+nurt_program = 'find "{root}/logs" glob: "*.log" |> remove'
+expect = { fs_after = [{ path = "logs/app.log.bak", content = "b\n" }, { path = "logs/app.logx", content = "c\n" }] }
+
+[[scenario]]
+name = "file added to the directory after the preview invalidates the plan; nothing is deleted"
+class = "preview"
+parity_rows = ["DL-17", "DL-02"]
+fs_before = [{ path = "dir/a.txt", content = "a\n" }, { path = "dir/late.txt", content = "p\u00F3\u017Ano\n" }]
+native_call = 'Delete { paths: ["dir"], recursive: true } then creation of dir/late.txt then Delete { action: "apply", plan_id }'
+nurt_program = 'remove "{root}/dir" if_match: "<etag of the preview>" after dir/late.txt was created'
+expect = { fs_after = [{ path = "dir/a.txt", content = "a\n" }, { path = "dir/late.txt", content = "p\u00F3\u017Ano\n" }], fields = [{ field = "error.code", value = "E_STALE" }] }
+
+[[scenario]]
+name = "restore of a selected entry does not change files modified after the deletion"
+class = "direct"
+parity_rows = ["DL-09", "DL-10", "UN-04"]
+fs_before = [{ path = "a.txt", content = "a\n" }, { path = "b.txt", content = "zmieniony po usuni\u0119ciu\n" }]
+native_call = 'Delete { paths: ["a.txt", "b.txt"] } then apply then recreation of b.txt then Delete { action: "restore", paths: ["a.txt"] }'
+nurt_program = 'remove "{root}/a.txt" "{root}/b.txt"; undo 1 paths: ["{root}/a.txt"]'
+expect = { fs_after = [{ path = "a.txt", content = "a\n" }, { path = "b.txt", content = "zmieniony po usuni\u0119ciu\n" }] }

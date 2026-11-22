@@ -1,0 +1,1156 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Rows of the parity table: identifier, state and, for gaps, the open item that tracks them.
+[[row]]
+id = "W-01"
+state = "partial"
+
+[[row]]
+id = "W-02"
+state = "equal"
+
+[[row]]
+id = "W-03"
+state = "equal"
+
+[[row]]
+id = "W-04"
+state = "gap"
+gap = "LP-01"
+
+[[row]]
+id = "W-05"
+state = "partial"
+
+[[row]]
+id = "W-06"
+state = "equal"
+
+[[row]]
+id = "W-07"
+state = "dropped"
+
+[[row]]
+id = "W-08"
+state = "equal"
+
+[[row]]
+id = "W-09"
+state = "dropped"
+
+[[row]]
+id = "W-10"
+state = "partial"
+
+[[row]]
+id = "W-11"
+state = "partial"
+
+[[row]]
+id = "W-12"
+state = "partial"
+
+[[row]]
+id = "RD-01"
+state = "equal"
+
+[[row]]
+id = "RD-02"
+state = "equal"
+
+[[row]]
+id = "RD-03"
+state = "partial"
+
+[[row]]
+id = "RD-04"
+state = "equal"
+
+[[row]]
+id = "RD-05"
+state = "equal"
+
+[[row]]
+id = "RD-06"
+state = "partial"
+
+[[row]]
+id = "RD-07"
+state = "equal"
+
+[[row]]
+id = "RD-08"
+state = "equal"
+
+[[row]]
+id = "RD-09"
+state = "equal"
+
+[[row]]
+id = "RD-10"
+state = "partial"
+
+[[row]]
+id = "RD-11"
+state = "equal"
+
+[[row]]
+id = "RD-12"
+state = "equal"
+
+[[row]]
+id = "RD-13"
+state = "equal"
+
+[[row]]
+id = "RD-14"
+state = "equal"
+
+[[row]]
+id = "RD-15"
+state = "partial"
+
+[[row]]
+id = "RD-16"
+state = "equal"
+
+[[row]]
+id = "RD-17"
+state = "partial"
+
+[[row]]
+id = "RD-18"
+state = "partial"
+
+[[row]]
+id = "RD-19"
+state = "partial"
+
+[[row]]
+id = "RD-20"
+state = "partial"
+
+[[row]]
+id = "RD-21"
+state = "equal"
+
+[[row]]
+id = "RD-22"
+state = "partial"
+
+[[row]]
+id = "RD-23"
+state = "equal"
+
+[[row]]
+id = "RD-24"
+state = "equal"
+
+[[row]]
+id = "RD-25"
+state = "partial"
+
+[[row]]
+id = "RD-26"
+state = "partial"
+
+[[row]]
+id = "RD-27"
+state = "gap"
+gap = "LP-04"
+
+[[row]]
+id = "RD-28"
+state = "dropped"
+
+[[row]]
+id = "RD-29"
+state = "dropped"
+
+[[row]]
+id = "RD-30"
+state = "partial"
+
+[[row]]
+id = "RD-31"
+state = "equal"
+
+[[row]]
+id = "RD-32"
+state = "equal"
+
+[[row]]
+id = "RD-33"
+state = "partial"
+
+[[row]]
+id = "RD-34"
+state = "partial"
+
+[[row]]
+id = "RD-35"
+state = "partial"
+
+[[row]]
+id = "RD-36"
+state = "partial"
+
+[[row]]
+id = "RD-37"
+state = "gap"
+gap = "LP-32"
+
+[[row]]
+id = "RD-38"
+state = "equal"
+
+[[row]]
+id = "RD-39"
+state = "gap"
+gap = "LP-32"
+
+[[row]]
+id = "RD-40"
+state = "gap"
+gap = "LP-32"
+
+[[row]]
+id = "RD-41"
+state = "gap"
+gap = "LP-32"
+
+[[row]]
+id = "RD-42"
+state = "partial"
+
+[[row]]
+id = "RD-43"
+state = "gap"
+gap = "LP-32"
+
+[[row]]
+id = "RD-44"
+state = "partial"
+
+[[row]]
+id = "RD-45"
+state = "partial"
+
+[[row]]
+id = "SF-01"
+state = "partial"
+
+[[row]]
+id = "SF-02"
+state = "partial"
+
+[[row]]
+id = "SF-03"
+state = "equal"
+
+[[row]]
+id = "SF-04"
+state = "partial"
+
+[[row]]
+id = "SF-05"
+state = "partial"
+
+[[row]]
+id = "SF-06"
+state = "equal"
+
+[[row]]
+id = "SF-07"
+state = "partial"
+
+[[row]]
+id = "SF-08"
+state = "equal"
+
+[[row]]
+id = "SF-09"
+state = "equal"
+
+[[row]]
+id = "SF-10"
+state = "partial"
+
+[[row]]
+id = "SF-11"
+state = "partial"
+
+[[row]]
+id = "SF-12"
+state = "partial"
+
+[[row]]
+id = "SF-13"
+state = "equal"
+
+[[row]]
+id = "SF-14"
+state = "partial"
+
+[[row]]
+id = "SF-15"
+state = "equal"
+
+[[row]]
+id = "SF-16"
+state = "equal"
+
+[[row]]
+id = "SF-17"
+state = "gap"
+gap = "LP-08"
+
+[[row]]
+id = "SF-18"
+state = "partial"
+
+[[row]]
+id = "SF-19"
+state = "gap"
+gap = "LP-09"
+
+[[row]]
+id = "SF-20"
+state = "partial"
+
+[[row]]
+id = "SF-21"
+state = "gap"
+gap = "LP-01"
+
+[[row]]
+id = "SF-22"
+state = "equal"
+
+[[row]]
+id = "SF-23"
+state = "partial"
+
+[[row]]
+id = "SF-24"
+state = "partial"
+
+[[row]]
+id = "SF-25"
+state = "dropped"
+
+[[row]]
+id = "SF-26"
+state = "equal"
+
+[[row]]
+id = "SC-01"
+state = "partial"
+
+[[row]]
+id = "SC-02"
+state = "partial"
+
+[[row]]
+id = "SC-03"
+state = "partial"
+
+[[row]]
+id = "SC-04"
+state = "partial"
+
+[[row]]
+id = "SC-05"
+state = "partial"
+
+[[row]]
+id = "SC-06"
+state = "partial"
+
+[[row]]
+id = "SC-07"
+state = "equal"
+
+[[row]]
+id = "SC-08"
+state = "equal"
+
+[[row]]
+id = "SC-09"
+state = "equal"
+
+[[row]]
+id = "SC-10"
+state = "equal"
+
+[[row]]
+id = "SC-11"
+state = "equal"
+
+[[row]]
+id = "SC-12"
+state = "partial"
+
+[[row]]
+id = "SC-13"
+state = "equal"
+
+[[row]]
+id = "SC-14"
+state = "partial"
+
+[[row]]
+id = "SC-15"
+state = "equal"
+
+[[row]]
+id = "SC-16"
+state = "equal"
+
+[[row]]
+id = "SC-17"
+state = "equal"
+
+[[row]]
+id = "SC-18"
+state = "partial"
+
+[[row]]
+id = "SC-19"
+state = "partial"
+
+[[row]]
+id = "SC-20"
+state = "equal"
+
+[[row]]
+id = "SC-21"
+state = "equal"
+
+[[row]]
+id = "SC-22"
+state = "equal"
+
+[[row]]
+id = "SC-23"
+state = "partial"
+
+[[row]]
+id = "SC-24"
+state = "equal"
+
+[[row]]
+id = "SC-25"
+state = "partial"
+
+[[row]]
+id = "SC-26"
+state = "partial"
+
+[[row]]
+id = "SC-27"
+state = "gap"
+gap = "LP-33"
+
+[[row]]
+id = "SC-28"
+state = "partial"
+
+[[row]]
+id = "SC-29"
+state = "partial"
+
+[[row]]
+id = "SC-30"
+state = "partial"
+
+[[row]]
+id = "SC-31"
+state = "dropped"
+
+[[row]]
+id = "SC-32"
+state = "partial"
+
+[[row]]
+id = "SC-33"
+state = "equal"
+
+[[row]]
+id = "ST-01"
+state = "partial"
+
+[[row]]
+id = "ST-02"
+state = "equal"
+
+[[row]]
+id = "ST-03"
+state = "equal"
+
+[[row]]
+id = "ST-04"
+state = "equal"
+
+[[row]]
+id = "ST-05"
+state = "equal"
+
+[[row]]
+id = "ST-06"
+state = "equal"
+
+[[row]]
+id = "ST-07"
+state = "equal"
+
+[[row]]
+id = "ST-08"
+state = "equal"
+
+[[row]]
+id = "ST-09"
+state = "equal"
+
+[[row]]
+id = "ST-10"
+state = "equal"
+
+[[row]]
+id = "ST-11"
+state = "equal"
+
+[[row]]
+id = "ST-12"
+state = "equal"
+
+[[row]]
+id = "ST-13"
+state = "equal"
+
+[[row]]
+id = "ST-14"
+state = "dropped"
+
+[[row]]
+id = "ST-15"
+state = "partial"
+
+[[row]]
+id = "ST-16"
+state = "partial"
+
+[[row]]
+id = "ST-17"
+state = "equal"
+
+[[row]]
+id = "ST-18"
+state = "gap"
+gap = "LP-01"
+
+[[row]]
+id = "ST-19"
+state = "equal"
+
+[[row]]
+id = "ST-20"
+state = "partial"
+
+[[row]]
+id = "ST-21"
+state = "equal"
+
+[[row]]
+id = "ST-22"
+state = "partial"
+
+[[row]]
+id = "WR-01"
+state = "equal"
+
+[[row]]
+id = "WR-02"
+state = "equal"
+
+[[row]]
+id = "WR-03"
+state = "equal"
+
+[[row]]
+id = "WR-04"
+state = "partial"
+
+[[row]]
+id = "WR-05"
+state = "equal"
+
+[[row]]
+id = "WR-06"
+state = "partial"
+
+[[row]]
+id = "WR-07"
+state = "partial"
+
+[[row]]
+id = "WR-08"
+state = "equal"
+
+[[row]]
+id = "WR-09"
+state = "partial"
+
+[[row]]
+id = "WR-10"
+state = "partial"
+
+[[row]]
+id = "WR-11"
+state = "dropped"
+
+[[row]]
+id = "WR-12"
+state = "equal"
+
+[[row]]
+id = "WR-13"
+state = "partial"
+
+[[row]]
+id = "WR-14"
+state = "equal"
+
+[[row]]
+id = "WR-15"
+state = "equal"
+
+[[row]]
+id = "WR-16"
+state = "partial"
+
+[[row]]
+id = "WR-17"
+state = "equal"
+
+[[row]]
+id = "WR-18"
+state = "partial"
+
+[[row]]
+id = "WR-19"
+state = "dropped"
+
+[[row]]
+id = "WR-20"
+state = "partial"
+
+[[row]]
+id = "WR-21"
+state = "dropped"
+
+[[row]]
+id = "WR-22"
+state = "partial"
+
+[[row]]
+id = "WR-23"
+state = "partial"
+
+[[row]]
+id = "WR-24"
+state = "partial"
+
+[[row]]
+id = "WR-25"
+state = "partial"
+
+[[row]]
+id = "WR-26"
+state = "partial"
+
+[[row]]
+id = "WR-27"
+state = "equal"
+
+[[row]]
+id = "WR-28"
+state = "partial"
+
+[[row]]
+id = "WR-29"
+state = "equal"
+
+[[row]]
+id = "WR-30"
+state = "dropped"
+
+[[row]]
+id = "WR-31"
+state = "equal"
+
+[[row]]
+id = "WR-32"
+state = "equal"
+
+[[row]]
+id = "ED-01"
+state = "equal"
+
+[[row]]
+id = "ED-02"
+state = "equal"
+
+[[row]]
+id = "ED-03"
+state = "equal"
+
+[[row]]
+id = "ED-04"
+state = "partial"
+
+[[row]]
+id = "ED-05"
+state = "partial"
+
+[[row]]
+id = "ED-06"
+state = "equal"
+
+[[row]]
+id = "ED-07"
+state = "equal"
+
+[[row]]
+id = "ED-08"
+state = "equal"
+
+[[row]]
+id = "ED-09"
+state = "partial"
+
+[[row]]
+id = "ED-10"
+state = "partial"
+
+[[row]]
+id = "ED-11"
+state = "partial"
+
+[[row]]
+id = "ED-12"
+state = "equal"
+
+[[row]]
+id = "ED-13"
+state = "equal"
+
+[[row]]
+id = "ED-14"
+state = "partial"
+
+[[row]]
+id = "ED-15"
+state = "partial"
+
+[[row]]
+id = "ED-16"
+state = "partial"
+
+[[row]]
+id = "ED-17"
+state = "partial"
+
+[[row]]
+id = "ED-18"
+state = "partial"
+
+[[row]]
+id = "ED-19"
+state = "partial"
+
+[[row]]
+id = "ED-20"
+state = "dropped"
+
+[[row]]
+id = "ED-21"
+state = "equal"
+
+[[row]]
+id = "ED-22"
+state = "equal"
+
+[[row]]
+id = "ED-23"
+state = "equal"
+
+[[row]]
+id = "ED-24"
+state = "partial"
+
+[[row]]
+id = "ED-25"
+state = "equal"
+
+[[row]]
+id = "ED-26"
+state = "equal"
+
+[[row]]
+id = "ED-27"
+state = "partial"
+
+[[row]]
+id = "ED-28"
+state = "equal"
+
+[[row]]
+id = "ED-29"
+state = "gap"
+gap = "LP-19"
+
+[[row]]
+id = "ED-30"
+state = "equal"
+
+[[row]]
+id = "ED-31"
+state = "dropped"
+
+[[row]]
+id = "ED-32"
+state = "partial"
+
+[[row]]
+id = "ED-33"
+state = "partial"
+
+[[row]]
+id = "ED-34"
+state = "partial"
+
+[[row]]
+id = "ED-35"
+state = "partial"
+
+[[row]]
+id = "ED-36"
+state = "gap"
+gap = "LP-22"
+
+[[row]]
+id = "ED-37"
+state = "equal"
+
+[[row]]
+id = "ED-38"
+state = "equal"
+
+[[row]]
+id = "ED-39"
+state = "equal"
+
+[[row]]
+id = "ED-40"
+state = "dropped"
+
+[[row]]
+id = "ED-41"
+state = "partial"
+
+[[row]]
+id = "ED-42"
+state = "equal"
+
+[[row]]
+id = "ED-43"
+state = "equal"
+
+[[row]]
+id = "ED-44"
+state = "partial"
+
+[[row]]
+id = "NB-01"
+state = "equal"
+
+[[row]]
+id = "NB-02"
+state = "gap"
+gap = "LP-25"
+
+[[row]]
+id = "NB-03"
+state = "equal"
+
+[[row]]
+id = "NB-04"
+state = "equal"
+
+[[row]]
+id = "NB-05"
+state = "equal"
+
+[[row]]
+id = "NB-06"
+state = "gap"
+gap = "LP-25"
+
+[[row]]
+id = "NB-07"
+state = "equal"
+
+[[row]]
+id = "NB-08"
+state = "partial"
+
+[[row]]
+id = "NB-09"
+state = "equal"
+
+[[row]]
+id = "NB-10"
+state = "partial"
+
+[[row]]
+id = "NB-11"
+state = "partial"
+
+[[row]]
+id = "NB-12"
+state = "equal"
+
+[[row]]
+id = "NB-13"
+state = "partial"
+
+[[row]]
+id = "NB-14"
+state = "equal"
+
+[[row]]
+id = "NB-15"
+state = "equal"
+
+[[row]]
+id = "NB-16"
+state = "equal"
+
+[[row]]
+id = "NB-17"
+state = "equal"
+
+[[row]]
+id = "NB-18"
+state = "gap"
+gap = "LP-26"
+
+[[row]]
+id = "NB-19"
+state = "partial"
+
+[[row]]
+id = "NB-20"
+state = "dropped"
+
+[[row]]
+id = "NB-21"
+state = "gap"
+gap = "LP-26"
+
+[[row]]
+id = "NB-22"
+state = "equal"
+
+[[row]]
+id = "NB-23"
+state = "equal"
+
+[[row]]
+id = "NB-24"
+state = "equal"
+
+[[row]]
+id = "NB-25"
+state = "partial"
+
+[[row]]
+id = "NB-26"
+state = "equal"
+
+[[row]]
+id = "NB-27"
+state = "equal"
+
+[[row]]
+id = "NB-28"
+state = "partial"
+
+[[row]]
+id = "NB-29"
+state = "partial"
+
+[[row]]
+id = "NB-30"
+state = "gap"
+gap = "LP-26"
+
+[[row]]
+id = "NB-31"
+state = "gap"
+gap = "LP-26"
+
+[[row]]
+id = "NB-32"
+state = "equal"
+
+[[row]]
+id = "NB-33"
+state = "partial"
+
+[[row]]
+id = "NB-34"
+state = "partial"
+
+[[row]]
+id = "DL-01"
+state = "equal"
+
+[[row]]
+id = "DL-02"
+state = "partial"
+
+[[row]]
+id = "DL-03"
+state = "partial"
+
+[[row]]
+id = "DL-04"
+state = "gap"
+gap = "LP-29"
+
+[[row]]
+id = "DL-05"
+state = "partial"
+
+[[row]]
+id = "DL-06"
+state = "dropped"
+
+[[row]]
+id = "DL-07"
+state = "dropped"
+
+[[row]]
+id = "DL-08"
+state = "equal"
+
+[[row]]
+id = "DL-09"
+state = "equal"
+
+[[row]]
+id = "DL-10"
+state = "equal"
+
+[[row]]
+id = "DL-11"
+state = "equal"
+
+[[row]]
+id = "DL-12"
+state = "equal"
+
+[[row]]
+id = "DL-13"
+state = "partial"
+
+[[row]]
+id = "DL-14"
+state = "partial"
+
+[[row]]
+id = "DL-15"
+state = "partial"
+
+[[row]]
+id = "DL-16"
+state = "equal"
+
+[[row]]
+id = "DL-17"
+state = "equal"
+
+[[row]]
+id = "DL-18"
+state = "partial"
+
+[[row]]
+id = "DL-19"
+state = "dropped"
+
+[[row]]
+id = "DL-20"
+state = "partial"
+
+[[row]]
+id = "DL-21"
+state = "dropped"
+
+[[row]]
+id = "DL-22"
+state = "partial"
+
+[[row]]
+id = "DL-23"
+state = "equal"
+
+[[row]]
+id = "DL-24"
+state = "dropped"
+
+[[row]]
+id = "DL-25"
+state = "partial"
+
+[[row]]
+id = "DL-26"
+state = "dropped"
+
+[[row]]
+id = "DL-27"
+state = "dropped"
+
+[[row]]
+id = "DL-28"
+state = "equal"
+
+[[row]]
+id = "DL-29"
+state = "dropped"
+
+[[row]]
+id = "DL-30"
+state = "partial"
+
+[[row]]
+id = "UN-01"
+state = "equal"
+
+[[row]]
+id = "UN-02"
+state = "equal"
+
+[[row]]
+id = "UN-03"
+state = "dropped"
+
+[[row]]
+id = "UN-04"
+state = "equal"
+
+[[row]]
+id = "UN-05"
+state = "equal"

@@ -1,0 +1,68 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+source = "tests/stat.test.ts"
+cases = 7
+
+[[scenario]]
+name = "one path gives one line without a summary"
+class = "direct"
+parity_rows = ["ST-01", "ST-04", "ST-05", "ST-06"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'Stat { paths: ["src/app.ts"] }'
+nurt_program = 'info "{root}/src/app.ts"'
+expect = { fs_unchanged = true, fields = [{ field = "entry.type", value = "file" }, { field = "entry.size", value = 445 }] }
+
+[[scenario]]
+name = "many paths: summary, missing and protected"
+class = "direct"
+parity_rows = ["ST-01", "ST-19", "ST-20"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'Stat { paths: ["src/app.ts", "docs", "nope.txt"] }'
+nurt_program = 'info "{root}/src/app.ts" "{root}/docs" "{root}/nope.txt"'
+expect = { fs_unchanged = true, fields = [{ field = "entries[1].type", value = "directory" }, { field = "entries[2].exists", value = false }] }
+
+[[scenario]]
+name = "glob patterns in paths expand to files"
+class = "direct"
+parity_rows = ["ST-01", "ST-02"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'Stat { paths: ["src/*.ts", "config.*"], columns: ["size"] }'
+nurt_program = 'find "{root}" glob: ["src/*.ts", "config.*"] |> select path size'
+expect = { fs_unchanged = true, fields = [{ field = "entries[*].path", value = ["config.toml", "config.yaml", "src/app.ts", "src/big.ts"] }] }
+
+[[scenario]]
+name = "content columns, hash and known"
+class = "direct"
+parity_rows = ["ST-03", "ST-07", "ST-08", "ST-10", "ST-11", "ST-12", "ST-13", "ST-16", "ST-17"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'Stat { paths: ["src/app.ts", "notes.txt", "logo.png"], columns: ["exists", "lines", "encoding", "eol", "symbols", "mode", "account", "protected"], hash: true }'
+nurt_program = 'info "{root}/src/app.ts" "{root}/notes.txt" "{root}/logo.png" details: [text, symbols] hash: sha256'
+expect = { fs_unchanged = true, fields = [{ field = "entries[0].lines", value = 25 }, { field = "entries[0].encoding", value = "utf-8" }, { field = "entries[0].line_ending", value = "lf" }, { field = "entries[1].line_ending", value = "crlf" }, { field = "entries[2].binary", value = true }] }
+
+[[scenario]]
+name = "symlink and file over the read limit"
+class = "direct"
+parity_rows = ["ST-09", "ST-04"]
+fs_before = [{ fixture = "standard" }, { path = "alias.txt", symlink_to = "notes.txt" }]
+native_call = 'Stat { paths: ["alias.txt"], columns: ["type", "symlink"] }'
+nurt_program = 'info "{root}/alias.txt"'
+expect = { fs_unchanged = true, fields = [{ field = "entry.type", value = "link" }, { field = "entry.link_target", value = "notes.txt" }] }
+
+[[scenario]]
+name = "git column reports the state of files in the repository"
+class = "direct"
+parity_rows = ["ST-15", "ST-21"]
+fs_before = [{ fixture = "standard" }, { path = ".gitignore", content = "*.log\n" }, { path = "build.log", content = "x\n" }]
+native_call = 'Stat { paths: ["config.toml", "config.yaml", "notes.txt", "build.log", "nope"], columns: ["git"] } after git init, add and commit of config files'
+nurt_program = 'info "{root}/config.toml" "{root}/config.yaml" "{root}/notes.txt" "{root}/build.log" details: [git]'
+expect = { fs_unchanged = true, fields = [{ field = "entries[*].git", value = ["clean", "modified", "untracked", "ignored", ""] }] }
+
+[[scenario]]
+name = "unknown column is rejected, format json returns the full hash"
+class = "direct"
+parity_rows = ["ST-02", "ST-10", "ST-22"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'Stat { paths: ["notes.txt"], hash: true, format: "json", fields: ["paths"] }'
+nurt_program = 'info "{root}/notes.txt" hash: sha256 format: json'
+expect = { fs_unchanged = true, fields = [{ field = "entry.hash.algorithm", value = "sha256" }] }

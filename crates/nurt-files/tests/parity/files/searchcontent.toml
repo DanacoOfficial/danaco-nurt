@@ -1,0 +1,149 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+source = "tests/searchcontent.test.ts"
+cases = 17
+
+[[scenario]]
+name = "returns files with a common directory in the first line by default"
+class = "direct"
+parity_rows = ["SC-01", "SC-06", "SC-14", "SC-30"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "total", sort: "path" }'
+nurt_program = 'search "total" "{root}" output: files sort: path'
+expect = { fs_unchanged = true, fields = [{ field = "files[*].path", value = ["docs/guide.md", "node_modules/dep/index.js", "src/app.ts", "tests/app.test.ts"] }, { field = "total_matches", value = 9 }] }
+
+[[scenario]]
+name = "content groups matches by file and marks the context"
+class = "direct"
+parity_rows = ["SC-06", "SC-07", "SC-09", "SC-22"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "return total", output_mode: "content", "-C": 1 }'
+nurt_program = 'search "return total" "{root}" output: matches context: 1'
+expect = { fs_unchanged = true, fields = [{ field = "matches[0].no", value = 23 }, { field = "matches[0].before[0].no", value = 22 }, { field = "matches[0].after[0].no", value = 24 }] }
+
+[[scenario]]
+name = "count and count_by"
+class = "direct"
+parity_rows = ["SC-06", "SC-19"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "total", output_mode: "count", sort: "path" }'
+nurt_program = 'search "total" "{root}" output: counts sort: path'
+expect = { fs_unchanged = true, fields = [{ field = "counts[*].count", value = [1, 1, 4, 3] }] }
+
+[[scenario]]
+name = "files_without_match, glob, type, -i and fixed_strings"
+class = "direct"
+parity_rows = ["SC-04", "SC-05", "SC-08", "SC-11", "SC-17"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "total", files_without_match: true, glob: "*.ts *.py" }'
+nurt_program = 'search "total" "{root}/src" output: unmatched glob: "*.{ts,py}"'
+expect = { fs_unchanged = true, fields = [{ field = "files[*].path", value = ["src/big.ts", "src/util.py"] }] }
+
+[[scenario]]
+name = "multiline, only_matching, max_columns and max_count_per_file"
+class = "direct"
+parity_rows = ["SC-10", "SC-15", "SC-16", "SC-21"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "step\\d", output_mode: "content", only_matching: true, max_count_per_file: 2, path: "src/big.ts" }'
+nurt_program = 'search /step\d/ "{root}/src/big.ts" only_matching: true max_per_file: 2'
+expect = { fs_unchanged = true, fields = [{ field = "matches[*].text", value = ["step0", "step1"] }] }
+
+[[scenario]]
+name = "dedupe_lines collapses identical lines with an occurrence count"
+class = "direct"
+parity_rows = ["SC-20"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "const doubled", output_mode: "content", dedupe_lines: true }'
+nurt_program = 'search "const doubled" "{root}" output: matches dedupe: true'
+expect = { fs_unchanged = true, fields = [{ field = "matches[0].repeat", value = 80 }] }
+
+[[scenario]]
+name = "pagination with head_limit and cursor"
+class = "direct"
+parity_rows = ["SC-12", "SC-13"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "step\\d+", output_mode: "content", path: "src", head_limit: 2 }'
+nurt_program = 'search /step\d+/ "{root}/src" output: matches limit: 2'
+expect = { fs_unchanged = true, fields = [{ field = "shown", value = 2 }, { field = "next_cursor", value = "2" }] }
+
+[[scenario]]
+name = "scope limits matches to code, comments or strings"
+class = "direct"
+parity_rows = ["SC-24"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "total", output_mode: "content", scope: "comments", path: "src/app.ts" }'
+nurt_program = 'search "total" "{root}/src/app.ts" scope: comments'
+expect = { fs_unchanged = true, fields = [{ field = "matches[*].no", value = [10] }] }
+
+[[scenario]]
+name = "enclosing appends the enclosing element in TypeScript, Python and Markdown"
+class = "direct"
+parity_rows = ["SC-23"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "this\\.items", output_mode: "content", enclosing: true }'
+nurt_program = 'search /this\.items/ "{root}/src/app.ts" enclosing: true'
+expect = { fs_unchanged = true, fields = [{ field = "matches[*].container", value = ["Basket.add", "Basket.sum"] }] }
+
+[[scenario]]
+name = "sort=rank places the definition in sources before tests, documentation and generated files"
+class = "direct"
+parity_rows = ["SC-14"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "total", sort: "rank" }'
+nurt_program = 'search "total" "{root}" output: files sort: rank'
+expect = { fs_unchanged = true, fields = [{ field = "files[*].path", value = ["src/app.ts", "tests/app.test.ts", "docs/guide.md", "node_modules/dep/index.js"] }] }
+
+[[scenario]]
+name = "patterns reports counters per pattern"
+class = "direct"
+parity_rows = ["SC-02"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { patterns: ["total", "helper"], output_mode: "count", sort: "path" }'
+nurt_program = 'search ["total", "helper"] "{root}" output: counts sort: path'
+expect = { fs_unchanged = true, fields = [{ field = "per_pattern", value = [9, 3] }, { field = "total_matches", value = 12 }] }
+
+[[scenario]]
+name = "abbreviated directory counters for matches in many directories"
+class = "direct"
+parity_rows = ["SC-18"]
+fs_before = [{ path = "wide/d0/f.txt", generate = "repeat:znacznik\n*6" }, { path = "wide/d1/f.txt", generate = "repeat:znacznik\n*6" }]
+native_call = 'SearchContent { pattern: "znacznik", output_mode: "content", path: "wide", adaptive: true }'
+nurt_program = 'search "znacznik" "{root}/wide" output: matches adaptive: true'
+expect = { fs_unchanged = true, fields = [{ field = "total_matches", value = 12 }] }
+
+[[scenario]]
+name = "invalid expression returns an error with the cause"
+class = "direct"
+parity_rows = ["SC-32"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "(" }'
+nurt_program = 'search /(/ "{root}"'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_SYNTAX" }] }
+
+[[scenario]]
+name = "nonexistent search path is a not_found error with the path, not a pattern error"
+class = "direct"
+parity_rows = ["SC-33"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "loadConfig", path: "brak" }'
+nurt_program = 'search "loadConfig" "{root}/brak"'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_NOT_FOUND" }] }
+
+[[scenario]]
+name = "protected paths do not reach the result, hidden files require include_hidden"
+class = "direct"
+parity_rows = ["SC-25", "SC-26"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "ukryty" }'
+nurt_program = 'search "ukryty" "{root}" hidden: false'
+expect = { fs_unchanged = true, fields = [{ field = "total_matches", value = 0 }] }
+
+[[scenario]]
+name = "paths adds further files to path, etag confirms no change"
+class = "direct"
+parity_rows = ["SC-03", "ST-22"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchContent { pattern: "helper", path: "src/app.ts", paths: ["src/util.py"], output_mode: "count" }'
+nurt_program = 'search "helper" "{root}/src/app.ts" "{root}/src/util.py" output: counts'
+expect = { fs_unchanged = true, fields = [{ field = "counts[*].count", value = [1, 2] }] }

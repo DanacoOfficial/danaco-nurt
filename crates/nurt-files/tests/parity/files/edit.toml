@@ -1,0 +1,329 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+source = "write/tests/edit.test.ts"
+cases = 39
+
+[[scenario]]
+name = "result starts with a decisive line, and the operation has a snapshot and a journal entry in the session directory"
+class = "direct"
+parity_rows = ["ED-01", "ED-02", "ED-03", "WR-27", "WR-29"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "return width;", new_string: "return width + 1;" }'
+nurt_program = 'edit "{root}/a.ts" changes: [{ replace: "return width;", with: "return width + 1;" }]'
+expect = { fs_after = [{ path = "a.ts", replace_in = "code_two_functions", from = "return width;", to = "return width + 1;" }], fields = [{ field = "effect.status", value = "applied" }, { field = "effect.change.added", value = 1 }, { field = "effect.change.removed", value = 1 }] }
+
+[[scenario]]
+name = "ambiguous fragment is refused with a list of candidates and symbols, file stays unchanged"
+class = "direct"
+parity_rows = ["ED-35", "ED-44"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "id: number", new_string: "id: string" }'
+nurt_program = 'replace "id: number" with: "id: string" in: ["{root}/a.ts"] expect: 1'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_EXPECT" }, { field = "error.candidates", value = 2 }] }
+
+[[scenario]]
+name = "occurrence and target resolve the ambiguity without touching the other occurrence"
+class = "direct"
+parity_rows = ["ED-05", "ED-06", "ED-15"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "id: number", new_string: "id: string", occurrence: 2 }'
+nurt_program = 'replace "id: number" with: "id: string" in: ["{root}/a.ts"] occurrence: 2'
+expect = { fs_after = [{ path = "a.ts", replace_in = "code_two_functions", from = "beta(id: number)", to = "beta(id: string)" }] }
+
+[[scenario]]
+name = "matching ignores indentation and line ending differences, and the file keeps CRLF and its own indentation"
+class = "direct"
+parity_rows = ["ED-13", "ED-38"]
+fs_before = [{ path = "box.ts", content = "class Box {\r\n\tsize() {\r\n\t\tconst a = 1;\r\n\t\treturn a;\r\n\t}\r\n}\r\n" }]
+native_call = 'Edit { file_path: "box.ts", old_string: "    const a = 1;\n    return a;", new_string: "    const a = 2;\n    return a * 2;" }'
+nurt_program = 'replace "    const a = 1;\n    return a;" with: "    const a = 2;\n    return a * 2;" in: ["{root}/box.ts"] whitespace: normalize'
+expect = { fs_after = [{ path = "box.ts", content = "class Box {\r\n\tsize() {\r\n\t\tconst a = 2;\r\n\t\treturn a * 2;\r\n\t}\r\n}\r\n" }] }
+
+[[scenario]]
+name = "whitespace=exact refuses a lenient match and reports the closest fragment"
+class = "direct"
+parity_rows = ["ED-13", "ED-44"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "      const width = id * 2;", new_string: "x", whitespace: "exact" }'
+nurt_program = 'replace "      const width = id * 2;" with: "x" in: ["{root}/a.ts"] whitespace: exact'
+expect = { fs_unchanged = true, fields = [{ field = "notable", value = "nothing_matched" }] }
+
+[[scenario]]
+name = "fragment outside the named target is not replaced"
+class = "direct"
+parity_rows = ["ED-15", "ED-44"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "const idx = id + 1;", new_string: "const idx = 0;", target: { symbol: "alpha" } }'
+nurt_program = 'read "{root}/a.ts" symbol: "alpha" |> replace "const idx = id + 1;" "const idx = 0;"'
+expect = { fs_unchanged = true, fields = [{ field = "notable", value = "nothing_matched" }] }
+
+[[scenario]]
+name = "regex with groups, expected_count and on_missing"
+class = "notable"
+parity_rows = ["ED-07", "ED-14", "ED-18", "ED-32"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "function (\\w+)\\(id", new_string: "function $1Renamed(id", regex: true, replace_all: true, intended: ["alpha", "beta"] }'
+nurt_program = 'replace /function (\w+)\(id/ with: "function $1Renamed(id" in: ["{root}/a.ts"] expect: 2'
+expect = { fs_after = [{ path = "a.ts", contains = "function alphaRenamed(id: number)" }, { path = "a.ts", contains = "function betaRenamed(id: number)" }], fields = [{ field = "effect.status", value = "applied" }] }
+
+[[scenario]]
+name = "line range extending beyond one function holds the write and lists the elements"
+class = "notable"
+parity_rows = ["ED-09", "ED-32"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", line_range: [5, 9], new_string: "  return 0;\n}\n" }'
+nurt_program = 'edit "{root}/a.ts" changes: [{ delete_lines: 5..9 }, { insert: "  return 0;\n}\n", line: 5 }]'
+expect = { fs_after = [{ path = "a.ts", contains = "return 0;" }], fields = [{ field = "notable", value = "scope_exceeded" }, { field = "irreversible", value = false }] }
+
+[[scenario]]
+name = "retry without the full list is rejected, with the full list it writes"
+class = "notable"
+parity_rows = ["ED-32"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", line_range: [5, 9], new_string: "...", intended: [...] }'
+nurt_program = 'edit "{root}/a.ts" changes: [{ delete_lines: 5..9 }]'
+expect = { fs_after = [{ path = "a.ts", contains = "const idx = id;" }], fields = [{ field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "change within the target that damages the adjacent function reports it in the alert"
+class = "notable"
+parity_rows = ["ED-15", "ED-32"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", target: { symbol: "alpha" }, line_range: [5, 8], new_string: "  return width;\n" }'
+nurt_program = 'read "{root}/a.ts" symbol: "alpha" |> replace "  const width = id * 2;\n  return width;\n}\n\nfunction beta(id: number) {" "  return width;\n"'
+expect = { fs_unchanged = false, fields = [{ field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "removal of a whole element in a single change requires two steps"
+class = "notable"
+parity_rows = ["ED-33"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", target: { symbol: "beta" }, new_string: "" }'
+nurt_program = 'read "{root}/a.ts" symbol: "beta" |> remove'
+expect = { fs_after = [{ path = "a.ts", excludes = "function beta" }], fields = [{ field = "notable", value = "element_removed" }, { field = "undoable", value = true }] }
+
+[[scenario]]
+name = "change that breaks code syntax is rolled back with the file and line"
+class = "direct"
+parity_rows = ["ED-37", "WR-28", "ED-21"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "const width = id * 2;", new_string: "const width = id * ;" }'
+nurt_program = 'replace "const width = id * 2;" with: "const width = id * ;" in: ["{root}/a.ts"] validate: reject'
+expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }, { field = "effect.errors[0].line", value = 4 }] }
+
+[[scenario]]
+name = "change that breaks JSON syntax: structure loss alert first, rollback after confirmation"
+class = "notable"
+parity_rows = ["ED-37", "ED-32"]
+fs_before = [{ path = "conf.json", content = "{\n  \"name\": \"demo\",\n  \"port\": 8080\n}\n" }]
+native_call = 'Edit { file_path: "conf.json", old_string: "\"port\": 8080", new_string: "\"port\": 8080," }'
+nurt_program = 'replace "\"port\": 8080" with: "\"port\": 8080," in: ["{root}/conf.json"] validate: reject'
+expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }] }
+
+[[scenario]]
+name = "validate=warn keeps the write with a warning, and the Operator minimum raises validate=off to reject"
+class = "direct"
+parity_rows = ["ED-21", "WR-22"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "const width = id * 2;", new_string: "const width = id * ;", validate: "warn" }'
+nurt_program = 'replace "const width = id * 2;" with: "const width = id * ;" in: ["{root}/a.ts"] validate: warn'
+expect = { fs_after = [{ path = "a.ts", contains = "const width = id * ;" }], fields = [{ field = "warnings[0].kind", value = "syntax" }] }
+
+[[scenario]]
+name = "new language server diagnostic rolls the write back"
+class = "direct"
+parity_rows = ["WR-25", "ED-37"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "return width;", new_string: "return \"x\";" } with a language server reporting a new diagnostic after the write'
+nurt_program = 'replace "return width;" with: "return \"x\";" in: ["{root}/a.ts"] validate: reject'
+expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }] }
+
+[[scenario]]
+name = "replace_all of an identifier does not change parts of longer names, strings or comments"
+class = "direct"
+parity_rows = ["ED-05", "ED-16", "ED-17"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "id", new_string: "key", replace_all: true }'
+nurt_program = 'replace "id" with: "key" in: ["{root}/a.ts"] whole_word: true scope: code'
+expect = { fs_after = [{ path = "a.ts", contains = "function alpha(key: number)" }, { path = "a.ts", contains = "return \"id\" + idx; // id w komentarzu" }] }
+
+[[scenario]]
+name = "scope=all and whole_identifier=false cover all occurrences on request"
+class = "direct"
+parity_rows = ["ED-16", "ED-17"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "id", new_string: "key", replace_all: true, scope: "all", whole_identifier: false, validate: "off" }'
+nurt_program = 'replace "id" with: "key" in: ["{root}/a.ts"] scope: any whole_word: false validate: off'
+expect = { fs_after = [{ path = "a.ts", excludes = "id" }, { path = "a.ts", contains = "wkeyth" }] }
+
+[[scenario]]
+name = "matches only in skipped zones are refused with the reason"
+class = "direct"
+parity_rows = ["ED-16", "ED-44"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "komentarzu", new_string: "x", scope: "code" }'
+nurt_program = 'replace "komentarzu" with: "x" in: ["{root}/a.ts"] scope: code'
+expect = { fs_unchanged = true, fields = [{ field = "notable", value = "nothing_matched" }] }
+
+[[scenario]]
+name = "scope=comments changes only the comment"
+class = "direct"
+parity_rows = ["ED-16"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "id", new_string: "identyfikator", scope: "comments" }'
+nurt_program = 'replace "id" with: "identyfikator" in: ["{root}/a.ts"] scope: comments'
+expect = { fs_after = [{ path = "a.ts", replace_in = "code_two_functions", from = "// id w", to = "// identyfikator w" }] }
+
+[[scenario]]
+name = "after a rename the result lists remaining references in other files"
+class = "notable"
+parity_rows = ["ED-34"]
+fs_before = [{ path = "package.json", content = "{}\n" }, { path = "src/a.ts", content = "export function alpha() {}\n" }, { path = "src/b.ts", content = "import { alpha } from \"./a\";\nconsole.log(alpha(1));\n" }, { path = "docs/guide.md", content = "Funkcja alpha liczy szeroko\u015B\u0107.\n" }]
+native_call = 'Edit { file_path: "src/a.ts", old_string: "alpha", new_string: "gamma", replace_all: true }'
+nurt_program = 'replace "alpha" with: "gamma" in: ["{root}/src/a.ts"] check_references: true'
+expect = { fs_after = [{ path = "src/b.ts", contains = "alpha(1)" }], fields = [{ field = "notable", value = "references_left" }] }
+
+[[scenario]]
+name = "insert_after, insert_before, at_line and line_range"
+class = "direct"
+parity_rows = ["ED-09", "ED-10", "ED-11", "ED-12"]
+fs_before = [{ path = "list.txt", content = "a\nb\nc\nb\n" }]
+native_call = 'Edit { file_path: "list.txt", insert_before: "a", new_string: "przed" }'
+nurt_program = 'search "a" "{root}/list.txt" |> insert "przed" position: before'
+expect = { fs_after = [{ path = "list.txt", content = "przed\na\nb\nc\nb\n" }] }
+
+[[scenario]]
+name = "in_lines narrows the search to a line range"
+class = "direct"
+parity_rows = ["ED-08"]
+fs_before = [{ path = "list.txt", content = "x = 1\ny = 2\nx = 1\n" }]
+native_call = 'Edit { file_path: "list.txt", old_string: "x = 1", new_string: "x = 9", in_lines: [3, 3] }'
+nurt_program = 'lines "{root}/list.txt" 3..3 |> replace "x = 1" "x = 9"'
+expect = { fs_after = [{ path = "list.txt", content = "x = 1\ny = 2\nx = 9\n" }] }
+
+[[scenario]]
+name = "edits series is a transaction: an error in the second change leaves the file unchanged and names the position"
+class = "direct"
+parity_rows = ["ED-19", "ED-44"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", edits: [{ old_string: "return width;", new_string: "return 1;" }, { old_string: "brak tego", new_string: "x" }] }'
+nurt_program = 'edit "{root}/a.ts" changes: [{ replace: "return width;", with: "return 1;" }, { replace: "brak tego", with: "x" }]'
+expect = { fs_unchanged = true, fields = [{ field = "error.at", value = "changes[1]" }] }
+
+[[scenario]]
+name = "conflicting change modes are rejected"
+class = "direct"
+parity_rows = ["ED-19", "W-11"]
+fs_before = [{ path = "list.txt", content = "a\n" }]
+native_call = 'Edit { file_path: "list.txt", old_string: "a", new_string: "b", line_range: [1, 1] }'
+nurt_program = 'edit "{root}/list.txt" changes: [{ replace: "a", with: "b", delete_lines: 1..1 }]'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_ARGUMENT" }] }
+
+[[scenario]]
+name = "JSON key: only the value of the named key changes"
+class = "direct"
+parity_rows = ["ED-15"]
+fs_before = [{ path = "conf.json", content = "{\n  \"name\": \"demo\",\n  \"server\": { \"port\": 8080, \"host\": \"a\" },\n  \"port\": 1\n}\n" }]
+native_call = 'Edit { file_path: "conf.json", target: { key: "server.port" }, new_string: "9090" }'
+nurt_program = 'set "{root}/conf.json" key: "server.port" value: 9090'
+expect = { fs_after = [{ path = "conf.json", content = "{\n  \"name\": \"demo\",\n  \"server\": { \"port\": 9090, \"host\": \"a\" },\n  \"port\": 1\n}\n" }] }
+
+[[scenario]]
+name = "YAML key and TOML key"
+class = "direct"
+parity_rows = ["ED-15", "WR-09"]
+fs_before = [{ path = "conf.yaml", content = "name: demo\nserver:\n  port: 8080\n  host: a\nport: 1\n" }]
+native_call = 'Edit { file_path: "conf.yaml", target: { key: "server.port" }, new_string: "9090" }'
+nurt_program = 'set "{root}/conf.yaml" key: "server.port" value: 9090'
+expect = { fs_after = [{ path = "conf.yaml", content = "name: demo\nserver:\n  port: 9090\n  host: a\nport: 1\n" }] }
+
+[[scenario]]
+name = "Markdown section and class method: adjacent elements stay untouched"
+class = "direct"
+parity_rows = ["ED-15"]
+fs_before = [{ path = "doc.md", content = "# Tytu\u0142\n\nWst\u0119p.\n\n## Instalacja\n\nStary opis.\n\n## U\u017Cycie\n\nBez zmian.\n" }]
+native_call = 'Edit { file_path: "doc.md", target: { section: "Instalacja" }, old_string: "Stary opis.", new_string: "Nowy opis." }'
+nurt_program = 'read "{root}/doc.md" section: "Instalacja" |> replace "Stary opis." "Nowy opis."'
+expect = { fs_after = [{ path = "doc.md", content = "# Tytu\u0142\n\nWst\u0119p.\n\n## Instalacja\n\nNowy opis.\n\n## U\u017Cycie\n\nBez zmian.\n" }] }
+
+[[scenario]]
+name = "replacement of a whole function named by target without giving the old content"
+class = "direct"
+parity_rows = ["ED-15"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", target: { symbol: "alpha" }, new_string: "function alpha(id: number) {\n  return id;\n}" }'
+nurt_program = 'read "{root}/a.ts" symbol: "alpha" |> replace_all "function alpha(id: number) {\n  return id;\n}"'
+expect = { fs_after = [{ path = "a.ts", contains = "function alpha(id: number) {\n  return id;\n}" }] }
+
+[[scenario]]
+name = "notebook cell: source of the named cell changes, other cells stay character for character"
+class = "direct"
+parity_rows = ["ED-15", "NB-29"]
+fs_before = [{ path = "n.ipynb", generate = "notebook:cells2" }]
+native_call = 'Edit { file_path: "n.ipynb", target: { cell: 0 }, old_string: "print(x)", new_string: "print(x + 1)" }'
+nurt_program = 'read "{root}/n.ipynb" cell: 0 |> replace "print(x)" "print(x + 1)"'
+expect = { fs_after = [{ path = "n.ipynb", replace_in = "notebook:cells2", from = "print(x)", to = "print(x + 1)" }] }
+
+[[scenario]]
+name = "nonexistent target, ambiguous target and file without structure"
+class = "direct"
+parity_rows = ["ED-15", "ED-44", "RD-42"]
+fs_before = [{ path = "notes.txt", content = "a\n" }]
+native_call = 'Edit { file_path: "notes.txt", target: { symbol: "a" }, old_string: "a", new_string: "b" }'
+nurt_program = 'read "{root}/notes.txt" symbol: "a" |> replace "a" "b"'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_UNSUPPORTED_CONSTRUCT" }] }
+
+[[scenario]]
+name = "dry_run returns the difference without writing"
+class = "direct"
+parity_rows = ["ED-22", "ED-24"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "return width;", new_string: "return 1;", dry_run: true }'
+nurt_program = 'replace "return width;" with: "return 1;" in: ["{root}/a.ts"] preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }, { field = "effect.status", value = "previewed" }] }
+
+[[scenario]]
+name = "empty old_string creates a file, and a missing file with another change is an error"
+class = "direct"
+parity_rows = ["ED-04", "ED-44"]
+fs_before = []
+native_call = "Edit { file_path: \"new.txt\", old_string: \"\", new_string: \"tre\u015B\u0107\\n\" }"
+nurt_program = "write \"{root}/new.txt\" \"tre\u015B\u0107\\n\" mode: create"
+expect = { fs_after = [{ path = "new.txt", content = "tre\u015B\u0107\n" }] }
+
+[[scenario]]
+name = "undo with an operation identifier and last restores the content"
+class = "direct"
+parity_rows = ["ED-26", "UN-05"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "return width;", new_string: "return 1;" } then Edit { file_path: "a.ts", undo: "op-1" }'
+nurt_program = 'replace "return width;" with: "return 1;" in: ["{root}/a.ts"]; undo'
+expect = { fs_after = [{ path = "a.ts", same_as = "code_two_functions" }] }
+
+[[scenario]]
+name = "diff=none, diff=unified with context_lines and verbosity"
+class = "direct"
+parity_rows = ["ED-24", "ED-25", "ED-27"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "return 1;", new_string: "return 2;", diff: "unified", context_lines: 1 }'
+nurt_program = 'replace "return width;" with: "return 2;" in: ["{root}/a.ts"] diff: unified diff_context: 1'
+expect = { fs_after = [{ path = "a.ts", contains = "return 2;" }], fields = [{ field = "effect.diff.context", value = 1 }] }
+
+[[scenario]]
+name = "protected file, binary file, directory and file over the Operator limit are rejected"
+class = "direct"
+parity_rows = ["ED-44", "WR-23"]
+fs_before = [{ path = "data.bin", content = "a\u0000b" }]
+native_call = 'Edit { file_path: "data.bin", old_string: "a", new_string: "b" }'
+nurt_program = 'replace "a" with: "b" in: ["{root}/data.bin"]'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_BINARY" }] }
+
+[[scenario]]
+name = "attached read ledger requires a file read or a matching expect_sha256"
+class = "freshness"
+parity_rows = ["WR-20", "ED-23", "ED-43"]
+fs_before = [{ fixture = "code_two_functions" }]
+native_call = 'Edit { file_path: "a.ts", old_string: "return width;", new_string: "return 1;", expect_sha256: "00000000" }'
+nurt_program = 'replace "return width;" with: "return 1;" in: ["{root}/a.ts"] if_match: "sha256:00000000"'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }

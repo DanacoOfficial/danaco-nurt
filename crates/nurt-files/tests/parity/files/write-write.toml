@@ -1,0 +1,194 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+source = "write/tests/write.test.ts"
+cases = 22
+
+[[scenario]]
+name = "new file: single-line result with line count, hash and operation identifier"
+class = "direct"
+parity_rows = ["WR-01", "WR-02", "WR-27"]
+fs_before = []
+native_call = 'Write { file_path: "new.txt", content: "a\nb\n" }'
+nurt_program = 'write "{root}/new.txt" "a\nb\n" mode: create'
+expect = { fs_after = [{ path = "new.txt", content = "a\nb\n" }], fields = [{ field = "effect.status", value = "applied" }, { field = "effect.change.added", value = 2 }] }
+
+[[scenario]]
+name = "mode=create refuses to overwrite, and a missing directory requires mkdir_parents"
+class = "direct"
+parity_rows = ["WR-31", "WR-06", "WR-07"]
+fs_before = [{ path = "a.txt", content = "x\n" }]
+native_call = 'Write { file_path: "a.txt", content: "y\n", mode: "create" }'
+nurt_program = 'write "{root}/a.txt" "y\n" mode: create'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_EXISTS" }] }
+
+[[scenario]]
+name = "append and prepend add content without touching the existing content"
+class = "direct"
+parity_rows = ["WR-04"]
+fs_before = [{ path = "log.txt", content = "\u015Brodek\n" }]
+native_call = "Write { file_path: \"log.txt\", content: \"koniec\\n\", mode: \"append\" } then Write { content: \"pocz\u0105tek\\n\", mode: \"prepend\" }"
+nurt_program = "write \"{root}/log.txt\" \"koniec\\n\" mode: append; write \"{root}/log.txt\" \"pocz\u0105tek\\n\" mode: prepend"
+expect = { fs_after = [{ path = "log.txt", content = "pocz\u0105tek\n\u015Brodek\nkoniec\n" }] }
+
+[[scenario]]
+name = "file style stays: CRLF, final newline, BOM and permissions"
+class = "direct"
+parity_rows = ["WR-05", "WR-17", "WR-32"]
+fs_before = [{ path = "win.txt", content = "\uFEFFa\r\nb\r\n" }]
+native_call = 'Write { file_path: "win.txt", content: "a\nc" }'
+nurt_program = 'write "{root}/win.txt" "a\nc" mode: overwrite line_ending: keep'
+expect = { fs_after = [{ path = "win.txt", content = "\uFEFFa\r\nc\r\n" }] }
+
+[[scenario]]
+name = "identical content creates no operation"
+class = "direct"
+parity_rows = ["WR-15"]
+fs_before = [{ path = "a.txt", content = "x\n" }]
+native_call = 'Write { file_path: "a.txt", content: "x\n" }'
+nurt_program = 'write "{root}/a.txt" "x\n" mode: overwrite'
+expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "unchanged" }] }
+
+[[scenario]]
+name = "content_from copies content; content and content_from are mutually exclusive"
+class = "direct"
+parity_rows = ["WR-03", "WR-02"]
+fs_before = [{ path = "source.txt", content = "\u017Ar\u00F3d\u0142o\n" }]
+native_call = 'Write { file_path: "copy.txt", content_from: "source.txt" }'
+nurt_program = 'write "{root}/copy.txt" from: "{root}/source.txt" mode: create'
+expect = { fs_after = [{ path = "source.txt", content = "\u017Ar\u00F3d\u0142o\n" }, { path = "copy.txt", content = "\u017Ar\u00F3d\u0142o\n" }] }
+
+[[scenario]]
+name = "dry_run reports the difference, the syntax check result and the size without writing"
+class = "direct"
+parity_rows = ["WR-14", "WR-12", "WR-13"]
+fs_before = [{ path = "conf.json", content = "{\"a\": 1}\n" }]
+native_call = 'Write { file_path: "conf.json", content: "{\"a\": 2}\n", dry_run: true }'
+nurt_program = 'write "{root}/conf.json" "{\"a\": 2}\n" mode: overwrite preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }, { field = "effect.diff.added", value = 1 }] }
+
+[[scenario]]
+name = "diff=unified appends the difference after the decisive line"
+class = "direct"
+parity_rows = ["WR-13", "WR-26"]
+fs_before = [{ path = "a.txt", content = "x\n" }]
+native_call = 'Write { file_path: "a.txt", content: "y\n", diff: "unified" }'
+nurt_program = 'write "{root}/a.txt" "y\n" mode: overwrite diff: unified'
+expect = { fs_after = [{ path = "a.txt", content = "y\n" }], fields = [{ field = "effect.diff.format", value = "unified" }] }
+
+[[scenario]]
+name = "overwrite that removes a function holds the write with an alert; changing function content needs no confirmation"
+class = "notable"
+parity_rows = ["WR-18"]
+fs_before = [{ path = "a.ts", content = "function alpha() {\n  return 1;\n}\n\nfunction beta() {\n  return 2;\n}\n" }]
+native_call = 'Write { file_path: "a.ts", content: "function alpha() {\n  return 10;\n}\n" }'
+nurt_program = 'write "{root}/a.ts" "function alpha() {\n  return 10;\n}\n" mode: overwrite'
+expect = { fs_after = [{ path = "a.ts", content = "function alpha() {\n  return 10;\n}\n" }], fields = [{ field = "notable", value = "elements_removed" }, { field = "undoable", value = true }] }
+
+[[scenario]]
+name = "overwrite of a JSON file missing a key names the key in the alert"
+class = "notable"
+parity_rows = ["WR-18"]
+fs_before = [{ path = "conf.json", content = "{\n  \"name\": \"demo\",\n  \"port\": 8080\n}\n" }]
+native_call = 'Write { file_path: "conf.json", content: "{\n  \"name\": \"demo2\"\n}\n" }'
+nurt_program = 'write "{root}/conf.json" "{\n  \"name\": \"demo2\"\n}\n" mode: overwrite'
+expect = { fs_after = [{ path = "conf.json", content = "{\n  \"name\": \"demo2\"\n}\n" }], fields = [{ field = "notable", value = "elements_removed" }] }
+
+[[scenario]]
+name = "syntax error in a new file rolls the write back: the file is not created, the result gives the location"
+class = "direct"
+parity_rows = ["WR-28", "WR-12"]
+fs_before = []
+native_call = 'Write { file_path: "conf.json", content: "{\n  \"a\": 1,\n}\n" }'
+nurt_program = 'write "{root}/conf.json" "{\n  \"a\": 1,\n}\n" mode: create validate: reject'
+expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }, { field = "effect.errors[0].line", value = 3 }] }
+
+[[scenario]]
+name = "YAML and TOML syntax errors also roll the write back"
+class = "direct"
+parity_rows = ["WR-28", "WR-12"]
+fs_before = [{ path = "c.yaml", content = "a: 1\n" }]
+native_call = 'Write { file_path: "c.yaml", content: "a: [1, 2\nb: 3\n" }'
+nurt_program = 'write "{root}/c.yaml" "a: [1, 2\nb: 3\n" mode: overwrite validate: reject'
+expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }] }
+
+[[scenario]]
+name = "files batch of new files only is a single transaction: an error in one file leaves all unchanged"
+class = "direct"
+parity_rows = ["WR-10", "WR-28"]
+fs_before = []
+native_call = 'Write { files: [{ file_path: "one.txt", content: "jeden\n" }, { file_path: "two.txt", content: "dwa\n" }, { file_path: "three.json", content: "{" }] }'
+nurt_program = 'write files: [{ path: "{root}/one.txt", text: "jeden\n" }, { path: "{root}/two.txt", text: "dwa\n" }, { path: "{root}/three.json", text: "{" }] mode: create validate: reject'
+expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }] }
+
+[[scenario]]
+name = "structural write with target changes only a key value or a section"
+class = "direct"
+parity_rows = ["WR-09"]
+fs_before = [{ path = "conf.yaml", content = "name: demo\nserver:\n  port: 8080\n  host: a\n" }]
+native_call = 'Write { file_path: "conf.yaml", target: { key: "server.host" }, content: "b" }'
+nurt_program = 'set "{root}/conf.yaml" key: "server.host" value: "b"'
+expect = { fs_after = [{ path = "conf.yaml", content = "name: demo\nserver:\n  port: 8080\n  host: b\n" }] }
+
+[[scenario]]
+name = "overwrite requires a file read in the session when the read ledger is attached"
+class = "freshness"
+parity_rows = ["WR-20", "WR-08"]
+fs_before = [{ path = "a.txt", content = "x\n" }]
+native_call = 'Write { file_path: "a.txt", content: "y\n" } with the read ledger attached and no earlier read'
+nurt_program = 'write "{root}/a.txt" "y\n" mode: overwrite if_match: "sha256:00000000"'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }
+
+[[scenario]]
+name = "batch with an existing file returns a preview with a plan, and apply writes exactly the preview in one operation"
+class = "preview"
+parity_rows = ["WR-10", "WR-14", "ED-43"]
+fs_before = [{ path = "one.txt", content = "1\n" }]
+native_call = 'Write { files: [{ file_path: "one.txt", content: "jeden\n" }, { file_path: "nowy.txt", content: "nowy\n" }] } then Write { action: "apply", plan_id }'
+nurt_program = 'write files: [{ path: "{root}/one.txt", text: "jeden\n" }, { path: "{root}/nowy.txt", text: "nowy\n" }] mode: overwrite preview: true; then the same program with if_match from the preview'
+expect = { fs_after = [{ path = "one.txt", content = "jeden\n" }, { path = "nowy.txt", content = "nowy\n" }], fields = [{ field = "preview_etag", value = "present" }] }
+
+[[scenario]]
+name = "plan becomes stale after a file change or after a file planned as new appears"
+class = "preview"
+parity_rows = ["ED-43", "WR-08"]
+fs_before = [{ path = "one.txt", content = "1\n" }]
+native_call = 'Write { files: [...] } then external change of one.txt then Write { action: "apply", plan_id }'
+nurt_program = 'write files: [{ path: "{root}/one.txt", text: "jeden\n" }] mode: overwrite if_match: "<etag of the preview>" after one.txt changed'
+expect = { fs_after = [{ path = "one.txt", content = "inna tre\u015B\u0107\n" }], fields = [{ field = "error.code", value = "E_STALE" }] }
+
+[[scenario]]
+name = "alert and new syntax error are reported in the batch preview, and no plan is created then"
+class = "preview"
+parity_rows = ["WR-18", "WR-28", "WR-10"]
+fs_before = [{ path = "conf.json", content = "{\"a\": 1}\n" }]
+native_call = 'Write { files: [{ file_path: "conf.json", content: "{\"a\": 3}\n" }, { file_path: "b.json", content: "{\n" }] }'
+nurt_program = 'write files: [{ path: "{root}/conf.json", text: "{\"a\": 3}\n" }, { path: "{root}/b.json", text: "{\n" }] mode: overwrite preview: true validate: reject'
+expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }] }
+
+[[scenario]]
+name = "action=plan gives a plan also for new files only, and content from content_from comes from the preview time"
+class = "preview"
+parity_rows = ["WR-03", "WR-10", "WR-14"]
+fs_before = [{ path = "source.txt", content = "pierwsza\n" }]
+native_call = 'Write { action: "plan", files: [{ file_path: "kopia.txt", content_from: "source.txt" }] }'
+nurt_program = 'write files: [{ path: "{root}/kopia.txt", text: "pierwsza\n" }] mode: create preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }] }
+
+[[scenario]]
+name = "batch apply with existing files is a single transaction: a new error after writing restores all files"
+class = "preview"
+parity_rows = ["WR-25", "WR-28", "WR-10"]
+fs_before = [{ path = "a.ts", content = "export const a = 1;\n" }, { path = "c.ts", content = "export const c = 1;\n" }]
+native_call = 'Write { action: "apply", plan_id } with a language server reporting a new diagnostic in c.ts after the write'
+nurt_program = 'write files: [{ path: "{root}/a.ts", text: "export const a = 2;\n" }, { path: "{root}/b.ts", text: "export const b = 1;\n" }, { path: "{root}/c.ts", text: "export const c = 2;\n" }] mode: overwrite validate: reject'
+expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }] }
+
+[[scenario]]
+name = "read requirement before overwrite works in the batch preview, and plan apply preserves it"
+class = "freshness"
+parity_rows = ["WR-20", "WR-10"]
+fs_before = [{ path = "a.txt", content = "x\n" }]
+native_call = 'Write { files: [{ file_path: "a.txt", content: "y\n" }, { file_path: "b.txt", content: "b\n" }] } with the read ledger attached and no earlier read'
+nurt_program = 'write files: [{ path: "{root}/a.txt", text: "y\n" }, { path: "{root}/b.txt", text: "b\n" }] mode: overwrite if_match: "sha256:00000000"'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }

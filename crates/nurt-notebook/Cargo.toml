@@ -22,3 +22,6 @@ nurt-contracts = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

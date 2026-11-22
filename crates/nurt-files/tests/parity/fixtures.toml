@@ -1,0 +1,250 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Named file trees shared by scenarios.
+# A file holds either literal `content` or a `generate` directive. Directives:
+#   big_source:N     TypeScript file with N functions, 5 lines each, after a one-line header
+#   png:WxH          PNG header of the given size
+#   pdf:TEXT         one-page PDF with the given text
+#   notebook:cells4  Jupyter notebook with the cells intro, load, use and tail
+
+[[fixture]]
+name = "standard"
+
+[[fixture.file]]
+path = "src/app.ts"
+content = """// Modu\u0142 przyk\u0142adowy.
+import { helper } from "./util";
+
+
+
+const LIMIT = 10;
+
+/** Liczy sum\u0119. */
+export function total(values: number[]): number {
+  // total w komentarzu
+  const label = "total w napisie";
+  return values.reduce((sum, value) => sum + value, 0) + label.length;
+}
+
+export class Basket {
+  items: number[] = [];
+
+  add(value: number): void {
+    this.items.push(value);
+  }
+
+  sum(): number {
+    return total(this.items);
+  }
+}
+"""
+
+[[fixture.file]]
+path = "src/util.py"
+content = '''import os
+
+
+def helper(name):
+    """Zwraca powitanie."""
+    return "hej " + name
+
+
+class Greeter:
+    def greet(self, name):
+        return helper(name)
+'''
+
+[[fixture.file]]
+path = "src/big.ts"
+generate = "big_source:80"
+
+[[fixture.file]]
+path = "docs/guide.md"
+content = """# Przewodnik
+
+Wst\u0119p do przewodnika.
+
+## Instalacja
+
+Krok pierwszy.
+Krok drugi.
+
+## U\u017Cycie
+
+Wywo\u0142aj total.
+"""
+
+[[fixture.file]]
+path = "config.yaml"
+content = '''name: demo
+server:
+  host: localhost
+  port: 8080
+features:
+  - alpha
+  - beta
+'''
+
+[[fixture.file]]
+path = "config.toml"
+content = '''title = "demo"
+
+[server]
+host = "localhost"
+port = 8080
+
+[client]
+retries = 3
+'''
+
+[[fixture.file]]
+path = "package.json"
+content = '''{
+  "name": "demo",
+  "scripts": {
+    "test": "bun test",
+    "build": "tsc"
+  },
+  "list": [
+    1,
+    {
+      "deep": true
+    }
+  ]
+}
+'''
+
+[[fixture.file]]
+path = "analysis.ipynb"
+generate = "notebook:cells4"
+
+[[fixture.file]]
+path = "notes.txt"
+content = "pierwszy\r\ndrugi\r\ntrzeci\r\n"
+
+[[fixture.file]]
+path = "tests/app.test.ts"
+content = '''import { total } from "../src/app";
+test("total", () => total([1]));
+'''
+
+[[fixture.file]]
+path = "node_modules/dep/index.js"
+content = "module.exports = function total() {};\n"
+
+[[fixture.file]]
+path = ".hidden/inner.txt"
+content = "ukryty total\n"
+
+[[fixture.file]]
+path = ".env"
+content = "TOKEN=wartosc-tajna-1234567890\n"
+
+[[fixture.file]]
+path = "logo.png"
+generate = "png:640x480"
+
+[[fixture]]
+name = "code_two_functions"
+
+[[fixture.file]]
+path = "a.ts"
+content = '''import { x } from "./x";
+
+function alpha(id: number) {
+  const width = id * 2;
+  return width;
+}
+
+function beta(id: number) {
+  const idx = id + 1;
+  return "id" + idx; // id w komentarzu
+}
+'''
+
+[[fixture]]
+name = "ts_box"
+
+[[fixture.file]]
+path = "a.ts"
+content = '''// opis alpha
+function alpha(id: number) {
+  return id;
+}
+
+class Box {
+  size(): number {
+    return 1;
+  }
+
+  /** nazwa */
+  name(): string {
+    return "a";
+  }
+}
+'''
+
+[[fixture]]
+name = "three_functions"
+
+[[fixture.file]]
+path = "kod.ts"
+content = '''const base = 1;
+
+export function alpha(): number {
+  return 1;
+}
+
+export function beta(): number {
+  return 2;
+}
+
+export function gamma(): number {
+  return 3;
+}
+'''
+
+[[fixture]]
+name = "rename_tree"
+
+[[fixture.file]]
+path = "package.json"
+content = "{}\n"
+
+[[fixture.file]]
+path = "src/a.ts"
+content = '''export function total(user: number) {
+  return user + 1;
+}
+export function label() {
+  return "user"; // user
+}
+'''
+
+[[fixture.file]]
+path = "src/b.ts"
+content = '''import { total } from "./a";
+
+export function report(user: number) {
+  const username = "x";
+  return total(user) + username.length;
+}
+'''
+
+[[fixture.file]]
+path = "src/c.ts"
+content = '''export const user = 3;
+export const limit = 10;
+'''
+
+[[fixture.file]]
+path = "docs/api.md"
+content = "Parametr user to liczba.\n"
+
+[[fixture]]
+name = "notebook_four_cells"
+
+[[fixture.file]]
+path = "n.ipynb"
+generate = "notebook:cells4"
