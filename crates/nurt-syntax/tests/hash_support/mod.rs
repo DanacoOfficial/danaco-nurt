@@ -12,6 +12,8 @@
 
 // Every test crate includes this module and uses a subset of the helpers.
 #![allow(dead_code)]
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -25,45 +27,45 @@ use nurt_syntax::validate::{validate_bound, validate_surface};
 use serde_json::Value;
 
 /// Environment variable that switches the golden tests to regeneration.
-pub const BLESS_VARIABLE: &str = "NURT_BLESS";
+pub(crate) const BLESS_VARIABLE: &str = "NURT_BLESS";
 
 /// File name of the generated schema kept next to the golden trees.
-pub const GENERATED_SCHEMA: &str = "schema.generated.json";
+pub(crate) const GENERATED_SCHEMA: &str = "schema.generated.json";
 
 /// File name of the hash index of `tests/d1/golden`.
-pub const HASH_INDEX: &str = "hashes.tsv";
+pub(crate) const HASH_INDEX: &str = "hashes.tsv";
 
 /// Header line of the hash index.
-pub const HASH_INDEX_HEADER: &str = "file\tformat\tast_hash";
+pub(crate) const HASH_INDEX_HEADER: &str = "file\tformat\tast_hash";
 
 /// Returns `true` when the golden files are to be regenerated.
-pub fn bless() -> bool {
+pub(crate) fn bless() -> bool {
     std::env::var(BLESS_VARIABLE).is_ok_and(|value| value == "1")
 }
 
 /// Root of the workspace.
-pub fn workspace() -> PathBuf {
+pub(crate) fn workspace() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
 /// Conformance files of the specification.
-pub fn spec_golden() -> PathBuf {
+pub(crate) fn spec_golden() -> PathBuf {
     workspace().join("spec/golden")
 }
 
 /// Golden files of the language crates.
-pub fn d1_golden() -> PathBuf {
+pub(crate) fn d1_golden() -> PathBuf {
     workspace().join("tests/d1/golden")
 }
 
 /// Published schemas.
-pub fn spec_schemas() -> PathBuf {
+pub(crate) fn spec_schemas() -> PathBuf {
     workspace().join("spec/schemas")
 }
 
 /// Kind of a tree document.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Format {
+pub(crate) enum Format {
     /// Surface tree, `nurt-ast/1`.
     Surface,
     /// Bound tree, `nurt-bound/1`.
@@ -72,7 +74,7 @@ pub enum Format {
 
 impl Format {
     /// Format name written into the hash index.
-    pub fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         match self {
             Self::Surface => AST_FORMAT,
             Self::Bound => BOUND_FORMAT,
@@ -82,7 +84,7 @@ impl Format {
 
 /// A decoded golden tree.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Tree {
+pub(crate) enum Tree {
     /// Surface tree.
     Surface(AstDocument),
     /// Bound tree.
@@ -91,7 +93,7 @@ pub enum Tree {
 
 impl Tree {
     /// Tree hash of the document.
-    pub fn hash(&self) -> String {
+    pub(crate) fn hash(&self) -> String {
         match self {
             Self::Surface(document) => ast_hash(document),
             Self::Bound(document) => ast_hash(document),
@@ -100,7 +102,7 @@ impl Tree {
     }
 
     /// Deterministic CBOR encoding of the document.
-    pub fn cbor(&self) -> Vec<u8> {
+    pub(crate) fn cbor(&self) -> Vec<u8> {
         match self {
             Self::Surface(document) => nurt_syntax::cbor::encode(document),
             Self::Bound(document) => nurt_syntax::cbor::encode(document),
@@ -109,7 +111,7 @@ impl Tree {
     }
 
     /// JSON value of the document.
-    pub fn to_json(&self) -> Value {
+    pub(crate) fn to_json(&self) -> Value {
         match self {
             Self::Surface(document) => serde_json::to_value(document),
             Self::Bound(document) => serde_json::to_value(document),
@@ -120,21 +122,21 @@ impl Tree {
 
 /// A golden tree file.
 #[derive(Debug, Clone)]
-pub struct GoldenFile {
+pub(crate) struct GoldenFile {
     /// Path of the `.json` file.
-    pub path: PathBuf,
+    pub(crate) path: PathBuf,
     /// Kind of the document.
-    pub format: Format,
+    pub(crate) format: Format,
 }
 
 impl GoldenFile {
     /// Path of the recorded hash.
-    pub fn hash_path(&self) -> PathBuf {
+    pub(crate) fn hash_path(&self) -> PathBuf {
         self.path.with_extension("hash")
     }
 
     /// File name without the extension `.json`.
-    pub fn stem(&self) -> String {
+    pub(crate) fn stem(&self) -> String {
         self.path
             .file_stem()
             .map(|stem| stem.to_string_lossy().into_owned())
@@ -142,25 +144,25 @@ impl GoldenFile {
     }
 
     /// JSON text of the file.
-    pub fn text(&self) -> String {
+    pub(crate) fn text(&self) -> String {
         read_text(&self.path)
     }
 
     /// JSON value of the file.
-    pub fn json(&self) -> Value {
+    pub(crate) fn json(&self) -> Value {
         serde_json::from_str(&self.text())
             .unwrap_or_else(|error| panic!("{}: {error}", self.path.display()))
     }
 
     /// Decodes the file with the JSON decoder of the crate.
-    pub fn decode(&self) -> Tree {
+    pub(crate) fn decode(&self) -> Tree {
         decode_json(self.format, &self.text())
             .unwrap_or_else(|error| panic!("{}: {error}", self.path.display()))
     }
 }
 
 /// Checks the invariants of a decoded tree.
-pub fn validated(tree: Tree) -> Result<Tree, SyntaxError> {
+pub(crate) fn validated(tree: Tree) -> Result<Tree, SyntaxError> {
     match &tree {
         Tree::Surface(document) => validate_surface(document)?,
         Tree::Bound(document) => validate_bound(document)?,
@@ -169,7 +171,7 @@ pub fn validated(tree: Tree) -> Result<Tree, SyntaxError> {
 }
 
 /// Decodes JSON text as a tree of the given kind and checks its invariants.
-pub fn decode_json(format: Format, text: &str) -> Result<Tree, SyntaxError> {
+pub(crate) fn decode_json(format: Format, text: &str) -> Result<Tree, SyntaxError> {
     validated(match format {
         Format::Surface => json::decode_surface(text).map(Tree::Surface)?,
         Format::Bound => json::decode_bound(text).map(Tree::Bound)?,
@@ -177,7 +179,7 @@ pub fn decode_json(format: Format, text: &str) -> Result<Tree, SyntaxError> {
 }
 
 /// Decodes CBOR as a tree of the given kind and checks its invariants.
-pub fn decode_cbor(format: Format, bytes: &[u8]) -> Result<Tree, SyntaxError> {
+pub(crate) fn decode_cbor(format: Format, bytes: &[u8]) -> Result<Tree, SyntaxError> {
     validated(match format {
         Format::Surface => nurt_syntax::cbor::decode_surface(bytes).map(Tree::Surface)?,
         Format::Bound => nurt_syntax::cbor::decode_bound(bytes).map(Tree::Bound)?,
@@ -186,7 +188,7 @@ pub fn decode_cbor(format: Format, bytes: &[u8]) -> Result<Tree, SyntaxError> {
 
 /// Decodes CBOR as a tree of the given kind, requires the deterministic
 /// encoding and checks the invariants.
-pub fn decode_cbor_strict(format: Format, bytes: &[u8]) -> Result<Tree, SyntaxError> {
+pub(crate) fn decode_cbor_strict(format: Format, bytes: &[u8]) -> Result<Tree, SyntaxError> {
     validated(match format {
         Format::Surface => nurt_syntax::cbor::decode_surface_strict(bytes).map(Tree::Surface)?,
         Format::Bound => nurt_syntax::cbor::decode_bound_strict(bytes).map(Tree::Bound)?,
@@ -194,13 +196,13 @@ pub fn decode_cbor_strict(format: Format, bytes: &[u8]) -> Result<Tree, SyntaxEr
 }
 
 /// Reads a UTF-8 file.
-pub fn read_text(path: &Path) -> String {
+pub(crate) fn read_text(path: &Path) -> String {
     fs::read_to_string(path).unwrap_or_else(|error| panic!("{}: {error}", path.display()))
 }
 
 /// Returns the files of a directory whose names end with `suffix`, sorted by
 /// name; a missing directory has no files.
-pub fn files(dir: &Path, suffix: &str) -> Vec<PathBuf> {
+pub(crate) fn files(dir: &Path, suffix: &str) -> Vec<PathBuf> {
     let Ok(entries) = fs::read_dir(dir) else {
         return Vec::new();
     };
@@ -233,7 +235,7 @@ fn trees_in(dir: &Path, format: Format) -> Vec<GoldenFile> {
 }
 
 /// Subdirectories of a directory, sorted; a missing directory has none.
-pub fn subdirectories(dir: &Path) -> Vec<PathBuf> {
+pub(crate) fn subdirectories(dir: &Path) -> Vec<PathBuf> {
     let Ok(entries) = fs::read_dir(dir) else {
         return Vec::new();
     };
@@ -250,7 +252,7 @@ pub fn subdirectories(dir: &Path) -> Vec<PathBuf> {
 }
 
 /// Golden trees of the specification.
-pub fn spec_trees() -> Vec<GoldenFile> {
+pub(crate) fn spec_trees() -> Vec<GoldenFile> {
     let mut trees = trees_in(&spec_golden().join("ast"), Format::Surface);
     trees.extend(trees_in(&spec_golden().join("bound"), Format::Bound));
     trees
@@ -258,7 +260,7 @@ pub fn spec_trees() -> Vec<GoldenFile> {
 
 /// Golden trees of `tests/d1/golden`: surface trees under `ast/<variant>/`
 /// and bound trees under `bound/<variant>/`.
-pub fn d1_trees() -> Vec<GoldenFile> {
+pub(crate) fn d1_trees() -> Vec<GoldenFile> {
     let mut trees = Vec::new();
     for (dir, format) in [("ast", Format::Surface), ("bound", Format::Bound)] {
         for variant in subdirectories(&d1_golden().join(dir)) {
@@ -269,7 +271,7 @@ pub fn d1_trees() -> Vec<GoldenFile> {
 }
 
 /// Bound golden trees of `tests/d1/golden/bound/<variant>/`.
-pub fn d1_bound_trees() -> Vec<GoldenFile> {
+pub(crate) fn d1_bound_trees() -> Vec<GoldenFile> {
     d1_trees()
         .into_iter()
         .filter(|tree| tree.format == Format::Bound)
@@ -277,14 +279,14 @@ pub fn d1_bound_trees() -> Vec<GoldenFile> {
 }
 
 /// Every golden tree.
-pub fn all_trees() -> Vec<GoldenFile> {
+pub(crate) fn all_trees() -> Vec<GoldenFile> {
     let mut trees = spec_trees();
     trees.extend(d1_trees());
     trees
 }
 
 /// Path relative to `tests/d1/golden`, with `/` separators.
-pub fn d1_relative(path: &Path) -> String {
+pub(crate) fn d1_relative(path: &Path) -> String {
     path.strip_prefix(d1_golden())
         .unwrap_or(path)
         .components()
@@ -295,7 +297,7 @@ pub fn d1_relative(path: &Path) -> String {
 
 /// Returns the JSON nesting depth of a value; the root is at depth 1 and every
 /// member or element is one level deeper than its container.
-pub fn json_depth(value: &Value) -> usize {
+pub(crate) fn json_depth(value: &Value) -> usize {
     let mut deepest = 0;
     let mut pending = vec![(value, 1_usize)];
     while let Some((current, level)) = pending.pop() {
@@ -311,7 +313,7 @@ pub fn json_depth(value: &Value) -> usize {
 
 /// Returns a copy of a JSON value without the member `span` of every object
 /// and without the root member `meta`.
-pub fn without_layout(value: &Value) -> Value {
+pub(crate) fn without_layout(value: &Value) -> Value {
     let mut copy = value.clone();
     if let Value::Object(root) = &mut copy {
         root.remove("meta");
@@ -333,16 +335,16 @@ pub fn without_layout(value: &Value) -> Value {
 /// Deterministic pseudo-random numbers (SplitMix64) for reproducible
 /// mutation tests.
 #[derive(Debug, Clone)]
-pub struct SplitMix(u64);
+pub(crate) struct SplitMix(u64);
 
 impl SplitMix {
     /// Generator with the given seed.
-    pub fn new(seed: u64) -> Self {
+    pub(crate) fn new(seed: u64) -> Self {
         Self(seed)
     }
 
     /// Next 64 random bits.
-    pub fn next_u64(&mut self) -> u64 {
+    pub(crate) fn next_u64(&mut self) -> u64 {
         self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
         let mut z = self.0;
         z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
@@ -351,12 +353,12 @@ impl SplitMix {
     }
 
     /// Uniform number below `bound`; `bound` must not be zero.
-    pub fn below(&mut self, bound: usize) -> usize {
+    pub(crate) fn below(&mut self, bound: usize) -> usize {
         usize::try_from(self.next_u64() % u64::try_from(bound).unwrap()).unwrap()
     }
 
     /// Random byte.
-    pub fn byte(&mut self) -> u8 {
+    pub(crate) fn byte(&mut self) -> u8 {
         self.next_u64().to_le_bytes()[0]
     }
 }
@@ -364,7 +366,7 @@ impl SplitMix {
 /// Applies one random mutation to a byte string: a bit flip, a byte
 /// replacement, an insertion, a deletion, a truncation or the duplication of
 /// a slice.
-pub fn mutate(rng: &mut SplitMix, input: &[u8]) -> Vec<u8> {
+pub(crate) fn mutate(rng: &mut SplitMix, input: &[u8]) -> Vec<u8> {
     let mut bytes = input.to_vec();
     if bytes.is_empty() {
         bytes.push(rng.byte());

@@ -1,0 +1,99 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "archive.extract",
+          "effect": "local",
+          "phase": "mutate",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "path",
+                "v": "/srv/dl/data.tar.gz"
+              },
+              "span": [
+                1,
+                17,
+                1,
+                38
+              ]
+            },
+            {
+              "name": "into",
+              "value": {
+                "t": "path",
+                "v": "/srv/data"
+              },
+              "span": [
+                1,
+                39,
+                1,
+                56
+              ]
+            },
+            {
+              "name": "only",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "strip_components",
+              "value": {
+                "t": "int",
+                "v": 0
+              },
+              "default": true
+            },
+            {
+              "name": "on_conflict",
+              "value": {
+                "t": "enum",
+                "v": "overwrite"
+              },
+              "default": true
+            },
+            {
+              "name": "preserve_permissions",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "allow_outside",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            56
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          56
+        ]
+      }
+    ]
+  }
+}

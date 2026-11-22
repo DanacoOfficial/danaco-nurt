@@ -34,6 +34,7 @@ use nurt_contracts::kinds::EffectKind;
 use serde_json::Value;
 
 use crate::error::SyntaxError;
+use crate::lex::{KEYWORDS, MAX_IDENTIFIER_LEN};
 
 /// Largest admissible nesting depth of a tree document.
 pub const MAX_DEPTH: usize = 128;
@@ -50,6 +51,9 @@ const REGEX_FLAGS: &str = "imsx";
 
 /// Largest number of segments of a bound command name: a group and a command.
 const MAX_BOUND_NAME_SEGMENTS: usize = 2;
+
+/// Largest length of a command name in bytes: two identifiers and a `.`.
+const MAX_COMMAND_NAME_LEN: usize = 2 * MAX_IDENTIFIER_LEN + 1;
 
 /// Members omitted by the typed tree when they hold their default value.
 const NORMALIZED_MEMBERS: [(&str, NormalizedDefault); 3] = [
@@ -179,7 +183,7 @@ fn surface_statement(place: &Place, statement: &Statement) -> Checked {
     match statement {
         Statement::Let(binding) => {
             place.object(binding.span.as_ref())?;
-            identifier(&place.member("name"), &binding.name)?;
+            name(&place.member("name"), &binding.name)?;
             surface_pipeline(&place.member("value"), &binding.value)
         }
         Statement::Pipeline(pipeline) => surface_pipeline(place, pipeline),
@@ -230,7 +234,7 @@ fn surface_expr(place: &Place, expr: &Expr, list_item: bool) -> Checked {
         }
         Expr::Ident { v, span } => {
             place.object(span.as_ref())?;
-            identifier(&place.member("v"), v)
+            name(&place.member("v"), v)
         }
         Expr::Regex { flags, span, .. } => {
             place.object(span.as_ref())?;
@@ -395,7 +399,7 @@ fn bound_statement(place: &Place, statement: &BoundStatement) -> Checked {
     match statement {
         BoundStatement::Let(binding) => {
             place.object(binding.span.as_ref())?;
-            identifier(&place.member("name"), &binding.name)?;
+            name(&place.member("name"), &binding.name)?;
             let value = place.member("value");
             let position = bound_pipeline(&value, &binding.value)?;
             value.ensure(
@@ -586,8 +590,8 @@ const MAP_KEY_MESSAGE: &str = "duplicate map key; keep a single entry per key";
 
 const SPREAD_MESSAGE: &str = "a spread is admissible only as a list element";
 
-fn reference_names(place: &Place, name: &str, fields: &[String]) -> Checked {
-    identifier(&place.member("name"), name)?;
+fn reference_names(place: &Place, reference: &str, fields: &[String]) -> Checked {
+    name(&place.member("name"), reference)?;
     let fields_place = place.member("fields");
     for (index, field) in fields.iter().enumerate() {
         identifier(&fields_place.index(index), field)?;
@@ -626,31 +630,50 @@ fn free_form(place: &Place, meta: &Meta) -> Checked {
     Ok(())
 }
 
-/// Returns `true` for an identifier: `[a-z][a-z0-9_]*`.
+/// Returns `true` for an identifier: `[a-z][a-z0-9_]*`, at most
+/// [`MAX_IDENTIFIER_LEN`] bytes.
 #[must_use]
 pub fn is_identifier(text: &str) -> bool {
     let mut bytes = text.bytes();
-    bytes.next().is_some_and(|first| first.is_ascii_lowercase())
+    text.len() <= MAX_IDENTIFIER_LEN
+        && bytes.next().is_some_and(|first| first.is_ascii_lowercase())
         && bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+}
+
+/// Returns `true` for a word reserved by the language, which cannot name a
+/// binding, a reference or an identifier value.
+#[must_use]
+pub fn is_reserved_word(text: &str) -> bool {
+    KEYWORDS.contains(&text)
 }
 
 fn identifier(place: &Place, text: &str) -> Checked {
     place.ensure(
         is_identifier(text),
-        "an identifier must match `[a-z][a-z0-9_]*`",
+        "an identifier must match `[a-z][a-z0-9_]*` and have at most 64 characters",
+    )
+}
+
+fn name(place: &Place, text: &str) -> Checked {
+    identifier(place, text)?;
+    place.ensure(
+        !is_reserved_word(text),
+        "a reserved word cannot be used as a name; choose another name",
     )
 }
 
 fn surface_command_name(place: &Place, name: &str) -> Checked {
     place.ensure(
-        name.split('.').all(is_identifier),
-        "a command name must be identifiers joined by `.`",
+        name.len() <= MAX_COMMAND_NAME_LEN && name.split('.').all(is_identifier),
+        "a command name must be identifiers joined by `.`, at most 129 characters",
     )
 }
 
 fn bound_command_name(place: &Place, name: &str) -> Checked {
     place.ensure(
-        name.split('.').count() <= MAX_BOUND_NAME_SEGMENTS && name.split('.').all(is_identifier),
+        name.len() <= MAX_COMMAND_NAME_LEN
+            && name.split('.').count() <= MAX_BOUND_NAME_SEGMENTS
+            && name.split('.').all(is_identifier),
         "a bound command name must be an identifier or a group and an identifier joined by `.`",
     )
 }
@@ -869,9 +892,7 @@ pub fn is_rfc3339(text: &str) -> bool {
 /// from it. A member present in `received` and absent from `typed` at the same
 /// position is unknown to the format, unless it is a member that the typed
 /// tree omits when it holds its default value: `"fields": []`,
-/// `"waits": false` and `"default": false`. The check rejects, for example,
-/// the member `effect` in a stage of a surface tree, which the types ignore
-/// but the published schema forbids.
+/// `"waits": false` and `"default": false`.
 ///
 /// # Errors
 ///
@@ -883,13 +904,16 @@ pub fn is_rfc3339(text: &str) -> bool {
 /// use nurt_contracts::ast::AstDocument;
 /// use nurt_syntax::validate::check_members;
 ///
-/// let received: serde_json::Value = serde_json::from_str(
-///     r#"{"nurt":"1.0","program":{"statements":[{"t":"pipeline",
-///         "head":{"t":"stage","name":"count","args":[],"effect":"read"},"stages":[]}]}}"#,
-/// )?;
+/// let text = r#"{"nurt":"1.0","program":{"statements":[{"t":"pipeline",
+///     "head":{"t":"stage","name":"count","args":[]},"stages":[]}]}}"#;
+/// let received: serde_json::Value = serde_json::from_str(text)?;
 /// let document: AstDocument = serde_json::from_value(received.clone())?;
 /// let typed = serde_json::to_value(&document)?;
-/// assert!(check_members(&received, &typed).is_err());
+/// assert!(check_members(&received, &typed).is_ok());
+///
+/// let mut extended = received.clone();
+/// extended["program"]["statements"][0]["head"]["effect"] = "read".into();
+/// assert!(check_members(&extended, &typed).is_err());
 /// # Ok::<(), serde_json::Error>(())
 /// ```
 pub fn check_members(received: &Value, typed: &Value) -> Result<(), SyntaxError> {

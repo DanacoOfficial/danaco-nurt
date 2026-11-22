@@ -9,6 +9,9 @@
 //! published schema), `validate` (an invariant beyond the schema) or
 //! `accepted` (a document that the published contract admits).
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod hash_support;
 
 use std::fs;

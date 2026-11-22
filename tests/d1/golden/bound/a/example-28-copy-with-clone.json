@@ -1,0 +1,151 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "info",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "path",
+                    "v": "/srv/app"
+                  }
+                ]
+              },
+              "span": [
+                1,
+                6,
+                1,
+                16
+              ]
+            },
+            {
+              "name": "hash",
+              "value": {
+                "t": "enum",
+                "v": "none"
+              },
+              "default": true
+            },
+            {
+              "name": "details",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "known",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            63
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "copy",
+            "effect": "local",
+            "phase": "mutate",
+            "args": [
+              {
+                "name": "from",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "to",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "into",
+                "value": {
+                  "t": "path",
+                  "v": "/srv/backup"
+                },
+                "span": [
+                  1,
+                  17,
+                  1,
+                  36
+                ]
+              },
+              {
+                "name": "on_conflict",
+                "value": {
+                  "t": "enum",
+                  "v": "overwrite"
+                },
+                "default": true
+              },
+              {
+                "name": "preserve",
+                "value": {
+                  "t": "bool",
+                  "v": true
+                },
+                "span": [
+                  1,
+                  37,
+                  1,
+                  51
+                ]
+              },
+              {
+                "name": "clone",
+                "value": {
+                  "t": "enum",
+                  "v": "auto"
+                },
+                "span": [
+                  1,
+                  52,
+                  1,
+                  63
+                ]
+              }
+            ],
+            "span": [
+              1,
+              1,
+              1,
+              63
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          63
+        ]
+      }
+    ]
+  }
+}

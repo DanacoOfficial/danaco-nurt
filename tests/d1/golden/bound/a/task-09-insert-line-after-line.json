@@ -1,0 +1,167 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "lines",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "path",
+                "v": "/srv/app/main.go"
+              },
+              "span": [
+                1,
+                7,
+                1,
+                25
+              ]
+            },
+            {
+              "name": "range",
+              "value": {
+                "t": "range"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            25
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "effect": "read",
+            "phase": "transform",
+            "args": [
+              {
+                "name": "condition",
+                "value": {
+                  "t": "bin",
+                  "op": "==",
+                  "l": {
+                    "t": "field",
+                    "name": "text"
+                  },
+                  "r": {
+                    "t": "text",
+                    "v": "package main"
+                  }
+                },
+                "span": [
+                  2,
+                  11,
+                  2,
+                  33
+                ]
+              }
+            ],
+            "span": [
+              2,
+              4,
+              2,
+              33
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "insert",
+            "effect": "local",
+            "phase": "mutate",
+            "args": [
+              {
+                "name": "text",
+                "value": {
+                  "t": "text",
+                  "v": "import \"fmt\""
+                },
+                "span": [
+                  3,
+                  11,
+                  3,
+                  28
+                ]
+              },
+              {
+                "name": "in",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "line",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "position",
+                "value": {
+                  "t": "enum",
+                  "v": "after"
+                },
+                "span": [
+                  3,
+                  29,
+                  3,
+                  44
+                ]
+              },
+              {
+                "name": "ensure_newline",
+                "value": {
+                  "t": "bool",
+                  "v": false
+                },
+                "default": true
+              },
+              {
+                "name": "validate",
+                "value": {
+                  "t": "enum",
+                  "v": "reject"
+                },
+                "default": true
+              },
+              {
+                "name": "if_match",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              }
+            ],
+            "span": [
+              3,
+              4,
+              3,
+              44
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          3,
+          44
+        ]
+      }
+    ]
+  }
+}

@@ -3,6 +3,9 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Invariants of `validate_surface`, `validate_bound` and `check_members`.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod hash_support;
 
 use hash_support::json_depth;
@@ -549,7 +552,12 @@ fn check_members_reports_unknown_members_and_admits_normalized_defaults() {
     let received = json!({"nurt": "1.0", "program": {"statements": [{"t": "pipeline",
         "head": {"t": "ref", "name": "r", "fields": []},
         "stages": [{"t": "stage", "name": "count", "args": [], "effect": "read"}]}]}});
-    let typed = serde_json::to_value(surface(received.clone())).unwrap();
+    let mut clean = received.clone();
+    clean["program"]["statements"][0]["stages"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("effect");
+    let typed = serde_json::to_value(surface(clean)).unwrap();
     let error = check_members(&received, &typed).unwrap_err();
     assert_eq!(
         error.found.as_deref(),
@@ -569,4 +577,13 @@ fn check_members_reports_unknown_members_and_admits_normalized_defaults() {
     assert_eq!(error.found.as_deref(), Some("/nurt"));
     let error = check_members(&json!({"meta": {"a/b~c": {"x": 1}}}), &typed).unwrap_err();
     assert_eq!(error.found.as_deref(), Some("/meta/a~1b~0c/x"));
+}
+
+#[test]
+fn rejects_reserved_words_and_overlong_identifiers() {
+    use nurt_syntax::validate::is_reserved_word;
+    assert!(is_reserved_word("and"));
+    assert!(!is_reserved_word("android"));
+    assert!(is_identifier(&"a".repeat(64)));
+    assert!(!is_identifier(&"a".repeat(65)));
 }

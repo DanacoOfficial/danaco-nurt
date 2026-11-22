@@ -1,0 +1,409 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "read",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "path",
+                    "v": "/srv/app/main.go"
+                  }
+                ]
+              },
+              "span": [
+                1,
+                6,
+                1,
+                24
+              ]
+            },
+            {
+              "name": "lines",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "last",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "around",
+              "value": {
+                "t": "regex",
+                "v": "func main",
+                "flags": ""
+              },
+              "span": [
+                1,
+                25,
+                1,
+                44
+              ]
+            },
+            {
+              "name": "context",
+              "value": {
+                "t": "int",
+                "v": 3
+              },
+              "span": [
+                1,
+                45,
+                1,
+                55
+              ]
+            },
+            {
+              "name": "symbol",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "section",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "cell",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "targets",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "key",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "depth",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "view",
+              "value": {
+                "t": "enum",
+                "v": "full"
+              },
+              "default": true
+            },
+            {
+              "name": "pages",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "mode",
+              "value": {
+                "t": "enum",
+                "v": "text"
+              },
+              "default": true
+            },
+            {
+              "name": "encoding",
+              "value": {
+                "t": "text",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "decompress",
+              "value": {
+                "t": "enum",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "unchanged_since",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "since",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "known",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "line_numbers",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "span": [
+                1,
+                56,
+                1,
+                74
+              ]
+            },
+            {
+              "name": "max_line",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            74
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          74
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "read",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "path",
+                    "v": "/srv/app/main.go"
+                  }
+                ]
+              },
+              "span": [
+                2,
+                6,
+                2,
+                24
+              ]
+            },
+            {
+              "name": "lines",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "last",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "around",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "context",
+              "value": {
+                "t": "int",
+                "v": 3
+              },
+              "default": true
+            },
+            {
+              "name": "symbol",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "section",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "cell",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "targets",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "key",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "depth",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "view",
+              "value": {
+                "t": "enum",
+                "v": "full"
+              },
+              "default": true
+            },
+            {
+              "name": "pages",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "mode",
+              "value": {
+                "t": "enum",
+                "v": "text"
+              },
+              "default": true
+            },
+            {
+              "name": "encoding",
+              "value": {
+                "t": "text",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "decompress",
+              "value": {
+                "t": "enum",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "unchanged_since",
+              "value": {
+                "t": "text",
+                "v": "1a2b3c4d"
+              },
+              "span": [
+                2,
+                25,
+                2,
+                52
+              ]
+            },
+            {
+              "name": "since",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "known",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "line_numbers",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "max_line",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            2,
+            1,
+            2,
+            52
+          ]
+        },
+        "stages": [],
+        "span": [
+          2,
+          1,
+          2,
+          52
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,171 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "edit",
+          "effect": "local",
+          "phase": "mutate",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "path",
+                "v": "/srv/app/main.go"
+              },
+              "span": [
+                1,
+                6,
+                1,
+                24
+              ]
+            },
+            {
+              "name": "changes",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "map",
+                    "entries": [
+                      {
+                        "k": "replace",
+                        "v": {
+                          "t": "text",
+                          "v": "oldName("
+                        }
+                      },
+                      {
+                        "k": "with",
+                        "v": {
+                          "t": "text",
+                          "v": "newName("
+                        }
+                      },
+                      {
+                        "k": "occurrence",
+                        "v": {
+                          "t": "int",
+                          "v": 1
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "t": "map",
+                    "entries": [
+                      {
+                        "k": "insert",
+                        "v": {
+                          "t": "text",
+                          "v": "// updated"
+                        }
+                      },
+                      {
+                        "k": "line",
+                        "v": {
+                          "t": "int",
+                          "v": 3
+                        }
+                      },
+                      {
+                        "k": "position",
+                        "v": {
+                          "t": "enum",
+                          "v": "before"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "t": "map",
+                    "entries": [
+                      {
+                        "k": "delete_lines",
+                        "v": {
+                          "t": "range",
+                          "lo": 10,
+                          "hi": 12
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "span": [
+                1,
+                25,
+                1,
+                165
+              ]
+            },
+            {
+              "name": "expect",
+              "value": {
+                "t": "range",
+                "lo": 3,
+                "hi": 3
+              },
+              "span": [
+                1,
+                166,
+                1,
+                175
+              ]
+            },
+            {
+              "name": "if_match",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "whitespace",
+              "value": {
+                "t": "enum",
+                "v": "normalize"
+              },
+              "default": true
+            },
+            {
+              "name": "on_missing",
+              "value": {
+                "t": "enum",
+                "v": "skip"
+              },
+              "default": true
+            },
+            {
+              "name": "validate",
+              "value": {
+                "t": "enum",
+                "v": "reject"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            175
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          175
+        ]
+      }
+    ]
+  }
+}

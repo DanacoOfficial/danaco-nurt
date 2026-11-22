@@ -1,0 +1,110 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "create",
+          "effect": "local",
+          "phase": "mutate",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "path",
+                    "v": "C:/proj/link"
+                  }
+                ]
+              },
+              "span": [
+                1,
+                8,
+                1,
+                22
+              ]
+            },
+            {
+              "name": "type",
+              "value": {
+                "t": "enum",
+                "v": "link"
+              },
+              "span": [
+                1,
+                23,
+                1,
+                33
+              ]
+            },
+            {
+              "name": "target",
+              "value": {
+                "t": "text",
+                "v": "C:/proj/src"
+              },
+              "span": [
+                1,
+                34,
+                1,
+                55
+              ]
+            },
+            {
+              "name": "hard",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "temporary",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "parents",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "on_exists",
+              "value": {
+                "t": "enum",
+                "v": "skip"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            55
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          55
+        ]
+      }
+    ]
+  }
+}

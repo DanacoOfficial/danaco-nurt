@@ -1,0 +1,111 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "set",
+          "effect": "local",
+          "phase": "mutate",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "path",
+                "v": "/srv/app/Cargo.toml"
+              },
+              "span": [
+                1,
+                5,
+                1,
+                26
+              ]
+            },
+            {
+              "name": "key",
+              "value": {
+                "t": "key",
+                "v": "package.version"
+              },
+              "span": [
+                1,
+                27,
+                1,
+                49
+              ]
+            },
+            {
+              "name": "value",
+              "value": {
+                "t": "text",
+                "v": "0.4.0"
+              },
+              "span": [
+                1,
+                50,
+                1,
+                64
+              ]
+            },
+            {
+              "name": "values",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "create",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "format",
+              "value": {
+                "t": "enum",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "validate",
+              "value": {
+                "t": "enum",
+                "v": "reject"
+              },
+              "default": true
+            },
+            {
+              "name": "if_match",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            64
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          64
+        ]
+      }
+    ]
+  }
+}

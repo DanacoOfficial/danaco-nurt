@@ -4,6 +4,9 @@
 //! Bound golden trees of `tests/d1/golden/bound/<variant>/` against the
 //! published schema `nurt-bound/1` and the invariants of `validate_bound`.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod hash_support;
 
 use hash_support::{Tree, d1_bound_trees};

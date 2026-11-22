@@ -8,6 +8,9 @@
 //! to the same tree, so the files of one name in `bound/a`, `bound/b` and
 //! `bound/c` have the same hash.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod hash_support;
 
 use std::collections::BTreeMap;

@@ -1,0 +1,259 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "path",
+                "v": "/var/log/app"
+              },
+              "span": [
+                1,
+                6,
+                1,
+                20
+              ]
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "glob",
+                "v": "*.log"
+              },
+              "span": [
+                1,
+                21,
+                1,
+                34
+              ]
+            },
+            {
+              "name": "type",
+              "value": {
+                "t": "enum",
+                "v": "file"
+              },
+              "default": true
+            },
+            {
+              "name": "depth",
+              "value": {
+                "t": "int",
+                "v": 1
+              },
+              "span": [
+                1,
+                35,
+                1,
+                43
+              ]
+            },
+            {
+              "name": "hidden",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "follow_links",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "gitignore",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "exclude",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "exclude_preset",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "file_type",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "fuzzy",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "case_sensitive",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "sort",
+              "value": {
+                "t": "enum",
+                "v": "path"
+              },
+              "default": true
+            },
+            {
+              "name": "order",
+              "value": {
+                "t": "enum",
+                "v": "asc"
+              },
+              "default": true
+            },
+            {
+              "name": "view",
+              "value": {
+                "t": "enum",
+                "v": "flat"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            43
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "effect": "read",
+            "phase": "transform",
+            "args": [
+              {
+                "name": "condition",
+                "value": {
+                  "t": "bin",
+                  "op": "<",
+                  "l": {
+                    "t": "field",
+                    "name": "modified"
+                  },
+                  "r": {
+                    "t": "call",
+                    "fn": "ago",
+                    "args": [
+                      {
+                        "t": "dur",
+                        "v": 604800000
+                      }
+                    ]
+                  }
+                },
+                "span": [
+                  2,
+                  11,
+                  2,
+                  29
+                ]
+              }
+            ],
+            "span": [
+              2,
+              4,
+              2,
+              29
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "move",
+            "effect": "local",
+            "phase": "mutate",
+            "args": [
+              {
+                "name": "from",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "to",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "into",
+                "value": {
+                  "t": "path",
+                  "v": "/var/log/app/old"
+                },
+                "span": [
+                  3,
+                  9,
+                  3,
+                  33
+                ]
+              },
+              {
+                "name": "on_conflict",
+                "value": {
+                  "t": "enum",
+                  "v": "overwrite"
+                },
+                "default": true
+              }
+            ],
+            "span": [
+              3,
+              4,
+              3,
+              33
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          3,
+          33
+        ]
+      }
+    ]
+  }
+}
