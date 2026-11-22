@@ -53,7 +53,15 @@ pub fn write_pack(
     out: &mut dyn Write,
     interrupt: &AtomicBool,
 ) -> Result<PackSummary> {
-    let db = repo.objects.clone().into_inner();
+    // Packs must stay mapped while their entries are read: after an unload
+    // `gix-odb` panics in `entry_by_location` on large histories.
+    let mut db = repo
+        .objects
+        .clone()
+        .into_arc()
+        .map_err(|error| library_error("opening the object database failed", &error))?
+        .into_inner();
+    db.prevent_pack_unload();
     let mut input = ids.into_iter().map(Ok);
     let (counts, _) = output::count::objects_unthreaded(
         &db,
