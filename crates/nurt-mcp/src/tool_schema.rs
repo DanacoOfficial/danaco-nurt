@@ -11,6 +11,7 @@
 use nurt_contracts::envelope::Request;
 use nurt_tooldef::{RenderOptions, ToolFormat};
 use rmcp::model::{JsonObject, Tool, ToolAnnotations};
+use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use crate::backend::{HelpKind, HelpQuery};
@@ -20,6 +21,18 @@ pub(crate) const RUN_TOOL: &str = nurt_tooldef::TOOL_NAME;
 
 /// Name of the tool that returns built-in help.
 pub(crate) const HELP_TOOL: &str = "nurt_help";
+
+/// Name of the tool that checks a program without running it.
+pub(crate) const CHECK_TOOL: &str = "nurt_check";
+
+/// Title of the `nurt_check` tool.
+const CHECK_TITLE: &str = "Danaco Nurt check";
+
+/// Description of the `nurt_check` tool.
+const CHECK_DESCRIPTION: &str = "Checks a program of the Nurt language without running it. The \
+result (`nurt-check/1`) states the strongest effect, the weakest reversibility, the paths, network \
+endpoints and external programs the program would touch, and the corrections applied to its text. \
+Nothing is read from or written to the world.";
 
 /// Title of the `nurt` tool.
 const RUN_TITLE: &str = "Danaco Nurt";
@@ -62,6 +75,76 @@ pub(crate) fn help_tool() -> Tool {
     Tool::new(HELP_TOOL, HELP_DESCRIPTION, help_input_schema())
         .with_title(HELP_TITLE)
         .with_annotations(annotations)
+}
+
+/// Builds the `nurt_check` tool, which only reads.
+pub(crate) fn check_tool() -> Tool {
+    let annotations = ToolAnnotations::with_title(CHECK_TITLE)
+        .read_only(true)
+        .destructive(false)
+        .idempotent(true)
+        .open_world(false);
+    Tool::new(CHECK_TOOL, CHECK_DESCRIPTION, check_input_schema())
+        .with_title(CHECK_TITLE)
+        .with_annotations(annotations)
+}
+
+/// Builds the input schema of the `nurt_check` tool.
+fn check_input_schema() -> JsonObject {
+    let mut properties = Map::new();
+    properties.insert(
+        "program".to_owned(),
+        json!({"type": "string", "description": "Program text to check."}),
+    );
+    properties.insert(
+        "accept".to_owned(),
+        json!({
+            "type": "string",
+            "description": "Correction candidate to check instead of a program text."
+        }),
+    );
+    properties.insert(
+        "session".to_owned(),
+        json!({"type": "string", "description": "Engine session of the check."}),
+    );
+
+    let mut input = Map::new();
+    input.insert("type".to_owned(), json!("object"));
+    input.insert("properties".to_owned(), Value::Object(properties));
+    input.insert("additionalProperties".to_owned(), Value::Bool(false));
+    input
+}
+
+/// Converts the arguments of the `nurt_check` tool into a request envelope. One
+/// of `program` and `accept` is required. The default session applies when
+/// the arguments do not name a session.
+pub(crate) fn check_request_from_arguments(
+    arguments: Option<JsonObject>,
+    session: Option<&str>,
+) -> Result<Request, String> {
+    let arguments: CheckArguments =
+        serde_json::from_value(Value::Object(arguments.unwrap_or_default()))
+            .map_err(|error| format!("invalid arguments of the `{CHECK_TOOL}` tool: {error}"))?;
+    let mut request = match (arguments.program, arguments.accept) {
+        (Some(program), None) => Request::program(program),
+        (None, Some(candidate)) => Request::accept(candidate),
+        _ => {
+            return Err(format!(
+                "invalid arguments of the `{CHECK_TOOL}` tool: exactly one of `program` and `accept` is required"
+            ));
+        }
+    };
+    request.options.session = arguments.session.or_else(|| session.map(str::to_owned));
+    Ok(request)
+}
+
+/// Arguments of the `nurt_check` tool.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CheckArguments {
+    program: Option<String>,
+    accept: Option<String>,
+    session: Option<String>,
 }
 
 /// Builds the input schema of the `nurt_help` tool.
@@ -138,7 +221,10 @@ mod tests {
     use nurt_tooldef::{RenderOptions, ToolFormat};
     use serde_json::{Map, Value, json};
 
-    use super::{help_query_from_arguments, help_tool, request_from_arguments, run_tool};
+    use super::{
+        check_request_from_arguments, check_tool, help_query_from_arguments, help_tool,
+        request_from_arguments, run_tool,
+    };
     use crate::backend::HelpKind;
 
     fn object(value: Value) -> Map<String, Value> {
@@ -233,6 +319,42 @@ mod tests {
             "{message}"
         );
         assert!(message.contains("colour"), "{message}");
+    }
+
+    #[test]
+    fn check_tool_only_reads() {
+        let tool = serde_json::to_value(check_tool()).unwrap();
+        assert_eq!(tool["name"], "nurt_check");
+        assert_eq!(tool["annotations"]["readOnlyHint"], true);
+        assert_eq!(tool["annotations"]["openWorldHint"], false);
+        assert_eq!(tool["inputSchema"]["additionalProperties"], false);
+    }
+
+    #[test]
+    fn check_arguments_need_exactly_one_input() {
+        let program =
+            check_request_from_arguments(Some(object(json!({"program": "ok"}))), Some("s1"))
+                .unwrap();
+        assert_eq!(program.program.as_deref(), Some("ok"));
+        assert_eq!(program.options.session.as_deref(), Some("s1"));
+        let accept = check_request_from_arguments(
+            Some(object(json!({"accept": "c1", "session": "a"}))),
+            None,
+        )
+        .unwrap();
+        assert_eq!(accept.options.session.as_deref(), Some("a"));
+        assert!(check_request_from_arguments(None, None).is_err());
+        assert!(
+            check_request_from_arguments(
+                Some(object(json!({"program": "ok", "accept": "c1"}))),
+                None
+            )
+            .is_err()
+        );
+        assert!(
+            check_request_from_arguments(Some(object(json!({"program": "ok", "limit": 1}))), None)
+                .is_err()
+        );
     }
 
     #[test]

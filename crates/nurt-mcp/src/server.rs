@@ -25,11 +25,12 @@ use rmcp::{ErrorData, RoleServer, ServerHandler};
 use serde_json::json;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
-use crate::backend::{Backend, BackendInfo, CallError, DescribeSubject, HelpQuery};
+use crate::backend::{Backend, BackendInfo, CallError, CheckOutcome, DescribeSubject, HelpQuery};
 use crate::events::{ChannelSink, Forwarder, LogThreshold};
 use crate::resources::{NurtResource, fixed_resources, resource_templates};
 use crate::tool_schema::{
-    HELP_TOOL, RUN_TOOL, help_query_from_arguments, help_tool, request_from_arguments, run_tool,
+    CHECK_TOOL, HELP_TOOL, RUN_TOOL, check_request_from_arguments, check_tool,
+    help_query_from_arguments, help_tool, request_from_arguments, run_tool,
 };
 
 /// Name of the server in the `initialize` result.
@@ -168,6 +169,26 @@ impl<B: Backend> NurtServer<B> {
         run_result(joined)
     }
 
+    async fn check_program(
+        &self,
+        arguments: Option<JsonObject>,
+        context: &RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let session = self.engine_session(context);
+        let request = match check_request_from_arguments(arguments, session.as_deref()) {
+            Ok(request) => request,
+            Err(message) => return Ok(error_text(message)),
+        };
+        match self
+            .shared
+            .call(move |backend| backend.check(&request))
+            .await?
+        {
+            Ok(outcome) => check_result(outcome),
+            Err(error) => Ok(call_error_text(&error)),
+        }
+    }
+
     async fn read_help(&self, arguments: Option<JsonObject>) -> Result<CallToolResult, ErrorData> {
         let query = match help_query_from_arguments(arguments) {
             Ok(query) => query,
@@ -228,6 +249,28 @@ fn tool_result(response: Response) -> Result<CallToolResult, ErrorData> {
     Ok(result)
 }
 
+/// Tool result of a check: the check document as text and structured content,
+/// or the language error that stopped the check.
+fn check_result(outcome: CheckOutcome) -> Result<CallToolResult, ErrorData> {
+    match outcome {
+        CheckOutcome::Report(document) => {
+            let mut result =
+                CallToolResult::success(vec![ContentBlock::text(document.to_string())]);
+            result.structured_content = Some(document);
+            Ok(result)
+        }
+        CheckOutcome::Failed(error) => {
+            let text = format!("error {}: {}", error.code, error.message);
+            let document = serde_json::to_value(&error).map_err(|failure| {
+                ErrorData::internal_error(format!("error cannot be serialized: {failure}"), None)
+            })?;
+            let mut result = CallToolResult::error(vec![ContentBlock::text(text)]);
+            result.structured_content = Some(json!({ "error": document }));
+            Ok(result)
+        }
+    }
+}
+
 fn error_text(message: String) -> CallToolResult {
     CallToolResult::error(vec![ContentBlock::text(message)])
 }
@@ -280,7 +323,11 @@ impl<B: Backend> ServerHandler for NurtServer<B> {
                 ErrorData::internal_error(format!("core description unavailable: {error}"), None)
             })?;
         let run = run_tool(&core).map_err(|message| ErrorData::internal_error(message, None))?;
-        Ok(ListToolsResult::with_all_items(vec![run, help_tool()]))
+        Ok(ListToolsResult::with_all_items(vec![
+            run,
+            help_tool(),
+            check_tool(),
+        ]))
     }
 
     async fn call_tool(
@@ -291,9 +338,12 @@ impl<B: Backend> ServerHandler for NurtServer<B> {
         let result = match request.name.as_ref() {
             RUN_TOOL => self.run_program(request.arguments, context).await?,
             HELP_TOOL => self.read_help(request.arguments).await?,
+            CHECK_TOOL => self.check_program(request.arguments, &context).await?,
             other => {
                 return Err(ErrorData::invalid_params(
-                    format!("unknown tool `{other}`; available tools: {RUN_TOOL}, {HELP_TOOL}"),
+                    format!(
+                        "unknown tool `{other}`; available tools: {RUN_TOOL}, {HELP_TOOL}, {CHECK_TOOL}"
+                    ),
                     None,
                 ));
             }

@@ -10,4 +10,4 @@
 {"client": {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "nurt_help", "arguments": {"topic": "find"}}}}
 {"server": {"jsonrpc": "2.0", "id": 5, "result": {"content": [{"type": "text", "text": "help topic=find kind=any examples=3 language=en"}], "isError": false}}}
 {"client": {"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "sh", "arguments": {}}}}
-{"server": {"jsonrpc": "2.0", "id": 6, "error": {"code": -32602, "message": "unknown tool `sh`; available tools: nurt, nurt_help"}}}
+{"server": {"jsonrpc": "2.0", "id": 6, "error": {"code": -32602, "message": "unknown tool `sh`; available tools: nurt, nurt_help, nurt_check"}}}

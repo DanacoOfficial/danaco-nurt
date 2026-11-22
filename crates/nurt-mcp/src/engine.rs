@@ -18,7 +18,9 @@ use nurt_contracts::report::{Report, ReportStatus};
 use nurt_contracts::stage::{CancelToken, EventSink};
 use nurt_core::{DeliveredEvent, Engine, EventBody, EventListener};
 
-use crate::backend::{Backend, BackendInfo, CallError, DescribeSubject, HelpQuery, SchemaName};
+use crate::backend::{
+    Backend, BackendInfo, CallError, CheckOutcome, DescribeSubject, HelpQuery, SchemaName,
+};
 
 /// Calls handled at the same time; the engine has no setting of its own.
 const MAX_INFLIGHT: usize = 16;
@@ -102,6 +104,15 @@ impl Backend for Engine {
         Engine::schema(self, name.as_str())
             .map(str::to_owned)
             .map_err(|error| call_error(&error))
+    }
+
+    fn check(&self, request: &Request) -> Result<CheckOutcome, CallError> {
+        match Engine::check(self, request) {
+            Ok(report) => serde_json::to_value(&report)
+                .map(CheckOutcome::Report)
+                .map_err(|error| CallError::new(AbiStatus::Internal, error.to_string())),
+            Err(error) => Ok(CheckOutcome::Failed(error)),
+        }
     }
 }
 
@@ -234,6 +245,31 @@ mod tests {
             .expect_err("group");
         assert_eq!(core.status, ErrorCode::Unsupported.abi());
         assert_eq!(group.status, ErrorCode::Unsupported.abi());
+    }
+
+    #[test]
+    fn check_without_a_front_end_is_a_language_error_not_a_call_error() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let engine = open(&temp.path().join("state"), None);
+        let outcome = Backend::check(&engine, &Request::program("find \"/srv\"")).expect("outcome");
+        let CheckOutcome::Failed(error) = outcome else {
+            panic!("expected a language error");
+        };
+        assert_eq!(error.code, ErrorCode::Unsupported);
+    }
+
+    #[test]
+    fn check_of_a_bound_program_is_the_check_document() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let frontend = FixtureFrontend::new().with_bound(KNOWN_PROGRAM, empty_program());
+        let engine = open(&temp.path().join("state"), Some(frontend));
+        match Backend::check(&engine, &Request::program(KNOWN_PROGRAM)).expect("outcome") {
+            CheckOutcome::Report(document) => {
+                assert_eq!(document["format"], "nurt-check/1");
+                assert!(document.get("bound").is_some());
+            }
+            CheckOutcome::Failed(error) => panic!("unexpected error {error:?}"),
+        }
     }
 
     #[test]
