@@ -26,5 +26,6 @@ mod translate;
 
 pub use language::ScriptLanguage;
 pub use migrate::{MigrateOptions, Migration, migrate, migrate_with};
+pub use nurt_bind::Catalog;
 pub use report::{Item, MigrationReport, REPORT_FORMAT, Reason, Status, Summary};
 pub use translate::{LetBinding, TableTranslator, TranslateRequest, Translation, Translator};

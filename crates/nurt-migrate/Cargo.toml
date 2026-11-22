@@ -21,6 +21,7 @@ workspace = true
 nurt-contracts = { workspace = true }
 nurt-syntax = { workspace = true }
 nurt-correct = { workspace = true }
+nurt-bind = { workspace = true }
 tree-sitter = { workspace = true }
 tree-sitter-bash = { workspace = true }
 tree-sitter-powershell = { workspace = true }

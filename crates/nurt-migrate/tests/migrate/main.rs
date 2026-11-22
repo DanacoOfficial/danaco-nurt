@@ -7,6 +7,7 @@
 #![allow(clippy::panic)]
 
 mod behavior;
+mod binding;
 mod golden;
 mod language;
 mod mock;
