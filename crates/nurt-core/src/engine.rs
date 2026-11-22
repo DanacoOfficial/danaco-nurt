@@ -960,7 +960,9 @@ impl Engine {
         let planning = clock.monotonic();
         let plan = self.plan(compiled, prepared)?;
         let planned = clock.monotonic();
-        let env = self.exec_env(prepared, cancel, events)?;
+        let env = self
+            .exec_env(prepared, cancel, events)?
+            .with_extension(Arc::new(compiled.bound.clone()));
         let env = match &compiled.ast_hash {
             Some(hash) => env.with_ast_hash(hash.clone()),
             None => env,
