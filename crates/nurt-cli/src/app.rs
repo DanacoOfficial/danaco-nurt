@@ -17,7 +17,7 @@ use crate::commands;
 use crate::exit;
 use crate::integrations;
 use crate::output::Style;
-use crate::system::{SystemClock, SystemHost};
+use crate::system::SystemHost;
 use crate::text;
 
 /// Which standard streams are terminals.
@@ -74,10 +74,7 @@ pub struct SystemEngine;
 
 impl EngineSource for SystemEngine {
     fn open(&self) -> Result<Engine, EngineError> {
-        Engine::open(
-            EngineConfig::new(Arc::new(SystemClock::new()), self.host())
-                .with_frontend(integrations::frontend()),
-        )
+        Engine::open(EngineConfig::system().with_frontend(integrations::frontend()))
     }
 
     fn host(&self) -> Arc<dyn Host> {

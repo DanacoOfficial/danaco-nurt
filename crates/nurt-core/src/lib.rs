@@ -24,6 +24,7 @@ pub mod events;
 #[cfg(any(test, feature = "fixtures"))]
 pub mod fixtures;
 pub mod frontend;
+mod journal_setup;
 pub mod language;
 pub mod paths;
 pub mod readcache;

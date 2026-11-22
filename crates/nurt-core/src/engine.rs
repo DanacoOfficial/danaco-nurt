@@ -113,6 +113,7 @@ pub struct EngineConfig {
     host: Arc<dyn Host>,
     fs: Option<Arc<dyn Fs>>,
     journal: Option<Arc<dyn JournalStore>>,
+    system_journal: bool,
     frontend: Arc<dyn Frontend>,
     services: Services,
     stages: Vec<Arc<dyn StageImpl>>,
@@ -144,6 +145,7 @@ impl EngineConfig {
             host,
             fs: None,
             journal: None,
+            system_journal: false,
             frontend: Arc::new(UnavailableFrontend),
             services: Services::new(),
             stages: Vec::new(),
@@ -163,6 +165,18 @@ impl EngineConfig {
     #[must_use]
     pub fn system() -> Self {
         Self::new(Arc::new(SystemClock::new()), Arc::new(SystemHost::detect()))
+            .with_fs(nurt_fs::system_fs())
+            .with_system_journal()
+    }
+
+    /// The journal of the process is built in the state directory when the
+    /// engine opens, unless a journal is given with
+    /// [`with_journal`](Self::with_journal) or the engine has no state
+    /// directory.
+    #[must_use]
+    pub fn with_system_journal(mut self) -> Self {
+        self.system_journal = true;
+        self
     }
 
     /// Read-only file system given to stages.
@@ -504,6 +518,22 @@ impl Engine {
             None
         };
         let state = root.map(StateDir::open).transpose()?;
+        let journal = match config.journal {
+            Some(journal) => Some(journal),
+            None if config.system_journal => state
+                .as_ref()
+                .map(|state| {
+                    crate::journal_setup::open_journal(
+                        loader.layers(),
+                        &loaded,
+                        false,
+                        Arc::clone(&config.clock),
+                        state.root(),
+                    )
+                })
+                .transpose()?,
+            None => None,
+        };
         let default_session = config
             .session
             .map(SessionId::new)
@@ -540,7 +570,7 @@ impl Engine {
             clock: config.clock,
             host: config.host,
             fs: config.fs,
-            journal: config.journal,
+            journal,
             frontend: config.frontend,
             services: Arc::new(config.services),
             registry,

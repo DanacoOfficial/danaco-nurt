@@ -29,6 +29,9 @@ nurt-syntax = { workspace = true }
 nurt-bind = { workspace = true }
 nurt-correct = { workspace = true }
 nurt-help = { workspace = true }
+nurt-fs = { workspace = true }
+nurt-journal = { workspace = true }
+nurt-space = { workspace = true }
 nurt-files = { workspace = true }
 nurt-doc = { workspace = true }
 nurt-code = { workspace = true }

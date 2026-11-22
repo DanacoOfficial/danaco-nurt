@@ -100,6 +100,17 @@ impl EngineError {
         }
     }
 
+    /// The journal of the process cannot be assembled.
+    #[must_use]
+    pub fn journal(error: &Error) -> Self {
+        Self {
+            status: AbiStatus::Internal,
+            code: error.code,
+            message: format!("cannot assemble the journal: {}", error.message),
+            config: None,
+        }
+    }
+
     /// Status of the call for the C interface and the protocol server.
     #[must_use]
     pub const fn status(&self) -> AbiStatus {
