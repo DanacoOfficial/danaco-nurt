@@ -1,0 +1,10 @@
+{"path":"sample.py","threshold":4,"highest":7,"functions":[
+{"name":"simple","container":null,"start":1,"end":2,"cyclomatic":1},
+{"name":"conditions","container":null,"start":5,"end":13,"cyclomatic":5},
+{"name":"loops","container":null,"start":15,"end":21,"cyclomatic":3},
+{"name":"composed","container":null,"start":23,"end":30,"cyclomatic":7},
+{"name":"nested","container":null,"start":32,"end":40,"cyclomatic":3},
+{"name":"helper","container":"nested","start":35,"end":38,"cyclomatic":2},
+{"name":"method","container":"Class","start":44,"end":50,"cyclomatic":3},
+{"name":"exceptions","container":null,"start":52,"end":60,"cyclomatic":4}],
+"findings":[["conditions",5],["composed",7]]}

@@ -1,0 +1,77 @@
+---
+command: suspend
+group: system
+summary: Suspend the input jobs or processes until they are resumed.
+since: 0.1.0
+---
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+
+# suspend
+
+## Synopsis
+
+```text
+… |> suspend
+```
+
+## Description
+
+Suspends the whole process tree of every input job: `SIGSTOP` to the process
+group on Linux and macOS, suspension of the threads of the job object on
+Windows. The job state becomes `suspended`. Time spent suspended is not
+counted against the time limit of the job and is reported in
+`suspended_total` of the final record.
+
+Only running jobs can be suspended. Process records are handled by the
+implementation of the system commands.
+
+## Parameters
+
+The command has no parameters.
+
+## Input and output
+
+Input `job` or `process` records. Produces one `effect` record per input
+record; its `job` field holds the job record after the change.
+
+## Effect
+
+Category `run`, effect `external`, reversibility `irreversible`, reason
+`process_state_changed`. `resume` continues the job.
+
+## Examples
+
+Suspend job `j7`.
+
+```nurt example
+jobs "j7" |> suspend
+```
+
+```text expected
+suspended  job:j7
+```
+
+Suspend all running jobs.
+
+```nurt example
+jobs state: running |> suspend
+```
+
+Suspend job `j3` and read its state.
+
+```nurt example
+jobs "j3" |> suspend |> select job.state
+```
+
+## Errors
+
+| Code | Meaning | Typical fix |
+|---|---|---|
+| `E_JOB_STATE` | The job is not running, for example already suspended. | Resume it: `jobs "j7" \|> resume`. |
+| `E_UNKNOWN_JOB` | No job has the identifier. | Use one of the identifiers in `candidates`. |
+
+## Related
+
+`resume`, `stop`, `jobs`.

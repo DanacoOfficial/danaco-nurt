@@ -1,0 +1,8 @@
+{"path":"sample.rs","threshold":3,"highest":5,"functions":[
+{"name":"simple","container":null,"start":1,"end":3,"cyclomatic":1},
+{"name":"conditions","container":null,"start":5,"end":14,"cyclomatic":5},
+{"name":"loops","container":null,"start":16,"end":26,"cyclomatic":4},
+{"name":"choice","container":null,"start":28,"end":36,"cyclomatic":3},
+{"name":"method","container":"Kind","start":40,"end":52,"cyclomatic":4},
+{"name":"closures","container":null,"start":54,"end":60,"cyclomatic":3}],
+"findings":[["conditions",5],["loops",4],["Kind.method",4]]}

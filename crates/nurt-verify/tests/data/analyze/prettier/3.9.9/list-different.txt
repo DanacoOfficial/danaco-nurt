@@ -1,0 +1,3 @@
+[warn] Code style issues found in 2 files. Run Prettier with --write to fix.
+src/ugly.ts
+src/styles/main.css

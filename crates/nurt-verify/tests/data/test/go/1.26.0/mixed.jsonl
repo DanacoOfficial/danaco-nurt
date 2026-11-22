@@ -1,0 +1,37 @@
+{"ImportPath":"example.com/goproj/broken [example.com/goproj/broken.test]","Action":"build-output","Output":"# example.com/goproj/broken [example.com/goproj/broken.test]\n"}
+{"ImportPath":"example.com/goproj/broken [example.com/goproj/broken.test]","Action":"build-output","Output":"broken/broken_test.go:6:14: cannot use \"tekst\" (untyped string constant) as int value in variable declaration\n"}
+{"ImportPath":"example.com/goproj/broken [example.com/goproj/broken.test]","Action":"build-fail"}
+{"Time":"2026-11-19T16:59:16.651860729Z","Action":"start","Package":"example.com/goproj/broken"}
+{"Time":"2026-11-19T16:59:16.651956178Z","Action":"output","Package":"example.com/goproj/broken","Output":"FAIL\texample.com/goproj/broken [build failed]\n"}
+{"Time":"2026-11-19T16:59:16.651965014Z","Action":"fail","Package":"example.com/goproj/broken","Elapsed":0,"FailedBuild":"example.com/goproj/broken [example.com/goproj/broken.test]"}
+{"Time":"2026-11-19T16:59:16.734122286Z","Action":"start","Package":"example.com/goproj/calc"}
+{"Time":"2026-11-19T16:59:16.735269012Z","Action":"run","Package":"example.com/goproj/calc","Test":"TestSum"}
+{"Time":"2026-11-19T16:59:16.735292907Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestSum","Output":"=== RUN   TestSum\n"}
+{"Time":"2026-11-19T16:59:16.735317453Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestSum","Output":"--- PASS: TestSum (0.00s)\n"}
+{"Time":"2026-11-19T16:59:16.735322593Z","Action":"pass","Package":"example.com/goproj/calc","Test":"TestSum","Elapsed":0}
+{"Time":"2026-11-19T16:59:16.735325528Z","Action":"run","Package":"example.com/goproj/calc","Test":"TestTable"}
+{"Time":"2026-11-19T16:59:16.735328664Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestTable","Output":"=== RUN   TestTable\n"}
+{"Time":"2026-11-19T16:59:16.735330678Z","Action":"run","Package":"example.com/goproj/calc","Test":"TestTable/positive"}
+{"Time":"2026-11-19T16:59:16.73533182Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestTable/positive","Output":"=== RUN   TestTable/positive\n"}
+{"Time":"2026-11-19T16:59:16.735333904Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestTable/positive","Output":"--- PASS: TestTable/positive (0.00s)\n"}
+{"Time":"2026-11-19T16:59:16.735335166Z","Action":"pass","Package":"example.com/goproj/calc","Test":"TestTable/positive","Elapsed":0}
+{"Time":"2026-11-19T16:59:16.735336789Z","Action":"run","Package":"example.com/goproj/calc","Test":"TestTable/negative_numbers"}
+{"Time":"2026-11-19T16:59:16.735337831Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestTable/negative_numbers","Output":"=== RUN   TestTable/negative_numbers\n"}
+{"Time":"2026-11-19T16:59:16.735339334Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestTable/negative_numbers","Output":"    calc_test.go:15: Sum(-1, 1) = 1, want 0\n"}
+{"Time":"2026-11-19T16:59:16.735341087Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestTable/negative_numbers","Output":"--- FAIL: TestTable/negative_numbers (0.00s)\n"}
+{"Time":"2026-11-19T16:59:16.735342109Z","Action":"fail","Package":"example.com/goproj/calc","Test":"TestTable/negative_numbers","Elapsed":0}
+{"Time":"2026-11-19T16:59:16.735343632Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestTable","Output":"--- FAIL: TestTable (0.00s)\n"}
+{"Time":"2026-11-19T16:59:16.735345055Z","Action":"fail","Package":"example.com/goproj/calc","Test":"TestTable","Elapsed":0}
+{"Time":"2026-11-19T16:59:16.735346137Z","Action":"run","Package":"example.com/goproj/calc","Test":"TestSkipped"}
+{"Time":"2026-11-19T16:59:16.735347249Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestSkipped","Output":"=== RUN   TestSkipped\n"}
+{"Time":"2026-11-19T16:59:16.735348852Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestSkipped","Output":"    calc_test.go:21: skipped on purpose\n"}
+{"Time":"2026-11-19T16:59:16.735351186Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestSkipped","Output":"--- SKIP: TestSkipped (0.00s)\n"}
+{"Time":"2026-11-19T16:59:16.735359993Z","Action":"skip","Package":"example.com/goproj/calc","Test":"TestSkipped","Elapsed":0}
+{"Time":"2026-11-19T16:59:16.735361716Z","Action":"run","Package":"example.com/goproj/calc","Test":"TestFailure"}
+{"Time":"2026-11-19T16:59:16.735363229Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestFailure","Output":"=== RUN   TestFailure\n"}
+{"Time":"2026-11-19T16:59:16.735364782Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestFailure","Output":"    calc_test.go:25: failure \u003cinput\u003e \u0026 \"quote\"\n"}
+{"Time":"2026-11-19T16:59:16.735367917Z","Action":"output","Package":"example.com/goproj/calc","Test":"TestFailure","Output":"--- FAIL: TestFailure (0.00s)\n"}
+{"Time":"2026-11-19T16:59:16.73536953Z","Action":"fail","Package":"example.com/goproj/calc","Test":"TestFailure","Elapsed":0}
+{"Time":"2026-11-19T16:59:16.735372065Z","Action":"output","Package":"example.com/goproj/calc","Output":"FAIL\n"}
+{"Time":"2026-11-19T16:59:16.735545871Z","Action":"output","Package":"example.com/goproj/calc","Output":"FAIL\texample.com/goproj/calc\t0.001s\n"}
+{"Time":"2026-11-19T16:59:16.735564465Z","Action":"fail","Package":"example.com/goproj/calc","Elapsed":0.001}

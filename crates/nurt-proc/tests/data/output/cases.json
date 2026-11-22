@@ -1,0 +1,52 @@
+[
+  {
+    "name": "failed build shows error lines with two lines of context",
+    "input": "build_failure.txt",
+    "exit_code": 101,
+    "view": {},
+    "stdout": "   Compiling serde v1.0.190\n   Compiling util v0.1.0 (/src/util)\nwarning: unused variable: `x`\n  --> util/src/lib.rs:4:9\n   |\n--\n   Compiling db v0.1.0 (/src/db)\n   Compiling ui v0.1.0 (/src/ui)\nerror[E0425]: cannot find value `y` in this scope\n  --> app/src/main.rs:7:13\n   |\n7  |     let z = y + 1;\n   |             ^ not found in this scope\n\nFor more information about this error, try `rustc --explain E0425`.\nerror: could not compile `app` (bin \"app\") due to 1 previous error",
+    "shown": [15, 0, 0, 10]
+  },
+  {
+    "name": "successful build shows head and tail",
+    "input": "build_failure.txt",
+    "exit_code": 0,
+    "view": {"head": 3, "tail": 2},
+    "stdout": "   Compiling libc v0.2.150\n   Compiling serde v1.0.190\n   Compiling util v0.1.0 (/src/util)\n...\nFor more information about this error, try `rustc --explain E0425`.\nerror: could not compile `app` (bin \"app\") due to 1 previous error",
+    "shown": [3, 2, 20, 0]
+  },
+  {
+    "name": "filter with one line of context merges ranges",
+    "input": "test_report.txt",
+    "exit_code": 1,
+    "view": {"filter": "FAILED", "context": 1},
+    "stdout": "tests/test_a.py::test_one PASSED\ntests/test_a.py::test_two FAILED\ntests/test_a.py::test_three PASSED\n--\ntests/test_b.py::test_five PASSED\ntests/test_b.py::test_six FAILED\n\n=========================== short test summary info ============================\nFAILED tests/test_a.py::test_two - AssertionError: 1 != 2\nFAILED tests/test_b.py::test_six - KeyError: 'id'\n========================= 2 failed, 4 passed in 0.12s ==========================",
+    "shown": [10, 0, 0, 4]
+  },
+  {
+    "name": "errors view of a test report",
+    "input": "test_report.txt",
+    "exit_code": 1,
+    "view": {"show": "errors"},
+    "stdout": "tests/test_a.py::test_one PASSED\ntests/test_a.py::test_two FAILED\ntests/test_a.py::test_three PASSED\ntests/test_b.py::test_four PASSED\ntests/test_b.py::test_five PASSED\ntests/test_b.py::test_six FAILED\n\n=========================== short test summary info ============================\nFAILED tests/test_a.py::test_two - AssertionError: 1 != 2\nFAILED tests/test_b.py::test_six - KeyError: 'id'\n========================= 2 failed, 4 passed in 0.12s ==========================",
+    "shown": [12, 0, 0, 2]
+  },
+  {
+    "name": "dedupe collapses repeats after cleaning terminal sequences and redraws",
+    "input": "download_progress.txt",
+    "exit_code": 0,
+    "view": {"dedupe": true, "summary": ["^Resolved"], "progress": "(\\d+)%"},
+    "stdout": "Resolving dependencies\nDownloading package (\u00d73)\nResolved 3 packages\n100%\nDownloading package\n\n\nDone",
+    "shown": [8, 0, 0, 2],
+    "summary_lines": ["Resolved 3 packages"],
+    "progress": 100
+  },
+  {
+    "name": "head and tail of long output",
+    "input": "counter.txt",
+    "exit_code": 0,
+    "view": {"head": 2, "tail": 3},
+    "stdout": "item 1\nitem 2\n...\nitem 98\nitem 99\nitem 100",
+    "shown": [2, 3, 95, 0]
+  }
+]

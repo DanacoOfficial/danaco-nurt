@@ -1,0 +1,7 @@
+{"path":"sample.ts","threshold":3,"highest":4,"functions":[
+{"name":"object","container":null,"start":1,"end":4,"cyclomatic":2},
+{"name":"generic","container":null,"start":6,"end":9,"cyclomatic":2},
+{"name":"typed","container":null,"start":11,"end":20,"cyclomatic":4},
+{"name":"field","container":"Baza","start":22,"end":23,"cyclomatic":1},
+{"name":"generator","container":"Baza","start":25,"end":30,"cyclomatic":2}],
+"findings":[["typed",4]]}

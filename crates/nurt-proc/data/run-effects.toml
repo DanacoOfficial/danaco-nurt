@@ -1,0 +1,481 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Programs whose command line has an effect outside the local file system.
+#
+# Format `nurt-argv-rules/1`:
+#
+# * `[[wrapper]]` names a program that starts another program (`sudo`, `env`,
+#   `npx`). `program` lists names, `command` the subcommand that must follow
+#   (`pnpm exec`), `value_options` the options followed by a value,
+#   `assignments` whether `NAME=VALUE` words are skipped, `skip` the number of
+#   positional arguments before the started program (`timeout 10 make`) and
+#   `module_option` the option that names a module run as the program
+#   (`python -m twine`).
+# * `[[program]]` lists the options of a program that are followed by a value,
+#   so that their values are not taken for subcommands (`git -C dir push`).
+# * `[[rule]]` is a pattern of the command line. The first token names the
+#   program by its base name without an executable extension; further tokens
+#   that do not start with `-` match the positional arguments from the first
+#   one on; tokens that start with `-` name options that must be present
+#   anywhere; `NAME=V1|V2` requires an option value. `*` matches any text
+#   within a token, `**` any number of positional arguments, and `a|b`
+#   matches alternatives. A single-letter option such as `-f` also matches
+#   within a group of short options (`-xf`). `unless` lists patterns without a
+#   program that exclude the rule, `max_positionals` limits the positional
+#   arguments. Letter case is ignored except in single-letter options.
+#
+# Rules are checked against the program and against every program started
+# through wrappers. Patterns of the key `run.irreversible_patterns` use the
+# same syntax.
+
+format = "nurt-argv-rules/1"
+
+[[wrapper]]
+program = "sudo|doas"
+value_options = ["-u", "-g", "-C", "-D", "-h", "-p", "-r", "-t", "-T", "-U", "--user", "--group", "--chdir", "--prompt", "--host", "--role", "--type", "--close-from", "--other-user", "--command-timeout"]
+
+[[wrapper]]
+program = "env"
+value_options = ["-u", "-C", "-S", "--unset", "--chdir", "--split-string"]
+assignments = true
+
+[[wrapper]]
+program = "nice"
+value_options = ["-n", "--adjustment"]
+
+[[wrapper]]
+program = "ionice"
+value_options = ["-c", "-n", "-p", "-P", "-u", "--class", "--classdata"]
+
+[[wrapper]]
+program = "time"
+value_options = ["-f", "-o", "--format", "--output"]
+
+[[wrapper]]
+program = "nohup|stdbuf|setsid|caffeinate"
+value_options = ["-i", "-o", "-e"]
+
+[[wrapper]]
+program = "timeout"
+value_options = ["-k", "-s", "--kill-after", "--signal"]
+skip = 1
+
+[[wrapper]]
+program = "taskset"
+skip = 1
+
+[[wrapper]]
+program = "xargs"
+value_options = ["-a", "-d", "-E", "-I", "-L", "-n", "-P", "-s", "--arg-file", "--delimiter", "--max-args", "--max-lines", "--max-procs", "--max-chars"]
+
+[[wrapper]]
+program = "watch"
+value_options = ["-n", "-d", "-g", "-q", "--interval", "--differences"]
+
+[[wrapper]]
+program = "npx|bunx|pnpx|uvx"
+value_options = ["-p", "--package", "--from", "--with", "--python", "-c", "--call"]
+
+[[wrapper]]
+program = "pnpm"
+command = "exec|dlx"
+value_options = ["-C", "--dir", "--filter", "-F"]
+
+[[wrapper]]
+program = "npm"
+command = "exec|x"
+value_options = ["-p", "--package", "-w", "--workspace", "--prefix"]
+
+[[wrapper]]
+program = "yarn"
+command = "dlx|exec"
+value_options = ["-p", "--package"]
+
+[[wrapper]]
+program = "bun"
+command = "x"
+
+[[wrapper]]
+program = "uv|poetry|pipx|pdm|hatch|rye|pixi"
+command = "run"
+value_options = ["--with", "--python", "-p", "--directory", "--project", "--env", "-e", "--spec"]
+
+[[wrapper]]
+program = "uv"
+command = "tool run"
+value_options = ["--with", "--python", "--from"]
+
+[[wrapper]]
+program = "python|python2|python3|python3.*|py|pypy|pypy3"
+module_option = "-m"
+value_options = ["-W", "-X", "-c"]
+
+[[program]]
+name = "git"
+value_options = ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--super-prefix", "--exec-path"]
+
+[[program]]
+name = "docker|podman|nerdctl"
+value_options = ["-H", "-c", "-l", "--host", "--context", "--config", "--log-level", "--tlscacert", "--tlscert", "--tlskey", "--url", "--connection", "--root", "--runroot", "--storage-driver"]
+
+[[program]]
+name = "kubectl|oc"
+value_options = ["-n", "-s", "--namespace", "--context", "--cluster", "--kubeconfig", "--server", "--user", "--token", "--as", "--as-group", "--request-timeout", "--certificate-authority"]
+
+[[program]]
+name = "helm"
+value_options = ["-n", "--namespace", "--kube-context", "--kubeconfig", "--kube-token", "--kube-apiserver", "--registry-config", "--repository-config"]
+
+[[program]]
+name = "aws"
+value_options = ["--profile", "--region", "--output", "--endpoint-url", "--query", "--ca-bundle", "--cli-read-timeout", "--cli-connect-timeout"]
+
+[[program]]
+name = "gcloud"
+value_options = ["--project", "--account", "--configuration", "--format", "--region", "--zone", "--verbosity", "--impersonate-service-account", "--billing-project"]
+
+[[program]]
+name = "az"
+value_options = ["--subscription", "--output", "-o", "--query", "--resource-group", "-g"]
+
+[[program]]
+name = "gh|glab"
+value_options = ["-R", "--repo", "--hostname"]
+
+[[program]]
+name = "systemctl"
+value_options = ["-H", "-M", "--host", "--machine", "-t", "--type", "-s", "--signal", "--state", "-p", "--property"]
+
+[[program]]
+name = "npm|pnpm"
+value_options = ["--prefix", "-w", "--workspace", "--registry", "--otp", "--tag", "--access", "-C", "--dir", "--filter"]
+
+[[program]]
+name = "cargo"
+value_options = ["--manifest-path", "--config", "-Z", "--color", "--registry", "--index", "--token", "-p", "--package", "--target-dir"]
+
+[[program]]
+name = "mvn|mvnw"
+value_options = ["-s", "-gs", "-f", "-P", "-pl", "-rf", "-T", "-l", "-D", "--settings", "--file", "--projects", "--threads", "--activate-profiles"]
+
+[[program]]
+name = "terraform|tofu"
+value_options = ["-chdir"]
+
+[[program]]
+name = "pulumi"
+value_options = ["-C", "--cwd", "-s", "--stack"]
+
+[[program]]
+name = "vault|consul|nomad"
+value_options = ["-address", "-namespace", "-token", "-region"]
+
+[[program]]
+name = "dotnet"
+value_options = ["-s", "--source", "-k", "--api-key"]
+
+[[program]]
+name = "ssh"
+value_options = ["-B", "-b", "-c", "-D", "-E", "-e", "-F", "-I", "-i", "-J", "-L", "-l", "-m", "-O", "-o", "-P", "-p", "-Q", "-R", "-S", "-W", "-w"]
+
+[[program]]
+name = "scp|sftp"
+value_options = ["-c", "-D", "-F", "-i", "-J", "-l", "-o", "-P", "-S", "-X"]
+
+[[program]]
+name = "rsync"
+value_options = ["-e", "--rsh", "--exclude", "--include", "--exclude-from", "--include-from", "--files-from", "--filter", "-f", "--chmod", "--chown", "--rsync-path", "--partial-dir", "--temp-dir", "-T", "--log-file", "--password-file", "--port", "--timeout", "--bwlimit", "--backup-dir", "--suffix", "--compare-dest", "--copy-dest", "--link-dest"]
+
+[[program]]
+name = "rclone|gsutil|azcopy|s3cmd|mc"
+value_options = ["--config", "--transfers", "--checkers", "--include", "--exclude", "--filter", "-o", "-h"]
+
+[[program]]
+name = "ansible|ansible-playbook"
+value_options = ["-i", "-m", "-a", "-u", "-e", "-l", "--inventory", "--module-name", "--args", "--user", "--extra-vars", "--limit"]
+
+[[rule]]
+pattern = "git push"
+
+[[rule]]
+pattern = "git send-email|request-pull"
+
+[[rule]]
+pattern = "git svn dcommit"
+
+[[rule]]
+pattern = "git p4 submit"
+
+[[rule]]
+pattern = "git lfs push|lock|unlock"
+
+[[rule]]
+pattern = "docker|podman|nerdctl push"
+
+[[rule]]
+pattern = "docker|podman|nerdctl image|manifest push"
+
+[[rule]]
+pattern = "docker|podman buildx build --push"
+
+[[rule]]
+pattern = "docker|podman build --push"
+
+[[rule]]
+pattern = "docker stack deploy|rm"
+
+[[rule]]
+pattern = "docker service create|update|rm|scale|rollback"
+
+[[rule]]
+pattern = "docker secret|config create|rm"
+
+[[rule]]
+pattern = "npm|pnpm publish|unpublish|deprecate"
+
+[[rule]]
+pattern = "npm|pnpm dist-tag|owner|access|team add|rm|set|grant|revoke"
+
+[[rule]]
+pattern = "yarn publish"
+
+[[rule]]
+pattern = "yarn npm publish|tag"
+
+[[rule]]
+pattern = "cargo publish|yank|owner"
+
+[[rule]]
+pattern = "twine upload"
+
+[[rule]]
+pattern = "poetry|flit|uv|hatch|pdm|rye publish"
+
+[[rule]]
+pattern = "gem push|yank|owner"
+
+[[rule]]
+pattern = "dotnet nuget push|delete"
+
+[[rule]]
+pattern = "nuget push|delete"
+
+[[rule]]
+pattern = "mvn|mvnw ** deploy|release:perform|deploy:deploy-file"
+
+[[rule]]
+pattern = "gradle|gradlew ** publish|publish*ToMavenRepository|publishPlugins|release"
+
+[[rule]]
+pattern = "kubectl|oc apply|delete|create|replace|patch|scale|edit|label|annotate|set|expose|run|drain|cordon|uncordon|taint|autoscale"
+
+[[rule]]
+pattern = "kubectl|oc rollout restart|undo|pause|resume"
+
+[[rule]]
+pattern = "helm install|upgrade|uninstall|delete|rollback|push"
+
+[[rule]]
+pattern = "terraform|tofu apply|destroy|import|taint|untaint"
+
+[[rule]]
+pattern = "terraform|tofu state rm|mv|push|replace-provider"
+
+[[rule]]
+pattern = "pulumi up|update|destroy|import|refresh|cancel"
+
+[[rule]]
+pattern = "pulumi stack rm"
+
+[[rule]]
+pattern = "aws * create*|delete*|put-*|update-*|run-*|terminate-*|start-*|stop-*|reboot-*|modify-*|attach-*|detach-*|associate-*|disassociate-*|register-*|deregister-*|deploy|invoke|publish|send-*|tag-*|untag-*|remove-*|add-*|set-*|import-*|restore-*|reset-*|enable-*|disable-*|cancel-*|copy-*|upload-*|replace-*|revoke-*|authorize-*|change-*|apply-*"
+
+[[rule]]
+pattern = "aws s3 cp|mv|rm|sync|mb|rb|website"
+
+[[rule]]
+pattern = "gcloud ** create|delete|update|deploy|patch|start|stop|reset|resize|import|submit|add-*|remove-*|set-iam-policy|enable|disable|publish|undelete|restore|rollback"
+
+[[rule]]
+pattern = "az ** create|delete|update|set|start|stop|restart|deploy|add|remove|import|purge|upload|upload-batch|delete-batch|swap|scale|resize|assign|grant|revoke"
+
+[[rule]]
+pattern = "curl -X|--request=POST|PUT|DELETE|PATCH"
+
+[[rule]]
+pattern = "curl -d|--data*|--json|-F|--form*|-T|--upload-file"
+
+[[rule]]
+pattern = "wget --post-data*|--post-file*|--body-data*|--body-file*"
+
+[[rule]]
+pattern = "wget --method=POST|PUT|DELETE|PATCH"
+
+[[rule]]
+pattern = "http|https|xh|xhs POST|PUT|DELETE|PATCH"
+
+[[rule]]
+pattern = "psql|pgcli"
+
+[[rule]]
+pattern = "mysql|mariadb|mycli"
+
+[[rule]]
+pattern = "mongosh|mongo"
+
+[[rule]]
+pattern = "redis-cli|valkey-cli"
+
+[[rule]]
+pattern = "sqlcmd|cqlsh|clickhouse-client"
+
+[[rule]]
+pattern = "ssh"
+unless = ["-V", "-G"]
+
+[[rule]]
+pattern = "scp|sftp"
+
+[[rule]]
+name = "rsync remote"
+pattern = "rsync ** *:*|rsync://*"
+
+[[rule]]
+pattern = "rclone copy|copyto|sync|move|moveto|delete|deletefile|purge|mkdir|rmdir|rmdirs"
+
+[[rule]]
+pattern = "gsutil cp|mv|rm|rsync|mb|rb|setmeta|acl"
+
+[[rule]]
+pattern = "azcopy copy|sync|remove|make"
+
+[[rule]]
+pattern = "s3cmd put|del|rm|sync|mb|rb|mv|cp|setacl"
+
+[[rule]]
+pattern = "mc cp|mv|rm|mirror|mb|rb"
+
+[[rule]]
+pattern = "gh pr merge|create|close|comment|edit|review|ready|reopen"
+
+[[rule]]
+pattern = "gh release create|delete|upload|edit"
+
+[[rule]]
+pattern = "gh repo create|delete|edit|archive|rename|fork|sync"
+
+[[rule]]
+pattern = "gh issue create|close|comment|edit|delete|reopen|transfer|lock"
+
+[[rule]]
+pattern = "gh workflow run|enable|disable"
+
+[[rule]]
+pattern = "gh run rerun|cancel|delete"
+
+[[rule]]
+pattern = "gh secret|variable set|delete"
+
+[[rule]]
+pattern = "gh api -X|--method=POST|PUT|DELETE|PATCH"
+
+[[rule]]
+pattern = "gh api -f|-F|--field*|--raw-field*|--input*"
+
+[[rule]]
+pattern = "glab mr merge|create|close|approve|note"
+
+[[rule]]
+pattern = "glab release create|delete|upload"
+
+[[rule]]
+pattern = "systemctl start|stop|restart|reload|try-restart|reload-or-restart|enable|disable|mask|unmask|kill|isolate|daemon-reload|poweroff|reboot|halt|suspend|hibernate"
+
+[[rule]]
+pattern = "service * start|stop|restart|reload|force-reload"
+
+[[rule]]
+pattern = "launchctl load|unload|bootstrap|bootout|kickstart|start|stop|enable|disable"
+
+[[rule]]
+pattern = "sc|sc.exe start|stop|config|delete|create|pause|continue"
+
+[[rule]]
+pattern = "shutdown|reboot|poweroff|halt"
+
+[[rule]]
+pattern = "kill|pkill|killall|taskkill"
+
+[[rule]]
+pattern = "apt|apt-get|aptitude install|remove|purge|upgrade|dist-upgrade|full-upgrade|autoremove|reinstall"
+
+[[rule]]
+pattern = "dnf|yum|zypper|tdnf|microdnf install|remove|erase|upgrade|update|downgrade|reinstall|autoremove"
+
+[[rule]]
+pattern = "apk add|del|upgrade"
+
+[[rule]]
+pattern = "pacman|yay|paru -S"
+unless = ["-s", "-i", "-p", "-g", "-l", "-c"]
+
+[[rule]]
+pattern = "pacman|yay|paru -R|-U"
+
+[[rule]]
+pattern = "brew install|uninstall|remove|upgrade|reinstall|tap|untap"
+
+[[rule]]
+pattern = "brew services start|stop|restart|run"
+
+[[rule]]
+pattern = "port install|uninstall|upgrade"
+
+[[rule]]
+pattern = "choco|scoop|winget install|uninstall|upgrade|update"
+
+[[rule]]
+pattern = "snap|flatpak install|remove|uninstall|refresh|update"
+
+[[rule]]
+pattern = "ansible-playbook"
+
+[[rule]]
+pattern = "ansible"
+
+[[rule]]
+pattern = "vercel|netlify|firebase|wrangler|fly|flyctl|serverless|sls|cdk|sam|eb deploy|publish|destroy|remove|terminate|delete"
+
+[[rule]]
+pattern = "vercel --prod"
+
+[[rule]]
+name = "vercel deploy"
+pattern = "vercel"
+max_positionals = 0
+unless = ["--version", "--help", "-v", "-h"]
+
+[[rule]]
+pattern = "heroku create|destroy|restart|rollback|promote|*:set|*:unset|*:destroy|*:create|*:scale|*:restart|*:promote|*:rollback|*:add|*:remove|*:deploy"
+
+[[rule]]
+pattern = "argocd app sync|delete|create|set|rollback"
+
+[[rule]]
+pattern = "nomad job run|stop|dispatch|revert"
+
+[[rule]]
+pattern = "consul kv put|delete"
+
+[[rule]]
+pattern = "vault write|delete"
+
+[[rule]]
+pattern = "vault kv put|patch|delete|destroy|rollback|undelete"
+
+[[rule]]
+pattern = "sendmail|msmtp|swaks"
+
+[[rule]]
+pattern = "mail|mailx|mutt -s"

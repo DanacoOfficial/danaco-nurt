@@ -1,0 +1,294 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Classes of command lines: programs that wait without end, programs that
+# need a terminal, and interpreters given a script in their arguments.
+#
+# Format `nurt-argv-rules/1`, described in `run-effects.toml`; wrappers and
+# program options of that table apply here as well. Each rule adds:
+#
+# * `class`: `waits`, `interactive` or `opaque_script`;
+# * `without_input`: the program is interactive only when it gets no
+#   standard input;
+# * `script_option`: option whose value is the script text;
+# * `script_rest`: the script is every argument after the script option, or
+#   after the last positional token of the pattern when there is no option;
+# * `exact_options`: options are compared as whole words, without groups of
+#   short options (`-NonInteractive` is not `-c`).
+
+format = "nurt-argv-rules/1"
+
+[[rule]]
+class = "waits"
+pattern = "sleep|usleep|snooze"
+
+[[rule]]
+class = "waits"
+pattern = "tail -f|-F|--follow*"
+
+[[rule]]
+class = "waits"
+pattern = "watch"
+
+[[rule]]
+class = "waits"
+pattern = "journalctl -f|--follow"
+
+[[rule]]
+class = "waits"
+pattern = "dmesg -w|-W|--follow|--follow-new"
+
+[[rule]]
+class = "waits"
+pattern = "kubectl|oc logs|attach -f|--follow*"
+
+[[rule]]
+class = "waits"
+pattern = "kubectl|oc get|events -w|--watch*"
+
+[[rule]]
+class = "waits"
+pattern = "kubectl|oc port-forward|proxy"
+
+[[rule]]
+class = "waits"
+pattern = "docker|podman|nerdctl logs -f|--follow"
+
+[[rule]]
+class = "waits"
+pattern = "docker|podman|nerdctl events|wait|attach"
+
+[[rule]]
+class = "waits"
+pattern = "docker|podman compose up"
+unless = ["-d", "--detach", "--wait"]
+
+[[rule]]
+class = "waits"
+pattern = "stern"
+unless = ["--no-follow"]
+
+[[rule]]
+class = "waits"
+pattern = "adb logcat"
+unless = ["-d"]
+
+[[rule]]
+class = "waits"
+pattern = "ping"
+unless = ["-c", "-w", "-n"]
+
+[[rule]]
+class = "waits"
+pattern = "tcpdump|tshark"
+unless = ["-c", "-r"]
+
+[[rule]]
+class = "waits"
+pattern = "nc|ncat|netcat -l|--listen"
+
+[[rule]]
+class = "waits"
+pattern = "top -b"
+unless = ["-n"]
+
+[[rule]]
+class = "waits"
+pattern = "inotifywait|fswatch|entr|watchexec|nodemon"
+
+[[rule]]
+class = "waits"
+pattern = "http.server|uvicorn|gunicorn|hypercorn|daphne"
+
+[[rule]]
+class = "interactive"
+pattern = "vi|vim|nvim|nano|pico|emacs|joe|mcedit|ed|micro|hx|kak"
+unless = ["--version", "--help", "--batch", "-batch", "-es", "-Es"]
+
+[[rule]]
+class = "interactive"
+pattern = "less|more|most|fzf|dialog|whiptail"
+
+[[rule]]
+class = "interactive"
+pattern = "top|iotop"
+unless = ["-b"]
+
+[[rule]]
+class = "interactive"
+pattern = "htop|btop|nmon|glances|atop"
+
+[[rule]]
+class = "interactive"
+name = "ssh without command"
+pattern = "ssh"
+max_positionals = 1
+unless = ["-V", "-G", "-N", "-f"]
+
+[[rule]]
+class = "interactive"
+pattern = "telnet|ftp"
+
+[[rule]]
+class = "interactive"
+pattern = "sftp"
+unless = ["-b"]
+
+[[rule]]
+class = "interactive"
+pattern = "git rebase|add|checkout|stash|reset|restore|commit|clean -i|-p|--interactive|--patch"
+
+[[rule]]
+class = "interactive"
+name = "git commit without message"
+pattern = "git commit"
+unless = ["-m", "-F", "-C", "--message*", "--file*", "--no-edit", "--reuse-message*", "--fixup*", "--squash*", "--dry-run"]
+
+[[rule]]
+class = "interactive"
+name = "interpreter without script"
+pattern = "python|python2|python3|python3.*|pypy|pypy3|ipython|node|nodejs|deno|bun|irb|ruby|lua|R|ghci|bc|php|perl|redis-cli|valkey-cli|mongosh|mongo|bash|sh|zsh|dash|ksh|fish|pwsh|powershell|cmd"
+max_positionals = 0
+without_input = true
+unless = ["-c", "-e", "-E", "-m", "-p", "-r", "-V", "-v", "-h", "--version", "--help", "--eval*", "--print*", "-Command", "-File", "-EncodedCommand", "/c", "/k"]
+
+[[rule]]
+class = "interactive"
+name = "database client without query"
+pattern = "psql"
+without_input = true
+unless = ["-c", "-f", "-l", "--command*", "--file*", "--list", "--version", "--help"]
+
+[[rule]]
+class = "interactive"
+name = "database client without query"
+pattern = "mysql|mariadb"
+without_input = true
+unless = ["-e", "--execute*", "--version", "--help"]
+
+[[rule]]
+class = "interactive"
+name = "database client without query"
+pattern = "sqlite3"
+max_positionals = 1
+without_input = true
+unless = ["-version", "-help"]
+
+[[rule]]
+class = "interactive"
+pattern = "gdb|lldb"
+unless = ["-batch", "--batch"]
+
+[[rule]]
+class = "interactive"
+pattern = "passwd|visudo|vipw|vigr"
+
+[[rule]]
+class = "interactive"
+pattern = "su"
+unless = ["-c", "--command*"]
+
+[[rule]]
+class = "interactive"
+pattern = "sudo -i|-s"
+max_positionals = 0
+
+[[rule]]
+class = "interactive"
+pattern = "crontab -e"
+
+[[rule]]
+class = "interactive"
+pattern = "screen|tmux"
+unless = ["-d", "-ls", "-list", "-V", "ls|list-sessions|kill-session|kill-server|send-keys|has-session|list-windows|capture-pane"]
+
+[[rule]]
+class = "interactive"
+pattern = "docker|podman|nerdctl|kubectl|oc run|exec|attach -t|--tty"
+
+[[rule]]
+class = "opaque_script"
+name = "shell -c"
+pattern = "bash|sh|zsh|dash|ksh|mksh|ash|fish"
+script_option = "-c"
+
+[[rule]]
+class = "opaque_script"
+name = "pwsh -Command"
+pattern = "pwsh|powershell"
+script_option = "-Command|-c|-cmd|-CommandWithArgs|-cwa"
+script_rest = true
+exact_options = true
+
+[[rule]]
+class = "opaque_script"
+name = "pwsh -EncodedCommand"
+pattern = "pwsh|powershell"
+script_option = "-EncodedCommand|-e|-ec|-enc"
+exact_options = true
+
+[[rule]]
+class = "opaque_script"
+name = "cmd /c"
+pattern = "cmd ** /c|/k|/r"
+script_rest = true
+
+[[rule]]
+class = "opaque_script"
+name = "python -c"
+pattern = "python|python2|python3|python3.*|pypy|pypy3"
+script_option = "-c"
+
+[[rule]]
+class = "opaque_script"
+name = "node -e"
+pattern = "node|nodejs|bun"
+script_option = "-e|-p|--eval|--print"
+
+[[rule]]
+class = "opaque_script"
+name = "deno eval"
+pattern = "deno eval"
+script_rest = true
+
+[[rule]]
+class = "opaque_script"
+name = "perl -e"
+pattern = "perl"
+script_option = "-e|-E"
+
+[[rule]]
+class = "opaque_script"
+name = "ruby -e"
+pattern = "ruby"
+script_option = "-e"
+
+[[rule]]
+class = "opaque_script"
+name = "php -r"
+pattern = "php"
+script_option = "-r"
+
+[[rule]]
+class = "opaque_script"
+name = "lua -e"
+pattern = "lua|luajit"
+script_option = "-e"
+
+[[rule]]
+class = "opaque_script"
+name = "Rscript -e"
+pattern = "Rscript|R"
+script_option = "-e"
+
+[[rule]]
+class = "opaque_script"
+name = "osascript -e"
+pattern = "osascript"
+script_option = "-e"
+
+[[rule]]
+class = "opaque_script"
+name = "ssh command"
+pattern = "ssh *"
+script_rest = true

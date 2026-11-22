@@ -1,0 +1,5 @@
+{"Action":"start","Package":"p"}
+{"Action":"run","Package":"p","Test":"TestAdd"}
+{"Action":"pass","Package":"p","Test":"TestAdd","Elapsed":0.1}
+{"Action":"run","Package":"p","Test":"TestSlow"}
+{"Action":"output","Package":"p","Test":"TestSlow","Output":"=== RUN   TestSl

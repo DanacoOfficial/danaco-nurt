@@ -1,0 +1,7 @@
+{"Action":"start","Package":"example.com/p"}
+{"Action":"run","Package":"example.com/p","Test":"TestAdd"}
+{"Action":"output","Package":"example.com/p","Test":"TestAdd","Output":"=== RUN   TestAdd\n"}
+{"Action":"output","Package":"example.com/p","Test":"TestAdd","Output":"--- PASS: TestAdd (0.00s)\n"}
+{"Action":"pass","Package":"example.com/p","Test":"TestAdd","Elapsed":0.25}
+{"Action":"output","Package":"example.com/p","Output":"PASS\n"}
+{"Action":"pass","Package":"example.com/p","Elapsed":0.3}
