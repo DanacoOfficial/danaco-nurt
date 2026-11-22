@@ -419,8 +419,10 @@ fn status_and_limits_follow_the_retention_limits() {
     let state = journal.status(None).unwrap().remove(0);
     assert_eq!(state.volume, path(HOME));
     assert_eq!((state.entries_total, state.entries_available), (3, 3));
-    let error = journal.status(Some(&path("/srv"))).unwrap_err();
-    assert_eq!(error.code, ErrorCode::NotFound);
+    let unused = journal.status(Some(&path("/srv"))).unwrap();
+    assert_eq!(unused.len(), 1);
+    assert_eq!(unused[0].volume, path("/"));
+    assert_eq!((unused[0].entries_total, unused[0].entries_available), (0, 0));
 
     let preview = journal.limits(&steps(2, true)).unwrap();
     assert!(!preview.applied);

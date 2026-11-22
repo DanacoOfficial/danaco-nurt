@@ -1149,8 +1149,13 @@ mod tests {
         let data = status(&ctx, Some(&mount("/mnt/data/project"))).unwrap();
         assert_eq!(data.len(), 1);
         assert_eq!(data[0].volume, mount(DATA));
-        let error = status(&ctx, Some(&mount("/srv"))).unwrap_err();
-        assert_eq!(error.code(), ErrorCode::NotFound);
+        let unused = status(&ctx, Some(&mount("/srv"))).unwrap();
+        assert_eq!(unused.len(), 1);
+        assert_eq!(unused[0].volume, mount("/"));
+        assert_eq!(
+            (unused[0].entries_total, unused[0].entries_available),
+            (0, 0)
+        );
 
         *env.admission.liveness.lock().unwrap() = ServiceLiveness::Down;
         assert!(

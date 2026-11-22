@@ -58,6 +58,10 @@ pub(crate) struct Model {
     /// Effective wall time: never moves backwards and advances with every
     /// running or suspended minute.
     effective: i64,
+    /// The journal has observed the clock at least once. Before the first
+    /// observation the effective wall time is the wall clock as read, so a
+    /// step back before that point is not remembered.
+    observed: bool,
     /// Entries in commit order.
     pub(crate) entries: Vec<Entry>,
 }
@@ -72,6 +76,7 @@ impl Model {
             age: i64::try_from(age.as_secs()).unwrap_or(i64::MAX),
             wall: 0,
             effective: 0,
+            observed: false,
             entries: Vec::new(),
         }
     }
@@ -148,6 +153,10 @@ impl Model {
                 self.effective = self.effective.max(self.wall);
             }
         }
+        if !self.observed {
+            self.effective = self.wall;
+            self.observed = true;
+        }
         self.expire();
         undone
     }
@@ -175,6 +184,16 @@ mod tests {
         model.apply(Action::Write(0), &mut undo);
         model.apply(Action::StepBack(60), &mut undo);
         model.apply(Action::Advance(31), &mut undo);
+        assert!(model.entries[0].expired);
+    }
+
+    #[test]
+    fn a_step_back_before_the_first_observation_is_not_remembered() {
+        let mut model = Model::new(30, Duration::from_secs(1800));
+        let mut undo = Vec::new();
+        model.apply(Action::StepBack(5), &mut undo);
+        model.apply(Action::Write(0), &mut undo);
+        model.apply(Action::Restart(30), &mut undo);
         assert!(model.entries[0].expired);
     }
 

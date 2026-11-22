@@ -1382,6 +1382,7 @@ impl<'a> RestoreTx for CtxRestore<'a> {
             steps.extend(restore_steps(self.ctx, found, item)?);
             spans.push(first..steps.len());
         }
+        declare_vacated_destinations(&mut steps);
         let program = match &self.plan.program {
             Some(program) => program.clone(),
             None => source_program(&sources, &self.plan.undo_of)?,
@@ -1567,6 +1568,24 @@ fn restore_steps(
         };
     }
     restore_step(ctx, (entry, record), item).map(|step| vec![step])
+}
+
+/// Declares as replaced the destination of a rename that an earlier step of
+/// the same transaction vacates. The transaction checks every declaration
+/// before it applies the first step, so the destination still exists when the
+/// later rename is declared, as when redo repeats a rename over a file.
+fn declare_vacated_destinations(steps: &mut [Step]) {
+    let mut vacated: Vec<AbsPath> = Vec::new();
+    for step in steps {
+        let TargetSpec { path, action, .. } = &mut step.spec;
+        let TargetPath::Fs(from) = path else {
+            continue;
+        };
+        if let TargetAction::Rename { to, replace } = action {
+            *replace |= vacated.contains(to);
+            vacated.push(from.clone());
+        }
+    }
 }
 
 /// Step that renames `from` to `to`; the entry at `to` may exist when
@@ -4789,8 +4808,9 @@ mod journal_ctx_tests {
         let outcome = undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
         let entry = world.manifest(outcome.entry);
         assert_eq!(entry.undo_of, [op]);
-        assert_eq!(entry.items.len(), 1);
         assert_eq!(entry.targets.len(), 2);
+        assert_eq!(entry.items.len(), entry.targets.len());
+        assert_eq!(entry.items[0].index, entry.items[1].index);
     }
 
     #[test]

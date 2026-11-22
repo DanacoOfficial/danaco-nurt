@@ -421,6 +421,9 @@ fn bytes_of(entries: &[EntryFacts], ops: &[OpId]) -> u64 {
 
 /// Retention state of the selected volumes (`journal.status`).
 ///
+/// A volume that contains the requested path but has no journal yet reports
+/// an empty journal.
+///
 /// # Errors
 ///
 /// Returns `E_NOT_FOUND` when no volume contains the requested path,
@@ -505,9 +508,12 @@ pub(crate) fn status_store(
 
 /// Retention state of the journal store per volume (`journal.status`).
 ///
+/// A volume that contains `volume` but has no journal yet reports an empty
+/// journal.
+///
 /// # Errors
 ///
-/// Returns `E_NOT_FOUND` when no journal volume contains `volume`,
+/// Returns `E_NOT_FOUND` when no volume contains `volume`,
 /// `E_CONFIG` for an invalid configuration and `E_IO` when a journal
 /// directory cannot be read.
 pub(crate) fn status(ctx: &JournalCtx, volume: Option<&AbsPath>) -> Result<Vec<JournalState>> {

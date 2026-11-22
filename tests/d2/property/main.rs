@@ -196,6 +196,20 @@ fn entry_committed_after_wall_clock_step_back_keeps_its_age() {
     assert_eq!(fixture.record(ops[1]).state, OpState::Available);
 }
 
+/// Before its first observation the journal takes the wall clock as read, so
+/// an entry committed after an initial step back ages by the real time that
+/// passes while the machine is off.
+#[test]
+fn entry_committed_after_an_initial_step_back_expires_after_power_off() {
+    let mut fixture = Fixture::open(options());
+    seed(&fixture);
+    let mut model = Model::new(STEPS, AGE);
+    let actions = [Action::StepBack(5), Action::Write(0), Action::Restart(30)];
+    let ops = run(&mut fixture, &mut model, &actions);
+    assert!(model.entries[0].expired);
+    assert_eq!(fixture.record(ops[0]).state, OpState::Expired);
+}
+
 proptest! {
     #![proptest_config(config())]
 

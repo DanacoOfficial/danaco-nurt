@@ -138,9 +138,23 @@ pub(crate) fn assert_states(fixture: &Fixture, ops: &[OpId], expected: OpState) 
 }
 
 /// Checks that `journal.status` agrees with `history`: the counts of
-/// available and expired entries and the oldest available entry.
+/// available and expired entries and the oldest available entry. `history`
+/// covers every journal volume, including the one that holds the user
+/// configuration file, so the states of all volumes are summed.
 pub(crate) fn status_matches_history(fixture: &Fixture) {
-    let status = fixture.status();
+    let states = fixture
+        .journal
+        .status(None)
+        .expect("journal status is readable");
+    let status = Totals {
+        entries_available: states.iter().map(|state| state.entries_available).sum(),
+        entries_expired: states.iter().map(|state| state.entries_expired).sum(),
+        bytes_held: states.iter().map(|state| state.bytes_held).sum(),
+        oldest: states
+            .iter()
+            .filter_map(|state| state.oldest.as_ref().map(|entry| entry.op))
+            .min(),
+    };
     let records = fixture.history();
     let available: Vec<_> = records
         .iter()
@@ -165,14 +179,18 @@ pub(crate) fn status_matches_history(fixture: &Fixture) {
             .collect::<Vec<_>>()
     );
     let oldest = available.iter().map(|record| OpId(record.id)).min();
-    assert_eq!(
-        status.oldest.as_ref().map(|entry| entry.op),
-        oldest,
-        "oldest available entry"
-    );
+    assert_eq!(status.oldest, oldest, "oldest available entry");
     if available.is_empty() {
         assert_eq!(status.bytes_held, 0, "no bytes held without entries");
     }
+}
+
+/// Counts of `journal.status` summed over the journal volumes.
+struct Totals {
+    entries_available: u64,
+    entries_expired: u64,
+    bytes_held: u64,
+    oldest: Option<OpId>,
 }
 
 /// Ends a scenario: `journal.status` agrees with `history`, and no result

@@ -521,6 +521,7 @@ fn project_runtime_and_user_limits_are_raised_to_floor() {
             .iter()
             .any(|note| matches!(note, JournalNotable::RaisedToFloor { .. }))
     );
+    fixture.use_journal();
     let changed = fixture
         .journal
         .limits(&session_limits(5, false))

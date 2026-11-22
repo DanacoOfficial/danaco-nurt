@@ -178,7 +178,6 @@ impl ReadStage for Status {
 #[cfg(test)]
 mod tests {
     use nurt_contracts::config::DurationSetting;
-    use nurt_contracts::error::ErrorCode;
     use nurt_contracts::value::Value;
 
     use super::super::testing::{Env, call, read};
@@ -207,12 +206,15 @@ mod tests {
     }
 
     #[test]
-    fn a_volume_without_a_journal_is_not_found() {
+    fn a_volume_without_entries_reports_an_empty_journal() {
         let env = Env::new();
         let ctx = env.ctx(NAME);
         let args = call(NAME, &[("volume", Value::Path("/srv".to_owned()))]);
-        let error = read(&Status, &args, &ctx).unwrap_err();
-        assert_eq!(error.code, ErrorCode::NotFound);
+        let listed = read(&Status, &args, &ctx).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].get("volume"), Some(&Value::Path("/".to_owned())));
+        assert_eq!(listed[0].get("active"), Some(&Value::Bool(true)));
+        assert_eq!(listed[0].get("entries"), Some(&Value::Int(0)));
     }
 
     #[test]
