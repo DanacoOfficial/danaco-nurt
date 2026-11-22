@@ -33,7 +33,7 @@ public interface BackendProvider {
      *
      * @param settings the settings
      * @return the backend
-     * @throws pl.danacogroup.nurt.CallException when the backend cannot be opened
+     * @throws pl.danacogroup.nurt.NurtCallException when the backend cannot be opened
      */
     Backend open(BackendSettings settings);
 }

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -34,7 +38,7 @@ public sealed partial class StatusMatrixTests
         foreach (KeyValuePair<string, int> status in header.Statuses)
         {
             Assert.IsTrue(Enum.IsDefined((CallStatus)status.Value), status.Key + " has no member in CallStatus");
-            Assert.AreEqual(status.Key, CallException.GetStatusName((CallStatus)status.Value));
+            Assert.AreEqual(status.Key, NurtCallException.GetStatusName((CallStatus)status.Value));
         }
 
         Assert.AreEqual(header.Statuses.Count, Enum.GetValues<CallStatus>().Length);
@@ -69,8 +73,8 @@ public sealed partial class StatusMatrixTests
     public void OnlyExecWaitReportsTimeoutAndCancellation()
     {
         HeaderTable header = HeaderTable.Read();
-        string timeout = CallException.GetStatusName(CallStatus.Timeout);
-        string cancelled = CallException.GetStatusName(CallStatus.Cancelled);
+        string timeout = NurtCallException.GetStatusName(CallStatus.Timeout);
+        string cancelled = NurtCallException.GetStatusName(CallStatus.Cancelled);
 
         string[] waiting = header.Rows
             .Where(row => row.Value.Contains(timeout) || row.Value.Contains(cancelled))
@@ -117,7 +121,7 @@ public sealed partial class StatusMatrixTests
         foreach (KeyValuePair<string, int> status in header.Statuses.Where(status => status.Value != (int)CallStatus.Ok))
         {
             CallStatus mapped = RpcErrors.ToStatus(RpcErrors.StatusBase - status.Value);
-            Assert.AreEqual(status.Key, CallException.GetStatusName(mapped));
+            Assert.AreEqual(status.Key, NurtCallException.GetStatusName(mapped));
         }
     }
 
@@ -127,10 +131,10 @@ public sealed partial class StatusMatrixTests
         string library = TestSupport.Variable(TestSupport.LibraryVariable)
             ?? throw new AssertInconclusiveException(TestSupport.LibraryVariable + " does not name a build of libnurt");
         HeaderTable header = HeaderTable.Read();
-        await using var client = new Client(new ClientOptions { Backend = BackendKind.Library, LibraryPath = library });
+        await using var client = new NurtClient(new NurtClientOptions { Backend = BackendKind.Library, LibraryPath = library });
 
-        CallException unknownSchema = await TestSupport.ThrowsAsync<CallException>(() => client.SchemaAsync("unknown"));
-        CallException invalidTree = await TestSupport.ThrowsAsync<CallException>(() => client.PrintAsync(TestSupport.Json("[]")));
+        NurtCallException unknownSchema = await TestSupport.ThrowsAsync<NurtCallException>(() => client.SchemaAsync("unknown"));
+        NurtCallException invalidTree = await TestSupport.ThrowsAsync<NurtCallException>(() => client.PrintAsync(TestSupport.Json("[]")));
 
         Assert.AreEqual(CallStatus.InvalidArgument, unknownSchema.Status);
         Assert.IsTrue(header.Rows[SchemaFunction].Contains(unknownSchema.StatusName));

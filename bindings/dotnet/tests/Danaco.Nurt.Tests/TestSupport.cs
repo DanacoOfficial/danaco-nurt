@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -43,11 +47,11 @@ internal static class TestSupport
     }
 
     /// <summary>Options of a process client connected to the scripted server.</summary>
-    public static ClientOptions ProcessOptions(BackendKind backend, params string[] serverOptions)
+    public static NurtClientOptions ProcessOptions(BackendKind backend, params string[] serverOptions)
     {
         var arguments = new List<string> { TestServerAssembly, "serve", "--stdio" };
         arguments.AddRange(serverOptions);
-        return new ClientOptions
+        return new NurtClientOptions
         {
             Backend = backend,
             ExecutablePath = DotnetHost(),
@@ -56,7 +60,7 @@ internal static class TestSupport
         };
     }
 
-    public static Client ProcessClient(params string[] serverOptions) =>
+    public static NurtClient ProcessClient(params string[] serverOptions) =>
         new(ProcessOptions(BackendKind.Process, serverOptions));
 
     /// <summary>Directory of the repository, found from the test output upwards; <see langword="null"/> outside a checkout.</summary>
@@ -122,13 +126,13 @@ internal static class TestSupport
         return await condition();
     }
 
-    public static async Task<int> ServerProcessIdAsync(Client client)
+    public static async Task<int> ServerProcessIdAsync(NurtClient client)
     {
         JsonElement info = await client.InfoAsync();
         return info.GetProperty("pid").GetInt32();
     }
 
-    public static async Task<int> CancelledCountAsync(Client client)
+    public static async Task<int> CancelledCountAsync(NurtClient client)
     {
         JsonElement info = await client.InfoAsync();
         return info.GetProperty("cancelled").GetInt32();

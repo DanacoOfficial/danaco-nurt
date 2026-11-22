@@ -65,27 +65,27 @@ class RequestResponseTest {
 
     @Test
     void responseWithoutReportIsAProtocolError() {
-        CallException error = assertThrows(CallException.class, () -> Response.parse("{\"nurt\":\"1.0\"}"));
-        assertEquals(CallException.Kind.PROTOCOL, error.kind());
-        assertEquals(CallException.Kind.PROTOCOL,
-                assertThrows(CallException.class, () -> Response.parse("{\"report\":")).kind());
+        NurtCallException error = assertThrows(NurtCallException.class, () -> NurtResponse.parse("{\"nurt\":\"1.0\"}"));
+        assertEquals(NurtCallException.Kind.PROTOCOL, error.kind());
+        assertEquals(NurtCallException.Kind.PROTOCOL,
+                assertThrows(NurtCallException.class, () -> NurtResponse.parse("{\"report\":")).kind());
     }
 
     @Test
     void responseExposesTextCursorAndStatus() {
-        Response response = Response.parse("{\"nurt\":\"1.0\",\"report\":{\"status\":\"ok\",\"next_cursor\":\"c_9\"},"
+        NurtResponse response = NurtResponse.parse("{\"nurt\":\"1.0\",\"report\":{\"status\":\"ok\",\"next_cursor\":\"c_9\"},"
                 + "\"rendered\":{\"format\":\"text\",\"text\":\"3 files\"}}");
         assertTrue(response.ok());
         assertEquals(Optional.of("3 files"), response.text());
         assertEquals(Optional.of("c_9"), response.nextCursor());
         assertEquals(Optional.of("ok"), response.status());
-        assertEquals(response, Response.parse(response.json()));
+        assertEquals(response, NurtResponse.parse(response.json()));
         assertEquals(response, response.orThrow());
     }
 
     @Test
     void languageErrorExposesItsFields() {
-        Response response = Response.parse("{\"nurt\":\"1.0\",\"report\":{\"status\":\"failed\",\"error\":{"
+        NurtResponse response = NurtResponse.parse("{\"nurt\":\"1.0\",\"report\":{\"status\":\"failed\",\"error\":{"
                 + "\"code\":\"E_SYNTAX\",\"message\":\"unclosed list\",\"stage\":\"0\","
                 + "\"at\":{\"line\":1,\"column\":27,\"length\":1},\"fix\":[\"a\",\"b\"],\"help\":\"lists\"}}}");
         assertFalse(response.ok());
@@ -97,16 +97,16 @@ class RequestResponseTest {
         assertEquals(List.of("a", "b"), error.fix());
         assertEquals(Optional.of("lists"), error.help());
         assertEquals("E_SYNTAX: unclosed list", error.toString());
-        assertEquals("E_SYNTAX", assertThrows(LanguageException.class, response::orThrow).error().code());
+        assertEquals("E_SYNTAX", assertThrows(NurtLanguageException.class, response::orThrow).error().code());
     }
 
     @Test
     void eventExposesTypeSequenceAndJob() {
-        Event event = new Event(Json.object(Json.parse("{\"t\":\"job.progress\",\"seq\":4,\"job_id\":\"j-2\"}")));
+        NurtEvent event = new NurtEvent(Json.object(Json.parse("{\"t\":\"job.progress\",\"seq\":4,\"job_id\":\"j-2\"}")));
         assertEquals("job.progress", event.kind());
         assertEquals(4L, event.seq().orElseThrow());
         assertEquals(Optional.of("j-2"), event.jobId());
-        Event empty = new Event(Map.of());
+        NurtEvent empty = new NurtEvent(Map.of());
         assertEquals("", empty.kind());
         assertTrue(empty.seq().isEmpty());
     }
@@ -118,13 +118,13 @@ class RequestResponseTest {
             assertEquals(expected++, status.code());
             assertEquals(Optional.of(status), CallStatus.fromCode(status.code()));
             assertEquals(Optional.of(status), CallStatus.fromCName(status.cName()));
-            assertEquals(status, CallException.Kind.of(status).status());
+            assertEquals(status, NurtCallException.Kind.of(status).status());
         }
         assertEquals("NURT_E_ARG", CallStatus.ARG.cName());
         assertTrue(CallStatus.fromCode(0).isEmpty());
         assertTrue(CallStatus.fromCode(7).isEmpty());
-        assertEquals(CallStatus.IO, CallException.Kind.NOT_FOUND.status());
-        assertEquals(CallStatus.IO, CallException.Kind.DISCONNECTED.status());
-        assertEquals(CallStatus.INTERNAL, CallException.Kind.PROTOCOL.status());
+        assertEquals(CallStatus.IO, NurtCallException.Kind.NOT_FOUND.status());
+        assertEquals(CallStatus.IO, NurtCallException.Kind.DISCONNECTED.status());
+        assertEquals(CallStatus.INTERNAL, NurtCallException.Kind.PROTOCOL.status());
     }
 }

@@ -18,7 +18,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import pl.danacogroup.nurt.CallException;
+import pl.danacogroup.nurt.NurtCallException;
 import pl.danacogroup.nurt.internal.Json;
 
 /**
@@ -187,9 +187,9 @@ class StatusMatrixTest {
             MemorySegment buffer = arena.allocate(Library.BUF);
             int status = call("nurt_schema", library.schema, arena.allocateFrom("no-such-schema"), buffer);
             assertNotEquals(OK, status);
-            CallException error = assertThrows(CallException.class,
+            NurtCallException error = assertThrows(NurtCallException.class,
                     () -> library.verify(status, NULL, "nurt_schema"));
-            assertEquals(CallException.Kind.INVALID_ARGUMENT, error.kind());
+            assertEquals(NurtCallException.Kind.INVALID_ARGUMENT, error.kind());
             assertTrue(error.getMessage().startsWith("nurt_schema"), error.getMessage());
         }
     }

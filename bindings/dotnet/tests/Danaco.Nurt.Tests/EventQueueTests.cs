@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -51,7 +55,7 @@ public sealed class EventQueueTests
 
         await TestSupport.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await foreach (ExecutionEvent item in queue.ReadAllAsync(cancellation.Token))
+            await foreach (NurtExecutionEvent item in queue.ReadAllAsync(cancellation.Token))
             {
                 Assert.Fail("unexpected event " + item.Kind);
             }
@@ -61,7 +65,7 @@ public sealed class EventQueueTests
     [TestMethod]
     public void EventFieldsAreRead()
     {
-        ExecutionEvent item = ExecutionEvent.Parse("""{"t": "job.output", "seq": 7, "time": "2026-01-01T00:00:00Z", "job_id": "j1", "lines": ["a"]}""");
+        NurtExecutionEvent item = NurtExecutionEvent.Parse("""{"t": "job.output", "seq": 7, "time": "2026-01-01T00:00:00Z", "job_id": "j1", "lines": ["a"]}""");
 
         Assert.AreEqual("job.output", item.Kind);
         Assert.AreEqual(7, item.Sequence);
@@ -71,13 +75,13 @@ public sealed class EventQueueTests
         Assert.AreEqual("a", item.Element.GetProperty("lines")[0].GetString());
     }
 
-    private static ExecutionEvent Event(string kind, long sequence) =>
-        ExecutionEvent.Parse("{\"t\": \"" + kind + "\", \"seq\": " + sequence.ToString(System.Globalization.CultureInfo.InvariantCulture) + "}");
+    private static NurtExecutionEvent Event(string kind, long sequence) =>
+        NurtExecutionEvent.Parse("{\"t\": \"" + kind + "\", \"seq\": " + sequence.ToString(System.Globalization.CultureInfo.InvariantCulture) + "}");
 
     private static async Task<List<long>> ReadSequencesAsync(EventQueue queue)
     {
         var sequences = new List<long>();
-        await foreach (ExecutionEvent item in queue.ReadAllAsync(CancellationToken.None))
+        await foreach (NurtExecutionEvent item in queue.ReadAllAsync(CancellationToken.None))
         {
             sequences.Add(item.Sequence);
         }

@@ -23,8 +23,8 @@ It has no dependencies on .NET 8; on .NET Standard 2.0 it depends on
 ```csharp
 using Danaco.Nurt;
 
-await using var nurt = new Client();
-Response response = await nurt.RunAsync(
+await using var nurt = new NurtClient();
+NurtResponse response = await nurt.RunAsync(
     "find \"src\" glob: \"*.cs\"",
     new RunOptions { Base = "/home/user/project", Format = OutputFormat.Text });
 Console.WriteLine(response.Ok
@@ -33,9 +33,9 @@ Console.WriteLine(response.Ok
 ```
 
 An error of the language, for example `E_SYNTAX`, is part of the response:
-`Response.Ok` is `false` and `Response.Error` holds the code, the position and the
-ways to fix it. `RunOptions.ThrowOnLanguageError` raises `LanguageException`
-instead. A failure of the call itself raises `CallException`, whose `Status` is a
+`NurtResponse.Ok` is `false` and `NurtResponse.Error` holds the code, the position and the
+ways to fix it. `RunOptions.ThrowOnLanguageError` raises `NurtLanguageException`
+instead. A failure of the call itself raises `NurtCallException`, whose `Status` is a
 status of `nurt.h` (`StatusName` gives its name, for example `NURT_E_ARG`).
 
 A long program is started with `StartAsync` and waited for, cancelled or followed
@@ -43,36 +43,36 @@ through its events:
 
 ```csharp
 await using Execution execution = await nurt.StartAsync("test \"/home/user/project\"");
-await foreach (ExecutionEvent item in execution.ReadEventsAsync())
+await foreach (NurtExecutionEvent item in execution.ReadEventsAsync())
 {
     Console.WriteLine(item.Kind);
 }
 
-Response result = await execution.WaitAsync(TimeSpan.FromMinutes(5));
+NurtResponse result = await execution.WaitAsync(TimeSpan.FromMinutes(5));
 ```
 
 A `CancellationToken` passed to `RunAsync` cancels the execution in Danaco Nurt.
-A `Client` may be used from several threads at once.
+A `NurtClient` may be used from several threads at once.
 
 ## Backends
 
-| `ClientOptions.Backend` | Mechanism |
+| `NurtClientOptions.Backend` | Mechanism |
 |---|---|
 | `Auto` (default) | `Library` when `libnurt` is found and implements interface version 1.x; otherwise `Process`. |
 | `Library` | `libnurt` loaded into the process. |
 | `Process` | Child process `nurt serve --stdio`; it is started again by the next call after it exits. |
 
-The library is searched for in `ClientOptions.LibraryPath`, the variable
+The library is searched for in `NurtClientOptions.LibraryPath`, the variable
 `NURT_LIBRARY` and the file of the package for the current platform; the
-executable in `ClientOptions.ExecutablePath`, the variable `NURT_EXECUTABLE`, the
+executable in `NurtClientOptions.ExecutablePath`, the variable `NURT_EXECUTABLE`, the
 file of the package and the directories of `PATH`. When nothing is found,
-`CallException` with the status `Io` lists the checked locations.
+`NurtCallException` with the status `Io` lists the checked locations.
 
 ## Building and testing
 
 ```
-dotnet build Binding.sln -c Release
-dotnet test Binding.sln -c Release
+dotnet build Danaco.Nurt.sln -c Release
+dotnet test Danaco.Nurt.sln -c Release
 ```
 
 The tests of the process backend use a scripted server built with the tests.

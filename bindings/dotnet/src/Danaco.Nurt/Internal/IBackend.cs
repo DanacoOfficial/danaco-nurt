@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Text.Json;
 using System.Threading;
@@ -13,7 +17,7 @@ internal interface IBackend : IDisposable, IAsyncDisposable
 {
     BackendKind Kind { get; }
 
-    Task<Response> RunAsync(byte[] envelope, CancellationToken cancellationToken);
+    Task<NurtResponse> RunAsync(byte[] envelope, CancellationToken cancellationToken);
 
     Task<IExecutionHandle> StartAsync(byte[] envelope, EventQueue events, CancellationToken cancellationToken);
 
@@ -25,7 +29,7 @@ internal interface IBackend : IDisposable, IAsyncDisposable
 
     Task<CorrectResult> CorrectAsync(string program, NotationVariant variant, CancellationToken cancellationToken);
 
-    Task<Response> PageAsync(string cursor, int? limit, CancellationToken cancellationToken);
+    Task<NurtResponse> PageAsync(string cursor, int? limit, CancellationToken cancellationToken);
 
     Task<string> DescribeAsync(DescribeParams selector, CancellationToken cancellationToken);
 

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System.Text.Json;
 
 namespace Danaco.Nurt;
@@ -6,12 +10,12 @@ namespace Danaco.Nurt;
 /// Event of an execution <c>nurt-event/1</c>: progress, output of programs, journal
 /// changes or completion.
 /// </summary>
-public sealed class ExecutionEvent
+public sealed class NurtExecutionEvent
 {
     /// <summary>Kind of the event that ends an execution.</summary>
     public const string FinishedKind = "exec.finished";
 
-    private ExecutionEvent(JsonElement element)
+    private NurtExecutionEvent(JsonElement element)
     {
         Element = element;
         Kind = JsonRead.String(element, "t") ?? string.Empty;
@@ -38,7 +42,7 @@ public sealed class ExecutionEvent
     /// <summary>The whole event as JSON.</summary>
     public JsonElement Element { get; }
 
-    internal static ExecutionEvent FromElement(JsonElement element) => new(element.Clone());
+    internal static NurtExecutionEvent FromElement(JsonElement element) => new(element.Clone());
 
-    internal static ExecutionEvent Parse(string json) => new(JsonRead.Parse(json, "event"));
+    internal static NurtExecutionEvent Parse(string json) => new(JsonRead.Parse(json, "event"));
 }

@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import pl.danacogroup.nurt.CallException;
+import pl.danacogroup.nurt.NurtCallException;
 import pl.danacogroup.nurt.CallStatus;
 import pl.danacogroup.nurt.spi.Backend;
 import pl.danacogroup.nurt.spi.BackendSettings;
@@ -34,7 +34,7 @@ import pl.danacogroup.nurt.spi.StartedCall;
  *
  * <p>Responses are matched to requests by {@code id}, so requests of several
  * threads are in flight at the same time. When the process ends, the
- * requests in flight fail with {@link CallException.Kind#DISCONNECTED} and
+ * requests in flight fail with {@link NurtCallException.Kind#DISCONNECTED} and
  * the next request starts a new process.
  */
 public final class ProcessBackend implements Backend {
@@ -85,7 +85,7 @@ public final class ProcessBackend implements Backend {
      * @param settings the settings; without {@code command} the executable
      *     is located and started as {@code nurt serve --stdio}
      * @return the backend
-     * @throws CallException when the executable is not found, the server
+     * @throws NurtCallException when the executable is not found, the server
      *     cannot be started or uses another major version of the protocol
      */
     public static ProcessBackend open(BackendSettings settings) {
@@ -159,7 +159,7 @@ public final class ProcessBackend implements Backend {
 
     private synchronized Connection connection() {
         if (closed) {
-            throw new CallException(CallException.Kind.DISCONNECTED, "client is closed");
+            throw new NurtCallException(NurtCallException.Kind.DISCONNECTED, "client is closed");
         }
         if (connection != null && connection.isOpen()) {
             return connection;
@@ -174,11 +174,11 @@ public final class ProcessBackend implements Backend {
             Object result = fresh.await(fresh.send("initialize", initialize, null), "initialize", limit);
             String protocol = Json.string(result, "protocol");
             if (!isCompatible(protocol)) {
-                throw new CallException(CallException.Kind.INCOMPATIBLE,
+                throw new NurtCallException(NurtCallException.Kind.INCOMPATIBLE,
                         "nurt serve uses protocol `" + protocol + "`, this client needs `" + PROTOCOL
                                 + "`; install a matching version of nurt");
             }
-        } catch (CallException e) {
+        } catch (NurtCallException e) {
             fresh.terminate(Duration.ZERO);
             throw e;
         }
@@ -203,27 +203,27 @@ public final class ProcessBackend implements Backend {
      * @param error the error object
      * @return the exception
      */
-    static CallException rpcError(Object error) {
+    static NurtCallException rpcError(Object error) {
         long code = Json.member(error, "code") instanceof Number number ? number.longValue() : INTERNAL_ERROR;
         String message = Json.string(error, "message");
         if (message == null) {
             message = "error without a message";
         }
-        CallException.Kind kind;
+        NurtCallException.Kind kind;
         if (code == INVALID_PARAMS) {
-            kind = CallException.Kind.INVALID_ARGUMENT;
+            kind = NurtCallException.Kind.INVALID_ARGUMENT;
         } else if (code == INTERNAL_ERROR) {
-            kind = CallException.Kind.INTERNAL;
+            kind = NurtCallException.Kind.INTERNAL;
         } else if (code == PARSE_ERROR || code == INVALID_REQUEST || code == METHOD_NOT_FOUND) {
-            kind = CallException.Kind.PROTOCOL;
+            kind = NurtCallException.Kind.PROTOCOL;
         } else if (code >= APPLICATION_ERROR_LOWEST && code < APPLICATION_ERROR_BASE) {
             kind = CallStatus.fromCode((int) (APPLICATION_ERROR_BASE - code))
-                    .map(CallException.Kind::of)
-                    .orElse(CallException.Kind.INTERNAL);
+                    .map(NurtCallException.Kind::of)
+                    .orElse(NurtCallException.Kind.INTERNAL);
         } else {
-            kind = CallException.Kind.PROTOCOL;
+            kind = NurtCallException.Kind.PROTOCOL;
         }
-        return new CallException(kind, "nurt serve: " + message + " (code " + code + ")");
+        return new NurtCallException(kind, "nurt serve: " + message + " (code " + code + ")");
     }
 
     static Long requestId(Object value) {
@@ -258,7 +258,7 @@ public final class ProcessBackend implements Backend {
         private final Consumer<Map<String, Object>> events;
         private final Map<Long, Pending> pending = new ConcurrentHashMap<>();
         private final AtomicLong ids = new AtomicLong(1);
-        private CallException failure;
+        private NurtCallException failure;
 
         private Connection(Process process, Consumer<Map<String, Object>> events) {
             this.process = process;
@@ -274,7 +274,7 @@ public final class ProcessBackend implements Backend {
             try {
                 process = builder.start();
             } catch (IOException e) {
-                throw new CallException(CallException.Kind.IO,
+                throw new NurtCallException(NurtCallException.Kind.IO,
                         "cannot start nurt serve (" + String.join(" ", command) + "): " + e.getMessage(), e);
             }
             Connection connection = new Connection(process, events);
@@ -298,7 +298,7 @@ public final class ProcessBackend implements Backend {
             }
             try {
                 write(entry.id, method, params);
-            } catch (CallException e) {
+            } catch (NurtCallException e) {
                 pending.remove(entry.id);
                 throw e;
             }
@@ -317,7 +317,7 @@ public final class ProcessBackend implements Backend {
                     writer.write(line);
                     writer.flush();
                 } catch (IOException e) {
-                    CallException error = new CallException(CallException.Kind.DISCONNECTED,
+                    NurtCallException error = new NurtCallException(NurtCallException.Kind.DISCONNECTED,
                             "cannot write to nurt serve: " + e.getMessage(), e);
                     fail(error);
                     throw error;
@@ -332,18 +332,18 @@ public final class ProcessBackend implements Backend {
                         : entry.future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             } catch (TimeoutException e) {
                 abandon(entry.id);
-                throw new CallException(CallException.Kind.TIMEOUT,
+                throw new NurtCallException(NurtCallException.Kind.TIMEOUT,
                         "no response to `" + method + "` within " + timeout.toMillis()
                                 + " ms; raise the request timeout", e);
             } catch (ExecutionException e) {
-                if (e.getCause() instanceof CallException call) {
+                if (e.getCause() instanceof NurtCallException call) {
                     throw call;
                 }
-                throw new CallException(CallException.Kind.INTERNAL, "request failed: " + e.getCause(), e);
+                throw new NurtCallException(NurtCallException.Kind.INTERNAL, "request failed: " + e.getCause(), e);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 abandon(entry.id);
-                throw new CallException(CallException.Kind.CANCELLED,
+                throw new NurtCallException(NurtCallException.Kind.CANCELLED,
                         "waiting for `" + method + "` was interrupted", e);
             }
         }
@@ -358,13 +358,13 @@ public final class ProcessBackend implements Backend {
             params.put("request_id", requestId);
             try {
                 write(ids.getAndIncrement(), "cancel", params);
-            } catch (CallException e) {
+            } catch (NurtCallException e) {
                 return;
             }
         }
 
-        void fail(CallException error) {
-            CallException reason;
+        void fail(NurtCallException error) {
+            NurtCallException reason;
             synchronized (this) {
                 if (failure == null) {
                     failure = error;
@@ -382,7 +382,7 @@ public final class ProcessBackend implements Backend {
             if (isOpen()) {
                 try {
                     await(send("shutdown", new LinkedHashMap<>(), null), "shutdown", grace);
-                } catch (CallException e) {
+                } catch (NurtCallException e) {
                     terminate(grace);
                     return;
                 }
@@ -409,37 +409,37 @@ public final class ProcessBackend implements Backend {
                 Thread.currentThread().interrupt();
                 process.destroyForcibly();
             }
-            fail(new CallException(CallException.Kind.DISCONNECTED, "connection to nurt serve is closed"));
+            fail(new NurtCallException(NurtCallException.Kind.DISCONNECTED, "connection to nurt serve is closed"));
         }
 
         private void read() {
-            CallException reason;
+            NurtCallException reason;
             try (BufferedReader in = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 reason = readMessages(in);
             } catch (IOException e) {
-                reason = new CallException(CallException.Kind.DISCONNECTED,
+                reason = new NurtCallException(NurtCallException.Kind.DISCONNECTED,
                         "cannot read from nurt serve: " + e.getMessage(), e);
             }
             fail(reason);
         }
 
-        private CallException readMessages(BufferedReader in) throws IOException {
+        private NurtCallException readMessages(BufferedReader in) throws IOException {
             StringBuilder line = new StringBuilder();
             while (true) {
                 int c = in.read();
                 if (c == -1) {
                     if (!line.toString().isBlank()) {
-                        CallException error = handle(line.toString());
+                        NurtCallException error = handle(line.toString());
                         if (error != null) {
                             return error;
                         }
                     }
-                    return new CallException(CallException.Kind.DISCONNECTED, "nurt serve closed the connection" + exitStatus());
+                    return new NurtCallException(NurtCallException.Kind.DISCONNECTED, "nurt serve closed the connection" + exitStatus());
                 }
                 if (c != '\n') {
                     if (line.length() >= MAX_MESSAGE_CHARS) {
-                        return new CallException(CallException.Kind.PROTOCOL,
+                        return new NurtCallException(NurtCallException.Kind.PROTOCOL,
                                 "message from nurt serve exceeds " + MAX_MESSAGE_CHARS + " characters");
                     }
                     line.append((char) c);
@@ -450,7 +450,7 @@ public final class ProcessBackend implements Backend {
                 if (text.isBlank()) {
                     continue;
                 }
-                CallException error = handle(text);
+                NurtCallException error = handle(text);
                 if (error != null) {
                     return error;
                 }
@@ -468,12 +468,12 @@ public final class ProcessBackend implements Backend {
             return "";
         }
 
-        private CallException handle(String text) {
+        private NurtCallException handle(String text) {
             Object message;
             try {
                 message = Json.parse(text);
             } catch (JsonException e) {
-                return new CallException(CallException.Kind.PROTOCOL,
+                return new NurtCallException(NurtCallException.Kind.PROTOCOL,
                         "nurt serve sent a message that is not valid JSON: " + e.getMessage(), e);
             }
             dispatch(message);

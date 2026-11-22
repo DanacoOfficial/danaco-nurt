@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -38,7 +42,7 @@ public sealed class ArtifactLocatorTests
         Touch("runtimes", "linux-x64", "native", "nurt");
         string missing = Path.Combine(_root, "missing", "nurt");
 
-        CallException exception = Assert.ThrowsException<CallException>(() => Locator(Linux).FindExecutable(missing));
+        NurtCallException exception = Assert.ThrowsException<NurtCallException>(() => Locator(Linux).FindExecutable(missing));
 
         Assert.AreEqual(CallStatus.Io, exception.Status);
         StringAssert.Contains(exception.Message, missing);
@@ -81,7 +85,7 @@ public sealed class ArtifactLocatorTests
         _environment["PATH"] = Path.Combine(_root, "empty") + Path.PathSeparator + Path.Combine(_root, "bin");
         ArtifactLocator locator = Locator(Linux);
 
-        CallException exception = Assert.ThrowsException<CallException>(() => locator.FindLibrary(null));
+        NurtCallException exception = Assert.ThrowsException<NurtCallException>(() => locator.FindLibrary(null));
 
         Assert.AreEqual(executable, locator.FindExecutable(null));
         Assert.AreEqual(CallStatus.Io, exception.Status);
@@ -104,15 +108,15 @@ public sealed class ArtifactLocatorTests
         Touch("runtimes", "linux-x64", "native", "nurt");
         var other = new RuntimePlatform(RuntimePlatform.OSFamily.Linux, null);
 
-        Assert.ThrowsException<CallException>(() => Locator(other).FindExecutable(null));
+        Assert.ThrowsException<NurtCallException>(() => Locator(other).FindExecutable(null));
     }
 
     [TestMethod]
     public void AutoBackendUsesTheProcessWhenNoLibraryIsFound()
     {
-        ClientOptions options = TestSupport.ProcessOptions(BackendKind.Auto);
+        NurtClientOptions options = TestSupport.ProcessOptions(BackendKind.Auto);
 
-        using var client = new Client(options, Locator(Linux));
+        using var client = new NurtClient(options, Locator(Linux));
 
         Assert.AreEqual(BackendKind.Process, client.Backend);
     }
@@ -120,8 +124,8 @@ public sealed class ArtifactLocatorTests
     [TestMethod]
     public void AutoBackendUsesTheProcessWhenTheLibraryCannotBeLoaded()
     {
-        ClientOptions options = TestSupport.ProcessOptions(BackendKind.Auto);
-        options = new ClientOptions
+        NurtClientOptions options = TestSupport.ProcessOptions(BackendKind.Auto);
+        options = new NurtClientOptions
         {
             Backend = BackendKind.Auto,
             ExecutablePath = options.ExecutablePath,
@@ -129,7 +133,7 @@ public sealed class ArtifactLocatorTests
             LibraryPath = Touch("broken", "libnurt.so"),
         };
 
-        using var client = new Client(options, Locator(Linux));
+        using var client = new NurtClient(options, Locator(Linux));
 
         Assert.AreEqual(BackendKind.Process, client.Backend);
     }
@@ -137,9 +141,9 @@ public sealed class ArtifactLocatorTests
     [TestMethod]
     public void AutoBackendReportsBothArtifactsWhenNothingIsFound()
     {
-        var options = new ClientOptions { Backend = BackendKind.Auto };
+        var options = new NurtClientOptions { Backend = BackendKind.Auto };
 
-        CallException exception = Assert.ThrowsException<CallException>(() => new Client(options, Locator(Linux)));
+        NurtCallException exception = Assert.ThrowsException<NurtCallException>(() => new NurtClient(options, Locator(Linux)));
 
         Assert.AreEqual(CallStatus.Io, exception.Status);
         StringAssert.Contains(exception.Message, "nurt executable not found");
@@ -149,9 +153,9 @@ public sealed class ArtifactLocatorTests
     [TestMethod]
     public void LibraryBackendWithoutLibraryIsIoError()
     {
-        var options = new ClientOptions { Backend = BackendKind.Library, LibraryPath = Path.Combine(_root, "absent", "libnurt.so") };
+        var options = new NurtClientOptions { Backend = BackendKind.Library, LibraryPath = Path.Combine(_root, "absent", "libnurt.so") };
 
-        CallException exception = Assert.ThrowsException<CallException>(() => new Client(options, Locator(Linux)));
+        NurtCallException exception = Assert.ThrowsException<NurtCallException>(() => new NurtClient(options, Locator(Linux)));
 
         Assert.AreEqual(CallStatus.Io, exception.Status);
     }
@@ -159,9 +163,9 @@ public sealed class ArtifactLocatorTests
     [TestMethod]
     public async Task ProcessBackendWithoutExecutableIsIoError()
     {
-        var options = new ClientOptions { Backend = BackendKind.Process };
+        var options = new NurtClientOptions { Backend = BackendKind.Process };
 
-        CallException exception = Assert.ThrowsException<CallException>(() => new Client(options, Locator(Linux)));
+        NurtCallException exception = Assert.ThrowsException<NurtCallException>(() => new NurtClient(options, Locator(Linux)));
 
         Assert.AreEqual(CallStatus.Io, exception.Status);
         StringAssert.Contains(exception.Message, Path.Combine(_root, "runtimes", "linux-x64", "native", "nurt"));

@@ -13,7 +13,7 @@ import pl.danacogroup.nurt.internal.Json;
  * Event of the server: progress and output of an execution, background jobs,
  * journal changes, free space, schedules and log messages.
  */
-public final class Event {
+public final class NurtEvent {
     private final Map<String, Object> value;
 
     /**
@@ -21,7 +21,7 @@ public final class Event {
      *
      * @param value the object
      */
-    public Event(Map<String, Object> value) {
+    public NurtEvent(Map<String, Object> value) {
         this.value = Collections.unmodifiableMap(value);
     }
 

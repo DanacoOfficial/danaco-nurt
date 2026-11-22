@@ -11,16 +11,16 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Settings of a {@link Client}. The setters change these options and return them.
+ * Settings of a {@link NurtClient}. The setters change these options and return them.
  *
  * <pre>{@code
- * ClientOptions options = new ClientOptions()
+ * NurtClientOptions options = new NurtClientOptions()
  *         .backend(BackendKind.PROCESS)
  *         .language(Request.Language.EN)
  *         .requestTimeout(Duration.ofMinutes(5));
  * }</pre>
  */
-public final class ClientOptions {
+public final class NurtClientOptions {
     private BackendKind backend = BackendKind.AUTO;
     private Path executable;
     private List<String> command = List.of();
@@ -32,7 +32,7 @@ public final class ClientOptions {
     private Duration requestTimeout;
 
     /** Options with the default values: backend {@link BackendKind#AUTO}, no timeout. */
-    public ClientOptions() {
+    public NurtClientOptions() {
     }
 
     /**
@@ -41,7 +41,7 @@ public final class ClientOptions {
      * @param backend the backend
      * @return these options
      */
-    public ClientOptions backend(BackendKind backend) {
+    public NurtClientOptions backend(BackendKind backend) {
         this.backend = Objects.requireNonNull(backend, "backend");
         return this;
     }
@@ -54,7 +54,7 @@ public final class ClientOptions {
      * @param executable the path
      * @return these options
      */
-    public ClientOptions executable(Path executable) {
+    public NurtClientOptions executable(Path executable) {
         this.executable = executable;
         return this;
     }
@@ -66,7 +66,7 @@ public final class ClientOptions {
      * @param command the program and its arguments
      * @return these options
      */
-    public ClientOptions command(List<String> command) {
+    public NurtClientOptions command(List<String> command) {
         this.command = List.copyOf(command);
         return this;
     }
@@ -78,7 +78,7 @@ public final class ClientOptions {
      * @param environment names and values
      * @return these options
      */
-    public ClientOptions environment(Map<String, String> environment) {
+    public NurtClientOptions environment(Map<String, String> environment) {
         this.environment = Map.copyOf(environment);
         return this;
     }
@@ -91,7 +91,7 @@ public final class ClientOptions {
      * @param library the path
      * @return these options
      */
-    public ClientOptions library(Path library) {
+    public NurtClientOptions library(Path library) {
         this.library = library;
         return this;
     }
@@ -102,7 +102,7 @@ public final class ClientOptions {
      * @param config the configuration as parsed JSON
      * @return these options
      */
-    public ClientOptions config(Map<String, Object> config) {
+    public NurtClientOptions config(Map<String, Object> config) {
         this.config = config == null ? null : new LinkedHashMap<>(config);
         return this;
     }
@@ -113,7 +113,7 @@ public final class ClientOptions {
      * @param session the identifier
      * @return these options
      */
-    public ClientOptions session(String session) {
+    public NurtClientOptions session(String session) {
         this.session = session;
         return this;
     }
@@ -124,19 +124,19 @@ public final class ClientOptions {
      * @param language the language
      * @return these options
      */
-    public ClientOptions language(Request.Language language) {
+    public NurtClientOptions language(Request.Language language) {
         this.language = language;
         return this;
     }
 
     /**
      * Time limit of each response; a request that passes it fails with
-     * {@link CallException.Kind#TIMEOUT} and is cancelled on the server.
+     * {@link NurtCallException.Kind#TIMEOUT} and is cancelled on the server.
      *
      * @param requestTimeout the limit, or {@code null} to wait without limit
      * @return these options
      */
-    public ClientOptions requestTimeout(Duration requestTimeout) {
+    public NurtClientOptions requestTimeout(Duration requestTimeout) {
         this.requestTimeout = requestTimeout;
         return this;
     }

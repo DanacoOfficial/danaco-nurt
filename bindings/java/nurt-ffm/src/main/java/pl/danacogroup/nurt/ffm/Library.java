@@ -17,7 +17,7 @@ import java.lang.foreign.SymbolLookup;
 import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import pl.danacogroup.nurt.CallException;
+import pl.danacogroup.nurt.NurtCallException;
 import pl.danacogroup.nurt.CallStatus;
 import pl.danacogroup.nurt.internal.Json;
 
@@ -109,14 +109,14 @@ final class Library {
      *
      * @param path the library
      * @return the bound functions
-     * @throws CallException of kind {@link CallException.Kind#IO} when the
+     * @throws NurtCallException of kind {@link NurtCallException.Kind#IO} when the
      *     library cannot be loaded or lacks a function of the header
      */
     static Library load(Path path) {
         try {
             return new Library(path, SymbolLookup.libraryLookup(path, Arena.global()));
         } catch (IllegalArgumentException e) {
-            throw new CallException(CallException.Kind.IO,
+            throw new NurtCallException(NurtCallException.Kind.IO,
                     "cannot load " + path + ": " + e.getMessage() + "; check NURT_LIBRARY", e);
         }
     }
@@ -130,14 +130,14 @@ final class Library {
     /**
      * Checks that the library implements the interface of {@code nurt.h} 1.0.
      *
-     * @throws CallException of kind {@link CallException.Kind#INCOMPATIBLE}
+     * @throws NurtCallException of kind {@link NurtCallException.Kind#INCOMPATIBLE}
      *     when the major versions differ or the minor version is lower
      */
     void checkAbi() {
         int status = invokeInt(abiCheck, ABI_VERSION);
         if (status != 0) {
             int found = invokeInt(abiVersion);
-            throw new CallException(CallException.Kind.INCOMPATIBLE,
+            throw new NurtCallException(NurtCallException.Kind.INCOMPATIBLE,
                     path + " implements interface " + (found >>> 16) + "." + (found & 0xffff)
                             + ", this backend needs " + ABI_MAJOR + "." + ABI_MINOR + " or a later minor version");
         }
@@ -165,10 +165,10 @@ final class Library {
                 }
             }
         }
-        CallException.Kind kind = CallStatus.fromCode(status)
-                .map(CallException.Kind::of)
-                .orElse(CallException.Kind.INTERNAL);
-        throw new CallException(kind, detail + " (status " + status + ")");
+        NurtCallException.Kind kind = CallStatus.fromCode(status)
+                .map(NurtCallException.Kind::of)
+                .orElse(NurtCallException.Kind.INTERNAL);
+        throw new NurtCallException(kind, detail + " (status " + status + ")");
     }
 
     /**
@@ -197,7 +197,7 @@ final class Library {
         } catch (RuntimeException | Error e) {
             throw e;
         } catch (Throwable e) {
-            throw new CallException(CallException.Kind.INTERNAL, "call of libnurt failed: " + e, e);
+            throw new NurtCallException(NurtCallException.Kind.INTERNAL, "call of libnurt failed: " + e, e);
         }
     }
 
@@ -207,7 +207,7 @@ final class Library {
         } catch (RuntimeException | Error e) {
             throw e;
         } catch (Throwable e) {
-            throw new CallException(CallException.Kind.INTERNAL, "call of libnurt failed: " + e, e);
+            throw new NurtCallException(NurtCallException.Kind.INTERNAL, "call of libnurt failed: " + e, e);
         }
     }
 }

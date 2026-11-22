@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 
@@ -5,7 +9,7 @@ namespace Danaco.Nurt;
 
 internal static class BackendFactory
 {
-    public static IBackend Create(ClientOptions options, ArtifactLocator locator) => options.Backend switch
+    public static IBackend Create(NurtClientOptions options, ArtifactLocator locator) => options.Backend switch
     {
         BackendKind.Library => CreateLibrary(options, locator.FindLibrary(options.LibraryPath)),
         BackendKind.Process => new ProcessBackend(locator.FindExecutable(options.ExecutablePath), options),
@@ -13,7 +17,7 @@ internal static class BackendFactory
         _ => throw new ArgumentOutOfRangeException(nameof(options), options.Backend, "unknown backend kind"),
     };
 
-    private static LibraryBackend CreateLibrary(ClientOptions options, string path)
+    private static LibraryBackend CreateLibrary(NurtClientOptions options, string path)
     {
         LibraryBackend.Load(path);
         return LibraryBackend.Open(options);
@@ -24,7 +28,7 @@ internal static class BackendFactory
     /// version; otherwise the process. A failure to open the engine is not a reason to fall
     /// back, because the process would meet the same configuration.
     /// </summary>
-    private static IBackend CreateAuto(ClientOptions options, ArtifactLocator locator)
+    private static IBackend CreateAuto(NurtClientOptions options, ArtifactLocator locator)
     {
         var checkedPaths = new List<string>();
         string? reason = null;
@@ -34,7 +38,7 @@ internal static class BackendFactory
             {
                 LibraryBackend.Load(path);
             }
-            catch (CallException exception)
+            catch (NurtCallException exception)
             {
                 reason = exception.Message;
             }
@@ -53,9 +57,9 @@ internal static class BackendFactory
         {
             return new ProcessBackend(locator.FindExecutable(options.ExecutablePath), options);
         }
-        catch (CallException exception)
+        catch (NurtCallException exception)
         {
-            throw new CallException(exception.Status, exception.Message + "; library backend not used: " + reason, exception);
+            throw new NurtCallException(exception.Status, exception.Message + "; library backend not used: " + reason, exception);
         }
     }
 }

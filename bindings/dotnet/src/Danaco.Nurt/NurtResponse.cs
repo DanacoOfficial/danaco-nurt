@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System.Text.Json;
 
 namespace Danaco.Nurt;
@@ -10,9 +14,9 @@ namespace Danaco.Nurt;
 /// An error of the language is not an exception: <see cref="Ok"/> is <see langword="false"/>
 /// and <see cref="Error"/> describes it.
 /// </remarks>
-public sealed class Response
+public sealed class NurtResponse
 {
-    private Response(string raw, JsonElement element)
+    private NurtResponse(string raw, JsonElement element)
     {
         Raw = raw;
         Element = element;
@@ -42,15 +46,15 @@ public sealed class Response
     /// <summary>The response as a JSON element.</summary>
     public JsonElement Element { get; }
 
-    internal static Response Parse(string json) => new(json, JsonRead.Parse(json, "response"));
+    internal static NurtResponse Parse(string json) => new(json, JsonRead.Parse(json, "response"));
 
-    internal static Response FromElement(JsonElement element) => new(element.GetRawText(), element.Clone());
+    internal static NurtResponse FromElement(JsonElement element) => new(element.GetRawText(), element.Clone());
 
-    internal Response ThrowIfRequested(RunOptions? options)
+    internal NurtResponse ThrowIfRequested(RunOptions? options)
     {
         if (options is { ThrowOnLanguageError: true } && !Ok)
         {
-            throw new LanguageException(this);
+            throw new NurtLanguageException(this);
         }
 
         return this;

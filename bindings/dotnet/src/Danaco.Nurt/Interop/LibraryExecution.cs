@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
@@ -39,7 +43,7 @@ internal sealed unsafe class LibraryExecution : IExecutionHandle
 
         if (status != CallStatus.Ok)
         {
-            CallException failure = NativeCall.Failure(status, "nurt_exec_start");
+            NurtCallException failure = NativeCall.Failure(status, "nurt_exec_start");
             handle.Dispose();
             if (state.IsAllocated)
             {
@@ -59,7 +63,7 @@ internal sealed unsafe class LibraryExecution : IExecutionHandle
             TaskScheduler.Default);
     }
 
-    public Task<Response> Completion { get; }
+    public Task<NurtResponse> Completion { get; }
 
     public Task CancelAsync(CancellationToken cancellationToken)
     {
@@ -104,7 +108,7 @@ internal sealed unsafe class LibraryExecution : IExecutionHandle
         _events?.Complete();
     }
 
-    private Response WaitForResponse()
+    private NurtResponse WaitForResponse()
     {
         NativeBuffer response = default;
         try
@@ -112,7 +116,7 @@ internal sealed unsafe class LibraryExecution : IExecutionHandle
             CallStatus status = NativeMethods.ExecWait(_handle, NativeMethods.WaitForever, &response);
             if (status is CallStatus.Ok or CallStatus.Cancelled)
             {
-                return Response.Parse(response.ReadString());
+                return NurtResponse.Parse(response.ReadString());
             }
 
             throw NativeCall.Failure(status, "nurt_exec_wait");

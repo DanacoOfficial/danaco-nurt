@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -15,7 +19,7 @@ internal static class JsonRead
         }
         catch (JsonException exception)
         {
-            throw new CallException(CallStatus.Internal, what + " is not valid JSON: " + exception.Message, exception);
+            throw new NurtCallException(CallStatus.Internal, what + " is not valid JSON: " + exception.Message, exception);
         }
     }
 

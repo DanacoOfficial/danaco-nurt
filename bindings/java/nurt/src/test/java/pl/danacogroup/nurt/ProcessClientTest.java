@@ -37,8 +37,8 @@ class ProcessClientTest {
                 "-cp", System.getProperty("java.class.path"), FakeServer.class.getName());
     }
 
-    private static ClientOptions options() {
-        return new ClientOptions().backend(BackendKind.PROCESS).command(serverCommand());
+    private static NurtClientOptions options() {
+        return new NurtClientOptions().backend(BackendKind.PROCESS).command(serverCommand());
     }
 
     private Path log() {
@@ -50,9 +50,9 @@ class ProcessClientTest {
     }
 
     /** Subscriber that requests every event and records them. */
-    private static final class Collector implements Flow.Subscriber<Event> {
-        final List<Event> events = new CopyOnWriteArrayList<>();
-        final CompletableFuture<Event> first = new CompletableFuture<>();
+    private static final class Collector implements Flow.Subscriber<NurtEvent> {
+        final List<NurtEvent> events = new CopyOnWriteArrayList<>();
+        final CompletableFuture<NurtEvent> first = new CompletableFuture<>();
         final CompletableFuture<Void> done = new CompletableFuture<>();
 
         @Override
@@ -61,7 +61,7 @@ class ProcessClientTest {
         }
 
         @Override
-        public void onNext(Event event) {
+        public void onNext(NurtEvent event) {
             events.add(event);
             first.complete(event);
         }
@@ -79,9 +79,9 @@ class ProcessClientTest {
 
     @Test
     void runReturnsTheResponse() {
-        try (Client client = Client.create(options())) {
+        try (NurtClient client = NurtClient.create(options())) {
             assertEquals(BackendKind.PROCESS, client.backend());
-            Response response = client.run(Request.program("find \"/srv/app\"").limit(5));
+            NurtResponse response = client.run(Request.program("find \"/srv/app\"").limit(5));
             assertTrue(response.ok());
             assertEquals("find \"/srv/app\"", response.text().orElseThrow());
             assertEquals("ok", response.status().orElseThrow());
@@ -90,11 +90,11 @@ class ProcessClientTest {
 
     @Test
     void initializeCarriesTheSettings() throws IOException {
-        ClientOptions options = options()
+        NurtClientOptions options = options()
                 .environment(Map.of("FAKE_LOG", log().toString()))
                 .session("s-7")
                 .language(Request.Language.PL);
-        try (Client client = Client.create(options)) {
+        try (NurtClient client = NurtClient.create(options)) {
             assertEquals("info", client.info().get("method"));
         }
         assertEquals(List.of("initialize", "info", "shutdown"), loggedMethods());
@@ -102,46 +102,46 @@ class ProcessClientTest {
 
     @Test
     void otherMajorProtocolVersionIsRejected() {
-        ClientOptions options = options().environment(Map.of("FAKE_PROTOCOL", "nurt-rpc/2"));
-        CallException error = assertThrows(CallException.class, () -> Client.create(options));
-        assertEquals(CallException.Kind.INCOMPATIBLE, error.kind());
+        NurtClientOptions options = options().environment(Map.of("FAKE_PROTOCOL", "nurt-rpc/2"));
+        NurtCallException error = assertThrows(NurtCallException.class, () -> NurtClient.create(options));
+        assertEquals(NurtCallException.Kind.INCOMPATIBLE, error.kind());
         assertEquals(CallStatus.ABI, error.status());
     }
 
     @Test
     void newerMinorProtocolVersionIsAccepted() {
-        ClientOptions options = options().environment(Map.of("FAKE_PROTOCOL", "nurt-rpc/1.3"));
-        try (Client client = Client.create(options)) {
+        NurtClientOptions options = options().environment(Map.of("FAKE_PROTOCOL", "nurt-rpc/1.3"));
+        try (NurtClient client = NurtClient.create(options)) {
             assertTrue(client.run(Request.program("x")).ok());
         }
     }
 
     @Test
     void languageErrorIsNotAnException() {
-        try (Client client = Client.create(options())) {
-            Response response = client.run(Request.program("language"));
+        try (NurtClient client = NurtClient.create(options())) {
+            NurtResponse response = client.run(Request.program("language"));
             assertFalse(response.ok());
             LanguageError error = response.error().orElseThrow();
             assertEquals("E_SYNTAX", error.code());
             assertEquals(List.of("find \"/srv/app\" glob: [\"*.go\"]"), error.fix());
-            LanguageException raised = assertThrows(LanguageException.class, response::orThrow);
+            NurtLanguageException raised = assertThrows(NurtLanguageException.class, response::orThrow);
             assertEquals("E_SYNTAX", raised.error().code());
         }
     }
 
     @Test
     void applicationErrorsCarryTheirStatus() {
-        try (Client client = Client.create(options())) {
+        try (NurtClient client = NurtClient.create(options())) {
             for (CallStatus status : CallStatus.values()) {
                 long code = -32000 - status.code();
-                CallException error = assertThrows(CallException.class,
+                NurtCallException error = assertThrows(NurtCallException.class,
                         () -> client.run(Request.program("error:" + code)));
                 assertEquals(status, error.status(), "code " + code);
             }
-            CallException unknownMethod = assertThrows(CallException.class,
+            NurtCallException unknownMethod = assertThrows(NurtCallException.class,
                     () -> client.run(Request.program("error:-32601")));
-            assertEquals(CallException.Kind.PROTOCOL, unknownMethod.kind());
-            CallException invalidParams = assertThrows(CallException.class,
+            assertEquals(NurtCallException.Kind.PROTOCOL, unknownMethod.kind());
+            NurtCallException invalidParams = assertThrows(NurtCallException.class,
                     () -> client.run(Request.program("error:-32602")));
             assertEquals(CallStatus.ARG, invalidParams.status());
         }
@@ -152,7 +152,7 @@ class ProcessClientTest {
         int threads = 8;
         int callsPerThread = 25;
         ExecutorService pool = Executors.newFixedThreadPool(threads);
-        try (Client client = Client.create(options())) {
+        try (NurtClient client = NurtClient.create(options())) {
             List<Future<?>> results = new ArrayList<>();
             for (int t = 0; t < threads; t++) {
                 int thread = t;
@@ -175,13 +175,13 @@ class ProcessClientTest {
     @Test
     void answersInReverseOrderReachTheirCallers() throws Exception {
         int held = 6;
-        try (Client client = Client.create(options())) {
-            List<CompletableFuture<Response>> responses = new ArrayList<>();
+        try (NurtClient client = NurtClient.create(options())) {
+            List<CompletableFuture<NurtResponse>> responses = new ArrayList<>();
             for (int i = 0; i < held; i++) {
                 responses.add(client.runAsync(Request.program("hold:" + held + "/" + i)));
             }
             for (int i = 0; i < held; i++) {
-                Response response = responses.get(i).get(WAIT.toSeconds(), TimeUnit.SECONDS);
+                NurtResponse response = responses.get(i).get(WAIT.toSeconds(), TimeUnit.SECONDS);
                 assertEquals("hold:" + held + "/" + i, response.report().get("kind"));
             }
         }
@@ -189,7 +189,7 @@ class ProcessClientTest {
 
     @Test
     void eventsReachTheirExecutionAndOthersReachTheClient() throws Exception {
-        try (Client client = Client.create(options())) {
+        try (NurtClient client = NurtClient.create(options())) {
             Collector outside = new Collector();
             client.events().subscribe(outside);
             try (Execution execution = client.start(Request.program("events"))) {
@@ -197,22 +197,22 @@ class ProcessClientTest {
                 Collector own = new Collector();
                 execution.events().subscribe(own);
                 own.done.get(WAIT.toSeconds(), TimeUnit.SECONDS);
-                List<String> kinds = own.events.stream().map(Event::kind).toList();
+                List<String> kinds = own.events.stream().map(NurtEvent::kind).toList();
                 assertEquals(List.of("exec.progress", "exec.progress", "exec.progress", "exec.finished"), kinds);
                 assertEquals(4L, own.events.get(3).seq().orElseThrow());
             }
-            Event job = outside.first.get(WAIT.toSeconds(), TimeUnit.SECONDS);
+            NurtEvent job = outside.first.get(WAIT.toSeconds(), TimeUnit.SECONDS);
             assertEquals("j-1", job.jobId().orElseThrow());
         }
     }
 
     @Test
     void cancelEndsASlowExecution() {
-        try (Client client = Client.create(options())) {
+        try (NurtClient client = NurtClient.create(options())) {
             Execution execution = client.start(Request.program("slow"));
-            CallException running = assertThrows(CallException.class,
+            NurtCallException running = assertThrows(NurtCallException.class,
                     () -> execution.await(Duration.ofMillis(100)));
-            assertEquals(CallException.Kind.TIMEOUT, running.kind());
+            assertEquals(NurtCallException.Kind.TIMEOUT, running.kind());
             assertFalse(execution.isDone());
             execution.cancel();
             assertEquals("rolled_back", execution.await(WAIT).status().orElseThrow());
@@ -222,12 +222,12 @@ class ProcessClientTest {
 
     @Test
     void requestTimeoutFailsTheCallAndCancelsIt() throws IOException {
-        ClientOptions options = options()
+        NurtClientOptions options = options()
                 .environment(Map.of("FAKE_LOG", log().toString()))
                 .requestTimeout(Duration.ofSeconds(2));
-        try (Client client = Client.create(options)) {
-            CallException error = assertThrows(CallException.class, () -> client.run(Request.program("slow")));
-            assertEquals(CallException.Kind.TIMEOUT, error.kind());
+        try (NurtClient client = NurtClient.create(options)) {
+            NurtCallException error = assertThrows(NurtCallException.class, () -> client.run(Request.program("slow")));
+            assertEquals(NurtCallException.Kind.TIMEOUT, error.kind());
             assertEquals(CallStatus.TIMEOUT, error.status());
             assertTrue(client.run(Request.program("after")).ok());
         }
@@ -236,10 +236,10 @@ class ProcessClientTest {
 
     @Test
     void endedServerFailsRequestsInFlightAndIsRestarted() throws IOException {
-        ClientOptions options = options().environment(Map.of("FAKE_LOG", log().toString()));
-        try (Client client = Client.create(options)) {
-            CallException error = assertThrows(CallException.class, () -> client.run(Request.program("crash")));
-            assertEquals(CallException.Kind.DISCONNECTED, error.kind());
+        NurtClientOptions options = options().environment(Map.of("FAKE_LOG", log().toString()));
+        try (NurtClient client = NurtClient.create(options)) {
+            NurtCallException error = assertThrows(NurtCallException.class, () -> client.run(Request.program("crash")));
+            assertEquals(NurtCallException.Kind.DISCONNECTED, error.kind());
             assertTrue(error.getMessage().contains("exit code 3"), error.getMessage());
             assertTrue(client.run(Request.program("again")).ok());
         }
@@ -249,16 +249,16 @@ class ProcessClientTest {
 
     @Test
     void invalidJsonFromTheServerClosesTheConnection() {
-        try (Client client = Client.create(options())) {
-            CallException error = assertThrows(CallException.class, () -> client.run(Request.program("garble")));
-            assertEquals(CallException.Kind.PROTOCOL, error.kind());
+        try (NurtClient client = NurtClient.create(options())) {
+            NurtCallException error = assertThrows(NurtCallException.class, () -> client.run(Request.program("garble")));
+            assertEquals(NurtCallException.Kind.PROTOCOL, error.kind());
             assertTrue(client.run(Request.program("again")).ok());
         }
     }
 
     @Test
     void methodsSendTheirParameters() {
-        try (Client client = Client.create(options())) {
+        try (NurtClient client = NurtClient.create(options())) {
             Map<String, Object> tree = Map.of("nurt", "1.0");
             assertEquals(Map.of("program", "find(\"/srv\")", "variant", "b"),
                     client.parse("find(\"/srv\")", Request.Variant.B).get("params"));
@@ -286,32 +286,32 @@ class ProcessClientTest {
 
     @Test
     void closedClientRejectsCalls() {
-        Client client = Client.create(options());
+        NurtClient client = NurtClient.create(options());
         client.close();
         client.close();
-        CallException error = assertThrows(CallException.class, () -> client.run(Request.program("x")));
-        assertEquals(CallException.Kind.DISCONNECTED, error.kind());
+        NurtCallException error = assertThrows(NurtCallException.class, () -> client.run(Request.program("x")));
+        assertEquals(NurtCallException.Kind.DISCONNECTED, error.kind());
     }
 
     @Test
     void missingExecutableIsReportedWithCheckedLocations() {
         Path missing = temp.resolve("nurt");
-        CallException error = assertThrows(CallException.class, () -> Client.create(
-                new ClientOptions().backend(BackendKind.PROCESS).executable(missing)));
-        assertEquals(CallException.Kind.NOT_FOUND, error.kind());
+        NurtCallException error = assertThrows(NurtCallException.class, () -> NurtClient.create(
+                new NurtClientOptions().backend(BackendKind.PROCESS).executable(missing)));
+        assertEquals(NurtCallException.Kind.NOT_FOUND, error.kind());
         assertTrue(error.getMessage().contains(missing.toString()));
     }
 
     @Test
     void libraryBackendWithoutItsArtifactIsNotFound() {
-        CallException error = assertThrows(CallException.class,
-                () -> Client.create(new ClientOptions().backend(BackendKind.LIBRARY)));
-        assertEquals(CallException.Kind.NOT_FOUND, error.kind());
+        NurtCallException error = assertThrows(NurtCallException.class,
+                () -> NurtClient.create(new NurtClientOptions().backend(BackendKind.LIBRARY)));
+        assertEquals(NurtCallException.Kind.NOT_FOUND, error.kind());
     }
 
     @Test
     void automaticBackendFallsBackToTheProcess() {
-        try (Client client = Client.create(new ClientOptions().command(serverCommand()))) {
+        try (NurtClient client = NurtClient.create(new NurtClientOptions().command(serverCommand()))) {
             assertEquals(BackendKind.PROCESS, client.backend());
         }
     }

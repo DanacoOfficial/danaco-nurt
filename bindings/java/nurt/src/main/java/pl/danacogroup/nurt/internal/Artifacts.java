@@ -19,7 +19,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import pl.danacogroup.nurt.CallException;
+import pl.danacogroup.nurt.NurtCallException;
 
 /**
  * Location of the {@code nurt} executable and of {@code libnurt}.
@@ -96,7 +96,7 @@ public final class Artifacts {
      *
      * @param explicit configured path, or {@code null}
      * @return the executable
-     * @throws CallException of kind {@link CallException.Kind#NOT_FOUND} with
+     * @throws NurtCallException of kind {@link NurtCallException.Kind#NOT_FOUND} with
      *     the checked locations
      */
     public static Path locateExecutable(Path explicit) {
@@ -110,7 +110,7 @@ public final class Artifacts {
      *
      * @param explicit configured path, or {@code null}
      * @return the library
-     * @throws CallException of kind {@link CallException.Kind#NOT_FOUND} with
+     * @throws NurtCallException of kind {@link NurtCallException.Kind#NOT_FOUND} with
      *     the checked locations
      */
     public static Path locateLibrary(Path explicit) {
@@ -148,7 +148,7 @@ public final class Artifacts {
                 checked.add(candidate.toString());
             }
         }
-        throw new CallException(CallException.Kind.NOT_FOUND,
+        throw new NurtCallException(NurtCallException.Kind.NOT_FOUND,
                 what + " not found; checked " + String.join(", ", checked)
                         + "; set " + variableName + " or pass the path");
     }
@@ -157,7 +157,7 @@ public final class Artifacts {
         if (Files.isRegularFile(path)) {
             return path;
         }
-        throw new CallException(CallException.Kind.NOT_FOUND,
+        throw new NurtCallException(NurtCallException.Kind.NOT_FOUND,
                 what + " not found at " + path + " given by " + source + "; correct the path");
     }
 
@@ -168,7 +168,7 @@ public final class Artifacts {
      * @param resource resource name under {@code natives/}
      * @param executable whether to mark the extracted file executable
      * @return the extracted file, or empty when the artifact is not bundled
-     * @throws CallException of kind {@link CallException.Kind#IO} when the
+     * @throws NurtCallException of kind {@link NurtCallException.Kind#IO} when the
      *     digest is missing or does not match, or the file cannot be written
      */
     static Optional<Path> extract(ClassLoader loader, String resource, boolean executable) {
@@ -182,13 +182,13 @@ public final class Artifacts {
         }
         byte[] digestFile = read(loader, resource + DIGEST_SUFFIX);
         if (digestFile == null) {
-            throw new CallException(CallException.Kind.IO,
+            throw new NurtCallException(NurtCallException.Kind.IO,
                     "bundled " + resource + " has no " + DIGEST_SUFFIX + " file; rebuild the package");
         }
         String expected = new String(digestFile, StandardCharsets.US_ASCII).trim().split("\\s+")[0];
         String actual = sha256(content);
         if (!actual.equalsIgnoreCase(expected)) {
-            throw new CallException(CallException.Kind.IO,
+            throw new NurtCallException(NurtCallException.Kind.IO,
                     "bundled " + resource + " has SHA-256 " + actual + ", expected " + expected
                             + "; the package is damaged");
         }
@@ -204,7 +204,7 @@ public final class Artifacts {
             EXTRACTED.put(resource, target);
             return Optional.of(target);
         } catch (IOException e) {
-            throw new CallException(CallException.Kind.IO,
+            throw new NurtCallException(NurtCallException.Kind.IO,
                     "cannot extract bundled " + resource + ": " + e.getMessage(), e);
         }
     }
@@ -213,7 +213,7 @@ public final class Artifacts {
         try (InputStream in = loader.getResourceAsStream(resource)) {
             return in == null ? null : in.readAllBytes();
         } catch (IOException e) {
-            throw new CallException(CallException.Kind.IO,
+            throw new NurtCallException(NurtCallException.Kind.IO,
                     "cannot read bundled " + resource + ": " + e.getMessage(), e);
         }
     }

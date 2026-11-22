@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System.Text.Json;
 
 namespace Danaco.Nurt;
@@ -58,7 +62,7 @@ public sealed class Report
         JsonElement? report = JsonRead.Property(response, "report");
         if (report is not { ValueKind: JsonValueKind.Object } value)
         {
-            throw new CallException(CallStatus.Internal, "response has no report object");
+            throw new NurtCallException(CallStatus.Internal, "response has no report object");
         }
 
         return new Report(value);

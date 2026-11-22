@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <AssemblyName>Danaco.Nurt.Tests</AssemblyName>
     <RootNamespace>Danaco.Nurt.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
@@ -22,7 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Danaco.Nurt/Danaco.Nurt.csproj" />
-    <ProjectReference Include="../Danaco.Nurt.TestServer/TestServer.csproj" />
+    <ProjectReference Include="../Danaco.Nurt.TestServer/Danaco.Nurt.TestServer.csproj" />
   </ItemGroup>
 
 </Project>

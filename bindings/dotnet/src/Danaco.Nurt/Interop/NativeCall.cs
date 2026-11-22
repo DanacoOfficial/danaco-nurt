@@ -1,9 +1,13 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Text.Json;
 
 namespace Danaco.Nurt;
 
-/// <summary>Turns a status of the library into <see cref="CallException"/>.</summary>
+/// <summary>Turns a status of the library into <see cref="NurtCallException"/>.</summary>
 internal static unsafe class NativeCall
 {
     /// <summary>
@@ -24,11 +28,11 @@ internal static unsafe class NativeCall
     /// Builds the exception for a failed call. Must run on the thread of the failed call,
     /// because <c>nurt_last_error</c> keeps the record per thread.
     /// </summary>
-    public static CallException Failure(CallStatus status, string function)
+    public static NurtCallException Failure(CallStatus status, string function)
     {
         string? detail = LastError();
         string? message = detail is null ? null : MessageOf(detail);
-        return new CallException(status, function + ": " + (message ?? CallException.GetStatusName(status)))
+        return new NurtCallException(status, function + ": " + (message ?? NurtCallException.GetStatusName(status)))
         {
             Detail = detail,
         };

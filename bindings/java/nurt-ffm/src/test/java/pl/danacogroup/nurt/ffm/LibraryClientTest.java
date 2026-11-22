@@ -26,13 +26,13 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import pl.danacogroup.nurt.BackendKind;
-import pl.danacogroup.nurt.CallException;
-import pl.danacogroup.nurt.Client;
-import pl.danacogroup.nurt.ClientOptions;
-import pl.danacogroup.nurt.Event;
+import pl.danacogroup.nurt.NurtCallException;
+import pl.danacogroup.nurt.NurtClient;
+import pl.danacogroup.nurt.NurtClientOptions;
+import pl.danacogroup.nurt.NurtEvent;
 import pl.danacogroup.nurt.Execution;
 import pl.danacogroup.nurt.Request;
-import pl.danacogroup.nurt.Response;
+import pl.danacogroup.nurt.NurtResponse;
 
 /**
  * Client on the library backend.
@@ -55,8 +55,8 @@ class LibraryClientTest {
         return Path.of(path).toAbsolutePath();
     }
 
-    private ClientOptions options(BackendKind backend) {
-        return new ClientOptions()
+    private NurtClientOptions options(BackendKind backend) {
+        return new NurtClientOptions()
                 .backend(backend)
                 .library(library())
                 .config(Map.of("state", Map.of("dir", state.toString())));
@@ -65,22 +65,22 @@ class LibraryClientTest {
     @Test
     void missingLibraryIsReportedWithItsLocation() {
         Path missing = state.resolve("no-such-library");
-        CallException error = assertThrows(CallException.class,
-                () -> Client.create(new ClientOptions().backend(BackendKind.LIBRARY).library(missing)));
-        assertEquals(CallException.Kind.NOT_FOUND, error.kind());
+        NurtCallException error = assertThrows(NurtCallException.class,
+                () -> NurtClient.create(new NurtClientOptions().backend(BackendKind.LIBRARY).library(missing)));
+        assertEquals(NurtCallException.Kind.NOT_FOUND, error.kind());
         assertTrue(error.getMessage().contains(missing.toString()), error.getMessage());
     }
 
     @Test
     void automaticSelectionPrefersACompatibleLibrary() {
-        try (Client nurt = Client.create(options(BackendKind.AUTO))) {
+        try (NurtClient nurt = NurtClient.create(options(BackendKind.AUTO))) {
             assertEquals(BackendKind.LIBRARY, nurt.backend());
         }
     }
 
     @Test
     void infoAndSchemaNeedNoProgram() {
-        try (Client nurt = Client.create(options(BackendKind.LIBRARY))) {
+        try (NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY))) {
             assertFalse(nurt.info().isEmpty());
             assertFalse(nurt.schema("request").isEmpty());
         }
@@ -88,42 +88,42 @@ class LibraryClientTest {
 
     @Test
     void unknownSchemaIsAnInvalidArgument() {
-        try (Client nurt = Client.create(options(BackendKind.LIBRARY))) {
-            CallException error = assertThrows(CallException.class, () -> nurt.schema("no-such-schema"));
-            assertEquals(CallException.Kind.INVALID_ARGUMENT, error.kind());
+        try (NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY))) {
+            NurtCallException error = assertThrows(NurtCallException.class, () -> nurt.schema("no-such-schema"));
+            assertEquals(NurtCallException.Kind.INVALID_ARGUMENT, error.kind());
         }
     }
 
     @Test
     void jobCancellationIsRejectedByTheLibraryBackend() {
-        try (Client nurt = Client.create(options(BackendKind.LIBRARY))) {
-            CallException error = assertThrows(CallException.class, () -> nurt.cancelJob("job-1"));
-            assertEquals(CallException.Kind.INVALID_ARGUMENT, error.kind());
+        try (NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY))) {
+            NurtCallException error = assertThrows(NurtCallException.class, () -> nurt.cancelJob("job-1"));
+            assertEquals(NurtCallException.Kind.INVALID_ARGUMENT, error.kind());
         }
     }
 
     @Test
     void runReturnsAResponse() {
-        try (Client nurt = Client.create(options(BackendKind.LIBRARY))) {
-            Response response = nurt.run(Request.program("help"));
+        try (NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY))) {
+            NurtResponse response = nurt.run(Request.program("help"));
             assertNotNull(response.report());
         }
     }
 
     @Test
     void runWithinARequestTimeoutGoesThroughAnExecution() {
-        try (Client nurt = Client.create(options(BackendKind.LIBRARY).requestTimeout(WAIT))) {
+        try (NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY).requestTimeout(WAIT))) {
             assertNotNull(nurt.run(Request.program("help")).report());
         }
     }
 
     @Test
     void startedExecutionCompletesItsEventStream() throws Exception {
-        try (Client nurt = Client.create(options(BackendKind.LIBRARY))) {
+        try (NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY))) {
             Execution execution = nurt.start(Request.program("help"));
             CountDownLatch done = new CountDownLatch(1);
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            List<Event> received = new ArrayList<>();
+            List<NurtEvent> received = new ArrayList<>();
             execution.events().subscribe(new Flow.Subscriber<>() {
                 @Override
                 public void onSubscribe(Flow.Subscription subscription) {
@@ -131,7 +131,7 @@ class LibraryClientTest {
                 }
 
                 @Override
-                public void onNext(Event item) {
+                public void onNext(NurtEvent item) {
                     synchronized (received) {
                         received.add(item);
                     }
@@ -162,7 +162,7 @@ class LibraryClientTest {
 
     @Test
     void cancelledExecutionStillReturnsAResponse() {
-        try (Client nurt = Client.create(options(BackendKind.LIBRARY))) {
+        try (NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY))) {
             Execution execution = nurt.start(Request.program("help"));
             execution.cancel();
             execution.cancel();
@@ -172,7 +172,7 @@ class LibraryClientTest {
 
     @Test
     void callsFromManyThreadsShareOneEngine() throws Exception {
-        try (Client nurt = Client.create(options(BackendKind.LIBRARY))) {
+        try (NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY))) {
             ExecutorService pool = Executors.newFixedThreadPool(THREADS);
             try {
                 List<Future<Integer>> results = new ArrayList<>();
@@ -198,16 +198,16 @@ class LibraryClientTest {
 
     @Test
     void closeIsIdempotentAndLaterCallsFail() {
-        Client nurt = Client.create(options(BackendKind.LIBRARY));
+        NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY));
         nurt.close();
         nurt.close();
-        CallException error = assertThrows(CallException.class, nurt::info);
-        assertEquals(CallException.Kind.DISCONNECTED, error.kind());
+        NurtCallException error = assertThrows(NurtCallException.class, nurt::info);
+        assertEquals(NurtCallException.Kind.DISCONNECTED, error.kind());
     }
 
     @Test
     void closeCancelsRunningExecutions() {
-        Client nurt = Client.create(options(BackendKind.LIBRARY));
+        NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY));
         Execution execution = nurt.start(Request.program("help"));
         nurt.close();
         assertTrue(execution.isDone(), "close waits until the execution is released");

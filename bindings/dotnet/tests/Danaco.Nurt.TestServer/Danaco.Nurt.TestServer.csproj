@@ -3,7 +3,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <AssemblyName>Danaco.Nurt.TestServer</AssemblyName>
     <RootNamespace>Danaco.Nurt.TestServer</RootNamespace>
     <IsPackable>false</IsPackable>
     <InvariantGlobalization>true</InvariantGlobalization>
