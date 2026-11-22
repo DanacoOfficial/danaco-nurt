@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+   <channel>
+      <title>Feed 3</title>
+      <link>https://example.com/</link>
+      <atom:link href="https://example.com/rss" rel="self" type="application/rss+xml"/>
+      <item>
+         <title>Post 0 of 3</title>
+         <description><![CDATA[<p>Body 0 with <b>markup</b></p>]]></description>
+         <dc:creator>author0</dc:creator>
+         <guid isPermaLink="false">id-3-0</guid>
+      </item>
+      <item>
+         <title>Post 1 of 3</title>
+         <description><![CDATA[<p>Body 1 with <b>markup</b></p>]]></description>
+         <dc:creator>author1</dc:creator>
+         <guid isPermaLink="false">id-3-1</guid>
+      </item>
+   </channel>
+</rss>

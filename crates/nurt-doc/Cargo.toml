@@ -1,7 +1,6 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
-
 [package]
 name = "nurt-doc"
 description = "Layout-preserving structured document formats, SQLite and queries for Danaco Nurt."
@@ -17,19 +16,31 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+testing = []
+
 [dependencies]
 nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
-jsonc-parser = { workspace = true }
-toml_edit = { workspace = true }
-quick-xml = { workspace = true }
-saphyr = { workspace = true }
-yaml-edit = { workspace = true }
 csv = { workspace = true }
-plist = { workspace = true }
+encoding_rs = { workspace = true }
+indexmap = { workspace = true }
 jaq-core = { workspace = true }
+jaq-json = { workspace = true }
+jaq-std = { workspace = true }
+jsonc-parser = { workspace = true }
+plist = { workspace = true }
+quick-xml = { workspace = true }
 rusqlite = { workspace = true }
 rust-ini = { workspace = true }
+saphyr = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+toml_edit = { workspace = true }
+yaml-edit = { workspace = true }
 
 [dev-dependencies]
+insta = { workspace = true }
 proptest = { workspace = true }
+tempfile = { workspace = true }

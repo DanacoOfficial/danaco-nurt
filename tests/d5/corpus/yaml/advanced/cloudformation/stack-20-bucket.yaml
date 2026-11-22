@@ -1,0 +1,44 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Stack 20 provisioning a Bucket with
+  parameters, conditions and outputs.
+# Parameters are shared by every resource below.
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues: [staging, production]
+  Prefix:
+    Type: String
+    Default: app20
+Conditions:
+  IsProduction: !Equals [!Ref Environment, production]
+  NotProduction: !Not [!Condition IsProduction]
+Mappings:
+  RegionMap:
+    eu-west-1: {Ami: ami-0a1020}
+    us-east-1: {Ami: ami-0b2020}
+Resources:
+  MainBucket:
+    Type: AWS::Service::Bucket
+    Properties:
+      Name: !Sub "${Prefix}-bucket-${AWS::Region}"
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Stack
+          Value: !Ref AWS::StackName  # pseudo parameter
+      Arn: !GetAtt HelperBucket.Arn
+      Size: !If [IsProduction, 100, 10]
+  HelperBucket:
+    Type: AWS::Service::Helper
+    DependsOn: [MainBucket]
+    Properties: {}
+Outputs:
+  BucketArn:
+    Value: !GetAtt MainBucket.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-BucketArn'

@@ -1,0 +1,55 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Configuration of the billing subsystem.
+#
+# Every key below is documented; values are defaults.
+
+--- # document marker with a trailing comment
+# Section: connection
+billing:
+  # Host name or address.
+  host: billing.internal   # resolved by the service mesh
+  port: 5009  #no space after the hash
+  url: "http://billing.internal/#fragment"  # the hash inside quotes is not a comment
+  password: 'p#ss9'
+
+  # Timeouts in seconds.
+  timeouts:
+    connect: 3
+    # read timeout applies per request
+    read: 27
+    # trailing comment of the timeouts map
+
+  # Replicas, in priority order.
+  replicas:
+    # first replica is the primary
+    - primary.billing.internal
+    - secondary.billing.internal   # same zone
+
+    # a blank line separates this comment from the item
+    - tertiary.billing.internal
+    # comment after the last item
+  flags: [  # flow sequence over several lines
+    alpha,  # first
+    beta,
+    # standalone comment inside a flow sequence
+    gamma
+  ]
+  limits: {
+    max: 900,  # upper bound
+    min: 1
+  }
+  script: |  # comment after a block scalar header
+    # this line is content, not a comment
+    run --billing
+#   comment at column zero inside the billing map
+  enabled: true
+
+# Section: observability
+metrics:
+  enabled: false  # toggled per environment
+  labels:
+    - service=billing      # aligned
+    - version=9      # aligned
+# End of file comment.

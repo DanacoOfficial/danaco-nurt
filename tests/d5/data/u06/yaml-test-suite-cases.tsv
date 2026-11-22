@@ -1,0 +1,244 @@
+case	validity	tags	name
+229Q	valid	mapping sequence spec	Spec Example 2.4. Sequence of Mappings
+26DV	valid	alias mapping whitespace	Whitespace around colon in mappings
+27NA	valid	1.3-err directive spec	Spec Example 5.9. Directive Indicator
+2AUY	valid	sequence tag	Tags in Block Sequence
+2LFX	valid	1.3-mod directive double header spec	Spec Example 6.13. Reserved Directives [1.3]
+2SXE	valid	1.3-err alias edge mapping	Anchors With Colon in Name
+2XXW	valid	explicit-key mapping spec unknown-tag	Spec Example 2.25. Unordered Sets
+33X3	valid	sequence tag	Three explicit integers in a block sequence
+35KP	valid	explicit-key header mapping tag	Tags for Root Objects
+3ALJ	valid	sequence	Block Sequence in Block Sequence
+3GZX	valid	alias mapping spec	Spec Example 7.1. Alias Nodes
+3R3P	valid	anchor sequence	Single block sequence with anchor
+4ABK	valid	flow mapping	Flow Mapping Separate Values
+4FJ6	valid	complex-key flow mapping sequence	Nested implicit complex keys
+4MUZ-00	valid	flow mapping	Flow mapping colon on line after key
+4MUZ-01	valid	flow mapping	Flow mapping colon on line after key
+4MUZ-02	valid	flow mapping	Flow mapping colon on line after key
+4RWC	valid	flow whitespace	Trailing spaces after flow collection
+52DL	valid	1.3-mod tag	Explicit Non-Specific Tag [1.3]
+54T7	valid	flow mapping	Flow Mapping
+565N	valid	tag unknown-tag	Construct Binary
+57H4	valid	mapping sequence tag	Spec Example 8.22. Block Collection Nodes
+58MP	valid	edge flow mapping	Flow mapping edge cases
+5C5M	valid	flow mapping spec	Spec Example 7.15. Flow Mappings
+5KJE	valid	flow sequence spec	Spec Example 7.13. Flow Sequence
+5MUD	valid	double flow mapping	Colon and adjacent value on next line
+5NYZ	valid	comment mapping spec	Spec Example 6.9. Separated Comment
+5T43	valid	flow mapping scalar	Colon at the beginning of adjacent flow scalar
+5TYM	valid	directive local-tag spec tag	Spec Example 6.21. Local Tag Prefix
+5WE3	valid	comment explicit-key literal mapping sequence spec	Spec Example 8.17. Explicit Block Mapping Entries
+652Z	valid	flow	Question mark at start of flow key
+65WH	valid	sequence	Single Entry Block Sequence
+6BCT	valid	libyaml-err sequence spec upto-1.2 whitespace	Spec Example 6.3. Separation Spaces
+6BFJ	valid	anchor complex-key flow mapping sequence	Mapping, key and flow sequence item anchors
+6CK3	valid	local-tag spec tag	Spec Example 6.26. Tag Shorthands
+6HB6	valid	comment flow indent spec upto-1.2 whitespace	Spec Example 6.1. Indentation Spaces
+6JQW	valid	comment literal scalar spec	Spec Example 2.13. In literals, newlines are preserved
+6JWB	valid	mapping sequence tag	Tags for Block Objects
+6KGN	valid	alias anchor	Anchor for empty node
+6LVF	valid	1.3-err directive double header spec	Spec Example 6.13. Reserved Directives
+6M2F	valid	alias empty-key explicit-key	Aliases in Explicit Block Mapping
+6PBE	valid	explicit-key mapping sequence	Zero-indented sequences in explicit mapping keys
+6WLZ	valid	1.3-mod directive local-tag spec tag	Spec Example 6.18. Primary Tag Handle [1.3]
+6XDY	valid	header	Two document start markers
+6ZKB	valid	1.3-err header spec	Spec Example 9.6. Stream
+735Y	valid	comment double folded spec tag	Spec Example 8.20. Block Node Types
+74H7	valid	mapping tag	Tags in Implicit Mapping
+7BMT	valid	1.3-mod anchor comment mapping	Node and Mapping Key Anchors [1.3]
+7BUB	valid	alias mapping sequence spec	Spec Example 2.10. Node for “Sammy Sosa” appears twice in this document
+7FWL	valid	mapping spec tag unknown-tag	Spec Example 6.24. Verbatim Tags
+7T8X	valid	1.3-err comment folded scalar spec	Spec Example 8.10. Folded Lines - 8.13. Final Empty Lines
+7TMG	valid	comment flow sequence	Comment in flow sequence before comma
+7W2P	valid	explicit-key mapping	Block Mapping with Missing Values
+7Z25	valid	footer	Bare document after document end marker
+7ZZ5	valid	flow mapping sequence	Empty flow collections
+87E4	valid	flow mapping sequence spec	Spec Example 7.8. Single Quoted Implicit Keys
+8G76	valid	comment empty scalar spec whitespace	Spec Example 6.10. Comment Lines
+8KB6	valid	flow mapping	Multiline plain flow mapping key without value
+8MK2	valid	1.3-err tag	Explicit Non-Specific Tag
+8QBE	valid	mapping sequence	Block Sequence in Block Mapping
+8UDB	valid	flow sequence spec	Spec Example 7.14. Flow Sequence Entries
+8XYN	valid	anchor	Anchor with unicode character
+93JH	valid	mapping sequence	Block Mappings in Block Sequence
+98YD	valid	comment empty spec	Spec Example 5.5. Comment Indicator
+9BXH	valid	double flow mapping	Multiline doublequoted flow mapping key without value
+9DXL	valid	1.3-mod header spec	Spec Example 9.6. Stream [1.3]
+9KAX	valid	1.3-err anchor mapping tag	Various combinations of tags and anchors
+9MMW	valid	flow mapping sequence	Single Pair Implicit Entries
+9SA2	valid	double flow mapping	Multiline double quoted flow mapping key
+9U5K	valid	mapping sequence spec	Spec Example 2.12. Compact Nested Mapping
+9WXW	valid	1.3-err directive local-tag spec tag unknown-tag	Spec Example 6.18. Primary Tag Handle
+A2M4	valid	explicit-key indent libyaml-err sequence spec upto-1.2 whitespace	Spec Example 6.2. Indentation Indicators
+AB8U	valid	scalar sequence	Sequence entry that looks like two with wrong indentation
+AZ63	valid	indent mapping sequence	Sequence With Same Indentation as Parent Mapping
+BEC7	valid	directive spec	Spec Example 6.14. “YAML” directive
+BU8L	valid	1.3-err anchor indent tag	Node Anchor and Tag on Seperate Lines
+C2DT	valid	flow mapping spec	Spec Example 7.18. Flow Mapping Adjacent Values
+C4HZ	valid	alias directive local-tag spec tag	Spec Example 2.24. Global Tags
+CC74	valid	directive spec tag unknown-tag	Spec Example 6.20. Tag Handles
+CFD4	valid	empty-key flow sequence	Empty implicit key in single pair flow sequences
+CN3R	valid	anchor flow mapping sequence	Various location of anchors in flow sequence
+CT4Q	valid	explicit-key flow mapping spec	Spec Example 7.20. Single Pair Explicit Entry
+CUP7	valid	alias local-tag spec tag	Spec Example 5.6. Node Property Indicators
+D88J	valid	flow mapping sequence	Flow Sequence in Block Mapping
+DBG4	valid	flow scalar sequence spec	Spec Example 7.10. Plain Characters
+DC7X	valid	comment whitespace	Various trailing tabs
+DFF7	valid	explicit-key flow mapping spec	Spec Example 7.16. Flow Mapping Entries
+DHP8	valid	flow sequence	Flow Sequence
+DK3J	valid	comment folded scalar	Zero indented block scalar with line that looks like a comment
+DWX9	valid	1.3-err comment literal scalar spec whitespace	Spec Example 8.8. Literal Content
+E76Z	valid	alias mapping	Aliases in Implicit Block Mapping
+EHF6	valid	flow mapping sequence tag	Tags for Flow Objects
+F2C7	valid	anchor tag	Anchors and Tags
+F3CP	valid	flow mapping sequence	Nested flow collections on one line
+F8F9	valid	comment literal scalar spec	Spec Example 8.5. Chomping Trailing Lines
+FH7J	valid	scalar tag	Tags on Empty Scalars
+FQ7F	valid	sequence spec	Spec Example 2.1. Sequence of Scalars
+FRK4	valid	empty-key explicit-key flow mapping spec	Spec Example 7.3. Completely Empty Flow Nodes
+FTA2	valid	anchor header sequence	Single block sequence with anchor and explicit document start
+FUP4	valid	flow sequence	Flow Sequence in Flow Sequence
+GH63	valid	explicit-key mapping	Mixed Block Mapping (explicit to implicit)
+H2RW	valid	comment literal scalar whitespace	Blank lines
+HM87-00	valid	flow scalar	Scalars in flow start with syntax char
+HM87-01	valid	flow scalar	Scalars in flow start with syntax char
+HMQ5	valid	alias spec tag	Spec Example 6.23. Node Properties
+HWV9	valid	footer	Document-end marker
+J7PZ	valid	mapping spec tag unknown-tag	Spec Example 2.26. Ordered Mappings
+J9HZ	valid	comment mapping sequence spec	Spec Example 2.9. Single Document with Two Comments
+JHB9	valid	header spec	Spec Example 2.7. Two Documents in a Stream
+JQ4R	valid	mapping sequence spec	Spec Example 8.14. Block Sequence
+JR7V	valid	flow scalar	Question marks in scalars
+JS2J	valid	alias spec	Spec Example 6.29. Node Anchors
+JTV5	valid	explicit-key mapping scalar	Block Mapping with Multiline Scalars
+K3WX	valid	comment flow mapping	Colon and adjacent value after comment on next line
+K4SU	valid	sequence	Multiple Entry Block Sequence
+K54U	valid	header whitespace	Tab after document header
+KK5P	valid	explicit-key mapping sequence	Various combinations of explicit block mappings
+KSS4	valid	1.3-err anchor header scalar	Scalars on --- line
+L383	valid	comment	Two scalar docs with trailing comments
+L94M	valid	explicit-key mapping tag	Tags in Explicit Mapping
+L9U5	valid	flow mapping spec	Spec Example 7.11. Plain Implicit Keys
+LE5A	valid	alias spec tag	Spec Example 7.24. Flow Nodes
+LP6E	valid	flow scalar whitespace	Whitespace After Scalars in Flow
+LQZ7	valid	flow scalar spec	Spec Example 7.4. Double Quoted Implicit Keys
+LX3P	valid	1.3-err complex-key flow mapping sequence	Implicit Flow Mapping Key on one line
+M5C3	valid	1.3-err folded indent literal local-tag spec tag	Spec Example 8.21. Block Scalar Nodes
+M5DY	valid	complex-key explicit-key mapping sequence spec	Spec Example 2.11. Mapping between Sequences
+M7A3	valid	1.3-err footer spec	Spec Example 9.3. Bare Documents
+M7NX	valid	flow mapping sequence	Nested flow collections
+MUS6-02	valid	directive	Directive variants
+MUS6-03	valid	directive	Directive variants
+MUS6-04	valid	directive	Directive variants
+MUS6-05	valid	directive	Directive variants
+MUS6-06	valid	directive	Directive variants
+MXS3	valid	flow mapping sequence	Flow Mapping in Block Sequence
+NJ66	valid	flow mapping	Multiline plain flow mapping key
+P2AD	valid	comment folded literal scalar spec	Spec Example 8.1. Block Scalar Header
+P76L	valid	header spec tag unknown-tag	Spec Example 6.19. Secondary Tag Handle
+P94K	valid	comment spec	Spec Example 6.11. Multi-Line Comments
+PBJ2	valid	mapping sequence spec	Spec Example 2.3. Mapping Scalars to Sequences
+PUW8	valid	header	Document start on last line
+PW8X	valid	anchor explicit-key	Anchors on Empty Scalars
+Q5MG	valid	flow whitespace	Tab at beginning of line followed by a flow mapping
+Q88A	valid	flow mapping sequence spec	Spec Example 7.23. Flow Content
+Q9WF	valid	1.3-err comment complex-key flow spec whitespace	Spec Example 6.12. Separation Spaces
+QF4Y	valid	flow mapping spec	Spec Example 7.19. Single Pair Flow Mappings
+QT73	valid	comment footer	Comment and document-end marker
+R52L	valid	flow mapping sequence	Nested flow mapping sequence and mappings
+RLU9	valid	indent sequence	Sequence Indent
+RR7F	valid	explicit-key mapping	Mixed Block Mapping (implicit to explicit)
+RTP8	valid	footer header spec	Spec Example 9.2. Document Markers
+RZP5	valid	1.3-mod anchor comment folded mapping	Various Trailing Comments [1.3]
+RZT7	valid	header literal mapping sequence spec	Spec Example 2.28. Log File
+S4JQ	valid	spec tag	Spec Example 6.28. Non-Specific Tags
+S4T7	valid	footer mapping	Document with footer
+S9E8	valid	explicit-key mapping sequence spec	Spec Example 5.3. Block Structure Indicators
+SBG9	valid	complex-key flow mapping sequence	Flow Sequence in Flow Mapping
+SKE5	valid	anchor indent sequence	Anchor before zero indented sequence
+SM9W-00	valid	mapping sequence	Single character streams
+SYW4	valid	comment scalar spec	Spec Example 2.2. Mapping Scalars to Scalars
+T26H	valid	1.3-mod comment literal scalar spec whitespace	Spec Example 8.8. Literal Content [1.3]
+U3C3	valid	header spec tag	Spec Example 6.16. “TAG” directive
+U3XV	valid	1.3-err anchor comment	Node and Mapping Key Anchors
+U9NS	valid	header spec	Spec Example 2.8. Play by Play Feed from a Game
+UDM2	valid	flow scalar	Plain URL in flow mapping
+UDR7	valid	flow mapping sequence spec	Spec Example 5.4. Flow Collection Indicators
+UGM3	valid	alias literal mapping sequence spec tag unknown-tag	Spec Example 2.27. Invoice
+UT92	valid	comment flow footer header spec	Spec Example 9.4. Explicit Documents
+V55R	valid	alias sequence	Aliases in Block Sequence
+V9D5	valid	complex-key explicit-key mapping spec	Spec Example 8.19. Compact Block Mappings
+VJP3-01	valid	flow indent	Flow collections over many lines
+W42U	valid	comment literal sequence spec	Spec Example 8.15. Block Sequence Entry Types
+W4TN	valid	1.3-err footer header spec	Spec Example 9.5. Directives Documents
+W5VH	valid	1.3-err alias	Allowed characters in alias
+WZ62	valid	flow scalar spec tag	Spec Example 7.2. Empty Content
+X38W	valid	alias complex-key flow	Aliases in Flow Objects
+X8DW	valid	comment explicit-key mapping	Explicit key and value seperated by comment
+XLQ9	valid	directive scalar	Multiline scalar that looks like a YAML directive
+XW4D	valid	1.3-err comment explicit-key folded	Various Trailing Comments
+Y2GN	valid	anchor	Anchor with colon in the middle
+YD5X	valid	sequence spec	Spec Example 2.5. Sequence of Sequences
+Z67P	valid	1.3-mod folded indent literal local-tag spec tag	Spec Example 8.21. Block Scalar Nodes [1.3]
+Z9M4	valid	header spec tag unknown-tag	Spec Example 6.22. Global Tag Prefix
+ZF4X	valid	flow mapping spec	Spec Example 2.6. Mapping of Mappings
+ZH7C	valid	anchor mapping	Anchors in Mapping
+ZK9H	valid	flow indent mapping sequence	Nested top level flow mapping
+ZWK4	valid	anchor explicit-key mapping	Key with anchor after missing explicit mapping value
+3HFZ	invalid	error footer	Invalid content after document end marker
+4H7K	invalid	error flow sequence	Flow sequence with invalid extra closing bracket
+4HVU	invalid	error indent sequence	Wrong indendation in Sequence
+4JVG	invalid	anchor error mapping	Scalar value with two anchors
+5TRB	invalid	double error header	Invalid document-start marker in doublequoted tring
+5U3A	invalid	error mapping sequence	Sequence on same Line as Mapping Key
+62EZ	invalid	error flow mapping	Invalid block mapping key on same line as previous key
+6JTT	invalid	error flow sequence	Flow sequence without closing bracket
+6S55	invalid	error mapping sequence	Invalid scalar at the end of sequence
+8XDJ	invalid	comment error scalar	Comment in plain multiline value
+9C9N	invalid	error flow indent sequence	Wrong indented flow sequence
+9CWY	invalid	error mapping sequence	Invalid scalar at the end of mapping
+9HCY	invalid	directive error footer tag unknown-tag	Need document footer before directives
+9JBA	invalid	comment error flow sequence	Invalid comment after end of flow sequence
+9KBC	invalid	error header mapping	Mapping starting at --- line
+9MAG	invalid	error flow sequence	Flow sequence with invalid comma at the beginning
+9MMA	invalid	directive error	Directive by itself with no document
+B63P	invalid	directive document error	Directive without document
+BD7L	invalid	error mapping sequence	Invalid mapping after sequence
+BF9H	invalid	comment error scalar	Trailing comment in multiline plain scalar
+C2SP	invalid	error flow mapping	Flow Mapping Key on two lines
+CML9	invalid	comment error flow	Missing comma in flow
+CTN5	invalid	error flow sequence	Flow sequence with invalid extra comma
+CVW2	invalid	comment error flow sequence	Invalid comment after comma
+CXX2	invalid	anchor error header mapping	Mapping with anchor on document start line
+DK4H	invalid	error flow mapping sequence	Implicit key followed by newline
+EB22	invalid	directive error footer	Missing document-end marker before directive
+G5U8	invalid	flow sequence	Plain dashes in flow sequence
+G9HC	invalid	anchor error sequence	Invalid anchor in zero indented sequence
+GDY7	invalid	comment error mapping	Comment that looks like a mapping key
+GT5M	invalid	anchor error sequence	Node anchor in sequence
+H7J7	invalid	anchor error indent tag	Node anchor not indented
+H7TQ	invalid	directive	Extra words on %YAML directive
+KS4U	invalid	error flow sequence	Invalid item after end of flow sequence
+LHL4	invalid	error tag	Invalid tag
+MUS6-00	invalid	directive	Directive variants
+MUS6-01	invalid	directive	Directive variants
+N782	invalid	edge error flow footer header	Invalid document markers in flow style
+P2EQ	invalid	error flow mapping sequence	Invalid sequene item on same line as previous item
+QLJ7	invalid	directive error tag	Tag shorthand used in documents but only defined in the first
+RHX7	invalid	directive error	YAML directive without document end marker
+RXY3	invalid	error footer single	Invalid document-end marker in single quoted string
+S98Z	invalid	comment error folded scalar whitespace	Block scalar with more spaces than first content line
+SF5V	invalid	directive error	Duplicate YAML directive
+SR86	invalid	alias error	Anchor plus Alias
+SU5Z	invalid	comment double error whitespace	Comment without whitespace after doublequoted scalar
+SU74	invalid	alias anchor error mapping	Anchor and alias as mapping key
+SY6V	invalid	anchor error sequence	Anchor before sequence entry on same line
+T833	invalid	error flow mapping	Flow mapping missing a separating comma
+TD5N	invalid	error scalar sequence	Invalid scalar after sequence
+U99R	invalid	error tag	Invalid comma in tag
+VJP3-00	invalid	flow indent	Flow collections over many lines
+X4QW	invalid	comment error folded whitespace	Comment without whitespace after block scalar indicator
+YJV2	invalid	flow sequence	Dash in flow sequence
+ZVH3	invalid	error indent sequence	Wrong indented sequence item
+ZXT5	invalid	error flow mapping sequence	Implicit key followed by newline and adjacent value

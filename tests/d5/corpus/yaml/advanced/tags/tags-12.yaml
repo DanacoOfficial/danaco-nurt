@@ -1,0 +1,33 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+%TAG !app! tag:example.com,2026:app/
+---
+# Tags on scalars and collections, variant 12.
+string_number: !!str 12
+string_bool: !!str true
+int_text: !!int "84"
+float: !!float 12
+nothing: !!null ''
+flag: !!bool yes
+when: !!timestamp 2026-04-12T10:00:00Z
+blob: !!binary Y2hhcmxpZS1wYXlsb2FkLTEyLTAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNw==
+blob_block: !!binary |
+  Y2hhcmxpZS1wYXlsb2FkLTEyLTAwMDAwMDAwMDAw
+  MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNw==
+local: !charlie value-12
+verbatim: !<tag:yaml.org,2002:str> verbatim-12
+tagged_map: !charlie {x: 12}
+tagged_seq: !!seq
+- one
+- two
+set: !!set
+  ? a12
+  ? b12
+omap: !!omap
+- first: 1
+- second: 2
+handle: !app!config {name: charlie}
+flow: [!!str 1, !charlie 2, !!int '3']
+empty_tagged: !charlie
+after_empty: done

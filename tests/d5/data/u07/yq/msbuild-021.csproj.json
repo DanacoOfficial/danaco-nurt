@@ -1,0 +1,1 @@
+{"Project":{"+@Sdk":"Microsoft.NET.Sdk","PropertyGroup":{"TargetFramework":"net7.0","Nullable":"enable","Version":"2.21.1","TreatWarningsAsErrors":{"+content":"true","+@Condition":"'$(Configuration)' == 'Release'"}},"ItemGroup":{"PackageReference":{"+@Include":"Package.N0","+@Version":"0.21.0"},"None":{"+@Update":"appsettings.json","+@CopyToOutputDirectory":"PreserveNewest"}}}}

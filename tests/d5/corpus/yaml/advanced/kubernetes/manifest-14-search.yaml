@@ -1,0 +1,74 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-search
+  labels: &labels
+    app.kubernetes.io/name: search
+    app.kubernetes.io/part-of: platform
+---
+# Deployment of the search component.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search
+  namespace: team-search
+  labels:
+    app.kubernetes.io/name: search
+    tier: "2"
+spec:
+  replicas: 5
+  selector:
+    matchLabels: {app: search}
+  template:
+    metadata:
+      labels: {app: search, version: v14}
+      annotations:
+        prometheus.io/scrape: "true"
+    spec:
+      containers:
+      - name: search
+        image: ghcr.io/example/search:2.14.0
+        args: ["--port=8080", "--log-format=json"]
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: MODE
+          value: production
+        - name: POD_IP
+          valueFrom:
+            fieldRef: {fieldPath: status.podIP}
+        resources:
+          limits: {cpu: "3", memory: 896Mi}
+          requests: &requests {cpu: 100m, memory: 64Mi}
+      tolerations: []
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search
+  namespace: team-search
+spec:
+  selector:
+    app: search
+  ports:
+  - port: 80
+    targetPort: http
+    protocol: TCP
+...
+---
+# Empty document follows the configuration map.
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: search-config, namespace: team-search}
+data:
+  settings.yaml: |
+    level: debug
+    targets:
+      - stdout
+---
+...

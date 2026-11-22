@@ -1,0 +1,59 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+---
+# Playbook for the db tier, revision 31.
+- name: Configure db hosts
+  hosts: db_servers
+  become: true
+  gather_facts: false
+  vars:
+    common_packages: &common_packages
+      - postgresql
+      - git   # required by the health check
+    db_port: 8031
+    db_user: "svc-db"
+    retry_policy: &retry {retries: 2, delay: 62}
+  pre_tasks:
+    - name: Refresh package cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+  tasks:
+    # Packages first, configuration second.
+    - name: Install packages
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: present
+      loop: *common_packages
+      <<: *retry
+    - name: Render configuration
+      ansible.builtin.template:
+        src: templates/db.conf.j2
+        dest: "/etc/db/db.conf"
+        mode: "0644"
+      notify:
+        - Restart db
+      tags: [config, db]
+    - name: Guarded block
+      block:
+        - name: Start service
+          ansible.builtin.service: {name: db, state: started, enabled: true}
+      rescue:
+        - ansible.builtin.debug:
+            msg: "start of db failed"
+      when:
+        - ansible_os_family == "Debian"
+        - db_port | int > 1024
+  handlers:
+    - name: Restart db
+      ansible.builtin.service:
+        name: db
+        state: restarted
+      listen: "restart db"
+...
+---
+# Second play: verification only.
+- hosts: localhost
+  connection: local
+  tasks: []

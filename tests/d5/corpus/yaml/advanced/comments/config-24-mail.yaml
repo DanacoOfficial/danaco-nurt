@@ -1,0 +1,52 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Configuration of the mail subsystem.
+#
+# Every key below is documented; values are defaults.
+
+--- # document marker with a trailing comment
+# Section: connection
+mail:
+  # Host name or address.
+  host: mail.internal   # resolved by the service mesh
+  port: 5024  #no space after the hash
+  url: "http://mail.internal/#fragment"  # the hash inside quotes is not a comment
+  password: 'p#ss24'
+
+  # Timeouts in seconds.
+  timeouts:
+    connect: 4
+    # read timeout applies per request
+    read: 72
+    # trailing comment of the timeouts map
+
+  # Replicas, in priority order.
+  replicas:
+  # first replica is the primary
+  - primary.mail.internal
+  - secondary.mail.internal   # same zone
+
+  # a blank line separates this comment from the item
+  - tertiary.mail.internal
+  # comment after the last item
+  flags: [  # flow sequence over several lines
+    alpha,  # first
+    beta,
+    # standalone comment inside a flow sequence
+    gamma
+  ]
+  limits: {
+    max: 2400,  # upper bound
+    min: 1
+  }
+#   comment at column zero inside the mail map
+  enabled: true
+
+# Section: observability
+metrics:
+  enabled: true  # toggled per environment
+  labels:
+  - service=mail      # aligned
+  - version=24      # aligned
+# End of file comment.

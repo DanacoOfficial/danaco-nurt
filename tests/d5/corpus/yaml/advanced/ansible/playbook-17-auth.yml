@@ -1,0 +1,53 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+---
+# Playbook for the auth tier, revision 17.
+- name: Configure auth hosts
+  hosts: auth_servers
+  become: true
+  gather_facts: false
+  vars:
+    common_packages: &common_packages
+      - chrony
+      - nginx   # required by the health check
+    auth_port: 8017
+    auth_user: "svc-auth"
+    retry_policy: &retry {retries: 3, delay: 34}
+  pre_tasks:
+    - name: Refresh package cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+  tasks:
+    # Packages first, configuration second.
+    - name: Install packages
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: present
+      loop: *common_packages
+      <<: *retry
+    - name: Render configuration
+      ansible.builtin.template:
+        src: templates/auth.conf.j2
+        dest: "/etc/auth/auth.conf"
+        mode: "0644"
+      notify:
+        - Restart auth
+      tags: [config, auth]
+    - name: Create users
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        groups: "{{ item.groups | join(',') }}"
+      loop:
+        - {name: alice, groups: [adm, auth]}
+        - {name: bob, groups: [auth]}
+        - name: carol
+          groups:
+            - auth
+  handlers:
+    - name: Restart auth
+      ansible.builtin.service:
+        name: auth
+        state: restarted
+      listen: "restart auth"

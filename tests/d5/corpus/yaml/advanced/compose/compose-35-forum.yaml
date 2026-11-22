@@ -1,0 +1,64 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+version: "3.5"
+# Compose project "forum"; shared settings live in x- extension fields.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "35m"
+    max-file: "3"
+
+x-defaults: &defaults
+  restart: unless-stopped
+  logging: *logging
+  networks:
+    - backend
+
+x-env: &env
+  TZ: UTC
+  LOG_LEVEL: info
+  FEATURE_FLAG: "yes"   # quoted: plain yes is a boolean in YAML 1.1
+
+services:
+  app:
+    <<: *defaults
+    image: registry.example.com/forum/app:1.35
+    environment:
+      <<: *env
+      DATABASE_URL: postgres://db:5432/forum
+    ports:
+      - "8035:8080"
+      - "127.0.0.1:9035:9090"  # metrics, loopback only
+    depends_on:
+      - db
+      - cache
+  worker:
+    <<: *defaults
+    image: registry.example.com/forum/app:1.35
+    command: ["worker", "--concurrency", "4"]
+    restart: on-failure   # overrides the merged value
+    environment:
+      - TZ=UTC
+      - QUEUE=forum-jobs
+  db:
+    <<: *defaults
+    image: postgres:16
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forum"]
+      interval: 10s
+      retries: 2
+  cache:
+    <<: *defaults
+    image: redis:7
+    logging:
+      <<: *logging
+      driver: local
+
+volumes:
+  db-data: {}
+networks:
+  backend:
+    driver: bridge

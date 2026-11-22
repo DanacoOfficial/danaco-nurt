@@ -1,0 +1,12 @@
+{
+  "decimal_trailing_zero": 1.10,
+  "huge_exponent": 1e400,
+  "upper_exponent": 1E+2,
+  "negative_zero": -0,
+  "beyond_i64": 18446744073709551616,
+  "negative_beyond_i64": -9223372036854775809,
+  "max_i64": 9223372036854775807,
+  "long_fraction": 0.30000000000000004,
+  "tiny": 5e-324,
+  "plain": 42
+}

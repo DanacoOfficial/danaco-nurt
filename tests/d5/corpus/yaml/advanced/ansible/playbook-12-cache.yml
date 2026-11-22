@@ -1,0 +1,43 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+---
+# Playbook for the cache tier, revision 12.
+- name: Configure cache hosts
+  hosts: cache_servers
+  become: yes
+  gather_facts: false
+  vars:  # play variables
+    common_packages: &common_packages
+    - redis
+    - curl   # required by the health check
+    cache_port: 8012
+    cache_user: "svc-cache"
+    retry_policy: &retry {retries: 3, delay: 24}
+  pre_tasks:
+  - name: Refresh package cache
+    ansible.builtin.apt:
+      update_cache: true
+      cache_valid_time: 3600
+  tasks:
+  # Packages first, configuration second.
+  - name: Install packages
+    ansible.builtin.package:
+      name: "{{ item }}"
+      state: present
+    loop: *common_packages
+    <<: *retry
+  - name: Render configuration
+    ansible.builtin.template:
+      src: templates/cache.conf.j2
+      dest: "/etc/cache/cache.conf"
+      mode: "0644"
+    notify:
+    - Restart cache
+    tags: [config, cache]
+  handlers:
+  - name: Restart cache
+    ansible.builtin.service:
+      name: cache
+      state: restarted
+    listen: "restart cache"

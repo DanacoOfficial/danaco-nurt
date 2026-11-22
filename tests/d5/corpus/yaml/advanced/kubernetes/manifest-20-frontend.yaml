@@ -1,0 +1,61 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-frontend
+  labels: &labels
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: platform
+---
+# Deployment of the frontend component.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: team-frontend
+  labels:
+    app.kubernetes.io/name: frontend
+    tier: "2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: frontend}
+  template:
+    metadata:
+      labels: {app: frontend, version: v20}
+      annotations:
+        prometheus.io/scrape: "true"
+    spec:
+      containers:
+      - name: frontend
+        image: ghcr.io/example/frontend:2.20.0
+        args: ["--port=8080", "--log-format=json"]
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: MODE
+          value: production
+        - name: POD_IP
+          valueFrom:
+            fieldRef: {fieldPath: status.podIP}
+        resources:
+          limits: {cpu: "1", memory: 1280Mi}
+          requests: &requests {cpu: 100m, memory: 64Mi}
+      tolerations: []
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: team-frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+  - port: 80
+    targetPort: http
+    protocol: TCP

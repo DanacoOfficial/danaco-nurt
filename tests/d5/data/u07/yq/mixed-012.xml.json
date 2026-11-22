@@ -1,0 +1,1 @@
+{"doc":{"para":[{"+content":["First","then","and tail."],"b":"bold","i":"italic 12"},["Text with","comment split 12."],{"+content":["A","B","C"],"br":[null,null]}],"note":"Plain & simple AB 12","+p_render":"mode=\"fast\" level=\"12\"","code":{"+content":"keep   spaces","+@xml:space":"preserve"}}}

@@ -1,0 +1,53 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+---
+# Playbook for the worker tier, revision 14.
+- name: Configure worker hosts
+  hosts: worker_servers
+  become: true
+  gather_facts: false
+  vars:  # play variables
+    common_packages: &common_packages
+    - git
+    - chrony   # required by the health check
+    worker_port: 8014
+    worker_user: "svc-worker"
+    retry_policy: &retry {retries: 5, delay: 28}
+  pre_tasks:
+  - name: Refresh package cache
+    ansible.builtin.apt:
+      update_cache: true
+      cache_valid_time: 3600
+  tasks:
+  # Packages first, configuration second.
+  - name: Install packages
+    ansible.builtin.package:
+      name: "{{ item }}"
+      state: present
+    loop: *common_packages
+    <<: *retry
+  - name: Render configuration
+    ansible.builtin.template:
+      src: templates/worker.conf.j2
+      dest: "/etc/worker/worker.conf"
+      mode: "0644"
+    notify:
+    - Restart worker
+    tags: [config, worker]
+  - name: Create users
+    ansible.builtin.user:
+      name: "{{ item.name }}"
+      groups: "{{ item.groups | join(',') }}"
+    loop:
+    - {name: alice, groups: [adm, worker]}
+    - {name: bob, groups: [worker]}
+    - name: carol
+      groups:
+      - worker
+  handlers:
+  - name: Restart worker
+    ansible.builtin.service:
+      name: worker
+      state: restarted
+    listen: "restart worker"

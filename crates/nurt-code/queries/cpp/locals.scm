@@ -1,0 +1,28 @@
+[
+  (translation_unit)
+  (namespace_definition)
+  (class_specifier)
+  (function_definition)
+  (lambda_expression)
+  (compound_statement)
+  (for_statement)
+  (for_range_loop)
+  (while_statement)
+  (if_statement)
+] @local.scope
+
+(parameter_declaration declarator: (identifier) @local.definition)
+(parameter_declaration declarator: (pointer_declarator declarator: (identifier) @local.definition))
+(parameter_declaration declarator: (reference_declarator (identifier) @local.definition))
+(optional_parameter_declaration declarator: (identifier) @local.definition)
+(declaration declarator: (identifier) @local.definition)
+(declaration declarator: (pointer_declarator declarator: (identifier) @local.definition))
+(declaration declarator: (reference_declarator (identifier) @local.definition))
+(declaration declarator: (init_declarator declarator: (identifier) @local.definition))
+(declaration declarator: (init_declarator declarator: (pointer_declarator declarator: (identifier) @local.definition)))
+(declaration declarator: (init_declarator declarator: (reference_declarator (identifier) @local.definition)))
+(for_range_loop declarator: (identifier) @local.definition)
+(for_range_loop declarator: (reference_declarator (identifier) @local.definition))
+
+(using_declaration (identifier) @local.import)
+(using_declaration (qualified_identifier name: (identifier) @local.import))

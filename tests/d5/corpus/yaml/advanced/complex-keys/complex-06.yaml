@@ -1,0 +1,20 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Explicit and complex keys, variant 6.
+? simple-explicit-6
+: value 6
+? [a6, b6]
+: sequence key
+? {x: 6, y: 12}
+: mapping key
+? |
+  block key line 6
+: block key value
+? explicit-without-value-6
+plain: after explicit keys
+nested:
+  ? - p6
+    - q6
+  : list key under a map   # comment
+flow: {[1, 6]: pair, ? q6 : explicit in flow}

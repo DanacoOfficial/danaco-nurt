@@ -1,0 +1,43 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+---
+# Playbook for the metrics tier, revision 9.
+- name: Configure metrics hosts
+  hosts: metrics_servers
+  become: true
+  gather_facts: false
+  vars:
+    common_packages: &common_packages
+      - jq
+      - redis   # required by the health check
+    metrics_port: 8009
+    metrics_user: "svc-metrics"
+    retry_policy: &retry {retries: 5, delay: 18}
+  pre_tasks:
+    - name: Refresh package cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+  tasks:
+    # Packages first, configuration second.
+    - name: Install packages
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: present
+      loop: *common_packages
+      <<: *retry
+    - name: Render configuration
+      ansible.builtin.template:
+        src: templates/metrics.conf.j2
+        dest: "/etc/metrics/metrics.conf"
+        mode: "0644"
+      notify:
+        - Restart metrics
+      tags: [config, metrics]
+  handlers:
+    - name: Restart metrics
+      ansible.builtin.service:
+        name: metrics
+        state: restarted
+      listen: "restart metrics"

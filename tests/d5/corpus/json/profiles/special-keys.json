@@ -1,0 +1,7 @@
+{
+  "żółw": "raw key",
+  "\u017c\u00f3\u0142w2": "escaped key",
+  "": "empty key",
+  "a.b": "dot in key",
+  "[0]": "brackets in key"
+}

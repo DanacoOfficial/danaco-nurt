@@ -1,0 +1,32 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+%TAG !app! tag:example.com,2026:app/
+---
+# Tags on scalars and collections, variant 4.
+string_number: !!str 4
+string_bool: !!str true
+int_text: !!int "28"
+float: !!float 4
+nothing: !!null ''
+flag: !!bool yes
+when: !!timestamp 2026-05-14T10:00:00Z
+blob: !!binary ZWNoby1wYXlsb2FkLTQtMDAwMDAwMDAwMDA3
+blob_block: !!binary |
+  ZWNoby1wYXlsb2FkLTQtMDAwMDAwMDAwMDA3
+local: !echo value-4
+verbatim: !<tag:yaml.org,2002:str> verbatim-4
+tagged_map: !echo {x: 4}
+tagged_seq: !!seq
+- one
+- two
+set: !!set
+  ? a4
+  ? b4
+omap: !!omap
+- first: 1
+- second: 2
+handle: !app!config {name: echo}
+flow: [!!str 1, !echo 2, !!int '3']
+empty_tagged: !echo
+after_empty: done

@@ -1,0 +1,43 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Stack 31 provisioning a Queue with
+  parameters, conditions and outputs.
+# Parameters are shared by every resource below.
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues: [staging, production]
+  Prefix:
+    Type: String
+    Default: app31
+Conditions:
+  IsProduction: !Equals [!Ref Environment, production]
+Mappings:
+  RegionMap:
+    eu-west-1: {Ami: ami-0a1031}
+    us-east-1: {Ami: ami-0b2031}
+Resources:
+  MainQueue:
+    Type: AWS::Service::Queue
+    Properties:
+      Name: !Sub "${Prefix}-queue-${AWS::Region}"
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Stack
+          Value: !Ref AWS::StackName  # pseudo parameter
+      Arn: !GetAtt [HelperQueue, Arn]
+      Image: !FindInMap [RegionMap, !Ref "AWS::Region", Ami]
+  HelperQueue:
+    Type: AWS::Service::Helper
+    DependsOn: [MainQueue]
+    Properties: {}
+Outputs:
+  QueueArn:
+    Value: !GetAtt MainQueue.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueArn'

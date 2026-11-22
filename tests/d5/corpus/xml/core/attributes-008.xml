@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<config
+  name="c8"
+  version="8.0"
+  enabled="true">
+  <server
+    host="localhost"
+    port="8008"
+    path="/a&amp;b"
+  />
+  <client timeout="30"
+          retries="3"/>
+  <pool   min = "1"   max = "8" />
+</config>

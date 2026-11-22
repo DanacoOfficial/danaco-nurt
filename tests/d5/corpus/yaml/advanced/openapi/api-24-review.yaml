@@ -1,0 +1,93 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+openapi: 3.0.0
+info:
+  title: Review service
+  version: "1.24.0"   # semantic version, quoted
+  description: |
+    Management of reviews.
+
+    Responses share YAML anchors defined under x-templates.
+x-templates:
+  error-response: &error-response
+    description: Error
+    content:
+      application/json:
+        schema: {$ref: '#/components/schemas/Error'}
+  paging: &paging
+  - &limit
+    name: limit
+    in: query
+    schema: {type: integer, minimum: 1, maximum: 240}
+  - name: cursor
+    in: query
+    schema: {type: string}
+  auth: &auth
+  - bearerAuth: []
+servers:
+- url: https://api.example.com/v1
+  description: Production
+- url: http://localhost:8024
+paths:
+  /reviews:
+    get:
+      operationId: listReviews
+      security: *auth
+      parameters: *paging
+      responses:
+        "200":
+          description: Page of reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Review'}
+        default: *error-response
+    post:
+      operationId: createReview
+      security: *auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Review'}
+      responses:
+        "201": {description: Created}
+        "400":
+          <<: *error-response
+          description: Invalid review
+        default: *error-response
+  /reviews/{id}:
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    - *limit
+    delete:
+      responses:
+        "204": {description: Deleted}
+        default: *error-response
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}
+  schemas:
+    base: &base-props
+      id: {type: string, format: uuid, readOnly: true}
+      created: {type: string, format: date-time}
+    Review:
+      type: object
+      required: [id, name]
+      properties:
+        <<: [*base-props]
+        name: {type: string, maxLength: 192}
+        tags:
+          type: array
+          items: {type: string}
+          example: [alpha, beta]
+    Error:
+      type: object
+      properties:
+        code: {type: integer}
+        message: {type: string}

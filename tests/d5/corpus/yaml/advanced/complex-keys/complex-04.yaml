@@ -1,0 +1,19 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Explicit and complex keys, variant 4.
+? simple-explicit-4
+: value 4
+? [a4, b4]
+: sequence key
+? {x: 4, y: 8}
+: mapping key
+? |
+  block key line 4
+: block key value
+? explicit-without-value-4
+plain: after explicit keys
+nested:
+  ? - p4
+    - q4
+  : list key under a map   # comment

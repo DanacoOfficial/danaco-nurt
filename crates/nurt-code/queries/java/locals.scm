@@ -1,0 +1,25 @@
+[
+  (program)
+  (class_body)
+  (interface_body)
+  (enum_body)
+  (method_declaration)
+  (constructor_declaration)
+  (lambda_expression)
+  (block)
+  (for_statement)
+  (enhanced_for_statement)
+  (catch_clause)
+  (try_with_resources_statement)
+] @local.scope
+
+(formal_parameter name: (identifier) @local.definition)
+(spread_parameter (variable_declarator name: (identifier) @local.definition))
+(local_variable_declaration declarator: (variable_declarator name: (identifier) @local.definition))
+(enhanced_for_statement name: (identifier) @local.definition)
+(catch_formal_parameter name: (identifier) @local.definition)
+(lambda_expression parameters: (identifier) @local.definition)
+(inferred_parameters (identifier) @local.definition)
+(resource name: (identifier) @local.definition)
+
+(import_declaration (scoped_identifier name: (identifier) @local.import))

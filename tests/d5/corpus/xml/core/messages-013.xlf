@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+    <file source-language="en" target-language="pl" datatype="plaintext" original="messages13">
+        <body>
+            <trans-unit id="msg.0" resname="key0">
+                <source>Hello 0 &lt;name&gt;</source>
+                <target state="translated">Witaj 0 &lt;imię&gt;</target>
+                <note>context</note>
+            </trans-unit>
+            <trans-unit id="msg.1" resname="key1">
+                <source>Hello 1 &lt;name&gt;</source>
+                <target state="translated">Witaj 1 &lt;imię&gt;</target>
+                <note>context</note>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

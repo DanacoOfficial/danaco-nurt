@@ -1,0 +1,25 @@
+[
+  (compilation_unit)
+  (class_declaration)
+  (struct_declaration)
+  (record_declaration)
+  (interface_declaration)
+  (method_declaration)
+  (constructor_declaration)
+  (local_function_statement)
+  (lambda_expression)
+  (block)
+  (for_statement)
+  (foreach_statement)
+  (catch_clause)
+  (using_statement)
+] @local.scope
+
+(parameter name: (identifier) @local.definition)
+(variable_declarator name: (identifier) @local.definition)
+(foreach_statement left: (identifier) @local.definition)
+(catch_declaration name: (identifier) @local.definition)
+
+(using_directive name: (identifier) @local.import)
+(using_directive (qualified_name name: (identifier) @local.import))
+(using_directive (identifier) @local.import)

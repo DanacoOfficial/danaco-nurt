@@ -1,0 +1,233 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//! Well-formedness conformance of XML reading.
+//!
+//! The repository suite `tests/d5/data/u08/conformance.toml` runs by default.
+//! The W3C XML Conformance Test Suite is not redistributable; the ignored
+//! test `w3c_suite_classifies_well_formedness` downloads it into a temporary
+//! directory, checks its SHA-256 digest and applies the same criteria. It
+//! needs network access and the programs `curl`, `sha256sum` and `tar`.
+
+mod u08_support;
+
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+use nurt_contracts::error::{ErrorCode, Result};
+use nurt_doc::formats::xml::XmlTree;
+use nurt_doc::formats::xml::encoding::parse_document;
+use quick_xml::events::Event;
+use u08_support::Codec;
+
+/// Minimum number of cases of the repository suite.
+const MIN_CASES: usize = 200;
+
+const W3C_ARCHIVE_URL: &str = "https://www.w3.org/XML/Test/xmlts20130923.tar.gz";
+const W3C_ARCHIVE_SHA256: &str = "9b61db9f5dbffa545f4b8d78422167083a8568c59bd1129f94138f936cf6fc1f";
+
+/// Test catalogs of XML 1.0 in the W3C archive. The Japanese collection is
+/// left out because it uses encodings that are not ASCII-compatible.
+const W3C_CATALOGS: [&str; 13] = [
+    "xmltest/xmltest.xml",
+    "sun/sun-valid.xml",
+    "sun/sun-invalid.xml",
+    "sun/sun-not-wf.xml",
+    "oasis/oasis.xml",
+    "ibm/ibm_oasis_invalid.xml",
+    "ibm/ibm_oasis_not-wf.xml",
+    "ibm/ibm_oasis_valid.xml",
+    "eduni/errata-2e/errata2e.xml",
+    "eduni/errata-3e/errata3e.xml",
+    "eduni/errata-4e/errata4e.xml",
+    "eduni/misc/ht-bh.xml",
+    "eduni/namespaces/1.0/rmt-ns10.xml",
+];
+
+/// Reads a document the way the product does: decoding, parsing and
+/// installing the entities of the document type declaration, then reading
+/// every value. A value that cannot be read without external entities does
+/// not make the document malformed.
+fn read(bytes: &[u8]) -> Result<()> {
+    let (_, tree) = parse_document(bytes, Some(&Codec))?;
+    match tree.to_value() {
+        Err(error) if error.code() == ErrorCode::UnsupportedConstruct => Ok(()),
+        other => other.map(drop),
+    }
+}
+
+struct Case {
+    id: String,
+    wf: bool,
+    xml: String,
+}
+
+fn repository_cases() -> Vec<Case> {
+    let path = u08_support::data_dir().join("conformance.toml");
+    let text = std::fs::read_to_string(&path).unwrap();
+    let document: toml_edit::DocumentMut = text.parse().unwrap();
+    let cases = document["case"].as_array_of_tables().unwrap();
+    cases
+        .iter()
+        .map(|case| Case {
+            id: case["id"].as_str().unwrap().to_owned(),
+            wf: case["wf"].as_bool().unwrap(),
+            xml: case["xml"].as_str().unwrap().to_owned(),
+        })
+        .collect()
+}
+
+/// Describes a misclassified case, or returns `None` for a correct one.
+fn misclassified(id: &str, wf: bool, result: &Result<()>) -> Option<String> {
+    match (wf, result) {
+        (true, Ok(())) => None,
+        (false, Err(error)) if error.code() == ErrorCode::DocParse => None,
+        (true, Err(error)) => Some(format!("{id}: well-formed document rejected: {error}")),
+        (false, Ok(())) => Some(format!("{id}: malformed document accepted")),
+        (false, Err(error)) => Some(format!("{id}: rejected with {error} instead of E_DOC_PARSE")),
+    }
+}
+
+#[test]
+fn repository_suite_has_unique_identifiers_and_both_classes() {
+    let cases = repository_cases();
+    assert!(cases.len() >= MIN_CASES, "{} cases", cases.len());
+    let mut ids: Vec<&str> = cases.iter().map(|case| case.id.as_str()).collect();
+    ids.sort_unstable();
+    ids.dedup();
+    assert_eq!(ids.len(), cases.len());
+    assert!(cases.iter().any(|case| case.wf));
+    assert!(cases.iter().any(|case| !case.wf));
+    for case in &cases {
+        assert_eq!(case.id.starts_with("wf-"), case.wf, "{}", case.id);
+    }
+}
+
+#[test]
+fn repository_suite_accepts_well_formed_and_rejects_malformed_documents() {
+    let failures: Vec<String> = repository_cases()
+        .iter()
+        .filter_map(|case| misclassified(&case.id, case.wf, &read(case.xml.as_bytes())))
+        .collect();
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn malformed_documents_are_rejected_with_a_location() {
+    for case in repository_cases().iter().filter(|case| !case.wf) {
+        if let Err(error) = read(case.xml.as_bytes()) {
+            let location = error.data().location.as_ref();
+            assert!(
+                location.is_some_and(|location| location.byte.is_some()),
+                "{}: {error}",
+                case.id
+            );
+        }
+    }
+}
+
+struct W3cTest {
+    id: String,
+    kind: String,
+    path: PathBuf,
+}
+
+/// Selects the tests that apply to a processor that reads no external
+/// entity: XML 1.0, fifth edition, namespaces, no external entities.
+fn applies(attributes: &[(String, String)]) -> bool {
+    let get = |name: &str| {
+        attributes
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value.as_str())
+    };
+    get("ENTITIES").is_none_or(|entities| entities == "none")
+        && get("VERSION").is_none_or(|version| version.split(' ').any(|v| v == "1.0"))
+        && get("EDITION").is_none_or(|edition| edition.split(' ').any(|e| e == "5"))
+        && get("NAMESPACE") != Some("no")
+        && matches!(get("TYPE"), Some("valid" | "invalid" | "not-wf"))
+}
+
+fn catalog_tests(root: &Path, catalog: &str) -> Vec<W3cTest> {
+    let path = root.join(catalog);
+    let base = path.parent().unwrap().to_path_buf();
+    let text = std::fs::read_to_string(&path).unwrap();
+    let mut reader = quick_xml::Reader::from_str(&text);
+    let mut tests = Vec::new();
+    loop {
+        match reader.read_event().unwrap() {
+            Event::Start(tag) | Event::Empty(tag) if tag.name().as_ref() == b"TEST" => {
+                let attributes: Vec<(String, String)> = tag
+                    .attributes()
+                    .map(|attribute| {
+                        let attribute = attribute.unwrap();
+                        (
+                            String::from_utf8(attribute.key.as_ref().to_vec()).unwrap(),
+                            attribute.unescape_value().unwrap().into_owned(),
+                        )
+                    })
+                    .collect();
+                if applies(&attributes) {
+                    let get = |name: &str| {
+                        attributes
+                            .iter()
+                            .find(|(key, _)| key == name)
+                            .map(|(_, value)| value.clone())
+                            .unwrap()
+                    };
+                    tests.push(W3cTest {
+                        id: get("ID"),
+                        kind: get("TYPE"),
+                        path: base.join(get("URI")),
+                    });
+                }
+            }
+            Event::Eof => return tests,
+            _ => {}
+        }
+    }
+}
+
+fn run(program: &str, args: &[&str]) -> String {
+    let output = Command::new(program).args(args).output().unwrap();
+    assert!(output.status.success(), "{program} failed: {output:?}");
+    String::from_utf8(output.stdout).unwrap()
+}
+
+#[test]
+#[ignore = "downloads the W3C XML Conformance Test Suite; needs network access, curl, sha256sum and tar"]
+fn w3c_suite_classifies_well_formedness() {
+    let dir = tempfile::tempdir().unwrap();
+    let archive = dir.path().join("xmlts.tar.gz");
+    let archive_path = archive.to_str().unwrap();
+    run("curl", &["-sSfL", "-o", archive_path, W3C_ARCHIVE_URL]);
+    let digest = run("sha256sum", &[archive_path]);
+    assert!(digest.starts_with(W3C_ARCHIVE_SHA256), "unexpected digest {digest}");
+    run("tar", &["-xzf", archive_path, "-C", dir.path().to_str().unwrap()]);
+    let root = dir.path().join("xmlconf");
+    let mut failures = Vec::new();
+    let mut count = 0;
+    for catalog in W3C_CATALOGS {
+        for test in catalog_tests(&root, catalog) {
+            count += 1;
+            let bytes = std::fs::read(&test.path).unwrap();
+            let result = read(&bytes);
+            if let Some(failure) = misclassified(&test.id, test.kind != "not-wf", &result) {
+                failures.push(failure);
+            }
+        }
+    }
+    u08_support::write_summary(
+        "u08-w3c-conformance.json",
+        &serde_json::json!({ "tests": count, "failures": failures }),
+    );
+    assert!(count > 0);
+    assert!(failures.is_empty(), "{} of {count} tests:\n{}", failures.len(), failures.join("\n"));
+}
+
+#[test]
+fn reading_is_independent_of_the_xml_tree_entry_point() {
+    let text = "<a>&amp;</a>";
+    assert!(XmlTree::parse(text).is_ok());
+    assert!(read(text.as_bytes()).is_ok());
+}

@@ -1,0 +1,1 @@
+{"scripts":{"script":{"+content":["if (x < 5 && y > 2) { print(\"]]",">\"); }"],"+@name":"s5"},"template":"<div class=\"t5\">{{value}}</div>","sql":"SELECT * FROM t5 WHERE a <> b","empty":null}}

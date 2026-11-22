@@ -1,0 +1,5 @@
+{
+  "duplicate": 1,
+  // the later member wins
+  "duplicate": 2
+}

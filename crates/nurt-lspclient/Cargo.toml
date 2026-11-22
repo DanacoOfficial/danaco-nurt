@@ -1,7 +1,6 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
-
 [package]
 name = "nurt-lspclient"
 description = "Language Server Protocol client for Danaco Nurt."
@@ -19,6 +18,15 @@ workspace = true
 
 [dependencies]
 nurt-contracts = { workspace = true }
+nurt-code = { workspace = true }
+crossbeam-channel = { workspace = true }
 lsp-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+which = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

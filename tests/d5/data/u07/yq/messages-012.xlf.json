@@ -1,0 +1,1 @@
+{"xliff":{"+@xmlns":"urn:oasis:names:tc:xliff:document:1.2","+@version":"1.2","file":{"+@source-language":"en","+@target-language":"pl","+@datatype":"plaintext","+@original":"messages12","body":{"trans-unit":{"+@id":"msg.0","+@resname":"key0","source":"Hello 0 <name>","target":{"+content":"Witaj 0 <imię>","+@state":"translated"},"note":"context"}}}}}

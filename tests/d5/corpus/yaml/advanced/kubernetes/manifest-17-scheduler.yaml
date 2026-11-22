@@ -1,0 +1,60 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-scheduler
+  labels: &labels
+    app.kubernetes.io/name: scheduler
+    app.kubernetes.io/part-of: platform
+---
+# Deployment of the scheduler component.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler
+  namespace: team-scheduler
+  labels:
+    app.kubernetes.io/name: scheduler
+    tier: "2"
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: scheduler}
+  template:
+    metadata:
+      labels: {app: scheduler, version: v17}
+      annotations:
+        prometheus.io/scrape: "true"
+    spec:
+      containers:
+        - name: scheduler
+          image: ghcr.io/example/scheduler:2.17.0
+          args: ["--port=8080", "--log-format=json"]
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: MODE
+              value: production
+            - name: POD_IP
+              valueFrom:
+                fieldRef: {fieldPath: status.podIP}
+          resources:
+            limits: {cpu: "2", memory: 1088Mi}
+            requests: &requests {cpu: 100m, memory: 64Mi}
+      tolerations: []
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scheduler
+  namespace: team-scheduler
+spec:
+  selector:
+    app: scheduler
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP

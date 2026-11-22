@@ -1,0 +1,5 @@
+# Test data with fixed bytes (encodings, line endings, byte order marks) is kept
+# exactly as committed.
+corpus/** -text
+data/** -text
+third_party/** -text

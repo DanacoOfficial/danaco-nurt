@@ -1,0 +1,93 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+openapi: 3.0.1
+info:
+  title: Order service
+  version: "1.21.0"   # semantic version, quoted
+  description: |
+    Management of orders.
+
+    Responses share YAML anchors defined under x-templates.
+x-templates:
+  error-response: &error-response
+    description: Error
+    content:
+      application/json:
+        schema: {$ref: '#/components/schemas/Error'}
+  paging: &paging
+    - &limit
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 210}
+    - name: cursor
+      in: query
+      schema: {type: string}
+  auth: &auth
+    - bearerAuth: []
+servers:
+  - url: https://api.example.com/v1
+    description: Production
+  - url: http://localhost:8021
+paths:
+  /orders:
+    get:
+      operationId: listOrders
+      security: *auth
+      parameters: *paging
+      responses:
+        "200":
+          description: Page of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Order'}
+        default: *error-response
+    post:
+      operationId: createOrder
+      security: *auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Order'}
+      responses:
+        "201": {description: Created}
+        "400":
+          <<: *error-response
+          description: Invalid order
+        default: *error-response
+  /orders/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - *limit
+    delete:
+      responses:
+        "204": {description: Deleted}
+        default: *error-response
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}
+  schemas:
+    base: &base-props
+      id: {type: string, format: uuid, readOnly: true}
+      created: {type: string, format: date-time}
+    Order:
+      type: object
+      required: [id, name]
+      properties:
+        <<: [*base-props]
+        name: {type: string, maxLength: 168}
+        tags:
+          type: array
+          items: {type: string}
+          example: [alpha, beta]
+    Error:
+      type: object
+      properties:
+        code: {type: integer}
+        message: {type: string}

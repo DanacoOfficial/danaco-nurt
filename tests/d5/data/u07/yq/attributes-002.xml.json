@@ -1,0 +1,1 @@
+{"+p_xml":"version=\"1.0\" encoding=\"UTF-8\"","config":{"+@name":"c2","+@version":"2.0","+@enabled":"true","server":{"+@host":"localhost","+@port":"8002","+@path":"/a&b"},"client":{"+@timeout":"30","+@retries":"2"},"pool":{"+@min":"1","+@max":"2"}}}

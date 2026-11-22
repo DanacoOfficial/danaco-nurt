@@ -1,0 +1,48 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Stack 13 provisioning a Table with
+  parameters, conditions and outputs.
+# Parameters are shared by every resource below.
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues: [staging, production]
+  Prefix:
+    Type: String
+    Default: app13
+Conditions:
+  IsProduction: !Equals [!Ref Environment, production]
+Mappings:
+  RegionMap:
+    eu-west-1: {Ami: ami-0a1013}
+    us-east-1: {Ami: ami-0b2013}
+Resources:
+  MainTable:
+    Type: AWS::Service::Table
+    Condition: IsProduction
+    Properties:
+      Name: !Sub "${Prefix}-table-${AWS::Region}"
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Stack
+          Value: !Ref AWS::StackName  # pseudo parameter
+      Joined: !Join
+        - ":"
+        - - !Ref Prefix
+          - !Ref Environment
+          - fixed
+      Imported: !ImportValue SharedVpcId
+  HelperTable:
+    Type: AWS::Service::Helper
+    DependsOn: [MainTable]
+    Properties: {}
+Outputs:
+  TableArn:
+    Value: !GetAtt MainTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-TableArn'

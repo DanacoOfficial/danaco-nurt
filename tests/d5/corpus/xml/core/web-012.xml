@@ -1,0 +1,20 @@
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee" version="6.0">
+  <display-name>App 12</display-name>
+  <context-param>
+    <param-name>env</param-name>
+    <param-value>stage-12</param-value>
+  </context-param>
+  <servlet>
+    <servlet-name>main</servlet-name>
+    <servlet-class>com.example.MainServlet</servlet-class>
+    <load-on-startup>0</load-on-startup>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>main</servlet-name>
+    <url-pattern>/*</url-pattern>
+  </servlet-mapping>
+  <session-config><session-timeout>30</session-timeout></session-config>
+</web-app>

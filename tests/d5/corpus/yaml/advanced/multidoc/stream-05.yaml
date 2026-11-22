@@ -1,0 +1,20 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Bare first document.
+kind: first
+count: 5
+...
+---
+kind: second
+values:
+- 5
+- 6
+---
+~
+--- plain scalar document 5
+--- |
+  literal document
+  line 5
+---
+kind: last

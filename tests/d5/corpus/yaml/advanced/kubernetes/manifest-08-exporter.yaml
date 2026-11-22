@@ -1,0 +1,61 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-exporter
+  labels: &labels
+    app.kubernetes.io/name: exporter
+    app.kubernetes.io/part-of: platform
+---
+# Deployment of the exporter component.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: exporter
+  namespace: team-exporter
+  labels:
+    app.kubernetes.io/name: exporter
+    tier: "2"
+spec:
+  replicas: 4
+  selector:
+    matchLabels: {app: exporter}
+  template:
+    metadata:
+      labels: {app: exporter, version: v8}
+      annotations:
+        prometheus.io/scrape: "true"
+    spec:
+      containers:
+      - name: exporter
+        image: ghcr.io/example/exporter:2.8.0
+        args: ["--port=8080", "--log-format=json"]
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: MODE
+          value: production
+        - name: POD_IP
+          valueFrom:
+            fieldRef: {fieldPath: status.podIP}
+        resources:
+          limits: {cpu: "1", memory: 512Mi}
+          requests: &requests {cpu: 100m, memory: 64Mi}
+      tolerations: []
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: exporter
+  namespace: team-exporter
+spec:
+  selector:
+    app: exporter
+  ports:
+  - port: 80
+    targetPort: http
+    protocol: TCP

@@ -1,0 +1,9 @@
+{
+  "slash": "a\/b",
+  "unicode": "\u017c\u00f3\u0142w",
+  "surrogate_pair": "\ud83d\ude00",
+  "controls": "tab\tnewline\nnull\u0000",
+  "quotes": "say \"hi\"",
+  "escaped_key_\u0041": true,
+  "raw_utf8": "żółw"
+}
