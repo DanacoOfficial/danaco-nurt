@@ -1,0 +1,399 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//! Session of the language server: initialization, message loop and
+//! dispatch.
+
+use std::fmt;
+
+use lsp_server::{Connection, ErrorCode, Message, Notification, ProtocolError, Request, Response};
+use lsp_types::notification::{
+    DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, Exit, LogMessage,
+    Notification as _, PublishDiagnostics, ShowMessage,
+};
+use lsp_types::request::{Completion, Formatting, HoverRequest, Request as _};
+use lsp_types::{
+    CompletionOptions, CompletionResponse, HoverProviderCapability, InitializeParams,
+    InitializeResult, LogMessageParams, MessageType, OneOf, PublishDiagnosticsParams,
+    ServerCapabilities, ServerInfo, ShowMessageParams, TextDocumentSyncCapability,
+    TextDocumentSyncKind, Uri,
+};
+use nurt_syntax::parse::Variant;
+use serde_json::Value;
+
+use crate::analysis;
+use crate::assist;
+use crate::catalog::Commands;
+use crate::document::Documents;
+use crate::options::{self, Options};
+use crate::position::Encoding;
+
+/// Name of the server reported at initialization.
+const SERVER_NAME: &str = "nurt";
+
+/// Characters after which the client asks for completion: labels, `@`
+/// references, the pipe operator, argument separators and call parentheses.
+const TRIGGER_CHARACTERS: [&str; 8] = [":", "=", "@", "|", ">", " ", "(", ","];
+
+/// Error that ends a language server session.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum ServerError {
+    /// The client broke the protocol, for example with a request before
+    /// `initialize` or a message other than `exit` after `shutdown`.
+    Protocol(ProtocolError),
+    /// The `initialize` request carried parameters that are not valid.
+    Initialize(String),
+    /// A response could not be encoded.
+    Encode(serde_json::Error),
+    /// The standard streams failed.
+    Io(std::io::Error),
+    /// The client closed the connection before `shutdown`.
+    Disconnected,
+    /// The client sent `exit` without a preceding `shutdown`.
+    ExitWithoutShutdown,
+}
+
+impl fmt::Display for ServerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Protocol(error) => write!(f, "language server protocol error: {error}"),
+            Self::Initialize(message) => write!(f, "invalid initialize parameters: {message}"),
+            Self::Encode(error) => write!(f, "cannot encode a message: {error}"),
+            Self::Io(error) => write!(f, "standard stream error: {error}"),
+            Self::Disconnected => f.write_str("the client closed the connection before shutdown"),
+            Self::ExitWithoutShutdown => f.write_str("the client sent exit before shutdown"),
+        }
+    }
+}
+
+impl std::error::Error for ServerError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Encode(error) => Some(error),
+            Self::Io(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl From<ProtocolError> for ServerError {
+    fn from(error: ProtocolError) -> Self {
+        Self::Protocol(error)
+    }
+}
+
+/// Runs the language server on the standard input and output until the
+/// client ends the session.
+///
+/// This is the entry point of `nurt lsp`.
+///
+/// # Errors
+///
+/// Returns the [`ServerError`] that ended the session, including a failure of
+/// the standard streams.
+pub fn run_stdio(options: &Options) -> Result<(), ServerError> {
+    let (connection, io_threads) = Connection::stdio();
+    serve(connection, options)?;
+    io_threads.join().map_err(ServerError::Io)
+}
+
+/// Runs a language server session on `connection` until `shutdown` and
+/// `exit`.
+///
+/// The position encoding is UTF-32 when the client offers it and UTF-16
+/// otherwise. Every change of a document publishes its diagnostics.
+///
+/// # Errors
+///
+/// Returns the [`ServerError`] that ended the session before `shutdown`.
+///
+/// # Examples
+///
+/// ```
+/// use lsp_server::{Connection, Message, Notification, Request, RequestId};
+/// use serde_json::json;
+///
+/// let (server, client) = Connection::memory();
+/// let session = std::thread::spawn(move || nurt_langserver::serve(server, &Default::default()));
+/// let send = |message: Message| client.sender.send(message);
+/// let params = json!({"capabilities": {"general": {"positionEncodings": ["utf-32"]}}});
+/// send(Request::new(RequestId::from(1), "initialize".to_owned(), params).into())?;
+/// let Message::Response(response) = client.receiver.recv()? else { panic!() };
+/// let result = response.response_result.map_err(|error| error.message)?;
+/// assert_eq!(result["capabilities"]["positionEncoding"], "utf-32");
+/// send(Notification::new("initialized".to_owned(), json!({})).into())?;
+/// send(Request::new(RequestId::from(2), "shutdown".to_owned(), ()).into())?;
+/// client.receiver.recv()?;
+/// send(Notification::new("exit".to_owned(), ()).into())?;
+/// assert!(session.join().is_ok_and(|ended| ended.is_ok()));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn serve(connection: Connection, options: &Options) -> Result<(), ServerError> {
+    let (id, params) = connection.initialize_start()?;
+    let params: InitializeParams = match serde_json::from_value(params) {
+        Ok(params) => params,
+        Err(error) => {
+            let message = error.to_string();
+            let response = Response::new_err(id, ErrorCode::InvalidParams as i32, message.clone());
+            send(&connection, response.into())?;
+            return Err(ServerError::Initialize(message));
+        }
+    };
+    let offered = params
+        .capabilities
+        .general
+        .as_ref()
+        .and_then(|general| general.position_encodings.as_deref());
+    let encoding = Encoding::negotiate(offered);
+    let (variant, warning) =
+        options::variant_from(params.initialization_options.as_ref(), options.variant);
+    let result = serde_json::to_value(initialize_result(encoding)).map_err(ServerError::Encode)?;
+    connection.initialize_finish(id, result)?;
+    let mut session = Session {
+        connection: &connection,
+        commands: Commands::new(options.commands.clone()),
+        variant,
+        encoding,
+        documents: Documents::default(),
+    };
+    if let Some(warning) = warning {
+        session.notify_client::<ShowMessage>(ShowMessageParams {
+            typ: MessageType::WARNING,
+            message: warning,
+        })?;
+    }
+    session.run()
+}
+
+fn initialize_result(encoding: Encoding) -> InitializeResult {
+    let completion = CompletionOptions {
+        trigger_characters: Some(
+            TRIGGER_CHARACTERS
+                .iter()
+                .map(|character| (*character).to_owned())
+                .collect(),
+        ),
+        ..CompletionOptions::default()
+    };
+    InitializeResult {
+        capabilities: ServerCapabilities {
+            position_encoding: Some(encoding.kind()),
+            text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
+            completion_provider: Some(completion),
+            hover_provider: Some(HoverProviderCapability::Simple(true)),
+            document_formatting_provider: Some(OneOf::Left(true)),
+            ..ServerCapabilities::default()
+        },
+        server_info: Some(ServerInfo {
+            name: SERVER_NAME.to_owned(),
+            version: Some(env!("CARGO_PKG_VERSION").to_owned()),
+        }),
+    }
+}
+
+fn send(connection: &Connection, message: Message) -> Result<(), ServerError> {
+    connection
+        .sender
+        .send(message)
+        .map_err(|_| ServerError::Disconnected)
+}
+
+/// Failure of a request, answered with an error response.
+#[derive(Debug)]
+struct Failure {
+    code: ErrorCode,
+    message: String,
+}
+
+impl Failure {
+    fn new(code: ErrorCode, message: String) -> Self {
+        Self { code, message }
+    }
+}
+
+/// State of an initialized session.
+struct Session<'a> {
+    connection: &'a Connection,
+    commands: Commands,
+    variant: Variant,
+    encoding: Encoding,
+    documents: Documents,
+}
+
+impl Session<'_> {
+    fn run(&mut self) -> Result<(), ServerError> {
+        let connection = self.connection;
+        for message in &connection.receiver {
+            match message {
+                Message::Request(request) => {
+                    if connection.handle_shutdown(&request)? {
+                        return Ok(());
+                    }
+                    let response = self.respond(request);
+                    send(connection, response.into())?;
+                }
+                Message::Notification(notification) if notification.method == Exit::METHOD => {
+                    return Err(ServerError::ExitWithoutShutdown);
+                }
+                Message::Notification(notification) => self.handle(notification)?,
+                Message::Response(_) => {}
+            }
+        }
+        Err(ServerError::Disconnected)
+    }
+
+    fn respond(&self, request: Request) -> Response {
+        let Request { id, method, params } = request;
+        let result = match method.as_str() {
+            Completion::METHOD => request_params::<Completion>(params).and_then(|params| {
+                let position = params.text_document_position;
+                let items = self.assist(&position.text_document.uri).map(|request| {
+                    CompletionResponse::Array(assist::completion(request, position.position))
+                });
+                encode(serde_json::to_value(items))
+            }),
+            HoverRequest::METHOD => request_params::<HoverRequest>(params).and_then(|params| {
+                let position = params.text_document_position_params;
+                let hover = self
+                    .assist(&position.text_document.uri)
+                    .and_then(|request| assist::hover(request, position.position));
+                encode(serde_json::to_value(hover))
+            }),
+            Formatting::METHOD => request_params::<Formatting>(params)
+                .and_then(|params| self.formatting(&params.text_document.uri)),
+            _ => Err(Failure::new(
+                ErrorCode::MethodNotFound,
+                format!("unsupported method {method}"),
+            )),
+        };
+        match result {
+            Ok(value) => Response::new_ok(id, value),
+            Err(failure) => Response::new_err(id, failure.code as i32, failure.message),
+        }
+    }
+
+    fn assist(&self, uri: &Uri) -> Option<assist::Request<'_>> {
+        let document = self.documents.get(uri)?;
+        Some(assist::Request {
+            text: &document.text,
+            variant: self.variant,
+            encoding: self.encoding,
+            commands: &self.commands,
+        })
+    }
+
+    fn formatting(&self, uri: &Uri) -> Result<Value, Failure> {
+        let Some(document) = self.documents.get(uri) else {
+            return Ok(Value::Null);
+        };
+        let edits = analysis::formatting(&document.text, self.variant, self.encoding)
+            .map_err(|message| Failure::new(ErrorCode::RequestFailed, message))?;
+        encode(serde_json::to_value(edits))
+    }
+
+    fn handle(&mut self, notification: Notification) -> Result<(), ServerError> {
+        let Notification { method, params } = notification;
+        match method.as_str() {
+            DidOpenTextDocument::METHOD => {
+                let Some(params) = self.notification_params::<DidOpenTextDocument>(params)? else {
+                    return Ok(());
+                };
+                let document = params.text_document;
+                self.documents
+                    .open(document.uri.clone(), document.text, document.version);
+                self.publish(document.uri)
+            }
+            DidChangeTextDocument::METHOD => {
+                let Some(params) = self.notification_params::<DidChangeTextDocument>(params)?
+                else {
+                    return Ok(());
+                };
+                let document = params.text_document;
+                let changed = self.documents.change(
+                    &document.uri,
+                    document.version,
+                    params.content_changes,
+                    self.encoding,
+                );
+                if changed {
+                    self.publish(document.uri)
+                } else {
+                    Ok(())
+                }
+            }
+            DidCloseTextDocument::METHOD => {
+                let Some(params) = self.notification_params::<DidCloseTextDocument>(params)? else {
+                    return Ok(());
+                };
+                let uri = params.text_document.uri;
+                self.documents.close(&uri);
+                self.notify_client::<PublishDiagnostics>(PublishDiagnosticsParams::new(
+                    uri,
+                    Vec::new(),
+                    None,
+                ))
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// Publishes the diagnostics of an open document.
+    fn publish(&self, uri: Uri) -> Result<(), ServerError> {
+        let Some(document) = self.documents.get(&uri) else {
+            return Ok(());
+        };
+        let diagnostics = analysis::diagnostics(&document.text, self.variant, self.encoding);
+        let version = Some(document.version);
+        self.notify_client::<PublishDiagnostics>(PublishDiagnosticsParams::new(
+            uri,
+            diagnostics,
+            version,
+        ))
+    }
+
+    /// Decodes the parameters of a notification; invalid parameters are
+    /// reported to the client log and the notification is ignored.
+    fn notification_params<N>(&self, params: Value) -> Result<Option<N::Params>, ServerError>
+    where
+        N: lsp_types::notification::Notification,
+    {
+        match serde_json::from_value(params) {
+            Ok(params) => Ok(Some(params)),
+            Err(error) => {
+                let message = format!("invalid parameters of {}: {error}", N::METHOD);
+                self.notify_client::<LogMessage>(LogMessageParams {
+                    typ: MessageType::ERROR,
+                    message,
+                })?;
+                Ok(None)
+            }
+        }
+    }
+
+    fn notify_client<N>(&self, params: N::Params) -> Result<(), ServerError>
+    where
+        N: lsp_types::notification::Notification,
+    {
+        send(
+            self.connection,
+            Notification::new(N::METHOD.to_owned(), params).into(),
+        )
+    }
+}
+
+fn request_params<R>(params: Value) -> Result<R::Params, Failure>
+where
+    R: lsp_types::request::Request,
+{
+    serde_json::from_value(params).map_err(|error| {
+        Failure::new(
+            ErrorCode::InvalidParams,
+            format!("invalid parameters of {}: {error}", R::METHOD),
+        )
+    })
+}
+
+fn encode(result: serde_json::Result<Value>) -> Result<Value, Failure> {
+    result.map_err(|error| Failure::new(ErrorCode::InternalError, error.to_string()))
+}

@@ -1,0 +1,11 @@
+{
+  "initialize": {"capabilities": {}, "initializationOptions": {"syntax": {"variant": "c"}}},
+  "steps": [
+    {"open": {"uri": "file:///work/sort.c.nurt", "text": "find path=\"/srv\"\n|> sort by=size "}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"uri": "file:///work/sort.c.nurt"}},
+    {"request": "textDocument/completion", "params": {"textDocument": {"uri": "file:///work/sort.c.nurt"}, "position": {"line": 1, "character": 16}},
+     "result": {"$contains": [{"label": "order", "textEdit": {"newText": "order="}}], "$excludes": [{"label": "by"}]}},
+    {"request": "textDocument/hover", "params": {"textDocument": {"uri": "file:///work/sort.c.nurt"}, "position": {"line": 0, "character": 0}},
+     "result": {"contents": {"value": {"$includes": "```nurt\nfind path=<path>"}}}}
+  ]
+}

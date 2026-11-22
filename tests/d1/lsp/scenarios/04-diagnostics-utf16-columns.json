@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {"open": {"uri": "file:///work/emoji.nurt", "text": "count \"\ud83d\ude00\" )"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {
+      "uri": "file:///work/emoji.nurt",
+      "diagnostics": [{"range": {"start": {"line": 0, "character": 11}}}]
+    }},
+    {"open": {"uri": "file:///work/crlf.nurt", "text": "count\r\n|> first 2 )\r\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {
+      "uri": "file:///work/crlf.nurt",
+      "diagnostics": [{"range": {"start": {"line": 1, "character": 11}}}]
+    }}
+  ]
+}

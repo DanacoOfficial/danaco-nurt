@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {"open": {"uri": "file:///work/hover.nurt", "text": "find \"/srv/app\" glob: \"*.go\"\n|> sort size order: desc\n"}},
+    {"request": "textDocument/hover", "params": {"textDocument": {"uri": "file:///work/hover.nurt"}, "position": {"line": 0, "character": 1}},
+     "result": {
+       "contents": {"kind": "markdown", "value": {"$includes": "```nurt\nfind <path>"}},
+       "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 4}}
+     }},
+    {"request": "textDocument/hover", "params": {"textDocument": {"uri": "file:///work/hover.nurt"}, "position": {"line": 0, "character": 17}},
+     "result": {"contents": {"value": {"$includes": "Parameter of `find`"}}}},
+    {"request": "textDocument/hover", "params": {"textDocument": {"uri": "file:///work/hover.nurt"}, "position": {"line": 1, "character": 15}},
+     "result": {
+       "contents": {"value": {"$includes": "Values: `asc`, `desc`."}},
+       "range": {"start": {"line": 1, "character": 13}, "end": {"line": 1, "character": 18}}
+     }},
+    {"request": "textDocument/hover", "params": {"textDocument": {"uri": "file:///work/hover.nurt"}, "position": {"line": 1, "character": 9}},
+     "result": null}
+  ]
+}

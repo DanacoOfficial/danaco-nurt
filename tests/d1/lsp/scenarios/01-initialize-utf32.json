@@ -1,0 +1,14 @@
+{
+  "initialize": {"capabilities": {"general": {"positionEncodings": ["utf-16", "utf-32"]}}},
+  "capabilities": {
+    "capabilities": {
+      "positionEncoding": "utf-32",
+      "textDocumentSync": 1,
+      "completionProvider": {"triggerCharacters": [":", "=", "@", "|", ">", " ", "(", ","]},
+      "hoverProvider": true,
+      "documentFormattingProvider": true
+    },
+    "serverInfo": {"name": "nurt"}
+  },
+  "steps": []
+}

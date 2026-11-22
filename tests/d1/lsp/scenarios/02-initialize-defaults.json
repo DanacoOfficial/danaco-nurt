@@ -1,0 +1,11 @@
+{
+  "initialize": {"capabilities": {}, "initializationOptions": {"syntax": {"variant": "z"}}},
+  "capabilities": {"capabilities": {"positionEncoding": "utf-16"}},
+  "steps": [
+    {"notification": "window/showMessage", "params": {"type": 2, "message": {"$includes": "unknown syntax variant z"}}},
+    {"request": "textDocument/definition", "params": {"textDocument": {"uri": "file:///work/a.nurt"}, "position": {"line": 0, "character": 0}}, "error": {"code": -32601}},
+    {"request": "textDocument/hover", "params": {"textDocument": {"uri": "file:///work/closed.nurt"}, "position": {"line": 0, "character": 0}}, "result": null},
+    {"request": "textDocument/completion", "params": {"textDocument": {"uri": "file:///work/closed.nurt"}, "position": {"line": 0, "character": 0}}, "result": null},
+    {"request": "textDocument/formatting", "params": {"textDocument": {"uri": "file:///work/closed.nurt"}, "options": {"tabSize": 4, "insertSpaces": true}}, "result": null}
+  ]
+}

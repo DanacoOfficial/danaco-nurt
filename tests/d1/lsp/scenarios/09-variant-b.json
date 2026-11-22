@@ -1,0 +1,16 @@
+{
+  "initialize": {"capabilities": {}, "initializationOptions": {"syntax.variant": "b"}},
+  "steps": [
+    {"open": {"uri": "file:///work/task-01.b.nurt", "file": "spec/golden/ast/task-01-largest-go-files.b.nurt"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"uri": "file:///work/task-01.b.nurt", "diagnostics": []}},
+    {"request": "textDocument/completion", "params": {"textDocument": {"uri": "file:///work/task-01.b.nurt"}, "position": {"line": 2, "character": 21}},
+     "result": {"$length": 2, "$contains": [{"label": "asc"}, {"label": "desc"}]}},
+    {"request": "textDocument/hover", "params": {"textDocument": {"uri": "file:///work/task-01.b.nurt"}, "position": {"line": 3, "character": 4}},
+     "result": {"contents": {"value": {"$includes": "```nurt\nfirst(<count>)"}}}},
+    {"request": "textDocument/hover", "params": {"textDocument": {"uri": "file:///work/task-01.b.nurt"}, "position": {"line": 2, "character": 16}},
+     "result": {"contents": {"value": {"$includes": "sort order: <enum(asc|desc)>"}}}},
+    {"open": {"uri": "file:///work/call.b.nurt", "text": "sort(size, "}},
+    {"request": "textDocument/completion", "params": {"textDocument": {"uri": "file:///work/call.b.nurt"}, "position": {"line": 0, "character": 11}},
+     "result": {"$contains": [{"label": "order", "textEdit": {"newText": "order: "}}]}}
+  ]
+}

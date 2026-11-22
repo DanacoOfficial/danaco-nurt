@@ -1,0 +1,21 @@
+{
+  "steps": [
+    {"open": {"uri": "file:///work/complete.nurt", "text": "find \"/srv/app\" glob: \"*.go\" \n|> sort size order: \n|> fi\nlet big = count\n@"}},
+    {"request": "textDocument/completion", "params": {"textDocument": {"uri": "file:///work/complete.nurt"}, "position": {"line": 0, "character": 29}},
+     "result": {
+       "$contains": [{"label": "type", "kind": 10, "textEdit": {"newText": "type: "}}, {"label": "order", "detail": "enum(asc|desc), default asc"}],
+       "$excludes": [{"label": "glob"}, {"label": "find"}]
+     }},
+    {"request": "textDocument/completion", "params": {"textDocument": {"uri": "file:///work/complete.nurt"}, "position": {"line": 1, "character": 20}},
+     "result": {"$length": 2, "$contains": [{"label": "asc", "kind": 20}, {"label": "desc", "textEdit": {"newText": "desc"}}]}},
+    {"request": "textDocument/completion", "params": {"textDocument": {"uri": "file:///work/complete.nurt"}, "position": {"line": 2, "character": 5}},
+     "result": {"$contains": [
+       {"label": "find", "kind": 3, "detail": "core", "textEdit": {"newText": "find", "range": {"start": {"line": 2, "character": 3}, "end": {"line": 2, "character": 5}}}},
+       {"label": "first"}
+     ]}},
+    {"request": "textDocument/completion", "params": {"textDocument": {"uri": "file:///work/complete.nurt"}, "position": {"line": 4, "character": 1}},
+     "result": [{"label": "big", "kind": 6, "textEdit": {"newText": "big"}}]},
+    {"request": "textDocument/completion", "params": {"textDocument": {"uri": "file:///work/complete.nurt"}, "position": {"line": 0, "character": 8}},
+     "result": []}
+  ]
+}
