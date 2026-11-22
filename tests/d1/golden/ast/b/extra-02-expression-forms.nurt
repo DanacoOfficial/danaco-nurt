@@ -1,0 +1,6 @@
+let logs = find("/srv/app/logs", glob: "*.log")
+info([...@logs.path], hash: sha256)
+find("/srv/app") |> filter(not hidden and (size >= 1.5mb or extension in ["log", "txt"])) |> first(5)
+lines("/srv/app/data.csv", 2..) |> first(3)
+processes() |> filter(cpu > 3.5) |> sort(cpu, order: desc)
+jobs() |> filter(exit_code != -1)

@@ -1,0 +1,2 @@
+read("/srv/app/main.go", around: /func main/, context: 3, line_numbers: true)
+read("/srv/app/main.go", unchanged_since: "1a2b3c4d")

@@ -1,0 +1,65 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-correction-table/1"
+table = "habits_powershell"
+summary = "PowerShell cmdlet names and aliases that start a PowerShell habit, and the approved cmdlet verbs."
+
+# Names and aliases of every cmdlet and Windows program of the translation
+# table. Aliases that are also Nurt command names (copy, move, sort, select,
+# group, diff, sleep, help, start, write) are not habit words: they stay
+# names of the language.
+words = [
+  "Get-ChildItem", "gci", "ls", "dir",
+  "Get-Content", "gc", "cat", "type",
+  "Set-Content", "Add-Content", "ac", "Out-File",
+  "Select-String", "sls",
+  "Copy-Item", "cpi", "cp",
+  "Move-Item", "mi", "mv",
+  "Remove-Item", "ri", "rm", "del", "rd", "erase", "rmdir",
+  "New-Item", "ni", "mkdir", "md",
+  "Rename-Item", "rni", "ren",
+  "Test-Path",
+  "Get-Item", "gi", "Get-ItemProperty", "gp", "Get-ItemPropertyValue", "gpv",
+  "Set-ItemProperty", "sp", "New-ItemProperty",
+  "Get-Acl", "Set-Acl", "icacls", "attrib",
+  "Where-Object", "where", "?",
+  "Select-Object",
+  "Sort-Object",
+  "Group-Object", "Measure-Object", "measure",
+  "ForEach-Object", "foreach", "%",
+  "Compare-Object", "compare",
+  "Get-FileHash",
+  "Get-Process", "gps", "ps", "Stop-Process", "spps", "kill",
+  "Start-Process", "saps",
+  "Get-Service", "gsv", "Start-Service", "sasv", "Stop-Service", "spsv", "Restart-Service", "Set-Service",
+  "Invoke-WebRequest", "iwr", "curl", "wget", "Invoke-RestMethod", "irm",
+  "Get-Date", "Start-Sleep",
+  "Get-Command", "gcm", "Get-Help", "man", "Get-Member", "gm",
+  "ConvertFrom-Json", "ConvertTo-Json", "Import-Csv", "ipcsv", "Export-Csv", "epcsv",
+  "Expand-Archive", "Compress-Archive",
+  "Get-Location", "gl", "pwd", "Set-Location", "sl", "cd", "chdir", "Push-Location", "pushd", "Pop-Location", "popd",
+  "Write-Output", "echo", "Write-Host",
+  "Get-WinEvent", "Get-EventLog",
+  "Get-NetTCPConnection", "Test-Connection", "Resolve-DnsName", "Get-NetIPAddress",
+  "Get-CimInstance", "gcim", "Get-WmiObject", "gwmi",
+  "Get-Volume", "Get-Disk",
+  "Register-ScheduledTask", "schtasks",
+  "Invoke-Expression", "iex", "Invoke-Command", "icm",
+]
+
+# Approved verbs of PowerShell cmdlet names. A first word of the form
+# Verb-Noun with one of these verbs is read as a cmdlet even when the table
+# does not translate it.
+verbs = [
+  "Add", "Approve", "Assert", "Backup", "Block", "Build", "Checkpoint", "Clear", "Close", "Compare",
+  "Complete", "Compress", "Confirm", "Connect", "Convert", "ConvertFrom", "ConvertTo", "Copy", "Debug",
+  "Deny", "Deploy", "Disable", "Disconnect", "Dismount", "Edit", "Enable", "Enter", "Exit", "Expand",
+  "Export", "Find", "Format", "Get", "Grant", "Group", "Hide", "Import", "Initialize", "Install",
+  "Invoke", "Join", "Limit", "Lock", "Measure", "Merge", "Mount", "Move", "New", "Open", "Optimize",
+  "Out", "Ping", "Pop", "Protect", "Publish", "Push", "Read", "Receive", "Redo", "Register", "Remove",
+  "Rename", "Repair", "Request", "Reset", "Resize", "Resolve", "Restart", "Restore", "Resume",
+  "Revoke", "Save", "Search", "Select", "Send", "Set", "Show", "Skip", "Split", "Start", "Step",
+  "Stop", "Submit", "Suspend", "Switch", "Sync", "Test", "Trace", "Unblock", "Undo", "Uninstall",
+  "Unlock", "Unprotect", "Unpublish", "Unregister", "Update", "Use", "Wait", "Watch", "Write",
+]

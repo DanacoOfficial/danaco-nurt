@@ -1,0 +1,68 @@
+script bash-mixed.sh (bash)
+statements 18: translated 4, assumption 3, impossible 9, error 2
+6:1 impossible: E_UNCORRECTABLE (rule)
+  source: set -e
+  problem: no translation rule for `set`
+8:1 translated: B01, L21
+  source: rm -rf /srv/app/build
+  output: remove "/srv/app/build"
+9:1 translated: B20
+  source: cd /srv/app && go test ./...
+  output: run ["go", "test", "./..."] cwd: "/srv/app"
+10:1 assumption: B26, B14
+  source: SOURCES=$(find /srv/app/src -name '*.go')
+  assumption: the command output is a list of paths
+  output: let sources = find "/srv/app/src" glob: "**/*.go"
+11:1 assumption: B15, B25
+  source: grep -rn "oldName(" $SOURCES
+  assumption: the pattern is a basic regular expression without special characters
+  output: search "oldName(" ...@sources.path
+13:1 translated: B05
+  source: mkdir -p /srv/app/out
+  output: create "/srv/app/out" type: directory
+13:24 assumption: B04
+  source: cp -r /srv/app/static /srv/app/out
+  assumption: the script stops on the first error; the shell runs a statement after `;` even when the previous one fails
+  output: copy "/srv/app/static" to: "/srv/app/out"
+14:1 impossible: E_UNCORRECTABLE (or_list)
+  source: ls /srv/app/out || echo "missing output"
+  problem: no alternative branch; check the condition with assert and run the alternative as a separate step
+  fix: list "/srv/app/out"
+16:1 impossible: E_UNCORRECTABLE (loop)
+  source: for f in /srv/app/out/*.tmp; do
+            rm "$f"
+          done
+  problem: loops have no equivalent; a pattern or a pipeline over records replaces a loop
+20:1 impossible: E_UNCORRECTABLE (function)
+  source: cleanup() { rm -rf /tmp/app; }
+  problem: definitions of functions and types have no equivalent
+21:1 impossible: E_UNCORRECTABLE (eval)
+  source: eval "$EXTRA_STEPS"
+  problem: evaluation of text as code has no equivalent
+22:1 impossible: E_UNCORRECTABLE (source)
+  source: source /etc/app/env.sh
+  problem: loading a script into the current shell has no equivalent; run executes a script
+24:1 translated: B39, B19
+  source: cat > /srv/app/out/VERSION <<EOF
+          1.4.2
+          EOF
+  output: write "/srv/app/out/VERSION" "1.4.2\n" mode: overwrite
+27:1 impossible: E_UNCORRECTABLE (rule)
+  source: sudo systemctl restart app
+  problem: no privilege elevation; run the console with the required privileges
+  fix: services name: "app" |> restart
+28:1 impossible: E_UNCORRECTABLE (current_directory)
+  source: cd /srv/app
+  problem: the program has no current directory; relative paths resolve against the invocation parameter base
+29:1 error: E_UNKNOWN_PARAM (translation)
+  source: tar -czf /srv/backup/app.tgz /srv/app/out &
+  problem: `background: true` is not a parameter of the command
+  output: find "/srv/app/out" |> archive.create "/srv/backup/app.tgz" background: true
+30:1 impossible: E_UNCORRECTABLE (condition)
+  source: if [ -f /srv/app/out/VERSION ]; then echo ok; fi
+  problem: conditional statements have no equivalent; assert checks a precondition
+31:1 error: E_SYNTAX (syntax)
+  source: rm "/srv/app/out/unterminated
+  problem: the script has a syntax error at 31:30; correct the script or run it unchanged
+fallback: run ["bash", "bash-mixed.sh"]
+base: "/srv/app"

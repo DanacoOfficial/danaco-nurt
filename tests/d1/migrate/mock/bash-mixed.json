@@ -1,0 +1,247 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "bash-mixed.sh",
+  "summary": {
+    "statements": 18,
+    "translated": 4,
+    "assumption": 3,
+    "impossible": 9,
+    "error": 2
+  },
+  "items": [
+    {
+      "line": 6,
+      "column": 1,
+      "source": "set -e",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "no translation rule for `set`",
+      "fix": []
+    },
+    {
+      "line": 8,
+      "column": 1,
+      "source": "rm -rf /srv/app/build",
+      "status": "translated",
+      "rules": [
+        "B01",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "remove \"/srv/app/build\""
+    },
+    {
+      "line": 9,
+      "column": 1,
+      "source": "cd /srv/app && go test ./...",
+      "status": "translated",
+      "rules": [
+        "B20"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "run [\"go\", \"test\", \"./...\"] cwd: \"/srv/app\""
+    },
+    {
+      "line": 10,
+      "column": 1,
+      "source": "SOURCES=$(find /srv/app/src -name '*.go')",
+      "status": "assumption",
+      "rules": [
+        "B26",
+        "B14"
+      ],
+      "assumptions": [
+        "the command output is a list of paths"
+      ],
+      "fix": [],
+      "output": "let sources = find \"/srv/app/src\" glob: \"**/*.go\""
+    },
+    {
+      "line": 11,
+      "column": 1,
+      "source": "grep -rn \"oldName(\" $SOURCES",
+      "status": "assumption",
+      "rules": [
+        "B15",
+        "B25"
+      ],
+      "assumptions": [
+        "the pattern is a basic regular expression without special characters"
+      ],
+      "fix": [],
+      "output": "search \"oldName(\" ...@sources.path"
+    },
+    {
+      "line": 13,
+      "column": 1,
+      "source": "mkdir -p /srv/app/out",
+      "status": "translated",
+      "rules": [
+        "B05"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "create \"/srv/app/out\" type: directory"
+    },
+    {
+      "line": 13,
+      "column": 24,
+      "source": "cp -r /srv/app/static /srv/app/out",
+      "status": "assumption",
+      "rules": [
+        "B04"
+      ],
+      "assumptions": [
+        "the script stops on the first error; the shell runs a statement after `;` even when the previous one fails"
+      ],
+      "fix": [],
+      "output": "copy \"/srv/app/static\" to: \"/srv/app/out\""
+    },
+    {
+      "line": 14,
+      "column": 1,
+      "source": "ls /srv/app/out || echo \"missing output\"",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "or_list",
+      "problem": "no alternative branch; check the condition with assert and run the alternative as a separate step",
+      "fix": [
+        "list \"/srv/app/out\""
+      ]
+    },
+    {
+      "line": 16,
+      "column": 1,
+      "source": "for f in /srv/app/out/*.tmp; do\n  rm \"$f\"\ndone",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "loop",
+      "problem": "loops have no equivalent; a pattern or a pipeline over records replaces a loop",
+      "fix": []
+    },
+    {
+      "line": 20,
+      "column": 1,
+      "source": "cleanup() { rm -rf /tmp/app; }",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "function",
+      "problem": "definitions of functions and types have no equivalent",
+      "fix": []
+    },
+    {
+      "line": 21,
+      "column": 1,
+      "source": "eval \"$EXTRA_STEPS\"",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "eval",
+      "problem": "evaluation of text as code has no equivalent",
+      "fix": []
+    },
+    {
+      "line": 22,
+      "column": 1,
+      "source": "source /etc/app/env.sh",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "source",
+      "problem": "loading a script into the current shell has no equivalent; run executes a script",
+      "fix": []
+    },
+    {
+      "line": 24,
+      "column": 1,
+      "source": "cat > /srv/app/out/VERSION <<EOF\n1.4.2\nEOF",
+      "status": "translated",
+      "rules": [
+        "B39",
+        "B19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "write \"/srv/app/out/VERSION\" \"1.4.2\\n\" mode: overwrite"
+    },
+    {
+      "line": 27,
+      "column": 1,
+      "source": "sudo systemctl restart app",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "no privilege elevation; run the console with the required privileges",
+      "fix": [
+        "services name: \"app\" |> restart"
+      ]
+    },
+    {
+      "line": 28,
+      "column": 1,
+      "source": "cd /srv/app",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "current_directory",
+      "problem": "the program has no current directory; relative paths resolve against the invocation parameter base",
+      "fix": []
+    },
+    {
+      "line": 29,
+      "column": 1,
+      "source": "tar -czf /srv/backup/app.tgz /srv/app/out &",
+      "status": "error",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNKNOWN_PARAM",
+      "reason": "translation",
+      "problem": "`background: true` is not a parameter of the command",
+      "fix": [],
+      "output": "find \"/srv/app/out\" |> archive.create \"/srv/backup/app.tgz\" background: true"
+    },
+    {
+      "line": 30,
+      "column": 1,
+      "source": "if [ -f /srv/app/out/VERSION ]; then echo ok; fi",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "condition",
+      "problem": "conditional statements have no equivalent; assert checks a precondition",
+      "fix": []
+    },
+    {
+      "line": 31,
+      "column": 1,
+      "source": "rm \"/srv/app/out/unterminated",
+      "status": "error",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_SYNTAX",
+      "reason": "syntax",
+      "problem": "the script has a syntax error at 31:30; correct the script or run it unchanged",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"bash\", \"bash-mixed.sh\"]",
+  "base": "/srv/app"
+}

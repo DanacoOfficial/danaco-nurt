@@ -5195,7 +5195,6 @@ version = "0.1.0"
 dependencies = [
  "nurt-contracts",
  "nurt-syntax",
- "serde",
  "serde_json",
  "tree-sitter",
  "tree-sitter-bash",

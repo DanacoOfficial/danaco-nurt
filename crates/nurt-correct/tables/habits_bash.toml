@@ -1,0 +1,30 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-correction-table/1"
+table = "habits_bash"
+summary = "Words that start a command written in bash notation."
+
+# Every first word of an entry of the bash translation table. A statement
+# that starts with one of these words and shows a feature found only in the
+# shell is translated by the bash table instead of being read as Nurt.
+words = [
+  "cd", "ls", "cat", "grep", "sed", "awk", "rm", "mv", "cp", "mkdir", "touch",
+  "chmod", "chown", "ln", "find", "xargs", "head", "tail", "echo", "printf",
+  "tee", "export", "sudo", "for", "while", "until", "if", "case", "function",
+  "test", "[", "wc", "curl", "wget", "tar", "unzip", "zip", "gzip", "gunzip",
+  "ps", "df", "ss", "netstat", "lsof", "env", "printenv", "uname", "whoami",
+  "hostname", "uptime", "which", "command", "kill", "diff", "sort", "uniq",
+  "du", "stat", "file", "sha256sum", "sha512sum", "sha1sum", "md5sum",
+  "iconv", "dos2unix", "basename", "dirname", "git", "crontab", "at",
+  "systemctl", "service", "apt", "apt-get", "brew", "date", "sleep", "time",
+  "timeout", "nohup",
+]
+
+# Shell keywords and builtins without a Nurt meaning: a statement starting
+# with one of them is a habit even without other shell features.
+shell_only = [
+  "cd", "export", "sudo", "for", "while", "until", "if", "case", "function",
+  "test", "[", "xargs", "nohup", "timeout", "time", "crontab", "systemctl",
+  "service", "apt", "apt-get", "brew",
+]

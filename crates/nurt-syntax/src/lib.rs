@@ -15,8 +15,10 @@
 pub mod cbor;
 pub mod error;
 pub mod fmt;
+pub mod hash;
 pub mod json;
 pub mod lex;
 pub mod parse;
 pub mod print;
 pub mod schema;
+pub mod validate;

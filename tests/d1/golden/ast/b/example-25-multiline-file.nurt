@@ -1,0 +1,4 @@
+write("/srv/app/Dockerfile", r#"FROM alpine:3.20
+RUN apk add --no-cache curl
+CMD ["sh"]
+"#, mode: create)

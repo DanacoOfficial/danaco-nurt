@@ -1,0 +1,47 @@
+script powershell-mixed.ps1 (powershell)
+statements 13: translated 3, assumption 2, impossible 8, error 0
+2:1 translated: P32, P02, L19
+  source: $files = Get-ChildItem -Path C:\proj -Recurse -Filter *.go
+  output: let files = find "C:/proj" glob: "**/*.go"
+3:1 assumption: P15, P08
+  source: $files | Where-Object { $_.Length -gt 1MB } | Remove-Item
+  assumption: the property Length is the file size
+  output: @files |> filter size > 1mb |> remove
+5:1 impossible: E_UNCORRECTABLE (current_directory)
+  source: Set-Location C:\proj
+  problem: the program has no current location; relative paths resolve against the invocation parameter base
+6:1 impossible: E_PATH_RELATIVE (current_directory)
+  source: Remove-Item .\build -Recurse -Force
+  problem: relative path without the invocation parameter base
+6:38 assumption: P36
+  source: Write-Host "done"
+  assumption: the script stops on the first error; the shell runs a statement after `;` even when the previous one fails
+  output: evaluate "done"
+7:1 translated: P06, L19
+  source: Copy-Item -Path C:\proj\a.txt -Destination C:\backup
+  output: copy "C:/proj/a.txt" to: "C:/backup"
+7:57 translated: P36
+  source: Write-Output "copied"
+  output: evaluate "copied"
+9:1 impossible: E_UNCORRECTABLE (loop)
+  source: foreach ($f in $files) { Remove-Item $f.FullName }
+  problem: loops have no equivalent; a pattern or a pipeline over records replaces a loop
+10:1 impossible: E_UNCORRECTABLE (function)
+  source: function Get-Size { param($p) (Get-Item $p).Length }
+  problem: definitions of functions and types have no equivalent
+11:1 impossible: E_UNCORRECTABLE (eval)
+  source: Invoke-Expression "Get-Date"
+  problem: evaluation of text as code has no equivalent
+12:1 impossible: E_UNCORRECTABLE (source)
+  source: . .\settings.ps1
+  problem: loading a script into the current shell has no equivalent; run executes a script
+16:1 impossible: E_AMBIGUOUS (rule)
+  source: Start-Process -FilePath git -ArgumentList "status --short" -Wait
+  problem: the argument list is one text; the division into arguments is not determined
+  fix: run ["git", "status", "--short"] wait: forever
+  fix: run ["git", "status --short"] wait: forever
+17:1 impossible: E_UNCORRECTABLE (control)
+  source: exit 1
+  problem: flow control statements have no equivalent
+fallback: run ["pwsh", "powershell-mixed.ps1"]
+base: "C:\\proj"

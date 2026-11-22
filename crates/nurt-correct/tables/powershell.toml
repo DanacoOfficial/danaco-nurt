@@ -1,0 +1,2387 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-correction-table/1"
+table = "powershell"
+summary = "Translation of PowerShell cmdlets, parameters, object properties and operators into Nurt programs."
+
+# Nurt commands whose stages change the world or run programs.
+effect_commands = [
+  "write", "copy", "move", "remove", "rename", "create", "attributes", "run", "stop", "start",
+  "restart", "enable", "disable", "http.download", "archive.extract", "archive.create",
+  "schedule.create",
+]
+
+# Rule of the notation change of a Windows path or registry path.
+path_rule = "L19"
+
+[syntax]
+assignment = "P32"
+environment = "P31"
+call = "P42"
+output = "P36"
+output_command = "evaluate"
+environment_command = "environment"
+environment_param = "name"
+
+[registry]
+scheme = "registry:"
+provider = "Registry::"
+drives = { HKLM = "HKLM", HKCU = "HKCU", HKCR = "HKCR", HKU = "HKU", HKCC = "HKCC", HKEY_LOCAL_MACHINE = "HKLM", HKEY_CURRENT_USER = "HKCU", HKEY_CLASSES_ROOT = "HKCR", HKEY_USERS = "HKU", HKEY_CURRENT_CONFIG = "HKCC" }
+
+[dates]
+cmdlet = "Get-Date"
+now = "now"
+ago = "ago"
+methods = { AddDays = "d", AddHours = "h", AddMinutes = "m", AddSeconds = "s", AddMilliseconds = "ms" }
+
+# Expansion of a path with a wildcard, `Remove-Item C:\logs\*.tmp`, into a
+# selecting stage before the command.
+[wildcard]
+command = "find"
+glob_arg = "glob"
+set = [{ arg = "depth", int = 1 }, { arg = "type", ident = "any" }]
+absent = [{ params = ["Force"], arg = "hidden", bool = false }]
+
+# Comparison operators of script blocks and of the simplified Where-Object
+# syntax. `fold` describes string comparisons, which ignore case in
+# PowerShell: `lower` compares lower-case texts, `flag` adds the regex flag
+# `i`, `assume` keeps the case-sensitive comparison of Nurt as an assumption.
+
+[[operator]]
+names = ["eq", "ieq"]
+op = "=="
+fold = "lower"
+
+[[operator]]
+names = ["ceq"]
+op = "=="
+
+[[operator]]
+names = ["ne", "ine"]
+op = "!="
+fold = "lower"
+
+[[operator]]
+names = ["cne"]
+op = "!="
+
+[[operator]]
+names = ["gt", "igt"]
+op = ">"
+fold = "assume"
+
+[[operator]]
+names = ["cgt"]
+op = ">"
+
+[[operator]]
+names = ["ge", "ige"]
+op = ">="
+fold = "assume"
+
+[[operator]]
+names = ["cge"]
+op = ">="
+
+[[operator]]
+names = ["lt", "ilt"]
+op = "<"
+fold = "assume"
+
+[[operator]]
+names = ["clt"]
+op = "<"
+
+[[operator]]
+names = ["le", "ile"]
+op = "<="
+fold = "assume"
+
+[[operator]]
+names = ["cle"]
+op = "<="
+
+[[operator]]
+names = ["like", "ilike"]
+op = "~"
+pattern = "wildcard"
+fold = "flag"
+
+[[operator]]
+names = ["clike"]
+op = "~"
+pattern = "wildcard"
+
+[[operator]]
+names = ["notlike", "inotlike"]
+op = "!~"
+pattern = "wildcard"
+fold = "flag"
+
+[[operator]]
+names = ["cnotlike"]
+op = "!~"
+pattern = "wildcard"
+
+[[operator]]
+names = ["match", "imatch"]
+op = "~"
+pattern = "regex"
+fold = "flag"
+
+[[operator]]
+names = ["cmatch"]
+op = "~"
+pattern = "regex"
+
+[[operator]]
+names = ["notmatch", "inotmatch"]
+op = "!~"
+pattern = "regex"
+fold = "flag"
+
+[[operator]]
+names = ["cnotmatch"]
+op = "!~"
+pattern = "regex"
+
+[[operator]]
+names = ["contains", "icontains"]
+op = "in"
+swap = true
+fold = "assume"
+
+[[operator]]
+names = ["ccontains"]
+op = "in"
+swap = true
+
+[[operator]]
+names = ["notcontains", "inotcontains"]
+op = "in"
+swap = true
+negate = true
+fold = "assume"
+
+[[operator]]
+names = ["in", "iin"]
+op = "in"
+fold = "assume"
+
+[[operator]]
+names = ["cin"]
+op = "in"
+
+[[operator]]
+names = ["notin", "inotin"]
+op = "in"
+negate = true
+fold = "assume"
+
+[comparison]
+text_assumption = "text is compared with case in Nurt; PowerShell ignores case"
+order_assumption = "text is ordered by code point in Nurt; PowerShell orders it ignoring case"
+prefix_assumption = "the Nurt field has no leading period"
+
+# Properties of PowerShell objects and the fields of the Nurt records that
+# replace them. `self` is the field that `$_` alone stands for.
+
+[[record]]
+name = "entry"
+fields = [
+  { property = "Length", field = "size", type = "size" },
+  { property = "LastWriteTime", field = "modified", type = "instant" },
+  { property = "LastWriteTimeUtc", field = "modified", type = "instant" },
+  { property = "CreationTime", field = "created", type = "instant" },
+  { property = "LastAccessTime", field = "accessed", type = "instant" },
+  { property = "Name", field = "name", type = "text" },
+  { property = "FullName", field = "path", type = "text" },
+  { property = "BaseName", field = "stem", type = "text" },
+  { property = "Extension", field = "extension", type = "text", prefix = "." },
+  { property = "DirectoryName", field = "parent", type = "text" },
+  { property = "IsReadOnly", field = "readonly", type = "bool" },
+  { property = "PSIsContainer", field = "type", equals = "directory" },
+]
+
+[[record]]
+name = "line"
+self = "text"
+fields = [
+  { property = "Length", field = "text", type = "int", function = "len" },
+  { property = "ReadCount", field = "no", type = "int" },
+  { property = "PSPath", field = "path", type = "text" },
+]
+
+[[record]]
+name = "match"
+fields = [
+  { property = "Path", field = "path", type = "text" },
+  { property = "LineNumber", field = "no", type = "int" },
+  { property = "Line", field = "line", type = "text" },
+]
+
+[[record]]
+name = "process"
+fields = [
+  { property = "Id", field = "pid", type = "int" },
+  { property = "Name", field = "name", type = "text" },
+  { property = "ProcessName", field = "name", type = "text" },
+  { property = "WorkingSet", field = "memory", type = "size" },
+  { property = "WorkingSet64", field = "memory", type = "size" },
+  { property = "WS", field = "memory", type = "size" },
+  { property = "StartTime", field = "started", type = "instant" },
+  { property = "Path", field = "executable", type = "text" },
+  { property = "UserName", field = "user", type = "text" },
+]
+
+[[record]]
+name = "service"
+fields = [
+  { property = "Name", field = "name", type = "text" },
+  { property = "ServiceName", field = "name", type = "text" },
+  { property = "DisplayName", field = "display_name", type = "text" },
+  { property = "Status", field = "state", type = "enum", values = { Running = "running", Stopped = "stopped", StartPending = "starting", StopPending = "stopping", Paused = "paused" } },
+  { property = "StartType", field = "start_type", type = "enum", values = { Automatic = "automatic", Manual = "manual", Disabled = "disabled" } },
+]
+
+[[record]]
+name = "log_event"
+fields = [
+  { property = "TimeCreated", field = "time", type = "instant" },
+  { property = "TimeGenerated", field = "time", type = "instant" },
+  { property = "ProviderName", field = "source", type = "text" },
+  { property = "Source", field = "source", type = "text" },
+  { property = "Message", field = "message", type = "text" },
+  { property = "MachineName", field = "host", type = "text" },
+  { property = "ProcessId", field = "pid", type = "int" },
+  { property = "LevelDisplayName", field = "level", type = "enum", values = { Critical = "critical", Error = "error", Warning = "warning", Information = "info", Verbose = "debug" } },
+  { property = "EntryType", field = "level", type = "enum", values = { Error = "error", Warning = "warning", Information = "info" } },
+]
+
+# Parameters every cmdlet accepts.
+
+[[common]]
+name = "WhatIf"
+aliases = ["wi"]
+switch = true
+role = "preview"
+rule = "P33"
+
+[[common]]
+name = "Confirm"
+aliases = ["cf"]
+switch = true
+rule = "P34"
+drop = "the parameter does not exist; Nurt does not ask for confirmation"
+
+[[common]]
+name = "ErrorAction"
+aliases = ["ea"]
+rule = "P35"
+role = "error_action"
+values = { SilentlyContinue = "skip", Ignore = "skip", Stop = "", Continue = "" }
+arg = "on_missing"
+stage = "remove"
+drop = "the parameter does not exist; a missing target is reported as an error"
+
+[[common]]
+name = "Verbose"
+aliases = ["vb"]
+switch = true
+rule = "P35"
+drop = "the parameter does not exist; the report lists every change"
+
+[[common]]
+name = "Debug"
+aliases = ["db"]
+switch = true
+rule = "P35"
+drop = "the parameter does not exist"
+
+# Cmdlets. `from` holds the cmdlet name and its aliases; `shared` names the
+# aliases that are also commands of bash, cmd or Nurt and are read as
+# PowerShell only with a PowerShell parameter or PowerShell syntax.
+
+[[entry]]
+rule = "P01"
+class = "C"
+kind = "cmdlet"
+from = ["Get-ChildItem", "gci", "ls", "dir"]
+shared = ["ls", "dir"]
+output = "entry"
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+wildcards = true
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Filter"
+position = 1
+type = "name_glob"
+arg = "glob"
+
+[[entry.param]]
+name = "Include"
+type = "texts"
+role = "include"
+
+[[entry.param]]
+name = "Exclude"
+type = "texts"
+role = "exclude"
+
+[[entry.param]]
+name = "Recurse"
+aliases = ["s"]
+switch = true
+
+[[entry.param]]
+name = "Depth"
+type = "depth"
+arg = "depth"
+
+[[entry.param]]
+name = "Force"
+switch = true
+arg = "hidden"
+set = true
+
+[[entry.param]]
+name = "File"
+aliases = ["af"]
+switch = true
+arg = "type"
+set = "file"
+
+[[entry.param]]
+name = "Directory"
+aliases = ["ad", "d"]
+switch = true
+arg = "type"
+set = "directory"
+
+[[entry.param]]
+name = "FollowSymlink"
+switch = true
+arg = "follow_links"
+set = true
+
+[[entry.param]]
+name = "Name"
+switch = true
+emit = "select"
+set = "name"
+
+[[entry.variant]]
+rule = "P02"
+class = "C"
+when_any = ["Recurse", "Depth"]
+stages = ["find"]
+recursive = true
+wildcard_arg = "glob"
+absent = [{ params = ["File", "Directory"], arg = "type", ident = "any" }, { params = ["Force"], arg = "hidden", bool = false }]
+
+[[entry.variant]]
+rule = "P02"
+class = "C"
+when_any = ["Filter", "Include", "Exclude"]
+stages = ["find"]
+wildcard_arg = "glob"
+set = [{ arg = "depth", int = 1 }]
+absent = [{ params = ["File", "Directory"], arg = "type", ident = "any" }, { params = ["Force"], arg = "hidden", bool = false }]
+
+[[entry.variant]]
+rule = "P02"
+class = "C"
+wildcard = true
+stages = ["find"]
+wildcard_arg = "glob"
+set = [{ arg = "depth", int = 1 }]
+absent = [{ params = ["File", "Directory"], arg = "type", ident = "any" }, { params = ["Force"], arg = "hidden", bool = false }]
+
+[[entry.variant]]
+rule = "P01"
+class = "C"
+stages = ["list"]
+absent = [{ params = ["Force"], arg = "hidden", bool = false }]
+
+[[entry]]
+rule = "P03"
+class = "C"
+kind = "cmdlet"
+from = ["Get-Content", "gc", "cat", "type"]
+shared = ["cat", "type"]
+output = "content"
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+wildcards = true
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Tail"
+aliases = ["Last"]
+type = "int"
+arg = "last"
+
+[[entry.param]]
+name = "TotalCount"
+aliases = ["First", "Head"]
+type = "upto"
+arg = "lines"
+
+[[entry.param]]
+name = "Raw"
+switch = true
+drop = "the whole content is read by default"
+
+[[entry.param]]
+name = "Encoding"
+type = "enum_text"
+arg = "encoding"
+values = { UTF8 = "utf-8", UTF8BOM = "utf-8", UTF8NoBOM = "utf-8", ASCII = "ascii", Unicode = "utf-16le", BigEndianUnicode = "utf-16be", UTF32 = "utf-32le", BigEndianUTF32 = "utf-32be", Latin1 = "iso-8859-1" }
+
+[[entry.variant]]
+rule = "P03"
+class = "C"
+continued = true
+unless = ["Tail", "TotalCount", "Raw"]
+stages = ["lines"]
+output = "line"
+
+[[entry.variant]]
+rule = "P03"
+class = "C"
+stages = ["read"]
+
+[[entry]]
+rule = "P04"
+class = "C"
+kind = "cmdlet"
+from = ["Set-Content"]
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Value"
+position = 1
+type = "line_text"
+from_pipeline = true
+positional = true
+
+[[entry.param]]
+name = "NoNewline"
+switch = true
+role = "no_newline"
+
+[[entry.param]]
+name = "Encoding"
+type = "enum_text"
+arg = "encoding"
+values = { UTF8 = "utf-8", UTF8BOM = "utf-8", UTF8NoBOM = "utf-8", ASCII = "ascii", Unicode = "utf-16le", BigEndianUnicode = "utf-16be", UTF32 = "utf-32le", BigEndianUTF32 = "utf-32be", Latin1 = "iso-8859-1" }
+
+[[entry.param]]
+name = "Force"
+switch = true
+drop = "read-only files are written without the parameter"
+
+[[entry.variant]]
+rule = "P04"
+class = "C"
+stages = ["write"]
+set = [{ arg = "mode", ident = "overwrite" }]
+
+[[entry]]
+rule = "P04"
+class = "C"
+kind = "cmdlet"
+from = ["Add-Content", "ac"]
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Value"
+position = 1
+type = "line_text"
+from_pipeline = true
+positional = true
+
+[[entry.param]]
+name = "NoNewline"
+switch = true
+role = "no_newline"
+
+[[entry.param]]
+name = "Encoding"
+type = "enum_text"
+arg = "encoding"
+values = { UTF8 = "utf-8", UTF8BOM = "utf-8", UTF8NoBOM = "utf-8", ASCII = "ascii", Unicode = "utf-16le", BigEndianUnicode = "utf-16be", UTF32 = "utf-32le", BigEndianUTF32 = "utf-32be", Latin1 = "iso-8859-1" }
+
+[[entry.variant]]
+rule = "P04"
+class = "C"
+stages = ["write"]
+set = [{ arg = "mode", ident = "append" }]
+
+[[entry]]
+rule = "P04"
+class = "C"
+kind = "cmdlet"
+from = ["Out-File"]
+
+[[entry.param]]
+name = "FilePath"
+aliases = ["Path"]
+position = 0
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "InputObject"
+type = "line_text"
+from_pipeline = true
+positional = true
+
+[[entry.param]]
+name = "Append"
+switch = true
+arg = "mode"
+set = "append"
+
+[[entry.param]]
+name = "NoNewline"
+switch = true
+role = "no_newline"
+
+[[entry.param]]
+name = "Encoding"
+type = "enum_text"
+arg = "encoding"
+values = { UTF8 = "utf-8", UTF8BOM = "utf-8", UTF8NoBOM = "utf-8", ASCII = "ascii", Unicode = "utf-16le", BigEndianUnicode = "utf-16be", UTF32 = "utf-32le", BigEndianUTF32 = "utf-32be", Latin1 = "iso-8859-1" }
+
+[[entry.variant]]
+rule = "P04"
+class = "C"
+stages = ["write"]
+absent = [{ params = ["Append"], arg = "mode", ident = "overwrite" }]
+
+[[entry]]
+rule = "P05"
+class = "C"
+kind = "cmdlet"
+from = ["Select-String", "sls"]
+output = "match"
+
+[[entry.param]]
+name = "Pattern"
+position = 0
+type = "regex"
+literal_when = "SimpleMatch"
+positional = true
+
+[[entry.param]]
+name = "Path"
+position = 1
+type = "path"
+role = "path"
+wildcards = true
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "SimpleMatch"
+switch = true
+arg = "mode"
+set = "literal"
+
+[[entry.param]]
+name = "CaseSensitive"
+switch = true
+arg = "case_sensitive"
+set = true
+
+[[entry.param]]
+name = "Context"
+type = "context"
+
+[[entry.param]]
+name = "NotMatch"
+switch = true
+arg = "invert"
+set = true
+
+[[entry.param]]
+name = "List"
+switch = true
+arg = "output"
+set = "files"
+
+[[entry.param]]
+name = "AllMatches"
+switch = true
+drop = "every match of a line is reported by default"
+
+[[entry.param]]
+name = "Encoding"
+type = "enum_text"
+drop = "the encoding of every file is detected"
+
+[[entry.variant]]
+rule = "P05"
+class = "C"
+stages = ["search"]
+wildcard_arg = "glob"
+absent = [{ params = ["CaseSensitive"], arg = "case_sensitive", bool = false }]
+
+[[entry]]
+rule = "P06"
+class = "C"
+kind = "cmdlet"
+from = ["Copy-Item", "cpi", "cp", "copy"]
+shared = ["cp", "copy"]
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+wildcards = true
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Destination"
+position = 1
+type = "path"
+arg = "to"
+
+[[entry.param]]
+name = "Recurse"
+switch = true
+
+[[entry.param]]
+name = "Force"
+switch = true
+drop = "read-only destinations are replaced without the parameter"
+
+[[entry.variant]]
+rule = "P06"
+class = "C"
+piped = true
+stages = ["copy"]
+args = { Destination = "into" }
+
+[[entry.variant]]
+rule = "P06"
+class = "C"
+when = ["Recurse"]
+stages = ["copy"]
+
+[[entry.variant]]
+rule = "P06"
+class = "P"
+stages = ["copy"]
+assumption = "the source is a file; without -Recurse PowerShell copies a directory without its content"
+
+[[entry]]
+rule = "P07"
+class = "C"
+kind = "cmdlet"
+from = ["Move-Item", "mi", "mv", "move"]
+shared = ["mv", "move"]
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+wildcards = true
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Destination"
+position = 1
+type = "path"
+arg = "to"
+
+[[entry.param]]
+name = "Force"
+switch = true
+arg = "on_conflict"
+set = "overwrite"
+
+[[entry.variant]]
+rule = "P07"
+class = "C"
+piped = true
+stages = ["move"]
+args = { Destination = "into" }
+absent = [{ params = ["Force"], arg = "on_conflict", ident = "error" }]
+
+[[entry.variant]]
+rule = "P07"
+class = "C"
+stages = ["move"]
+absent = [{ params = ["Force"], arg = "on_conflict", ident = "error" }]
+
+[[entry]]
+rule = "P08"
+class = "C"
+kind = "cmdlet"
+from = ["Remove-Item", "ri", "rm", "del", "rd", "erase", "rmdir"]
+shared = ["rm", "del", "rd", "erase", "rmdir"]
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+wildcards = true
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Recurse"
+aliases = ["r"]
+switch = true
+drop = "remove deletes directories with their content"
+
+[[entry.param]]
+name = "Force"
+switch = true
+
+[[entry.variant]]
+rule = "P08"
+class = "C"
+stages = ["remove"]
+
+[[entry]]
+rule = "P09"
+class = "C"
+kind = "cmdlet"
+from = ["New-Item", "ni", "mkdir", "md"]
+shared = ["mkdir", "md"]
+presets = { mkdir = { ItemType = "Directory" }, md = { ItemType = "Directory" } }
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Name"
+type = "text"
+role = "child_name"
+
+[[entry.param]]
+name = "ItemType"
+aliases = ["Type"]
+type = "enum"
+arg = "type"
+values = { Directory = "directory", File = "file", SymbolicLink = "link", Junction = "junction", HardLink = "link" }
+
+[[entry.param]]
+name = "Value"
+position = 1
+type = "text"
+positional = true
+stage = "write"
+
+[[entry.param]]
+name = "Target"
+type = "text"
+arg = "target"
+
+[[entry.param]]
+name = "Force"
+switch = true
+
+[[entry.variant]]
+rule = "P09"
+error = "E_UNCORRECTABLE"
+when_value = { ItemType = "File" }
+when = ["Force"]
+problem = "replaces_file"
+message = "-Force replaces an existing file; write the empty content explicitly"
+fix = ["write {Path} \"\" mode: overwrite"]
+help = "help write"
+
+[[entry.variant]]
+rule = "P09"
+class = "C"
+when = ["Value"]
+stages = ["write"]
+set = [{ arg = "mode", ident = "create" }]
+drop = { ItemType = "write creates a file" }
+
+[[entry.variant]]
+rule = "P09"
+class = "C"
+when_value = { ItemType = "HardLink" }
+stages = ["create"]
+set = [{ arg = "hard", bool = true }]
+
+[[entry.variant]]
+rule = "P09"
+class = "C"
+stages = ["create"]
+absent = [{ params = ["ItemType"], arg = "type", ident = "file" }]
+drop = { Force = "an existing directory is kept" }
+
+[[entry]]
+rule = "P10"
+class = "C"
+kind = "cmdlet"
+from = ["Rename-Item", "rni", "ren"]
+shared = ["ren"]
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+arg = "path"
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+arg = "path"
+
+[[entry.param]]
+name = "NewName"
+position = 1
+type = "new_name"
+arg = "to"
+
+[[entry.param]]
+name = "Force"
+switch = true
+drop = "hidden and read-only entries are renamed without the parameter"
+
+[[entry.variant]]
+rule = "P10"
+class = "C"
+stages = ["rename"]
+
+[[entry]]
+rule = "P11"
+class = "C"
+kind = "cmdlet"
+from = ["Test-Path"]
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "PathType"
+aliases = ["Type"]
+type = "type_check"
+emit = "assert"
+arg = "all"
+values = { Leaf = "file", Container = "directory" }
+
+[[entry.variant]]
+rule = "P11"
+class = "C"
+stages = ["info"]
+drop = { PathType = "" }
+when_value = { PathType = "Any" }
+
+[[entry.variant]]
+rule = "P11"
+class = "C"
+stages = ["info"]
+
+[[entry]]
+rule = "P12"
+class = "C"
+kind = "cmdlet"
+from = ["Get-Item", "gi"]
+output = "entry"
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Force"
+switch = true
+drop = "hidden entries are read without the parameter"
+
+[[entry.variant]]
+rule = "P12"
+class = "C"
+stages = ["info"]
+
+[[entry]]
+rule = "P12"
+class = "C"
+kind = "cmdlet"
+from = ["Get-ItemProperty", "gp", "Get-ItemPropertyValue", "gpv"]
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Name"
+position = 1
+type = "text"
+role = "registry_name"
+
+[[entry.variant]]
+rule = "P12"
+class = "C"
+registry = true
+stages = ["read"]
+
+[[entry.variant]]
+rule = "P12"
+class = "C"
+unless = ["Name"]
+stages = ["info"]
+
+[[entry.variant]]
+rule = "P12"
+error = "E_UNCORRECTABLE"
+problem = "not_registry"
+message = "properties of files have no Nurt form; read the entry with info"
+fix = ["info {Path}"]
+help = "help info"
+
+[[entry]]
+rule = "P13"
+class = "C"
+kind = "cmdlet"
+from = ["Set-ItemProperty", "sp", "New-ItemProperty"]
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Name"
+position = 1
+type = "text"
+role = "registry_name"
+
+[[entry.param]]
+name = "Value"
+position = 2
+type = "value"
+positional = true
+
+[[entry.param]]
+name = "Type"
+aliases = ["PropertyType"]
+type = "enum"
+arg = "value_type"
+values = { String = "string", ExpandString = "expand_string", MultiString = "multi_string", DWord = "dword", QWord = "qword", Binary = "binary" }
+
+[[entry.param]]
+name = "Force"
+switch = true
+drop = "the value is written without the parameter"
+
+[[entry.variant]]
+rule = "P13"
+class = "C"
+registry = true
+stages = ["write"]
+set = [{ arg = "mode", ident = "overwrite" }]
+
+[[entry.variant]]
+rule = "P13"
+error = "E_UNCORRECTABLE"
+problem = "not_registry"
+message = "properties of files are changed with attributes"
+help = "help attributes"
+
+[[entry]]
+rule = "P14"
+class = "C"
+kind = "cmdlet"
+from = ["Get-Acl"]
+
+[[entry.param]]
+name = "Path"
+aliases = ["PSPath"]
+position = 0
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.variant]]
+rule = "P14"
+class = "C"
+stages = ["info"]
+
+[[entry]]
+rule = "P14"
+error = "E_UNCORRECTABLE"
+kind = "cmdlet"
+from = ["Set-Acl"]
+
+[[entry.variant]]
+rule = "P14"
+error = "E_UNCORRECTABLE"
+problem = "acl_object"
+message = "an access control object has no Nurt form; change the entries with attributes acl:"
+help = "help attributes"
+
+[[entry]]
+rule = "P14"
+class = "C"
+kind = "program"
+from = ["icacls"]
+handler = "icacls"
+
+[[entry]]
+rule = "P14"
+class = "C"
+kind = "program"
+from = ["attrib"]
+handler = "attrib"
+
+[[entry]]
+rule = "P15"
+class = "C"
+kind = "cmdlet"
+from = ["Where-Object", "where", "?"]
+shared = ["where"]
+handler = "where"
+
+[[entry]]
+rule = "P16"
+class = "C"
+kind = "cmdlet"
+from = ["Select-Object", "select"]
+shared = ["select"]
+
+[[entry.param]]
+name = "Property"
+position = 0
+type = "fields"
+emit = "select"
+
+[[entry.param]]
+name = "Unique"
+switch = true
+emit = "distinct"
+
+[[entry.param]]
+name = "Skip"
+type = "int"
+emit = "skip"
+
+[[entry.param]]
+name = "First"
+type = "int"
+emit = "first"
+
+[[entry.param]]
+name = "Last"
+type = "int"
+emit = "last"
+
+[[entry.variant]]
+rule = "P16"
+error = "E_UNCORRECTABLE"
+when = ["First", "Last"]
+problem = "first_and_last"
+message = "-First and -Last together select two ranges; write two programs with first and last"
+help = "help first"
+
+[[entry.variant]]
+rule = "P16"
+class = "C"
+piped = true
+stages = []
+
+[[entry]]
+rule = "P17"
+class = "C"
+kind = "cmdlet"
+from = ["Sort-Object", "sort"]
+shared = ["sort"]
+
+[[entry.param]]
+name = "Property"
+position = 0
+type = "fields"
+positional = true
+order_assumption = true
+
+[[entry.param]]
+name = "Descending"
+switch = true
+arg = "order"
+set = "desc"
+
+[[entry.variant]]
+rule = "P17"
+class = "C"
+piped = true
+stages = ["sort"]
+absent = [{ params = ["Property"], self_field = true }]
+
+[[entry]]
+rule = "P18"
+class = "C"
+kind = "cmdlet"
+from = ["Group-Object", "group"]
+shared = ["group"]
+
+[[entry.param]]
+name = "Property"
+position = 0
+type = "field"
+arg = "by"
+
+[[entry.param]]
+name = "NoElement"
+switch = true
+drop = "groups list their count without the items by default"
+
+[[entry.variant]]
+rule = "P18"
+class = "C"
+piped = true
+stages = ["group"]
+
+[[entry]]
+rule = "P18"
+class = "C"
+kind = "cmdlet"
+from = ["Measure-Object", "measure"]
+
+[[entry.param]]
+name = "Property"
+position = 0
+type = "fields"
+positional = true
+
+[[entry.param]]
+name = "Sum"
+switch = true
+
+[[entry.param]]
+name = "Average"
+switch = true
+
+[[entry.param]]
+name = "Maximum"
+switch = true
+
+[[entry.param]]
+name = "Minimum"
+switch = true
+
+[[entry.param]]
+name = "Line"
+switch = true
+
+[[entry.param]]
+name = "Word"
+switch = true
+
+[[entry.param]]
+name = "Character"
+switch = true
+
+[[entry.variant]]
+rule = "P18"
+error = "E_UNCORRECTABLE"
+when_any = ["Word", "Character"]
+problem = "text_measure"
+message = "words and characters are not counted; count lines with count"
+help = "help count"
+
+[[entry.variant]]
+rule = "P18"
+class = "C"
+piped = true
+when_any = ["Sum", "Average", "Maximum", "Minimum"]
+stages = ["summarize"]
+drop = { Sum = "", Average = "", Maximum = "", Minimum = "" }
+
+[[entry.variant]]
+rule = "P18"
+class = "C"
+piped = true
+stages = ["count"]
+drop = { Property = "count counts every record", Line = "" }
+
+[[entry]]
+rule = "P19"
+error = "E_UNCORRECTABLE"
+kind = "cmdlet"
+from = ["ForEach-Object", "foreach", "%"]
+handler = "foreach"
+
+[[entry]]
+rule = "P20"
+class = "C"
+kind = "cmdlet"
+from = ["Compare-Object", "compare", "diff"]
+shared = ["diff"]
+
+[[entry.param]]
+name = "ReferenceObject"
+position = 0
+type = "content_path"
+positional = true
+
+[[entry.param]]
+name = "DifferenceObject"
+position = 1
+type = "content_path"
+positional = true
+
+[[entry.variant]]
+rule = "P20"
+class = "C"
+stages = ["diff"]
+
+[[entry]]
+rule = "P21"
+class = "C"
+kind = "cmdlet"
+from = ["Get-FileHash"]
+
+[[entry.param]]
+name = "Path"
+position = 0
+type = "path"
+role = "path"
+wildcards = true
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Algorithm"
+type = "enum"
+arg = "algorithm"
+values = { SHA1 = "sha1", SHA256 = "sha256", SHA512 = "sha512", MD5 = "md5" }
+
+[[entry.variant]]
+rule = "P21"
+class = "C"
+stages = ["hash"]
+
+[[entry]]
+rule = "P22"
+class = "C"
+kind = "cmdlet"
+from = ["Get-Process", "gps", "ps"]
+shared = ["ps"]
+output = "process"
+
+[[entry.param]]
+name = "Name"
+aliases = ["ProcessName"]
+position = 0
+type = "name"
+arg = "name"
+
+[[entry.param]]
+name = "Id"
+aliases = ["PID"]
+type = "int"
+arg = "pid"
+
+[[entry.variant]]
+rule = "P22"
+class = "C"
+stages = ["processes"]
+
+[[entry]]
+rule = "P22"
+class = "C"
+kind = "cmdlet"
+from = ["Stop-Process", "spps", "kill"]
+shared = ["kill"]
+
+[[entry.param]]
+name = "Id"
+aliases = ["PID"]
+position = 0
+type = "int"
+arg = "pid"
+stage = "processes"
+
+[[entry.param]]
+name = "Name"
+aliases = ["ProcessName"]
+type = "name"
+arg = "name"
+stage = "processes"
+
+[[entry.param]]
+name = "Force"
+switch = true
+arg = "signal"
+set = "kill"
+stage = "stop"
+
+[[entry.variant]]
+rule = "P22"
+class = "C"
+piped = true
+stages = ["stop"]
+
+[[entry.variant]]
+rule = "P22"
+class = "C"
+when_any = ["Id", "Name"]
+stages = ["processes", "stop"]
+
+[[entry]]
+rule = "P23"
+class = "C"
+kind = "cmdlet"
+from = ["Start-Process", "saps", "start"]
+shared = ["start"]
+
+[[entry.param]]
+name = "FilePath"
+aliases = ["Path"]
+position = 0
+type = "program"
+role = "program"
+
+[[entry.param]]
+name = "ArgumentList"
+aliases = ["Args"]
+position = 1
+type = "arguments"
+role = "arguments"
+assumption = "the argument text is split at white space; PowerShell passes it to the program as one command line"
+
+[[entry.param]]
+name = "WorkingDirectory"
+type = "path"
+arg = "cwd"
+
+[[entry.param]]
+name = "Wait"
+switch = true
+arg = "wait"
+set = "forever"
+
+[[entry.param]]
+name = "NoNewWindow"
+switch = true
+drop = "programs run without a window"
+
+[[entry.param]]
+name = "WindowStyle"
+type = "text"
+drop = "programs run without a window"
+
+[[entry.param]]
+name = "Verb"
+type = "text"
+error = "programs run with the rights of the console; start the console with the required rights"
+
+[[entry.variant]]
+rule = "P23"
+class = "C"
+stages = ["run"]
+
+[[entry]]
+rule = "P24"
+class = "C"
+kind = "cmdlet"
+from = ["Get-Service", "gsv"]
+output = "service"
+
+[[entry.param]]
+name = "Name"
+aliases = ["ServiceName"]
+position = 0
+type = "name"
+arg = "name"
+
+[[entry.variant]]
+rule = "P24"
+class = "C"
+stages = ["services"]
+
+[[entry]]
+rule = "P24"
+class = "C"
+kind = "cmdlet"
+from = ["Start-Service", "sasv"]
+
+[[entry.param]]
+name = "Name"
+aliases = ["ServiceName"]
+position = 0
+type = "name"
+arg = "name"
+stage = "services"
+
+[[entry.variant]]
+rule = "P24"
+class = "C"
+piped = true
+stages = ["start"]
+
+[[entry.variant]]
+rule = "P24"
+class = "C"
+stages = ["services", "start"]
+
+[[entry]]
+rule = "P24"
+class = "C"
+kind = "cmdlet"
+from = ["Stop-Service", "spsv"]
+
+[[entry.param]]
+name = "Name"
+aliases = ["ServiceName"]
+position = 0
+type = "name"
+arg = "name"
+stage = "services"
+
+[[entry.param]]
+name = "Force"
+switch = true
+drop = "dependent services are stopped by the service manager"
+
+[[entry.variant]]
+rule = "P24"
+class = "C"
+piped = true
+stages = ["stop"]
+
+[[entry.variant]]
+rule = "P24"
+class = "C"
+stages = ["services", "stop"]
+
+[[entry]]
+rule = "P24"
+class = "C"
+kind = "cmdlet"
+from = ["Restart-Service"]
+
+[[entry.param]]
+name = "Name"
+aliases = ["ServiceName"]
+position = 0
+type = "name"
+arg = "name"
+stage = "services"
+
+[[entry.param]]
+name = "Force"
+switch = true
+drop = "dependent services are restarted by the service manager"
+
+[[entry.variant]]
+rule = "P24"
+class = "C"
+piped = true
+stages = ["restart"]
+
+[[entry.variant]]
+rule = "P24"
+class = "C"
+stages = ["services", "restart"]
+
+[[entry]]
+rule = "P24"
+class = "C"
+kind = "cmdlet"
+from = ["Set-Service"]
+
+[[entry.param]]
+name = "Name"
+aliases = ["ServiceName"]
+position = 0
+type = "name"
+arg = "name"
+stage = "services"
+
+[[entry.param]]
+name = "StartupType"
+aliases = ["StartMode"]
+type = "text"
+role = "selector"
+
+[[entry.param]]
+name = "Status"
+type = "text"
+role = "selector"
+
+[[entry.variant]]
+rule = "P24"
+class = "C"
+when_value = { StartupType = "Automatic" }
+unless = ["Status"]
+stages = ["services", "enable"]
+
+[[entry.variant]]
+rule = "P24"
+class = "C"
+when_value = { StartupType = "Disabled" }
+unless = ["Status"]
+stages = ["services", "disable"]
+
+[[entry.variant]]
+rule = "P24"
+class = "C"
+when_value = { Status = "Running" }
+unless = ["StartupType"]
+stages = ["services", "start"]
+
+[[entry.variant]]
+rule = "P24"
+class = "C"
+when_value = { Status = "Stopped" }
+unless = ["StartupType"]
+stages = ["services", "stop"]
+
+[[entry.variant]]
+rule = "P24"
+error = "E_UNCORRECTABLE"
+problem = "service_setting"
+message = "only -StartupType Automatic or Disabled, or -Status Running or Stopped, has a Nurt form; set one per call"
+help = "help services"
+
+[[entry]]
+rule = "P25"
+class = "C"
+kind = "cmdlet"
+from = ["Invoke-WebRequest", "iwr", "curl", "wget"]
+shared = ["curl", "wget"]
+
+[[entry.param]]
+name = "Uri"
+aliases = ["Url"]
+position = 0
+type = "text"
+positional = true
+
+[[entry.param]]
+name = "OutFile"
+type = "path"
+positional = true
+stage = "http.download"
+
+[[entry.param]]
+name = "Method"
+type = "enum"
+arg = "method"
+values = { Get = "get", Head = "head", Post = "post", Put = "put", Patch = "patch", Delete = "delete", Options = "options" }
+stage = "http.request"
+
+[[entry.param]]
+name = "Headers"
+type = "map"
+arg = "headers"
+
+[[entry.param]]
+name = "Body"
+type = "text"
+arg = "body"
+stage = "http.request"
+
+[[entry.param]]
+name = "TimeoutSec"
+type = "seconds"
+arg = "timeout"
+
+[[entry.param]]
+name = "UseBasicParsing"
+switch = true
+drop = "the response is not parsed as a document"
+
+[[entry.variant]]
+rule = "P25"
+class = "C"
+when = ["OutFile"]
+stages = ["http.download"]
+
+[[entry.variant]]
+rule = "P25"
+class = "C"
+stages = ["http.request"]
+
+[[entry]]
+rule = "P25"
+class = "C"
+kind = "cmdlet"
+from = ["Invoke-RestMethod", "irm"]
+
+[[entry.param]]
+name = "Uri"
+aliases = ["Url"]
+position = 0
+type = "text"
+positional = true
+
+[[entry.param]]
+name = "OutFile"
+type = "path"
+positional = true
+stage = "http.download"
+
+[[entry.param]]
+name = "Method"
+type = "enum"
+arg = "method"
+values = { Get = "get", Head = "head", Post = "post", Put = "put", Patch = "patch", Delete = "delete", Options = "options" }
+stage = "http.request"
+
+[[entry.param]]
+name = "Headers"
+type = "map"
+arg = "headers"
+
+[[entry.param]]
+name = "Body"
+type = "text"
+arg = "body"
+stage = "http.request"
+
+[[entry.param]]
+name = "TimeoutSec"
+type = "seconds"
+arg = "timeout"
+
+[[entry.variant]]
+rule = "P25"
+class = "C"
+when = ["OutFile"]
+stages = ["http.download"]
+
+[[entry.variant]]
+rule = "P25"
+class = "C"
+stages = ["http.request", "select"]
+set = [{ stage = "select", ident = "body" }]
+
+[[entry]]
+rule = "P26"
+class = "C"
+kind = "cmdlet"
+from = ["Get-Date"]
+
+[[entry.variant]]
+rule = "P26"
+class = "C"
+stages = ["evaluate"]
+set = [{ call = "now" }]
+
+[[entry]]
+rule = "P26"
+class = "C"
+kind = "cmdlet"
+from = ["Start-Sleep", "sleep"]
+shared = ["sleep"]
+
+[[entry.param]]
+name = "Seconds"
+aliases = ["s"]
+position = 0
+type = "seconds"
+positional = true
+
+[[entry.param]]
+name = "Milliseconds"
+aliases = ["ms"]
+type = "milliseconds"
+positional = true
+
+[[entry.variant]]
+rule = "P26"
+class = "C"
+stages = ["sleep"]
+
+[[entry]]
+rule = "P27"
+class = "C"
+kind = "cmdlet"
+from = ["Get-Command", "gcm"]
+
+[[entry.param]]
+name = "Name"
+position = 0
+type = "text"
+positional = true
+
+[[entry.variant]]
+rule = "P27"
+class = "C"
+when = ["Name"]
+stages = ["program.find"]
+
+[[entry.variant]]
+rule = "P27"
+class = "C"
+stages = ["help"]
+
+[[entry]]
+rule = "P27"
+class = "C"
+kind = "cmdlet"
+from = ["Get-Help", "help", "man"]
+shared = ["help", "man"]
+
+[[entry.param]]
+name = "Name"
+position = 0
+type = "text"
+positional = true
+
+[[entry.param]]
+name = "Detailed"
+switch = true
+drop = "help shows the full description"
+
+[[entry.param]]
+name = "Full"
+switch = true
+drop = "help shows the full description"
+
+[[entry.param]]
+name = "Examples"
+switch = true
+drop = "help shows the examples"
+
+[[entry.variant]]
+rule = "P27"
+class = "C"
+stages = ["help"]
+
+[[entry]]
+rule = "P27"
+class = "C"
+kind = "cmdlet"
+from = ["Get-Member", "gm"]
+
+[[entry.variant]]
+rule = "P27"
+class = "C"
+piped = true
+stages = ["describe"]
+
+[[entry]]
+rule = "P28"
+class = "P"
+kind = "cmdlet"
+from = ["ConvertFrom-Json"]
+
+[[entry.variant]]
+rule = "P28"
+class = "P"
+piped = true
+merge = "read"
+set = [{ arg = "key", text = "$" }]
+output = "item"
+assumption = "the document is read as a whole and its values are returned as items"
+
+[[entry]]
+rule = "P28"
+class = "P"
+kind = "cmdlet"
+from = ["ConvertTo-Json"]
+
+[[entry.param]]
+name = "Depth"
+type = "int"
+drop = "documents are written at every depth"
+
+[[entry.param]]
+name = "Compress"
+switch = true
+drop = "the layout of the written document is chosen by write"
+
+[[entry.variant]]
+rule = "P28"
+class = "P"
+piped = true
+merge = "write"
+merge_next = true
+set = [{ arg = "format", ident = "json" }]
+assumption = "the records are written as a JSON document"
+
+[[entry]]
+rule = "P28"
+class = "P"
+kind = "cmdlet"
+from = ["Import-Csv", "ipcsv"]
+output = "item"
+
+[[entry.param]]
+name = "Path"
+position = 0
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.variant]]
+rule = "P28"
+class = "P"
+stages = ["read"]
+set = [{ arg = "key", text = "[*]" }]
+assumption = "every row of the file is returned as an item keyed by the header"
+
+[[entry]]
+rule = "P28"
+class = "P"
+kind = "cmdlet"
+from = ["Export-Csv", "epcsv"]
+
+[[entry.param]]
+name = "Path"
+position = 0
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "Append"
+switch = true
+arg = "mode"
+set = "append"
+
+[[entry.param]]
+name = "NoTypeInformation"
+aliases = ["NTI"]
+switch = true
+drop = "no type line is written"
+
+[[entry.variant]]
+rule = "P28"
+class = "P"
+piped = true
+stages = ["write"]
+set = [{ arg = "format", ident = "csv" }]
+absent = [{ params = ["Append"], arg = "mode", ident = "overwrite" }]
+assumption = "the fields of the records become the columns of the file"
+
+[[entry]]
+rule = "P29"
+class = "C"
+kind = "cmdlet"
+from = ["Expand-Archive"]
+
+[[entry.param]]
+name = "Path"
+position = 0
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+
+[[entry.param]]
+name = "DestinationPath"
+position = 1
+type = "path"
+arg = "into"
+required = "the destination directory is required; there is no current directory"
+
+[[entry.param]]
+name = "Force"
+switch = true
+arg = "on_conflict"
+set = "overwrite"
+
+[[entry.variant]]
+rule = "P29"
+class = "C"
+stages = ["archive.extract"]
+absent = [{ params = ["Force"], arg = "on_conflict", ident = "error" }]
+
+[[entry]]
+rule = "P29"
+class = "C"
+kind = "cmdlet"
+from = ["Compress-Archive"]
+
+[[entry.param]]
+name = "Path"
+position = 0
+type = "path"
+role = "path"
+positional = true
+stage = "find"
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "path"
+positional = true
+stage = "find"
+
+[[entry.param]]
+name = "DestinationPath"
+position = 1
+type = "path"
+positional = true
+stage = "archive.create"
+required = "the archive path is required"
+
+[[entry.variant]]
+rule = "P29"
+class = "C"
+stages = ["find", "archive.create"]
+
+[[entry]]
+rule = "P30"
+error = "E_UNCORRECTABLE"
+kind = "cmdlet"
+from = ["Set-Location", "sl", "cd", "chdir", "Push-Location", "pushd", "Get-Location", "gl", "pwd", "Pop-Location", "popd"]
+shared = ["cd", "chdir", "pushd", "pwd", "popd"]
+
+[[entry.param]]
+name = "Path"
+position = 0
+type = "path"
+role = "location"
+
+[[entry.param]]
+name = "LiteralPath"
+aliases = ["LP"]
+type = "path"
+role = "location"
+
+[[entry.variant]]
+rule = "P30"
+error = "E_UNCORRECTABLE"
+problem = "no_current_directory"
+message = "no current directory; paths are absolute or relative to the call parameter base"
+help = "help corrections"
+
+[[entry]]
+rule = "P36"
+class = "C"
+kind = "cmdlet"
+from = ["Write-Output", "echo", "write", "Write-Host"]
+shared = ["echo", "write"]
+
+[[entry.param]]
+name = "InputObject"
+aliases = ["Object"]
+position = 0
+type = "output"
+positional = true
+
+[[entry.param]]
+name = "NoNewline"
+switch = true
+drop = "the value is shown as a result"
+
+[[entry.param]]
+name = "ForegroundColor"
+aliases = ["fore"]
+type = "text"
+drop = "results have no colors"
+
+[[entry.param]]
+name = "BackgroundColor"
+aliases = ["back"]
+type = "text"
+drop = "results have no colors"
+
+[[entry.variant]]
+rule = "P36"
+class = "C"
+stages = ["evaluate"]
+
+[[entry]]
+rule = "P37"
+class = "C"
+kind = "cmdlet"
+from = ["Get-WinEvent"]
+output = "log_event"
+
+[[entry.param]]
+name = "LogName"
+position = 0
+type = "text"
+arg = "source"
+
+[[entry.param]]
+name = "MaxEvents"
+type = "int"
+arg = "limit"
+
+[[entry.variant]]
+rule = "P37"
+class = "C"
+stages = ["logs"]
+
+[[entry]]
+rule = "P37"
+class = "C"
+kind = "cmdlet"
+from = ["Get-EventLog"]
+output = "log_event"
+
+[[entry.param]]
+name = "LogName"
+position = 0
+type = "text"
+arg = "source"
+
+[[entry.param]]
+name = "Newest"
+type = "int"
+arg = "limit"
+
+[[entry.param]]
+name = "EntryType"
+type = "enum"
+arg = "level"
+values = { Error = "error", Warning = "warning", Information = "info" }
+
+[[entry.variant]]
+rule = "P37"
+class = "C"
+stages = ["logs"]
+
+[[entry]]
+rule = "P38"
+class = "C"
+kind = "cmdlet"
+from = ["Get-NetTCPConnection"]
+
+[[entry.param]]
+name = "State"
+type = "enum"
+arg = "state"
+values = { Listen = "listen" }
+
+[[entry.variant]]
+rule = "P38"
+class = "C"
+stages = ["ports"]
+set = [{ arg = "protocol", ident = "tcp" }]
+absent = [{ params = ["State"], arg = "state", ident = "all" }]
+
+[[entry]]
+rule = "P38"
+class = "C"
+kind = "cmdlet"
+from = ["Test-Connection"]
+
+[[entry.param]]
+name = "TargetName"
+aliases = ["ComputerName"]
+position = 0
+type = "text"
+positional = true
+
+[[entry.param]]
+name = "Count"
+type = "int"
+arg = "count"
+
+[[entry.variant]]
+rule = "P38"
+class = "C"
+stages = ["network.ping"]
+
+[[entry]]
+rule = "P38"
+class = "C"
+kind = "cmdlet"
+from = ["Resolve-DnsName"]
+
+[[entry.param]]
+name = "Name"
+position = 0
+type = "text"
+positional = true
+
+[[entry.param]]
+name = "Type"
+position = 1
+type = "enum"
+arg = "type"
+values = { A = "a", AAAA = "aaaa", MX = "mx", TXT = "txt", NS = "ns", CNAME = "cname", ANY = "any" }
+
+[[entry.param]]
+name = "Server"
+type = "text"
+arg = "server"
+
+[[entry.variant]]
+rule = "P38"
+class = "C"
+stages = ["network.resolve"]
+
+[[entry]]
+rule = "P38"
+class = "C"
+kind = "cmdlet"
+from = ["Get-NetIPAddress"]
+
+[[entry.variant]]
+rule = "P38"
+class = "C"
+stages = ["network.interfaces"]
+
+[[entry]]
+rule = "P39"
+class = "C"
+kind = "cmdlet"
+from = ["Get-CimInstance", "gcim", "Get-WmiObject", "gwmi"]
+
+[[entry.param]]
+name = "ClassName"
+aliases = ["Class"]
+position = 0
+type = "text"
+positional = true
+
+[[entry.param]]
+name = "Filter"
+type = "text"
+arg = "where"
+
+[[entry.param]]
+name = "Namespace"
+type = "text"
+arg = "namespace"
+
+[[entry.param]]
+name = "Property"
+type = "texts"
+arg = "properties"
+
+[[entry.variant]]
+rule = "P39"
+class = "C"
+stages = ["windows.cim"]
+
+[[entry]]
+rule = "P40"
+class = "C"
+kind = "cmdlet"
+from = ["Get-Volume", "Get-Disk"]
+
+[[entry.variant]]
+rule = "P40"
+class = "C"
+stages = ["disks"]
+
+[[entry]]
+rule = "P41"
+error = "E_UNCORRECTABLE"
+kind = "cmdlet"
+from = ["Register-ScheduledTask", "schtasks"]
+raw_args = true
+
+[[entry.variant]]
+rule = "P41"
+error = "E_UNCORRECTABLE"
+problem = "system_task"
+message = "tasks of the system scheduler are not created; schedule a console program with schedule.create"
+help = "help schedule.create"
+
+[[entry]]
+rule = "P42"
+error = "E_UNCORRECTABLE"
+kind = "cmdlet"
+from = ["Invoke-Expression", "iex"]
+raw_args = true
+
+[[entry.variant]]
+rule = "P42"
+error = "E_UNCORRECTABLE"
+problem = "no_eval"
+message = "text is not evaluated as a program; write the program itself"
+help = "help corrections"
+
+[[entry]]
+rule = "P42"
+error = "E_UNCORRECTABLE"
+kind = "cmdlet"
+from = ["Invoke-Command", "icm"]
+raw_args = true
+
+[[entry.variant]]
+rule = "P42"
+error = "E_UNCORRECTABLE"
+problem = "remote_execution"
+message = "remote execution belongs to the host that sends the program to the other device; write the program itself"
+help = "help corrections"

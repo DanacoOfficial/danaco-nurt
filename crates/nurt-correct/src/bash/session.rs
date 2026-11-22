@@ -1,0 +1,1073 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//! Translation of shell structure: lists, `&&`, `||`, `;`, pipes, `cd`,
+//! assignments, prefixes (`sudo`, `time`, `timeout`, `nohup`, `env`),
+//! redirections, parameter expansions and command substitutions.
+
+use std::cell::{Cell, RefCell};
+
+use nurt_contracts::ast::{
+    Arg, AstDocument, Expr, Head, Let, MapEntry, Pipeline, Ref, Span, Stage, Statement,
+};
+use nurt_contracts::error::{At, Candidate, Error, ErrorCode, Stage as ErrorStage};
+use nurt_contracts::report::{Correction, CorrectionClass, TextPosition};
+
+use super::lex::{RedirectOp, Word, WordPart, lex};
+use super::syntax::{self, Command, Connector, Item, Located, Pipe, Script, Separator, Simple};
+use super::table::BashTable;
+use super::template::{Bound, Conversion, Convert};
+use super::tree::{document, print_pipeline, print_program};
+use super::{Assumption, Mode, TranslateContext, Translation, detect, engine, produce};
+
+/// Most alternatives kept for one translation.
+pub(crate) const MAX_ALTERNATIVES: usize = 3;
+
+/// A translated pipeline fragment.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Piece {
+    pub(crate) stages: Vec<Stage>,
+    pub(crate) kind: String,
+    pub(crate) why: Option<String>,
+}
+
+/// Interpretations of a fragment, the most likely first.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Variants(pub(crate) Vec<Piece>);
+
+impl Variants {
+    pub(crate) fn one(stages: Vec<Stage>, kind: &str) -> Self {
+        Self(vec![Piece {
+            stages,
+            kind: kind.to_owned(),
+            why: None,
+        }])
+    }
+
+    pub(crate) fn primary(&self) -> &Piece {
+        &self.0[0]
+    }
+
+    pub(crate) fn primary_mut(&mut self) -> &mut Piece {
+        &mut self.0[0]
+    }
+
+    /// Joins two fragments: each alternative of one side is combined with
+    /// the primary interpretation of the other.
+    pub(crate) fn then(self, next: Variants) -> Variants {
+        let join = |a: &Piece, b: &Piece| Piece {
+            stages: a.stages.iter().chain(&b.stages).cloned().collect(),
+            kind: b.kind.clone(),
+            why: b.why.clone().or_else(|| a.why.clone()),
+        };
+        let first = self.primary();
+        let second = next.primary();
+        let mut pieces = vec![join(first, second)];
+        pieces.extend(self.0.iter().skip(1).map(|a| join(a, second)));
+        pieces.extend(next.0.iter().skip(1).map(|b| join(first, b)));
+        pieces.truncate(MAX_ALTERNATIVES + 1);
+        Variants(pieces)
+    }
+
+    pub(crate) fn map(self, f: impl Fn(Piece) -> Piece) -> Variants {
+        Variants(self.0.into_iter().map(f).collect())
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Pending {
+    rule: String,
+    class: CorrectionClass,
+    span: Span,
+    to: String,
+    kind: &'static str,
+}
+
+#[derive(Debug, Default)]
+struct Log {
+    corrections: Vec<Pending>,
+    assumptions: Vec<Assumption>,
+    lets: Vec<Let>,
+}
+
+/// Options of a program run collected from prefixes and redirections.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct RunOptions {
+    pub(crate) env: Vec<(String, Bound)>,
+    pub(crate) timeout: Option<Bound>,
+    pub(crate) background: bool,
+    pub(crate) merge_stderr: bool,
+    pub(crate) quiet: bool,
+    pub(crate) span: Option<Span>,
+}
+
+impl RunOptions {
+    fn is_empty(&self) -> bool {
+        self.env.is_empty()
+            && self.timeout.is_none()
+            && !self.background
+            && !self.merge_stderr
+            && !self.quiet
+    }
+}
+
+pub(crate) struct Session<'a> {
+    pub(crate) table: &'a BashTable,
+    pub(crate) context: &'a TranslateContext<'a>,
+    lines: Vec<Vec<char>>,
+    cwd: RefCell<Option<String>>,
+    log: RefCell<Log>,
+    followed: Cell<bool>,
+}
+
+pub(crate) fn translate(
+    input: &str,
+    context: &TranslateContext<'_>,
+    table: &BashTable,
+) -> Option<Result<Translation, Error>> {
+    let tokens = lex(input).ok()?;
+    let has_word = tokens
+        .iter()
+        .any(|token| matches!(token.kind, super::lex::PosixTokenKind::Word(_)));
+    if !has_word {
+        return None;
+    }
+    if context.mode == Mode::Live && !detect::is_habit(table, &tokens) {
+        return None;
+    }
+    let session = Session::new(table, context, input);
+    let result = match syntax::parse(&tokens) {
+        Ok(script) => session.script(&script),
+        Err(error) => Err(session.error(
+            ErrorCode::Uncorrectable,
+            "unsupported_syntax",
+            error.span,
+            &[("reason", error.message)],
+        )),
+    };
+    Some(result)
+}
+
+/// A step of a list: a pipeline with the connector before it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Link {
+    First,
+    And,
+    Or,
+    Sequence,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Step<'s> {
+    pipe: &'s Pipe,
+    link: Link,
+    background: bool,
+}
+
+fn steps(script: &Script) -> Vec<Step<'_>> {
+    let mut steps = Vec::new();
+    for item in &script.items {
+        let link = if steps.is_empty() { Link::First } else { Link::Sequence };
+        push_item(&mut steps, item, link);
+    }
+    steps
+}
+
+fn push_item<'s>(steps: &mut Vec<Step<'s>>, item: &'s Item, link: Link) {
+    let background = item.separator == Some(Separator::Background);
+    let count = item.rest.len() + 1;
+    let pipes = std::iter::once((link, &item.first)).chain(item.rest.iter().map(|(connector, pipe)| {
+        let link = match connector {
+            Connector::And => Link::And,
+            Connector::Or => Link::Or,
+        };
+        (link, pipe)
+    }));
+    for (index, (link, pipe)) in pipes.enumerate() {
+        steps.push(Step {
+            pipe,
+            link,
+            background: background && index + 1 == count,
+        });
+    }
+}
+
+impl<'a> Session<'a> {
+    pub(crate) fn new(table: &'a BashTable, context: &'a TranslateContext<'a>, input: &str) -> Self {
+        Self {
+            table,
+            context,
+            lines: input.split('\n').map(|line| line.chars().collect()).collect(),
+            cwd: RefCell::new(None),
+            log: RefCell::new(Log::default()),
+            followed: Cell::new(false),
+        }
+    }
+
+    fn script(&self, script: &Script) -> Result<Translation, Error> {
+        let steps = steps(script);
+        if let Some(span) = compound(&steps) {
+            return Err(self.loop_error(span));
+        }
+        if let Some(index) = steps.iter().position(|step| step.link == Link::Or) {
+            return Err(self.alternative_branch(&steps, index));
+        }
+        let statements = self.statements(&steps)?;
+        match self.context.mode {
+            Mode::Live => self.finish_live(statements),
+            Mode::Script => self.finish_script(statements),
+        }
+    }
+
+    /// Translates every step after `cd`, `export` and `test … &&` prefixes
+    /// were applied; each result is one pipeline with its interpretations.
+    fn statements(&self, steps: &[Step<'_>]) -> Result<Vec<(Variants, Span)>, Error> {
+        let mut env: Vec<(String, Bound)> = Vec::new();
+        let mut results = Vec::new();
+        let mut index = 0;
+        while index < steps.len() {
+            let step = steps[index];
+            let last = index + 1 == steps.len();
+            if let Some(simple) = single_simple(step.pipe) {
+                match self.word(simple, 0).as_deref() {
+                    Some("cd") => {
+                        self.change_directory(simple, last)?;
+                        index += 1;
+                        continue;
+                    }
+                    Some("export") => {
+                        env.extend(self.export(simple, last)?);
+                        index += 1;
+                        continue;
+                    }
+                    Some("test" | "[") if !last && steps[index + 1].link == Link::And => {
+                        let guarded = produce::guard(self, simple, steps[index + 1].pipe)?;
+                        results.push((guarded, join_steps(step, steps[index + 1])));
+                        index += 2;
+                        continue;
+                    }
+                    _ => {}
+                }
+            }
+            if step.link == Link::Sequence && self.context.mode == Mode::Script {
+                self.assume("B22", "script_stops");
+            }
+            let options = RunOptions {
+                env: env.clone(),
+                background: step.background,
+                span: Some(step.pipe.span),
+                ..RunOptions::default()
+            };
+            results.push((self.pipe(step.pipe, &options)?, step.pipe.span));
+            index += 1;
+        }
+        Ok(results)
+    }
+
+    fn word(&self, simple: &Simple, index: usize) -> Option<String> {
+        simple.words.get(index).and_then(|word| word.value.literal())
+    }
+
+    fn change_directory(&self, simple: &Simple, last: bool) -> Result<(), Error> {
+        let target = simple.words.get(1).and_then(|word| word.value.literal());
+        let absolute = target.as_deref().is_some_and(is_absolute) && simple.words.len() == 2;
+        if last || !absolute {
+            return Err(self.error(ErrorCode::Uncorrectable, "current_directory", simple.span, &[]));
+        }
+        let directory = trim_trailing_slash(target.as_deref().unwrap_or_default());
+        *self.cwd.borrow_mut() = Some(directory.clone());
+        self.record(
+            "B20",
+            CorrectionClass::Certain,
+            simple.span,
+            format!("cwd: {}", super::tree::print_text(&directory)),
+            "habit",
+        );
+        Ok(())
+    }
+
+    fn export(&self, simple: &Simple, last: bool) -> Result<Vec<(String, Bound)>, Error> {
+        if last {
+            return Err(self.error(ErrorCode::Uncorrectable, "environment_without_program", simple.span, &[]));
+        }
+        let mut env = Vec::new();
+        for word in &simple.words[1..] {
+            let Some((name, value)) = word.value.raw.split_once('=') else {
+                return Err(self.error(ErrorCode::Uncorrectable, "environment_without_program", simple.span, &[]));
+            };
+            let value = lex(value)
+                .ok()
+                .and_then(|tokens| tokens.into_iter().next())
+                .and_then(|token| match token.kind {
+                    super::lex::PosixTokenKind::Word(word) => word.literal(),
+                    _ => None,
+                })
+                .unwrap_or_default();
+            env.push((name.to_owned(), self.text_bound(value, word.span)));
+        }
+        Ok(env)
+    }
+
+    pub(crate) fn text_bound(&self, text: String, span: Span) -> Bound {
+        Bound::Word { text, span, bare: false }
+    }
+
+    /// Translates a pipeline `A | B | C` into `A' |> B' |> C'`.
+    pub(crate) fn pipe(&self, pipe: &Pipe, options: &RunOptions) -> Result<Variants, Error> {
+        if pipe.negated {
+            return Err(self.error(ErrorCode::Uncorrectable, "unsupported_syntax", pipe.span, &[("reason", "negated pipeline")]));
+        }
+        let last = pipe.commands.len() - 1;
+        let mut result: Option<Variants> = None;
+        for (index, command) in pipe.commands.iter().enumerate() {
+            let Command::Simple(simple) = command else {
+                return Err(self.loop_error(syntax::command_span(command)));
+            };
+            let own = if index == last { options.clone() } else { RunOptions::default() };
+            let name = simple.words.first().and_then(|word| word.value.literal());
+            result = Some(match (result, name.as_deref()) {
+                (None, _) => {
+                    self.followed.set(pipe.commands.len() > 1);
+                    let head = self.simple(simple, None, &own);
+                    self.followed.set(false);
+                    head?
+                }
+                (Some(previous), Some("xargs")) => produce::xargs(self, simple, previous)?,
+                (Some(previous), Some("tee")) if index == last => produce::tee(self, simple, previous)?,
+                (Some(previous), _) => {
+                    let kind = previous.primary().kind.clone();
+                    let stage = self.simple(simple, Some(&kind), &own)?;
+                    self.record("B24", CorrectionClass::Certain, simple.span, piece_text(stage.primary()), "pipe");
+                    previous.then(stage)
+                }
+            });
+        }
+        let result = result.ok_or_else(|| self.error(ErrorCode::Uncorrectable, "unsupported_syntax", pipe.span, &[("reason", "empty pipeline")]))?;
+        match pipe.commands.last() {
+            Some(Command::Simple(simple)) => match produce::output_target(simple) {
+                Some(output) => produce::write_from(self, &output, result),
+                None => Ok(result),
+            },
+            _ => Ok(result),
+        }
+    }
+
+    /// Translates a simple command at the head of a pipeline (`input` is
+    /// `None`) or as a stage receiving records of the given kind.
+    pub(crate) fn simple(&self, simple: &Simple, input: Option<&str>, options: &RunOptions) -> Result<Variants, Error> {
+        let mut options = options.clone();
+        for assignment in &simple.assignments {
+            let value = assignment.value.literal().unwrap_or_default();
+            options.env.push((assignment.name.clone(), self.text_bound(value, assignment.span)));
+        }
+        produce::redirected(self, simple, input, &mut options)
+    }
+
+    /// Translates the words of a simple command after redirections were
+    /// handled.
+    pub(crate) fn words(
+        &self,
+        simple: &Simple,
+        words: &[Located<Word>],
+        input: Option<&str>,
+        options: &RunOptions,
+    ) -> Result<Variants, Error> {
+        let Some(first) = words.first() else {
+            return Err(self.error(ErrorCode::Uncorrectable, "unsupported_syntax", simple.span, &[("reason", "no command")]));
+        };
+        let name = first.value.literal().unwrap_or_else(|| first.value.raw.clone());
+        match name.as_str() {
+            "sudo" => return Err(self.privilege(simple, &words[1..], input, options)),
+            "time" | "nohup" if words.len() > 1 => {
+                let rule = if name == "time" { "B30" } else { "B29" };
+                let inner = self.words(simple, &words[1..], input, options)?;
+                self.record(rule, CorrectionClass::Certain, first.span, piece_text(inner.primary()), "habit");
+                return Ok(inner);
+            }
+            "command" if words.len() > 1 && !is_lookup(words) => {
+                return self.words(simple, &words[1..], input, options);
+            }
+            "timeout" if words.len() > 2 => {
+                let mut options = options.clone();
+                options.timeout = Some(self.operand(&words[1])?);
+                let inner = self.words(simple, &words[2..], input, &options)?;
+                self.record("B30", CorrectionClass::Certain, first.span, piece_text(inner.primary()), "habit");
+                return Ok(inner);
+            }
+            "env" if words.len() > 1 => return self.env_prefix(simple, &words[1..], input, options),
+            "cd" | "export" => {
+                return Err(self.error(ErrorCode::Uncorrectable, "current_directory", simple.span, &[]));
+            }
+            _ => {}
+        }
+        let names: Vec<String> = words
+            .iter()
+            .map(|word| word.value.literal().unwrap_or_default())
+            .collect();
+        let translated = match self.table.command(&names) {
+            _ if name == "git" => engine::git(self, simple, words, input)?,
+            Some(entry) => engine::command(self, entry, simple, &words[entry.words.len()..], input)?,
+            None if self.table.is_habit(&name) => {
+                return Err(self.error(ErrorCode::Uncorrectable, "no_translation", simple.span, &[("command", &name)]));
+            }
+            None if input.is_some() => {
+                return Err(self.error(ErrorCode::Uncorrectable, "unsupported_stage", simple.span, &[("command", &name)]));
+            }
+            None => self.run_program(simple, words, None)?,
+        };
+        self.apply_run_options(translated, options, simple.span)
+    }
+
+    fn env_prefix(&self, simple: &Simple, words: &[Located<Word>], input: Option<&str>, options: &RunOptions) -> Result<Variants, Error> {
+        let mut options = options.clone();
+        let mut rest = words;
+        while let Some((first, tail)) = rest.split_first() {
+            let Some((name, value)) = first.value.raw.split_once('=') else {
+                break;
+            };
+            options.env.push((name.to_owned(), self.text_bound(value.to_owned(), first.span)));
+            rest = tail;
+        }
+        if rest.is_empty() {
+            return Err(self.error(ErrorCode::Uncorrectable, "environment_without_program", simple.span, &[]));
+        }
+        self.words(simple, rest, input, &options)
+    }
+
+    fn privilege(&self, simple: &Simple, words: &[Located<Word>], input: Option<&str>, options: &RunOptions) -> Error {
+        let inner = words
+            .iter()
+            .position(|word| !word.value.raw.starts_with('-'))
+            .map_or(&[][..], |start| &words[start..]);
+        let fix = if inner.is_empty() {
+            None
+        } else {
+            self.words(simple, inner, input, options)
+                .ok()
+                .map(|variants| self.program_text(&variants))
+        };
+        let error = self.error(ErrorCode::Uncorrectable, "privilege_elevation", simple.span, &[]);
+        match fix {
+            Some(text) => error.with_fix(text),
+            None => error,
+        }
+    }
+
+    /// Adds run options to the translated program; they apply only to
+    /// `run`.
+    fn apply_run_options(&self, variants: Variants, options: &RunOptions, span: Span) -> Result<Variants, Error> {
+        if options.is_empty() {
+            return Ok(variants);
+        }
+        let is_run = variants
+            .primary()
+            .stages
+            .last()
+            .is_some_and(|stage| stage.name == "run");
+        if !is_run {
+            let problem = if options.background { "background_change" } else { "options_without_program" };
+            return Err(self.error(ErrorCode::Uncorrectable, problem, options.span.unwrap_or(span), &[]));
+        }
+        let args = self.run_args(options);
+        let variants = variants.map(|mut piece| {
+            if let Some(stage) = piece.stages.last_mut() {
+                append_args(stage, args.clone());
+            }
+            piece
+        });
+        let text = piece_text(variants.primary());
+        if !options.env.is_empty() {
+            self.record("B31", CorrectionClass::Certain, options.span.unwrap_or(span), text.clone(), "habit");
+        }
+        if options.background {
+            self.record("B29", CorrectionClass::Certain, options.span.unwrap_or(span), text, "habit");
+        }
+        Ok(variants)
+    }
+
+    fn run_args(&self, options: &RunOptions) -> Vec<Arg> {
+        let mut args = Vec::new();
+        if !options.env.is_empty() {
+            let entries = options
+                .env
+                .iter()
+                .filter_map(|(name, value)| {
+                    self.convert(value, Conversion::Text)
+                        .ok()
+                        .map(|v| MapEntry { k: name.clone(), v })
+                })
+                .collect();
+            args.push(named("env", Expr::Map { entries, span: None }));
+        }
+        if let Some(timeout) = &options.timeout
+            && let Ok(value) = self.convert(timeout, Conversion::Duration)
+        {
+            args.push(named("timeout", value));
+        }
+        if options.background {
+            args.push(named("background", Expr::Bool { v: true, span: None }));
+        }
+        if options.merge_stderr {
+            args.push(named("merge_stderr", Expr::Bool { v: true, span: None }));
+        }
+        if options.quiet {
+            args.push(named("show", Expr::Ident { v: "none".to_owned(), span: None }));
+        }
+        args
+    }
+
+    /// Translates a program that is not in the table into `run`; the
+    /// working directory comes only from `cd` in the same line.
+    pub(crate) fn run_program(&self, simple: &Simple, words: &[Located<Word>], cwd: Option<String>) -> Result<Variants, Error> {
+        let mut items = Vec::new();
+        for word in words {
+            items.push(match self.operand(word)? {
+                Bound::Node(Expr::Ref(reference)) => Expr::Spread {
+                    x: Box::new(Expr::Ref(reference)),
+                    span: Some(word.span),
+                },
+                bound => self.convert(&bound, Conversion::Text)?,
+            });
+        }
+        let command = Expr::List { items, span: None };
+        let cwd = cwd.or_else(|| self.cwd.borrow().clone());
+        let Some(directory) = cwd else {
+            return Err(self.missing_directory(simple, command, words));
+        };
+        let stage = Stage {
+            name: "run".to_owned(),
+            args: vec![
+                positional(command),
+                named("cwd", Expr::Text { v: directory, span: None }),
+            ],
+            span: Some(simple.span),
+        };
+        self.record("B38", CorrectionClass::Certain, simple.span, super::tree::print_stage(&stage), "habit");
+        Ok(Variants::one(vec![stage], "exec"))
+    }
+
+    fn missing_directory(&self, simple: &Simple, command: Expr, words: &[Located<Word>]) -> Error {
+        let mut error = self.error(ErrorCode::Uncorrectable, "working_directory", simple.span, &[]);
+        for candidate in self.directory_candidates(words) {
+            let stage = Stage {
+                name: "run".to_owned(),
+                args: vec![positional(command.clone()), named("cwd", Expr::Text { v: candidate, span: None })],
+                span: None,
+            };
+            error = error.with_fix(super::tree::print_stage(&stage));
+        }
+        error
+    }
+
+    /// Candidates of a working directory taken only from explicit data:
+    /// the call parameter `base` and the directories of absolute paths in
+    /// the command.
+    pub(crate) fn directory_candidates(&self, words: &[Located<Word>]) -> Vec<String> {
+        let mut candidates: Vec<String> = self.context.base.map(trim_trailing_slash).into_iter().collect();
+        for word in words {
+            let Some(text) = word.value.literal() else { continue };
+            if !is_absolute(&text) {
+                continue;
+            }
+            let trimmed = trim_trailing_slash(&text);
+            let parent = match trimmed.rfind('/') {
+                Some(0) => "/".to_owned(),
+                Some(index) => trimmed[..index].to_owned(),
+                None => continue,
+            };
+            if !candidates.contains(&parent) {
+                candidates.push(parent);
+            }
+        }
+        candidates.truncate(MAX_ALTERNATIVES);
+        candidates
+    }
+
+    /// Binds an operand word: literal text, a `let` reference for `$NAME`,
+    /// or a named result for `$(…)`.
+    pub(crate) fn operand(&self, word: &Located<Word>) -> Result<Bound, Error> {
+        if let Some(text) = word.value.literal() {
+            return Ok(Bound::Word {
+                text,
+                span: word.span,
+                bare: word.value.is_bare(),
+            });
+        }
+        match word.value.parts.as_slice() {
+            [WordPart::Variable { name, .. }] => self.variable(name, word),
+            [WordPart::Substitution { body, arithmetic: false, .. }] => produce::substitution(self, body, word),
+            _ => Err(self.expansion_error(word)),
+        }
+    }
+
+    fn variable(&self, name: &str, word: &Located<Word>) -> Result<Bound, Error> {
+        let lower = name.to_ascii_lowercase();
+        if self.context.lets.iter().any(|known| *known == lower) {
+            let reference = Ref { name: lower.clone(), fields: Vec::new(), span: Some(word.span) };
+            self.record("B25", CorrectionClass::Certain, word.span, format!("@{lower}"), "ref");
+            return Ok(Bound::Node(Expr::Ref(reference)));
+        }
+        let problem = if self.table.value_str("host_variables", name).is_some() {
+            "host_variable"
+        } else {
+            "unknown_variable"
+        };
+        let hint = self.table.value_str("host_variables", name).unwrap_or_default();
+        Err(self.error(ErrorCode::Uncorrectable, problem, word.span, &[("name", name), ("lower", &lower), ("hint", hint)]))
+    }
+
+    fn expansion_error(&self, word: &Located<Word>) -> Error {
+        let variable = word.value.parts.iter().find_map(|part| match part {
+            WordPart::Variable { name, .. } => Some(name.clone()),
+            _ => None,
+        });
+        match variable {
+            Some(name) => {
+                let lower = name.to_ascii_lowercase();
+                self.error(ErrorCode::Uncorrectable, "variable_in_text", word.span, &[("name", &name), ("lower", &lower)])
+            }
+            None => self.error(ErrorCode::Uncorrectable, "command_substitution", word.span, &[]),
+        }
+    }
+
+    /// Resolves a path word: absolute paths are kept, relative paths are
+    /// joined to the directory of `cd` in the same line or left for the call
+    /// parameter `base`; without either they are an error.
+    fn path(&self, text: &str, span: Span, bare: bool) -> Result<Expr, Error> {
+        if is_absolute(text) {
+            let value = trim_trailing_slash(text);
+            if bare {
+                self.record("L21", CorrectionClass::Certain, span, super::tree::print_text(&value), "path");
+            }
+            return Ok(Expr::Text { v: value, span: Some(span) });
+        }
+        if bare && (text == "~" || text.starts_with("~/")) {
+            return Ok(Expr::Text { v: trim_trailing_slash(text), span: Some(span) });
+        }
+        if let Some(directory) = self.cwd.borrow().as_deref() {
+            return Ok(Expr::Text { v: join_path(directory, text), span: Some(span) });
+        }
+        if self.context.base.is_some() {
+            return Ok(Expr::Text { v: trim_trailing_slash(text), span: Some(span) });
+        }
+        Err(self.error(ErrorCode::PathRelative, "relative_path", span, &[("path", text)]))
+    }
+
+    /// Runs `f` with a working directory set for the resolution of
+    /// relative operands, restoring the previous one afterwards.
+    pub(crate) fn with_directory<T>(&self, directory: Option<String>, f: impl FnOnce() -> T) -> T {
+        let previous = self.cwd.replace(directory);
+        let result = f();
+        *self.cwd.borrow_mut() = previous;
+        result
+    }
+
+    /// Whether the command being translated is the head of a pipeline with
+    /// further commands.
+    pub(crate) fn followed(&self) -> bool {
+        self.followed.get()
+    }
+
+    pub(crate) fn directory(&self) -> Option<String> {
+        self.cwd.borrow().clone()
+    }
+
+    /// Records a named result for a command substitution and returns its
+    /// name.
+    pub(crate) fn bind_let(&self, pipeline: Pipeline) -> String {
+        let mut log = self.log.borrow_mut();
+        let mut name = "x".to_owned();
+        let mut suffix = 1;
+        while self.context.lets.contains(&name) || log.lets.iter().any(|known| known.name == name) {
+            suffix += 1;
+            name = format!("x{suffix}");
+        }
+        log.lets.push(Let { name: name.clone(), value: pipeline, span: None });
+        name
+    }
+
+    pub(crate) fn record(&self, rule: &str, class: CorrectionClass, span: Span, to: String, kind: &'static str) {
+        let mut log = self.log.borrow_mut();
+        if log.corrections.iter().any(|known| known.rule == rule && known.span == span) {
+            return;
+        }
+        log.corrections.push(Pending { rule: rule.to_owned(), class, span, to, kind });
+    }
+
+    pub(crate) fn assume(&self, rule: &str, key: &str) {
+        let Some(text) = self.table.assumption(key) else { return };
+        let mut log = self.log.borrow_mut();
+        if !log.assumptions.iter().any(|known| known.rule == rule && known.text == text) {
+            log.assumptions.push(Assumption { rule: rule.to_owned(), text: text.to_owned() });
+        }
+    }
+
+    /// Text of the source between the positions of a span.
+    pub(crate) fn source(&self, span: Span) -> String {
+        let mut text = String::new();
+        for line in span.line..=span.end_line {
+            let Some(chars) = self.lines.get(line as usize - 1) else { break };
+            let start = if line == span.line { span.column as usize - 1 } else { 0 };
+            let end = if line == span.end_line { span.end_column as usize - 1 } else { chars.len() };
+            text.extend(chars.iter().take(end.min(chars.len())).skip(start));
+            if line != span.end_line {
+                text.push('\n');
+            }
+        }
+        text
+    }
+
+    /// Builds an error from the message table.
+    pub(crate) fn error(&self, code: ErrorCode, problem: &str, span: Span, vars: &[(&str, &str)]) -> Error {
+        let message = self.table.message(problem);
+        let mut text = message.map_or_else(|| problem.replace('_', " "), |m| m.message.clone());
+        for (name, value) in vars {
+            text = text.replace(&format!("{{{name}}}"), value);
+        }
+        let length = if span.line == span.end_line { span.end_column.saturating_sub(span.column) } else { 0 };
+        let error = Error::new(code, text)
+            .with_stage(ErrorStage::Parse)
+            .with_at(At::new(span.line, span.column, length))
+            .with_found(self.source(span))
+            .with_problem(problem);
+        match message.and_then(|m| m.help.as_deref()) {
+            Some(help) => error.with_help(help),
+            None => error,
+        }
+    }
+
+    fn loop_error(&self, span: Span) -> Error {
+        let mut error = self.error(ErrorCode::Uncorrectable, "loop", span, &[]);
+        let text = self.source(span);
+        if let Some(directory) = self.directory() {
+            let command = Expr::List {
+                items: ["bash", "-c", text.as_str()]
+                    .iter()
+                    .map(|v| Expr::Text { v: (*v).to_owned(), span: None })
+                    .collect(),
+                span: None,
+            };
+            let stage = Stage {
+                name: "run".to_owned(),
+                args: vec![positional(command), named("cwd", Expr::Text { v: directory, span: None })],
+                span: None,
+            };
+            error = error.with_fix(super::tree::print_stage(&stage));
+        }
+        error
+    }
+
+    fn alternative_branch(&self, steps: &[Step<'_>], index: usize) -> Error {
+        let span = steps[index].pipe.span;
+        let mut error = self.error(ErrorCode::Uncorrectable, "alternative_branch", span, &[]);
+        let quiet = Session::new(self.table, self.context, "");
+        let left = Session { lines: self.lines.clone(), ..quiet };
+        if let Ok(statements) = left.statements(&steps[..index]) {
+            for (variants, _) in statements {
+                error = error.with_fix(left.program_text(&variants));
+            }
+        }
+        let right = Session { lines: self.lines.clone(), ..Session::new(self.table, self.context, "") };
+        let mut tail: Vec<Step<'_>> = steps[index..].to_vec();
+        tail[0].link = Link::First;
+        if let Ok(statements) = right.statements(&tail) {
+            for (variants, _) in statements {
+                error = error.with_next_step(right.program_text(&variants));
+            }
+        }
+        error
+    }
+
+    /// Program text of the primary interpretation with the named results it
+    /// uses.
+    pub(crate) fn program_text(&self, variants: &Variants) -> String {
+        let mut statements: Vec<Statement> = self.log.borrow().lets.iter().cloned().map(Statement::Let).collect();
+        statements.push(Statement::Pipeline(pipeline(&variants.primary().stages)));
+        print_program(&nurt_contracts::ast::Program { statements })
+    }
+
+    fn finish_live(&self, statements: Vec<(Variants, Span)>) -> Result<Translation, Error> {
+        if statements.len() > 1 {
+            return Err(self.several_programs(&statements));
+        }
+        let Some((variants, _)) = statements.into_iter().next() else {
+            return Err(self.error(ErrorCode::Uncorrectable, "current_directory", first_span(&self.lines), &[]));
+        };
+        let effect = self.has_effect(variants.primary());
+        let probable = self.log.borrow().corrections.iter().any(|c| c.class == CorrectionClass::Probable);
+        if probable && effect {
+            return Err(self.ambiguous(&variants));
+        }
+        Ok(self.translation(vec![variants]))
+    }
+
+    fn finish_script(&self, statements: Vec<(Variants, Span)>) -> Result<Translation, Error> {
+        if statements.is_empty() {
+            return Err(self.error(ErrorCode::Uncorrectable, "current_directory", first_span(&self.lines), &[]));
+        }
+        Ok(self.translation(statements.into_iter().map(|(variants, _)| variants).collect()))
+    }
+
+    fn several_programs(&self, statements: &[(Variants, Span)]) -> Error {
+        let effects: Vec<String> = statements
+            .iter()
+            .flat_map(|(variants, _)| variants.primary().stages.iter())
+            .filter(|stage| self.table.has_effect(&stage.name))
+            .map(|stage| stage.name.clone())
+            .collect();
+        let span = statements
+            .iter()
+            .map(|(_, span)| *span)
+            .reduce(syntax::join)
+            .unwrap_or_else(|| first_span(&self.lines));
+        let (code, problem) = if effects.is_empty() {
+            (ErrorCode::Uncorrectable, "several_programs")
+        } else {
+            (ErrorCode::OneEffect, "one_effect")
+        };
+        let names = effects.join(", ");
+        let mut error = self.error(code, problem, span, &[("stages", &names)]);
+        for (variants, _) in statements {
+            error = error.with_next_step(self.program_text(variants));
+        }
+        error
+    }
+
+    fn ambiguous(&self, variants: &Variants) -> Error {
+        let span = self
+            .log
+            .borrow()
+            .corrections
+            .iter()
+            .find(|c| c.class == CorrectionClass::Probable)
+            .map_or_else(|| first_span(&self.lines), |c| c.span);
+        let mut error = self.error(ErrorCode::Ambiguous, "probable_change", span, &[]);
+        for (rank, piece) in variants.0.iter().take(MAX_ALTERNATIVES).enumerate() {
+            let text = self.program_text(&Variants(vec![piece.clone()]));
+            error = error.with_candidate(Candidate {
+                rank: u32::try_from(rank + 1).unwrap_or(u32::MAX),
+                reference: None,
+                program: text,
+                why: piece.why.as_deref().and_then(|key| self.table.assumption(key)).map(str::to_owned),
+            });
+        }
+        error
+    }
+
+    fn translation(&self, statements: Vec<Variants>) -> Translation {
+        let log = self.log.borrow();
+        let lets: Vec<Statement> = log.lets.iter().cloned().map(Statement::Let).collect();
+        let build = |pick: &dyn Fn(&Variants) -> Option<Piece>| -> Option<AstDocument> {
+            let mut all = lets.clone();
+            for variants in &statements {
+                all.push(Statement::Pipeline(pipeline(&pick(variants)?.stages)));
+            }
+            Some(document(all))
+        };
+        let tree = build(&|variants| Some(variants.primary().clone())).unwrap_or_else(|| document(Vec::new()));
+        let alternatives: Vec<AstDocument> = (1..=MAX_ALTERNATIVES)
+            .filter_map(|index| {
+                if statements.iter().all(|variants| variants.0.len() <= index) {
+                    return None;
+                }
+                build(&|variants| Some(variants.0.get(index).unwrap_or(variants.primary()).clone()))
+            })
+            .collect();
+        let alternative_texts: Vec<String> = alternatives.iter().map(super::tree::print_document).collect();
+        let rules = log
+            .corrections
+            .iter()
+            .enumerate()
+            .map(|(index, pending)| self.correction(index, pending, &alternative_texts))
+            .collect();
+        Translation {
+            tree,
+            rules,
+            assumptions: log.assumptions.clone(),
+            alternatives,
+        }
+    }
+
+    fn correction(&self, index: usize, pending: &Pending, alternatives: &[String]) -> Correction {
+        let span = pending.span;
+        let length = if span.line == span.end_line { Some(span.end_column.saturating_sub(span.column)) } else { None };
+        Correction {
+            id: format!("C{}", index + 1),
+            rule: pending.rule.clone(),
+            class: pending.class,
+            at: Some(TextPosition { line: span.line, column: span.column, length }),
+            from: self.source(span),
+            to: pending.to.clone(),
+            kind: Some(pending.kind.to_owned()),
+            alternatives: if pending.class == CorrectionClass::Probable { alternatives.to_vec() } else { Vec::new() },
+        }
+    }
+
+    pub(crate) fn has_effect(&self, piece: &Piece) -> bool {
+        piece.stages.iter().any(|stage| self.table.has_effect(&stage.name))
+    }
+
+    pub(crate) fn redirect_kind(op: RedirectOp) -> Option<&'static str> {
+        match op {
+            RedirectOp::Out | RedirectOp::Clobber | RedirectOp::OutErr => Some("overwrite"),
+            RedirectOp::Append | RedirectOp::AppendOutErr => Some("append"),
+            _ => None,
+        }
+    }
+}
+
+impl Convert for Session<'_> {
+    type Error = Error;
+
+    fn convert(&self, bound: &Bound, conversion: Conversion) -> Result<Expr, Error> {
+        let (text, span, bare) = match bound {
+            Bound::Node(expr) => return Ok(expr.clone()),
+            Bound::Word { text, span, bare } => (text, *span, *bare),
+        };
+        match conversion {
+            Conversion::Path => self.path(text, span, bare),
+            Conversion::Text => Ok(Expr::Text { v: text.clone(), span: Some(span) }),
+            Conversion::Int => text
+                .parse::<i64>()
+                .ok()
+                .filter(|v| *v >= 0)
+                .map(|v| Expr::Int { v, span: Some(span) })
+                .ok_or_else(|| self.error(ErrorCode::Uncorrectable, "invalid_number", span, &[("value", text)])),
+            Conversion::Ident => {
+                let lower = text.to_ascii_lowercase();
+                if super::tree::is_identifier(&lower) {
+                    Ok(Expr::Ident { v: lower, span: Some(span) })
+                } else {
+                    Err(self.error(ErrorCode::Uncorrectable, "invalid_value", span, &[("value", text)]))
+                }
+            }
+            Conversion::Duration => parse_duration(text)
+                .map(|v| Expr::Dur { v, span: Some(span) })
+                .ok_or_else(|| self.error(ErrorCode::Uncorrectable, "invalid_duration", span, &[("value", text)])),
+        }
+    }
+
+    fn missing(&self, slot: &str) -> Error {
+        self.error(ErrorCode::Uncorrectable, "missing_operand", first_span(&self.lines), &[("slot", slot)])
+    }
+}
+
+fn first_span(lines: &[Vec<char>]) -> Span {
+    let width = lines.first().map_or(0, Vec::len);
+    Span {
+        line: 1,
+        column: 1,
+        end_line: 1,
+        end_column: u32::try_from(width + 1).unwrap_or(u32::MAX),
+    }
+}
+
+/// Milliseconds of a shell duration: a number of seconds with an optional
+/// fraction and an optional suffix `s`, `m`, `h` or `d`.
+pub(crate) fn parse_duration(text: &str) -> Option<u64> {
+    const UNITS: &[(char, f64)] = &[('s', 1_000.0), ('m', 60_000.0), ('h', 3_600_000.0), ('d', 86_400_000.0)];
+    let (number, factor) = match text.chars().last() {
+        Some(c) if c.is_ascii_alphabetic() => {
+            let factor = UNITS.iter().find(|(unit, _)| *unit == c)?.1;
+            (&text[..text.len() - 1], factor)
+        }
+        _ => (text, 1_000.0),
+    };
+    if number.is_empty() || !number.chars().all(|c| c.is_ascii_digit() || c == '.') {
+        return None;
+    }
+    let value: f64 = number.parse().ok()?;
+    let millis = (value * factor).round();
+    if !(millis.is_finite() && (0.0..MAX_DURATION_MILLIS).contains(&millis)) {
+        return None;
+    }
+    format!("{millis:.0}").parse().ok()
+}
+
+/// Upper bound of a translated duration, far above any practical value.
+const MAX_DURATION_MILLIS: f64 = 1e15;
+
+fn compound(steps: &[Step<'_>]) -> Option<Span> {
+    steps.iter().find_map(|step| {
+        step.pipe.commands.iter().find_map(|command| match command {
+            Command::Compound { span, .. } => Some(*span),
+            Command::Simple(_) => None,
+        })
+    })
+}
+
+fn single_simple(pipe: &Pipe) -> Option<&Simple> {
+    match pipe.commands.as_slice() {
+        [Command::Simple(simple)] if !pipe.negated => Some(simple),
+        _ => None,
+    }
+}
+
+fn is_lookup(words: &[Located<Word>]) -> bool {
+    words.first().is_some_and(|word| word.value.raw == "command")
+        && words.get(1).is_some_and(|word| word.value.raw == "-v")
+}
+
+fn join_steps(a: Step<'_>, b: Step<'_>) -> Span {
+    syntax::join(a.pipe.span, b.pipe.span)
+}
+
+pub(crate) fn is_absolute(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    text.starts_with('/')
+        || (bytes.len() >= 3 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && matches!(bytes[2], b'/' | b'\\'))
+}
+
+pub(crate) fn trim_trailing_slash(text: &str) -> String {
+    let trimmed = text.trim_end_matches('/');
+    if trimmed.is_empty() && text.starts_with('/') { "/".to_owned() } else { trimmed.to_owned() }
+}
+
+/// Joins a relative path to an absolute directory without normalising
+/// `..`; `./` prefixes are dropped.
+pub(crate) fn join_path(directory: &str, relative: &str) -> String {
+    let mut rest = relative;
+    while let Some(stripped) = rest.strip_prefix("./") {
+        rest = stripped;
+    }
+    let rest = trim_trailing_slash(rest);
+    if rest.is_empty() || rest == "." {
+        return directory.to_owned();
+    }
+    if directory.ends_with('/') { format!("{directory}{rest}") } else { format!("{directory}/{rest}") }
+}
+
+pub(crate) fn pipeline(stages: &[Stage]) -> Pipeline {
+    let mut stages = stages.to_vec();
+    let head = if stages.is_empty() {
+        Stage { name: String::new(), args: Vec::new(), span: None }
+    } else {
+        stages.remove(0)
+    };
+    let span = head.span;
+    Pipeline { head: Head::Stage(head), stages, span }
+}
+
+pub(crate) fn piece_text(piece: &Piece) -> String {
+    print_pipeline(&pipeline(&piece.stages), "")
+}
+
+pub(crate) fn named(name: &str, value: Expr) -> Arg {
+    Arg { name: Some(name.to_owned()), value, span: None }
+}
+
+pub(crate) fn positional(value: Expr) -> Arg {
+    let span = super::template::expr_span(&value);
+    Arg { name: None, value, span }
+}
+
+/// Appends arguments to a stage; a named argument already present is kept.
+pub(crate) fn append_args(stage: &mut Stage, args: Vec<Arg>) {
+    for arg in args {
+        let duplicate = arg.name.is_some()
+            && stage.args.iter().any(|existing| existing.name == arg.name);
+        if !duplicate {
+            stage.args.push(arg);
+        }
+    }
+}

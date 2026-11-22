@@ -1,0 +1,58 @@
+# Source: bash-mixed.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 18; translated: 4; with assumptions: 3; impossible: 9; errors: 2.
+# Untranslated statements run unchanged with: run ["bash", "bash-mixed.sh"]
+# Relative paths require the invocation parameter base: "/srv/app"
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Rebuilds the application and archives the output.
+# untranslated: E_UNCORRECTABLE: set -e
+#   problem: no translation rule for `set`
+
+# translated: B01, L21
+remove "/srv/app/build"
+# translated: B20
+run ["go", "test", "./..."] cwd: "/srv/app"
+# translated: B26, B14
+# assumption: the command output is a list of paths
+let sources = find "/srv/app/src" glob: "**/*.go"
+# translated: B15, B25
+# assumption: the pattern is a basic regular expression without special characters
+search "oldName(" ...@sources.path
+
+# translated: B05
+create "/srv/app/out" type: directory
+# translated: B04
+# assumption: the script stops on the first error; the shell runs a statement after `;` even when the previous one fails
+copy "/srv/app/static" to: "/srv/app/out"
+# untranslated: E_UNCORRECTABLE: ls /srv/app/out || echo "missing output"
+#   problem: no alternative branch; check the condition with assert and run the alternative as a separate step
+#   fix: list "/srv/app/out"
+
+# untranslated: E_UNCORRECTABLE: for f in /srv/app/out/*.tmp; do
+#   rm "$f"
+# done
+#   problem: loops have no equivalent; a pattern or a pipeline over records replaces a loop
+
+# untranslated: E_UNCORRECTABLE: cleanup() { rm -rf /tmp/app; }
+#   problem: definitions of functions and types have no equivalent
+# untranslated: E_UNCORRECTABLE: eval "$EXTRA_STEPS"
+#   problem: evaluation of text as code has no equivalent
+# untranslated: E_UNCORRECTABLE: source /etc/app/env.sh
+#   problem: loading a script into the current shell has no equivalent; run executes a script
+
+# translated: B39, B19
+write "/srv/app/out/VERSION" "1.4.2\n" mode: overwrite
+# untranslated: E_UNCORRECTABLE: sudo systemctl restart app
+#   problem: no privilege elevation; run the console with the required privileges
+#   fix: services name: "app" |> restart
+# untranslated: E_UNCORRECTABLE: cd /srv/app
+#   problem: the program has no current directory; relative paths resolve against the invocation parameter base
+# untranslated: E_UNKNOWN_PARAM: tar -czf /srv/backup/app.tgz /srv/app/out &
+#   problem: `background: true` is not a parameter of the command
+# untranslated: E_UNCORRECTABLE: if [ -f /srv/app/out/VERSION ]; then echo ok; fi
+#   problem: conditional statements have no equivalent; assert checks a precondition
+# untranslated: E_SYNTAX: rm "/srv/app/out/unterminated
+#   problem: the script has a syntax error at 31:30; correct the script or run it unchanged

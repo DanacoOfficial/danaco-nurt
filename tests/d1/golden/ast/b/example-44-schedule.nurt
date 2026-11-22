@@ -1,0 +1,1 @@
+schedule.create("backup", cron: "0 3 * * *", action: (run(["backup"], cwd: "/srv")))
