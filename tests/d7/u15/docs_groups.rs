@@ -20,7 +20,7 @@ const GROUPS: [&str; 6] = [
     "system", "admin", "package", "network", "schedule", "program",
 ];
 
-const COMMANDS_OF_OTHER_UNITS: [&str; 2] = ["suspend", "resume"];
+const COMMANDS_DOCUMENTED_ELSEWHERE: [&str; 2] = ["suspend", "resume"];
 
 const EXPECTED_COMMANDS: usize = 36;
 
@@ -96,12 +96,12 @@ fn load_catalog() -> BTreeMap<String, Command> {
     commands
 }
 
-fn d7_commands(catalog: &BTreeMap<String, Command>) -> BTreeMap<&str, &Command> {
+fn group_commands(catalog: &BTreeMap<String, Command>) -> BTreeMap<&str, &Command> {
     catalog
         .iter()
         .filter(|(name, command)| {
             GROUPS.contains(&command.group.as_str())
-                && !COMMANDS_OF_OTHER_UNITS.contains(&name.as_str())
+                && !COMMANDS_DOCUMENTED_ELSEWHERE.contains(&name.as_str())
         })
         .map(|(name, command)| (name.as_str(), command))
         .collect()
@@ -223,10 +223,8 @@ fn split_top_level(text: &str, separator: &str) -> Result<Vec<String>, String> {
         match c {
             '"' => in_text = true,
             '(' | '[' | '{' => stack.push(matching_close(c)),
-            ')' | ']' | '}' => {
-                if stack.pop() != Some(c) {
-                    return Err(format!("unbalanced `{c}` in `{text}`"));
-                }
+            ')' | ']' | '}' if stack.pop() != Some(c) => {
+                return Err(format!("unbalanced `{c}` in `{text}`"));
             }
             _ => {}
         }
@@ -339,17 +337,17 @@ fn check_program(text: &str, catalog: &BTreeMap<String, Command>) -> Result<usiz
 }
 
 #[test]
-fn docs_groups_cover_all_36_d7_commands_exactly_once() {
+fn group_pages_list_every_command_exactly_once() {
     let catalog = load_catalog();
-    let expected = d7_commands(&catalog);
+    let expected = group_commands(&catalog);
     assert_eq!(expected.len(), EXPECTED_COMMANDS);
     let mut documented: BTreeMap<String, Vec<&str>> = BTreeMap::new();
     for (group, page) in group_pages() {
         for row in first_table(section(&page, "Commands")) {
             let name = unquote(&row[0]).to_owned();
-            let entry = expected
-                .get(name.as_str())
-                .unwrap_or_else(|| panic!("{group}: `{name}` is not a command of the unit"));
+            let entry = expected.get(name.as_str()).unwrap_or_else(|| {
+                panic!("{group}: `{name}` is not a command of the documented groups")
+            });
             assert_eq!(entry.group, group, "`{name}` is listed in the wrong group");
             documented.entry(name).or_default().push(group);
         }
@@ -361,7 +359,7 @@ fn docs_groups_cover_all_36_d7_commands_exactly_once() {
 }
 
 #[test]
-fn docs_groups_examples_parse_with_frozen_grammar() {
+fn group_page_examples_use_catalog_commands_and_parameters() {
     let catalog = load_catalog();
     let mut pages = group_pages();
     pages.push((
@@ -384,7 +382,7 @@ fn docs_groups_examples_parse_with_frozen_grammar() {
 }
 
 #[test]
-fn docs_groups_examples_use_commands_of_the_page_group() {
+fn group_page_examples_use_a_command_of_the_group() {
     let catalog = load_catalog();
     for (group, page) in group_pages() {
         let used: Vec<String> = examples(&page)
@@ -401,7 +399,7 @@ fn docs_groups_examples_use_commands_of_the_page_group() {
 }
 
 #[test]
-fn docs_groups_links_to_command_pages_resolve() {
+fn group_page_links_resolve() {
     let catalog = load_catalog();
     let link = Regex::new(r"\]\(([^)#]+)(?:#[^)]*)?\)").unwrap();
     for (group, page) in group_pages() {
@@ -427,8 +425,8 @@ fn docs_groups_links_to_command_pages_resolve() {
 }
 
 #[test]
-#[ignore = "requires the command pages of every unit of the domain"]
-fn docs_groups_command_pages_exist() {
+#[ignore = "requires the pages of all commands listed in the group pages"]
+fn group_page_links_point_to_existing_command_pages() {
     let link = Regex::new(r"\]\(\.\./commands/([^)#]+)\)").unwrap();
     for (group, page) in group_pages() {
         for capture in link.captures_iter(&page) {
@@ -439,9 +437,9 @@ fn docs_groups_command_pages_exist() {
 }
 
 #[test]
-fn docs_groups_no_forbidden_strings() {
+fn group_pages_contain_no_environment_specific_text() {
     let comment = Regex::new(r"(?s)<!--.*?-->").unwrap();
-    let decision = Regex::new(r"\b(?:PD7|SEM|[A-Z])-\d+\b").unwrap();
+    let decision = Regex::new(r"\b[A-Z]{1,4}\d?-\d+\b").unwrap();
     let section_number = Regex::new(r"\b[A-R]\d?\.\d+\b").unwrap();
     let mut pages = group_pages();
     pages.push((
@@ -450,22 +448,11 @@ fn docs_groups_no_forbidden_strings() {
     ));
     for (name, page) in pages {
         let text = comment.replace_all(&page, "");
-        for forbidden in [
-            "/danaco-nexus",
-            "danaco-kvm",
-            "danaco-nexus",
-            "/root/",
-        ] {
+        for forbidden in ["/root/", "/srv/", "/mnt/", "/opt/"] {
             assert!(!text.contains(forbidden), "{name}: contains `{forbidden}`");
         }
         if let Some(c) = text.chars().find(|c| !c.is_ascii()) {
             panic!("{name}: non-ASCII character `{c}`");
-        }
-        for (position, _) in text.match_indices("Danaco") {
-            assert!(
-                text[position..].starts_with("Danaco Nurt"),
-                "{name}: `Danaco` outside the product name"
-            );
         }
         for (position, _) in text.match_indices("/home/") {
             assert!(
@@ -485,9 +472,9 @@ fn docs_groups_no_forbidden_strings() {
 }
 
 #[test]
-fn docs_groups_external_markers_match_stage_spec() {
+fn group_page_external_markers_match_catalog() {
     let catalog = load_catalog();
-    let expected_markers: BTreeMap<&str, char> = d7_commands(&catalog)
+    let expected_markers: BTreeMap<&str, char> = group_commands(&catalog)
         .into_iter()
         .filter_map(|(name, command)| command.marker().map(|marker| (name, marker)))
         .collect();

@@ -451,7 +451,7 @@ fn read_array(array: *mut SAFEARRAY, element_type: VARENUM, depth: usize) -> Res
 ///
 /// # Errors
 ///
-/// `E_NOT_FOUND` for an unknown class or namespace, `E_INVALID_VALUE` for a
+/// Returns `E_NOT_FOUND` for an unknown class or namespace, `E_INVALID_VALUE` for a
 /// query rejected by WMI, `E_PRIVILEGE` when access is denied, `E_LIMIT`
 /// when more than `max` objects are returned, `E_CANCELLED` and `E_TIMEOUT`
 /// from the execution context, and `E_IO` for other COM failures.

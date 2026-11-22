@@ -6,12 +6,13 @@
 use std::fs::File;
 use std::io::BufReader;
 
-use nurt_contracts::env::Os;
+use nurt_programs::sources::brew::cache_dir;
 use serde_json::Value;
 
 use super::{EntrySink, IndexEntry, IndexReport};
 use crate::package::root::HostEnv;
 
+const API_DIR: &str = "api";
 const FORMULA_FILE: &str = "formula.jws.json";
 const CASK_FILE: &str = "cask.jws.json";
 const FORMULA_SOURCE: &str = "homebrew/core";
@@ -26,7 +27,7 @@ pub(super) fn read(env: &HostEnv, sink: EntrySink<'_>, report: &mut IndexReport)
         (FORMULA_FILE, FORMULA_SOURCE, false),
         (CASK_FILE, CASK_SOURCE, true),
     ] {
-        let path = env.root().resolve(&format!("{cache}/api/{file}"));
+        let path = env.sys_path(cache.join(API_DIR).join(file));
         if !path.is_file() {
             continue;
         }
@@ -42,19 +43,6 @@ pub(super) fn read(env: &HostEnv, sink: EntrySink<'_>, report: &mut IndexReport)
             }
             Err(detail) => report.warn("corrupt_index", format!("{file}: {detail}")),
         }
-    }
-}
-
-fn cache_dir(env: &HostEnv) -> Option<String> {
-    if let Some(cache) = env.var_nonempty("HOMEBREW_CACHE") {
-        return Some(cache.to_owned());
-    }
-    match env.os() {
-        Os::Macos => env.home().map(|home| format!("{home}/Library/Caches/Homebrew")),
-        _ => match env.var_nonempty("XDG_CACHE_HOME") {
-            Some(base) => Some(format!("{base}/Homebrew")),
-            None => env.home().map(|home| format!("{home}/.cache/Homebrew")),
-        },
     }
 }
 
@@ -91,7 +79,10 @@ fn entry(item: &Value, source: &str, is_cask: bool) -> Option<IndexEntry> {
             ..IndexEntry::default()
         });
     }
-    let stable = text(item.get("versions").and_then(|versions| versions.get("stable")))?;
+    let stable = text(
+        item.get("versions")
+            .and_then(|versions| versions.get("stable")),
+    )?;
     let revision = item.get("revision").and_then(Value::as_u64).unwrap_or(0);
     let version = if revision > 0 {
         format!("{stable}_{revision}")

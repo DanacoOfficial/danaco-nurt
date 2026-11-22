@@ -55,6 +55,7 @@ const OVERLAY: &str = "overlay";
 const FUSE_PREFIX: &str = "fuse.";
 
 /// File systems whose names do not differ by case.
+#[cfg(any(target_os = "linux", test))]
 const CASE_INSENSITIVE: &[&str] = &[
     "vfat", "msdos", "exfat", "ntfs", "ntfs3", "cifs", "smb3", "smbfs", "hfsplus",
 ];
@@ -84,6 +85,7 @@ pub(crate) fn classify(fs_type: &str, removable: bool) -> VolumeKind {
 
 /// Returns `true` when names on a file system of type `fs_type` differ by
 /// case.
+#[cfg(any(target_os = "linux", test))]
 pub(crate) fn case_sensitive(fs_type: &str) -> bool {
     !CASE_INSENSITIVE.contains(&fs_type)
 }

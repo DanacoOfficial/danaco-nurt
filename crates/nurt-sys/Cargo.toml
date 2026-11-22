@@ -65,6 +65,7 @@ core-foundation = { workspace = true }
 nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
 nurt-syslog = { workspace = true }
+nurt-programs = { workspace = true }
 sysinfo = { workspace = true }
 netstat2 = { workspace = true }
 serde = { workspace = true }
@@ -94,5 +95,5 @@ toml = { workspace = true }
 zbus = { workspace = true, features = ["p2p"] }
 
 [[test]]
-name = "d7_u15_docs_groups"
+name = "docs_groups"
 path = "../../tests/d7/u15/docs_groups.rs"

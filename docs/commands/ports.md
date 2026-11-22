@@ -24,7 +24,7 @@ output holds listening TCP sockets and UDP sockets without a remote address;
 with `state: all` it holds every socket, including established and closing
 connections.
 
-`local` is the local endpoint as `address:port`, with an IPv6 address in
+`local` is the local address and port as `address:port`, with an IPv6 address in
 square brackets, for example `[::1]:8080`. `remote`, `remote_address` and
 `remote_port` are set only for sockets with a peer. UDP sockets have the
 state `none`. `pid` and `process` identify the process that holds the socket.

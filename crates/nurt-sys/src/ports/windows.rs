@@ -23,6 +23,23 @@ use crate::processes::windows::snapshot;
 /// Attempts to read a table that grows between the size query and the read.
 const ATTEMPTS: usize = 4;
 
+/// Tables read for every call, in the order of the output.
+const TABLES: [TableKind; 4] = [
+    TableKind::Tcp4,
+    TableKind::Tcp6,
+    TableKind::Udp4,
+    TableKind::Udp6,
+];
+
+/// Address family of the rows of a table.
+fn family(kind: TableKind) -> u32 {
+    let family = match kind {
+        TableKind::Tcp4 | TableKind::Udp4 => AF_INET,
+        TableKind::Tcp6 | TableKind::Udp6 => AF_INET6,
+    };
+    u32::from(family)
+}
+
 /// Socket source of the running system.
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct Win32Sockets;
@@ -30,7 +47,7 @@ pub(crate) struct Win32Sockets;
 impl SocketSource for Win32Sockets {
     fn sockets(&self, protocols: ProtocolFilter) -> Result<SocketTable> {
         let mut table = SocketTable::default();
-        for kind in TableKind::ALL {
+        for kind in TABLES {
             if !protocols.includes(kind.protocol()) {
                 continue;
             }
@@ -56,7 +73,7 @@ impl SocketSource for Win32Sockets {
 }
 
 fn query(kind: TableKind, buffer: *mut c_void, size: &mut u32) -> u32 {
-    let family = u32::from(if kind.is_ipv6() { AF_INET6 } else { AF_INET });
+    let family = family(kind);
     match kind {
         TableKind::Tcp4 | TableKind::Tcp6 => {
             // SAFETY: `buffer` is null or holds `size` writable bytes; the call stores the
@@ -74,7 +91,9 @@ fn query(kind: TableKind, buffer: *mut c_void, size: &mut u32) -> u32 {
 fn read_table(kind: TableKind) -> Result<Vec<u8>> {
     let mut size = 0_u32;
     for _ in 0..ATTEMPTS {
-        let words = usize::try_from(size).unwrap_or(0).div_ceil(size_of::<u32>());
+        let words = usize::try_from(size)
+            .unwrap_or(0)
+            .div_ceil(size_of::<u32>());
         let mut buffer = vec![0_u32; words.max(1)];
         let pointer = if size == 0 {
             null_mut()

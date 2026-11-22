@@ -70,8 +70,7 @@ pub(crate) fn list_pids() -> Result<Vec<u64>> {
     let mut buffer: Vec<c_int> = vec![0; count + SPARE_PIDS];
     let size = c_int::try_from(buffer.len() * size_of::<c_int>()).map_err(|_| list_error())?;
     // SAFETY: `buffer` holds `size` writable bytes.
-    let filled =
-        unsafe { libc::proc_listpids(PROC_ALL_PIDS, 0, buffer.as_mut_ptr().cast(), size) };
+    let filled = unsafe { libc::proc_listpids(PROC_ALL_PIDS, 0, buffer.as_mut_ptr().cast(), size) };
     let filled = usize::try_from(filled).map_err(|_| list_error())? / size_of::<c_int>();
     let mut pids: Vec<u64> = buffer
         .into_iter()
@@ -122,7 +121,10 @@ pub(crate) fn c_text(chars: &[c_char]) -> String {
     String::from_utf8_lossy(&bytes).into_owned()
 }
 
-#[expect(deprecated, reason = "the timebase is available only through the Mach interface")]
+#[expect(
+    deprecated,
+    reason = "the timebase is available only through the Mach interface"
+)]
 fn timebase() -> (u64, u64) {
     let mut info = libc::mach_timebase_info { numer: 0, denom: 0 };
     // SAFETY: `info` is a writable structure of this frame.
@@ -210,11 +212,13 @@ impl ProcessReader for LibprocReader {
                 let mut info = self.base(pid, &all.pbsd);
                 info.memory = all.ptinfo.pti_resident_size;
                 info.threads = u64::try_from(all.ptinfo.pti_threadnum).ok();
-                info.cpu_time = Some(self.mach_to_duration(
-                    all.ptinfo
-                        .pti_total_user
-                        .saturating_add(all.ptinfo.pti_total_system),
-                ));
+                info.cpu_time = Some(
+                    self.mach_to_duration(
+                        all.ptinfo
+                            .pti_total_user
+                            .saturating_add(all.ptinfo.pti_total_system),
+                    ),
+                );
                 info
             }
             None => {
@@ -239,11 +243,13 @@ impl ProcessReader for LibprocReader {
     fn cpu_time(&mut self, pid: u64) -> Option<Duration> {
         let id = c_int::try_from(pid).ok()?;
         let all = pid_info::<libc::proc_taskallinfo>(id, libc::PROC_PIDTASKALLINFO)?;
-        Some(self.mach_to_duration(
-            all.ptinfo
-                .pti_total_user
-                .saturating_add(all.ptinfo.pti_total_system),
-        ))
+        Some(
+            self.mach_to_duration(
+                all.ptinfo
+                    .pti_total_user
+                    .saturating_add(all.ptinfo.pti_total_system),
+            ),
+        )
     }
 }
 
@@ -302,4 +308,3 @@ fn working_directory(pid: c_int) -> Option<String> {
     let path = c_text(&chars);
     (!path.is_empty()).then_some(path)
 }
-

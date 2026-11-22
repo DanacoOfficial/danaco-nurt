@@ -35,6 +35,8 @@ use nurt_contracts::stage::{
 use nurt_contracts::value::{Record, Value};
 use regex::{Regex, RegexBuilder};
 
+use crate::registry::broadcast::{MACHINE_ENVIRONMENT, USER_ENVIRONMENT};
+
 /// Name of the command.
 pub(crate) const COMMAND: &str = "environment";
 /// Parameter with the variable name or pattern.
@@ -43,25 +45,18 @@ pub(crate) const NAME: &str = "name";
 pub(crate) const SCOPE: &str = "scope";
 /// Scheme of the registry provider.
 const REGISTRY_SCHEME: &str = "registry";
-/// Key of the persistent variables of the account.
-const USER_KEY: [&str; 2] = ["HKCU", "Environment"];
-/// Key of the persistent variables of the computer.
-const MACHINE_KEY: [&str; 6] = [
-    "HKLM",
-    "SYSTEM",
-    "CurrentControlSet",
-    "Control",
-    "Session Manager",
-    "Environment",
-];
+/// Hive of the persistent variables of the account.
+const USER_HIVE: &str = "HKCU";
+/// Hive of the persistent variables of the computer.
+const MACHINE_HIVE: &str = "HKLM";
 /// Profile files where persistent variables are set on Linux and macOS.
 const PROFILE_FILES: [&str; 3] = ["~/.profile", "~/.bashrc", "~/.zshenv"];
 
 /// Registry key that holds the persistent variables of `scope`; `None` for
 /// the process scope.
 ///
-/// This is the only source of these locations: the registry provider uses it
-/// to broadcast `WM_SETTINGCHANGE` after a write.
+/// The keys below the hive are those of the registry provider, which
+/// broadcasts `WM_SETTINGCHANGE` after a write below them.
 ///
 /// ```
 /// use nurt_contracts::record::EnvironmentScope;
@@ -73,14 +68,17 @@ const PROFILE_FILES: [&str; 3] = ["~/.profile", "~/.bashrc", "~/.zshenv"];
 /// ```
 #[must_use]
 pub fn persistent_location(scope: EnvironmentScope) -> Option<ProviderKey> {
-    let segments: &[&str] = match scope {
-        EnvironmentScope::User => &USER_KEY,
-        EnvironmentScope::Machine => &MACHINE_KEY,
+    let (hive, keys) = match scope {
+        EnvironmentScope::User => (USER_HIVE, USER_ENVIRONMENT),
+        EnvironmentScope::Machine => (MACHINE_HIVE, MACHINE_ENVIRONMENT),
         _ => return None,
     };
     Some(ProviderKey {
         scheme: ProviderScheme(REGISTRY_SCHEME.to_owned()),
-        segments: segments.iter().map(|segment| (*segment).to_owned()).collect(),
+        segments: std::iter::once(hive)
+            .chain(keys.iter().copied())
+            .map(str::to_owned)
+            .collect(),
         value: None,
     })
 }
@@ -142,14 +140,7 @@ impl ReadStage for EnvironmentStage {
         let records: Vec<Record> = variables
             .into_iter()
             .filter(|(name, _)| filter.matches(name))
-            .map(|(name, value)| {
-                EnvironmentVariable {
-                    name,
-                    value,
-                    scope,
-                }
-                .into()
-            })
+            .map(|(name, value)| EnvironmentVariable { name, value, scope }.into())
             .collect();
         Ok(StageOutput::records(RecordStream::from_records(records)))
     }
@@ -260,7 +251,10 @@ impl NameFilter {
                 .build()
                 .map(Self::Pattern)
                 .map_err(|error| {
-                    Error::new(ErrorCode::Regex, format!("invalid pattern for `name`: {error}"))
+                    Error::new(
+                        ErrorCode::Regex,
+                        format!("invalid pattern for `name`: {error}"),
+                    )
                 }),
             Some(_) => Err(Error::new(
                 ErrorCode::Type,

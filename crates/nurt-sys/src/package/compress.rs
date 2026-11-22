@@ -30,7 +30,9 @@ pub(crate) fn open_decoded(path: &Path) -> io::Result<Box<dyn Read + Send>> {
 /// # Errors
 ///
 /// Returns the error of the source or of the decoder set-up.
-pub(crate) fn decode<R: BufRead + Send + 'static>(mut source: R) -> io::Result<Box<dyn Read + Send>> {
+pub(crate) fn decode<R: BufRead + Send + 'static>(
+    mut source: R,
+) -> io::Result<Box<dyn Read + Send>> {
     let head = source.fill_buf()?;
     if head.starts_with(GZIP) {
         Ok(Box::new(flate2::bufread::MultiGzDecoder::new(source)))

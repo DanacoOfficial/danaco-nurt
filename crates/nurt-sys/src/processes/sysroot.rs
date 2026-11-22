@@ -17,6 +17,7 @@ pub(crate) struct SysRoot {
 
 impl SysRoot {
     /// The root of the running system.
+    #[cfg(target_os = "linux")]
     pub(crate) fn live() -> Self {
         Self {
             root: PathBuf::from("/"),
@@ -32,8 +33,7 @@ impl SysRoot {
     /// Location of the absolute system path `path` under this root.
     pub(crate) fn path(&self, path: impl AsRef<Path>) -> PathBuf {
         let path = path.as_ref();
-        self.root
-            .join(path.strip_prefix("/").unwrap_or(path))
+        self.root.join(path.strip_prefix("/").unwrap_or(path))
     }
 
     /// Returns `true` for the root of the running system, where lookups that

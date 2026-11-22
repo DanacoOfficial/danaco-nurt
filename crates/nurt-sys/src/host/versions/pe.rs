@@ -259,7 +259,7 @@ mod tests {
     }
 
     fn pad4(bytes: &mut Vec<u8>) {
-        while bytes.len() % 4 != 0 {
+        while !bytes.len().is_multiple_of(4) {
             bytes.push(0);
         }
     }
@@ -282,8 +282,14 @@ mod tests {
 
     fn version_info(product: Option<&str>) -> Vec<u8> {
         let mut fixed = Vec::new();
-        for word in [FIXED_INFO_SIGNATURE, 0x0001_0000, 0x0002_0003, 0, 0x0004_0005, 0x0006_0007]
-        {
+        for word in [
+            FIXED_INFO_SIGNATURE,
+            0x0001_0000,
+            0x0002_0003,
+            0,
+            0x0004_0005,
+            0x0006_0007,
+        ] {
             fixed.extend_from_slice(&word.to_le_bytes());
         }
         fixed.resize(52, 0);

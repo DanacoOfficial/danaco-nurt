@@ -290,10 +290,11 @@ impl ProcessReader for ProcFsReader {
 /// Error of listing `/proc`.
 fn proc_error(error: io::Error) -> Error {
     match error.kind() {
-        ErrorKind::PermissionDenied => {
-            Error::new(ErrorCode::Privilege, "the process table is not readable by this account")
-                .with_detail("required", serde_json::Value::from("root"))
-        }
+        ErrorKind::PermissionDenied => Error::new(
+            ErrorCode::Privilege,
+            "the process table is not readable by this account",
+        )
+        .with_detail("required", serde_json::Value::from("root")),
         ErrorKind::NotFound => Error::new(
             ErrorCode::Io,
             "the process file system is not mounted; mount `proc` at /proc",

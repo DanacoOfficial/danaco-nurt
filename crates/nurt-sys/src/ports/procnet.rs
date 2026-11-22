@@ -65,6 +65,7 @@ pub(crate) fn tcp_state(code: u8) -> PortState {
         tcp::LAST_ACK => PortState::LastAck,
         tcp::LISTEN => PortState::Listen,
         tcp::CLOSING => PortState::Closing,
+        tcp::CLOSE => PortState::Closed,
         _ => PortState::Closed,
     }
 }
@@ -78,9 +79,10 @@ fn parse_address(hex: &str) -> Option<IpAddr> {
         WORD_DIGITS => parse_word(hex).map(|octets| IpAddr::V4(Ipv4Addr::from(octets))),
         len if len == WORD_DIGITS * IPV6_WORDS => {
             let mut octets = [0_u8; 16];
-            for (index, chunk) in octets.chunks_exact_mut(4).enumerate() {
+            let (words, _) = octets.as_chunks_mut::<4>();
+            for (index, chunk) in words.iter_mut().enumerate() {
                 let word = hex.get(index * WORD_DIGITS..(index + 1) * WORD_DIGITS)?;
-                chunk.copy_from_slice(&parse_word(word)?);
+                *chunk = parse_word(word)?;
             }
             Some(IpAddr::V6(Ipv6Addr::from(octets)))
         }

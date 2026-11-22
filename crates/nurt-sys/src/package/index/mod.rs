@@ -103,7 +103,10 @@ pub fn read_indexes(env: &HostEnv, manager: PackageManager, sink: EntrySink<'_>)
         _ => report.warn("no_index", format!("{manager} has no repository index")),
     }
     if report.sources_found == 0 && report.warnings.is_empty() {
-        report.warn("no_index", format!("no repository index of {manager} found"));
+        report.warn(
+            "no_index",
+            format!("no repository index of {manager} found"),
+        );
     }
     report
 }
@@ -112,7 +115,6 @@ pub fn read_indexes(env: &HostEnv, manager: PackageManager, sink: EntrySink<'_>)
 mod tests {
     use super::*;
     use crate::package::compress::testing;
-    use crate::package::root::SysRoot;
     use nurt_contracts::env::Os;
     use std::fs;
     use std::path::Path;
@@ -168,7 +170,7 @@ mod tests {
             &format!("{lists}deb.example.org_debian_dists_stable_main_i18n_Translation-en"),
             b"Package: ignored\nVersion: 1\n\n",
         );
-        let env = HostEnv::new(SysRoot::at(dir.path()), Os::Linux);
+        let env = HostEnv::new(Os::Linux).with_root(dir.path());
         let (entries, report) = collect(&env, PackageManager::Apt);
         let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(names, ["g", "l", "tool", "x", "z"]);
@@ -184,13 +186,14 @@ mod tests {
     fn apt_lists_architecture_filter_all_and_native() {
         let dir = tempfile::tempdir().expect("temporary directory");
         put(dir.path(), "var/lib/dpkg/arch", b"arm64\n");
-        let text = format!("{APT_ALL}Package: native\nVersion: 1\nArchitecture: arm64\n\n{APT_AMD64}");
+        let text =
+            format!("{APT_ALL}Package: native\nVersion: 1\nArchitecture: arm64\n\n{APT_AMD64}");
         put(
             dir.path(),
             "var/lib/apt/lists/h_dists_s_main_binary-arm64_Packages",
             text.as_bytes(),
         );
-        let env = HostEnv::new(SysRoot::at(dir.path()), Os::Linux);
+        let env = HostEnv::new(Os::Linux).with_root(dir.path());
         let (entries, _) = collect(&env, PackageManager::Apt);
         let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(names, ["docs", "native"]);
@@ -241,7 +244,7 @@ mod tests {
             "var/cache/dnf/updates-fedcba9876543210/repodata/bb-primary.xml.gz",
             &testing::gzip(primary.as_bytes()),
         );
-        let env = HostEnv::new(SysRoot::at(dir.path()), Os::Linux);
+        let env = HostEnv::new(Os::Linux).with_root(dir.path());
         let (entries, report) = collect(&env, PackageManager::Dnf);
         assert_eq!(report.sources_read, 2);
         assert_eq!(entries.len(), 4);
@@ -269,8 +272,12 @@ mod tests {
             "var/cache/zypp/raw/repo-oss/repodata/cc-primary.xml.xz",
             &testing::xz(primary_xml().as_bytes()),
         );
-        put(dir.path(), "var/cache/zypp/raw/repo-oss/solv/solv", b"binary");
-        let env = HostEnv::new(SysRoot::at(dir.path()), Os::Linux);
+        put(
+            dir.path(),
+            "var/cache/zypp/raw/repo-oss/solv/solv",
+            b"binary",
+        );
+        let env = HostEnv::new(Os::Linux).with_root(dir.path());
         let (entries, report) = collect(&env, PackageManager::Zypper);
         assert_eq!(report.sources_read, 1);
         assert_eq!(entries.len(), 2);
@@ -280,8 +287,14 @@ mod tests {
     fn sync_database(compress: fn(&[u8]) -> Vec<u8>) -> Vec<u8> {
         let mut builder = tar::Builder::new(Vec::new());
         for (name, desc) in [
-            ("bash-5.2.026-2", "%NAME%\nbash\n\n%VERSION%\n5.2.026-2\n\n%DESC%\nThe GNU Bourne Again shell\n\n%CSIZE%\n1000\n\n%ISIZE%\n9000\n\n%ARCH%\nx86_64\n"),
-            ("zlib-1:1.3-1", "%NAME%\nzlib\n\n%VERSION%\n1:1.3-1\n\n%ARCH%\nx86_64\n"),
+            (
+                "bash-5.2.026-2",
+                "%NAME%\nbash\n\n%VERSION%\n5.2.026-2\n\n%DESC%\nThe GNU Bourne Again shell\n\n%CSIZE%\n1000\n\n%ISIZE%\n9000\n\n%ARCH%\nx86_64\n",
+            ),
+            (
+                "zlib-1:1.3-1",
+                "%NAME%\nzlib\n\n%VERSION%\n1:1.3-1\n\n%ARCH%\nx86_64\n",
+            ),
         ] {
             let mut header = tar::Header::new_gnu();
             header.set_size(desc.len() as u64);
@@ -296,10 +309,18 @@ mod tests {
     #[test]
     fn pacman_sync_db_gzip_and_zstd_tar() {
         let dir = tempfile::tempdir().expect("temporary directory");
-        put(dir.path(), "var/lib/pacman/sync/core.db", &sync_database(testing::gzip));
-        put(dir.path(), "var/lib/pacman/sync/extra.db", &sync_database(testing::zstd));
+        put(
+            dir.path(),
+            "var/lib/pacman/sync/core.db",
+            &sync_database(testing::gzip),
+        );
+        put(
+            dir.path(),
+            "var/lib/pacman/sync/extra.db",
+            &sync_database(testing::zstd),
+        );
         put(dir.path(), "var/lib/pacman/sync/extra.db.sig", b"ignored");
-        let env = HostEnv::new(SysRoot::at(dir.path()), Os::Linux);
+        let env = HostEnv::new(Os::Linux).with_root(dir.path());
         let (entries, report) = collect(&env, PackageManager::Pacman);
         assert_eq!(report.sources_read, 2);
         assert_eq!(entries.len(), 4);
@@ -308,7 +329,10 @@ mod tests {
         assert_eq!(bash.version, "5.2.026-2");
         assert_eq!(bash.size, Some(9000));
         assert_eq!(bash.source, "core");
-        assert_eq!(bash.description.as_deref(), Some("The GNU Bourne Again shell"));
+        assert_eq!(
+            bash.description.as_deref(),
+            Some("The GNU Bourne Again shell")
+        );
     }
 
     #[test]
@@ -324,10 +348,19 @@ mod tests {
             serde_json::json!({"payload": payload.to_string(), "signatures": []}).to_string()
         };
         let dir = tempfile::tempdir().expect("temporary directory");
-        put(dir.path(), "cache/api/formula.jws.json", jws(&formulae).as_bytes());
-        put(dir.path(), "cache/api/cask.jws.json", jws(&casks).as_bytes());
-        put(dir.path(), "opt/homebrew/Cellar/", b"");
-        let env = HostEnv::new(SysRoot::at(dir.path()), Os::Macos).with_var("HOMEBREW_CACHE", "/cache");
+        put(
+            dir.path(),
+            "cache/api/formula.jws.json",
+            jws(&formulae).as_bytes(),
+        );
+        put(
+            dir.path(),
+            "cache/api/cask.jws.json",
+            jws(&casks).as_bytes(),
+        );
+        let env = HostEnv::new(Os::Macos)
+            .with_root(dir.path())
+            .with_var("HOMEBREW_CACHE", "/cache");
         let (entries, report) = collect(&env, PackageManager::Brew);
         assert_eq!(report.sources_read, 2);
         let versions: Vec<_> = entries
@@ -350,19 +383,27 @@ mod tests {
         let dir = tempfile::tempdir().expect("temporary directory");
         put(
             dir.path(),
-            "Users/a/scoop/buckets/main/bucket/git.json",
+            "c/Users/example/scoop/buckets/main/bucket/git.json",
             br#"{"version": "2.44.0", "description": "Distributed VCS"}"#,
         );
         put(
             dir.path(),
-            "Users/a/scoop/buckets/extras/bucket/vlc.json",
+            "c/Users/example/scoop/buckets/extras/bucket/vlc.json",
             br#"{"version": "3.0.20", "description": "Media player"}"#,
         );
-        put(dir.path(), "Users/a/scoop/buckets/main/bucket/broken.json", b"{not json");
-        let env = HostEnv::new(SysRoot::at(dir.path()), Os::Windows)
-            .with_var("USERPROFILE", "C:\\Users\\a");
+        put(
+            dir.path(),
+            "c/Users/example/scoop/buckets/main/bucket/broken.json",
+            b"{not json",
+        );
+        let env = HostEnv::new(Os::Windows)
+            .with_root(dir.path())
+            .with_home("C:\\Users\\example");
         let (entries, report) = collect(&env, PackageManager::Scoop);
-        let names: Vec<_> = entries.iter().map(|e| (e.name.as_str(), e.source.as_str())).collect();
+        let names: Vec<_> = entries
+            .iter()
+            .map(|e| (e.name.as_str(), e.source.as_str()))
+            .collect();
         assert_eq!(names, [("git", "main"), ("vlc", "extras")]);
         assert!(report.warnings.iter().any(|w| w.code == "corrupt_index"));
     }
@@ -381,7 +422,7 @@ mod tests {
             "var/lib/apt/lists/h_dists_s_good_binary-amd64_Packages",
             b"Package: ok\nVersion: 1\nArchitecture: amd64\n\n",
         );
-        let env = HostEnv::new(SysRoot::at(dir.path()), Os::Linux);
+        let env = HostEnv::new(Os::Linux).with_root(dir.path());
         let (entries, report) = collect(&env, PackageManager::Apt);
         assert_eq!(entries.len(), 1);
         assert_eq!(report.sources_found, 2);
@@ -393,8 +434,13 @@ mod tests {
     #[test]
     fn missing_indexes_are_reported_without_failure() {
         let dir = tempfile::tempdir().expect("temporary directory");
-        let env = HostEnv::new(SysRoot::at(dir.path()), Os::Linux);
-        for manager in [PackageManager::Apt, PackageManager::Dnf, PackageManager::Pacman, PackageManager::Choco] {
+        let env = HostEnv::new(Os::Linux).with_root(dir.path());
+        for manager in [
+            PackageManager::Apt,
+            PackageManager::Dnf,
+            PackageManager::Pacman,
+            PackageManager::Choco,
+        ] {
             let (entries, report) = collect(&env, manager);
             assert!(entries.is_empty());
             assert!(!report.warnings.is_empty());
@@ -407,7 +453,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("temporary directory");
         let database = dir
             .path()
-            .join("Users/a/AppData/Local/Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/LocalState/Microsoft.Winget.Source_8wekyb3d8bbwe/Public/index.db");
+            .join("c/Users/example/AppData/Local/Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/LocalState/Microsoft.Winget.Source_8wekyb3d8bbwe/Public/index.db");
         fs::create_dir_all(database.parent().expect("parent")).expect("directories");
         let connection = rusqlite::Connection::open(&database).expect("database");
         connection
@@ -419,8 +465,9 @@ mod tests {
             )
             .expect("schema");
         drop(connection);
-        let env = HostEnv::new(SysRoot::at(dir.path()), Os::Windows)
-            .with_var("LOCALAPPDATA", "C:\\Users\\a\\AppData\\Local");
+        let env = HostEnv::new(Os::Windows)
+            .with_root(dir.path())
+            .with_var("LOCALAPPDATA", "C:\\Users\\example\\AppData\\Local");
         let (entries, _) = collect(&env, PackageManager::Winget);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "Git.Git");

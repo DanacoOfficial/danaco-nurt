@@ -155,7 +155,13 @@ impl SystemdBackend {
         .map_err(|error| map_dbus_error(&error, unit))
     }
 
-    fn manager_call<B, R>(&self, scope: ServiceScope, unit: &str, method: &str, body: &B) -> Result<R>
+    fn manager_call<B, R>(
+        &self,
+        scope: ServiceScope,
+        unit: &str,
+        method: &str,
+        body: &B,
+    ) -> Result<R>
     where
         B: serde::Serialize + DynamicType,
         R: for<'d> DynamicDeserialize<'d>,
@@ -291,8 +297,12 @@ impl ServiceBackend for SystemdBackend {
         let unit = unit_name(name);
         let runtime = false;
         let force = false;
-        let _changes: (bool, Vec<UnitFileChange>) =
-            self.manager_call(scope, &unit, "EnableUnitFiles", &(vec![&unit], runtime, force))?;
+        let _changes: (bool, Vec<UnitFileChange>) = self.manager_call(
+            scope,
+            &unit,
+            "EnableUnitFiles",
+            &(vec![&unit], runtime, force),
+        )?;
         self.manager_call::<_, ()>(scope, &unit, "Reload", &())
     }
 
@@ -460,7 +470,10 @@ impl UnitFacts<'_> {
         if let Some(load_state) = self.load_state {
             os_raw.insert("load_state".to_owned(), Value::Text(load_state.to_owned()));
         }
-        os_raw.insert("active_state".to_owned(), Value::Text(self.active.to_owned()));
+        os_raw.insert(
+            "active_state".to_owned(),
+            Value::Text(self.active.to_owned()),
+        );
         os_raw.insert("sub_state".to_owned(), Value::Text(self.sub.to_owned()));
         if let Some(file_state) = self.file_state {
             os_raw.insert(

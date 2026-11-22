@@ -82,10 +82,7 @@ const APT_ENV: [(&str, &str); 2] = [
 ];
 const BREW_ENV: [(&str, &str); 2] = [("HOMEBREW_NO_AUTO_UPDATE", "1"), ("NONINTERACTIVE", "1")];
 const WINGET_QUIET: [&str; 2] = ["--silent", "--disable-interactivity"];
-const WINGET_AGREEMENTS: [&str; 2] = [
-    "--accept-package-agreements",
-    "--accept-source-agreements",
-];
+const WINGET_AGREEMENTS: [&str; 2] = ["--accept-package-agreements", "--accept-source-agreements"];
 
 /// Builds the invocations that apply `action` to `names` through `manager`.
 ///
@@ -133,10 +130,20 @@ pub fn build(
             &APT_ENV,
         )],
         (PackageManager::Apt, Action::Remove) => {
-            vec![invocation("apt-get", &["remove", "-y", "-q"], names, &APT_ENV)]
+            vec![invocation(
+                "apt-get",
+                &["remove", "-y", "-q"],
+                names,
+                &APT_ENV,
+            )]
         }
         (PackageManager::Apt, Action::Upgrade) if names.is_empty() => {
-            vec![invocation("apt-get", &["upgrade", "-y", "-q"], &[], &APT_ENV)]
+            vec![invocation(
+                "apt-get",
+                &["upgrade", "-y", "-q"],
+                &[],
+                &APT_ENV,
+            )]
         }
         (PackageManager::Apt, Action::Upgrade) => vec![invocation(
             "apt-get",
@@ -157,7 +164,12 @@ pub fn build(
             if version.is_some() {
                 return Err(unsupported_version(manager));
             }
-            vec![invocation("pacman", &["-S", "--noconfirm", "--needed"], names, &[])]
+            vec![invocation(
+                "pacman",
+                &["-S", "--noconfirm", "--needed"],
+                names,
+                &[],
+            )]
         }
         (PackageManager::Pacman, Action::Remove) => {
             vec![invocation("pacman", &["-R", "--noconfirm"], names, &[])]
@@ -201,21 +213,33 @@ pub fn build(
         }
         (PackageManager::Choco, Action::Install) => {
             let mut built = invocation("choco", &["install"], names, &[]);
-            built.args.extend(["-y", "--no-progress"].map(str::to_owned));
+            built
+                .args
+                .extend(["-y", "--no-progress"].map(str::to_owned));
             if let Some(version) = version {
-                built.args.extend(["--version".to_owned(), version.to_owned()]);
+                built
+                    .args
+                    .extend(["--version".to_owned(), version.to_owned()]);
             }
             vec![built]
         }
         (PackageManager::Choco, Action::Remove) => {
             let mut built = invocation("choco", &["uninstall"], names, &[]);
-            built.args.extend(["-y", "--no-progress"].map(str::to_owned));
+            built
+                .args
+                .extend(["-y", "--no-progress"].map(str::to_owned));
             vec![built]
         }
         (PackageManager::Choco, Action::Upgrade) => {
-            let targets = if names.is_empty() { vec!["all".to_owned()] } else { names.to_vec() };
+            let targets = if names.is_empty() {
+                vec!["all".to_owned()]
+            } else {
+                names.to_vec()
+            };
             let mut built = invocation("choco", &["upgrade"], &targets, &[]);
-            built.args.extend(["-y", "--no-progress"].map(str::to_owned));
+            built
+                .args
+                .extend(["-y", "--no-progress"].map(str::to_owned));
             vec![built]
         }
         (PackageManager::Scoop, Action::Install) => {
@@ -225,7 +249,11 @@ pub fn build(
             vec![invocation("scoop", &["uninstall"], names, &[])]
         }
         (PackageManager::Scoop, Action::Upgrade) => {
-            let targets = if names.is_empty() { vec!["*".to_owned()] } else { names.to_vec() };
+            let targets = if names.is_empty() {
+                vec!["*".to_owned()]
+            } else {
+                names.to_vec()
+            };
             vec![invocation("scoop", &["update"], &targets, &[])]
         }
         (PackageManager::Winget, Action::Upgrade) if names.is_empty() => {
@@ -371,13 +399,25 @@ mod tests {
 
     #[test]
     fn install_apt_argv_and_env_noninteractive() {
-        let plan = build(PackageManager::Apt, Action::Install, &names(&["curl", "jq"]), Some("1.0")).expect("plan");
+        let plan = build(
+            PackageManager::Apt,
+            Action::Install,
+            &names(&["curl", "jq"]),
+            Some("1.0"),
+        )
+        .expect("plan");
         let call = &plan.invocations[0];
         assert_eq!(call.program, "apt-get");
         assert_eq!(call.args[..3], ["install", "-y", "-q"]);
         assert_eq!(call.args[7..], ["curl=1.0", "jq=1.0"]);
-        assert!(call.env.contains(&("DEBIAN_FRONTEND".to_owned(), "noninteractive".to_owned())));
-        assert!(call.env.contains(&("APT_LISTCHANGES_FRONTEND".to_owned(), "none".to_owned())));
+        assert!(
+            call.env
+                .contains(&("DEBIAN_FRONTEND".to_owned(), "noninteractive".to_owned()))
+        );
+        assert!(
+            call.env
+                .contains(&("APT_LISTCHANGES_FRONTEND".to_owned(), "none".to_owned()))
+        );
     }
 
     #[test]
@@ -388,23 +428,60 @@ mod tests {
             let call = &plan.invocations[0];
             format!("{} {}", call.program, call.args.join(" "))
         };
-        assert_eq!(line(PackageManager::Pacman, Action::Install, None), "pacman -S --noconfirm --needed tool");
-        assert_eq!(line(PackageManager::Pacman, Action::Remove, None), "pacman -R --noconfirm tool");
-        assert_eq!(line(PackageManager::Dnf, Action::Install, Some("2")), "dnf install -y tool-2");
-        assert_eq!(line(PackageManager::Zypper, Action::Install, Some("2")), "zypper --non-interactive install tool=2");
-        assert_eq!(line(PackageManager::Zypper, Action::Upgrade, None), "zypper --non-interactive update tool");
-        assert_eq!(line(PackageManager::Brew, Action::Install, Some("2")), "brew install tool@2");
-        assert_eq!(line(PackageManager::Brew, Action::Remove, None), "brew uninstall tool");
-        assert_eq!(line(PackageManager::Choco, Action::Install, Some("2")), "choco install tool -y --no-progress --version 2");
-        assert_eq!(line(PackageManager::Choco, Action::Remove, None), "choco uninstall tool -y --no-progress");
-        assert_eq!(line(PackageManager::Scoop, Action::Install, Some("2")), "scoop install tool@2");
-        assert_eq!(line(PackageManager::Scoop, Action::Remove, None), "scoop uninstall tool");
+        assert_eq!(
+            line(PackageManager::Pacman, Action::Install, None),
+            "pacman -S --noconfirm --needed tool"
+        );
+        assert_eq!(
+            line(PackageManager::Pacman, Action::Remove, None),
+            "pacman -R --noconfirm tool"
+        );
+        assert_eq!(
+            line(PackageManager::Dnf, Action::Install, Some("2")),
+            "dnf install -y tool-2"
+        );
+        assert_eq!(
+            line(PackageManager::Zypper, Action::Install, Some("2")),
+            "zypper --non-interactive install tool=2"
+        );
+        assert_eq!(
+            line(PackageManager::Zypper, Action::Upgrade, None),
+            "zypper --non-interactive update tool"
+        );
+        assert_eq!(
+            line(PackageManager::Brew, Action::Install, Some("2")),
+            "brew install tool@2"
+        );
+        assert_eq!(
+            line(PackageManager::Brew, Action::Remove, None),
+            "brew uninstall tool"
+        );
+        assert_eq!(
+            line(PackageManager::Choco, Action::Install, Some("2")),
+            "choco install tool -y --no-progress --version 2"
+        );
+        assert_eq!(
+            line(PackageManager::Choco, Action::Remove, None),
+            "choco uninstall tool -y --no-progress"
+        );
+        assert_eq!(
+            line(PackageManager::Scoop, Action::Install, Some("2")),
+            "scoop install tool@2"
+        );
+        assert_eq!(
+            line(PackageManager::Scoop, Action::Remove, None),
+            "scoop uninstall tool"
+        );
         assert_eq!(
             line(PackageManager::Winget, Action::Install, None),
             "winget install --id tool --exact --silent --disable-interactivity --accept-package-agreements --accept-source-agreements"
         );
         let brew = build(PackageManager::Brew, Action::Install, &one, None).expect("plan");
-        assert!(brew.invocations[0].env.contains(&("NONINTERACTIVE".to_owned(), "1".to_owned())));
+        assert!(
+            brew.invocations[0]
+                .env
+                .contains(&("NONINTERACTIVE".to_owned(), "1".to_owned()))
+        );
     }
 
     #[test]
@@ -416,19 +493,45 @@ mod tests {
         let pacman_all = build(PackageManager::Pacman, Action::Upgrade, &[], None).expect("plan");
         assert_eq!(pacman_all.invocations[0].args, ["-Syu", "--noconfirm"]);
         assert!(pacman_all.warnings.is_empty());
-        let partial = build(PackageManager::Pacman, Action::Upgrade, &names(&["a"]), None).expect("plan");
+        let partial = build(
+            PackageManager::Pacman,
+            Action::Upgrade,
+            &names(&["a"]),
+            None,
+        )
+        .expect("plan");
         assert_eq!(partial.warnings.len(), 1);
         let scoop = build(PackageManager::Scoop, Action::Upgrade, &[], None).expect("plan");
         assert_eq!(scoop.invocations[0].args, ["update", "*"]);
-        let winget = build(PackageManager::Winget, Action::Upgrade, &names(&["a", "b"]), None).expect("plan");
+        let winget = build(
+            PackageManager::Winget,
+            Action::Upgrade,
+            &names(&["a", "b"]),
+            None,
+        )
+        .expect("plan");
         assert_eq!(winget.invocations.len(), 2);
     }
 
     #[test]
     fn rejects_version_for_pacman_and_for_removal() {
-        let error = build(PackageManager::Pacman, Action::Install, &names(&["a"]), Some("1")).expect_err("unsupported");
+        let error = build(
+            PackageManager::Pacman,
+            Action::Install,
+            &names(&["a"]),
+            Some("1"),
+        )
+        .expect_err("unsupported");
         assert_eq!(error.code(), ErrorCode::Unsupported);
-        assert!(build(PackageManager::Apt, Action::Remove, &names(&["a"]), Some("1")).is_err());
+        assert!(
+            build(
+                PackageManager::Apt,
+                Action::Remove,
+                &names(&["a"]),
+                Some("1")
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -437,7 +540,9 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::Privilege);
         assert!(check_privilege(PackageManager::Apt, true, true).is_ok());
         assert_eq!(
-            check_privilege(PackageManager::Brew, true, true).expect_err("refuses root").code(),
+            check_privilege(PackageManager::Brew, true, true)
+                .expect_err("refuses root")
+                .code(),
             ErrorCode::Privilege
         );
         assert!(check_privilege(PackageManager::Brew, false, true).is_ok());

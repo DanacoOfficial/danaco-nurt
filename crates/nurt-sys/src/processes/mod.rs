@@ -220,12 +220,14 @@ impl ReadStage for Processes {
             }
             None => RecordStream::new(stream),
         };
-        Ok(StageOutput::records(stream.checked(ctx)).with_order(StreamOrder {
-            keys: vec![OrderKey {
-                field: "pid".to_owned(),
-                descending: false,
-            }],
-        }))
+        Ok(
+            StageOutput::records(stream.checked(ctx)).with_order(StreamOrder {
+                keys: vec![OrderKey {
+                    field: "pid".to_owned(),
+                    descending: false,
+                }],
+            }),
+        )
     }
 }
 

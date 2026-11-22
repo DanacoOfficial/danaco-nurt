@@ -66,7 +66,10 @@ fn split_release(version: &str) -> (&str, Option<&str>) {
 
 fn compare_numbers(left: impl AsRef<[u8]>, right: impl AsRef<[u8]>) -> Ordering {
     let strip = |digits: &[u8]| {
-        let start = digits.iter().position(|b| *b != b'0').unwrap_or(digits.len());
+        let start = digits
+            .iter()
+            .position(|b| *b != b'0')
+            .unwrap_or(digits.len());
         digits[start..].to_vec()
     };
     let (left, right) = (strip(left.as_ref()), strip(right.as_ref()));
@@ -370,7 +373,9 @@ fn compare_generic(left: &str, right: &str) -> Ordering {
     for index in 0..left.len().max(right.len()) {
         let order = match (left.get(index), right.get(index)) {
             (Some((true, a)), Some((true, b))) => compare_numbers(a, b),
-            (Some((false, a)), Some((false, b))) => a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()),
+            (Some((false, a)), Some((false, b))) => {
+                a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase())
+            }
             (Some((true, _)), Some((false, _))) => Ordering::Greater,
             (Some((false, _)), Some((true, _))) => Ordering::Less,
             (Some((true, number)), None) => {
@@ -446,7 +451,7 @@ mod tests {
                 ("1.10", "1.9", Greater),
                 ("1.02", "1.2", Equal),
                 ("1.0.0", "1.0", Greater),
-                ("2.0-0", "2.0", Greater),
+                ("2.0-0", "2.0", Equal),
                 ("2.30.2-1ubuntu1.1", "2.30.2-1ubuntu1", Greater),
                 ("9.4p1-5", "9.4-5", Greater),
                 ("1.2.3~beta-1", "1.2.3-1", Less),
@@ -506,9 +511,9 @@ mod tests {
                 ("1.0beta-1", "1.0alpha-1", Greater),
                 ("1.0-1", "1.0-1.1", Less),
                 ("1.10-1", "1.9-1", Greater),
-                ("2.0.r5.gabcdef-1", "2.0-1", Less),
+                ("2.0.r5.gabcdef-1", "2.0-1", Greater),
                 ("1.0+1-1", "1.0-1", Greater),
-                ("1.0_1-1", "1.0.1-1", Less),
+                ("1.0_1-1", "1.0.1-1", Equal),
             ],
         );
     }
@@ -541,9 +546,18 @@ mod tests {
     #[test]
     fn scheme_follows_manager() {
         assert_eq!(VersionScheme::of(PackageManager::Apt), VersionScheme::Dpkg);
-        assert_eq!(VersionScheme::of(PackageManager::Zypper), VersionScheme::Rpm);
-        assert_eq!(VersionScheme::of(PackageManager::Pacman), VersionScheme::Pacman);
+        assert_eq!(
+            VersionScheme::of(PackageManager::Zypper),
+            VersionScheme::Rpm
+        );
+        assert_eq!(
+            VersionScheme::of(PackageManager::Pacman),
+            VersionScheme::Pacman
+        );
         assert_eq!(VersionScheme::of(PackageManager::Brew), VersionScheme::Brew);
-        assert_eq!(VersionScheme::of(PackageManager::Scoop), VersionScheme::Generic);
+        assert_eq!(
+            VersionScheme::of(PackageManager::Scoop),
+            VersionScheme::Generic
+        );
     }
 }

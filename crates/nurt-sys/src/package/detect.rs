@@ -2,24 +2,27 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Detection of the package managers of a system.
+//!
+//! The markers of Homebrew, Scoop and Chocolatey and the locations of the
+//! RPM and pacman databases are those of the database readers of the program
+//! catalog crate, so a detected manager is one whose database can be read.
 
 use nurt_contracts::env::Os;
 use nurt_contracts::record::PackageManager;
+use nurt_programs::source::ProgramSource;
+use nurt_programs::sources::brew::BrewSource;
+use nurt_programs::sources::choco::ChocoSource;
+use nurt_programs::sources::scoop::ScoopSource;
+use nurt_programs::sources::{pacman, rpm};
 
-use super::root::HostEnv;
+use super::root::{HostEnv, SysPaths};
 
 const DPKG_STATUS: &str = "/var/lib/dpkg/status";
 const ZYPP_CONFIG: &str = "/etc/zypp";
-const RPM_DATABASES: [&str; 3] = [
-    "/var/lib/rpm/rpmdb.sqlite",
-    "/usr/lib/sysimage/rpm/rpmdb.sqlite",
-    "/var/lib/rpm/Packages",
-];
-const PACMAN_LOCAL: &str = "/var/lib/pacman/local";
-const LINUXBREW_PREFIX: &str = "/home/linuxbrew/.linuxbrew";
-const MACOS_BREW_PREFIXES: [&str; 2] = ["/opt/homebrew", "/usr/local"];
-const WINGET_PACKAGE: &str = "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe";
-const CHOCOLATEY_DEFAULT: &str = "C:/ProgramData/chocolatey";
+const PACMAN_LOCAL_DIR: &str = "local";
+/// Package directory of App Installer, which provides winget, below
+/// `LOCALAPPDATA`.
+pub(crate) const WINGET_PACKAGE_DIR: &str = "Packages\\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe";
 
 /// Managers whose markers are present, in the fixed order of preference.
 ///
@@ -53,81 +56,39 @@ pub(crate) fn detect_managers(env: &HostEnv) -> Vec<PackageManager> {
 /// Returns `true` when the markers of `manager` are present.
 #[must_use]
 pub(crate) fn is_present(env: &HostEnv, manager: PackageManager) -> bool {
-    let root = env.root();
     match manager {
-        PackageManager::Apt | PackageManager::Dpkg => root.exists(DPKG_STATUS),
-        PackageManager::Zypper => root.is_dir(ZYPP_CONFIG) && has_rpm_database(env),
+        PackageManager::Apt | PackageManager::Dpkg => env.exists(DPKG_STATUS),
+        PackageManager::Zypper => env.is_dir(ZYPP_CONFIG) && rpm::locate(env).is_some(),
         PackageManager::Dnf | PackageManager::Rpm => {
-            !root.is_dir(ZYPP_CONFIG) && has_rpm_database(env)
+            !env.is_dir(ZYPP_CONFIG) && rpm::locate(env).is_some()
         }
-        PackageManager::Pacman => root.is_dir(PACMAN_LOCAL),
-        PackageManager::Brew => brew_prefix(env).is_some(),
-        PackageManager::Winget => env
-            .var_nonempty("LOCALAPPDATA")
-            .is_some_and(|base| root.is_dir(&format!("{base}/Packages/{WINGET_PACKAGE}"))),
-        PackageManager::Scoop => scoop_root(env).is_some(),
-        PackageManager::Choco => chocolatey_root(env).is_some(),
+        PackageManager::Pacman => env
+            .sys_path(pacman::db_path(env).join(PACMAN_LOCAL_DIR))
+            .is_dir(),
+        PackageManager::Brew => BrewSource::new().detect(env),
+        PackageManager::Winget => {
+            env.os() == Os::Windows
+                && env
+                    .var_text("LOCALAPPDATA")
+                    .is_some_and(|base| env.is_dir(&format!("{base}\\{WINGET_PACKAGE_DIR}")))
+        }
+        PackageManager::Scoop => ScoopSource::new().detect(env),
+        PackageManager::Choco => ChocoSource::new().detect(env),
         _ => false,
     }
-}
-
-fn has_rpm_database(env: &HostEnv) -> bool {
-    RPM_DATABASES.iter().any(|path| env.root().exists(path))
-}
-
-/// Homebrew prefix of the system, when Homebrew is installed.
-#[must_use]
-pub(crate) fn brew_prefix(env: &HostEnv) -> Option<String> {
-    let mut candidates: Vec<String> = Vec::new();
-    if let Some(prefix) = env.var_nonempty("HOMEBREW_PREFIX") {
-        candidates.push(prefix.to_owned());
-    }
-    match env.os() {
-        Os::Linux => candidates.push(LINUXBREW_PREFIX.to_owned()),
-        Os::Macos => candidates.extend(MACOS_BREW_PREFIXES.iter().map(|p| (*p).to_owned())),
-        _ => {}
-    }
-    candidates.into_iter().find(|prefix| {
-        env.root().exists(&format!("{prefix}/bin/brew"))
-            || env.root().is_dir(&format!("{prefix}/Cellar"))
-    })
-}
-
-/// Root directory of Scoop, when it exists.
-#[must_use]
-pub(crate) fn scoop_root(env: &HostEnv) -> Option<String> {
-    let mut candidates = Vec::new();
-    if let Some(scoop) = env.var_nonempty("SCOOP") {
-        candidates.push(scoop.to_owned());
-    }
-    if let Some(home) = env.home() {
-        candidates.push(format!("{home}/scoop"));
-    }
-    candidates
-        .into_iter()
-        .find(|dir| env.root().is_dir(dir))
-}
-
-/// Root directory of Chocolatey, when it exists.
-#[must_use]
-pub(crate) fn chocolatey_root(env: &HostEnv) -> Option<String> {
-    let mut candidates = Vec::new();
-    if let Some(dir) = env.var_nonempty("ChocolateyInstall") {
-        candidates.push(dir.to_owned());
-    }
-    candidates.push(CHOCOLATEY_DEFAULT.to_owned());
-    candidates
-        .into_iter()
-        .find(|dir| env.root().is_dir(dir))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::package::root::SysRoot;
     use std::fs;
 
-    fn tree(paths: &[&str]) -> (tempfile::TempDir, SysRoot) {
+    /// Profile directory of a synthetic Windows account.
+    const PROFILE: &str = "C:\\Users\\example";
+    /// The same profile below a test root.
+    const PROFILE_DIR: &str = "c/Users/example";
+
+    fn tree(paths: &[String]) -> tempfile::TempDir {
         let dir = tempfile::tempdir().expect("temporary directory");
         for path in paths {
             let target = dir.path().join(path);
@@ -138,8 +99,11 @@ mod tests {
                 fs::write(&target, "").expect("file");
             }
         }
-        let root = SysRoot::at(dir.path());
-        (dir, root)
+        dir
+    }
+
+    fn paths(items: &[&str]) -> Vec<String> {
+        items.iter().map(|item| (*item).to_owned()).collect()
     }
 
     #[test]
@@ -153,22 +117,21 @@ mod tests {
             (&["usr/lib/sysimage/rpm/rpmdb.sqlite"], PackageManager::Dnf),
             (&["var/lib/pacman/local/"], PackageManager::Pacman),
         ];
-        for (paths, expected) in cases {
-            let (_dir, root) = tree(paths);
-            let env = HostEnv::new(root, Os::Linux);
-            assert_eq!(detect_managers(&env), [expected]);
+        for (markers, expected) in cases {
+            let dir = tree(&paths(markers));
+            let env = HostEnv::new(Os::Linux).with_root(dir.path());
+            assert_eq!(detect_managers(&env), [expected], "{markers:?}");
         }
-        let (_dir, root) = tree(&[]);
-        assert!(detect_managers(&HostEnv::new(root, Os::Linux)).is_empty());
+        let dir = tree(&[]);
+        assert!(detect_managers(&HostEnv::new(Os::Linux).with_root(dir.path())).is_empty());
     }
 
     #[test]
     fn detect_multiple_managers_reports_each() {
-        let (_dir, root) = tree(&[
-            "var/lib/dpkg/status",
-            "home/linuxbrew/.linuxbrew/bin/brew",
-        ]);
-        let env = HostEnv::new(root, Os::Linux);
+        let dir = tree(&paths(&["var/lib/dpkg/status", "srv/homebrew/Cellar/"]));
+        let env = HostEnv::new(Os::Linux)
+            .with_root(dir.path())
+            .with_var("HOMEBREW_PREFIX", "/srv/homebrew");
         assert_eq!(
             detect_managers(&env),
             [PackageManager::Apt, PackageManager::Brew]
@@ -176,19 +139,22 @@ mod tests {
     }
 
     #[test]
-    fn detect_macos_and_windows_managers_from_variables() {
-        let (_dir, root) = tree(&["opt/homebrew/Cellar/"]);
-        let mac = HostEnv::new(root, Os::Macos);
+    fn detect_macos_and_windows_managers() {
+        let dir = tree(&paths(&["opt/homebrew/Cellar/"]));
+        let mac = HostEnv::new(Os::Macos).with_root(dir.path());
         assert_eq!(detect_managers(&mac), [PackageManager::Brew]);
 
-        let (_dir, root) = tree(&[
-            "Users/a/AppData/Local/Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/",
-            "Users/a/scoop/",
-            "ProgramData/chocolatey/",
+        let dir = tree(&[
+            format!(
+                "{PROFILE_DIR}/AppData/Local/Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/"
+            ),
+            format!("{PROFILE_DIR}/scoop/apps/"),
+            "c/ProgramData/chocolatey/lib/".to_owned(),
         ]);
-        let windows = HostEnv::new(root, Os::Windows)
-            .with_var("LOCALAPPDATA", "C:\\Users\\a\\AppData\\Local")
-            .with_var("USERPROFILE", "C:\\Users\\a");
+        let windows = HostEnv::new(Os::Windows)
+            .with_root(dir.path())
+            .with_var("LOCALAPPDATA", format!("{PROFILE}\\AppData\\Local"))
+            .with_home(PROFILE);
         assert_eq!(
             detect_managers(&windows),
             [
@@ -197,5 +163,6 @@ mod tests {
                 PackageManager::Choco
             ]
         );
+        assert!(!is_present(&windows, PackageManager::Apt));
     }
 }

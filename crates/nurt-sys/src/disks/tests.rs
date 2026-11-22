@@ -61,7 +61,11 @@ fn of_type(kind: &str) -> BoundArgs {
 fn disks_mountinfo_octal_escapes() {
     assert_eq!(unescape(r"/media/My\040Disk"), "/media/My Disk");
     assert_eq!(unescape(r"a\011b\134c\012"), "a\tb\\c\n");
-    assert_eq!(unescape(r"keep\09x\"), r"keep\09x\", "incomplete escapes are kept");
+    assert_eq!(
+        unescape(r"keep\09x\"),
+        r"keep\09x\",
+        "incomplete escapes are kept"
+    );
     let text = "36 25 8:17 / /media/My\\040Disk rw,nosuid,relatime shared:5 - vfat /dev/sdb1 \
                 rw,fmask=0022\n\
                 22 1 0:21 / /proc rw,nosuid - proc proc rw\n\
@@ -78,13 +82,25 @@ fn disks_mountinfo_octal_escapes() {
 
 #[test]
 fn disks_pseudo_filesystems_skipped() {
-    for fs_type in ["proc", "sysfs", "cgroup2", "devpts", "bpf", "autofs", "binfmt_misc"] {
+    for fs_type in [
+        "proc",
+        "sysfs",
+        "cgroup2",
+        "devpts",
+        "bpf",
+        "autofs",
+        "binfmt_misc",
+    ] {
         assert!(is_pseudo(fs_type), "{fs_type}");
     }
     for fs_type in ["ext4", "tmpfs", "overlay", "nfs4"] {
         assert!(!is_pseudo(fs_type), "{fs_type}");
     }
-    assert!(PSEUDO.iter().all(|fs| !NETWORK.contains(fs) && !MEMORY.contains(fs)));
+    assert!(
+        PSEUDO
+            .iter()
+            .all(|fs| !NETWORK.contains(fs) && !MEMORY.contains(fs))
+    );
 }
 
 #[test]
@@ -104,14 +120,27 @@ fn disks_overlay_classified_fixed() {
 #[test]
 fn disks_tmpfs_is_ram() {
     for fs_type in ["tmpfs", "ramfs", "devtmpfs"] {
-        assert_eq!(disk_type(classify(fs_type, false)), DiskType::Ram, "{fs_type}");
+        assert_eq!(
+            disk_type(classify(fs_type, false)),
+            DiskType::Ram,
+            "{fs_type}"
+        );
     }
 }
 
 #[test]
 fn disks_network_types_from_f76_list() {
     for fs_type in [
-        "nfs", "nfs4", "cifs", "smb3", "sshfs", "fuse.sshfs", "9p", "afs", "smbfs", "afpfs",
+        "nfs",
+        "nfs4",
+        "cifs",
+        "smb3",
+        "sshfs",
+        "fuse.sshfs",
+        "9p",
+        "afs",
+        "smbfs",
+        "afpfs",
         "webdav",
     ] {
         assert_eq!(classify(fs_type, true), VolumeKind::Network, "{fs_type}");
@@ -231,11 +260,18 @@ mod mount_table {
         assert!(usb.readonly);
         assert!(!usb.case_sensitive);
         assert_eq!(usb.label.as_deref(), Some("USB KEY"));
-        assert_eq!(records[0].options.as_deref().unwrap(), ["rw", "relatime", "errors=remount-ro"]);
+        assert_eq!(
+            records[0].options.as_deref().unwrap(),
+            ["rw", "relatime", "errors=remount-ro"]
+        );
         assert!(records[0].total.bytes() > 0);
         assert_eq!(records[2].kind, DiskType::Ram);
         let notes = ctx.take_notes();
-        assert_eq!(notes[0].count, Some(1), "the missing network mount point is counted");
+        assert_eq!(
+            notes[0].count,
+            Some(1),
+            "the missing network mount point is counted"
+        );
     }
 
     #[test]

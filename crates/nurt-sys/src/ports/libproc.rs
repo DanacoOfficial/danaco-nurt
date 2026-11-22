@@ -109,8 +109,14 @@ pub(crate) fn decode(buffer: &[u8]) -> Option<SocketEntry> {
         _ => return None,
     };
     let ipv4 = buffer.get(INSI_VFLAG)? & INI_IPV4 != 0;
-    let local = SocketAddr::new(address(buffer, INSI_LADDR, ipv4)?, port(buffer, INSI_LPORT)?);
-    let remote = SocketAddr::new(address(buffer, INSI_FADDR, ipv4)?, port(buffer, INSI_FPORT)?);
+    let local = SocketAddr::new(
+        address(buffer, INSI_LADDR, ipv4)?,
+        port(buffer, INSI_LPORT)?,
+    );
+    let remote = SocketAddr::new(
+        address(buffer, INSI_FADDR, ipv4)?,
+        port(buffer, INSI_FPORT)?,
+    );
     let state = match protocol {
         Protocol::Tcp => tcp_state(int(buffer, TCPSI_STATE)?),
         _ => PortState::None,

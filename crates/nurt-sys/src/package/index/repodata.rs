@@ -11,7 +11,7 @@ use quick_xml::events::{BytesStart, Event};
 
 use super::{EntrySink, IndexEntry, IndexReport};
 use crate::package::compress::open_decoded;
-use crate::package::root::HostEnv;
+use crate::package::root::{HostEnv, SysPaths};
 
 const DNF_CACHES: [&str; 2] = ["/var/cache/libdnf5", "/var/cache/dnf"];
 const ZYPPER_CACHE: &str = "/var/cache/zypp/raw";
@@ -24,13 +24,13 @@ const MIN_HASH_LENGTH: usize = 8;
 pub(super) fn read_dnf(env: &HostEnv, sink: EntrySink<'_>, report: &mut IndexReport) {
     let repositories = DNF_CACHES
         .iter()
-        .flat_map(|cache| env.root().list_dir(cache))
+        .flat_map(|cache| env.list_dir(cache))
         .collect();
     read_repositories(repositories, strip_hash, sink, report);
 }
 
 pub(super) fn read_zypper(env: &HostEnv, sink: EntrySink<'_>, report: &mut IndexReport) {
-    let repositories = env.root().list_dir(ZYPPER_CACHE);
+    let repositories = env.list_dir(ZYPPER_CACHE);
     read_repositories(repositories, str::to_owned, sink, report);
 }
 
@@ -79,7 +79,9 @@ fn read_repository(
     let primary = primary_location(repomd)?;
     let mut path = repository.join(&primary);
     if !path.is_file() {
-        let file = Path::new(&primary).file_name().ok_or("empty primary location")?;
+        let file = Path::new(&primary)
+            .file_name()
+            .ok_or("empty primary location")?;
         path = repository.join(REPODATA).join(file);
     }
     let reader = open_decoded(&path).map_err(|error| error.to_string())?;
@@ -100,7 +102,10 @@ fn primary_location(repomd: &Path) -> Result<String, String> {
     let mut buffer = Vec::new();
     let mut in_primary = false;
     loop {
-        match xml.read_event_into(&mut buffer).map_err(|error| error.to_string())? {
+        match xml
+            .read_event_into(&mut buffer)
+            .map_err(|error| error.to_string())?
+        {
             Event::Start(element) if element.name().as_ref() == "data" => {
                 in_primary = attribute(&element, "type").as_deref() == Some(PRIMARY_TYPE);
             }
@@ -146,7 +151,9 @@ fn read_primary<R: std::io::BufRead>(
     let mut text: Option<Text> = None;
     let mut packages = 0_u64;
     loop {
-        let event = xml.read_event_into(&mut buffer).map_err(|error| error.to_string())?;
+        let event = xml
+            .read_event_into(&mut buffer)
+            .map_err(|error| error.to_string())?;
         match event {
             Event::Start(element) => {
                 text = open_element(&element, &mut package).or(text);

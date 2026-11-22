@@ -321,13 +321,13 @@ mod tests {
     #[test]
     fn capture_and_rebuild_reproduce_subtree() {
         let (registry, app) = tree_fixture();
-        let Captured::Tree(capture) = capture(&registry, VIEW, &app, "App", None).unwrap() else {
+        let Captured::Tree(first) = capture(&registry, VIEW, &app, "App", None).unwrap() else {
             panic!("unexpected budget overflow");
         };
-        let tree = capture.tree.unwrap();
+        assert!(first.bytes > 0);
+        let tree = first.tree.unwrap();
         assert_eq!(tree.class, "AppClass");
         assert_eq!(tree.subkeys.len(), 1);
-        assert!(capture.bytes > 0);
         let copy = KeyPath::new(Hive::CurrentUser, vec!["Copy".to_owned()]);
         rebuild(&registry, VIEW, &copy, &tree).unwrap();
         let Captured::Tree(again) = capture(&registry, VIEW, &copy, "App", None).unwrap() else {

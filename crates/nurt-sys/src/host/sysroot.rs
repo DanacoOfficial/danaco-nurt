@@ -10,6 +10,7 @@
 use std::io;
 use std::path::{Component, Path, PathBuf, Prefix};
 
+use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::value;
 
 /// Directory against which absolute system paths are resolved.
@@ -73,6 +74,27 @@ impl Default for SysRoot {
     }
 }
 
+/// Account that can read every system source.
+#[cfg(unix)]
+pub(crate) const REQUIRED_PRIVILEGE: &str = "root";
+/// Account that can read every system source.
+#[cfg(windows)]
+pub(crate) const REQUIRED_PRIVILEGE: &str = "an administrator";
+
+/// Error for a system source `source` that cannot be read: `E_PRIVILEGE`
+/// with the required account when access is denied, `E_IO` otherwise.
+pub(crate) fn source_error(error: &io::Error, source: &str) -> Error {
+    if error.kind() == io::ErrorKind::PermissionDenied {
+        Error::new(
+            ErrorCode::Privilege,
+            format!("cannot read {source}: permission denied; run as {REQUIRED_PRIVILEGE}"),
+        )
+        .with_detail("required", serde_json::json!(REQUIRED_PRIVILEGE))
+    } else {
+        Error::new(ErrorCode::Io, format!("cannot read {source}: {error}"))
+    }
+}
+
 /// Canonical form of a native path for the path fields of records: `/` as
 /// separator, upper-case drive letter, UNC paths as `//server/share`, without
 /// the verbatim prefix `\\?\`.
@@ -102,11 +124,9 @@ fn prefix_text(prefix: Prefix<'_>) -> String {
         Prefix::Disk(letter) | Prefix::VerbatimDisk(letter) => {
             format!("{}:", char::from(letter).to_ascii_uppercase())
         }
-        Prefix::UNC(server, share) | Prefix::VerbatimUNC(server, share) => format!(
-            "//{}/{}",
-            server.to_string_lossy(),
-            share.to_string_lossy()
-        ),
+        Prefix::UNC(server, share) | Prefix::VerbatimUNC(server, share) => {
+            format!("//{}/{}", server.to_string_lossy(), share.to_string_lossy())
+        }
         Prefix::Verbatim(name) | Prefix::DeviceNS(name) => {
             format!("//./{}", name.to_string_lossy())
         }

@@ -63,8 +63,7 @@ pub(crate) fn process_alive(pid: u32) -> bool {
 pub(crate) fn service_exists(name: &str) -> bool {
     let wide = accounts::wide(name);
     // SAFETY: null machine and database names select the local manager.
-    let manager =
-        unsafe { OpenSCManagerW(std::ptr::null(), std::ptr::null(), SC_MANAGER_CONNECT) };
+    let manager = unsafe { OpenSCManagerW(std::ptr::null(), std::ptr::null(), SC_MANAGER_CONNECT) };
     if manager.is_null() {
         return false;
     }

@@ -59,7 +59,11 @@ impl Clock for FixedClock {
         }
     }
 
-    fn sleep(&self, _duration: Duration, cancel: &CancelToken) -> std::result::Result<(), CancelReason> {
+    fn sleep(
+        &self,
+        _duration: Duration,
+        cancel: &CancelToken,
+    ) -> std::result::Result<(), CancelReason> {
         cancel.reason().map_or(Ok(()), Err)
     }
 }
@@ -96,7 +100,7 @@ impl TestHost {
                 } else {
                     PathStyle::Posix
                 },
-                timezone: "Europe/Warsaw".to_owned(),
+                timezone: "America/New_York".to_owned(),
                 locale: None,
                 cpus: 4,
             },
@@ -105,7 +109,11 @@ impl TestHost {
     }
 
     /// The same host with the environment variable `name` set.
-    pub(crate) fn with_var(mut self, name: impl Into<OsString>, value: impl Into<OsString>) -> Self {
+    pub(crate) fn with_var(
+        mut self,
+        name: impl Into<OsString>,
+        value: impl Into<OsString>,
+    ) -> Self {
         self.vars.push((name.into(), value.into()));
         self
     }
@@ -143,7 +151,10 @@ pub(crate) struct CountingProcessHost {
 impl CountingProcessHost {
     fn refuse(&self) -> Error {
         self.calls.fetch_add(1, Ordering::SeqCst);
-        Error::new(ErrorCode::StageFailed, "starting programs is not allowed in this test")
+        Error::new(
+            ErrorCode::StageFailed,
+            "starting programs is not allowed in this test",
+        )
     }
 
     /// Number of calls made.

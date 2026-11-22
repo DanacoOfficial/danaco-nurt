@@ -39,6 +39,16 @@ mod linux;
 mod macos;
 #[cfg(windows)]
 mod windows;
+// The service control manager rules in `windows/scm.rs` do not call the
+// system. On Windows the module belongs to the Windows backend; on the other
+// systems it is compiled for its unit tests only.
+#[cfg(all(test, not(windows)))]
+#[allow(
+    dead_code,
+    reason = "the Windows backend uses items that the tests do not reach"
+)]
+#[path = "windows/scm.rs"]
+mod scm;
 
 #[cfg(test)]
 mod tests;
@@ -515,7 +525,14 @@ impl ServiceControl for SystemServiceControl {
         ctx: &ExecCtx,
     ) -> Result<ServiceTransition> {
         let backend = platform_backend(ctx);
-        perform(&*backend, ServiceAction::Enable, service, Duration::ZERO, tx, ctx)
+        perform(
+            &*backend,
+            ServiceAction::Enable,
+            service,
+            Duration::ZERO,
+            tx,
+            ctx,
+        )
     }
 
     fn disable(
@@ -525,7 +542,14 @@ impl ServiceControl for SystemServiceControl {
         ctx: &ExecCtx,
     ) -> Result<ServiceTransition> {
         let backend = platform_backend(ctx);
-        perform(&*backend, ServiceAction::Disable, service, Duration::ZERO, tx, ctx)
+        perform(
+            &*backend,
+            ServiceAction::Disable,
+            service,
+            Duration::ZERO,
+            tx,
+            ctx,
+        )
     }
 }
 
@@ -844,7 +868,8 @@ fn plan_actions(
 ) -> Result<EffectPlan> {
     let mut plan = EffectPlan::new();
     if services.is_empty() {
-        plan.notable.push(NotableEntry::new(Notable::NothingMatched));
+        plan.notable
+            .push(NotableEntry::new(Notable::NothingMatched));
     }
     for service in &services {
         ctx.checkpoint()?;
@@ -1016,13 +1041,18 @@ fn await_settled(
     wait: Duration,
     ctx: &ExecCtx,
 ) -> Result<ServiceStatus> {
-    let limit = ctx.remaining().map_or(wait, |remaining| remaining.min(wait));
+    let limit = ctx
+        .remaining()
+        .map_or(wait, |remaining| remaining.min(wait));
     let end = ctx.clock().monotonic().saturating_add(limit);
     let mut interval = POLL_FIRST;
     loop {
         ctx.cancel().check()?;
         let status = backend.status(&target.name, target.scope)?;
-        if !matches!(status.state, ServiceState::Starting | ServiceState::Stopping) {
+        if !matches!(
+            status.state,
+            ServiceState::Starting | ServiceState::Stopping
+        ) {
             return Ok(status);
         }
         let now = ctx.clock().monotonic();
@@ -1059,11 +1089,19 @@ fn timeout_error(
 }
 
 fn failed_error(manager: ServiceManager, name: &str, status: &ServiceStatus) -> Error {
-    let reason = status.result.as_deref().unwrap_or(ServiceState::Failed.as_str());
-    service_error(manager, name, reason, "the service entered the failed state")
-        .with_actual(serde_json::Value::from(ServiceState::Failed.as_str()))
-        .with_next_step(format!("logs unit: \"{name}\""))
-        .with_detail("result", reason.into())
+    let reason = status
+        .result
+        .as_deref()
+        .unwrap_or(ServiceState::Failed.as_str());
+    service_error(
+        manager,
+        name,
+        reason,
+        "the service entered the failed state",
+    )
+    .with_actual(serde_json::Value::from(ServiceState::Failed.as_str()))
+    .with_next_step(format!("logs unit: \"{name}\""))
+    .with_detail("result", reason.into())
 }
 
 fn irreversible_entry(transition: &ServiceTransition) -> IrreversibleEntry {

@@ -70,7 +70,15 @@ pub(crate) fn detect(ctx: &ExecCtx, home: &Path, service: ServiceAvailability) -
             (features.acl, HostFeature::Acl),
             (features.case_sensitive, HostFeature::CaseSensitive),
         ];
-        found.extend(flags.into_iter().filter(|(on, _)| *on).map(|(_, feature)| feature));
+        found.extend(
+            flags
+                .into_iter()
+                .filter(|(on, _)| *on)
+                .map(|(_, feature)| feature),
+        );
     }
-    found.into_iter().map(|feature| feature.as_str().to_owned()).collect()
+    found
+        .into_iter()
+        .map(|feature| feature.as_str().to_owned())
+        .collect()
 }

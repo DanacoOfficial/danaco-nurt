@@ -119,7 +119,10 @@ fn segment_section(bytes: Bytes<'_>, command: usize, wide: bool) -> Option<&[u8]
 
 /// Compares a fixed-size, null-padded name field with `name`.
 fn name_is(field: &[u8], name: &[u8]) -> bool {
-    let end = field.iter().position(|byte| *byte == 0).unwrap_or(field.len());
+    let end = field
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(field.len());
     &field[..end] == name
 }
 

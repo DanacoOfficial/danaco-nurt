@@ -157,6 +157,10 @@ enum MockError {
     UnknownMethod(String),
 }
 
+/// Change reported by `EnableUnitFiles` and `DisableUnitFiles`: kind,
+/// file name and destination.
+type UnitFileChange = (String, String, String);
+
 type UnitRow = (
     String,
     String,
@@ -238,7 +242,12 @@ impl Manager {
         Ok(owned_path(&object_path(name)))
     }
 
-    fn change(&self, method: &str, name: &str, apply: impl FnOnce(&mut MockUnit)) -> Result<(), MockError> {
+    fn change(
+        &self,
+        method: &str,
+        name: &str,
+        apply: impl FnOnce(&mut MockUnit),
+    ) -> Result<(), MockError> {
         self.record(format!("{method} {name}"));
         let mut state = lock(&self.state);
         if state.deny {
@@ -295,7 +304,9 @@ impl Manager {
         patterns: Vec<String>,
     ) -> Result<Vec<(String, String)>, MockError> {
         if lock(&self.state).legacy {
-            return Err(MockError::UnknownMethod("ListUnitFilesByPatterns".to_owned()));
+            return Err(MockError::UnknownMethod(
+                "ListUnitFilesByPatterns".to_owned(),
+            ));
         }
         self.record(format!("ListUnitFilesByPatterns {}", patterns.join(",")));
         Ok(self.files())
@@ -330,9 +341,11 @@ impl Manager {
         files: Vec<String>,
         _runtime: bool,
         _force: bool,
-    ) -> Result<(bool, Vec<(String, String, String)>), MockError> {
+    ) -> Result<(bool, Vec<UnitFileChange>), MockError> {
         let name = files.join(",");
-        self.change("EnableUnitFiles", &name, |unit| unit.file_state = Some("enabled"))?;
+        self.change("EnableUnitFiles", &name, |unit| {
+            unit.file_state = Some("enabled")
+        })?;
         Ok((true, Vec::new()))
     }
 
@@ -340,9 +353,11 @@ impl Manager {
         &self,
         files: Vec<String>,
         _runtime: bool,
-    ) -> Result<Vec<(String, String, String)>, MockError> {
+    ) -> Result<Vec<UnitFileChange>, MockError> {
         let name = files.join(",");
-        self.change("DisableUnitFiles", &name, |unit| unit.file_state = Some("disabled"))?;
+        self.change("DisableUnitFiles", &name, |unit| {
+            unit.file_state = Some("disabled")
+        })?;
         Ok(Vec::new())
     }
 
@@ -497,14 +512,14 @@ pub(super) fn serve(units: Vec<MockUnit>) -> Served {
         let path = object_path(&id);
         builder = builder
             .serve_at(
-                path.as_str(),
+                path.clone(),
                 UnitObject {
                     state: state.clone(),
                     id: Some(id.clone()),
                 },
             )
             .serve_at(
-                path.as_str(),
+                path,
                 ServiceObject {
                     state: state.clone(),
                     id,

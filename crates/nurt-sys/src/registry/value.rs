@@ -385,10 +385,8 @@ fn units_to_bytes(units: &[u16]) -> Vec<u8> {
 }
 
 fn bytes_to_units(bytes: &[u8]) -> Vec<u16> {
-    bytes
-        .chunks_exact(UTF16_UNIT_LEN)
-        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
-        .collect()
+    let (pairs, _) = bytes.as_chunks::<UTF16_UNIT_LEN>();
+    pairs.iter().map(|pair| u16::from_le_bytes(*pair)).collect()
 }
 
 #[cfg(test)]

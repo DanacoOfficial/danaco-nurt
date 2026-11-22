@@ -15,20 +15,25 @@ pub(crate) fn canonical(path: &str) -> String {
     let path = if let Some(share) = path.strip_prefix(VERBATIM_UNC_PREFIX) {
         format!(r"\\{share}")
     } else {
-        path.strip_prefix(VERBATIM_PREFIX).unwrap_or(path).to_owned()
+        path.strip_prefix(VERBATIM_PREFIX)
+            .unwrap_or(path)
+            .to_owned()
     };
     let mut canonical = path.replace('\\', "/");
-    if canonical.as_bytes().get(1) == Some(&b':') {
-        if let Some(drive) = canonical.get_mut(..1) {
-            drive.make_ascii_uppercase();
-        }
+    if canonical.as_bytes().get(1) == Some(&b':')
+        && let Some(drive) = canonical.get_mut(..1)
+    {
+        drive.make_ascii_uppercase();
     }
     canonical
 }
 
 /// Text of a wide string, up to its first zero.
 pub(crate) fn from_wide(units: &[u16]) -> String {
-    let end = units.iter().position(|&unit| unit == 0).unwrap_or(units.len());
+    let end = units
+        .iter()
+        .position(|&unit| unit == 0)
+        .unwrap_or(units.len());
     String::from_utf16_lossy(units.get(..end).unwrap_or(units))
 }
 

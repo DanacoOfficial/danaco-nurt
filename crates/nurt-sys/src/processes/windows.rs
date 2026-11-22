@@ -26,8 +26,7 @@ use windows_sys::Win32::Security::{
     GetTokenInformation, LookupAccountSidW, PSID, SID_NAME_USE, TOKEN_QUERY, TOKEN_USER, TokenUser,
 };
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
-    CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
-    TH32CS_SNAPPROCESS,
+    CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
 use windows_sys::Win32::System::ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
 use windows_sys::Win32::System::Threading::{
@@ -117,7 +116,7 @@ pub(crate) fn snapshot() -> Result<Vec<Entry>> {
 struct Win32Reader {
     request: ReadRequest,
     entries: Option<HashMap<u32, Entry>>,
-    details: Option<System>,
+    details: Option<Option<System>>,
     accounts: HashMap<String, Option<String>>,
 }
 
@@ -130,24 +129,27 @@ impl Win32Reader {
         Ok(self.entries.get_or_insert_with(HashMap::new))
     }
 
-    /// Arguments and working directories of all processes, read once.
-    fn details(&mut self) -> &System {
+    /// Arguments and working directories of all processes, read once;
+    /// `None` when the system information cannot be opened.
+    fn details(&mut self) -> Option<&System> {
         let cwd = if self.request.cwd {
             UpdateKind::Always
         } else {
             UpdateKind::Never
         };
-        self.details.get_or_insert_with(|| {
-            let mut system = System::new().unwrap_or_default();
-            system.refresh_processes_specifics(
-                ProcessesToUpdate::All,
-                true,
-                ProcessRefreshKind::nothing()
-                    .with_cmd(UpdateKind::Always)
-                    .with_cwd(cwd),
-            );
-            system
-        })
+        self.details
+            .get_or_insert_with(|| {
+                let mut system = System::new().ok()?;
+                system.refresh_processes_specifics(
+                    ProcessesToUpdate::All,
+                    true,
+                    ProcessRefreshKind::nothing()
+                        .with_cmd(UpdateKind::Always)
+                        .with_cwd(cwd),
+                );
+                Some(system)
+            })
+            .as_ref()
     }
 
     fn account_name(&mut self, sid: PSID, sid_text: &str) -> Option<String> {
@@ -215,7 +217,10 @@ impl Win32Reader {
 
     fn read_environment_block(&mut self, id: u32, info: &mut ProcessInfo) {
         let want_cwd = self.request.cwd;
-        let Some(process) = self.details().process(Pid::from_u32(id)) else {
+        let Some(process) = self
+            .details()
+            .and_then(|system| system.process(Pid::from_u32(id)))
+        else {
             return;
         };
         info.command = process
@@ -224,9 +229,7 @@ impl Win32Reader {
             .map(|argument| argument.to_string_lossy().into_owned())
             .collect();
         if want_cwd {
-            info.cwd = process
-                .cwd()
-                .map(|path| canonical(&path.to_string_lossy()));
+            info.cwd = process.cwd().map(|path| canonical(&path.to_string_lossy()));
         }
         if info.command.is_empty() || (want_cwd && info.cwd.is_none()) {
             info.restricted = true;
