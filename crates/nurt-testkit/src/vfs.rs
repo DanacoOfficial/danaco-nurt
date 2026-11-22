@@ -26,7 +26,10 @@
 //! fixtures without a scope and are not recorded.
 //!
 //! Names on volumes configured as case-insensitive are compared after
-//! Unicode lower-case mapping; Unicode normalisation is not applied.
+//! Unicode lower-case mapping. Names on volumes with
+//! [`FsFeatures::decomposes_names`] are stored and compared in Unicode
+//! normalization form D, as on HFS+. Names that are not valid UTF-8 are
+//! stored and compared byte for byte on every volume.
 
 use std::collections::{BTreeMap, VecDeque};
 use std::ffi::{OsStr, OsString};
@@ -44,6 +47,7 @@ use nurt_contracts::fs::{
     SpaceInfo, TxScope, VolumeId, VolumeInfo, VolumeKind, WriteHandle, Xattr,
 };
 use nurt_contracts::journal::OpId;
+use unicode_normalization::UnicodeNormalization;
 
 use crate::hash::sha256;
 
@@ -403,10 +407,31 @@ struct Volume {
 
 impl Volume {
     fn fold(&self, name: &OsStr) -> OsString {
-        if self.info.features.case_sensitive {
-            name.to_owned()
+        let features = self.info.features;
+        if features.case_sensitive && !features.decomposes_names {
+            return name.to_owned();
+        }
+        let Some(text) = name.to_str() else {
+            return name.to_owned();
+        };
+        let text: String = if features.decomposes_names {
+            text.nfd().collect()
         } else {
-            OsString::from(name.to_string_lossy().to_lowercase())
+            text.to_owned()
+        };
+        if features.case_sensitive {
+            OsString::from(text)
+        } else {
+            OsString::from(text.to_lowercase())
+        }
+    }
+
+    fn stored(&self, name: &OsStr) -> OsString {
+        match name.to_str() {
+            Some(text) if self.info.features.decomposes_names => {
+                OsString::from(text.nfd().collect::<String>())
+            }
+            _ => name.to_owned(),
         }
     }
 
@@ -485,6 +510,7 @@ impl Volume {
     }
 
     fn move_subtree(&mut self, from: &[OsString], to: &[OsString], stored: OsString) {
+        let stored = self.stored(&stored);
         let keys = self.subtree(from);
         let mut moved = Vec::with_capacity(keys.len());
         for key in keys {
@@ -835,13 +861,10 @@ impl State {
         let volume = &mut self.volumes[slot.vol];
         let id = volume.alloc_id();
         volume.inodes.insert(id, inode);
-        volume.names.insert(
-            slot.key.clone(),
-            Name {
-                stored: slot.name.clone(),
-                inode: id,
-            },
-        );
+        let stored = volume.stored(&slot.name);
+        volume
+            .names
+            .insert(slot.key.clone(), Name { stored, inode: id });
         id
     }
 
@@ -1183,6 +1206,68 @@ impl VirtualFs {
             inode.uid = uid;
             inode.gid = gid;
         })
+    }
+
+    /// Sets the modification time of an entry in nanoseconds since the Unix
+    /// epoch, without a scope and without recording.
+    ///
+    /// Fails with [`FsErrorKind::NotFound`].
+    pub fn set_modified(&self, path: &AbsPath, modified_ns: i64) -> FsResult<()> {
+        self.setup_inode(path, "set_modified", |inode| {
+            inode.modified_ns = modified_ns;
+        })
+    }
+
+    /// Removes an entry, a directory with everything below it, without a
+    /// scope and without recording; a link in the last component is removed
+    /// itself.
+    ///
+    /// Fails with [`FsErrorKind::NotFound`], and with [`FsErrorKind::InUse`]
+    /// for the root of a volume.
+    pub fn remove_entry(&self, path: &AbsPath) -> FsResult<()> {
+        let mut state = self.lock();
+        let resolved = state.existing(path.as_path(), false, "remove_entry")?;
+        if resolved.key.is_empty() {
+            return Err(fs_error(FsErrorKind::InUse, "remove_entry", path.as_path()));
+        }
+        let volume = &mut state.volumes[resolved.vol];
+        for key in volume.subtree(&resolved.key).into_iter().rev() {
+            volume.unlink(&key);
+        }
+        Ok(())
+    }
+
+    /// Creates a special file (a device, socket or named pipe; the kind is
+    /// not distinguished) with missing parents, without a scope and without
+    /// recording.
+    ///
+    /// Fails with [`FsErrorKind::Exists`] when `path` exists, and as
+    /// [`VirtualFs::create_dir_all`] for the parents.
+    pub fn create_special(&self, path: &AbsPath) -> FsResult<()> {
+        if let Some(parent) = path.parent() {
+            self.create_dir_all(&parent)?;
+        }
+        let now = self.shared.now();
+        let mut state = self.lock();
+        let resolved = state.resolve(path.as_path(), false, "create_special")?;
+        if resolved.exists {
+            return Err(fs_error(
+                FsErrorKind::Exists,
+                "create_special",
+                path.as_path(),
+            ));
+        }
+        let inode = Inode::new(FileKind::Special, DEFAULT_FILE_MODE, state.account, now);
+        let name = path.file_name().map(OsStr::to_owned).unwrap_or_default();
+        state.insert(
+            &Slot {
+                vol: resolved.vol,
+                key: resolved.key,
+                name,
+            },
+            inode,
+        );
+        Ok(())
     }
 
     fn setup_inode(

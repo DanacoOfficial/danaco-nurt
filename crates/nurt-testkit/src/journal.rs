@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Pass-through journal and test admission.
+//! Pass-through and restoring journals and test admission.
 //!
 //! [`NoopJournal`] implements [`JournalStore`] and [`MutationTx`] with the
 //! reference semantics of the pass-through journal in the journal
@@ -9,8 +9,25 @@
 //! underlying [`FsWrite`] with a scope of purpose
 //! [`ScopePurpose::Operation`], nothing is preserved, and every target is
 //! reported with [`PreserveMode::None`] and the irreversible reason
-//! [`Irreversible::JournalInactive`]. [`RecordingJournal`] behaves the same
-//! and additionally keeps the list of calls in order.
+//! [`Irreversible::JournalInactive`]. [`RecordingJournal`] behaves the same,
+//! keeps the list of calls in order and a register of transactions
+//! ([`TxRecord`]).
+//!
+//! [`RecordingJournal::keeping`] creates a recording journal that keeps an
+//! in-memory copy of the previous state of every file system target. It
+//! restores that state when the transaction is rolled back, when a call of
+//! the transaction fails and when a committed operation is rolled back with
+//! [`JournalStore::rollback_committed`]. Restoring chosen targets can be made
+//! to fail ([`RecordingJournal::fail_rollback_of`]), which yields
+//! `E_ROLLBACK_FAILED` with the targets not restored.
+//!
+//! | Situation | Pass-through | Keeping |
+//! |---|---|---|
+//! | mode of an existing target | [`PreserveMode::None`] | [`PreserveMode::Copy`] (also `meta`, `rename`, `append` by action) |
+//! | mode of an absent target | [`PreserveMode::None`] | [`PreserveMode::Created`] |
+//! | rollback | lists changed targets as failed | restores them in reverse order |
+//! | failed call | rolls back, returns the error | restores; `E_ROLLBACK_FAILED` when incomplete |
+//! | [`JournalStore::rollback_committed`] | `E_JOURNAL_NOOP` | restores the committed operation |
 //!
 //! [`TestAdmission`] implements [`Admission`] with fixed answers.
 //!
@@ -19,14 +36,17 @@
 //! fails with `E_STAGE_FAILED` and rolls the transaction back, so that the
 //! defect is visible in the result of the stage under test.
 
+use std::collections::BTreeMap;
+use std::ffi::OsString;
 use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{
-    AbsPath, Durability, FileKind, FileMeta, Follow, FsError, FsErrorKind, FsWrite, RenameMode,
-    ScopePurpose, TxScope, VolumeId, WriteHandle,
+    AbsPath, Durability, ExtendedMeta, FileKind, FileMeta, Follow, FsError, FsErrorKind, FsResult,
+    FsWrite, LinkKind, RenameMode, ScopePurpose, TxScope, VolumeId, WriteHandle,
 };
 use nurt_contracts::journal::{
     Admission, AdmissionDecision, AdmissionRequest, AfterState, Applied, BeforeState, BeginRequest,
@@ -35,9 +55,13 @@ use nurt_contracts::journal::{
     OperationDetails, OperationRecord, PinOutcome, PinRequest, PreserveMode, Preserved,
     PurgeOutcome, PurgeRequest, RecoveryReport, RedoRequest, RollbackReason, RollbackReport,
     ServiceLiveness, SweepReport, TargetAction, TargetIndex, TargetOutcome, TargetPath, TargetSpec,
-    Thresholds, UndoOutcome, UndoRequest, VolumeSpace, VolumeState, VolumeStatus,
+    Thresholds, UndoOutcome, UndoRequest, UndoScope, VolumeSpace, VolumeState, VolumeStatus,
 };
 use nurt_contracts::report::{Irreversible, IrreversibleEntry};
+
+/// Parallelism passed to [`FsWrite::remove_tree`] by the journals of this
+/// module.
+const REMOVE_PARALLELISM: usize = 1;
 
 /// Converts a file system error into the language error with the code given
 /// by [`FsError::code_id`]; the kind and the path become error details.
@@ -152,6 +176,210 @@ pub enum JournalCall {
     },
 }
 
+/// State of a transaction in the register of a journal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum TxState {
+    /// Neither committed nor rolled back; also a transaction dropped
+    /// without either.
+    Open,
+    /// Committed.
+    Committed,
+    /// Rolled back before commit (explicitly or after a failed call), or
+    /// rolled back after commit by [`JournalStore::rollback_committed`].
+    RolledBack,
+}
+
+/// One transaction of a journal, for assertions: what was preserved,
+/// applied, committed and rolled back.
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub struct TxRecord {
+    /// Kind of the operation.
+    pub kind: OpKind,
+    /// Operation number; `None` while none is assigned.
+    pub op: Option<OpId>,
+    /// Targets declared by [`MutationTx::preserve`] and by
+    /// [`MutationTx::observe_external`] without an index, in declaration
+    /// order.
+    pub preserved: Vec<TargetPath>,
+    /// Targets changed by a successful [`MutationTx::apply`] or reported by
+    /// [`MutationTx::observe_external`], in order of their first change.
+    pub applied: Vec<TargetPath>,
+    /// State.
+    pub state: TxState,
+    /// Reason of the rollback; `None` for a rollback after a failed call and
+    /// for transactions not rolled back.
+    pub reason: Option<RollbackReason>,
+    /// Targets restored by the rollback.
+    pub restored: Vec<TargetPath>,
+    /// Changed targets the rollback did not restore.
+    pub not_restored: Vec<TargetPath>,
+}
+
+impl TxRecord {
+    fn open(kind: OpKind) -> Self {
+        Self {
+            kind,
+            op: None,
+            preserved: Vec::new(),
+            applied: Vec::new(),
+            state: TxState::Open,
+            reason: None,
+            restored: Vec::new(),
+            not_restored: Vec::new(),
+        }
+    }
+}
+
+/// Previous state of one entry, kept by a keeping journal.
+#[derive(Debug, Clone)]
+enum PreImage {
+    Absent,
+    File {
+        content: Vec<u8>,
+        meta: Box<ExtendedMeta>,
+    },
+    Directory {
+        meta: Box<ExtendedMeta>,
+        children: Vec<(OsString, PreImage)>,
+    },
+    Link {
+        target: PathBuf,
+        kind: LinkKind,
+    },
+    Special,
+}
+
+fn child_path(path: &AbsPath, name: &OsString) -> FsResult<AbsPath> {
+    AbsPath::new(path.as_path().join(name))
+}
+
+impl PreImage {
+    fn capture(fs: &dyn FsWrite, path: &AbsPath) -> FsResult<Self> {
+        let meta = match fs.extended_metadata(path, Follow::NoFollow) {
+            Ok(meta) => meta,
+            Err(error) if error.kind == FsErrorKind::NotFound => return Ok(Self::Absent),
+            Err(error) => return Err(error),
+        };
+        match meta.basic.kind {
+            FileKind::File => {
+                let mut handle = fs.open_read(path)?;
+                let mut content = Vec::new();
+                handle
+                    .read_to_end(&mut content)
+                    .map_err(|_| FsError::new(FsErrorKind::Io, "read", Some(path.as_path())))?;
+                Ok(Self::File {
+                    content,
+                    meta: Box::new(meta),
+                })
+            }
+            FileKind::Directory => {
+                let mut children = Vec::new();
+                for entry in fs.read_dir(path)? {
+                    let entry = entry?;
+                    let child = Self::capture(fs, &child_path(path, &entry.name)?)?;
+                    children.push((entry.name, child));
+                }
+                Ok(Self::Directory {
+                    meta: Box::new(meta),
+                    children,
+                })
+            }
+            FileKind::Symlink | FileKind::Junction => {
+                let target = fs.read_link(path)?;
+                let kind = if meta.basic.kind == FileKind::Junction {
+                    LinkKind::Junction
+                } else if fs
+                    .metadata(path, Follow::Follow)
+                    .is_ok_and(|resolved| resolved.kind == FileKind::Directory)
+                {
+                    LinkKind::SymlinkDirectory
+                } else {
+                    LinkKind::SymlinkFile
+                };
+                Ok(Self::Link { target, kind })
+            }
+            _ => Ok(Self::Special),
+        }
+    }
+
+    fn restorable(&self) -> bool {
+        match self {
+            Self::Special => false,
+            Self::Directory { children, .. } => {
+                children.iter().all(|(_, child)| child.restorable())
+            }
+            _ => true,
+        }
+    }
+
+    fn bytes(&self) -> u64 {
+        match self {
+            Self::File { content, .. } => u64::try_from(content.len()).unwrap_or(u64::MAX),
+            Self::Directory { children, .. } => children
+                .iter()
+                .map(|(_, child)| child.bytes())
+                .fold(0, u64::saturating_add),
+            _ => 0,
+        }
+    }
+
+    fn restore(&self, fs: &dyn FsWrite, scope: &TxScope, path: &AbsPath) -> FsResult<()> {
+        match fs.metadata(path, Follow::NoFollow) {
+            Err(error) if error.kind == FsErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+            Ok(meta) if meta.kind == FileKind::Directory => {
+                fs.remove_tree(scope, path, REMOVE_PARALLELISM)?;
+            }
+            Ok(_) => fs.remove_file(scope, path)?,
+        }
+        self.create(fs, scope, path)
+    }
+
+    fn create(&self, fs: &dyn FsWrite, scope: &TxScope, path: &AbsPath) -> FsResult<()> {
+        match self {
+            Self::Absent => Ok(()),
+            Self::File { content, meta } => {
+                let mut handle = fs.create_new(scope, path)?;
+                handle
+                    .write_all(content)
+                    .map_err(|_| FsError::new(FsErrorKind::Io, "write", Some(path.as_path())))?;
+                handle.sync(Durability::Full)?;
+                drop(handle);
+                fs.restore_meta(scope, path, meta).map(|_| ())
+            }
+            Self::Directory { meta, children } => {
+                fs.create_dir(scope, path, meta.basic.mode)?;
+                for (name, child) in children {
+                    child.create(fs, scope, &child_path(path, name)?)?;
+                }
+                fs.restore_meta(scope, path, meta).map(|_| ())
+            }
+            Self::Link { target, kind } => fs.create_link(scope, target, path, *kind),
+            Self::Special => Err(FsError::new(
+                FsErrorKind::Unsupported,
+                "restore",
+                Some(path.as_path()),
+            )),
+        }
+    }
+}
+
+/// Previous state of one changed target of a committed operation.
+#[derive(Debug, Clone)]
+struct KeptTarget {
+    outcome: TargetOutcome,
+    images: Vec<(AbsPath, PreImage)>,
+}
+
+#[derive(Debug, Default)]
+struct Register {
+    transactions: Vec<TxRecord>,
+    kept: BTreeMap<OpId, Vec<KeptTarget>>,
+    failing: Vec<TargetPath>,
+}
+
 /// Pass-through journal over a mutating file system.
 ///
 /// Operation numbers are assigned from 1 upwards per instance, at the first
@@ -192,6 +420,8 @@ pub struct NoopJournal {
     fs: Arc<dyn FsWrite>,
     next_op: AtomicU64,
     calls: Option<Mutex<Vec<JournalCall>>>,
+    keep: bool,
+    register: Mutex<Register>,
 }
 
 impl NoopJournal {
@@ -202,12 +432,15 @@ impl NoopJournal {
             fs,
             next_op: AtomicU64::new(1),
             calls: None,
+            keep: false,
+            register: Mutex::new(Register::default()),
         }
     }
 
-    fn recording(fs: Arc<dyn FsWrite>) -> Self {
+    fn recording(fs: Arc<dyn FsWrite>, keep: bool) -> Self {
         Self {
             calls: Some(Mutex::new(Vec::new())),
+            keep,
             ..Self::new(fs)
         }
     }
@@ -221,6 +454,43 @@ impl NoopJournal {
     fn allocate(&self) -> OpId {
         OpId(self.next_op.fetch_add(1, Ordering::Relaxed))
     }
+
+    fn register(&self) -> MutexGuard<'_, Register> {
+        lock(&self.register)
+    }
+
+    fn update(&self, tx: usize, change: impl FnOnce(&mut TxRecord)) {
+        if let Some(record) = self.register().transactions.get_mut(tx) {
+            change(record);
+        }
+    }
+
+    // A journal implementation is the only holder of scopes, which the
+    // constructor is reserved for.
+    #[allow(clippy::disallowed_methods)]
+    fn scope_for(op: Option<OpId>) -> TxScope {
+        TxScope::new_for_journal(op.unwrap_or(OpId(0)), ScopePurpose::Operation)
+    }
+
+    /// Restores one target from its previous state; `false` when the target
+    /// was not kept, restoring it is set to fail, or a file system call
+    /// failed.
+    fn restore_target(
+        &self,
+        op: Option<OpId>,
+        path: &TargetPath,
+        mode: PreserveMode,
+        images: &[(AbsPath, PreImage)],
+    ) -> bool {
+        if !mode.is_preserved() || self.register().failing.contains(path) {
+            return false;
+        }
+        let scope = Self::scope_for(op);
+        images
+            .iter()
+            .rev()
+            .all(|(entry, image)| image.restore(self.fs.as_ref(), &scope, entry).is_ok())
+    }
 }
 
 impl std::fmt::Debug for NoopJournal {
@@ -228,6 +498,7 @@ impl std::fmt::Debug for NoopJournal {
         f.debug_struct("NoopJournal")
             .field("next_op", &self.next_op.load(Ordering::Relaxed))
             .field("recording", &self.calls.is_some())
+            .field("keep", &self.keep)
             .finish_non_exhaustive()
     }
 }
@@ -243,6 +514,24 @@ fn journal_noop(what: &str) -> Error {
     )
 }
 
+fn rollback_failed(cause: Option<ErrorCode>, failed: &[TargetPath]) -> Error {
+    let mut error = Error::new(
+        ErrorCode::RollbackFailed,
+        format!(
+            "{} target(s) could not be restored; inspect them before retrying",
+            failed.len()
+        ),
+    )
+    .with_detail(
+        "failed",
+        serde_json::Value::from(failed.iter().map(path_text).collect::<Vec<_>>()),
+    );
+    if let Some(code) = cause {
+        error = error.with_detail("cause", serde_json::Value::from(code.to_string()));
+    }
+    error
+}
+
 impl JournalStore for NoopJournal {
     fn recover(&self) -> Result<RecoveryReport> {
         self.record(JournalCall::Recover);
@@ -253,8 +542,16 @@ impl JournalStore for NoopJournal {
         self.record(JournalCall::Begin {
             kind: request.kind.clone(),
         });
+        let tx = {
+            let mut register = self.register();
+            register
+                .transactions
+                .push(TxRecord::open(request.kind.clone()));
+            register.transactions.len() - 1
+        };
         Box::new(NoopTx {
             journal: self,
+            tx,
             request,
             op: None,
             targets: Vec::new(),
@@ -265,11 +562,58 @@ impl JournalStore for NoopJournal {
         })
     }
 
-    fn rollback_committed(&self, _op: OpId, _reason: RollbackReason) -> Result<UndoOutcome> {
+    fn rollback_committed(&self, op: OpId, reason: RollbackReason) -> Result<UndoOutcome> {
         self.record(JournalCall::Store {
             method: "rollback_committed",
         });
-        Err(journal_noop("rollback_committed"))
+        if !self.keep {
+            return Err(journal_noop("rollback_committed"));
+        }
+        let Some(kept) = self.register().kept.remove(&op) else {
+            return Err(Error::new(
+                ErrorCode::NotFound,
+                format!("operation {} has no committed entry to roll back", op.0),
+            ));
+        };
+        let mut restored = Vec::new();
+        let mut failed = Vec::new();
+        for target in kept.iter().rev() {
+            let outcome = &target.outcome;
+            if self.restore_target(Some(op), &outcome.path, outcome.mode, &target.images) {
+                restored.push(outcome.clone());
+            } else {
+                failed.push(outcome.path.clone());
+            }
+        }
+        restored.reverse();
+        failed.reverse();
+        let restored_paths: Vec<TargetPath> = restored.iter().map(|t| t.path.clone()).collect();
+        {
+            let mut register = self.register();
+            if let Some(record) = register
+                .transactions
+                .iter_mut()
+                .find(|record| record.op == Some(op))
+            {
+                record.state = TxState::RolledBack;
+                record.reason = Some(reason);
+                record.restored = restored_paths;
+                record.not_restored.clone_from(&failed);
+            }
+        }
+        if !failed.is_empty() {
+            return Err(rollback_failed(None, &failed));
+        }
+        Ok(UndoOutcome {
+            entry: self.allocate(),
+            scope: UndoScope::Op,
+            sources: vec![op],
+            restored,
+            unavailable: Vec::new(),
+            skipped: Vec::new(),
+            forced: Vec::new(),
+            irreversible: Vec::new(),
+        })
     }
 
     fn history(&self, _query: &HistoryQuery) -> Result<Vec<OperationRecord>> {
@@ -334,14 +678,16 @@ impl JournalStore for NoopJournal {
     }
 }
 
-/// [`NoopJournal`] that keeps every call in order.
+/// [`NoopJournal`] that keeps every call in order and a register of
+/// transactions; [`RecordingJournal::keeping`] also restores previous
+/// states.
 ///
 /// ```
 /// use std::sync::Arc;
 ///
 /// use nurt_contracts::journal::JournalStore;
 /// use nurt_testkit::fixtures::begin_request;
-/// use nurt_testkit::journal::{JournalCall, RecordingJournal};
+/// use nurt_testkit::journal::{JournalCall, RecordingJournal, TxState};
 /// use nurt_testkit::vfs::VirtualFs;
 ///
 /// let journal = RecordingJournal::new(Arc::new(VirtualFs::default()));
@@ -349,6 +695,7 @@ impl JournalStore for NoopJournal {
 /// assert_eq!(handle.op, None);
 /// assert_eq!(journal.calls().len(), 2);
 /// assert!(matches!(journal.calls()[1], JournalCall::Commit { op: None }));
+/// assert_eq!(journal.transactions()[0].state, TxState::Committed);
 /// ```
 #[derive(Debug)]
 pub struct RecordingJournal {
@@ -356,11 +703,47 @@ pub struct RecordingJournal {
 }
 
 impl RecordingJournal {
-    /// Recording journal applying mutations to `fs`.
+    /// Recording pass-through journal applying mutations to `fs`.
     #[must_use]
     pub fn new(fs: Arc<dyn FsWrite>) -> Self {
         Self {
-            inner: NoopJournal::recording(fs),
+            inner: NoopJournal::recording(fs, false),
+        }
+    }
+
+    /// Recording journal applying mutations to `fs` that keeps an in-memory
+    /// copy of the previous state of every file system target and restores
+    /// it on rollback and on [`JournalStore::rollback_committed`].
+    ///
+    /// Files, directory trees and links are kept with their metadata;
+    /// special files are not kept and get [`PreserveMode::None`] with
+    /// [`Irreversible::PreviousContentNotKept`].
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    ///
+    /// use nurt_contracts::journal::{FileOp, JournalStore, PreserveMode, RollbackReason, apply_ops};
+    /// use nurt_testkit::fixtures::begin_request;
+    /// use nurt_testkit::journal::RecordingJournal;
+    /// use nurt_testkit::vfs::{VirtualFs, test_path};
+    ///
+    /// let fs = Arc::new(VirtualFs::default());
+    /// let path = test_path("/data/a.txt").unwrap();
+    /// fs.write_file(&path, b"old").unwrap();
+    ///
+    /// let journal = RecordingJournal::keeping(fs.clone());
+    /// let mut tx = journal.begin(begin_request("write"));
+    /// let ops = vec![FileOp::write(path.clone(), b"new".to_vec())];
+    /// let done = apply_ops(tx.as_mut(), ops).unwrap();
+    /// assert_eq!(done[0].preserved.mode, PreserveMode::Copy);
+    /// let report = tx.rollback(RollbackReason::VerifyFailed).unwrap();
+    /// assert!(report.failed.is_empty());
+    /// assert_eq!(fs.read_file(&path).unwrap(), b"old");
+    /// ```
+    #[must_use]
+    pub fn keeping(fs: Arc<dyn FsWrite>) -> Self {
+        Self {
+            inner: NoopJournal::recording(fs, true),
         }
     }
 
@@ -386,11 +769,30 @@ impl RecordingJournal {
             .collect()
     }
 
-    /// Forgets the calls recorded so far.
+    /// Transactions begun so far, in order of [`JournalStore::begin`].
+    #[must_use]
+    pub fn transactions(&self) -> Vec<TxRecord> {
+        self.inner.register().transactions.clone()
+    }
+
+    /// Makes every later attempt to restore `path` fail, in rollbacks and in
+    /// [`JournalStore::rollback_committed`]; the target is then listed in
+    /// [`RollbackReport::failed`] and failed calls report
+    /// `E_ROLLBACK_FAILED`.
+    pub fn fail_rollback_of(&self, path: TargetPath) {
+        let mut register = self.inner.register();
+        if !register.failing.contains(&path) {
+            register.failing.push(path);
+        }
+    }
+
+    /// Forgets the calls and transactions recorded so far. Kept previous
+    /// states of committed operations and rollback failures stay.
     pub fn clear(&self) {
         if let Some(calls) = &self.inner.calls {
             lock(calls).clear();
         }
+        self.inner.register().transactions.clear();
     }
 }
 
@@ -456,10 +858,27 @@ struct Target {
     changed: bool,
     staged: Option<AbsPath>,
     undeclared: bool,
+    mode: PreserveMode,
+    reason: Option<Irreversible>,
+    images: Vec<(AbsPath, PreImage)>,
+}
+
+impl Target {
+    fn bytes_held(&self) -> u64 {
+        if self.mode.is_preserved() {
+            self.images
+                .iter()
+                .map(|(_, image)| image.bytes())
+                .fold(0, u64::saturating_add)
+        } else {
+            0
+        }
+    }
 }
 
 struct NoopTx<'a> {
     journal: &'a NoopJournal,
+    tx: usize,
     request: BeginRequest,
     op: Option<OpId>,
     targets: Vec<Target>,
@@ -533,6 +952,20 @@ fn stages_content(action: &TargetAction) -> bool {
     )
 }
 
+/// Preserve mode of a target kept by a keeping journal.
+fn kept_mode(action: &TargetAction, images: &[(AbsPath, PreImage)]) -> PreserveMode {
+    if images.is_empty() || !images.iter().all(|(_, image)| image.restorable()) {
+        return PreserveMode::None;
+    }
+    match (action, images.first()) {
+        (_, Some((_, PreImage::Absent))) => PreserveMode::Created,
+        (TargetAction::Attributes, _) => PreserveMode::Meta,
+        (TargetAction::Rename { .. }, _) => PreserveMode::Rename,
+        (TargetAction::Append, _) => PreserveMode::Append,
+        _ => PreserveMode::Copy,
+    }
+}
+
 fn stale(path: &AbsPath) -> Error {
     Error::new(
         ErrorCode::Stale,
@@ -557,11 +990,8 @@ impl NoopTx<'_> {
         self.journal.fs.as_ref()
     }
 
-    // The pass-through journal is a journal implementation, which the scope
-    // constructor is reserved for.
-    #[allow(clippy::disallowed_methods)]
     fn scope(&self) -> TxScope {
-        TxScope::new_for_journal(self.op.unwrap_or(OpId(0)), ScopePurpose::Operation)
+        NoopJournal::scope_for(self.op)
     }
 
     fn ensure_open(&self) -> Result<()> {
@@ -587,16 +1017,68 @@ impl NoopTx<'_> {
         }
     }
 
-    fn fail(&mut self, error: Error) -> Error {
-        self.remove_staged();
-        if !self.rolled_back {
-            self.rolled_back = true;
-            self.journal.record(JournalCall::Rollback {
-                op: self.op,
-                reason: None,
-            });
+    /// Restores the changed targets in reverse order; returns the restored
+    /// and the not restored targets in declaration order.
+    fn restore_changed(&self) -> (Vec<TargetPath>, Vec<TargetPath>) {
+        let mut restored = Vec::new();
+        let mut failed = Vec::new();
+        for target in self.targets.iter().rev().filter(|target| target.changed) {
+            let path = target.spec.path.clone();
+            if self
+                .journal
+                .restore_target(self.op, &path, target.mode, &target.images)
+            {
+                restored.push(path);
+            } else {
+                failed.push(path);
+            }
         }
-        error
+        restored.reverse();
+        failed.reverse();
+        (restored, failed)
+    }
+
+    /// Rolls the transaction back once; returns the restored and the not
+    /// restored targets.
+    fn roll_back(&mut self, reason: Option<RollbackReason>) -> (Vec<TargetPath>, Vec<TargetPath>) {
+        self.remove_staged();
+        if self.rolled_back {
+            let register = self.journal.register();
+            return register
+                .transactions
+                .get(self.tx)
+                .map(|record| (record.restored.clone(), record.not_restored.clone()))
+                .unwrap_or_default();
+        }
+        self.rolled_back = true;
+        let (restored, failed) = self.restore_changed();
+        self.journal.record(JournalCall::Rollback {
+            op: self.op,
+            reason,
+        });
+        let op = self.op;
+        let (kept_restored, kept_failed) = (restored.clone(), failed.clone());
+        self.journal.update(self.tx, |record| {
+            record.op = op;
+            record.state = TxState::RolledBack;
+            record.reason = reason;
+            record.restored = kept_restored;
+            record.not_restored = kept_failed;
+        });
+        (restored, failed)
+    }
+
+    fn fail(&mut self, error: Error) -> Error {
+        if self.rolled_back {
+            self.remove_staged();
+            return error;
+        }
+        let (_, failed) = self.roll_back(None);
+        if self.journal.keep && !failed.is_empty() {
+            rollback_failed(Some(error.code()), &failed)
+        } else {
+            error
+        }
     }
 
     fn misuse(&mut self, what: &str) -> Error {
@@ -651,6 +1133,14 @@ impl NoopTx<'_> {
         if matches { Ok(()) } else { Err(stale(path)) }
     }
 
+    fn not_kept(&self) -> Irreversible {
+        if self.journal.keep {
+            Irreversible::PreviousContentNotKept
+        } else {
+            Irreversible::JournalInactive
+        }
+    }
+
     fn declare(&self, spec: &TargetSpec) -> Result<(Target, Option<VolumeId>)> {
         let TargetPath::Fs(path) = &spec.path else {
             let target = Target {
@@ -660,6 +1150,9 @@ impl NoopTx<'_> {
                 changed: false,
                 staged: None,
                 undeclared: false,
+                mode: PreserveMode::None,
+                reason: Some(self.not_kept()),
+                images: Vec::new(),
             };
             return Ok((target, None));
         };
@@ -697,6 +1190,25 @@ impl NoopTx<'_> {
             hash: observed.hash,
             mode: observed.mode,
         };
+        let mut images = Vec::new();
+        if self.journal.keep {
+            images.push((
+                path.clone(),
+                PreImage::capture(self.fs(), path).map_err(convert)?,
+            ));
+            if let TargetAction::Rename { to, .. } = &spec.action {
+                images.push((
+                    to.clone(),
+                    PreImage::capture(self.fs(), to).map_err(convert)?,
+                ));
+            }
+        }
+        let mode = kept_mode(&spec.action, &images);
+        let reason = if mode.is_preserved() {
+            None
+        } else {
+            Some(self.not_kept())
+        };
         let volume = self.fs().volume(path).ok().map(|info| info.id);
         let target = Target {
             spec: spec.clone(),
@@ -705,6 +1217,9 @@ impl NoopTx<'_> {
             changed: false,
             staged: None,
             undeclared: false,
+            mode,
+            reason,
+            images,
         };
         Ok((target, volume))
     }
@@ -854,7 +1369,9 @@ impl NoopTx<'_> {
                     .meta(path)?
                     .is_some_and(|meta| meta.kind == FileKind::Directory);
                 if is_dir {
-                    fs.remove_tree(&scope, path, 1).map(|_| ()).map_err(convert)
+                    fs.remove_tree(&scope, path, REMOVE_PARALLELISM)
+                        .map(|_| ())
+                        .map_err(convert)
                 } else {
                     fs.remove_file(&scope, path).map_err(convert)
                 }
@@ -875,6 +1392,23 @@ impl NoopTx<'_> {
         }
     }
 
+    fn mark_changed(&mut self, index: usize, after: AfterState) {
+        let Some(entry) = self.targets.get_mut(index) else {
+            return;
+        };
+        let first = !entry.changed;
+        entry.changed = true;
+        entry.after = Some(after);
+        if first {
+            let path = entry.spec.path.clone();
+            let op = self.op;
+            self.journal.update(self.tx, |record| {
+                record.op = op;
+                record.applied.push(path);
+            });
+        }
+    }
+
     fn apply_inner(&mut self, target: TargetIndex, mutation: &Mutation) -> Result<Applied> {
         let index = usize::try_from(target.0).unwrap_or(usize::MAX);
         let Some(declared) = self.targets.get(index) else {
@@ -892,14 +1426,17 @@ impl NoopTx<'_> {
             self.check_expect(path, &spec.expect)
                 .map_err(|error| self.fail(error))?;
         }
-        self.perform(index, path, &spec.action, mutation)
-            .map_err(|error| self.fail(error))?;
+        if let Err(error) = self.perform(index, path, &spec.action, mutation) {
+            // The failed call may have changed the target partly; it is
+            // restored together with the targets changed before it.
+            if let Some(entry) = self.targets.get_mut(index) {
+                entry.changed = true;
+            }
+            return Err(self.fail(error));
+        }
         let after = self.observe(path).map_err(|error| self.fail(error))?;
         self.applied = true;
-        if let Some(entry) = self.targets.get_mut(index) {
-            entry.changed = true;
-            entry.after = Some(after.clone());
-        }
+        self.mark_changed(index, after.clone());
         Ok(Applied {
             index: target,
             after,
@@ -907,20 +1444,15 @@ impl NoopTx<'_> {
     }
 
     fn outcome(&self, index: usize, target: &Target) -> TargetOutcome {
-        let reason = if target.undeclared {
-            Irreversible::PreviousContentNotKept
-        } else {
-            Irreversible::JournalInactive
-        };
         TargetOutcome {
             index: TargetIndex(u32::try_from(index).unwrap_or(u32::MAX)),
             path: target.spec.path.clone(),
             action: target.spec.action.clone(),
-            mode: PreserveMode::None,
-            bytes_held: 0,
+            mode: target.mode,
+            bytes_held: target.bytes_held(),
             before: target.before.clone(),
             after: target.after.clone(),
-            irreversible: Some(reason),
+            irreversible: target.reason,
             notable: Vec::new(),
         }
     }
@@ -964,11 +1496,17 @@ impl MutationTx for NoopTx<'_> {
             out.push(Preserved {
                 index,
                 volume,
-                mode: PreserveMode::None,
-                bytes_held: 0,
+                mode: target.mode,
+                bytes_held: target.bytes_held(),
                 before: target.before.clone(),
-                irreversible: Some(Irreversible::JournalInactive),
+                irreversible: target.reason,
                 notable: Vec::new(),
+            });
+            let op = self.op;
+            let path = spec.path.clone();
+            self.journal.update(self.tx, |record| {
+                record.op = op;
+                record.preserved.push(path);
             });
             self.targets.push(target);
         }
@@ -1051,9 +1589,16 @@ impl MutationTx for NoopTx<'_> {
                     if self.op.is_none() {
                         self.op = Some(self.journal.allocate());
                     }
+                    let path = TargetPath::Fs(change.path.clone());
+                    let op = self.op;
+                    let declared = path.clone();
+                    self.journal.update(self.tx, |record| {
+                        record.op = op;
+                        record.preserved.push(declared);
+                    });
                     self.targets.push(Target {
                         spec: TargetSpec {
-                            path: TargetPath::Fs(change.path.clone()),
+                            path,
                             action: TargetAction::ExternalWrite,
                             expect: Expect::Unchecked,
                             size_hint: None,
@@ -1063,6 +1608,9 @@ impl MutationTx for NoopTx<'_> {
                         changed: false,
                         staged: None,
                         undeclared: true,
+                        mode: PreserveMode::None,
+                        reason: Some(Irreversible::PreviousContentNotKept),
+                        images: Vec::new(),
                     });
                     self.targets.len() - 1
                 }
@@ -1071,10 +1619,7 @@ impl MutationTx for NoopTx<'_> {
                 .observe(&change.path)
                 .map_err(|error| self.fail(error))?;
             self.applied = true;
-            if let Some(entry) = self.targets.get_mut(index) {
-                entry.changed = true;
-                entry.after = Some(after.clone());
-            }
+            self.mark_changed(index, after.clone());
             out.push(Applied {
                 index: TargetIndex(u32::try_from(index).unwrap_or(u32::MAX)),
                 after,
@@ -1109,14 +1654,17 @@ impl MutationTx for NoopTx<'_> {
         if self.op.is_none() && !self.markers.is_empty() {
             self.op = Some(self.journal.allocate());
         }
-        let targets: Vec<TargetOutcome> = self
+        let shown: Vec<(usize, &Target)> = self
             .targets
             .iter()
             .enumerate()
             .filter(|(_, target)| {
                 target.changed || target.spec.action != TargetAction::ExternalWrite
             })
-            .map(|(index, target)| self.outcome(index, target))
+            .collect();
+        let targets: Vec<TargetOutcome> = shown
+            .iter()
+            .map(|(index, target)| self.outcome(*index, target))
             .collect();
         let mut irreversible: Vec<IrreversibleEntry> = targets
             .iter()
@@ -1130,7 +1678,25 @@ impl MutationTx for NoopTx<'_> {
             })
             .collect();
         irreversible.extend(self.markers.iter().cloned());
+        if self.journal.keep
+            && let Some(op) = self.op
+        {
+            let kept: Vec<KeptTarget> = shown
+                .iter()
+                .filter(|(_, target)| target.changed)
+                .map(|(index, target)| KeptTarget {
+                    outcome: self.outcome(*index, target),
+                    images: target.images.clone(),
+                })
+                .collect();
+            self.journal.register().kept.insert(op, kept);
+        }
         self.journal.record(JournalCall::Commit { op: self.op });
+        let op = self.op;
+        self.journal.update(self.tx, |record| {
+            record.op = op;
+            record.state = TxState::Committed;
+        });
         Ok(OpHandle {
             op: self.op,
             kind: self.request.kind.clone(),
@@ -1143,23 +1709,11 @@ impl MutationTx for NoopTx<'_> {
     }
 
     fn rollback(mut self: Box<Self>, reason: RollbackReason) -> Result<RollbackReport> {
-        self.remove_staged();
-        if !self.rolled_back {
-            self.rolled_back = true;
-            self.journal.record(JournalCall::Rollback {
-                op: self.op,
-                reason: Some(reason),
-            });
-        }
+        let (restored, failed) = self.roll_back(Some(reason));
         Ok(RollbackReport {
             op: self.op,
-            restored: Vec::new(),
-            failed: self
-                .targets
-                .iter()
-                .filter(|target| target.changed)
-                .map(|target| target.spec.path.clone())
-                .collect(),
+            restored,
+            failed,
         })
     }
 }
