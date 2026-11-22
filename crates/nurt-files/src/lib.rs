@@ -22,7 +22,9 @@ pub mod read;
 pub mod walk;
 
 mod commands {
+    pub(crate) mod convert;
     pub(crate) mod find;
+    pub(crate) mod hash;
     pub(crate) mod list;
 }
 
@@ -35,10 +37,15 @@ mod commands {
 /// implementation of this crate has.
 #[must_use]
 pub fn stages() -> Vec<Arc<dyn StageImpl>> {
-    [commands::find::stages(), commands::list::stages()]
-        .into_iter()
-        .flatten()
-        .collect()
+    [
+        commands::convert::stages(),
+        commands::find::stages(),
+        commands::hash::stages(),
+        commands::list::stages(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
 }
 
 /// Adds the stage implementations of this crate to the registry of the engine.
