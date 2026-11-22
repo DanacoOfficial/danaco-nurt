@@ -97,10 +97,88 @@ pub(crate) fn for_each_match(
     }
 }
 
+/// Returns the pointers of the values whose location matches the pattern.
+pub(crate) fn find_matches(value: &Value, pattern: &[String]) -> Vec<String> {
+    let mut found = Vec::new();
+    collect_matches(value, pattern, &mut Vec::new(), &mut found);
+    found
+}
+
+fn collect_matches(
+    value: &Value,
+    pattern: &[String],
+    path: &mut Vec<String>,
+    found: &mut Vec<String>,
+) {
+    let Some((first, rest)) = pattern.split_first() else {
+        found.push(join(path));
+        return;
+    };
+    let mut visit = |name: String, child: &Value, path: &mut Vec<String>| {
+        path.push(name);
+        collect_matches(child, rest, path, found);
+        path.pop();
+    };
+    match value {
+        Value::Object(members) if first == WILDCARD => {
+            for (name, member) in members {
+                visit(name.clone(), member, path);
+            }
+        }
+        Value::Object(members) => {
+            if let Some(member) = members.get(first) {
+                visit(first.clone(), member, path);
+            }
+        }
+        Value::Array(items) if first == WILDCARD => {
+            for (index, item) in items.iter().enumerate() {
+                visit(index.to_string(), item, path);
+            }
+        }
+        Value::Array(items) => {
+            if let Some(item) = first.parse::<usize>().ok().and_then(|i| items.get(i)) {
+                visit(first.clone(), item, path);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Removes every object member whose location matches the pattern. Array
+/// items are not removed, so the indexes of other items stay valid.
+pub(crate) fn remove_matches(value: &mut Value, pattern: &[String]) {
+    let Some((last, parent)) = pattern.split_last() else {
+        return;
+    };
+    for_each_match(value, parent, &mut |found| {
+        if let Value::Object(members) = found {
+            if last == WILDCARD {
+                members.clear();
+            } else {
+                members.remove(last);
+            }
+        }
+    });
+}
+
+/// Names of the placeholders that stand for a value of the environment of
+/// a case.
+pub(crate) mod variable {
+    /// Working directory of the case.
+    pub(crate) const BASE: &str = "base";
+    /// Address of the local HTTP server of the case.
+    pub(crate) const HTTP_BASE: &str = "http_base";
+    /// Directory of the case on the second volume.
+    pub(crate) const SECOND_VOLUME: &str = "second_volume";
+    /// Every name.
+    pub(crate) const ALL: [&str; 3] = [BASE, HTTP_BASE, SECOND_VOLUME];
+}
+
 /// Values that replace placeholders.
 pub(crate) trait Bindings {
-    /// Path of the working directory of the case, with `/` separators.
-    fn base(&self) -> Option<&str>;
+    /// Value of the placeholder of the environment with the given name, one
+    /// of [`variable::ALL`].
+    fn variable(&self, name: &str) -> Option<String>;
     /// Value at `pointer` in the result of the step with the given number,
     /// counted from 1.
     fn step(&self, number: usize, pointer: &str) -> Option<Value>;
@@ -112,11 +190,10 @@ pub(crate) struct PlaceholderError(pub(crate) String);
 
 const OPEN: &str = "${";
 const CLOSE: char = '}';
-const BASE: &str = "base";
 const STEP: &str = "step";
 
-/// Replaces the placeholders `${base}` and `${stepN/pointer}` in every text
-/// of `value`.
+/// Replaces the placeholders of the environment (`${base}`, `${http_base}`,
+/// `${second_volume}`) and `${stepN/pointer}` in every text of `value`.
 pub(crate) fn substitute(
     value: &Value,
     bindings: &dyn Bindings,
@@ -168,11 +245,11 @@ fn whole_placeholder(text: &str) -> Option<&str> {
 }
 
 fn resolve(name: &str, bindings: &dyn Bindings) -> Result<Value, PlaceholderError> {
-    if name == BASE {
+    if variable::ALL.contains(&name) {
         return bindings
-            .base()
-            .map(|base| Value::String(base.to_owned()))
-            .ok_or_else(|| PlaceholderError("${base} is not available here".to_owned()));
+            .variable(name)
+            .map(Value::String)
+            .ok_or_else(|| PlaceholderError(format!("${{{name}}} is not available here")));
     }
     let reference = name
         .strip_prefix(STEP)
@@ -197,8 +274,12 @@ mod tests {
     }
 
     impl Bindings for Fixed {
-        fn base(&self) -> Option<&str> {
-            self.base.as_deref()
+        fn variable(&self, name: &str) -> Option<String> {
+            match name {
+                variable::BASE => self.base.clone(),
+                variable::HTTP_BASE => Some("http://127.0.0.1:8080".to_owned()),
+                _ => None,
+            }
         }
         fn step(&self, number: usize, pointer: &str) -> Option<Value> {
             self.results
@@ -257,6 +338,26 @@ mod tests {
     }
 
     #[test]
+    fn matches_are_found_with_their_pointers_and_removed() {
+        let value = json!({"rows": [{"t": 1}, {"u": 2}], "o": {"a/b": {"t": 3}}, "s": 4});
+        assert_eq!(find_matches(&value, &segments("/rows/*/t")), ["/rows/0/t"]);
+        let mut nested = find_matches(&value, &segments("/*/*/t"));
+        nested.sort();
+        assert_eq!(nested, ["/o/a~1b/t", "/rows/0/t"]);
+        assert_eq!(find_matches(&value, &segments("/rows/1")), ["/rows/1"]);
+        assert_eq!(find_matches(&value, &segments("")), [""]);
+        assert!(find_matches(&value, &segments("/s/x")).is_empty());
+        assert!(find_matches(&value, &segments("/rows/7")).is_empty());
+
+        let mut removed = value.clone();
+        remove_matches(&mut removed, &segments("/rows/*/t"));
+        remove_matches(&mut removed, &segments("/o/*"));
+        remove_matches(&mut removed, &segments("/rows/0"));
+        remove_matches(&mut removed, &segments(""));
+        assert_eq!(removed, json!({"rows": [{}, {"u": 2}], "o": {}, "s": 4}));
+    }
+
+    #[test]
     fn whole_placeholder_keeps_the_json_type() {
         let value = json!({"op": "${step1/report/op}", "cursor": "${step1/report/next_cursor}"});
         let replaced = substitute(&value, &fixed()).unwrap();
@@ -267,12 +368,17 @@ mod tests {
     fn embedded_placeholders_are_inserted_as_text() {
         let value = json!([
             "journal.undo op: ${step1/report/op}",
-            "find \"${base}/src\""
+            "find \"${base}/src\"",
+            "http.request \"${http_base}/echo\""
         ]);
         let replaced = substitute(&value, &fixed()).unwrap();
         assert_eq!(
             replaced,
-            json!(["journal.undo op: 7", "find \"/tmp/case/work/src\""])
+            json!([
+                "journal.undo op: 7",
+                "find \"/tmp/case/work/src\"",
+                "http.request \"http://127.0.0.1:8080/echo\""
+            ])
         );
     }
 
@@ -284,6 +390,7 @@ mod tests {
         };
         for text in [
             "${base}",
+            "${second_volume}",
             "${step1/report/op}",
             "${stepx/a}",
             "${other}",

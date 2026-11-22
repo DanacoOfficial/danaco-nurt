@@ -16,8 +16,15 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 use nurt_conformance::Error;
 use nurt_conformance::case::Kind;
-use nurt_conformance::fake::{BREAK_ENV, Break, CASE_ENV, CASES_ENV, FakeServer};
+use nurt_conformance::fake::{
+    BREAK_ENV, Break, CASE_ENV, CASES_ENV, FakeServer, HTTP_BASE_ENV, SECOND_VOLUME_ENV,
+};
+use nurt_conformance::fixture;
 use nurt_conformance::runner::{self, RunOptions};
+
+/// Environment variable naming the directory on a second volume when
+/// `--second-volume` is not given.
+const SECOND_VOLUME_ROOT_ENV: &str = "NURT_CONFORMANCE_SECOND_VOLUME";
 
 /// Exit code when a mandatory case failed.
 const EXIT_FAILED: u8 = 1;
@@ -67,6 +74,10 @@ enum Command {
         /// Print only failed cases and the summary.
         #[arg(long)]
         quiet: bool,
+        /// Directory on another file system for cases that require
+        /// fixture:second-volume [default: NURT_CONFORMANCE_SECOND_VOLUME].
+        #[arg(long, value_name = "DIR")]
+        second_volume: Option<PathBuf>,
     },
     /// Answer nurt-rpc/1 on standard input and output from the cases.
     #[command(alias = "serve")]
@@ -96,6 +107,7 @@ fn main() -> ExitCode {
             timeout,
             report,
             quiet,
+            second_volume,
         } => run(RunArgs {
             implementation,
             cases,
@@ -106,6 +118,7 @@ fn main() -> ExitCode {
             timeout,
             report,
             quiet,
+            second_volume,
         }),
         Command::FakeServe {
             cases, deviation, ..
@@ -130,9 +143,15 @@ struct RunArgs {
     timeout: String,
     report: Option<PathBuf>,
     quiet: bool,
+    second_volume: Option<PathBuf>,
 }
 
 fn run(args: RunArgs) -> Result<ExitCode, Error> {
+    let second_volume = args
+        .second_volume
+        .or_else(|| std::env::var_os(SECOND_VOLUME_ROOT_ENV).map(PathBuf::from))
+        .map(|dir| fixture::check_second_volume(&dir))
+        .transpose()?;
     let kinds = args
         .kind
         .iter()
@@ -150,6 +169,7 @@ fn run(args: RunArgs) -> Result<ExitCode, Error> {
         jobs: args.jobs.unwrap_or_else(runner::default_jobs),
         startup_timeout: runner::parse_duration(&args.startup_timeout)?,
         timeout: runner::parse_duration(&args.timeout)?,
+        second_volume,
     };
     let report = runner::run(&options)?;
     if let Some(path) = &args.report {
@@ -177,7 +197,10 @@ fn fake_serve(cases: Option<PathBuf>, deviation: Option<String>) -> Result<ExitC
         })
         .transpose()?;
     let case_id = std::env::var(CASE_ENV).ok();
-    let mut server = FakeServer::load(&cases, case_id.as_deref(), deviation)?;
+    let mut server = FakeServer::load(&cases, case_id.as_deref(), deviation)?.with_fixtures(
+        std::env::var(HTTP_BASE_ENV).ok(),
+        std::env::var_os(SECOND_VOLUME_ENV).map(PathBuf::from),
+    );
     let stdin = std::io::stdin().lock();
     let stdout = std::io::stdout().lock();
     server

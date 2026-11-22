@@ -24,6 +24,7 @@
 //! | [`report`] | conformance report `nurt-conformance-report/1` |
 //! | [`binding`] | binding cases `nurt-binding-cases/1` |
 //! | [`fake`] | fake server answering from the cases |
+//! | [`fixture`] | local HTTP server, second volume and mount point for cases |
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
@@ -34,6 +35,7 @@ pub mod client;
 pub mod compare;
 pub mod execute;
 pub mod fake;
+pub mod fixture;
 pub mod normalize;
 pub mod protocol;
 pub mod report;

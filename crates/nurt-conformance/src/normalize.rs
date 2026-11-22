@@ -22,6 +22,19 @@ pub const VOLATILE_ANNOTATION: &str = "x-nurt-volatile";
 /// Placeholder that replaces the working directory of a case.
 pub const BASE_PLACEHOLDER: &str = "${base}";
 
+/// Placeholder that replaces the address of the local HTTP server of a case.
+pub const HTTP_BASE_PLACEHOLDER: &str = "${http_base}";
+
+/// Placeholder that replaces the directory of a case on the second volume.
+pub const SECOND_VOLUME_PLACEHOLDER: &str = "${second_volume}";
+
+/// Placeholder of the configuration of a case that stands for the mount
+/// point of the working directory.
+pub const WORK_MOUNT_PLACEHOLDER: &str = "${work_mount}";
+
+/// Volatile members of an event `nurt/event`.
+pub const EVENT_VOLATILE: [&str; 2] = ["/seq", "/time"];
+
 /// Locations of volatile values, as pointer patterns where `*` matches any
 /// member or index.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -167,38 +180,70 @@ impl<'a> Collector<'a> {
 /// assert_eq!(value, json!({"path": "${base}/src/a.go", "other": "/srv"}));
 /// ```
 pub fn rewrite_base(value: &mut Value, base: &str) {
-    let forms = base_forms(base);
-    rewrite(value, &forms);
+    rewrite_path(value, base, BASE_PLACEHOLDER);
 }
 
-fn base_forms(base: &str) -> Vec<String> {
-    let trimmed = base.trim_end_matches(['/', '\\']);
+/// Rewrites every text that starts with the directory `path` to start with
+/// `placeholder`, writing the separators of the rest as `/`.
+///
+/// `path` is matched in its native form and with `/` separators.
+pub fn rewrite_path(value: &mut Value, path: &str, placeholder: &str) {
+    let forms = path_forms(path);
+    rewrite(value, &mut |text| rewrite_text(text, &forms, placeholder));
+}
+
+/// Replaces every occurrence of `text` inside the texts of `value` by
+/// `placeholder`.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_conformance::normalize::rewrite_occurrences;
+/// use serde_json::json;
+///
+/// let mut value = json!({"url": "http://127.0.0.1:4000/echo", "n": 1});
+/// rewrite_occurrences(&mut value, "http://127.0.0.1:4000", "${http_base}");
+/// assert_eq!(value, json!({"url": "${http_base}/echo", "n": 1}));
+/// ```
+pub fn rewrite_occurrences(value: &mut Value, text: &str, placeholder: &str) {
+    if text.is_empty() {
+        return;
+    }
+    rewrite(value, &mut |found| {
+        found
+            .contains(text)
+            .then(|| found.replace(text, placeholder))
+    });
+}
+
+fn path_forms(path: &str) -> Vec<String> {
+    let trimmed = path.trim_end_matches(['/', '\\']);
     let mut forms = vec![trimmed.to_owned(), trimmed.replace('\\', "/")];
     forms.dedup();
     forms.retain(|form| !form.is_empty());
     forms
 }
 
-fn rewrite(value: &mut Value, forms: &[String]) {
+fn rewrite(value: &mut Value, change: &mut dyn FnMut(&str) -> Option<String>) {
     match value {
         Value::String(text) => {
-            if let Some(rewritten) = rewrite_text(text, forms) {
+            if let Some(rewritten) = change(text) {
                 *text = rewritten;
             }
         }
-        Value::Array(items) => items.iter_mut().for_each(|item| rewrite(item, forms)),
+        Value::Array(items) => items.iter_mut().for_each(|item| rewrite(item, change)),
         Value::Object(members) => members
             .values_mut()
-            .for_each(|member| rewrite(member, forms)),
+            .for_each(|member| rewrite(member, change)),
         _ => {}
     }
 }
 
-fn rewrite_text(text: &str, forms: &[String]) -> Option<String> {
+fn rewrite_text(text: &str, forms: &[String], placeholder: &str) -> Option<String> {
     forms.iter().find_map(|form| {
         let rest = text.strip_prefix(form.as_str())?;
         let boundary = rest.is_empty() || rest.starts_with(['/', '\\']);
-        boundary.then(|| format!("{BASE_PLACEHOLDER}{}", rest.replace('\\', "/")))
+        boundary.then(|| format!("{placeholder}{}", rest.replace('\\', "/")))
     })
 }
 

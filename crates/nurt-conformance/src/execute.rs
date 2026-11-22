@@ -8,15 +8,25 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
-use crate::case::{Case, Expectation, FsExpectation, Golden, Plan, Step};
+use crate::case::{
+    Case, EventExpectation, EventOrder, Expectation, FsExpectation, Golden, Plan, Step,
+};
 use crate::client::{CallError, Connection};
 use crate::compare::{self, Match};
-use crate::normalize::{self, VolatilePaths};
-use crate::pointer::{self, Bindings};
-use crate::protocol::{self, member, method};
+use crate::normalize::{
+    self, EVENT_VOLATILE, HTTP_BASE_PLACEHOLDER, SECOND_VOLUME_PLACEHOLDER, VolatilePaths,
+};
+use crate::pointer::{self, Bindings, variable};
+use crate::protocol::{self, code, member, method};
 use crate::report::Failure;
 use crate::schemas::SchemaSet;
 use crate::snapshot::{Difference, Snapshot};
+
+/// Name of the check of the working directory.
+const CHECK_FS: &str = "fs";
+
+/// Name of the check of the directory on the second volume.
+const CHECK_SECOND_VOLUME: &str = "second_volume";
 
 /// Shared data of the execution of cases.
 #[derive(Debug)]
@@ -39,22 +49,59 @@ impl Context<'_> {
     }
 }
 
-/// Runs a case whose working directory is `base` and returns the failed
-/// checks; an empty list means the case passed.
+/// Directories and addresses that the runner provides to one case.
+#[derive(Debug, Clone, Copy)]
+pub struct Workspace<'a> {
+    /// Working directory, `${base}`.
+    pub work: &'a Path,
+    /// Directory of the case on the second volume, `${second_volume}`.
+    pub second_volume: Option<&'a Path>,
+    /// Address of the local HTTP server of the case, `${http_base}`.
+    pub http_base: Option<&'a str>,
+}
+
+impl<'a> Workspace<'a> {
+    /// Returns a workspace with the working directory `work` and no
+    /// fixtures.
+    #[must_use]
+    pub fn new(work: &'a Path) -> Self {
+        Self {
+            work,
+            second_volume: None,
+            http_base: None,
+        }
+    }
+}
+
+/// Result of the execution of a case.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Outcome {
+    /// Failed checks; empty when the case passed or was skipped.
+    pub failures: Vec<Failure>,
+    /// Reason of a skip: the implementation answered a call of a method of
+    /// the feature `testkit` with "method not found" before any check
+    /// failed.
+    pub skipped: Option<String>,
+}
+
+/// Runs a case in the given workspace and returns the failed checks or the
+/// reason of a skip.
 pub fn execute(
     case: &Case,
     connection: &mut dyn Connection,
-    base: &Path,
+    workspace: &Workspace<'_>,
     context: &Context<'_>,
-) -> Vec<Failure> {
+) -> Outcome {
     let mut run = CaseRun {
         case,
         connection,
-        base,
-        base_text: base.to_string_lossy().replace('\\', "/"),
+        workspace: *workspace,
+        base_text: slashes(workspace.work),
+        second_text: workspace.second_volume.map(slashes),
         context,
         results: Vec::new(),
         failures: Vec::new(),
+        skipped: None,
     };
     match &case.plan {
         Plan::Steps(steps) => {
@@ -69,7 +116,14 @@ pub fn execute(
             let _ = run.golden(golden);
         }
     }
-    run.failures
+    Outcome {
+        failures: run.failures,
+        skipped: run.skipped,
+    }
+}
+
+fn slashes(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
 }
 
 /// Marker of a failure after which the case cannot continue.
@@ -78,16 +132,23 @@ struct Stop;
 struct CaseRun<'a, 'c> {
     case: &'a Case,
     connection: &'c mut dyn Connection,
-    base: &'a Path,
+    workspace: Workspace<'a>,
     base_text: String,
+    second_text: Option<String>,
     context: &'a Context<'a>,
     results: Vec<Value>,
     failures: Vec<Failure>,
+    skipped: Option<String>,
 }
 
 impl Bindings for CaseRun<'_, '_> {
-    fn base(&self) -> Option<&str> {
-        Some(&self.base_text)
+    fn variable(&self, name: &str) -> Option<String> {
+        match name {
+            variable::BASE => Some(self.base_text.clone()),
+            variable::HTTP_BASE => self.workspace.http_base.map(str::to_owned),
+            variable::SECOND_VOLUME => self.second_text.clone(),
+            _ => None,
+        }
     }
 
     fn step(&self, number: usize, pointer: &str) -> Option<Value> {
@@ -125,18 +186,48 @@ impl CaseRun<'_, '_> {
         }
     }
 
-    fn capture(&mut self, step: usize) -> Result<Snapshot, Stop> {
-        Snapshot::capture(self.base, cfg!(unix), true).map_err(|error| {
-            self.fail(Some(step), "fs", error.to_string());
-            Stop
-        })
+    /// Rewrites the directories and the address of the workspace in an
+    /// actual value to their placeholders.
+    fn normalize_actual(&self, value: &mut Value) {
+        normalize::rewrite_base(value, &self.workspace.work.to_string_lossy());
+        if let Some(second) = self.workspace.second_volume {
+            normalize::rewrite_path(value, &second.to_string_lossy(), SECOND_VOLUME_PLACEHOLDER);
+        }
+        if let Some(http_base) = self.workspace.http_base {
+            normalize::rewrite_occurrences(value, http_base, HTTP_BASE_PLACEHOLDER);
+        }
+    }
+
+    /// Captures the directory before a call whose expectation is
+    /// `"unchanged"`.
+    fn before(
+        &mut self,
+        number: usize,
+        check: &str,
+        expectation: Option<&FsExpectation>,
+        dir: Option<&Path>,
+    ) -> Result<Option<Snapshot>, Stop> {
+        let (Some(FsExpectation::Unchanged), Some(dir)) = (expectation, dir) else {
+            return Ok(None);
+        };
+        Snapshot::capture(dir, cfg!(unix), true)
+            .map(Some)
+            .map_err(|error| {
+                self.fail(Some(number), check, error.to_string());
+                Stop
+            })
     }
 
     fn run_step(&mut self, number: usize, step: &Step) -> Result<(), Stop> {
-        let before = match step.fs_after {
-            Some(FsExpectation::Unchanged) => Some(self.capture(number)?),
-            _ => None,
-        };
+        let work = Some(self.workspace.work);
+        let second = self.workspace.second_volume;
+        let before = self.before(number, CHECK_FS, step.fs_after.as_ref(), work)?;
+        let second_before = self.before(
+            number,
+            CHECK_SECOND_VOLUME,
+            step.second_volume_after.as_ref(),
+            second,
+        )?;
         let params = pointer::substitute(&step.params, self).map_err(|error| {
             self.fail(Some(number), "params", error.0);
             Stop
@@ -145,20 +236,26 @@ impl CaseRun<'_, '_> {
         if protocol::takes_request(&step.method) {
             protocol::set_base(&mut call_params, &self.base_text);
         }
+        // Events received before this call belong to earlier calls.
+        self.connection.take_events();
         let outcome = self.connection.call(&step.method, &call_params);
+        let events = self.connection.take_events();
         let result = self.outcome(number, step, outcome)?;
         if let Some(result) = &result {
             self.check_result(number, step, result);
         }
-        self.results.push(result.unwrap_or(Value::Null));
-        let expected = match (&step.fs_after, before) {
-            (Some(FsExpectation::Unchanged), Some(before)) => Some(before),
-            (Some(FsExpectation::Snapshot(snapshot)), _) => Some(snapshot.clone()),
-            _ => None,
-        };
-        if let Some(expected) = expected {
-            self.check_fs(number, &expected);
+        if let Some(expected) = &step.events {
+            self.check_events(number, expected, events);
         }
+        self.results.push(result.unwrap_or(Value::Null));
+        self.check_dir(number, CHECK_FS, step.fs_after.as_ref(), before, work);
+        self.check_dir(
+            number,
+            CHECK_SECOND_VOLUME,
+            step.second_volume_after.as_ref(),
+            second_before,
+            second,
+        );
         Ok(())
     }
 
@@ -181,6 +278,21 @@ impl CaseRun<'_, '_> {
                 Ok(None)
             }
             (Err(CallError::Rpc { code, .. }), Some(expected)) if code == expected => Ok(None),
+            (
+                Err(CallError::Rpc {
+                    code: code::METHOD_NOT_FOUND,
+                    ..
+                }),
+                _,
+            ) if step.method.starts_with(method::TESTKIT_PREFIX) => {
+                let reason = format!("the implementation does not offer {}", step.method);
+                if self.failures.is_empty() {
+                    self.skipped = Some(reason);
+                } else {
+                    self.fail(Some(number), &step.method, reason);
+                }
+                Err(Stop)
+            }
             (Err(error @ CallError::Rpc { .. }), _) => {
                 self.fail(Some(number), &step.method, error.to_string());
                 Ok(None)
@@ -195,6 +307,17 @@ impl CaseRun<'_, '_> {
     fn check_result(&mut self, number: usize, step: &Step, result: &Value) {
         for expectation in &step.expectations {
             self.check_expectation(number, &step.method, expectation, result);
+        }
+        for pattern in &step.absent {
+            for found in pointer::find_matches(result, &pointer::segments(pattern)) {
+                self.failures.push(Failure {
+                    step: Some(number),
+                    check: Some("absent".to_owned()),
+                    actual: result.pointer(&found).cloned(),
+                    path: Some(found),
+                    ..Failure::new("member must be absent")
+                });
+            }
         }
         if let Some((at, schema)) = &step.validate {
             match result.pointer(at) {
@@ -223,7 +346,7 @@ impl CaseRun<'_, '_> {
     ) {
         let volatile = self.volatile(method_name);
         let mut actual = result.clone();
-        normalize::rewrite_base(&mut actual, &self.base_text);
+        self.normalize_actual(&mut actual);
         volatile.apply(&mut actual);
         let mut expected = json!({});
         pointer::insert(&mut expected, &expectation.at, expectation.value.clone());
@@ -251,6 +374,81 @@ impl CaseRun<'_, '_> {
         }
     }
 
+    /// Compares the events of a call with the expected ones. Each expected
+    /// event is compared with a received event as a subset, after the
+    /// volatile members `seq` and `time` are normalized.
+    fn check_events(&mut self, number: usize, expected: &EventExpectation, received: Vec<Value>) {
+        let mut volatile = VolatilePaths::default();
+        volatile.extend(EVENT_VOLATILE);
+        let actual: Vec<Value> = received
+            .into_iter()
+            .map(|mut event| {
+                self.normalize_actual(&mut event);
+                volatile.apply(&mut event);
+                event
+            })
+            .collect();
+        let wanted: Vec<Value> = expected
+            .events
+            .iter()
+            .map(|event| {
+                let mut event = event.clone();
+                volatile.apply(&mut event);
+                event
+            })
+            .collect();
+        let failure = |path: String, message: String, expected: Value, actual: Value| Failure {
+            step: Some(number),
+            check: Some("events".to_owned()),
+            path: Some(path),
+            expected: Some(expected),
+            actual: Some(actual),
+            ..Failure::new(message)
+        };
+        match expected.order {
+            EventOrder::Exact if actual.len() != wanted.len() => {
+                self.failures.push(failure(
+                    String::new(),
+                    format!("{} events instead of {}", actual.len(), wanted.len()),
+                    json!(wanted),
+                    json!(actual),
+                ));
+            }
+            EventOrder::Exact => {
+                for (index, (event, found)) in wanted.iter().zip(&actual).enumerate() {
+                    for difference in compare::compare(event, found, Match::Subset) {
+                        self.failures.push(failure(
+                            format!("/{index}{}", difference.path),
+                            difference.message,
+                            difference.expected.unwrap_or(Value::Null),
+                            difference.actual.unwrap_or(Value::Null),
+                        ));
+                    }
+                }
+            }
+            EventOrder::Ordered => {
+                let mut next = 0;
+                for (index, event) in wanted.iter().enumerate() {
+                    let position = actual[next..]
+                        .iter()
+                        .position(|found| compare::compare(event, found, Match::Subset).is_empty());
+                    match position {
+                        Some(offset) => next += offset + 1,
+                        None => {
+                            self.failures.push(failure(
+                                format!("/{index}"),
+                                "event not received after the events expected before it".to_owned(),
+                                event.clone(),
+                                json!(actual),
+                            ));
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn check_schema(&mut self, step: Option<usize>, schema: &str, at: &str, value: &Value) {
         if let Err(errors) = self.context.schemas.validate(schema, value) {
             for error in errors.into_iter().take(compare::MAX_DIFFERENCES) {
@@ -264,14 +462,35 @@ impl CaseRun<'_, '_> {
         }
     }
 
-    fn check_fs(&mut self, number: usize, expected: &Snapshot) {
-        match expected.diff(self.base) {
+    fn check_dir(
+        &mut self,
+        number: usize,
+        check: &str,
+        expectation: Option<&FsExpectation>,
+        before: Option<Snapshot>,
+        dir: Option<&Path>,
+    ) {
+        let expected = match (expectation, before) {
+            (Some(FsExpectation::Unchanged), Some(before)) => before,
+            (Some(FsExpectation::Snapshot(snapshot)), _) => snapshot.clone(),
+            (Some(FsExpectation::Unchanged), None) | (None, _) => {
+                if expectation.is_some() {
+                    self.fail(Some(number), check, "the directory is not available");
+                }
+                return;
+            }
+        };
+        let Some(dir) = dir else {
+            self.fail(Some(number), check, "the directory is not available");
+            return;
+        };
+        match expected.diff(dir) {
             Ok(differences) => {
                 for difference in differences.iter().take(compare::MAX_DIFFERENCES) {
-                    self.failures.push(fs_failure(number, difference));
+                    self.failures.push(fs_failure(number, check, difference));
                 }
             }
-            Err(error) => self.fail(Some(number), "fs", error.to_string()),
+            Err(error) => self.fail(Some(number), check, error.to_string()),
         }
     }
 
@@ -384,10 +603,10 @@ impl CaseRun<'_, '_> {
     }
 }
 
-fn fs_failure(step: usize, difference: &Difference) -> Failure {
+fn fs_failure(step: usize, check: &str, difference: &Difference) -> Failure {
     Failure {
         step: Some(step),
-        check: Some("fs".to_owned()),
+        check: Some(check.to_owned()),
         path: Some(difference.path.clone()),
         ..Failure::new(difference.to_string())
     }
@@ -399,24 +618,34 @@ mod tests {
     use crate::case::{Class, Kind};
     use std::collections::VecDeque;
 
-    /// Connection that returns prepared answers and records the calls.
+    /// Connection that returns prepared answers and events and records the
+    /// calls.
     struct Scripted {
         answers: VecDeque<Result<Value, CallError>>,
+        events: VecDeque<Vec<Value>>,
+        pending: Vec<Value>,
         calls: Vec<(String, Value)>,
     }
 
     impl Connection for Scripted {
         fn call(&mut self, method: &str, params: &Value) -> Result<Value, CallError> {
             self.calls.push((method.to_owned(), params.clone()));
+            self.pending = self.events.pop_front().unwrap_or_default();
             self.answers
                 .pop_front()
                 .unwrap_or_else(|| Err(CallError::Transport("no answer".to_owned())))
+        }
+
+        fn take_events(&mut self) -> Vec<Value> {
+            std::mem::take(&mut self.pending)
         }
     }
 
     fn scripted(answers: Vec<Result<Value, CallError>>) -> Scripted {
         Scripted {
             answers: answers.into(),
+            events: VecDeque::new(),
+            pending: Vec::new(),
             calls: Vec::new(),
         }
     }
@@ -434,6 +663,8 @@ mod tests {
             volatile: vec!["/report/extra".to_owned()],
             config: None,
             fs_before: None,
+            second_volume_before: None,
+            http_files: None,
             plan,
             source: "case.toml".into(),
         }
@@ -443,21 +674,29 @@ mod tests {
         Step {
             method: method.to_owned(),
             params,
-            expectations: Vec::new(),
-            expect_error: None,
-            validate: None,
-            fs_after: None,
+            ..Step::default()
         }
     }
 
-    fn run(case: &Case, connection: &mut Scripted, base: &Path) -> Vec<Failure> {
+    fn run_in(case: &Case, connection: &mut dyn Connection, workspace: &Workspace<'_>) -> Outcome {
         let schemas = SchemaSet::new().unwrap();
         let volatile = Context::response_volatile_paths(&schemas);
         let context = Context {
             schemas: &schemas,
             response_volatile: &volatile,
         };
-        execute(case, connection, base, &context)
+        execute(case, connection, workspace, &context)
+    }
+
+    fn run(case: &Case, connection: &mut Scripted, base: &Path) -> Vec<Failure> {
+        run_in(case, connection, &Workspace::new(base)).failures
+    }
+
+    fn checks(failures: &[Failure]) -> Vec<(Option<usize>, Option<&str>)> {
+        failures
+            .iter()
+            .map(|f| (f.step, f.check.as_deref()))
+            .collect()
     }
 
     #[test]
@@ -533,12 +772,8 @@ mod tests {
             Err(rpc(-32601)),
         ]);
         let failures = run(&case, &mut connection, base.path());
-        let checks: Vec<(Option<usize>, Option<&str>)> = failures
-            .iter()
-            .map(|f| (f.step, f.check.as_deref()))
-            .collect();
         assert_eq!(
-            checks,
+            checks(&failures),
             vec![
                 (Some(1), Some("expect")),
                 (Some(2), Some("expect")),
@@ -550,6 +785,227 @@ mod tests {
             ]
         );
         assert_eq!(failures[0].path.as_deref(), Some("/report/status"));
+    }
+
+    #[test]
+    fn absent_members_are_reported_where_they_exist() {
+        let base = tempfile::tempdir().unwrap();
+        let mut absent = step("run", json!({"nurt": "1.0", "program": "count"}));
+        absent.absent = vec![
+            "/report/error".to_owned(),
+            "/report/changes/*/rows_changed".to_owned(),
+            "/report/irreversible".to_owned(),
+        ];
+        let case = case(Plan::Steps(vec![absent.clone(), absent]));
+        let mut connection = scripted(vec![
+            Ok(json!({"report": {"status": "ok", "changes": [{"path": "a"}, {"path": "b"}]}})),
+            Ok(
+                json!({"report": {"error": {"code": "E_IO"}, "changes": [{"path": "a"}, {"rows_changed": 2}]}}),
+            ),
+        ]);
+        let failures = run(&case, &mut connection, base.path());
+        let paths: Vec<(Option<usize>, Option<&str>)> = failures
+            .iter()
+            .map(|f| (f.step, f.path.as_deref()))
+            .collect();
+        assert_eq!(
+            paths,
+            vec![
+                (Some(2), Some("/report/error")),
+                (Some(2), Some("/report/changes/1/rows_changed")),
+            ]
+        );
+        assert_eq!(failures[1].actual, Some(json!(2)));
+        assert_eq!(failures[0].check.as_deref(), Some("absent"));
+    }
+
+    fn events_step(order: EventOrder, events: Vec<Value>) -> Step {
+        Step {
+            events: Some(EventExpectation { events, order }),
+            ..step("run", json!({"nurt": "1.0", "program": "count"}))
+        }
+    }
+
+    #[test]
+    fn events_are_checked_in_order_and_by_their_members() {
+        let base = tempfile::tempdir().unwrap();
+        let base_text = base.path().to_string_lossy().replace('\\', "/");
+        let started = json!({"t": "exec.started", "seq": 1});
+        let finished = json!({"t": "exec.finished", "status": "ok"});
+        let expected = vec![started.clone(), finished.clone()];
+        let case = case(Plan::Steps(vec![
+            events_step(EventOrder::Ordered, expected.clone()),
+            events_step(EventOrder::Ordered, expected.clone()),
+            events_step(EventOrder::Exact, expected.clone()),
+            events_step(EventOrder::Exact, expected.clone()),
+            events_step(
+                EventOrder::Exact,
+                vec![json!({"t": "x", "path": "${base}/a"})],
+            ),
+        ]));
+        let progress = json!({"t": "exec.progress", "seq": 2});
+        let mut connection = scripted((0..5).map(|_| Ok(json!({}))).collect());
+        connection.events = VecDeque::from(vec![
+            vec![
+                json!({"t": "exec.started", "seq": 7, "time": "t"}),
+                progress.clone(),
+                json!({"t": "exec.finished", "seq": 9, "status": "ok"}),
+            ],
+            vec![finished.clone(), started.clone()],
+            vec![started.clone(), progress, finished.clone()],
+            vec![started, json!({"t": "exec.finished", "status": "failed"})],
+            vec![json!({"t": "x", "path": format!("{base_text}/a")})],
+        ]);
+        let failures = run(&case, &mut connection, base.path());
+        let found: Vec<(Option<usize>, Option<&str>, Option<&str>)> = failures
+            .iter()
+            .map(|f| (f.step, f.check.as_deref(), f.path.as_deref()))
+            .collect();
+        assert_eq!(
+            found,
+            vec![
+                (Some(2), Some("events"), Some("/1")),
+                (Some(3), Some("events"), Some("")),
+                (Some(4), Some("events"), Some("/1/status")),
+            ]
+        );
+        assert_eq!(failures[1].message, "3 events instead of 2");
+    }
+
+    #[test]
+    fn missing_testkit_methods_skip_the_case() {
+        let base = tempfile::tempdir().unwrap();
+        let not_found = || {
+            Err(CallError::Rpc {
+                code: code::METHOD_NOT_FOUND,
+                message: "m".to_owned(),
+                data: None,
+            })
+        };
+        let clock = step("testkit.clock.advance", json!({"by": "2h"}));
+        let count = step("run", json!({"nurt": "1.0", "program": "count"}));
+        let skipped = case(Plan::Steps(vec![clock.clone(), count.clone()]));
+        let mut connection = scripted(vec![not_found(), Ok(json!({}))]);
+        let outcome = run_in(&skipped, &mut connection, &Workspace::new(base.path()));
+        assert_eq!(outcome.failures, Vec::new());
+        assert_eq!(
+            outcome.skipped.as_deref(),
+            Some("the implementation does not offer testkit.clock.advance")
+        );
+        assert_eq!(connection.calls.len(), 1);
+
+        let mut failing = count.clone();
+        failing.expect_error = Some(-32602);
+        let failed = case(Plan::Steps(vec![failing, clock.clone()]));
+        let mut connection = scripted(vec![Ok(json!({})), not_found()]);
+        let outcome = run_in(&failed, &mut connection, &Workspace::new(base.path()));
+        assert_eq!(outcome.skipped, None);
+        assert_eq!(
+            checks(&outcome.failures),
+            vec![
+                (Some(1), Some("error")),
+                (Some(2), Some("testkit.clock.advance"))
+            ]
+        );
+
+        let mut expected = clock;
+        expected.expect_error = Some(code::METHOD_NOT_FOUND);
+        let declared = case(Plan::Steps(vec![expected, count]));
+        let mut connection = scripted(vec![not_found(), Ok(json!({}))]);
+        let outcome = run_in(&declared, &mut connection, &Workspace::new(base.path()));
+        assert_eq!(outcome, Outcome::default());
+        assert_eq!(connection.calls.len(), 2);
+    }
+
+    #[test]
+    fn the_second_volume_and_the_http_base_are_substituted_normalized_and_checked() {
+        let work = tempfile::tempdir().unwrap();
+        let volume = tempfile::tempdir().unwrap();
+        std::fs::write(volume.path().join("kept.txt"), "k").unwrap();
+        let volume_text = volume.path().to_string_lossy().replace('\\', "/");
+        let http = "http://127.0.0.1:4321";
+        let mut moved = step(
+            "run",
+            json!({"nurt": "1.0", "program": "move \"a\" \"${second_volume}/a\" from: \"${http_base}/x\""}),
+        );
+        moved.expectations.push(Expectation {
+            at: "/report".to_owned(),
+            value: json!({"target": "${second_volume}/a", "url": "GET ${http_base}/x"}),
+            matching: Match::Subset,
+        });
+        moved.second_volume_after = Some(FsExpectation::Snapshot(
+            Snapshot::from_json(&json!({"entries": [
+                {"path": "kept.txt", "type": "file", "content_utf8": "k"},
+                {"path": "a", "type": "file", "content_utf8": "0"}
+            ]}))
+            .unwrap(),
+        ));
+        let mut unchanged = step("run", json!({"nurt": "1.0", "program": "count"}));
+        unchanged.second_volume_after = Some(FsExpectation::Unchanged);
+        let case = case(Plan::Steps(vec![moved, unchanged]));
+        let mut connection = scripted(vec![
+            Ok(
+                json!({"report": {"target": format!("{volume_text}/a"), "url": format!("GET {http}/x")}}),
+            ),
+            Ok(json!({})),
+        ]);
+        let target = volume.path().join("a");
+        let mut writer = Writer {
+            inner: &mut connection,
+            path: &target,
+        };
+        let workspace = Workspace {
+            work: work.path(),
+            second_volume: Some(volume.path()),
+            http_base: Some(http),
+        };
+        let outcome = run_in(&case, &mut writer, &workspace);
+        let paths: Vec<Option<&str>> = outcome.failures.iter().map(|f| f.path.as_deref()).collect();
+        assert_eq!(paths, vec![Some("a")], "{:?}", outcome.failures);
+        assert_eq!(outcome.failures[0].step, Some(2));
+        assert_eq!(outcome.failures[0].check.as_deref(), Some("second_volume"));
+        assert_eq!(
+            connection.calls[0].1["program"],
+            format!("move \"a\" \"{volume_text}/a\" from: \"{http}/x\"")
+        );
+
+        let mut unavailable = step("run", json!({"nurt": "1.0", "program": "${second_volume}"}));
+        unavailable.second_volume_after = Some(FsExpectation::Unchanged);
+        let mut snapshot_without_volume = step("run", json!({"nurt": "1.0", "program": "count"}));
+        snapshot_without_volume.second_volume_after = Some(FsExpectation::Snapshot(
+            Snapshot::from_json(&json!({"entries": []})).unwrap(),
+        ));
+        let mut unchanged_without_volume = step("run", json!({"nurt": "1.0", "program": "count"}));
+        unchanged_without_volume.second_volume_after = Some(FsExpectation::Unchanged);
+        let case = super::tests::case(Plan::Steps(vec![
+            snapshot_without_volume,
+            unchanged_without_volume,
+            unavailable,
+        ]));
+        let mut connection = scripted(vec![Ok(json!({})), Ok(json!({}))]);
+        let failures = run(&case, &mut connection, work.path());
+        assert_eq!(
+            checks(&failures),
+            vec![
+                (Some(1), Some("second_volume")),
+                (Some(2), Some("second_volume")),
+                (Some(3), Some("params")),
+            ]
+        );
+    }
+
+    /// Connection that writes a file before every answer; the content is the
+    /// number of earlier calls.
+    struct Writer<'a> {
+        inner: &'a mut Scripted,
+        path: &'a Path,
+    }
+
+    impl Connection for Writer<'_> {
+        fn call(&mut self, method: &str, params: &Value) -> Result<Value, CallError> {
+            std::fs::write(self.path, self.inner.calls.len().to_string()).unwrap();
+            self.inner.call(method, params)
+        }
     }
 
     #[test]
@@ -582,37 +1038,18 @@ mod tests {
         let case = case(Plan::Steps(vec![unchanged, expected]));
         let path = base.path().join("effect.txt");
         let mut connection = scripted(vec![Ok(json!({})), Ok(json!({}))]);
-        // The first answer is consumed before the effect appears, so the
-        // effect is created by the test between the calls.
+        // The effect is created by the connection before each answer, so it
+        // appears after the state before the first call was captured.
         let failures = {
-            let schemas = SchemaSet::new().unwrap();
-            let volatile = VolatilePaths::default();
-            let context = Context {
-                schemas: &schemas,
-                response_volatile: &volatile,
-            };
-            let mut effect = Effect {
+            let mut effect = Writer {
                 inner: &mut connection,
                 path: &path,
             };
-            execute(&case, &mut effect, base.path(), &context)
+            run_in(&case, &mut effect, &Workspace::new(base.path())).failures
         };
         let paths: Vec<Option<&str>> = failures.iter().map(|f| f.path.as_deref()).collect();
         assert_eq!(paths, vec![Some("effect.txt"), Some("effect.txt")]);
         assert!(failures[0].message.starts_with("extra effect.txt"));
-    }
-
-    /// Connection that creates a file before every answer.
-    struct Effect<'a> {
-        inner: &'a mut Scripted,
-        path: &'a Path,
-    }
-
-    impl Connection for Effect<'_> {
-        fn call(&mut self, method: &str, params: &Value) -> Result<Value, CallError> {
-            std::fs::write(self.path, "x").unwrap();
-            self.inner.call(method, params)
-        }
     }
 
     fn golden_tree(name: &str) -> Value {

@@ -16,6 +16,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::compare::{Match, sha256};
+use crate::fixture::Fixture;
 use crate::protocol::{self, member, method};
 use crate::schemas::SchemaSet;
 use crate::snapshot::Snapshot;
@@ -150,6 +151,8 @@ pub enum Condition {
     Os(String),
     /// A feature listed by the implementation.
     Feature(String),
+    /// A fixture provided by the runner.
+    Fixture(Fixture),
 }
 
 impl Condition {
@@ -161,14 +164,18 @@ impl Condition {
                 .contains(&os)
                 .then(|| Self::Os(os.to_owned()));
         }
+        if let Some(name) = text.strip_prefix("fixture:") {
+            return Fixture::from_name(name).map(Self::Fixture);
+        }
         let feature = text.strip_prefix("feature:")?;
         (!feature.is_empty()).then(|| Self::Feature(feature.to_owned()))
     }
 
     /// Whether the condition holds on this system for an implementation
-    /// with the given features.
+    /// with the given features and a runner that provides the given
+    /// fixtures.
     #[must_use]
-    pub fn holds(&self, features: &BTreeSet<String>) -> bool {
+    pub fn holds(&self, features: &BTreeSet<String>, fixtures: &[Fixture]) -> bool {
         match self {
             Self::Os(os) => match os.as_str() {
                 "unix" => cfg!(unix),
@@ -177,6 +184,7 @@ impl Condition {
                 _ => cfg!(windows),
             },
             Self::Feature(feature) => features.contains(feature),
+            Self::Fixture(fixture) => fixtures.contains(fixture),
         }
     }
 
@@ -186,6 +194,7 @@ impl Condition {
         match self {
             Self::Os(os) => format!("os:{os}"),
             Self::Feature(feature) => format!("feature:{feature}"),
+            Self::Fixture(fixture) => format!("fixture:{}", fixture.name()),
         }
     }
 }
@@ -210,8 +219,41 @@ pub enum FsExpectation {
     Snapshot(Snapshot),
 }
 
+/// Order in which expected events must be received.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum EventOrder {
+    /// The expected events are received in the listed order; other events
+    /// may come between them.
+    #[default]
+    Ordered,
+    /// The events of the call are exactly the expected ones, in the listed
+    /// order.
+    Exact,
+}
+
+impl EventOrder {
+    /// Reads the order from its name in case files.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "ordered" => Some(Self::Ordered),
+            "exact" => Some(Self::Exact),
+            _ => None,
+        }
+    }
+}
+
+/// Expected events `nurt/event` of a call.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct EventExpectation {
+    /// Expected events; each is compared with a received event as a subset.
+    pub events: Vec<Value>,
+    /// Order of the events.
+    pub order: EventOrder,
+}
+
 /// Call of a case and its expectations.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Step {
     /// Method of `nurt-rpc/1`.
     pub method: String,
@@ -225,6 +267,12 @@ pub struct Step {
     pub validate: Option<(String, String)>,
     /// Expected state of the working directory.
     pub fs_after: Option<FsExpectation>,
+    /// Pointer patterns into the result at which no value may exist.
+    pub absent: Vec<String>,
+    /// Expected events of the call.
+    pub events: Option<EventExpectation>,
+    /// Expected state of the directory on the second volume.
+    pub second_volume_after: Option<FsExpectation>,
 }
 
 /// Files of a golden case.
@@ -302,6 +350,10 @@ pub struct Case {
     pub config: Option<String>,
     /// Initial state of the working directory.
     pub fs_before: Option<Snapshot>,
+    /// Initial state of the directory on the second volume.
+    pub second_volume_before: Option<Snapshot>,
+    /// Files served by the local HTTP server below `/files/`.
+    pub http_files: Option<Snapshot>,
     /// Calls of the case.
     pub plan: Plan,
     /// File that defines the case.
@@ -315,7 +367,10 @@ impl Case {
         match &self.plan {
             Plan::Steps(steps) => steps
                 .iter()
-                .flat_map(|step| step.expectations.iter().map(|e| &e.value))
+                .flat_map(|step| {
+                    let events = step.events.iter().flat_map(|e| &e.events);
+                    step.expectations.iter().map(|e| &e.value).chain(events)
+                })
                 .collect(),
             Plan::Golden(golden) => std::iter::once(&golden.ast)
                 .chain(golden.bound.as_ref())
@@ -516,6 +571,8 @@ struct RawCase {
     volatile: Vec<String>,
     config: Option<String>,
     fs_before: Option<Value>,
+    second_volume_before: Option<Value>,
+    http_files: Option<Value>,
     step: Option<Vec<RawStep>>,
     #[serde(flatten)]
     inline: RawStep,
@@ -537,6 +594,10 @@ struct RawStep {
     expect_error: Option<i64>,
     validate: Option<String>,
     fs_after: Option<Value>,
+    absent: Option<Vec<String>>,
+    events: Option<Vec<Value>>,
+    events_match: Option<String>,
+    second_volume_after: Option<Value>,
 }
 
 impl RawStep {
@@ -549,6 +610,9 @@ impl RawStep {
             && self.expect_error.is_none()
             && self.validate.is_none()
             && self.fs_after.is_none()
+            && self.absent.is_none()
+            && self.events.is_none()
+            && self.second_volume_after.is_none()
     }
 }
 
@@ -703,12 +767,26 @@ fn build_case(source: &Path, dir: &Path, document: Value, directory: bool) -> Re
             .transpose()?,
         None => None,
     };
+    let optional_snapshot = |value: Option<&Value>| {
+        value
+            .map(|value| data(source, dir, value).and_then(|data| snapshot(source, &data)))
+            .transpose()
+    };
+    let second_volume_before = optional_snapshot(raw.second_volume_before.as_ref())?;
+    let http_files = optional_snapshot(raw.http_files.as_ref())?;
     let config = raw
         .config
         .as_ref()
         .map(|name| read_text(&dir.join(name)))
         .transpose()?;
     let plan = build_plan(source, dir, &raw, kind, &variant, directory)?;
+    let uses_volume = second_volume_before.is_some()
+        || matches!(&plan, Plan::Steps(steps) if steps.iter().any(|s| s.second_volume_after.is_some()));
+    if uses_volume && !requires.contains(&Condition::Fixture(Fixture::SecondVolume)) {
+        return Err(invalid(
+            "second_volume_before and second_volume_after require fixture:second-volume".to_owned(),
+        ));
+    }
     Ok(Case {
         id: raw.id,
         kind,
@@ -721,9 +799,23 @@ fn build_case(source: &Path, dir: &Path, document: Value, directory: bool) -> Re
         volatile: raw.volatile,
         config,
         fs_before,
+        second_volume_before,
+        http_files,
         plan,
         source: source.to_path_buf(),
     })
+}
+
+/// Reads an expected state of a directory: `"unchanged"`, a file name of
+/// the case directory or a snapshot.
+fn fs_expectation(source: &Path, dir: &Path, value: &Value) -> Result<FsExpectation, Error> {
+    match value {
+        Value::String(name) if name == UNCHANGED => Ok(FsExpectation::Unchanged),
+        value => Ok(FsExpectation::Snapshot(snapshot(
+            source,
+            &data(source, dir, value)?,
+        )?)),
+    }
 }
 
 fn build_plan(
@@ -822,14 +914,25 @@ fn build_step(source: &Path, dir: &Path, raw: &RawStep, case_variant: &str) -> R
         .transpose()?
         .into_iter()
         .collect();
-    let fs_after = match &raw.fs_after {
-        Some(Value::String(name)) if name == UNCHANGED => Some(FsExpectation::Unchanged),
-        Some(value) => Some(FsExpectation::Snapshot(snapshot(
-            source,
-            &data(source, dir, value)?,
-        )?)),
-        None => None,
+    let fs_after = raw
+        .fs_after
+        .as_ref()
+        .map(|value| fs_expectation(source, dir, value))
+        .transpose()?;
+    let second_volume_after = raw
+        .second_volume_after
+        .as_ref()
+        .map(|value| fs_expectation(source, dir, value))
+        .transpose()?;
+    let order = match &raw.events_match {
+        Some(name) => EventOrder::from_name(name)
+            .ok_or_else(|| Error::format(source, format!("unknown events_match {name:?}")))?,
+        None => EventOrder::default(),
     };
+    let events = raw
+        .events
+        .clone()
+        .map(|events| EventExpectation { events, order });
     Ok(Step {
         method: method_name,
         params,
@@ -837,6 +940,9 @@ fn build_step(source: &Path, dir: &Path, raw: &RawStep, case_variant: &str) -> R
         expect_error: raw.expect_error,
         validate: raw.validate.clone().map(|schema| (at, schema)),
         fs_after,
+        absent: raw.absent.clone().unwrap_or_default(),
+        events,
+        second_volume_after,
     })
 }
 
@@ -894,9 +1000,9 @@ fn bind_step(source: &Path, dir: &Path, variant: &str) -> Result<Step, Error> {
         method: method::CHECK.to_owned(),
         params: protocol::program_request(&program, variant, None),
         expectations,
-        expect_error: None,
         validate,
         fs_after: Some(FsExpectation::Unchanged),
+        ..Step::default()
     })
 }
 
@@ -938,9 +1044,8 @@ fn run_step(source: &Path, dir: &Path, variant: &str) -> Result<Step, Error> {
         method: method::RUN.to_owned(),
         params,
         expectations,
-        expect_error: None,
-        validate: None,
         fs_after,
+        ..Step::default()
     })
 }
 
@@ -983,32 +1088,160 @@ mod tests {
     #[test]
     fn conditions_hold_by_system_and_features() {
         let features: BTreeSet<String> = ["events".to_owned()].into();
-        assert!(Condition::parse("feature:events").unwrap().holds(&features));
+        assert!(
+            Condition::parse("feature:events")
+                .unwrap()
+                .holds(&features, &[])
+        );
         assert!(
             !Condition::parse("feature:testkit")
                 .unwrap()
-                .holds(&features)
+                .holds(&features, &[])
         );
         assert_eq!(
-            Condition::parse("os:unix").unwrap().holds(&features),
+            Condition::parse("os:unix").unwrap().holds(&features, &[]),
             cfg!(unix)
         );
         assert_eq!(
-            Condition::parse("os:linux").unwrap().holds(&features),
+            Condition::parse("os:linux").unwrap().holds(&features, &[]),
             cfg!(target_os = "linux")
         );
         assert_eq!(
-            Condition::parse("os:macos").unwrap().holds(&features),
+            Condition::parse("os:macos").unwrap().holds(&features, &[]),
             cfg!(target_os = "macos")
         );
         assert_eq!(
-            Condition::parse("os:windows").unwrap().holds(&features),
+            Condition::parse("os:windows")
+                .unwrap()
+                .holds(&features, &[]),
             cfg!(windows)
         );
         assert_eq!(Condition::parse("os:beos"), None);
         assert_eq!(Condition::parse("feature:"), None);
         assert_eq!(Condition::parse("os:unix").unwrap().name(), "os:unix");
         assert_eq!(Condition::parse("feature:x").unwrap().name(), "feature:x");
+    }
+
+    #[test]
+    fn fixture_conditions_hold_when_the_runner_provides_the_fixture() {
+        let http = Condition::parse("fixture:http").unwrap();
+        let volume = Condition::parse("fixture:second-volume").unwrap();
+        assert_eq!(volume, Condition::Fixture(Fixture::SecondVolume));
+        assert_eq!(volume.name(), "fixture:second-volume");
+        assert_eq!(Condition::parse("fixture:dns"), None);
+        let none = BTreeSet::new();
+        assert!(http.holds(&none, &[Fixture::Http]));
+        assert!(!volume.holds(&none, &[Fixture::Http]));
+        assert!(volume.holds(&none, &Fixture::ALL));
+    }
+
+    fn steps_suite() -> (tempfile::TempDir, Suite) {
+        let root = suite_root();
+        let r = root.path();
+        write(r, "exec/after.json", r#"{"entries": []}"#);
+        write(
+            r,
+            "exec/set.cases.toml",
+            r#"
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "exec/fixtures"
+kind = "exec"
+requires = ["fixture:http", "fixture:second-volume"]
+summary = "s"
+http_files = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+second_volume_before = { entries = [{ path = "b.txt", type = "file", content_utf8 = "b" }] }
+
+[[case.step]]
+program = "count"
+absent = ["/report/error", "/report/changes/*/rows_changed"]
+events = [{ t = "exec.started" }, { t = "exec.finished" }]
+second_volume_after = "after.json"
+
+[[case.step]]
+program = "count"
+events = []
+events_match = "exact"
+second_volume_after = "unchanged"
+
+[[case]]
+id = "exec/inline"
+kind = "exec"
+summary = "s"
+program = "count"
+absent = ["/report/irreversible"]
+"#,
+        );
+        let suite = load(r).unwrap();
+        (root, suite)
+    }
+
+    #[test]
+    fn cases_declare_fixture_requirements_and_files() {
+        let (_root, suite) = steps_suite();
+        let fixtures = &suite.cases[0];
+        assert_eq!(
+            fixtures.requires,
+            vec![
+                Condition::Fixture(Fixture::Http),
+                Condition::Fixture(Fixture::SecondVolume)
+            ]
+        );
+        assert_eq!(fixtures.http_files.as_ref().unwrap().entries.len(), 1);
+        assert_eq!(
+            fixtures.second_volume_before.as_ref().unwrap().entries[0].path,
+            "b.txt"
+        );
+    }
+
+    #[test]
+    fn steps_read_absent_members_events_and_the_second_volume() {
+        let (_root, suite) = steps_suite();
+        let fixtures = &suite.cases[0];
+        let Plan::Steps(steps) = &fixtures.plan else {
+            panic!("steps expected")
+        };
+        assert_eq!(steps[0].absent.len(), 2);
+        let events = steps[0].events.as_ref().unwrap();
+        assert_eq!(events.order, EventOrder::Ordered);
+        assert_eq!(events.events[1], json!({"t": "exec.finished"}));
+        assert!(matches!(
+            steps[0].second_volume_after,
+            Some(FsExpectation::Snapshot(_))
+        ));
+        assert_eq!(steps[1].events.as_ref().unwrap().order, EventOrder::Exact);
+        assert_eq!(steps[1].second_volume_after, Some(FsExpectation::Unchanged));
+        assert_eq!(fixtures.expected_values().len(), 2);
+        let Plan::Steps(inline) = &suite.cases[1].plan else {
+            panic!("steps expected")
+        };
+        assert_eq!(inline[0].absent, vec!["/report/irreversible"]);
+        assert_eq!(EventOrder::from_name("any"), None);
+    }
+
+    #[test]
+    fn invalid_event_and_volume_members_are_rejected() {
+        let bad = suite_root();
+        write(
+            bad.path(),
+            "c/case.toml",
+            "id = \"x\"\nkind = \"exec\"\nsummary = \"s\"\nprogram = \"a\"\nevents = []\nevents_match = \"any\"\n",
+        );
+        assert!(
+            load(bad.path())
+                .unwrap_err()
+                .to_string()
+                .contains("case.toml")
+        );
+        let undeclared = suite_root();
+        write(
+            undeclared.path(),
+            "c/case.toml",
+            "id = \"x\"\nkind = \"exec\"\nsummary = \"s\"\nprogram = \"a\"\nsecond_volume_after = \"unchanged\"\n",
+        );
+        let error = load(undeclared.path()).unwrap_err().to_string();
+        assert!(error.contains("fixture:second-volume"), "{error}");
     }
 
     #[test]

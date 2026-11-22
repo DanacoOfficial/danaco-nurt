@@ -35,3 +35,5 @@ jiff = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 clap = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true, features = ["rt", "net", "sync", "macros"] }

@@ -43,6 +43,12 @@ pub mod method {
     pub const SHUTDOWN: &str = "shutdown";
     /// Notification carrying an event.
     pub const EVENT: &str = "nurt/event";
+    /// Moves the clock of an implementation with the feature `testkit`.
+    pub const CLOCK_ADVANCE: &str = "testkit.clock.advance";
+    /// Prefix of the methods of the feature `testkit`. An implementation
+    /// may offer only some of them; a case whose call of such a method is
+    /// answered with [`super::code::METHOD_NOT_FOUND`] is skipped.
+    pub const TESTKIT_PREFIX: &str = "testkit.";
 }
 
 /// Members of parameters and results.
@@ -75,6 +81,10 @@ pub mod member {
     pub const WHICH: &str = "which";
     /// Request identifier in the parameters of `cancel`.
     pub const REQUEST_ID: &str = "request_id";
+    /// Duration in the parameters of `testkit.clock.advance`.
+    pub const BY: &str = "by";
+    /// Time of the clock in the result of `testkit.clock.advance`.
+    pub const NOW: &str = "now";
 }
 
 /// JSON-RPC error codes.
