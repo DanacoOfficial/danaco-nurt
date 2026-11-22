@@ -4,29 +4,42 @@
 //! Session of the language server: initialization, message loop and
 //! dispatch.
 
+use std::collections::BTreeMap;
 use std::fmt;
+use std::sync::Arc;
 
 use lsp_server::{Connection, ErrorCode, Message, Notification, ProtocolError, Request, Response};
 use lsp_types::notification::{
     DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, Exit, LogMessage,
     Notification as _, PublishDiagnostics, ShowMessage,
 };
-use lsp_types::request::{Completion, Formatting, HoverRequest, Request as _};
-use lsp_types::{
-    CompletionOptions, CompletionResponse, HoverProviderCapability, InitializeParams,
-    InitializeResult, LogMessageParams, MessageType, OneOf, PublishDiagnosticsParams,
-    ServerCapabilities, ServerInfo, ShowMessageParams, TextDocumentSyncCapability,
-    TextDocumentSyncKind, Uri,
+use lsp_types::request::{
+    CodeActionRequest, Completion, Formatting, HoverRequest, Request as _,
+    SemanticTokensFullRequest, SignatureHelpRequest,
 };
+use lsp_types::{
+    CodeActionKind, CodeActionOptions, CodeActionProviderCapability, CompletionOptions,
+    CompletionResponse, HoverProviderCapability, InitializeParams, InitializeResult,
+    LogMessageParams, MessageType, OneOf, PublishDiagnosticsParams, SemanticTokens,
+    SemanticTokensFullOptions, SemanticTokensOptions, SemanticTokensResult,
+    SemanticTokensServerCapabilities, ServerCapabilities, ServerInfo, ShowMessageParams,
+    SignatureHelpOptions, TextDocumentSyncCapability, TextDocumentSyncKind, Uri,
+};
+use nurt_bind::{BindContext, Catalog};
+use nurt_contracts::config::Config;
+use nurt_correct::tables::{Tables, load_embedded};
+use nurt_help::catalog::Catalog as HelpCatalog;
 use nurt_syntax::parse::Variant;
 use serde_json::Value;
 
-use crate::analysis;
+use crate::analysis::{self, Analysis, Engine};
 use crate::assist;
 use crate::catalog::Commands;
 use crate::document::Documents;
 use crate::options::{self, Options};
 use crate::position::Encoding;
+use crate::semantic;
+use crate::signature;
 
 /// Name of the server reported at initialization.
 const SERVER_NAME: &str = "nurt";
@@ -34,6 +47,10 @@ const SERVER_NAME: &str = "nurt";
 /// Characters after which the client asks for completion: labels, `@`
 /// references, the pipe operator, argument separators and call parentheses.
 const TRIGGER_CHARACTERS: [&str; 8] = [":", "=", "@", "|", ">", " ", "(", ","];
+
+/// Characters after which the client asks for the signature: the start of
+/// an argument and the end of a label.
+const SIGNATURE_TRIGGER_CHARACTERS: [&str; 5] = [" ", "(", ",", ":", "="];
 
 /// Error that ends a language server session.
 #[derive(Debug)]
@@ -102,7 +119,9 @@ pub fn run_stdio(options: &Options) -> Result<(), ServerError> {
 /// `exit`.
 ///
 /// The position encoding is UTF-32 when the client offers it and UTF-16
-/// otherwise. Every change of a document publishes its diagnostics.
+/// otherwise. Every change of a document publishes its diagnostics. A
+/// warning about an initialization option of the wrong form, or about
+/// correction tables that cannot be loaded, is shown to the client.
 ///
 /// # Errors
 ///
@@ -146,18 +165,37 @@ pub fn serve(connection: Connection, options: &Options) -> Result<(), ServerErro
         .as_ref()
         .and_then(|general| general.position_encodings.as_deref());
     let encoding = Encoding::negotiate(offered);
-    let (variant, warning) =
-        options::variant_from(params.initialization_options.as_ref(), options.variant);
+    let (settings, mut warnings) =
+        options::settings(params.initialization_options.as_ref(), options);
     let result = serde_json::to_value(initialize_result(encoding)).map_err(ServerError::Encode)?;
     connection.initialize_finish(id, result)?;
+    let mut config = options.config.clone();
+    config.syntax.variant = settings.variant;
+    config.syntax.tolerant = settings.tolerant;
+    config.correction.enabled = settings.correction;
+    let tables = match load_embedded() {
+        Ok(tables) => Some(tables),
+        Err(error) => {
+            warnings.push(format!(
+                "correction tables cannot be loaded: {error}; only errors of the parser are reported"
+            ));
+            None
+        }
+    };
     let mut session = Session {
         connection: &connection,
         commands: Commands::new(options.commands.clone()),
-        variant,
+        variant: settings.variant,
         encoding,
         documents: Documents::default(),
+        config,
+        tables,
+        catalog: options.catalog.clone(),
+        help: options.help.clone(),
+        context: BindContext::for_host(),
+        analyses: BTreeMap::new(),
     };
-    if let Some(warning) = warning {
+    for warning in warnings {
         session.notify_client::<ShowMessage>(ShowMessageParams {
             typ: MessageType::WARNING,
             message: warning,
@@ -168,13 +206,21 @@ pub fn serve(connection: Connection, options: &Options) -> Result<(), ServerErro
 
 fn initialize_result(encoding: Encoding) -> InitializeResult {
     let completion = CompletionOptions {
-        trigger_characters: Some(
-            TRIGGER_CHARACTERS
-                .iter()
-                .map(|character| (*character).to_owned())
-                .collect(),
-        ),
+        trigger_characters: Some(strings(&TRIGGER_CHARACTERS)),
         ..CompletionOptions::default()
+    };
+    let signature_help = SignatureHelpOptions {
+        trigger_characters: Some(strings(&SIGNATURE_TRIGGER_CHARACTERS)),
+        ..SignatureHelpOptions::default()
+    };
+    let semantic_tokens = SemanticTokensOptions {
+        legend: semantic::legend(),
+        full: Some(SemanticTokensFullOptions::Bool(true)),
+        ..SemanticTokensOptions::default()
+    };
+    let code_actions = CodeActionOptions {
+        code_action_kinds: Some(vec![CodeActionKind::QUICKFIX]),
+        ..CodeActionOptions::default()
     };
     InitializeResult {
         capabilities: ServerCapabilities {
@@ -182,7 +228,12 @@ fn initialize_result(encoding: Encoding) -> InitializeResult {
             text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
             completion_provider: Some(completion),
             hover_provider: Some(HoverProviderCapability::Simple(true)),
+            signature_help_provider: Some(signature_help),
             document_formatting_provider: Some(OneOf::Left(true)),
+            code_action_provider: Some(CodeActionProviderCapability::Options(code_actions)),
+            semantic_tokens_provider: Some(
+                SemanticTokensServerCapabilities::SemanticTokensOptions(semantic_tokens),
+            ),
             ..ServerCapabilities::default()
         },
         server_info: Some(ServerInfo {
@@ -190,6 +241,13 @@ fn initialize_result(encoding: Encoding) -> InitializeResult {
             version: Some(env!("CARGO_PKG_VERSION").to_owned()),
         }),
     }
+}
+
+fn strings(characters: &[&str]) -> Vec<String> {
+    characters
+        .iter()
+        .map(|character| (*character).to_owned())
+        .collect()
 }
 
 fn send(connection: &Connection, message: Message) -> Result<(), ServerError> {
@@ -219,6 +277,13 @@ struct Session<'a> {
     variant: Variant,
     encoding: Encoding,
     documents: Documents,
+    config: Config,
+    tables: Option<Tables>,
+    catalog: Option<Arc<Catalog>>,
+    help: Option<Arc<HelpCatalog>>,
+    context: BindContext,
+    /// Diagnostics and quick fixes of the open documents.
+    analyses: BTreeMap<Uri, Analysis>,
 }
 
 impl Session<'_> {
@@ -260,6 +325,40 @@ impl Session<'_> {
                     .and_then(|request| assist::hover(request, position.position));
                 encode(serde_json::to_value(hover))
             }),
+            SignatureHelpRequest::METHOD => request_params::<SignatureHelpRequest>(params)
+                .and_then(|params| {
+                    let position = params.text_document_position_params;
+                    let help = self
+                        .assist(&position.text_document.uri)
+                        .and_then(|request| signature::help(request, position.position));
+                    encode(serde_json::to_value(help))
+                }),
+            SemanticTokensFullRequest::METHOD => {
+                request_params::<SemanticTokensFullRequest>(params).and_then(|params| {
+                    let tokens = self.assist(&params.text_document.uri).map(|request| {
+                        SemanticTokensResult::Tokens(SemanticTokens {
+                            result_id: None,
+                            data: semantic::tokens(
+                                request.text,
+                                request.variant,
+                                request.encoding,
+                                request.commands,
+                            ),
+                        })
+                    });
+                    encode(serde_json::to_value(tokens))
+                })
+            }
+            CodeActionRequest::METHOD => {
+                request_params::<CodeActionRequest>(params).and_then(|params| {
+                    let uri = params.text_document.uri;
+                    let actions = self
+                        .analyses
+                        .get(&uri)
+                        .map(|analysis| analysis.actions(&uri, params.range));
+                    encode(serde_json::to_value(actions))
+                })
+            }
             Formatting::METHOD => request_params::<Formatting>(params)
                 .and_then(|params| self.formatting(&params.text_document.uri)),
             _ => Err(Failure::new(
@@ -275,11 +374,17 @@ impl Session<'_> {
 
     fn assist(&self, uri: &Uri) -> Option<assist::Request<'_>> {
         let document = self.documents.get(uri)?;
+        let diagnostics = self
+            .analyses
+            .get(uri)
+            .map_or(&[][..], |analysis| analysis.diagnostics.as_slice());
         Some(assist::Request {
             text: &document.text,
             variant: self.variant,
             encoding: self.encoding,
             commands: &self.commands,
+            help: self.help.as_deref(),
+            diagnostics,
         })
     }
 
@@ -328,6 +433,7 @@ impl Session<'_> {
                 };
                 let uri = params.text_document.uri;
                 self.documents.close(&uri);
+                self.analyses.remove(&uri);
                 self.notify_client::<PublishDiagnostics>(PublishDiagnosticsParams::new(
                     uri,
                     Vec::new(),
@@ -338,18 +444,29 @@ impl Session<'_> {
         }
     }
 
-    /// Publishes the diagnostics of an open document.
-    fn publish(&self, uri: Uri) -> Result<(), ServerError> {
+    /// Analyzes an open document, keeps its quick fixes and publishes its
+    /// diagnostics.
+    fn publish(&mut self, uri: Uri) -> Result<(), ServerError> {
         let Some(document) = self.documents.get(&uri) else {
             return Ok(());
         };
-        let diagnostics = analysis::diagnostics(&document.text, self.variant, self.encoding);
-        let version = Some(document.version);
-        self.notify_client::<PublishDiagnostics>(PublishDiagnosticsParams::new(
-            uri,
-            diagnostics,
-            version,
-        ))
+        let engine = Engine {
+            variant: self.variant,
+            encoding: self.encoding,
+            config: &self.config,
+            tables: self.tables.as_ref(),
+            catalog: self.catalog.as_deref(),
+            commands: &self.commands,
+            context: &self.context,
+        };
+        let analysis = engine.analyze(&document.text);
+        let params = PublishDiagnosticsParams::new(
+            uri.clone(),
+            analysis.diagnostics.clone(),
+            Some(document.version),
+        );
+        self.analyses.insert(uri, analysis);
+        self.notify_client::<PublishDiagnostics>(params)
     }
 
     /// Decodes the parameters of a notification; invalid parameters are

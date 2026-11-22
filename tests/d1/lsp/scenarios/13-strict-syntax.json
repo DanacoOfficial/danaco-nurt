@@ -1,0 +1,9 @@
+{
+  "initialize": {"capabilities": {}, "initializationOptions": {"syntax.tolerant": false}},
+  "steps": [
+    {"open": {"uri": "file:///work/call.nurt", "text": "find(\"/srv\", glob: \"*.go\")\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"diagnostics": [{"severity": 1, "source": "nurt"}]}},
+    {"open": {"uri": "file:///work/words.nurt", "text": "find \"/srv\" glob: \"*.go\"\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"uri": "file:///work/words.nurt", "diagnostics": []}}
+  ]
+}

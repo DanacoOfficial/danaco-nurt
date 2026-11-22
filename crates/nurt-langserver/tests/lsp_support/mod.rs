@@ -15,7 +15,10 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use lsp_server::{Connection, Message, Notification, Request, RequestId};
+use nurt_bind::Catalog;
 use nurt_contracts::spec::{CatalogFile, StageSpec};
+use nurt_help::catalog::Catalog as HelpCatalog;
+use nurt_help::docs::Docs;
 use nurt_langserver::{Options, ServerError, serve};
 use serde_json::{Value, json};
 
@@ -30,8 +33,9 @@ pub(crate) fn workspace() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-/// Command signatures of the catalog of the workspace.
-pub(crate) fn catalog() -> Vec<StageSpec> {
+/// Paths of the catalog files of the workspace, without the index, in name
+/// order.
+fn catalog_paths() -> Vec<PathBuf> {
     let mut paths: Vec<PathBuf> = fs::read_dir(workspace().join("catalog"))
         .unwrap()
         .map(|entry| entry.unwrap().path())
@@ -43,6 +47,11 @@ pub(crate) fn catalog() -> Vec<StageSpec> {
         .collect();
     paths.sort();
     paths
+}
+
+/// Command signatures of the catalog of the workspace.
+pub(crate) fn catalog() -> Vec<StageSpec> {
+    catalog_paths()
         .iter()
         .flat_map(|path| {
             let text = fs::read_to_string(path).unwrap();
@@ -52,6 +61,31 @@ pub(crate) fn catalog() -> Vec<StageSpec> {
             file.commands
         })
         .collect()
+}
+
+/// Help catalog of the catalog files of the workspace, without
+/// documentation pages.
+pub(crate) fn help_catalog() -> HelpCatalog {
+    let index = fs::read_to_string(workspace().join("catalog").join(CATALOG_INDEX)).unwrap();
+    let files: Vec<(String, String)> = catalog_paths()
+        .iter()
+        .map(|path| {
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            (name, fs::read_to_string(path).unwrap())
+        })
+        .collect();
+    let sources: Vec<(&str, &str)> = files
+        .iter()
+        .map(|(name, text)| (name.as_str(), text.as_str()))
+        .collect();
+    HelpCatalog::from_sources(&index, &sources, Docs::empty()).unwrap()
+}
+
+/// Options that bind programs to the catalog of the workspace and describe
+/// commands and error codes from its help.
+pub(crate) fn full_options() -> Options {
+    let catalog = Catalog::load_dir(&workspace().join("catalog")).unwrap();
+    Options::from_catalog(catalog).with_help(help_catalog())
 }
 
 /// Client of a session that runs on another thread.

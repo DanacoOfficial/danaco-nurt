@@ -5,7 +5,8 @@
 //!
 //! For each file the server publishes no diagnostics, formats the text into
 //! the result of the formatter, describes every catalog command at the head
-//! of a stage on hover and offers it when its name is completed.
+//! of a stage on hover, offers it when its name is completed and classifies
+//! it as a function among the semantic tokens.
 
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -125,6 +126,30 @@ fn name_column(text: &str, line: u32, from: u32, name: &str) -> u32 {
     from + u32::try_from(rest[..index].chars().count()).unwrap()
 }
 
+/// Starts (line and character) of the tokens of type `function`, the first
+/// type of the legend, in a semantic tokens result.
+fn function_starts(result: &Value) -> Vec<(u32, u32)> {
+    let data: Vec<u32> = result["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| u32::try_from(value.as_u64().unwrap()).unwrap())
+        .collect();
+    let mut starts = Vec::new();
+    let (mut line, mut character) = (0, 0);
+    for token in data.chunks(5) {
+        if token[0] > 0 {
+            character = 0;
+        }
+        line += token[0];
+        character += token[1];
+        if token[3] == 0 {
+            starts.push((line, character));
+        }
+    }
+    starts
+}
+
 fn formatted(text: &str, result: &Value) -> String {
     match result.as_array().unwrap().as_slice() {
         [] => text.to_owned(),
@@ -149,6 +174,13 @@ fn check_commands(
     names: &[String],
     at: &str,
 ) -> usize {
+    let tokens = client
+        .request(
+            "textDocument/semanticTokens/full",
+            json!({"textDocument": {"uri": uri}}),
+        )
+        .unwrap();
+    let functions = function_starts(&tokens);
     let mut checked = 0;
     for stage in stages(document) {
         if !names.contains(&stage.name) {
@@ -158,6 +190,11 @@ fn check_commands(
         let line = span.line - 1;
         let start = name_column(text, line, span.column - 1, &stage.name);
         let end = start + u32::try_from(stage.name.chars().count()).unwrap();
+        assert!(
+            functions.contains(&(line, start)),
+            "{at}: {} is not a function token",
+            stage.name
+        );
         let position = |character: u32| json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}});
         let hover = client
             .request("textDocument/hover", position(start))

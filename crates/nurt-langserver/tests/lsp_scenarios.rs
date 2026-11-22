@@ -7,7 +7,9 @@
 //! the `initialize` result and a list of steps: `open`, `change` and `close`
 //! send document notifications, `notification` waits for a notification of
 //! the server and `request` sends a request and checks its `result` or its
-//! `error`. Expected values follow the matcher of `lsp_support`.
+//! `error`. Expected values follow the matcher of `lsp_support`. A scenario
+//! with `"catalog": true` binds programs to the catalog of the workspace and
+//! takes hover texts from its help.
 
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -18,7 +20,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use lsp_server::{Connection, Message, Notification, Request, RequestId};
-use lsp_support::{Client, assert_matches, catalog, did_open, workspace};
+use lsp_support::{Client, assert_matches, catalog, did_open, full_options, workspace};
 use nurt_langserver::{Options, ServerError, serve};
 use serde_json::{Value, json};
 
@@ -45,7 +47,12 @@ fn run(path: &Path, commands: &[nurt_contracts::spec::StageSpec]) {
         .get("initialize")
         .cloned()
         .unwrap_or_else(|| json!({"capabilities": {}}));
-    let (mut client, result) = Client::start(Options::new(commands.to_vec()), initialize);
+    let options = if scenario.get("catalog") == Some(&Value::Bool(true)) {
+        full_options()
+    } else {
+        Options::new(commands.to_vec())
+    };
+    let (mut client, result) = Client::start(options, initialize);
     if let Some(expected) = scenario.get("capabilities") {
         assert_matches(&result, expected, &format!("{name}: initialize"));
     }

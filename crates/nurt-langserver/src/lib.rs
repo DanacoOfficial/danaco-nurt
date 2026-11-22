@@ -4,11 +4,15 @@
 //! Language server for Danaco Nurt program files.
 //!
 //! The server implements the Language Server Protocol 3.17 over JSON-RPC.
-//! It keeps the open program files in memory, publishes the error of the
-//! parser as a diagnostic with its code, position and corrected programs,
-//! formats a document into its canonical text, and completes and describes
-//! command names, parameter labels, enumeration values and `@` references
-//! from the command catalog.
+//! It keeps the open program files in memory and publishes their
+//! diagnostics: the corrections of notation with their rule, class and
+//! replaced text, and the errors of reading and binding with their code,
+//! position, ready fixes and candidates. Quick fixes apply a correction, a
+//! fix or a candidate. The server formats a document into its canonical
+//! text, completes command names, parameter labels, enumeration values,
+//! fields of the input records and `@` references, shows the signature of
+//! the command being written, describes commands, parameters and error codes
+//! on hover and classifies the tokens of a document for highlighting.
 //!
 //! Positions are exchanged in UTF-32 when the client offers it, because the
 //! columns of syntax trees count Unicode scalar values, and in UTF-16
@@ -22,9 +26,12 @@ mod assist;
 mod catalog;
 mod context;
 mod document;
+mod fields;
 mod options;
 mod position;
+mod semantic;
 mod server;
+mod signature;
 
 pub use options::Options;
 pub use server::{ServerError, run_stdio, serve};

@@ -41,6 +41,14 @@ pub(crate) enum Place {
         /// Bytes of the value typed so far.
         replace: Range<usize>,
     },
+    /// A field of the input records after `and`, `or` or `not` in an
+    /// argument of `command`.
+    Field {
+        /// Name of the command of the stage.
+        command: String,
+        /// Bytes of the name typed so far.
+        replace: Range<usize>,
+    },
     /// A name after `@`.
     Reference {
         /// Names bound by `let` before the cursor, in order.
@@ -71,6 +79,24 @@ pub(crate) enum Target {
         /// Bytes of the label.
         range: Range<usize>,
     },
+}
+
+/// Argument of a stage that the cursor writes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Active {
+    /// The value of a labelled parameter.
+    Named(String),
+    /// The positional argument with this index, from 0.
+    Positional(usize),
+}
+
+/// Command of the stage at the cursor and the argument written there.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Call {
+    /// Name of the command.
+    pub(crate) command: String,
+    /// Argument at the cursor.
+    pub(crate) active: Active,
 }
 
 /// Reads the tokens of a text without the end token, stopping before the
@@ -144,6 +170,15 @@ pub(crate) fn place(text: &str, tokens: &[Token], offset: usize, variant: Varian
             replace,
         };
     }
+    if args
+        .last()
+        .is_some_and(|token| matches!(token.kind, TokenKind::And | TokenKind::Or | TokenKind::Not))
+    {
+        return Place::Field {
+            command: command.name,
+            replace,
+        };
+    }
     let opens_argument = if segment.call {
         args.last()
             .is_none_or(|token| token.kind == TokenKind::Comma)
@@ -209,6 +244,122 @@ pub(crate) fn target(
     })
 }
 
+/// Returns the command names of the stages that feed the stage at byte
+/// `offset` through `|>`, the nearest first.
+pub(crate) fn upstream(
+    text: &str,
+    tokens: &[Token],
+    offset: usize,
+    variant: Variant,
+) -> Vec<String> {
+    let before = tokens.partition_point(|token| token.range.end <= offset);
+    let word = word_start(tokens, before, offset);
+    let mut names = Vec::new();
+    let Some(mut current) = segment(text, tokens, word, variant) else {
+        return names;
+    };
+    while let Some(pipe) = current.start.checked_sub(1)
+        && tokens[pipe].kind == TokenKind::PipeGt
+        && let Some(previous) = segment(text, tokens, pipe, variant)
+        && let Some(command) = &previous.command
+    {
+        names.push(command.name.clone());
+        current = previous;
+    }
+    names
+}
+
+/// Finds the command whose arguments the cursor at byte `offset` writes and
+/// the argument at the cursor; `None` on a command name and outside a
+/// stage with a command.
+pub(crate) fn call(text: &str, tokens: &[Token], offset: usize, variant: Variant) -> Option<Call> {
+    let before = tokens.partition_point(|token| token.range.start < offset);
+    let segment = segment(text, tokens, before, variant)?;
+    if variant == Variant::B && !segment.call {
+        return None;
+    }
+    let command = segment.command?;
+    if offset <= command.range.end {
+        return None;
+    }
+    let args_start = if segment.call {
+        segment.first
+    } else {
+        command.next
+    };
+    let args = tokens.get(args_start..before).unwrap_or_default();
+    if let [.., label, separator] = args
+        && is_label(label)
+        && matches!(separator.kind, TokenKind::Colon | TokenKind::Eq)
+    {
+        return Some(Call {
+            command: command.name,
+            active: Active::Named(slice(text, &label.range)),
+        });
+    }
+    let labels = argument_labels(text, args, segment.call);
+    let positional = labels.iter().filter(|label| label.is_none()).count();
+    let fresh = match args.last() {
+        None => true,
+        Some(last) if segment.call => last.kind == TokenKind::Comma,
+        Some(last) => last.range.end < offset && !is_operator(&last.kind),
+    };
+    let active = match labels.last() {
+        _ if fresh => Active::Positional(positional),
+        Some(Some(label)) => Active::Named(label.clone()),
+        _ => Active::Positional(positional.saturating_sub(1)),
+    };
+    Some(Call {
+        command: command.name,
+        active,
+    })
+}
+
+/// Labels of the arguments in `args`, `None` for a positional argument.
+///
+/// In a call the arguments are separated by commas; otherwise an argument
+/// starts at a token after a space that neither follows nor is an operator
+/// or a label separator.
+fn argument_labels(text: &str, args: &[Token], call: bool) -> Vec<Option<String>> {
+    let mut labels = Vec::new();
+    let mut depth = 0_usize;
+    let mut expecting = true;
+    for (index, token) in args.iter().enumerate() {
+        let top = depth == 0;
+        match token.kind {
+            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+            TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                depth = depth.saturating_sub(1);
+            }
+            _ => {}
+        }
+        if !top {
+            continue;
+        }
+        let begins = if call {
+            if token.kind == TokenKind::Comma {
+                expecting = true;
+                continue;
+            }
+            std::mem::replace(&mut expecting, false)
+        } else {
+            index
+                .checked_sub(1)
+                .map(|previous| &args[previous])
+                .is_none_or(|previous| {
+                    token.space_before
+                        && !is_operator(&token.kind)
+                        && !is_operator(&previous.kind)
+                        && !matches!(previous.kind, TokenKind::Colon | TokenKind::Eq)
+                })
+        };
+        if begins {
+            labels.push(is_label(token).then(|| slice(text, &token.range)));
+        }
+    }
+    labels
+}
+
 /// Command name of a stage: a name and its dotted parts.
 #[derive(Debug)]
 struct Chain {
@@ -221,6 +372,8 @@ struct Chain {
 /// Stage that contains a token.
 #[derive(Debug)]
 struct Segment {
+    /// Index of the first token of the stage.
+    start: usize,
     /// Index of the first token of the stage, or of the first argument of a
     /// call.
     first: usize,
@@ -254,6 +407,7 @@ fn segment(text: &str, tokens: &[Token], end: usize, variant: Variant) -> Option
 
 fn starting(text: &str, tokens: &[Token], first: usize, end: usize) -> Segment {
     Segment {
+        start: first,
         first,
         command: chain(text, tokens, first, end),
         call: false,
@@ -271,6 +425,7 @@ fn opened(text: &str, tokens: &[Token], paren: usize, end: usize, variant: Varia
         let start = chain_start(tokens, paren - 1);
         if let Some(command) = chain(text, tokens, start, paren) {
             return Segment {
+                start,
                 first: paren + 1,
                 command: Some(command),
                 call: true,
@@ -286,16 +441,23 @@ fn chain(text: &str, tokens: &[Token], first: usize, end: usize) -> Option<Chain
     if first >= end || tokens[first].kind != TokenKind::Ident {
         return None;
     }
-    let mut last = first;
-    while last + 2 < end && dotted(tokens, last) {
-        last += 2;
-    }
+    let last = chain_end(tokens, first, end);
     let range = tokens[first].range.start..tokens[last].range.end;
     Some(Chain {
         name: slice(text, &range),
         range,
         next: last + 1,
     })
+}
+
+/// Index of the last part of the dotted name that starts at index `first`,
+/// before index `end`.
+pub(crate) fn chain_end(tokens: &[Token], first: usize, end: usize) -> usize {
+    let mut last = first;
+    while last + 2 < end && dotted(tokens, last) {
+        last += 2;
+    }
+    last
 }
 
 /// Index of the first part of the dotted name that ends at index `last`.
@@ -361,7 +523,7 @@ fn in_literal_or_comment(text: &str, tokens: &[Token], offset: usize) -> bool {
 }
 
 /// Whether the `=` at `index` follows `let name`.
-fn binds_name(tokens: &[Token], index: usize) -> bool {
+pub(crate) fn binds_name(tokens: &[Token], index: usize) -> bool {
     index >= 2
         && tokens[index - 1].kind == TokenKind::Ident
         && tokens[index - 2].kind == TokenKind::Let
@@ -384,11 +546,11 @@ fn let_names(text: &str, tokens: &[Token]) -> Vec<String> {
     names
 }
 
-fn adjacent(left: &Token, right: &Token) -> bool {
+pub(crate) fn adjacent(left: &Token, right: &Token) -> bool {
     left.range.end == right.range.start
 }
 
-fn is_label(token: &Token) -> bool {
+pub(crate) fn is_label(token: &Token) -> bool {
     token.kind == TokenKind::Ident && matches!(token.glued, Glued::Colon | Glued::Equals)
 }
 
@@ -442,17 +604,32 @@ fn slice(text: &str, range: &Range<usize>) -> String {
 mod tests {
     use super::*;
 
-    /// Place at the cursor marker of `marked`, its last `|`.
-    fn place_at(marked: &str, variant: Variant) -> Place {
+    /// Text without the cursor marker of `marked`, its last `|`, and the
+    /// offset of the marker.
+    fn unmark(marked: &str) -> (String, usize) {
         let offset = marked.rfind('|').unwrap();
         let text = format!("{}{}", &marked[..offset], &marked[offset + 1..]);
+        (text, offset)
+    }
+
+    fn place_at(marked: &str, variant: Variant) -> Place {
+        let (text, offset) = unmark(marked);
         place(&text, &tokens(&text, variant), offset, variant)
     }
 
     fn target_at(marked: &str, variant: Variant) -> Option<Target> {
-        let offset = marked.rfind('|').unwrap();
-        let text = format!("{}{}", &marked[..offset], &marked[offset + 1..]);
+        let (text, offset) = unmark(marked);
         target(&text, &tokens(&text, variant), offset, variant)
+    }
+
+    fn upstream_at(marked: &str, variant: Variant) -> Vec<String> {
+        let (text, offset) = unmark(marked);
+        upstream(&text, &tokens(&text, variant), offset, variant)
+    }
+
+    fn call_at(marked: &str, variant: Variant) -> Option<Call> {
+        let (text, offset) = unmark(marked);
+        call(&text, &tokens(&text, variant), offset, variant)
     }
 
     fn parameter(command: &str, used: &[&str], replace: Range<usize>) -> Place {
@@ -461,6 +638,13 @@ mod tests {
             used: used.iter().map(|name| (*name).to_owned()).collect(),
             replace,
         }
+    }
+
+    fn active(command: &str, active: Active) -> Option<Call> {
+        Some(Call {
+            command: command.to_owned(),
+            active,
+        })
     }
 
     #[test]
@@ -539,6 +723,23 @@ mod tests {
     }
 
     #[test]
+    fn completes_fields_after_logical_operators() {
+        let field = |replace| Place::Field {
+            command: "filter".to_owned(),
+            replace,
+        };
+        assert_eq!(
+            place_at("filter size > 1mb and |", Variant::A),
+            field(22..22)
+        );
+        assert_eq!(
+            place_at("filter size > 1mb or na|", Variant::A),
+            field(21..23)
+        );
+        assert_eq!(place_at("filter(not |", Variant::B), field(11..11));
+    }
+
+    #[test]
     fn completes_references_bound_earlier() {
         let text = "let big = find \"/srv\"\nlet small = count\n@|";
         let names = vec!["big".to_owned(), "small".to_owned()];
@@ -598,6 +799,69 @@ mod tests {
             })
         );
         assert_eq!(target_at("sort si|ze", Variant::A), None);
+    }
+
+    #[test]
+    fn lists_the_commands_that_feed_a_stage() {
+        assert_eq!(
+            upstream_at("find \"/srv\" |> sort size |> filter |", Variant::A),
+            ["sort", "find"]
+        );
+        assert_eq!(
+            upstream_at("find \"/srv\"\n|> count |> fi|", Variant::A),
+            ["count", "find"]
+        );
+        assert_eq!(
+            upstream_at("let all = find \"/a\" |> |", Variant::A),
+            ["find"]
+        );
+        assert_eq!(
+            upstream_at("find(\"/srv\") |> sort(|", Variant::B),
+            ["find"]
+        );
+        assert!(upstream_at("find \"/srv\" |", Variant::A).is_empty());
+        assert!(upstream_at("verify (run |", Variant::A).is_empty());
+        assert!(upstream_at("set [1, |", Variant::A).is_empty());
+    }
+
+    #[test]
+    fn finds_the_positional_argument_at_the_cursor() {
+        let positional = |index| active("sort", Active::Positional(index));
+        assert_eq!(call_at("sort |", Variant::A), positional(0));
+        assert_eq!(call_at("sort si|", Variant::A), positional(0));
+        assert_eq!(call_at("sort size |", Variant::A), positional(1));
+        assert_eq!(call_at("sort [a, b] |", Variant::A), positional(1));
+        assert_eq!(call_at("sort(|", Variant::B), positional(0));
+        assert_eq!(call_at("sort(size, |", Variant::B), positional(1));
+        assert_eq!(call_at("sort(size|", Variant::B), positional(0));
+        assert_eq!(call_at("sort by=size |", Variant::C), positional(0));
+        assert_eq!(
+            call_at("filter size > 1mb |", Variant::A),
+            active("filter", Active::Positional(1))
+        );
+        assert_eq!(
+            call_at("filter size > |", Variant::A),
+            active("filter", Active::Positional(0))
+        );
+    }
+
+    #[test]
+    fn finds_the_labelled_argument_at_the_cursor() {
+        let named = || active("sort", Active::Named("order".to_owned()));
+        assert_eq!(call_at("sort size order: |", Variant::A), named());
+        assert_eq!(call_at("sort size order: de|", Variant::A), named());
+        assert_eq!(call_at("sort(size, order: |", Variant::B), named());
+        assert_eq!(call_at("sort by=size order=d|", Variant::C), named());
+    }
+
+    #[test]
+    fn finds_no_call_outside_arguments() {
+        assert_eq!(call_at("so|rt size", Variant::A), None);
+        assert_eq!(call_at("sort|", Variant::A), None);
+        assert_eq!(call_at("count |> |", Variant::A), None);
+        assert_eq!(call_at("count\n|", Variant::A), None);
+        assert_eq!(call_at("sort(size) |", Variant::B), None);
+        assert_eq!(call_at("set [1, |", Variant::A), None);
     }
 
     #[test]

@@ -4,6 +4,7 @@
 //! Command signatures of the catalog and their descriptions.
 
 use std::fmt::Write as _;
+use std::ops::Range;
 
 use nurt_contracts::spec::{ParamSpec, StageSpec};
 use nurt_syntax::parse::Variant;
@@ -102,6 +103,55 @@ pub(crate) fn signature(spec: &StageSpec, variant: Variant) -> String {
     }
 }
 
+/// Call form of a command with every parameter and the byte range of each
+/// parameter in it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FullSignature<'a> {
+    /// The call form, for example `sort <by> [order: <enum(asc|desc)>]`.
+    pub(crate) label: String,
+    /// Parameters in the order of the form: positional ones by position,
+    /// then the others in catalog order.
+    pub(crate) params: Vec<(Range<usize>, &'a ParamSpec)>,
+}
+
+/// Returns the call form of a command with every parameter; optional
+/// parameters are in brackets.
+pub(crate) fn full_signature(spec: &StageSpec, variant: Variant) -> FullSignature<'_> {
+    let separator = label_separator(variant);
+    let ordered = spec
+        .positional()
+        .into_iter()
+        .chain(spec.params.iter().filter(|param| !param.is_positional()));
+    let (open, joiner) = match variant {
+        Variant::B => ("(", ", "),
+        Variant::A | Variant::C => (" ", " "),
+    };
+    let mut label = spec.name.clone();
+    let mut params = Vec::new();
+    for (index, param) in ordered.enumerate() {
+        label.push_str(if index == 0 { open } else { joiner });
+        let start = label.len();
+        let body = if param.is_positional() && variant != Variant::C {
+            format!("<{}>", param.name)
+        } else {
+            format!("{}{separator}<{}>", param.name, param.ty)
+        };
+        if param.required {
+            label.push_str(&body);
+        } else {
+            let _ = write!(label, "[{body}]");
+        }
+        params.push((start..label.len(), param));
+    }
+    if variant == Variant::B {
+        if params.is_empty() {
+            label.push('(');
+        }
+        label.push(')');
+    }
+    FullSignature { label, params }
+}
+
 /// Describes a command in Markdown: call form, summary, classification and
 /// parameters.
 pub(crate) fn command_markdown(spec: &StageSpec, variant: Variant) -> String {
@@ -154,7 +204,7 @@ pub(crate) fn param_markdown(spec: &StageSpec, param: &ParamSpec, variant: Varia
 }
 
 /// Returns the serialized name of a classification, for example `transform`.
-fn tag(serialized: serde_json::Result<Value>) -> String {
+pub(crate) fn tag(serialized: serde_json::Result<Value>) -> String {
     match serialized {
         Ok(Value::String(name)) => name,
         _ => String::new(),
@@ -171,6 +221,23 @@ pub(crate) mod tests {
 format = "nurt-catalog/1"
 group = "core"
 summary = "Core commands."
+
+[[command]]
+name = "find"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["entry"]
+summary = "Find entries under a directory."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Directory to search."
 
 [[command]]
 name = "sort"
@@ -207,7 +274,7 @@ output = ["int"]
 summary = "Count the input records."
 "#;
 
-    /// Commands `count` and `sort` of a small catalog.
+    /// Commands `count`, `find` and `sort` of a small catalog.
     pub(crate) fn sample() -> Commands {
         let mut file: CatalogFile = toml::from_str(SAMPLE).unwrap();
         file.resolve_groups();
@@ -218,12 +285,12 @@ summary = "Count the input records."
     fn orders_commands_by_name_and_finds_them() {
         let commands = sample();
         let names: Vec<&str> = commands.iter().map(|spec| spec.name.as_str()).collect();
-        assert_eq!(names, ["count", "sort"]);
+        assert_eq!(names, ["count", "find", "sort"]);
         assert_eq!(
             commands.get("sort").map(|spec| spec.group.as_str()),
             Some("core")
         );
-        assert!(commands.get("find").is_none());
+        assert!(commands.get("remove").is_none());
     }
 
     #[test]
@@ -234,7 +301,7 @@ summary = "Count the input records."
         copy.summary = "Other.".to_owned();
         specs.push(copy);
         let commands = Commands::new(specs);
-        assert_eq!(commands.iter().count(), 2);
+        assert_eq!(commands.iter().count(), 3);
         assert_eq!(
             commands.get("count").map(|spec| spec.summary.as_str()),
             Some("Count the input records.")
@@ -252,6 +319,31 @@ summary = "Count the input records."
             signature(commands.get("count").unwrap(), Variant::A),
             "count"
         );
+    }
+
+    #[test]
+    fn renders_full_signatures_with_parameter_ranges() {
+        let commands = sample();
+        let sort = commands.get("sort").unwrap();
+        let full = full_signature(sort, Variant::A);
+        assert_eq!(full.label, "sort <by> [order: <enum(asc|desc)>]");
+        let parts: Vec<&str> = full
+            .params
+            .iter()
+            .map(|(range, _)| &full.label[range.clone()])
+            .collect();
+        assert_eq!(parts, ["<by>", "[order: <enum(asc|desc)>]"]);
+        assert_eq!(
+            full_signature(sort, Variant::B).label,
+            "sort(<by>, [order: <enum(asc|desc)>])"
+        );
+        assert_eq!(
+            full_signature(sort, Variant::C).label,
+            "sort by=<list<field>> [order=<enum(asc|desc)>]"
+        );
+        let count = commands.get("count").unwrap();
+        assert_eq!(full_signature(count, Variant::B).label, "count()");
+        assert_eq!(full_signature(count, Variant::A).label, "count");
     }
 
     #[test]
@@ -273,5 +365,6 @@ summary = "Count the input records."
             "list<field>, required"
         );
         assert_eq!(enum_values(order), ["asc", "desc"]);
+        assert_eq!(tag(Ok(Value::Null)), "");
     }
 }

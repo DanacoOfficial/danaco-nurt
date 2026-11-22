@@ -51,7 +51,8 @@ impl Encoding {
         }
     }
 
-    fn measure(self, text: &str) -> u32 {
+    /// Returns the length of `text` in the units of the encoding.
+    pub(crate) fn measure(self, text: &str) -> u32 {
         match self {
             Self::Utf16 => count(text.encode_utf16().count()),
             Self::Utf32 => count(text.chars().count()),
