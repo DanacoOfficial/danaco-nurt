@@ -1156,6 +1156,11 @@
           "description": "Binary file changed.",
           "type": "string",
           "const": "binary"
+        },
+        {
+          "description": "File copied from another file.",
+          "type": "string",
+          "const": "copied"
         }
       ]
     },
@@ -2242,7 +2247,7 @@
       ]
     },
     "Notable": {
-      "description": "Code of an unusual effect reported in [`Report::notable`].\n\nA notable effect is a description only; nothing is blocked because of\nit. Thresholds are configurable under `report.notable.*`. Codes for which\n[`Notable::computed_by_report`] is true are derived by the report builder\nfrom the list of changes; all other codes are emitted by the command that\nobserved the condition.\n\n# Examples\n\n```\nuse nurt_contracts::report::{Notable, Severity};\n\nassert_eq!(Notable::MassDelete.as_str(), \"mass_delete\");\nassert_eq!(Notable::MassDelete.default_severity(), Severity::Warning);\nassert!(Notable::MassDelete.computed_by_report());\nassert!(!Notable::NothingMatched.computed_by_report());\n```",
+      "description": "Code of an unusual effect reported in [`Report::notable`].\n\nA notable effect is a description only; nothing is blocked because of\nit. Thresholds are configurable under `report.notable.*`. Codes for which\n[`Notable::computed_by_report`] is true are derived by the report builder\nfrom the list of changes; all other codes are emitted by the command that\nobserved the condition.\n\n# Examples\n\n```\nuse nurt_contracts::report::{Notable, Severity};\n\nassert_eq!(Notable::MassDelete.as_str(), \"mass_delete\");\nassert_eq!(Notable::MassDelete.default_severity(), Severity::Warning);\nassert!(Notable::MassDelete.computed_by_report());\nassert!(Notable::NothingMatched.computed_by_report());\nassert!(!Notable::Unchanged.computed_by_report());\n```",
       "oneOf": [
         {
           "description": "A target lies outside every configured project root.",
@@ -2295,7 +2300,7 @@
           "const": "target_count_high"
         },
         {
-          "description": "A changing stage received no targets.",
+          "description": "A changing program received no targets.",
           "type": "string",
           "const": "nothing_matched"
         },
@@ -2713,6 +2718,26 @@
           "description": "A signing program named by the repository configuration was not run;\nthe signature was created without it.",
           "type": "string",
           "const": "signing_program_ignored"
+        },
+        {
+          "description": "Credentials written in the URL of a remote were used.",
+          "type": "string",
+          "const": "credentials_in_url"
+        },
+        {
+          "description": "The output stopped at the number of entries given by `limit`; `count`\ngives the number of entries left out.",
+          "type": "string",
+          "const": "limit_reached"
+        },
+        {
+          "description": "A program classified as interactive was run: an editor, a pager, a\nterminal monitor or an interpreter without a script. It can wait for\nterminal input.",
+          "type": "string",
+          "const": "interactive_program"
+        },
+        {
+          "description": "A program ran a script given in its arguments, for example `bash -c`\nor `python -c`; the effects of the script are not classified.",
+          "type": "string",
+          "const": "opaque_script"
         }
       ]
     },

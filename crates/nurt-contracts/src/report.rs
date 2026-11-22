@@ -268,7 +268,8 @@ impl FromStr for Severity {
 /// assert_eq!(Notable::MassDelete.as_str(), "mass_delete");
 /// assert_eq!(Notable::MassDelete.default_severity(), Severity::Warning);
 /// assert!(Notable::MassDelete.computed_by_report());
-/// assert!(!Notable::NothingMatched.computed_by_report());
+/// assert!(Notable::NothingMatched.computed_by_report());
+/// assert!(!Notable::Unchanged.computed_by_report());
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -294,7 +295,7 @@ pub enum Notable {
     ManyPerFile,
     /// The number of targets reached the configured threshold.
     TargetCountHigh,
-    /// A changing stage received no targets.
+    /// A changing program received no targets.
     NothingMatched,
     /// A write produced content identical to the existing content.
     Unchanged,
@@ -471,6 +472,18 @@ pub enum Notable {
     /// A signing program named by the repository configuration was not run;
     /// the signature was created without it.
     SigningProgramIgnored,
+    /// Credentials written in the URL of a remote were used.
+    CredentialsInUrl,
+    /// The output stopped at the number of entries given by `limit`; `count`
+    /// gives the number of entries left out.
+    LimitReached,
+    /// A program classified as interactive was run: an editor, a pager, a
+    /// terminal monitor or an interpreter without a script. It can wait for
+    /// terminal input.
+    InteractiveProgram,
+    /// A program ran a script given in its arguments, for example `bash -c`
+    /// or `python -c`; the effects of the script are not classified.
+    OpaqueScript,
 }
 
 impl Notable {
@@ -570,6 +583,10 @@ impl Notable {
         Self::HostKeyUnverified,
         Self::MatchExecIgnored,
         Self::SigningProgramIgnored,
+        Self::CredentialsInUrl,
+        Self::LimitReached,
+        Self::InteractiveProgram,
+        Self::OpaqueScript,
     ];
 
     /// Returns the stable code, as written in JSON.
@@ -670,6 +687,10 @@ impl Notable {
             Self::HostKeyUnverified => "host_key_unverified",
             Self::MatchExecIgnored => "match_exec_ignored",
             Self::SigningProgramIgnored => "signing_program_ignored",
+            Self::CredentialsInUrl => "credentials_in_url",
+            Self::LimitReached => "limit_reached",
+            Self::InteractiveProgram => "interactive_program",
+            Self::OpaqueScript => "opaque_script",
         }
     }
 
@@ -713,7 +734,8 @@ impl Notable {
             | Self::FilterNotApplied
             | Self::TlsVerificationDisabled
             | Self::PushStatusUnknown
-            | Self::HostKeyUnverified => Severity::Warning,
+            | Self::HostKeyUnverified
+            | Self::CredentialsInUrl => Severity::Warning,
             Self::DeleteTree
             | Self::ManyPerFile
             | Self::TargetCountHigh
@@ -752,7 +774,9 @@ impl Notable {
             | Self::LinkLoopSkipped
             | Self::HttpOptionIgnored
             | Self::MatchExecIgnored
-            | Self::SigningProgramIgnored => Severity::Notice,
+            | Self::SigningProgramIgnored
+            | Self::InteractiveProgram
+            | Self::OpaqueScript => Severity::Notice,
             Self::Unchanged
             | Self::HardlinkSetPreserved
             | Self::EncodingPreserved
@@ -770,15 +794,17 @@ impl Notable {
             | Self::LineEndingsConverted
             | Self::UpstreamSet
             | Self::Signed
-            | Self::PackWithoutDeltas => Severity::Info,
+            | Self::PackWithoutDeltas
+            | Self::LimitReached => Severity::Info,
         }
     }
 
     /// Whether the code is derived by the report builder from the list of
-    /// changes and the configured thresholds.
+    /// changes, the number of targets and the configured thresholds.
     ///
     /// All other codes are emitted by the command that observed the
-    /// condition.
+    /// condition. An entry of a derived code emitted by a command is merged
+    /// with the derived entry.
     #[must_use]
     pub const fn computed_by_report(self) -> bool {
         matches!(
@@ -793,6 +819,7 @@ impl Notable {
                 | Self::SizeShrunk
                 | Self::ManyPerFile
                 | Self::TargetCountHigh
+                | Self::NothingMatched
         )
     }
 }

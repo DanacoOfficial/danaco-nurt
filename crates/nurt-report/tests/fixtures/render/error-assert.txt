@@ -1,0 +1,6 @@
+error E_ASSERT  stage 3  at 1:50  assert paths: 12 failed; nothing changed
+  expected 12
+  actual 14
+  sample (5) /srv/app/src/a.go · /srv/app/src/b.go · /srv/app/src/c/d.go · /srv/app/src/e.go · /srv/app/src/f.go
+  next narrow the glob
+  next change the expected count

@@ -1,0 +1,4 @@
+{"records": [
+  {"kind": "match", "fields": {"path": {"t": "path", "v": "/home/user/logs/a.log"}, "count": {"t": "int", "v": 2}}},
+  {"kind": "match", "fields": {"path": {"t": "path", "v": "/home/user/logs/b.log"}, "count": {"t": "int", "v": 1}}}
+]}

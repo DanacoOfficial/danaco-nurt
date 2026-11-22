@@ -1,0 +1,6 @@
+{
+  "description": "End of a known session.",
+  "function": "session_end",
+  "input": "s-1",
+  "output": []
+}

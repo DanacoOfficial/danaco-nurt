@@ -1,0 +1,49 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+name: integration-examples
+
+on:
+  pull_request:
+    paths:
+      - "integrations/examples/**"
+  push:
+    branches: [main]
+    paths:
+      - "integrations/examples/**"
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test with the standard library only
+        run: python -m unittest discover -s integrations/examples/tests -v
+      - name: Install the framework packages
+        run: python -m pip install "langchain-core>=1.0" "semantic-kernel[mcp]>=1.37"
+      - name: Test with the framework packages
+        run: python -m unittest discover -s integrations/examples/tests -v
+
+  typescript:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        example: [anthropic-typescript, openai-typescript, vercel-ai]
+    defaults:
+      run:
+        working-directory: integrations/examples/${{ matrix.example }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install the dependencies without the console package
+        run: npm install --no-save --omit=optional $(node -p "Object.keys(require('./package.json').dependencies).filter((name) => name !== 'nurt').join(' ')")
+      - name: Test
+        run: npm test

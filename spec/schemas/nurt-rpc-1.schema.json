@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-rpc-1.schema.json",
+  "title": "nurt-rpc/1",
+  "description": "Methods of the nurt serve protocol: JSON-RPC 2.0 requests, their parameters and results. Language errors are part of the result as nurt-response/1; the error object is used for protocol and call errors only.",
+  "type": "object",
+  "required": ["jsonrpc"],
+  "properties": {
+    "jsonrpc": {"const": "2.0"},
+    "id": {"type": ["string", "integer", "null"]}
+  },
+  "oneOf": [
+    {"$ref": "#/$defs/request"},
+    {"$ref": "#/$defs/reply"},
+    {"$ref": "#/$defs/event_notification"}
+  ],
+  "$defs": {
+    "request": {
+      "required": ["method"],
+      "properties": {
+        "method": {"enum": ["initialize", "run", "check", "parse", "print", "correct", "page", "describe", "help", "schema", "catalog", "history", "space", "info", "cancel", "shutdown"]},
+        "params": {"type": ["object", "array", "null"]}
+      },
+      "allOf": [
+        {"if": {"properties": {"method": {"const": "initialize"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/initialize_params"}}}},
+        {"if": {"properties": {"method": {"enum": ["run", "check"]}}}, "then": {"properties": {"params": {"$ref": "nurt-request-1.schema.json"}}, "required": ["params"]}},
+        {"if": {"properties": {"method": {"enum": ["parse", "correct"]}}}, "then": {"properties": {"params": {"$ref": "#/$defs/program_params"}}, "required": ["params"]}},
+        {"if": {"properties": {"method": {"const": "print"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/print_params"}}, "required": ["params"]}},
+        {"if": {"properties": {"method": {"const": "page"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/page_params"}}, "required": ["params"]}},
+        {"if": {"properties": {"method": {"const": "describe"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/describe_params"}}}},
+        {"if": {"properties": {"method": {"const": "help"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/help_params"}}}},
+        {"if": {"properties": {"method": {"const": "schema"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/schema_params"}}, "required": ["params"]}},
+        {"if": {"properties": {"method": {"const": "space"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/space_params"}}}},
+        {"if": {"properties": {"method": {"const": "cancel"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/cancel_params"}}, "required": ["params"]}}
+      ]
+    },
+    "reply": {
+      "required": ["id"],
+      "oneOf": [
+        {"required": ["result"], "not": {"required": ["error"]}},
+        {"required": ["error"], "not": {"required": ["result"]}, "properties": {"error": {"$ref": "#/$defs/error"}}}
+      ]
+    },
+    "event_notification": {
+      "required": ["method", "params"],
+      "not": {"required": ["id"]},
+      "properties": {
+        "method": {"const": "nurt/event"},
+        "params": {"$ref": "nurt-event-1.schema.json"}
+      }
+    },
+    "variant": {"type": "string", "enum": ["a", "b", "c"]},
+    "initialize_params": {
+      "type": "object",
+      "required": ["protocol"],
+      "properties": {
+        "protocol": {"type": "string", "pattern": "^nurt-rpc/1(\\.[0-9]+)?$"},
+        "client": {"type": "object", "properties": {"name": {"type": "string"}, "version": {"type": "string"}}},
+        "abi": {"type": "integer", "minimum": 0, "description": "(major << 16) | minor of the C interface."},
+        "language": {"type": "string"},
+        "ast": {"type": "string"},
+        "session": {"type": "string"},
+        "config_overrides": {"type": "object", "maxProperties": 0},
+        "capabilities": {"type": "object", "properties": {"events": {"type": "boolean", "default": false}}}
+      }
+    },
+    "initialize_result": {
+      "type": "object",
+      "required": ["protocol", "version", "abi", "language", "ast", "report", "catalog_rev", "features", "groups", "limits"],
+      "properties": {
+        "protocol": {"const": "nurt-rpc/1"},
+        "version": {"type": "string", "x-nurt-volatile": true},
+        "abi": {"type": ["integer", "null"]},
+        "language": {"type": ["string", "null"]},
+        "ast": {"type": "string"},
+        "report": {"type": "string"},
+        "catalog_rev": {"type": ["string", "null"]},
+        "features": {"type": "array", "items": {"type": "string"}},
+        "groups": {"type": "array", "items": {"type": "string"}},
+        "limits": {
+          "type": "object",
+          "required": ["max_inflight", "max_message_bytes"],
+          "properties": {
+            "max_inflight": {"type": "integer", "minimum": 1},
+            "max_message_bytes": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    },
+    "program_params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["program"],
+      "properties": {"program": {"type": "string"}, "variant": {"$ref": "#/$defs/variant"}}
+    },
+    "print_params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ast"],
+      "properties": {"ast": {"$ref": "nurt-ast-1.schema.json"}, "variant": {"$ref": "#/$defs/variant"}}
+    },
+    "page_params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cursor"],
+      "properties": {"cursor": {"type": "string"}, "limit": {"type": "integer", "minimum": 0, "description": "0 or absent: the limit of the request that created the cursor."}}
+    },
+    "describe_params": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {"subject": {"type": "string", "default": "core"}, "language": {"type": "string"}}
+    },
+    "help_params": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {"topic": {"type": "string", "default": "core"}, "language": {"type": "string"}}
+    },
+    "schema_params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {"name": {"type": "string", "enum": ["ast", "bound", "report", "request", "response", "config", "catalog", "catalog-result", "value", "tool", "fs-snapshot", "check", "rpc", "event"]}}
+    },
+    "space_params": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {"volume": {"type": "string", "description": "Absolute path of a volume."}}
+    },
+    "cancel_params": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {"request_id": {"type": ["string", "integer"]}, "job_id": {"type": "string"}},
+      "oneOf": [
+        {"required": ["request_id"]},
+        {"required": ["job_id"]}
+      ]
+    },
+    "cancel_result": {
+      "type": "object",
+      "required": ["cancelled"],
+      "properties": {"cancelled": {"type": "boolean"}}
+    },
+    "results": {
+      "description": "Result of each method when it succeeds; a language error replaces it with a failed nurt-response/1.",
+      "type": "object",
+      "properties": {
+        "initialize": {"$ref": "#/$defs/initialize_result"},
+        "run": {"$ref": "nurt-response-1.schema.json"},
+        "page": {"$ref": "nurt-response-1.schema.json"},
+        "check": {"type": "object", "required": ["diagnostics"], "properties": {"diagnostics": {"type": "array"}}},
+        "parse": {"type": "object", "required": ["ast", "diagnostics"], "properties": {"ast": {"$ref": "nurt-ast-1.schema.json"}, "diagnostics": {"type": "array"}}},
+        "print": {"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}}},
+        "correct": {"type": "object"},
+        "describe": {"type": "object", "required": ["description"]},
+        "help": {"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}}},
+        "schema": {"type": "object", "description": "The published JSON Schema."},
+        "catalog": {"type": "object"},
+        "history": {"type": "object", "required": ["operations"], "properties": {"operations": {"type": "array"}}},
+        "space": {"type": "object", "required": ["volumes"], "properties": {"volumes": {"type": "array"}}},
+        "info": {"type": "object", "required": ["version", "features"]},
+        "cancel": {"$ref": "#/$defs/cancel_result"},
+        "shutdown": {"type": "null"}
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "anyOf": [
+            {"enum": [-32700, -32600, -32601, -32602, -32603]},
+            {"minimum": -32099, "maximum": -32001, "description": "-32000 - nurt_status; data.status names the status."}
+          ]
+        },
+        "message": {"type": "string"},
+        "data": {
+          "type": "object",
+          "properties": {
+            "status": {"type": "string", "enum": ["NURT_E_TIMEOUT", "NURT_E_CANCELLED", "NURT_E_ARG", "NURT_E_ABI", "NURT_E_IO", "NURT_E_INTERNAL"]},
+            "response": {"$ref": "nurt-response-1.schema.json"},
+            "supported": {},
+            "panic": {"type": "string"}
+          }
+        }
+      }
+    }
+  }
+}

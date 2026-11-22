@@ -1,0 +1,24 @@
+{
+  "description": "Program with an unclosed list: the language error E_SYNTAX in the response.",
+  "function": "run",
+  "input": {"nurt": "1.0", "program": "find \"/srv/app\" glob: [\"*.go\""},
+  "output": [
+    {
+      "nurt": "1.0",
+      "report": {
+        "nurt": "1.0",
+        "status": "failed",
+        "kind": "find",
+        "error": {
+          "code": "E_SYNTAX",
+          "message": "unclosed list",
+          "at": {"line": 1, "column": 27, "length": 1, "stage": "0"},
+          "found": "end of program",
+          "problem": "the list started at column 18 is not closed",
+          "fix": ["find \"/srv/app\" glob: [\"*.go\"]"],
+          "help": "lists"
+        }
+      }
+    }
+  ]
+}

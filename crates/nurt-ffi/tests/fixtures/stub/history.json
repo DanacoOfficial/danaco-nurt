@@ -1,0 +1,6 @@
+{
+  "description": "Empty journal history.",
+  "function": "history",
+  "input": null,
+  "output": [{"operations": []}]
+}

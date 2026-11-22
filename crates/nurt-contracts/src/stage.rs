@@ -1002,9 +1002,12 @@ pub trait StageImpl: Send + Sync {
 ///
 /// Every command crate exposes one function of the form
 /// `pub fn register(registrar: &mut dyn StageRegistrar) -> Result<()>` that
-/// adds all its implementations. The registry of the engine implements the
-/// trait and checks each implementation against the catalog; a vector
-/// collects implementations without checks.
+/// adds all its implementations. Registration does not depend on the order
+/// in which command crates and extensions are registered: the registry of
+/// the engine accepts an implementation of a command that is not in the
+/// catalog yet and checks every implementation against the catalog in a
+/// separate validation step after all registrations. A vector collects
+/// implementations without checks.
 ///
 /// ```
 /// use std::sync::Arc;
@@ -1035,11 +1038,18 @@ pub trait StageRegistrar {
     /// Adds an implementation described by its
     /// [`descriptor`](StageImpl::descriptor).
     ///
+    /// An implementation of a command that is missing from the catalog, or
+    /// that accepts record kinds the catalog does not declare for the
+    /// command, is reported by the validation step of the registry, not by
+    /// this method.
+    ///
     /// # Errors
     ///
-    /// Fails with `E_UNKNOWN_COMMAND` when the command is not in the catalog
-    /// and with `E_TYPE` when the accepted record kinds are not declared for
-    /// the command.
+    /// Fails when the implementation cannot be added; the registry of the
+    /// engine fails with `E_CATALOG` when another implementation of the same
+    /// command already accepts one of the input kinds or already is a
+    /// source. A registrar that checks implementations as they arrive may
+    /// fail with `E_UNKNOWN_COMMAND` or `E_TYPE`.
     fn register(&mut self, stage: Arc<dyn StageImpl>) -> Result<()>;
 }
 

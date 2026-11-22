@@ -1,0 +1,8 @@
+{
+  "schema_valid": true,
+  "json_round_trip": true,
+  "cbor_round_trip": true,
+  "text": "error E_HASH_MISMATCH  stage 5  conformance case",
+  "markdown": "### replace failed\n\n**error E_HASH_MISMATCH stage 5 conformance case**",
+  "compact": "report kind=replace status=failed\nerror code=E_HASH_MISMATCH stage=5 message=\"conformance case\""
+}

@@ -1,0 +1,10 @@
+{
+  "description": "Read request that runs for 30 seconds unless it is cancelled.",
+  "function": "run",
+  "input": {"nurt": "1.0", "program": "find \"/srv/archive\""},
+  "events": [
+    {"t": "progress", "command": "find", "phase": "scan", "done": 1, "total": null, "bytes": null, "message": null}
+  ],
+  "delay_ms": 30000,
+  "output": [{"nurt": "1.0", "report": {"nurt": "1.0", "status": "ok", "kind": "find"}}]
+}

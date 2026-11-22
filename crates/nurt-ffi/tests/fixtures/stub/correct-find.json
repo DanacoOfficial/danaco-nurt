@@ -1,0 +1,6 @@
+{
+  "description": "Correction of a misspelt command name.",
+  "function": "correct",
+  "input": {"program": "fnd \"/srv/app\"", "variant": "a"},
+  "output": [{"program": "find \"/srv/app\"", "corrections": [{"from": "fnd", "to": "find"}]}]
+}

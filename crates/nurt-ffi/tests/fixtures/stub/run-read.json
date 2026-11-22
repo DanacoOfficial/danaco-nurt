@@ -1,0 +1,32 @@
+{
+  "description": "Read request answered with the first page of entries.",
+  "function": "run",
+  "input": {"nurt": "1.0", "program": "find \"/srv/app\" glob: \"*.go\""},
+  "output": [
+    {
+      "nurt": "1.0",
+      "report": {
+        "nurt": "1.0",
+        "status": "ok",
+        "kind": "find",
+        "records": {
+          "type": "entry",
+          "matched": 148,
+          "rows": [
+            {
+              "kind": "entry",
+              "fields": {
+                "path": {"t": "path", "v": "/srv/app/src/a.go"},
+                "name": {"t": "text", "v": "a.go"},
+                "type": {"t": "enum", "v": "file"},
+                "size": {"t": "size", "v": 1127},
+                "modified": {"t": "instant", "v": "2026-11-21T09:12:00Z"}
+              }
+            }
+          ]
+        },
+        "next_cursor": "c_91fe"
+      }
+    }
+  ]
+}
