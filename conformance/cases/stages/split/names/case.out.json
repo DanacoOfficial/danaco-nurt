@@ -1,0 +1,4 @@
+{"records": [
+  {"kind": "row", "fields": {"path": {"t": "path", "v": "/home/user/data.csv"}, "no": {"t": "int", "v": 2}, "cells": {"t": "map", "v": {"id": {"t": "text", "v": "7"}, "name": {"t": "text", "v": "ada"}}}}},
+  {"kind": "row", "fields": {"path": {"t": "path", "v": "/home/user/data.csv"}, "no": {"t": "int", "v": 3}, "cells": {"t": "map", "v": {"id": {"t": "text", "v": "8"}, "name": {"t": "null"}}}}}
+]}

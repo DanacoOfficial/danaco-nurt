@@ -1,0 +1,4 @@
+{"records": [
+  {"kind": "summary", "fields": {"extension": {"t": "text", "v": "md"}, "field": {"t": "text", "v": "size"}, "count": {"t": "int", "v": 1}, "sum": {"t": "size", "v": 900}, "min": {"t": "size", "v": 900}, "max": {"t": "size", "v": 900}, "average": {"t": "size", "v": 900}}},
+  {"kind": "summary", "fields": {"extension": {"t": "text", "v": "rs"}, "field": {"t": "text", "v": "size"}, "count": {"t": "int", "v": 2}, "sum": {"t": "size", "v": 7500}, "min": {"t": "size", "v": 2400}, "max": {"t": "size", "v": 5100}, "average": {"t": "size", "v": 3750}}}
+]}

@@ -1,0 +1,8 @@
+{"program": "lines \"/home/user/app/config.ini\" |> filter text ~ /^\\s*debug\\s*=/",
+ "command": "filter",
+ "args": {"condition": {"kind": "expr", "value": {"t": "bin", "op": "~", "l": {"t": "field", "name": "text"}, "r": {"t": "regex", "v": "^\\s*debug\\s*=", "flags": ""}}}},
+ "input": [
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/app/config.ini"}, "no": {"t": "int", "v": 1}, "text": {"t": "text", "v": "[server]"}}},
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/app/config.ini"}, "no": {"t": "int", "v": 2}, "text": {"t": "text", "v": "  debug = true"}}},
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/app/config.ini"}, "no": {"t": "int", "v": 3}, "text": {"t": "text", "v": "port = 8080"}}}
+ ]}
