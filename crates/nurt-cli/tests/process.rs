@@ -82,9 +82,10 @@ fn help_option_names_the_product_first() {
 }
 
 #[test]
-fn program_without_a_front_end_fails_with_a_valid_json_response() {
+fn program_with_the_front_end_prints_a_valid_json_response() {
     let output = nurt(&["--format", "json", "find", "\"/srv\""], "");
-    assert_ne!(output.status.code(), Some(0));
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert!(!stdout(&output).contains("E_UNSUPPORTED"));
     let response: Response = serde_json::from_str(&stdout(&output)).unwrap();
     response.validate().unwrap();
     let report: serde_json::Value = serde_json::to_value(&response.report).unwrap();
@@ -95,21 +96,18 @@ fn program_without_a_front_end_fails_with_a_valid_json_response() {
 }
 
 #[test]
-fn check_without_a_front_end_fails() {
+fn check_with_the_front_end_accepts_a_valid_program() {
     let output = nurt(&["check", "-e", "find \"/srv\""], "");
-    assert_ne!(output.status.code(), Some(0));
-    assert!(stderr(&output).contains("E_UNSUPPORTED"));
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("E_UNSUPPORTED"));
 }
 
 #[test]
 fn unavailable_subcommands_fail_with_a_message() {
     for args in [
-        &["mcp", "--stdio"][..],
-        &["lsp"],
-        &["migrate", "build.sh"],
-        &["service", "status"],
-        &["journal", "salvage", "/"],
-        &["ext", "list"],
+        &["catalog", "check-distance"][..],
+        #[cfg(not(feature = "mcp-http"))]
+        &["mcp", "--http", "127.0.0.1:0"],
     ] {
         let output = nurt(args, "");
         assert_eq!(output.status.code(), Some(3), "{args:?}");
@@ -210,6 +208,7 @@ fn protocol_server_rejects_invalid_arguments() {
 #[test]
 fn session_reads_programs_from_a_pipe() {
     let output = nurt(&["repl"], "find \"/srv\"\nexit\n");
-    assert_ne!(output.status.code(), Some(0));
-    assert!(stdout(&output).contains("E_UNSUPPORTED"));
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert!(!stdout(&output).contains("E_UNSUPPORTED"));
+    assert!(!stderr(&output).contains("E_UNSUPPORTED"));
 }

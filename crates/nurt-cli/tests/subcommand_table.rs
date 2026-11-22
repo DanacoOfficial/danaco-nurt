@@ -78,10 +78,20 @@ fn unconnected_subcommands_are_subcommands() {
 }
 
 #[test]
-fn component_features_are_optional_and_off_by_default() {
+fn component_features_are_optional_and_on_by_default() {
     let manifest: toml::Table = toml::from_str(MANIFEST).unwrap();
     let features = manifest["features"].as_table().unwrap();
-    assert_eq!(features["default"].as_array().map(Vec::len), Some(0));
+    let default: Vec<&str> = features["default"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|feature| feature.as_str().unwrap())
+        .collect();
+    let components: Vec<&str> = COMPONENTS
+        .iter()
+        .filter_map(|component| component.feature)
+        .collect();
+    assert_eq!(default, components);
     let dependencies = manifest["dependencies"].as_table().unwrap();
     for component in COMPONENTS {
         assert!(SUBCOMMANDS.contains(&component.subcommand));
@@ -99,7 +109,7 @@ fn component_features_are_optional_and_off_by_default() {
 }
 
 #[test]
-fn default_dependencies_are_crates_of_the_core_and_libraries() {
+fn required_dependencies_are_crates_of_the_core_and_the_extensions() {
     let manifest: toml::Table = toml::from_str(MANIFEST).unwrap();
     let dependencies = manifest["dependencies"].as_table().unwrap();
     let required: Vec<&str> = dependencies
@@ -110,7 +120,7 @@ fn default_dependencies_are_crates_of_the_core_and_libraries() {
         })
         .map(|(name, _)| name.as_str())
         .collect();
-    assert_eq!(required, ["nurt-contracts", "nurt-core"]);
+    assert_eq!(required, ["nurt-contracts", "nurt-core", "nurt-ext"]);
 }
 
 #[test]

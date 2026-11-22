@@ -220,13 +220,9 @@ fn usage_errors_exit_with_two() {
 fn unavailable_subcommands_exit_with_three() {
     for args in [
         &["serve", "--socket", "/run/nurt.sock"][..],
-        &["mcp"],
-        &["lsp"],
-        &["migrate", "x.sh"],
-        &["service", "status"],
-        &["journal", "salvage", "/"],
-        &["ext", "list"],
         &["catalog", "check-distance"],
+        #[cfg(not(feature = "mcp-http"))]
+        &["mcp", "--http", "127.0.0.1:0"],
     ] {
         let outcome = call(args);
         assert_eq!(outcome.code, exit::UNAVAILABLE, "{args:?}");
@@ -318,8 +314,16 @@ fn catalog_lists_the_groups_and_help_topics_report_the_missing_components() {
 fn doctor_lists_the_checks_of_the_installation() {
     let outcome = call(&["doctor"]);
     assert_eq!(outcome.code, 0);
-    for name in ["version", "state directory", "journal", "subcommand mcp"] {
+    for name in ["version", "state directory", "journal"] {
         assert!(outcome.out.contains(name), "{name}");
+    }
+    for name in nurt_cli::args::SUBCOMMANDS {
+        let row = format!("subcommand {name}");
+        assert_eq!(
+            outcome.out.contains(&row),
+            !nurt_cli::integrations::is_connected(name),
+            "{row}"
+        );
     }
     assert!(outcome.out.contains("writable"));
 }
