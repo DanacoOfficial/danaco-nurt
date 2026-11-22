@@ -551,3 +551,62 @@ fn a_failed_check_after_the_effect_shows_the_effect_and_the_error() {
     assert!(text.starts_with("op 18  replace  ok\n"));
     assert!(text.contains("\nerror E_ASSERT  stage 5a  assert failed\n  effect applied"));
 }
+
+fn report_with_result_file() -> Report {
+    let mut report = golden_report("ok-replace");
+    report.result_file = Some("/srv/results/work 1.txt".to_owned());
+    report.timing = Some(Timing {
+        parse_ms: Some(1),
+        ..Timing::default()
+    });
+    report
+}
+
+#[test]
+fn text_names_the_result_file_before_the_timing() {
+    let text = render(
+        &report_with_result_file(),
+        &with_verbosity(Verbosity::Detailed),
+    );
+    assert!(text.ends_with("result file /srv/results/work 1.txt\ntiming parse 1ms"));
+}
+
+#[test]
+fn quiet_level_keeps_the_result_file() {
+    let text = render(
+        &report_with_result_file(),
+        &with_verbosity(Verbosity::Quiet),
+    );
+    assert!(text.ends_with("result file /srv/results/work 1.txt"));
+}
+
+#[test]
+fn markdown_and_compact_name_the_result_file() {
+    let report = report_with_result_file();
+    let markdown = RenderOptions {
+        format: OutputFormat::Markdown,
+        ..RenderOptions::default()
+    };
+    let compact = RenderOptions {
+        format: OutputFormat::Compact,
+        ..RenderOptions::default()
+    };
+    assert!(render(&report, &markdown).contains("result file `/srv/results/work 1.txt`"));
+    assert!(
+        render(&report, &compact)
+            .lines()
+            .any(|line| line == "result file=\"/srv/results/work 1.txt\"")
+    );
+}
+
+#[test]
+fn json_carries_the_result_file_and_validates() {
+    let report = report_with_result_file();
+    let options = RenderOptions {
+        format: OutputFormat::Json,
+        ..RenderOptions::default()
+    };
+    let value: serde_json::Value = serde_json::from_str(&render(&report, &options)).unwrap();
+    assert_eq!(value["result_file"], "/srv/results/work 1.txt");
+    assert!(common::report_validator().is_valid(&value));
+}
