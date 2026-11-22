@@ -22,7 +22,7 @@
 //!
 //! let translation = bash::translate("rm -rf /srv/app/build").expect("a bash habit");
 //! assert_eq!(translation.text(), "remove \"/srv/app/build\"");
-//! assert_eq!(translation.rules[0].rule, "B01");
+//! assert_eq!(translation.rules[0].rule.to_string(), "B01");
 //! assert!(bash::translate("remove \"/srv/app/build\"").is_none());
 //! ```
 
@@ -42,7 +42,8 @@ mod tree;
 
 use nurt_contracts::ast::AstDocument;
 use nurt_contracts::error::Error;
-use nurt_contracts::report::Correction;
+
+use crate::record::Correction;
 
 pub use lex::{
     HereDoc, LexError, Operator, PosixToken, PosixTokenKind, Quoting, Redirect, RedirectOp, Word,
@@ -86,12 +87,26 @@ pub struct Translation {
     pub rules: Vec<Correction>,
     /// Assumptions of probable translations.
     pub assumptions: Vec<Assumption>,
-    /// Other interpretations of a probable translation, most likely first;
+    /// Other interpretations of a probable translation, the likeliest first;
     /// at most three.
     pub alternatives: Vec<AstDocument>,
 }
 
 impl Translation {
+    /// Returns the canonical text of every alternative, in rank order.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let translation = nurt_correct::bash::translate("grep -rl \"oldName(\" /srv/app").expect("a bash habit");
+    /// assert_eq!(translation.text(), "search \"oldName(\" \"/srv/app\" output: files");
+    /// assert_eq!(translation.alternative_texts(), vec!["search /oldName\\(/ \"/srv/app\" output: files".to_owned()]);
+    /// ```
+    #[must_use]
+    pub fn alternative_texts(&self) -> Vec<String> {
+        self.alternatives.iter().map(tree::print_document).collect()
+    }
+
     /// Returns the canonical text of the translated program.
     ///
     /// # Examples
@@ -170,14 +185,17 @@ pub fn translate(input: &str) -> Option<Translation> {
 /// use nurt_contracts::error::ErrorCode;
 /// use nurt_correct::bash::{TranslateContext, translate_with};
 ///
-/// let error = translate_with("sudo rm /etc/x", &TranslateContext::default())
+/// let error = translate_with("sudo rm -f /etc/x", &TranslateContext::default())
 ///     .expect("a bash habit")
 ///     .expect_err("sudo is not translated");
-/// assert_eq!(error.code, ErrorCode::Uncorrectable);
-/// assert_eq!(error.fix, vec!["remove \"/etc/x\"".to_owned()]);
+/// assert_eq!(error.code(), ErrorCode::Uncorrectable);
+/// assert_eq!(error.data().fix, vec!["remove \"/etc/x\"".to_owned()]);
 /// ```
 #[must_use]
-pub fn translate_with(input: &str, context: &TranslateContext<'_>) -> Option<Result<Translation, Error>> {
+pub fn translate_with(
+    input: &str,
+    context: &TranslateContext<'_>,
+) -> Option<Result<Translation, Error>> {
     match BashTable::embedded() {
         Ok(table) => translate_with_table(input, context, table),
         Err(error) => Some(Err(Error::new(

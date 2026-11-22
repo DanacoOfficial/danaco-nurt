@@ -6,14 +6,15 @@
 //! A statement is a bash habit when its first word belongs to the habit word
 //! set and it shows at least one feature that exists only in the shell: a
 //! dashed flag, a control or redirection operator other than a single pipe,
-//! a parameter expansion or command substitution, an assignment before the
-//! command, an unquoted pattern, `{}`, or a first word that is a shell
+//! a parameter expansion or command substitution, text in single quotes, an
+//! assignment before the command, an unquoted pattern, `{}`, or a first word
+//! that is a shell
 //! keyword or builtin without a Nurt meaning. Text with Nurt notation
 //! (`|>` or a named argument `name:`) is never a habit, so
 //! `find "/a" glob: "*.go"` stays a Nurt program while `find /a -name "*.go"`
 //! is a habit.
 
-use super::lex::{PosixToken, PosixTokenKind, RedirectOp, Word};
+use super::lex::{PosixToken, PosixTokenKind, Quoting, RedirectOp, Word, WordPart};
 use super::table::BashTable;
 
 pub(crate) fn is_habit(table: &BashTable, tokens: &[PosixToken]) -> bool {
@@ -88,7 +89,6 @@ fn has_shell_feature(tokens: &[PosixToken]) -> bool {
                 feature
             }
             PosixTokenKind::Newline | PosixTokenKind::Comment(_) => false,
-            _ => false,
         };
         if feature {
             return true;
@@ -98,7 +98,7 @@ fn has_shell_feature(tokens: &[PosixToken]) -> bool {
 }
 
 fn word_feature(word: &Word, after_command: bool) -> bool {
-    if word.has_expansion() {
+    if word.has_expansion() || is_single_quoted(word) {
         return true;
     }
     if !after_command {
@@ -107,13 +107,31 @@ fn word_feature(word: &Word, after_command: bool) -> bool {
     is_flag(word) || word.has_unquoted_glob() || word.raw == "{}"
 }
 
+/// Text in single quotes exists only in the shell; the language quotes
+/// text with `"`.
+fn is_single_quoted(word: &Word) -> bool {
+    word.parts.iter().any(|part| {
+        matches!(
+            part,
+            WordPart::Literal {
+                quoting: Quoting::Single,
+                ..
+            }
+        )
+    })
+}
+
 fn is_flag(word: &Word) -> bool {
     let raw = &word.raw;
     let Some(rest) = raw.strip_prefix('-') else {
         return false;
     };
     let rest = rest.strip_prefix('-').unwrap_or(rest);
-    word.is_bare() && rest.chars().next().is_some_and(|c| c.is_ascii_alphanumeric())
+    word.is_bare()
+        && rest
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphanumeric())
 }
 
 #[cfg(test)]
@@ -158,7 +176,9 @@ mod tests {
         assert!(habit("rm `cat /list`"));
         assert!(habit("rm /a/*.tmp"));
         assert!(habit("find /a -exec rm {} +"));
-        assert!(habit("make &"));
+        assert!(habit("sleep 10 &"));
+        assert!(habit("awk '{print $1}' /a"));
+        assert!(!habit("awk \"{print}\" /a"));
     }
 
     #[test]
@@ -183,7 +203,9 @@ mod tests {
     #[test]
     fn negative_number_and_quoted_dash_are_not_flags() {
         let quoted = &lex("rm '-x'").unwrap()[1];
-        let PosixTokenKind::Word(word) = &quoted.kind else { panic!() };
+        let PosixTokenKind::Word(word) = &quoted.kind else {
+            panic!()
+        };
         assert!(!is_flag(word));
         assert!(!habit("cat /a \"-\""));
     }

@@ -93,6 +93,8 @@ pub(crate) struct CommandEntry {
 pub(crate) struct GlobEntry {
     pub(crate) rule: String,
     pub(crate) stages: Vec<TemplateStage>,
+    /// Number of operands of a command whose single pattern is expanded.
+    pub(crate) operands: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -231,6 +233,8 @@ struct RawCommand {
 struct RawGlob {
     rule: String,
     stages: String,
+    #[serde(default = "one")]
+    operands: usize,
 }
 
 #[derive(Deserialize)]
@@ -328,7 +332,12 @@ impl BashTable {
         let raw: RawTable = from_toml(table, "bash")?;
         check_header(&raw.format, &raw.table, &raw.summary, "bash")?;
         let habits_raw: RawHabits = from_toml(habits, "habits_bash")?;
-        check_header(&habits_raw.format, &habits_raw.table, &habits_raw.summary, "habits_bash")?;
+        check_header(
+            &habits_raw.format,
+            &habits_raw.table,
+            &habits_raw.summary,
+            "habits_bash",
+        )?;
         let commands = raw
             .entry
             .into_iter()
@@ -398,9 +407,11 @@ impl BashTable {
     }
 
     /// Commands the table classifies as changing or running.
-    #[must_use]
     pub fn effect_commands(&self) -> impl Iterator<Item = &str> {
-        self.changing.iter().chain(&self.running).map(String::as_str)
+        self.changing
+            .iter()
+            .chain(&self.running)
+            .map(String::as_str)
     }
 
     pub(crate) fn is_shell_only(&self, word: &str) -> bool {
@@ -421,10 +432,6 @@ impl BashTable {
                     && entry.words.iter().zip(words).all(|(a, b)| a == b)
             })
             .max_by_key(|entry| entry.words.len())
-    }
-
-    pub(crate) fn entry(&self, name: &str) -> Option<&CommandEntry> {
-        self.commands.iter().find(|entry| entry.words.join(" ") == name)
     }
 
     pub(crate) fn message(&self, problem: &str) -> Option<&Message> {
@@ -448,7 +455,16 @@ fn applies() -> bool {
     true
 }
 
-fn check_header(format: &str, table: &str, summary: &str, expected: &str) -> Result<(), TableError> {
+fn one() -> usize {
+    1
+}
+
+fn check_header(
+    format: &str,
+    table: &str,
+    summary: &str,
+    expected: &str,
+) -> Result<(), TableError> {
     if summary.is_empty() {
         return Err(table_error(expected, "empty `summary`"));
     }
@@ -456,7 +472,10 @@ fn check_header(format: &str, table: &str, summary: &str, expected: &str) -> Res
         return Err(table_error(expected, &format!("unknown format `{format}`")));
     }
     if table != expected {
-        return Err(table_error(expected, &format!("table name `{table}`, expected `{expected}`")));
+        return Err(table_error(
+            expected,
+            &format!("table name `{table}`, expected `{expected}`"),
+        ));
     }
     Ok(())
 }
@@ -480,8 +499,14 @@ fn compile_command(raw: RawCommand) -> Result<CommandEntry, TableError> {
         .as_deref()
         .map(|text| pipeline(text, &place))
         .transpose()?;
+    let forms = raw
+        .form
+        .into_iter()
+        .map(|form| compile_form(form, &place))
+        .collect::<Result<Vec<_>, _>>()?;
     let target = template
         .as_ref()
+        .or_else(|| forms.first().map(|form| &form.template))
         .and_then(|t| t.stages.last())
         .map(|stage| stage.name.clone())
         .unwrap_or_default();
@@ -489,8 +514,9 @@ fn compile_command(raw: RawCommand) -> Result<CommandEntry, TableError> {
         .glob
         .map(|glob| {
             Ok::<_, TableError>(GlobEntry {
-                rule: glob.rule,
                 stages: stages(&glob.stages, &place)?,
+                operands: glob.operands,
+                rule: glob.rule,
             })
         })
         .transpose()?;
@@ -511,11 +537,7 @@ fn compile_command(raw: RawCommand) -> Result<CommandEntry, TableError> {
             .into_iter()
             .map(|option| compile_option(option, &place))
             .collect::<Result<_, _>>()?,
-        forms: raw
-            .form
-            .into_iter()
-            .map(|form| compile_form(form, &place))
-            .collect::<Result<_, _>>()?,
+        forms,
         stages: raw
             .stage
             .into_iter()
@@ -552,15 +574,29 @@ fn compile_option(raw: RawOption, place: &str) -> Result<OptionEntry, TableError
     });
     let place = format!("{place} option {id}");
     Ok(OptionEntry {
-        args: raw.args.as_deref().map(|a| args(a, &place)).transpose()?.unwrap_or_default(),
+        args: raw
+            .args
+            .as_deref()
+            .map(|a| args(a, &place))
+            .transpose()?
+            .unwrap_or_default(),
         stages: raw
             .stages
             .as_deref()
             .map(|s| stages(s, &place))
             .transpose()?
             .unwrap_or_default(),
-        absent: raw.absent.as_deref().map(|a| args(a, &place)).transpose()?.unwrap_or_default(),
-        class: raw.class.as_deref().map(|c| parse_class(c, &place)).transpose()?,
+        absent: raw
+            .absent
+            .as_deref()
+            .map(|a| args(a, &place))
+            .transpose()?
+            .unwrap_or_default(),
+        class: raw
+            .class
+            .as_deref()
+            .map(|c| parse_class(c, &place))
+            .transpose()?,
         id,
         flags: raw.flags,
         value: raw.value,
@@ -571,7 +607,11 @@ fn compile_option(raw: RawOption, place: &str) -> Result<OptionEntry, TableError
 fn compile_form(raw: RawForm, place: &str) -> Result<FormEntry, TableError> {
     Ok(FormEntry {
         template: pipeline(&raw.template, place)?,
-        class: raw.class.as_deref().map(|c| parse_class(c, place)).transpose()?,
+        class: raw
+            .class
+            .as_deref()
+            .map(|c| parse_class(c, place))
+            .transpose()?,
         when: raw.when,
         rule: raw.rule,
         output: raw.output,
@@ -580,7 +620,8 @@ fn compile_form(raw: RawForm, place: &str) -> Result<FormEntry, TableError> {
 }
 
 fn pipeline(text: &str, place: &str) -> Result<TemplatePipeline, TableError> {
-    parse_pipeline(text).map_err(|error| table_error(place, &format!("template `{text}`: {}", error.0)))
+    parse_pipeline(text)
+        .map_err(|error| table_error(place, &format!("template `{text}`: {}", error.0)))
 }
 
 fn stages(text: &str, place: &str) -> Result<Vec<TemplateStage>, TableError> {
@@ -588,7 +629,8 @@ fn stages(text: &str, place: &str) -> Result<Vec<TemplateStage>, TableError> {
 }
 
 fn args(text: &str, place: &str) -> Result<Vec<TemplateArg>, TableError> {
-    parse_args(text).map_err(|error| table_error(place, &format!("arguments `{text}`: {}", error.0)))
+    parse_args(text)
+        .map_err(|error| table_error(place, &format!("arguments `{text}`: {}", error.0)))
 }
 
 fn from_toml<T: serde::de::DeserializeOwned>(text: &str, place: &str) -> Result<T, TableError> {
@@ -640,8 +682,7 @@ fn value_to_json(value: &Value) -> serde_json::Value {
 mod tests {
     use super::*;
 
-    const HABITS: &str =
-        "format = \"nurt-correction-table/1\"\ntable = \"habits_bash\"\nsummary = \"s\"\nwords = [\"rm\"]\n";
+    const HABITS: &str = "format = \"nurt-correction-table/1\"\ntable = \"habits_bash\"\nsummary = \"s\"\nwords = [\"rm\"]\n";
 
     fn table(body: &str) -> Result<BashTable, TableError> {
         let text = format!(
@@ -661,9 +702,19 @@ mod tests {
     #[test]
     fn header_is_checked() {
         let wrong = "format = \"x\"\ntable = \"bash\"\nsummary = \"s\"\n";
-        assert!(BashTable::parse(wrong, HABITS).unwrap_err().message.contains("unknown format"));
+        assert!(
+            BashTable::parse(wrong, HABITS)
+                .unwrap_err()
+                .message
+                .contains("unknown format")
+        );
         let other = "format = \"nurt-correction-table/1\"\ntable = \"p\"\nsummary = \"s\"\n";
-        assert!(BashTable::parse(other, HABITS).unwrap_err().message.contains("table name"));
+        assert!(
+            BashTable::parse(other, HABITS)
+                .unwrap_err()
+                .message
+                .contains("table name")
+        );
         assert!(BashTable::parse("x = ", HABITS).is_err());
     }
 
@@ -673,8 +724,14 @@ mod tests {
         let bad = "[[entry]]\nname = \"rm\"\nrule = \"B01\"\nclass = \"C\"\nhelp = \"remove\"\ntemplate = \"remove $\"\n";
         let error = table(bad).unwrap_err();
         assert_eq!(error.place, "bash: command rm");
-        let bad_class = "[[entry]]\nname = \"rm\"\nrule = \"B01\"\nclass = \"Q\"\nhelp = \"remove\"\n";
-        assert!(table(bad_class).unwrap_err().message.contains("unknown class"));
+        let bad_class =
+            "[[entry]]\nname = \"rm\"\nrule = \"B01\"\nclass = \"Q\"\nhelp = \"remove\"\n";
+        assert!(
+            table(bad_class)
+                .unwrap_err()
+                .message
+                .contains("unknown class")
+        );
     }
 
     #[test]
@@ -694,14 +751,265 @@ mod tests {
         let body = "[values.kinds]\na = 1\nb = 1.5\nc = true\nd = 2026-11-22\ne = [1]\nf = { g = \"h\" }\n";
         let parsed = table(body).unwrap();
         assert_eq!(parsed.value("kinds", "a"), Some(&serde_json::json!(1)));
-        assert_eq!(parsed.value("kinds", "d"), Some(&serde_json::json!("2026-11-22")));
+        assert_eq!(
+            parsed.value("kinds", "d"),
+            Some(&serde_json::json!("2026-11-22"))
+        );
         assert_eq!(parsed.value_str("kinds", "f"), None);
-        assert_eq!(parsed.value("kinds", "f"), Some(&serde_json::json!({"g": "h"})));
+        assert_eq!(
+            parsed.value("kinds", "f"),
+            Some(&serde_json::json!({"g": "h"}))
+        );
     }
 
     #[test]
     fn table_error_displays_place() {
         let error = table_error("bash", "broken");
         assert_eq!(error.to_string(), "bash: broken");
+    }
+
+    /// Parameters of one catalog command: allowed values and default.
+    type CatalogParams = BTreeMap<String, (Vec<String>, Option<String>)>;
+
+    /// Commands that the translator builds outside the templates of the
+    /// table.
+    const BUILT_STAGES: &[&str] = &[
+        "write",
+        "run",
+        "evaluate",
+        "schedule.create",
+        "lines",
+        "info",
+        "assert",
+        "find",
+    ];
+
+    fn catalog() -> BTreeMap<String, CatalogParams> {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../catalog");
+        let mut commands = BTreeMap::new();
+        for file in std::fs::read_dir(&dir).unwrap() {
+            let path = file.unwrap().path();
+            let toml_file = path
+                .extension()
+                .is_some_and(|extension| extension == "toml");
+            if !toml_file || path.file_name().is_some_and(|name| name == "_index.toml") {
+                continue;
+            }
+            let document: DocumentMut = std::fs::read_to_string(&path).unwrap().parse().unwrap();
+            let Some(list) = document.get("command").and_then(Item::as_array_of_tables) else {
+                continue;
+            };
+            for command in list {
+                let name = command
+                    .get("name")
+                    .and_then(Item::as_str)
+                    .unwrap()
+                    .to_owned();
+                let mut params = CatalogParams::new();
+                for param in command
+                    .get("param")
+                    .and_then(Item::as_array_of_tables)
+                    .into_iter()
+                    .flatten()
+                {
+                    let param_name = param.get("name").and_then(Item::as_str).unwrap().to_owned();
+                    let values = param
+                        .get("values")
+                        .and_then(Item::as_array)
+                        .map(|values| {
+                            values
+                                .iter()
+                                .filter_map(|v| v.as_str().map(str::to_owned))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let default = param
+                        .get("default")
+                        .and_then(Item::as_str)
+                        .map(str::to_owned);
+                    params.insert(param_name, (values, default));
+                }
+                commands.insert(name, params);
+            }
+        }
+        commands
+    }
+
+    /// Every stage of the table; option arguments are attached to the
+    /// target command of their entry.
+    fn stages_of(table: &BashTable) -> Vec<TemplateStage> {
+        let mut stages: Vec<TemplateStage> = Vec::new();
+        for command in &table.commands {
+            let target = |args: &[TemplateArg]| TemplateStage {
+                name: command.target.clone(),
+                args: args.to_vec(),
+            };
+            if let Some(template) = &command.template {
+                stages.extend(template.stages.iter().cloned());
+            }
+            for form in &command.forms {
+                stages.extend(form.template.stages.iter().cloned());
+            }
+            for stage in &command.stages {
+                stages.extend(stage.template.iter().cloned());
+            }
+            if let Some(glob) = &command.glob {
+                stages.extend(glob.stages.iter().cloned());
+            }
+            for option in &command.options {
+                stages.push(target(&option.args));
+                stages.push(target(&option.absent));
+                stages.extend(option.stages.iter().cloned());
+            }
+        }
+        if let Some(source) = &table.glob_source {
+            stages.extend(source.stages.iter().cloned());
+        }
+        stages.push(TemplateStage {
+            name: "find".to_owned(),
+            args: table.glob_hidden.clone(),
+        });
+        for map in ["sed", "awk"] {
+            for value in table.values.get(map).into_iter().flat_map(BTreeMap::values) {
+                let text = value.as_str().unwrap();
+                stages.extend(parse_pipeline(text).unwrap().stages);
+            }
+        }
+        stages.retain(|stage| !stage.name.is_empty());
+        stages
+    }
+
+    #[test]
+    fn commands_parameters_and_values_exist_in_the_catalog() {
+        let catalog = catalog();
+        let table = BashTable::embedded().unwrap();
+        let mut missing = Vec::new();
+        for stage in stages_of(table) {
+            let Some(params) = catalog.get(&stage.name) else {
+                missing.push(format!("command {}", stage.name));
+                continue;
+            };
+            for arg in &stage.args {
+                let Some(name) = &arg.name else { continue };
+                match params.get(name) {
+                    None => missing.push(format!("parameter {}.{name}", stage.name)),
+                    Some((values, _)) => {
+                        if let super::super::template::Node::Const(
+                            nurt_contracts::ast::Expr::Ident { v, .. },
+                        ) = &arg.value
+                            && !values.is_empty()
+                            && !values.contains(v)
+                        {
+                            missing.push(format!("value {}.{name} = {v}", stage.name));
+                        }
+                    }
+                }
+            }
+        }
+        for name in BUILT_STAGES {
+            if !catalog.contains_key(*name) {
+                missing.push(format!("command {name}"));
+            }
+        }
+        for (command, params) in table.parameters() {
+            for param in params {
+                if !catalog
+                    .get(command)
+                    .is_some_and(|known| known.contains_key(param))
+                {
+                    missing.push(format!("listed parameter {command}.{param}"));
+                }
+            }
+        }
+        for command in table.effect_commands() {
+            if !catalog.contains_key(command) {
+                missing.push(format!("effect command {command}"));
+            }
+        }
+        let types = &catalog["find"]["type"].0;
+        for kind in table.values["find_type"].values() {
+            let kind = kind.as_str().unwrap().to_owned();
+            if !types.contains(&kind) {
+                missing.push(format!("value find.type = {kind}"));
+            }
+        }
+        assert!(missing.is_empty(), "{missing:#?}");
+    }
+
+    #[test]
+    fn default_flags_match_catalog_defaults() {
+        let catalog = catalog();
+        let table = BashTable::embedded().unwrap();
+        let mut wrong = Vec::new();
+        for command in &table.commands {
+            for option in command.options.iter().filter(|option| option.default) {
+                for arg in &option.args {
+                    let (Some(name), super::super::template::Node::Const(value)) =
+                        (&arg.name, &arg.value)
+                    else {
+                        continue;
+                    };
+                    let written = match value {
+                        nurt_contracts::ast::Expr::Ident { v, .. } => v.clone(),
+                        nurt_contracts::ast::Expr::Bool { v, .. } => v.to_string(),
+                        _ => continue,
+                    };
+                    let default = catalog
+                        .get(&command.target)
+                        .and_then(|params| params.get(name))
+                        .and_then(|p| p.1.clone());
+                    if default.as_deref() != Some(written.as_str()) {
+                        wrong.push(format!(
+                            "{} {:?}: {name} = {written}, catalog {default:?}",
+                            command.words.join(" "),
+                            option.flags
+                        ));
+                    }
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{wrong:#?}");
+    }
+
+    #[test]
+    fn habit_words_cover_the_first_word_of_every_entry() {
+        let table = BashTable::embedded().unwrap();
+        for command in &table.commands {
+            assert!(table.is_habit(&command.words[0]), "{}", command.words[0]);
+        }
+        for word in &table.shell_only {
+            assert!(table.is_habit(word), "{word}");
+        }
+        let mut words = table.habits().to_vec();
+        words.sort();
+        words.dedup();
+        assert_eq!(words.len(), table.habits().len());
+    }
+
+    #[test]
+    fn rules_of_the_table_are_bash_rules() {
+        let table = BashTable::embedded().unwrap();
+        for rule in table.rules() {
+            let number: u8 = rule.strip_prefix('B').unwrap().parse().unwrap();
+            assert!((1..=40).contains(&number), "{rule}");
+        }
+    }
+
+    #[test]
+    fn glob_entries_name_their_operand_count() {
+        let table = BashTable::embedded().unwrap();
+        let counts: Vec<(String, usize)> = table
+            .commands
+            .iter()
+            .filter_map(|command| {
+                command
+                    .glob
+                    .as_ref()
+                    .map(|glob| (command.words.join(" "), glob.operands))
+            })
+            .collect();
+        assert!(counts.contains(&("rm".to_owned(), 1)));
+        assert!(counts.contains(&("mv".to_owned(), 2)));
+        assert!(counts.contains(&("chmod".to_owned(), 2)));
     }
 }

@@ -15,7 +15,7 @@ use nurt_contracts::error::{Error, ErrorCode};
 
 use super::engine::{self, Given, Parsed};
 use super::lex::Word;
-use super::produce;
+use super::produce::{self, Delivery};
 use super::session::{Session, Variants};
 use super::syntax::{Located, Simple};
 use super::table::CommandEntry;
@@ -41,21 +41,38 @@ pub(crate) fn translate(
     input: Option<&str>,
 ) -> Result<Variants, Error> {
     if input.is_some() {
-        return Err(session.error(ErrorCode::Uncorrectable, "unsupported_stage", simple.span, &[("command", "find")]));
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "unsupported_stage",
+            simple.span,
+            &[("command", "find")],
+        ));
     }
     let start = words
         .iter()
-        .position(|word| word.value.raw.starts_with('-') || word.value.raw == "!" || word.value.raw == "(")
+        .position(|word| {
+            word.value.raw.starts_with('-') || word.value.raw == "!" || word.value.raw == "("
+        })
         .unwrap_or(words.len());
     let (paths, predicates) = words.split_at(start);
     let start_path = match paths {
         [] => engine::located(".", simple.span),
         [path] => path.clone(),
-        _ => return Err(session.error(ErrorCode::Uncorrectable, "too_many_operands", simple.span, &[("command", "find")])),
+        _ => {
+            return Err(session.error(
+                ErrorCode::Uncorrectable,
+                "too_many_operands",
+                simple.span,
+                &[("command", "find")],
+            ));
+        }
     };
     let (parsed, exec) = predicates_of(session, entry, predicates)?;
-    let mut parsed = Parsed { operands: vec![start_path], ..parsed };
-    let mut bindings = engine::bind_operands(session, &parsed.operands)?;
+    let mut parsed = Parsed {
+        operands: vec![start_path],
+        ..parsed
+    };
+    let mut bindings = engine::bind_operands(session, &parsed.operands, false)?;
     let readings = bind_values(session, entry, &parsed, &mut bindings)?;
     let mut pieces = Vec::new();
     for (index, size) in readings.iter().enumerate() {
@@ -65,8 +82,22 @@ pub(crate) fn translate(
         }
         parsed.probable = readings.len() > 1;
         let built = engine::build(session, entry, simple, &parsed, &local, None)?;
-        let mut piece = built.0.into_iter().next().ok_or_else(|| session.error(ErrorCode::Uncorrectable, "no_translation", simple.span, &[("command", "find")]))?;
-        piece.why = Some(if index == 0 { "binary_units" } else { "decimal_units" }.to_owned());
+        let mut piece = built.0.into_iter().next().ok_or_else(|| {
+            session.error(
+                ErrorCode::Uncorrectable,
+                "no_translation",
+                simple.span,
+                &[("command", "find")],
+            )
+        })?;
+        piece.why = Some(
+            if index == 0 {
+                "binary_units"
+            } else {
+                "decimal_units"
+            }
+            .to_owned(),
+        );
         pieces.push(piece);
     }
     let variants = Variants(pieces);
@@ -79,6 +110,7 @@ pub(crate) fn translate(
 /// Command of `-exec … ;` or `-exec … +` with `{}` removed.
 struct Exec {
     words: Vec<Located<Word>>,
+    delivery: Delivery,
     span: Span,
 }
 
@@ -92,49 +124,114 @@ fn predicates_of(
     let mut index = 0;
     while let Some(word) = words.get(index) {
         index += 1;
-        let flag = word.value.literal().unwrap_or_else(|| word.value.raw.clone());
+        let flag = word
+            .value
+            .literal()
+            .unwrap_or_else(|| word.value.raw.clone());
         if flag == "-exec" || flag == "-execdir" {
             let (found, next) = exec_words(session, words, index, word.span)?;
             exec = Some(found);
             index = next;
             continue;
         }
-        let Some(option) = entry.options.iter().position(|option| option.flags.contains(&flag)) else {
+        let Some(option) = entry
+            .options
+            .iter()
+            .position(|option| option.flags.contains(&flag))
+        else {
             return Err(session
-                .error(ErrorCode::Uncorrectable, "unsupported_find_predicate", word.span, &[("predicate", &flag)])
+                .error(
+                    ErrorCode::Uncorrectable,
+                    "unsupported_find_predicate",
+                    word.span,
+                    &[("predicate", &flag)],
+                )
                 .with_help(format!("help {}", entry.help)));
         };
         let value = if entry.options[option].value.is_some() {
             let Some(value) = words.get(index) else {
-                return Err(session.error(ErrorCode::Uncorrectable, "flag_without_value", word.span, &[("flag", &flag)]));
+                return Err(session.error(
+                    ErrorCode::Uncorrectable,
+                    "flag_without_value",
+                    word.span,
+                    &[("flag", &flag)],
+                ));
             };
             index += 1;
             Some(value.clone())
         } else {
             None
         };
-        parsed.given.push(Given { index: option, value, span: word.span });
+        parsed.given.push(Given {
+            index: option,
+            value,
+            span: word.span,
+        });
     }
     Ok((parsed, exec))
 }
 
-fn exec_words(session: &Session<'_>, words: &[Located<Word>], start: usize, span: Span) -> Result<(Exec, usize), Error> {
+fn exec_words(
+    session: &Session<'_>,
+    words: &[Located<Word>],
+    start: usize,
+    span: Span,
+) -> Result<(Exec, usize), Error> {
     let end = words[start..]
         .iter()
         .position(|word| matches!(word.value.literal().as_deref(), Some(";" | "+")))
         .map(|offset| start + offset)
-        .ok_or_else(|| session.error(ErrorCode::Uncorrectable, "unsupported_find_predicate", span, &[("predicate", "-exec")]))?;
+        .ok_or_else(|| {
+            session.error(
+                ErrorCode::Uncorrectable,
+                "unsupported_find_predicate",
+                span,
+                &[("predicate", "-exec")],
+            )
+        })?;
+    let delivery = if words[end].value.literal().as_deref() == Some("+") {
+        Delivery::AllAtOnce
+    } else {
+        Delivery::OnePerRun
+    };
     let command: Vec<Located<Word>> = words[start..end].to_vec();
     let placeholders = command.iter().filter(|word| word.value.raw == "{}").count();
     if placeholders != 1 || command.first().is_none_or(|word| word.value.raw == "{}") {
-        return Err(session.error(ErrorCode::Uncorrectable, "unsupported_find_predicate", span, &[("predicate", "-exec")]));
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "unsupported_find_predicate",
+            span,
+            &[("predicate", "-exec")],
+        ));
     }
-    let words = command.into_iter().filter(|word| word.value.raw != "{}").collect();
-    Ok((Exec { words, span }, end + 1))
+    let words = command
+        .into_iter()
+        .filter(|word| word.value.raw != "{}")
+        .collect();
+    Ok((
+        Exec {
+            words,
+            delivery,
+            span,
+        },
+        end + 1,
+    ))
 }
 
-fn apply_exec(session: &Session<'_>, simple: &Simple, exec: &Exec, variants: Variants) -> Result<Variants, Error> {
-    produce::apply_to_entries(session, simple, &exec.words, variants, false, exec.span)
+fn apply_exec(
+    session: &Session<'_>,
+    simple: &Simple,
+    exec: &Exec,
+    variants: Variants,
+) -> Result<Variants, Error> {
+    produce::apply_to_entries(
+        session,
+        simple,
+        &exec.words,
+        variants,
+        exec.delivery,
+        exec.span,
+    )
 }
 
 /// Binds the computed values of the given predicates; returns the readings
@@ -157,11 +254,22 @@ fn bind_values(
                     .table
                     .value_str("find_type", &text)
                     .ok_or_else(|| invalid(session, value.span, &text))?;
-                bindings.set("type", vec![Bound::Node(Expr::Ident { v: kind.to_owned(), span: Some(value.span) })]);
+                bindings.set(
+                    "type",
+                    vec![Bound::Node(Expr::Ident {
+                        v: kind.to_owned(),
+                        span: Some(value.span),
+                    })],
+                );
             }
             "mtime" | "mmin" => {
-                let unit = if option.id == "mtime" { DAY_MILLIS } else { MINUTE_MILLIS };
-                let (sign, number) = signed(&text).ok_or_else(|| invalid(session, value.span, &text))?;
+                let unit = if option.id == "mtime" {
+                    DAY_MILLIS
+                } else {
+                    MINUTE_MILLIS
+                };
+                let (sign, number) =
+                    signed(&text).ok_or_else(|| invalid(session, value.span, &text))?;
                 bindings.set(&option.id, vec![Bound::Node(age(sign, number, unit))]);
             }
             "size" => readings = size_readings(session, value.span, &text)?,
@@ -173,13 +281,27 @@ fn bind_values(
 
 fn glob(session: &Session<'_>, value: &Located<Word>, text: &str) -> Result<Bound, Error> {
     if text.contains('/') {
-        return Err(session.error(ErrorCode::Uncorrectable, "unsupported_find_predicate", value.span, &[("predicate", text)]));
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "unsupported_find_predicate",
+            value.span,
+            &[("predicate", text)],
+        ));
     }
-    Ok(Bound::Word { text: format!("**/{text}"), span: value.span, bare: false })
+    Ok(Bound::Word {
+        text: format!("**/{text}"),
+        span: value.span,
+        bare: false,
+    })
 }
 
 fn invalid(session: &Session<'_>, span: Span, text: &str) -> Error {
-    session.error(ErrorCode::Uncorrectable, "invalid_value", span, &[("value", text)])
+    session.error(
+        ErrorCode::Uncorrectable,
+        "invalid_value",
+        span,
+        &[("value", text)],
+    )
 }
 
 fn signed(text: &str) -> Option<(Sign, u64)> {
@@ -197,28 +319,47 @@ fn signed(text: &str) -> Option<(Sign, u64)> {
 /// Condition of `-mtime` or `-mmin`: the age in whole units is compared
 /// with the number, so `+N` means at least `N + 1` units.
 fn age(sign: Sign, number: u64, unit: u64) -> Expr {
-    let modified = || Expr::Ident { v: "modified".to_owned(), span: None };
+    let modified = || Expr::Ident {
+        v: "modified".to_owned(),
+        span: None,
+    };
     let ago = |units: u64| Expr::Call {
         function: "ago".to_owned(),
-        args: vec![Expr::Dur { v: units.saturating_mul(unit), span: None }],
+        args: vec![Expr::Dur {
+            v: units.saturating_mul(unit),
+            span: None,
+        }],
         span: None,
     };
     let compare = |op: BinOp, units: u64| binary(op, modified(), ago(units));
     match sign {
         Sign::Less => compare(BinOp::Gt, number),
         Sign::More => compare(BinOp::Le, number.saturating_add(1)),
-        Sign::Exactly => binary(BinOp::And, compare(BinOp::Le, number), compare(BinOp::Gt, number.saturating_add(1))),
+        Sign::Exactly => binary(
+            BinOp::And,
+            compare(BinOp::Le, number),
+            compare(BinOp::Gt, number.saturating_add(1)),
+        ),
     }
 }
 
 /// Readings of `-size`: the size in whole units (rounded up) is compared
 /// with the number.
-fn size_readings(session: &Session<'_>, span: Span, text: &str) -> Result<Vec<Option<Expr>>, Error> {
+fn size_readings(
+    session: &Session<'_>,
+    span: Span,
+    text: &str,
+) -> Result<Vec<Option<Expr>>, Error> {
     let unit = text.chars().last().filter(char::is_ascii_alphabetic);
     let number_text = unit.map_or(text, |_| &text[..text.len() - 1]);
     let (sign, number) = signed(number_text).ok_or_else(|| invalid(session, span, text))?;
     let unit_key = unit.map_or_else(|| "b".to_owned(), |c| c.to_string());
-    let factor = |map: &str| session.table.value(map, &unit_key).and_then(serde_json::Value::as_u64);
+    let factor = |map: &str| {
+        session
+            .table
+            .value(map, &unit_key)
+            .and_then(serde_json::Value::as_u64)
+    };
     let binary_factor = factor("find_size").ok_or_else(|| invalid(session, span, text))?;
     let mut readings = vec![Some(size_condition(sign, number, binary_factor))];
     if let Some(decimal) = factor("find_size_decimal") {
@@ -228,8 +369,14 @@ fn size_readings(session: &Session<'_>, span: Span, text: &str) -> Result<Vec<Op
 }
 
 fn size_condition(sign: Sign, number: u64, factor: u64) -> Expr {
-    let size = || Expr::Ident { v: "size".to_owned(), span: None };
-    let bytes = |units: u64| Expr::Size { v: units.saturating_mul(factor), span: None };
+    let size = || Expr::Ident {
+        v: "size".to_owned(),
+        span: None,
+    };
+    let bytes = |units: u64| Expr::Size {
+        v: units.saturating_mul(factor),
+        span: None,
+    };
     match sign {
         Sign::More => binary(BinOp::Gt, size(), bytes(number)),
         Sign::Less => binary(BinOp::Le, size(), bytes(number.saturating_sub(1))),
@@ -242,7 +389,12 @@ fn size_condition(sign: Sign, number: u64, factor: u64) -> Expr {
 }
 
 fn binary(op: BinOp, left: Expr, right: Expr) -> Expr {
-    Expr::Bin { op, l: Box::new(left), r: Box::new(right), span: None }
+    Expr::Bin {
+        op,
+        l: Box::new(left),
+        r: Box::new(right),
+        span: None,
+    }
 }
 
 #[cfg(test)]
@@ -252,7 +404,15 @@ mod tests {
     use nurt_contracts::ast::{Arg, Stage};
 
     fn show(expr: Expr) -> String {
-        let stage = Stage { name: "filter".to_owned(), args: vec![Arg { name: None, value: expr, span: None }], span: None };
+        let stage = Stage {
+            name: "filter".to_owned(),
+            args: vec![Arg {
+                name: None,
+                value: expr,
+                span: None,
+            }],
+            span: None,
+        };
         print_stage(&stage)
     }
 
@@ -267,8 +427,14 @@ mod tests {
 
     #[test]
     fn ages_follow_find_rounding() {
-        assert_eq!(show(age(Sign::Less, 1, DAY_MILLIS)), "filter modified > ago(1d)");
-        assert_eq!(show(age(Sign::More, 7, DAY_MILLIS)), "filter modified <= ago(8d)");
+        assert_eq!(
+            show(age(Sign::Less, 1, DAY_MILLIS)),
+            "filter modified > ago(1d)"
+        );
+        assert_eq!(
+            show(age(Sign::More, 7, DAY_MILLIS)),
+            "filter modified <= ago(8d)"
+        );
         assert_eq!(
             show(age(Sign::Exactly, 2, MINUTE_MILLIS)),
             "filter modified <= ago(2m) and modified > ago(3m)"
@@ -277,8 +443,17 @@ mod tests {
 
     #[test]
     fn sizes_follow_find_rounding() {
-        assert_eq!(show(size_condition(Sign::More, 1, 1_048_576)), "filter size > 1mib");
-        assert_eq!(show(size_condition(Sign::Less, 1, 1_048_576)), "filter size <= 0b");
-        assert_eq!(show(size_condition(Sign::Exactly, 2, 1024)), "filter size > 1kib and size <= 2kib");
+        assert_eq!(
+            show(size_condition(Sign::More, 1, 1_048_576)),
+            "filter size > 1mib"
+        );
+        assert_eq!(
+            show(size_condition(Sign::Less, 1, 1_048_576)),
+            "filter size <= 0b"
+        );
+        assert_eq!(
+            show(size_condition(Sign::Exactly, 2, 1024)),
+            "filter size > 1kib and size <= 2kib"
+        );
     }
 }

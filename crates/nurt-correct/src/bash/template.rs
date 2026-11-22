@@ -239,7 +239,11 @@ impl Parser {
         let node = self.atom()?;
         if self.eat(&Tok::Dots) {
             let bounded = matches!(self.peek(), Some(Tok::Int(_) | Tok::Slot(_)));
-            let hi = if bounded { Some(Box::new(self.atom()?)) } else { None };
+            let hi = if bounded {
+                Some(Box::new(self.atom()?))
+            } else {
+                None
+            };
             return Ok(Node::Range(Some(Box::new(node)), hi));
         }
         Ok(node)
@@ -518,10 +522,6 @@ impl Bindings {
     pub(crate) fn get(&self, name: &str) -> &[Bound] {
         self.slots.get(name).map_or(&[], Vec::as_slice)
     }
-
-    pub(crate) fn contains(&self, name: &str) -> bool {
-        !self.get(name).is_empty()
-    }
 }
 
 /// Converts a bound word into a node; implemented by the translator, which
@@ -602,7 +602,11 @@ fn slot_name(node: &Node) -> &str {
 }
 
 /// Fills a node; a slot yields one node per bound value.
-fn fill_node<C: Convert>(node: &Node, bindings: &Bindings, convert: &C) -> Result<Vec<Expr>, C::Error> {
+fn fill_node<C: Convert>(
+    node: &Node,
+    bindings: &Bindings,
+    convert: &C,
+) -> Result<Vec<Expr>, C::Error> {
     let single = |expr: Expr| Ok(vec![expr]);
     match node {
         Node::Const(expr) => single(expr.clone()),
@@ -625,7 +629,11 @@ fn fill_node<C: Convert>(node: &Node, bindings: &Bindings, convert: &C) -> Resul
             let mut filled = Vec::new();
             for (key, value) in entries {
                 if let Some(v) = fill_one(value, bindings, convert)? {
-                    filled.push(MapEntry { k: key.clone(), v });
+                    filled.push(MapEntry {
+                        k: key.clone(),
+                        v,
+                        span: None,
+                    });
                 }
             }
             single(Expr::Map {
@@ -681,7 +689,11 @@ fn fill_node<C: Convert>(node: &Node, bindings: &Bindings, convert: &C) -> Resul
     }
 }
 
-fn fill_one<C: Convert>(node: &Node, bindings: &Bindings, convert: &C) -> Result<Option<Expr>, C::Error> {
+fn fill_one<C: Convert>(
+    node: &Node,
+    bindings: &Bindings,
+    convert: &C,
+) -> Result<Option<Expr>, C::Error> {
     Ok(fill_node(node, bindings, convert)?.into_iter().next())
 }
 
@@ -761,7 +773,12 @@ mod tests {
     fn word(text: &str) -> Bound {
         Bound::Word {
             text: text.to_owned(),
-            span: Span { line: 1, column: 1, end_line: 1, end_column: 2 },
+            span: Span {
+                line: 1,
+                column: 1,
+                end_line: 1,
+                end_column: 2,
+            },
             bare: true,
         }
     }
@@ -769,14 +786,21 @@ mod tests {
     fn render(template: &str, bindings: &Bindings) -> Result<String, String> {
         let parsed = parse_pipeline(template).map_err(|e| e.0)?;
         let stages = fill_pipeline(&parsed, bindings, &Plain, None)?;
-        Ok(stages.iter().map(print_stage).collect::<Vec<_>>().join(" |> "))
+        Ok(stages
+            .iter()
+            .map(print_stage)
+            .collect::<Vec<_>>()
+            .join(" |> "))
     }
 
     #[test]
     fn slots_spread_into_positional_arguments() {
         let mut bindings = Bindings::default();
         bindings.set("all", vec![word("/a"), word("/b")]);
-        assert_eq!(render("remove $all", &bindings).unwrap(), "remove \"/a\" \"/b\"");
+        assert_eq!(
+            render("remove $all", &bindings).unwrap(),
+            "remove \"/a\" \"/b\""
+        );
     }
 
     #[test]
@@ -785,14 +809,21 @@ mod tests {
         bindings.set("1", vec![word("/f")]);
         bindings.set("user", vec![word("u")]);
         assert_eq!(
-            render("attributes $1 owner: $user:text group: $group:text", &bindings).unwrap(),
+            render(
+                "attributes $1 owner: $user:text group: $group:text",
+                &bindings
+            )
+            .unwrap(),
             "attributes \"/f\" owner: \"u\""
         );
     }
 
     #[test]
     fn missing_positional_slot_is_an_error() {
-        assert_eq!(render("read $1", &Bindings::default()).unwrap_err(), "missing 1");
+        assert_eq!(
+            render("read $1", &Bindings::default()).unwrap_err(),
+            "missing 1"
+        );
     }
 
     #[test]
@@ -800,19 +831,36 @@ mod tests {
         let mut bindings = Bindings::default();
         bindings.set("value", vec![word("10")]);
         bindings.set("1", vec![word("/f")]);
-        assert_eq!(render("read $1 lines: ..$value:int", &bindings).unwrap(), "read \"/f\" lines: ..10");
-        assert_eq!(render("read $1 lines: $value:int..", &bindings).unwrap(), "read \"/f\" lines: 10..");
+        assert_eq!(
+            render("read $1 lines: ..$value:int", &bindings).unwrap(),
+            "read \"/f\" lines: ..10"
+        );
+        assert_eq!(
+            render("read $1 lines: $value:int..", &bindings).unwrap(),
+            "read \"/f\" lines: 10.."
+        );
         assert_eq!(
             render("run [\"x\", $1:text] env: {\"A\": $value:text}", &bindings).unwrap(),
             "run [\"x\", \"/f\"] env: {\"A\": \"10\"}"
         );
         assert_eq!(
-            render("filter size > 0 and not hidden |> filter text ~ /a\\/b/i", &bindings).unwrap(),
+            render(
+                "filter size > 0 and not hidden |> filter text ~ /a\\/b/i",
+                &bindings
+            )
+            .unwrap(),
             "filter size > 0 and not hidden |> filter text ~ /a\\/b/i"
         );
-        assert_eq!(render("evaluate now()", &bindings).unwrap(), "evaluate now()");
         assert_eq!(
-            render("write $1 from: (lines $1 |> count) mode: overwrite", &bindings).unwrap(),
+            render("evaluate now()", &bindings).unwrap(),
+            "evaluate now()"
+        );
+        assert_eq!(
+            render(
+                "write $1 from: (lines $1 |> count) mode: overwrite",
+                &bindings
+            )
+            .unwrap(),
             "write \"/f\" from: (lines \"/f\" |> count) mode: overwrite"
         );
     }
@@ -821,7 +869,10 @@ mod tests {
     fn named_slot_with_several_values_becomes_a_list() {
         let mut bindings = Bindings::default();
         bindings.set("paths", vec![word("/a"), word("/b")]);
-        assert_eq!(render("info in: $paths", &bindings).unwrap(), "info in: [\"/a\", \"/b\"]");
+        assert_eq!(
+            render("info in: $paths", &bindings).unwrap(),
+            "info in: [\"/a\", \"/b\"]"
+        );
     }
 
     #[test]
@@ -849,12 +900,31 @@ mod tests {
 
     #[test]
     fn constants_keep_their_kind() {
-        let parsed = parse_pipeline("x a: true b: null c: \"t\\n\" d: [1, 2] e: git.status").unwrap();
+        let parsed =
+            parse_pipeline("x a: true b: null c: \"t\\n\" d: [1, 2] e: git.status").unwrap();
         let args = &parsed.stages[0].args;
-        assert_eq!(args[0].value, Node::Const(Expr::Bool { v: true, span: None }));
+        assert_eq!(
+            args[0].value,
+            Node::Const(Expr::Bool {
+                v: true,
+                span: None
+            })
+        );
         assert_eq!(args[1].value, Node::Const(Expr::Null { span: None }));
-        assert_eq!(args[2].value, Node::Const(Expr::Text { v: "t\n".to_owned(), span: None }));
+        assert_eq!(
+            args[2].value,
+            Node::Const(Expr::Text {
+                v: "t\n".to_owned(),
+                span: None
+            })
+        );
         assert!(matches!(&args[3].value, Node::List(items) if items.len() == 2));
-        assert_eq!(args[4].value, Node::Const(Expr::Ident { v: "git.status".to_owned(), span: None }));
+        assert_eq!(
+            args[4].value,
+            Node::Const(Expr::Ident {
+                v: "git.status".to_owned(),
+                span: None
+            })
+        );
     }
 }

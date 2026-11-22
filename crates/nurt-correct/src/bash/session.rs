@@ -11,17 +11,22 @@ use nurt_contracts::ast::{
     Arg, AstDocument, Expr, Head, Let, MapEntry, Pipeline, Ref, Span, Stage, Statement,
 };
 use nurt_contracts::error::{At, Candidate, Error, ErrorCode, Stage as ErrorStage};
-use nurt_contracts::report::{Correction, CorrectionClass, TextPosition};
+use nurt_contracts::report::{self, CorrectionClass, TextPosition};
+
+use crate::record::Correction;
 
 use super::lex::{RedirectOp, Word, WordPart, lex};
 use super::syntax::{self, Command, Connector, Item, Located, Pipe, Script, Separator, Simple};
 use super::table::BashTable;
 use super::template::{Bound, Conversion, Convert};
-use super::tree::{document, print_pipeline, print_program};
+use super::tree::{document, print_document, print_pipeline, print_program};
 use super::{Assumption, Mode, TranslateContext, Translation, detect, engine, produce};
 
-/// Most alternatives kept for one translation.
+/// Largest number of alternatives kept for one translation.
 pub(crate) const MAX_ALTERNATIVES: usize = 3;
+
+/// Options of `sudo` that take a value.
+const PRIVILEGE_VALUE_FLAGS: &[&str] = &["-u", "-g", "--user", "--group"];
 
 /// A translated pipeline fragment.
 #[derive(Debug, Clone, PartialEq)]
@@ -31,7 +36,7 @@ pub(crate) struct Piece {
     pub(crate) why: Option<String>,
 }
 
-/// Interpretations of a fragment, the most likely first.
+/// Interpretations of a fragment, the likeliest first.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Variants(pub(crate) Vec<Piece>);
 
@@ -167,7 +172,11 @@ struct Step<'s> {
 fn steps(script: &Script) -> Vec<Step<'_>> {
     let mut steps = Vec::new();
     for item in &script.items {
-        let link = if steps.is_empty() { Link::First } else { Link::Sequence };
+        let link = if steps.is_empty() {
+            Link::First
+        } else {
+            Link::Sequence
+        };
         push_item(&mut steps, item, link);
     }
     steps
@@ -176,13 +185,14 @@ fn steps(script: &Script) -> Vec<Step<'_>> {
 fn push_item<'s>(steps: &mut Vec<Step<'s>>, item: &'s Item, link: Link) {
     let background = item.separator == Some(Separator::Background);
     let count = item.rest.len() + 1;
-    let pipes = std::iter::once((link, &item.first)).chain(item.rest.iter().map(|(connector, pipe)| {
-        let link = match connector {
-            Connector::And => Link::And,
-            Connector::Or => Link::Or,
-        };
-        (link, pipe)
-    }));
+    let pipes =
+        std::iter::once((link, &item.first)).chain(item.rest.iter().map(|(connector, pipe)| {
+            let link = match connector {
+                Connector::And => Link::And,
+                Connector::Or => Link::Or,
+            };
+            (link, pipe)
+        }));
     for (index, (link, pipe)) in pipes.enumerate() {
         steps.push(Step {
             pipe,
@@ -193,11 +203,18 @@ fn push_item<'s>(steps: &mut Vec<Step<'s>>, item: &'s Item, link: Link) {
 }
 
 impl<'a> Session<'a> {
-    pub(crate) fn new(table: &'a BashTable, context: &'a TranslateContext<'a>, input: &str) -> Self {
+    pub(crate) fn new(
+        table: &'a BashTable,
+        context: &'a TranslateContext<'a>,
+        input: &str,
+    ) -> Self {
         Self {
             table,
             context,
-            lines: input.split('\n').map(|line| line.chars().collect()).collect(),
+            lines: input
+                .split('\n')
+                .map(|line| line.chars().collect())
+                .collect(),
             cwd: RefCell::new(None),
             log: RefCell::new(Log::default()),
             followed: Cell::new(false),
@@ -206,8 +223,8 @@ impl<'a> Session<'a> {
 
     fn script(&self, script: &Script) -> Result<Translation, Error> {
         let steps = steps(script);
-        if let Some(span) = compound(&steps) {
-            return Err(self.loop_error(span));
+        if let Some((span, keyword)) = compound(&steps) {
+            return Err(self.loop_error(span, keyword));
         }
         if let Some(index) = steps.iter().position(|step| step.link == Link::Or) {
             return Err(self.alternative_branch(&steps, index));
@@ -265,14 +282,22 @@ impl<'a> Session<'a> {
     }
 
     fn word(&self, simple: &Simple, index: usize) -> Option<String> {
-        simple.words.get(index).and_then(|word| word.value.literal())
+        simple
+            .words
+            .get(index)
+            .and_then(|word| word.value.literal())
     }
 
     fn change_directory(&self, simple: &Simple, last: bool) -> Result<(), Error> {
         let target = simple.words.get(1).and_then(|word| word.value.literal());
         let absolute = target.as_deref().is_some_and(is_absolute) && simple.words.len() == 2;
         if last || !absolute {
-            return Err(self.error(ErrorCode::Uncorrectable, "current_directory", simple.span, &[]));
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "current_directory",
+                simple.span,
+                &[],
+            ));
         }
         let directory = trim_trailing_slash(target.as_deref().unwrap_or_default());
         *self.cwd.borrow_mut() = Some(directory.clone());
@@ -288,12 +313,22 @@ impl<'a> Session<'a> {
 
     fn export(&self, simple: &Simple, last: bool) -> Result<Vec<(String, Bound)>, Error> {
         if last {
-            return Err(self.error(ErrorCode::Uncorrectable, "environment_without_program", simple.span, &[]));
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "environment_without_program",
+                simple.span,
+                &[],
+            ));
         }
         let mut env = Vec::new();
         for word in &simple.words[1..] {
             let Some((name, value)) = word.value.raw.split_once('=') else {
-                return Err(self.error(ErrorCode::Uncorrectable, "environment_without_program", simple.span, &[]));
+                return Err(self.error(
+                    ErrorCode::Uncorrectable,
+                    "environment_without_program",
+                    simple.span,
+                    &[],
+                ));
             };
             let value = lex(value)
                 .ok()
@@ -309,21 +344,35 @@ impl<'a> Session<'a> {
     }
 
     pub(crate) fn text_bound(&self, text: String, span: Span) -> Bound {
-        Bound::Word { text, span, bare: false }
+        Bound::Word {
+            text,
+            span,
+            bare: false,
+        }
     }
 
     /// Translates a pipeline `A | B | C` into `A' |> B' |> C'`.
     pub(crate) fn pipe(&self, pipe: &Pipe, options: &RunOptions) -> Result<Variants, Error> {
         if pipe.negated {
-            return Err(self.error(ErrorCode::Uncorrectable, "unsupported_syntax", pipe.span, &[("reason", "negated pipeline")]));
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "unsupported_syntax",
+                pipe.span,
+                &[("reason", "negated pipeline")],
+            ));
         }
         let last = pipe.commands.len() - 1;
         let mut result: Option<Variants> = None;
         for (index, command) in pipe.commands.iter().enumerate() {
-            let Command::Simple(simple) = command else {
-                return Err(self.loop_error(syntax::command_span(command)));
+            let simple = match command {
+                Command::Simple(simple) => simple,
+                Command::Compound { keyword, span } => return Err(self.loop_error(*span, keyword)),
             };
-            let own = if index == last { options.clone() } else { RunOptions::default() };
+            let own = if index == last {
+                options.clone()
+            } else {
+                RunOptions::default()
+            };
             let name = simple.words.first().and_then(|word| word.value.literal());
             result = Some(match (result, name.as_deref()) {
                 (None, _) => {
@@ -333,16 +382,31 @@ impl<'a> Session<'a> {
                     head?
                 }
                 (Some(previous), Some("xargs")) => produce::xargs(self, simple, previous)?,
-                (Some(previous), Some("tee")) if index == last => produce::tee(self, simple, previous)?,
+                (Some(previous), Some("tee")) if index == last => {
+                    produce::tee(self, simple, previous)?
+                }
                 (Some(previous), _) => {
                     let kind = previous.primary().kind.clone();
                     let stage = self.simple(simple, Some(&kind), &own)?;
-                    self.record("B24", CorrectionClass::Certain, simple.span, piece_text(stage.primary()), "pipe");
+                    self.record(
+                        "B24",
+                        CorrectionClass::Certain,
+                        simple.span,
+                        piece_text(stage.primary()),
+                        "pipe",
+                    );
                     previous.then(stage)
                 }
             });
         }
-        let result = result.ok_or_else(|| self.error(ErrorCode::Uncorrectable, "unsupported_syntax", pipe.span, &[("reason", "empty pipeline")]))?;
+        let result = result.ok_or_else(|| {
+            self.error(
+                ErrorCode::Uncorrectable,
+                "unsupported_syntax",
+                pipe.span,
+                &[("reason", "empty pipeline")],
+            )
+        })?;
         match pipe.commands.last() {
             Some(Command::Simple(simple)) => match produce::output_target(simple) {
                 Some(output) => produce::write_from(self, &output, result),
@@ -354,11 +418,19 @@ impl<'a> Session<'a> {
 
     /// Translates a simple command at the head of a pipeline (`input` is
     /// `None`) or as a stage receiving records of the given kind.
-    pub(crate) fn simple(&self, simple: &Simple, input: Option<&str>, options: &RunOptions) -> Result<Variants, Error> {
+    pub(crate) fn simple(
+        &self,
+        simple: &Simple,
+        input: Option<&str>,
+        options: &RunOptions,
+    ) -> Result<Variants, Error> {
         let mut options = options.clone();
         for assignment in &simple.assignments {
             let value = assignment.value.literal().unwrap_or_default();
-            options.env.push((assignment.name.clone(), self.text_bound(value, assignment.span)));
+            options.env.push((
+                assignment.name.clone(),
+                self.text_bound(value, assignment.span),
+            ));
         }
         produce::redirected(self, simple, input, &mut options)
     }
@@ -373,15 +445,30 @@ impl<'a> Session<'a> {
         options: &RunOptions,
     ) -> Result<Variants, Error> {
         let Some(first) = words.first() else {
-            return Err(self.error(ErrorCode::Uncorrectable, "unsupported_syntax", simple.span, &[("reason", "no command")]));
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "unsupported_syntax",
+                simple.span,
+                &[("reason", "no command")],
+            ));
         };
-        let name = first.value.literal().unwrap_or_else(|| first.value.raw.clone());
+        let name = first
+            .value
+            .literal()
+            .unwrap_or_else(|| first.value.raw.clone());
         match name.as_str() {
             "sudo" => return Err(self.privilege(simple, &words[1..], input, options)),
             "time" | "nohup" if words.len() > 1 => {
-                let rule = if name == "time" { "B30" } else { "B29" };
                 let inner = self.words(simple, &words[1..], input, options)?;
-                self.record(rule, CorrectionClass::Certain, first.span, piece_text(inner.primary()), "habit");
+                if name == "time" {
+                    self.record(
+                        "B30",
+                        CorrectionClass::Certain,
+                        first.span,
+                        piece_text(inner.primary()),
+                        "habit",
+                    );
+                }
                 return Ok(inner);
             }
             "command" if words.len() > 1 && !is_lookup(words) => {
@@ -391,12 +478,25 @@ impl<'a> Session<'a> {
                 let mut options = options.clone();
                 options.timeout = Some(self.operand(&words[1])?);
                 let inner = self.words(simple, &words[2..], input, &options)?;
-                self.record("B30", CorrectionClass::Certain, first.span, piece_text(inner.primary()), "habit");
+                self.record(
+                    "B30",
+                    CorrectionClass::Certain,
+                    first.span,
+                    piece_text(inner.primary()),
+                    "habit",
+                );
                 return Ok(inner);
             }
-            "env" if words.len() > 1 => return self.env_prefix(simple, &words[1..], input, options),
+            "env" if words.len() > 1 => {
+                return self.env_prefix(simple, &words[1..], input, options);
+            }
             "cd" | "export" => {
-                return Err(self.error(ErrorCode::Uncorrectable, "current_directory", simple.span, &[]));
+                return Err(self.error(
+                    ErrorCode::Uncorrectable,
+                    "current_directory",
+                    simple.span,
+                    &[],
+                ));
             }
             _ => {}
         }
@@ -406,39 +506,81 @@ impl<'a> Session<'a> {
             .collect();
         let translated = match self.table.command(&names) {
             _ if name == "git" => engine::git(self, simple, words, input)?,
-            Some(entry) => engine::command(self, entry, simple, &words[entry.words.len()..], input)?,
+            Some(entry) => {
+                engine::command(self, entry, simple, &words[entry.words.len()..], input)?
+            }
             None if self.table.is_habit(&name) => {
-                return Err(self.error(ErrorCode::Uncorrectable, "no_translation", simple.span, &[("command", &name)]));
+                return Err(self.error(
+                    ErrorCode::Uncorrectable,
+                    "no_translation",
+                    simple.span,
+                    &[("command", &name)],
+                ));
             }
             None if input.is_some() => {
-                return Err(self.error(ErrorCode::Uncorrectable, "unsupported_stage", simple.span, &[("command", &name)]));
+                return Err(self.error(
+                    ErrorCode::Uncorrectable,
+                    "unsupported_stage",
+                    simple.span,
+                    &[("command", &name)],
+                ));
             }
             None => self.run_program(simple, words, None)?,
         };
         self.apply_run_options(translated, options, simple.span)
     }
 
-    fn env_prefix(&self, simple: &Simple, words: &[Located<Word>], input: Option<&str>, options: &RunOptions) -> Result<Variants, Error> {
+    fn env_prefix(
+        &self,
+        simple: &Simple,
+        words: &[Located<Word>],
+        input: Option<&str>,
+        options: &RunOptions,
+    ) -> Result<Variants, Error> {
         let mut options = options.clone();
         let mut rest = words;
         while let Some((first, tail)) = rest.split_first() {
             let Some((name, value)) = first.value.raw.split_once('=') else {
                 break;
             };
-            options.env.push((name.to_owned(), self.text_bound(value.to_owned(), first.span)));
+            options.env.push((
+                name.to_owned(),
+                self.text_bound(value.to_owned(), first.span),
+            ));
             rest = tail;
         }
         if rest.is_empty() {
-            return Err(self.error(ErrorCode::Uncorrectable, "environment_without_program", simple.span, &[]));
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "environment_without_program",
+                simple.span,
+                &[],
+            ));
         }
         self.words(simple, rest, input, &options)
     }
 
-    fn privilege(&self, simple: &Simple, words: &[Located<Word>], input: Option<&str>, options: &RunOptions) -> Error {
-        let inner = words
-            .iter()
-            .position(|word| !word.value.raw.starts_with('-'))
-            .map_or(&[][..], |start| &words[start..]);
+    /// `sudo CMD`: never translated; the fix is the translation of `CMD`
+    /// without the options of `sudo`.
+    fn privilege(
+        &self,
+        simple: &Simple,
+        words: &[Located<Word>],
+        input: Option<&str>,
+        options: &RunOptions,
+    ) -> Error {
+        let mut inner = words;
+        while let Some((first, tail)) = inner.split_first() {
+            let flag = first.value.raw.as_str();
+            if !flag.starts_with('-') {
+                break;
+            }
+            inner = if PRIVILEGE_VALUE_FLAGS.contains(&flag) {
+                tail.get(1..).unwrap_or_default()
+            } else {
+                tail
+            };
+        }
         let fix = if inner.is_empty() {
             None
         } else {
@@ -446,7 +588,12 @@ impl<'a> Session<'a> {
                 .ok()
                 .map(|variants| self.program_text(&variants))
         };
-        let error = self.error(ErrorCode::Uncorrectable, "privilege_elevation", simple.span, &[]);
+        let error = self.error(
+            ErrorCode::Uncorrectable,
+            "privilege_elevation",
+            simple.span,
+            &[],
+        );
         match fix {
             Some(text) => error.with_fix(text),
             None => error,
@@ -455,7 +602,12 @@ impl<'a> Session<'a> {
 
     /// Adds run options to the translated program; they apply only to
     /// `run`.
-    fn apply_run_options(&self, variants: Variants, options: &RunOptions, span: Span) -> Result<Variants, Error> {
+    fn apply_run_options(
+        &self,
+        variants: Variants,
+        options: &RunOptions,
+        span: Span,
+    ) -> Result<Variants, Error> {
         if options.is_empty() {
             return Ok(variants);
         }
@@ -465,8 +617,17 @@ impl<'a> Session<'a> {
             .last()
             .is_some_and(|stage| stage.name == "run");
         if !is_run {
-            let problem = if options.background { "background_change" } else { "options_without_program" };
-            return Err(self.error(ErrorCode::Uncorrectable, problem, options.span.unwrap_or(span), &[]));
+            let problem = if options.background {
+                "background_change"
+            } else {
+                "options_without_program"
+            };
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                problem,
+                options.span.unwrap_or(span),
+                &[],
+            ));
         }
         let args = self.run_args(options);
         let variants = variants.map(|mut piece| {
@@ -477,10 +638,22 @@ impl<'a> Session<'a> {
         });
         let text = piece_text(variants.primary());
         if !options.env.is_empty() {
-            self.record("B31", CorrectionClass::Certain, options.span.unwrap_or(span), text.clone(), "habit");
+            self.record(
+                "B31",
+                CorrectionClass::Certain,
+                options.span.unwrap_or(span),
+                text.clone(),
+                "habit",
+            );
         }
         if options.background {
-            self.record("B29", CorrectionClass::Certain, options.span.unwrap_or(span), text, "habit");
+            self.record(
+                "B29",
+                CorrectionClass::Certain,
+                options.span.unwrap_or(span),
+                text,
+                "habit",
+            );
         }
         Ok(variants)
     }
@@ -494,10 +667,20 @@ impl<'a> Session<'a> {
                 .filter_map(|(name, value)| {
                     self.convert(value, Conversion::Text)
                         .ok()
-                        .map(|v| MapEntry { k: name.clone(), v })
+                        .map(|v| MapEntry {
+                            k: name.clone(),
+                            v,
+                            span: None,
+                        })
                 })
                 .collect();
-            args.push(named("env", Expr::Map { entries, span: None }));
+            args.push(named(
+                "env",
+                Expr::Map {
+                    entries,
+                    span: None,
+                },
+            ));
         }
         if let Some(timeout) = &options.timeout
             && let Ok(value) = self.convert(timeout, Conversion::Duration)
@@ -505,20 +688,44 @@ impl<'a> Session<'a> {
             args.push(named("timeout", value));
         }
         if options.background {
-            args.push(named("background", Expr::Bool { v: true, span: None }));
+            args.push(named(
+                "background",
+                Expr::Bool {
+                    v: true,
+                    span: None,
+                },
+            ));
         }
         if options.merge_stderr {
-            args.push(named("merge_stderr", Expr::Bool { v: true, span: None }));
+            args.push(named(
+                "merge_stderr",
+                Expr::Bool {
+                    v: true,
+                    span: None,
+                },
+            ));
         }
         if options.quiet {
-            args.push(named("show", Expr::Ident { v: "none".to_owned(), span: None }));
+            args.push(named(
+                "show",
+                Expr::Ident {
+                    v: "none".to_owned(),
+                    span: None,
+                },
+            ));
         }
         args
     }
 
     /// Translates a program that is not in the table into `run`; the
     /// working directory comes only from `cd` in the same line.
-    pub(crate) fn run_program(&self, simple: &Simple, words: &[Located<Word>], cwd: Option<String>) -> Result<Variants, Error> {
+    pub(crate) fn run_program(
+        &self,
+        simple: &Simple,
+        words: &[Located<Word>],
+        cwd: Option<String>,
+    ) -> Result<Variants, Error> {
+        self.reject_glob(words)?;
         let mut items = Vec::new();
         for word in words {
             items.push(match self.operand(word)? {
@@ -538,20 +745,46 @@ impl<'a> Session<'a> {
             name: "run".to_owned(),
             args: vec![
                 positional(command),
-                named("cwd", Expr::Text { v: directory, span: None }),
+                named(
+                    "cwd",
+                    Expr::Text {
+                        v: directory,
+                        span: None,
+                    },
+                ),
             ],
             span: Some(simple.span),
         };
-        self.record("B38", CorrectionClass::Certain, simple.span, super::tree::print_stage(&stage), "habit");
+        self.record(
+            "B38",
+            CorrectionClass::Certain,
+            simple.span,
+            super::tree::print_stage(&stage),
+            "habit",
+        );
         Ok(Variants::one(vec![stage], "exec"))
     }
 
     fn missing_directory(&self, simple: &Simple, command: Expr, words: &[Located<Word>]) -> Error {
-        let mut error = self.error(ErrorCode::Uncorrectable, "working_directory", simple.span, &[]);
+        let mut error = self.error(
+            ErrorCode::Uncorrectable,
+            "working_directory",
+            simple.span,
+            &[],
+        );
         for candidate in self.directory_candidates(words) {
             let stage = Stage {
                 name: "run".to_owned(),
-                args: vec![positional(command.clone()), named("cwd", Expr::Text { v: candidate, span: None })],
+                args: vec![
+                    positional(command.clone()),
+                    named(
+                        "cwd",
+                        Expr::Text {
+                            v: candidate,
+                            span: None,
+                        },
+                    ),
+                ],
                 span: None,
             };
             error = error.with_fix(super::tree::print_stage(&stage));
@@ -563,9 +796,16 @@ impl<'a> Session<'a> {
     /// the call parameter `base` and the directories of absolute paths in
     /// the command.
     pub(crate) fn directory_candidates(&self, words: &[Located<Word>]) -> Vec<String> {
-        let mut candidates: Vec<String> = self.context.base.map(trim_trailing_slash).into_iter().collect();
+        let mut candidates: Vec<String> = self
+            .context
+            .base
+            .map(trim_trailing_slash)
+            .into_iter()
+            .collect();
         for word in words {
-            let Some(text) = word.value.literal() else { continue };
+            let Some(text) = word.value.literal() else {
+                continue;
+            };
             if !is_absolute(&text) {
                 continue;
             }
@@ -583,8 +823,27 @@ impl<'a> Session<'a> {
         candidates
     }
 
+    /// Rejects unquoted shell patterns, which the shell expands before the
+    /// command runs.
+    pub(crate) fn reject_glob(&self, words: &[Located<Word>]) -> Result<(), Error> {
+        match words.iter().find(|word| is_glob(&word.value)) {
+            Some(word) => Err(self.pattern_error(word)),
+            None => Ok(()),
+        }
+    }
+
+    pub(crate) fn pattern_error(&self, word: &Located<Word>) -> Error {
+        self.error(
+            ErrorCode::Uncorrectable,
+            "unsupported_pattern",
+            word.span,
+            &[("pattern", &word.value.raw)],
+        )
+    }
+
     /// Binds an operand word: literal text, a `let` reference for `$NAME`,
-    /// or a named result for `$(…)`.
+    /// or a named result for `$(…)`. Empty quotes around a single expansion
+    /// (`"$NAME"`) do not change it.
     pub(crate) fn operand(&self, word: &Located<Word>) -> Result<Bound, Error> {
         if let Some(text) = word.value.literal() {
             return Ok(Bound::Word {
@@ -593,27 +852,65 @@ impl<'a> Session<'a> {
                 bare: word.value.is_bare(),
             });
         }
-        match word.value.parts.as_slice() {
+        let parts: Vec<&WordPart> = word
+            .value
+            .parts
+            .iter()
+            .filter(|part| !matches!(part, WordPart::Literal { text, .. } if text.is_empty()))
+            .collect();
+        match parts.as_slice() {
             [WordPart::Variable { name, .. }] => self.variable(name, word),
-            [WordPart::Substitution { body, arithmetic: false, .. }] => produce::substitution(self, body, word),
+            [
+                WordPart::Substitution {
+                    body,
+                    arithmetic: false,
+                    ..
+                },
+            ] => produce::substitution(self, body, word),
             _ => Err(self.expansion_error(word)),
         }
     }
 
     fn variable(&self, name: &str, word: &Located<Word>) -> Result<Bound, Error> {
         let lower = name.to_ascii_lowercase();
-        if self.context.lets.iter().any(|known| *known == lower) {
-            let reference = Ref { name: lower.clone(), fields: Vec::new(), span: Some(word.span) };
-            self.record("B25", CorrectionClass::Certain, word.span, format!("@{lower}"), "ref");
+        if self.context.lets.contains(&lower) {
+            let reference = Ref {
+                name: lower.clone(),
+                fields: Vec::new(),
+                span: Some(word.span),
+            };
+            self.record(
+                "B25",
+                CorrectionClass::Certain,
+                word.span,
+                format!("@{lower}"),
+                "ref",
+            );
             return Ok(Bound::Node(Expr::Ref(reference)));
         }
-        let problem = if self.table.value_str("host_variables", name).is_some() {
-            "host_variable"
-        } else {
-            "unknown_variable"
-        };
-        let hint = self.table.value_str("host_variables", name).unwrap_or_default();
-        Err(self.error(ErrorCode::Uncorrectable, problem, word.span, &[("name", name), ("lower", &lower), ("hint", hint)]))
+        Err(self.unknown_variable(name, word.span, "unknown_variable"))
+    }
+
+    /// Error for a variable that is not substituted; a variable of the host
+    /// (`$HOME`, `$PWD`) points to `host` or `base`.
+    fn unknown_variable(&self, name: &str, span: Span, problem: &str) -> Error {
+        match self.table.value_str("host_variables", name) {
+            Some(hint) => self.error(
+                ErrorCode::Uncorrectable,
+                "host_variable",
+                span,
+                &[("name", name), ("hint", hint)],
+            ),
+            None => {
+                let lower = name.to_ascii_lowercase();
+                self.error(
+                    ErrorCode::Uncorrectable,
+                    problem,
+                    span,
+                    &[("name", name), ("lower", &lower)],
+                )
+            }
+        }
     }
 
     fn expansion_error(&self, word: &Located<Word>) -> Error {
@@ -622,35 +919,68 @@ impl<'a> Session<'a> {
             _ => None,
         });
         match variable {
-            Some(name) => {
-                let lower = name.to_ascii_lowercase();
-                self.error(ErrorCode::Uncorrectable, "variable_in_text", word.span, &[("name", &name), ("lower", &lower)])
-            }
-            None => self.error(ErrorCode::Uncorrectable, "command_substitution", word.span, &[]),
+            Some(name) => self.unknown_variable(&name, word.span, "variable_in_text"),
+            None => self.error(
+                ErrorCode::Uncorrectable,
+                "command_substitution",
+                word.span,
+                &[],
+            ),
         }
     }
 
     /// Resolves a path word: absolute paths are kept, relative paths are
-    /// joined to the directory of `cd` in the same line or left for the call
+    /// joined to the directory of `cd` in the same line or to the call
     /// parameter `base`; without either they are an error.
     fn path(&self, text: &str, span: Span, bare: bool) -> Result<Expr, Error> {
         if is_absolute(text) {
             let value = trim_trailing_slash(text);
             if bare {
-                self.record("L21", CorrectionClass::Certain, span, super::tree::print_text(&value), "path");
+                self.record(
+                    "L21",
+                    CorrectionClass::Certain,
+                    span,
+                    super::tree::print_text(&value),
+                    "path",
+                );
             }
-            return Ok(Expr::Text { v: value, span: Some(span) });
+            return Ok(Expr::Text {
+                v: value,
+                span: Some(span),
+            });
         }
         if bare && (text == "~" || text.starts_with("~/")) {
-            return Ok(Expr::Text { v: trim_trailing_slash(text), span: Some(span) });
+            return Ok(Expr::Text {
+                v: trim_trailing_slash(text),
+                span: Some(span),
+            });
         }
         if let Some(directory) = self.cwd.borrow().as_deref() {
-            return Ok(Expr::Text { v: join_path(directory, text), span: Some(span) });
+            return Ok(Expr::Text {
+                v: join_path(directory, text),
+                span: Some(span),
+            });
         }
-        if self.context.base.is_some() {
-            return Ok(Expr::Text { v: trim_trailing_slash(text), span: Some(span) });
+        if let Some(base) = self.context.base {
+            let value = join_path(&trim_trailing_slash(base), text);
+            self.record(
+                "L23",
+                CorrectionClass::Certain,
+                span,
+                super::tree::print_text(&value),
+                "path",
+            );
+            return Ok(Expr::Text {
+                v: value,
+                span: Some(span),
+            });
         }
-        Err(self.error(ErrorCode::PathRelative, "relative_path", span, &[("path", text)]))
+        Err(self.error(
+            ErrorCode::PathRelative,
+            "relative_path",
+            span,
+            &[("path", text)],
+        ))
     }
 
     /// Runs `f` with a working directory set for the resolution of
@@ -682,23 +1012,53 @@ impl<'a> Session<'a> {
             suffix += 1;
             name = format!("x{suffix}");
         }
-        log.lets.push(Let { name: name.clone(), value: pipeline, span: None });
+        log.lets.push(Let {
+            name: name.clone(),
+            value: pipeline,
+            span: None,
+        });
         name
     }
 
-    pub(crate) fn record(&self, rule: &str, class: CorrectionClass, span: Span, to: String, kind: &'static str) {
+    pub(crate) fn record(
+        &self,
+        rule: &str,
+        class: CorrectionClass,
+        span: Span,
+        to: String,
+        kind: &'static str,
+    ) {
         let mut log = self.log.borrow_mut();
-        if log.corrections.iter().any(|known| known.rule == rule && known.span == span) {
+        if log
+            .corrections
+            .iter()
+            .any(|known| known.rule == rule && known.span == span)
+        {
             return;
         }
-        log.corrections.push(Pending { rule: rule.to_owned(), class, span, to, kind });
+        log.corrections.push(Pending {
+            rule: rule.to_owned(),
+            class,
+            span,
+            to,
+            kind,
+        });
     }
 
     pub(crate) fn assume(&self, rule: &str, key: &str) {
-        let Some(text) = self.table.assumption(key) else { return };
+        let Some(text) = self.table.assumption(key) else {
+            return;
+        };
         let mut log = self.log.borrow_mut();
-        if !log.assumptions.iter().any(|known| known.rule == rule && known.text == text) {
-            log.assumptions.push(Assumption { rule: rule.to_owned(), text: text.to_owned() });
+        if !log
+            .assumptions
+            .iter()
+            .any(|known| known.rule == rule && known.text == text)
+        {
+            log.assumptions.push(Assumption {
+                rule: rule.to_owned(),
+                text: text.to_owned(),
+            });
         }
     }
 
@@ -706,9 +1066,19 @@ impl<'a> Session<'a> {
     pub(crate) fn source(&self, span: Span) -> String {
         let mut text = String::new();
         for line in span.line..=span.end_line {
-            let Some(chars) = self.lines.get(line as usize - 1) else { break };
-            let start = if line == span.line { span.column as usize - 1 } else { 0 };
-            let end = if line == span.end_line { span.end_column as usize - 1 } else { chars.len() };
+            let Some(chars) = self.lines.get(line as usize - 1) else {
+                break;
+            };
+            let start = if line == span.line {
+                span.column as usize - 1
+            } else {
+                0
+            };
+            let end = if line == span.end_line {
+                span.end_column as usize - 1
+            } else {
+                chars.len()
+            };
             text.extend(chars.iter().take(end.min(chars.len())).skip(start));
             if line != span.end_line {
                 text.push('\n');
@@ -718,13 +1088,23 @@ impl<'a> Session<'a> {
     }
 
     /// Builds an error from the message table.
-    pub(crate) fn error(&self, code: ErrorCode, problem: &str, span: Span, vars: &[(&str, &str)]) -> Error {
+    pub(crate) fn error(
+        &self,
+        code: ErrorCode,
+        problem: &str,
+        span: Span,
+        vars: &[(&str, &str)],
+    ) -> Error {
         let message = self.table.message(problem);
         let mut text = message.map_or_else(|| problem.replace('_', " "), |m| m.message.clone());
         for (name, value) in vars {
             text = text.replace(&format!("{{{name}}}"), value);
         }
-        let length = if span.line == span.end_line { span.end_column.saturating_sub(span.column) } else { 0 };
+        let length = if span.line == span.end_line {
+            span.end_column.saturating_sub(span.column)
+        } else {
+            0
+        };
         let error = Error::new(code, text)
             .with_stage(ErrorStage::Parse)
             .with_at(At::new(span.line, span.column, length))
@@ -736,20 +1116,37 @@ impl<'a> Session<'a> {
         }
     }
 
-    fn loop_error(&self, span: Span) -> Error {
-        let mut error = self.error(ErrorCode::Uncorrectable, "loop", span, &[]);
+    fn loop_error(&self, span: Span, keyword: &str) -> Error {
+        let mut error = self.error(
+            ErrorCode::Uncorrectable,
+            "loop",
+            span,
+            &[("keyword", keyword)],
+        );
         let text = self.source(span);
         if let Some(directory) = self.directory() {
             let command = Expr::List {
                 items: ["bash", "-c", text.as_str()]
                     .iter()
-                    .map(|v| Expr::Text { v: (*v).to_owned(), span: None })
+                    .map(|v| Expr::Text {
+                        v: (*v).to_owned(),
+                        span: None,
+                    })
                     .collect(),
                 span: None,
             };
             let stage = Stage {
                 name: "run".to_owned(),
-                args: vec![positional(command), named("cwd", Expr::Text { v: directory, span: None })],
+                args: vec![
+                    positional(command),
+                    named(
+                        "cwd",
+                        Expr::Text {
+                            v: directory,
+                            span: None,
+                        },
+                    ),
+                ],
                 span: None,
             };
             error = error.with_fix(super::tree::print_stage(&stage));
@@ -761,13 +1158,19 @@ impl<'a> Session<'a> {
         let span = steps[index].pipe.span;
         let mut error = self.error(ErrorCode::Uncorrectable, "alternative_branch", span, &[]);
         let quiet = Session::new(self.table, self.context, "");
-        let left = Session { lines: self.lines.clone(), ..quiet };
+        let left = Session {
+            lines: self.lines.clone(),
+            ..quiet
+        };
         if let Ok(statements) = left.statements(&steps[..index]) {
             for (variants, _) in statements {
                 error = error.with_fix(left.program_text(&variants));
             }
         }
-        let right = Session { lines: self.lines.clone(), ..Session::new(self.table, self.context, "") };
+        let right = Session {
+            lines: self.lines.clone(),
+            ..Session::new(self.table, self.context, "")
+        };
         let mut tail: Vec<Step<'_>> = steps[index..].to_vec();
         tail[0].link = Link::First;
         if let Ok(statements) = right.statements(&tail) {
@@ -781,7 +1184,14 @@ impl<'a> Session<'a> {
     /// Program text of the primary interpretation with the named results it
     /// uses.
     pub(crate) fn program_text(&self, variants: &Variants) -> String {
-        let mut statements: Vec<Statement> = self.log.borrow().lets.iter().cloned().map(Statement::Let).collect();
+        let mut statements: Vec<Statement> = self
+            .log
+            .borrow()
+            .lets
+            .iter()
+            .cloned()
+            .map(Statement::Let)
+            .collect();
         statements.push(Statement::Pipeline(pipeline(&variants.primary().stages)));
         print_program(&nurt_contracts::ast::Program { statements })
     }
@@ -791,10 +1201,20 @@ impl<'a> Session<'a> {
             return Err(self.several_programs(&statements));
         }
         let Some((variants, _)) = statements.into_iter().next() else {
-            return Err(self.error(ErrorCode::Uncorrectable, "current_directory", first_span(&self.lines), &[]));
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "current_directory",
+                first_span(&self.lines),
+                &[],
+            ));
         };
         let effect = self.has_effect(variants.primary());
-        let probable = self.log.borrow().corrections.iter().any(|c| c.class == CorrectionClass::Probable);
+        let probable = self
+            .log
+            .borrow()
+            .corrections
+            .iter()
+            .any(|c| c.class == CorrectionClass::Probable);
         if probable && effect {
             return Err(self.ambiguous(&variants));
         }
@@ -803,9 +1223,19 @@ impl<'a> Session<'a> {
 
     fn finish_script(&self, statements: Vec<(Variants, Span)>) -> Result<Translation, Error> {
         if statements.is_empty() {
-            return Err(self.error(ErrorCode::Uncorrectable, "current_directory", first_span(&self.lines), &[]));
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "current_directory",
+                first_span(&self.lines),
+                &[],
+            ));
         }
-        Ok(self.translation(statements.into_iter().map(|(variants, _)| variants).collect()))
+        Ok(self.translation(
+            statements
+                .into_iter()
+                .map(|(variants, _)| variants)
+                .collect(),
+        ))
     }
 
     fn several_programs(&self, statements: &[(Variants, Span)]) -> Error {
@@ -848,37 +1278,50 @@ impl<'a> Session<'a> {
                 rank: u32::try_from(rank + 1).unwrap_or(u32::MAX),
                 reference: None,
                 program: text,
-                why: piece.why.as_deref().and_then(|key| self.table.assumption(key)).map(str::to_owned),
+                why: piece
+                    .why
+                    .as_deref()
+                    .and_then(|key| self.table.assumption(key))
+                    .map(str::to_owned),
             });
         }
         error
     }
 
+    /// Builds the translation: the primary program, at most three distinct
+    /// alternatives and the corrections ordered by their position.
     fn translation(&self, statements: Vec<Variants>) -> Translation {
         let log = self.log.borrow();
         let lets: Vec<Statement> = log.lets.iter().cloned().map(Statement::Let).collect();
-        let build = |pick: &dyn Fn(&Variants) -> Option<Piece>| -> Option<AstDocument> {
+        let build = |index: usize| -> AstDocument {
             let mut all = lets.clone();
             for variants in &statements {
-                all.push(Statement::Pipeline(pipeline(&pick(variants)?.stages)));
+                let piece = variants.0.get(index).unwrap_or_else(|| variants.primary());
+                all.push(Statement::Pipeline(pipeline(&piece.stages)));
             }
-            Some(document(all))
+            document(all)
         };
-        let tree = build(&|variants| Some(variants.primary().clone())).unwrap_or_else(|| document(Vec::new()));
-        let alternatives: Vec<AstDocument> = (1..=MAX_ALTERNATIVES)
-            .filter_map(|index| {
-                if statements.iter().all(|variants| variants.0.len() <= index) {
-                    return None;
-                }
-                build(&|variants| Some(variants.0.get(index).unwrap_or(variants.primary()).clone()))
-            })
-            .collect();
-        let alternative_texts: Vec<String> = alternatives.iter().map(super::tree::print_document).collect();
-        let rules = log
-            .corrections
-            .iter()
+        let tree = build(0);
+        let mut texts = vec![print_document(&tree)];
+        let mut alternatives = Vec::new();
+        for index in 1..=MAX_ALTERNATIVES {
+            if statements.iter().all(|variants| variants.0.len() <= index) {
+                break;
+            }
+            let alternative = build(index);
+            let text = print_document(&alternative);
+            if !texts.contains(&text) {
+                texts.push(text);
+                alternatives.push(alternative);
+            }
+        }
+        let alternative_texts = texts.split_off(1);
+        let mut pending: Vec<&Pending> = log.corrections.iter().collect();
+        pending.sort_by_key(|item| (item.span.line, item.span.column));
+        let rules = pending
+            .into_iter()
             .enumerate()
-            .map(|(index, pending)| self.correction(index, pending, &alternative_texts))
+            .filter_map(|(index, item)| self.correction(index, item, &alternative_texts))
             .collect();
         Translation {
             tree,
@@ -888,23 +1331,41 @@ impl<'a> Session<'a> {
         }
     }
 
-    fn correction(&self, index: usize, pending: &Pending, alternatives: &[String]) -> Correction {
+    fn correction(
+        &self,
+        index: usize,
+        pending: &Pending,
+        alternatives: &[String],
+    ) -> Option<Correction> {
         let span = pending.span;
-        let length = if span.line == span.end_line { Some(span.end_column.saturating_sub(span.column)) } else { None };
-        Correction {
+        let length =
+            (span.line == span.end_line).then(|| span.end_column.saturating_sub(span.column));
+        let written = report::Correction {
             id: format!("C{}", index + 1),
             rule: pending.rule.clone(),
             class: pending.class,
-            at: Some(TextPosition { line: span.line, column: span.column, length }),
+            at: Some(TextPosition {
+                line: span.line,
+                column: span.column,
+                length,
+            }),
             from: self.source(span),
             to: pending.to.clone(),
             kind: Some(pending.kind.to_owned()),
-            alternatives: if pending.class == CorrectionClass::Probable { alternatives.to_vec() } else { Vec::new() },
-        }
+            alternatives: if pending.class == CorrectionClass::Probable {
+                alternatives.to_vec()
+            } else {
+                Vec::new()
+            },
+        };
+        Correction::try_from(written).ok()
     }
 
     pub(crate) fn has_effect(&self, piece: &Piece) -> bool {
-        piece.stages.iter().any(|stage| self.table.has_effect(&stage.name))
+        piece
+            .stages
+            .iter()
+            .any(|stage| self.table.has_effect(&stage.name))
     }
 
     pub(crate) fn redirect_kind(op: RedirectOp) -> Option<&'static str> {
@@ -926,29 +1387,65 @@ impl Convert for Session<'_> {
         };
         match conversion {
             Conversion::Path => self.path(text, span, bare),
-            Conversion::Text => Ok(Expr::Text { v: text.clone(), span: Some(span) }),
+            Conversion::Text => Ok(Expr::Text {
+                v: text.clone(),
+                span: Some(span),
+            }),
             Conversion::Int => text
                 .parse::<i64>()
                 .ok()
                 .filter(|v| *v >= 0)
-                .map(|v| Expr::Int { v, span: Some(span) })
-                .ok_or_else(|| self.error(ErrorCode::Uncorrectable, "invalid_number", span, &[("value", text)])),
+                .map(|v| Expr::Int {
+                    v,
+                    span: Some(span),
+                })
+                .ok_or_else(|| {
+                    self.error(
+                        ErrorCode::Uncorrectable,
+                        "invalid_number",
+                        span,
+                        &[("value", text)],
+                    )
+                }),
             Conversion::Ident => {
                 let lower = text.to_ascii_lowercase();
                 if super::tree::is_identifier(&lower) {
-                    Ok(Expr::Ident { v: lower, span: Some(span) })
+                    Ok(Expr::Ident {
+                        v: lower,
+                        span: Some(span),
+                    })
                 } else {
-                    Err(self.error(ErrorCode::Uncorrectable, "invalid_value", span, &[("value", text)]))
+                    Err(self.error(
+                        ErrorCode::Uncorrectable,
+                        "invalid_value",
+                        span,
+                        &[("value", text)],
+                    ))
                 }
             }
             Conversion::Duration => parse_duration(text)
-                .map(|v| Expr::Dur { v, span: Some(span) })
-                .ok_or_else(|| self.error(ErrorCode::Uncorrectable, "invalid_duration", span, &[("value", text)])),
+                .map(|v| Expr::Dur {
+                    v,
+                    span: Some(span),
+                })
+                .ok_or_else(|| {
+                    self.error(
+                        ErrorCode::Uncorrectable,
+                        "invalid_duration",
+                        span,
+                        &[("value", text)],
+                    )
+                }),
         }
     }
 
     fn missing(&self, slot: &str) -> Error {
-        self.error(ErrorCode::Uncorrectable, "missing_operand", first_span(&self.lines), &[("slot", slot)])
+        self.error(
+            ErrorCode::Uncorrectable,
+            "missing_operand",
+            first_span(&self.lines),
+            &[("slot", slot)],
+        )
     }
 }
 
@@ -965,7 +1462,12 @@ fn first_span(lines: &[Vec<char>]) -> Span {
 /// Milliseconds of a shell duration: a number of seconds with an optional
 /// fraction and an optional suffix `s`, `m`, `h` or `d`.
 pub(crate) fn parse_duration(text: &str) -> Option<u64> {
-    const UNITS: &[(char, f64)] = &[('s', 1_000.0), ('m', 60_000.0), ('h', 3_600_000.0), ('d', 86_400_000.0)];
+    const UNITS: &[(char, f64)] = &[
+        ('s', 1_000.0),
+        ('m', 60_000.0),
+        ('h', 3_600_000.0),
+        ('d', 86_400_000.0),
+    ];
     let (number, factor) = match text.chars().last() {
         Some(c) if c.is_ascii_alphabetic() => {
             let factor = UNITS.iter().find(|(unit, _)| *unit == c)?.1;
@@ -987,10 +1489,10 @@ pub(crate) fn parse_duration(text: &str) -> Option<u64> {
 /// Upper bound of a translated duration, far above any practical value.
 const MAX_DURATION_MILLIS: f64 = 1e15;
 
-fn compound(steps: &[Step<'_>]) -> Option<Span> {
+fn compound<'s>(steps: &[Step<'s>]) -> Option<(Span, &'s str)> {
     steps.iter().find_map(|step| {
         step.pipe.commands.iter().find_map(|command| match command {
-            Command::Compound { span, .. } => Some(*span),
+            Command::Compound { span, keyword } => Some((*span, keyword.as_str())),
             Command::Simple(_) => None,
         })
     })
@@ -1004,7 +1506,9 @@ fn single_simple(pipe: &Pipe) -> Option<&Simple> {
 }
 
 fn is_lookup(words: &[Located<Word>]) -> bool {
-    words.first().is_some_and(|word| word.value.raw == "command")
+    words
+        .first()
+        .is_some_and(|word| word.value.raw == "command")
         && words.get(1).is_some_and(|word| word.value.raw == "-v")
 }
 
@@ -1012,15 +1516,27 @@ fn join_steps(a: Step<'_>, b: Step<'_>) -> Span {
     syntax::join(a.pipe.span, b.pipe.span)
 }
 
+/// Whether the word is an unquoted shell pattern without expansions.
+pub(crate) fn is_glob(word: &Word) -> bool {
+    word.has_unquoted_glob() && !word.has_expansion()
+}
+
 pub(crate) fn is_absolute(text: &str) -> bool {
     let bytes = text.as_bytes();
     text.starts_with('/')
-        || (bytes.len() >= 3 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && matches!(bytes[2], b'/' | b'\\'))
+        || (bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && matches!(bytes[2], b'/' | b'\\'))
 }
 
 pub(crate) fn trim_trailing_slash(text: &str) -> String {
     let trimmed = text.trim_end_matches('/');
-    if trimmed.is_empty() && text.starts_with('/') { "/".to_owned() } else { trimmed.to_owned() }
+    if trimmed.is_empty() && text.starts_with('/') {
+        "/".to_owned()
+    } else {
+        trimmed.to_owned()
+    }
 }
 
 /// Joins a relative path to an absolute directory without normalising
@@ -1034,18 +1550,30 @@ pub(crate) fn join_path(directory: &str, relative: &str) -> String {
     if rest.is_empty() || rest == "." {
         return directory.to_owned();
     }
-    if directory.ends_with('/') { format!("{directory}{rest}") } else { format!("{directory}/{rest}") }
+    if directory.ends_with('/') {
+        format!("{directory}{rest}")
+    } else {
+        format!("{directory}/{rest}")
+    }
 }
 
 pub(crate) fn pipeline(stages: &[Stage]) -> Pipeline {
     let mut stages = stages.to_vec();
     let head = if stages.is_empty() {
-        Stage { name: String::new(), args: Vec::new(), span: None }
+        Stage {
+            name: String::new(),
+            args: Vec::new(),
+            span: None,
+        }
     } else {
         stages.remove(0)
     };
     let span = head.span;
-    Pipeline { head: Head::Stage(head), stages, span }
+    Pipeline {
+        head: Head::Stage(head),
+        stages,
+        span,
+    }
 }
 
 pub(crate) fn piece_text(piece: &Piece) -> String {
@@ -1053,21 +1581,87 @@ pub(crate) fn piece_text(piece: &Piece) -> String {
 }
 
 pub(crate) fn named(name: &str, value: Expr) -> Arg {
-    Arg { name: Some(name.to_owned()), value, span: None }
+    Arg {
+        name: Some(name.to_owned()),
+        value,
+        span: None,
+    }
 }
 
 pub(crate) fn positional(value: Expr) -> Arg {
     let span = super::template::expr_span(&value);
-    Arg { name: None, value, span }
+    Arg {
+        name: None,
+        value,
+        span,
+    }
 }
 
 /// Appends arguments to a stage; a named argument already present is kept.
 pub(crate) fn append_args(stage: &mut Stage, args: Vec<Arg>) {
     for arg in args {
-        let duplicate = arg.name.is_some()
-            && stage.args.iter().any(|existing| existing.name == arg.name);
+        let duplicate =
+            arg.name.is_some() && stage.args.iter().any(|existing| existing.name == arg.name);
         if !duplicate {
             stage.args.push(arg);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn durations_accept_fractions_and_units() {
+        assert_eq!(parse_duration("300"), Some(300_000));
+        assert_eq!(parse_duration("1.5m"), Some(90_000));
+        assert_eq!(parse_duration("2h"), Some(7_200_000));
+        assert_eq!(parse_duration("1d"), Some(86_400_000));
+        assert_eq!(parse_duration("5x"), None);
+        assert_eq!(parse_duration("s"), None);
+        assert_eq!(parse_duration("-1"), None);
+    }
+
+    #[test]
+    fn paths_are_joined_without_normalisation() {
+        assert_eq!(join_path("/srv/app", "./src/"), "/srv/app/src");
+        assert_eq!(join_path("/srv/app", "."), "/srv/app");
+        assert_eq!(join_path("/", "etc"), "/etc");
+        assert_eq!(join_path("/srv/app", "../x"), "/srv/app/../x");
+        assert_eq!(trim_trailing_slash("/"), "/");
+        assert_eq!(trim_trailing_slash("/srv//"), "/srv");
+        assert!(is_absolute("C:/x"));
+        assert!(is_absolute("c:\\x"));
+        assert!(!is_absolute("x/y"));
+    }
+
+    #[test]
+    fn alternatives_join_with_the_primary_of_the_other_side() {
+        let piece = |name: &str| Piece {
+            stages: vec![Stage {
+                name: name.to_owned(),
+                args: Vec::new(),
+                span: None,
+            }],
+            kind: "line".to_owned(),
+            why: None,
+        };
+        let left = Variants(vec![piece("a"), piece("b")]);
+        let right = Variants(vec![piece("c"), piece("d")]);
+        let joined = left.then(right);
+        let names: Vec<String> = joined
+            .0
+            .iter()
+            .map(|piece| {
+                piece
+                    .stages
+                    .iter()
+                    .map(|s| s.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+            .collect();
+        assert_eq!(names, ["a c", "b c", "a d"]);
     }
 }

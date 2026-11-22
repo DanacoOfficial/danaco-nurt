@@ -38,7 +38,6 @@ pub(crate) struct Item {
     pub(crate) first: Pipe,
     pub(crate) rest: Vec<(Connector, Pipe)>,
     pub(crate) separator: Option<Separator>,
-    pub(crate) span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -117,7 +116,10 @@ impl Parser<'_> {
 
     fn skip_blank(&mut self) {
         while let Some(token) = self.tokens.get(self.pos) {
-            if matches!(token.kind, PosixTokenKind::Newline | PosixTokenKind::Comment(_)) {
+            if matches!(
+                token.kind,
+                PosixTokenKind::Newline | PosixTokenKind::Comment(_)
+            ) {
                 self.pos += 1;
             } else {
                 break;
@@ -131,7 +133,6 @@ impl Parser<'_> {
 
     fn item(&mut self) -> Result<Item, SyntaxError> {
         let first = self.pipe()?;
-        let mut span = first.span;
         let mut rest = Vec::new();
         loop {
             let connector = match self.peek().map(|token| &token.kind) {
@@ -141,16 +142,13 @@ impl Parser<'_> {
             };
             self.pos += 1;
             self.skip_blank();
-            let pipe = self.pipe()?;
-            span = join(span, pipe.span);
-            rest.push((connector, pipe));
+            rest.push((connector, self.pipe()?));
         }
         let separator = self.separator()?;
         Ok(Item {
             first,
             rest,
             separator,
-            span,
         })
     }
 
@@ -414,7 +412,10 @@ mod tests {
         let parsed = script("FOO=1 BAR='a b' make X=2");
         let command = simple(&parsed.items[0].first.commands[0]);
         assert_eq!(command.assignments.len(), 2);
-        assert_eq!(command.assignments[1].value.literal().as_deref(), Some("a b"));
+        assert_eq!(
+            command.assignments[1].value.literal().as_deref(),
+            Some("a b")
+        );
         assert_eq!(command.words.len(), 2);
         assert_eq!(command.words[1].value.raw, "X=2");
     }
@@ -440,9 +441,14 @@ mod tests {
             Command::Compound { keyword, .. } if keyword == "for"
         ));
         let function = script("build() { make; }");
-        assert!(matches!(&function.items[0].first.commands[0], Command::Compound { .. }));
+        assert!(matches!(
+            &function.items[0].first.commands[0],
+            Command::Compound { .. }
+        ));
         let subshell = script("(cd /a; ls)");
-        assert!(matches!(&subshell.items[0].first.commands[0], Command::Compound { keyword, .. } if keyword == "("));
+        assert!(
+            matches!(&subshell.items[0].first.commands[0], Command::Compound { keyword, .. } if keyword == "(")
+        );
     }
 
     #[test]
@@ -472,8 +478,26 @@ mod tests {
 
     #[test]
     fn join_covers_both_spans() {
-        let a = Span { line: 1, column: 5, end_line: 1, end_column: 8 };
-        let b = Span { line: 1, column: 1, end_line: 1, end_column: 3 };
-        assert_eq!(join(a, b), Span { line: 1, column: 1, end_line: 1, end_column: 8 });
+        let a = Span {
+            line: 1,
+            column: 5,
+            end_line: 1,
+            end_column: 8,
+        };
+        let b = Span {
+            line: 1,
+            column: 1,
+            end_line: 1,
+            end_column: 3,
+        };
+        assert_eq!(
+            join(a, b),
+            Span {
+                line: 1,
+                column: 1,
+                end_line: 1,
+                end_column: 8
+            }
+        );
     }
 }

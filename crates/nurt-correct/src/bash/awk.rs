@@ -41,12 +41,22 @@ pub(crate) fn translate(
 ) -> Result<Variants, Error> {
     let parsed = engine::parse_options(session, entry, words)?;
     let Some((program_word, files)) = parsed.operands.split_first() else {
-        return Err(session.error(ErrorCode::Uncorrectable, "missing_operand", simple.span, &[("slot", "program"), ("command", "awk")]));
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "missing_operand",
+            simple.span,
+            &[("slot", "program"), ("command", "awk")],
+        ));
     };
     let text = program_word.value.literal().unwrap_or_default();
     let unsupported = || {
         session
-            .error(ErrorCode::Uncorrectable, "unsupported_awk_program", program_word.span, &[("program", &text)])
+            .error(
+                ErrorCode::Uncorrectable,
+                "unsupported_awk_program",
+                program_word.span,
+                &[("program", &text)],
+            )
             .with_help(format!("help {}", entry.help))
     };
     let program = parse_program(&text).ok_or_else(unsupported)?;
@@ -55,18 +65,50 @@ pub(crate) fn translate(
     {
         return Err(unsupported());
     }
-    let mut bindings = engine::bind_operands(session, files)?;
+    let mut bindings = engine::bind_operands(session, files, false)?;
     let mut stages = match (input, files) {
         (None, [_]) => value_template(session, "awk", "source", &bindings, simple.span)?,
         (Some("line"), []) => Vec::new(),
-        (None, []) => return Err(session.error(ErrorCode::Uncorrectable, "standard_input", simple.span, &[("command", "awk")])),
-        _ => return Err(session.error(ErrorCode::Uncorrectable, "unsupported_stage", simple.span, &[("command", "awk")])),
+        (None, []) => {
+            return Err(session.error(
+                ErrorCode::Uncorrectable,
+                "standard_input",
+                simple.span,
+                &[("command", "awk")],
+            ));
+        }
+        _ => {
+            return Err(session.error(
+                ErrorCode::Uncorrectable,
+                "unsupported_stage",
+                simple.span,
+                &[("command", "awk")],
+            ));
+        }
     };
-    let separator = parsed.value_of(entry, "F").and_then(|word| word.value.literal());
-    stages.extend(body(session, simple, &program, separator.as_deref(), &mut bindings)?);
-    let piece = Piece { stages, kind: "line".to_owned(), why: Some("awk_fields".to_owned()) };
+    let separator = parsed
+        .value_of(entry, "F")
+        .and_then(|word| word.value.literal());
+    stages.extend(body(
+        session,
+        simple,
+        &program,
+        separator.as_deref(),
+        &mut bindings,
+    )?);
+    let piece = Piece {
+        stages,
+        kind: "line".to_owned(),
+        why: Some("awk_fields".to_owned()),
+    };
     session.assume(&entry.rule, "awk_fields");
-    session.record(&entry.rule, CorrectionClass::Probable, simple.span, piece_text(&piece), "habit");
+    session.record(
+        &entry.rule,
+        CorrectionClass::Probable,
+        simple.span,
+        piece_text(&piece),
+        "habit",
+    );
     Ok(Variants(vec![piece]))
 }
 
@@ -80,7 +122,14 @@ fn body(
     let span: Span = simple.span;
     let mut stages = Vec::new();
     if let Some(regex) = &program.regex {
-        bindings.set("regex", vec![Bound::Node(Expr::Regex { v: regex.clone(), flags: String::new(), span: None })]);
+        bindings.set(
+            "regex",
+            vec![Bound::Node(Expr::Regex {
+                v: regex.clone(),
+                flags: String::new(),
+                span: None,
+            })],
+        );
         stages.extend(value_template(session, "awk", "match", bindings, span)?);
     }
     let widest = program
@@ -93,13 +142,32 @@ fn body(
     if widest == 0 {
         return Ok(stages);
     }
-    let names: Vec<Expr> = (1..=widest).map(|n| Expr::Text { v: field_name(n), span: None }).collect();
+    let names: Vec<Expr> = (1..=widest)
+        .map(|n| Expr::Text {
+            v: field_name(n),
+            span: None,
+        })
+        .collect();
     bindings.set("delimiter", vec![Bound::Node(delimiter(separator))]);
-    bindings.set("names", vec![Bound::Node(Expr::List { items: names, span: None })]);
+    bindings.set(
+        "names",
+        vec![Bound::Node(Expr::List {
+            items: names,
+            span: None,
+        })],
+    );
     stages.extend(value_template(session, "awk", "split", bindings, span)?);
     if let Some(condition) = &program.condition {
-        let field = Expr::Ident { v: field_name(condition.field), span: None };
-        let test = Expr::Bin { op: condition.op, l: Box::new(field), r: Box::new(condition.value.clone()), span: None };
+        let field = Expr::Ident {
+            v: field_name(condition.field),
+            span: None,
+        };
+        let test = Expr::Bin {
+            op: condition.op,
+            l: Box::new(field),
+            r: Box::new(condition.value.clone()),
+            span: None,
+        };
         bindings.set("condition", vec![Bound::Node(test)]);
         stages.extend(value_template(session, "awk", "where", bindings, span)?);
     }
@@ -107,9 +175,23 @@ fn body(
         return Ok(stages);
     }
     if program.fields.contains(&0) {
-        return Err(session.error(ErrorCode::Uncorrectable, "unsupported_awk_program", span, &[("program", "$0")]));
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "unsupported_awk_program",
+            span,
+            &[("program", "$0")],
+        ));
     }
-    let fields = program.fields.iter().map(|n| Bound::Node(Expr::Ident { v: field_name(*n), span: None })).collect();
+    let fields = program
+        .fields
+        .iter()
+        .map(|n| {
+            Bound::Node(Expr::Ident {
+                v: field_name(*n),
+                span: None,
+            })
+        })
+        .collect();
     bindings.set("fields", fields);
     stages.extend(value_template(session, "awk", "select", bindings, span)?);
     Ok(stages)
@@ -123,10 +205,24 @@ fn field_name(number: u32) -> String {
 /// text, longer separators as regular expressions.
 fn delimiter(separator: Option<&str>) -> Expr {
     match separator {
-        None | Some(" ") => Expr::Regex { v: r"\s+".to_owned(), flags: String::new(), span: None },
-        Some("\\t") => Expr::Text { v: "\t".to_owned(), span: None },
-        Some(text) if text.chars().count() == 1 => Expr::Text { v: text.to_owned(), span: None },
-        Some(text) => Expr::Regex { v: text.to_owned(), flags: String::new(), span: None },
+        None | Some(" ") => Expr::Regex {
+            v: r"\s+".to_owned(),
+            flags: String::new(),
+            span: None,
+        },
+        Some("\\t") => Expr::Text {
+            v: "\t".to_owned(),
+            span: None,
+        },
+        Some(text) if text.chars().count() == 1 => Expr::Text {
+            v: text.to_owned(),
+            span: None,
+        },
+        Some(text) => Expr::Regex {
+            v: text.to_owned(),
+            flags: String::new(),
+            span: None,
+        },
     }
 }
 
@@ -151,12 +247,18 @@ fn parse_program(text: &str) -> Option<Program> {
         if list.is_empty() {
             vec![0]
         } else if list.starts_with([' ', '\t']) {
-            list.split(',').map(|item| field(item.trim())).collect::<Option<Vec<_>>>()?
+            list.split(',')
+                .map(|item| field(item.trim()))
+                .collect::<Option<Vec<_>>>()?
         } else {
             return None;
         }
     };
-    (regex.is_some() || condition.is_some() || !rest.is_empty()).then_some(Program { regex, condition, fields })
+    (regex.is_some() || condition.is_some() || !rest.is_empty()).then_some(Program {
+        regex,
+        condition,
+        fields,
+    })
 }
 
 fn field(text: &str) -> Option<u32> {
@@ -185,12 +287,25 @@ fn parse_condition(text: &str) -> Option<Condition> {
         return None;
     }
     let value_text = text[position + symbol.len()..].trim();
-    let value = if let Some(quoted) = value_text.strip_prefix('"').and_then(|v| v.strip_suffix('"')) {
-        Expr::Text { v: quoted.to_owned(), span: None }
+    let value = if let Some(quoted) = value_text
+        .strip_prefix('"')
+        .and_then(|v| v.strip_suffix('"'))
+    {
+        Expr::Text {
+            v: quoted.to_owned(),
+            span: None,
+        }
     } else {
-        Expr::Int { v: value_text.parse().ok().filter(|v: &i64| *v >= 0)?, span: None }
+        Expr::Int {
+            v: value_text.parse().ok().filter(|v: &i64| *v >= 0)?,
+            span: None,
+        }
     };
-    Some(Condition { field: field_number, op, value })
+    Some(Condition {
+        field: field_number,
+        op,
+        value,
+    })
 }
 
 #[cfg(test)]
@@ -199,8 +314,18 @@ mod tests {
 
     #[test]
     fn print_lists() {
-        assert_eq!(parse_program("{print $2}"), Some(Program { regex: None, condition: None, fields: vec![2] }));
-        assert_eq!(parse_program("{ print $1, $3 }").map(|p| p.fields), Some(vec![1, 3]));
+        assert_eq!(
+            parse_program("{print $2}"),
+            Some(Program {
+                regex: None,
+                condition: None,
+                fields: vec![2]
+            })
+        );
+        assert_eq!(
+            parse_program("{ print $1, $3 }").map(|p| p.fields),
+            Some(vec![1, 3])
+        );
         assert_eq!(parse_program("{print}").map(|p| p.fields), Some(vec![0]));
         assert_eq!(parse_program("{print $NF}"), None);
         assert_eq!(parse_program("{printf $1}"), None);
@@ -213,10 +338,23 @@ mod tests {
         let program = parse_program("/error/ {print $1}").unwrap();
         assert_eq!(program.regex.as_deref(), Some("error"));
         let filtered = parse_program("$3 >= 100 {print $1}").unwrap();
-        assert_eq!(filtered.condition, Some(Condition { field: 3, op: BinOp::Ge, value: Expr::Int { v: 100, span: None } }));
+        assert_eq!(
+            filtered.condition,
+            Some(Condition {
+                field: 3,
+                op: BinOp::Ge,
+                value: Expr::Int { v: 100, span: None }
+            })
+        );
         let text = parse_program("$1 == \"GET\"").unwrap();
         assert_eq!(text.fields, vec![0]);
-        assert_eq!(text.condition.unwrap().value, Expr::Text { v: "GET".to_owned(), span: None });
+        assert_eq!(
+            text.condition.unwrap().value,
+            Expr::Text {
+                v: "GET".to_owned(),
+                span: None
+            }
+        );
         assert_eq!(parse_program("$0 > 1"), None);
         assert_eq!(parse_program("$1 > x"), None);
         assert_eq!(parse_program("/x"), None);
@@ -224,9 +362,35 @@ mod tests {
 
     #[test]
     fn separators() {
-        assert_eq!(delimiter(None), Expr::Regex { v: r"\s+".to_owned(), flags: String::new(), span: None });
-        assert_eq!(delimiter(Some(",")), Expr::Text { v: ",".to_owned(), span: None });
-        assert_eq!(delimiter(Some("\\t")), Expr::Text { v: "\t".to_owned(), span: None });
-        assert_eq!(delimiter(Some("[,;]")), Expr::Regex { v: "[,;]".to_owned(), flags: String::new(), span: None });
+        assert_eq!(
+            delimiter(None),
+            Expr::Regex {
+                v: r"\s+".to_owned(),
+                flags: String::new(),
+                span: None
+            }
+        );
+        assert_eq!(
+            delimiter(Some(",")),
+            Expr::Text {
+                v: ",".to_owned(),
+                span: None
+            }
+        );
+        assert_eq!(
+            delimiter(Some("\\t")),
+            Expr::Text {
+                v: "\t".to_owned(),
+                span: None
+            }
+        );
+        assert_eq!(
+            delimiter(Some("[,;]")),
+            Expr::Regex {
+                v: "[,;]".to_owned(),
+                flags: String::new(),
+                span: None
+            }
+        );
     }
 }

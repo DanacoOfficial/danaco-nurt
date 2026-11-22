@@ -37,7 +37,7 @@ pub(crate) struct Reading {
     pub(crate) why: &'static str,
 }
 
-/// Interpretations of a pattern, the most likely first.
+/// Interpretations of a pattern, the likeliest first.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Readings {
     pub(crate) items: Vec<Reading>,
@@ -51,9 +51,19 @@ const EXTENDED_ONLY: &[char] = &['(', ')', '{', '}', '|', '+', '?'];
 const SHARED_SPECIAL: &[char] = &['.', '[', '*', '^', '$'];
 
 pub(crate) fn readings(pattern: &str, dialect: Dialect) -> Result<Readings, String> {
-    let regex = |v: String| Expr::Regex { v, flags: String::new(), span: None };
+    let regex = |v: String| Expr::Regex {
+        v,
+        flags: String::new(),
+        span: None,
+    };
     match dialect {
-        Dialect::Fixed => Ok(certain(Expr::Text { v: pattern.to_owned(), span: None }, "pattern_literal")),
+        Dialect::Fixed => Ok(certain(
+            Expr::Text {
+                v: pattern.to_owned(),
+                span: None,
+            },
+            "pattern_literal",
+        )),
         Dialect::Perl => Ok(certain(regex(pattern.to_owned()), "pattern_extended")),
         Dialect::Extended => {
             validate(pattern)?;
@@ -64,26 +74,55 @@ pub(crate) fn readings(pattern: &str, dialect: Dialect) -> Result<Readings, Stri
 }
 
 fn certain(expr: Expr, why: &'static str) -> Readings {
-    Readings { items: vec![Reading { expr, why }], probable: false }
+    Readings {
+        items: vec![Reading { expr, why }],
+        probable: false,
+    }
 }
 
 fn basic(pattern: &str) -> Result<Readings, String> {
     let (shared, extended_only) = scan(pattern);
     let converted = basic_to_extended(pattern);
     validate(&converted)?;
-    let regex = |v: String| Expr::Regex { v, flags: String::new(), span: None };
+    let regex = |v: String| Expr::Regex {
+        v,
+        flags: String::new(),
+        span: None,
+    };
     if !extended_only {
-        return Ok(certain(regex(converted), if shared { "pattern_basic" } else { "pattern_literal" }));
+        return Ok(certain(
+            regex(converted),
+            if shared {
+                "pattern_basic"
+            } else {
+                "pattern_literal"
+            },
+        ));
     }
     let mut items = Vec::new();
     if !shared {
-        items.push(Reading { expr: Expr::Text { v: pattern.to_owned(), span: None }, why: "pattern_literal" });
+        items.push(Reading {
+            expr: Expr::Text {
+                v: pattern.to_owned(),
+                span: None,
+            },
+            why: "pattern_literal",
+        });
     }
-    items.push(Reading { expr: regex(converted.clone()), why: "pattern_basic" });
+    items.push(Reading {
+        expr: regex(converted.clone()),
+        why: "pattern_basic",
+    });
     if pattern != converted && validate(pattern).is_ok() {
-        items.push(Reading { expr: regex(pattern.to_owned()), why: "pattern_extended" });
+        items.push(Reading {
+            expr: regex(pattern.to_owned()),
+            why: "pattern_extended",
+        });
     }
-    Ok(Readings { items, probable: true })
+    Ok(Readings {
+        items,
+        probable: true,
+    })
 }
 
 /// Whether the pattern uses characters special in both dialects (or an
@@ -107,7 +146,9 @@ fn scan(pattern: &str) -> (bool, bool) {
 }
 
 fn validate(pattern: &str) -> Result<(), String> {
-    regex::Regex::new(pattern).map(|_| ()).map_err(|error| error.to_string())
+    regex::Regex::new(pattern)
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 
 /// Translates a basic regular expression into the extended dialect.
@@ -195,10 +236,22 @@ fn bracket(chars: &[char], mut index: usize, out: &mut String) -> usize {
 /// The reading as a regular expression for a `filter` condition; literal
 /// text is escaped.
 pub(crate) fn as_regex(expr: &Expr, ignore_case: bool) -> Expr {
-    let flags = if ignore_case { "i".to_owned() } else { String::new() };
+    let flags = if ignore_case {
+        "i".to_owned()
+    } else {
+        String::new()
+    };
     match expr {
-        Expr::Text { v, span } => Expr::Regex { v: regex::escape(v), flags, span: *span },
-        Expr::Regex { v, span, .. } => Expr::Regex { v: v.clone(), flags, span: *span },
+        Expr::Text { v, span } => Expr::Regex {
+            v: regex::escape(v),
+            flags,
+            span: *span,
+        },
+        Expr::Regex { v, span, .. } => Expr::Regex {
+            v: v.clone(),
+            flags,
+            span: *span,
+        },
         other => other.clone(),
     }
 }
@@ -214,28 +267,60 @@ pub(crate) fn grep(
     let mut parsed = engine::parse_options(session, entry, words)?;
     let pattern_word = pattern_word(session, entry, simple, &mut parsed)?;
     let Bound::Word { text, span, .. } = session.operand(&pattern_word)? else {
-        return Err(session.error(ErrorCode::Uncorrectable, "variable_in_text", pattern_word.span, &[("name", &pattern_word.value.raw), ("lower", "x")]));
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "variable_in_text",
+            pattern_word.span,
+            &[("name", &pattern_word.value.raw), ("lower", "x")],
+        ));
     };
     let dialect = dialect(entry, &parsed);
-    let found = readings(&text, dialect)
-        .map_err(|reason| session.error(ErrorCode::Uncorrectable, "invalid_regex", span, &[("pattern", &text), ("reason", &reason)]))?;
+    let found = readings(&text, dialect).map_err(|reason| {
+        session.error(
+            ErrorCode::Uncorrectable,
+            "invalid_regex",
+            span,
+            &[("pattern", &text), ("reason", &reason)],
+        )
+    })?;
     match input {
         Some(_) if !parsed.operands.is_empty() => {
-            return Err(session.error(ErrorCode::Uncorrectable, "unsupported_stage", simple.span, &[("command", "grep")]));
+            return Err(session.error(
+                ErrorCode::Uncorrectable,
+                "unsupported_stage",
+                simple.span,
+                &[("command", "grep")],
+            ));
         }
         None if parsed.operands.is_empty() => {
             if !parsed.has(entry, "r") {
-                return Err(session.error(ErrorCode::Uncorrectable, "standard_input", simple.span, &[("command", "grep")]));
+                return Err(session.error(
+                    ErrorCode::Uncorrectable,
+                    "standard_input",
+                    simple.span,
+                    &[("command", "grep")],
+                ));
             }
             parsed.operands.push(engine::located(".", simple.span));
         }
         _ => {}
     }
-    let mut bindings = engine::bind_operands(session, &parsed.operands)?;
-    for include in parsed.given.iter().filter(|given| entry.options[given.index].id == "include") {
+    let mut bindings = engine::bind_operands(session, &parsed.operands, false)?;
+    for include in parsed
+        .given
+        .iter()
+        .filter(|given| entry.options[given.index].id == "include")
+    {
         if let Some(value) = &include.value {
             let glob = format!("**/{}", value.value.literal().unwrap_or_default());
-            bindings.set("include", vec![Bound::Word { text: glob, span: value.span, bare: false }]);
+            bindings.set(
+                "include",
+                vec![Bound::Word {
+                    text: glob,
+                    span: value.span,
+                    bare: false,
+                }],
+            );
         }
     }
     let ignore_case = parsed.has(entry, "i");
@@ -253,13 +338,20 @@ pub(crate) fn grep(
             piece
         }));
     }
-    if found.probable && let Some(first) = found.items.first() {
+    if found.probable
+        && let Some(first) = found.items.first()
+    {
         session.assume(&entry.rule, first.why);
     }
     Ok(Variants(pieces))
 }
 
-fn pattern_word(session: &Session<'_>, entry: &CommandEntry, simple: &Simple, parsed: &mut Parsed) -> Result<Located<Word>, Error> {
+fn pattern_word(
+    session: &Session<'_>,
+    entry: &CommandEntry,
+    simple: &Simple,
+    parsed: &mut Parsed,
+) -> Result<Located<Word>, Error> {
     let explicit: Vec<Located<Word>> = parsed
         .given
         .iter()
@@ -269,8 +361,18 @@ fn pattern_word(session: &Session<'_>, entry: &CommandEntry, simple: &Simple, pa
     match explicit.as_slice() {
         [one] => Ok(one.clone()),
         [] if !parsed.operands.is_empty() => Ok(parsed.operands.remove(0)),
-        [] => Err(session.error(ErrorCode::Uncorrectable, "missing_operand", simple.span, &[("slot", "pattern"), ("command", "grep")])),
-        _ => Err(session.error(ErrorCode::Uncorrectable, "several_patterns", simple.span, &[])),
+        [] => Err(session.error(
+            ErrorCode::Uncorrectable,
+            "missing_operand",
+            simple.span,
+            &[("slot", "pattern"), ("command", "grep")],
+        )),
+        _ => Err(session.error(
+            ErrorCode::Uncorrectable,
+            "several_patterns",
+            simple.span,
+            &[],
+        )),
     }
 }
 
@@ -358,17 +460,36 @@ mod tests {
 
     #[test]
     fn other_dialects() {
-        assert_eq!(texts(&readings("a(", Dialect::Fixed).unwrap()), vec!["text a("]);
-        assert_eq!(texts(&readings("a|b", Dialect::Extended).unwrap()), vec!["regex a|b"]);
+        assert_eq!(
+            texts(&readings("a(", Dialect::Fixed).unwrap()),
+            vec!["text a("]
+        );
+        assert_eq!(
+            texts(&readings("a|b", Dialect::Extended).unwrap()),
+            vec!["regex a|b"]
+        );
         assert!(readings("a(", Dialect::Extended).is_err());
-        assert_eq!(texts(&readings("(?<=a)b", Dialect::Perl).unwrap()), vec!["regex (?<=a)b"]);
+        assert_eq!(
+            texts(&readings("(?<=a)b", Dialect::Perl).unwrap()),
+            vec!["regex (?<=a)b"]
+        );
         assert!(readings(r"\(a\)\1", Dialect::Basic).is_err());
     }
 
     #[test]
     fn regex_form_escapes_text() {
-        let text = Expr::Text { v: "a.b".to_owned(), span: None };
-        assert_eq!(as_regex(&text, true), Expr::Regex { v: r"a\.b".to_owned(), flags: "i".to_owned(), span: None });
+        let text = Expr::Text {
+            v: "a.b".to_owned(),
+            span: None,
+        };
+        assert_eq!(
+            as_regex(&text, true),
+            Expr::Regex {
+                v: r"a\.b".to_owned(),
+                flags: "i".to_owned(),
+                span: None
+            }
+        );
         let int = Expr::Int { v: 1, span: None };
         assert_eq!(as_regex(&int, false), int);
     }

@@ -87,7 +87,7 @@ message = "relative path `{path}` without the call parameter `base`; write an ab
 help = "help corrections"
 
 [messages.loop]
-message = "loops, conditions, functions and here-documents other than `cat > file` have no translation; patterns and pipelines replace loops, and a script runs as `run [\"bash\", \"script.sh\"]`"
+message = "`{keyword}` has no translation: loops, conditions, functions and here-documents other than `cat > file` are not translated; patterns and pipelines replace loops, and a script runs as `run [\"bash\", \"script.sh\"]`"
 help = "help run"
 
 [messages.alternative_branch]
@@ -301,7 +301,7 @@ output = "effect"
 glob = { rule = "B02", stages = "|> remove" }
 option = [
   { flags = ["-r", "-R", "--recursive"] },
-  { flags = ["-f", "--force"], args = "on_missing: skip", default = true },
+  { flags = ["-f", "--force"], args = "on_missing: skip", default = true, absent = "on_missing: error" },
   { flags = ["-v", "--verbose"] },
 ]
 stage = [{ input = ["path_entry"], template = "remove" }]
@@ -312,9 +312,8 @@ rule = "B03"
 class = "C"
 help = "move"
 min = 1
-template = "move $1 to: $2"
 output = "effect"
-glob = { rule = "B02", stages = "|> move into: $last" }
+glob = { rule = "B02", stages = "|> move into: $last", operands = 2 }
 option = [
   { flags = ["-f", "--force"], args = "on_conflict: overwrite", default = true },
   { flags = ["-n", "--no-clobber"], args = "on_conflict: skip" },
@@ -324,7 +323,7 @@ option = [
 form = [
   { when = { options = ["t"] }, template = "move $all into: $t" },
   { when = { dest_dir = true }, template = "move $init into: $last" },
-  { when = { operands = 1 }, template = "move $1 to: $2" },
+  { when = { operands = 2 }, template = "move $1 to: $2" },
 ]
 stage = [
   { input = ["path_entry"], when = { options = ["t"] }, template = "move into: $t" },
@@ -337,12 +336,11 @@ rule = "B04"
 class = "C"
 help = "copy"
 min = 1
-template = "copy $1 to: $2"
 output = "effect"
-glob = { rule = "B02", stages = "|> copy into: $last" }
+glob = { rule = "B02", stages = "|> copy into: $last", operands = 2 }
 option = [
   { flags = ["-r", "-R", "--recursive"] },
-  { flags = ["-a", "--archive", "-p", "--preserve"], id = "a", args = "preserve: true", default = true },
+  { flags = ["-a", "--archive", "-p", "--preserve"], id = "a", args = "preserve: true", default = true, absent = "preserve: false" },
   { flags = ["-f", "--force"], args = "on_conflict: overwrite", default = true },
   { flags = ["-n", "--no-clobber"], args = "on_conflict: skip" },
   { flags = ["-v", "--verbose"] },
@@ -352,6 +350,7 @@ option = [
 form = [
   { when = { options = ["t"] }, template = "copy $all into: $t" },
   { when = { dest_dir = true }, template = "copy $init into: $last" },
+  { when = { operands = 2 }, template = "copy $1 to: $2" },
 ]
 stage = [
   { input = ["path_entry"], when = { options = ["t"] }, template = "copy into: $t" },
@@ -367,7 +366,7 @@ min = 1
 template = "create $all type: directory"
 output = "effect"
 option = [
-  { flags = ["-p", "--parents"] },
+  { flags = ["-p", "--parents"], args = "parents: true", default = true, absent = "parents: false" },
   { flags = ["-v", "--verbose"] },
 ]
 
@@ -388,7 +387,7 @@ help = "attributes"
 min = 2
 template = "attributes $rest mode: $1:text"
 output = "effect"
-glob = { rule = "B02", stages = "|> attributes mode: $1:text" }
+glob = { rule = "B02", stages = "|> attributes mode: $1:text", operands = 2 }
 option = [
   { flags = ["-R", "--recursive"], args = "recursive: true" },
   { flags = ["-v", "--verbose"] },
@@ -755,6 +754,10 @@ option = [
   { flags = ["-v", "--verbose"] },
 ]
 form = [{ when = { options = ["d"] }, template = "decompress $all" }]
+stage = [
+  { input = ["path_entry"], when = { without = ["d"] }, template = "compress" },
+  { input = ["path_entry"], when = { options = ["d"] }, template = "decompress" },
+]
 
 [[entry]]
 name = "gunzip"
@@ -765,6 +768,7 @@ min = 1
 template = "decompress $all"
 output = "effect"
 option = [{ flags = ["-k", "--keep"], args = "keep: true", default = true, absent = "keep: false" }]
+stage = [{ input = ["path_entry"], template = "decompress" }]
 
 # System and processes: B35-B37.
 
@@ -1510,6 +1514,7 @@ help = "evaluate"
 max = 0
 template = "evaluate now()"
 output = "other"
+option = [{ flags = ["-u", "--utc"] }]
 
 [[entry]]
 name = "sleep"

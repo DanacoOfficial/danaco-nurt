@@ -47,43 +47,102 @@ pub(crate) fn translate(
     input: Option<&str>,
 ) -> Result<Variants, Error> {
     if input.is_some() {
-        return Err(session.error(ErrorCode::Uncorrectable, "unsupported_stage", simple.span, &[("command", "sed")]));
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "unsupported_stage",
+            simple.span,
+            &[("command", "sed")],
+        ));
     }
     let mut parsed = engine::parse_options(session, entry, words)?;
     let script_word = match parsed.value_of(entry, "e") {
         Some(word) => word.clone(),
         None if !parsed.operands.is_empty() => parsed.operands.remove(0),
-        None => return Err(session.error(ErrorCode::Uncorrectable, "missing_operand", simple.span, &[("slot", "script"), ("command", "sed")])),
+        None => {
+            return Err(session.error(
+                ErrorCode::Uncorrectable,
+                "missing_operand",
+                simple.span,
+                &[("slot", "script"), ("command", "sed")],
+            ));
+        }
     };
     let Some(text) = script_word.value.literal() else {
-        return Err(session.error(ErrorCode::Uncorrectable, "variable_in_text", script_word.span, &[("name", &script_word.value.raw), ("lower", "x")]));
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "variable_in_text",
+            script_word.span,
+            &[("name", &script_word.value.raw), ("lower", "x")],
+        ));
     };
     if parsed.operands.is_empty() {
-        return Err(session.error(ErrorCode::Uncorrectable, "standard_input", simple.span, &[("command", "sed")]));
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "standard_input",
+            simple.span,
+            &[("command", "sed")],
+        ));
     }
     let unsupported = || {
         session
-            .error(ErrorCode::Uncorrectable, "unsupported_sed_script", script_word.span, &[("script", &text)])
+            .error(
+                ErrorCode::Uncorrectable,
+                "unsupported_sed_script",
+                script_word.span,
+                &[("script", &text)],
+            )
             .with_help(format!("help {}", entry.help))
     };
     let script = parse_script(&text).ok_or_else(unsupported)?;
     let in_place = parsed.has(entry, "i");
     let quiet = parsed.has(entry, "n");
-    let dialect = if parsed.has(entry, "E") { Dialect::Extended } else { Dialect::Basic };
+    let dialect = if parsed.has(entry, "E") {
+        Dialect::Extended
+    } else {
+        Dialect::Basic
+    };
     let readings = |pattern: &str| {
         pattern::readings(pattern, dialect).map_err(|reason| {
-            session.error(ErrorCode::Uncorrectable, "invalid_regex", script_word.span, &[("pattern", pattern), ("reason", &reason)])
+            session.error(
+                ErrorCode::Uncorrectable,
+                "invalid_regex",
+                script_word.span,
+                &[("pattern", pattern), ("reason", &reason)],
+            )
         })
     };
-    let mut bindings = engine::bind_operands(session, &parsed.operands)?;
+    let mut bindings = engine::bind_operands(session, &parsed.operands, false)?;
     match script {
-        Script::Substitute { .. } if !in_place || quiet => Err(session.error(ErrorCode::Uncorrectable, "sed_without_in_place", simple.span, &[])),
-        Script::Substitute { pattern, replacement, global, occurrence, ignore_case } => {
+        Script::Substitute { .. } if !in_place || quiet => Err(session.error(
+            ErrorCode::Uncorrectable,
+            "sed_without_in_place",
+            simple.span,
+            &[],
+        )),
+        Script::Substitute {
+            pattern,
+            replacement,
+            global,
+            occurrence,
+            ignore_case,
+        } => {
             let found = readings(&pattern)?;
-            bindings.set("with", vec![Bound::Node(Expr::Text { v: template_text(&replacement), span: Some(script_word.span) })]);
+            bindings.set(
+                "with",
+                vec![Bound::Node(Expr::Text {
+                    v: template_text(&replacement),
+                    span: Some(script_word.span),
+                })],
+            );
             let mut extra = Vec::new();
             if !global {
-                bindings.set("occurrence", vec![Bound::Node(Expr::Int { v: occurrence.unwrap_or(1), span: None })]);
+                bindings.set(
+                    "occurrence",
+                    vec![Bound::Node(Expr::Int {
+                        v: occurrence.unwrap_or(1),
+                        span: None,
+                    })],
+                );
                 extra.push("occurrence");
             }
             if ignore_case {
@@ -91,11 +150,23 @@ pub(crate) fn translate(
             }
             substitute(session, simple, &bindings, &found, &extra, script_word.span)
         }
-        Script::Print(_) | Script::Delete(_) if parsed.operands.len() > 1 => {
-            Err(session.error(ErrorCode::Uncorrectable, "too_many_operands", simple.span, &[("command", "sed")]))
+        Script::Print(_) | Script::Delete(_) if parsed.operands.len() > 1 => Err(session.error(
+            ErrorCode::Uncorrectable,
+            "too_many_operands",
+            simple.span,
+            &[("command", "sed")],
+        )),
+        Script::Print(address) if quiet && !in_place => {
+            lines(session, simple, &mut bindings, &address, "print", &readings)
         }
-        Script::Print(address) if quiet && !in_place => lines(session, simple, &mut bindings, &address, "print", &readings),
-        Script::Delete(address) if in_place && !quiet => lines(session, simple, &mut bindings, &address, "delete", &readings),
+        Script::Delete(address) if in_place && !quiet => lines(
+            session,
+            simple,
+            &mut bindings,
+            &address,
+            "delete",
+            &readings,
+        ),
         _ => Err(unsupported()),
     }
 }
@@ -121,14 +192,30 @@ fn substitute(
                 super::session::append_args(stage, added.args);
             }
         }
-        pieces.push(Piece { stages, kind: "effect".to_owned(), why: Some(reading.why.to_owned()) });
+        pieces.push(Piece {
+            stages,
+            kind: "effect".to_owned(),
+            why: Some(reading.why.to_owned()),
+        });
     }
-    let class = if found.probable { CorrectionClass::Probable } else { CorrectionClass::Certain };
-    if found.probable && let Some(first) = found.items.first() {
+    let class = if found.probable {
+        CorrectionClass::Probable
+    } else {
+        CorrectionClass::Certain
+    };
+    if found.probable
+        && let Some(first) = found.items.first()
+    {
         session.assume("B16", first.why);
     }
     let variants = Variants(pieces);
-    session.record("B16", class, simple.span, piece_text(variants.primary()), "habit");
+    session.record(
+        "B16",
+        class,
+        simple.span,
+        piece_text(variants.primary()),
+        "habit",
+    );
     Ok(variants)
 }
 
@@ -142,11 +229,24 @@ fn lines(
 ) -> Result<Variants, Error> {
     let (key, found) = match address {
         Address::Line(line) => {
-            bindings.set("range", vec![Bound::Node(Expr::Int { v: *line, span: None })]);
+            bindings.set(
+                "range",
+                vec![Bound::Node(Expr::Int {
+                    v: *line,
+                    span: None,
+                })],
+            );
             ("range", None)
         }
         Address::Range(lo, hi) => {
-            bindings.set("range", vec![Bound::Node(Expr::Range { lo: Some(*lo), hi: *hi, span: None })]);
+            bindings.set(
+                "range",
+                vec![Bound::Node(Expr::Range {
+                    lo: Some(*lo),
+                    hi: *hi,
+                    span: None,
+                })],
+            );
             ("range", None)
         }
         Address::Last => ("last", None),
@@ -155,22 +255,42 @@ fn lines(
     let template = format!("{action}_{key}");
     let kind = if action == "print" { "line" } else { "effect" };
     let mut pieces = Vec::new();
-    let items = found.as_ref().map_or_else(|| vec![None], |found| found.items.iter().map(Some).collect());
+    let items = found.as_ref().map_or_else(
+        || vec![None],
+        |found| found.items.iter().map(Some).collect(),
+    );
     for reading in items {
         let mut local = bindings.clone();
         if let Some(reading) = reading {
-            local.set("regex", vec![Bound::Node(pattern::as_regex(&reading.expr, false))]);
+            local.set(
+                "regex",
+                vec![Bound::Node(pattern::as_regex(&reading.expr, false))],
+            );
         }
         let stages = value_template(session, "sed", &template, &local, simple.span)?;
-        pieces.push(Piece { stages, kind: kind.to_owned(), why: reading.map(|r| r.why.to_owned()) });
+        pieces.push(Piece {
+            stages,
+            kind: kind.to_owned(),
+            why: reading.map(|r| r.why.to_owned()),
+        });
     }
     let probable = found.as_ref().is_some_and(|found| found.probable);
     if probable && let Some(first) = found.as_ref().and_then(|found| found.items.first()) {
         session.assume("B17", first.why);
     }
-    let class = if probable { CorrectionClass::Probable } else { CorrectionClass::Certain };
+    let class = if probable {
+        CorrectionClass::Probable
+    } else {
+        CorrectionClass::Certain
+    };
     let variants = Variants(pieces);
-    session.record("B17", class, simple.span, piece_text(variants.primary()), "habit");
+    session.record(
+        "B17",
+        class,
+        simple.span,
+        piece_text(variants.primary()),
+        "habit",
+    );
     Ok(variants)
 }
 
@@ -196,7 +316,7 @@ fn substitution(text: &str, delimiter: char) -> Option<Script> {
     let mut parts = vec![String::new()];
     let mut chars = text.chars();
     while let Some(c) = chars.next() {
-        let Some(current) = parts.last_mut() else { return None };
+        let current = parts.last_mut()?;
         match c {
             '\\' => match chars.next() {
                 Some(next) if next == delimiter => current.push(next),
@@ -210,7 +330,9 @@ fn substitution(text: &str, delimiter: char) -> Option<Script> {
             c => current.push(c),
         }
     }
-    let [pattern, replacement, flags] = parts.as_slice() else { return None };
+    let [pattern, replacement, flags] = parts.as_slice() else {
+        return None;
+    };
     let mut global = false;
     let mut ignore_case = false;
     let mut digits = String::new();
@@ -222,11 +344,21 @@ fn substitution(text: &str, delimiter: char) -> Option<Script> {
             _ => return None,
         }
     }
-    let occurrence = if digits.is_empty() { None } else { Some(digits.parse().ok()?) };
+    let occurrence = if digits.is_empty() {
+        None
+    } else {
+        Some(digits.parse().ok()?)
+    };
     if pattern.is_empty() || (global && occurrence.is_some()) {
         return None;
     }
-    Some(Script::Substitute { pattern: pattern.clone(), replacement: replacement.clone(), global, occurrence, ignore_case })
+    Some(Script::Substitute {
+        pattern: pattern.clone(),
+        replacement: replacement.clone(),
+        global,
+        occurrence,
+        ignore_case,
+    })
 }
 
 fn address(text: &str) -> Option<(Address, &str)> {
@@ -254,7 +386,9 @@ fn address(text: &str) -> Option<(Address, &str)> {
     }
     let (first, rest) = number(text)?;
     match rest.strip_prefix(',') {
-        Some(tail) if tail.starts_with('$') => Some((Address::Range(first, None), tail[1..].trim())),
+        Some(tail) if tail.starts_with('$') => {
+            Some((Address::Range(first, None), tail[1..].trim()))
+        }
         Some(tail) => {
             let (last, rest) = number(tail)?;
             (last >= first).then_some((Address::Range(first, Some(last)), rest.trim()))
@@ -264,7 +398,9 @@ fn address(text: &str) -> Option<(Address, &str)> {
 }
 
 fn number(text: &str) -> Option<(i64, &str)> {
-    let end = text.find(|c: char| !c.is_ascii_digit()).unwrap_or(text.len());
+    let end = text
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(text.len());
     let value: i64 = text[..end].parse().ok()?;
     (value >= 1).then_some((value, &text[end..]))
 }
@@ -316,11 +452,23 @@ mod tests {
     fn substitutions_with_other_delimiters_and_flags() {
         assert_eq!(
             parse_script("s|a/b|c|g"),
-            Some(Script::Substitute { pattern: "a/b".into(), replacement: "c".into(), global: true, occurrence: None, ignore_case: false })
+            Some(Script::Substitute {
+                pattern: "a/b".into(),
+                replacement: "c".into(),
+                global: true,
+                occurrence: None,
+                ignore_case: false
+            })
         );
         assert_eq!(
             parse_script(r"s/a\/b/x/2I"),
-            Some(Script::Substitute { pattern: "a/b".into(), replacement: "x".into(), global: false, occurrence: Some(2), ignore_case: true })
+            Some(Script::Substitute {
+                pattern: "a/b".into(),
+                replacement: "x".into(),
+                global: false,
+                occurrence: Some(2),
+                ignore_case: true
+            })
         );
         assert_eq!(parse_script("s/a/b/w f"), None);
         assert_eq!(parse_script("s/a/b"), None);
@@ -331,10 +479,19 @@ mod tests {
     #[test]
     fn addresses() {
         assert_eq!(parse_script("5p"), Some(Script::Print(Address::Line(5))));
-        assert_eq!(parse_script("10,20p"), Some(Script::Print(Address::Range(10, Some(20)))));
-        assert_eq!(parse_script("3,$d"), Some(Script::Delete(Address::Range(3, None))));
+        assert_eq!(
+            parse_script("10,20p"),
+            Some(Script::Print(Address::Range(10, Some(20))))
+        );
+        assert_eq!(
+            parse_script("3,$d"),
+            Some(Script::Delete(Address::Range(3, None)))
+        );
         assert_eq!(parse_script("$d"), Some(Script::Delete(Address::Last)));
-        assert_eq!(parse_script(r"/^\s*debug\s*=/d"), Some(Script::Delete(Address::Match(r"^\s*debug\s*=".into()))));
+        assert_eq!(
+            parse_script(r"/^\s*debug\s*=/d"),
+            Some(Script::Delete(Address::Match(r"^\s*debug\s*=".into())))
+        );
         assert_eq!(parse_script("/a/a text"), None);
         assert_eq!(parse_script("5,2p"), None);
         assert_eq!(parse_script("0d"), None);

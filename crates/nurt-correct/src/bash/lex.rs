@@ -306,7 +306,7 @@ impl std::error::Error for LexError {}
 /// let tokens = lex("cd /srv/app && go test ./...")?;
 /// assert_eq!(tokens.len(), 6);
 /// assert_eq!(tokens[2].kind, PosixTokenKind::Operator(Operator::And));
-/// assert_eq!(tokens[2].span.column, 12);
+/// assert_eq!(tokens[2].span.column, 13);
 /// # Ok::<(), nurt_correct::bash::LexError>(())
 /// ```
 pub fn lex(input: &str) -> Result<Vec<PosixToken>, LexError> {
@@ -358,7 +358,11 @@ impl Lexer {
         }
         if let Some(&index) = self.pending_here_docs.first() {
             let span = self.tokens[index].span;
-            return Err(error_at(span.line, span.column, "here-document without a body"));
+            return Err(error_at(
+                span.line,
+                span.column,
+                "here-document without a body",
+            ));
         }
         Ok(self.tokens)
     }
@@ -454,20 +458,30 @@ impl Lexer {
         let operator_index = self.tokens.len() - 1;
         let start = self.mark();
         let word = self.read_word(start)?;
-        let quoted = word
-            .parts
-            .iter()
-            .any(|part| !matches!(part, WordPart::Literal { quoting: Quoting::None, .. }));
+        let quoted = word.parts.iter().any(|part| {
+            !matches!(
+                part,
+                WordPart::Literal {
+                    quoting: Quoting::None,
+                    ..
+                }
+            )
+        });
         let delimiter = word.literal().unwrap_or_else(|| word.raw.clone());
         if delimiter.is_empty() {
-            return Err(error_at(start.line, start.column, "here-document without a delimiter"));
+            return Err(error_at(
+                start.line,
+                start.column,
+                "here-document without a delimiter",
+            ));
         }
+        let span = self.span_from(start);
         if let PosixTokenKind::Redirect(redirect) = &mut self.tokens[operator_index].kind {
             redirect.here_doc = Some(HereDoc {
                 delimiter,
                 quoted,
                 body: String::new(),
-                span: self.span_from(start),
+                span,
             });
         }
         self.pending_here_docs.push(operator_index);
@@ -489,10 +503,18 @@ impl Lexer {
         loop {
             if self.peek(0).is_none() {
                 let span = self.tokens[index].span;
-                return Err(error_at(span.line, span.column, "unterminated here-document"));
+                return Err(error_at(
+                    span.line,
+                    span.column,
+                    "unterminated here-document",
+                ));
             }
             let line = self.read_line();
-            let content = if strip { line.trim_start_matches('\t') } else { line.as_str() };
+            let content = if strip {
+                line.trim_start_matches('\t')
+            } else {
+                line.as_str()
+            };
             if content == delimiter {
                 break;
             }
@@ -679,7 +701,11 @@ impl Lexer {
             }
             _ => {
                 self.bump();
-                let quoting = if quoted { Quoting::Double } else { Quoting::None };
+                let quoting = if quoted {
+                    Quoting::Double
+                } else {
+                    Quoting::None
+                };
                 builder.literal('$', quoting);
             }
         }
@@ -695,7 +721,11 @@ impl Lexer {
         let mut quote: Option<char> = None;
         loop {
             let Some(c) = self.bump() else {
-                return Err(error_at(start.line, start.column, "unterminated substitution"));
+                return Err(error_at(
+                    start.line,
+                    start.column,
+                    "unterminated substitution",
+                ));
             };
             match (quote, c) {
                 (Some(q), _) if c == q => quote = None,
@@ -870,7 +900,11 @@ mod tests {
     }
 
     fn kinds(input: &str) -> Vec<PosixTokenKind> {
-        lex(input).unwrap().into_iter().map(|token| token.kind).collect()
+        lex(input)
+            .unwrap()
+            .into_iter()
+            .map(|token| token.kind)
+            .collect()
     }
 
     #[test]
@@ -986,14 +1020,21 @@ mod tests {
             }
         );
         let tick = &words("rm `ls /a`")[1];
-        assert!(matches!(&tick.parts[0], WordPart::Substitution { backtick: true, .. }));
+        assert!(matches!(
+            &tick.parts[0],
+            WordPart::Substitution { backtick: true, .. }
+        ));
     }
 
     #[test]
     fn arithmetic_and_braced_expansions() {
         let word = &words("echo $((1+2))${HOME}$1")[1];
-        assert!(matches!(&word.parts[0], WordPart::Substitution { arithmetic: true, body, .. } if body == "1+2"));
-        assert!(matches!(&word.parts[1], WordPart::Variable { braced: true, name, .. } if name == "HOME"));
+        assert!(
+            matches!(&word.parts[0], WordPart::Substitution { arithmetic: true, body, .. } if body == "1+2")
+        );
+        assert!(
+            matches!(&word.parts[1], WordPart::Variable { braced: true, name, .. } if name == "HOME")
+        );
         assert!(matches!(&word.parts[2], WordPart::Variable { name, .. } if name == "1"));
     }
 
@@ -1015,7 +1056,10 @@ mod tests {
         let doc = tokens
             .iter()
             .find_map(|token| match &token.kind {
-                PosixTokenKind::Redirect(Redirect { here_doc: Some(doc), .. }) => Some(doc),
+                PosixTokenKind::Redirect(Redirect {
+                    here_doc: Some(doc),
+                    ..
+                }) => Some(doc),
                 _ => None,
             })
             .unwrap();
@@ -1031,7 +1075,10 @@ mod tests {
         let doc = tokens
             .iter()
             .find_map(|token| match &token.kind {
-                PosixTokenKind::Redirect(Redirect { here_doc: Some(doc), .. }) => Some(doc),
+                PosixTokenKind::Redirect(Redirect {
+                    here_doc: Some(doc),
+                    ..
+                }) => Some(doc),
                 _ => None,
             })
             .unwrap();
@@ -1042,7 +1089,15 @@ mod tests {
     #[test]
     fn positions_count_characters() {
         let tokens = lex("rm \"zażółć\" /b").unwrap();
-        assert_eq!(tokens[1].span, Span { line: 1, column: 4, end_line: 1, end_column: 12 });
+        assert_eq!(
+            tokens[1].span,
+            Span {
+                line: 1,
+                column: 4,
+                end_line: 1,
+                end_column: 12
+            }
+        );
         assert_eq!(tokens[2].span.column, 13);
     }
 

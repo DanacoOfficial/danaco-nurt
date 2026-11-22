@@ -9,8 +9,8 @@
 //! literals in their canonical spelling.
 
 use nurt_contracts::ast::{
-    AstDocument, BinOp, Expr, Head, KeySeg, Let, MapEntry, Pipeline, Program, Ref, Stage, Statement,
-    UnOp, Wildcard,
+    AstDocument, BinOp, Expr, Head, KeySeg, Let, MapEntry, Pipeline, Program, Ref, Stage,
+    Statement, UnOp, Wildcard,
 };
 
 /// Column limit of a one-line pipeline or list.
@@ -190,7 +190,10 @@ fn wrap(text: String, parens: bool) -> String {
 }
 
 fn print_list(items: &[Expr], indent: usize) -> String {
-    let printed: Vec<String> = items.iter().map(|item| print_expr(item, indent + 1)).collect();
+    let printed: Vec<String> = items
+        .iter()
+        .map(|item| print_expr(item, indent + 1))
+        .collect();
     let one_line = format!("[{}]", printed.join(", "));
     let nested = items.len() >= 2
         && items
@@ -201,20 +204,33 @@ fn print_list(items: &[Expr], indent: usize) -> String {
     }
     let inner = INDENT.repeat(indent + 1);
     let outer = INDENT.repeat(indent);
-    let body: Vec<String> = printed.iter().map(|item| format!("{inner}{item}")).collect();
+    let body: Vec<String> = printed
+        .iter()
+        .map(|item| format!("{inner}{item}"))
+        .collect();
     format!("[\n{}\n{outer}]", body.join("\n"))
 }
 
 fn print_map(entries: &[MapEntry], indent: usize) -> String {
     let printed: Vec<String> = entries
         .iter()
-        .map(|entry| format!("{}: {}", print_key_name(&entry.k), print_expr(&entry.v, indent + 1)))
+        .map(|entry| {
+            format!(
+                "{}: {}",
+                print_key_name(&entry.k),
+                print_expr(&entry.v, indent + 1)
+            )
+        })
         .collect();
     format!("{{{}}}", printed.join(", "))
 }
 
 fn print_key_name(key: &str) -> String {
-    if is_identifier(key) { key.to_owned() } else { print_text(key) }
+    if is_identifier(key) {
+        key.to_owned()
+    } else {
+        print_text(key)
+    }
 }
 
 fn print_key(segments: &[KeySeg]) -> String {
@@ -251,7 +267,9 @@ pub(crate) fn is_identifier(text: &str) -> bool {
 /// escaped literal otherwise.
 pub(crate) fn print_text(text: &str) -> String {
     let needs_raw = text.contains(['"', '\\']);
-    let raw_allowed = !text.chars().any(|c| c.is_control() && c != '\t' && c != '\n');
+    let raw_allowed = !text
+        .chars()
+        .any(|c| c.is_control() && c != '\t' && c != '\n');
     if needs_raw && raw_allowed {
         let mut hashes = 0;
         while text.contains(&format!("\"{}", "#".repeat(hashes))) {
@@ -280,7 +298,11 @@ pub(crate) fn print_text(text: &str) -> String {
 
 fn print_number(value: f64) -> String {
     let text = value.to_string();
-    if text.contains('.') { text } else { format!("{text}.0") }
+    if text.contains('.') {
+        text
+    } else {
+        format!("{text}.0")
+    }
 }
 
 /// Size units in the order used to break ties: decimal before binary,
@@ -317,12 +339,12 @@ pub(crate) fn print_size(bytes: u64) -> String {
 }
 
 fn size_form(bytes: u64, unit: &str, factor: u64) -> Option<String> {
-    if bytes % factor == 0 {
+    if bytes.is_multiple_of(factor) {
         return Some(format!("{}{unit}", bytes / factor));
     }
     let scaled = u128::from(bytes) * SIZE_FRACTION;
     let factor = u128::from(factor);
-    if scaled % factor != 0 {
+    if !scaled.is_multiple_of(factor) {
         return None;
     }
     let thousandths = scaled / factor;
@@ -365,19 +387,34 @@ mod tests {
     use super::*;
 
     fn text(v: &str) -> Expr {
-        Expr::Text { v: v.to_owned(), span: None }
+        Expr::Text {
+            v: v.to_owned(),
+            span: None,
+        }
     }
 
     fn stage(name: &str, args: Vec<Arg>) -> Stage {
-        Stage { name: name.to_owned(), args, span: None }
+        Stage {
+            name: name.to_owned(),
+            args,
+            span: None,
+        }
     }
 
     fn positional(value: Expr) -> Arg {
-        Arg { name: None, value, span: None }
+        Arg {
+            name: None,
+            value,
+            span: None,
+        }
     }
 
     fn named(name: &str, value: Expr) -> Arg {
-        Arg { name: Some(name.to_owned()), value, span: None }
+        Arg {
+            name: Some(name.to_owned()),
+            value,
+            span: None,
+        }
     }
 
     #[test]
@@ -397,7 +434,8 @@ mod tests {
         assert_eq!(print_size(10 * 1_048_576), "10mib");
         assert_eq!(print_size(1_500_000_000), "1.5gb");
         assert_eq!(print_size(512), "512b");
-        assert_eq!(print_size(1_024_000), "1.024mb");
+        assert_eq!(print_size(1_024_000), "1024kb");
+        assert_eq!(print_size(1_572_864), "1.5mib");
     }
 
     #[test]
@@ -426,11 +464,17 @@ mod tests {
 
     #[test]
     fn expressions_get_parentheses_only_when_needed() {
-        let size = Expr::Ident { v: "size".to_owned(), span: None };
+        let size = Expr::Ident {
+            v: "size".to_owned(),
+            span: None,
+        };
         let gt = Expr::Bin {
             op: BinOp::Gt,
             l: Box::new(size.clone()),
-            r: Box::new(Expr::Size { v: 1000, span: None }),
+            r: Box::new(Expr::Size {
+                v: 1000,
+                span: None,
+            }),
             span: None,
         };
         let both = Expr::Bin {
@@ -440,57 +484,106 @@ mod tests {
             span: None,
         };
         assert_eq!(print_expr(&both, 0), "size > 1kb and size > 1kb");
-        let negated = Expr::Un { op: UnOp::Not, x: Box::new(both), span: None };
+        let negated = Expr::Un {
+            op: UnOp::Not,
+            x: Box::new(both),
+            span: None,
+        };
         assert_eq!(print_expr(&negated, 0), "not (size > 1kb and size > 1kb)");
-        let simple_not = Expr::Un { op: UnOp::Not, x: Box::new(size), span: None };
+        let simple_not = Expr::Un {
+            op: UnOp::Not,
+            x: Box::new(size),
+            span: None,
+        };
         assert_eq!(print_expr(&simple_not, 0), "not size");
     }
 
     #[test]
     fn lists_maps_and_references() {
-        let list = Expr::List { items: vec![text("go"), text("test")], span: None };
+        let list = Expr::List {
+            items: vec![text("go"), text("test")],
+            span: None,
+        };
         assert_eq!(print_expr(&list, 0), "[\"go\", \"test\"]");
         let map = Expr::Map {
             entries: vec![
-                MapEntry { k: "VAR".to_owned(), v: text("x") },
-                MapEntry { k: "mode".to_owned(), v: text("y") },
+                MapEntry {
+                    k: "VAR".to_owned(),
+                    v: text("x"),
+                    span: None,
+                },
+                MapEntry {
+                    k: "mode".to_owned(),
+                    v: text("y"),
+                    span: None,
+                },
             ],
             span: None,
         };
         assert_eq!(print_expr(&map, 0), "{\"VAR\": \"x\", mode: \"y\"}");
-        let reference = Ref { name: "x".to_owned(), fields: vec!["path".to_owned()], span: None };
+        let reference = Ref {
+            name: "x".to_owned(),
+            fields: vec!["path".to_owned()],
+            span: None,
+        };
         assert_eq!(print_ref(&reference), "@x.path");
-        let spread = Expr::Spread { x: Box::new(Expr::Ref(reference)), span: None };
+        let spread = Expr::Spread {
+            x: Box::new(Expr::Ref(reference)),
+            span: None,
+        };
         assert_eq!(print_expr(&spread, 0), "...@x.path");
     }
 
     #[test]
     fn nested_lists_print_one_item_per_line() {
-        let inner = Expr::List { items: vec![text("a")], span: None };
-        let outer = Expr::List { items: vec![inner.clone(), inner], span: None };
+        let inner = Expr::List {
+            items: vec![text("a")],
+            span: None,
+        };
+        let outer = Expr::List {
+            items: vec![inner.clone(), inner],
+            span: None,
+        };
         assert_eq!(print_expr(&outer, 0), "[\n  [\"a\"]\n  [\"a\"]\n]");
     }
 
     #[test]
     fn statements_and_lets() {
         let find = Pipeline {
-            head: Head::Stage(stage("find", vec![positional(text("/a")), named("glob", text("*.go"))])),
+            head: Head::Stage(stage(
+                "find",
+                vec![positional(text("/a")), named("glob", text("*.go"))],
+            )),
             stages: Vec::new(),
             span: None,
         };
         let run = Pipeline {
-            head: Head::Stage(stage("run", vec![positional(Expr::List {
-                items: vec![text("wc"), Expr::Spread {
-                    x: Box::new(Expr::Ref(Ref { name: "x".to_owned(), fields: vec!["path".to_owned()], span: None })),
+            head: Head::Stage(stage(
+                "run",
+                vec![positional(Expr::List {
+                    items: vec![
+                        text("wc"),
+                        Expr::Spread {
+                            x: Box::new(Expr::Ref(Ref {
+                                name: "x".to_owned(),
+                                fields: vec!["path".to_owned()],
+                                span: None,
+                            })),
+                            span: None,
+                        },
+                    ],
                     span: None,
-                }],
-                span: None,
-            })])),
+                })],
+            )),
             stages: Vec::new(),
             span: None,
         };
         let doc = document(vec![
-            Statement::Let(Let { name: "x".to_owned(), value: find, span: None }),
+            Statement::Let(Let {
+                name: "x".to_owned(),
+                value: find,
+                span: None,
+            }),
             Statement::Pipeline(run),
         ]);
         assert_eq!(
@@ -501,13 +594,43 @@ mod tests {
 
     #[test]
     fn other_literals() {
-        assert_eq!(print_expr(&Expr::Regex { v: "a/b".to_owned(), flags: "i".to_owned(), span: None }, 0), "/a\\/b/i");
-        assert_eq!(print_expr(&Expr::Range { lo: None, hi: Some(10), span: None }, 0), "..10");
+        assert_eq!(
+            print_expr(
+                &Expr::Regex {
+                    v: "a/b".to_owned(),
+                    flags: "i".to_owned(),
+                    span: None
+                },
+                0
+            ),
+            "/a\\/b/i"
+        );
+        assert_eq!(
+            print_expr(
+                &Expr::Range {
+                    lo: None,
+                    hi: Some(10),
+                    span: None
+                },
+                0
+            ),
+            "..10"
+        );
         assert_eq!(print_expr(&Expr::Num { v: 3.0, span: None }, 0), "3.0");
         assert_eq!(print_expr(&Expr::Null { span: None }, 0), "null");
-        let call = Expr::Call { function: "ago".to_owned(), args: vec![Expr::Dur { v: 86_400_000, span: None }], span: None };
+        let call = Expr::Call {
+            function: "ago".to_owned(),
+            args: vec![Expr::Dur {
+                v: 86_400_000,
+                span: None,
+            }],
+            span: None,
+        };
         assert_eq!(print_expr(&call, 0), "ago(1d)");
-        let key = Expr::Key { segs: vec![KeySeg::Name("a".to_owned()), KeySeg::Index(0)], span: None };
+        let key = Expr::Key {
+            segs: vec![KeySeg::Name("a".to_owned()), KeySeg::Index(0)],
+            span: None,
+        };
         assert_eq!(print_expr(&key, 0), "\"a[0]\"");
     }
 }
