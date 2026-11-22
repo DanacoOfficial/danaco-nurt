@@ -1,0 +1,38 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "set",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/package.json"
+              }
+            },
+            {
+              "name": "key",
+              "value": {
+                "t": "text",
+                "v": "scripts.test"
+              }
+            },
+            {
+              "name": "value",
+              "value": {
+                "t": "text",
+                "v": "vitest"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

@@ -5,7 +5,12 @@
 //! table is well formed, and every command and action of the catalog that
 //! changes data or runs a program has a row.
 
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests report failures by panicking"
+)]
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;

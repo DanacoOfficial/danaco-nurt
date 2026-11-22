@@ -200,6 +200,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -229,6 +230,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -262,6 +264,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v",
@@ -293,6 +296,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -323,6 +327,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -354,6 +359,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -385,6 +391,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -414,6 +421,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -439,6 +447,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t"
           ]
@@ -470,6 +479,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "segs"
@@ -502,6 +512,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "items"
@@ -534,6 +545,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "entries"
@@ -563,6 +575,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "x"
@@ -603,6 +616,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "name"
@@ -639,6 +653,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "fn",
@@ -673,6 +688,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "op",
@@ -711,6 +727,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "op",
@@ -754,6 +771,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t"
           ]
@@ -782,6 +800,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "p"
@@ -826,6 +845,7 @@
           ]
         }
       },
+      "additionalProperties": true,
       "required": [
         "name"
       ]
@@ -851,6 +871,7 @@
               "$ref": "#/$defs/Wildcard"
             }
           },
+          "additionalProperties": false,
           "required": [
             "wild"
           ]
@@ -864,6 +885,7 @@
               "$ref": "#/$defs/Expr"
             }
           },
+          "additionalProperties": false,
           "required": [
             "filter"
           ]
@@ -901,6 +923,17 @@
         "v": {
           "description": "Value.",
           "$ref": "#/$defs/Expr"
+        },
+        "span": {
+          "description": "Source range, from the key to the end of the value.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -1031,6 +1064,7 @@
           ]
         }
       },
+      "additionalProperties": true,
       "required": [
         "name",
         "args"
@@ -1080,6 +1114,7 @@
           ]
         }
       },
+      "additionalProperties": true,
       "required": [
         "head",
         "stages"
@@ -1109,6 +1144,7 @@
           ]
         }
       },
+      "additionalProperties": true,
       "required": [
         "name",
         "value"

@@ -410,6 +410,64 @@ fn polymorphic_core_commands_select_forms_by_input() {
 }
 
 #[test]
+fn derived_defaults_and_source_expansions_are_data() {
+    let core = load_core();
+    let run = core.command("run").unwrap();
+    let cwd = run.param("cwd").unwrap();
+    assert!(cwd.required);
+    assert_eq!(cwd.default_from.as_deref(), Some("base"));
+    assert_eq!(
+        run.param("watch").unwrap().default_from.as_deref(),
+        Some("cwd")
+    );
+    let expansions: Vec<(&str, &str)> = core
+        .commands
+        .iter()
+        .flat_map(|command| {
+            command
+                .forms
+                .iter()
+                .filter_map(move |form| Some((command.name.as_str(), form.expand.as_deref()?)))
+        })
+        .collect();
+    assert_eq!(
+        expansions,
+        [
+            ("copy", "from"),
+            ("move", "from"),
+            ("remove", "path"),
+            ("rename", "path"),
+            ("attributes", "path"),
+        ]
+    );
+
+    let mut unknown_source = run.clone();
+    for param in &mut unknown_source.params {
+        if param.name == "watch" {
+            param.default_from = Some("directory".to_owned());
+        }
+    }
+    let issues = unknown_source.check();
+    assert!(
+        issues
+            .iter()
+            .any(|issue| issue.message.contains("default_from")),
+        "{}",
+        report(&issues)
+    );
+    let mut stage_expansion = core.command("remove").unwrap().clone();
+    stage_expansion.forms[1].expand = Some("path".to_owned());
+    let issues = stage_expansion.check();
+    assert!(
+        issues
+            .iter()
+            .any(|issue| issue.message.contains("expand requires a source form")),
+        "{}",
+        report(&issues)
+    );
+}
+
+#[test]
 fn core_categories_match_the_catalog_legend() {
     let core = load_core();
     let count = |category: Category| {

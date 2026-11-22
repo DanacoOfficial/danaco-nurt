@@ -52,7 +52,7 @@ use crate::fs::Fs;
 use crate::journal::{JournalStore, MutationTx};
 use crate::kinds::Implementation;
 use crate::report::{Change, IrreversibleEntry, NotableEntry};
-use crate::services::{CodeService, DocService, FileListService, ProcessHost};
+use crate::services::{CodeService, DocService, FileListService, ProcessHost, Services};
 use crate::spec::StageSpec;
 use crate::value::{self, Record, RecordKind, Value};
 
@@ -66,77 +66,18 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 
 /// Execution step of a program, in execution order.
 ///
-/// The serialized form is the step number used in error positions: `"0"` to
-/// `"7"`, with `"5a"` for the steps after the effect.
+/// The same type as the stage of an error position ([`crate::error::Stage`]):
+/// the serialized form is the step number `"0"` to `"7"`, with `"5a"` for the
+/// steps after the effect.
 ///
 /// ```
 /// use nurt_contracts::stage::ExecStep;
 ///
 /// assert_eq!(ExecStep::After.as_str(), "5a");
 /// assert!(ExecStep::Plan < ExecStep::Apply);
+/// assert!(ExecStep::Apply.changes_world());
 /// ```
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
-)]
-pub enum ExecStep {
-    /// Text is corrected and parsed into the surface tree.
-    #[serde(rename = "0")]
-    Parse,
-    /// The surface tree is bound to the catalog.
-    #[serde(rename = "1")]
-    Bind,
-    /// Sources and transforms read the world.
-    #[serde(rename = "2")]
-    Read,
-    /// Checks before the effect; failure changes nothing.
-    #[serde(rename = "3")]
-    Check,
-    /// The effect stage computes targets and the planned effect.
-    #[serde(rename = "4")]
-    Plan,
-    /// The effect stage changes the world through the journal.
-    #[serde(rename = "5")]
-    Apply,
-    /// Stages after the effect read the records of the effect.
-    #[serde(rename = "5a")]
-    After,
-    /// The `verify` pipeline runs; failure rolls the effect back.
-    #[serde(rename = "6")]
-    Verify,
-    /// The report is built.
-    #[serde(rename = "7")]
-    Report,
-}
-
-impl ExecStep {
-    /// Step number as used in error positions.
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Parse => "0",
-            Self::Bind => "1",
-            Self::Read => "2",
-            Self::Check => "3",
-            Self::Plan => "4",
-            Self::Apply => "5",
-            Self::After => "5a",
-            Self::Verify => "6",
-            Self::Report => "7",
-        }
-    }
-
-    /// Returns `true` for the steps that may change the world.
-    #[must_use]
-    pub const fn changes_world(self) -> bool {
-        matches!(self, Self::Apply | Self::Verify)
-    }
-}
-
-impl fmt::Display for ExecStep {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
+pub type ExecStep = crate::error::Stage;
 
 /// Why an execution was cancelled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -281,7 +222,12 @@ impl CancelToken {
         *lock(&self.state.reason)
     }
 
-    /// Fails with the error of the cancellation reason once cancelled.
+    /// Checks whether the token is cancelled.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the error of the cancellation reason
+    /// ([`CancelReason::to_error`]) once the token is cancelled.
     pub fn check(&self) -> Result<()> {
         match self.reason() {
             Some(reason) => Err(reason.to_error()),
@@ -289,10 +235,10 @@ impl CancelToken {
         }
     }
 
-    /// Blocks the calling thread for no longer than `timeout` of real time, waking
-    /// up as soon as the token is cancelled. Returns the reason when the token
-    /// is cancelled, `None` when the time elapsed.
+    /// Blocks the calling thread for no longer than `timeout` of real time.
     ///
+    /// The thread wakes up as soon as the token is cancelled. Returns the
+    /// reason when the token is cancelled, `None` when the time elapsed.
     /// Production clocks implement [`Clock::sleep`] with this method; virtual
     /// clocks do not block.
     #[must_use]
@@ -397,10 +343,15 @@ impl<'a> RecordStream<'a> {
         })
     }
 
-    /// Collects the whole stream, failing with `E_LIMIT` when it holds more
-    /// than `max` records. Stages that must see all records before producing
-    /// output (`sort`, `last`, `group`) use this with
-    /// [`Limits::max_records`].
+    /// Collects the whole stream into memory.
+    ///
+    /// Stages that must see all records before producing output (`sort`,
+    /// `last`, `group`) use this with [`Limits::max_records`].
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_LIMIT` when the stream holds more than `max` records,
+    /// and with the first error item of the stream.
     pub fn collect_bounded(self, max: u64) -> Result<Vec<Record>> {
         let mut records = Vec::new();
         for item in self {
@@ -556,8 +507,11 @@ impl<'a> StageInput<'a> {
         matches!(self.data, StageData::None)
     }
 
-    /// The input records; fails with `E_TYPE` when the input is not a record
-    /// stream.
+    /// The input records.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_TYPE` when the input is not a record stream.
     pub fn into_records(self) -> Result<RecordStream<'a>> {
         match self.data {
             StageData::Records(stream) => Ok(stream),
@@ -573,8 +527,11 @@ impl<'a> StageInput<'a> {
     }
 
     /// Transforms the input records and keeps the header, order and
-    /// presentation hint. Fails with `E_TYPE` when the input is not a record
-    /// stream.
+    /// presentation hint.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_TYPE` when the input is not a record stream.
     pub fn map_records<F>(self, transform: F) -> Result<StageOutput<'a>>
     where
         F: FnOnce(RecordStream<'a>) -> RecordStream<'a>,
@@ -801,7 +758,12 @@ impl BoundArgs {
         }
     }
 
-    /// Value that must be present; fails with `E_MISSING_PARAM` otherwise.
+    /// Value that must be present.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_MISSING_PARAM` when the parameter has no value known
+    /// before the stage runs.
     pub fn require(&self, name: &str) -> Result<&Value> {
         self.value(name).ok_or_else(|| {
             contract_error(
@@ -811,7 +773,11 @@ impl BoundArgs {
         })
     }
 
-    /// Integer value; fails with `E_TYPE` when the value has another type.
+    /// Integer value.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_TYPE` when the value has another type.
     pub fn int(&self, name: &str) -> Result<Option<i64>> {
         match self.value(name) {
             None => Ok(None),
@@ -820,7 +786,11 @@ impl BoundArgs {
         }
     }
 
-    /// Boolean value; fails with `E_TYPE` when the value has another type.
+    /// Boolean value.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_TYPE` when the value has another type.
     pub fn bool(&self, name: &str) -> Result<Option<bool>> {
         match self.value(name) {
             None => Ok(None),
@@ -829,7 +799,11 @@ impl BoundArgs {
         }
     }
 
-    /// Text value; fails with `E_TYPE` when the value has another type.
+    /// Text value.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_TYPE` when the value has another type.
     pub fn text(&self, name: &str) -> Result<Option<&str>> {
         match self.value(name) {
             None => Ok(None),
@@ -838,8 +812,16 @@ impl BoundArgs {
         }
     }
 
-    /// Value for one input record: constant values are returned as they are,
-    /// per-record expressions are evaluated on `record`.
+    /// Value for one input record.
+    ///
+    /// Constant values are returned as they are; per-record expressions are
+    /// evaluated on `record`.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_TYPE` for a pipeline argument, with `E_STAGE_FAILED`
+    /// when the context has no evaluator, and with the error of the
+    /// evaluation.
     pub fn eval(
         &self,
         name: &str,
@@ -991,8 +973,15 @@ pub trait StageImpl: Send + Sync {
     fn descriptor(&self) -> StageDescriptor;
 
     /// Checks the bound arguments beyond the catalog types and reports
-    /// static facts. Runs after binding, before any step, without access to
-    /// the world. The default accepts the arguments and reports nothing.
+    /// static facts.
+    ///
+    /// Runs after binding, before any step, without access to the world. The
+    /// default accepts the arguments and reports nothing.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the error that rejects the program, usually `E_TYPE` or
+    /// `E_MISSING_PARAM` with the parameter concerned.
     fn check(&self, _args: &BoundArgs, _ctx: &CheckCtx<'_>) -> Result<StaticInfo> {
         Ok(StaticInfo::default())
     }
@@ -1017,6 +1006,11 @@ pub trait ReadStage: Send + Sync {
     /// The output stream may be lazy and borrow the arguments, the input and
     /// the context. Long loops call [`ExecCtx::checkpoint`] or wrap their
     /// stream with [`RecordStream::checked`].
+    ///
+    /// # Errors
+    ///
+    /// Fails with the error that ends the program before the first record;
+    /// later errors are items of the output stream.
     fn execute<'a>(
         &'a self,
         args: &'a BoundArgs,
@@ -1039,6 +1033,10 @@ pub trait EffectStage: Send + Sync {
     /// requests needed to compute the plan, is allowed; nothing may be
     /// created, changed, sent or started. With `preview` the execution ends
     /// after this step.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the error that ends the program; the world is unchanged.
     fn plan<'a>(
         &'a self,
         args: &'a BoundArgs,
@@ -1056,6 +1054,11 @@ pub trait EffectStage: Send + Sync {
     /// system are marked irreversible on `tx`. The output holds the records
     /// of the effect (`effect`, `exec`, `job`, …) read by the stages after
     /// the effect; it cannot borrow the transaction.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the error of the transaction (for example `E_STALE`) or of
+    /// the effect; the executor then rolls the transaction back.
     fn apply<'a>(
         &'a self,
         args: &'a BoundArgs,
@@ -1178,12 +1181,21 @@ impl<'a> EffectOutcome<'a> {
 pub trait ExprEvaluator: Send + Sync {
     /// Value of `expr` for `record`; `record` is `None` outside a record
     /// stream.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the error of the evaluation, for example `E_TYPE` for an
+    /// operand of another type.
     fn eval(&self, expr: &BoundExpr, record: Option<&Record>, ctx: &ExecCtx) -> Result<Value>;
 }
 
 /// Runs pipeline arguments.
 pub trait PipelineRunner: Send + Sync {
     /// Runs `pipeline` on `input` and returns its output.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the first error of a stage of the pipeline.
     fn run<'a>(
         &'a self,
         pipeline: &'a BoundPipeline,
@@ -1317,10 +1329,13 @@ impl Default for Demand {
 }
 
 /// Resource limits of one execution.
+///
+/// The default allows 5 000 000 records in memory, text files of up to 1 GiB
+/// and one thread per stage.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Limits {
-    /// Largest number of records a stage may hold in memory (`E_LIMIT` when exceeded;
-    /// records are never dropped silently).
+    /// Largest number of records a stage may hold in memory (`E_LIMIT` when
+    /// exceeded; records are never dropped silently).
     pub max_records: u64,
     /// Largest file read as text, in bytes.
     pub max_file_bytes_text: u64,
@@ -1329,12 +1344,16 @@ pub struct Limits {
     pub threads: u32,
 }
 
+const DEFAULT_MAX_RECORDS: u64 = 5_000_000;
+const DEFAULT_MAX_FILE_BYTES_TEXT: u64 = 1 << 30;
+const DEFAULT_THREADS: u32 = 1;
+
 impl Default for Limits {
     fn default() -> Self {
         Self {
-            max_records: 5_000_000,
-            max_file_bytes_text: 1 << 30,
-            threads: 1,
+            max_records: DEFAULT_MAX_RECORDS,
+            max_file_bytes_text: DEFAULT_MAX_FILE_BYTES_TEXT,
+            threads: DEFAULT_THREADS,
         }
     }
 }
@@ -1562,10 +1581,10 @@ impl EventSink for DiscardEvents {
 ///
 /// The context gives a stage everything it may use: the read-only file
 /// system, the journal store, clock, host, configuration, request options,
-/// cancellation and deadline, limits, events and services of other command
-/// groups. A stage never reaches the world any other way. Cloning is cheap;
-/// the executor derives one context per stage with
-/// [`for_stage`](ExecCtx::for_stage).
+/// cancellation and deadline, limits, events and the registry of services of
+/// other command groups ([`Services`]). A stage never reaches the world any
+/// other way. Cloning is cheap; the executor derives one context per stage
+/// with [`for_stage`](ExecCtx::for_stage).
 #[derive(Clone)]
 pub struct ExecCtx {
     clock: Arc<dyn Clock>,
@@ -1581,10 +1600,7 @@ pub struct ExecCtx {
     state_dir: Option<PathBuf>,
     evaluator: Option<Arc<dyn ExprEvaluator>>,
     pipelines: Option<Arc<dyn PipelineRunner>>,
-    doc: Option<Arc<dyn DocService>>,
-    code: Option<Arc<dyn CodeService>>,
-    process: Option<Arc<dyn ProcessHost>>,
-    files: Option<Arc<dyn FileListService>>,
+    services: Arc<Services>,
     extensions: Arc<Extensions>,
     frame: StageFrame,
     notes: Arc<Mutex<Vec<NotableEntry>>>,
@@ -1608,10 +1624,7 @@ impl ExecCtx {
             state_dir: None,
             evaluator: None,
             pipelines: None,
-            doc: None,
-            code: None,
-            process: None,
-            files: None,
+            services: Arc::default(),
             extensions: Extensions::new(),
             frame: StageFrame::default(),
         }
@@ -1644,8 +1657,11 @@ impl ExecCtx {
         self.fs.as_deref()
     }
 
-    /// Read-only file system; fails with `E_STAGE_FAILED` when the context
-    /// has none.
+    /// Read-only file system that must be present.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_STAGE_FAILED` when the context has no file system.
     pub fn require_fs(&self) -> Result<&dyn Fs> {
         self.fs().ok_or_else(|| self.missing("file system"))
     }
@@ -1687,9 +1703,15 @@ impl ExecCtx {
             .map(|deadline| deadline.saturating_sub(self.clock.monotonic()))
     }
 
+    /// Checks cancellation and the deadline.
+    ///
+    /// Stages call it in long loops and before blocking work. A passed
+    /// deadline cancels the token with [`CancelReason::Timeout`].
+    ///
+    /// # Errors
+    ///
     /// Fails with `E_CANCELLED`, `E_TIMEOUT` or `E_LIMIT` when the execution
-    /// was cancelled or the deadline passed. Stages call it in long loops and
-    /// before blocking work.
+    /// was cancelled or the deadline passed.
     pub fn checkpoint(&self) -> Result<()> {
         self.cancel.check()?;
         if self
@@ -1704,6 +1726,12 @@ impl ExecCtx {
 
     /// Waits for `duration` on the context clock, never past the deadline
     /// and only while the execution is not cancelled.
+    ///
+    /// # Errors
+    ///
+    /// Fails as [`ExecCtx::checkpoint`] when the execution is cancelled
+    /// before or during the wait, and with `E_TIMEOUT` when the wait reaches
+    /// the deadline.
     pub fn sleep(&self, duration: Duration) -> Result<()> {
         self.checkpoint()?;
         let (bounded, cut) = match self.remaining() {
@@ -1732,44 +1760,60 @@ impl ExecCtx {
         self.state_dir.as_deref()
     }
 
-    /// Evaluator of per-record expressions; fails with `E_STAGE_FAILED` when
-    /// the context has none.
+    /// Evaluator of per-record expressions.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_STAGE_FAILED` when the context has no evaluator.
     pub fn evaluator(&self) -> Result<&dyn ExprEvaluator> {
         self.evaluator
             .as_deref()
             .ok_or_else(|| self.missing("expression evaluator"))
     }
 
-    /// Runner of pipeline arguments; fails with `E_STAGE_FAILED` when the
-    /// context has none.
+    /// Runner of pipeline arguments.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_STAGE_FAILED` when the context has no pipeline runner.
     pub fn pipelines(&self) -> Result<&dyn PipelineRunner> {
         self.pipelines
             .as_deref()
             .ok_or_else(|| self.missing("pipeline runner"))
     }
 
-    /// Structured document service, when its command group is loaded.
+    /// Registry of the services of other command groups.
+    #[must_use]
+    pub fn services(&self) -> &Services {
+        &self.services
+    }
+
+    /// Structured document service, when its command group is loaded; the
+    /// same as [`Services::doc`].
     #[must_use]
     pub fn doc(&self) -> Option<&dyn DocService> {
-        self.doc.as_deref()
+        self.services.doc()
     }
 
-    /// Source code service, when its command group is loaded.
+    /// Source code service, when its command group is loaded; the same as
+    /// [`Services::code`].
     #[must_use]
     pub fn code(&self) -> Option<&dyn CodeService> {
-        self.code.as_deref()
+        self.services.code()
     }
 
-    /// Program launching service, when available.
+    /// Program launching service, when available; the same as
+    /// [`Services::process_host`].
     #[must_use]
     pub fn process(&self) -> Option<&dyn ProcessHost> {
-        self.process.as_deref()
+        self.services.process_host()
     }
 
-    /// File listing service, when available.
+    /// File listing service, when available; the same as
+    /// [`Services::file_list`].
     #[must_use]
     pub fn files(&self) -> Option<&dyn FileListService> {
-        self.files.as_deref()
+        self.services.file_list()
     }
 
     /// Shared objects registered by type.
@@ -1845,6 +1889,7 @@ impl fmt::Debug for ExecCtx {
             .field("limits", &self.limits)
             .field("fs", &self.fs.is_some())
             .field("journal", &self.journal.is_some())
+            .field("services", &self.services)
             .finish_non_exhaustive()
     }
 }
@@ -1852,9 +1897,10 @@ impl fmt::Debug for ExecCtx {
 /// Builder of an [`ExecCtx`].
 ///
 /// Facilities that are not set are absent ([`ExecCtx::fs`],
-/// [`ExecCtx::journal`], services), use their defaults (configuration,
-/// request options, limits, frame) or are fresh (a new cancellation token, an
-/// event sink that drops events).
+/// [`ExecCtx::journal`], evaluator, pipeline runner), use their defaults
+/// (configuration, request options, limits, frame, a registry without
+/// services) or are fresh (a new cancellation token, an event sink that drops
+/// events).
 pub struct ExecCtxBuilder {
     clock: Arc<dyn Clock>,
     host: Arc<dyn Host>,
@@ -1869,10 +1915,7 @@ pub struct ExecCtxBuilder {
     state_dir: Option<PathBuf>,
     evaluator: Option<Arc<dyn ExprEvaluator>>,
     pipelines: Option<Arc<dyn PipelineRunner>>,
-    doc: Option<Arc<dyn DocService>>,
-    code: Option<Arc<dyn CodeService>>,
-    process: Option<Arc<dyn ProcessHost>>,
-    files: Option<Arc<dyn FileListService>>,
+    services: Arc<Services>,
     extensions: Extensions,
     frame: StageFrame,
 }
@@ -1956,31 +1999,10 @@ impl ExecCtxBuilder {
         self
     }
 
-    /// Sets the structured document service.
+    /// Sets the registry of services; a registry without services otherwise.
     #[must_use]
-    pub fn doc(mut self, doc: Arc<dyn DocService>) -> Self {
-        self.doc = Some(doc);
-        self
-    }
-
-    /// Sets the source code service.
-    #[must_use]
-    pub fn code(mut self, code: Arc<dyn CodeService>) -> Self {
-        self.code = Some(code);
-        self
-    }
-
-    /// Sets the program launching service.
-    #[must_use]
-    pub fn process(mut self, process: Arc<dyn ProcessHost>) -> Self {
-        self.process = Some(process);
-        self
-    }
-
-    /// Sets the file listing service.
-    #[must_use]
-    pub fn files(mut self, files: Arc<dyn FileListService>) -> Self {
-        self.files = Some(files);
+    pub fn services(mut self, services: Arc<Services>) -> Self {
+        self.services = services;
         self
     }
 
@@ -2018,10 +2040,7 @@ impl ExecCtxBuilder {
             state_dir: self.state_dir,
             evaluator: self.evaluator,
             pipelines: self.pipelines,
-            doc: self.doc,
-            code: self.code,
-            process: self.process,
-            files: self.files,
+            services: self.services,
             extensions: Arc::new(self.extensions),
             frame: self.frame,
             notes: Arc::new(Mutex::new(Vec::new())),

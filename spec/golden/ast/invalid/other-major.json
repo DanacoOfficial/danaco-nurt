@@ -1,0 +1,16 @@
+{
+  "nurt": "2.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "count",
+          "args": []
+        },
+        "stages": []
+      }
+    ]
+  }
+}
