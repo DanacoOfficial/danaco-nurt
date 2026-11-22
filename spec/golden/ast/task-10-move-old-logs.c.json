@@ -1,0 +1,79 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/var/log/app"
+              }
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "text",
+                "v": "*.log"
+              }
+            },
+            {
+              "name": "depth",
+              "value": {
+                "t": "int",
+                "v": 1
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "args": [
+              {
+                "name": "condition",
+                "value": {
+                  "t": "bin",
+                  "op": "<",
+                  "l": {
+                    "t": "ident",
+                    "v": "modified"
+                  },
+                  "r": {
+                    "t": "call",
+                    "fn": "ago",
+                    "args": [
+                      {
+                        "t": "dur",
+                        "v": 604800000
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "move",
+            "args": [
+              {
+                "name": "into",
+                "value": {
+                  "t": "text",
+                  "v": "/var/log/app/old"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

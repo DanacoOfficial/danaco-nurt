@@ -26,3 +26,4 @@ rustls-native-certs = { workspace = true }
 hickory-resolver = { workspace = true }
 url = { workspace = true }
 percent-encoding = { workspace = true }
+socket2 = { workspace = true }

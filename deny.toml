@@ -25,9 +25,21 @@ all-features = true
 [advisories]
 # Security advisories from the RustSec advisory database. Vulnerable, unsound
 # and unmaintained crates are reported as errors. An ignored advisory must be
-# listed with its identifier and a reason, for example:
-# { id = "RUSTSEC-0000-0000", reason = "the affected function is not used" }
-ignore = []
+# listed with its identifier and a reason. Each exception is reviewed again
+# with every release of the affected crate.
+ignore = [
+  # Marvin attack: timing side channel in RSA decryption of the rsa crate, with
+  # no fixed release. RSA keys are required for compatibility with existing SSH
+  # keys and OpenPGP certificates used to authenticate and to sign commits.
+  # Private keys are used on the local machine only, where no remote party can
+  # time decryption; Ed25519 keys are preferred whenever a key is selected.
+  { id = "RUSTSEC-2023-0071", reason = "RSA keys are required for SSH and OpenPGP compatibility; private-key operations run locally and Ed25519 is preferred" },
+  # Timing variability in crypto-bigint 0.5, used by the elliptic curves and
+  # X448 of the pgp crate. The fixed release belongs to a newer major version
+  # that pgp does not accept yet. Secret-key arithmetic runs on the local
+  # machine only, for signing commits and tags.
+  { id = "RUSTSEC-2026-0387", reason = "crypto-bigint 0.5 is required by pgp; secret-key arithmetic runs locally for signing only" },
+]
 yanked = "deny"
 
 [licenses]
@@ -84,6 +96,7 @@ deny = [
   { crate = "openssl-sys", reason = "depends on the system OpenSSL library; TLS uses rustls" },
   { crate = "git2", reason = "binds libgit2 (GPL-2.0 with a linking exception); Git support uses gix" },
   { crate = "libgit2-sys", reason = "bundles libgit2 (GPL-2.0 with a linking exception); Git support uses gix" },
+  { crate = "curl-sys", reason = "binds the system libcurl library; HTTP uses ureq with rustls" },
   { crate = "serde_yaml", reason = "deprecated and unmaintained; YAML support uses yaml-edit and saphyr" },
   { crate = "ini", reason = "dual licensed with LGPL-3.0-or-later; INI support uses rust-ini and an own parser" },
   { crate = "libsystemd-sys", reason = "binds libsystemd (LGPL-2.1); D-Bus uses zbus and journal files are read natively" },

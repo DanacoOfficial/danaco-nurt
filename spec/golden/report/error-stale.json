@@ -5,8 +5,7 @@
   "error": {
     "code": "E_STALE",
     "message": "the file changed after it was read; nothing changed",
-    "stage": "5",
-    "at": { "line": 1, "column": 60 },
+    "at": { "line": 1, "column": 60, "stage": "5" },
     "found": "/srv/app/src/b.go",
     "expected": "sha256:5e5e5e5e",
     "actual": "sha256:6f6f6f6f",

@@ -12,21 +12,24 @@ use nurt_contracts::error::{At, Candidate, Error, ErrorCode, ErrorData, Location
 use serde_json::json;
 
 fn sample() -> Error {
-    Error::new(ErrorCode::Ambiguous, "the correction touches a target of a change")
-        .with_stage(Stage::Parse)
-        .with_at(At::new(1, 8, 22))
-        .with_found("\"/home/user/projct\"")
-        .with_problem("target_correction")
-        .with_fix("remove \"/home/user/project/old.log\"")
-        .with_help("correction")
-        .with_candidate(Candidate {
-            rank: 1,
-            reference: Some("corr-1".to_owned()),
-            program: "remove \"/home/user/project/old.log\"".to_owned(),
-            why: Some("nearest existing path".to_owned()),
-        })
-        .with_next_step("list \"/home/user/project\"")
-        .with_detail("path", json!("/home/user/projct"))
+    Error::new(
+        ErrorCode::Ambiguous,
+        "the correction touches a target of a change",
+    )
+    .with_stage(Stage::Parse)
+    .with_at(At::new(1, 8, 22))
+    .with_found("\"/home/user/projct\"")
+    .with_problem("target_correction")
+    .with_fix("remove \"/home/user/project/old.log\"")
+    .with_help("correction")
+    .with_candidate(Candidate {
+        rank: 1,
+        reference: Some("corr-1".to_owned()),
+        program: "remove \"/home/user/project/old.log\"".to_owned(),
+        why: Some("nearest existing path".to_owned()),
+    })
+    .with_next_step("list \"/home/user/project\"")
+    .with_detail("path", json!("/home/user/projct"))
 }
 
 #[test]
@@ -43,8 +46,7 @@ fn error_serializes_without_empty_members() {
         json!({
             "code": "E_AMBIGUOUS",
             "message": "the correction touches a target of a change",
-            "stage": "0",
-            "at": {"line": 1, "column": 8, "length": 22},
+            "at": {"line": 1, "column": 8, "length": 22, "stage": "0"},
             "found": "\"/home/user/projct\"",
             "problem": "target_correction",
             "fix": ["remove \"/home/user/project/old.log\""],
@@ -81,12 +83,31 @@ fn unknown_members_are_rejected() {
 }
 
 #[test]
+fn stage_and_place_merge_in_at() {
+    let stage_first = Error::new(ErrorCode::Type, "expected a number")
+        .with_stage(Stage::Bind)
+        .with_at(At::new(2, 4, 1));
+    let place_first = Error::new(ErrorCode::Type, "expected a number")
+        .with_at(At::new(2, 4, 1))
+        .with_stage(Stage::Bind);
+    assert_eq!(stage_first, place_first);
+    assert_eq!(
+        serde_json::to_value(&stage_first).unwrap()["at"],
+        json!({"line": 2, "column": 4, "length": 1, "stage": "1"})
+    );
+    assert_eq!(Error::new(ErrorCode::Stale, "changed").stage(), None);
+}
+
+#[test]
 fn display_shows_code_and_source_is_cause() {
     let cause = Error::new(ErrorCode::Io, "input/output error");
     let error = Error::new(ErrorCode::RollbackFailed, "two files were not restored")
         .with_stage(Stage::Verify)
         .with_cause(cause.clone());
-    assert_eq!(error.to_string(), "E_ROLLBACK_FAILED: two files were not restored");
+    assert_eq!(
+        error.to_string(),
+        "E_ROLLBACK_FAILED: two files were not restored"
+    );
     let source = error.source().unwrap();
     assert_eq!(source.to_string(), cause.to_string());
     assert!(source.source().is_none());
@@ -102,12 +123,12 @@ fn fields_are_reachable_through_deref() {
         .with_sample("/home/user/src/a.go");
     assert_eq!(error.code, ErrorCode::Assert);
     assert_eq!(error.code(), ErrorCode::Assert);
-    assert_eq!(error.stage, Some(Stage::After));
+    assert_eq!(error.stage(), Some(Stage::After));
     assert!(error.effect_applied);
     error.sample.push("/home/user/src/b.go".to_owned());
     assert_eq!(error.data().sample.len(), 2);
     let json = serde_json::to_value(&error).unwrap();
-    assert_eq!(json["stage"], "5a");
+    assert_eq!(json["at"], json!({"stage": "5a"}));
     assert_eq!(json["effect_applied"], true);
     let data: ErrorData = error.into_data();
     assert_eq!(Error::from(data.clone()).into_data(), data);

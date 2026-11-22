@@ -188,6 +188,7 @@ Text content of a file, decoded to UTF-8.
 | `diff` | list<record [`hunk`](#hunk)> | no | Difference against the content given with `since:`. |
 | `decompressed_from` | path | no | Compressed file the text was read from. |
 | `view` | text | no | View used, for example `outline`. |
+| `revision` | text | no | Full identifier of the repository revision the content was read from. |
 
 ### line
 
@@ -380,6 +381,21 @@ Hunk of a unified difference.
 | `old_mode` | text | no | Mode before. |
 | `new_mode` | text | no | Mode after. |
 | `ignore_whitespace` | bool | no | White space was ignored. |
+| `fingerprint` | text | no | First six hexadecimal digits of the SHA-256 hash of the hunk lines; part of the identifier `path#number:fingerprint`. |
+| `staged` | bool | no | The hunk is in the index rather than in the worktree. |
+| `untracked` | bool | no | The hunk adds an untracked file. |
+| `unit` | enum(lines\|words) | no | Unit of the difference. |
+| `moved` | list<object [`MovedBlock`](#movedblock)> | no | Blocks of lines moved within the difference. |
+
+#### MovedBlock
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `from_path` | path | yes | File the lines were removed from. |
+| `from_line` | int | yes | First removed line, from 1. |
+| `to_path` | path | yes | File the lines were added to. |
+| `to_line` | int | yes | First added line, from 1. |
+| `lines` | int | yes | Number of lines. |
 
 ### change
 
@@ -409,8 +425,8 @@ Change of one file within an effect.
 | `store` | text | no | How the previous content was kept. |
 | `irreversible` | enum (reason of the effect report) | no | Reason why the change cannot be undone, for example `no_space_for_copy`. |
 | `diff` | list<record [`hunk`](#hunk)> | no | Difference of the content. |
-| `before` | any | no | State before a change of the action `state`. |
-| `after` | any | no | State after a change of the action `state`. |
+| `before` | text | no | State before a change of the action `state`, for example `running`. |
+| `after` | text | no | State after a change of the action `state`. |
 
 ### exec
 
@@ -957,6 +973,8 @@ Finding of an analysis or a review.
 | `threshold` | number | no | Threshold exceeded. |
 | `related` | list<object [`RelatedLocation`](#relatedlocation)> | no | Related positions, for example the other copy of a duplicate. |
 | `hunk` | text | no | Identifier of the hunk of a review. |
+| `target` | enum(file\|message) | no | What the finding is about; for a commit message `path` is the root of the repository. |
+| `count` | int | no | Number of occurrences aggregated in this finding. |
 
 ### effect
 
@@ -997,12 +1015,41 @@ Effect of an operation on a repository.
 | `branch` | text | no | Current branch after the operation. |
 | `ref_updates` | list<record [`git_ref_update`](#git_ref_update)> | no | Updates of references. |
 | `conflicts` | list<record [`git_conflict`](#git_conflict)> | no | Conflicts left in the working tree. |
-| `in_progress` | enum(none\|merge\|rebase) | no | Operation left in progress. |
+| `in_progress` | enum(none\|merge\|rebase\|cherry_pick\|revert\|bisect) | no | Operation left in progress. |
 | `step` | object [`GitStep`](#gitstep) | no | Progress of an operation with several steps. |
 | `objects_written` | int | no | Objects written to the object database. |
 | `objects_received` | int | no | Objects received from a remote. |
 | `bytes_received` | size | no | Bytes received from a remote. |
 | `bytes_sent` | size | no | Bytes sent to a remote. |
+| `branch_before` | text | no | Current branch before the operation. |
+| `detached` | bool | no | `HEAD` points to a commit, not to a branch. |
+| `upstream` | text | no | Upstream branch of the current branch. |
+| `ahead` | int | no | Commits of the current branch not in the upstream. |
+| `behind` | int | no | Commits of the upstream not in the current branch. |
+| `upstream_gone` | bool | no | The configured upstream no longer exists. |
+| `merge_head` | text | no | Commit being merged while a merge is in progress. |
+| `counts` | object [`GitCounts`](#gitcounts) | no | Numbers of changed paths by state. |
+| `index` | object [`GitIndexSummary`](#gitindexsummary) | no | Summary of the index after staging. |
+| `checkpoint` | text | no | Checkpoint created by the operation. |
+| `checkpoint_before` | text | no | Checkpoint saved before a restore or a switch. |
+| `state_token` | text | no | Hash of the repository state for the `expect_state` parameter of a later call. |
+
+#### GitCounts
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `staged` | int | yes | Paths with changes in the index. |
+| `unstaged` | int | yes | Paths with changes in the worktree not in the index. |
+| `untracked` | int | yes | Untracked paths. |
+| `conflicts` | int | yes | Paths with conflicts. |
+
+#### GitIndexSummary
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `files` | int | yes | Files with staged changes. |
+| `added` | int | yes | Lines added. |
+| `removed` | int | yes | Lines removed. |
 
 ### registry_value
 

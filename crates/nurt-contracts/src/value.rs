@@ -88,7 +88,11 @@ impl ValueError {
 
 impl fmt::Display for ValueError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "invalid {} `{}`: {}", self.type_name, self.input, self.reason)
+        write!(
+            f,
+            "invalid {} `{}`: {}",
+            self.type_name, self.input, self.reason
+        )
     }
 }
 
@@ -99,7 +103,12 @@ impl std::error::Error for ValueError {}
 /// The JSON form carries the type in `"t"` and the payload in `"v"` (see the
 /// module documentation).
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "t", content = "v", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(
+    tag = "t",
+    content = "v",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 #[non_exhaustive]
 pub enum Value {
     /// Absence of a value, written `null`.
@@ -285,8 +294,12 @@ impl Value {
             Self::Null => Json::Null,
             Self::Bool(value) => Json::Bool(*value),
             Self::Int(value) => Json::from(*value),
-            Self::Number(value) => serde_json::Number::from_f64(*value).map_or(Json::Null, Json::Number),
-            Self::BigInt(text) | Self::Decimal(text) | Self::Text(text) => Json::String(text.clone()),
+            Self::Number(value) => {
+                serde_json::Number::from_f64(*value).map_or(Json::Null, Json::Number)
+            }
+            Self::BigInt(text) | Self::Decimal(text) | Self::Text(text) => {
+                Json::String(text.clone())
+            }
             Self::Path(text) | Self::Glob(text) | Self::Key(text) | Self::Enum(text) => {
                 Json::String(text.clone())
             }
@@ -314,7 +327,9 @@ impl Value {
             Json::Bool(value) => Self::Bool(value),
             Json::Number(number) => plain_number(&number),
             Json::String(text) => Self::Text(text),
-            Json::Array(items) => Self::List(items.into_iter().map(Self::from_plain_json).collect()),
+            Json::Array(items) => {
+                Self::List(items.into_iter().map(Self::from_plain_json).collect())
+            }
             Json::Object(map) => Self::Map(
                 map.into_iter()
                     .map(|(key, item)| (key, Self::from_plain_json(item)))
@@ -730,7 +745,17 @@ impl fmt::Display for RecordKind {
 /// The text form (`12.4kb`) belongs to the language implementation; the
 /// JSON form is the number of bytes.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Serialize, Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Default,
+    Serialize,
+    Deserialize,
     JsonSchema,
 )]
 #[serde(transparent)]
@@ -788,7 +813,17 @@ impl From<Size> for u64 {
 /// The text form (`1h30m`) belongs to the language implementation; the JSON
 /// form is the number of milliseconds.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Serialize, Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Default,
+    Serialize,
+    Deserialize,
     JsonSchema,
 )]
 #[serde(transparent)]
@@ -853,7 +888,9 @@ impl Duration {
     /// Converts to a standard duration; `None` when negative.
     #[must_use]
     pub fn to_std(self) -> Option<std::time::Duration> {
-        u64::try_from(self.0).ok().map(std::time::Duration::from_millis)
+        u64::try_from(self.0)
+            .ok()
+            .map(std::time::Duration::from_millis)
     }
 }
 
@@ -875,8 +912,7 @@ const DAYS_PER_ERA: i64 = 146_097;
 const DAYS_TO_UNIX_EPOCH: i64 = 719_468;
 
 /// Pattern of the JSON form of an instant.
-const INSTANT_PATTERN: &str =
-    "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3}|\\.[0-9]{6}|\\.[0-9]{9})?Z$";
+const INSTANT_PATTERN: &str = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3}|\\.[0-9]{6}|\\.[0-9]{9})?Z$";
 
 /// Point in time in UTC with nanosecond precision, from 1677 to 2262.
 ///
@@ -1067,7 +1103,11 @@ const fn civil_from_days(days: i64) -> (i64, i64, i64) {
         day_of_era - (DAYS_PER_YEAR * year_of_era + year_of_era / 4 - year_of_era / 100);
     let shifted_month = (5 * day_of_year + 2) / 153;
     let day = day_of_year - (153 * shifted_month + 2) / 5 + 1;
-    let month = if shifted_month < 10 { shifted_month + 3 } else { shifted_month - 9 };
+    let month = if shifted_month < 10 {
+        shifted_month + 3
+    } else {
+        shifted_month - 9
+    };
     let year = year_of_era + era * YEARS_PER_ERA + if month <= 2 { 1 } else { 0 };
     (year, month, day)
 }
@@ -1111,7 +1151,8 @@ impl Cursor<'_> {
         let end = self.position.checked_add(width)?;
         let digits = self.bytes.get(self.position..end)?;
         let value = digits.iter().try_fold(0_i64, |value, &byte| {
-            byte.is_ascii_digit().then(|| value * 10 + i64::from(byte - b'0'))
+            byte.is_ascii_digit()
+                .then(|| value * 10 + i64::from(byte - b'0'))
         })?;
         self.position = end;
         Some(value)
@@ -1129,7 +1170,11 @@ impl Cursor<'_> {
         self.position += 1;
         let start = self.position;
         let mut nanos = 0_i64;
-        while let Some(&byte) = self.bytes.get(self.position).filter(|byte| byte.is_ascii_digit()) {
+        while let Some(&byte) = self
+            .bytes
+            .get(self.position)
+            .filter(|byte| byte.is_ascii_digit())
+        {
             nanos = nanos * 10 + i64::from(byte - b'0');
             self.position += 1;
         }
@@ -1164,9 +1209,8 @@ impl Cursor<'_> {
         let month = self.number(FIELD_DIGITS)?;
         self.literal(b"-")?;
         let day = self.number(FIELD_DIGITS)?;
-        let valid = (1..=MONTHS_PER_YEAR).contains(&month)
-            && day >= 1
-            && day <= days_in_month(year, month);
+        let valid =
+            (1..=MONTHS_PER_YEAR).contains(&month) && day >= 1 && day <= days_in_month(year, month);
         valid.then(|| days_from_civil(year, month, day))
     }
 
@@ -1176,7 +1220,8 @@ impl Cursor<'_> {
         let minute = self.number(FIELD_DIGITS)?;
         self.literal(b":")?;
         let second = self.number(FIELD_DIGITS)?;
-        let valid = hour < HOURS_PER_DAY && minute < MINUTES_PER_HOUR && second < SECONDS_PER_MINUTE;
+        let valid =
+            hour < HOURS_PER_DAY && minute < MINUTES_PER_HOUR && second < SECONDS_PER_MINUTE;
         valid.then_some(hour * SECONDS_PER_HOUR + minute * SECONDS_PER_MINUTE + second)
     }
 }
@@ -1409,7 +1454,13 @@ impl FromStr for RegexFlags {
                 'm' => &mut flags.multi_line,
                 's' => &mut flags.dot_matches_new_line,
                 'x' => &mut flags.extended,
-                _ => return Err(ValueError::new("regex flags", text, "known flags are i, m, s, x")),
+                _ => {
+                    return Err(ValueError::new(
+                        "regex flags",
+                        text,
+                        "known flags are i, m, s, x",
+                    ));
+                }
             };
             if *flag {
                 return Err(ValueError::new("regex flags", text, "a flag is repeated"));
@@ -1596,7 +1647,11 @@ fn decode_base64(text: &[u8]) -> Option<Vec<u8>> {
     let groups = text.len() / BASE64_GROUP_DIGITS;
     let mut bytes = Vec::with_capacity(groups * BASE64_GROUP_BYTES);
     for (index, chunk) in text.chunks(BASE64_GROUP_DIGITS).enumerate() {
-        let padding = chunk.iter().rev().take_while(|&&byte| byte == BASE64_PADDING).count();
+        let padding = chunk
+            .iter()
+            .rev()
+            .take_while(|&&byte| byte == BASE64_PADDING)
+            .count();
         // Only the last group may end with one or two padding digits.
         if padding >= BASE64_GROUP_BYTES || (padding > 0 && index + 1 != groups) {
             return None;

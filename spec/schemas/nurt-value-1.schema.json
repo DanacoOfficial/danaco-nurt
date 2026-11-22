@@ -2688,6 +2688,13 @@
             "null"
           ],
           "description": "View used, for example `outline`."
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Full identifier of the repository revision the content was read\nfrom."
         }
       },
       "required": [
@@ -3133,6 +3140,48 @@
             "null"
           ],
           "description": "White space was ignored."
+        },
+        "fingerprint": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "First six hexadecimal digits of the SHA-256 hash of the hunk\nlines; part of the identifier `path#number:fingerprint`."
+        },
+        "staged": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "The hunk is in the index (staged) rather than in the worktree."
+        },
+        "untracked": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "The hunk adds an untracked file."
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DiffUnit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Unit of the difference."
+        },
+        "moved": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/MovedBlock"
+          },
+          "description": "Blocks of lines moved within the difference."
         }
       },
       "required": [
@@ -3174,6 +3223,60 @@
         }
       ],
       "description": "Status of a file in a difference."
+    },
+    "DiffUnit": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "lines",
+          "description": "Lines."
+        },
+        {
+          "type": "string",
+          "const": "words",
+          "description": "Words within lines."
+        }
+      ],
+      "description": "Unit in which a difference compares content."
+    },
+    "MovedBlock": {
+      "type": "object",
+      "properties": {
+        "from_path": {
+          "$ref": "#/$defs/Path",
+          "description": "File the lines were removed from."
+        },
+        "from_line": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "First removed line, from 1."
+        },
+        "to_path": {
+          "$ref": "#/$defs/Path",
+          "description": "File the lines were added to."
+        },
+        "to_line": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "First added line, from 1."
+        },
+        "lines": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Number of lines."
+        }
+      },
+      "required": [
+        "from_path",
+        "from_line",
+        "to_path",
+        "to_line",
+        "lines"
+      ],
+      "description": "Block of lines moved within a difference."
     },
     "Line": {
       "type": "object",
@@ -4193,24 +4296,16 @@
           "description": "Difference of the content."
         },
         "before": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Value"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ],
-          "description": "State before a change of the action `state`."
+          "description": "State before a change of the action `state`, for example\n`running`."
         },
         "after": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Value"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ],
           "description": "State after a change of the action `state`."
         }
@@ -8973,6 +9068,26 @@
             "null"
           ],
           "description": "Identifier of the hunk of a review."
+        },
+        "target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FindingTarget"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What the finding is about; for a commit message `path` is the\nroot of the repository."
+        },
+        "count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Number of occurrences aggregated in this finding."
         }
       },
       "required": [
@@ -9067,6 +9182,21 @@
         }
       ],
       "description": "Severity of a finding."
+    },
+    "FindingTarget": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "file",
+          "description": "Content of a file."
+        },
+        {
+          "type": "string",
+          "const": "message",
+          "description": "Message of a commit."
+        }
+      ],
+      "description": "Subject of a finding of a review."
     },
     "Effect": {
       "type": "object",
@@ -9541,6 +9671,102 @@
             }
           ],
           "description": "Bytes sent to a remote."
+        },
+        "branch_before": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Current branch before the operation."
+        },
+        "detached": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "`HEAD` points to a commit, not to a branch."
+        },
+        "upstream": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Upstream branch of the current branch."
+        },
+        "ahead": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Commits of the current branch not in the upstream."
+        },
+        "behind": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Commits of the upstream not in the current branch."
+        },
+        "upstream_gone": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "The configured upstream no longer exists."
+        },
+        "merge_head": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Commit being merged while a merge is in progress."
+        },
+        "counts": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GitCounts"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Numbers of changed paths by state."
+        },
+        "index": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GitIndexSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Summary of the index after staging."
+        },
+        "checkpoint": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Checkpoint created by the operation."
+        },
+        "checkpoint_before": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Checkpoint saved before a restore or a switch."
+        },
+        "state_token": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Hash of the repository state (`HEAD`, merge state, index tree and\ntargets) for the `expect_state` parameter of a later call."
         }
       },
       "required": [
@@ -9735,6 +9961,21 @@
           "type": "string",
           "const": "rebase",
           "description": "A rebase is in progress."
+        },
+        {
+          "type": "string",
+          "const": "cherry_pick",
+          "description": "A cherry-pick is in progress."
+        },
+        {
+          "type": "string",
+          "const": "revert",
+          "description": "A revert is in progress."
+        },
+        {
+          "type": "string",
+          "const": "bisect",
+          "description": "A bisection is in progress."
         }
       ],
       "description": "Operation left in progress in a repository."
@@ -9760,6 +10001,71 @@
         "total"
       ],
       "description": "Progress of an operation with several steps, such as a rebase."
+    },
+    "GitCounts": {
+      "type": "object",
+      "properties": {
+        "staged": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Paths with changes in the index."
+        },
+        "unstaged": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Paths with changes in the worktree not in the index."
+        },
+        "untracked": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Untracked paths."
+        },
+        "conflicts": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Paths with conflicts."
+        }
+      },
+      "required": [
+        "staged",
+        "unstaged",
+        "untracked",
+        "conflicts"
+      ],
+      "description": "Numbers of changed paths of a repository by state."
+    },
+    "GitIndexSummary": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Files with staged changes."
+        },
+        "added": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Lines added."
+        },
+        "removed": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Lines removed."
+        }
+      },
+      "required": [
+        "files",
+        "added",
+        "removed"
+      ],
+      "description": "Summary of the index after staging."
     },
     "RegistryValue": {
       "type": "object",
@@ -11217,17 +11523,6 @@
           "type": "string",
           "description": "Message in English, one or two sentences."
         },
-        "stage": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Stage"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Stage in which the error occurred."
-        },
         "at": {
           "anyOf": [
             {
@@ -11237,7 +11532,7 @@
               "type": "null"
             }
           ],
-          "description": "Position in the program."
+          "description": "Stage in which the error occurred and position in the program."
         },
         "location": {
           "anyOf": [
@@ -11408,6 +11703,11 @@
           "type": "string",
           "const": "E_MISSING_PARAM",
           "description": "A required parameter is missing."
+        },
+        {
+          "type": "string",
+          "const": "E_PARAM_CONFLICT",
+          "description": "Parameters that exclude each other were given together; `expected`\nlists the admissible combinations."
         },
         {
           "type": "string",
@@ -11811,11 +12111,71 @@
         },
         {
           "type": "string",
+          "const": "E_GIT_HUNK",
+          "description": "A hunk identifier is malformed or unknown, the hunk changed since it\nwas listed, or the selected lines cannot be applied."
+        },
+        {
+          "type": "string",
+          "const": "E_GIT_CHECKPOINT",
+          "description": "A checkpoint has no saved index, or its content does not match after\na restore; the paths are listed."
+        },
+        {
+          "type": "string",
+          "const": "E_GIT_WORKTREE",
+          "description": "A worktree is unknown, is the main worktree, is locked or contains\nthe working directory."
+        },
+        {
+          "type": "string",
           "const": "E_INTERNAL",
           "description": "An internal error; the report is complete up to this point."
         }
       ],
       "description": "Stable error code of the language.\n\nCodes are only added within a major version of the language;\nthe text form (`E_UNKNOWN_COMMAND`) is the JSON form."
+    },
+    "At": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0,
+          "description": "Line."
+        },
+        "column": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0,
+          "description": "Column."
+        },
+        "length": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0,
+          "description": "Number of characters of the erroneous fragment."
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Execution stage in which the error occurred."
+        }
+      },
+      "description": "Position of an error: the execution stage and the place in the program\ntext.\n\nLines and columns start at 1; columns and lengths count Unicode scalar\nvalues. Errors raised while a stage runs (for example `E_STALE` in stage\n`5`) carry the stage without a place in the text.\n\n```\nuse nurt_contracts::error::{At, Stage};\n\nlet at = At::new(2, 5, 3).with_stage(Stage::Bind);\nassert_eq!(\n    serde_json::to_value(at).unwrap(),\n    serde_json::json!({\"line\": 2, \"column\": 5, \"length\": 3, \"stage\": \"1\"})\n);\nassert_eq!(At::stage(Stage::After).line, None);\n```"
     },
     "Stage": {
       "oneOf": [
@@ -11865,39 +12225,7 @@
           "description": "`7`, report: the effect report."
         }
       ],
-      "description": "Execution stage of a program.\n\nThe JSON form is the stage number as text: `\"0\"` to `\"7\"` and `\"5a\"`."
-    },
-    "At": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "line": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0,
-          "description": "Line."
-        },
-        "column": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0,
-          "description": "Column."
-        },
-        "length": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint32",
-          "minimum": 0,
-          "description": "Number of characters of the erroneous fragment."
-        }
-      },
-      "required": [
-        "line",
-        "column"
-      ],
-      "description": "Position in the program text.\n\nLines and columns start at 1; columns and lengths count Unicode scalar\nvalues."
+      "description": "Execution stage of a program, in execution order.\n\nThe JSON form is the stage number as text: `\"0\"` to `\"7\"` and `\"5a\"`. The\nexecutor uses the same type for its execution steps\n([`crate::stage::ExecStep`]). The set of stages is fixed by the language."
     },
     "Location": {
       "type": "object",

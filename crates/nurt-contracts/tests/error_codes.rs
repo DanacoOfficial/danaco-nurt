@@ -55,15 +55,26 @@ fn schema_codes(schema: &serde_json::Value) -> Option<Vec<String>> {
     let definition = schema.get("$defs")?.get("ErrorCode")?;
     let mut codes = Vec::new();
     if let Some(values) = definition.get("enum").and_then(serde_json::Value::as_array) {
-        codes.extend(values.iter().filter_map(|value| value.as_str().map(str::to_owned)));
+        codes.extend(
+            values
+                .iter()
+                .filter_map(|value| value.as_str().map(str::to_owned)),
+        );
     }
-    if let Some(variants) = definition.get("oneOf").and_then(serde_json::Value::as_array) {
+    if let Some(variants) = definition
+        .get("oneOf")
+        .and_then(serde_json::Value::as_array)
+    {
         for variant in variants {
             if let Some(code) = variant.get("const").and_then(serde_json::Value::as_str) {
                 codes.push(code.to_owned());
             }
             if let Some(values) = variant.get("enum").and_then(serde_json::Value::as_array) {
-                codes.extend(values.iter().filter_map(|value| value.as_str().map(str::to_owned)));
+                codes.extend(
+                    values
+                        .iter()
+                        .filter_map(|value| value.as_str().map(str::to_owned)),
+                );
             }
         }
     }
@@ -80,7 +91,9 @@ fn codes_are_unique_and_well_formed() {
         assert!(
             code[2..]
                 .chars()
-                .all(|character| character.is_ascii_uppercase() || character.is_ascii_digit() || character == '_'),
+                .all(|character| character.is_ascii_uppercase()
+                    || character.is_ascii_digit()
+                    || character == '_'),
             "{code}"
         );
     }
@@ -96,7 +109,11 @@ fn every_code_round_trips() {
         assert_eq!(serde_json::from_value::<ErrorCode>(json).unwrap(), code);
         assert!(!code.stages().is_empty(), "{code} has no stage");
         assert!(code.abi_status() <= 6, "{code}");
-        assert_ne!(code.abi(), AbiStatus::Abi, "{code}: no language error maps to NURT_E_ABI");
+        assert_ne!(
+            code.abi(),
+            AbiStatus::Abi,
+            "{code}: no language error maps to NURT_E_ABI"
+        );
     }
     assert!(ErrorCode::from_str("E_NO_SUCH_CODE").is_err());
     assert!(ErrorCode::from_str("e_stale").is_err());
@@ -106,17 +123,26 @@ fn every_code_round_trips() {
 fn specification_lists_every_code_in_order() {
     let rows = specification_rows();
     let listed: Vec<&str> = rows.iter().map(|row| row.code.as_str()).collect();
-    assert_eq!(listed, all_codes(), "the code table of spec/errors.md differs from ErrorCode::ALL");
+    assert_eq!(
+        listed,
+        all_codes(),
+        "the code table of spec/errors.md differs from ErrorCode::ALL"
+    );
 }
 
 #[test]
 fn specification_states_stages_and_status() {
     for row in specification_rows() {
         let code = ErrorCode::from_str(&row.code).unwrap();
-        let stages: Vec<&str> = code.stages().iter().map(|stage| stage.number()).collect();
+        let stages: Vec<&str> = code.stages().iter().map(|stage| stage.as_str()).collect();
         let listed: Vec<&str> = row.stages.split(',').map(str::trim).collect();
         assert_eq!(listed, stages, "stages of {} in spec/errors.md", row.code);
-        assert_eq!(row.status, code.abi().name(), "C status of {} in spec/errors.md", row.code);
+        assert_eq!(
+            row.status,
+            code.abi().name(),
+            "C status of {} in spec/errors.md",
+            row.code
+        );
     }
 }
 
@@ -139,7 +165,9 @@ fn schemas_list_every_code() {
         }
     }
     assert!(
-        checked.iter().any(|path| path.ends_with("nurt-value-1.schema.json")),
+        checked
+            .iter()
+            .any(|path| path.ends_with("nurt-value-1.schema.json")),
         "nurt-value-1.schema.json must define ErrorCode"
     );
 }
@@ -198,12 +226,18 @@ fn documentation_uses_known_codes() {
             }
         }
     }
-    assert!(unknown.is_empty(), "unknown error codes in the documentation: {unknown:#?}");
+    assert!(
+        unknown.is_empty(),
+        "unknown error codes in the documentation: {unknown:#?}"
+    );
 }
 
 #[test]
 fn scanner_finds_codes() {
-    assert_eq!(mentioned_codes("see `E_STALE`, not NURT_E_IO or E_* or E_"), ["E_STALE"]);
+    assert_eq!(
+        mentioned_codes("see `E_STALE`, not NURT_E_IO or E_* or E_"),
+        ["E_STALE"]
+    );
     assert_eq!(mentioned_codes("E_JOURNAL_PARTIAL."), ["E_JOURNAL_PARTIAL"]);
 }
 
@@ -226,9 +260,12 @@ fn abi_mapping_follows_the_c_interface() {
 #[test]
 fn stages_round_trip() {
     for &stage in Stage::ALL {
-        assert_eq!(Stage::from_str(stage.number()), Ok(stage));
+        assert_eq!(Stage::from_str(stage.as_str()), Ok(stage));
         assert_eq!(Stage::from_str(stage.name()), Ok(stage));
-        assert_eq!(serde_json::to_value(stage).unwrap(), serde_json::json!(stage.number()));
+        assert_eq!(
+            serde_json::to_value(stage).unwrap(),
+            serde_json::json!(stage.as_str())
+        );
     }
     assert_eq!(Stage::After.to_string(), "5a");
     assert!(Stage::from_str("8").is_err());

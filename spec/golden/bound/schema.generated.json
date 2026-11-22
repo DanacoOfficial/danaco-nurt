@@ -255,7 +255,8 @@
           },
           "required": [
             "t"
-          ]
+          ],
+          "additionalProperties": false
         },
         {
           "description": "Boolean.",
@@ -270,6 +271,7 @@
               "type": "boolean"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -289,6 +291,7 @@
               "format": "int64"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -308,6 +311,7 @@
               "format": "double"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -326,6 +330,7 @@
               "type": "string"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -344,6 +349,7 @@
               "type": "string"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -362,6 +368,7 @@
               "type": "string"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -380,6 +387,7 @@
               "type": "string"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -398,6 +406,7 @@
               "type": "string"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -416,6 +425,7 @@
               "type": "string"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -436,6 +446,7 @@
               "minimum": 0
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -456,6 +467,7 @@
               "minimum": 0
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v"
@@ -478,6 +490,7 @@
               "type": "string"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "v",
@@ -500,6 +513,7 @@
               }
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "items"
@@ -521,6 +535,7 @@
               }
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "entries"
@@ -551,6 +566,7 @@
               "format": "int64"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t"
           ]
@@ -582,6 +598,7 @@
               "$ref": "#/$defs/PipelineNode"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "p"
@@ -611,6 +628,7 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "name"
@@ -636,6 +654,7 @@
               }
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "fn",
@@ -659,6 +678,7 @@
               "$ref": "#/$defs/BoundExpr"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "op",
@@ -686,6 +706,7 @@
               "$ref": "#/$defs/BoundExpr"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "op",
@@ -706,6 +727,7 @@
               "$ref": "#/$defs/BoundExpr"
             }
           },
+          "additionalProperties": false,
           "required": [
             "t",
             "x"
@@ -748,6 +770,7 @@
           }
         }
       },
+      "additionalProperties": true,
       "required": [
         "name"
       ]
@@ -896,6 +919,7 @@
           ]
         }
       },
+      "additionalProperties": true,
       "required": [
         "name",
         "effect",
@@ -947,6 +971,7 @@
           ]
         }
       },
+      "additionalProperties": true,
       "required": [
         "head",
         "stages"
@@ -976,6 +1001,7 @@
           ]
         }
       },
+      "additionalProperties": true,
       "required": [
         "name",
         "value"
