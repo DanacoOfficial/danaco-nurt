@@ -22,7 +22,7 @@
 //!    letters wins, and earlier entries of the list win ties. This separates
 //!    `ibm852` from `windows-1250`, which place the Polish letters at
 //!    different byte values, and keeps a plausible proposal such as German
-//!    text in `windows-1252`, whose letter `ä` reads as `ń` in `ibm852`.
+//!    text in `windows-1252`, whose letter U+00E4 reads as U+0144 in `ibm852`.
 //! 6. Content whose decoded sample consists of more than one control
 //!    character in twenty is binary.
 //!
@@ -70,18 +70,25 @@ const POLISH_DOMINANCE: usize = 4;
 const UTF8_MAX_SEQUENCE_TAIL: usize = 3;
 const HIGH_SURROGATES: std::ops::RangeInclusive<u16> = 0xD800..=0xDBFF;
 
-const POLISH_LOWERCASE: [char; 9] = ['ą', 'ć', 'ę', 'ł', 'ń', 'ó', 'ś', 'ź', 'ż'];
-const POLISH_UPPERCASE: [char; 9] = ['Ą', 'Ć', 'Ę', 'Ł', 'Ń', 'Ó', 'Ś', 'Ź', 'Ż'];
+const POLISH_LOWERCASE: [char; 9] = [
+    '\u{105}', '\u{107}', '\u{119}', '\u{142}', '\u{144}', '\u{f3}', '\u{15b}', '\u{17a}',
+    '\u{17c}',
+];
+const POLISH_UPPERCASE: [char; 9] = [
+    '\u{104}', '\u{106}', '\u{118}', '\u{141}', '\u{143}', '\u{d3}', '\u{15a}', '\u{179}',
+    '\u{17b}',
+];
 
 /// Punctuation outside ASCII that occurs in Polish text and is neutral for
 /// the choice of an encoding.
 const NEUTRAL_PUNCTUATION: [char; 16] = [
-    '\u{a0}', '§', '«', '°', '»', '–', '—', '‘', '’', '‚', '“', '”', '„', '•', '…', '€',
+    '\u{a0}', '\u{a7}', '\u{ab}', '\u{b0}', '\u{bb}', '\u{2013}', '\u{2014}', '\u{2018}',
+    '\u{2019}', '\u{201a}', '\u{201c}', '\u{201d}', '\u{201e}', '\u{2022}', '\u{2026}', '\u{20ac}',
 ];
 
-/// Punctuation outside ASCII that occurs inside words, such as the
-/// apostrophe in `don’t`.
-const WORD_PUNCTUATION: [char; 2] = ['‘', '’'];
+/// Punctuation outside ASCII that occurs inside words, such as the right
+/// single quotation mark U+2019 used as an apostrophe.
+const WORD_PUNCTUATION: [char; 2] = ['\u{2018}', '\u{2019}'];
 
 /// Legacy encoding that detection may choose.
 ///
@@ -108,8 +115,8 @@ impl LegacyEncoding {
     /// ```
     /// use nurt_text::detect::LegacyEncoding;
     ///
-    /// assert_eq!(LegacyEncoding::from_label("CP852").unwrap().label(), "ibm852");
-    /// assert_eq!(LegacyEncoding::from_label("latin2").unwrap().label(), "iso-8859-2");
+    /// assert_eq!(LegacyEncoding::from_label("CP852").map(LegacyEncoding::label).as_deref(), Some("ibm852"));
+    /// assert_eq!(LegacyEncoding::from_label("latin2").map(LegacyEncoding::label).as_deref(), Some("iso-8859-2"));
     /// assert!(LegacyEncoding::from_label("utf-8").is_none());
     /// ```
     pub fn from_label(label: &str) -> Option<Self> {
@@ -250,11 +257,12 @@ impl Detection {
 /// use nurt_text::detect::{DetectOptions, detect};
 ///
 /// let options = DetectOptions::default();
-/// let text = detect("Zażółć gęślą jaźń\n".as_bytes(), &options);
-/// assert_eq!(text.encoding().unwrap().label, "utf-8");
+/// // Polish pangram with all nine Polish lowercase letters.
+/// let text = detect("Za\u{17c}\u{f3}\u{142}\u{107} g\u{119}\u{15b}l\u{105} ja\u{17a}\u{144}\n".as_bytes(), &options);
+/// assert_eq!(text.encoding().map(|encoding| encoding.label.as_str()), Some("utf-8"));
 ///
 /// let cp1250 = detect(b"Zielona \xb3\xb9ka i \xbf\xf3\xb3ty \x9cwierszcz\n", &options);
-/// assert_eq!(cp1250.encoding().unwrap().label, "windows-1250");
+/// assert_eq!(cp1250.encoding().map(|encoding| encoding.label.as_str()), Some("windows-1250"));
 ///
 /// assert!(detect(b"\x7fELF\x02\x01\x01\x00\x00\x00", &options).is_binary());
 /// ```
@@ -272,10 +280,11 @@ pub fn detect(bytes: &[u8], options: &DetectOptions) -> Detection {
 /// ```
 /// use nurt_text::detect::{DetectOptions, detect_prefix};
 ///
-/// let text = "łódź".as_bytes();
+/// // Polish word of four characters, three of them outside ASCII.
+/// let text = "\u{142}\u{f3}d\u{17a}".as_bytes();
 /// let cut = &text[..text.len() - 1];
 /// let detection = detect_prefix(cut, &DetectOptions::default());
-/// assert_eq!(detection.encoding().unwrap().label, "utf-8");
+/// assert_eq!(detection.encoding().map(|encoding| encoding.label.as_str()), Some("utf-8"));
 /// ```
 pub fn detect_prefix(prefix: &[u8], options: &DetectOptions) -> Detection {
     detect_sample(prefix, true, options)
@@ -563,11 +572,11 @@ mod tests {
     fn utf16_boms_select_byte_order() {
         let le: Vec<u8> = [0xff, 0xfe]
             .into_iter()
-            .chain("ćma".encode_utf16().flat_map(u16::to_le_bytes))
+            .chain("\u{107}ma".encode_utf16().flat_map(u16::to_le_bytes))
             .collect();
         let be: Vec<u8> = [0xfe, 0xff]
             .into_iter()
-            .chain("ćma".encode_utf16().flat_map(u16::to_be_bytes))
+            .chain("\u{107}ma".encode_utf16().flat_map(u16::to_be_bytes))
             .collect();
         assert_eq!(label(&le), Some("utf-16le".to_owned()));
         assert_eq!(label(&be), Some("utf-16be".to_owned()));
@@ -582,7 +591,8 @@ mod tests {
 
     #[test]
     fn utf16_without_bom_is_recognised() {
-        let text = "Pchnąć w tę łódź jeża lub ośm skrzyń fig.";
+        // Polish pangram with all nine Polish lowercase letters.
+        let text = "Pchn\u{105}\u{107} w t\u{119} \u{142}\u{f3}d\u{17a} je\u{17c}a lub o\u{15b}m skrzy\u{144} fig.";
         let le: Vec<u8> = text.encode_utf16().flat_map(u16::to_le_bytes).collect();
         let be: Vec<u8> = text.encode_utf16().flat_map(u16::to_be_bytes).collect();
         assert_eq!(label(&le), Some("utf-16le".to_owned()));
@@ -645,7 +655,7 @@ mod tests {
 
     #[test]
     fn sample_cut_inside_utf8_sequence_is_utf8() {
-        let bytes = "żżżż".as_bytes();
+        let bytes = "\u{17c}\u{17c}\u{17c}\u{17c}".as_bytes();
         let options = DetectOptions::default().with_sample_size(NonZeroUsize::new(3).unwrap());
         assert_eq!(detect(bytes, &options).encoding().unwrap().label, "utf-8");
     }
@@ -658,7 +668,7 @@ mod tests {
     #[test]
     fn cp852_is_preferred_for_polish_letters_at_cp852_positions() {
         let bytes = oem_cp::encode_string_checked(
-            "Źródło: żółw, gęś i łąka.",
+            "\u{179}r\u{f3}d\u{142}o: \u{17c}\u{f3}\u{142}w, g\u{119}\u{15b} i \u{142}\u{105}ka.",
             &oem_cp::code_table::ENCODING_TABLE_CP852,
         )
         .unwrap();
@@ -667,13 +677,15 @@ mod tests {
 
     #[test]
     fn iso_8859_2_is_chosen_for_its_own_letters() {
-        let (bytes, _, _) = encoding_rs::ISO_8859_2.encode("Ślą się źrebięta, ąę.");
+        let (bytes, _, _) = encoding_rs::ISO_8859_2
+            .encode("\u{15a}l\u{105} si\u{119} \u{17a}rebi\u{119}ta, \u{105}\u{119}.");
         assert_eq!(label(&bytes), Some("iso-8859-2".to_owned()));
     }
 
     #[test]
     fn empty_preference_list_keeps_statistical_guess() {
-        let (bytes, _, _) = encoding_rs::WINDOWS_1252.encode("Größe und Weiß, schön");
+        let (bytes, _, _) =
+            encoding_rs::WINDOWS_1252.encode("Gr\u{f6}\u{df}e und Wei\u{df}, sch\u{f6}n");
         let options = DetectOptions::default().with_legacy_encodings([]);
         assert_eq!(
             detect(&bytes, &options).encoding().unwrap().label,
@@ -684,7 +696,7 @@ mod tests {
     #[test]
     fn german_with_a_umlaut_only_is_not_cp852() {
         let (bytes, _, _) = encoding_rs::WINDOWS_1252
-            .encode("Das Mädchen hatte einen Bären gesehen, aber die Väter nicht.");
+            .encode("Das M\u{e4}dchen hatte einen B\u{e4}ren gesehen, aber die V\u{e4}ter nicht.");
         assert_ne!(label(&bytes), Some("ibm852".to_owned()));
     }
 
@@ -712,7 +724,7 @@ mod tests {
 
     #[test]
     fn letter_stats_penalise_uppercase_inside_word() {
-        let stats = LetterStats::of("mĄka Łódź");
+        let stats = LetterStats::of("m\u{104}ka \u{141}\u{f3}d\u{17a}");
         assert_eq!(
             stats,
             LetterStats {
@@ -726,7 +738,7 @@ mod tests {
 
     #[test]
     fn letter_stats_count_symbols_inside_words() {
-        let stats = LetterStats::of("g¶sto ± 2, ma¿e");
+        let stats = LetterStats::of("g\u{b6}sto \u{b1} 2, ma\u{bf}e");
         assert_eq!(stats.symbols_in_words, 2);
         assert!(!stats.is_plausible());
     }

@@ -315,12 +315,12 @@ impl Read for DecompressedReader<'_> {
 /// encoder.write_all(&[b'a'; 10_000])?;
 /// let compressed = encoder.finish()?;
 ///
-/// assert_eq!(read_limited(Algorithm::Gzip, &compressed[..], 10_000).unwrap().len(), 10_000);
+/// assert_eq!(read_limited(Algorithm::Gzip, &compressed[..], 10_000)?.len(), 10_000);
 /// assert!(matches!(
 ///     read_limited(Algorithm::Gzip, &compressed[..], 9_999),
 ///     Err(DecompressError::Limit { limit: 9_999 })
 /// ));
-/// # Ok::<(), std::io::Error>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn read_limited<R: Read + Send>(
     algorithm: Algorithm,

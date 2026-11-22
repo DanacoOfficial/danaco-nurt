@@ -16,27 +16,27 @@ const REQUIRED_ACCURACY_PERCENT: usize = 99;
 /// Polish prose and source code with Polish comments; every text contains
 /// letters that differ between `windows-1250` and `iso-8859-2`.
 const POLISH: [&str; 5] = [
-    "Wczoraj wieczorem pojechaliśmy nad jezioro, żeby obejrzeć zachód słońca. \
-     Woda była spokojna, a nad brzegiem kołysały się trzciny. Babcia opowiadała \
-     o czasach, gdy w tej okolicy stał młyn i każdy gospodarz przywoził zboże \
-     do mielenia. Wróciliśmy późno, zmęczeni, ale szczęśliwi.",
-    "Zgodnie z regulaminem każdy uczestnik szkolenia otrzymuje zaświadczenie \
-     o ukończeniu kursu. Warunkiem jest obecność na co najmniej dziewięćdziesięciu \
-     procentach zajęć oraz zdanie egzaminu końcowego. Odwołania należy składać \
-     w sekretariacie w ciągu czternastu dni od ogłoszenia wyników.",
-    "Źródłem problemu okazała się źle skonfigurowana usługa sieciowa. Po \
-     zmianie ustawień serwer odpowiadał szybciej, a liczba błędów spadła \
-     prawie do zera. Następnym krokiem będzie przeniesienie bazy danych na \
-     nowy dysk i sprawdzenie, czy kopie zapasowe dają się odtworzyć.",
-    "Ślimak powoli wspinał się po łodydze, zostawiając za sobą lśniący ślad. \
-     Dzieci przyglądały mu się z ciekawością i liczyły, ile czasu zajmie mu \
-     dotarcie do liścia. Gdy wreszcie dotarł na szczyt, wszyscy klaskali, \
-     a najmłodszy chłopiec ogłosił, że to najszybszy ślimak w ogrodzie.",
-    "/* Obliczanie średniej wartości pomiarów z czujników temperatury. */\n\
+    "Wczoraj wieczorem pojechali\u{15b}my nad jezioro, \u{17c}eby obejrze\u{107} zach\u{f3}d s\u{142}o\u{144}ca. \
+     Woda by\u{142}a spokojna, a nad brzegiem ko\u{142}ysa\u{142}y si\u{119} trzciny. Babcia opowiada\u{142}a \
+     o czasach, gdy w tej okolicy sta\u{142} m\u{142}yn i ka\u{17c}dy gospodarz przywozi\u{142} zbo\u{17c}e \
+     do mielenia. Wr\u{f3}cili\u{15b}my p\u{f3}\u{17a}no, zm\u{119}czeni, ale szcz\u{119}\u{15b}liwi.",
+    "Zgodnie z regulaminem ka\u{17c}dy uczestnik szkolenia otrzymuje za\u{15b}wiadczenie \
+     o uko\u{144}czeniu kursu. Warunkiem jest obecno\u{15b}\u{107} na co najmniej dziewi\u{119}\u{107}dziesi\u{119}ciu \
+     procentach zaj\u{119}\u{107} oraz zdanie egzaminu ko\u{144}cowego. Odwo\u{142}ania nale\u{17c}y sk\u{142}ada\u{107} \
+     w sekretariacie w ci\u{105}gu czternastu dni od og\u{142}oszenia wynik\u{f3}w.",
+    "\u{179}r\u{f3}d\u{142}em problemu okaza\u{142}a si\u{119} \u{17a}le skonfigurowana us\u{142}uga sieciowa. Po \
+     zmianie ustawie\u{144} serwer odpowiada\u{142} szybciej, a liczba b\u{142}\u{119}d\u{f3}w spad\u{142}a \
+     prawie do zera. Nast\u{119}pnym krokiem b\u{119}dzie przeniesienie bazy danych na \
+     nowy dysk i sprawdzenie, czy kopie zapasowe daj\u{105} si\u{119} odtworzy\u{107}.",
+    "\u{15a}limak powoli wspina\u{142} si\u{119} po \u{142}odydze, zostawiaj\u{105}c za sob\u{105} l\u{15b}ni\u{105}cy \u{15b}lad. \
+     Dzieci przygl\u{105}da\u{142}y mu si\u{119} z ciekawo\u{15b}ci\u{105} i liczy\u{142}y, ile czasu zajmie mu \
+     dotarcie do li\u{15b}cia. Gdy wreszcie dotar\u{142} na szczyt, wszyscy klaskali, \
+     a najm\u{142}odszy ch\u{142}opiec og\u{142}osi\u{142}, \u{17c}e to najszybszy \u{15b}limak w ogrodzie.",
+    "/* Obliczanie \u{15b}redniej warto\u{15b}ci pomiar\u{f3}w z czujnik\u{f3}w temperatury. */\n\
      double srednia(const double *pomiary, size_t liczba) {\n\
-     \x20   /* Pusta tablica oznacza brak pomiarów, więc zwracamy zero. */\n\
+     \x20   /* Pusta tablica oznacza brak pomiar\u{f3}w, wi\u{119}c zwracamy zero. */\n\
      \x20   if (liczba == 0) return 0.0;\n\
-     \x20   double suma = 0.0; /* Suma wszystkich wartości. */\n\
+     \x20   double suma = 0.0; /* Suma wszystkich warto\u{15b}ci. */\n\
      \x20   for (size_t i = 0; i < liczba; ++i) suma += pomiary[i];\n\
      \x20   return suma / liczba; /* Wynik w stopniach Celsjusza. */\n\
      }\n",
@@ -44,18 +44,18 @@ const POLISH: [&str; 5] = [
 
 /// German, French and Spanish prose for `windows-1252`.
 const WESTERN: [&str; 3] = [
-    "Die Größe des Gartens überraschte die Gäste. Hinter dem Haus wuchsen \
-     Äpfel, Birnen und Pflaumen, und am Zaun blühten Rosen in allen Farben. \
-     Der Großvater erzählte, dass er die Bäume vor fünfzig Jahren gepflanzt \
-     hatte, als das Grundstück noch eine Wiese war.",
-    "L'été dernier, nous avons visité un petit village près de la côte. Les \
-     maisons étaient peintes en blanc et les fenêtres décorées de fleurs. Le \
-     soir, nous mangions des crêpes au café de la place, où le propriétaire \
-     racontait des histoires de pêcheurs.",
-    "El señor García abrió la puerta de la habitación y miró por la ventana. \
-     En el jardín, los niños jugaban junto a la fuente mientras su madre leía \
-     una canción antigua. Después de la cena, todos salieron a caminar por la \
-     orilla del río hasta que se ocultó el sol.",
+    "Die Gr\u{f6}\u{df}e des Gartens \u{fc}berraschte die G\u{e4}ste. Hinter dem Haus wuchsen \
+     \u{c4}pfel, Birnen und Pflaumen, und am Zaun bl\u{fc}hten Rosen in allen Farben. \
+     Der Gro\u{df}vater erz\u{e4}hlte, dass er die B\u{e4}ume vor f\u{fc}nfzig Jahren gepflanzt \
+     hatte, als das Grundst\u{fc}ck noch eine Wiese war.",
+    "L'\u{e9}t\u{e9} dernier, nous avons visit\u{e9} un petit village pr\u{e8}s de la c\u{f4}te. Les \
+     maisons \u{e9}taient peintes en blanc et les fen\u{ea}tres d\u{e9}cor\u{e9}es de fleurs. Le \
+     soir, nous mangions des cr\u{ea}pes au caf\u{e9} de la place, o\u{f9} le propri\u{e9}taire \
+     racontait des histoires de p\u{ea}cheurs.",
+    "El se\u{f1}or Garc\u{ed}a abri\u{f3} la puerta de la habitaci\u{f3}n y mir\u{f3} por la ventana. \
+     En el jard\u{ed}n, los ni\u{f1}os jugaban junto a la fuente mientras su madre le\u{ed}a \
+     una canci\u{f3}n antigua. Despu\u{e9}s de la cena, todos salieron a caminar por la \
+     orilla del r\u{ed}o hasta que se ocult\u{f3} el sol.",
 ];
 
 struct Sample {
@@ -232,7 +232,14 @@ fn every_text_sample_is_long() {
 
 #[test]
 fn short_polish_samples_are_text() {
-    let words = ["łąka", "Gęś", "źródło", "Żółw", "ćma i ośm"];
+    // Single Polish words and short phrases of 3 to 9 characters.
+    let words = [
+        "\u{142}\u{105}ka",
+        "G\u{119}\u{15b}",
+        "\u{17a}r\u{f3}d\u{142}o",
+        "\u{17b}\u{f3}\u{142}w",
+        "\u{107}ma i o\u{15b}m",
+    ];
     for word in words {
         let encodings = [
             encoding_rs::WINDOWS_1250.encode(word).0.into_owned(),
@@ -247,7 +254,8 @@ fn short_polish_samples_are_text() {
 
 #[test]
 fn short_cp852_and_cp1250_samples_are_separated() {
-    let sentence = "Zażółć gęślą jaźń.";
+    // Polish pangram of 18 characters with all nine Polish lowercase letters.
+    let sentence = "Za\u{17c}\u{f3}\u{142}\u{107} g\u{119}\u{15b}l\u{105} ja\u{17a}\u{144}.";
     let cp852 = oem_cp::encode_string_lossy(sentence, &ENCODING_TABLE_CP852);
     let cp1250 = encoding_rs::WINDOWS_1250.encode(sentence).0.into_owned();
     assert_eq!(detected_label(&cp852).as_deref(), Some("ibm852"));

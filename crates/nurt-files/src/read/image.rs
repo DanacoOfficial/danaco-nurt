@@ -146,11 +146,10 @@ impl From<io::Error> for ImageError {
 ///
 /// let mut png = Vec::new();
 /// image::DynamicImage::new_rgb8(3, 2)
-///     .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
-///     .unwrap();
+///     .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)?;
 /// let info = inspect(Cursor::new(png))?;
 /// assert_eq!((info.mime(), info.width(), info.height()), ("image/png", Some(3), Some(2)));
-/// # Ok::<(), nurt_files::read::image::ImageError>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn inspect<R: BufRead + Seek>(mut reader: R) -> Result<ImageInfo, ImageError> {
     let start = reader.stream_position()?;

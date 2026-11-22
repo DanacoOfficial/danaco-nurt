@@ -354,12 +354,22 @@ impl PdfDocument {
         info.as_dict().ok()
     }
 
+    /// Text of an entry of the information dictionary.
+    ///
+    /// An entry whose decoding makes the PDF library panic is absent, so a
+    /// damaged information dictionary does not prevent reading the pages.
     fn text_entry(&self, info: &pdf_extract::Dictionary, key: &[u8]) -> Option<String> {
-        let value = info.get(key).ok()?;
-        let (_, value) = self.document.dereference(value).ok()?;
-        let text = pdf_extract::decode_text_string(value).ok()?;
-        let text = text.trim();
-        (!text.is_empty()).then(|| text.to_owned())
+        // The closure only reads the parsed document, so a panic inside it
+        // leaves no state half-modified and `AssertUnwindSafe` is sound.
+        panic::catch_unwind(AssertUnwindSafe(|| {
+            let value = info.get(key).ok()?;
+            let (_, value) = self.document.dereference(value).ok()?;
+            let text = pdf_extract::decode_text_string(value).ok()?;
+            let text = text.trim();
+            (!text.is_empty()).then(|| text.to_owned())
+        }))
+        .ok()
+        .flatten()
     }
 }
 
@@ -367,6 +377,12 @@ impl PdfDocument {
 /// documents instead of returning an error, and reports such a panic as a
 /// malformed document.
 fn guarded<T>(operation: impl FnOnce() -> Result<T, PdfError>) -> Result<T, PdfError> {
+    // The PDF library calls `unwrap` and `todo!` on structures it does not
+    // support, so a damaged document panics instead of returning an error.
+    // The operation only reads its input or builds a new document, so a
+    // panic leaves no shared state inconsistent and `AssertUnwindSafe` is
+    // sound. The process-wide panic hook belongs to the application and is
+    // left unchanged.
     panic::catch_unwind(AssertUnwindSafe(operation)).unwrap_or_else(|_| {
         Err(PdfError::Malformed {
             detail: UNSUPPORTED_STRUCTURE.to_owned(),
@@ -552,22 +568,22 @@ mod tests {
     /// Polish letters that the test font maps to the codes from 128 on, by
     /// their PostScript glyph names.
     const POLISH_GLYPHS: [(char, &str); 16] = [
-        ('ą', "aogonek"),
-        ('ć', "cacute"),
-        ('ę', "eogonek"),
-        ('ł', "lslash"),
-        ('ń', "nacute"),
-        ('ś', "sacute"),
-        ('ź', "zacute"),
-        ('ż', "zdotaccent"),
-        ('Ą', "Aogonek"),
-        ('Ć', "Cacute"),
-        ('Ę', "Eogonek"),
-        ('Ł', "Lslash"),
-        ('Ń', "Nacute"),
-        ('Ś', "Sacute"),
-        ('Ź', "Zacute"),
-        ('Ż', "Zdotaccent"),
+        ('\u{105}', "aogonek"),
+        ('\u{107}', "cacute"),
+        ('\u{119}', "eogonek"),
+        ('\u{142}', "lslash"),
+        ('\u{144}', "nacute"),
+        ('\u{15b}', "sacute"),
+        ('\u{17a}', "zacute"),
+        ('\u{17c}', "zdotaccent"),
+        ('\u{104}', "Aogonek"),
+        ('\u{106}', "Cacute"),
+        ('\u{118}', "Eogonek"),
+        ('\u{141}', "Lslash"),
+        ('\u{143}', "Nacute"),
+        ('\u{15a}', "Sacute"),
+        ('\u{179}', "Zacute"),
+        ('\u{17b}', "Zdotaccent"),
     ];
     const FIRST_POLISH_CODE: u8 = 128;
 
@@ -575,7 +591,7 @@ mod tests {
         Object::Name(value.as_bytes().to_vec())
     }
 
-    /// Helvetica with `WinAnsiEncoding`, in which `ó` and `Ó` already exist,
+    /// Helvetica with `WinAnsiEncoding`, in which U+00F3 and U+00D3 already exist,
     /// and the other Polish letters added through `Differences`.
     fn font() -> Dictionary {
         let mut differences = vec![Object::Integer(i64::from(FIRST_POLISH_CODE))];
@@ -595,8 +611,8 @@ mod tests {
     fn encode(text: &str) -> Vec<u8> {
         text.chars()
             .map(|ch| match ch {
-                'ó' => 0xf3,
-                'Ó' => 0xd3,
+                '\u{f3}' => 0xf3,
+                '\u{d3}' => 0xd3,
                 ch if ch.is_ascii() => ch as u8,
                 ch => {
                     let index = POLISH_GLYPHS
@@ -672,7 +688,10 @@ mod tests {
             "Title",
             Object::String(b"Quarterly report".to_vec(), StringFormat::Literal),
         );
-        info.set("Author", pdf_extract::text_string("Zofia Łęcka"));
+        info.set(
+            "Author",
+            pdf_extract::text_string("Zofia \u{141}\u{119}cka"),
+        );
         info.set("Subject", Object::String(Vec::new(), StringFormat::Literal));
         let info_id = document.add_object(info);
         document.trailer.set("Info", Object::Reference(info_id));
@@ -702,12 +721,12 @@ mod tests {
             &[Run {
                 x: 72,
                 y: 760,
-                text: "Zażółć gęślą jaźń",
+                text: "Za\u{17c}\u{f3}\u{142}\u{107} g\u{119}\u{15b}l\u{105} ja\u{17a}\u{144}",
             }],
             &[Run {
                 x: 72,
                 y: 760,
-                text: "ŁÓDŹ, ŚRODA",
+                text: "\u{141}\u{d3}D\u{179}, \u{15a}RODA",
             }],
         ]))
     }
@@ -720,7 +739,7 @@ mod tests {
         assert_eq!(metadata.version, "1.5");
         assert_eq!(metadata.pages, 3);
         assert_eq!(metadata.title.as_deref(), Some("Quarterly report"));
-        assert_eq!(metadata.author.as_deref(), Some("Zofia Łęcka"));
+        assert_eq!(metadata.author.as_deref(), Some("Zofia \u{141}\u{119}cka"));
         assert_eq!(metadata.subject, None);
         assert_eq!(metadata.producer, None);
         assert!(format!("{document:?}").contains("pages: 3"));
@@ -739,11 +758,12 @@ mod tests {
             [
                 PdfPage {
                     number: 2,
-                    text: "Zażółć gęślą jaźń".to_owned()
+                    text: "Za\u{17c}\u{f3}\u{142}\u{107} g\u{119}\u{15b}l\u{105} ja\u{17a}\u{144}"
+                        .to_owned()
                 },
                 PdfPage {
                     number: 3,
-                    text: "ŁÓDŹ, ŚRODA".to_owned()
+                    text: "\u{141}\u{d3}D\u{179}, \u{15a}RODA".to_owned()
                 },
             ]
         );

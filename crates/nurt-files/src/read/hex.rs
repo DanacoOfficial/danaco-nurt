@@ -13,7 +13,7 @@
 //!
 //! Rows are produced from a reader one at a time, so content of any size is
 //! dumped in constant memory. Row numbers start at zero; row `n` begins at
-//! byte offset `16 × n`.
+//! byte offset `16 * n`.
 
 use std::fmt;
 use std::io::{self, Read, Seek, SeekFrom};
