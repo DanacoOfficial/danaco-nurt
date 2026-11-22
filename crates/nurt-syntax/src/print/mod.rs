@@ -3,27 +3,26 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Canonical printer of surface trees.
 //!
-//! The printer turns a surface tree into program text of a syntax variant.
 //! For every tree `T` that the parser can produce, parsing the printed text
 //! in the same variant gives `T` again, spans and metadata aside; printing
 //! the parse of any program text gives its canonical text, the output of
-//! `nurt fmt`.
+//! `nurt fmt`. Trees without such a text form are listed at [`PrintError`];
+//! literals and expressions are described at [`print_expr`].
 //!
 //! # Layout
 //!
 //! * Statements are separated by one line break and the text ends with a
 //!   line break; there are no blank lines.
-//! * A pipeline that has at least one stage after its head, and whose head
-//!   is a stage with at least one argument, is printed one stage per line:
-//!   the head on the first line (after `let name = `), every further stage on
-//!   its own line starting with `|> ` and without indentation. Any other
-//!   pipeline is printed on one line with ` |> ` between stages when the line
-//!   fits [`MAX_LINE_WIDTH`] columns, otherwise one stage per line.
+//! * A pipeline with stages after a head that is a stage with arguments is
+//!   printed one stage per line: the head on the first line (after
+//!   `let name = `), every further stage on its own line starting with `|> `.
+//!   Any other pipeline is printed on one line, joined by ` |> `, when the
+//!   line fits [`MAX_LINE_WIDTH`] columns, otherwise one stage per line.
 //! * A sub-pipeline is always printed on one line.
-//! * A list is printed one item per line, indented by two spaces per nesting
-//!   level and without a trailing comma, when it has at least two items and
-//!   one of them is a list or a map, or when its one-line form would end
-//!   beyond [`MAX_LINE_WIDTH`]. A map is broken under the second rule only.
+//! * A list is printed one item per line, indented by two spaces per level
+//!   and without a trailing comma, when it has at least two items and one of
+//!   them is a list or a map, or when its one-line form would end beyond
+//!   [`MAX_LINE_WIDTH`]. A map is broken under the second rule only.
 //! * Columns count Unicode scalar values, not display width.
 //!
 //! # Variants
@@ -31,53 +30,12 @@
 //! | Variant | Stage | Sub-pipeline argument |
 //! |---|---|---|
 //! | A | `name arg name: value` | `(stage \|> stage)` |
-//! | B | `name(arg, name: value)`, `name()` without arguments | `name(stage \|> stage)` without parentheses; one stage as `name((stage))` |
+//! | B | `name(arg, name: value)`, `name()` | `name(stage \|> stage)`; one stage as `name((stage))` |
 //! | C | `name name=value` | `name=(stage \|> stage)` |
 //!
-//! Lists, maps, literals and expressions are written alike in all variants;
-//! map entries use `:` in variant C as well. Variant C has no positional
-//! arguments: [`name_positional`] names them from a [`PositionalNames`]
-//! source first.
-//!
-//! # Literals and expressions
-//!
-//! Text is written `"…"` with the escapes `\\ \" \n \r \t \0` and
-//! `\u{hex}` for other control characters (Unicode category Cc), or raw as
-//! `r#"…"#` with the fewest `#` when it contains `"` or `\` and no control
-//! character other than tab and line feed. Integers are decimal; numbers use
-//! the shortest decimal that reads back to the same value, with a fraction
-//! and without an exponent; sizes and durations use the shortest exact
-//! spelling (`1mb`, `1.5kb`, `1m30s`, `1d`). Parentheses appear only where
-//! precedence or associativity requires them; an argument of variant A that
-//! starts with `not` or `..` after another token, or ends with `..` before
-//! another argument, is parenthesized so that the argument boundary reads
-//! back unchanged.
-//!
-//! # Trees outside the parser image
-//!
-//! Some trees accepted by the contract have no text form that parses back to
-//! the same tree. [`print`] still prints them; [`try_print`] rejects them
-//! with [`PrintError`]:
-//!
-//! * structured `key` nodes print as the text of their key path, which reads
-//!   back as a `text` node;
-//! * a sub-pipeline made of a reference only, or of one stage without
-//!   arguments in variants A and C, reads back as a reference, an identifier
-//!   or a field;
-//! * a regular expression that is empty, spans lines, has flags outside
-//!   `imsx` or out of order, ends with an odd number of `\`, has an odd
-//!   number of `\` before `/`, or starts with white space in variants A and
-//!   C;
-//! * names that are not identifiers, identifiers that are reserved words,
-//!   and command names that are not identifiers joined by `.`;
-//! * negative or non-finite numbers, integers, sizes, durations and range
-//!   bounds outside `0..=2^53-1`, a spread outside a list, a field without a
-//!   record expression, a map with a repeated key and an empty program;
-//! * positional arguments in variant C ([`PrintError::PositionalArgument`]);
-//!   [`print`] writes their value without a name, which is not valid
-//!   variant C text;
-//! * nesting deeper than [`MAX_NESTING_DEPTH`]; [`print`] writes `null` in
-//!   place of the deeper nodes.
+//! Lists, maps, literals and expressions are alike in all variants; map
+//! entries use `:` in variant C as well. Variant C has no positional
+//! arguments: [`name_positional`] names them first.
 
 mod expr;
 mod layout;
@@ -102,6 +60,26 @@ pub const MAX_LINE_WIDTH: usize = 100;
 pub const MAX_NESTING_DEPTH: usize = 128;
 
 /// Reason a tree has no text form that reads back as the same tree.
+///
+/// [`print`] still prints such trees; [`try_print`] rejects them:
+///
+/// * A structured `key` prints as the text of its key path and reads back
+///   as `text`;
+/// * A sub-pipeline of a reference only, or of one stage without arguments
+///   in variants A and C, reads back as an expression;
+/// * A regular expression that is empty, spans lines, has flags outside
+///   `imsx` or out of order, ends with an odd number of `\`, has an odd
+///   number of `\` before `/`, or starts with white space in variants A and
+///   C;
+/// * Names that are not identifiers or are reserved words, and command names
+///   that are not identifiers joined by `.`;
+/// * Negative or non-finite numbers, values outside `0..=2^53-1`, unary `-`
+///   applied to a range, a spread outside a list, a field without a record
+///   expression, a repeated map key and an empty program;
+/// * Positional arguments in variant C, which [`print`] writes without a
+///   name;
+/// * Nesting deeper than [`MAX_NESTING_DEPTH`]; [`print`] writes `null` in
+///   place of the deeper nodes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum PrintError {
@@ -173,9 +151,9 @@ impl std::error::Error for PrintError {}
 /// a line break.
 ///
 /// The tree metadata, including comments, is not printed; `nurt fmt` keeps
-/// comments through [`crate::fmt::format`]. Trees outside the parser image
-/// are printed as described in the module documentation; the result then
-/// does not read back as the same tree. Use [`try_print`] to detect them.
+/// comments through [`crate::fmt::format`]. A tree listed at [`PrintError`]
+/// is printed as well, but its text does not read back as the same tree;
+/// [`try_print`] detects such trees.
 ///
 /// # Examples
 ///
@@ -184,37 +162,13 @@ impl std::error::Error for PrintError {}
 /// use nurt_syntax::parse::Variant;
 /// use nurt_syntax::print;
 ///
-/// let stage = |name: &str, args: Vec<Arg>| Stage { name: name.to_owned(), args, span: None };
-/// let find = stage(
-///     "find",
-///     vec![
-///         Arg { name: None, value: Expr::Text { v: "/srv/app".to_owned(), span: None }, span: None },
-///         Arg {
-///             name: Some("glob".to_owned()),
-///             value: Expr::Text { v: "*.go".to_owned(), span: None },
-///             span: None,
-///         },
-///     ],
-/// );
-/// let first = stage(
-///     "first",
-///     vec![Arg { name: None, value: Expr::Int { v: 20, span: None }, span: None }],
-/// );
-/// let document = AstDocument::new(Program {
-///     statements: vec![Statement::Pipeline(Pipeline {
-///         head: Head::Stage(find),
-///         stages: vec![first],
-///         span: None,
-///     })],
-/// });
-/// assert_eq!(
-///     print::print(&document, Variant::A),
-///     "find \"/srv/app\" glob: \"*.go\"\n|> first 20\n"
-/// );
-/// assert_eq!(
-///     print::print(&document, Variant::B),
-///     "find(\"/srv/app\", glob: \"*.go\")\n|> first(20)\n"
-/// );
+/// let path = Arg { name: None, value: Expr::Text { v: "/srv/app".to_owned(), span: None }, span: None };
+/// let find = Stage { name: "find".to_owned(), args: vec![path], span: None };
+/// let count = Stage { name: "count".to_owned(), args: Vec::new(), span: None };
+/// let pipeline = Pipeline { head: Head::Stage(find), stages: vec![count], span: None };
+/// let document = AstDocument::new(Program { statements: vec![Statement::Pipeline(pipeline)] });
+/// assert_eq!(print::print(&document, Variant::A), "find \"/srv/app\"\n|> count\n");
+/// assert_eq!(print::print(&document, Variant::B), "find(\"/srv/app\")\n|> count()\n");
 /// ```
 #[must_use]
 pub fn print(document: &AstDocument, variant: Variant) -> String {
@@ -264,24 +218,29 @@ pub fn try_print(document: &AstDocument, variant: Variant) -> Result<String, Pri
 }
 
 /// Prints one expression in its canonical form, for messages, candidates and
-/// help texts.
+/// help texts; a long list or map may span several lines.
 ///
-/// The expression starts at column 0, so a long list or map may span several
-/// lines. `variant` decides how sub-pipelines inside the expression are
-/// written.
+/// Text is written `"…"` with the escapes `\\ \" \n \r \t \0` and `\u{hex}`
+/// for other control characters (Unicode category Cc), or raw as `r#"…"#`
+/// with the fewest `#` when it contains `"` or `\` and no control character
+/// other than tab and line feed. Integers are decimal; numbers use the
+/// shortest decimal that reads back to the same value, with a fraction and
+/// without an exponent; sizes and durations use the shortest exact spelling
+/// (`1mb`, `1.5kb`, `1m30s`, `1d`). Parentheses appear where precedence or
+/// associativity requires them and where a token would merge with its
+/// neighbour: around an argument of variant A that starts with `not` or `..`
+/// after another token or ends with `..` before another argument, and
+/// around a left operand that ends with `..`.
 ///
 /// # Examples
 ///
 /// ```
-/// use nurt_contracts::ast::{BinOp, Expr, UnOp};
+/// use nurt_contracts::ast::Expr;
 /// use nurt_syntax::parse::Variant;
 /// use nurt_syntax::print;
 ///
-/// let size = Expr::Ident { v: "size".to_owned(), span: None };
-/// let limit = Expr::Size { v: 1_000_000, span: None };
-/// let test = Expr::Bin { op: BinOp::Gt, l: Box::new(size), r: Box::new(limit), span: None };
-/// let negated = Expr::Un { op: UnOp::Not, x: Box::new(test), span: None };
-/// assert_eq!(print::print_expr(&negated, Variant::A), "not size > 1mb");
+/// let size = Expr::Size { v: 1_500, span: None };
+/// assert_eq!(print::print_expr(&size, Variant::A), "1.5kb");
 /// ```
 #[must_use]
 pub fn print_expr(expr: &Expr, variant: Variant) -> String {

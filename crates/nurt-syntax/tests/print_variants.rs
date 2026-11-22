@@ -9,15 +9,18 @@
 //! canonical layout: a pipeline whose head has arguments is printed one stage
 //! per line, as in variant A.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use nurt_contracts::ast::{
     Arg, AstDocument, Expr, Head, Pipeline, Program, Span, Stage, Statement, strip_for_hash,
 };
-use nurt_syntax::json;
-use nurt_syntax::parse::Variant;
+use nurt_syntax::parse::{self, ParseOptions, Variant};
 use nurt_syntax::print::{self, PositionalNames, PrintError};
+use nurt_syntax::{fmt, json};
 
 const B_TEXTS: [&str; 14] = [
     "find(\"/srv/app\", glob: \"**/*.go\")\n|> filter(size > 1mb and modified > ago(1d))\n|> sort(size, order: desc)\n|> first(20)\n",
@@ -81,8 +84,11 @@ fn workspace() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-fn trees(directory: &Path) -> Vec<AstDocument> {
-    let mut paths: Vec<PathBuf> = fs::read_dir(directory)
+/// Golden files of the reference tasks named `task-NN-name<suffix>`, where
+/// the name has no `.`, in task order.
+fn task_files(suffix: &str) -> Vec<PathBuf> {
+    let directory = workspace().join("spec/golden/ast");
+    let mut paths: Vec<PathBuf> = fs::read_dir(&directory)
         .unwrap_or_else(|error| panic!("{}: {error}", directory.display()))
         .map(|entry| entry.expect("directory entry").path())
         .filter(|path| {
@@ -90,11 +96,16 @@ fn trees(directory: &Path) -> Vec<AstDocument> {
                 .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or_default();
-            name.starts_with("task-") && name.ends_with(".json")
+            name.strip_suffix(suffix)
+                .is_some_and(|stem| stem.starts_with("task-") && !stem.contains('.'))
         })
         .collect();
     paths.sort();
     paths
+}
+
+fn trees(suffix: &str) -> Vec<AstDocument> {
+    task_files(suffix)
         .iter()
         .map(|path| {
             let text = fs::read_to_string(path).expect("tree file");
@@ -105,11 +116,11 @@ fn trees(directory: &Path) -> Vec<AstDocument> {
 }
 
 fn a_trees() -> Vec<AstDocument> {
-    trees(&workspace().join("spec/golden/ast"))
+    trees(".json")
 }
 
 fn c_trees() -> Vec<AstDocument> {
-    trees(&workspace().join("tests/d1/golden/ast/c"))
+    trees(".c.json")
 }
 
 fn hash_form(document: &AstDocument) -> serde_json::Value {
@@ -139,6 +150,48 @@ fn prints_the_reference_tasks_in_variant_b() {
 #[test]
 fn prints_the_reference_tasks_in_variant_c() {
     check_texts(&c_trees(), Variant::C, &C_TEXTS);
+}
+
+fn check_read_back(documents: &[AstDocument], variant: Variant, texts: &[&str]) {
+    assert_eq!(documents.len(), texts.len());
+    for (index, (document, text)) in documents.iter().zip(texts).enumerate() {
+        let parsed = parse::parse(text, variant, &ParseOptions::default())
+            .unwrap_or_else(|error| panic!("task {}: {error}\n{text}", index + 1));
+        assert_eq!(
+            hash_form(&parsed),
+            hash_form(document),
+            "task {}:\n{text}",
+            index + 1
+        );
+        assert_eq!(print::print(&parsed, variant), *text, "task {}", index + 1);
+    }
+}
+
+#[test]
+fn variant_b_texts_read_back_as_the_reference_trees() {
+    check_read_back(&a_trees(), Variant::B, &B_TEXTS);
+}
+
+#[test]
+fn variant_c_texts_read_back_as_the_reference_trees() {
+    check_read_back(&c_trees(), Variant::C, &C_TEXTS);
+}
+
+#[test]
+fn formats_the_specification_texts_of_variants_b_and_c() {
+    for (variant, suffix, expected) in [
+        (Variant::B, ".b.nurt", &B_TEXTS),
+        (Variant::C, ".c.nurt", &C_TEXTS),
+    ] {
+        let paths = task_files(suffix);
+        assert_eq!(paths.len(), expected.len(), "{suffix}");
+        for (path, expected) in paths.iter().zip(expected) {
+            let text = fs::read_to_string(path).expect("program file");
+            let formatted = fmt::format(&text, variant)
+                .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+            assert_eq!(formatted, *expected, "{}", path.display());
+        }
+    }
 }
 
 #[test]

@@ -8,6 +8,9 @@
 //! a statement element. Such text is already canonical, so formatting must
 //! return it unchanged.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod roundtrip_support;
 
 use nurt_contracts::ast::{AstDocument, Program};

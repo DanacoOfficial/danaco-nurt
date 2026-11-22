@@ -124,9 +124,10 @@ fn print_error(error: PrintError) -> SyntaxError {
     let converted = SyntaxError::syntax(error.to_string()).with_problem(problem);
     match error.span() {
         Some(span) => converted.with_at(At {
-            line: span.line,
-            column: span.column,
+            line: Some(span.line),
+            column: Some(span.column),
             length: (span.end_line == span.line).then(|| span.end_column - span.column),
+            stage: None,
         }),
         None => converted,
     }

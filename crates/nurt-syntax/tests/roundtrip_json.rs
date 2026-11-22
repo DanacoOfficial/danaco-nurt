@@ -4,6 +4,9 @@
 //! Round trip of the golden trees through the JSON codec, the canonical
 //! encoding behind `ast_hash` and the decoding errors.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -225,8 +228,11 @@ fn rejects_invalid_json_and_non_objects() {
 fn decoding_errors_map_to_the_parse_stage() {
     let error = Error::from(decode_error(minimal("2.0")));
     assert_eq!(error.code, ErrorCode::AstVersion);
-    assert_eq!(error.stage, Some(Stage::Parse));
+    assert_eq!(error.stage(), Some(Stage::Parse));
 }
+
+/// Code column of `expected.tsv` for a tree that the decoder admits.
+const ACCEPTED: &str = "-";
 
 #[test]
 fn invalid_golden_trees_give_their_codes() {
@@ -240,12 +246,19 @@ fn invalid_golden_trees_give_their_codes() {
         };
         let name = file.trim_start_matches("invalid/");
         let text = read(&directory.join(name));
-        let error = match *kind {
-            "ast" => json::decode_surface(&text).expect_err("invalid surface tree"),
-            _ => json::decode_bound(&text).expect_err("invalid bound tree"),
+        let decoded = match *kind {
+            "ast" => json::decode_surface(&text).map(drop),
+            _ => json::decode_bound(&text).map(drop),
         };
-        assert_eq!(error.code.to_string(), *code, "{name}");
-        assert!(error.found.is_some(), "{name}: no JSON Pointer");
+        match (*code, decoded) {
+            (ACCEPTED, Ok(())) => {}
+            (ACCEPTED, Err(error)) => panic!("{name}: admissible tree rejected: {error}"),
+            (_, Ok(())) => panic!("{name}: invalid tree accepted"),
+            (code, Err(error)) => {
+                assert_eq!(error.code.to_string(), code, "{name}");
+                assert!(error.found.is_some(), "{name}: no JSON Pointer");
+            }
+        }
         checked += 1;
     }
     assert!(checked >= 16, "checked {checked} invalid trees");

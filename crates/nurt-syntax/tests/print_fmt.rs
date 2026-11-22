@@ -4,6 +4,9 @@
 //! Formatting of program text with comments and conversion between
 //! variants.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use nurt_contracts::error::ErrorCode;
 use nurt_syntax::fmt;
 use nurt_syntax::parse::{self, ParseOptions, Variant};
@@ -103,7 +106,10 @@ fn conversion_to_variant_c_requires_parameter_names() {
     let error = fmt::convert(text, Variant::A, Variant::C, None).expect_err("positional arguments");
     assert_eq!(error.code, ErrorCode::Syntax);
     assert_eq!(error.problem.as_deref(), Some("positional_argument"));
-    assert_eq!(error.at.map(|at| (at.line, at.column)), Some((1, 6)));
+    assert_eq!(
+        error.at.map(|at| (at.line, at.column)),
+        Some((Some(1), Some(6)))
+    );
     let error = fmt::convert("sort size\n", Variant::A, Variant::C, Some(&Names))
         .expect_err("unknown name");
     assert_eq!(error.problem.as_deref(), Some("unnamed_argument"));

@@ -132,10 +132,18 @@ pub(super) fn leading(expr: &Expr) -> Lead {
         match current {
             Expr::Un { op: UnOp::Not, .. } => return Lead::Not,
             Expr::Range { lo: None, .. } => return Lead::OpenStart,
-            Expr::Bin { op, l, .. } if precedence(l) >= operand_bounds(*op).0 => current = l,
+            Expr::Bin { op, l, .. } if precedence(l) >= operand_bounds(*op).0 && !ends_open(l) => {
+                current = l;
+            }
             _ => return Lead::Other,
         }
     }
+}
+
+/// Returns `true` when the left operand `left`, printed without its own
+/// parentheses at the binding strength `min`, ends with `..`.
+fn left_ends_open(left: &Expr, min: u8) -> bool {
+    precedence(left) >= min && ends_open(left)
 }
 
 /// Returns `true` when the printed form of `expr` ends with `..` of a range
@@ -458,6 +466,11 @@ impl Printer {
                 self.expr(operand, PREC_COMPARE, ctx.deeper(), out);
             }
             UnOp::Neg if matches!(operand, Expr::Range { .. }) => {
+                self.unprintable(
+                    "un",
+                    "negates a range, which has no text form; negate an integer instead",
+                    span,
+                );
                 out.push("-(");
                 self.expr(operand, PREC_ANY, ctx.deeper(), out);
                 out.push(")");
@@ -475,9 +488,18 @@ impl Printer {
         }
     }
 
+    /// A left operand that ends with `..` is parenthesized: the lexer reads
+    /// the token after `..` as the start of a value, so `/` would open a
+    /// regular expression.
     fn binary(&mut self, op: BinOp, left: &Expr, right: &Expr, ctx: Ctx, out: &mut Out) {
         let (left_min, right_min) = operand_bounds(op);
-        self.expr(left, left_min, ctx.deeper(), out);
+        if left_ends_open(left, left_min) {
+            out.push("(");
+            self.expr(left, PREC_ANY, ctx.deeper(), out);
+            out.push(")");
+        } else {
+            self.expr(left, left_min, ctx.deeper(), out);
+        }
         out.push(" ");
         out.push(op.as_str());
         out.push(" ");

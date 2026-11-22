@@ -7,6 +7,9 @@
 //! canonical texts of `tests/d1/golden/ast/a`, and every golden tree prints
 //! to text that reads back as the same tree.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -20,6 +23,10 @@ const TASKS: usize = 14;
 
 /// Smallest number of program trees: 14 tasks, 48 examples, 2 extra trees.
 const MIN_PROGRAM_TREES: usize = 64;
+
+/// Suffix of the variant C trees of the reference tasks, which name every
+/// argument and have no recorded canonical text.
+const C_TREE_SUFFIX: &str = ".c.json";
 
 fn workspace() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -35,7 +42,9 @@ fn spec_trees(prefixes: &[&str]) -> Vec<PathBuf> {
                 .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or_default();
-            name.ends_with(".json") && prefixes.iter().any(|prefix| name.starts_with(prefix))
+            name.ends_with(".json")
+                && !name.ends_with(C_TREE_SUFFIX)
+                && prefixes.iter().any(|prefix| name.starts_with(prefix))
         })
         .collect();
     trees.sort();

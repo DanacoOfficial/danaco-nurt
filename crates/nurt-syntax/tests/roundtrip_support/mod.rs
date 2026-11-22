@@ -6,12 +6,18 @@
 //! The trees cover every node kind of the surface tree except the
 //! structured `key`, nest at most twelve node levels below a stage argument,
 //! use identifiers that are not reserved words, unique map keys, spreads only
-//! as list items, integers within `0..=2^53-1` and text with any Unicode
-//! character, control characters included. Spans and metadata are absent.
+//! as list items, no unary `-` directly over a range, integers within
+//! `0..=2^53-1` and text with any Unicode character, control characters
+//! included. Spans and metadata are absent.
 //!
 //! A test crate includes the generator with `mod roundtrip_support;` (or
 //! `#[path = "roundtrip_support/mod.rs"] mod trees;` from another directory)
 //! and draws documents from [`program`].
+
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+// Every test crate that includes the generator uses a different part of it.
+#![allow(dead_code)]
 
 use nurt_contracts::ast::{
     Arg, AstDocument, BinOp, Expr, Head, Let, MapEntry, Pipeline, Program, Ref, Stage, Statement,
@@ -23,10 +29,10 @@ use proptest::prelude::*;
 use proptest::sample::select;
 
 /// Reserved words of the language.
-pub const KEYWORDS: [&str; 8] = ["let", "true", "false", "null", "and", "or", "not", "in"];
+pub(crate) const KEYWORDS: [&str; 8] = ["let", "true", "false", "null", "and", "or", "not", "in"];
 
 /// Largest integer of a tree, `2^53 - 1`.
-pub const MAX_SAFE_INTEGER: i64 = (1 << 53) - 1;
+pub(crate) const MAX_SAFE_INTEGER: i64 = (1 << 53) - 1;
 
 /// Levels of expression recursion; with the sub-pipelines in between, trees
 /// stay within twelve node levels below a stage argument.
@@ -71,38 +77,38 @@ const BINARY_OPERATORS: [BinOp; 15] = [
 
 /// Restrictions of the generated trees.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Shape {
+pub(crate) struct Shape {
     /// Every argument is named, as in variant C.
-    pub named_only: bool,
+    pub(crate) named_only: bool,
     /// Text values may contain line feeds and carriage returns.
-    pub line_breaks: bool,
+    pub(crate) line_breaks: bool,
 }
 
 impl Shape {
     /// Trees of variants A and B.
-    pub const POSITIONAL: Self = Self {
+    pub(crate) const POSITIONAL: Self = Self {
         named_only: false,
         line_breaks: true,
     };
     /// Trees of variant C.
-    pub const NAMED: Self = Self {
+    pub(crate) const NAMED: Self = Self {
         named_only: true,
         line_breaks: true,
     };
     /// Trees whose printed text has no line break inside a literal.
-    pub const SINGLE_LINE_TEXT: Self = Self {
+    pub(crate) const SINGLE_LINE_TEXT: Self = Self {
         named_only: false,
         line_breaks: false,
     };
 }
 
 /// Hash form of a document: the JSON value without spans and metadata.
-pub fn hash_form(document: &AstDocument) -> serde_json::Value {
+pub(crate) fn hash_form(document: &AstDocument) -> serde_json::Value {
     strip_for_hash(&serde_json::to_value(document).expect("tree serializes"))
 }
 
 /// Identifier that is not a reserved word.
-pub fn identifier() -> BoxedStrategy<String> {
+pub(crate) fn identifier() -> BoxedStrategy<String> {
     "[a-z][a-z0-9_]{0,6}"
         .prop_map(|name| {
             if KEYWORDS.contains(&name.as_str()) {
@@ -149,7 +155,7 @@ fn regex() -> BoxedStrategy<Expr> {
     let piece = prop_oneof![
         4 => "[a-z0-9.*+?()|^$ /-]",
         1 => r"\\[a-z.()]",
-        1 => Just("\\\\".to_owned()),
+        1 => r"\\\\",
     ];
     ("[a-z]", vec(piece, 0..5), vec(any::<bool>(), 4))
         .prop_map(|(first, pieces, flags)| Expr::Regex {
@@ -183,7 +189,7 @@ fn number() -> BoxedStrategy<f64> {
 }
 
 /// Reference to a named result with a field path.
-pub fn reference() -> BoxedStrategy<Ref> {
+pub(crate) fn reference() -> BoxedStrategy<Ref> {
     (identifier(), vec(identifier(), 0..3))
         .prop_map(|(name, fields)| Ref {
             name,
@@ -203,7 +209,7 @@ fn leaf(shape: Shape) -> BoxedStrategy<Expr> {
         scaled(&SIZE_UNITS).prop_map(|v| Expr::Size { v, span: None }),
         scaled(&DURATION_UNITS).prop_map(|v| Expr::Dur { v, span: None }),
         any::<bool>().prop_map(|v| Expr::Bool { v, span: None }),
-        Just(Expr::Null { span: None }),
+        any::<()>().prop_map(|()| Expr::Null { span: None }),
         (option::of(0_i64..1_000), option::of(0_i64..1_000)).prop_map(|(lo, hi)| Expr::Range {
             lo,
             hi,
@@ -222,14 +228,14 @@ fn unique_entries(entries: Vec<(String, Expr)>) -> Vec<MapEntry> {
     let mut unique: Vec<MapEntry> = Vec::with_capacity(entries.len());
     for (k, v) in entries {
         if unique.iter().all(|entry| entry.k != k) {
-            unique.push(MapEntry { k, v });
+            unique.push(MapEntry { k, v, span: None });
         }
     }
     unique
 }
 
 /// Expression of a stage argument.
-pub fn expression(shape: Shape) -> BoxedStrategy<Expr> {
+pub(crate) fn expression(shape: Shape) -> BoxedStrategy<Expr> {
     leaf(shape)
         .prop_recursive(EXPRESSION_LEVELS, EXPRESSION_NODES, 4, move |inner| {
             let item = prop_oneof![
@@ -254,7 +260,11 @@ pub fn expression(shape: Shape) -> BoxedStrategy<Expr> {
                     span: None
                 }),
                 (any::<bool>(), inner.clone()).prop_map(|(negation, x)| Expr::Un {
-                    op: if negation { UnOp::Not } else { UnOp::Neg },
+                    op: if negation || matches!(x, Expr::Range { .. }) {
+                        UnOp::Not
+                    } else {
+                        UnOp::Neg
+                    },
                     x: boxed(x),
                     span: None
                 }),
@@ -341,7 +351,7 @@ fn pipeline(shape: Shape, value: BoxedStrategy<Expr>) -> BoxedStrategy<Pipeline>
 }
 
 /// Program of one to three statements.
-pub fn program(shape: Shape) -> BoxedStrategy<AstDocument> {
+pub(crate) fn program(shape: Shape) -> BoxedStrategy<AstDocument> {
     let pipeline = pipeline(shape, expression(shape));
     let statement = prop_oneof![
         2 => pipeline.clone().prop_map(Statement::Pipeline),

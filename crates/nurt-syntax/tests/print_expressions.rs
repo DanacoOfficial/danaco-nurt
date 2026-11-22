@@ -7,6 +7,9 @@
 //! Every printed text that the parser of variant A should accept is also
 //! parsed back and compared with the tree.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use nurt_contracts::ast::{
     Arg, AstDocument, BinOp, Expr, Head, KeySeg, Let, MapEntry, Pipeline, Program, Ref, Stage,
     Statement, UnOp, strip_for_hash,
@@ -75,6 +78,7 @@ fn map(entries: &[(&str, Expr)]) -> Expr {
             .map(|(k, v)| MapEntry {
                 k: (*k).to_owned(),
                 v: v.clone(),
+                span: None,
             })
             .collect(),
         span: None,
@@ -469,50 +473,60 @@ fn unprintable_node(expr: Expr) -> &'static str {
 }
 
 #[test]
-fn trees_outside_the_parser_image_are_rejected() {
-    assert_eq!(unprintable_node(int(-1)), "int");
-    assert_eq!(unprintable_node(int(1 << 53)), "int");
-    assert_eq!(
-        unprintable_node(Expr::Num {
-            v: -0.5,
-            span: None
-        }),
-        "num"
-    );
-    assert_eq!(
-        unprintable_node(Expr::Size {
-            v: 1 << 60,
-            span: None
-        }),
-        "size"
-    );
-    assert_eq!(unprintable_node(range(Some(-1), None)), "range");
-    assert_eq!(unprintable_node(ident("in")), "ident");
-    assert_eq!(unprintable_node(ident("Upper")), "ident");
-    assert_eq!(
-        unprintable_node(Expr::Spread {
-            x: Box::new(ident("a")),
-            span: None
-        }),
-        "spread"
-    );
-    assert_eq!(
-        unprintable_node(Expr::Field {
-            name: "a".to_owned(),
-            of: None,
-            span: None
-        }),
-        "field"
-    );
-    assert_eq!(
-        unprintable_node(map(&[("a", int(1)), ("a", int(2))])),
-        "map"
-    );
-    let regex = |v: &str, flags: &str| Expr::Regex {
-        v: v.to_owned(),
-        flags: flags.to_owned(),
-        span: None,
-    };
+fn values_outside_the_parser_image_are_rejected() {
+    let cases = [
+        (int(-1), "int"),
+        (int(1 << 53), "int"),
+        (
+            Expr::Num {
+                v: -0.5,
+                span: None,
+            },
+            "num",
+        ),
+        (
+            Expr::Size {
+                v: 1 << 60,
+                span: None,
+            },
+            "size",
+        ),
+        (range(Some(-1), None), "range"),
+        (neg(range(Some(1), Some(5))), "un"),
+        (ident("in"), "ident"),
+        (ident("Upper"), "ident"),
+        (
+            Expr::Spread {
+                x: Box::new(ident("a")),
+                span: None,
+            },
+            "spread",
+        ),
+        (
+            Expr::Field {
+                name: "a".to_owned(),
+                of: None,
+                span: None,
+            },
+            "field",
+        ),
+        (map(&[("a", int(1)), ("a", int(2))]), "map"),
+        (
+            Expr::Key {
+                segs: vec![KeySeg::Name("a".to_owned())],
+                span: None,
+            },
+            "key",
+        ),
+    ];
+    for (expr, node) in cases {
+        let shown = format!("{expr:?}");
+        assert_eq!(unprintable_node(expr), node, "{shown}");
+    }
+}
+
+#[test]
+fn regular_expressions_without_a_text_form_are_rejected() {
     for (pattern, flags) in [
         ("", ""),
         ("a\nb", ""),
@@ -521,12 +535,17 @@ fn trees_outside_the_parser_image_are_rejected() {
         ("a", "xi"),
         (" a", ""),
     ] {
-        assert_eq!(
-            unprintable_node(regex(pattern, flags)),
-            "regex",
-            "{pattern:?} {flags:?}"
-        );
+        let regex = Expr::Regex {
+            v: pattern.to_owned(),
+            flags: flags.to_owned(),
+            span: None,
+        };
+        assert_eq!(unprintable_node(regex), "regex", "{pattern:?} {flags:?}");
     }
+}
+
+#[test]
+fn sub_pipelines_programs_and_commands_outside_the_parser_image_are_rejected() {
     assert_eq!(
         unprintable_node(sub(pipeline(stage("count", Vec::new()), Vec::new()))),
         "sub"
@@ -537,13 +556,6 @@ fn trees_outside_the_parser_image_are_rejected() {
         span: None,
     });
     assert_eq!(unprintable_node(ref_only), "sub");
-    assert_eq!(
-        unprintable_node(Expr::Key {
-            segs: vec![KeySeg::Name("a".to_owned())],
-            span: None
-        }),
-        "key"
-    );
     assert!(matches!(
         print::try_print(&program(Vec::new()), Variant::A),
         Err(PrintError::Unprintable {
@@ -583,4 +595,18 @@ fn nesting_beyond_the_limit_is_reported_without_overflow() {
         })
     );
     assert!(print::print(&document, Variant::A).contains("null"));
+}
+
+#[test]
+fn left_operand_ending_with_an_open_range_is_parenthesized() {
+    assert_expr(bin(BinOp::Div, range(None, None), text("")), "(..) / \"\"");
+    assert_expr(
+        bin(
+            BinOp::Div,
+            bin(BinOp::Add, int(1), range(Some(2), None)),
+            int(3),
+        ),
+        "(1 + 2..) / 3",
+    );
+    assert_expr(bin(BinOp::Div, int(3), range(Some(2), None)), "3 / 2..");
 }

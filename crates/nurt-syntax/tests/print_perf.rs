@@ -4,6 +4,9 @@
 //! Printing time of a typical program, measured in release builds:
 //! `cargo test --release --test print_perf -- --ignored`.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use std::fs;
 use std::path::Path;
 use std::time::{Duration, Instant};
