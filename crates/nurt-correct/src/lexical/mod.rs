@@ -8,21 +8,25 @@
 //! rule has one certainty class (see [`RULES`]). Rules that need the type of
 //! an argument place (`L01`, `L02`, `L05`, `L06`, `L19`, `L22`, `L23`, `L24`
 //! and the joining of units for `L17`) are functions called by the binder;
-//! the other rules run on the program text before binding.
+//! the other rules run in [`front`], from the program text to a surface tree.
 //!
 //! Rules apply to names and syntax only. The bytes of literals, numbers, the
 //! stages that select targets, the kind of a changing stage, the parameters of
 //! the effect mode and the base directory are never changed.
 
+pub mod front;
 mod literal;
 mod locate;
 pub mod names;
 pub mod paths;
+pub mod repairs;
 mod rules;
 pub(crate) mod scan;
 pub mod spacing;
 pub mod tokens;
+pub mod tree;
 
+pub use front::{Front, front};
 pub use rules::{RULES, Rule, RuleInfo, number_corrections};
 
 /// Shape of a token that may follow the arguments of a stage.

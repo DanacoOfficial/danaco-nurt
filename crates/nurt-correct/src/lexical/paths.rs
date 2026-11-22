@@ -416,9 +416,10 @@ fn escape_error(content: &str, written: &str, at: TextPosition) -> Error {
 
 fn to_at(at: TextPosition) -> At {
     At {
-        line: at.line,
-        column: at.column,
+        line: Some(at.line),
+        column: Some(at.column),
         length: at.length,
+        stage: Some(Stage::Parse),
     }
 }
 
