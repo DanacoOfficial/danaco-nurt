@@ -1,0 +1,250 @@
+==================
+Subtraction without spaces
+==================
+
+x a-1
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (integer)))))
+
+==================
+Subtraction with spaces
+==================
+
+x a - 1
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (integer)))))
+
+==================
+Subtraction with a space after the operator
+==================
+
+x a- 1
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (integer)))))
+
+==================
+Negative number as a separate argument
+==================
+
+first 20 -1
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (integer)
+      (integer))))
+
+==================
+Negative number after a comparison operator
+==================
+
+jobs |> filter exit_code != -1
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (integer)))))
+
+==================
+Division without spaces
+==================
+
+x a/b/c
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (binary_expression
+          (identifier)
+          (identifier))
+        (identifier)))))
+
+==================
+Division with spaces
+==================
+
+x size / 2
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (integer)))))
+
+==================
+Regular expression after a space
+==================
+
+search /old\(/i "/srv"
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (regex
+        (regex_pattern)
+        (regex_flags))
+      (string))))
+
+==================
+Open range
+==================
+
+lines "/srv/a" 2.. |> first 3
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (range
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (integer))))
+
+==================
+Call and parenthesized argument
+==================
+
+x f(1) f (1)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (call_expression
+        (function_name)
+        (integer))
+      (identifier)
+      (parenthesized_expression
+        (integer)))))
+
+==================
+Keyword used as an argument name
+==================
+
+replace "a" "b" in: ["/f"]
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (string))))))
+
+==================
+Sub-pipeline without arguments
+==================
+
+x |> verify (count)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (subpipeline
+        (pipeline
+          (stage
+            (command_name
+              (identifier))))))))
+
+==================
+Continuation after a comment line
+==================
+
+find "/srv"
+# only large files
+|> filter size > 1mb
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (size)))))

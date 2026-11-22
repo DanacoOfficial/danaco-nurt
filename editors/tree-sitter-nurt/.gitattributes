@@ -1,0 +1,6 @@
+src/** linguist-generated
+variant-b/src/** linguist-generated
+variant-c/src/** linguist-generated
+test/corpus/golden-*.txt linguist-generated
+variant-b/test/corpus/golden-*.txt linguist-generated
+variant-c/test/corpus/golden-*.txt linguist-generated

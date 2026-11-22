@@ -1,6 +1,6 @@
-========================
-task-01-largest-go-files
-========================
+=============================================
+spec/golden/ast/task-01-largest-go-files.nurt
+=============================================
 
 find "/srv/app" glob: "**/*.go"
 |> filter size > 1mb and modified > ago(24h)
@@ -9,11 +9,45 @@ find "/srv/app" glob: "**/*.go"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (binary_expression
+          (identifier)
+          (size))
+        (binary_expression
+          (identifier)
+          (call_expression
+            (function_name)
+            (duration)))))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (identifier)
+      (named_argument
+        (argument_name)
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (integer))))
 
-=========================================
-task-02-replace-identifier-expected-count
-=========================================
+==============================================================
+spec/golden/ast/task-02-replace-identifier-expected-count.nurt
+==============================================================
 
 search /oldName\(/ "/srv/app/src" glob: "**/*.go"
 |> assert paths: 12
@@ -21,75 +55,191 @@ search /oldName\(/ "/srv/app/src" glob: "**/*.go"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (regex
+        (regex_pattern))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string))))
 
-==============================
-task-03-remove-temporary-files
-==============================
+===================================================
+spec/golden/ast/task-03-remove-temporary-files.nurt
+===================================================
 
 find "/srv/app/build" glob: "**/*.tmp"
 |> remove
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))
 
-====================
-task-04-set-json-key
-====================
+=========================================
+spec/golden/ast/task-04-set-json-key.nurt
+=========================================
 
 set "/srv/app/package.json" key: "scripts.test" value: "vitest"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (string)))))
 
-=======================
-task-05-rename-function
-=======================
+============================================
+spec/golden/ast/task-05-rename-function.nurt
+============================================
 
 code.symbols "oldName" path: ["/srv/app/src"] kind: function
 |> code.rename "newName"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (string)))
+      (named_argument
+        (argument_name)
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string))))
 
-==========================
-task-06-named-result-count
-==========================
+===============================================
+spec/golden/ast/task-06-named-result-count.nurt
+===============================================
 
 let recent = find "/srv/app/src" glob: "**/*.ts" |> filter modified > ago(1h)
 @recent |> count
 
 ---
 
-(source_file)
+(source_file
+  (let_statement
+    (identifier)
+    (pipeline
+      (stage
+        (command_name
+          (identifier))
+        (string)
+        (named_argument
+          (argument_name)
+          (string)))
+      (pipe)
+      (stage
+        (command_name
+          (identifier))
+        (binary_expression
+          (identifier)
+          (call_expression
+            (function_name)
+            (duration))))))
+  (pipeline
+    (reference)
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))
 
-=======================
-task-07-tests-exit-code
-=======================
+============================================
+spec/golden/ast/task-07-tests-exit-code.nurt
+============================================
 
 run ["go", "test", "./..."] cwd: "/srv/app"
 |> assert exit_code: 0
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (string)
+        (string)
+        (string))
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (integer)))))
 
-======================
-task-08-append-to-file
-======================
+===========================================
+spec/golden/ast/task-08-append-to-file.nurt
+===========================================
 
 write "/srv/app/.gitignore" "node_modules/\n" mode: append
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
 
-==============================
-task-09-insert-line-after-line
-==============================
+===================================================
+spec/golden/ast/task-09-insert-line-after-line.nurt
+===================================================
 
 lines "/srv/app/main.go"
 |> filter text == "package main"
@@ -97,11 +247,31 @@ lines "/srv/app/main.go"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (raw_string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
 
-=====================
-task-10-move-old-logs
-=====================
+==========================================
+spec/golden/ast/task-10-move-old-logs.nurt
+==========================================
 
 find "/var/log/app" glob: "*.log" depth: 1
 |> filter modified < ago(7d)
@@ -109,21 +279,57 @@ find "/var/log/app" glob: "*.log" depth: 1
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (call_expression
+          (function_name)
+          (duration))))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (string)))))
 
-=======================
-task-11-extract-archive
-=======================
+============================================
+spec/golden/ast/task-11-extract-archive.nurt
+============================================
 
 archive.extract "/srv/dl/data.tar.gz" into: "/srv/data"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))))
 
-===============================
-task-12-replace-verify-rollback
-===============================
+====================================================
+spec/golden/ast/task-12-replace-verify-rollback.nurt
+====================================================
 
 search /oldName\(/ "/srv/app/src" glob: "**/*.go"
 |> replace "newName("
@@ -131,11 +337,49 @@ search /oldName\(/ "/srv/app/src" glob: "**/*.go"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (regex
+        (regex_pattern))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (subpipeline
+        (pipeline
+          (stage
+            (command_name
+              (identifier))
+            (list
+              (string)
+              (string)
+              (string))
+            (named_argument
+              (argument_name)
+              (string)))
+          (pipe)
+          (stage
+            (command_name
+              (identifier))
+            (named_argument
+              (argument_name)
+              (integer))))))))
 
-===========================
-task-13-transactional-edits
-===========================
+================================================
+spec/golden/ast/task-13-transactional-edits.nurt
+================================================
 
 edit "/srv/app/main.go" changes: [
   {replace: "oldName(", with: "newName(", occurrence: 1},
@@ -145,173 +389,62 @@ edit "/srv/app/main.go" changes: [
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (map
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (integer)))
+          (map
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (integer))
+            (map_entry
+              (map_key)
+              (identifier)))
+          (map
+            (map_entry
+              (map_key)
+              (range
+                (integer)
+                (integer)))))))))
 
-======================
-task-14-background-job
-======================
+===========================================
+spec/golden/ast/task-14-background-job.nurt
+===========================================
 
 run ["npm", "run", "build"] cwd: "/srv/app" background: true
 
 ---
 
-(source_file)
-
-========================
-task-01-largest-go-files
-========================
-
-find("/srv/app", glob: "**/*.go")
-|> filter(size > 1mb and modified > ago(24h))
-|> sort(size, order: desc)
-|> first(20)
-
----
-
-(source_file)
-
-=========================================
-task-02-replace-identifier-expected-count
-=========================================
-
-search(/oldName\(/, "/srv/app/src", glob: "**/*.go")
-|> assert(paths: 12)
-|> replace("newName(")
-
----
-
-(source_file)
-
-==============================
-task-03-remove-temporary-files
-==============================
-
-find("/srv/app/build", glob: "**/*.tmp")
-|> remove()
-
----
-
-(source_file)
-
-====================
-task-04-set-json-key
-====================
-
-set("/srv/app/package.json", key: "scripts.test", value: "vitest")
-
----
-
-(source_file)
-
-=======================
-task-05-rename-function
-=======================
-
-code.symbols("oldName", path: ["/srv/app/src"], kind: function)
-|> code.rename("newName")
-
----
-
-(source_file)
-
-==========================
-task-06-named-result-count
-==========================
-
-let recent = find("/srv/app/src", glob: "**/*.ts") |> filter(modified > ago(1h))
-@recent |> count()
-
----
-
-(source_file)
-
-=======================
-task-07-tests-exit-code
-=======================
-
-run(["go", "test", "./..."], cwd: "/srv/app")
-|> assert(exit_code: 0)
-
----
-
-(source_file)
-
-======================
-task-08-append-to-file
-======================
-
-write("/srv/app/.gitignore", "node_modules/\n", mode: append)
-
----
-
-(source_file)
-
-==============================
-task-09-insert-line-after-line
-==============================
-
-lines("/srv/app/main.go")
-|> filter(text == "package main")
-|> insert(r#"import "fmt""#, position: after)
-
----
-
-(source_file)
-
-=====================
-task-10-move-old-logs
-=====================
-
-find("/var/log/app", glob: "*.log", depth: 1)
-|> filter(modified < ago(7d))
-|> move(into: "/var/log/app/old")
-
----
-
-(source_file)
-
-=======================
-task-11-extract-archive
-=======================
-
-archive.extract("/srv/dl/data.tar.gz", into: "/srv/data")
-
----
-
-(source_file)
-
-===============================
-task-12-replace-verify-rollback
-===============================
-
-search(/oldName\(/, "/srv/app/src", glob: "**/*.go")
-|> replace("newName(")
-|> verify(run(["go", "build", "./..."], cwd: "/srv/app") |> assert(exit_code: 0))
-
----
-
-(source_file)
-
-===========================
-task-13-transactional-edits
-===========================
-
-edit("/srv/app/main.go", changes: [
-  {replace: "oldName(", with: "newName(", occurrence: 1},
-  {insert: "// updated", line: 3, position: before},
-  {delete_lines: 10..12}
-])
-
----
-
-(source_file)
-
-======================
-task-14-background-job
-======================
-
-run(["npm", "run", "build"], cwd: "/srv/app", background: true)
-
----
-
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (string)
+        (string)
+        (string))
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (boolean)))))

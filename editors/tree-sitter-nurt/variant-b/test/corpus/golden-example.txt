@@ -1,0 +1,345 @@
+======================================================
+tests/d1/golden/ast/b/example-01-largest-go-files.nurt
+======================================================
+
+find("/srv/app", glob: "**/*.go") |> filter(size > 1mb and modified > ago(24h)) |> sort(size, order: desc) |> first(20)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (binary_expression
+          (identifier)
+          (size))
+        (binary_expression
+          (identifier)
+          (call_expression
+            (function_name)
+            (duration)))))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (identifier)
+      (named_argument
+        (argument_name)
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (integer))))
+
+=========================================================
+tests/d1/golden/ast/b/example-08-sort-into-same-file.nurt
+=========================================================
+
+lines("/srv/data/data.txt") |> sort(text) |> write("/srv/data/data.txt", mode: overwrite)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (identifier))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
+
+=======================================================
+tests/d1/golden/ast/b/example-11-preserve-encoding.nurt
+=======================================================
+
+replace("Zürich", "Genève", in: ["/srv/legacy/file.txt"])
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (string))))))
+
+===========================================================
+tests/d1/golden/ast/b/example-22-remove-matching-lines.nurt
+===========================================================
+
+lines("/srv/app/config.ini") |> filter(text ~ /^\s*debug\s*=/) |> remove()
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (regex
+          (regex_pattern))))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))
+
+=========================================================
+tests/d1/golden/ast/b/example-23-transactional-edits.nurt
+=========================================================
+
+edit("/srv/app/main.go", changes: [{replace: "oldName(", with: "newName(", occurrence: 1}, {insert: "// updated", line: 3, position: before}, {delete_lines: 10..12}], expect: 3)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (map
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (integer)))
+          (map
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (integer))
+            (map_entry
+              (map_key)
+              (identifier)))
+          (map
+            (map_entry
+              (map_key)
+              (range
+                (integer)
+                (integer))))))
+      (named_argument
+        (argument_name)
+        (integer)))))
+
+==============================================================
+tests/d1/golden/ast/b/example-24-read-range-and-unchanged.nurt
+==============================================================
+
+read("/srv/app/main.go", around: /func main/, context: 3, line_numbers: true)
+read("/srv/app/main.go", unchanged_since: "1a2b3c4d")
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (regex
+          (regex_pattern)))
+      (named_argument
+        (argument_name)
+        (integer))
+      (named_argument
+        (argument_name)
+        (boolean))))
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))))
+
+====================================================
+tests/d1/golden/ast/b/example-25-multiline-file.nurt
+====================================================
+
+write("/srv/app/Dockerfile", r#"FROM alpine:3.20
+RUN apk add --no-cache curl
+CMD ["sh"]
+"#, mode: create)
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (raw_string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
+
+=============================================================
+tests/d1/golden/ast/b/example-26-replace-verify-rollback.nurt
+=============================================================
+
+search(/oldName\(/, "/srv/app/src", glob: "**/*.go") |> replace("newName(") |> verify(run(["go", "build", "./..."], cwd: "/srv/app") |> assert(exit_code: 0))
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (regex
+        (regex_pattern))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (subpipeline
+        (pipeline
+          (stage
+            (command_name
+              (identifier))
+            (list
+              (string)
+              (string)
+              (string))
+            (named_argument
+              (argument_name)
+              (string)))
+          (pipe)
+          (stage
+            (command_name
+              (identifier))
+            (named_argument
+              (argument_name)
+              (integer))))))))
+
+==============================================
+tests/d1/golden/ast/b/example-44-schedule.nurt
+==============================================
+
+schedule.create("backup", cron: "0 3 * * *", action: (run(["backup"], cwd: "/srv")))
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (subpipeline
+          (pipeline
+            (stage
+              (command_name
+                (identifier))
+              (list
+                (string))
+              (named_argument
+                (argument_name)
+                (string)))))))))
+
+=====================================================
+tests/d1/golden/ast/b/example-47-object-pipeline.nurt
+=====================================================
+
+processes() |> filter(memory > 500mb) |> sort(memory, order: desc) |> select(pid, name, memory)
+processes() |> describe()
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (size)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (identifier)
+      (named_argument
+        (argument_name)
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (identifier)
+      (identifier)
+      (identifier)))
+  (pipeline
+    (stage
+      (command_name
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))

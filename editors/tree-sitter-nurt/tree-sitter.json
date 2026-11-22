@@ -11,12 +11,32 @@
       "highlights": "queries/highlights.scm",
       "injections": "queries/injections.scm",
       "injection-regex": "^nurt$"
+    },
+    {
+      "name": "nurt_b",
+      "camelcase": "NurtB",
+      "title": "Nurt (call syntax)",
+      "scope": "source.nurt.b",
+      "path": "variant-b",
+      "highlights": "queries/highlights.scm",
+      "injections": "queries/injections.scm",
+      "injection-regex": "^nurt-b$"
+    },
+    {
+      "name": "nurt_c",
+      "camelcase": "NurtC",
+      "title": "Nurt (named syntax)",
+      "scope": "source.nurt.c",
+      "path": "variant-c",
+      "highlights": "queries/highlights.scm",
+      "injections": "queries/injections.scm",
+      "injection-regex": "^nurt-c$"
     }
   ],
   "metadata": {
     "version": "0.1.0",
     "license": "Apache-2.0",
-    "description": "Tree-sitter grammar for Nurt program text.",
+    "description": "Tree-sitter grammars for Nurt program text.",
     "authors": [
       {
         "name": "Danaco Holding Group Sp. z o.o.",

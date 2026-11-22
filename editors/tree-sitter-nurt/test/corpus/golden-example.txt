@@ -1,247 +1,636 @@
-===========================
-example-01-largest-go-files
-===========================
+================================================
+spec/golden/ast/example-01-largest-go-files.nurt
+================================================
 
 find "/srv/app" glob: "**/*.go" |> filter size > 1mb and modified > ago(24h) |> sort size order: desc |> first 20
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (binary_expression
+          (identifier)
+          (size))
+        (binary_expression
+          (identifier)
+          (call_expression
+            (function_name)
+            (duration)))))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (identifier)
+      (named_argument
+        (argument_name)
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (integer))))
 
-============================================
-example-02-replace-identifier-expected-count
-============================================
+=================================================================
+spec/golden/ast/example-02-replace-identifier-expected-count.nurt
+=================================================================
 
 search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> assert paths: 12 |> replace "newName("
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (regex
+        (regex_pattern))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string))))
 
-=====================================
-example-03-more-matches-than-expected
-=====================================
+==========================================================
+spec/golden/ast/example-03-more-matches-than-expected.nurt
+==========================================================
 
 search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> assert paths: 12 |> replace "newName("
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (regex
+        (regex_pattern))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string))))
 
-====================================
-example-04-remove-directory-contents
-====================================
+=========================================================
+spec/golden/ast/example-04-remove-directory-contents.nurt
+=========================================================
 
 find "/srv/app/build" glob: "*" depth: 1 |> remove
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))
 
-====================================
-example-05-missing-working-directory
-====================================
+=========================================================
+spec/golden/ast/example-05-missing-working-directory.nurt
+=========================================================
 
 run ["make", "clean"] cwd: "/srv/app/new"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (string)
+        (string))
+      (named_argument
+        (argument_name)
+        (string)))))
 
-===========================
-example-06-path-with-spaces
-===========================
+================================================
+spec/golden/ast/example-06-path-with-spaces.nurt
+================================================
 
 remove "/srv/data/my file.txt"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))))
 
-======================================
-example-07-append-instead-of-overwrite
-======================================
+===========================================================
+spec/golden/ast/example-07-append-instead-of-overwrite.nurt
+===========================================================
 
 write "/srv/app/.gitignore" "dist/\n" mode: append
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
 
-==============================
-example-08-sort-into-same-file
-==============================
+===================================================
+spec/golden/ast/example-08-sort-into-same-file.nurt
+===================================================
 
 lines "/srv/data/data.txt" |> sort text |> write "/srv/data/data.txt" mode: overwrite
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (identifier))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
 
-================================
-example-09-error-inside-pipeline
-================================
+=====================================================
+spec/golden/ast/example-09-error-inside-pipeline.nurt
+=====================================================
 
 read "/srv/data/missing.csv" |> search /foo/ |> count
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (regex
+        (regex_pattern)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))
 
-====================
-example-10-bulk-move
-====================
+=========================================
+spec/golden/ast/example-10-bulk-move.nurt
+=========================================
 
 find "/srv/in" glob: "*.log" depth: 1 |> move into: "/srv/arch"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (string)))))
 
-============================
-example-11-preserve-encoding
-============================
+=================================================
+spec/golden/ast/example-11-preserve-encoding.nurt
+=================================================
 
 replace "Zürich" "Genève" in: ["/srv/legacy/file.txt"]
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (string))))))
 
-=====================
-example-12-stale-file
-=====================
+==========================================
+spec/golden/ast/example-12-stale-file.nurt
+==========================================
 
 read "/srv/app/config.go" |> replace "timeout = 30" "timeout = 60"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (string))))
 
-==============================
-example-13-interactive-program
-==============================
+===================================================
+spec/golden/ast/example-13-interactive-program.nurt
+===================================================
 
 run ["apt-get", "install", "foo"] cwd: "/srv"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (string)
+        (string)
+        (string))
+      (named_argument
+        (argument_name)
+        (string)))))
 
-=======================
-example-14-large-output
-=======================
+============================================
+spec/golden/ast/example-14-large-output.nurt
+============================================
 
 run ["npm", "test"] cwd: "/srv/app" show: errors head: 5 tail: 10
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (string)
+        (string))
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (identifier))
+      (named_argument
+        (argument_name)
+        (integer))
+      (named_argument
+        (argument_name)
+        (integer)))))
 
-=========================
-example-15-tree-transport
-=========================
+==============================================
+spec/golden/ast/example-15-tree-transport.nurt
+==============================================
 
 find "C:/proj" glob: "*.go"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))))
 
-==================================
-example-16-legacy-console-encoding
-==================================
+=======================================================
+spec/golden/ast/example-16-legacy-console-encoding.nurt
+=======================================================
 
 run ["cmd.exe", "/c", "dir", "C:\\proj"] cwd: "C:/proj"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (string)
+        (string)
+        (string)
+        (string))
+      (named_argument
+        (argument_name)
+        (string)))))
 
-==========================
-example-17-json-key-layout
-==========================
+===============================================
+spec/golden/ast/example-17-json-key-layout.nurt
+===============================================
 
 set "/srv/app/package.json" key: "scripts.test" value: "vitest"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (string)))))
 
-=================================
-example-18-rename-function-syntax
-=================================
+======================================================
+spec/golden/ast/example-18-rename-function-syntax.nurt
+======================================================
 
 code.symbols "oldName" path: ["/srv/app/src"] kind: function |> code.rename "newName"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (string)))
+      (named_argument
+        (argument_name)
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string))))
 
-============================
-example-19-symbol-references
-============================
+=================================================
+spec/golden/ast/example-19-symbol-references.nurt
+=================================================
 
 code.references "/srv/app/src/a.go" line: 12 column: 6
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (integer))
+      (named_argument
+        (argument_name)
+        (integer)))))
 
-=============================
-example-20-toml-with-comments
-=============================
+==================================================
+spec/golden/ast/example-20-toml-with-comments.nurt
+==================================================
 
 set "/srv/app/Cargo.toml" key: "package.version" value: "0.4.0"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (string)))))
 
-=================================
-example-21-insert-line-after-line
-=================================
+======================================================
+spec/golden/ast/example-21-insert-line-after-line.nurt
+======================================================
 
 lines "/srv/app/main.go" |> filter text == "package main" |> insert r#"import "fmt""# position: after
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (raw_string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
 
-================================
-example-22-remove-matching-lines
-================================
+=====================================================
+spec/golden/ast/example-22-remove-matching-lines.nurt
+=====================================================
 
 lines "/srv/app/config.ini" |> filter text ~ /^\s*debug\s*=/ |> remove
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (regex
+          (regex_pattern))))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))
 
-==============================
-example-23-transactional-edits
-==============================
+===================================================
+spec/golden/ast/example-23-transactional-edits.nurt
+===================================================
 
 edit "/srv/app/main.go" changes: [{replace: "oldName(", with: "newName(", occurrence: 1}, {insert: "// updated", line: 3, position: before}, {delete_lines: 10..12}] expect: 3
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (map
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (integer)))
+          (map
+            (map_entry
+              (map_key)
+              (string))
+            (map_entry
+              (map_key)
+              (integer))
+            (map_entry
+              (map_key)
+              (identifier)))
+          (map
+            (map_entry
+              (map_key)
+              (range
+                (integer)
+                (integer))))))
+      (named_argument
+        (argument_name)
+        (integer)))))
 
-===================================
-example-24-read-range-and-unchanged
-===================================
+========================================================
+spec/golden/ast/example-24-read-range-and-unchanged.nurt
+========================================================
 
 read "/srv/app/main.go" around: /func main/ context: 3 line_numbers: true
 read "/srv/app/main.go" unchanged_since: "1a2b3c4d"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (regex
+          (regex_pattern)))
+      (named_argument
+        (argument_name)
+        (integer))
+      (named_argument
+        (argument_name)
+        (boolean))))
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))))
 
-=========================
-example-25-multiline-file
-=========================
+==============================================
+spec/golden/ast/example-25-multiline-file.nurt
+==============================================
 
 write "/srv/app/Dockerfile" r#"FROM alpine:3.20
 RUN apk add --no-cache curl
@@ -250,346 +639,633 @@ CMD ["sh"]
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (raw_string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
 
-==================================
-example-26-replace-verify-rollback
-==================================
+=======================================================
+spec/golden/ast/example-26-replace-verify-rollback.nurt
+=======================================================
 
 search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> replace "newName(" |> verify (run ["go", "build", "./..."] cwd: "/srv/app" |> assert exit_code: 0)
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (regex
+        (regex_pattern))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (subpipeline
+        (pipeline
+          (stage
+            (command_name
+              (identifier))
+            (list
+              (string)
+              (string)
+              (string))
+            (named_argument
+              (argument_name)
+              (string)))
+          (pipe)
+          (stage
+            (command_name
+              (identifier))
+            (named_argument
+              (argument_name)
+              (integer))))))))
 
-=======================
-example-27-move-by-date
-=======================
+============================================
+spec/golden/ast/example-27-move-by-date.nurt
+============================================
 
 find "/var/log/app" glob: "*.log" depth: 1 |> filter modified < ago(7d) |> move into: "/var/log/app/old"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (call_expression
+          (function_name)
+          (duration))))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (string)))))
 
-==========================
-example-28-copy-with-clone
-==========================
+===============================================
+spec/golden/ast/example-28-copy-with-clone.nurt
+===============================================
 
 copy "/srv/app" into: "/srv/backup" preserve: true clone: auto
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (boolean))
+      (named_argument
+        (argument_name)
+        (identifier)))))
 
-============================
-example-29-formatter-changes
-============================
+=================================================
+spec/golden/ast/example-29-formatter-changes.nurt
+=================================================
 
 run ["gofmt", "-w", "."] cwd: "/srv/app" watch: ["/srv/app"]
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (string)
+        (string)
+        (string))
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (list
+          (string))))))
 
-=========================
-example-30-background-job
-=========================
+==============================================
+spec/golden/ast/example-30-background-job.nurt
+==============================================
 
 run ["npm", "run", "build"] cwd: "/srv/app" background: true
 jobs "j1" tail: 20
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (string)
+        (string)
+        (string))
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (boolean))))
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (integer)))))
 
-=========================
-example-31-listening-port
-=========================
+==============================================
+spec/golden/ast/example-31-listening-port.nurt
+==============================================
 
 ports state: listen |> filter port == 8080
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (integer)))))
 
-========================
-example-32-host-programs
-========================
+=============================================
+spec/golden/ast/example-32-host-programs.nurt
+=============================================
 
 host programs: ["git", "python3", "node"] versions: true
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (list
+          (string)
+          (string)
+          (string)))
+      (named_argument
+        (argument_name)
+        (boolean)))))
 
-====================
-example-33-archives
-====================
+========================================
+spec/golden/ast/example-33-archives.nurt
+========================================
 
 archive.extract "/srv/dl/data.tar.gz" into: "/srv/data"
 find "/srv/app/dist" |> archive.create "/srv/out/dist.zip" base: "/srv/app"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))))
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))))
 
-=======================
-example-34-sqlite-query
-=======================
+============================================
+spec/golden/ast/example-34-sqlite-query.nurt
+============================================
 
 sql "/srv/app/app.db" "select id, name from users where active = ? limit 5" params: [1]
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (string)
+      (named_argument
+        (argument_name)
+        (list
+          (integer))))))
 
-=============================
-example-35-undo-with-conflict
-=============================
+==================================================
+spec/golden/ast/example-35-undo-with-conflict.nurt
+==================================================
 
 undo 18
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (integer))))
 
-============================
-example-36-operation-history
-============================
+=================================================
+spec/golden/ast/example-36-operation-history.nurt
+=================================================
 
 history limit: 5
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (integer)))))
 
-========================
-example-37-journal-space
-========================
+=============================================
+spec/golden/ast/example-37-journal-space.nurt
+=============================================
 
 journal.space
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier)))))
 
-================================
-example-38-windows-reserved-name
-================================
+=====================================================
+spec/golden/ast/example-38-windows-reserved-name.nurt
+=====================================================
 
 write "C:/proj/aux.txt" "x" mode: create
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (string)
+      (named_argument
+        (argument_name)
+        (identifier)))))
 
-================================
-example-39-windows-symbolic-link
-================================
+=====================================================
+spec/golden/ast/example-39-windows-symbolic-link.nurt
+=====================================================
 
 create "C:/proj/link" type: link target: "C:/proj/src"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (identifier))
+      (named_argument
+        (argument_name)
+        (string)))))
 
-==============================
-example-40-windows-file-in-use
-==============================
+===================================================
+spec/golden/ast/example-40-windows-file-in-use.nurt
+===================================================
 
 remove "C:/proj/out/app.exe"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))))
 
-===========================
-example-41-windows-registry
-===========================
+================================================
+spec/golden/ast/example-41-windows-registry.nurt
+================================================
 
 write "registry:/HKCU/Software/Example/Mode" 3 value_type: dword mode: overwrite
 read "registry:/HKCU/Software/Example/Mode"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (integer)
+      (named_argument
+        (argument_name)
+        (identifier))
+      (named_argument
+        (argument_name)
+        (identifier))))
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))))
 
-==========================
-example-42-service-restart
-==========================
+===============================================
+spec/golden/ast/example-42-service-restart.nurt
+===============================================
 
 services name: "nginx" |> restart
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))
 
-================================
-example-43-git-status-and-commit
-================================
+=====================================================
+spec/golden/ast/example-43-git-status-and-commit.nurt
+=====================================================
 
 git.status "/srv/app"
 git.commit "/srv/app" message: "fix: parser" paths: ["/srv/app/a.go"] trailers: ["Co-Authored-By: User <user@example.com>"]
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)))
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (list
+          (string)))
+      (named_argument
+        (argument_name)
+        (list
+          (string))))))
 
-====================
-example-44-schedule
-====================
+========================================
+spec/golden/ast/example-44-schedule.nurt
+========================================
 
 schedule.create "backup" cron: "0 3 * * *" action: (run ["backup"] cwd: "/srv")
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string))
+      (named_argument
+        (argument_name)
+        (subpipeline
+          (pipeline
+            (stage
+              (command_name
+                (identifier))
+              (list
+                (string))
+              (named_argument
+                (argument_name)
+                (string)))))))))
 
-========================
-example-45-notebook-cell
-========================
+=============================================
+spec/golden/ast/example-45-notebook-cell.nurt
+=============================================
 
 notebook.replace "/srv/a.ipynb" index: 3 source: "print(1)"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (integer))
+      (named_argument
+        (argument_name)
+        (string)))))
 
-====================================
-example-46-http-request-and-download
-====================================
+=========================================================
+spec/golden/ast/example-46-http-request-and-download.nurt
+=========================================================
 
 http.request "https://api.example.com/health" |> assert count: 1
 http.download "https://example.com/a.tar.gz" "/srv/dl/a.tar.gz" hash: "sha256:50d858e0985ecc7f60418aaf0cc5ab587f42c2570a884095a9e8ccacd0f6545c"
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name)
+        (integer))))
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))))
 
-==========================
-example-47-object-pipeline
-==========================
+===============================================
+spec/golden/ast/example-47-object-pipeline.nurt
+===============================================
 
 processes |> filter memory > 500mb |> sort memory order: desc |> select pid name memory
 processes |> describe
 
 ---
 
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (size)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (identifier)
+      (named_argument
+        (argument_name)
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (identifier)
+      (identifier)
+      (identifier)))
+  (pipeline
+    (stage
+      (command_name
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier)))))
 
-=====================================
-example-48-preview-and-program-search
-=====================================
+==========================================================
+spec/golden/ast/example-48-preview-and-program-search.nurt
+==========================================================
 
 find "/srv/app/build" glob: "**/*.o" |> remove
 program.search "ocr pdf" kind: programs limit: 3
 
 ---
 
-(source_file)
-
-===========================
-example-01-largest-go-files
-===========================
-
-find("/srv/app", glob: "**/*.go") |> filter(size > 1mb and modified > ago(24h)) |> sort(size, order: desc) |> first(20)
-
----
-
-(source_file)
-
-==============================
-example-08-sort-into-same-file
-==============================
-
-lines("/srv/data/data.txt") |> sort(text) |> write("/srv/data/data.txt", mode: overwrite)
-
----
-
-(source_file)
-
-============================
-example-11-preserve-encoding
-============================
-
-replace("Zürich", "Genève", in: ["/srv/legacy/file.txt"])
-
----
-
-(source_file)
-
-================================
-example-22-remove-matching-lines
-================================
-
-lines("/srv/app/config.ini") |> filter(text ~ /^\s*debug\s*=/) |> remove()
-
----
-
-(source_file)
-
-==============================
-example-23-transactional-edits
-==============================
-
-edit("/srv/app/main.go", changes: [{replace: "oldName(", with: "newName(", occurrence: 1}, {insert: "// updated", line: 3, position: before}, {delete_lines: 10..12}], expect: 3)
-
----
-
-(source_file)
-
-===================================
-example-24-read-range-and-unchanged
-===================================
-
-read("/srv/app/main.go", around: /func main/, context: 3, line_numbers: true)
-read("/srv/app/main.go", unchanged_since: "1a2b3c4d")
-
----
-
-(source_file)
-
-=========================
-example-25-multiline-file
-=========================
-
-write("/srv/app/Dockerfile", r#"FROM alpine:3.20
-RUN apk add --no-cache curl
-CMD ["sh"]
-"#, mode: create)
-
----
-
-(source_file)
-
-==================================
-example-26-replace-verify-rollback
-==================================
-
-search(/oldName\(/, "/srv/app/src", glob: "**/*.go") |> replace("newName(") |> verify(run(["go", "build", "./..."], cwd: "/srv/app") |> assert(exit_code: 0))
-
----
-
-(source_file)
-
-====================
-example-44-schedule
-====================
-
-schedule.create("backup", cron: "0 3 * * *", action: (run(["backup"], cwd: "/srv")))
-
----
-
-(source_file)
-
-==========================
-example-47-object-pipeline
-==========================
-
-processes() |> filter(memory > 500mb) |> sort(memory, order: desc) |> select(pid, name, memory)
-processes() |> describe()
-
----
-
-(source_file)
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (string)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))))
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string)
+      (named_argument
+        (argument_name)
+        (identifier))
+      (named_argument
+        (argument_name)
+        (integer)))))

@@ -1,0 +1,128 @@
+==========================================================
+tests/d1/golden/ast/b/extra-01-test-results-after-run.nurt
+==========================================================
+
+test.run("/srv/app") |> filter(status == "failed")
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (string)))))
+
+====================================================
+tests/d1/golden/ast/b/extra-02-expression-forms.nurt
+====================================================
+
+let logs = find("/srv/app/logs", glob: "*.log")
+info([...@logs.path], hash: sha256)
+find("/srv/app") |> filter(not hidden and (size >= 1.5mb or extension in ["log", "txt"])) |> first(5)
+lines("/srv/app/data.csv", 2..) |> first(3)
+processes() |> filter(cpu > 3.5) |> sort(cpu, order: desc)
+jobs() |> filter(exit_code != -1)
+
+---
+
+(source_file
+  (let_statement
+    (identifier)
+    (pipeline
+      (stage
+        (command_name
+          (identifier))
+        (string)
+        (named_argument
+          (argument_name)
+          (string)))))
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (list
+        (spread_element
+          (field_expression
+            (reference)
+            (identifier))))
+      (named_argument
+        (argument_name)
+        (identifier))))
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (not_expression
+          (identifier))
+        (parenthesized_expression
+          (binary_expression
+            (binary_expression
+              (identifier)
+              (size))
+            (binary_expression
+              (identifier)
+              (list
+                (string)
+                (string)))))))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (integer)))
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (string)
+      (range
+        (integer)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (integer)))
+  (pipeline
+    (stage
+      (command_name
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (number)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (identifier)
+      (named_argument
+        (argument_name)
+        (identifier))))
+  (pipeline
+    (stage
+      (command_name
+        (identifier)))
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (identifier)
+        (integer)))))

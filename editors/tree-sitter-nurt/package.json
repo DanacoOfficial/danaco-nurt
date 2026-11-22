@@ -1,7 +1,7 @@
 {
   "name": "tree-sitter-nurt",
   "version": "0.1.0",
-  "description": "Tree-sitter grammar for Nurt program text.",
+  "description": "Tree-sitter grammars for Nurt program text.",
   "private": true,
   "license": "Apache-2.0",
   "author": "Danaco Holding Group Sp. z o.o. <support@danaco-group.pl>",
@@ -10,10 +10,21 @@
     "url": "https://github.com/DanacoOfficial/nurt.git",
     "directory": "editors/tree-sitter-nurt"
   },
+  "files": [
+    "grammar.js",
+    "common/*.js",
+    "variant-b/grammar.js",
+    "variant-c/grammar.js",
+    "queries/*.scm",
+    "src/**",
+    "variant-b/src/**",
+    "variant-c/src/**",
+    "tree-sitter.json"
+  ],
   "scripts": {
-    "generate": "tree-sitter generate",
-    "test": "tree-sitter test",
-    "corpus": "node scripts/generate-corpus.js"
+    "generate": "tree-sitter generate && cd variant-b && tree-sitter generate && cd ../variant-c && tree-sitter generate",
+    "test": "tree-sitter test && cd variant-b && tree-sitter test && cd ../variant-c && tree-sitter test && cd .. && node scripts/generate-corpus.js --check",
+    "corpus": "node scripts/generate-corpus.js && tree-sitter test --update && cd variant-b && tree-sitter test --update && cd ../variant-c && tree-sitter test --update"
   },
   "tree-sitter": [
     {

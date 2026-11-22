@@ -229,6 +229,20 @@ const EXPECTATIONS = [
   ['x |> verify (run ["go"] cwd: "/a")', 'run', 'entity.name.function'],
   ['x |> filter (size >= 1)', 'size', null],
   ['x |> filter size / 2 > 1', '/', 'keyword.operator'],
+  ['x |> filter size-100 > 1', '-', 'keyword.operator'],
+  ['x |> filter size-100 > 1', '100', 'constant.numeric'],
+  ['x |> filter (size)-1 > 1', '-', 'keyword.operator'],
+  ['x |> first 20 -1', '-1', 'constant.numeric'],
+  ['jobs |> filter exit_code != -1', '-1', 'constant.numeric'],
+  ['find("/srv/app", glob: "**/*.go")', 'find', 'entity.name.function'],
+  ['x |> first(20)', 'first', 'entity.name.function'],
+  ['let logs = find("/srv/app/logs")', 'find', 'entity.name.function'],
+  ['x |> filter(modified > ago(1h))', 'ago', null],
+  ['find path="/srv/app" glob="**/*.go"', 'path', 'variable.parameter'],
+  ['x |> sort by=size order=desc', 'order', 'variable.parameter'],
+  ['code.symbols name="a" kind=function', 'function', null],
+  ['x |> verify check=(run command=["go"] cwd="/a")', 'run', 'entity.name.function'],
+  ['x |> filter condition=text == "a"', 'text', null],
 ];
 
 function checkExpectations() {
@@ -280,7 +294,7 @@ function checkGolden() {
     const invalid = tokens.filter((token) => token.scopes.some((scope) => scope.startsWith('invalid.')));
     assert.equal(invalid.length, 0, `${path.basename(file)}: invalid scope on ${invalid.map((t) => t.text)}`);
     lines.forEach((line, index) => {
-      const first = /^[ \t]*([a-z][a-z0-9_.]*)(?:[ \t]|$)/.exec(line);
+      const first = /^[ \t]*([a-z][a-z0-9_.]*)(?:[ \t(]|$)/.exec(line);
       if (!first || first[1] === 'let' || openAtLineStart[index]) {
         return;
       }
