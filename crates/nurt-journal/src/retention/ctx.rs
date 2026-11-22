@@ -9,7 +9,8 @@
 //! in the file [`EXPIRY_FILE`], written into the entry directory before the
 //! rename, so that the move and the reason become durable together.
 
-use std::collections::BTreeMap;
+use std::cell::OnceCell;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Seek, SeekFrom};
 
 use nurt_contracts::bound::{BoundDocument, BoundProgram};
@@ -158,14 +159,47 @@ impl CtxStore<'_> {
     }
 }
 
-/// Whether the state records a rollback before the commit. Entries undone by
-/// `undo` or by a failed `verify` were committed before.
-pub(crate) fn is_rolled_back(record: &StateRecord) -> bool {
-    record.state == EntryState::Undone
-        && matches!(
-            record.cause,
-            Some(UndoneCause::RolledBack | UndoneCause::Crash | UndoneCause::ValidateFailed)
-        )
+/// Decides which entries were rolled back before their commit.
+///
+/// Such an entry is not an operation of the journal: `history` does not list
+/// it, `journal.status` does not count it, its removal writes no tombstone and
+/// expiry does not report it. The decision is the same for every caller. An
+/// entry in the state `undone` was rolled back before the commit exactly when
+/// the account index has no row for it, because the row is written at commit;
+/// an entry undone after its commit, by `undo` or by a rollback of a committed
+/// entry, keeps its row. The index is read at most once and only for entries
+/// in the state `undone`; when it cannot be read no entry is hidden.
+pub(crate) struct Commits<'a> {
+    ctx: &'a JournalCtx,
+    committed: OnceCell<Option<BTreeSet<OpId>>>,
+}
+
+impl<'a> Commits<'a> {
+    /// Decision source for the journal of `ctx`.
+    pub(crate) fn new(ctx: &'a JournalCtx) -> Self {
+        Self {
+            ctx,
+            committed: OnceCell::new(),
+        }
+    }
+
+    /// Whether the entry `op` with the state `record` was rolled back before
+    /// its commit.
+    pub(crate) fn rolled_back(&self, op: OpId, record: &StateRecord) -> bool {
+        if record.state != EntryState::Undone || record.cause == Some(UndoneCause::Undo) {
+            return false;
+        }
+        self.committed
+            .get_or_init(|| self.read())
+            .as_ref()
+            .is_some_and(|committed| !committed.contains(&op))
+    }
+
+    fn read(&self) -> Option<BTreeSet<OpId>> {
+        let index = self.ctx.state.index().ok()?;
+        let rows = manifest::read_index(self.ctx.fs.as_ref(), &index).ok()?;
+        Some(rows.into_iter().map(|row| row.op).collect())
+    }
 }
 
 /// What the store knows about one entry part besides its manifest.
@@ -359,11 +393,12 @@ impl RetentionStore for CtxStore<'_> {
         let age = self.age_state()?;
         let pins = self.pins(&layout)?;
         let fs = self.fs();
+        let commits = Commits::new(self.0);
         let mut entries = Vec::new();
         for op in layout::entries(fs, &layout)? {
             let entry = layout.entry(op)?;
             let (state, rolled_back) = match manifest::read_state(fs, &entry.state()?) {
-                Ok(record) => (record.state, is_rolled_back(&record)),
+                Ok(record) => (record.state, commits.rolled_back(op, &record)),
                 Err(ReadError::Format(_)) => (EntryState::Corrupt, false),
                 Err(error) => match read_error(error) {
                     Some(error) => return Err(error),
@@ -393,13 +428,15 @@ impl RetentionStore for CtxStore<'_> {
         }
         for op in self.reaped_ops(&layout)? {
             let entry = layout.reaped(op)?;
+            let rolled_back = manifest::read_state(fs, &entry.state()?)
+                .is_ok_and(|record| commits.rolled_back(op, &record));
             let part = PartState {
                 volume,
                 op,
                 state: EntryState::Expiring,
                 reason: self.reason(&entry)?,
                 pinned: false,
-                rolled_back: false,
+                rolled_back,
             };
             match manifest::read_manifest(fs, &entry.manifest()?) {
                 Ok(manifest) => {
@@ -470,13 +507,17 @@ impl RetentionStore for CtxStore<'_> {
         self.ensure_dir(&reap_dir)?;
         fs.rename(&scope, entry.dir(), reaped.dir(), RenameMode::NoReplace)?;
         crate::blob::sync_parents(fs, &scope, &[entry.dir(), reaped.dir(), &reap_dir])?;
-        manifest::write_state(
-            fs,
-            &scope,
-            reaped.dir(),
-            &reaped.state()?,
-            StateRecord::new(EntryState::Expiring),
-        )?;
+        let rolled_back = manifest::read_state(fs, &reaped.state()?)
+            .is_ok_and(|record| Commits::new(self.0).rolled_back(op, &record));
+        if !rolled_back {
+            manifest::write_state(
+                fs,
+                &scope,
+                reaped.dir(),
+                &reaped.state()?,
+                StateRecord::new(EntryState::Expiring),
+            )?;
+        }
         Ok(())
     }
 

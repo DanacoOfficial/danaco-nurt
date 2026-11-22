@@ -683,10 +683,109 @@ pub(crate) mod test_support {
     use std::collections::{HashMap, HashSet};
     use std::ffi::OsString;
     use std::io::{self, Read, Seek, SeekFrom, Write};
-    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Condvar, Mutex, OnceLock};
     use std::time::{Duration, Instant};
+
+    /// Returns the inode number on Unix and zero elsewhere.
+    #[cfg(unix)]
+    pub(crate) fn file_ino(meta: &std::fs::Metadata) -> u64 {
+        std::os::unix::fs::MetadataExt::ino(meta)
+    }
+
+    /// Returns the inode number on Unix and zero elsewhere.
+    #[cfg(not(unix))]
+    pub(crate) fn file_ino(_meta: &std::fs::Metadata) -> u64 {
+        0
+    }
+
+    #[cfg(unix)]
+    fn meta_mode(meta: &std::fs::Metadata) -> u32 {
+        std::os::unix::fs::MetadataExt::mode(meta) & 0o7777
+    }
+
+    #[cfg(not(unix))]
+    fn meta_mode(meta: &std::fs::Metadata) -> u32 {
+        if meta.permissions().readonly() {
+            0o444
+        } else {
+            0o644
+        }
+    }
+
+    #[cfg(unix)]
+    fn meta_owner(meta: &std::fs::Metadata) -> Option<(u32, u32)> {
+        Some((
+            std::os::unix::fs::MetadataExt::uid(meta),
+            std::os::unix::fs::MetadataExt::gid(meta),
+        ))
+    }
+
+    #[cfg(not(unix))]
+    fn meta_owner(_meta: &std::fs::Metadata) -> Option<(u32, u32)> {
+        None
+    }
+
+    #[cfg(unix)]
+    fn meta_links(meta: &std::fs::Metadata) -> u64 {
+        std::os::unix::fs::MetadataExt::nlink(meta)
+    }
+
+    #[cfg(not(unix))]
+    fn meta_links(_meta: &std::fs::Metadata) -> u64 {
+        1
+    }
+
+    #[cfg(unix)]
+    fn meta_mtime_ns(meta: &std::fs::Metadata) -> i64 {
+        std::os::unix::fs::MetadataExt::mtime(meta) * 1_000_000_000
+            + std::os::unix::fs::MetadataExt::mtime_nsec(meta)
+    }
+
+    #[cfg(not(unix))]
+    fn meta_mtime_ns(meta: &std::fs::Metadata) -> i64 {
+        meta.modified()
+            .ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .and_then(|elapsed| i64::try_from(elapsed.as_nanos()).ok())
+            .unwrap_or(0)
+    }
+
+    #[cfg(unix)]
+    fn meta_dev(meta: &std::fs::Metadata) -> u64 {
+        std::os::unix::fs::MetadataExt::dev(meta)
+    }
+
+    #[cfg(not(unix))]
+    fn meta_dev(_meta: &std::fs::Metadata) -> u64 {
+        0
+    }
+
+    /// Sets the permission bits of `path` on Unix and the read-only flag elsewhere.
+    #[cfg(unix)]
+    pub(crate) fn set_path_mode(path: &Path, mode: u32) -> io::Result<()> {
+        std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(mode))
+    }
+
+    /// Sets the permission bits of `path` on Unix and the read-only flag elsewhere.
+    #[cfg(not(unix))]
+    pub(crate) fn set_path_mode(path: &Path, mode: u32) -> io::Result<()> {
+        let mut permissions = std::fs::metadata(path)?.permissions();
+        permissions.set_readonly(mode & 0o200 == 0);
+        std::fs::set_permissions(path, permissions)
+    }
+
+    /// Creates a symbolic link at `link` pointing to `target`.
+    #[cfg(unix)]
+    pub(crate) fn symlink(target: impl AsRef<Path>, link: impl AsRef<Path>) -> io::Result<()> {
+        std::os::unix::fs::symlink(target, link)
+    }
+
+    /// Creates a symbolic link at `link` pointing to `target`.
+    #[cfg(not(unix))]
+    pub(crate) fn symlink(target: impl AsRef<Path>, link: impl AsRef<Path>) -> io::Result<()> {
+        std::os::windows::fs::symlink_file(target, link)
+    }
 
     use nurt_contracts::config::{
         AgeClock, AgeLimit, ByteLimit, ConfigLevel, Oversize, SizeLimit, StepLimit,
@@ -891,7 +990,7 @@ pub(crate) mod test_support {
 
         /// Assigns an account identifier to the file at `path`.
         pub(crate) fn set_sid(&self, path: &AbsPath, sid: &str) {
-            let ino = std::fs::metadata(path.as_path()).unwrap().ino();
+            let ino = file_ino(&std::fs::metadata(path.as_path()).unwrap());
             self.state().sids.insert(ino, sid.to_owned());
         }
 
@@ -999,17 +1098,17 @@ pub(crate) mod test_support {
             Ok(FileMeta {
                 kind,
                 size: meta.len(),
-                mode: meta.mode() & 0o7777,
-                uid: Some(meta.uid()),
-                gid: Some(meta.gid()),
-                links: meta.nlink(),
-                modified_ns: meta.mtime() * 1_000_000_000 + meta.mtime_nsec(),
+                mode: meta_mode(&meta),
+                uid: meta_owner(&meta).map(|(uid, _)| uid),
+                gid: meta_owner(&meta).map(|(_, gid)| gid),
+                links: meta_links(&meta),
+                modified_ns: meta_mtime_ns(&meta),
                 accessed_ns: None,
                 created_ns: None,
                 changed_ns: None,
                 file_id: FileId {
-                    volume: meta.dev(),
-                    low: meta.ino(),
+                    volume: meta_dev(&meta),
+                    low: file_ino(&meta),
                     high: 0,
                 },
                 windows_attributes: 0,
@@ -1083,11 +1182,9 @@ pub(crate) mod test_support {
 
         fn apply_meta(&mut self, meta: &ExtendedMeta) -> FsResult<MetaTransferReport> {
             self.fs.record("apply_meta", &[self.path.as_path()])?;
-            let permissions = std::fs::Permissions::from_mode(meta.basic.mode);
-            self.file
-                .set_permissions(permissions)
+            set_path_mode(self.path.as_path(), meta.basic.mode)
                 .map_err(|error| fs_error("apply_meta", self.path.as_path(), &error))?;
-            let ino = self.file.metadata().unwrap().ino();
+            let ino = file_ino(&self.file.metadata().unwrap());
             let mut state = self.fs.state();
             if state.transfer_sid
                 && let Some(sid) = &meta.account_sid
@@ -1480,7 +1577,7 @@ pub(crate) mod test_support {
             self.record("create_dir", &[path.as_path()])?;
             std::fs::create_dir(path.as_path())
                 .map_err(|error| fs_error("create_dir", path.as_path(), &error))?;
-            std::fs::set_permissions(path.as_path(), std::fs::Permissions::from_mode(mode))
+            set_path_mode(path.as_path(), mode)
                 .map_err(|error| fs_error("create_dir", path.as_path(), &error))
         }
 
@@ -1492,14 +1589,14 @@ pub(crate) mod test_support {
             _kind: LinkKind,
         ) -> FsResult<()> {
             self.record("create_link", &[link.as_path()])?;
-            std::os::unix::fs::symlink(target, link.as_path())
+            symlink(target, link.as_path())
                 .map_err(|error| fs_error("create_link", link.as_path(), &error))
         }
 
         fn set_meta(&self, _scope: &TxScope, path: &AbsPath, change: &MetaChange) -> FsResult<()> {
             self.record("set_meta", &[path.as_path()])?;
             if let Some(mode) = change.mode {
-                std::fs::set_permissions(path.as_path(), std::fs::Permissions::from_mode(mode))
+                set_path_mode(path.as_path(), mode)
                     .map_err(|error| fs_error("set_meta", path.as_path(), &error))?;
             }
             Ok(())
@@ -1513,11 +1610,8 @@ pub(crate) mod test_support {
         ) -> FsResult<MetaTransferReport> {
             self.record("restore_meta", &[path.as_path()])?;
             if meta.basic.kind != FileKind::Symlink {
-                std::fs::set_permissions(
-                    path.as_path(),
-                    std::fs::Permissions::from_mode(meta.basic.mode),
-                )
-                .map_err(|error| fs_error("restore_meta", path.as_path(), &error))?;
+                set_path_mode(path.as_path(), meta.basic.mode)
+                    .map_err(|error| fs_error("restore_meta", path.as_path(), &error))?;
             }
             Ok(MetaTransferReport::default())
         }

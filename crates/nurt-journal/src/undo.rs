@@ -1347,9 +1347,6 @@ struct CtxRestore<'a> {
 struct Step {
     spec: TargetSpec,
     mutation: Mutation,
-    /// Mutation that follows `mutation` on the same target, for a `Replace`
-    /// declaration (removal, then creation).
-    follow: Option<Mutation>,
     /// Preserved directory whose entries are copied into the directory the
     /// mutation recreates.
     tree: Option<AbsPath>,
@@ -1398,8 +1395,11 @@ impl<'a> RestoreTx for CtxRestore<'a> {
             counts_as_step: self.plan.counts_as_step,
             preserve_budget: None,
         };
-        let mut tx: Box<dyn MutationTx + 'a> =
-            Box::new(tx::begin_linked(self.ctx, request, link_of(self.plan)));
+        let mut tx: Box<dyn MutationTx + 'a> = Box::new(tx::begin_linked(
+            self.ctx,
+            request,
+            link_of(self.plan, &spans),
+        ));
         let specs: Vec<TargetSpec> = steps.iter().map(|step| step.spec.clone()).collect();
         match tx.preserve(&specs) {
             Ok(preserved) => {
@@ -1450,7 +1450,7 @@ impl<'a> RestoreTx for CtxRestore<'a> {
 }
 
 impl CtxRestore<'_> {
-    /// Applies the mutations of step `at` and copies the entries of a
+    /// Applies the mutation of step `at` and copies the entries of a
     /// recreated directory.
     fn apply_step(&mut self, at: usize) -> Result<TargetOutcome> {
         let (Some(tx), Some(step), Some(preserved)) =
@@ -1458,18 +1458,13 @@ impl CtxRestore<'_> {
         else {
             return Err(undeclared());
         };
-        let mutations = std::iter::once(&step.mutation).chain(step.follow.as_ref());
-        let mut applied = None;
-        for mutation in mutations {
-            match tx.apply(preserved.index, mutation.clone()) {
-                Ok(done) => applied = Some(done),
-                Err(error) => {
-                    self.failed = true;
-                    return Err(error);
-                }
+        let applied = match tx.apply(preserved.index, step.mutation.clone()) {
+            Ok(done) => done,
+            Err(error) => {
+                self.failed = true;
+                return Err(error);
             }
-        }
-        let applied = applied.ok_or_else(undeclared)?;
+        };
         if let (Some(tree), TargetPath::Fs(dest)) = (&step.tree, &step.spec.path) {
             let op = tx.op().ok_or_else(undeclared)?;
             copy_children(self.ctx, op, tree, dest)?;
@@ -1489,8 +1484,10 @@ impl CtxRestore<'_> {
 }
 
 /// Relation of the new entry to its sources; the source updates run inside
-/// the commit, before the pending marker of the entry is removed.
-fn link_of(plan: &RestorePlan) -> Link {
+/// the commit, before the pending marker of the entry is removed. The entry
+/// names the item it reverses once per target, so that target `n` of the
+/// entry reverses `items[n]`.
+fn link_of(plan: &RestorePlan, spans: &[std::ops::Range<usize>]) -> Link {
     let sources: Vec<ItemSource> = plan.items.iter().map(|item| item.source).collect();
     let (scope, cause) = (plan.scope, plan.cause);
     Link {
@@ -1500,10 +1497,13 @@ fn link_of(plan: &RestorePlan) -> Link {
         items: plan
             .items
             .iter()
-            .map(|item| ItemRef {
-                op: item.source.op,
-                index: item.source.index,
-                path: item.target.path.clone(),
+            .zip(spans)
+            .flat_map(|(item, span)| {
+                span.clone().map(move |_| ItemRef {
+                    op: item.source.op,
+                    index: item.source.index,
+                    path: item.target.path.clone(),
+                })
             })
             .collect(),
         after_commit: Some(Box::new(move |ctx: &JournalCtx, op: OpId| {
@@ -1562,75 +1562,52 @@ fn restore_steps(
             .as_ref()
             .filter(|replaced| replaced.exists && replaced.store != PreserveMode::None);
         return match kept {
-            Some(replaced) => {
-                rename_over_steps(ctx, item, (entry, record), replaced, (from, to)).map(Vec::from)
-            }
-            None => {
-                let back = TargetAction::Rename {
-                    to: from.clone(),
-                    replace: false,
-                };
-                Ok(vec![Step {
-                    spec: TargetSpec {
-                        path: TargetPath::Fs(to.clone()),
-                        action: back,
-                        expect: item.expect.clone(),
-                        size_hint: None,
-                    },
-                    mutation: Mutation::Rename,
-                    follow: None,
-                    tree: None,
-                }])
-            }
+            Some(replaced) => rename_over_steps(item, entry, replaced, (from, to)).map(Vec::from),
+            None => Ok(vec![rename_step(to, from, false, item.expect.clone())]),
         };
     }
     restore_step(ctx, (entry, record), item).map(|step| vec![step])
 }
 
-/// Steps that undo a rename over a kept destination: the renamed entry is
-/// copied back to its source name, and the destination name receives the
-/// entry that the rename displaced. Both are declared targets of the
-/// restoring transaction, so a failure or a crash is rolled back by the
-/// journal like any other change; the entry at the destination is preserved
-/// by the declaration of the second step.
+/// Step that renames `from` to `to`; the entry at `to` may exist when
+/// `replace` is set and is then preserved by the transaction.
+fn rename_step(from: &AbsPath, to: &AbsPath, replace: bool, expect: Expect) -> Step {
+    Step {
+        spec: TargetSpec {
+            path: TargetPath::Fs(from.clone()),
+            action: TargetAction::Rename {
+                to: to.clone(),
+                replace,
+            },
+            expect,
+            size_hint: None,
+        },
+        mutation: Mutation::Rename,
+        tree: None,
+    }
+}
+
+/// Steps that undo a rename over a kept destination: the renamed entry
+/// returns to its source name by a rename that keeps its identity, and the
+/// block that holds the entry the rename displaced is renamed to the
+/// destination name. The second rename declares the destination as
+/// replaced; the transaction finds it vacated by the first one and keeps
+/// nothing for it. Both are targets of the restoring transaction, so a
+/// failure or a crash is rolled back by the journal like any other change.
 fn rename_over_steps(
-    ctx: &JournalCtx,
     item: &RestoreItem,
-    (entry, record): (&EntryLayout, &TargetRecord),
+    entry: &EntryLayout,
     replaced: &BeforeRecord,
     (from, to): (&AbsPath, &AbsPath),
 ) -> Result<[Step; 2]> {
-    let op = item.source.op;
-    let back = content_step(
-        ctx,
-        Content {
-            path: TargetPath::Fs(from.clone()),
-            expect: Expect::Absent,
-            data: to.clone(),
-            shared: false,
-        },
-        &record.before,
-    )?;
-    let name = replaced
-        .blob
-        .as_deref()
-        .ok_or_else(|| conflict::corrupt_error(op).with_problem("missing_preserved_content"))?;
-    let mut kept = content_step(
-        ctx,
-        Content {
-            path: TargetPath::Fs(to.clone()),
-            expect: item.expect.clone(),
-            data: entry.resolve(name)?,
-            shared: false,
-        },
-        replaced,
-    )?;
-    let in_place = |kind: Option<FileKind>| matches!(kind, None | Some(FileKind::File));
-    if !(in_place(replaced.kind) && in_place(record.before.kind)) {
-        kept.spec.action = TargetAction::Replace;
-        kept.follow = Some(std::mem::replace(&mut kept.mutation, Mutation::Remove));
-    }
-    Ok([back, kept])
+    let name = replaced.blob.as_deref().ok_or_else(|| {
+        conflict::corrupt_error(item.source.op).with_problem("missing_preserved_content")
+    })?;
+    let kept = entry.resolve(name)?;
+    Ok([
+        rename_step(to, from, false, item.expect.clone()),
+        rename_step(&kept, to, true, Expect::Unchecked),
+    ])
 }
 
 /// Step that brings back the address of one item other than a rename.
@@ -1649,7 +1626,6 @@ fn restore_step(
             size_hint: None,
         },
         mutation,
-        follow: None,
         tree: None,
     };
     let removal = if matches!(target.path, TargetPath::Provider(_)) {
@@ -1696,12 +1672,18 @@ fn restore_step(
             let shared = target.mode == PreserveMode::Moved
                 && record.before.kind == Some(FileKind::File)
                 && record.before.links.unwrap_or(1) > 1;
+            let data = preserved_path(entry, record, op)?;
+            if let (true, Expect::Absent, TargetPath::Fs(path)) =
+                (shared, &item.expect, &target.path)
+            {
+                return Ok(rename_step(&data, path, false, Expect::Unchecked));
+            }
             content_step(
                 ctx,
                 Content {
                     path: target.path.clone(),
                     expect: item.expect.clone(),
-                    data: preserved_path(entry, record, op)?,
+                    data,
                     shared,
                 },
                 &record.before,
@@ -1740,7 +1722,6 @@ fn content_step(ctx: &JournalCtx, content: Content, before: &BeforeRecord) -> Re
             size_hint: None,
         },
         mutation,
-        follow: None,
         tree,
     };
     Ok(match before.kind {

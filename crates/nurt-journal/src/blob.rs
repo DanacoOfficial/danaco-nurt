@@ -371,7 +371,7 @@ mod tests {
         let tree = fs.path("vol-a/tree");
         std::fs::create_dir_all(tree.as_path().join("sub")).unwrap();
         std::fs::write(tree.as_path().join("sub/f"), b"12345").unwrap();
-        std::os::unix::fs::symlink("sub/f", tree.as_path().join("link")).unwrap();
+        crate::store::test_support::symlink("sub/f", tree.as_path().join("link")).unwrap();
         let copy = fs.path("vol-b/tree");
         assert_eq!(copy_entry(fs, &scope, &tree, &copy), Ok(5));
         assert_eq!(
