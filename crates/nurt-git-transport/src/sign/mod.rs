@@ -97,6 +97,9 @@ pub struct SigningConfig {
     pub ssh_auth_sock: Option<PathBuf>,
     /// Home directory used to expand `~/` in key paths.
     pub home: Option<PathBuf>,
+    /// Directory against which relative key paths are resolved: the root of
+    /// the working tree, as for Git.
+    pub work_dir: Option<PathBuf>,
     /// Creation time of the signature, seconds since the Unix epoch.
     pub created: i64,
     /// Configuration keys that name programs and were therefore not used,

@@ -479,6 +479,70 @@ fn resolves_signing_config_from_git_configuration_and_host() {
 }
 
 #[test]
+fn reads_openpgp_source_from_nurt_configuration() {
+    let sources = |value: Option<nurt_contracts::config::OpenPgpSource>| {
+        let test = TestContext::with_host(TestHost::linux());
+        let mut nurt = Config::default();
+        nurt.git.signing.openpgp_source = value;
+        let ctx = test.builder().config(Arc::new(nurt)).build();
+        SigningConfig::resolve(&git_config(""), &ctx, None)
+            .expect("resolve")
+            .openpgp_sources
+    };
+    assert_eq!(
+        sources(Some(nurt_contracts::config::OpenPgpSource::GpgAgent)),
+        [OpenPgpSource::Agent]
+    );
+    assert_eq!(
+        sources(Some(nurt_contracts::config::OpenPgpSource::KeyFile)),
+        [OpenPgpSource::KeyFile]
+    );
+    assert_eq!(
+        sources(None),
+        [OpenPgpSource::Agent, OpenPgpSource::KeyFile]
+    );
+}
+
+#[test]
+fn reports_ignored_signing_programs_as_notable() {
+    let ctx = context(TestHost::linux(), None);
+    let git = git_config("[gpg]\n\tprogram = gpg2\n[gpg \"ssh\"]\n\tprogram = ssh-keygen\n");
+    let config = SigningConfig::resolve(&git, &ctx, None).expect("resolve");
+    let note = config.ignored_programs_note().expect("note");
+    assert_eq!(
+        note.code,
+        nurt_contracts::report::Notable::SigningProgramIgnored
+    );
+    assert_eq!(note.count, Some(2));
+    assert!(note.detail.expect("detail").contains("gpg.ssh.program"));
+    let plain = SigningConfig::resolve(&git_config(""), &ctx, None).expect("resolve");
+    assert!(plain.ignored_programs_note().is_none());
+}
+
+#[test]
+fn resolves_relative_paths_against_work_dir() {
+    let mut config =
+        SigningConfig::new(SignatureFormat::Ssh, CREATED).in_work_dir(Path::new("/work/repo"));
+    config.home = Some(PathBuf::from("/home/user"));
+    assert_eq!(
+        config.key_path("keys/id"),
+        PathBuf::from("/work/repo/keys/id")
+    );
+    assert_eq!(config.key_path("~/id"), PathBuf::from("/home/user/id"));
+    let verify = VerifyConfig {
+        allowed_signers_file: Some(PathBuf::from("signers")),
+        public_key_files: vec![PathBuf::from("/abs/key.asc")],
+        ..VerifyConfig::default()
+    }
+    .in_work_dir(Path::new("/work/repo"));
+    assert_eq!(
+        verify.allowed_signers_file,
+        Some(PathBuf::from("/work/repo/signers"))
+    );
+    assert_eq!(verify.public_key_files, [PathBuf::from("/abs/key.asc")]);
+}
+
+#[test]
 fn resolves_default_signing_config() {
     let ctx = context(TestHost::linux(), None);
     let config = SigningConfig::resolve(&git_config(""), &ctx, None).expect("resolve");

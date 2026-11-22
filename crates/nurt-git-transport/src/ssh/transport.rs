@@ -244,13 +244,12 @@ impl SshTransport {
         self.diagnostics.clone()
     }
 
-    /// Value of `GIT_PROTOCOL` for a service; `git` requests a version only
-    /// for fetching, since pushing always uses version 0.
+    /// Value of `GIT_PROTOCOL` for a service. Only fetching requests a
+    /// version, and only version 2: `gix` cannot parse the version 1
+    /// advertisement of `git upload-pack`, so version 1 is served as version 0.
     fn protocol_variable(&self, service: Service) -> Option<String> {
         match (service, self.desired_version) {
-            (Service::UploadPack, Protocol::V1 | Protocol::V2) => {
-                Some(format!("version={}", self.desired_version as usize))
-            }
+            (Service::UploadPack, Protocol::V2) => Some("version=2".to_owned()),
             _ => None,
         }
     }

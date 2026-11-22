@@ -336,7 +336,8 @@ pub(crate) fn write_pack(
     out: impl Write,
 ) -> io::Result<()> {
     let to_io = |e: gix::error::Error| io::Error::other(e.to_string());
-    let db = repo.objects.clone().into_arc()?.into_inner();
+    let mut db = repo.objects.clone().into_arc()?.into_inner();
+    db.prevent_pack_unload();
     let interrupt = AtomicBool::new(false);
     let mut ids = objects.into_iter().map(Ok);
     let (counts, _) = output::count::objects_unthreaded(
