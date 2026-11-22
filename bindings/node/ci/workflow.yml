@@ -140,6 +140,36 @@ jobs:
           cp "$built" "$RUNNER_TEMP/nurt.node"
           NURT_LIBRARY="$RUNNER_TEMP/nurt.node" node test/addon-smoke.mjs
 
+  serve:
+    name: serve (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the Rust toolchain of rust-toolchain.toml
+        working-directory: .
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Build nurt
+        working-directory: .
+        run: cargo build --locked -p nurt-cli
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund --ignore-scripts
+      - run: npm run build
+      - name: Test the process backend against nurt serve
+        env:
+          NURT_BIN_DIRECTORY: ${{ github.workspace }}/target/debug
+        run: |
+          case "$RUNNER_OS" in
+            Windows) built="$NURT_BIN_DIRECTORY/nurt.exe" ;;
+            *) built="$NURT_BIN_DIRECTORY/nurt" ;;
+          esac
+          NURT_BIN="$built" node test/serve-smoke.mjs
+
   pack:
     needs: [test, runtimes]
     runs-on: ubuntu-latest

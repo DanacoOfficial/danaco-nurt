@@ -29,8 +29,14 @@ try {
   assert.equal(events[0], "exec.started");
   assert.equal(events.at(-1), "exec.finished");
 
-  const responses = await Promise.all(Array.from({ length: CONCURRENT_RUNS }, () => client.run("find /")));
-  assert.equal(responses.length, CONCURRENT_RUNS);
+  const lastEvents = await Promise.all(
+    Array.from({ length: CONCURRENT_RUNS }, async () => {
+      let last;
+      await client.start("find /", { onEvent: (event) => (last = event.t) }).wait();
+      return last;
+    }),
+  );
+  assert.deepEqual(new Set(lastEvents), new Set(["exec.finished"]));
 } finally {
   await client.close();
 }
