@@ -1,0 +1,45 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "copy",
+          "args": [
+            {
+              "name": "from",
+              "value": {
+                "t": "text",
+                "v": "/srv/app"
+              }
+            },
+            {
+              "name": "into",
+              "value": {
+                "t": "text",
+                "v": "/srv/backup"
+              }
+            },
+            {
+              "name": "preserve",
+              "value": {
+                "t": "bool",
+                "v": true
+              }
+            },
+            {
+              "name": "clone",
+              "value": {
+                "t": "ident",
+                "v": "auto"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

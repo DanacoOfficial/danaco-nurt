@@ -1,0 +1,1 @@
+run command=["make", "clean"] cwd="/srv/app/new"

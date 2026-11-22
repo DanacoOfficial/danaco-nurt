@@ -1,0 +1,44 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/build"
+              }
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "text",
+                "v": "*"
+              }
+            },
+            {
+              "name": "depth",
+              "value": {
+                "t": "int",
+                "v": 1
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "remove",
+            "args": []
+          }
+        ]
+      }
+    ]
+  }
+}

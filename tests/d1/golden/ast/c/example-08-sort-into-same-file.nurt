@@ -1,0 +1,3 @@
+lines path="/srv/data/data.txt"
+|> sort by=text
+|> write path="/srv/data/data.txt" mode=overwrite

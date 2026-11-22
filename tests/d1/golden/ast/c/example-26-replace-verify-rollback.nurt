@@ -1,0 +1,3 @@
+search pattern=/oldName\(/ path="/srv/app/src" glob="**/*.go"
+|> replace with="newName("
+|> verify check=(run command=["go", "build", "./..."] cwd="/srv/app" |> assert exit_code=0)

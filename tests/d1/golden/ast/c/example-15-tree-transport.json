@@ -1,0 +1,31 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "C:/proj"
+              }
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "text",
+                "v": "*.go"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

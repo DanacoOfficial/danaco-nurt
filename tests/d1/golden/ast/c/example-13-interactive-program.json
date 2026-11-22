@@ -1,0 +1,44 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "run",
+          "args": [
+            {
+              "name": "command",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "apt-get"
+                  },
+                  {
+                    "t": "text",
+                    "v": "install"
+                  },
+                  {
+                    "t": "text",
+                    "v": "foo"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "cwd",
+              "value": {
+                "t": "text",
+                "v": "/srv"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

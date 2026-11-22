@@ -1,0 +1,1 @@
+create path="C:/proj/link" type=link target="C:/proj/src"

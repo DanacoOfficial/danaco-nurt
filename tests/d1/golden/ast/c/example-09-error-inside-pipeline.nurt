@@ -1,0 +1,3 @@
+read path="/srv/data/missing.csv"
+|> search pattern=/foo/
+|> count

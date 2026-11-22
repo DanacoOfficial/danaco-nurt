@@ -1,0 +1,2 @@
+run command=["npm", "run", "build"] cwd="/srv/app" background=true
+jobs id="j1" tail=20

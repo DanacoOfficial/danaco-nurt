@@ -1,0 +1,1 @@
+run command=["apt-get", "install", "foo"] cwd="/srv"

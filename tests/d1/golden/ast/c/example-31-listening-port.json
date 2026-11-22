@@ -1,0 +1,46 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "ports",
+          "args": [
+            {
+              "name": "state",
+              "value": {
+                "t": "ident",
+                "v": "listen"
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "args": [
+              {
+                "name": "condition",
+                "value": {
+                  "t": "bin",
+                  "op": "==",
+                  "l": {
+                    "t": "ident",
+                    "v": "port"
+                  },
+                  "r": {
+                    "t": "int",
+                    "v": 8080
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

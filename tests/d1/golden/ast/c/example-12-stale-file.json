@@ -1,0 +1,45 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "read",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app/config.go"
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "replace",
+            "args": [
+              {
+                "name": "pattern",
+                "value": {
+                  "t": "text",
+                  "v": "timeout = 30"
+                }
+              },
+              {
+                "name": "with",
+                "value": {
+                  "t": "text",
+                  "v": "timeout = 60"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

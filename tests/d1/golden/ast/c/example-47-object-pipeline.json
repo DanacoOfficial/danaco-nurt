@@ -1,0 +1,99 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "processes",
+          "args": []
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "args": [
+              {
+                "name": "condition",
+                "value": {
+                  "t": "bin",
+                  "op": ">",
+                  "l": {
+                    "t": "ident",
+                    "v": "memory"
+                  },
+                  "r": {
+                    "t": "size",
+                    "v": 500000000
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "sort",
+            "args": [
+              {
+                "name": "by",
+                "value": {
+                  "t": "ident",
+                  "v": "memory"
+                }
+              },
+              {
+                "name": "order",
+                "value": {
+                  "t": "ident",
+                  "v": "desc"
+                }
+              }
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "select",
+            "args": [
+              {
+                "name": "fields",
+                "value": {
+                  "t": "list",
+                  "items": [
+                    {
+                      "t": "ident",
+                      "v": "pid"
+                    },
+                    {
+                      "t": "ident",
+                      "v": "name"
+                    },
+                    {
+                      "t": "ident",
+                      "v": "memory"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "processes",
+          "args": []
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "describe",
+            "args": []
+          }
+        ]
+      }
+    ]
+  }
+}

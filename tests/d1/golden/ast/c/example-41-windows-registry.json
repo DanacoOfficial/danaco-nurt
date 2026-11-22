@@ -1,0 +1,62 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "write",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "registry:/HKCU/Software/Example/Mode"
+              }
+            },
+            {
+              "name": "text",
+              "value": {
+                "t": "int",
+                "v": 3
+              }
+            },
+            {
+              "name": "value_type",
+              "value": {
+                "t": "ident",
+                "v": "dword"
+              }
+            },
+            {
+              "name": "mode",
+              "value": {
+                "t": "ident",
+                "v": "overwrite"
+              }
+            }
+          ]
+        },
+        "stages": []
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "read",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "registry:/HKCU/Software/Example/Mode"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,2 @@
+ports state=listen
+|> filter condition=port == 8080

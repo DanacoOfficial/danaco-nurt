@@ -1,0 +1,24 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "remove",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/data/my file.txt"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

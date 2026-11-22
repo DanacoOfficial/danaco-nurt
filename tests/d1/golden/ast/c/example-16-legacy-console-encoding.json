@@ -1,0 +1,48 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "run",
+          "args": [
+            {
+              "name": "command",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "cmd.exe"
+                  },
+                  {
+                    "t": "text",
+                    "v": "/c"
+                  },
+                  {
+                    "t": "text",
+                    "v": "dir"
+                  },
+                  {
+                    "t": "text",
+                    "v": "C:\\proj"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "cwd",
+              "value": {
+                "t": "text",
+                "v": "C:/proj"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

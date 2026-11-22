@@ -1,0 +1,2 @@
+write path="registry:/HKCU/Software/Example/Mode" text=3 value_type=dword mode=overwrite
+read path="registry:/HKCU/Software/Example/Mode"

@@ -1,0 +1,52 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/in"
+              }
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "text",
+                "v": "*.log"
+              }
+            },
+            {
+              "name": "depth",
+              "value": {
+                "t": "int",
+                "v": 1
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "move",
+            "args": [
+              {
+                "name": "into",
+                "value": {
+                  "t": "text",
+                  "v": "/srv/arch"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

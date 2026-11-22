@@ -1,0 +1,30 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "services",
+          "args": [
+            {
+              "name": "name",
+              "value": {
+                "t": "text",
+                "v": "nginx"
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "restart",
+            "args": []
+          }
+        ]
+      }
+    ]
+  }
+}

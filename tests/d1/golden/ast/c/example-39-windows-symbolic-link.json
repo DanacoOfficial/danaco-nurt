@@ -1,0 +1,38 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "create",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "C:/proj/link"
+              }
+            },
+            {
+              "name": "type",
+              "value": {
+                "t": "ident",
+                "v": "link"
+              }
+            },
+            {
+              "name": "target",
+              "value": {
+                "t": "text",
+                "v": "C:/proj/src"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}
