@@ -136,7 +136,7 @@ manifests
 Search a pattern only in comments of source files.
 
 ```nurt example
-search /FIXME/ "/home/user/app/src" scope: comments
+search /deprecated/ "/home/user/app/src" scope: comments
 ```
 
 ```text expected

@@ -7,7 +7,7 @@ order: 9
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Integration
 
-An agent engine can call Danaco Nurt in four ways. The tool seen by a model is named `nurt` in every integration.
+A host program can call Danaco Nurt in four ways. The tool seen by a model is named `nurt` in every integration.
 
 | Interface | Use |
 |---|---|

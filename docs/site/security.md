@@ -23,4 +23,4 @@ Suspected vulnerabilities are reported by e-mail to `support@danaco-group.pl` wi
 | Secrets | Parameters marked `secret` in the catalog are masked in the journal, the report and printed trees |
 | Project files | A project file cannot grant itself trust; the keys that widen trust are ignored in `.nurt.toml` |
 
-The properties that matter for a permission policy of an agent engine are returned by `nurt check`; see [Integration](integration.md).
+The properties that matter for a permission policy of a host program are returned by `nurt check`; see [Integration](integration.md).

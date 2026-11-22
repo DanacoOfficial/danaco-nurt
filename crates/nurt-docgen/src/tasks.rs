@@ -102,7 +102,7 @@ fn check_sheets(
         } else {
             String::new()
         };
-        if current.trim() != cheatsheet::render(&table).trim() {
+        if without_comment_lines(&current).trim() != cheatsheet::render(&table).trim() {
             problems.push(format!(
                 "{}: the sheet is not generated from the table",
                 path.display()
@@ -110,6 +110,14 @@ fn check_sheets(
         }
     }
     Ok(())
+}
+
+/// Removes single-line HTML comments, which carry the producer header and are not generated.
+fn without_comment_lines(text: &str) -> String {
+    text.lines()
+        .filter(|line| !(line.starts_with("<!--") && line.ends_with("-->")))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Checks the documentation of a repository and returns the problems found.

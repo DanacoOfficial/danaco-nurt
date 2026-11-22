@@ -629,8 +629,8 @@ impl Binder<'_> {
 
     fn check_required(&mut self, spec: &StageSpec, given: &[String], required: &[String]) {
         for name in required {
-            let satisfied = if spec.param(name).is_some() {
-                given.contains(name)
+            let satisfied = if let Some(param) = spec.param(name) {
+                given.contains(name) || param.default_from.is_some()
             } else {
                 spec.params
                     .iter()

@@ -51,7 +51,7 @@ The options with `--` belong to the program `nurt`. The language has no options 
 | `catalog` | prints the catalog, a group or one command |
 | `help` | built-in help |
 | `history`, `undo`, `redo` | shortcuts for the journal commands |
-| `serve` | JSON-RPC server `nurt-rpc/1` for an agent engine |
+| `serve` | JSON-RPC server `nurt-rpc/1` for a host program |
 | `mcp` | Model Context Protocol server that provides the tool `nurt` |
 | `lsp` | language server for `.nurt` files |
 | `migrate` | translates a shell script into a `.nurt` file |

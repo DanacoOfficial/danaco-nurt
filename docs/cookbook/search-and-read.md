@@ -127,11 +127,11 @@ Get-ChildItem C:\Users\user\app\src -Recurse -Filter *.go | Select-String 'oldNa
 List only the paths of the files that contain a pattern, without the matching lines.
 
 ```nurt example
-search /TODO/ "/home/user/app/src" output: files
+search /pending/ "/home/user/app/src" output: files
 ```
 
 ```json fs-before
-{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/src/a.go","type":"file","content_utf8":"// TODO\n"},{"path":"/home/user/app/src/b.go","type":"file","content_utf8":"x\n"}]}
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/src/a.go","type":"file","content_utf8":"// pending\n"},{"path":"/home/user/app/src/b.go","type":"file","content_utf8":"x\n"}]}
 ```
 
 ```text expected
@@ -139,7 +139,7 @@ search /TODO/ "/home/user/app/src" output: files
 ```
 
 ```bash
-grep -rl 'TODO' /home/user/app/src
+grep -rl 'pending' /home/user/app/src
 ```
 
 ## Search without regard to letter case
