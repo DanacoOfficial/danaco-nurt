@@ -78,7 +78,7 @@ class CheckResult:
 
     @property
     def bound(self) -> Optional[Dict[str, Any]]:
-        """Bound tree (``nurt-bound/1``), or ``None`` when binding failed."""
+        """Bound tree (``nurt-bound/1``) when the result carries one, otherwise ``None``."""
         bound = self.raw.get("bound")
         return dict(bound) if isinstance(bound, Mapping) else None
 
@@ -94,8 +94,12 @@ class CheckResult:
 
     @property
     def ok(self) -> bool:
-        """``True`` when the program was bound without a language error."""
-        return self.error is None and self.bound is not None
+        """``True`` when the check produced a result without a language error.
+
+        The result is the effect summary of ``nurt-check/1`` (member ``effect``);
+        a result with a bound tree counts as well.
+        """
+        return self.error is None and ("effect" in self.raw or self.bound is not None)
 
     def __repr__(self) -> str:
         return f"CheckResult(ok={self.ok!r}, diagnostics={len(self.diagnostics)})"

@@ -5,7 +5,7 @@
 //   echo TEXT        response with TEXT as the rendered text, after two events
 //   slow             response only after cancellation, with the error E_CANCELLED
 //   bad              start throws NURT_E_ARG
-//   broken           wait rejects with NURT_E_INTERNAL
+//   broken           the stream ends with the failure NURT_E_INTERNAL
 //
 // The operations answer with their name and input, except `parse` of the
 // program `bad`, which answers with a language error, and `help`, which
@@ -22,19 +22,16 @@ function report(status, error) {
 }
 
 class NativeExecution {
-  constructor(program, onEvent) {
+  constructor(program, onMessage) {
     observed.started += 1;
     this.requestId = `r${observed.started}`;
     this.finished = false;
     this.cancelRequested = false;
     this.program = program;
-    this.onEvent = onEvent;
+    this.onMessage = onMessage;
     this.release = undefined;
     observed.running += 1;
     observed.maxRunning = Math.max(observed.maxRunning, observed.running);
-    this.done = new Promise((resolve, reject) => {
-      this.settle = { resolve, reject };
-    });
     setImmediate(() => {
       this.emit(1, "exec.started");
       this.emit(2, "job.output", { text: "line" });
@@ -43,13 +40,14 @@ class NativeExecution {
       } else if (program === "broken") {
         this.finished = true;
         observed.running -= 1;
-        this.settle.reject(new Error("NURT_E_INTERNAL: the engine failed"));
+        this.onMessage({ kind: "failure", text: "NURT_E_INTERNAL: the engine failed" });
       }
     });
   }
 
   emit(seq, t, fields) {
-    this.onEvent?.(JSON.stringify({ seq, time: "2026-01-01T00:00:00Z", request: this.requestId, t, ...fields }));
+    const event = { seq, time: "2026-01-01T00:00:00Z", request: this.requestId, t, ...fields };
+    this.onMessage({ kind: "event", text: JSON.stringify(event) });
   }
 
   finish(text) {
@@ -59,7 +57,7 @@ class NativeExecution {
     this.finished = true;
     observed.running -= 1;
     this.emit(3, "exec.finished");
-    this.settle.resolve(text);
+    this.onMessage({ kind: "response", text });
   }
 
   cancel() {
@@ -71,10 +69,6 @@ class NativeExecution {
 
   isFinished() {
     return this.finished;
-  }
-
-  wait() {
-    return this.done;
   }
 }
 
@@ -110,12 +104,12 @@ class NativeEngine {
     return Promise.resolve(JSON.stringify({ result: { operation, params } }));
   }
 
-  start(request, onEvent) {
+  start(request, onMessage) {
     const body = JSON.parse(request);
     if (body.program === "bad") {
       throw new Error("NURT_E_ARG: the request is not valid");
     }
-    return new NativeExecution(body.program, onEvent);
+    return new NativeExecution(body.program, onMessage);
   }
 }
 

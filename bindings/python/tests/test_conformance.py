@@ -4,9 +4,9 @@
 """Runner of the binding cases ``conformance/bindings/*.json`` (``nurt-binding-cases/1``).
 
 The process backend runs the cases against ``nurt-conformance serve --stdio``,
-which answers from the same cases. The library backend runs them only
-against a build of ``libnurt`` named by ``NURT_TEST_LIBRARY``: the mock
-library of these tests implements other behaviour.
+which answers from the same cases. The library backend has no counterpart:
+the stub of ``libnurt`` answers only recorded calls, which
+``test_implementation`` replays.
 """
 
 from __future__ import annotations
@@ -338,18 +338,6 @@ class ProcessBindingCasesTest(BindingCasesContract, unittest.TestCase):
 
     def environment(self, case: Mapping[str, Any]) -> Dict[str, str]:
         return {CASES_VARIABLE: str(CASES_ROOT), CASE_VARIABLE: case["id"]}
-
-
-class LibraryBindingCasesTest(BindingCasesContract, unittest.TestCase):
-    backend = "library"
-    library = ""
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.library = support.implementation_library()
-
-    def make(self) -> Nurt:
-        return Nurt(backend="library", library=self.library)
 
 
 class RunnerTest(unittest.TestCase):

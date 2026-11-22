@@ -23,7 +23,8 @@ import threading
 from typing import IO, Any, Deque, Dict, Mapping, Optional, Sequence, Tuple, Union
 
 from ._backend import Backend, EventSink, ExecutionHandle, Json
-from ._errors import NurtError, NurtTimeoutError, error_for_status
+from ._errors import NurtError, NurtLanguageError, NurtTimeoutError, error_for_status
+from ._response import Response
 from ._version import __version__
 
 PROTOCOL = "nurt-rpc/1"
@@ -40,6 +41,9 @@ APPLICATION_ERROR_BASE = -32000
 
 APPLICATION_ERROR_LAST = -32099
 """Last JSON-RPC error code of the application range."""
+
+UNKNOWN_VALUE_CODE = "E_UNKNOWN_VALUE"
+"""Language error code of an argument value that the engine does not know."""
 
 INVALID_PARAMS = -32602
 """JSON-RPC error code of invalid parameters, reported as ``NURT_E_ARG``."""
@@ -175,6 +179,8 @@ class _Connection:
                 self._stdin.write(_encode(message))
                 self._stdin.flush()
         except (OSError, ValueError):
+            with self._lock:
+                self.dead = True
             self._complete(identifier, NurtError("NURT_E_INTERNAL", "nurt serve closed its input"))
         return identifier, pending
 
@@ -428,8 +434,25 @@ class ProcessBackend(Backend):
             raise NurtError("NURT_E_INTERNAL", f"invalid result of {method}")
         return result
 
-    def _text(self, method: str, params: Mapping[str, Any]) -> str:
+    def _query(self, method: str, params: Mapping[str, Any]) -> Json:
+        """Call a method without a response of its own; a language error is raised.
+
+        The server reports a language error of every method as a response whose
+        report has the status ``failed``. A query has no response to return it
+        in, so the error is raised: as ``NURT_E_ARG`` when it names an unknown
+        argument value, as :class:`NurtLanguageError` otherwise.
+        """
         result = self._object(method, params)
+        report = result.get("report")
+        if isinstance(report, dict) and report.get("status") == "failed" and isinstance(report.get("error"), dict):
+            response = Response(result)
+            if report["error"].get("code") == UNKNOWN_VALUE_CODE:
+                raise NurtError("NURT_E_ARG", str(report["error"].get("message", "")))
+            raise NurtLanguageError(response)
+        return result
+
+    def _text(self, method: str, params: Mapping[str, Any]) -> str:
+        result = self._query(method, params)
         text = result.get("text")
         if not isinstance(text, str):
             raise NurtError("NURT_E_INTERNAL", f"invalid result of {method}")
@@ -471,7 +494,7 @@ class ProcessBackend(Backend):
         params: Dict[str, Any] = {"subject": what.get("name") or what.get("layer") or "core"}
         if "language" in what:
             params["language"] = what["language"]
-        result = self._object("describe", params)
+        result = self._query("describe", params)
         text = result.get("description")
         if not isinstance(text, str):
             raise NurtError("NURT_E_INTERNAL", "invalid result of describe")
@@ -481,16 +504,18 @@ class ProcessBackend(Backend):
         return self._text("help", {} if topic is None else {"topic": topic})
 
     def catalog(self, what: Optional[Mapping[str, Any]]) -> Json:
-        return self._object("catalog", {} if what is None else {"what": dict(what)})
+        return self._query("catalog", {} if what is None else dict(what))
 
     def schema(self, which: str) -> Json:
-        return self._object("schema", {"name": which})
+        return self._query("schema", {"name": which})
 
     def history(self, query: Any) -> Json:
-        return self._object("history", {} if query is None else {"query": query})
+        if query is None:
+            return self._query("history", {})
+        return self._query("history", {"query": query} if isinstance(query, str) else dict(query))
 
     def space(self, volume: Optional[str]) -> Json:
-        return self._object("space", {} if volume is None else {"volume": volume})
+        return self._query("space", {} if volume is None else {"volume": volume})
 
     def info(self) -> Json:
         return self._object("info", {})

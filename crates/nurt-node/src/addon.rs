@@ -9,24 +9,44 @@ use napi::bindgen_prelude::{AsyncTask, Task};
 use napi::threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode};
 use napi::{Env, Error, Status};
 use napi_derive::napi;
-use nurt_core::{DeliveredEvent, EventListener, ExecHandle};
+use nurt_core::ExecHandle;
 
-use crate::dispatch::{Failure, Native, encode_event, finish};
+use crate::dispatch::{Failure, Message, Native, Sink};
 
-/// Receiver of the events of an execution, called with the event as JSON text.
-type EventCallback = ThreadsafeFunction<String, (), String, Status, false>;
+/// Item of the ordered stream of a request.
+///
+/// `kind` is `event` (`text` is an event as JSON text), `response` (`text` is
+/// the response as JSON text) or `failure` (`text` is `NURT_E_NAME: message`).
+#[napi(object)]
+pub struct Delivery {
+    /// Kind of the item.
+    pub kind: String,
+    /// Content of the item.
+    pub text: String,
+}
+
+/// Receiver of the stream of a request. One function carries events and the
+/// response, so the response cannot overtake an event.
+type DeliveryCallback = ThreadsafeFunction<Delivery, (), Delivery, Status, false>;
 
 fn thrown(failure: &Failure) -> Error {
     Error::new(Status::GenericFailure, failure.to_string())
 }
 
-struct Forward(EventCallback);
-
-impl EventListener for Forward {
-    fn deliver(&self, event: DeliveredEvent) {
-        if let Ok(text) = encode_event(&event) {
-            self.0.call(text, ThreadsafeFunctionCallMode::NonBlocking);
-        }
+fn delivery(message: Message) -> Delivery {
+    match message {
+        Message::Event(text) => Delivery {
+            kind: "event".to_owned(),
+            text,
+        },
+        Message::Response(Ok(text)) => Delivery {
+            kind: "response".to_owned(),
+            text,
+        },
+        Message::Response(Err(failure)) => Delivery {
+            kind: "failure".to_owned(),
+            text: failure.to_string(),
+        },
     }
 }
 
@@ -63,29 +83,23 @@ impl NativeEngine {
         })
     }
 
-    /// Starts a request. `on_event` receives every event as JSON text.
+    /// Starts a request. `on_message` receives every event and, after the
+    /// last event, the response.
     #[napi]
     pub fn start(
         &self,
         request: String,
-        on_event: Option<EventCallback>,
+        on_message: DeliveryCallback,
     ) -> napi::Result<NativeExecution> {
-        let listener: Arc<dyn EventListener> = match on_event {
-            Some(callback) => Arc::new(Forward(callback)),
-            None => Arc::new(Discard),
-        };
+        let sink: Sink = Arc::new(move |message| {
+            on_message.call(delivery(message), ThreadsafeFunctionCallMode::NonBlocking);
+        });
         let handle = self
             .native
-            .start(&request, listener)
+            .start_ordered(&request, sink)
             .map_err(|failure| thrown(&failure))?;
         Ok(NativeExecution { handle })
     }
-}
-
-struct Discard;
-
-impl EventListener for Discard {
-    fn deliver(&self, _event: DeliveredEvent) {}
 }
 
 /// Request started with `NativeEngine.start`.
@@ -113,14 +127,6 @@ impl NativeExecution {
     pub fn is_finished(&self) -> bool {
         self.handle.is_finished()
     }
-
-    /// Resolves with the response as JSON text when the request has finished.
-    #[napi]
-    pub fn wait(&self) -> AsyncTask<WaitTask> {
-        AsyncTask::new(WaitTask {
-            handle: self.handle.clone(),
-        })
-    }
 }
 
 /// Operation running on a worker thread.
@@ -138,24 +144,6 @@ impl Task for CallTask {
         self.native
             .call(&self.operation, &self.input)
             .map_err(|failure| thrown(&failure))
-    }
-
-    fn resolve(&mut self, _env: Env, output: String) -> napi::Result<String> {
-        Ok(output)
-    }
-}
-
-/// Wait for a response on a worker thread.
-pub struct WaitTask {
-    handle: ExecHandle,
-}
-
-impl Task for WaitTask {
-    type Output = String;
-    type JsValue = String;
-
-    fn compute(&mut self) -> napi::Result<String> {
-        finish(&self.handle, None).map_err(|failure| thrown(&failure))
     }
 
     fn resolve(&mut self, _env: Env, output: String) -> napi::Result<String> {

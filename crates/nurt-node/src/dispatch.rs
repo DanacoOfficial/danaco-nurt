@@ -189,6 +189,33 @@ impl fmt::Debug for Native {
     }
 }
 
+/// Name of the thread that waits for a response and reports it.
+const RESPONSE_THREAD_NAME: &str = "nurt-node-response";
+
+/// Item of the ordered stream of a request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Message {
+    /// An event as JSON text, in the form of `encode_event`.
+    Event(String),
+    /// The response as JSON text, or the failure of the wait. Always the last
+    /// message of a request.
+    Response(Result<String, Failure>),
+}
+
+/// Receiver of the ordered stream of a request.
+pub type Sink = Arc<dyn Fn(Message) + Send + Sync>;
+
+/// Passes the events of the engine to a [`Sink`].
+struct Relay(Sink);
+
+impl EventListener for Relay {
+    fn deliver(&self, event: DeliveredEvent) {
+        if let Ok(text) = encode_event(&event) {
+            (self.0)(Message::Event(text));
+        }
+    }
+}
+
 /// Result of an operation that can fail with a language error.
 type Answer = Result<Value, Error>;
 
@@ -264,6 +291,33 @@ impl Native {
     ) -> Result<ExecHandle, Failure> {
         let request: Request = parse(request, "the request")?;
         Ok(self.engine.start(&request, listener))
+    }
+
+    /// Starts a request and reports its events and its response, in this
+    /// order, to one `sink`.
+    ///
+    /// The engine delivers `exec.finished` before it makes the response
+    /// available, so the response is passed to `sink` only after the sink has
+    /// returned from every event of the request. `sink` is called from the
+    /// execution thread for events and from a separate thread for the
+    /// response, never concurrently; the last call is always
+    /// [`Message::Response`].
+    ///
+    /// # Errors
+    ///
+    /// Returns `NURT_E_ARG` when the text is not a valid request envelope and
+    /// `NURT_E_INTERNAL` when the thread that reports the response cannot be
+    /// started.
+    pub fn start_ordered(&self, request: &str, sink: Sink) -> Result<ExecHandle, Failure> {
+        let handle = self.start(request, Arc::new(Relay(Arc::clone(&sink))))?;
+        let waiting = handle.clone();
+        std::thread::Builder::new()
+            .name(RESPONSE_THREAD_NAME.to_owned())
+            .spawn(move || sink(Message::Response(finish(&waiting, None))))
+            .map_err(|error| {
+                Failure::internal(format!("cannot start the response thread: {error}"))
+            })?;
+        Ok(handle)
     }
 
     /// Runs one of the operations other than `run` and returns the result as
@@ -376,6 +430,10 @@ pub fn finish(handle: &ExecHandle, timeout: Option<Duration>) -> Result<String, 
 /// Encodes an event as JSON text in the form of `nurt-event/1`: the time as
 /// an RFC 3339 instant in UTC and the request identifier as `request`.
 ///
+/// The event of the engine carries the time as a number of nanoseconds and
+/// the identifier as `request_id`; the contract type `DeliveredEvent` is not
+/// the type the engine delivers.
+///
 /// # Errors
 ///
 /// Returns `NURT_E_INTERNAL` when the event cannot be serialized.
@@ -455,7 +513,7 @@ fn to_text<T: Serialize>(value: &T) -> Result<String, Failure> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex, PoisonError};
+    use std::sync::{Arc, Mutex, PoisonError, mpsc};
     use std::time::Duration;
 
     use nurt_contracts::envelope::Request;
@@ -463,7 +521,7 @@ mod tests {
     use nurt_core::{DeliveredEvent, EngineConfig, EventListener};
     use serde_json::{Value, json};
 
-    use super::{Failure, Native, Status, encode_event, finish};
+    use super::{Failure, Message, Native, Sink, Status, encode_event, finish};
     use crate::system::{SystemClock, SystemHost};
 
     const WAIT: Duration = Duration::from_secs(30);
@@ -641,6 +699,51 @@ mod tests {
                 .as_str()
                 .is_some_and(|time| time.ends_with('Z'))
         );
+    }
+
+    #[test]
+    fn response_follows_every_event_of_the_request() {
+        const REQUESTS: usize = 25;
+        let native = native();
+        let request = serde_json::to_string(&Request::program("find \"/srv\"")).unwrap();
+        for _ in 0..REQUESTS {
+            let (sender, receiver) = mpsc::channel();
+            let sender = Mutex::new(sender);
+            let sink: Sink = Arc::new(move |message| {
+                let _ = sender
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .send(message);
+            });
+            let handle = native.start_ordered(&request, sink).unwrap();
+            let mut events = Vec::new();
+            let response = loop {
+                match receiver.recv_timeout(WAIT).unwrap() {
+                    Message::Event(text) => {
+                        events.push(serde_json::from_str::<Value>(&text).unwrap())
+                    }
+                    Message::Response(response) => break response,
+                }
+            };
+            let first = events.first().unwrap();
+            let last = events.last().unwrap();
+            assert_eq!(first["t"], "exec.started");
+            assert_eq!(last["t"], "exec.finished");
+            let sequence: Vec<u64> = events
+                .iter()
+                .map(|event| event["seq"].as_u64().unwrap())
+                .collect();
+            let expected: Vec<u64> = (1..=sequence.len() as u64).collect();
+            assert_eq!(sequence, expected);
+            assert!(
+                events
+                    .iter()
+                    .all(|event| event["request"] == handle.request_id())
+            );
+            let response: Value = serde_json::from_str(&response.unwrap()).unwrap();
+            assert!(response["report"]["error"].is_object(), "{response}");
+            assert!(receiver.try_recv().is_err());
+        }
     }
 
     #[test]

@@ -43,8 +43,17 @@ export interface NativeExecution {
   cancel(): void;
   /** Whether the response is available. */
   isFinished(): boolean;
-  /** Resolves with the response as JSON text. */
-  wait(): Promise<string>;
+}
+
+/**
+ * Item of the stream of a request. The addon delivers events and the response
+ * through one function, in order: the response is the last item.
+ */
+export interface NativeDelivery {
+  /** `event`, `response` or `failure`. */
+  readonly kind: string;
+  /** Event or response as JSON text; for `failure` the text `NURT_E_NAME: description`. */
+  readonly text: string;
 }
 
 /** Engine of the addon. */
@@ -53,8 +62,8 @@ export interface NativeEngine {
   info(): string;
   /** Runs an operation other than `run`; resolves with the result as JSON text. */
   call(operation: string, input: string): Promise<string>;
-  /** Starts a request; `onEvent` receives every event as JSON text. */
-  start(request: string, onEvent: ((event: string) => void) | null): NativeExecution;
+  /** Starts a request; `onMessage` receives every event and then the response. */
+  start(request: string, onMessage: (delivery: NativeDelivery) => void): NativeExecution;
 }
 
 /** Module exported by the addon. */
@@ -152,7 +161,7 @@ export function nativeFailure(error: unknown): NurtError {
 }
 
 interface Running {
-  readonly execution: NativeExecution;
+  readonly cancel: () => void;
   readonly reject: (error: NurtError) => void;
 }
 
@@ -214,8 +223,8 @@ export class NativeChannel implements Channel {
   terminate(error: NurtError): void {
     this.#closed = true;
     for (const running of [...this.#running]) {
-      running.execution.cancel();
       running.reject(error);
+      running.cancel();
     }
     this.#running.clear();
   }
@@ -293,46 +302,53 @@ export class NativeChannel implements Channel {
 
   async #run(params: unknown, hooks: CallHooks): Promise<unknown> {
     const engine = this.#open();
-    const onEvent = (text: string): void => {
-      const event = parseJson(text) as NurtEvent;
-      hooks.onEvent?.(event);
-      this.#events.onNotification("nurt/event", event);
-    };
-    let execution: NativeExecution;
-    try {
-      execution = engine.start(JSON.stringify(params ?? null), onEvent);
-    } catch (error) {
-      throw nativeFailure(error);
-    }
     return new Promise<unknown>((resolveCall, rejectCall) => {
       const signal = hooks.signal;
+      let execution: NativeExecution | undefined;
       const running: Running = {
-        execution,
         reject: (error) => {
-          finish();
+          release();
           rejectCall(error);
         },
+        cancel: () => execution?.cancel(),
       };
       const onAbort = (): void => {
-        execution.cancel();
         running.reject(cancelled(signal));
+        running.cancel();
       };
-      const finish = (): void => {
+      const release = (): void => {
         signal?.removeEventListener("abort", onAbort);
         this.#running.delete(running);
       };
+      const onMessage = (delivery: NativeDelivery): void => {
+        if (!this.#running.has(running)) {
+          return;
+        }
+        try {
+          if (delivery.kind === "event") {
+            const event = parseJson(delivery.text) as NurtEvent;
+            hooks.onEvent?.(event);
+            this.#events.onNotification("nurt/event", event);
+          } else if (delivery.kind === "response") {
+            const response = parseJson(delivery.text);
+            release();
+            resolveCall(response);
+          } else {
+            release();
+            rejectCall(nativeFailure(new Error(delivery.text)));
+          }
+        } catch (error) {
+          release();
+          rejectCall(nativeFailure(error));
+        }
+      };
       this.#running.add(running);
       signal?.addEventListener("abort", onAbort, { once: true });
-      execution.wait().then(
-        (text) => {
-          finish();
-          resolveCall(parseJson(text));
-        },
-        (error: unknown) => {
-          finish();
-          rejectCall(nativeFailure(error));
-        },
-      );
+      try {
+        execution = engine.start(JSON.stringify(params ?? null), onMessage);
+      } catch (error) {
+        running.reject(nativeFailure(error));
+      }
     });
   }
 }
