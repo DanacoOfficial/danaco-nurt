@@ -1,4 +1,4 @@
-translated without error: 216 of 250
+translated without error: 219 of 250
 translated	Get-ChildItem C:\proj	list "C:/proj" hidden: false
 translated	Get-ChildItem -Path C:\Users\dev\Documents	list "C:/Users/dev/Documents" hidden: false
 translated	gci C:\Windows\Temp	list "C:/Windows/Temp" hidden: false
@@ -35,7 +35,7 @@ translated	Get-Process | Out-File C:\temp\processes.txt	processes |> write "C:/t
 translated	"x" | Out-File -FilePath C:\temp\x.txt -Append	write "C:/temp/x.txt" "x\n" mode: append
 translated	"data" | Set-Content C:\temp\data.txt	write "C:/temp/data.txt" "data\n" mode: overwrite
 translated	Select-String -Path C:\logs\app.log -Pattern "error"	search /error/ "C:/logs/app.log" case_sensitive: false
-translated	Select-String -Path C:\proj\*.cs -Pattern "TODO"	search /TODO/ "C:/proj" glob: "*.cs" case_sensitive: false
+translated	Select-String -Path C:\proj\*.cs -Pattern "deprecated"	search /deprecated/ "C:/proj" glob: "*.cs" case_sensitive: false
 translated	sls -Path C:\logs\*.log -Pattern "timeout"	search /timeout/ "C:/logs" glob: "*.log" case_sensitive: false
 translated	Get-Content C:\logs\app.log | Select-String "warn"	lines "C:/logs/app.log" |> search /warn/ case_sensitive: false
 translated	Select-String -Path C:\logs\app.log -Pattern "fail" -CaseSensitive	search /fail/ "C:/logs/app.log" case_sensitive: true
@@ -118,7 +118,7 @@ translated	Get-ChildItem C:\proj | Select-Object Name, Length	list "C:/proj" hid
 translated	Get-Service | select Name, Status	services |> select name state
 translated	Get-Content C:\logs\app.log | Select-Object -Last 5	lines "C:/logs/app.log" |> last 5
 failed	Get-Process | Select-Object -Property Name, CPU -First 5	E_UNCORRECTABLE: property CPU has no field in process records; properties: Id, Name, ProcessName, WorkingSet, WorkingSet64, WS, StartTime, Path, UserName (unknown_property)
-failed	Get-ChildItem C:\proj | Select-Object -ExpandProperty Name	E_UNCORRECTABLE: -ExpandProperty of Select-Object has no Nurt translation; translated parameters: -Property, -Unique, -Skip, -First, -Last (unknown_parameter)
+translated	Get-ChildItem C:\proj | Select-Object -ExpandProperty Name	list "C:/proj" hidden: false |> select name
 failed	Get-Process | Sort-Object CPU -Descending	E_UNCORRECTABLE: property CPU has no field in process records; properties: Id, Name, ProcessName, WorkingSet, WorkingSet64, WS, StartTime, Path, UserName (unknown_property)
 translated	Get-ChildItem C:\proj | Sort-Object Length	list "C:/proj" hidden: false |> sort size
 translated	Get-ChildItem C:\logs | Sort-Object LastWriteTime -Descending	list "C:/logs" hidden: false |> sort modified order: desc
@@ -241,9 +241,9 @@ translated	Get-CimInstance Win32_Processor	windows.cim "Win32_Processor"
 failed	Get-PSDrive	E_UNCORRECTABLE: Get-PSDrive has no Nurt translation (unknown_cmdlet)
 translated	Get-Volume	disks
 translated	Get-Disk	disks
-failed	Get-ScheduledTask	E_UNCORRECTABLE: Get-ScheduledTask has no Nurt translation (unknown_cmdlet)
-failed	Get-ScheduledTask -TaskName Backup	E_UNCORRECTABLE: Get-ScheduledTask has no Nurt translation (unknown_cmdlet)
-failed	Start-ScheduledTask -TaskName Backup	E_UNCORRECTABLE: Start-ScheduledTask has no Nurt translation (unknown_cmdlet)
+translated	Get-ScheduledTask	windows.cim "MSFT_ScheduledTask" namespace: "Root/Microsoft/Windows/TaskScheduler"
+translated	Get-ScheduledTask -TaskName Backup	windows.cim "MSFT_ScheduledTask" where: "TaskName = 'Backup'" namespace: "Root/Microsoft/Windows/TaskScheduler"
+failed	Start-ScheduledTask -TaskName Backup	E_UNCORRECTABLE: tasks of the system scheduler are started by the schtasks program; run it with run (system_task)
 failed	Invoke-Expression "Get-Process"	E_UNCORRECTABLE: evaluation of text as code has no equivalent
 translated	& C:\tools\app.exe --version	run ["C:/tools/app.exe", "--version"]
 failed	Invoke-Command -ScriptBlock { Get-Process }	E_UNCORRECTABLE: remote execution belongs to the host that sends the program to the other device; write the program itself (remote_execution)

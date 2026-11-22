@@ -1,17 +1,18 @@
 # Source: b26-substitution.sh (bash)
 # Statements run in order; the first error stops the script.
-# Statements: 4; translated: 0; with assumptions: 0; impossible: 4; errors: 0.
+# Statements: 4; translated: 3; with assumptions: 0; impossible: 1; errors: 0.
 # Untranslated statements run unchanged with: run ["bash", "b26-substitution.sh"]
 
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 # B26: command substitution bound to a variable and used later.
-# untranslated: E_UNCORRECTABLE: LOGS=$(find /var/log/app -name "*.log")
-#   problem: shell syntax has no translation: no command (unsupported_syntax)
-# untranslated: E_UNCORRECTABLE: rm $LOGS
-#   problem: `$LOGS` is not substituted; Nurt has no variables: write the value, or name a result with `let logs = …` and use `@logs` (unknown_variable)
-# untranslated: E_UNCORRECTABLE: COUNT=`wc -l < /srv/a.txt`
-#   problem: shell syntax has no translation: no command (unsupported_syntax)
+# translated: B26
+let logs = find "/var/log/app" glob: "**/*.log" type: any
+# translated: B01, B25
+remove @logs on_missing: error
+# translated: B26
+let count = lines "/srv/a.txt"
+|> count
 # untranslated: E_UNCORRECTABLE: echo $COUNT
-#   problem: `$COUNT` is not substituted; Nurt has no variables: write the value, or name a result with `let count = …` and use `@count` (unknown_variable)
+#   problem: `$$COUNT` is not substituted inside text; paths are quoted absolute text: write the path, or use a field of a named result such as `@x.path` (variable_in_text)

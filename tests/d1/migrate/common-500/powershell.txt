@@ -34,7 +34,7 @@ Get-Process | Out-File C:\temp\processes.txt
 "x" | Out-File -FilePath C:\temp\x.txt -Append
 "data" | Set-Content C:\temp\data.txt
 Select-String -Path C:\logs\app.log -Pattern "error"
-Select-String -Path C:\proj\*.cs -Pattern "TODO"
+Select-String -Path C:\proj\*.cs -Pattern "deprecated"
 sls -Path C:\logs\*.log -Pattern "timeout"
 Get-Content C:\logs\app.log | Select-String "warn"
 Select-String -Path C:\logs\app.log -Pattern "fail" -CaseSensitive

@@ -99,7 +99,7 @@ find /tmp -name "*.tmp" -exec rm {} \;
 find /srv/app -type f -name "*.bak" -delete
 grep error /var/log/syslog
 grep -i "connection refused" /var/log/app.log
-grep -r TODO /srv/app/src
+grep -r deprecated /srv/app/src
 grep -rn "func main" /srv/app
 grep -v "^#" /etc/ssh/sshd_config
 grep -c ERROR /var/log/app.log

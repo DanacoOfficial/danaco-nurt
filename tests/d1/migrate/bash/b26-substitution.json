@@ -4,9 +4,9 @@
   "script": "b26-substitution.sh",
   "summary": {
     "statements": 4,
-    "translated": 0,
+    "translated": 3,
     "assumption": 0,
-    "impossible": 4,
+    "impossible": 1,
     "error": 0
   },
   "items": [
@@ -14,37 +14,38 @@
       "line": 5,
       "column": 1,
       "source": "LOGS=$(find /var/log/app -name \"*.log\")",
-      "status": "impossible",
-      "rules": [],
+      "status": "translated",
+      "rules": [
+        "B26"
+      ],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "rule",
-      "problem": "shell syntax has no translation: no command (unsupported_syntax)",
-      "fix": []
+      "fix": [],
+      "output": "let logs = find \"/var/log/app\" glob: \"**/*.log\" type: any"
     },
     {
       "line": 6,
       "column": 1,
       "source": "rm $LOGS",
-      "status": "impossible",
-      "rules": [],
+      "status": "translated",
+      "rules": [
+        "B01",
+        "B25"
+      ],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "rule",
-      "problem": "`$LOGS` is not substituted; Nurt has no variables: write the value, or name a result with `let logs = …` and use `@logs` (unknown_variable)",
-      "fix": []
+      "fix": [],
+      "output": "remove @logs on_missing: error"
     },
     {
       "line": 7,
       "column": 1,
       "source": "COUNT=`wc -l < /srv/a.txt`",
-      "status": "impossible",
-      "rules": [],
+      "status": "translated",
+      "rules": [
+        "B26"
+      ],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "rule",
-      "problem": "shell syntax has no translation: no command (unsupported_syntax)",
-      "fix": []
+      "fix": [],
+      "output": "let count = lines \"/srv/a.txt\"\n|> count"
     },
     {
       "line": 8,
@@ -55,7 +56,7 @@
       "assumptions": [],
       "code": "E_UNCORRECTABLE",
       "reason": "rule",
-      "problem": "`$COUNT` is not substituted; Nurt has no variables: write the value, or name a result with `let count = …` and use `@count` (unknown_variable)",
+      "problem": "`$$COUNT` is not substituted inside text; paths are quoted absolute text: write the path, or use a field of a named result such as `@x.path` (variable_in_text)",
       "fix": []
     }
   ],

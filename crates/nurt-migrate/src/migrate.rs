@@ -312,11 +312,16 @@ impl Session<'_> {
         }
         item.assumptions = assumptions;
         item.output = Some(output);
-        self.record_lets(unit, &translation.tree);
+        self.record_lets(unit, &translation.tree, &translation.records);
         self.push(unit, item);
     }
 
-    fn record_lets(&mut self, unit: &Unit<'_>, tree: &AstDocument) {
+    fn record_lets(
+        &mut self,
+        unit: &Unit<'_>,
+        tree: &AstDocument,
+        records: &[(String, Option<String>)],
+    ) {
         let mut last = None;
         for statement in &tree.program.statements {
             if let Statement::Let(binding) = statement {
@@ -330,7 +335,16 @@ impl Session<'_> {
         let variable = unit.part.and_then(|part| part.variable.clone());
         if let (Some(variable), Some(name)) = (variable, last) {
             self.lets.retain(|existing| existing.variable != variable);
-            self.lets.push(LetBinding { variable, name });
+            let record = records
+                .iter()
+                .rev()
+                .find(|(bound, _)| *bound == name)
+                .and_then(|(_, record)| record.clone());
+            self.lets.push(LetBinding {
+                variable,
+                name,
+                record,
+            });
         }
     }
 

@@ -36,6 +36,9 @@ pub struct Translation {
     pub rules: Vec<Correction>,
     /// Assumptions of probable rules, as stated in the habit tables.
     pub assumptions: Vec<String>,
+    /// Names bound by the translated program, with the record type of their
+    /// values, in source order.
+    pub records: Vec<(String, Option<String>)>,
 }
 
 /// Shell variable that an earlier statement of the script bound to a named
@@ -49,6 +52,9 @@ pub struct LetBinding {
     pub variable: String,
     /// Name of the result in the program, without `@`.
     pub name: String,
+    /// Record type of the value (`entry`, `line`, `process`, …) when the habit
+    /// tables know it; PowerShell uses it to resolve property reads.
+    pub record: Option<String>,
 }
 
 /// One statement of a script submitted for translation.
@@ -163,6 +169,7 @@ impl TableTranslator {
                     tree: translation.tree,
                     rules: log.into_report(),
                     assumptions: assumption_texts(translation.assumptions),
+                    records: Vec::new(),
                 }
             })
         })
@@ -172,11 +179,28 @@ impl TableTranslator {
         &self,
         statement: &str,
         context: &TranslateContext<'_>,
+        lets: &[LetBinding],
     ) -> Option<Result<Translation, Error>> {
-        let outcome = match &self.powershell {
-            Some(table) => powershell::translate_with_table(statement, context, table),
-            None => powershell::translate_with(statement, context),
+        let known: Vec<powershell::LetBinding> = lets
+            .iter()
+            .map(|binding| powershell::LetBinding {
+                name: binding.name.clone(),
+                record: binding.record.clone(),
+            })
+            .collect();
+        let table = match &self.powershell {
+            Some(table) => table,
+            None => match PowerShellTable::embedded() {
+                Ok(table) => table,
+                Err(error) => {
+                    return Some(Err(Error::new(
+                        ErrorCode::InternalCorrection,
+                        format!("invalid PowerShell translation table: {error}"),
+                    )));
+                }
+            },
         };
+        let outcome = powershell::translate_with_lets(statement, context, &known, table);
         outcome.map(|result| {
             result.and_then(|translation| {
                 if translation.options.preview == Some(true) {
@@ -192,6 +216,11 @@ impl TableTranslator {
                     tree: translation.tree,
                     rules: translation.rules,
                     assumptions: assumption_texts(translation.assumptions),
+                    records: translation
+                        .bindings
+                        .into_iter()
+                        .map(|binding| (binding.name, binding.record))
+                        .collect(),
                 })
             })
         })
@@ -221,7 +250,9 @@ impl Translator for TableTranslator {
         };
         let outcome = match request.language {
             ScriptLanguage::Bash => self.translate_bash(request.statement, &context),
-            ScriptLanguage::PowerShell => self.translate_powershell(request.statement, &context),
+            ScriptLanguage::PowerShell => {
+                self.translate_powershell(request.statement, &context, request.lets)
+            }
         };
         outcome.unwrap_or_else(|| Err(not_a_habit(request)))
     }

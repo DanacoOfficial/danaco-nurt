@@ -1,4 +1,4 @@
-translated without error: 205 of 250
+translated without error: 222 of 250
 translated	rm /tmp/build.log	remove "/tmp/build.log" on_missing: error
 translated	rm -f /var/tmp/app.pid	remove "/var/tmp/app.pid"
 translated	rm -rf /srv/app/build	remove "/srv/app/build"
@@ -78,10 +78,10 @@ translated	ls -la /home/dev	list "/home/dev"
 translated	ls -lh /var/log	list "/var/log" hidden: false
 translated	ls -a /etc	list "/etc"
 translated	ls -lt /srv/app/logs	list "/srv/app/logs" sort: modified order: desc hidden: false
-failed	ls -R /srv/app/src	E_UNCORRECTABLE: flag `-R` of `ls` has no equivalent; parameters of `list`: path, depth, type, hidden, sort, order, view (flag_without_equivalent)
+translated	ls -R /srv/app/src	find "/srv/app/src" type: any hidden: false
 translated	ls /srv/app/*.log	find "/srv/app" glob: "*.log" depth: 1 hidden: false
 translated	ls -lS /data/export	list "/data/export" sort: size order: desc hidden: false
-failed	ls -ltr /var/log	E_UNCORRECTABLE: flag `-ltr` of `ls` has no equivalent; parameters of `list`: path, depth, type, hidden, sort, order, view (flag_without_equivalent)
+translated	ls -ltr /var/log	list "/var/log" sort: modified order: asc hidden: false
 translated	ls -alh /tmp	list "/tmp"
 translated	ls /etc/nginx/sites-enabled	list "/etc/nginx/sites-enabled" hidden: false
 translated	find /srv/app -name "*.log"	find "/srv/app" glob: "**/*.log" type: any
@@ -100,11 +100,11 @@ translated	find /tmp -name "*.tmp" -exec rm {} \;	find "/tmp" glob: "**/*.tmp" t
 translated	find /srv/app -type f -name "*.bak" -delete	find "/srv/app" type: file glob: "**/*.bak" |> remove
 translated	grep error /var/log/syslog	search /error/ "/var/log/syslog"
 translated	grep -i "connection refused" /var/log/app.log	search /connection refused/ "/var/log/app.log" case_sensitive: false
-translated	grep -r TODO /srv/app/src	search /TODO/ "/srv/app/src"
+translated	grep -r deprecated /srv/app/src	search /deprecated/ "/srv/app/src"
 translated	grep -rn "func main" /srv/app	search /func main/ "/srv/app"
 translated	grep -v "^#" /etc/ssh/sshd_config	search /^#/ "/etc/ssh/sshd_config" invert: true
 translated	grep -c ERROR /var/log/app.log	search /ERROR/ "/var/log/app.log" output: counts
-failed	grep -l "oldName" /srv/app/src/*.go	E_UNCORRECTABLE: shell pattern `/srv/app/src/*.go` has no translation; write `find` with `glob` (unsupported_pattern)
+translated	grep -l "oldName" /srv/app/src/*.go	find "/srv/app/src" glob: "*.go" depth: 1 hidden: false |> search /oldName/ output: files
 translated	grep -rl "api_key" /srv/app/config	search /api_key/ "/srv/app/config" output: files
 translated	grep -E "warn|error" /var/log/app.log	search /warn|error/ "/var/log/app.log"
 translated	grep -n "listen" /etc/nginx/nginx.conf	search /listen/ "/etc/nginx/nginx.conf"
@@ -113,29 +113,29 @@ translated	grep -A 3 "Exception" /var/log/app.log	search /Exception/ "/var/log/a
 translated	grep -B 2 "panic" /var/log/app.log	search /panic/ "/var/log/app.log" before: 2
 translated	grep -F "a.b" /srv/app/notes.txt	search "a.b" "/srv/app/notes.txt"
 translated	cat /var/log/syslog | grep sshd	lines "/var/log/syslog" |> search /sshd/
-failed	ps aux | grep nginx	E_UNCORRECTABLE: `grep` after `|` has no translation for the records of the previous command (unsupported_stage)
+translated	ps aux | grep nginx	processes |> filter name ~ /nginx/
 translated	sed -i 's/foo/bar/g' /srv/app/config.yaml	replace /foo/ "bar" in: ["/srv/app/config.yaml"]
 failed	sed 's/http:/https:/' /srv/app/links.txt	E_UNCORRECTABLE: sed without `-i` prints the changed text and changes nothing; with `-i` it changes the file (sed_without_in_place)
 translated	sed -n '1,10p' /srv/app/data.csv	read "/srv/app/data.csv" lines: 1..10
 translated	sed -i '/^#/d' /etc/app/app.conf	lines "/etc/app/app.conf" |> filter text ~ /^#/ |> remove
 translated	sed -i 's/version: 1.4.1/version: 1.4.2/' /srv/app/chart.yaml	replace /version: 1.4.1/ "version: 1.4.2" in: ["/srv/app/chart.yaml"] occurrence: 1
-failed	sed '5d' /srv/app/list.txt	E_UNCORRECTABLE: sed script `5d` has no translation; only `s/A/B/` in place and line addresses with `p` or `d` are translated (unsupported_sed_script)
+translated	sed '5d' /srv/app/list.txt	lines "/srv/app/list.txt" |> filter no != 5
 translated	sed -i 's/\r$//' /srv/app/script.sh	replace /\r$/ "" in: ["/srv/app/script.sh"] occurrence: 1
 failed	sed -i.bak 's/old/new/g' /srv/app/readme.md	E_UNCORRECTABLE: flag `-i.bak` of `sed` has no equivalent; parameters of ``:  (flag_without_equivalent)
 translated	awk '{print $1}' /var/log/nginx/access.log	lines "/var/log/nginx/access.log" |> split /\s+/ names: ["f1"] |> select f1
 translated	awk -F: '{print $1}' /etc/passwd	lines "/etc/passwd" |> split ":" names: ["f1"] |> select f1
 translated	awk -F, '{print $3}' /srv/app/data.csv	lines "/srv/app/data.csv" |> split "," names: ["f1", "f2", "f3"] |> select f3
-failed	awk 'NR==5' /srv/app/list.txt	E_UNCORRECTABLE: awk program `NR==5` has no translation; only `{print $N}` with a pattern or a field comparison is translated (unsupported_awk_program)
+translated	awk 'NR==5' /srv/app/list.txt	read "/srv/app/list.txt" lines: 5..5
 failed	awk '{sum += $1} END {print sum}' /srv/app/numbers.txt	E_UNCORRECTABLE: awk program `{sum += $1} END {print sum}` has no translation; only `{print $N}` with a pattern or a field comparison is translated (unsupported_awk_program)
 translated	awk '/error/ {print}' /var/log/app.log	lines "/var/log/app.log" |> filter text ~ /error/
-failed	echo "hello"	E_UNCORRECTABLE: text printed without a file has no translation; to compute a value use `evaluate` (output_without_file)
+translated	echo "hello"	evaluate "hello"
 translated	echo "done" > /tmp/status.txt	write "/tmp/status.txt" "done\n" mode: overwrite
 translated	echo "line" >> /var/log/custom.log	write "/var/log/custom.log" "line\n" mode: append
-failed	printf "%s\n" "hello"	E_UNCORRECTABLE: text printed without a file has no translation; to compute a value use `evaluate` (output_without_file)
+translated	printf "%s\n" "hello"	evaluate "hello"
 translated	echo -n "abc" > /tmp/abc.txt	write "/tmp/abc.txt" "abc" mode: overwrite
 translated	echo "127.0.0.1 app.local" >> /etc/hosts	write "/etc/hosts" "127.0.0.1 app.local\n" mode: append
 translated	printf "name,age\n" > /srv/app/people.csv	write "/srv/app/people.csv" "name,age\n" mode: overwrite
-failed	echo "build finished"	E_UNCORRECTABLE: text printed without a file has no translation; to compute a value use `evaluate` (output_without_file)
+translated	echo "build finished"	evaluate "build finished"
 translated	cd /srv/app && make	run ["make"] cwd: "/srv/app"
 translated	cd /srv/app && git pull	git.pull "/srv/app"
 translated	cd /srv/app && npm install	run ["npm", "install"] cwd: "/srv/app"
@@ -152,8 +152,8 @@ translated	cp /etc/hosts /tmp/hosts && chmod 644 /tmp/hosts	copy "/etc/hosts" to
 failed	ls /srv/app/out || echo "missing"	E_UNCORRECTABLE: `||` has no translation: a program has no alternative branch; check the condition with `assert` and run the alternative as a separate step (alternative_branch)
 failed	echo $USER	E_UNCORRECTABLE: `$USER` is not substituted; the account is the field `user` of `host` (host_variable)
 failed	ls $HOME	E_UNCORRECTABLE: `$HOME` is not substituted; the home directory is the field `home` of `host` (host_variable)
-failed	FILES=$(find /srv/app -name "*.go")	E_UNCORRECTABLE: shell syntax has no translation: no command (unsupported_syntax)
-failed	NOW=$(date)	E_UNCORRECTABLE: shell syntax has no translation: no command (unsupported_syntax)
+translated	FILES=$(find /srv/app -name "*.go")	let files = find "/srv/app" glob: "**/*.go" type: any
+translated	NOW=$(date)	let now = evaluate now()
 failed	sudo systemctl restart nginx	E_UNCORRECTABLE: `sudo` is not translated; privileges are not raised, and the program runs with the privileges of the console (privilege_elevation)
 failed	sudo rm -rf /var/cache/app	E_UNCORRECTABLE: `sudo` is not translated; privileges are not raised, and the program runs with the privileges of the console (privilege_elevation)
 failed	tar -czf /backup/app.tgz /srv/app &	E_UNCORRECTABLE: only a program run with `run` can run in the background (background_change)
@@ -170,12 +170,12 @@ failed	cat config.yaml	E_PATH_RELATIVE: relative path `config.yaml` without the 
 translated	tar -czf /backup/app.tar.gz /srv/app	find "/srv/app" type: any |> archive.create "/backup/app.tar.gz" format: tar_gz base: "/"
 translated	tar -xzf /tmp/release.tar.gz -C /opt/app	archive.extract "/tmp/release.tar.gz" into: "/opt/app"
 translated	tar -xf /tmp/archive.tar -C /tmp/out	archive.extract "/tmp/archive.tar" into: "/tmp/out"
-failed	tar -tzf /backup/app.tar.gz	E_UNCORRECTABLE: flag `-tzf` of `tar` has no equivalent; parameters of `archive.extract`: path, into, only, strip_components, on_conflict, preserve_permissions, allow_outside (flag_without_equivalent)
+translated	tar -tzf /backup/app.tar.gz	archive.list "/backup/app.tar.gz"
 translated	zip -r /backup/site.zip /srv/site	find "/srv/site" type: any |> archive.create "/backup/site.zip" format: zip base: "/"
 translated	unzip /tmp/file.zip -d /tmp/file	archive.extract "/tmp/file.zip" into: "/tmp/file"
 translated	gzip /var/log/app.log.1	compress "/var/log/app.log.1" keep: false
 translated	gunzip /tmp/data.csv.gz	decompress "/tmp/data.csv.gz" keep: false
-failed	unzip -l /tmp/file.zip	E_UNCORRECTABLE: flag `-l` of `unzip` has no equivalent; parameters of `archive.extract`: path, into, only, strip_components, on_conflict, preserve_permissions, allow_outside (flag_without_equivalent)
+translated	unzip -l /tmp/file.zip	archive.list "/tmp/file.zip"
 translated	ps aux	processes
 translated	ps -ef	processes
 translated	df -h	disks
@@ -190,7 +190,7 @@ translated	env	environment
 translated	printenv PATH	environment "PATH"
 translated	ss -tlnp	ports protocol: tcp
 translated	netstat -tulpn	ports
-failed	lsof -i :8080	E_UNCORRECTABLE: `lsof` with these flags has no translation (no_translation)
+translated	lsof -i :8080	ports state: all |> filter port == 8080 or remote_port == 8080
 translated	lsof /var/log/syslog	open_files "/var/log/syslog"
 translated	kill 1234	processes pid: 1234 |> stop
 translated	kill -9 4321	processes pid: 4321 |> stop signal: kill
@@ -219,7 +219,7 @@ translated	cat /var/log/app.log | sort | uniq -c	lines "/var/log/app.log" |> sor
 translated	git -C /srv/app status	git.status "/srv/app"
 translated	git -C /srv/app diff	git.diff "/srv/app"
 translated	git -C /srv/app log --oneline	git.log "/srv/app"
-failed	git -C /srv/app add -A	E_UNCORRECTABLE: flag `-A` of `git add` has no equivalent; parameters of `git.stage`: repo, action, paths, hunks, staged (flag_without_equivalent)
+translated	git -C /srv/app add -A	git.stage "/srv/app" action: add
 translated	git -C /srv/app commit -m "fix build"	git.commit "/srv/app" message: "fix build"
 failed	git -C /srv/app push	E_UNCORRECTABLE: `git push` with these flags has no translation (no_translation)
 translated	git -C /srv/app pull	git.pull "/srv/app"
@@ -245,7 +245,7 @@ translated	date	evaluate now()
 translated	sleep 5	sleep 5s
 failed	date +%Y-%m-%d	E_UNCORRECTABLE: too many operands of `date` for one translation (too_many_operands)
 translated	find /srv/app -name "*.tmp" | xargs rm	find "/srv/app" glob: "**/*.tmp" type: any |> remove on_missing: error
-failed	echo "x" | tee /tmp/x.txt	E_UNCORRECTABLE: text printed without a file has no translation; to compute a value use `evaluate` (output_without_file)
+translated	echo "x" | tee /tmp/x.txt	write "/tmp/x.txt" "x\n" mode: overwrite
 failed	nohup /srv/app/bin/server &	E_UNCORRECTABLE: the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)
-failed	timeout 10 curl https://example.com	E_UNCORRECTABLE: environment, time limit and output options apply only to a program run with `run` (options_without_program)
+translated	timeout 10 curl https://example.com	http.request "https://example.com" follow_redirects: false timeout: 10s
 failed	for f in /srv/app/*.log; do gzip "$f"; done	E_UNCORRECTABLE: loops have no equivalent; a pattern or a pipeline over records replaces a loop

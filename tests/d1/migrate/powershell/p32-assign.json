@@ -4,9 +4,9 @@
   "script": "p32-assign.ps1",
   "summary": {
     "statements": 3,
-    "translated": 1,
+    "translated": 3,
     "assumption": 0,
-    "impossible": 2,
+    "impossible": 0,
     "error": 0
   },
   "items": [
@@ -28,26 +28,27 @@
       "line": 3,
       "column": 1,
       "source": "$big = $logs | Where-Object { $_.Length -gt 10MB }",
-      "status": "impossible",
-      "rules": [],
+      "status": "translated",
+      "rules": [
+        "P32",
+        "P15"
+      ],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "rule",
-      "problem": "the properties of the input objects are not known; write the Nurt fields (unknown_record)",
-      "fix": []
+      "fix": [],
+      "output": "let big = @logs |> filter size > 10mib"
     },
     {
       "line": 4,
       "column": 1,
       "source": "$big | Remove-Item",
-      "status": "impossible",
-      "rules": [],
+      "status": "translated",
+      "rules": [
+        "P32",
+        "P08"
+      ],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "rule",
-      "problem": "`$big` is not a result named with let in this program (unknown_variable)",
-      "fix": []
+      "fix": [],
+      "output": "@big |> remove"
     }
-  ],
-  "fallback": "run [\"pwsh\", \"p32-assign.ps1\"]"
+  ]
 }
