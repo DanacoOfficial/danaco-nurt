@@ -146,8 +146,8 @@ pub fn parse_tolerant(
 fn parse_variant(parser: &mut Parser<'_>) -> Result<Program, SyntaxError> {
     match parser.variant {
         Variant::A => a::parse_program(parser),
+        Variant::B => b::parse_program(parser),
         Variant::C => c::parse_program(parser),
-        Variant::B => Err(error::variant_unavailable(parser.variant)),
     }
 }
 
@@ -189,6 +189,7 @@ pub(crate) trait StageSyntax {
 pub(crate) struct ParserCheckpoint {
     lexer: Checkpoint,
     current: Token,
+    previous: Option<Token>,
     brackets: usize,
     trace: usize,
 }
@@ -199,6 +200,7 @@ pub(crate) struct Parser<'a> {
     lexer: Lexer<'a>,
     variant: Variant,
     current: Token,
+    previous: Option<Token>,
     max_depth: usize,
     nesting: usize,
     statement: usize,
@@ -227,6 +229,7 @@ impl<'a> Parser<'a> {
             lexer,
             variant,
             current,
+            previous: None,
             max_depth: options.max_depth,
             nesting: 0,
             statement: 0,
@@ -280,6 +283,7 @@ impl<'a> Parser<'a> {
         if let Some(trace) = &mut self.trace {
             trace.push(consumed.clone());
         }
+        self.previous = Some(consumed.clone());
         Ok(consumed)
     }
 
@@ -308,6 +312,7 @@ impl<'a> Parser<'a> {
         ParserCheckpoint {
             lexer: self.lexer.checkpoint(),
             current: self.current.clone(),
+            previous: self.previous.clone(),
             brackets: self.brackets.len(),
             trace: self.trace.as_ref().map_or(0, Vec::len),
         }
@@ -317,6 +322,7 @@ impl<'a> Parser<'a> {
     pub(crate) fn rewind(&mut self, checkpoint: ParserCheckpoint) {
         self.lexer.rewind(checkpoint.lexer);
         self.current = checkpoint.current;
+        self.previous = checkpoint.previous;
         self.brackets.truncate(checkpoint.brackets);
         if let Some(trace) = &mut self.trace {
             trace.truncate(checkpoint.trace);

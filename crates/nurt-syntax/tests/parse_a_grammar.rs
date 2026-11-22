@@ -3,6 +3,12 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Productions of the variant A grammar: statements, stages, arguments,
 //! expressions, sub-pipelines, spans, nesting and metadata.
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "tests report failures by panicking"
+)]
 
 mod parse_a_support;
 

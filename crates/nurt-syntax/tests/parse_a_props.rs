@@ -3,6 +3,12 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Properties of the variant A parser on arbitrary text and on text built
 //! from language fragments.
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "tests report failures by panicking"
+)]
 
 mod parse_a_support;
 

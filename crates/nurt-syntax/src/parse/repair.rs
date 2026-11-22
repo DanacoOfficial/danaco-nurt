@@ -277,12 +277,19 @@ impl Search<'_, '_> {
         }
     }
 
+    /// Parses `text` strictly; on failure parses it again with the tolerant
+    /// lexer to describe the failure. A text accepted only by the tolerant
+    /// lexer yields no tree and no failure, so every tree returned parses
+    /// strictly from its source.
     fn attempt(&self, text: &str) -> Attempt {
+        if let Ok(document) = super::parse(text, self.variant, self.options) {
+            return Attempt::Parsed(document);
+        }
         let Ok(mut parser) = Parser::new(text, self.variant, self.options, true) else {
             return Attempt::Unrepairable;
         };
         match super::parse_variant(&mut parser) {
-            Ok(program) => Attempt::Parsed(parser.document(program, self.options)),
+            Ok(_) => Attempt::Unrepairable,
             Err(error) => {
                 let token = parser.current().clone();
                 let trace = parser.into_trace();

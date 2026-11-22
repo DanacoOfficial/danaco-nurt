@@ -17,7 +17,7 @@ use std::ops::Range;
 
 use nurt_contracts::ast::{BinOp, Expr, Head, MapEntry, Pipeline, Ref, Span, Stage, UnOp};
 
-use super::{MAX_COMMAND_NAME_LEN, Node, Parsed, Parser, StageSyntax, error, join};
+use super::{MAX_COMMAND_NAME_LEN, Node, Parsed, Parser, StageSyntax, Variant, error, join};
 use crate::error::SyntaxError;
 use crate::lex::{self, Glued, LexContext, Token, TokenKind};
 
@@ -205,7 +205,7 @@ impl<'s> ExprParser<'s> {
             TokenKind::Let | TokenKind::And | TokenKind::Or | TokenKind::Not | TokenKind::In => {
                 Err(error::keyword_as_value(p))
             }
-            _ => Err(p.unexpected(&["value"])),
+            _ => Err(error::missing_operand(p)),
         }
     }
 
@@ -291,6 +291,7 @@ impl<'s> ExprParser<'s> {
             entries.push(MapEntry {
                 k: key,
                 v: value.value,
+                span: Some(join(key_token.span, value.span)),
             });
             if p.at(&TokenKind::Comma) {
                 p.bump(LexContext::Value)?;
@@ -359,17 +360,33 @@ enum Inner {
 
 /// Turns the expression before `|>` inside parentheses into the head of a
 /// pipeline: an identifier or a chain of field accesses is a command, a
-/// reference is a reference.
+/// reference is a reference. A stage of variant B always has parentheses,
+/// so there a bare command name before `|>` is an error.
 fn into_head(p: &Parser<'_>, expression: Node) -> Result<Parsed<Head>, SyntaxError> {
     let head = match expression.value {
         Expr::Ref(reference) => Head::Ref(reference),
         other => match command_name(&other) {
-            Some(name) if name.chars().count() <= MAX_COMMAND_NAME_LEN => Head::Stage(Stage {
+            Some(name) if name.chars().count() > MAX_COMMAND_NAME_LEN => {
+                return Err(error::bad_pipeline_head(
+                    p,
+                    expression.span,
+                    &expression.range,
+                ));
+            }
+            Some(name) if p.variant == Variant::B => {
+                return Err(error::stage_without_parentheses(
+                    p,
+                    &name,
+                    expression.span,
+                    &expression.range,
+                ));
+            }
+            Some(name) => Head::Stage(Stage {
                 name,
                 args: Vec::new(),
                 span: Some(expression.span),
             }),
-            _ => {
+            None => {
                 return Err(error::bad_pipeline_head(
                     p,
                     expression.span,
@@ -435,44 +452,79 @@ fn node(
     }))
 }
 
-fn binary(p: &Parser<'_>, op: BinOp, left: Boxed, right: Boxed) -> Result<Boxed, SyntaxError> {
+/// Takes the expression out of a boxed node, leaving `null` in its place.
+fn take_value(node: &mut Boxed) -> Expr {
+    std::mem::replace(&mut node.value, Expr::Null { span: None })
+}
+
+/// Stores a node in the allocation of `slot` after checking its height, so
+/// that wrapping an operand does not allocate a new node.
+fn rebuild(
+    p: &Parser<'_>,
+    mut slot: Boxed,
+    value: Expr,
+    span: Span,
+    range: Range<usize>,
+    height: usize,
+) -> Result<Boxed, SyntaxError> {
+    p.check_height(height, span)?;
+    *slot = Parsed {
+        value,
+        span,
+        range,
+        height,
+    };
+    Ok(slot)
+}
+
+fn binary(
+    p: &Parser<'_>,
+    op: BinOp,
+    mut left: Boxed,
+    mut right: Boxed,
+) -> Result<Boxed, SyntaxError> {
     let span = join(left.span, right.span);
     let range = left.range.start..right.range.end;
     let height = left.height.max(right.height) + 1;
     let value = Expr::Bin {
         op,
-        l: Box::new(left.value),
-        r: Box::new(right.value),
+        l: Box::new(take_value(&mut left)),
+        r: Box::new(take_value(&mut right)),
         span: Some(span),
     };
-    node(p, value, span, range, height)
+    rebuild(p, left, value, span, range, height)
 }
 
-fn unary(p: &Parser<'_>, op: UnOp, operator: &Token, operand: Boxed) -> Result<Boxed, SyntaxError> {
+fn unary(
+    p: &Parser<'_>,
+    op: UnOp,
+    operator: &Token,
+    mut operand: Boxed,
+) -> Result<Boxed, SyntaxError> {
     let span = join(operator.span, operand.span);
     let range = operator.range.start..operand.range.end;
     let height = operand.height + 1;
     let value = Expr::Un {
         op,
-        x: Box::new(operand.value),
+        x: Box::new(take_value(&mut operand)),
         span: Some(span),
     };
-    node(p, value, span, range, height)
+    rebuild(p, operand, value, span, range, height)
 }
 
-fn spread_node(p: &Parser<'_>, operator: &Token, operand: Boxed) -> Result<Boxed, SyntaxError> {
+fn spread_node(p: &Parser<'_>, operator: &Token, mut operand: Boxed) -> Result<Boxed, SyntaxError> {
     let span = join(operator.span, operand.span);
     let range = operator.range.start..operand.range.end;
     let height = operand.height + 1;
     let value = Expr::Spread {
-        x: Box::new(operand.value),
+        x: Box::new(take_value(&mut operand)),
         span: Some(span),
     };
-    node(p, value, span, range, height)
+    rebuild(p, operand, value, span, range, height)
 }
 
 /// Reads `.name` after an operand and wraps the operand in a field access.
-fn field_access(p: &mut Parser<'_>, record: Boxed) -> Result<Boxed, SyntaxError> {
+fn field_access(p: &mut Parser<'_>, mut record: Boxed) -> Result<Boxed, SyntaxError> {
     p.bump(LexContext::Value)?;
     if p.kind() != &TokenKind::Ident || p.current().space_before {
         return Err(p.unexpected(&["field name after `.`"]));
@@ -486,10 +538,10 @@ fn field_access(p: &mut Parser<'_>, record: Boxed) -> Result<Boxed, SyntaxError>
     let height = record.height + 1;
     let value = Expr::Field {
         name: p.slice(&name).to_owned(),
-        of: Some(Box::new(record.value)),
+        of: Some(Box::new(take_value(&mut record))),
         span: Some(span),
     };
-    node(p, value, span, range, height)
+    rebuild(p, record, value, span, range, height)
 }
 
 fn call_node(

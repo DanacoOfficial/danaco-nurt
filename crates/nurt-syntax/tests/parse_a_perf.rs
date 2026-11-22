@@ -3,6 +3,12 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Timing of the variant A parser on the golden programs. Run in release
 //! mode with `--ignored`.
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "tests report failures by panicking"
+)]
 
 mod parse_a_support;
 

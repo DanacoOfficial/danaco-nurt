@@ -4,6 +4,12 @@
 //! Programs that the correction produces for typical mistakes: the executed
 //! forms, the ranked candidates and the ready corrections all parse
 //! strictly.
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "tests report failures by panicking"
+)]
 
 mod parse_a_support;
 
