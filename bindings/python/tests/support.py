@@ -1,14 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
-"""Mock artifacts and shared helpers of the tests.
+"""Mock artifacts, locators of the real artifacts and shared helpers of the tests.
 
-``NURT_TEST_EXECUTABLE`` and ``NURT_TEST_LIBRARY`` replace the mocks with
-other implementations, for example the stub build of ``libnurt`` or the
-conformance server. Tests that need the controls of the mock library are
-skipped for other libraries. ``NURT_TEST_CONFORMANCE_SERVER`` names the
-``nurt-conformance`` executable used by the binding cases; by default it is
-looked up in the Cargo target directory.
+The generic tests run against the mock server and the mock library, which
+offer the controls that failure injection needs. ``NURT_TEST_EXECUTABLE``
+names a ``nurt`` executable and ``NURT_TEST_LIBRARY`` a build of ``libnurt``
+with the cargo feature ``stub``; both are used by ``test_implementation``
+and default to the Cargo target directory. ``NURT_TEST_CONFORMANCE_SERVER``
+names the ``nurt-conformance`` executable used by the binding cases.
 """
 
 from __future__ import annotations
@@ -43,6 +43,13 @@ SUITE_TIMEOUT = 600
 faulthandler.dump_traceback_later(SUITE_TIMEOUT, exit=True)
 
 CONFORMANCE_SERVER = "nurt-conformance.exe" if os.name == "nt" else "nurt-conformance"
+IMPLEMENTATION_EXECUTABLE = "nurt.exe" if os.name == "nt" else "nurt"
+if sys.platform == "darwin":
+    IMPLEMENTATION_LIBRARY = "libnurt_ffi.dylib"
+elif os.name == "nt":
+    IMPLEMENTATION_LIBRARY = "nurt_ffi.dll"
+else:
+    IMPLEMENTATION_LIBRARY = "libnurt_ffi.so"
 
 _scratch: Optional[Path] = None
 _executable: Optional[str] = None
@@ -77,7 +84,7 @@ def mock_executable() -> str:
     """Path of the server used by the process backend tests."""
     global _executable
     if _executable is None:
-        _executable = os.environ.get("NURT_TEST_EXECUTABLE") or write_launcher(scratch() / "server")
+        _executable = write_launcher(scratch() / "server")
     return _executable
 
 
@@ -126,40 +133,42 @@ def mock_library() -> str:
     """Path of the library used by the library backend tests; skips when unavailable."""
     global _library, _library_problem
     if _library is None and _library_problem is None:
-        explicit = os.environ.get("NURT_TEST_LIBRARY")
-        if explicit:
-            _library = explicit
-        else:
-            try:
-                _library = build_mock_library(scratch() / "library")
-            except unittest.SkipTest as skip:
-                _library_problem = str(skip)
+        try:
+            _library = build_mock_library(scratch() / "library")
+        except unittest.SkipTest as skip:
+            _library_problem = str(skip)
     if _library is None:
         raise unittest.SkipTest(_library_problem or "no library")
     return _library
 
 
-def implementation_library() -> str:
-    """Path of a ``libnurt`` build named by ``NURT_TEST_LIBRARY``; skips without one."""
-    explicit = os.environ.get("NURT_TEST_LIBRARY")
-    if not explicit:
-        raise unittest.SkipTest("NURT_TEST_LIBRARY does not name a build of libnurt")
-    return explicit
-
-
-def conformance_server() -> str:
-    """Path of the ``nurt-conformance`` executable; skips when it is not built."""
-    explicit = os.environ.get("NURT_TEST_CONFORMANCE_SERVER")
+def _built_artifact(variable: str, name: str, what: str) -> str:
+    explicit = os.environ.get(variable)
     if explicit:
         candidates = [Path(explicit)]
     else:
         targets = [Path(os.environ["CARGO_TARGET_DIR"])] if os.environ.get("CARGO_TARGET_DIR") else []
         targets.append(REPOSITORY_DIR / "target")
-        candidates = [target / "debug" / CONFORMANCE_SERVER for target in targets]
+        candidates = [target / "debug" / name for target in targets]
     for candidate in candidates:
         if candidate.is_file():
             return str(candidate)
-    raise unittest.SkipTest("nurt-conformance is not built; run cargo build -p nurt-conformance")
+    raise unittest.SkipTest(f"{what} is not built; set {variable} or build it with cargo")
+
+
+def implementation_library() -> str:
+    """Path of the stub build of ``libnurt``; skips when it is not built."""
+    return _built_artifact("NURT_TEST_LIBRARY", IMPLEMENTATION_LIBRARY, "libnurt with the feature stub")
+
+
+def implementation_executable() -> str:
+    """Path of the ``nurt`` executable that serves the protocol; skips when it is not built."""
+    return _built_artifact("NURT_TEST_EXECUTABLE", IMPLEMENTATION_EXECUTABLE, "the nurt executable")
+
+
+def conformance_server() -> str:
+    """Path of the ``nurt-conformance`` executable; skips when it is not built."""
+    return _built_artifact("NURT_TEST_CONFORMANCE_SERVER", CONFORMANCE_SERVER, "nurt-conformance")
 
 
 class MockControls:
