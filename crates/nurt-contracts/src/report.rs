@@ -268,7 +268,8 @@ impl FromStr for Severity {
 /// assert_eq!(Notable::MassDelete.as_str(), "mass_delete");
 /// assert_eq!(Notable::MassDelete.default_severity(), Severity::Warning);
 /// assert!(Notable::MassDelete.computed_by_report());
-/// assert!(!Notable::NothingMatched.computed_by_report());
+/// assert!(Notable::NothingMatched.computed_by_report());
+/// assert!(!Notable::Unchanged.computed_by_report());
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -294,7 +295,7 @@ pub enum Notable {
     ManyPerFile,
     /// The number of targets reached the configured threshold.
     TargetCountHigh,
-    /// A changing stage received no targets.
+    /// A changing program received no targets.
     NothingMatched,
     /// A write produced content identical to the existing content.
     Unchanged,
@@ -799,10 +800,11 @@ impl Notable {
     }
 
     /// Whether the code is derived by the report builder from the list of
-    /// changes and the configured thresholds.
+    /// changes, the number of targets and the configured thresholds.
     ///
     /// All other codes are emitted by the command that observed the
-    /// condition.
+    /// condition. An entry of a derived code emitted by a command is merged
+    /// with the derived entry.
     #[must_use]
     pub const fn computed_by_report(self) -> bool {
         matches!(
@@ -817,6 +819,7 @@ impl Notable {
                 | Self::SizeShrunk
                 | Self::ManyPerFile
                 | Self::TargetCountHigh
+                | Self::NothingMatched
         )
     }
 }

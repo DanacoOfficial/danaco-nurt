@@ -146,7 +146,7 @@
         "id": { "type": "string", "description": "Stable identifier, path#number[:fingerprint][@lines]." },
         "header": { "type": "string" },
         "old_path": { "type": "string" },
-        "status": { "enum": ["modified", "added", "deleted", "renamed", "binary"] },
+        "status": { "enum": ["modified", "added", "deleted", "renamed", "binary", "copied"] },
         "binary": { "type": "boolean" },
         "old_mode": { "type": "string" },
         "new_mode": { "type": "string" },

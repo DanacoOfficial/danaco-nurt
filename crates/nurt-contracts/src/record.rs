@@ -833,6 +833,8 @@ text_enum! {
         Renamed = "renamed",
         /// Binary file changed.
         Binary = "binary",
+        /// File copied from another file.
+        Copied = "copied",
     }
 }
 

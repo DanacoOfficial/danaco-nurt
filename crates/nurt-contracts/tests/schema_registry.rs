@@ -4,7 +4,8 @@
 //! Tests that `nurt_contracts::schema` publishes every file of `spec/schemas/`
 //! under its naming convention, that every schema compiles with the other
 //! published schemas as resources, and that the schemas of catalog query
-//! results and file tree snapshots accept and reject the expected documents.
+//! results, file tree snapshots, responses, check results, protocol messages
+//! and events accept and reject the expected documents.
 
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -212,4 +213,185 @@ fn fs_snapshot_rejects_invalid_entries() {
         assert!(!validator.is_valid(&document), "accepted {document}");
     }
     assert!(!validator.is_valid(&json!({ "format": "nurt-fs-snapshot/1" })));
+}
+
+#[test]
+fn response_schema_equals_the_response_definition_of_the_request_schema() {
+    let request = parse(schema::REQUEST);
+    let mut response = parse(schema::RESPONSE);
+    let object = response.as_object_mut().unwrap();
+    object.remove("$schema");
+    object.remove("$id");
+    let definitions = object.remove("$defs").unwrap();
+    assert_eq!(
+        definitions,
+        json!({ "rendered": request["$defs"]["rendered"] }),
+        "definitions of nurt-response/1"
+    );
+    assert_eq!(response, request["$defs"]["response"]);
+}
+
+#[test]
+fn golden_responses_match_the_response_schema() {
+    let validator = validator("response");
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/request/response");
+    let mut checked = 0;
+    for entry in fs::read_dir(&dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path
+            .extension()
+            .is_some_and(|extension| extension == "json")
+        {
+            let document = parse(&fs::read_to_string(&path).unwrap());
+            assert!(validator.is_valid(&document), "{}", path.display());
+            checked += 1;
+        }
+    }
+    assert!(checked > 0, "no golden responses in {}", dir.display());
+    assert!(!validator.is_valid(&json!({ "nurt": "1.0" })));
+    assert!(!validator.is_valid(&json!({
+        "nurt": "1.0",
+        "report": { "nurt": "1.0", "status": "ok", "kind": "read" },
+        "rendered": { "format": "json", "text": "" }
+    })));
+}
+
+fn check_summary() -> Value {
+    json!({
+        "format": "nurt-check/1",
+        "effect": "read",
+        "reversibility": "read",
+        "operations": 1,
+        "waits": false,
+        "paths": ["/srv/app"],
+        "network": [],
+        "programs": [],
+        "groups": ["core"],
+        "corrections": [],
+        "details": []
+    })
+}
+
+#[test]
+fn check_schema_accepts_a_summary_and_rejects_invalid_ones() {
+    let validator = validator("check");
+    let summary = check_summary();
+    assert!(validator.is_valid(&summary), "rejected {summary}");
+    let mut without_effect = check_summary();
+    without_effect.as_object_mut().unwrap().remove("effect");
+    let mut unknown_effect = check_summary();
+    unknown_effect["effect"] = json!("write");
+    let mut negative_operations = check_summary();
+    negative_operations["operations"] = json!(-1);
+    for document in [without_effect, unknown_effect, negative_operations] {
+        assert!(!validator.is_valid(&document), "accepted {document}");
+    }
+}
+
+/// Delivered events in their JSON form, one of every event type.
+fn delivered_events() -> Vec<Value> {
+    let common = json!({ "seq": 1, "time": "2026-01-01T00:00:00Z", "request": "r1" });
+    let bodies = [
+        json!({ "t": "exec.started", "ast_hash": null, "effect": "read" }),
+        json!({ "t": "exec.finished", "status": "ok", "error": null }),
+        json!({ "t": "progress", "command": "find", "phase": "scan", "done": 10, "total": null, "bytes": null, "message": null }),
+        json!({ "t": "job.started", "id": "j1", "label": null, "command": ["make"], "cwd": "/srv/app", "pid": 42, "started": "2026-01-01T00:00:00Z" }),
+        json!({ "t": "job.output", "id": "j1", "stream": "stdout", "cursor": "c1", "lines": ["ok"], "bytes": 3 }),
+        json!({ "t": "job.progress", "id": "j1", "percent": 50.0, "line": null }),
+        json!({ "t": "job.finished", "id": "j1", "state": "exited", "exit_code": 0, "signal": null, "elapsed": 1500, "output_file": null, "changes": 0 }),
+        json!({ "t": "log", "level": "warn", "message": "slow volume", "source": null }),
+    ];
+    bodies
+        .into_iter()
+        .map(|body| {
+            let mut event = common.clone();
+            event
+                .as_object_mut()
+                .unwrap()
+                .extend(body.as_object().unwrap().clone());
+            event
+        })
+        .collect()
+}
+
+#[test]
+fn event_schema_accepts_every_event_of_the_contract() {
+    let validator = validator("event");
+    for event in delivered_events() {
+        let typed: nurt_contracts::stage::DeliveredEvent = serde_json::from_value(event.clone())
+            .unwrap_or_else(|error| panic!("{event}: {error}"));
+        let serialized = serde_json::to_value(&typed).unwrap();
+        assert!(validator.is_valid(&serialized), "rejected {serialized}");
+    }
+}
+
+#[test]
+fn event_schema_rejects_invalid_events() {
+    let validator = validator("event");
+    let mut without_seq = delivered_events().remove(0);
+    without_seq.as_object_mut().unwrap().remove("seq");
+    let mut unknown_type = delivered_events().remove(0);
+    unknown_type["t"] = json!("exec.paused");
+    let mut finished_without_status = delivered_events().remove(1);
+    finished_without_status
+        .as_object_mut()
+        .unwrap()
+        .remove("status");
+    for document in [without_seq, unknown_type, finished_without_status] {
+        assert!(!validator.is_valid(&document), "accepted {document}");
+    }
+}
+
+#[test]
+fn rpc_schema_accepts_requests_replies_and_events() {
+    let validator = validator("rpc");
+    let mut notification = json!({ "jsonrpc": "2.0", "method": "nurt/event" });
+    notification["params"] = delivered_events().remove(0);
+    let documents = [
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": { "protocol": "nurt-rpc/1", "capabilities": { "events": true } }
+        }),
+        json!({ "jsonrpc": "2.0", "id": 2, "method": "run", "params": { "nurt": "1.0", "program": "list \"/srv\"" } }),
+        json!({ "jsonrpc": "2.0", "id": "3", "method": "cancel", "params": { "request_id": 2 } }),
+        json!({ "jsonrpc": "2.0", "id": 4, "method": "schema", "params": { "name": "fs-snapshot" } }),
+        json!({ "jsonrpc": "2.0", "id": 2, "result": { "nurt": "1.0", "report": { "nurt": "1.0", "status": "ok", "kind": "list" } } }),
+        json!({ "jsonrpc": "2.0", "id": 5, "error": { "code": -32601, "message": "unknown method" } }),
+        notification,
+    ];
+    for document in &documents {
+        assert!(validator.is_valid(document), "rejected {document}");
+    }
+}
+
+#[test]
+fn rpc_schema_rejects_invalid_messages() {
+    let validator = validator("rpc");
+    let documents = [
+        json!({ "jsonrpc": "1.0", "id": 1, "method": "run", "params": { "nurt": "1.0", "program": "list" } }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "evaluate" }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "run" }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "cancel", "params": { "request_id": 1, "job_id": "j1" } }),
+        json!({ "jsonrpc": "2.0", "id": 1, "result": {}, "error": { "code": -32603, "message": "internal" } }),
+        json!({ "jsonrpc": "2.0", "id": 1, "error": { "code": -31000, "message": "out of range" } }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "schema", "params": { "name": "unknown" } }),
+    ];
+    for document in &documents {
+        assert!(!validator.is_valid(document), "accepted {document}");
+    }
+}
+
+#[test]
+fn rpc_schema_names_every_published_schema() {
+    let rpc = parse(schema::RPC);
+    let named: BTreeSet<&str> = rpc["$defs"]["schema_params"]["properties"]["name"]["enum"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|name| name.as_str().unwrap())
+        .collect();
+    let published: BTreeSet<&str> = schema::ALL.iter().map(|(name, _)| *name).collect();
+    assert_eq!(named, published);
 }

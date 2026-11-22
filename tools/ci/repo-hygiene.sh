@@ -428,14 +428,16 @@ check_boilerplate() {
 }
 
 readonly TOOL_MENTION_UPPER='A[I]|L[L]Ms?'
-readonly TOOL_MENTION_TERMS='artificial [i]ntelligence|language m[o]dels?|a[s]sistants?|a[g]ents?|chatb[o]ts?|system p[r]ompts?|prompt e[n]gineering'
+# The bare word agent is a technical term (SSH and gpg agents, HTTP client
+# agents, the agent capability of the git protocol); only phrases about
+# authorship by an agent are references.
+readonly TOOL_MENTION_TERMS='artificial [i]ntelligence|language m[o]dels?|a[s]sistants?|chatb[o]ts?|system p[r]ompts?|prompt e[n]gineering|danaco a[g]ents?|(coding|autonomous|software) a[g]ents?|a[g]ents? (wrote|writes|generated|created|authored|produced)|(written|generated|created|authored|produced) (by|with) (an? |the )?a[g]ents?|as an a[g]ent'
 
 # Permitted phrases of the tool-mention check, compared without regard to case:
 # the product description, which names the users of the product in the
 # repository description and in the first paragraph of README.md, the product
-# terms in descriptions of functions, names of standards and the technical
-# terms of other systems (SSH, gpg, launchd, the HTTP header).
-readonly TOOL_MENTION_ALLOWED='for people and A[I] a[g]ents|\bA[I] (coding )?a[g]ents?\b|model c[o]ntext protocol|(ssh|gpg)[- ]a[g]ents?|a[g]ent (authentication|forwarding)|launchd a[g]ents?|launch a[g]ents?|user-a[g]ent'
+# terms in descriptions of functions and names of standards.
+readonly TOOL_MENTION_ALLOWED='for people and A[I] a[g]ents|\bA[I] (coding )?a[g]ents?\b|model c[o]ntext protocol'
 
 # Removes the permitted phrases from every hit and keeps the hits that still
 # contain a reference, so that a permitted phrase does not hide another
