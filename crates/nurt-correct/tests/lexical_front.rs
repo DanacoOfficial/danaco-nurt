@@ -12,11 +12,16 @@
 mod lexical_support;
 
 use std::collections::BTreeMap;
+use std::sync::LazyLock;
+use std::sync::mpsc::{self, RecvTimeoutError};
+use std::thread;
+use std::time::Duration;
 
 use lexical_support::{Case, Catalog, correction, load_cases, syntax};
 use nurt_contracts::ast::{AstDocument, Expr, Head, Pipeline, Stage, Statement};
 use nurt_contracts::kinds::SyntaxVariant;
 use nurt_contracts::report::CorrectionClass;
+use nurt_correct::lexical::front::MAX_ALTERNATIVES;
 use nurt_correct::lexical::{CatalogView, Front, Rule, front};
 use nurt_correct::policy::SELECTING_STAGES;
 use nurt_correct::tables::{Tables, load_embedded};
@@ -45,6 +50,11 @@ const MUTATIONS: usize = 100_000;
 
 /// Number of mutated inputs of the mutation run of every test run.
 const QUICK_MUTATIONS: usize = 3_000;
+
+/// Time limit of reading one input in the mutation run and the property on
+/// any text; a debug build reads a typical input in well under a
+/// millisecond.
+const INPUT_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Every how many mutated inputs the result is read again.
 const IDEMPOTENCE_STRIDE: usize = 10;
@@ -278,7 +288,44 @@ fn a_hundred_thousand_mutated_inputs_never_panic_and_stay_stable() {
     run_mutations(MUTATIONS);
 }
 
+/// Messages of the worker thread of a mutation run.
+enum Progress {
+    /// The worker starts to read this input in this variant.
+    Reading(String, SyntaxVariant),
+    /// The worker has finished with these failures.
+    Done(Vec<String>),
+}
+
+/// Runs the mutation test on a worker thread that announces every input
+/// before reading it; an input read longer than [`INPUT_TIMEOUT`] fails the
+/// test with the input and the variant.
 fn run_mutations(count: usize) {
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let failures = mutation_failures(count, &sender);
+        let _ = sender.send(Progress::Done(failures));
+    });
+    let mut current = None;
+    loop {
+        match receiver.recv_timeout(INPUT_TIMEOUT) {
+            Ok(Progress::Reading(input, variant)) => current = Some((input, variant)),
+            Ok(Progress::Done(failures)) => {
+                assert!(
+                    failures.is_empty(),
+                    "{:#?}",
+                    &failures[..failures.len().min(20)]
+                );
+                return;
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                panic!("input read longer than {INPUT_TIMEOUT:?}: {current:?}")
+            }
+            Err(RecvTimeoutError::Disconnected) => panic!("worker panicked after {current:?}"),
+        }
+    }
+}
+
+fn mutation_failures(count: usize, progress: &mpsc::Sender<Progress>) -> Vec<String> {
     let setup = Setup::new();
     let seeds: Vec<String> = load_cases()
         .iter()
@@ -287,10 +334,14 @@ fn run_mutations(count: usize) {
     let variants = [SyntaxVariant::A, SyntaxVariant::B, SyntaxVariant::C];
     let mut state = 0x5eed_u64;
     let mut failures = Vec::new();
+    let announce = |input: &str, variant: SyntaxVariant| {
+        let _ = progress.send(Progress::Reading(input.to_owned(), variant));
+    };
     for round in 0..count {
         let seed = &seeds[round % seeds.len()];
         let mutated = mutate(seed, &mut state);
         let variant = variants[round % variants.len()];
+        announce(&mutated, variant);
         let Ok(result) = setup.run(&mutated, variant) else {
             continue;
         };
@@ -309,17 +360,61 @@ fn run_mutations(count: usize) {
         if round % IDEMPOTENCE_STRIDE == 0
             && let Ok(printed) = try_print(&result.document, variant)
         {
+            announce(&printed, variant);
             let again = setup.run(&printed, variant);
             if !again.is_ok_and(|again| again.corrections.is_empty()) {
                 failures.push(format!("not idempotent: {mutated:?}"));
             }
         }
     }
-    assert!(
-        failures.is_empty(),
-        "{:#?}",
-        &failures[..failures.len().min(20)]
-    );
+    failures
+}
+
+/// Tables and catalog shared by the threads of the property on any text.
+static SHARED: LazyLock<(Tables, Catalog)> =
+    LazyLock::new(|| (load_embedded().expect("embedded tables"), Catalog::load()));
+
+/// Number of alternatives of `front` on `text`, `None` for an error; reads
+/// on a worker thread and fails the test with the input when the reading
+/// takes longer than [`INPUT_TIMEOUT`] or panics.
+fn alternatives_in_time(text: &str) -> Option<usize> {
+    let (sender, receiver) = mpsc::channel();
+    let input = text.to_owned();
+    thread::spawn(move || {
+        let (tables, catalog) = &*SHARED;
+        let result = front(
+            &input,
+            &syntax(SyntaxVariant::A),
+            &correction(),
+            tables,
+            catalog,
+        );
+        let _ = sender.send(result.ok().map(|result| result.alternatives.len()));
+    });
+    match receiver.recv_timeout(INPUT_TIMEOUT) {
+        Ok(alternatives) => alternatives,
+        Err(RecvTimeoutError::Timeout) => {
+            panic!("input read longer than {INPUT_TIMEOUT:?}: {text:?}")
+        }
+        Err(RecvTimeoutError::Disconnected) => panic!("front panicked on {text:?}"),
+    }
+}
+
+proptest! {
+    // A failing case already names its input; shrinking would start more
+    // readings that do not end.
+    #![proptest_config(ProptestConfig {
+        cases: PROPERTY_CASES,
+        max_shrink_iters: 0,
+        ..ProptestConfig::default()
+    })]
+
+    #[test]
+    fn front_accepts_any_text_without_panic(text in "\\PC{0,48}") {
+        if let Some(alternatives) = alternatives_in_time(&text) {
+            prop_assert!(alternatives <= MAX_ALTERNATIVES);
+        }
+    }
 }
 
 proptest! {
@@ -331,28 +426,15 @@ proptest! {
     })]
 
     #[test]
-    fn front_accepts_any_text_without_panic(text in "\\PC{0,48}") {
-        let setup = SETUP.with(|setup| setup.clone());
-        if let Ok(result) = front(&text, &syntax(SyntaxVariant::A), &correction(), &setup.0, &setup.1) {
-            prop_assert!(result.alternatives.len() <= nurt_correct::lexical::front::MAX_ALTERNATIVES);
-        }
-    }
-
-    #[test]
     fn valid_programs_get_no_correction_and_the_strict_tree(program in valid_program()) {
-        let setup = SETUP.with(|setup| setup.clone());
+        let (tables, catalog) = &*SHARED;
         let strict = parse(&program, SyntaxVariant::A, &ParseOptions::default());
         prop_assume!(strict.is_ok());
-        let result = front(&program, &syntax(SyntaxVariant::A), &correction(), &setup.0, &setup.1)
+        let result = front(&program, &syntax(SyntaxVariant::A), &correction(), tables, catalog)
             .expect("valid program");
         prop_assert!(result.corrections.is_empty());
         prop_assert_eq!(Some(result.document), strict.ok());
     }
-}
-
-thread_local! {
-    static SETUP: std::rc::Rc<(Tables, Catalog)> =
-        std::rc::Rc::new((load_embedded().expect("embedded tables"), Catalog::load()));
 }
 
 /// Programs of variant A built from stages that parse.

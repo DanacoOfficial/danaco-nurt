@@ -277,7 +277,7 @@ mod tests {
 
     impl CatalogView for Commands {
         fn is_command(&self, name: &str) -> bool {
-            ["find", "search", "count", "sort", "verify", "run"].contains(&name)
+            self.command_names().contains(&name)
         }
         fn command_names(&self) -> &[&str] {
             &["find", "search", "count", "sort", "verify", "run"]
