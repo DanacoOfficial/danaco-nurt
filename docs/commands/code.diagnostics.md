@@ -102,6 +102,7 @@ code.diagnostics changed: true |> where severity == "error" |> select path, line
 | `E_ENCODING` | A file is not UTF-8 text. | Convert the file to UTF-8. |
 | `E_EXTERNAL_MISSING` | `source: lsp` and no server is available, or `changed: true` and repository queries are not available. | Install the server named by `fix`, or give the paths. |
 | `E_EXTERNAL_FAILED` | `source: lsp` and the server failed. | See the message of the server. |
+| `E_TIMEOUT` | `source: lsp` and the server gave no answer within `code.timeout`. | Raise `code.timeout`, or use `source: auto`. |
 
 ## Related
 

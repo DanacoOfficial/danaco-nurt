@@ -162,10 +162,13 @@ sql "/home/user/app.db" "select ?2 - ?1 as span, upper(?3) as label" params: [5,
 
 | Code | Meaning | Typical fix |
 |---|---|---|
-| `E_SQL` | a statement cannot be prepared or executed, changes the database without `write: true`, is refused (`problem`: `attach`, `vacuum_into`, `pragma`, `transaction`), or the number or type of `params` does not match (`problem`: `parameter_count`, `parameter_type`); `details` holds `statement` and `sqlite_code` | correct the statement, add `write: true`, or pass one value per parameter |
+| `E_SQL` | a statement cannot be prepared or executed, changes the database without `write: true`, is refused (`problem`: `attach`, `vacuum_into`, `pragma`, `transaction`), holds no statement (`problem`: `empty_query`), or the number or type of `params` does not match (`problem`: `parameter_count`, `parameter_type`); `details` holds `statement` and `sqlite_code` | correct the statement, add `write: true`, or pass one value per parameter |
+| `E_MISSING_PARAM` | `path` or `query` is not given | pass both |
+| `E_TYPE` | `path`, `query`, `params` or `write` has another type | pass `params` as a list |
 | `E_DOC_PARSE` | the file is not an SQLite database, is encrypted or damaged; `details.format` is `sqlite`, `details.sqlite_code` holds the SQLite code when SQLite reported it | pass an SQLite database file |
 | `E_NOT_FOUND` | the database file does not exist | check the path; an empty file is an empty database |
 | `E_IN_USE` | another connection holds a lock longer than `sql.busy_timeout` | retry later or raise `sql.busy_timeout` |
+| `E_IO` | the file cannot be read or written for another reason | see the message |
 | `E_PERMISSION` | the file or its directory cannot be read or written | check the permissions |
 | `E_NO_SPACE` | the volume is full during the change | free space and run the call again |
 | `E_LIMIT` | the statements of a change return more rows than one execution may hold | return fewer rows from `RETURNING` or `SELECT` |

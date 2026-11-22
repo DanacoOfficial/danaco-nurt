@@ -62,9 +62,9 @@ share the words `get`, `user`, `by`.
 
 ## Parameters
 
-| Name | Type | Default | Description |
+| Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` (1) | `text \| regex \| list<text>` | all symbols | Symbol name, pattern or names; a list matches any of them. |
+| `name` | `text \| regex \| list<text>` | all symbols | Symbol name, pattern or names; a list matches any of them. |
 | `path` | `list<path>` | base directory | Files or directories to search. |
 | `glob` | `glob` | `"**"` | Only files whose path relative to the searched directory matches. |
 | `kind` | `enum` | `any` | `function`, `method`, `class`, `struct`, `interface`, `enum`, `variable`, `constant`, `field`, `module`, `type`, `macro` or `any`. |
@@ -108,7 +108,7 @@ top level; C and C++, not `static`; Java and C#, `public`; Kotlin, not
 
 Category `source`, effect `read`, reversibility `read`. With a language
 server, the server of the project is started when it is not running. The
-symbol index is written to the state directory of the engine.
+symbol index is written to the state directory.
 
 ## Examples
 
@@ -132,15 +132,16 @@ code.symbols /Handler$/ match: regex source: syntax with_signature: true with_re
 
 ## Errors
 
-| Code | Cause |
-|---|---|
-| `E_INVALID_VALUE` | Unknown `match`, `kind` or `exclude_preset` value, or an invalid glob. |
-| `E_REGEX` | The regular expression of `name` is not valid. |
-| `E_UNSUPPORTED_LANGUAGE` | `language` names no known language, or the language of a file given in `path` is not known. |
-| `E_PARAM_CONFLICT` | `exported_only` with `source: lsp`: servers do not report visibility. |
-| `E_EXTERNAL_MISSING` | `source: lsp` without an available language server. |
-| `E_LIMIT` | A file given in `path` is larger than `code.file_bytes_max`. |
-| `E_NOT_FOUND` | A path does not exist. |
+| Code | Meaning | Typical fix |
+|---|---|---|
+| `E_INVALID_VALUE` | Unknown `match`, `kind` or `exclude_preset` value, or an invalid glob. | Use a value listed under Parameters. |
+| `E_REGEX` | The regular expression of `name` is not valid. | Correct the pattern. |
+| `E_UNSUPPORTED_LANGUAGE` | `language` names no known language, or the language of a file given in `path` is not known. | Check the names with `code.languages`. |
+| `E_PARAM_CONFLICT` | `exported_only` with `source: lsp`: servers do not report visibility. | Use `source: syntax` or `auto`. |
+| `E_EXTERNAL_MISSING` | `source: lsp` without an available language server. | Install the server named by `fix`. |
+| `E_MISSING_PARAM` | No `path` and no base directory. | Give `path`. |
+| `E_LIMIT` | A file given in `path` is larger than `code.file_bytes_max`. | Raise the limit or give a directory. |
+| `E_NOT_FOUND` | A path does not exist. | Check the path. |
 
 ## Related
 

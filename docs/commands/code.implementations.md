@@ -82,8 +82,10 @@ code.implementations "/srv/app/src/shapes.py" symbol: "Shape" source: syntax |> 
 | `E_INVALID_VALUE` | The file has fewer lines than `line`, or `source` is not valid. | Check the parameters. |
 | `E_SYMBOL_NOT_FOUND` | `symbol` has no definition in the file. | Check the name with `code.symbols`. |
 | `E_SYMBOL_AMBIGUOUS` | `symbol` has several definitions in the file. | Qualify the name as `Container.name`. |
+| `E_UNSUPPORTED_LANGUAGE` | Syntax analysis is needed and no grammar is available for the file. | Give `language`. |
 | `E_EXTERNAL_MISSING` | `source: lsp` and no server is available for the language. | Install the server named by `fix`. |
 | `E_EXTERNAL_FAILED` | `source: lsp` and the server failed. | See the message of the server. |
+| `E_TIMEOUT` | `source: lsp` and the server gave no answer within `code.timeout`. | Raise `code.timeout`, or use `source: auto`. |
 
 ## Related
 
