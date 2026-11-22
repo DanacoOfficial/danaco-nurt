@@ -83,7 +83,10 @@ mod tests {
 
     #[test]
     fn binds_scalars_by_storage_class() {
-        assert_eq!(to_sqlite(&Value::Bool(true), 1).ok(), Some(SqlValue::Integer(1)));
+        assert_eq!(
+            to_sqlite(&Value::Bool(true), 1).ok(),
+            Some(SqlValue::Integer(1))
+        );
         assert_eq!(
             to_sqlite(&Value::Size(Size::from_bytes(4096)), 1).ok(),
             Some(SqlValue::Integer(4096))
@@ -103,14 +106,20 @@ mod tests {
         let error = to_sqlite(&Value::List(Vec::new()), 3).err();
         assert_eq!(error.as_ref().map(Error::code), Some(ErrorCode::Sql));
         let big = to_sqlite(&Value::BigInt("99999999999999999999".to_owned()), 2).err();
-        assert_eq!(big.map(|error| error.problem.clone()), Some(Some("parameter_range".to_owned())));
+        assert_eq!(
+            big.map(|error| error.problem.clone()),
+            Some(Some("parameter_range".to_owned()))
+        );
         let size = to_sqlite(&Value::Size(Size::from_bytes(u64::MAX)), 1).err();
         assert_eq!(size.map(|error| error.code()), Some(ErrorCode::Sql));
     }
 
     #[test]
     fn maps_infinite_and_invalid_text_results() {
-        assert_eq!(from_sqlite(ValueRef::Real(f64::INFINITY)), Value::Text("Inf".to_owned()));
+        assert_eq!(
+            from_sqlite(ValueRef::Real(f64::INFINITY)),
+            Value::Text("Inf".to_owned())
+        );
         assert_eq!(
             from_sqlite(ValueRef::Real(f64::NEG_INFINITY)),
             Value::Text("-Inf".to_owned())

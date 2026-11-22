@@ -50,7 +50,9 @@ impl<'d> Layout<'d> {
     /// Offset of the line break ending the line containing `offset`, or the
     /// end of the text; a `\r` before the `\n` belongs to the line break.
     pub(crate) fn line_end(&self, offset: usize) -> usize {
-        let end = self.text[offset..].find('\n').map_or(self.text.len(), |pos| offset + pos);
+        let end = self.text[offset..]
+            .find('\n')
+            .map_or(self.text.len(), |pos| offset + pos);
         if end > offset && self.text.as_bytes()[end - 1] == b'\r' && end < self.text.len() {
             end - 1
         } else {
@@ -60,7 +62,9 @@ impl<'d> Layout<'d> {
 
     /// Offset after the line break ending the line containing `offset`.
     pub(crate) fn next_line_start(&self, offset: usize) -> usize {
-        self.text[offset..].find('\n').map_or(self.text.len(), |pos| offset + pos + 1)
+        self.text[offset..]
+            .find('\n')
+            .map_or(self.text.len(), |pos| offset + pos + 1)
     }
 
     /// Leading whitespace of the line containing `offset`.
@@ -73,7 +77,9 @@ impl<'d> Layout<'d> {
 
     /// The text before `offset` on its line is whitespace only.
     pub(crate) fn starts_line(&self, offset: usize) -> bool {
-        self.text[self.line_start(offset)..offset].bytes().all(|b| b == b' ' || b == b'\t')
+        self.text[self.line_start(offset)..offset]
+            .bytes()
+            .all(|b| b == b' ' || b == b'\t')
     }
 
     /// The span contains a line break.
@@ -84,7 +90,10 @@ impl<'d> Layout<'d> {
     /// Comments that start inside the span.
     pub(crate) fn comments_in(&self, span: Span) -> impl Iterator<Item = Span> + '_ {
         let first = self.tree.comments.partition_point(|c| c.start < span.start);
-        self.tree.comments[first..].iter().copied().take_while(move |c| c.start < span.end)
+        self.tree.comments[first..]
+            .iter()
+            .copied()
+            .take_while(move |c| c.start < span.end)
     }
 
     /// Skips spaces, tabs and comments that start on the current line and
@@ -105,7 +114,11 @@ impl<'d> Layout<'d> {
 
     /// Comment starting exactly at `pos`.
     pub(crate) fn comment_at(&self, pos: usize) -> Option<Span> {
-        let index = self.tree.comments.binary_search_by_key(&pos, |c| c.start).ok()?;
+        let index = self
+            .tree
+            .comments
+            .binary_search_by_key(&pos, |c| c.start)
+            .ok()?;
         Some(self.tree.comments[index])
     }
 
@@ -119,12 +132,17 @@ impl<'d> Layout<'d> {
         for comment in self.tree.comments[..first].iter().rev() {
             let attached = self.next_line_start(comment.end.saturating_sub(1)) == block_start
                 && self.starts_line(comment.start)
-                && self.text[comment.end..self.line_end(comment.end)].trim().is_empty();
+                && self.text[comment.end..self.line_end(comment.end)]
+                    .trim()
+                    .is_empty();
             if !attached {
                 break;
             }
             block_start = self.line_start(comment.start);
-            found = Some(Span::new(comment.start, found.map_or(comment.end, |span: Span| span.end)));
+            found = Some(Span::new(
+                comment.start,
+                found.map_or(comment.end, |span: Span| span.end),
+            ));
         }
         found
     }
@@ -132,7 +150,9 @@ impl<'d> Layout<'d> {
     /// Comment on the same line after the end of an entry, its comma
     /// included.
     pub(crate) fn trailing_comment(&self, entry: &Entry) -> Option<Span> {
-        let after = entry.comma.map_or(self.tree.nodes[entry.value].span.end, |comma| comma + 1);
+        let after = entry
+            .comma
+            .map_or(self.tree.nodes[entry.value].span.end, |comma| comma + 1);
         let mut pos = after;
         let bytes = self.text.as_bytes();
         while matches!(bytes.get(pos), Some(b' ' | b'\t')) {
@@ -167,14 +187,16 @@ impl<'d> Layout<'d> {
                 continue;
             };
             let start = entry.start(self.tree);
-            if !self.starts_line(start) || self.line_start(start) == self.line_start(node.span.start) {
+            if !self.starts_line(start)
+                || self.line_start(start) == self.line_start(node.span.start)
+            {
                 continue;
             }
             let inner = self.indent_of(start);
-            if let Some(unit) = inner.strip_prefix(self.indent_of(node.span.start)) {
-                if !unit.is_empty() {
-                    return unit.to_owned();
-                }
+            if let Some(unit) = inner.strip_prefix(self.indent_of(node.span.start))
+                && !unit.is_empty()
+            {
+                return unit.to_owned();
             }
         }
         DEFAULT_INDENT_UNIT.to_owned()
@@ -210,11 +232,18 @@ impl<'d> Layout<'d> {
                 entries.windows(2).find_map(|pair| {
                     let comma = pair[0].comma?;
                     let between = &self.text[comma + 1..pair[1].start(self.tree)];
-                    between.bytes().all(|b| b == b' ' || b == b'\t').then(|| between.to_owned())
+                    between
+                        .bytes()
+                        .all(|b| b == b' ' || b == b'\t')
+                        .then(|| between.to_owned())
                 })
             })
             .unwrap_or_else(|| {
-                if self.colon(container).ends_with(' ') { " ".to_owned() } else { String::new() }
+                if self.colon(container).ends_with(' ') {
+                    " ".to_owned()
+                } else {
+                    String::new()
+                }
             })
     }
 
@@ -224,7 +253,9 @@ impl<'d> Layout<'d> {
         self.tree
             .nodes
             .iter()
-            .find(|node| node.entries().is_some_and(|e| !e.is_empty()) && !self.is_multiline(node.span))
+            .find(|node| {
+                node.entries().is_some_and(|e| !e.is_empty()) && !self.is_multiline(node.span)
+            })
             .map(|node| {
                 let inner = &self.text[node.span.start + 1..];
                 let width = inner.len() - inner.trim_start_matches([' ', '\t']).len();
@@ -253,7 +284,11 @@ impl<'d> Layout<'d> {
 pub(crate) fn comment_text(comment: &str) -> &str {
     comment
         .strip_prefix("//")
-        .or_else(|| comment.strip_prefix("/*").map(|inner| inner.strip_suffix("*/").unwrap_or(inner)))
+        .or_else(|| {
+            comment
+                .strip_prefix("/*")
+                .map(|inner| inner.strip_suffix("*/").unwrap_or(inner))
+        })
         .unwrap_or(comment)
         .trim()
 }

@@ -494,7 +494,10 @@ impl DocTree {
                     }
                 }
                 if semantics.flat_keys() && name.split('.').all(|part| !part.is_empty()) {
-                    reversed.extend(name.rsplit('.').map(|part| KeySegment::Key(part.to_owned())));
+                    reversed.extend(
+                        name.rsplit('.')
+                            .map(|part| KeySegment::Key(part.to_owned())),
+                    );
                 } else {
                     reversed.push(KeySegment::Key(name.to_owned()));
                 }
@@ -509,7 +512,12 @@ impl DocTree {
     /// [`Repeated::Conflict`]. `depth` limits the levels of maps and lists
     /// expanded; containers below the limit are returned empty.
     #[must_use]
-    pub fn value_of(&self, id: NodeId, semantics: &dyn FormatSemantics, depth: Option<u32>) -> Value {
+    pub fn value_of(
+        &self,
+        id: NodeId,
+        semantics: &dyn FormatSemantics,
+        depth: Option<u32>,
+    ) -> Value {
         self.value_at(id, semantics, depth, 0)
     }
 

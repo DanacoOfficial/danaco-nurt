@@ -7,18 +7,29 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::services::{DocFormatId, SerializeOptions};
 use nurt_contracts::value::{Fields, Record, Value};
 
-use crate::value::{QuoteRules, Syntax, needs_quotes, parse_number, render_scalar, to_document_value};
+use crate::value::{
+    QuoteRules, Syntax, needs_quotes, parse_number, render_scalar, to_document_value,
+};
 
 /// Indentation of JSON and YAML output, in spaces.
 const INDENT: usize = 2;
 
 /// Writes records as a document of `format`.
-pub(super) fn records(records: &[Record], format: &DocFormatId, options: &SerializeOptions) -> Result<Vec<u8>> {
+pub(super) fn records(
+    records: &[Record],
+    format: &DocFormatId,
+    options: &SerializeOptions,
+) -> Result<Vec<u8>> {
     match format.as_str() {
         "json" => Ok(json(records, options.pretty).into_bytes()),
         "yaml" => Ok(yaml(records).into_bytes()),
         "toml" => Ok(toml(records).into_bytes()),
-        "csv" => table(records, delimiter(options, b',')?, options.header, csv::Terminator::CRLF),
+        "csv" => table(
+            records,
+            delimiter(options, b',')?,
+            options.header,
+            csv::Terminator::CRLF,
+        ),
         "tsv" => table(
             records,
             delimiter(options, b'\t')?,
@@ -39,7 +50,9 @@ fn delimiter(options: &SerializeOptions, default: u8) -> Result<u8> {
         Some(c) => u8::try_from(c).ok().filter(u8::is_ascii).ok_or_else(|| {
             Error::new(
                 ErrorCode::InvalidValue,
-                format!("the delimiter `{c}` is not an ASCII character; use a single ASCII character"),
+                format!(
+                    "the delimiter `{c}` is not an ASCII character; use a single ASCII character"
+                ),
             )
         }),
     }
@@ -54,7 +67,12 @@ fn fields_of(record: &Record) -> Fields {
 
 fn json(records: &[Record], pretty: bool) -> String {
     let mut out = String::new();
-    let list = Value::List(records.iter().map(|record| Value::Map(fields_of(record))).collect());
+    let list = Value::List(
+        records
+            .iter()
+            .map(|record| Value::Map(fields_of(record)))
+            .collect(),
+    );
     write_json(&mut out, &list, pretty.then_some(0));
     out.push('\n');
     out
@@ -66,7 +84,10 @@ fn write_json(out: &mut String, value: &Value, level: Option<usize>) {
         Value::Map(fields) => (
             '{',
             '}',
-            fields.iter().map(|(name, item)| (Some(name.as_str()), item)).collect(),
+            fields
+                .iter()
+                .map(|(name, item)| (Some(name.as_str()), item))
+                .collect(),
         ),
         scalar => {
             out.push_str(&json_scalar(scalar));
@@ -98,7 +119,9 @@ fn write_json(out: &mut String, value: &Value, level: Option<usize>) {
 fn json_scalar(value: &Value) -> String {
     match value {
         Value::Number(number) if !number.is_finite() => "null".to_owned(),
-        Value::Decimal(lexeme) if parse_number(lexeme, Syntax::Json).is_none() => json_string(lexeme),
+        Value::Decimal(lexeme) if parse_number(lexeme, Syntax::Json).is_none() => {
+            json_string(lexeme)
+        }
         Value::Text(text) => json_string(text),
         Value::Date(date) => json_string(&date.text),
         Value::Bytes(bytes) => json_string(&bytes.to_base64()),
@@ -131,7 +154,12 @@ fn yaml(records: &[Record]) -> String {
         return "[]\n".to_owned();
     }
     let mut out = String::new();
-    let list = Value::List(records.iter().map(|record| Value::Map(fields_of(record))).collect());
+    let list = Value::List(
+        records
+            .iter()
+            .map(|record| Value::Map(fields_of(record)))
+            .collect(),
+    );
     write_yaml_block(&mut out, &list, 0);
     out
 }
@@ -199,7 +227,9 @@ fn yaml_value(value: &Value) -> String {
         Value::Number(number) if number.is_infinite() => {
             if *number > 0.0 { ".inf" } else { "-.inf" }.to_owned()
         }
-        Value::Decimal(lexeme) if parse_number(lexeme, Syntax::Yaml12).is_none() => json_string(lexeme),
+        Value::Decimal(lexeme) if parse_number(lexeme, Syntax::Yaml12).is_none() => {
+            json_string(lexeme)
+        }
         Value::Text(text) => yaml_scalar_text(text),
         Value::Date(date) => yaml_scalar_text(&date.text),
         Value::Bytes(bytes) => format!("!!binary {}", bytes.to_base64()),
@@ -239,7 +269,11 @@ fn toml_key(name: &str) -> String {
         && name
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'));
-    if bare { name.to_owned() } else { json_string(name) }
+    if bare {
+        name.to_owned()
+    } else {
+        json_string(name)
+    }
 }
 
 fn toml_value(value: &Value) -> String {
@@ -263,7 +297,9 @@ fn toml_value(value: &Value) -> String {
             if *number > 0.0 { "inf" } else { "-inf" }.to_owned()
         }
         Value::BigInt(digits) => json_string(digits),
-        Value::Decimal(lexeme) if parse_number(lexeme, Syntax::Toml).is_none() => json_string(lexeme),
+        Value::Decimal(lexeme) if parse_number(lexeme, Syntax::Toml).is_none() => {
+            json_string(lexeme)
+        }
         Value::Date(date) if is_toml_datetime(&date.text) => date.text.clone(),
         Value::Date(date) => json_string(&date.text),
         Value::Text(text) => json_string(text),
@@ -277,7 +313,12 @@ fn is_toml_datetime(text: &str) -> bool {
         .is_ok_and(|value| value.is_datetime())
 }
 
-fn table(records: &[Record], delimiter: u8, header: bool, terminator: csv::Terminator) -> Result<Vec<u8>> {
+fn table(
+    records: &[Record],
+    delimiter: u8,
+    header: bool,
+    terminator: csv::Terminator,
+) -> Result<Vec<u8>> {
     let mut columns: Vec<String> = Vec::new();
     let rows: Vec<Fields> = records.iter().map(fields_of).collect();
     for row in &rows {
@@ -292,7 +333,12 @@ fn table(records: &[Record], delimiter: u8, header: bool, terminator: csv::Termi
         .terminator(terminator)
         .flexible(true)
         .from_writer(Vec::new());
-    let failed = |error: csv::Error| Error::new(ErrorCode::Internal, format!("writing a table failed: {error}"));
+    let failed = |error: csv::Error| {
+        Error::new(
+            ErrorCode::Internal,
+            format!("writing a table failed: {error}"),
+        )
+    };
     if header && !columns.is_empty() {
         writer.write_record(&columns).map_err(failed)?;
     }
@@ -303,9 +349,12 @@ fn table(records: &[Record], delimiter: u8, header: bool, terminator: csv::Termi
             .collect();
         writer.write_record(&cells).map_err(failed)?;
     }
-    writer
-        .into_inner()
-        .map_err(|error| Error::new(ErrorCode::Internal, format!("writing a table failed: {error}")))
+    writer.into_inner().map_err(|error| {
+        Error::new(
+            ErrorCode::Internal,
+            format!("writing a table failed: {error}"),
+        )
+    })
 }
 
 fn cell(value: &Value) -> String {

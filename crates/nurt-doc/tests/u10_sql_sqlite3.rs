@@ -5,7 +5,12 @@
 //! used only by these tests; a test returns early when `sqlite3` is not in
 //! the search path.
 
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, reason = "test code")]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
 
 #[allow(dead_code, reason = "each test file uses a subset of the fixtures")]
 mod u10_support;
@@ -29,7 +34,11 @@ fn sqlite3_rows(program: &Path, db: &Path, query: &str) -> serde_json::Value {
         .arg(query)
         .output()
         .unwrap();
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     serde_json::from_slice(&output.stdout).unwrap()
 }
 
@@ -69,7 +78,12 @@ fn change_is_visible_to_sqlite3_skipped_without_sqlite3() {
     };
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "items.db", SAMPLE);
-    let call = args(&db, "update items set weight = weight * 2 where id > 1", Vec::new(), true);
+    let call = args(
+        &db,
+        "update items set weight = weight * 2 where id > 1",
+        Vec::new(),
+        true,
+    );
     write(&call, &ctx(), &mut RecordingTx::new()).unwrap();
     assert_eq!(sql_rows(&db, QUERY), sqlite3_rows(&program, &db, QUERY));
 }

@@ -232,7 +232,9 @@ impl<'t> StyleProbe<'t> {
         }
         counts
             .into_iter()
-            .max_by_key(|(spacing, count)| (*count, std::cmp::Reverse(spacing.0.len() + spacing.1.len())))
+            .max_by_key(|(spacing, count)| {
+                (*count, std::cmp::Reverse(spacing.0.len() + spacing.1.len()))
+            })
             .map_or_else(
                 || Spacing {
                     before: String::new(),
@@ -298,10 +300,12 @@ impl<'t> StyleProbe<'t> {
             let indent = leading_blanks(line).len();
             let key_end = at - trailing_blanks(&line[..at]).len();
             let value = at + 1 + leading_blanks(&line[at + 1..]).len();
-            if let Some((key, column, value_column)) = previous {
-                if key != key_end && (column == at || value_column == value) && indent < key_end {
-                    return true;
-                }
+            if let Some((key, column, value_column)) = previous
+                && key != key_end
+                && (column == at || value_column == value)
+                && indent < key_end
+            {
+                return true;
             }
             previous = Some((key_end, at, value));
         }
@@ -310,7 +314,10 @@ impl<'t> StyleProbe<'t> {
 }
 
 fn leading_blanks(bytes: &[u8]) -> &[u8] {
-    let count = bytes.iter().take_while(|byte| matches!(byte, b' ' | b'\t')).count();
+    let count = bytes
+        .iter()
+        .take_while(|byte| matches!(byte, b' ' | b'\t'))
+        .count();
     &bytes[..count]
 }
 

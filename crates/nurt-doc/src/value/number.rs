@@ -69,9 +69,9 @@ pub fn render_scalar(value: &Value, syntax: Syntax) -> Option<String> {
         Value::Int(number) => Some(number.to_string()),
         Value::BigInt(digits) => Some(digits.clone()),
         Value::Number(number) if number.is_finite() => Some(render_float(*number, syntax)),
-        Value::Decimal(lexeme) => {
-            (syntax == Syntax::Untyped || parse_number(lexeme, syntax).is_some()).then(|| lexeme.clone())
-        }
+        Value::Decimal(lexeme) => (syntax == Syntax::Untyped
+            || parse_number(lexeme, syntax).is_some())
+        .then(|| lexeme.clone()),
         Value::Date(date) => Some(date.text.clone()),
         _ => None,
     }
@@ -149,7 +149,9 @@ fn json_number(lexeme: &str) -> Option<Value> {
         all_digits(digits.trim_start_matches(['+', '-']), DECIMAL)
             && digits.len() - digits.trim_start_matches(['+', '-']).len() <= 1
     };
-    (fraction_ok && exponent_ok).then(|| float(lexeme, lexeme)).flatten()
+    (fraction_ok && exponent_ok)
+        .then(|| float(lexeme, lexeme))
+        .flatten()
 }
 
 fn toml_number(lexeme: &str) -> Option<Value> {
@@ -205,7 +207,9 @@ fn yaml_number(lexeme: &str, syntax: Syntax) -> Option<Value> {
     match kind {
         PlainKind::Int => yaml_integer(negative, &plain, syntax),
         PlainKind::Float if plain.contains(':') => Some(Value::Decimal(lexeme.to_owned())),
-        PlainKind::Float if plain.starts_with('.') && plain[1..].chars().all(char::is_alphabetic) => {
+        PlainKind::Float
+            if plain.starts_with('.') && plain[1..].chars().all(char::is_alphabetic) =>
+        {
             Some(Value::Decimal(lexeme.to_owned()))
         }
         PlainKind::Float => {

@@ -94,7 +94,9 @@ pub(crate) fn key_text(val: &Val) -> String {
 
 fn from_num(number: &Num) -> Value {
     match number {
-        Num::Int(int) => i64::try_from(*int).map_or_else(|_| Value::BigInt(int.to_string()), Value::Int),
+        Num::Int(int) => {
+            i64::try_from(*int).map_or_else(|_| Value::BigInt(int.to_string()), Value::Int)
+        }
         Num::BigInt(int) => {
             let text = int.to_string();
             text.parse::<i64>().map_or(Value::BigInt(text), Value::Int)
@@ -151,7 +153,10 @@ mod tests {
     #[test]
     fn keeps_exact_numbers() {
         assert_eq!(round_trip(Value::Int(-7)), Value::Int(-7));
-        assert_eq!(round_trip(Value::Decimal("1.10".to_owned())), Value::Decimal("1.10".to_owned()));
+        assert_eq!(
+            round_trip(Value::Decimal("1.10".to_owned())),
+            Value::Decimal("1.10".to_owned())
+        );
         let big = "123456789012345678901234567890".to_owned();
         assert_eq!(round_trip(Value::BigInt(big.clone())), Value::BigInt(big));
         assert_eq!(round_trip(Value::Number(0.5)), Value::Number(0.5));
@@ -161,7 +166,10 @@ mod tests {
     fn converts_containers_in_order() {
         let mut fields = Fields::new();
         fields.insert("z".to_owned(), Value::Bool(true));
-        fields.insert("a".to_owned(), Value::List(vec![Value::Null, Value::Text("x".to_owned())]));
+        fields.insert(
+            "a".to_owned(),
+            Value::List(vec![Value::Null, Value::Text("x".to_owned())]),
+        );
         let map = Value::Map(fields);
         assert_eq!(round_trip(map.clone()), map);
         let record = Record::new(RecordKind::Map).with("n", Value::Int(1));
@@ -174,7 +182,10 @@ mod tests {
     fn writes_bytes_as_base64_text() {
         let bytes = Value::Bytes(Bytes::new(b"hi".to_vec()));
         assert_eq!(round_trip(bytes), Value::Text("aGk=".to_owned()));
-        assert_eq!(from_val(&Val::byte_str(b"hi".to_vec())), Value::Bytes(Bytes::new(b"hi".to_vec())));
+        assert_eq!(
+            from_val(&Val::byte_str(b"hi".to_vec())),
+            Value::Bytes(Bytes::new(b"hi".to_vec()))
+        );
     }
 
     #[test]
@@ -185,10 +196,19 @@ mod tests {
 
     #[test]
     fn reports_value_types() {
-        assert_eq!(value_type(&Value::Decimal("-12".to_owned())), ValueType::Int);
-        assert_eq!(value_type(&Value::Decimal("1e5".to_owned())), ValueType::Number);
+        assert_eq!(
+            value_type(&Value::Decimal("-12".to_owned())),
+            ValueType::Int
+        );
+        assert_eq!(
+            value_type(&Value::Decimal("1e5".to_owned())),
+            ValueType::Number
+        );
         assert_eq!(value_type(&Value::Text(String::new())), ValueType::Text);
-        assert_eq!(value_type(&Value::Bytes(Bytes::new(Vec::new()))), ValueType::Bytes);
+        assert_eq!(
+            value_type(&Value::Bytes(Bytes::new(Vec::new()))),
+            ValueType::Bytes
+        );
         assert_eq!(value_type(&Value::Map(Fields::new())), ValueType::Map);
     }
 

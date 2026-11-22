@@ -136,8 +136,7 @@ fn signed(value: usize) -> isize {
 /// `k + 1` (an inserted line) rather than `k - 1` (a deleted line).
 fn from_above(previous: &[usize], k: isize, d: usize) -> bool {
     let d_signed = signed(d);
-    k == -d_signed
-        || (k != d_signed && previous[slot(k - 1, d - 1)] < previous[slot(k + 1, d - 1)])
+    k == -d_signed || (k != d_signed && previous[slot(k - 1, d - 1)] < previous[slot(k + 1, d - 1)])
 }
 
 /// Runs of equal lines on a shortest edit path (Myers), `None` when more
@@ -162,7 +161,11 @@ fn align(old: &[&[u8]], new: &[&[u8]]) -> Option<Vec<Run>> {
                 Some(previous) => previous[slot(k - 1, d - 1)] + 1,
             };
             let y = usize::try_from(signed(x) - k).unwrap_or(usize::MAX);
-            let (x, y) = if x <= n && y <= m { follow(x, y) } else { (x, y) };
+            let (x, y) = if x <= n && y <= m {
+                follow(x, y)
+            } else {
+                (x, y)
+            };
             row[slot(k, d)] = x;
             if x == n && y == m {
                 trace.push(row);

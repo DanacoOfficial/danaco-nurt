@@ -87,7 +87,9 @@ fn restore(json: serde_json::Value) -> Value {
         serde_json::Value::Object(fields) => {
             let mut map = IndexMap::with_capacity(fields.len());
             for (key, item) in fields {
-                let key = key.strip_prefix(TEXT_MARK).map_or_else(|| key.clone(), str::to_owned);
+                let key = key
+                    .strip_prefix(TEXT_MARK)
+                    .map_or_else(|| key.clone(), str::to_owned);
                 map.insert(key, restore(item));
             }
             Value::Map(map)
@@ -126,7 +128,12 @@ fn comment_end(bytes: &[u8], pos: usize) -> Option<usize> {
         return None;
     }
     match bytes.get(pos + 1) {
-        Some(b'/') => Some(bytes[pos..].iter().position(|&b| b == b'\n').map_or(bytes.len(), |n| pos + n)),
+        Some(b'/') => Some(
+            bytes[pos..]
+                .iter()
+                .position(|&b| b == b'\n')
+                .map_or(bytes.len(), |n| pos + n),
+        ),
         Some(b'*') => Some(
             bytes[pos + 2..]
                 .windows(2)
@@ -178,11 +185,17 @@ fn closes_after(bytes: &[u8], mut pos: usize) -> bool {
 /// Compares two values as JSON data: numbers by exact decimal value,
 /// whatever their representation (`Int`, `BigInt`, `Number`, `Decimal`,
 /// `1.10` equals `1.1`, `-0` equals `0`); maps by entries in order.
+#[cfg(test)]
 pub(crate) fn same_data(left: &Value, right: &Value) -> bool {
     match (left, right) {
-        (Value::List(a), Value::List(b)) => a.len() == b.len() && a.iter().zip(b).all(|(x, y)| same_data(x, y)),
+        (Value::List(a), Value::List(b)) => {
+            a.len() == b.len() && a.iter().zip(b).all(|(x, y)| same_data(x, y))
+        }
         (Value::Map(a), Value::Map(b)) => {
-            a.len() == b.len() && a.iter().zip(b).all(|((ka, va), (kb, vb))| ka == kb && same_data(va, vb))
+            a.len() == b.len()
+                && a.iter()
+                    .zip(b)
+                    .all(|((ka, va), (kb, vb))| ka == kb && same_data(va, vb))
         }
         _ => match (number_text(left), number_text(right)) {
             (Some(a), Some(b)) => match (decimal(&a), decimal(&b)) {
@@ -195,6 +208,7 @@ pub(crate) fn same_data(left: &Value, right: &Value) -> bool {
     }
 }
 
+#[cfg(test)]
 fn number_text(value: &Value) -> Option<Cow<'_, str>> {
     match value {
         Value::Int(number) => Some(Cow::Owned(number.to_string())),
@@ -206,8 +220,11 @@ fn number_text(value: &Value) -> Option<Cow<'_, str>> {
 
 /// Exact value of a decimal number as sign, significant digits without
 /// leading or trailing zeros, and power of ten; zero has no sign.
+#[cfg(test)]
 fn decimal(text: &str) -> Option<(bool, String, i64)> {
-    let (negative, unsigned) = text.strip_prefix('-').map_or((false, text), |rest| (true, rest));
+    let (negative, unsigned) = text
+        .strip_prefix('-')
+        .map_or((false, text), |rest| (true, rest));
     let (mantissa, exponent) = match unsigned.find(['e', 'E']) {
         Some(at) => (&unsigned[..at], unsigned[at + 1..].parse::<i64>().ok()?),
         None => (unsigned, 0),
@@ -234,7 +251,10 @@ mod tests {
         let text = "{\n  // c\n  \"a\": [1, 2,], /* b */\n  \"s\": \"//x,]\",\n}";
         let plain = strip_jsonc(text);
         assert_eq!(plain.len(), text.len());
-        assert_eq!(plain, "{\n      \n  \"a\": [1, 2 ],        \n  \"s\": \"//x,]\" \n}");
+        assert_eq!(
+            plain,
+            "{\n      \n  \"a\": [1, 2 ],        \n  \"s\": \"//x,]\" \n}"
+        );
     }
 
     #[test]
@@ -246,7 +266,11 @@ mod tests {
 
     #[test]
     fn keeps_numbers_outside_the_binary_range() {
-        let value = read("{\"#a\": [1e400, 18446744073709551616, \"#1\"]}", Dialect::Json).unwrap();
+        let value = read(
+            "{\"#a\": [1e400, 18446744073709551616, \"#1\"]}",
+            Dialect::Json,
+        )
+        .unwrap();
         let expected = Value::Map(IndexMap::from([(
             "#a".to_owned(),
             Value::List(vec![
@@ -261,11 +285,23 @@ mod tests {
 
     #[test]
     fn compares_numbers_by_exact_value() {
-        assert!(same_data(&Value::Decimal("1.10".to_owned()), &Value::Number(1.1)));
-        assert!(same_data(&Value::Int(3), &Value::Decimal("3.0e0".to_owned())));
+        assert!(same_data(
+            &Value::Decimal("1.10".to_owned()),
+            &Value::Number(1.1)
+        ));
+        assert!(same_data(
+            &Value::Int(3),
+            &Value::Decimal("3.0e0".to_owned())
+        ));
         assert!(same_data(&Value::Decimal("-0".to_owned()), &Value::Int(0)));
-        assert!(same_data(&Value::Decimal("1e400".to_owned()), &Value::Decimal("10e399".to_owned())));
-        assert!(!same_data(&Value::Decimal("1e400".to_owned()), &Value::Decimal("2e400".to_owned())));
+        assert!(same_data(
+            &Value::Decimal("1e400".to_owned()),
+            &Value::Decimal("10e399".to_owned())
+        ));
+        assert!(!same_data(
+            &Value::Decimal("1e400".to_owned()),
+            &Value::Decimal("2e400".to_owned())
+        ));
         assert!(!same_data(
             &Value::BigInt("9007199254740993".to_owned()),
             &Value::Int(9_007_199_254_740_992)

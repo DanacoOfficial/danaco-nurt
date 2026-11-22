@@ -48,7 +48,11 @@ pub(super) fn from_sqlite(error: &rusqlite::Error, request: &SqlRequest, site: S
         } => from_failure(failure, msg, request, site),
         other => Error::new(
             ErrorCode::Sql,
-            format!("{} failed: {}", site.describe(), lower_first(&other.to_string())),
+            format!(
+                "{} failed: {}",
+                site.describe(),
+                lower_first(&other.to_string())
+            ),
         ),
     }
 }
@@ -71,7 +75,9 @@ fn from_failure(
         SqliteCode::ReadOnly if !request.write => read_only(request, site),
         SqliteCode::ReadOnly | SqliteCode::PermissionDenied => Error::new(
             ErrorCode::Permission,
-            format!("{display} cannot be written: {text}; check the permissions of the file and its directory"),
+            format!(
+                "{display} cannot be written: {text}; check the permissions of the file and its directory"
+            ),
         ),
         SqliteCode::CannotOpen => Error::new(
             ErrorCode::Io,
@@ -81,13 +87,18 @@ fn from_failure(
             ErrorCode::NoSpace,
             format!("the volume of {display} is full; free space and run the statements again"),
         ),
-        SqliteCode::SystemIoFailure => {
-            Error::new(ErrorCode::Io, format!("input or output error on {display}: {text}"))
-        }
-        SqliteCode::OperationInterrupted => {
-            Error::new(ErrorCode::Cancelled, format!("{} was interrupted", site.describe()))
-        }
-        _ => Error::new(ErrorCode::Sql, format!("{} failed: {text}", site.describe())),
+        SqliteCode::SystemIoFailure => Error::new(
+            ErrorCode::Io,
+            format!("input or output error on {display}: {text}"),
+        ),
+        SqliteCode::OperationInterrupted => Error::new(
+            ErrorCode::Cancelled,
+            format!("{} was interrupted", site.describe()),
+        ),
+        _ => Error::new(
+            ErrorCode::Sql,
+            format!("{} failed: {text}", site.describe()),
+        ),
     };
     let error = error
         .with_detail("path", json!(display))
@@ -132,7 +143,10 @@ pub(super) fn file_error(error: &io::Error, request: &SqlRequest) -> Error {
         ),
         _ => (
             ErrorCode::Io,
-            format!("database file {display} cannot be read: {}", lower_first(&error.to_string())),
+            format!(
+                "database file {display} cannot be read: {}",
+                lower_first(&error.to_string())
+            ),
         ),
     };
     Error::new(code, message).with_detail("path", json!(display))
@@ -225,11 +239,7 @@ pub(super) fn extra_params(used: usize, given: usize) -> Error {
 /// The program that repeats the call with `write: true`, when every
 /// parameter value has a literal form.
 fn write_fix(request: &SqlRequest) -> Option<String> {
-    let mut program = format!(
-        "sql {} {}",
-        quote(&request.display),
-        quote(&request.query)
-    );
+    let mut program = format!("sql {} {}", quote(&request.display), quote(&request.query));
     if !request.params.is_empty() {
         let values = request
             .params
@@ -354,7 +364,10 @@ mod tests {
                 extended_code: 0,
             };
             let error = rusqlite::Error::SqliteFailure(failure, None);
-            assert_eq!(from_sqlite(&error, &writing, Site::Transaction).code(), expected);
+            assert_eq!(
+                from_sqlite(&error, &writing, Site::Transaction).code(),
+                expected
+            );
         }
         let other = from_sqlite(&rusqlite::Error::InvalidQuery, &writing, Site::Open);
         assert_eq!(other.code(), ErrorCode::Sql);

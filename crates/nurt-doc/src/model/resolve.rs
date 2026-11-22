@@ -101,7 +101,12 @@ impl DocTree {
         Vec::new()
     }
 
-    fn rank_members(&self, node: NodeId, wanted: &str, semantics: &dyn FormatSemantics) -> Vec<KeyPath> {
+    fn rank_members(
+        &self,
+        node: NodeId,
+        wanted: &str,
+        semantics: &dyn FormatSemantics,
+    ) -> Vec<KeyPath> {
         let mut ranked: Vec<(usize, NodeId)> = self
             .members(node)
             .filter_map(|member| {
@@ -122,7 +127,10 @@ impl Walk<'_> {
     fn documents(&self) -> Vec<Group> {
         let roots = self.tree.roots();
         match self.key.document() {
-            None => roots.first().map(|root| vec![vec![*root]]).unwrap_or_default(),
+            None => roots
+                .first()
+                .map(|root| vec![vec![*root]])
+                .unwrap_or_default(),
             Some(DocSelector::Index(index)) => usize::try_from(index)
                 .ok()
                 .and_then(|index| roots.get(index))
@@ -182,10 +190,12 @@ impl Walk<'_> {
     fn member(&self, node: NodeId, name: &str, next: &mut Vec<Group>) -> Result<()> {
         let target = self.tree.target(node);
         let kind = self.tree[target].kind;
-        if kind == NodeKind::List && !name.is_empty() && name.bytes().all(|b| b.is_ascii_digit()) {
-            if let Ok(position) = name.parse::<i64>() {
-                return self.index(&[node], position, next);
-            }
+        if kind == NodeKind::List
+            && !name.is_empty()
+            && name.bytes().all(|b| b.is_ascii_digit())
+            && let Ok(position) = name.parse::<i64>()
+        {
+            return self.index(&[node], position, next);
         }
         if !kind.is_named_container() {
             if self.concrete {
@@ -233,7 +243,10 @@ impl Walk<'_> {
             return Err(key_conflict(
                 self.key,
                 kind.as_str(),
-                format!("applies an index to a {}; an index needs a list", kind.as_str()),
+                format!(
+                    "applies an index to a {}; an index needs a list",
+                    kind.as_str()
+                ),
             ));
         }
         Ok(())

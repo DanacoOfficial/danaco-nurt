@@ -15,7 +15,7 @@ use super::Span;
 /// ```
 /// use nurt_doc::model::LineIndex;
 ///
-/// let text = "a: 1\nżó: 2\n".as_bytes();
+/// let text = "a: 1\néü: 2\n".as_bytes();
 /// let position = LineIndex::new(text).position(text, 10);
 /// assert_eq!((position.line, position.column), (2, 4));
 /// ```

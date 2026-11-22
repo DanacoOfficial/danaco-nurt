@@ -1,0 +1,4519 @@
+{
+  "generator": "jq-1.8.1",
+  "description": "Expected results of jq filters on the named inputs. error is compile for a filter that does not compile and runtime for a run that ends with an error after the listed outputs.",
+  "inputs": {
+    "O": {
+      "a": 1,
+      "b": [
+        1,
+        2,
+        3
+      ],
+      "c": {
+        "d": "x",
+        "e": null
+      },
+      "f": true,
+      "g": "Hello, World",
+      "h": [
+        {
+          "n": "a",
+          "v": 3
+        },
+        {
+          "n": "b",
+          "v": 1
+        },
+        {
+          "n": "c",
+          "v": 2
+        }
+      ],
+      "i": -2.5
+    },
+    "A": [
+      3,
+      1,
+      2,
+      5,
+      4
+    ],
+    "S": "abc,def,ghi",
+    "N": null
+  },
+  "cases": [
+    {
+      "filter": ".",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,2,3],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".a",
+      "input": "O",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b",
+      "input": "O",
+      "outputs": [
+        "[1,2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b[0]",
+      "input": "O",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b[-1]",
+      "input": "O",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b[1:]",
+      "input": "O",
+      "outputs": [
+        "[2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b[:2]",
+      "input": "O",
+      "outputs": [
+        "[1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b[5]",
+      "input": "O",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".c.d",
+      "input": "O",
+      "outputs": [
+        "\"x\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".c.e",
+      "input": "O",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".c.missing",
+      "input": "O",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".[\"g\"]",
+      "input": "O",
+      "outputs": [
+        "\"Hello, World\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".c | keys",
+      "input": "O",
+      "outputs": [
+        "[\"d\",\"e\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "keys",
+      "input": "O",
+      "outputs": [
+        "[\"a\",\"b\",\"c\",\"f\",\"g\",\"h\",\"i\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "keys_unsorted",
+      "input": "O",
+      "outputs": [
+        "[\"a\",\"b\",\"c\",\"f\",\"g\",\"h\",\"i\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "length",
+      "input": "O",
+      "outputs": [
+        "7"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | length",
+      "input": "O",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | length",
+      "input": "O",
+      "outputs": [
+        "12"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".c | length",
+      "input": "O",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".i | length",
+      "input": "O",
+      "outputs": [
+        "2.5"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h[].n",
+      "input": "O",
+      "outputs": [
+        "\"a\"",
+        "\"b\"",
+        "\"c\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | map(.v)",
+      "input": "O",
+      "outputs": [
+        "[3,1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | map(.v) | add",
+      "input": "O",
+      "outputs": [
+        "6"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | sort_by(.v) | map(.n)",
+      "input": "O",
+      "outputs": [
+        "[\"b\",\"c\",\"a\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | min_by(.v)",
+      "input": "O",
+      "outputs": [
+        "{\"n\":\"b\",\"v\":1}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | max_by(.v)",
+      "input": "O",
+      "outputs": [
+        "{\"n\":\"a\",\"v\":3}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | group_by(.v > 1) | map(length)",
+      "input": "O",
+      "outputs": [
+        "[1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | unique_by(.v % 2) | map(.n)",
+      "input": "O",
+      "outputs": [
+        "[\"c\",\"a\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | map(select(.v >= 2)) | map(.n)",
+      "input": "O",
+      "outputs": [
+        "[\"a\",\"c\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.h[] | .v * 2]",
+      "input": "O",
+      "outputs": [
+        "[6,2,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | first",
+      "input": "O",
+      "outputs": [
+        "{\"n\":\"a\",\"v\":3}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | last",
+      "input": "O",
+      "outputs": [
+        "{\"n\":\"c\",\"v\":2}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "first(.h[] | select(.v < 3))",
+      "input": "O",
+      "outputs": [
+        "{\"n\":\"b\",\"v\":1}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[paths]",
+      "input": "O",
+      "outputs": [
+        "[[\"a\"],[\"b\"],[\"b\",0],[\"b\",1],[\"b\",2],[\"c\"],[\"c\",\"d\"],[\"c\",\"e\"],[\"f\"],[\"g\"],[\"h\"],[\"h\",0],[\"h\",0,\"n\"],[\"h\",0,\"v\"],[\"h\",1],[\"h\",1,\"n\"],[\"h\",1,\"v\"],[\"h\",2],[\"h\",2,\"n\"],[\"h\",2,\"v\"],[\"i\"]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[paths(type == \"number\")]",
+      "input": "O",
+      "outputs": [
+        "[[\"a\"],[\"b\",0],[\"b\",1],[\"b\",2],[\"h\",0,\"v\"],[\"h\",1,\"v\"],[\"h\",2,\"v\"],[\"i\"]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[leaf_paths]",
+      "input": "O",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": "to_entries | map(.key)",
+      "input": "O",
+      "outputs": [
+        "[\"a\",\"b\",\"c\",\"f\",\"g\",\"h\",\"i\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "with_entries(select(.value | type == \"number\"))",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "del(.b)",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "del(.b[0], .c)",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[2,3],\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".a += 1",
+      "input": "O",
+      "outputs": [
+        "{\"a\":2,\"b\":[1,2,3],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b |= map(. * 10)",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[10,20,30],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".c.d = \"y\"",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,2,3],\"c\":{\"d\":\"y\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".new = 1",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,2,3],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5,\"new\":1}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b[1] = 9",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,9,3],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b[5] = 1",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,2,3,null,null,1],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "setpath([\"c\",\"d\"]; 0)",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,2,3],\"c\":{\"d\":0,\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "getpath([\"c\",\"d\"])",
+      "input": "O",
+      "outputs": [
+        "\"x\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "getpath([\"x\",\"y\"])",
+      "input": "O",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "delpaths([[\"a\"],[\"b\",0]])",
+      "input": "O",
+      "outputs": [
+        "{\"b\":[2,3],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "has(\"a\")",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "has(\"zz\")",
+      "input": "O",
+      "outputs": [
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | has(1)",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | has(7)",
+      "input": "O",
+      "outputs": [
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".c | to_entries",
+      "input": "O",
+      "outputs": [
+        "[{\"key\":\"d\",\"value\":\"x\"},{\"key\":\"e\",\"value\":null}]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | type]",
+      "input": "O",
+      "outputs": [
+        "[\"number\",\"array\",\"object\",\"boolean\",\"string\",\"array\",\"number\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "map_values(type)",
+      "input": "O",
+      "outputs": [
+        "{\"a\":\"number\",\"b\":\"array\",\"c\":\"object\",\"f\":\"boolean\",\"g\":\"string\",\"h\":\"array\",\"i\":\"number\"}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | map(tostring)",
+      "input": "O",
+      "outputs": [
+        "[\"1\",\"2\",\"3\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | join(\"-\")",
+      "input": "O",
+      "outputs": [
+        "\"1-2-3\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | map(tostring) | join(\", \")",
+      "input": "O",
+      "outputs": [
+        "\"1, 2, 3\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | ascii_downcase",
+      "input": "O",
+      "outputs": [
+        "\"hello, world\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | ascii_upcase",
+      "input": "O",
+      "outputs": [
+        "\"HELLO, WORLD\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | split(\", \")",
+      "input": "O",
+      "outputs": [
+        "[\"Hello\",\"World\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | test(\"World\")",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | test(\"world\"; \"i\")",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | [match(\"o\"; \"g\").offset]",
+      "input": "O",
+      "outputs": [
+        "[4,8]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | sub(\"o\"; \"0\")",
+      "input": "O",
+      "outputs": [
+        "\"Hell0, World\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | gsub(\"o\"; \"0\")",
+      "input": "O",
+      "outputs": [
+        "\"Hell0, W0rld\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | capture(\"(?<first>[A-Z][a-z]+)\")",
+      "input": "O",
+      "outputs": [
+        "{\"first\":\"Hello\"}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | [scan(\"[A-Z]\")]",
+      "input": "O",
+      "outputs": [
+        "[\"H\",\"W\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | ltrimstr(\"Hello\")",
+      "input": "O",
+      "outputs": [
+        "\", World\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | rtrimstr(\"World\")",
+      "input": "O",
+      "outputs": [
+        "\"Hello, \""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | startswith(\"Hell\")",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | endswith(\"x\")",
+      "input": "O",
+      "outputs": [
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | explode | length",
+      "input": "O",
+      "outputs": [
+        "12"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | explode | implode",
+      "input": "O",
+      "outputs": [
+        "\"Hello, World\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | @base64",
+      "input": "O",
+      "outputs": [
+        "\"SGVsbG8sIFdvcmxk\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | @base64 | @base64d",
+      "input": "O",
+      "outputs": [
+        "\"Hello, World\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | @uri",
+      "input": "O",
+      "outputs": [
+        "\"Hello%2C%20World\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | @html",
+      "input": "O",
+      "outputs": [
+        "\"Hello, World\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | @json",
+      "input": "O",
+      "outputs": [
+        "\"\\\"Hello, World\\\"\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | @text",
+      "input": "O",
+      "outputs": [
+        "\"Hello, World\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | @csv",
+      "input": "O",
+      "outputs": [
+        "\"1,2,3\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | @tsv",
+      "input": "O",
+      "outputs": [
+        "\"1\\t2\\t3\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | @sh",
+      "input": "O",
+      "outputs": [
+        "\"1 2 3\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | indices(\", \")",
+      "input": "O",
+      "outputs": [
+        "[5]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | index(\"o\")",
+      "input": "O",
+      "outputs": [
+        "4"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | rindex(\"o\")",
+      "input": "O",
+      "outputs": [
+        "8"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | indices(2)",
+      "input": "O",
+      "outputs": [
+        "[1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | index(2)",
+      "input": "O",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".i | floor",
+      "input": "O",
+      "outputs": [
+        "-3"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".i | ceil",
+      "input": "O",
+      "outputs": [
+        "-2"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".i | round",
+      "input": "O",
+      "outputs": [
+        "-3"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".i | fabs",
+      "input": "O",
+      "outputs": [
+        "2.5"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".i | abs",
+      "input": "O",
+      "outputs": [
+        "2.5"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | add / length",
+      "input": "O",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | min",
+      "input": "O",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | max",
+      "input": "O",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | reverse",
+      "input": "O",
+      "outputs": [
+        "[3,2,1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | reverse",
+      "input": "O",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": ".b | contains([2])",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".c | contains({d: \"x\"})",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | any(. > 2)",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | all(. > 0)",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | flatten",
+      "input": "O",
+      "outputs": [
+        "[1,2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".f | not",
+      "input": "O",
+      "outputs": [
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".c.e // \"default\"",
+      "input": "O",
+      "outputs": [
+        "\"default\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".missing // .a",
+      "input": "O",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "if .f then \"yes\" else \"no\" end",
+      "input": "O",
+      "outputs": [
+        "\"yes\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "if .a == 1 then \"one\" elif .a == 2 then \"two\" else \"many\" end",
+      "input": "O",
+      "outputs": [
+        "\"one\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".a as $x | .b | map(. + $x)",
+      "input": "O",
+      "outputs": [
+        "[2,3,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ". as {a: $x, b: [$y, $z]} | [$x, $y, $z]",
+      "input": "O",
+      "outputs": [
+        "[1,1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b as [$first] | $first",
+      "input": "O",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "reduce .b[] as $x (0; . + $x)",
+      "input": "O",
+      "outputs": [
+        "6"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[foreach .b[] as $x (0; . + $x)]",
+      "input": "O",
+      "outputs": [
+        "[1,3,6]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[foreach .b[] as $x (0; . + $x; [$x, .])]",
+      "input": "O",
+      "outputs": [
+        "[[1,1],[2,3],[3,6]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[limit(2; .b[])]",
+      "input": "O",
+      "outputs": [
+        "[1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[first(.b[]), last(.b[])]",
+      "input": "O",
+      "outputs": [
+        "[1,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "nth(1; .b[])",
+      "input": "O",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b[] | select(. != 2)]",
+      "input": "O",
+      "outputs": [
+        "[1,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | numbers]",
+      "input": "O",
+      "outputs": [
+        "[1,-2.5]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | strings]",
+      "input": "O",
+      "outputs": [
+        "[\"Hello, World\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | booleans]",
+      "input": "O",
+      "outputs": [
+        "[true]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | nulls]",
+      "input": "O",
+      "outputs": [
+        "[]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | arrays]",
+      "input": "O",
+      "outputs": [
+        "[[1,2,3],[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | objects]",
+      "input": "O",
+      "outputs": [
+        "[{\"d\":\"x\",\"e\":null}]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | iterables | length]",
+      "input": "O",
+      "outputs": [
+        "[3,2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | scalars]",
+      "input": "O",
+      "outputs": [
+        "[1,true,\"Hello, World\",-2.5]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.. | numbers]",
+      "input": "O",
+      "outputs": [
+        "[1,1,2,3,3,1,2,-2.5]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[..] | length",
+      "input": "O",
+      "outputs": [
+        "22"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.c | recurse]",
+      "input": "O",
+      "outputs": [
+        "[{\"d\":\"x\",\"e\":null},\"x\",null]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[tostream] | length",
+      "input": "O",
+      "outputs": [
+        "22"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[tostream] | .[0]",
+      "input": "O",
+      "outputs": [
+        "[[\"a\"],1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "fromstream(tostream)",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,2,3],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b | tostream]",
+      "input": "O",
+      "outputs": [
+        "[[[0],1],[[1],2],[[2],3],[[2]]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"\\(.a) and \\(.g)\"",
+      "input": "O",
+      "outputs": [
+        "\"1 and Hello, World\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "{a, g}",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"g\":\"Hello, World\"}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{(.g): .a}",
+      "input": "O",
+      "outputs": [
+        "{\"Hello, World\":1}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[{x: .b[]}]",
+      "input": "O",
+      "outputs": [
+        "[{\"x\":1},{\"x\":2},{\"x\":3}]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b[] | {v: .}]",
+      "input": "O",
+      "outputs": [
+        "[{\"v\":1},{\"v\":2},{\"v\":3}]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | map(. as $v | {($v|tostring): $v}) | add",
+      "input": "O",
+      "outputs": [
+        "{\"1\":1,\"2\":2,\"3\":3}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "to_entries | from_entries",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,2,3],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | INDEX(.n) | keys",
+      "input": "O",
+      "outputs": [
+        "[\"a\",\"b\",\"c\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".a | IN(1, 2)",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b[] | tojson]",
+      "input": "O",
+      "outputs": [
+        "[\"1\",\"2\",\"3\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | tojson",
+      "input": "O",
+      "outputs": [
+        "\"[1,2,3]\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | tojson | fromjson",
+      "input": "O",
+      "outputs": [
+        "[1,2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".a | tostring",
+      "input": "O",
+      "outputs": [
+        "\"1\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | type",
+      "input": "O",
+      "outputs": [
+        "\"array\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".c.e | type",
+      "input": "O",
+      "outputs": [
+        "\"null\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | .[1:2]",
+      "input": "O",
+      "outputs": [
+        "[2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | .[0:5]",
+      "input": "O",
+      "outputs": [
+        "\"Hello\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | .[-5:]",
+      "input": "O",
+      "outputs": [
+        "\"World\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | [splits(\", \")]",
+      "input": "O",
+      "outputs": [
+        "[\"Hello\",\"World\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | ascii_downcase | split(\"\") | unique | join(\"\")",
+      "input": "O",
+      "outputs": [
+        "\" ,dehlorw\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "walk(if type == \"number\" then . + 1 else . end)",
+      "input": "O",
+      "outputs": [
+        "{\"a\":2,\"b\":[2,3,4],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":4},{\"n\":\"b\",\"v\":2},{\"n\":\"c\",\"v\":3}],\"i\":-1.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "pick(.a)",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "pick(.c.d)",
+      "input": "O",
+      "outputs": [
+        "{\"c\":{\"d\":\"x\"}}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | to_entries | map(.key)",
+      "input": "O",
+      "outputs": [
+        "[0,1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b[] | . as $x | select($x > 1)]",
+      "input": "O",
+      "outputs": [
+        "[2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "try error(\"bad\") catch .",
+      "input": "O",
+      "outputs": [
+        "\"bad\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "try (.a | error) catch .",
+      "input": "O",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b[] | try (if . == 2 then error(\"two\") else . end) catch \"caught\"]",
+      "input": "O",
+      "outputs": [
+        "[1,\"caught\",3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".a?",
+      "input": "O",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.g.x?]",
+      "input": "O",
+      "outputs": [
+        "[]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | .x?]",
+      "input": "O",
+      "outputs": [
+        "[null]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "error(\"stop\")",
+      "input": "O",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": ".g | .x",
+      "input": "O",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "label $out | .b[] | if . > 1 then ., break $out else . end",
+      "input": "O",
+      "outputs": [
+        "1",
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "def double: . * 2; .b | map(double)",
+      "input": "O",
+      "outputs": [
+        "[2,4,6]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "def f(g): [g, g]; f(.a)",
+      "input": "O",
+      "outputs": [
+        "[1,1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b[] | select(. > 1)] | length",
+      "input": "O",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "path(.c.d)",
+      "input": "O",
+      "outputs": [
+        "[\"c\",\"d\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[path(..)] | length",
+      "input": "O",
+      "outputs": [
+        "22"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[paths] | length",
+      "input": "O",
+      "outputs": [
+        "21"
+      ],
+      "error": null
+    },
+    {
+      "filter": "path(.b[0])",
+      "input": "O",
+      "outputs": [
+        "[\"b\",0]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[path(.h[].n)]",
+      "input": "O",
+      "outputs": [
+        "[[\"h\",0,\"n\"],[\"h\",1,\"n\"],[\"h\",2,\"n\"]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "getpath([\"b\",0])",
+      "input": "O",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "to_entries[0]",
+      "input": "O",
+      "outputs": [
+        "{\"key\":\"a\",\"value\":1}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | map(has(\"n\")) | all",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | sort",
+      "input": "O",
+      "outputs": [
+        "[1,2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | unique",
+      "input": "O",
+      "outputs": [
+        "[1,2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | sort_by(.n) | reverse | map(.n)",
+      "input": "O",
+      "outputs": [
+        "[\"c\",\"b\",\"a\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | sort_by(-.v) | map(.n)",
+      "input": "O",
+      "outputs": [
+        "[\"a\",\"c\",\"b\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | @base32",
+      "input": "O",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": ".g | @base32 | @base32d",
+      "input": "O",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": ". == .",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".a < .g",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | min_by(-.)",
+      "input": "O",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | max_by(-.)",
+      "input": "O",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | first, last",
+      "input": "O",
+      "outputs": [
+        "1",
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".a, .b[0]",
+      "input": "O",
+      "outputs": [
+        "1",
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.a, .b[0]] | add",
+      "input": "O",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | map(select(. % 2 == 0))",
+      "input": "O",
+      "outputs": [
+        "[2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | [.[] | . * .]",
+      "input": "O",
+      "outputs": [
+        "[1,4,9]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | length as $n | add / $n",
+      "input": "O",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[limit(0; .b[])]",
+      "input": "O",
+      "outputs": [
+        "[]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | until(length < 2; .[1:])",
+      "input": "O",
+      "outputs": [
+        "[3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.a | while(. < 50; . * 3)]",
+      "input": "O",
+      "outputs": [
+        "[1,3,9,27]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[limit(5; .a | repeat(. * 2))]",
+      "input": "O",
+      "outputs": [
+        "[2,2,2,2,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.c | .. | strings]",
+      "input": "O",
+      "outputs": [
+        "[\"x\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.h[] | .n] | join(\",\")",
+      "input": "O",
+      "outputs": [
+        "\"a,b,c\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | map(\"\\(.n)=\\(.v)\") | join(\"&\")",
+      "input": "O",
+      "outputs": [
+        "\"a=3&b=1&c=2\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | utf8bytelength",
+      "input": "O",
+      "outputs": [
+        "12"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | map(. > 2) | any",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".a | toarray",
+      "input": "O",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": ".b | toarray",
+      "input": "O",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": ".c | map_values(. // \"none\")",
+      "input": "O",
+      "outputs": [
+        "{\"d\":\"x\",\"e\":\"none\"}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".c | to_entries | map(\"\\(.key):\\(.value)\")",
+      "input": "O",
+      "outputs": [
+        "[\"d:x\",\"e:null\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b[2:] = [\"x\"]",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,2,\"x\"],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | del(.[1:3])",
+      "input": "O",
+      "outputs": [
+        "[1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "del(.h[] | select(.v < 2))",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,2,3],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h |= sort_by(.n)",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,2,3],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":3},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h[0].v += 10",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,2,3],\"c\":{\"d\":\"x\",\"e\":null},\"f\":true,\"g\":\"Hello, World\",\"h\":[{\"n\":\"a\",\"v\":13},{\"n\":\"b\",\"v\":1},{\"n\":\"c\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "(.. | select(type == \"string\")) |= ascii_upcase",
+      "input": "O",
+      "outputs": [
+        "{\"a\":1,\"b\":[1,2,3],\"c\":{\"d\":\"X\",\"e\":null},\"f\":true,\"g\":\"HELLO, WORLD\",\"h\":[{\"n\":\"A\",\"v\":3},{\"n\":\"B\",\"v\":1},{\"n\":\"C\",\"v\":2}],\"i\":-2.5}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | length?]",
+      "input": "O",
+      "outputs": [
+        "[1,3,2,12,3,2.5]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b[] | . / 2]",
+      "input": "O",
+      "outputs": [
+        "[0.5,1,1.5]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".i * 2",
+      "input": "O",
+      "outputs": [
+        "-5"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".i | -.",
+      "input": "O",
+      "outputs": [
+        "2.5"
+      ],
+      "error": null
+    },
+    {
+      "filter": "-(.a)",
+      "input": "O",
+      "outputs": [
+        "-1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b[] as $x | $x * $x]",
+      "input": "O",
+      "outputs": [
+        "[1,4,9]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.h[] as {n: $n, v: $v} | \"\\($n)\\($v)\"]",
+      "input": "O",
+      "outputs": [
+        "[\"a3\",\"b1\",\"c2\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | map({(.n): .v}) | add",
+      "input": "O",
+      "outputs": [
+        "{\"a\":3,\"b\":1,\"c\":2}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "reduce .h[] as $i ({}; .[$i.n] = $i.v)",
+      "input": "O",
+      "outputs": [
+        "{\"a\":3,\"b\":1,\"c\":2}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | tojson]",
+      "input": "O",
+      "outputs": [
+        "[\"1\",\"[1,2,3]\",\"{\\\"d\\\":\\\"x\\\",\\\"e\\\":null}\",\"true\",\"\\\"Hello, World\\\"\",\"[{\\\"n\\\":\\\"a\\\",\\\"v\\\":3},{\\\"n\\\":\\\"b\\\",\\\"v\\\":1},{\\\"n\\\":\\\"c\\\",\\\"v\\\":2}]\",\"-2.5\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "tostring",
+      "input": "O",
+      "outputs": [
+        "\"{\\\"a\\\":1,\\\"b\\\":[1,2,3],\\\"c\\\":{\\\"d\\\":\\\"x\\\",\\\"e\\\":null},\\\"f\\\":true,\\\"g\\\":\\\"Hello, World\\\",\\\"h\\\":[{\\\"n\\\":\\\"a\\\",\\\"v\\\":3},{\\\"n\\\":\\\"b\\\",\\\"v\\\":1},{\\\"n\\\":\\\"c\\\",\\\"v\\\":2}],\\\"i\\\":-2.5}\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "tojson | fromjson == .",
+      "input": "O",
+      "outputs": [
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"\\(.c)\"",
+      "input": "O",
+      "outputs": [
+        "\"{\\\"d\\\":\\\"x\\\",\\\"e\\\":null}\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "error",
+      "input": "O",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "[.b[] | if . > 2 then \"big\" end]",
+      "input": "O",
+      "outputs": [
+        "[1,2,\"big\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".h | map(.v) | sort | .[length / 2 | floor]",
+      "input": "O",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | .[length] = 99",
+      "input": "O",
+      "outputs": [
+        "[1,2,3,99]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b[] | select(. > 1 and . < 5)]",
+      "input": "O",
+      "outputs": [
+        "[2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b[] | select(. < 2 or . > 4)]",
+      "input": "O",
+      "outputs": [
+        "[1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b[] | . == 2] | any",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "any(.b[]; . > 4)",
+      "input": "O",
+      "outputs": [
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": "all(.b[]; . > 0)",
+      "input": "O",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "isempty(.b[])",
+      "input": "O",
+      "outputs": [
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | map(try (if . > 2 then error(\"big\") else . end) catch -1)",
+      "input": "O",
+      "outputs": [
+        "[1,2,-1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.b[] | (if . > 2 then error(\"big\") else . end)?]",
+      "input": "O",
+      "outputs": [
+        "[1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "getpath([\"h\",0,\"n\"])",
+      "input": "O",
+      "outputs": [
+        "\"a\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[paths(type == \"array\")]",
+      "input": "O",
+      "outputs": [
+        "[[\"b\"],[\"h\"]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".b | .[1:] |= map(. * 2)",
+      "input": "O",
+      "outputs": [
+        "[1,4,6]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".g | test(\"(\")",
+      "input": "O",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "getpath([\"a\",0])",
+      "input": "O",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": ".[] |= empty",
+      "input": "O",
+      "outputs": [
+        "{}"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".",
+      "input": "A",
+      "outputs": [
+        "[3,1,2,5,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "sort",
+      "input": "A",
+      "outputs": [
+        "[1,2,3,4,5]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "sort | reverse",
+      "input": "A",
+      "outputs": [
+        "[5,4,3,2,1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "min",
+      "input": "A",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "max",
+      "input": "A",
+      "outputs": [
+        "5"
+      ],
+      "error": null
+    },
+    {
+      "filter": "add",
+      "input": "A",
+      "outputs": [
+        "15"
+      ],
+      "error": null
+    },
+    {
+      "filter": "length",
+      "input": "A",
+      "outputs": [
+        "5"
+      ],
+      "error": null
+    },
+    {
+      "filter": "map(. * 2)",
+      "input": "A",
+      "outputs": [
+        "[6,2,4,10,8]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "map(select(. > 2))",
+      "input": "A",
+      "outputs": [
+        "[3,5,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | select(IN(2, 3))]",
+      "input": "A",
+      "outputs": [
+        "[3,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".[2:4]",
+      "input": "A",
+      "outputs": [
+        "[2,5]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".[-2:]",
+      "input": "A",
+      "outputs": [
+        "[5,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".[:-1]",
+      "input": "A",
+      "outputs": [
+        "[3,1,2,5]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "first",
+      "input": "A",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": "last",
+      "input": "A",
+      "outputs": [
+        "4"
+      ],
+      "error": null
+    },
+    {
+      "filter": "index(2)",
+      "input": "A",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "indices(5)",
+      "input": "A",
+      "outputs": [
+        "[3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "to_entries | map(.value)",
+      "input": "A",
+      "outputs": [
+        "[3,1,2,5,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "unique",
+      "input": "A",
+      "outputs": [
+        "[1,2,3,4,5]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "group_by(. % 2)",
+      "input": "A",
+      "outputs": [
+        "[[2,4],[3,1,5]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "min_by(.)",
+      "input": "A",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "sort_by(-.)",
+      "input": "A",
+      "outputs": [
+        "[5,4,3,2,1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | tostring] | join(\"\")",
+      "input": "A",
+      "outputs": [
+        "\"31254\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "map(. % 2 == 0)",
+      "input": "A",
+      "outputs": [
+        "[false,false,true,false,true]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "any(. == 5)",
+      "input": "A",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "all(. < 10)",
+      "input": "A",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "reduce .[] as $x (1; . * $x)",
+      "input": "A",
+      "outputs": [
+        "120"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[limit(3; .[])]",
+      "input": "A",
+      "outputs": [
+        "[3,1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[range(length)]",
+      "input": "A",
+      "outputs": [
+        "[0,1,2,3,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | . as $x | [$x, $x * $x]] | map(add)",
+      "input": "A",
+      "outputs": [
+        "[12,2,6,30,20]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "del(.[0, 2])",
+      "input": "A",
+      "outputs": [
+        "[1,5,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".[1] = \"x\"",
+      "input": "A",
+      "outputs": [
+        "[3,\"x\",2,5,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[paths]",
+      "input": "A",
+      "outputs": [
+        "[[0],[1],[2],[3],[4]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[] | -.]",
+      "input": "A",
+      "outputs": [
+        "[-3,-1,-2,-5,-4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "@json",
+      "input": "A",
+      "outputs": [
+        "\"[3,1,2,5,4]\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "tostring",
+      "input": "A",
+      "outputs": [
+        "\"[3,1,2,5,4]\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[combinations(1)] | length",
+      "input": "A",
+      "outputs": [
+        "5"
+      ],
+      "error": null
+    },
+    {
+      "filter": "flatten",
+      "input": "A",
+      "outputs": [
+        "[3,1,2,5,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "contains([1, 5])",
+      "input": "A",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "inside([1, 2, 3, 4, 5, 6])",
+      "input": "A",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "to_entries | .[0]",
+      "input": "A",
+      "outputs": [
+        "{\"key\":0,\"value\":3}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "sort_by(.) == sort",
+      "input": "A",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": ".",
+      "input": "S",
+      "outputs": [
+        "\"abc,def,ghi\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "length",
+      "input": "S",
+      "outputs": [
+        "11"
+      ],
+      "error": null
+    },
+    {
+      "filter": "split(\",\")",
+      "input": "S",
+      "outputs": [
+        "[\"abc\",\"def\",\"ghi\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "split(\",\") | map(ascii_upcase) | join(\";\")",
+      "input": "S",
+      "outputs": [
+        "\"ABC;DEF;GHI\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "ascii_upcase",
+      "input": "S",
+      "outputs": [
+        "\"ABC,DEF,GHI\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "test(\"def\")",
+      "input": "S",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[match(\"[a-z]+\"; \"g\").string]",
+      "input": "S",
+      "outputs": [
+        "[\"abc\",\"def\",\"ghi\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "sub(\"(?<x>[a-z]+)\"; \"<\\(.x)>\")",
+      "input": "S",
+      "outputs": [
+        "\"<abc>,def,ghi\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "gsub(\"(?<x>[a-z]+)\"; \"<\\(.x)>\")",
+      "input": "S",
+      "outputs": [
+        "\"<abc>,<def>,<ghi>\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "gsub(\",\"; \"\")",
+      "input": "S",
+      "outputs": [
+        "\"abcdefghi\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[scan(\"[aeiou]\")]",
+      "input": "S",
+      "outputs": [
+        "[\"a\",\"e\",\"i\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "explode | map(. + 1) | implode",
+      "input": "S",
+      "outputs": [
+        "\"bcd-efg-hij\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".[0:3]",
+      "input": "S",
+      "outputs": [
+        "\"abc\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ".[4:]",
+      "input": "S",
+      "outputs": [
+        "\"def,ghi\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "ltrimstr(\"abc,\")",
+      "input": "S",
+      "outputs": [
+        "\"def,ghi\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "rtrimstr(\",ghi\")",
+      "input": "S",
+      "outputs": [
+        "\"abc,def\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "startswith(\"abc\")",
+      "input": "S",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "endswith(\"ghi\")",
+      "input": "S",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "indices(\",\")",
+      "input": "S",
+      "outputs": [
+        "[3,7]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "index(\",\")",
+      "input": "S",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": "rindex(\",\")",
+      "input": "S",
+      "outputs": [
+        "7"
+      ],
+      "error": null
+    },
+    {
+      "filter": "contains(\"def\")",
+      "input": "S",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "inside(\"xxabc,def,ghiyy\")",
+      "input": "S",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "@base64",
+      "input": "S",
+      "outputs": [
+        "\"YWJjLGRlZixnaGk=\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "@uri",
+      "input": "S",
+      "outputs": [
+        "\"abc%2Cdef%2Cghi\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "@sh",
+      "input": "S",
+      "outputs": [
+        "\"'abc,def,ghi'\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "@json",
+      "input": "S",
+      "outputs": [
+        "\"\\\"abc,def,ghi\\\"\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "@html",
+      "input": "S",
+      "outputs": [
+        "\"abc,def,ghi\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "tojson",
+      "input": "S",
+      "outputs": [
+        "\"\\\"abc,def,ghi\\\"\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "tojson | fromjson",
+      "input": "S",
+      "outputs": [
+        "\"abc,def,ghi\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "ascii_downcase",
+      "input": "S",
+      "outputs": [
+        "\"abc,def,ghi\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[splits(\",\")]",
+      "input": "S",
+      "outputs": [
+        "[\"abc\",\"def\",\"ghi\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "split(\",\") | length",
+      "input": "S",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": "utf8bytelength",
+      "input": "S",
+      "outputs": [
+        "11"
+      ],
+      "error": null
+    },
+    {
+      "filter": ". + \"!\"",
+      "input": "S",
+      "outputs": [
+        "\"abc,def,ghi!\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ". * 2",
+      "input": "S",
+      "outputs": [
+        "\"abc,def,ghiabc,def,ghi\""
+      ],
+      "error": null
+    },
+    {
+      "filter": ". * 0",
+      "input": "S",
+      "outputs": [
+        "\"\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "capture(\"(?<head>[a-z]+),(?<rest>.*)\")",
+      "input": "S",
+      "outputs": [
+        "{\"head\":\"abc\",\"rest\":\"def,ghi\"}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[match(\"(d)(x)?\").captures[].string]",
+      "input": "S",
+      "outputs": [
+        "[\"d\",null]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "tonumber",
+      "input": "S",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": ".[0]",
+      "input": "S",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "has(\"a\")",
+      "input": "S",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "keys",
+      "input": "S",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "fromjson",
+      "input": "S",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "test(\"ABC\"; \"i\")",
+      "input": "S",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "split(\", *\"; null)",
+      "input": "S",
+      "outputs": [
+        "[\"abc\",\"def\",\"ghi\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "reverse",
+      "input": "S",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "1 + 2",
+      "input": "N",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": "5 - 2 * 3",
+      "input": "N",
+      "outputs": [
+        "-1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "10 / 4",
+      "input": "N",
+      "outputs": [
+        "2.5"
+      ],
+      "error": null
+    },
+    {
+      "filter": "7 % 3",
+      "input": "N",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "-7 % 3",
+      "input": "N",
+      "outputs": [
+        "-1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "(1 / 3) * 3 == 1",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"ab\" + \"cd\"",
+      "input": "N",
+      "outputs": [
+        "\"abcd\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,2] + [3]",
+      "input": "N",
+      "outputs": [
+        "[1,2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{a:1} + {b:2}",
+      "input": "N",
+      "outputs": [
+        "{\"a\":1,\"b\":2}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{a:{b:1}} * {a:{c:2}}",
+      "input": "N",
+      "outputs": [
+        "{\"a\":{\"b\":1,\"c\":2}}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,2,3,2] - [2]",
+      "input": "N",
+      "outputs": [
+        "[1,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "null + 1",
+      "input": "N",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"x\" * 3",
+      "input": "N",
+      "outputs": [
+        "\"xxx\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"a\" * 0",
+      "input": "N",
+      "outputs": [
+        "\"\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[range(3)]",
+      "input": "N",
+      "outputs": [
+        "[0,1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[range(1; 4)]",
+      "input": "N",
+      "outputs": [
+        "[1,2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[range(0; 10; 3)]",
+      "input": "N",
+      "outputs": [
+        "[0,3,6,9]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[range(5; 0; -2)]",
+      "input": "N",
+      "outputs": [
+        "[5,3,1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"12\" | tonumber",
+      "input": "N",
+      "outputs": [
+        "12"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"1.5\" | tonumber",
+      "input": "N",
+      "outputs": [
+        "1.5"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"abc\" | tonumber",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "infinite > 1000",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "nan | isnan",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[nan] | .[0] | isnan",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "16 | sqrt",
+      "input": "N",
+      "outputs": [
+        "4"
+      ],
+      "error": null
+    },
+    {
+      "filter": "-1.5 | floor",
+      "input": "N",
+      "outputs": [
+        "-2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "3.7 | round",
+      "input": "N",
+      "outputs": [
+        "4"
+      ],
+      "error": null
+    },
+    {
+      "filter": "2.5 | trunc",
+      "input": "N",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "pow(2; 10)",
+      "input": "N",
+      "outputs": [
+        "1024"
+      ],
+      "error": null
+    },
+    {
+      "filter": "1 | log",
+      "input": "N",
+      "outputs": [
+        "0"
+      ],
+      "error": null
+    },
+    {
+      "filter": "100 | log10",
+      "input": "N",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "8 | cbrt",
+      "input": "N",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "1e3",
+      "input": "N",
+      "outputs": [
+        "1E+3"
+      ],
+      "error": null
+    },
+    {
+      "filter": "1.5e300 * 1e10",
+      "input": "N",
+      "outputs": [
+        "1.7976931348623157e+308"
+      ],
+      "error": null
+    },
+    {
+      "filter": "100000000000000000000",
+      "input": "N",
+      "outputs": [
+        "100000000000000000000"
+      ],
+      "error": null
+    },
+    {
+      "filter": "3.0",
+      "input": "N",
+      "outputs": [
+        "3.0"
+      ],
+      "error": null
+    },
+    {
+      "filter": "0.1 + 0.2",
+      "input": "N",
+      "outputs": [
+        "0.30000000000000004"
+      ],
+      "error": null
+    },
+    {
+      "filter": "-0",
+      "input": "N",
+      "outputs": [
+        "0"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,null,2] | map(values)",
+      "input": "N",
+      "outputs": [
+        "[1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,null,2] | map(select(. != null))",
+      "input": "N",
+      "outputs": [
+        "[1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"1,2;3\" | split(\"[,;]\"; null)",
+      "input": "N",
+      "outputs": [
+        "[\"1\",\"2\",\"3\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"foo bar\" | gsub(\"(?<x>o)\"; \"[\\(.x)]\")",
+      "input": "N",
+      "outputs": [
+        "\"f[o][o] bar\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"aXbXc\" | sub(\"X\"; \"-\")",
+      "input": "N",
+      "outputs": [
+        "\"a-bXc\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"aXbXc\" | [splits(\"X\")]",
+      "input": "N",
+      "outputs": [
+        "[\"a\",\"b\",\"c\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"aaa\" | sub(\"a\"; \"b\"; \"g\")",
+      "input": "N",
+      "outputs": [
+        "\"bbb\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"abc\" | [match(\".\"; \"g\").string]",
+      "input": "N",
+      "outputs": [
+        "[\"a\",\"b\",\"c\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"test 123 abc 45\" | [match(\"\\\\d+\"; \"g\") | .string]",
+      "input": "N",
+      "outputs": [
+        "[\"123\",\"45\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"a1b2c3\" | [scan(\"\\\\d\")]",
+      "input": "N",
+      "outputs": [
+        "[\"1\",\"2\",\"3\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"xyz\" | capture(\"(?<a>x)(?<b>y)\")",
+      "input": "N",
+      "outputs": [
+        "{\"a\":\"x\",\"b\":\"y\"}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"AbA\" | gsub(\"a\"; \"x\"; \"i\")",
+      "input": "N",
+      "outputs": [
+        "\"xbx\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"a-b_c\" | split(\"[-_]\"; \"g\")",
+      "input": "N",
+      "outputs": [
+        "[\"a\",\"b\",\"c\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,\"a,b\",null,true] | @csv",
+      "input": "N",
+      "outputs": [
+        "\"1,\\\"a,b\\\",,true\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,\"a\\tb\"] | @tsv",
+      "input": "N",
+      "outputs": [
+        "\"1\\ta\\\\tb\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"<a href=\\\"x\\\">\" | @html",
+      "input": "N",
+      "outputs": [
+        "\"&lt;a href=&quot;x&quot;&gt;\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"a b&c\" | @uri",
+      "input": "N",
+      "outputs": [
+        "\"a%20b%26c\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"'q'\" | @sh",
+      "input": "N",
+      "outputs": [
+        "\"''\\\\''q'\\\\'''\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,\"a b\"] | @sh",
+      "input": "N",
+      "outputs": [
+        "\"1 'a b'\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[{}] | @csv",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "123 | @base64",
+      "input": "N",
+      "outputs": [
+        "\"MTIz\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"é\" | @base64",
+      "input": "N",
+      "outputs": [
+        "\"w6k=\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"é\" | @uri",
+      "input": "N",
+      "outputs": [
+        "\"%C3%A9\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "@base64 \"v=\\(1 + 1)\"",
+      "input": "N",
+      "outputs": [
+        "\"v=Mg==\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1} | has(\"a\"), has(\"b\")",
+      "input": "N",
+      "outputs": [
+        "true",
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[0,1] | has(0)",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"abc\" | contains(\"b\")",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[\"abc\",\"def\"] | contains([\"bc\"])",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":[1,2,3]} | contains({\"a\":[1]})",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"b\" | inside(\"abc\")",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,2] | inside([1,2,3])",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "true and false",
+      "input": "N",
+      "outputs": [
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": "true or false",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "true | not",
+      "input": "N",
+      "outputs": [
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[true, false] | map(not)",
+      "input": "N",
+      "outputs": [
+        "[false,true]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "null | not",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "0 | not",
+      "input": "N",
+      "outputs": [
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"\" | not",
+      "input": "N",
+      "outputs": [
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[] | min",
+      "input": "N",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[] | add",
+      "input": "N",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[] | first",
+      "input": "N",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[] | length",
+      "input": "N",
+      "outputs": [
+        "0"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{} | keys",
+      "input": "N",
+      "outputs": [
+        "[]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"\" | length",
+      "input": "N",
+      "outputs": [
+        "0"
+      ],
+      "error": null
+    },
+    {
+      "filter": "null | length",
+      "input": "N",
+      "outputs": [
+        "0"
+      ],
+      "error": null
+    },
+    {
+      "filter": "true | length",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "-5 | length",
+      "input": "N",
+      "outputs": [
+        "5"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[[1,2],[3,4]] | map(add)",
+      "input": "N",
+      "outputs": [
+        "[3,7]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[[1,2],[3,4]] | add",
+      "input": "N",
+      "outputs": [
+        "[1,2,3,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[[1,2],[3,4]] | transpose",
+      "input": "N",
+      "outputs": [
+        "[[1,3],[2,4]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[[1,2],[3]] | transpose",
+      "input": "N",
+      "outputs": [
+        "[[1,3],[2,null]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[[1,2],[3,4]] | [combinations]",
+      "input": "N",
+      "outputs": [
+        "[[1,3],[1,4],[2,3],[2,4]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,[2,[3,[4]]]] | flatten",
+      "input": "N",
+      "outputs": [
+        "[1,2,3,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,[2,[3,[4]]]] | flatten(1)",
+      "input": "N",
+      "outputs": [
+        "[1,2,[3,[4]]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[3,1,2] | sort_by(.)",
+      "input": "N",
+      "outputs": [
+        "[1,2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[\"b\",\"a\",\"C\"] | sort",
+      "input": "N",
+      "outputs": [
+        "[\"C\",\"a\",\"b\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[\"b\",\"a\",\"C\"] | sort_by(ascii_downcase)",
+      "input": "N",
+      "outputs": [
+        "[\"a\",\"b\",\"C\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[{\"a\":2,\"b\":1},{\"a\":1,\"b\":2}] | sort_by(.a, .b) | map(.a)",
+      "input": "N",
+      "outputs": [
+        "[1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[null,true,false,1,\"a\",[],{}] | sort",
+      "input": "N",
+      "outputs": [
+        "[null,false,true,1,\"a\",[],{}]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[3,1,3,2] | unique",
+      "input": "N",
+      "outputs": [
+        "[1,2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[{\"a\":1},{\"a\":1},{\"a\":2}] | unique",
+      "input": "N",
+      "outputs": [
+        "[{\"a\":1},{\"a\":2}]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[{\"a\":1,\"b\":1},{\"a\":1,\"b\":2}] | unique_by(.a) | length",
+      "input": "N",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,2,3] | index(2)",
+      "input": "N",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"a,b, cd, efg\" | index(\", \")",
+      "input": "N",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"a,b, cd, efg\" | rindex(\", \")",
+      "input": "N",
+      "outputs": [
+        "7"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"a,b, cd, efg\" | indices(\", \")",
+      "input": "N",
+      "outputs": [
+        "[3,7]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[0,1,2,1,3,1,4] | indices(1)",
+      "input": "N",
+      "outputs": [
+        "[1,3,5]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[0,1,2,3,1,2] | indices([1,2])",
+      "input": "N",
+      "outputs": [
+        "[1,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[65,66] | implode",
+      "input": "N",
+      "outputs": [
+        "\"AB\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"abc\" | explode | map(. + 1) | implode",
+      "input": "N",
+      "outputs": [
+        "\"bcd\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"naïve café\" | length",
+      "input": "N",
+      "outputs": [
+        "10"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"naïve café\" | utf8bytelength",
+      "input": "N",
+      "outputs": [
+        "12"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"naïve café\" | ascii_upcase",
+      "input": "N",
+      "outputs": [
+        "\"NAïVE CAFé\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"naïve café\" | explode",
+      "input": "N",
+      "outputs": [
+        "[110,97,239,118,101,32,99,97,102,233]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"a\\tb\" | @json",
+      "input": "N",
+      "outputs": [
+        "\"\\\"a\\\\tb\\\"\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"  x  \" | trim",
+      "input": "N",
+      "outputs": [
+        "\"x\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"  x  \" | ltrim",
+      "input": "N",
+      "outputs": [
+        "\"x  \""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"  x  \" | rtrim",
+      "input": "N",
+      "outputs": [
+        "\"  x\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "1 | ascii_downcase",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "\"x\" | tostring",
+      "input": "N",
+      "outputs": [
+        "\"x\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1, \"1\"] | map(tonumber)",
+      "input": "N",
+      "outputs": [
+        "[1,1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,2] | @text",
+      "input": "N",
+      "outputs": [
+        "\"[1,2]\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,[2]] | tostring",
+      "input": "N",
+      "outputs": [
+        "\"[1,[2]]\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "null | .a.b = 1",
+      "input": "N",
+      "outputs": [
+        "{\"a\":{\"b\":1}}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "null | .[2] = 1",
+      "input": "N",
+      "outputs": [
+        "[null,null,1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{} | .a += 1",
+      "input": "N",
+      "outputs": [
+        "{\"a\":1}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,2,3] | to_entries",
+      "input": "N",
+      "outputs": [
+        "[{\"key\":0,\"value\":1},{\"key\":1,\"value\":2},{\"key\":2,\"value\":3}]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1} | with_entries(.key |= ascii_upcase)",
+      "input": "N",
+      "outputs": [
+        "{\"A\":1}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[{\"key\":\"a\",\"value\":1},{\"name\":\"b\",\"value\":2}] | from_entries",
+      "input": "N",
+      "outputs": [
+        "{\"a\":1,\"b\":2}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":{\"b\":{\"c\":1}}} | [paths | join(\".\")]",
+      "input": "N",
+      "outputs": [
+        "[\"a\",\"a.b\",\"a.b.c\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":[1,2]} | [paths | map(tostring) | join(\".\")]",
+      "input": "N",
+      "outputs": [
+        "[\"a\",\"a.0\",\"a.1\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":null} | getpath([\"a\",\"b\"])",
+      "input": "N",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1,\"b\":2} | del(.a)",
+      "input": "N",
+      "outputs": [
+        "{\"b\":2}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1,\"b\":2} | to_entries | map(select(.value > 1)) | from_entries",
+      "input": "N",
+      "outputs": [
+        "{\"b\":2}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1,\"b\":2} | map_values(. + 1)",
+      "input": "N",
+      "outputs": [
+        "{\"a\":2,\"b\":3}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1,\"b\":2} | map(. + 1)",
+      "input": "N",
+      "outputs": [
+        "[2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1,\"b\":2} | [.[]]",
+      "input": "N",
+      "outputs": [
+        "[1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1,\"b\":2} | add",
+      "input": "N",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1,\"b\":2} | length",
+      "input": "N",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1,\"b\":2} | any(.[]; . > 1)",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":[1,2],\"b\":[3]} | [.[][]]",
+      "input": "N",
+      "outputs": [
+        "[1,2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":[1,2],\"b\":[3]} | map_values(length)",
+      "input": "N",
+      "outputs": [
+        "{\"a\":2,\"b\":1}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":[1,2],\"b\":[3]} | with_entries(.value |= add)",
+      "input": "N",
+      "outputs": [
+        "{\"a\":3,\"b\":3}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"b\":1,\"a\":2} | keys_unsorted",
+      "input": "N",
+      "outputs": [
+        "[\"b\",\"a\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"b\":1,\"a\":2} | keys",
+      "input": "N",
+      "outputs": [
+        "[\"a\",\"b\"]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"b\":1,\"a\":2} | tojson",
+      "input": "N",
+      "outputs": [
+        "\"{\\\"b\\\":1,\\\"a\\\":2}\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":[{\"b\":1}]} | [paths]",
+      "input": "N",
+      "outputs": [
+        "[[\"a\"],[\"a\",0],[\"a\",0,\"b\"]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":[{\"b\":1}]} | [leaf_paths]",
+      "input": "N",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": "[{\"a\":1},{\"a\":2}] | map(.a) | add",
+      "input": "N",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,2,3] | .[1:] | .[0]",
+      "input": "N",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,2,3] | .[1.5]",
+      "input": "N",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"abc\" | .[0]",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "{\"a\":1} | .[0]",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "[1] | .a",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "[1] | [.[\"a\"]?]",
+      "input": "N",
+      "outputs": [
+        "[]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "null | .[0]",
+      "input": "N",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "null | .a",
+      "input": "N",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "null | .[1:]",
+      "input": "N",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":null} | .a // 5",
+      "input": "N",
+      "outputs": [
+        "5"
+      ],
+      "error": null
+    },
+    {
+      "filter": "false // \"x\"",
+      "input": "N",
+      "outputs": [
+        "\"x\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[(1, null, 2) // 3]",
+      "input": "N",
+      "outputs": [
+        "[1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[empty]",
+      "input": "N",
+      "outputs": [
+        "[]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[empty, 1]",
+      "input": "N",
+      "outputs": [
+        "[1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[(1, 2) as $x | $x * 10]",
+      "input": "N",
+      "outputs": [
+        "[10,20]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[(1,2) as $x | (3,4) as $y | [$x,$y]]",
+      "input": "N",
+      "outputs": [
+        "[[1,3],[1,4],[2,3],[2,4]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[{a: (1,2)}]",
+      "input": "N",
+      "outputs": [
+        "[{\"a\":1},{\"a\":2}]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[{a: (1,2), b: (3,4)}] | length",
+      "input": "N",
+      "outputs": [
+        "4"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"\\(1 + 2)\"",
+      "input": "N",
+      "outputs": [
+        "\"3\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1 | .[]?]",
+      "input": "N",
+      "outputs": [
+        "[]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "isempty(empty)",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "try error(null) catch .",
+      "input": "N",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "try error({a:1}) catch .a",
+      "input": "N",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[limit(3; repeat(1))]",
+      "input": "N",
+      "outputs": [
+        "[1,1,1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[limit(3; 1 | recurse(. + 1))]",
+      "input": "N",
+      "outputs": [
+        "[1,2,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1 | recurse(. * 2; . < 20)]",
+      "input": "N",
+      "outputs": [
+        "[1,2,4,8,16]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[foreach range(5) as $i (0; . + $i; .)]",
+      "input": "N",
+      "outputs": [
+        "[0,1,3,6,10]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "reduce range(5) as $i ([]; . + [$i * $i])",
+      "input": "N",
+      "outputs": [
+        "[0,1,4,9,16]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "def fac: if . <= 1 then 1 else . * (. - 1 | fac) end; 5 | fac",
+      "input": "N",
+      "outputs": [
+        "120"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"2015-03-05T23:51:47Z\" | fromdateiso8601",
+      "input": "N",
+      "outputs": [
+        "1425599507"
+      ],
+      "error": null
+    },
+    {
+      "filter": "1425599507 | todate",
+      "input": "N",
+      "outputs": [
+        "\"2015-03-05T23:51:47Z\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "1425599507 | strftime(\"%Y-%m-%d\")",
+      "input": "N",
+      "outputs": [
+        "\"2015-03-05\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "1425599507 | gmtime | mktime",
+      "input": "N",
+      "outputs": [
+        "1425599507"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":\"x\"} | @text",
+      "input": "N",
+      "outputs": [
+        "\"{\\\"a\\\":\\\"x\\\"}\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"\\([1,2])\"",
+      "input": "N",
+      "outputs": [
+        "\"[1,2]\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":\"b\"} | \"\\(.a)\\(.a)\"",
+      "input": "N",
+      "outputs": [
+        "\"bb\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "1.5 | tojson",
+      "input": "N",
+      "outputs": [
+        "\"1.5\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "1.0 | tojson",
+      "input": "N",
+      "outputs": [
+        "\"1.0\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"a\" | error",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "{} | error",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "null | error",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "\"x\" | test(\"(\")",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "$undefined",
+      "input": "N",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": ".a |",
+      "input": "N",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": "[1,2",
+      "input": "N",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": "{a:}",
+      "input": "N",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": ".a ||| .b",
+      "input": "N",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": "nosuchfn",
+      "input": "N",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": "foo(1)",
+      "input": "N",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": "map",
+      "input": "N",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": "map(1;2)",
+      "input": "N",
+      "outputs": [],
+      "error": "compile"
+    },
+    {
+      "filter": "[1,2] | .[\"a\"]",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "\"abc\" | @base64d",
+      "input": "N",
+      "outputs": [
+        "\"i�\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,2,3] | getpath([5])",
+      "input": "N",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":{\"b\":2}} | to_entries[0].value.b",
+      "input": "N",
+      "outputs": [
+        "2"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[{\"a\":{\"b\":1}},{\"a\":{\"b\":2}}] | map(.a.b)",
+      "input": "N",
+      "outputs": [
+        "[1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"k\":[1,2]} | .k as [$a, $b] | $a + $b",
+      "input": "N",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[[1,2],[3,4]] | .[] as [$a, $b] | {a: $a, b: $b}",
+      "input": "N",
+      "outputs": [
+        "{\"a\":1,\"b\":2}",
+        "{\"a\":3,\"b\":4}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1} as {a: $v} | $v",
+      "input": "N",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[3,2,1] | sort_by(.) | first",
+      "input": "N",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,2,3] | IN(2)",
+      "input": "N",
+      "outputs": [
+        "false"
+      ],
+      "error": null
+    },
+    {
+      "filter": "2 | IN(1, 2, 3)",
+      "input": "N",
+      "outputs": [
+        "true"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[.[]?]",
+      "input": "N",
+      "outputs": [
+        "[]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[..] | length",
+      "input": "N",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[limit(1; 1, error(\"x\"))]",
+      "input": "N",
+      "outputs": [
+        "[1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "first(1, error(\"x\"))",
+      "input": "N",
+      "outputs": [
+        "1"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[range(10)] | .[2:5]",
+      "input": "N",
+      "outputs": [
+        "[2,3,4]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[range(10)] | map(select(. % 3 == 0))",
+      "input": "N",
+      "outputs": [
+        "[0,3,6,9]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[range(10)] | [.[] | select(. > 6)] | length",
+      "input": "N",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"x\" as $x | \"y\" as $y | $x + $y",
+      "input": "N",
+      "outputs": [
+        "\"xy\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,2] | map(tostring) | join(\"\")",
+      "input": "N",
+      "outputs": [
+        "\"12\""
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":\"1\",\"b\":\"2\"} | map_values(tonumber)",
+      "input": "N",
+      "outputs": [
+        "{\"a\":1,\"b\":2}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,2,3] | tostream | select(length == 2) | .[1]",
+      "input": "N",
+      "outputs": [
+        "1",
+        "2",
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[1,[2]] | [tostream]",
+      "input": "N",
+      "outputs": [
+        "[[[0],1],[[1,0],2],[[1,0]],[[1]]]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "fromstream(([0], 1), ([1], 2), ([1]))",
+      "input": "N",
+      "outputs": [],
+      "error": "runtime"
+    },
+    {
+      "filter": "[1,2,3] | [.[] | if . == 2 then empty else . end]",
+      "input": "N",
+      "outputs": [
+        "[1,3]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1,\"b\":null} | [.[] | values]",
+      "input": "N",
+      "outputs": [
+        "[1]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1} | .b.c",
+      "input": "N",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":[]} | .a[0]",
+      "input": "N",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "[[]] | .[0][0]",
+      "input": "N",
+      "outputs": [
+        "null"
+      ],
+      "error": null
+    },
+    {
+      "filter": "\"abc\" | [.[]?]",
+      "input": "N",
+      "outputs": [
+        "[]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "10 | [limit(3; range(.))]",
+      "input": "N",
+      "outputs": [
+        "[0,1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":1,\"b\":2} | with_entries(select(.key == \"b\"))",
+      "input": "N",
+      "outputs": [
+        "{\"b\":2}"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":{\"x\":1},\"b\":{\"x\":2}} | map(.x)",
+      "input": "N",
+      "outputs": [
+        "[1,2]"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"a\":{\"x\":1},\"b\":{\"x\":2}} | [.[] | .x] | add",
+      "input": "N",
+      "outputs": [
+        "3"
+      ],
+      "error": null
+    },
+    {
+      "filter": "{\"x\":1} | .x as $x | {y: $x}",
+      "input": "N",
+      "outputs": [
+        "{\"y\":1}"
+      ],
+      "error": null
+    }
+  ]
+}

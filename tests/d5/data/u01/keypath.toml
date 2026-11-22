@@ -126,7 +126,7 @@ valid = [
   { input = '["k.v"].**', canonical = '["k.v"].**' },
   { input = '["k.v"][+]', canonical = '["k.v"][+]' },
   { input = '["k.v"]["c.d"]', canonical = '["k.v"]["c.d"]' },
-  { input = "["k.v"]['e']", canonical = '["k.v"].e' },
+  { input = "[\"k.v\"]['e']", canonical = '["k.v"].e' },
   { input = '["k.v"][?name == "x"]', canonical = '["k.v"][?name == "x"]' },
   { input = '["k.v"].0', canonical = '["k.v"].0' },
   { input = '$', canonical = '$' },

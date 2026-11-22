@@ -5,7 +5,12 @@
 //! journal: preservation of the database and its journal files, one
 //! transaction, rollback after errors and undo to the previous bytes.
 
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, reason = "test code")]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
 
 #[allow(dead_code, reason = "each test file uses a subset of the fixtures")]
 mod u10_support;
@@ -17,8 +22,8 @@ use std::time::{Duration, Instant};
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::journal::{ExternalChangeKind, TargetIndex};
 use nurt_contracts::report::{ChangeAction, Irreversible};
-use nurt_contracts::stage::{CancelReason, CancelToken, EffectStage, StageImpl, StageInput};
-use nurt_contracts::value::Value;
+use nurt_contracts::stage::{CancelReason, CancelToken, StageImpl, StageInput};
+use nurt_contracts::value::{Size, Value};
 use nurt_doc::commands::sql::SqlStage;
 use rusqlite::Connection;
 use u10_support::{
@@ -57,7 +62,7 @@ fn inserts_rows_and_reports_changed_row_count() {
     assert_eq!(count(&db, "select count(*) from users"), 3);
     assert_eq!(written.changes.len(), 1);
     let change = &written.changes[0];
-    assert_eq!(change.path, text(&db));
+    assert_eq!(change.path.as_str(), text(&db));
     assert_eq!(change.action, ChangeAction::Modify);
     assert_eq!(change.replacements, Some(2));
     assert!(written.irreversible.is_empty());
@@ -116,12 +121,18 @@ fn wal_database_stays_in_wal_mode_with_checkpointed_file() {
     let written = write(&call, &ctx(), &mut RecordingTx::new()).unwrap();
     assert_eq!(written.changes[0].replacements, Some(1));
     let files = database_files(&db);
-    assert!(!files[1].exists(), "the write-ahead log remains after the change");
+    assert!(
+        !files[1].exists(),
+        "the write-ahead log remains after the change"
+    );
     let header = fs::read(&db).unwrap();
     // Bytes 18 and 19 of the header are the read and write versions; 2 is WAL.
     assert_eq!(&header[18..20], &[2, 2]);
     assert_eq!(journal_mode(&db), "wal");
-    assert_eq!(count(&db, "select count(*) from users where name = 'eve'"), 1);
+    assert_eq!(
+        count(&db, "select count(*) from users where name = 'eve'"),
+        1
+    );
 }
 
 #[test]
@@ -131,13 +142,24 @@ fn undo_restores_database_bytes() {
     let files = database_files(&db);
     let before = contents(&files);
     let mut tx = RecordingTx::new();
-    let call = args(&db, "update users set name = 'eve'; create table t(x)", Vec::new(), true);
+    let call = args(
+        &db,
+        "update users set name = 'eve'; create table t(x)",
+        Vec::new(),
+        true,
+    );
     write(&call, &ctx(), &mut tx).unwrap();
     assert_ne!(contents(&files), before);
-    assert_eq!(tx.preserved, before, "the files are preserved before the change");
+    assert_eq!(
+        tx.preserved, before,
+        "the files are preserved before the change"
+    );
     tx.undo();
     assert_eq!(contents(&files), before);
-    assert_eq!(count(&db, "select count(*) from users where name = 'ada'"), 1);
+    assert_eq!(
+        count(&db, "select count(*) from users where name = 'ada'"),
+        1
+    );
 }
 
 #[test]
@@ -150,9 +172,17 @@ fn undo_restores_wal_side_files() {
         .unwrap();
     let files = database_files(&db);
     let before = contents(&files);
-    assert!(before[1].is_some() && before[2].is_some(), "-wal and -shm exist");
+    assert!(
+        before[1].is_some() && before[2].is_some(),
+        "-wal and -shm exist"
+    );
     let mut tx = RecordingTx::new();
-    let call = args(&db, "insert into users(name) values ('eve')", Vec::new(), true);
+    let call = args(
+        &db,
+        "insert into users(name) values ('eve')",
+        Vec::new(),
+        true,
+    );
     write(&call, &ctx(), &mut tx).unwrap();
     assert_ne!(contents(&files)[0], before[0]);
     tx.undo();
@@ -171,7 +201,10 @@ fn change_without_space_for_copy_is_marked_irreversible() {
     assert_eq!(count(&db, "select count(*) from users"), 0);
     assert_eq!(written.irreversible.len(), 1);
     assert_eq!(written.irreversible[0].reason, Irreversible::NoSpaceForCopy);
-    assert_eq!(written.irreversible[0].path.as_deref(), Some(text(&db).as_str()));
+    assert_eq!(
+        written.irreversible[0].path.as_deref(),
+        Some(text(&db).as_str())
+    );
 }
 
 #[test]
@@ -228,7 +261,7 @@ fn cancellation_interrupts_long_change() {
     });
     let canceller = thread::spawn(move || {
         thread::sleep(Duration::from_millis(200));
-        cancel.cancel(CancelReason::User);
+        cancel.cancel(CancelReason::Requested);
     });
     let call = args(
         &db,
@@ -273,8 +306,11 @@ fn plan_names_the_database_file() {
         .plan(&call, StageInput::none(), &context)
         .unwrap();
     assert_eq!(plan.changes.len(), 1);
-    assert_eq!(plan.changes[0].path, text(&db));
-    assert_eq!(plan.changes[0].size_before, Some(fs::metadata(&db).unwrap().len()));
+    assert_eq!(plan.changes[0].path.as_str(), text(&db));
+    assert_eq!(
+        plan.changes[0].size_before,
+        Some(Size::from_bytes(fs::metadata(&db).unwrap().len()))
+    );
     assert_eq!(count(&db, "select count(*) from users"), 1);
 }
 
@@ -285,7 +321,10 @@ fn file_of_another_format_is_refused_before_preserving() {
     fs::write(&notes, "plain text\n").unwrap();
     let mut tx = RecordingTx::new();
     let call = args(&notes, "create table t(x)", Vec::new(), true);
-    assert_eq!(failure(write(&call, &ctx(), &mut tx)).code(), ErrorCode::DocParse);
+    assert_eq!(
+        failure(write(&call, &ctx(), &mut tx)).code(),
+        ErrorCode::DocParse
+    );
     assert!(tx.declared.is_empty());
     assert_eq!(fs::read(&notes).unwrap(), b"plain text\n");
 }
@@ -308,7 +347,12 @@ fn creates_database_in_empty_file_and_undo_empties_it() {
     let empty = dir.path().join("new.db");
     fs::write(&empty, b"").unwrap();
     let mut tx = RecordingTx::new();
-    let call = args(&empty, "create table t(x); insert into t values (1)", Vec::new(), true);
+    let call = args(
+        &empty,
+        "create table t(x); insert into t values (1)",
+        Vec::new(),
+        true,
+    );
     write(&call, &ctx(), &mut tx).unwrap();
     assert_eq!(count(&empty, "select count(*) from t"), 1);
     tx.undo();

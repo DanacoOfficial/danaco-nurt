@@ -107,7 +107,11 @@ impl ReadStage for QueryStage {
             })?;
             Box::new(std::iter::once(Ok(Subject::File(path.to_owned()))))
         } else {
-            Box::new(input.into_records()?.map(|record| record.map(Subject::Record)))
+            Box::new(
+                input
+                    .into_records()?
+                    .map(|record| record.map(Subject::Record)),
+            )
         };
         let outputs = Outputs {
             args,
@@ -117,7 +121,9 @@ impl ReadStage for QueryStage {
             query: None,
             done: false,
         };
-        Ok(StageOutput::records(RecordStream::new(outputs).checked(ctx)))
+        Ok(StageOutput::records(
+            RecordStream::new(outputs).checked(ctx),
+        ))
     }
 }
 
@@ -232,7 +238,8 @@ impl Outputs<'_> {
             .as_ref()
             .is_none_or(|query| query.expression() != expression)
         {
-            let query = Query::compile(&expression).map_err(|error| error.with_stage(Stage::Read))?;
+            let query =
+                Query::compile(&expression).map_err(|error| error.with_stage(Stage::Read))?;
             self.query = Some(query);
         }
         Ok(())
@@ -300,7 +307,9 @@ fn record_roots(ctx: &ExecCtx, record: &Record) -> Result<Vec<Root>> {
             if kind != "file" {
                 return Err(Error::new(
                     ErrorCode::Type,
-                    format!("`query` reads files, not the {kind} {path}; select files with type: file"),
+                    format!(
+                        "`query` reads files, not the {kind} {path}; select files with type: file"
+                    ),
                 )
                 .with_stage(Stage::Read));
             }
@@ -419,7 +428,11 @@ fn document_roots(
     };
     let (Some(service), Some(format)) = (service, format.clone()) else {
         let value = parse_json(path, bytes, format.as_ref())?;
-        return Ok(vec![root(Some(KeyPath::root()), DocFormatId::JSON.as_str(), value)]);
+        return Ok(vec![root(
+            Some(KeyPath::root()),
+            DocFormatId::JSON.as_str(),
+            value,
+        )]);
     };
     let selector = if format == DocFormatId::YAML {
         KeyPath::new(Some(DocSelector::All), Vec::new())?
@@ -469,9 +482,15 @@ mod tests {
 
     #[test]
     fn result_keys_extend_the_base_key() {
-        let steps = [PathStep::Key("b c".to_owned()), PathStep::Index(-1)];
-        assert_eq!(concrete_key(&key("a"), &steps).unwrap().to_string(), r#"a["b c"][-1]"#);
-        assert_eq!(concrete_key(&KeyPath::root(), &[]).unwrap().to_string(), "$");
+        let steps = [PathStep::Key("b.c".to_owned()), PathStep::Index(-1)];
+        assert_eq!(
+            concrete_key(&key("a"), &steps).unwrap().to_string(),
+            r#"a["b.c"][-1]"#
+        );
+        assert_eq!(
+            concrete_key(&KeyPath::root(), &[]).unwrap().to_string(),
+            "$"
+        );
         assert!(concrete_key(&key("a"), &[PathStep::Other(Value::Null)]).is_none());
     }
 
@@ -484,7 +503,13 @@ mod tests {
             key: Some(KeyPath::root()),
             value: Value::Null,
         };
-        let record = item_record(&root, QueryOutput { value: Value::Int(2), path: None });
+        let record = item_record(
+            &root,
+            QueryOutput {
+                value: Value::Int(2),
+                path: None,
+            },
+        );
         let item = Item::try_from(record).unwrap();
         assert_eq!(item.key, COMPUTED_KEY);
         assert_eq!(item.format, "json");

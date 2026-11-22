@@ -12,9 +12,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use nurt_contracts::config::{Config, DurationSetting};
-use nurt_contracts::env::{
-    BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime,
-};
+use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
 use nurt_contracts::error::{Error, Result};
 use nurt_contracts::fs::WriteHandle;
 use nurt_contracts::journal::{
@@ -33,7 +31,7 @@ use nurt_doc::commands::sql::SqlStage;
 use rusqlite::Connection;
 
 /// Busy timeout of the tests that wait for a lock.
-pub const SHORT_BUSY: Duration = Duration::from_millis(150);
+pub(crate) const SHORT_BUSY: Duration = Duration::from_millis(150);
 
 struct TestClock {
     origin: Instant,
@@ -81,10 +79,10 @@ impl Host for TestHost {
 }
 
 /// Options of a test context.
-pub struct CtxOptions {
-    pub busy: Duration,
-    pub cancel: CancelToken,
-    pub max_records: u64,
+pub(crate) struct CtxOptions {
+    pub(crate) busy: Duration,
+    pub(crate) cancel: CancelToken,
+    pub(crate) max_records: u64,
 }
 
 impl Default for CtxOptions {
@@ -98,7 +96,7 @@ impl Default for CtxOptions {
 }
 
 /// Execution context without file system and services.
-pub fn context(options: CtxOptions) -> ExecCtx {
+pub(crate) fn context(options: CtxOptions) -> ExecCtx {
     let mut config = Config::default();
     config.sql.busy_timeout =
         DurationSetting::from_millis(u64::try_from(options.busy.as_millis()).unwrap());
@@ -133,27 +131,31 @@ pub fn context(options: CtxOptions) -> ExecCtx {
 }
 
 /// Context with the default options.
-pub fn ctx() -> ExecCtx {
+pub(crate) fn ctx() -> ExecCtx {
     context(CtxOptions::default())
 }
 
 /// Canonical text of a test path.
-pub fn text(path: &Path) -> String {
+pub(crate) fn text(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
 /// Bound arguments of one call.
-pub fn args(path: &Path, query: &str, params: Vec<Value>, write: bool) -> BoundArgs {
+pub(crate) fn args(path: &Path, query: &str, params: Vec<Value>, write: bool) -> BoundArgs {
     let defaulted = params.is_empty();
     BoundArgs::new("sql")
         .with("path", ArgValue::Value(Value::Path(text(path))), false)
-        .with("query", ArgValue::Value(Value::Text(query.to_owned())), false)
+        .with(
+            "query",
+            ArgValue::Value(Value::Text(query.to_owned())),
+            false,
+        )
         .with("params", ArgValue::Value(Value::List(params)), defaulted)
         .with("write", ArgValue::Value(Value::Bool(write)), !write)
 }
 
 /// Creates a database file `name` in `dir` by running `setup`.
-pub fn database(dir: &Path, name: &str, setup: &str) -> PathBuf {
+pub(crate) fn database(dir: &Path, name: &str, setup: &str) -> PathBuf {
     let path = dir.join(name);
     let connection = Connection::open(&path).unwrap();
     connection.execute_batch(setup).unwrap();
@@ -162,7 +164,7 @@ pub fn database(dir: &Path, name: &str, setup: &str) -> PathBuf {
 }
 
 /// Runs `sql` in the read step and collects its rows.
-pub fn read(args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Record>> {
+pub(crate) fn read(args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Record>> {
     let stage = SqlStage;
     let output = stage
         .as_read()
@@ -175,14 +177,14 @@ pub fn read(args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Record>> {
 }
 
 /// Result of an effect.
-pub struct Written {
-    pub rows: Vec<Record>,
-    pub changes: Vec<Change>,
-    pub irreversible: Vec<IrreversibleEntry>,
+pub(crate) struct Written {
+    pub(crate) rows: Vec<Record>,
+    pub(crate) changes: Vec<Change>,
+    pub(crate) irreversible: Vec<IrreversibleEntry>,
 }
 
 /// Runs `sql` in the plan and apply steps.
-pub fn write(args: &BoundArgs, ctx: &ExecCtx, tx: &mut dyn MutationTx) -> Result<Written> {
+pub(crate) fn write(args: &BoundArgs, ctx: &ExecCtx, tx: &mut dyn MutationTx) -> Result<Written> {
     let stage = SqlStage;
     let effect = stage.as_effect().unwrap();
     let plan = effect.plan(args, StageInput::none(), ctx)?;
@@ -199,23 +201,23 @@ pub fn write(args: &BoundArgs, ctx: &ExecCtx, tx: &mut dyn MutationTx) -> Result
 }
 
 /// Typed form of a `row` record.
-pub fn row(record: &Record) -> Row {
+pub(crate) fn row(record: &Record) -> Row {
     Row::try_from(record.clone()).unwrap()
 }
 
 /// Cells of a `row` record as name and value pairs, in column order.
-pub fn cells(record: &Record) -> Vec<(String, Value)> {
+pub(crate) fn cells(record: &Record) -> Vec<(String, Value)> {
     row(record).cells.into_iter().collect()
 }
 
 /// One integer read with a separate connection.
-pub fn count(path: &Path, query: &str) -> i64 {
+pub(crate) fn count(path: &Path, query: &str) -> i64 {
     let connection = Connection::open(path).unwrap();
     connection.query_row(query, [], |row| row.get(0)).unwrap()
 }
 
 /// The database file followed by its `-wal`, `-shm` and `-journal` files.
-pub fn database_files(path: &Path) -> Vec<PathBuf> {
+pub(crate) fn database_files(path: &Path) -> Vec<PathBuf> {
     let mut files = vec![path.to_path_buf()];
     for suffix in ["-wal", "-shm", "-journal"] {
         let mut name = path.as_os_str().to_owned();
@@ -226,12 +228,12 @@ pub fn database_files(path: &Path) -> Vec<PathBuf> {
 }
 
 /// Content of every file, `None` for a missing file.
-pub fn contents(files: &[PathBuf]) -> Vec<Option<Vec<u8>>> {
+pub(crate) fn contents(files: &[PathBuf]) -> Vec<Option<Vec<u8>>> {
     files.iter().map(|file| fs::read(file).ok()).collect()
 }
 
 /// The `sqlite3` program from the search path, when installed.
-pub fn sqlite3() -> Option<PathBuf> {
+pub(crate) fn sqlite3() -> Option<PathBuf> {
     let search = std::env::var_os("PATH")?;
     std::env::split_paths(&search)
         .map(|dir| dir.join("sqlite3"))
@@ -239,7 +241,7 @@ pub fn sqlite3() -> Option<PathBuf> {
 }
 
 /// Error code of a failed result.
-pub fn code<T>(result: Result<T>) -> nurt_contracts::error::ErrorCode {
+pub(crate) fn code<T>(result: Result<T>) -> nurt_contracts::error::ErrorCode {
     match result {
         Ok(_) => panic!("the call succeeded"),
         Err(error) => error.code(),
@@ -247,7 +249,7 @@ pub fn code<T>(result: Result<T>) -> nurt_contracts::error::ErrorCode {
 }
 
 /// Error of a failed result.
-pub fn failure<T>(result: Result<T>) -> Error {
+pub(crate) fn failure<T>(result: Result<T>) -> Error {
     match result {
         Ok(_) => panic!("the call succeeded"),
         Err(error) => error,
@@ -257,21 +259,21 @@ pub fn failure<T>(result: Result<T>) -> Error {
 /// Journal transaction for tests: keeps a copy of every declared file that
 /// exists, or refuses copies as admission does without space, and restores
 /// the declared files on [`RecordingTx::undo`].
-pub struct RecordingTx {
+pub(crate) struct RecordingTx {
     store: tempfile::TempDir,
     refuse_copies: bool,
     copies: Vec<Option<PathBuf>>,
     /// Declared targets, in order.
-    pub declared: Vec<TargetSpec>,
+    pub(crate) declared: Vec<TargetSpec>,
     /// Content of every declared file when it was preserved.
-    pub preserved: Vec<Option<Vec<u8>>>,
+    pub(crate) preserved: Vec<Option<Vec<u8>>>,
     /// Changes reported after the external write.
-    pub observed: Vec<ExternalChange>,
+    pub(crate) observed: Vec<ExternalChange>,
 }
 
 impl RecordingTx {
     /// A transaction that copies existing files.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             store: tempfile::tempdir().unwrap(),
             refuse_copies: false,
@@ -283,7 +285,7 @@ impl RecordingTx {
     }
 
     /// A transaction whose admission refuses every copy.
-    pub fn refusing_copies() -> Self {
+    pub(crate) fn refusing_copies() -> Self {
         Self {
             refuse_copies: true,
             ..Self::new()
@@ -292,7 +294,7 @@ impl RecordingTx {
 
     /// Restores every declared file: copies are written back and files that
     /// did not exist are removed.
-    pub fn undo(&self) {
+    pub(crate) fn undo(&self) {
         for ((spec, copy), before) in self.declared.iter().zip(&self.copies).zip(&self.preserved) {
             let TargetPath::Fs(path) = &spec.path else {
                 panic!("`sql` declares file targets only");
@@ -331,7 +333,11 @@ impl RecordingTx {
             index,
             volume: None,
             mode,
-            bytes_held: if mode == PreserveMode::Copy { size.unwrap_or(0) } else { 0 },
+            bytes_held: if mode == PreserveMode::Copy {
+                size.unwrap_or(0)
+            } else {
+                0
+            },
             before: BeforeState {
                 exists: content.is_some(),
                 size,

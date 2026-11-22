@@ -41,7 +41,11 @@ pub(super) fn check(sql: &str, writing: bool) -> Option<Denial> {
             .any(|token| token.is_keyword("INTO"))
             .then_some(Denial::VacuumInto),
         "PRAGMA" => pragma_name(&mut tokens)
-            .filter(|name| DENIED_PRAGMAS.iter().any(|denied| name.eq_ignore_ascii_case(denied)))
+            .filter(|name| {
+                DENIED_PRAGMAS
+                    .iter()
+                    .any(|denied| name.eq_ignore_ascii_case(denied))
+            })
             .map(Denial::Pragma),
         "BEGIN" | "COMMIT" | "END" if writing => Some(Denial::Transaction(keyword)),
         "ROLLBACK" if writing && !tokens.any(|token| token.is_keyword("TO")) => {
@@ -53,7 +57,7 @@ pub(super) fn check(sql: &str, writing: bool) -> Option<Denial> {
 
 /// Number of statements in `query`, counting the statements of trigger
 /// bodies as part of their `CREATE TRIGGER` statement.
-pub(super) fn statement_count(query: &str) -> usize {
+pub(crate) fn statement_count(query: &str) -> usize {
     let mut count = 0;
     let mut depth = 0_usize;
     let mut in_statement = false;
@@ -207,7 +211,10 @@ mod tests {
 
     #[test]
     fn refuses_vacuum_into_only() {
-        assert_eq!(check("vacuum main into '/tmp/copy.db'", true), Some(Denial::VacuumInto));
+        assert_eq!(
+            check("vacuum main into '/tmp/copy.db'", true),
+            Some(Denial::VacuumInto)
+        );
         assert_eq!(check("VACUUM", true), None);
         assert_eq!(check("vacuum \"into\"", true), None);
     }
@@ -228,9 +235,18 @@ mod tests {
 
     #[test]
     fn refuses_transaction_control_only_when_writing() {
-        assert_eq!(check("begin", true), Some(Denial::Transaction("BEGIN".to_owned())));
-        assert_eq!(check("commit", true), Some(Denial::Transaction("COMMIT".to_owned())));
-        assert_eq!(check("rollback", true), Some(Denial::Transaction("ROLLBACK".to_owned())));
+        assert_eq!(
+            check("begin", true),
+            Some(Denial::Transaction("BEGIN".to_owned()))
+        );
+        assert_eq!(
+            check("commit", true),
+            Some(Denial::Transaction("COMMIT".to_owned()))
+        );
+        assert_eq!(
+            check("rollback", true),
+            Some(Denial::Transaction("ROLLBACK".to_owned()))
+        );
         assert_eq!(check("rollback transaction to s1", true), None);
         assert_eq!(check("savepoint s1", true), None);
         assert_eq!(check("begin", false), None);

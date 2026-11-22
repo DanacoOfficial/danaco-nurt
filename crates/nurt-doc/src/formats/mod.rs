@@ -3,12 +3,8 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Supported document formats.
 
-pub mod csv;
-pub mod env;
-pub mod ini;
 pub mod json;
-pub mod plist;
-pub mod properties;
-pub mod toml;
-pub mod xml;
-pub mod yaml;
+
+/// Registration functions of the built-in formats, in detection priority
+/// order; [`crate::registry::Registry::builtin`] registers their formats.
+pub(crate) const BUILTIN: &[crate::registry::FormatsFn] = &[json::formats];

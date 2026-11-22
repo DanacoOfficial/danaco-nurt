@@ -4,7 +4,12 @@
 //! Reading SQLite databases with `sql` and the checks that keep a read from
 //! changing files.
 
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, reason = "test code")]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
 
 #[allow(dead_code, reason = "each test file uses a subset of the fixtures")]
 mod u10_support;
@@ -18,16 +23,18 @@ use nurt_contracts::value::{Bytes, Size, Value};
 use nurt_doc::commands::sql::SqlStage;
 use rusqlite::Connection;
 use u10_support::{
-    CtxOptions, RecordingTx, SHORT_BUSY, args, cells, code, context, count, ctx, database,
-    failure, read, row, text, write,
+    CtxOptions, RecordingTx, SHORT_BUSY, args, cells, code, context, count, ctx, database, failure,
+    read, row, text, write,
 };
 
 /// One table with a column of every storage class.
-const USERS: &str = "create table users(id integer primary key, name text, score real, avatar blob, note);
+const USERS: &str =
+    "create table users(id integer primary key, name text, score real, avatar blob, note);
                      insert into users values (7, 'ada', 1.5, x'00ff', null);";
 
 /// Recursive query without an end.
-const ENDLESS: &str = "with recursive c(x) as (select 1 union all select x + 1 from c) select x from c";
+const ENDLESS: &str =
+    "with recursive c(x) as (select 1 union all select x + 1 from c) select x from c";
 
 #[test]
 fn reads_cells_in_column_order_with_storage_classes() {
@@ -45,7 +52,10 @@ fn reads_cells_in_column_order_with_storage_classes() {
             ("id".to_owned(), Value::Int(7)),
             ("name".to_owned(), Value::Text("ada".to_owned())),
             ("score".to_owned(), Value::Number(1.5)),
-            ("avatar".to_owned(), Value::Bytes(Bytes::new(vec![0x00, 0xff]))),
+            (
+                "avatar".to_owned(),
+                Value::Bytes(Bytes::new(vec![0x00, 0xff]))
+            ),
             ("note".to_owned(), Value::Null),
         ]
     );
@@ -56,13 +66,21 @@ fn binds_positional_numbered_and_named_parameters() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let numbered = read(
-        &args(&db, "select ?2 as b, ?1 as a", vec![Value::Int(1), Value::Int(2)], false),
+        &args(
+            &db,
+            "select ?2 as b, ?1 as a",
+            vec![Value::Int(1), Value::Int(2)],
+            false,
+        ),
         &ctx(),
     )
     .unwrap();
     assert_eq!(
         cells(&numbered[0]),
-        [("b".to_owned(), Value::Int(2)), ("a".to_owned(), Value::Int(1))]
+        [
+            ("b".to_owned(), Value::Int(2)),
+            ("a".to_owned(), Value::Int(1))
+        ]
     );
     let named = read(
         &args(
@@ -74,7 +92,10 @@ fn binds_positional_numbered_and_named_parameters() {
         &ctx(),
     )
     .unwrap();
-    assert_eq!(cells(&named[0]), [("name".to_owned(), Value::Text("ada".to_owned()))]);
+    assert_eq!(
+        cells(&named[0]),
+        [("name".to_owned(), Value::Text("ada".to_owned()))]
+    );
 }
 
 #[test]
@@ -88,7 +109,12 @@ fn converts_parameter_and_result_types() {
         Value::Null,
     ];
     let rows = read(
-        &args(&db, "select ? as b, ? as s, ? as n, ? as z, 1e999 as inf, 1 as d, 2 as d", params, false),
+        &args(
+            &db,
+            "select ? as b, ? as s, ? as n, ? as z, 1e999 as inf, 1 as d, 2 as d",
+            params,
+            false,
+        ),
         &ctx(),
     )
     .unwrap();
@@ -111,7 +137,12 @@ fn numbers_rows_per_statement_of_several_statements() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let rows = read(
-        &args(&db, "select 1 as a; select 2 as b union all select 3;", Vec::new(), false),
+        &args(
+            &db,
+            "select 1 as a; select 2 as b union all select 3;",
+            Vec::new(),
+            false,
+        ),
         &ctx(),
     )
     .unwrap();
@@ -138,7 +169,12 @@ fn refuses_changing_statement_without_write_and_offers_fix() {
     let db = database(dir.path(), "app.db", USERS);
     let before = fs::read(&db).unwrap();
     let error = failure(read(
-        &args(&db, "select 1; delete from users where id = ?", vec![Value::Int(7)], false),
+        &args(
+            &db,
+            "select 1; delete from users where id = ?",
+            vec![Value::Int(7)],
+            false,
+        ),
         &ctx(),
     ));
     assert_eq!(error.code(), ErrorCode::Sql);
@@ -185,25 +221,45 @@ fn refuses_loading_extensions() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let lib = dir.path().join("ext.so");
-    let call = args(&db, &format!("select load_extension('{}')", text(&lib)), Vec::new(), false);
+    let call = args(
+        &db,
+        &format!("select load_extension('{}')", text(&lib)),
+        Vec::new(),
+        false,
+    );
     let error = failure(read(&call, &ctx()));
     assert_eq!(error.code(), ErrorCode::Sql);
-    assert!(error.message.contains("not authorized"), "{}", error.message);
+    assert!(
+        error.message.contains("not authorized"),
+        "{}",
+        error.message
+    );
 }
 
 #[test]
 fn reports_parameter_count_mismatch() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
-    let few = failure(read(&args(&db, "select ?, ?", vec![Value::Int(1)], false), &ctx()));
+    let few = failure(read(
+        &args(&db, "select ?, ?", vec![Value::Int(1)], false),
+        &ctx(),
+    ));
     assert_eq!(few.problem.as_deref(), Some("parameter_count"));
     let many = failure(read(
-        &args(&db, "select ?; select 2", vec![Value::Int(1), Value::Int(2)], false),
+        &args(
+            &db,
+            "select ?; select 2",
+            vec![Value::Int(1), Value::Int(2)],
+            false,
+        ),
         &ctx(),
     ));
     assert_eq!(many.problem.as_deref(), Some("parameter_count"));
     assert_eq!(many.expected, Some(serde_json::json!(1)));
-    let list = failure(read(&args(&db, "select ?", vec![Value::List(Vec::new())], false), &ctx()));
+    let list = failure(read(
+        &args(&db, "select ?", vec![Value::List(Vec::new())], false),
+        &ctx(),
+    ));
     assert_eq!(list.problem.as_deref(), Some("parameter_type"));
 }
 
@@ -211,7 +267,10 @@ fn reports_parameter_count_mismatch() {
 fn reports_syntax_errors_with_statement_number() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
-    let error = failure(read(&args(&db, "select 1; selec 2", Vec::new(), false), &ctx()));
+    let error = failure(read(
+        &args(&db, "select 1; selec 2", Vec::new(), false),
+        &ctx(),
+    ));
     assert_eq!(error.code(), ErrorCode::Sql);
     assert_eq!(error.details.get("statement"), Some(&serde_json::json!(2)));
     assert!(error.details.contains_key("sqlite_code"));
@@ -224,9 +283,15 @@ fn reports_file_of_another_format_as_doc_parse() {
     fs::write(&notes, "plain text, not a database\n").unwrap();
     let error = failure(read(&args(&notes, "select 1", Vec::new(), false), &ctx()));
     assert_eq!(error.code(), ErrorCode::DocParse);
-    assert_eq!(error.details.get("format"), Some(&serde_json::json!("sqlite")));
+    assert_eq!(
+        error.details.get("format"),
+        Some(&serde_json::json!("sqlite"))
+    );
     assert_eq!(error.problem.as_deref(), Some("not_sqlite"));
-    let directory = failure(read(&args(dir.path(), "select 1", Vec::new(), false), &ctx()));
+    let directory = failure(read(
+        &args(dir.path(), "select 1", Vec::new(), false),
+        &ctx(),
+    ));
     assert_eq!(directory.code(), ErrorCode::DocParse);
 }
 
@@ -240,17 +305,29 @@ fn reports_damaged_database_with_sqlite_code() {
         *byte = 0xa5;
     }
     fs::write(&db, &bytes).unwrap();
-    let error = failure(read(&args(&db, "select * from users", Vec::new(), false), &ctx()));
+    let error = failure(read(
+        &args(&db, "select * from users", Vec::new(), false),
+        &ctx(),
+    ));
     assert_eq!(error.code(), ErrorCode::DocParse);
     assert!(error.details.contains_key("sqlite_code"));
-    assert_eq!(error.location.as_ref().map(|location| location.path.clone()), Some(text(&db)));
+    assert_eq!(
+        error
+            .location
+            .as_ref()
+            .map(|location| location.path.clone()),
+        Some(text(&db))
+    );
 }
 
 #[test]
 fn reports_missing_database_as_not_found() {
     let dir = tempfile::tempdir().unwrap();
     let missing = dir.path().join("missing.db");
-    assert_eq!(code(read(&args(&missing, "select 1", Vec::new(), false), &ctx())), ErrorCode::NotFound);
+    assert_eq!(
+        code(read(&args(&missing, "select 1", Vec::new(), false), &ctx())),
+        ErrorCode::NotFound
+    );
     assert!(!missing.exists());
 }
 
@@ -260,7 +337,12 @@ fn reads_empty_file_as_empty_database() {
     let empty = dir.path().join("empty.db");
     fs::write(&empty, b"").unwrap();
     let rows = read(
-        &args(&empty, "select count(*) as tables from sqlite_master", Vec::new(), false),
+        &args(
+            &empty,
+            "select count(*) as tables from sqlite_master",
+            Vec::new(),
+            false,
+        ),
         &ctx(),
     )
     .unwrap();
@@ -273,7 +355,16 @@ fn read_keeps_database_bytes_unchanged() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let before = fs::read(&db).unwrap();
-    read(&args(&db, "select * from users; pragma user_version", Vec::new(), false), &ctx()).unwrap();
+    read(
+        &args(
+            &db,
+            "select * from users; pragma user_version",
+            Vec::new(),
+            false,
+        ),
+        &ctx(),
+    )
+    .unwrap();
     assert_eq!(fs::read(&db).unwrap(), before);
 }
 
@@ -314,7 +405,7 @@ fn cancellation_ends_the_stream_with_an_error() {
         panic!("`sql` returned no records");
     };
     assert!(stream.next().unwrap().is_ok());
-    cancel.cancel(CancelReason::User);
+    cancel.cancel(CancelReason::Requested);
     let error = stream.find_map(Result::err).unwrap();
     assert_eq!(error.code(), ErrorCode::Cancelled);
 }
@@ -324,13 +415,18 @@ fn waits_for_lock_then_reports_in_use() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let holder = Connection::open(&db).unwrap();
-    holder.execute_batch("begin exclusive; update users set name = 'eve'").unwrap();
+    holder
+        .execute_batch("begin exclusive; update users set name = 'eve'")
+        .unwrap();
     let started = Instant::now();
     let context = context(CtxOptions {
         busy: SHORT_BUSY,
         ..CtxOptions::default()
     });
-    let error = failure(read(&args(&db, "select * from users", Vec::new(), false), &context));
+    let error = failure(read(
+        &args(&db, "select * from users", Vec::new(), false),
+        &context,
+    ));
     assert_eq!(error.code(), ErrorCode::InUse);
     assert!(started.elapsed() >= SHORT_BUSY);
     holder.execute_batch("rollback").unwrap();
@@ -349,8 +445,12 @@ fn effect_step_without_write_reads_and_declares_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let mut tx = RecordingTx::new();
-    let written = write(&args(&db, "select name from users", Vec::new(), false), &ctx(), &mut tx)
-        .unwrap();
+    let written = write(
+        &args(&db, "select name from users", Vec::new(), false),
+        &ctx(),
+        &mut tx,
+    )
+    .unwrap();
     assert_eq!(written.rows.len(), 1);
     assert!(written.changes.is_empty());
     assert!(tx.declared.is_empty());

@@ -35,7 +35,7 @@
 //! ```
 
 mod errors;
-mod filter;
+pub(crate) mod filter;
 mod handle;
 mod position;
 mod resolve;

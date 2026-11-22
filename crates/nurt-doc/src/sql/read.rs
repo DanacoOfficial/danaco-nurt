@@ -42,7 +42,9 @@ pub(crate) fn read_rows(request: SqlRequest, ctx: &ExecCtx) -> Result<RecordStre
         .map_err(|e| {
             Error::new(
                 ErrorCode::Limit,
-                format!("no thread is available to run the query: {e}; retry with fewer parallel jobs"),
+                format!(
+                    "no thread is available to run the query: {e}; retry with fewer parallel jobs"
+                ),
             )
         })?;
     Ok(RecordStream::new(Rows {

@@ -28,7 +28,10 @@ fn checked(document: &JsonDocument, outcome: &super::Outcome) -> String {
     let reparsed = JsonDocument::parse(edited.clone(), document.dialect())
         .unwrap_or_else(|error| panic!("edited text does not parse: {error:?}\n{edited}"));
     let reference = reference::read(&edited, document.dialect()).unwrap();
-    assert!(reference::same_data(&reparsed.to_value(), &reference), "{edited}");
+    assert!(
+        reference::same_data(&reparsed.to_value(), &reference),
+        "{edited}"
+    );
     edited
 }
 
@@ -63,7 +66,10 @@ fn remove(source: &str, path: &str) -> String {
 #[test]
 fn replaces_a_scalar_without_touching_other_bytes() {
     let source = "{\n  \"a\": 1.10,\n  \"b\": \"x\",\n  \"c\": [1e400]\n}";
-    assert_eq!(set(source, "b", &text("y")), "{\n  \"a\": 1.10,\n  \"b\": \"y\",\n  \"c\": [1e400]\n}");
+    assert_eq!(
+        set(source, "b", &text("y")),
+        "{\n  \"a\": 1.10,\n  \"b\": \"y\",\n  \"c\": [1e400]\n}"
+    );
 }
 
 #[test]
@@ -75,15 +81,31 @@ fn setting_the_current_value_changes_nothing() {
         ("s", text("é/")),
         ("n", Value::BigInt("18446744073709551616".to_owned())),
     ] {
-        assert!(document.plan_set(&key(path), &value, true).unwrap().changes.is_empty(), "{path}");
+        assert!(
+            document
+                .plan_set(&key(path), &value, true)
+                .unwrap()
+                .changes
+                .is_empty(),
+            "{path}"
+        );
     }
 }
 
 #[test]
 fn adds_a_member_on_a_new_line_with_sibling_indentation() {
-    assert_eq!(set("{\n  \"a\": 1\n}\n", "b", &int(2)), "{\n  \"a\": 1,\n  \"b\": 2\n}\n");
-    assert_eq!(set("{\n\t\"a\": 1\n}", "b", &int(2)), "{\n\t\"a\": 1,\n\t\"b\": 2\n}");
-    assert_eq!(set("{\r\n    \"a\": 1\r\n}\r\n", "b", &int(2)), "{\r\n    \"a\": 1,\r\n    \"b\": 2\r\n}\r\n");
+    assert_eq!(
+        set("{\n  \"a\": 1\n}\n", "b", &int(2)),
+        "{\n  \"a\": 1,\n  \"b\": 2\n}\n"
+    );
+    assert_eq!(
+        set("{\n\t\"a\": 1\n}", "b", &int(2)),
+        "{\n\t\"a\": 1,\n\t\"b\": 2\n}"
+    );
+    assert_eq!(
+        set("{\r\n    \"a\": 1\r\n}\r\n", "b", &int(2)),
+        "{\r\n    \"a\": 1,\r\n    \"b\": 2\r\n}\r\n"
+    );
 }
 
 #[test]
@@ -105,21 +127,36 @@ fn keeps_a_comment_after_the_last_member_on_its_line() {
 #[test]
 fn follows_the_trailing_comma_style_of_jsonc_files() {
     let source = "{\n  \"a\": 1,\n}";
-    assert_eq!(set_in(source, Dialect::Jsonc, "b", &int(2)), "{\n  \"a\": 1,\n  \"b\": 2,\n}");
-    assert_eq!(set_in("[1, 2,]", Dialect::Jsonc, "[+]", &int(3)), "[1, 2, 3,]");
+    assert_eq!(
+        set_in(source, Dialect::Jsonc, "b", &int(2)),
+        "{\n  \"a\": 1,\n  \"b\": 2,\n}"
+    );
+    assert_eq!(
+        set_in("[1, 2,]", Dialect::Jsonc, "[+]", &int(3)),
+        "[1, 2, 3,]"
+    );
 }
 
 #[test]
 fn expands_an_empty_container_in_a_multi_line_document() {
     let source = "{\n  \"a\": [],\n  \"b\": {}\n}";
-    assert_eq!(set(source, "a[+]", &int(1)), "{\n  \"a\": [\n    1\n  ],\n  \"b\": {}\n}");
-    assert_eq!(set(source, "b.c", &text("x")), "{\n  \"a\": [],\n  \"b\": {\n    \"c\": \"x\"\n  }\n}");
+    assert_eq!(
+        set(source, "a[+]", &int(1)),
+        "{\n  \"a\": [\n    1\n  ],\n  \"b\": {}\n}"
+    );
+    assert_eq!(
+        set(source, "b.c", &text("x")),
+        "{\n  \"a\": [],\n  \"b\": {\n    \"c\": \"x\"\n  }\n}"
+    );
 }
 
 #[test]
 fn appends_to_lists_in_the_style_of_their_elements() {
     assert_eq!(set("[1, 2]", "[+]", &int(3)), "[1, 2, 3]");
-    assert_eq!(set("[\n  1,\n  2\n]", "[+]", &int(3)), "[\n  1,\n  2,\n  3\n]");
+    assert_eq!(
+        set("[\n  1,\n  2\n]", "[+]", &int(3)),
+        "[\n  1,\n  2,\n  3\n]"
+    );
     assert_eq!(set("{\"l\": [1]}", "l[1]", &int(2)), "{\"l\": [1, 2]}");
 }
 
@@ -150,12 +187,18 @@ fn changes_the_type_of_a_value_in_the_style_of_the_context() {
         set("{\n  \"a\": 1\n}", "a", &map),
         "{\n  \"a\": {\n    \"x\": [\n      1,\n      2\n    ]\n  }\n}"
     );
-    assert_eq!(set("{\"a\": {\"b\": [1]}}", "a", &Value::Null), "{\"a\": null}");
+    assert_eq!(
+        set("{\"a\": {\"b\": [1]}}", "a", &Value::Null),
+        "{\"a\": null}"
+    );
 }
 
 #[test]
 fn writes_new_strings_with_minimal_escaping() {
-    assert_eq!(set("{\"a\": 1}", "a", &text("é \"q\" /\n")), "{\"a\": \"é \\\"q\\\" /\\n\"}");
+    assert_eq!(
+        set("{\"a\": 1}", "a", &text("é \"q\" /\n")),
+        "{\"a\": \"é \\\"q\\\" /\\n\"}"
+    );
 }
 
 #[test]
@@ -174,7 +217,10 @@ fn removes_members_with_their_separator() {
     assert_eq!(remove(source, "a"), "{\n  \"b\": 2,\n  \"c\": 3\n}");
     assert_eq!(remove(source, "b"), "{\n  \"a\": 1,\n  \"c\": 3\n}");
     assert_eq!(remove(source, "c"), "{\n  \"a\": 1,\n  \"b\": 2\n}");
-    assert_eq!(remove("{\"a\": 1, \"b\": 2, \"c\": 3}", "b"), "{\"a\": 1, \"c\": 3}");
+    assert_eq!(
+        remove("{\"a\": 1, \"b\": 2, \"c\": 3}", "b"),
+        "{\"a\": 1, \"c\": 3}"
+    );
     assert_eq!(remove("{\"a\": 1, \"b\": 2}", "a"), "{\"b\": 2}");
     assert_eq!(remove("{\"a\": 1, \"b\": 2}", "b"), "{\"a\": 1}");
     assert_eq!(remove("[1, 2, 3]", "[-1]"), "[1, 2]");
@@ -182,7 +228,10 @@ fn removes_members_with_their_separator() {
 
 #[test]
 fn removing_the_only_member_leaves_an_empty_container() {
-    assert_eq!(remove("{\n  \"a\": {\n    \"b\": 1\n  }\n}", "a.b"), "{\n  \"a\": {}\n}");
+    assert_eq!(
+        remove("{\n  \"a\": {\n    \"b\": 1\n  }\n}", "a.b"),
+        "{\n  \"a\": {}\n}"
+    );
     assert_eq!(remove("{ \"a\": 1 }", "a"), "{}");
 }
 
@@ -199,13 +248,22 @@ fn removes_comments_attached_to_a_member() {
 fn removing_the_last_member_keeps_the_trailing_comma_style() {
     let source = "{\n  \"a\": 1,\n  \"b\": 2,\n}";
     assert_eq!(remove_in(source, Dialect::Jsonc, "b"), "{\n  \"a\": 1,\n}");
-    assert_eq!(remove("{\n  \"a\": 1,\n  \"b\": 2\n}", "b"), "{\n  \"a\": 1\n}");
+    assert_eq!(
+        remove("{\n  \"a\": 1,\n  \"b\": 2\n}", "b"),
+        "{\n  \"a\": 1\n}"
+    );
 }
 
 #[test]
 fn keeps_a_missing_final_newline() {
-    assert_eq!(set("{\n  \"a\": 1\n}", "b", &int(2)), "{\n  \"a\": 1,\n  \"b\": 2\n}");
-    assert_eq!(remove("{\n  \"a\": 1,\n  \"b\": 2\n}", "a"), "{\n  \"b\": 2\n}");
+    assert_eq!(
+        set("{\n  \"a\": 1\n}", "b", &int(2)),
+        "{\n  \"a\": 1,\n  \"b\": 2\n}"
+    );
+    assert_eq!(
+        remove("{\n  \"a\": 1,\n  \"b\": 2\n}", "a"),
+        "{\n  \"b\": 2\n}"
+    );
 }
 
 #[test]
@@ -214,8 +272,20 @@ fn reports_syntax_errors_with_their_position() {
     assert_eq!(error.code(), ErrorCode::DocParse);
     let location = error.data().location.clone().unwrap();
     assert_eq!((location.line, location.column), (Some(2), Some(11)));
-    for source in ["[1,]", "{\"a\" 1}", "[01]", "[\"\t\"]", "\u{0C}[]", "{'a': 1}", "", "[1] x"] {
-        assert!(JsonDocument::parse(source, Dialect::Json).is_err(), "{source:?}");
+    for source in [
+        "[1,]",
+        "{\"a\" 1}",
+        "[01]",
+        "[\"\t\"]",
+        "\u{0C}[]",
+        "{'a': 1}",
+        "",
+        "[1] x",
+    ] {
+        assert!(
+            JsonDocument::parse(source, Dialect::Json).is_err(),
+            "{source:?}"
+        );
     }
     assert!(JsonDocument::parse("[1, /* c */ 2,] // end", Dialect::Jsonc).is_ok());
     assert!(JsonDocument::parse("[1,,2]", Dialect::Jsonc).is_err());

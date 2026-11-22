@@ -190,7 +190,10 @@ impl Query {
     fn run_paths(&self, input: &Val, ctx: &ExecCtx) -> Result<Option<Vec<RawOutput>>> {
         let runtime = Runtime::new(&self.filter.lut, ctx, true);
         let vars = Vars::new([runtime.environment()]);
-        let start = (Ctx::<Doc>::new(&runtime, vars), (input.clone(), Default::default()));
+        let start = (
+            Ctx::<Doc>::new(&runtime, vars),
+            (input.clone(), Default::default()),
+        );
         let mut outputs = Vec::new();
         for item in self.filter.id.paths(start) {
             match item {
@@ -388,7 +391,10 @@ fn load_error(code: &str, errors: jaq_core::load::Errors<&str, ()>) -> Error {
                 code,
                 found,
                 "syntax",
-                &format!("the filter does not parse: expected {}", lex_expected(expect)),
+                &format!(
+                    "the filter does not parse: expected {}",
+                    lex_expected(expect)
+                ),
             ),
             None => Error::new(ErrorCode::Query, "the filter does not parse"),
         },
@@ -444,9 +450,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
-    use nurt_contracts::env::{
-        BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime,
-    };
+    use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
     use nurt_contracts::stage::{CancelReason, CancelToken, Event, EventSink, Limits};
     use nurt_contracts::value::Fields;
 
@@ -475,7 +479,11 @@ mod tests {
             }
         }
 
-        fn sleep(&self, _duration: Duration, cancel: &CancelToken) -> std::result::Result<(), CancelReason> {
+        fn sleep(
+            &self,
+            _duration: Duration,
+            cancel: &CancelToken,
+        ) -> std::result::Result<(), CancelReason> {
             cancel.reason().map_or(Ok(()), Err)
         }
     }
@@ -531,7 +539,11 @@ mod tests {
 
     fn values(filter: &str, input: &str) -> Vec<Value> {
         let run = Query::compile(filter).unwrap().run(&json(input), &ctx());
-        run.into_result().unwrap().into_iter().map(|output| output.value).collect()
+        run.into_result()
+            .unwrap()
+            .into_iter()
+            .map(|output| output.value)
+            .collect()
     }
 
     fn key(name: &str) -> PathStep {
@@ -555,7 +567,13 @@ mod tests {
             .run(&json(r#"{"a": 1}"#), &ctx())
             .into_result()
             .unwrap();
-        assert_eq!(outputs[0], QueryOutput { value: Value::Int(2), path: None });
+        assert_eq!(
+            outputs[0],
+            QueryOutput {
+                value: Value::Int(2),
+                path: None
+            }
+        );
         assert!(outputs[1].path.is_none());
     }
 
@@ -563,13 +581,17 @@ mod tests {
     fn path_results_keep_the_typed_input_value() {
         let mut fields = Fields::new();
         fields.insert("v".to_owned(), Value::Decimal("1.10".to_owned()));
-        let outputs = Query::compile(".v").unwrap().run(&Value::Map(fields), &ctx());
+        let outputs = Query::compile(".v")
+            .unwrap()
+            .run(&Value::Map(fields), &ctx());
         assert_eq!(outputs.outputs[0].value, Value::Decimal("1.10".to_owned()));
     }
 
     #[test]
     fn slices_are_reported_as_other_steps() {
-        let outputs = Query::compile(".[1:2]").unwrap().run(&json("[1, 2, 3]"), &ctx());
+        let outputs = Query::compile(".[1:2]")
+            .unwrap()
+            .run(&json("[1, 2, 3]"), &ctx());
         let path = outputs.outputs[0].path.clone().unwrap();
         assert!(matches!(path[0], PathStep::Other(Value::Map(_))));
     }
@@ -580,7 +602,11 @@ mod tests {
         assert_eq!(error.code, ErrorCode::Query);
         assert_eq!(error.problem.as_deref(), Some("syntax"));
         assert_eq!(error.details["line"], serde_json::json!(2));
-        assert!(error.message.contains("does not parse"), "{}", error.message);
+        assert!(
+            error.message.contains("does not parse"),
+            "{}",
+            error.message
+        );
     }
 
     #[test]
@@ -593,7 +619,11 @@ mod tests {
     fn undefined_filter_and_variable_are_named() {
         let error = Query::compile(".a | frobnicate(1)").unwrap_err();
         assert_eq!(error.found.as_deref(), Some("frobnicate"));
-        assert!(error.message.contains("`frobnicate/1`"), "{}", error.message);
+        assert!(
+            error.message.contains("`frobnicate/1`"),
+            "{}",
+            error.message
+        );
         assert_eq!(error.details["column"], serde_json::json!(6));
         let error = Query::compile("$nothing").unwrap_err();
         assert!(error.message.contains("variable"), "{}", error.message);
@@ -608,7 +638,9 @@ mod tests {
 
     #[test]
     fn runtime_error_follows_earlier_results() {
-        let run = Query::compile(".[] | .a").unwrap().run(&json(r#"[{"a": 1}, "x"]"#), &ctx());
+        let run = Query::compile(".[] | .a")
+            .unwrap()
+            .run(&json(r#"[{"a": 1}, "x"]"#), &ctx());
         assert_eq!(run.outputs.len(), 1);
         let error = run.error.unwrap();
         assert_eq!(error.code, ErrorCode::Query);
@@ -618,7 +650,9 @@ mod tests {
 
     #[test]
     fn error_value_is_kept_in_details() {
-        let run = Query::compile(r#"error({"reason": "bad"})"#).unwrap().run(&Value::Null, &ctx());
+        let run = Query::compile(r#"error({"reason": "bad"})"#)
+            .unwrap()
+            .run(&Value::Null, &ctx());
         let error = run.error.unwrap();
         assert_eq!(error.details["error"], serde_json::json!({"reason": "bad"}));
     }
@@ -626,42 +660,83 @@ mod tests {
     #[test]
     fn halt_ends_results_and_halt_error_fails() {
         assert_eq!(values("1, halt, 2", "null"), vec![Value::Int(1)]);
-        let run = Query::compile(r#""boom" | halt_error(3)"#).unwrap().run(&Value::Null, &ctx());
+        let run = Query::compile(r#""boom" | halt_error(3)"#)
+            .unwrap()
+            .run(&Value::Null, &ctx());
         let error = run.error.unwrap();
         assert_eq!(error.problem.as_deref(), Some("halt"));
-        assert!(error.message.contains("exit code 3: boom"), "{}", error.message);
-        let error = Query::compile("halt_error").unwrap().run(&Value::Null, &ctx()).error.unwrap();
+        assert!(
+            error.message.contains("exit code 3: boom"),
+            "{}",
+            error.message
+        );
+        let error = Query::compile("halt_error")
+            .unwrap()
+            .run(&Value::Null, &ctx())
+            .error
+            .unwrap();
         assert!(error.message.contains("exit code 5"), "{}", error.message);
     }
 
     #[test]
     fn environment_and_clock_come_from_the_context() {
         let home = Value::Text("/home/user".to_owned());
-        assert_eq!(values("$ENV.HOME, env.HOME", "null"), vec![home.clone(), home]);
-        assert_eq!(values("now | floor", "null"), vec![Value::Int(1_700_000_000)]);
+        assert_eq!(
+            values("$ENV.HOME, env.HOME", "null"),
+            vec![home.clone(), home]
+        );
+        assert_eq!(
+            values("now | floor", "null"),
+            vec![Value::Int(1_700_000_000)]
+        );
     }
 
     #[test]
     fn generators_follow_jq() {
         let expected: Vec<Value> = [1, 2, 4, 8].into_iter().map(Value::Int).collect();
         assert_eq!(values("limit(4; repeat(. * 2))", "1"), expected);
-        assert_eq!(values("[range(0; 10; 3)]", "null"), vec![json("[0, 3, 6, 9]")]);
+        assert_eq!(
+            values("[range(0; 10; 3)]", "null"),
+            vec![json("[0, 3, 6, 9]")]
+        );
         assert_eq!(values("[range(5; 0; -2)]", "null"), vec![json("[5, 3, 1]")]);
         assert_eq!(values("[range(1; 1; 0)]", "null"), vec![json("[]")]);
-        assert_eq!(values("[.[] | recurse(.c[]?) | .n]", r#"[{"n": 1, "c": [{"n": 2}]}]"#), vec![json("[1, 2]")]);
-        assert_eq!(values("[while(. < 4; . + 1)]", "1"), vec![json("[1, 2, 3]")]);
+        assert_eq!(
+            values(
+                "[.[] | recurse(.c[]?) | .n]",
+                r#"[{"n": 1, "c": [{"n": 2}]}]"#
+            ),
+            vec![json("[1, 2]")]
+        );
+        assert_eq!(
+            values("[while(. < 4; . + 1)]", "1"),
+            vec![json("[1, 2, 3]")]
+        );
         assert_eq!(values("until(. > 4; . * 2)", "1"), vec![Value::Int(8)]);
-        assert_eq!(values("[paths]", r#"{"a": [1]}"#), vec![json(r#"[["a"], ["a", 0]]"#)]);
+        assert_eq!(
+            values("[paths]", r#"{"a": [1]}"#),
+            vec![json(r#"[["a"], ["a", 0]]"#)]
+        );
     }
 
     #[test]
     fn endless_generator_stops_on_cancellation() {
         let cancel = CancelToken::new();
         cancel.cancel(CancelReason::Timeout);
-        let ctx = ExecCtx::builder(Arc::new(FixedClock), host()).cancel(cancel).build();
-        for filter in ["last(range(1; 2; 0))", "try last(repeat(1)) catch 0", "last(1 | recurse(.))"] {
+        let ctx = ExecCtx::builder(Arc::new(FixedClock), host())
+            .cancel(cancel)
+            .build();
+        for filter in [
+            "last(range(1; 2; 0))",
+            "try last(repeat(1)) catch 0",
+            "last(1 | recurse(.))",
+        ] {
             let run = Query::compile(filter).unwrap().run(&Value::Null, &ctx);
-            assert_eq!(run.error.map(|error| error.code), Some(ErrorCode::Timeout), "{filter}");
+            assert_eq!(
+                run.error.map(|error| error.code),
+                Some(ErrorCode::Timeout),
+                "{filter}"
+            );
         }
     }
 
@@ -671,19 +746,31 @@ mod tests {
             max_records: 3,
             ..Limits::default()
         };
-        let ctx = ExecCtx::builder(Arc::new(FixedClock), host()).limits(limits).build();
+        let ctx = ExecCtx::builder(Arc::new(FixedClock), host())
+            .limits(limits)
+            .build();
         for filter in ["range(10)", ".[]"] {
-            let run = Query::compile(filter).unwrap().run(&json("[1, 2, 3, 4]"), &ctx);
-            assert_eq!(run.error.map(|error| error.code), Some(ErrorCode::Limit), "{filter}");
+            let run = Query::compile(filter)
+                .unwrap()
+                .run(&json("[1, 2, 3, 4]"), &ctx);
+            assert_eq!(
+                run.error.map(|error| error.code),
+                Some(ErrorCode::Limit),
+                "{filter}"
+            );
         }
     }
 
     #[test]
     fn debug_messages_are_emitted_once() {
         let events = Arc::new(Events::default());
-        let ctx = ExecCtx::builder(Arc::new(FixedClock), host()).events(events.clone()).build();
+        let ctx = ExecCtx::builder(Arc::new(FixedClock), host())
+            .events(events.clone())
+            .build();
         for filter in [".a | debug", ".a + 1 | debug", ".a | stderr | empty"] {
-            let run = Query::compile(filter).unwrap().run(&json(r#"{"a": 1}"#), &ctx);
+            let run = Query::compile(filter)
+                .unwrap()
+                .run(&json(r#"{"a": 1}"#), &ctx);
             assert!(run.error.is_none(), "{filter}");
         }
         let events = events.0.lock().unwrap();

@@ -9,10 +9,9 @@ use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::keypath::{KeyPath, KeySegment};
 use nurt_contracts::value::{Fields, Value};
 
-use crate::edit::diff;
-use crate::edit::guard::{Expectation, Surroundings, check_scope};
-use crate::model::{DocTree, NodeId, NodeKind, SetOptions, Span};
-use crate::registry::{DocFormat, DocOptions, OpenDocument, open_with};
+use crate::edit::guard::{Expectation, Surroundings};
+use crate::model::{DocTree, FormatSemantics, NodeId, NodeKind, SetOptions, Span};
+use crate::registry::{DocFormat, DocOptions, OpenDocument, matches_file, open_with};
 use crate::value::first_difference;
 
 /// Increment of the SplitMix64 generator.
@@ -171,7 +170,10 @@ impl Summary {
             let name = error.found.clone().unwrap_or_default();
             *self.unsupported.entry(name).or_default() += 1;
         } else {
-            *self.refused.entry(error.code.as_str().to_owned()).or_default() += 1;
+            *self
+                .refused
+                .entry(error.code.as_str().to_owned())
+                .or_default() += 1;
         }
     }
 }
@@ -181,13 +183,17 @@ impl Summary {
 /// # Errors
 ///
 /// Fails with the error of reading the directory or a file.
-pub fn run_corpus(dir: &Path, format: &dyn DocFormat, options: &HarnessOptions) -> io::Result<Summary> {
+pub fn run_corpus(
+    dir: &Path,
+    format: &dyn DocFormat,
+    options: &HarnessOptions,
+) -> io::Result<Summary> {
     let mut files = Vec::new();
     collect(dir, &mut files)?;
     files.sort();
     let mut summary = Summary::default();
     for path in files {
-        if options.filter == FileFilter::ByFormat && !belongs(&path, format) {
+        if options.filter == FileFilter::ByFormat && !matches_file(format, &path) {
             continue;
         }
         let bytes = std::fs::read(&path)?;
@@ -209,22 +215,6 @@ fn collect(dir: &Path, files: &mut Vec<PathBuf>) -> io::Result<()> {
     Ok(())
 }
 
-fn belongs(path: &Path, format: &dyn DocFormat) -> bool {
-    let name = path
-        .file_name()
-        .map(|name| name.to_string_lossy().to_lowercase())
-        .unwrap_or_default();
-    let extension = path
-        .extension()
-        .map(|ext| ext.to_string_lossy().to_lowercase())
-        .unwrap_or_default();
-    format.extensions().contains(&extension.as_str())
-        || format.file_names().iter().any(|pattern| match pattern.strip_suffix('*') {
-            Some(prefix) => name.starts_with(prefix),
-            None => name == *pattern,
-        })
-}
-
 /// Runs the harness on one document.
 pub fn run_document(
     path: impl AsRef<Path>,
@@ -241,15 +231,23 @@ pub fn run_document(
         Ok(document) => document,
         Err(error) => {
             if error.code == ErrorCode::UnsupportedConstruct {
-                summary.violations.push(opening(path, Guard::Identity, &error.message));
+                summary
+                    .violations
+                    .push(opening(path, Guard::Identity, &error.message));
             } else {
-                summary.not_opened.push((path.to_owned(), error.message.clone()));
+                summary
+                    .not_opened
+                    .push((path.to_owned(), error.message.clone()));
             }
             return summary;
         }
     };
     if document.bytes() != bytes {
-        summary.violations.push(opening(path, Guard::Identity, "the bytes of the opened document differ"));
+        summary.violations.push(opening(
+            path,
+            Guard::Identity,
+            "the bytes of the opened document differ",
+        ));
         return summary;
     }
     let run = Run {
@@ -258,7 +256,8 @@ pub fn run_document(
         format,
         options,
     };
-    for node in select(document.handle.tree(), options, path) {
+    let tree = document.handle.tree();
+    for node in select(tree, document.handle.semantics(), options, path) {
         for operation in &options.operations {
             run.operation(&document, node, *operation, &mut summary);
         }
@@ -277,21 +276,43 @@ fn opening(path: &Path, guard: Guard, detail: &str) -> Violation {
 }
 
 /// Nodes of the tree in a seeded order, at most `nodes_per_file`.
-fn select(tree: &DocTree, options: &HarnessOptions, path: &Path) -> Vec<NodeId> {
+///
+/// Nodes that their own key path does not select, such as members shadowed
+/// by a later member of the same name, are skipped: an operation on their
+/// key would change another node.
+fn select(
+    tree: &DocTree,
+    semantics: &dyn FormatSemantics,
+    options: &HarnessOptions,
+    path: &Path,
+) -> Vec<NodeId> {
     let mut nodes: Vec<NodeId> = tree
         .iter()
         .filter(|(_, node)| node.kind != NodeKind::Comment)
         .map(|(id, _)| id)
         .collect();
     let mut state = options.seed ^ fnv1a(path.to_string_lossy().as_bytes());
-    let count = nodes.len().min(options.nodes_per_file);
-    for index in 0..count {
+    let mut selected = Vec::with_capacity(nodes.len().min(options.nodes_per_file));
+    let mut index = 0;
+    while selected.len() < options.nodes_per_file && index < nodes.len() {
         let remaining = u64::try_from(nodes.len() - index).unwrap_or(u64::MAX);
         let pick = index + usize::try_from(splitmix(&mut state) % remaining).unwrap_or(0);
         nodes.swap(index, pick);
+        if reachable(tree, semantics, nodes[index]) {
+            selected.push(nodes[index]);
+        }
+        index += 1;
     }
-    nodes.truncate(count);
-    nodes
+    selected
+}
+
+/// Returns `true` when the key path of `node` selects exactly that node
+/// (or an alias with the same target).
+fn reachable(tree: &DocTree, semantics: &dyn FormatSemantics, node: NodeId) -> bool {
+    let key = tree.path_of(node, semantics);
+    tree.resolve(&key, semantics).is_ok_and(
+        |found| matches!(found.as_slice(), [only] if tree.target(only.node) == tree.target(node)),
+    )
 }
 
 fn splitmix(state: &mut u64) -> u64 {
@@ -303,7 +324,9 @@ fn splitmix(state: &mut u64) -> u64 {
 }
 
 fn fnv1a(bytes: &[u8]) -> u64 {
-    bytes.iter().fold(FNV_OFFSET, |hash, byte| (hash ^ u64::from(*byte)).wrapping_mul(FNV_PRIME))
+    bytes.iter().fold(FNV_OFFSET, |hash, byte| {
+        (hash ^ u64::from(*byte)).wrapping_mul(FNV_PRIME)
+    })
 }
 
 struct Run<'r> {
@@ -320,7 +343,13 @@ enum Change {
 }
 
 impl Run<'_> {
-    fn operation(&self, original: &OpenDocument, node: NodeId, operation: HarnessOperation, summary: &mut Summary) {
+    fn operation(
+        &self,
+        original: &OpenDocument,
+        node: NodeId,
+        operation: HarnessOperation,
+        summary: &mut Summary,
+    ) {
         let tree = original.handle.tree();
         let semantics = original.handle.semantics();
         let key = tree.path_of(node, semantics);
@@ -332,7 +361,11 @@ impl Run<'_> {
         };
         summary.operations += 1;
         let result = match &change {
-            Change::Set(key, value) => document.handle.set(key, value, &SetOptions { create: true }),
+            Change::Set(key, value) => {
+                document
+                    .handle
+                    .set(key, value, &SetOptions { create: true })
+            }
             Change::Remove(key) => document.handle.remove(key),
         };
         match result {
@@ -340,8 +373,12 @@ impl Run<'_> {
                 summary.accepted += 1;
                 let after = document.handle.text().to_vec();
                 let violation = if operation == HarnessOperation::SetSame {
-                    (!report.is_unchanged() || after != original.handle.text())
-                        .then(|| (Guard::Idempotence, "setting the current value changed bytes".to_owned()))
+                    (!report.is_unchanged() || after != original.handle.text()).then(|| {
+                        (
+                            Guard::Idempotence,
+                            "setting the current value changed bytes".to_owned(),
+                        )
+                    })
                 } else {
                     self.verify(original, node, &change, &after)
                 };
@@ -360,13 +397,25 @@ impl Run<'_> {
     }
 
     /// Independent scope and meaning checks of an accepted change.
-    fn verify(&self, original: &OpenDocument, node: NodeId, change: &Change, after: &[u8]) -> Option<(Guard, String)> {
+    fn verify(
+        &self,
+        original: &OpenDocument,
+        node: NodeId,
+        change: &Change,
+        after: &[u8],
+    ) -> Option<(Guard, String)> {
         let text = original.handle.text();
         let tree = original.handle.tree();
         let region = lines_of(text, tree[node].span);
-        let edits = diff(text, after);
-        if let Err(error) = check_scope(text, &[region], &edits, Surroundings::DEFAULT) {
-            return Some((Guard::Scope, error.message.clone()));
+        if let Some(offset) = first_change_outside(text, after, region) {
+            let position = tree.lines().position(text, offset);
+            return Some((
+                Guard::Scope,
+                format!(
+                    "bytes outside the lines of the node changed at line {}, column {}",
+                    position.line, position.column
+                ),
+            ));
         }
         let semantics = original.handle.semantics();
         let documents: Vec<Value> = tree
@@ -375,7 +424,9 @@ impl Run<'_> {
             .map(|root| tree.value_of(*root, semantics, None))
             .collect();
         let expectation = match change {
-            Change::Set(key, value) => Expectation::new(documents, semantics).set(key.clone(), value.clone()),
+            Change::Set(key, value) => {
+                Expectation::new(documents, semantics).set(key.clone(), value.clone())
+            }
             Change::Remove(key) => Expectation::new(documents, semantics).remove(key.clone()),
         };
         let expected = match expectation.expected() {
@@ -384,7 +435,12 @@ impl Run<'_> {
         };
         let reopened = match open_with(self.format, after, &self.options.documents) {
             Ok(reopened) => reopened,
-            Err(error) => return Some((Guard::Meaning, format!("the changed document does not open: {}", error.message))),
+            Err(error) => {
+                return Some((
+                    Guard::Meaning,
+                    format!("the changed document does not open: {}", error.message),
+                ));
+            }
         };
         let reopened_tree = reopened.handle.tree();
         let actual: Vec<Value> = reopened_tree
@@ -392,9 +448,107 @@ impl Run<'_> {
             .iter()
             .map(|root| reopened_tree.value_of(*root, reopened.handle.semantics(), None))
             .collect();
-        first_difference(&Value::List(expected), &Value::List(actual))
-            .map(|path| (Guard::Meaning, format!("the changed document differs at `{path}`")))
+        first_difference(&Value::List(expected), &Value::List(actual)).map(|path| {
+            (
+                Guard::Meaning,
+                format!("the changed document differs at `{path}`"),
+            )
+        })
     }
+}
+
+/// Offset in `original` of the first byte outside `region` that `changed`
+/// does not keep, or `None` when every byte outside `region` is kept.
+///
+/// The bytes after `region` must end `changed` and the bytes before it must
+/// start `changed`. The texts are not aligned line by line, so a removed
+/// entry next to similar entries is checked at its own place. One run of
+/// separator bytes ([`Surroundings::DEFAULT`]: blanks, line breaks, the
+/// comma) may be removed or added between the region and the last
+/// unchanged byte before it, as when removing the last member of a list
+/// also removes the comma of the previous member, past a comment.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_doc::model::Span;
+/// use nurt_doc::testing::first_change_outside;
+///
+/// let original = b"[1, // one\n 2\n]";
+/// let region = Span::new(11, 14);
+/// assert_eq!(first_change_outside(original, b"[1 // one\n]", region), None);
+/// assert_eq!(first_change_outside(original, b"[0, // one\n]", region), Some(1));
+/// ```
+#[must_use]
+pub fn first_change_outside(original: &[u8], changed: &[u8], region: Span) -> Option<usize> {
+    let start = region.start.min(original.len());
+    let end = region.end.clamp(start, original.len());
+    let tail = &original[end..];
+    if !changed.ends_with(tail) {
+        let kept = common_suffix(original, changed);
+        return Some(original.len() - kept - 1);
+    }
+    let changed_end = changed.len() - tail.len();
+    let prefix = common_prefix(&original[..start], &changed[..changed_end.min(start)]);
+    let kept = prefix == start
+        || separators_removed(original, changed, prefix, start, changed_end)
+        || separators_added(original, changed, prefix, start, changed_end);
+    (!kept).then_some(prefix)
+}
+
+/// Returns `true` when `original[at..]` starts with a run of separators
+/// whose removal makes `original[..start]` a prefix of
+/// `changed[..changed_end]`.
+fn separators_removed(
+    original: &[u8],
+    changed: &[u8],
+    at: usize,
+    start: usize,
+    changed_end: usize,
+) -> bool {
+    let mut skipped = at;
+    while skipped < start && Surroundings::DEFAULT.allows(original[skipped]) {
+        skipped += 1;
+        let rest = &original[skipped..start];
+        let to = at + rest.len();
+        if to <= changed_end && changed[at..to] == *rest {
+            return true;
+        }
+    }
+    false
+}
+
+/// Returns `true` when `changed[at..]` starts with a run of separators
+/// after which `changed[..changed_end]` continues with `original[at..start]`.
+fn separators_added(
+    original: &[u8],
+    changed: &[u8],
+    at: usize,
+    start: usize,
+    changed_end: usize,
+) -> bool {
+    let rest = &original[at..start];
+    let mut skipped = at;
+    while skipped < changed_end && Surroundings::DEFAULT.allows(changed[skipped]) {
+        skipped += 1;
+        let to = skipped + rest.len();
+        if to <= changed_end && changed[skipped..to] == *rest {
+            return true;
+        }
+    }
+    false
+}
+
+fn common_prefix(left: &[u8], right: &[u8]) -> usize {
+    left.iter().zip(right).take_while(|(a, b)| a == b).count()
+}
+
+fn common_suffix(left: &[u8], right: &[u8]) -> usize {
+    left.iter()
+        .rev()
+        .zip(right.iter().rev())
+        .take_while(|(a, b)| a == b)
+        .count()
 }
 
 /// `span` widened to whole lines, with the line break of the last line.
@@ -415,7 +569,7 @@ fn change_for(
     node: NodeId,
     key: &KeyPath,
     operation: HarnessOperation,
-    semantics: &dyn crate::model::FormatSemantics,
+    semantics: &dyn FormatSemantics,
 ) -> Option<Change> {
     let kind = tree[tree.target(node)].kind;
     let scalar = !kind.is_container();
@@ -424,7 +578,10 @@ fn change_for(
         extended.push(segment).ok().map(|()| extended)
     };
     match operation {
-        HarnessOperation::SetSame => Some(Change::Set(key.clone(), tree.value_of(node, semantics, None))),
+        HarnessOperation::SetSame => Some(Change::Set(
+            key.clone(),
+            tree.value_of(node, semantics, None),
+        )),
         HarnessOperation::ReplaceScalar if scalar => {
             let current = tree.value_of(node, semantics, None);
             Some(Change::Set(key.clone(), replacement(&current)))
@@ -434,14 +591,18 @@ fn change_for(
             fields.insert(NEW_KEY.to_owned(), Value::Int(1));
             Some(Change::Set(key.clone(), Value::Map(fields)))
         }
-        HarnessOperation::ChangeType => Some(Change::Set(key.clone(), Value::Text(NEW_TEXT.to_owned()))),
+        HarnessOperation::ChangeType => {
+            Some(Change::Set(key.clone(), Value::Text(NEW_TEXT.to_owned())))
+        }
         HarnessOperation::InsertKey if kind.is_named_container() => {
             child(KeySegment::Key(NEW_KEY.to_owned())).map(|key| Change::Set(key, Value::Int(1)))
         }
         HarnessOperation::Append if kind == NodeKind::List => {
             child(KeySegment::Append).map(|key| Change::Set(key, Value::Int(1)))
         }
-        HarnessOperation::Remove if tree[node].parent.is_some() => Some(Change::Remove(key.clone())),
+        HarnessOperation::Remove if tree[node].parent.is_some() => {
+            Some(Change::Remove(key.clone()))
+        }
         _ => None,
     }
 }

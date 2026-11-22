@@ -31,7 +31,7 @@ use std::sync::Arc;
 
 use nurt_contracts::error::{Error, ErrorCode, Location, Result, Stage};
 use nurt_contracts::fs::{AbsPath, ContentHash};
-use nurt_contracts::journal::{Expect, Mutation, MutationTx, TargetAction, TargetIndex, TargetPath, TargetSpec};
+use nurt_contracts::journal::{Expect, Mutation, MutationTx, TargetAction, TargetPath, TargetSpec};
 use nurt_contracts::keypath::{KeyPath, KeySegment};
 use nurt_contracts::record::{Effect, EffectStatus};
 use nurt_contracts::report::{Change, ChangeAction, Notable, NotableEntry};
@@ -41,11 +41,11 @@ use nurt_contracts::stage::{
     LogEvent, LogLevel, RecordStream, StageDescriptor, StageImpl, StageInput, StageOutput,
     StaticInfo,
 };
-use nurt_contracts::value::{Record, RecordKind, Value};
+use nurt_contracts::value::{Record, RecordKind, Size, Value};
 
 use super::query::read_file;
 use crate::edit::EditReport;
-use crate::model::SetOptions;
+use crate::model::{NodeKind, SetOptions, key_not_found};
 use crate::registry::{DocOptions, OpenDocument, Registry, open_with};
 use crate::value::to_document_value;
 
@@ -68,6 +68,9 @@ const FORMAT: &str = "format";
 const VALIDATE: &str = "validate";
 const IF_MATCH: &str = "if_match";
 const AUTO: &str = "auto";
+
+/// Largest number of existing keys offered for a missing key.
+const MAX_KEY_CANDIDATES: usize = 5;
 
 /// Content of a new property list before its first key is set.
 const PLIST_SKELETON: &[u8] = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n</dict>\n</plist>\n";
@@ -411,7 +414,7 @@ fn item_requests<'a>(
             Some(value) => Op::Set(key, value),
             None => Op::Remove(key),
         };
-        let expect = match if_match.clone() {
+        let expect = match if_match {
             Some(expect) => Some(expect),
             None => text_field(&record, "etag").and_then(|etag| ContentHash::parse(etag).ok()),
         };
@@ -489,7 +492,12 @@ fn plan_requests(
                 entry.path = Some(path);
                 plan.notable.push(entry);
             }
-            Planned::Write(write, change, notable) => {
+            Planned::Write(file) => {
+                let PlannedFile {
+                    write,
+                    change,
+                    notable,
+                } = *file;
                 plan.changes.push(change);
                 plan.notable.extend(notable);
                 writes.push(write);
@@ -500,9 +508,16 @@ fn plan_requests(
     Ok(plan.with_state(writes))
 }
 
+/// Planned change of one file.
+struct PlannedFile {
+    write: PlannedWrite,
+    change: Change,
+    notable: Vec<NotableEntry>,
+}
+
 enum Planned {
     Unchanged,
-    Write(PlannedWrite, Change, Vec<NotableEntry>),
+    Write(Box<PlannedFile>),
 }
 
 fn plan_file(
@@ -521,16 +536,19 @@ fn plan_file(
     let current = existing
         .as_ref()
         .and_then(|content| ContentHash::parse(&content.etag).ok());
-    if let Some(expected) = &request.expect {
-        if current.as_ref() != Some(expected) {
-            return Err(stale(&request.path, expected));
-        }
+    if let Some(expected) = &request.expect
+        && current.as_ref() != Some(expected)
+    {
+        return Err(stale(&request.path, expected));
     }
     let creating = existing.is_none();
     if creating && !(options.create && request.ops.iter().all(|op| matches!(op, Op::Set(..)))) {
         return Err(Error::new(
             ErrorCode::NotFound,
-            format!("{} does not exist; check the path or set create: true", request.path),
+            format!(
+                "{} does not exist; check the path or set create: true",
+                request.path
+            ),
         ));
     }
     let before = existing.map(|content| content.bytes);
@@ -540,7 +558,13 @@ fn plan_file(
         before.as_deref().unwrap_or_default(),
     )?;
     let doc_options = DocOptions::from_config(&ctx.config().documents);
-    let (initial, mut document) = open_document(registry, &format, before.as_deref(), &request.ops, &doc_options)?;
+    let (initial, mut document) = open_document(
+        registry,
+        &format,
+        before.as_deref(),
+        &request.ops,
+        &doc_options,
+    )?;
     let report = apply_ops(&mut document, &request.ops, options)?;
     let after = document.bytes();
     if !creating && after == initial {
@@ -556,7 +580,10 @@ fn plan_file(
             }
             ctx.emit(Event::Log(LogEvent {
                 level: LogLevel::Warn,
-                message: format!("{}: the change introduces a syntax error: {}", request.path, issue.message),
+                message: format!(
+                    "{}: the change introduces a syntax error: {}",
+                    request.path, issue.message
+                ),
                 source: Some(COMMAND.to_owned()),
             }));
             flags.push(VALIDATE_WARNING_FLAG.to_owned());
@@ -567,10 +594,14 @@ fn plan_file(
         size_after: Some(byte_count(&after)),
         hash_before: current.as_ref().map(ToString::to_string),
         replacements: Some(report.replacements),
-        flags,
+        flags: (!flags.is_empty()).then_some(flags),
         ..Change::new(
             request.path.clone(),
-            if creating { ChangeAction::Create } else { ChangeAction::Modify },
+            if creating {
+                ChangeAction::Create
+            } else {
+                ChangeAction::Modify
+            },
         )
     };
     let notable = report
@@ -585,13 +616,21 @@ fn plan_file(
         abs,
         bytes: after,
         expect: current.map_or(Expect::Absent, Expect::Hash),
-        action: if creating { TargetAction::Create } else { TargetAction::Modify },
+        action: if creating {
+            TargetAction::Create
+        } else {
+            TargetAction::Modify
+        },
     };
-    Ok(Planned::Write(write, change, notable))
+    Ok(Planned::Write(Box::new(PlannedFile {
+        write,
+        change,
+        notable,
+    })))
 }
 
-fn byte_count(bytes: &[u8]) -> u64 {
-    u64::try_from(bytes.len()).unwrap_or(u64::MAX)
+fn byte_count(bytes: &[u8]) -> Size {
+    Size::from_bytes(u64::try_from(bytes.len()).unwrap_or(u64::MAX))
 }
 
 fn stale(path: &str, expected: &ContentHash) -> Error {
@@ -658,10 +697,12 @@ fn initial_contents(format: &DocFormatId, ops: &[Op]) -> Vec<Vec<u8>> {
     } else if *format == DocFormatId::PLIST {
         contents.push(PLIST_SKELETON.to_vec());
     } else if *format == DocFormatId::XML {
-        let root = ops.first().and_then(|op| match op.key().segments().first() {
-            Some(KeySegment::Key(name)) if !name.starts_with(['@', '#']) => Some(name.clone()),
-            _ => None,
-        });
+        let root = ops
+            .first()
+            .and_then(|op| match op.key().segments().first() {
+                Some(KeySegment::Key(name)) if !name.starts_with(['@', '#']) => Some(name.clone()),
+                _ => None,
+            });
         if let Some(root) = root {
             contents.push(format!("<{root}/>\n").into_bytes());
         }
@@ -683,12 +724,70 @@ fn apply_ops(document: &mut OpenDocument, ops: &[Op], options: Options) -> Resul
             }
             Op::Remove(key) => document.handle.remove(key),
         };
-        report.absorb(step?);
+        match step {
+            Ok(edit) => report.absorb(edit),
+            Err(error) => return Err(with_closest_keys(error, document, op.key())),
+        }
     }
     Ok(report)
 }
 
-fn syntax_issues(registry: &Registry, format: &DocFormatId, bytes: &[u8], options: &DocOptions) -> Vec<SyntaxIssue> {
+/// An `E_KEY_NOT_FOUND` error without candidates gets the existing keys of
+/// the document closest to `key`, by edit distance of their text.
+fn with_closest_keys(error: Error, document: &OpenDocument, key: &KeyPath) -> Error {
+    if error.code != ErrorCode::KeyNotFound || !error.candidates.is_empty() {
+        return error;
+    }
+    let wanted = key.to_string();
+    let tree = document.handle.tree();
+    let semantics = document.handle.semantics();
+    let mut keys: Vec<(usize, String, KeyPath)> = tree
+        .iter()
+        .filter(|(_, node)| node.kind != NodeKind::Comment)
+        .map(|(id, _)| tree.path_of(id, semantics))
+        .filter(|path| !path.segments().is_empty())
+        .map(|path| {
+            let text = path.to_string();
+            (distance(&wanted, &text), text, path)
+        })
+        .collect();
+    keys.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+    keys.dedup_by(|a, b| a.1 == b.1);
+    let closest: Vec<KeyPath> = keys
+        .into_iter()
+        .take(MAX_KEY_CANDIDATES)
+        .map(|(_, _, path)| path)
+        .collect();
+    key_not_found(key, &closest)
+}
+
+/// Number of character insertions, deletions and substitutions that turn
+/// `from` into `to`.
+fn distance(from: &str, to: &str) -> usize {
+    let to: Vec<char> = to.chars().collect();
+    let mut row: Vec<usize> = (0..=to.len()).collect();
+    for (i, left) in from.chars().enumerate() {
+        let mut diagonal = row[0];
+        row[0] = i + 1;
+        for (j, right) in to.iter().enumerate() {
+            let above = row[j + 1];
+            row[j + 1] = if left == *right {
+                diagonal
+            } else {
+                1 + diagonal.min(above).min(row[j])
+            };
+            diagonal = above;
+        }
+    }
+    row[to.len()]
+}
+
+fn syntax_issues(
+    registry: &Registry,
+    format: &DocFormatId,
+    bytes: &[u8],
+    options: &DocOptions,
+) -> Vec<SyntaxIssue> {
     registry
         .get(format)
         .map(|handler| handler.check_syntax(bytes, options))
@@ -732,7 +831,11 @@ fn validate_error(path: &str, issue: &SyntaxIssue) -> Error {
 
 /// Writes the planned contents through the transaction: every target is
 /// declared and preserved before the first write.
-fn apply_plan<'a>(command: &str, mut plan: EffectPlan, tx: &mut dyn MutationTx) -> Result<EffectOutcome<'a>> {
+fn apply_plan<'a>(
+    command: &str,
+    mut plan: EffectPlan,
+    tx: &mut dyn MutationTx,
+) -> Result<EffectOutcome<'a>> {
     let writes: Vec<PlannedWrite> = plan.take_state().ok_or_else(|| {
         Error::new(
             ErrorCode::StageFailed,
@@ -761,7 +864,9 @@ fn apply_plan<'a>(command: &str, mut plan: EffectPlan, tx: &mut dyn MutationTx) 
         notable: Some(plan.notable.iter().map(notable_code).collect()),
         ..Effect::default()
     };
-    let mut outcome = EffectOutcome::new(StageOutput::records(RecordStream::once(Record::from(effect))));
+    let mut outcome = EffectOutcome::new(StageOutput::records(RecordStream::once(Record::from(
+        effect,
+    ))));
     outcome.changes = plan.changes;
     outcome.notable = plan.notable;
     Ok(outcome)
@@ -803,7 +908,10 @@ mod tests {
 
     #[test]
     fn nested_keys_conflict() {
-        let ops = [Op::Set(key("a"), Value::Int(1)), Op::Set(key("a.b"), Value::Int(2))];
+        let ops = [
+            Op::Set(key("a"), Value::Int(1)),
+            Op::Set(key("a.b"), Value::Int(2)),
+        ];
         let error = check_disjoint("/data/c.json", &ops).unwrap_err();
         assert_eq!(error.code, ErrorCode::KeyConflict);
         assert!(error.message.contains("`a` and `a.b`"), "{}", error.message);
@@ -826,10 +934,21 @@ mod tests {
     #[test]
     fn only_new_errors_count() {
         let before = [issue("unexpected", IssueSeverity::Error)];
-        let same = [issue("unexpected", IssueSeverity::Error), issue("duplicate_key", IssueSeverity::Warning)];
+        let same = [
+            issue("unexpected", IssueSeverity::Error),
+            issue("duplicate_key", IssueSeverity::Warning),
+        ];
         assert!(new_error(&before, &same).is_none());
-        let more = [issue("unexpected", IssueSeverity::Error), issue("missing", IssueSeverity::Error)];
-        assert_eq!(new_error(&before, &more).and_then(|issue| issue.kind.clone()).as_deref(), Some("missing"));
+        let more = [
+            issue("unexpected", IssueSeverity::Error),
+            issue("missing", IssueSeverity::Error),
+        ];
+        assert_eq!(
+            new_error(&before, &more)
+                .and_then(|issue| issue.kind.clone())
+                .as_deref(),
+            Some("missing")
+        );
     }
 
     #[test]
@@ -837,16 +956,28 @@ mod tests {
         let error = validate_error("/data/c.json", &issue("missing", IssueSeverity::Error));
         assert_eq!(error.code, ErrorCode::DocParse);
         assert_eq!(error.problem.as_deref(), Some("validate"));
-        assert_eq!(error.location.as_ref().map(|location| location.path.as_str()), Some("/data/c.json"));
+        assert_eq!(
+            error
+                .location
+                .as_ref()
+                .map(|location| location.path.as_str()),
+            Some("/data/c.json")
+        );
     }
 
     #[test]
     fn new_documents_start_from_the_smallest_root() {
-        let xml = initial_contents(&DocFormatId::XML, &[Op::Set(key("config.port"), Value::Int(1))]);
+        let xml = initial_contents(
+            &DocFormatId::XML,
+            &[Op::Set(key("config.port"), Value::Int(1))],
+        );
         assert_eq!(xml.last().map(Vec::as_slice), Some(&b"<config/>\n"[..]));
         let json = initial_contents(&DocFormatId::JSON, &[]);
         assert_eq!(json, [Vec::new(), JSON_SKELETON.to_vec()]);
-        assert_eq!(initial_contents(&DocFormatId::TOML, &[]), [Vec::<u8>::new()]);
+        assert_eq!(
+            initial_contents(&DocFormatId::TOML, &[]),
+            [Vec::<u8>::new()]
+        );
     }
 
     #[test]
@@ -858,7 +989,18 @@ mod tests {
     }
 
     #[test]
+    fn edit_distance_counts_character_changes() {
+        assert_eq!(distance("prot", "port"), 2);
+        assert_eq!(distance("port", "port"), 0);
+        assert_eq!(distance("", "abc"), 3);
+        assert_eq!(distance("name", "names"), 1);
+    }
+
+    #[test]
     fn notable_codes_use_report_names() {
-        assert_eq!(notable_code(&NotableEntry::new(Notable::KeysCreated)), "keys_created");
+        assert_eq!(
+            notable_code(&NotableEntry::new(Notable::KeysCreated)),
+            "keys_created"
+        );
     }
 }

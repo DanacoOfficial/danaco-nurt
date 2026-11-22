@@ -58,6 +58,35 @@ def while(cond; update): def rec: __checkpoint | if cond then ., (update | rec) 
 def until(cond; update): def rec: __checkpoint | if cond then . else update | rec end; rec;
 ";
 
+/// Definitions of `jq` that the libraries lack or define differently,
+/// written as in the `jq` builtin library.
+const JQ_DEFS: &str = r#"
+def IN(s): . as $x | first((s | select(. == $x) | true), false);
+def IN(src; s): first((src | IN(s) | select(.)), false);
+def INDEX(stream; idx_expr): reduce stream as $row ({}; . + {($row | idx_expr | tostring): $row});
+def INDEX(idx_expr): INDEX(.[]; idx_expr);
+def tostream: path(def r: (.[]? | r), .; r) as $p | getpath($p) | reduce path(.[]?) as $q ([$p, .]; [$p + $q]);
+def from_entries: reduce .[] as $x ({};
+  . + {($x | if .key == null then .k // .name // .Name // .K // .Key else .key end
+          | if isstring then . else tojson end):
+       ($x | if has("value") then .value else .v end)});
+def @csv:
+  if isarray | not then error("\(type) (\(tojson)) cannot be csv-formatted, only an array can be") end
+  | map(if isstring then "\"" + (split("\"") | join("\"\"")) + "\""
+        elif . == null then ""
+        elif isboolean or isnumber then tojson
+        else error("\(type) (\(tojson)) is not valid in a csv row") end)
+  | join(",");
+def @tsv:
+  if isarray | not then error("\(type) (\(tojson)) cannot be tsv-formatted, only an array can be") end
+  | map(if isstring then split("\\") | join("\\\\") | split("\t") | join("\\t")
+          | split("\n") | join("\\n") | split("\r") | join("\\r")
+        elif . == null then ""
+        elif isboolean or isnumber then tojson
+        else error("\(type) (\(tojson)) is not valid in a tsv row") end)
+  | join("\t");
+"#;
+
 /// Name of the global variable holding the host environment.
 pub(crate) const ENV_VAR: &str = "$ENV";
 
@@ -141,7 +170,7 @@ impl<'a> Runtime<'a> {
         let due = {
             let mut state = self.state.borrow_mut();
             state.steps += 1;
-            state.stopped.is_some() || state.steps % CHECK_INTERVAL == 0
+            state.stopped.is_some() || state.steps.is_multiple_of(CHECK_INTERVAL)
         };
         if !due {
             return Ok(());
@@ -193,11 +222,13 @@ pub(crate) const fn is_stop_code(code: i32) -> bool {
 }
 
 /// Definitions available to every filter: the libraries of `jq` with the
-/// generators replaced by checkpointed versions.
+/// generators replaced by checkpointed versions, followed by the
+/// definitions of `jq` that the libraries lack, which take precedence.
 ///
-/// Returns `None` when the replacement definitions do not parse, which is a
-/// defect of this crate.
+/// Returns `None` when the definitions of this module do not parse, which is
+/// a defect of this crate.
 pub(crate) fn prelude() -> Option<Vec<Def<&'static str>>> {
+    let compatible = jaq_core::load::parse(JQ_DEFS, |parser| parser.defs())?;
     let checked = jaq_core::load::parse(CHECKED_DEFS, |parser| parser.defs())?;
     let mut defs = Vec::new();
     let mut checked = Some(checked);
@@ -211,6 +242,7 @@ pub(crate) fn prelude() -> Option<Vec<Def<&'static str>>> {
     defs.extend(checked.unwrap_or_default());
     defs.extend(jaq_std::defs());
     defs.extend(jaq_json::defs());
+    defs.extend(compatible);
     Some(defs)
 }
 
@@ -245,7 +277,11 @@ pub(crate) fn funs() -> Vec<Fun<Doc>> {
             v(0),
             Native::new(|cv| box_once(Ok(cv.0.data().environment()))),
         ),
-        ("now", v(0), Native::new(|cv| box_once(Ok(cv.0.data().now())))),
+        (
+            "now",
+            v(0),
+            Native::new(|cv| box_once(Ok(cv.0.data().now()))),
+        ),
         (
             "debug_empty",
             v(0),

@@ -20,13 +20,13 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::MutationTx;
 use nurt_contracts::report::{Change, ChangeAction, IrreversibleEntry};
 use nurt_contracts::stage::ExecCtx;
-use nurt_contracts::value::Record;
+use nurt_contracts::value::{Record, Size};
 use rusqlite::{Connection, InterruptHandle};
 
+use super::SqlRequest;
 use super::error::{self, Site};
 use super::journal::DatabaseFiles;
 use super::session::{self, Summary};
-use super::SqlRequest;
 
 /// Longest wait of the cancellation watcher before it checks the deadline.
 const WATCH_INTERVAL: Duration = Duration::from_millis(20);
@@ -46,7 +46,9 @@ pub(crate) struct WriteOutcome {
 /// Planned change of the database file, shown by a preview.
 pub(crate) fn planned_change(request: &SqlRequest) -> Change {
     let mut change = Change::new(request.display.clone(), ChangeAction::Modify);
-    change.size_before = fs::metadata(&request.path).ok().map(|metadata| metadata.len());
+    change.size_before = fs::metadata(&request.path)
+        .ok()
+        .map(|metadata| Size::from_bytes(metadata.len()));
     change
 }
 
@@ -69,8 +71,8 @@ pub(crate) fn write(
         tx.observe_external(&changes)?;
     }
     let mut change = Change::new(request.display.clone(), ChangeAction::Modify);
-    change.size_before = before.first().map(|state| state.len());
-    change.size_after = after.first().map(|state| state.len());
+    change.size_before = before.first().map(|state| Size::from_bytes(state.len()));
+    change.size_after = after.first().map(|state| Size::from_bytes(state.len()));
     change.replacements = Some(summary.changes);
     Ok(WriteOutcome {
         rows,
@@ -123,7 +125,9 @@ fn transaction(
         if u64::try_from(rows.len()).unwrap_or(u64::MAX) >= max {
             return Err(Error::new(
                 ErrorCode::Limit,
-                format!("the statements return more than {max} rows; return fewer rows from RETURNING or SELECT"),
+                format!(
+                    "the statements return more than {max} rows; return fewer rows from RETURNING or SELECT"
+                ),
             ));
         }
         rows.push(record);

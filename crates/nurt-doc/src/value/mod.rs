@@ -97,9 +97,8 @@ pub fn to_document_value(value: Value) -> Value {
         Value::Range(range) => Value::Text(range.to_string()),
         Value::Instant(instant) => Value::Text(instant.to_string()),
         Value::Duration(duration) => Value::Text(format!("{}ms", duration.as_millis())),
-        Value::Size(size) => {
-            i64::try_from(size.bytes()).map_or_else(|_| Value::BigInt(size.bytes().to_string()), Value::Int)
-        }
+        Value::Size(size) => i64::try_from(size.bytes())
+            .map_or_else(|_| Value::BigInt(size.bytes().to_string()), Value::Int),
         Value::List(items) => Value::List(items.into_iter().map(to_document_value).collect()),
         Value::Map(fields) => Value::Map(document_fields(fields)),
         Value::Record(record) => Value::Map(document_fields(record.fields)),
@@ -133,7 +132,10 @@ pub fn limit_depth(value: &Value, depth: Option<u32>) -> Value {
         Value::List(items) => Value::List(if depth == 0 {
             Vec::new()
         } else {
-            items.iter().map(|item| limit_depth(item, Some(depth - 1))).collect()
+            items
+                .iter()
+                .map(|item| limit_depth(item, Some(depth - 1)))
+                .collect()
         }),
         Value::Map(fields) => Value::Map(if depth == 0 {
             Fields::new()

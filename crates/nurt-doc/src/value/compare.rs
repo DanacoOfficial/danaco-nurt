@@ -6,6 +6,9 @@ use std::cmp::Ordering;
 use nurt_contracts::keypath::{KeyPath, KeySegment};
 use nurt_contracts::value::Value;
 
+/// Largest magnitude below which every integer is exact in `f64`.
+const EXACT_FLOAT_LIMIT: f64 = 9_007_199_254_740_992.0;
+
 /// Returns `true` for integers and numbers in any representation.
 #[must_use]
 pub const fn numeric(value: &Value) -> bool {
@@ -37,9 +40,10 @@ pub fn compare_numbers(left: &Value, right: &Value) -> Option<Ordering> {
 /// Returns `true` when two document values mean the same.
 ///
 /// Numbers are compared by value whatever their representation (`1`,
-/// `1.0`, `0x1`, `1e0`, the lexeme `1.10` and the number `1.1`); two `nan`
-/// lexemes are the same. A date is the same as its text. Maps compare their
-/// entries in order. Other values compare exactly.
+/// `1.0`, `1e0`, `1_000` and `1000`, the lexeme `1.10` and the number
+/// `1.1`); two `nan` values are the same. A date is the same as its text.
+/// Maps are compared by member name, regardless of the order of members;
+/// lists element by element. Other values compare exactly.
 ///
 /// ```
 /// use nurt_contracts::value::{Date, DateKind, Value};
@@ -52,11 +56,13 @@ pub fn compare_numbers(left: &Value, right: &Value) -> Option<Ordering> {
 /// ```
 #[must_use]
 pub fn equivalent(left: &Value, right: &Value) -> bool {
-    first_difference_at(left, right, &mut Vec::new()).is_none()
+    !differs(left, right, &mut Vec::new())
 }
 
 /// Key path of the first place where two values differ, `None` when they
 /// are [`equivalent`].
+///
+/// Members of `left` are visited in order, then members only `right` has.
 ///
 /// ```
 /// use nurt_contracts::value::Value;
@@ -69,50 +75,58 @@ pub fn equivalent(left: &Value, right: &Value) -> bool {
 #[must_use]
 pub fn first_difference(left: &Value, right: &Value) -> Option<KeyPath> {
     let mut path = Vec::new();
-    first_difference_at(left, right, &mut path)?;
-    Some(KeyPath::new(None, path).unwrap_or_default())
+    differs(left, right, &mut path).then(|| KeyPath::new(None, path).unwrap_or_default())
 }
 
-/// Finds the first difference; on return `path` holds its location.
-fn first_difference_at(left: &Value, right: &Value, path: &mut Vec<KeySegment>) -> Option<()> {
+/// Returns `true` when the values differ; `path` then holds the location of
+/// the first difference.
+fn differs(left: &Value, right: &Value, path: &mut Vec<KeySegment>) -> bool {
     match (left, right) {
         (Value::Map(left), Value::Map(right)) => {
-            for (index, (name, value)) in left.iter().enumerate() {
+            for (name, value) in left {
                 path.push(KeySegment::Key(name.clone()));
-                match right.get_index(index) {
-                    Some((other, item)) if other == name => {
-                        first_difference_at(value, item, path)?;
-                    }
-                    _ => return Some(()),
+                match right.get(name) {
+                    Some(item) if !differs(value, item, path) => {}
+                    _ => return true,
                 }
                 path.pop();
             }
-            if let Some((name, _)) = right.get_index(left.len()) {
-                path.push(KeySegment::Key(name.clone()));
-                return Some(());
+            match right.keys().find(|name| !left.contains_key(*name)) {
+                Some(name) => {
+                    path.push(KeySegment::Key(name.clone()));
+                    true
+                }
+                None => false,
             }
-            None
         }
         (Value::List(left), Value::List(right)) => {
             for (index, value) in left.iter().enumerate() {
-                path.push(KeySegment::Index(i64::try_from(index).unwrap_or(i64::MAX)));
-                first_difference_at(value, right.get(index)?, path)?;
+                path.push(KeySegment::Index(to_index(index)));
+                match right.get(index) {
+                    Some(item) if !differs(value, item, path) => {}
+                    _ => return true,
+                }
                 path.pop();
             }
             if right.len() > left.len() {
-                path.push(KeySegment::Index(i64::try_from(left.len()).unwrap_or(i64::MAX)));
-                return Some(());
+                path.push(KeySegment::Index(to_index(left.len())));
+                return true;
             }
-            None
+            false
         }
-        _ => (!scalar_equivalent(left, right)).then_some(()),
+        _ => !scalar_equivalent(left, right),
     }
+}
+
+fn to_index(position: usize) -> i64 {
+    i64::try_from(position).unwrap_or(i64::MAX)
 }
 
 fn scalar_equivalent(left: &Value, right: &Value) -> bool {
     if numeric(left) && numeric(right) {
         return compare_numbers(left, right) == Some(Ordering::Equal)
-            || (as_float(left).is_some_and(f64::is_nan) && as_float(right).is_some_and(f64::is_nan));
+            || (as_float(left).is_some_and(f64::is_nan)
+                && as_float(right).is_some_and(f64::is_nan));
     }
     match (text_form(left), text_form(right)) {
         (Some(left), Some(right)) => left == right,
@@ -145,11 +159,8 @@ fn exact_integer(value: &Value) -> Option<i128> {
     }
 }
 
-/// Largest magnitude below which every integer is exact in `f64`.
-const EXACT_FLOAT_LIMIT: f64 = 9_007_199_254_740_992.0;
-
 fn float_integer(number: f64) -> Option<i128> {
-    // Integral and below 2^53, so the conversion is exact.
+    // Integral and below 2^53 in magnitude, so the conversion is exact.
     (number.fract() == 0.0 && number.abs() < EXACT_FLOAT_LIMIT).then_some(number as i128)
 }
 
