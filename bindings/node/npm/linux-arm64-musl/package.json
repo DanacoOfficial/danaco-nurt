@@ -1,0 +1,18 @@
+{
+  "name": "nurt-linux-arm64-musl",
+  "version": "0.1.0",
+  "description": "The nurt executable of Danaco Nurt for Linux arm64 with musl.",
+  "homepage": "https://nurt.danaco-group.pl",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DanacoOfficial/nurt.git",
+    "directory": "bindings/node/npm/linux-arm64-musl"
+  },
+  "license": "Apache-2.0",
+  "author": "Danaco Holding Group Sp. z o.o. <support@danaco-group.pl>",
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "libc": ["musl"],
+  "files": ["bin/", "LICENSE", "NOTICE", "README.md"],
+  "preferUnplugged": true
+}

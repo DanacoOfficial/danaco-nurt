@@ -1,0 +1,17 @@
+{
+  "name": "nurt-darwin-x64",
+  "version": "0.1.0",
+  "description": "The nurt executable of Danaco Nurt for macOS x64.",
+  "homepage": "https://nurt.danaco-group.pl",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DanacoOfficial/nurt.git",
+    "directory": "bindings/node/npm/darwin-x64"
+  },
+  "license": "Apache-2.0",
+  "author": "Danaco Holding Group Sp. z o.o. <support@danaco-group.pl>",
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "files": ["bin/", "LICENSE", "NOTICE", "README.md"],
+  "preferUnplugged": true
+}
