@@ -37,6 +37,9 @@ pub const BREAK_ENV: &str = "NURT_CONFORMANCE_BREAK";
 /// File created in the working directory by [`Break::Effect`].
 pub const EFFECT_FILE: &str = ".nurt-conformance-effect";
 
+/// Directory of the binding cases below the case directory.
+pub const BINDINGS_DIR: &str = "bindings";
+
 /// Name of the server in the result of `info`.
 const SERVER_NAME: &str = "nurt-conformance fake server";
 
@@ -163,10 +166,61 @@ impl FakeServer {
         case_id: Option<&str>,
         deviation: Option<Break>,
     ) -> Result<Self, crate::Error> {
+        Ok(Self::prepare(
+            SchemaSet::new()?,
+            suite,
+            bindings,
+            case_id,
+            deviation,
+        ))
+    }
+
+    /// Loads the cases below `cases` and the binding cases of its directory
+    /// `bindings`, and prepares their answers.
+    ///
+    /// With `case_id` only that case is loaded and answered: the other case
+    /// files are not parsed, which keeps the start of a server process for
+    /// one case short.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the schemas cannot be compiled, or a case file
+    /// or a binding case file cannot be read or does not follow its format.
+    pub fn load(
+        cases: &Path,
+        case_id: Option<&str>,
+        deviation: Option<Break>,
+    ) -> Result<Self, crate::Error> {
+        let schemas = SchemaSet::new()?;
+        let suite = match case_id {
+            Some(id) => Suite::load_case(cases, &schemas, id)?,
+            None => Suite::load(cases, &schemas)?,
+        };
+        let dir = cases.join(BINDINGS_DIR);
+        let bindings = if dir.is_dir() {
+            binding::load_dir(&dir, &schemas)?
+                .into_iter()
+                .map(|(_, file)| file)
+                .collect()
+        } else {
+            Vec::new()
+        };
+        Ok(Self::prepare(
+            schemas, &suite, &bindings, case_id, deviation,
+        ))
+    }
+
+    fn prepare(
+        schemas: SchemaSet,
+        suite: &Suite,
+        bindings: &[BindingFile],
+        case_id: Option<&str>,
+        deviation: Option<Break>,
+    ) -> Self {
         let mut server = Self {
             answers: BTreeMap::new(),
             features: BTreeSet::new(),
-            schemas: SchemaSet::new()?,
+            schemas,
             deviation,
             events: false,
             hanging: false,
@@ -184,7 +238,7 @@ impl FakeServer {
         for case in binding_cases.filter(|c| case_id.is_none_or(|id| c.id == id)) {
             server.add_binding_case(case);
         }
-        Ok(server)
+        server
     }
 
     /// Number of prepared answers.
@@ -1006,6 +1060,128 @@ mod tests {
         let mut codes = json!([{"code": "E_IO"}, {"code": 3}]);
         replace_error_codes(&mut codes);
         assert_eq!(codes, json!([{"code": "E_INTERNAL"}, {"code": 3}]));
+    }
+
+    /// Schema generated from the response type of the contracts.
+    const RESPONSE_SCHEMA: &str =
+        include_str!("../../../spec/golden/request/schema/response.generated.json");
+
+    #[test]
+    fn answers_with_the_report_members_of_the_contracts_are_valid_responses() {
+        let report = json!({
+            "status": "failed",
+            "changes": [{"path": "/w/data.db", "action": "modify", "rows_changed": 3}],
+            "notable": [
+                {"code": "tls_verification_disabled", "severity": "warning"},
+                {"code": "link_loop_skipped", "severity": "notice", "count": 1},
+                {"code": "pack_without_deltas", "severity": "info"}
+            ],
+            "records": {"type": "git_trash_entry", "rows": []},
+            "error": {"code": "E_OUT_OF_RANGE", "message": "line 7 is after the end", "at": {"stage": "2"}}
+        });
+        let git =
+            json!({"status": "failed", "error": {"code": "E_GIT_CONFIG", "message": "bad value"}});
+        let cases = vec![
+            case(
+                "errors/range",
+                Plan::Steps(vec![step(
+                    "run",
+                    json!({"nurt": "1.0", "program": "read"}),
+                    Some(json!({"report": report})),
+                )]),
+            ),
+            case(
+                "errors/git",
+                Plan::Steps(vec![step(
+                    "run",
+                    json!({"nurt": "1.0", "program": "git.status"}),
+                    Some(json!({"report": git})),
+                )]),
+            ),
+        ];
+        let response: Value = serde_json::from_str(RESPONSE_SCHEMA).unwrap();
+        let response = jsonschema::validator_for(&response).unwrap();
+        let schemas = SchemaSet::new().unwrap();
+        for deviation in [None, Some(Break::ErrorCode)] {
+            let mut fake = server(cases.clone(), deviation);
+            for (id, program) in [(2, "read"), (3, "git.status")] {
+                let reply = fake.handle(&request(
+                    id,
+                    "run",
+                    json!({"nurt": "1.0", "program": program}),
+                ));
+                let result = result_of(&reply);
+                let errors: Vec<String> = response
+                    .iter_errors(result)
+                    .map(|e| e.to_string())
+                    .collect();
+                assert!(errors.is_empty(), "{program}: {errors:?}");
+                assert_eq!(schemas.validate("report", &result["report"]), Ok(()));
+                assert_eq!(result["report"]["kind"], program);
+            }
+        }
+        let mut fake = server(cases, None);
+        let reply = fake.handle(&request(
+            4,
+            "run",
+            json!({"nurt": "1.0", "program": "read"}),
+        ));
+        assert_eq!(result_of(&reply)["report"]["changes"][0]["rows_changed"], 3);
+        assert_eq!(
+            result_of(&reply)["report"]["error"]["code"],
+            "E_OUT_OF_RANGE"
+        );
+    }
+
+    #[test]
+    fn a_server_for_one_case_loads_and_answers_only_that_case() {
+        let root = tempfile::tempdir().unwrap();
+        let r = root.path();
+        std::fs::write(r.join(crate::VERSION_FILE), "1.0.0\n").unwrap();
+        std::fs::write(
+            r.join("all.cases.toml"),
+            "format = \"nurt-conformance-cases/1\"\n\n\
+             [[case]]\nid = \"exec/a\"\nkind = \"exec\"\nclass = \"optional:testkit\"\nsummary = \"s\"\nprogram = \"count\"\nexpect = {}\n\n\
+             [[case]]\nid = \"exec/b\"\nkind = \"exec\"\nsummary = \"s\"\nprogram = \"find\"\nexpect = {}\n",
+        )
+        .unwrap();
+        std::fs::create_dir(r.join("broken")).unwrap();
+        std::fs::write(r.join("broken").join("case.toml"), "id = [").unwrap();
+        std::fs::create_dir(r.join(BINDINGS_DIR)).unwrap();
+        std::fs::write(
+            r.join(BINDINGS_DIR).join("api.json"),
+            r#"{"format": "nurt-binding-cases/1", "cases": [{"id": "run.plain", "summary": "s", "steps": [
+                {"call": "run", "args": {"program": "sort"}, "expect": {"outcome": "ok"}}]}]}"#,
+        )
+        .unwrap();
+
+        let mut one = FakeServer::load(r, Some("exec/a"), None).unwrap();
+        assert_eq!(one.len(), 1);
+        let init = one.handle(&request(1, "initialize", json!({})));
+        assert_eq!(result_of(&init)["features"], json!(["testkit"]));
+        let find = one.handle(&request(
+            2,
+            "run",
+            json!({"nurt": "1.0", "program": "find"}),
+        ));
+        assert_eq!(
+            find.messages[0]["error"]["message"],
+            "no case matches the request"
+        );
+        let binding = FakeServer::load(r, Some("run.plain"), None).unwrap();
+        assert_eq!(binding.len(), 1);
+        assert!(
+            FakeServer::load(r, Some("exec/none"), None)
+                .unwrap()
+                .is_empty()
+        );
+
+        let error = FakeServer::load(r, None, None).unwrap_err();
+        assert!(error.to_string().contains("broken"), "{error}");
+        std::fs::remove_dir_all(r.join("broken")).unwrap();
+        assert_eq!(FakeServer::load(r, None, None).unwrap().len(), 3);
+        std::fs::remove_dir_all(r.join(BINDINGS_DIR)).unwrap();
+        assert_eq!(FakeServer::load(r, None, None).unwrap().len(), 2);
     }
 
     #[test]

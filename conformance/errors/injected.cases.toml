@@ -816,6 +816,23 @@ expect = { report = { status = "failed", error = { code = "E_GIT_WORKTREE" } } }
 fs_after = "unchanged"
 
 [[case]]
+id = "errors/injected/git-config"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_CONFIG"
+summary = "A repository configuration that cannot be parsed is reported and changes nothing."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_GIT_CONFIG" }
+expect = {}
+
+[[case.step]]
+program = 'git.status "."'
+expect = { report = { status = "failed", error = { code = "E_GIT_CONFIG" } } }
+fs_after = "unchanged"
+
+[[case]]
 id = "errors/injected/internal"
 kind = "error"
 class = "optional:testkit"

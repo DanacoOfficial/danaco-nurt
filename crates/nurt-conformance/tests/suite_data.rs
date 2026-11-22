@@ -5,7 +5,8 @@
 //! Checks of the case files of the `conformance/` directory: every error code
 //! has a case, golden cases are copies of the golden files of the
 //! specification, every invalid surface tree of the specification has an
-//! error case, and the binding cases cover the whole interface.
+//! error case, every published schema is checked against the meta-schema, and
+//! the binding cases cover the whole interface.
 
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -17,7 +18,7 @@ use std::path::{Path, PathBuf};
 use nurt_conformance::binding::{self, CALLS, Outcome};
 use nurt_conformance::case::{Kind, Plan, Suite};
 use nurt_conformance::compare::ast_hash;
-use nurt_conformance::schemas::SchemaSet;
+use nurt_conformance::schemas::{METASCHEMA, SchemaSet};
 use nurt_contracts::error::ErrorCode;
 use serde_json::Value;
 
@@ -262,6 +263,25 @@ fn binding_cases_cover_every_call_and_outcome() {
             .iter()
             .any(|step| step.args.contains_key("raise_on_error"))
     );
+}
+
+#[test]
+fn every_published_schema_has_a_case_that_checks_it_against_the_metaschema() {
+    let suite = suite();
+    for (name, _) in nurt_contracts::schema::ALL {
+        let covered = suite.cases.iter().any(|case| {
+            let Plan::Steps(steps) = &case.plan else {
+                return false;
+            };
+            case.kind == Kind::Golden
+                && steps.iter().any(|step| {
+                    step.method == "schema"
+                        && step.params.get("which").and_then(Value::as_str) == Some(*name)
+                        && step.validate == Some((String::new(), METASCHEMA.to_owned()))
+                })
+        });
+        assert!(covered, "schema {name} has no metaschema case");
+    }
 }
 
 #[test]
