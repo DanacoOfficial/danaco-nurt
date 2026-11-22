@@ -141,6 +141,7 @@ impl Frontend for ScriptedFrontend {
             bound: bound_find(),
             corrections: Vec::new(),
             ran: None,
+            ast_hash: None,
         })
     }
 }
@@ -342,7 +343,7 @@ fn ambiguous_programs_offer_candidates_until_they_expire() {
     assert_eq!(references, vec!["c1", "c2"]);
 
     let accepted = h.engine.run(&in_session(Request::accept("c1"), "s-1"));
-    assert_eq!(error_of(&accepted).code, ErrorCode::Unsupported);
+    assert_eq!(error_of(&accepted).code, ErrorCode::Internal);
     assert_eq!(accepted.report.kind, "find");
     assert_eq!(h.frontend.compiled(), vec![AMBIGUOUS, FIND]);
 
@@ -426,7 +427,7 @@ fn started_requests_complete_without_cancellation() {
         .engine
         .start(&Request::program(FIND), Arc::new(Collect::default()));
     let response = handle.wait(None).unwrap();
-    assert_eq!(error_of(&response).code, ErrorCode::Unsupported);
+    assert_eq!(error_of(&response).code, ErrorCode::Internal);
     let second = h
         .engine
         .start(&Request::program(FIND), Arc::new(Collect::default()));
@@ -479,8 +480,8 @@ fn syntax_trees_are_bound_and_run() {
     let h = harness();
     let response = h.engine.run(&Request::ast(ast()));
     let error = error_of(&response);
-    assert_eq!(error.code, ErrorCode::Unsupported);
-    assert_eq!(error.details["operations"], 1);
+    assert_eq!(error.code, ErrorCode::Internal);
+    assert!(error.message.contains("no registered implementation"));
     assert_eq!(response.report.kind, "find");
     assert_eq!(response.rendered.unwrap().format, OutputFormat::Text);
 }

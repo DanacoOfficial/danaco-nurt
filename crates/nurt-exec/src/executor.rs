@@ -12,8 +12,8 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::RollbackReason;
 use nurt_contracts::report::{Notable, NotableEntry, ReportStatus};
 use nurt_contracts::stage::{
-    BoundArgs, EffectPlan, EffectStage, Event, ExecCtx, ExecFinished, ExecStarted, ExecStep,
-    Extensions, StageFrame, StageImpl, StageInput,
+    BoundArgs, EffectPlan, Event, ExecCtx, ExecFinished, ExecStarted, ExecStep, Extensions,
+    StageFrame, StageImpl, StageInput,
 };
 use nurt_contracts::value::{Instant, Record, RecordKind, Value};
 use nurt_plan::{OperationPlan, PipelinePlan, Plan, PlanStatement, PlannedStage};
@@ -24,8 +24,10 @@ use crate::effect::{AppliedEffect, ProgramSource, apply_effect, change_facts, ta
 use crate::env::ExecEnv;
 use crate::eval::ExprBinding;
 use crate::flow::{
-    at_step, effect_interface, guard_kinds, internal, read_interface, resolve, tag_output,
+    Selection, Split, at_step, execute_split, guard_kinds, internal, read_interface, resolve,
+    tag_output,
 };
+use crate::grouped::{Effect, plan_effect};
 use crate::outcome::{EffectReport, OperationOutcome, Outcome, ResultData, StepTiming};
 use crate::runner::{SubpipelineRunner, named_value};
 
@@ -120,6 +122,12 @@ impl Executor {
     }
 }
 
+/// Implementation chosen for the input of a read stage.
+enum Chosen<'a> {
+    One(&'a Arc<dyn StageImpl>, StageInput<'a>),
+    Split(Split),
+}
+
 /// Per-stage state of a pipeline: arguments, contexts and the selected
 /// implementations, which the lazy streams borrow.
 struct Stages {
@@ -173,12 +181,12 @@ impl<'e> Execution<'e> {
             .with_program(&plan.catalog_rev, &plan.corr_rev, plan.corrections.clone())
             .with_preserve_budget(preserve_budget);
         let mut extensions = Extensions::new();
+        env.fill_extensions(&mut extensions);
         if let Some(pool) = thread_pool(env, limits.threads) {
             extensions.insert::<ThreadPool>(pool);
         }
         let mut builder = ExecCtx::builder(Arc::clone(&env.clock), Arc::clone(&env.host))
             .fs(Arc::clone(&env.fs))
-            .journal(Arc::clone(&env.journal))
             .config(Arc::clone(&env.config))
             .options(Arc::clone(&env.options))
             .events(Arc::clone(&env.events))
@@ -188,6 +196,9 @@ impl<'e> Execution<'e> {
             .pipelines(Arc::new(runner))
             .services(Arc::clone(&env.services))
             .extensions(extensions);
+        if let Some(journal) = &env.journal {
+            builder = builder.journal(Arc::clone(journal));
+        }
         if let Some(timeout) = timeout {
             builder = builder.timeout(timeout);
         }
@@ -284,17 +295,30 @@ impl<'e> Execution<'e> {
         index: usize,
         command: &str,
         input: StageInput<'a>,
-    ) -> Result<(&'a Arc<dyn StageImpl>, StageInput<'a>)> {
-        let (found, input) = resolve(&self.env.registry, command, input)?;
-        let cell = state
-            .impls
-            .get(index)
-            .ok_or_else(|| internal(format!("no state for stage {index}")))?;
-        let selected = cell.get_or_init(|| found);
-        Ok((selected, input))
+        limit: Option<u64>,
+    ) -> Result<Chosen<'a>> {
+        match resolve(
+            &self.env.registry,
+            command,
+            input,
+            limit,
+            self.max_records(),
+        )? {
+            Selection::One(found, input) => {
+                let cell = state
+                    .impls
+                    .get(index)
+                    .ok_or_else(|| internal(format!("no state for stage {index}")))?;
+                Ok(Chosen::One(cell.get_or_init(|| found), input))
+            }
+            Selection::Split(split) => Ok(Chosen::Split(split)),
+        }
     }
 
     /// Chains the read stages with the given indexes into a lazy stream.
+    ///
+    /// A stage with several implementations reads its input before it
+    /// produces output, because the records are split by their kind.
     fn chain<'a>(
         &self,
         stages: &'a [PlannedStage],
@@ -307,18 +331,34 @@ impl<'e> Execution<'e> {
             let step = stage.step;
             let ctx = &state.ctxs[index];
             ctx.checkpoint().map_err(|error| at_step(error, step))?;
-            let (implementation, resolved) = self
-                .implementation(state, index, stage.command(), input)
+            let chosen = self
+                .implementation(
+                    state,
+                    index,
+                    stage.command(),
+                    input,
+                    input_limit(stages, index),
+                )
                 .map_err(|error| at_step(error, step))?;
-            let read = read_interface(implementation, stage.command())?;
-            let guarded = guard_kinds(
-                resolved,
-                stage.command(),
-                &implementation.descriptor().input,
-            );
-            let output = read
-                .execute(&state.args[index], guarded, ctx)
-                .map_err(|error| at_step(error, step))?;
+            let output = match chosen {
+                Chosen::One(implementation, resolved) => {
+                    let read = read_interface(implementation, stage.command())?;
+                    let guarded = guard_kinds(
+                        resolved,
+                        stage.command(),
+                        &implementation.descriptor().input,
+                    );
+                    read.execute(&state.args[index], guarded, ctx)
+                }
+                Chosen::Split(split) => execute_split(
+                    split,
+                    stage.command(),
+                    &state.args[index],
+                    ctx,
+                    self.max_records(),
+                ),
+            }
+            .map_err(|error| at_step(error, step))?;
             input = tag_output(output, step, ctx);
         }
         Ok(input)
@@ -388,7 +428,7 @@ impl<'e> Execution<'e> {
         }
         let planned_changes = plan.changes.clone();
         let applied = clock.time(ExecStep::Apply, || {
-            self.apply(pipeline, effect_stage, effect, &state, effect_index, plan)
+            self.apply(pipeline, effect_stage, &effect, &state, effect_index, plan)
         });
         let applied = match applied {
             Ok(applied) => applied,
@@ -414,34 +454,50 @@ impl<'e> Execution<'e> {
         );
     }
 
-    fn plan_effect<'a>(
+    fn plan_effect(
         &self,
-        stages: &'a [PlannedStage],
-        state: &'a Stages,
+        stages: &[PlannedStage],
+        state: &Stages,
         index: usize,
-        input: StageInput<'a>,
-    ) -> Result<(&'a dyn EffectStage, EffectPlan)> {
+        input: StageInput<'_>,
+    ) -> Result<(Effect, EffectPlan)> {
         let stage = &stages[index];
-        let (implementation, input) = self
-            .implementation(state, index, stage.command(), input)
-            .map_err(|error| at_step(error, ExecStep::Plan))?;
-        let effect = effect_interface(implementation, stage.command())?;
-        let input = guard_kinds(input, stage.command(), &implementation.descriptor().input);
-        let plan = effect
-            .plan(&state.args[index], input, &state.ctxs[index])
-            .map_err(|error| at_step(error, ExecStep::Plan))?;
-        Ok((effect, plan))
+        let selection = resolve(
+            &self.env.registry,
+            stage.command(),
+            input,
+            input_limit(stages, index),
+            self.max_records(),
+        )
+        .map_err(|error| at_step(error, ExecStep::Plan))?;
+        plan_effect(
+            selection,
+            stage.command(),
+            &state.args[index],
+            &state.ctxs[index],
+        )
+        .map_err(|error| at_step(error, ExecStep::Plan))
     }
 
     fn apply(
         &self,
         pipeline: &PipelinePlan,
         stage: &PlannedStage,
-        effect: &dyn EffectStage,
+        effect: &Effect,
         state: &Stages,
         index: usize,
         plan: EffectPlan,
     ) -> Result<AppliedEffect> {
+        let journal = self.env.journal.as_deref().ok_or_else(|| {
+            Error::new(
+                ErrorCode::StageFailed,
+                format!(
+                    "`{}` needs the journal to change the world",
+                    stage.command()
+                ),
+            )
+            .with_stage(ExecStep::Apply)
+        })?;
         let program = self.program();
         let document = program.document(
             pipeline.head.as_ref(),
@@ -455,14 +511,7 @@ impl<'e> Execution<'e> {
             ..stage.frame()
         });
         let request = program.begin_request(stage.command(), document, &ctx, bulk, budget);
-        apply_effect(
-            effect,
-            &state.args[index],
-            plan,
-            self.env.journal.as_ref(),
-            request,
-            &ctx,
-        )
+        apply_effect(effect, &state.args[index], plan, journal, request, &ctx)
     }
 
     /// Runs the stages after the effect (`5a`) and `verify` (`6`).
@@ -535,11 +584,12 @@ impl<'e> Execution<'e> {
             outcome.error = Some(rolled_back(check, &[]));
             return;
         };
-        match self
-            .env
-            .journal
-            .rollback_committed(op, RollbackReason::VerifyFailed)
-        {
+        let Some(journal) = self.env.journal.as_deref() else {
+            outcome.status = ReportStatus::RolledBack;
+            outcome.error = Some(rolled_back(check, &[]));
+            return;
+        };
+        match journal.rollback_committed(op, RollbackReason::VerifyFailed) {
             Ok(undo) => {
                 if !undo.unavailable.is_empty() {
                     let mut partial = NotableEntry::new(Notable::RollbackPartial);
@@ -576,6 +626,15 @@ impl<'e> Execution<'e> {
             }
         }
     }
+}
+
+/// Largest number of records the stage at `index` needs from its input: the
+/// demand of the stage before it.
+fn input_limit(stages: &[PlannedStage], index: usize) -> Option<u64> {
+    index
+        .checked_sub(1)
+        .and_then(|previous| stages.get(previous))
+        .and_then(|stage| stage.demand.limit)
 }
 
 fn thread_pool(env: &ExecEnv, threads: u32) -> Option<Arc<ThreadPool>> {

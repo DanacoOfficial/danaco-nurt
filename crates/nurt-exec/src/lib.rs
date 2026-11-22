@@ -39,6 +39,7 @@ mod eval;
 mod events;
 mod executor;
 mod flow;
+mod grouped;
 mod outcome;
 mod parallel;
 mod runner;

@@ -16,8 +16,11 @@ use nurt_contracts::error::{Error, ErrorCode, Result, Stage};
 use nurt_contracts::fs::Fs;
 use nurt_contracts::journal::JournalStore;
 use nurt_contracts::services::Services;
-use nurt_contracts::stage::{CancelToken, DiscardEvents, EventSink, Limits};
+use nurt_contracts::stage::{CancelToken, DiscardEvents, EventSink, Extensions, Limits};
 use rayon::ThreadPool;
+
+/// Adds one object to the extensions of a stage context.
+type ExtensionInstaller = Arc<dyn Fn(&mut Extensions) + Send + Sync>;
 
 /// Everything an execution may use: the registry of commands, the world
 /// (file system, journal, clock, host, services), the request (configuration,
@@ -55,8 +58,9 @@ pub struct ExecEnv {
     pub registry: Arc<Registry>,
     /// Read-only file system.
     pub fs: Arc<dyn Fs>,
-    /// Operation journal; the only path for changes.
-    pub journal: Arc<dyn JournalStore>,
+    /// Operation journal; the only path for changes. Absent in an
+    /// environment for programs that only read.
+    pub journal: Option<Arc<dyn JournalStore>>,
     /// Clock.
     pub clock: Arc<dyn Clock>,
     /// Host facts.
@@ -83,6 +87,7 @@ pub struct ExecEnv {
     pub ast_hash: Option<String>,
     /// Seed of `random()` and `uuid()`; entropy of the process when absent.
     pub seed: Option<u64>,
+    extensions: Vec<ExtensionInstaller>,
 }
 
 impl ExecEnv {
@@ -94,6 +99,30 @@ impl ExecEnv {
         registry: Arc<Registry>,
         fs: Arc<dyn Fs>,
         journal: Arc<dyn JournalStore>,
+        clock: Arc<dyn Clock>,
+        host: Arc<dyn Host>,
+    ) -> Self {
+        Self::build(registry, fs, Some(journal), clock, host)
+    }
+
+    /// An environment without a journal, for programs that only read.
+    ///
+    /// An effect stage fails with `E_STAGE_FAILED` at the apply step; a
+    /// preview, which ends after the plan of the effect, runs.
+    #[must_use]
+    pub fn read_only(
+        registry: Arc<Registry>,
+        fs: Arc<dyn Fs>,
+        clock: Arc<dyn Clock>,
+        host: Arc<dyn Host>,
+    ) -> Self {
+        Self::build(registry, fs, None, clock, host)
+    }
+
+    fn build(
+        registry: Arc<Registry>,
+        fs: Arc<dyn Fs>,
+        journal: Option<Arc<dyn JournalStore>>,
         clock: Arc<dyn Clock>,
         host: Arc<dyn Host>,
     ) -> Self {
@@ -113,6 +142,7 @@ impl ExecEnv {
             pool: None,
             ast_hash: None,
             seed: None,
+            extensions: Vec::new(),
         }
     }
 
@@ -172,7 +202,31 @@ impl ExecEnv {
         self
     }
 
-    /// Sets the hash of the executed program.
+    /// Adds an object to the extensions of the stage contexts, for example a
+    /// cache that stages of other command groups read with
+    /// [`nurt_contracts::stage::ExecCtx::extensions`].
+    ///
+    /// An object of a type that was already added replaces the earlier one.
+    #[must_use]
+    pub fn with_extension<T: ?Sized + Send + Sync + 'static>(mut self, object: Arc<T>) -> Self {
+        self.extensions
+            .push(Arc::new(move |extensions: &mut Extensions| {
+                extensions.insert(Arc::clone(&object));
+            }));
+        self
+    }
+
+    /// Registers the objects added with [`ExecEnv::with_extension`].
+    pub(crate) fn fill_extensions(&self, extensions: &mut Extensions) {
+        for add in &self.extensions {
+            add(extensions);
+        }
+    }
+
+    /// Sets the hash of the executed program: `sha256:` and 64 lowercase
+    /// hexadecimal digits, computed by the caller from the bound tree
+    /// (`nurt_contracts::ast::strip_for_hash`); the executor reports it in
+    /// the first event and does not compute it.
     #[must_use]
     pub fn with_ast_hash(mut self, hash: impl Into<String>) -> Self {
         self.ast_hash = Some(hash.into());
