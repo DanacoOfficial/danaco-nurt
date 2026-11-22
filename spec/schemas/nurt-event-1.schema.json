@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-event-1.schema.json",
+  "title": "nurt-event/1",
+  "description": "Event delivered during an execution: the parameters of the nurt/event notification of nurt-rpc/1 and the JSON passed to nurt_event_cb.",
+  "type": "object",
+  "required": ["seq", "time", "t"],
+  "properties": {
+    "seq": {"type": "integer", "minimum": 1, "description": "Number of the event within the execution, from 1."},
+    "time": {"type": "string", "format": "date-time", "description": "Time of emission, RFC 3339 UTC.", "x-nurt-volatile": true},
+    "request": {"type": ["string", "null"], "description": "Identifier of the request as text; null when the request has none."},
+    "t": {"type": "string", "enum": ["exec.started", "exec.finished", "progress", "job.started", "job.output", "job.progress", "job.finished", "log"]}
+  },
+  "oneOf": [
+    {"$ref": "#/$defs/exec.started"},
+    {"$ref": "#/$defs/exec.finished"},
+    {"$ref": "#/$defs/progress"},
+    {"$ref": "#/$defs/job.started"},
+    {"$ref": "#/$defs/job.output"},
+    {"$ref": "#/$defs/job.progress"},
+    {"$ref": "#/$defs/job.finished"},
+    {"$ref": "#/$defs/log"}
+  ],
+  "$defs": {
+    "exec.started": {
+      "properties": {
+        "t": {"const": "exec.started"},
+        "ast_hash": {"type": ["string", "null"], "description": "Hash of the executed program, when it was parsed."},
+        "effect": {"type": "string", "enum": ["read", "local", "external", "process"], "description": "Strongest effect class of the program; absent when the engine does not report it."}
+      }
+    },
+    "exec.finished": {
+      "required": ["status"],
+      "properties": {
+        "t": {"const": "exec.finished"},
+        "status": {"type": "string", "enum": ["ok", "planned", "running", "partial", "rolled_back", "failed"], "description": "Status of the report."},
+        "error": {"type": ["string", "null"], "pattern": "^E_[A-Z0-9_]+$", "description": "Code of the error that ended the execution."}
+      }
+    },
+    "progress": {
+      "required": ["command", "phase", "done"],
+      "properties": {
+        "t": {"const": "progress"},
+        "command": {"type": "string"},
+        "phase": {"type": "string"},
+        "done": {"type": "integer", "minimum": 0},
+        "total": {"type": ["integer", "null"], "minimum": 0},
+        "bytes": {"type": ["integer", "null"], "minimum": 0},
+        "message": {"type": ["string", "null"]}
+      }
+    },
+    "job.started": {
+      "required": ["id", "command", "cwd", "pid", "started"],
+      "properties": {
+        "t": {"const": "job.started"},
+        "id": {"type": "string"},
+        "label": {"type": ["string", "null"]},
+        "command": {"type": "array", "items": {"type": "string"}},
+        "cwd": {"type": "string", "x-nurt-system-specific": true},
+        "pid": {"type": "integer", "minimum": 0, "x-nurt-volatile": true},
+        "started": {"type": "string", "format": "date-time", "x-nurt-volatile": true}
+      }
+    },
+    "job.output": {
+      "required": ["id", "stream", "cursor", "lines", "bytes"],
+      "properties": {
+        "t": {"const": "job.output"},
+        "id": {"type": "string"},
+        "stream": {"type": "string", "enum": ["stdout", "stderr"]},
+        "cursor": {"type": "string", "x-nurt-volatile": true},
+        "lines": {"type": "array", "items": {"type": "string"}},
+        "bytes": {"type": "integer", "minimum": 0}
+      }
+    },
+    "job.progress": {
+      "required": ["id"],
+      "properties": {
+        "t": {"const": "job.progress"},
+        "id": {"type": "string"},
+        "percent": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "line": {"type": ["string", "null"]}
+      }
+    },
+    "job.finished": {
+      "required": ["id", "state", "elapsed", "changes"],
+      "properties": {
+        "t": {"const": "job.finished"},
+        "id": {"type": "string"},
+        "state": {"type": "string", "enum": ["exited", "failed", "stopped", "timed_out"]},
+        "exit_code": {"type": ["integer", "null"]},
+        "signal": {"type": ["string", "null"]},
+        "elapsed": {"description": "Duration in the form of nurt-value/1.", "x-nurt-volatile": true},
+        "output_file": {"type": ["string", "null"], "x-nurt-volatile": true},
+        "changes": {"type": "integer", "minimum": 0}
+      }
+    },
+    "log": {
+      "required": ["level", "message"],
+      "properties": {
+        "t": {"const": "log"},
+        "level": {"type": "string", "enum": ["error", "warn", "info", "debug", "trace"]},
+        "message": {"type": "string"},
+        "source": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

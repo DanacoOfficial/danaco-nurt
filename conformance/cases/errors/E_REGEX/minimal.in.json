@@ -1,0 +1,10 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "replace",
+  "error": {
+    "code": "E_REGEX",
+    "message": "conformance case",
+    "at": { "stage": "1" }
+  }
+}

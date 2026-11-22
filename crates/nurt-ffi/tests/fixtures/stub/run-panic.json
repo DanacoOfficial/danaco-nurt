@@ -1,0 +1,6 @@
+{
+  "description": "Request whose execution panics inside the engine.",
+  "function": "run",
+  "input": {"nurt": "1.0", "program": "find \"/srv/panic\""},
+  "panic": "the stub case raised a panic"
+}

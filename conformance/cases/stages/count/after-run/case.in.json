@@ -1,0 +1,7 @@
+{"program": "run [\"git\", \"status\", \"--short\"] cwd: \"/home/user/project\" |> count",
+ "command": "count",
+ "step": "5a",
+ "args": {},
+ "input": [
+  {"kind": "exec", "fields": {"command": {"t": "list", "v": [{"t": "text", "v": "git"}, {"t": "text", "v": "status"}, {"t": "text", "v": "--short"}]}, "exit_code": {"t": "int", "v": 0}}}
+ ]}

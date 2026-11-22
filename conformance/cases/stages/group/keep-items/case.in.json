@@ -1,0 +1,7 @@
+{"program": "find \"/home/user/project\" |> group extension keep_items: true",
+ "command": "group",
+ "args": {"by": {"kind": "expr", "value": {"t": "field", "name": "extension"}}, "keep_items": {"kind": "value", "value": {"t": "bool", "v": true}}},
+ "input": [
+  {"kind": "entry", "fields": {"path": {"t": "path", "v": "/home/user/project/src/main.rs"}, "extension": {"t": "text", "v": "rs"}, "size": {"t": "size", "v": 2400}}},
+  {"kind": "entry", "fields": {"path": {"t": "path", "v": "/home/user/project/README.md"}, "extension": {"t": "text", "v": "md"}, "size": {"t": "size", "v": 900}}}
+ ]}

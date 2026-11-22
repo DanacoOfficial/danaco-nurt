@@ -1,0 +1,7 @@
+{
+  "description": "End of a session whose run-time settings cannot be written.",
+  "function": "session_end",
+  "input": "s-io",
+  "status": "io",
+  "message": "cannot write the session settings: permission denied"
+}

@@ -1,0 +1,3 @@
+{"records": [
+  {"kind": "exec", "fields": {"command": {"t": "list", "v": [{"t": "text", "v": "go"}, {"t": "text", "v": "vet"}, {"t": "text", "v": "./..."}]}, "exit_code": {"t": "int", "v": 1}}}
+]}

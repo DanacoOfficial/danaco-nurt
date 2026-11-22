@@ -1,0 +1,3 @@
+{"records": [
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/app/config.ini"}, "no": {"t": "int", "v": 2}, "text": {"t": "text", "v": "  debug = true"}}}
+]}

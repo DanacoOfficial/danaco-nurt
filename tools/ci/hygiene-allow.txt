@@ -19,3 +19,8 @@ producer-header .github/PULL_REQUEST_TEMPLATE.md
 producer-header .editorconfig
 producer-header .gitattributes
 producer-header .gitignore
+
+# License files of third-party data sets (for example below bench/) are kept
+# verbatim, without the producer header.
+producer-header */LICENSE
+style */LICENSE

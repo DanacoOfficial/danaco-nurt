@@ -1803,9 +1803,9 @@ summary = "Job identifier, such as j7."
 
 [[command.param]]
 name = "state"
-type = "enum(any|running|exited|failed|stopped|timed_out)"
+type = "enum(any|running|suspended|exited|failed|stopped|timed_out|stalled|limit|lost)"
 default = "any"
-values = ["any", "running", "exited", "failed", "stopped", "timed_out"]
+values = ["any", "running", "suspended", "exited", "failed", "stopped", "timed_out", "stalled", "limit", "lost"]
 summary = "State of the jobs to list."
 
 [[command.param]]

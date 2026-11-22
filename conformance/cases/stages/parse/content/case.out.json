@@ -1,0 +1,4 @@
+{"records": [
+  {"kind": "row", "fields": {"path": {"t": "path", "v": "/home/user/app.env"}, "no": {"t": "int", "v": 1}, "cells": {"t": "map", "v": {"key": {"t": "text", "v": "HOST"}, "value": {"t": "text", "v": "example.com"}}}}},
+  {"kind": "row", "fields": {"path": {"t": "path", "v": "/home/user/app.env"}, "no": {"t": "int", "v": 2}, "cells": {"t": "map", "v": {"key": {"t": "text", "v": "PORT"}, "value": {"t": "text", "v": "8080"}}}}}
+]}

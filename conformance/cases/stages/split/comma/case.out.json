@@ -1,0 +1,3 @@
+{"records": [
+  {"kind": "row", "fields": {"path": {"t": "path", "v": "/home/user/data.csv"}, "no": {"t": "int", "v": 2}, "cells": {"t": "map", "v": {"c1": {"t": "text", "v": "7"}, "c2": {"t": "text", "v": "ada"}, "c3": {"t": "text", "v": "admin"}}}}}
+]}

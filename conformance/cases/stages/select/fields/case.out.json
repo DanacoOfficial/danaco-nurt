@@ -1,0 +1,4 @@
+{"records": [
+  {"kind": "entry", "fields": {"path": {"t": "path", "v": "/home/user/project/src/main.rs"}, "size": {"t": "size", "v": 2400}}},
+  {"kind": "entry", "fields": {"path": {"t": "path", "v": "/home/user/project/README.md"}, "size": {"t": "size", "v": 900}}}
+]}

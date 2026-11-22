@@ -12,7 +12,7 @@ elements of the language, and the rules for choosing new names.
 | Element | Name |
 |---|---|
 | Product | Danaco Nurt (in running text: Nurt) |
-| Description line | Danaco Nurt — command console with typed pipelines and per-operation undo |
+| Description line | Command shell and language where every change can be undone (`nurt_contracts::product::TAGLINE`) |
 | Executable | `nurt` (`nurt.exe` on Windows); no other names or aliases are installed |
 | Pronunciation | NOORT |
 

@@ -1,0 +1,6 @@
+{"program": "lines \"/home/user/table.txt\" |> split /\\s+/ names: [\"user\", \"shell\"]",
+ "command": "split",
+ "args": {"delimiter": {"kind": "value", "value": {"t": "regex", "v": {"pattern": "\\s+"}}}, "names": {"kind": "value", "value": {"t": "list", "v": [{"t": "text", "v": "user"}, {"t": "text", "v": "shell"}]}}},
+ "input": [
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/table.txt"}, "no": {"t": "int", "v": 1}, "text": {"t": "text", "v": "root   /bin/bash"}}}
+ ]}

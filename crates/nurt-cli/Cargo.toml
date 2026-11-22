@@ -4,7 +4,7 @@
 
 [package]
 name = "nurt-cli"
-description = "Command line interface of Danaco Nurt."
+description = "Command shell and language where every change can be undone"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

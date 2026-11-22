@@ -146,7 +146,7 @@
         "id": { "type": "string", "description": "Stable identifier, path#number[:fingerprint][@lines]." },
         "header": { "type": "string" },
         "old_path": { "type": "string" },
-        "status": { "enum": ["modified", "added", "deleted", "renamed", "binary"] },
+        "status": { "enum": ["modified", "added", "deleted", "renamed", "binary", "copied"] },
         "binary": { "type": "boolean" },
         "old_mode": { "type": "string" },
         "new_mode": { "type": "string" },
@@ -264,7 +264,8 @@
         "review_skipped", "checkpoint_without_index", "link_loop_skipped",
         "tls_verification_disabled", "http_option_ignored", "pack_without_deltas",
         "push_status_unknown", "host_key_unverified", "match_exec_ignored",
-        "signing_program_ignored"
+        "signing_program_ignored", "credentials_in_url", "limit_reached",
+        "interactive_program", "opaque_script"
       ]
     },
     "irreversible": {
