@@ -1,0 +1,28 @@
+[
+  (program)
+  (statement_block)
+  (function_declaration)
+  (generator_function_declaration)
+  (function_expression)
+  (arrow_function)
+  (method_definition)
+  (class_declaration)
+  (abstract_class_declaration)
+  (for_statement)
+  (for_in_statement)
+  (catch_clause)
+] @local.scope
+
+(required_parameter pattern: (identifier) @local.definition)
+(optional_parameter pattern: (identifier) @local.definition)
+(arrow_function parameter: (identifier) @local.definition)
+(variable_declarator name: (identifier) @local.definition)
+(variable_declarator name: (object_pattern (shorthand_property_identifier_pattern) @local.definition))
+(variable_declarator name: (array_pattern (identifier) @local.definition))
+(for_in_statement left: (identifier) @local.definition)
+(catch_clause parameter: (identifier) @local.definition)
+
+(import_specifier alias: (identifier) @local.import)
+(import_specifier !alias name: (identifier) @local.import)
+(import_clause (identifier) @local.import)
+(namespace_import (identifier) @local.import)

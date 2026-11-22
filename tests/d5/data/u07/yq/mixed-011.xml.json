@@ -1,0 +1,1 @@
+{"+p_xml":"version=\"1.0\" encoding=\"UTF-8\"","doc":{"para":[{"+content":["First","then","and tail."],"b":"bold","i":"italic 11"},["Text with","comment split 11."],{"+content":["A","B","C"],"br":[null,null]}],"note":"Plain & simple AB 11","+p_render":"mode=\"fast\" level=\"11\"","code":{"+content":"keep   spaces","+@xml:space":"preserve"}}}

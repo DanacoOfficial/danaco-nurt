@@ -1,0 +1,10 @@
+{
+  "root": true,
+  "extends": ["eslint:recommended"], // base rules
+  "parserOptions": {"ecmaVersion": 2022, "sourceType": "module"},
+  "rules": {
+    "no-unused-vars": "warn",
+    // "no-console": "error",
+    "eqeqeq": ["error", "always"]
+  }
+}

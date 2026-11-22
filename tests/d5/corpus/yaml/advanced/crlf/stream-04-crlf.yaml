@@ -1,0 +1,24 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+%YAML 1.2
+%TAG !e! tag:example.com,2026:
+---
+kind: first
+item: !e!widget {id: 4}
+...
+---
+kind: second
+values:
+- 4
+- 5
+---
+# Empty document.
+--- plain scalar document 4
+--- |
+  literal document
+  line 4
+---
+kind: last
+...
+# Trailing comment after the end marker.

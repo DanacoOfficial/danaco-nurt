@@ -1,0 +1,9 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Nested aliases expand to 243 leaves.
+a: &a [x, x, x]
+b: &b [*a, *a, *a]
+c: &c [*b, *b, *b]
+d: &d [*c, *c, *c]
+e: &e [*d, *d, *d]

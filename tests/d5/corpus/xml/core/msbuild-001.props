@@ -1,0 +1,13 @@
+﻿<Project>
+    <PropertyGroup>
+        <TargetFramework>net7.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <Version>2.1.1</Version>
+        <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Package.N0" Version="0.1.0" />
+        <PackageReference Include="Package.N1" Version="1.1.0" />
+        <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+</Project>

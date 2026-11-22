@@ -1,0 +1,31 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>Feed 5</title>
+        <link>https://example.com/</link>
+        <atom:link href="https://example.com/rss" rel="self" type="application/rss+xml"/>
+        <item>
+            <title>Post 0 of 5</title>
+            <description><![CDATA[<p>Body 0 with <b>markup</b></p>]]></description>
+            <dc:creator>author0</dc:creator>
+            <guid isPermaLink="false">id-5-0</guid>
+        </item>
+        <item>
+            <title>Post 1 of 5</title>
+            <description><![CDATA[<p>Body 1 with <b>markup</b></p>]]></description>
+            <dc:creator>author1</dc:creator>
+            <guid isPermaLink="false">id-5-1</guid>
+        </item>
+        <item>
+            <title>Post 2 of 5</title>
+            <description><![CDATA[<p>Body 2 with <b>markup</b></p>]]></description>
+            <dc:creator>author2</dc:creator>
+            <guid isPermaLink="false">id-5-2</guid>
+        </item>
+        <item>
+            <title>Post 3 of 5</title>
+            <description><![CDATA[<p>Body 3 with <b>markup</b></p>]]></description>
+            <dc:creator>author3</dc:creator>
+            <guid isPermaLink="false">id-5-3</guid>
+        </item>
+    </channel>
+</rss>

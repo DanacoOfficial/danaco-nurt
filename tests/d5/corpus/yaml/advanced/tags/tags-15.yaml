@@ -1,0 +1,31 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Tags on scalars and collections, variant 15.
+string_number: !!str 15
+string_bool: !!str true
+int_text: !!int "105"
+float: !!float 15
+nothing: !!null ''
+flag: !!bool yes
+when: !!timestamp 2026-07-15T10:00:00Z
+blob: !!binary Zm94dHJvdC1wYXlsb2FkLTE1LTAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNw==
+blob_block: !!binary |
+  Zm94dHJvdC1wYXlsb2FkLTE1LTAwMDAwMDAwMDAw
+  MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw
+  MDAwNw==
+local: !foxtrot value-15
+verbatim: !<tag:yaml.org,2002:str> verbatim-15
+tagged_map: !foxtrot {x: 15}
+tagged_seq: !!seq
+- one
+- two
+set: !!set
+  ? a15
+  ? b15
+omap: !!omap
+- first: 1
+- second: 2
+flow: [!!str 1, !foxtrot 2, !!int '3']
+empty_tagged: !foxtrot
+after_empty: done

@@ -1,0 +1,4 @@
+{
+  "url": "http://example.com//path", // URL with slashes
+  "glob": "src/**/*.ts" /* glob with stars */
+}

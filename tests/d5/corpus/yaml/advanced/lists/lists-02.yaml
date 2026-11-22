@@ -1,0 +1,40 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Lists in block and flow style, variant 2.
+empty: []
+empty_spaced: [ ]
+flow: [one, "two", 'three', 2, 2.5, true, null]
+flow_nested: [[a, b], [c], [], {k: v}]
+block:
+- first
+- second   # inline comment
+- 'third'
+-
+- ~
+nested:
+- - x2
+  - y2
+- - - deep
+maps:
+- name: alpha
+  size: 2
+  tags: [a]
+- name: beta
+  size: 3
+  # comment between keys of an item
+  tags:
+  - b
+  - c
+- {name: gamma, size: 4}
+scalars:
+- |
+  literal line one
+  literal line two
+- >-
+  folded text
+  continues here
+- "double \"quoted\" text"
+wide:
+  - a
+  - b

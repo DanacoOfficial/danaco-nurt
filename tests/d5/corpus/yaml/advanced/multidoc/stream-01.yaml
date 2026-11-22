@@ -1,0 +1,22 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Bare first document.
+kind: first
+count: 1
+...
+---
+kind: second
+values:
+- 1
+- 2
+---
+~
+--- plain scalar document 1
+--- |
+  literal document
+  line 1
+---
+kind: last
+...
+# Trailing comment after the end marker.

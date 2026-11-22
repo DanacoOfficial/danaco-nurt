@@ -1,0 +1,21 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+--- # first
+kind: first
+list: [a, b]
+...
+# Comment between documents.
+---
+kind: second
+values:
+- 6
+- 7
+---
+# Empty document.
+--- plain scalar document 6
+--- |
+  literal document
+  line 6
+---
+kind: last

@@ -1,0 +1,44 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Stack 5 provisioning a Role with
+  parameters, conditions and outputs.
+# Parameters are shared by every resource below.
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues: [staging, production]
+  Prefix:
+    Type: String
+    Default: app5
+Conditions:
+  IsProduction: !Equals [!Ref Environment, production]
+Mappings:
+  RegionMap:
+    eu-west-1: {Ami: ami-0a1005}
+    us-east-1: {Ami: ami-0b2005}
+Resources:
+  MainRole:
+    Type: AWS::Service::Role
+    Condition: IsProduction
+    Properties:
+      Name: !Sub "${Prefix}-role-${AWS::Region}"
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Stack
+          Value: !Ref AWS::StackName  # pseudo parameter
+      Arn: !GetAtt HelperRole.Arn
+      Size: !If [IsProduction, 100, 10]
+  HelperRole:
+    Type: AWS::Service::Helper
+    DependsOn: [MainRole]
+    Properties: {}
+Outputs:
+  RoleArn:
+    Value: !GetAtt MainRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RoleArn'

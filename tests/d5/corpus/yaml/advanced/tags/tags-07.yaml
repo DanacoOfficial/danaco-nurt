@@ -1,0 +1,30 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Tags on scalars and collections, variant 7.
+string_number: !!str 7
+string_bool: !!str true
+int_text: !!int "49"
+float: !!float 7
+nothing: !!null ''
+flag: !!bool yes
+when: !!timestamp 2026-08-17T10:00:00Z
+blob: !!binary aG90ZWwtcGF5bG9hZC03LTAwMDAwMDAwMDAwMDAwMDAwMDAwNw==
+blob_block: !!binary |
+  aG90ZWwtcGF5bG9hZC03LTAwMDAwMDAwMDAwMDAw
+  MDAwMDAwNw==
+local: !hotel value-7
+verbatim: !<tag:yaml.org,2002:str> verbatim-7
+tagged_map: !hotel {x: 7}
+tagged_seq: !!seq
+- one
+- two
+set: !!set
+  ? a7
+  ? b7
+omap: !!omap
+- first: 1
+- second: 2
+flow: [!!str 1, !hotel 2, !!int '3']
+empty_tagged: !hotel
+after_empty: done

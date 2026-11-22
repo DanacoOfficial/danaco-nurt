@@ -1,0 +1,2 @@
+# Corpus files whose value model differs from `yq -p xml -o json`, with the reason.
+# Format: <file name>: <reason>

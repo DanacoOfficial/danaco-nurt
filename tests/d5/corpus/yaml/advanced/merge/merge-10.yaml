@@ -1,0 +1,25 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Merge keys (YAML 1.1 merge type), variant 10.
+base: &base
+  name: base
+  port: 1010
+  opts: {debug: false}
+extra: &extra
+  port: 2010
+  region: eu-10
+single:
+  <<: *base
+  name: single   # overrides the merged name
+nested: &nested
+  <<: *base
+  level: two
+deep:
+  <<: *nested
+  level: three
+block_list:
+  <<:
+    - *base
+    - *extra
+  tail: end

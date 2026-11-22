@@ -1,0 +1,21 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+%YAML 1.1
+--- !!map
+kind: first
+flag: on
+...
+---
+kind: second
+values:
+- 11
+- 12
+---
+~
+--- plain scalar document 11
+--- |
+  literal document
+  line 11
+---
+kind: last

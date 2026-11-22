@@ -1,0 +1,55 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Configuration of the tracing subsystem.
+#
+# Every key below is documented; values are defaults.
+
+# Section: connection
+tracing:
+  # Host name or address.
+  host: tracing.internal   # resolved by the service mesh
+  port: 5017  #no space after the hash
+  url: "http://tracing.internal/#fragment"  # the hash inside quotes is not a comment
+  password: 'p#ss17'
+
+  # Timeouts in seconds.
+  timeouts:
+    connect: 4
+    # read timeout applies per request
+    read: 51
+    # trailing comment of the timeouts map
+
+  # Replicas, in priority order.
+  replicas:
+    # first replica is the primary
+    - primary.tracing.internal
+    - secondary.tracing.internal   # same zone
+
+    # a blank line separates this comment from the item
+    - tertiary.tracing.internal
+    # comment after the last item
+  flags: [  # flow sequence over several lines
+    alpha,  # first
+    beta,
+    # standalone comment inside a flow sequence
+    gamma
+  ]
+  limits: {
+    max: 1700,  # upper bound
+    min: 1
+  }
+  script: |  # comment after a block scalar header
+    # this line is content, not a comment
+    run --tracing
+#   comment at column zero inside the tracing map
+  enabled: true
+
+# Section: observability
+metrics:
+  enabled: false  # toggled per environment
+  labels:
+    - service=tracing      # aligned
+    - version=17      # aligned
+# End of file comment.
+# Second trailing line.

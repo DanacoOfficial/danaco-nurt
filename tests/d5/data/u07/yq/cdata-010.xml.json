@@ -1,0 +1,1 @@
+{"+p_xml":"version=\"1.0\" encoding=\"UTF-8\"","scripts":{"script":{"+content":["if (x < 10 && y > 2) { print(\"]]",">\"); }"],"+@name":"s10"},"template":"<div class=\"t10\">{{value}}</div>","sql":"SELECT * FROM t10 WHERE a <> b","empty":null}}

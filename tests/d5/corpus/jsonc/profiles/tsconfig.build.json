@@ -1,0 +1,6 @@
+{
+  "compilerOptions": {
+    "composite": true, // project references
+  },
+  "references": [{"path": "../core"},],
+}

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<doc>
+  <para>First <b>bold</b> then <i>italic 0</i> and tail.</para>
+  <para>Text with <!-- note --> comment split 0.</para>
+  <note>Plain &amp; simple &#x41;&#66; 0</note>
+  <para>A<br/>B<br/>C</para>
+  <?render mode="fast" level="0"?>
+  <code xml:space="preserve">  keep   spaces  </code>
+</doc>

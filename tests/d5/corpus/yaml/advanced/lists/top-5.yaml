@@ -1,0 +1,12 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Top-level sequence 5.
+- id: 5
+  items: [5, 10]
+- id: 6
+  items:
+  - 15
+  - 20   # last
+- []
+- [x, {y: z}]

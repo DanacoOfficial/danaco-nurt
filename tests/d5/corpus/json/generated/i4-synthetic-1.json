@@ -1,0 +1,13 @@
+[
+    {
+        "id": 0,
+        "name": "item 0",
+        "price": 0,
+        "tags": [],
+        "nested": {
+            "level": 0,
+            "active": true,
+            "note": null
+        }
+    }
+]

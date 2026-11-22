@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# CloudFormation short-form functions in flow and block style.
+A: !Ref Name
+B: !Sub "${A}-x"
+C: !GetAtt [Res, Arn]
+D: !Join
+  - ","
+  - [!Ref A, !Ref B]
+E: !If [Cond, !Ref A, !Ref "AWS::NoValue"]

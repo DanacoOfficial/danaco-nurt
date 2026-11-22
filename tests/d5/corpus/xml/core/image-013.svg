@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="113" height="100" viewBox="0 0 113 100">
+    <title>Icon 13</title>
+    <defs>
+        <linearGradient id="g"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient>
+    </defs>
+    <rect x="3" y="0" width="50" height="50" fill="url(#g)"/>
+    <g transform="translate(10,10)">
+        <circle cx="25" cy="25" r="18" style="fill:red;stroke:#333"/>
+        <path d="M 0 0 L 10 10 Z"/>
+        <use xlink:href="#g"/>
+    </g>
+    <text x="5" y="90">Label &amp; 13</text>
+</svg>

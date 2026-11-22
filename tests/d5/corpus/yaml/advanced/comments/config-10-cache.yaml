@@ -1,0 +1,51 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Configuration of the cache subsystem.
+#
+# Every key below is documented; values are defaults.
+
+# Section: connection
+cache:
+  # Host name or address.
+  host: cache.internal   # resolved by the service mesh
+  port: 5010  #no space after the hash
+  url: "http://cache.internal/#fragment"  # the hash inside quotes is not a comment
+  password: 'p#ss10'
+
+  # Timeouts in seconds.
+  timeouts:
+    connect: 4
+    # read timeout applies per request
+    read: 30
+    # trailing comment of the timeouts map
+
+  # Replicas, in priority order.
+  replicas:
+  # first replica is the primary
+  - primary.cache.internal
+  - secondary.cache.internal   # same zone
+
+  # a blank line separates this comment from the item
+  - tertiary.cache.internal
+  # comment after the last item
+  flags: [  # flow sequence over several lines
+    alpha,  # first
+    beta,
+    # standalone comment inside a flow sequence
+    gamma
+  ]
+  limits: {
+    max: 1000,  # upper bound
+    min: 1
+  }
+#   comment at column zero inside the cache map
+  enabled: true
+
+# Section: observability
+metrics:
+  enabled: true  # toggled per environment
+  labels:
+  - service=cache      # aligned
+  - version=10      # aligned
+# End of file comment.

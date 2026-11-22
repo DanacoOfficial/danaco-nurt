@@ -1,0 +1,78 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+%YAML 1.2
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-exporter
+  labels: &labels
+    app.kubernetes.io/name: exporter
+    app.kubernetes.io/part-of: platform
+---
+# Deployment of the exporter component.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: exporter
+  namespace: team-exporter
+  labels:
+    app.kubernetes.io/name: exporter
+    tier: "0"
+spec:
+  replicas: 4
+  selector:
+    matchLabels: {app: exporter}
+  template:
+    metadata:
+      labels: {app: exporter, version: v18}
+      annotations:
+        prometheus.io/scrape: "true"
+    spec:
+      containers:
+      - name: exporter
+        image: ghcr.io/example/exporter:2.18.0
+        args: ["--port=8080", "--log-format=json"]
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: MODE
+          value: production
+        - name: POD_IP
+          valueFrom:
+            fieldRef: {fieldPath: status.podIP}
+        resources:
+          limits: {cpu: "3", memory: 1152Mi}
+          requests: &requests {cpu: 100m, memory: 64Mi}
+      - name: sidecar
+        image: ghcr.io/example/proxy:1.0
+        resources:
+          requests: *requests
+      tolerations: []
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: exporter
+  namespace: team-exporter
+spec:
+  selector:
+    app: exporter
+  ports:
+  - port: 80
+    targetPort: http
+    protocol: TCP
+...
+---
+# Empty document follows the configuration map.
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: exporter-config, namespace: team-exporter}
+data:
+  settings.yaml: |
+    level: debug
+    targets:
+      - stdout
+---

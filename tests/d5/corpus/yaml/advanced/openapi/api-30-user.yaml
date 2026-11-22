@@ -1,0 +1,93 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+openapi: 3.0.2
+info:
+  title: User service
+  version: "1.30.0"   # semantic version, quoted
+  description: |
+    Management of users.
+
+    Responses share YAML anchors defined under x-templates.
+x-templates:
+  error-response: &error-response
+    description: Error
+    content:
+      application/json:
+        schema: {$ref: '#/components/schemas/Error'}
+  paging: &paging
+  - &limit
+    name: limit
+    in: query
+    schema: {type: integer, minimum: 1, maximum: 300}
+  - name: cursor
+    in: query
+    schema: {type: string}
+  auth: &auth
+  - bearerAuth: []
+servers:
+- url: https://api.example.com/v1
+  description: Production
+- url: http://localhost:8030
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      security: *auth
+      parameters: *paging
+      responses:
+        "200":
+          description: Page of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/User'}
+        default: *error-response
+    post:
+      operationId: createUser
+      security: *auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/User'}
+      responses:
+        "201": {description: Created}
+        "400":
+          <<: *error-response
+          description: Invalid user
+        default: *error-response
+  /users/{id}:
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    - *limit
+    delete:
+      responses:
+        "204": {description: Deleted}
+        default: *error-response
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}
+  schemas:
+    base: &base-props
+      id: {type: string, format: uuid, readOnly: true}
+      created: {type: string, format: date-time}
+    User:
+      type: object
+      required: [id, name]
+      properties:
+        <<: [*base-props]
+        name: {type: string, maxLength: 240}
+        tags:
+          type: array
+          items: {type: string}
+          example: [alpha, beta]
+    Error:
+      type: object
+      properties:
+        code: {type: integer}
+        message: {type: string}

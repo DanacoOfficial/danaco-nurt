@@ -1,0 +1,33 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+%TAG !app! tag:example.com,2026:app/
+---
+# Tags on scalars and collections, variant 8.
+string_number: !!str 8
+string_bool: !!str true
+int_text: !!int "56"
+float: !!float 8
+nothing: !!null ''
+flag: !!bool yes
+when: !!timestamp 2026-09-18T10:00:00Z
+blob: !!binary aW5kaWEtcGF5bG9hZC04LTAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNw==
+blob_block: !!binary |
+  aW5kaWEtcGF5bG9hZC04LTAwMDAwMDAwMDAwMDAw
+  MDAwMDAwMDAwNw==
+local: !india value-8
+verbatim: !<tag:yaml.org,2002:str> verbatim-8
+tagged_map: !india {x: 8}
+tagged_seq: !!seq
+- one
+- two
+set: !!set
+  ? a8
+  ? b8
+omap: !!omap
+- first: 1
+- second: 2
+handle: !app!config {name: india}
+flow: [!!str 1, !india 2, !!int '3']
+empty_tagged: !india
+after_empty: done

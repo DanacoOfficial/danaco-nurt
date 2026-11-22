@@ -1,0 +1,53 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+---
+# Playbook for the web tier, revision 10.
+- name: Configure web hosts
+  hosts: web_servers
+  become: true
+  gather_facts: no
+  vars:  # play variables
+    common_packages: &common_packages
+    - nginx
+    - haproxy   # required by the health check
+    web_port: 8010
+    web_user: "svc-web"
+    retry_policy: &retry {retries: 1, delay: 20}
+  pre_tasks:
+  - name: Refresh package cache
+    ansible.builtin.apt:
+      update_cache: true
+      cache_valid_time: 3600
+  tasks:
+  # Packages first, configuration second.
+  - name: Install packages
+    ansible.builtin.package:
+      name: "{{ item }}"
+      state: present
+    loop: *common_packages
+    <<: *retry
+  - name: Render configuration
+    ansible.builtin.template:
+      src: templates/web.conf.j2
+      dest: "/etc/web/web.conf"
+      mode: "0644"
+    notify:
+    - Restart web
+    tags: [config, web]
+  - name: Guarded block
+    block:
+    - name: Start service
+      ansible.builtin.service: {name: web, state: started, enabled: true}
+    rescue:
+    - ansible.builtin.debug:
+        msg: "start of web failed"
+    when:
+    - ansible_os_family == "Debian"
+    - web_port | int > 1024
+  handlers:
+  - name: Restart web
+    ansible.builtin.service:
+      name: web
+      state: restarted
+    listen: "restart web"

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<cat:catalog xmlns:cat="urn:example:catalog" xmlns:x="urn:example:ext" xmlns="urn:example:default1">
+   <cat:book cat:id="b11" x:rating="1">
+      <cat:title>Title 11</cat:title>
+      <cat:author>Ann</cat:author>
+      <x:extra>value</x:extra>
+      <plain>default ns</plain>
+   </cat:book>
+   <cat:book cat:id="b2">
+      <cat:title>Second</cat:title>
+      <local xmlns="">no namespace</local>
+   </cat:book>
+</cat:catalog>

@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Tags on scalars and collections, variant 2.
+string_number: !!str 2
+string_bool: !!str true
+int_text: !!int "14"
+float: !!float 2
+nothing: !!null ''
+flag: !!bool yes
+when: !!timestamp 2026-03-12T10:00:00Z
+blob: !!binary Y2hhcmxpZS1wYXlsb2FkLTItMDAwMDA3
+blob_block: !!binary |
+  Y2hhcmxpZS1wYXlsb2FkLTItMDAwMDA3
+local: !charlie value-2
+verbatim: !<tag:yaml.org,2002:str> verbatim-2
+tagged_map: !charlie {x: 2}
+tagged_seq: !!seq
+- one
+- two
+set: !!set
+  ? a2
+  ? b2
+omap: !!omap
+- first: 1
+- second: 2
+flow: [!!str 1, !charlie 2, !!int '3']
+empty_tagged: !charlie
+after_empty: done

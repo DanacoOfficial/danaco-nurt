@@ -1,0 +1,15 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Explicit and complex keys, variant 7.
+? simple-explicit-7
+: value 7
+? [a7, b7]
+: sequence key
+? {x: 7, y: 14}
+: mapping key
+? |
+  block key line 7
+: block key value
+? explicit-without-value-7
+plain: after explicit keys

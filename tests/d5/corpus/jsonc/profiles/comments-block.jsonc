@@ -1,0 +1,6 @@
+/* Header block
+   spanning lines. */
+{
+  /* leading */ "a": /* inside */ 1,
+  "b": "/* not a comment */" /* trailing */
+}

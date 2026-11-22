@@ -1,0 +1,60 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-billing
+  labels: &labels
+    app.kubernetes.io/name: billing
+    app.kubernetes.io/part-of: platform
+---
+# Deployment of the billing component.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing
+  namespace: team-billing
+  labels:
+    app.kubernetes.io/name: billing
+    tier: "2"
+spec:
+  replicas: 4
+  selector:
+    matchLabels: {app: billing}
+  template:
+    metadata:
+      labels: {app: billing, version: v23}
+      annotations:
+        prometheus.io/scrape: "true"
+    spec:
+      containers:
+        - name: billing
+          image: ghcr.io/example/billing:2.23.0
+          args: ["--port=8080", "--log-format=json"]
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: MODE
+              value: production
+            - name: POD_IP
+              valueFrom:
+                fieldRef: {fieldPath: status.podIP}
+          resources:
+            limits: {cpu: "4", memory: 1472Mi}
+            requests: &requests {cpu: 100m, memory: 64Mi}
+      tolerations: []
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing
+  namespace: team-billing
+spec:
+  selector:
+    app: billing
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP

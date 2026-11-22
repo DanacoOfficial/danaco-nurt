@@ -1,0 +1,10 @@
+// Line comment before the document.
+{
+  "a": 1, // after a
+  // before b
+  "b": [
+    1, // one
+    2 // two
+  ]
+}
+// Line comment after the document.

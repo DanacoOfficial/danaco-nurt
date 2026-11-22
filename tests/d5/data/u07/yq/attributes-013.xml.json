@@ -1,0 +1,1 @@
+{"+p_xml":"version=\"1.0\" encoding=\"UTF-8\"","config":{"+@name":"c13","+@version":"13.0","+@enabled":"true","server":{"+@host":"localhost","+@port":"8013","+@path":"/a&b"},"client":{"+@timeout":"30","+@retries":"3"},"pool":{"+@min":"1","+@max":"13"}}}

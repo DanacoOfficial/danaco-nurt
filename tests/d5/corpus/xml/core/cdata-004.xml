@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<scripts>
+  <script name="s4"><![CDATA[if (x < 4 && y > 2) { print("]]]]><![CDATA[>"); }]]></script>
+  <template>
+    <![CDATA[
+    <div class="t4">{{value}}</div>
+    ]]>
+  </template>
+  <sql><![CDATA[SELECT * FROM t4 WHERE a <> b]]></sql>
+  <empty><![CDATA[]]></empty>
+</scripts>

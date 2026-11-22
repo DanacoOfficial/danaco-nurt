@@ -1,0 +1,1616 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Well-formedness cases for XML 1.0 (Fifth Edition) with namespaces.
+#
+# Each case has an identifier, the expected classification (`wf = true` for a
+# well-formed document, `false` for a document that must be rejected with
+# `E_DOC_PARSE`), the document text and the section of the specification it
+# exercises. Documents are UTF-8; control characters are written as TOML
+# escapes in basic strings.
+
+# Documents, elements and attributes.
+
+[[case]]
+id = "wf-empty-element"
+wf = true
+section = "3.1 [44]"
+xml = '''<a/>'''
+
+[[case]]
+id = "wf-element-with-text"
+wf = true
+section = "3.1 [39]"
+xml = '''<a>text</a>'''
+
+[[case]]
+id = "wf-nested-elements"
+wf = true
+section = "3 [43]"
+xml = '''<a><b><c/></b><b/></a>'''
+
+[[case]]
+id = "wf-mixed-content"
+wf = true
+section = "3 [43]"
+xml = '''<p>one <b>two</b> three <i>four</i></p>'''
+
+[[case]]
+id = "wf-attribute-double-quotes"
+wf = true
+section = "3.1 [41]"
+xml = '''<a x="1"/>'''
+
+[[case]]
+id = "wf-attribute-single-quotes"
+wf = true
+section = "3.1 [41]"
+xml = '''<a x='1'/>'''
+
+[[case]]
+id = "wf-attribute-quote-of-other-kind"
+wf = true
+section = "2.3 [10]"
+xml = '''<a x='say "hi"' y="it's"/>'''
+
+[[case]]
+id = "wf-attribute-spaces-around-equals"
+wf = true
+section = "2.3 [25]"
+xml = '''<a x = "1"  y
+  =
+'2'/>'''
+
+[[case]]
+id = "wf-attribute-empty-value"
+wf = true
+section = "3.1 [41]"
+xml = '''<a x=""/>'''
+
+[[case]]
+id = "wf-attribute-greater-than"
+wf = true
+section = "2.3 [10]"
+xml = '''<a x="1 > 0"/>'''
+
+[[case]]
+id = "wf-attribute-tab-and-newline"
+wf = true
+section = "3.3.3"
+xml = "<a x=\"1\t2\n3\"/>"
+
+[[case]]
+id = "wf-many-attributes"
+wf = true
+section = "3.1 [40]"
+xml = '''<a a1="1" a2="2" a3="3" a4="4" a5="5" a6="6" a7="7" a8="8"/>'''
+
+[[case]]
+id = "wf-end-tag-trailing-space"
+wf = true
+section = "3.1 [42]"
+xml = '''<a></a  >'''
+
+[[case]]
+id = "wf-start-tag-trailing-space"
+wf = true
+section = "3.1 [40]"
+xml = '''<a x="1"  ><b  /></a>'''
+
+[[case]]
+id = "wf-whitespace-around-root"
+wf = true
+section = "2.8 [27]"
+xml = '''
+
+<a/>
+
+'''
+
+[[case]]
+id = "wf-crlf-line-ends"
+wf = true
+section = "2.11"
+xml = "<a>\r\n  <b>x</b>\r\n</a>\r\n"
+
+[[case]]
+id = "wf-lone-cr-line-ends"
+wf = true
+section = "2.11"
+xml = "<a>\r<b>x</b>\r</a>"
+
+[[case]]
+id = "wf-greater-than-in-text"
+wf = true
+section = "2.4 [14]"
+xml = '''<a>1 > 0</a>'''
+
+[[case]]
+id = "wf-double-bracket-in-text"
+wf = true
+section = "2.4 [14]"
+xml = '''<a>x]]y ]</a>'''
+
+[[case]]
+id = "wf-unicode-element-name"
+wf = true
+section = "2.3 [4]"
+xml = '''<zażółć gęśl="ą">jaźń</zażółć>'''
+
+[[case]]
+id = "wf-cjk-element-name"
+wf = true
+section = "2.3 [4]"
+xml = '''<文書><項目>値</項目></文書>'''
+
+[[case]]
+id = "wf-name-with-punctuation"
+wf = true
+section = "2.3 [4a]"
+xml = '''<a-b.c_d e-f.g="1"><_x/><a1/></a-b.c_d>'''
+
+[[case]]
+id = "wf-name-with-combining-character"
+wf = true
+section = "2.3 [4a]"
+xml = "<áb/>"
+
+[[case]]
+id = "wf-supplementary-characters"
+wf = true
+section = "2.2 [2]"
+xml = "<a x=\"\U0001F600\">\U00010000\U0010FFFD</a>"
+
+[[case]]
+id = "wf-byte-order-mark"
+wf = true
+section = "4.3.3"
+xml = "﻿<a/>"
+
+[[case]]
+id = "wf-deep-nesting"
+wf = true
+section = "3 [39]"
+xml = '''<a><a><a><a><a><a><a><a><a><a><a><a><a><a><a><a/></a></a></a></a></a></a></a></a></a></a></a></a></a></a></a>'''
+
+# XML declaration.
+
+[[case]]
+id = "wf-declaration-version"
+wf = true
+section = "2.8 [23]"
+xml = '''<?xml version="1.0"?><a/>'''
+
+[[case]]
+id = "wf-declaration-single-quotes"
+wf = true
+section = "2.8 [24]"
+xml = '''<?xml version='1.0' encoding='UTF-8' standalone='yes'?><a/>'''
+
+[[case]]
+id = "wf-declaration-encoding-lowercase"
+wf = true
+section = "4.3.3 [81]"
+xml = '''<?xml version="1.0" encoding="utf-8"?><a/>'''
+
+[[case]]
+id = "wf-declaration-standalone-no"
+wf = true
+section = "2.9 [32]"
+xml = '''<?xml version="1.0" standalone="no"?><a/>'''
+
+[[case]]
+id = "wf-declaration-spaces"
+wf = true
+section = "2.8 [24]"
+xml = '''<?xml  version = "1.0"  encoding = "UTF-8"  ?><a/>'''
+
+[[case]]
+id = "wf-declaration-version-minor"
+wf = true
+section = "2.8 [26]"
+xml = '''<?xml version="1.7"?><a/>'''
+
+[[case]]
+id = "wf-declaration-encoding-us-ascii"
+wf = true
+section = "4.3.3"
+xml = '''<?xml version="1.0" encoding="US-ASCII"?><a>&#xE9;</a>'''
+
+[[case]]
+id = "wf-declaration-encoding-latin1-ascii-content"
+wf = true
+section = "4.3.3"
+xml = '''<?xml version="1.0" encoding="ISO-8859-1"?><a>plain</a>'''
+
+[[case]]
+id = "wf-declaration-encoding-windows-1250-ascii-content"
+wf = true
+section = "4.3.3"
+xml = '''<?xml version="1.0" encoding="windows-1250"?><a>plain</a>'''
+
+[[case]]
+id = "wf-declaration-then-newline"
+wf = true
+section = "2.8 [22]"
+xml = '''<?xml version="1.0"?>
+<a/>
+'''
+
+# Comments, processing instructions and CDATA sections.
+
+[[case]]
+id = "wf-comment-before-root"
+wf = true
+section = "2.5 [15]"
+xml = '''<!-- c --><a/>'''
+
+[[case]]
+id = "wf-comment-after-root"
+wf = true
+section = "2.8 [27]"
+xml = '''<a/><!-- c -->'''
+
+[[case]]
+id = "wf-comment-with-single-hyphens"
+wf = true
+section = "2.5 [15]"
+xml = '''<a><!-- a - b -c- --></a>'''
+
+[[case]]
+id = "wf-comment-with-markup"
+wf = true
+section = "2.5 [15]"
+xml = '''<a><!-- <b> & </b> ]]> --></a>'''
+
+[[case]]
+id = "wf-empty-comment"
+wf = true
+section = "2.5 [15]"
+xml = '''<a><!----></a>'''
+
+[[case]]
+id = "wf-processing-instruction"
+wf = true
+section = "2.6 [16]"
+xml = '''<?xml-stylesheet href="s.css" type="text/css"?><a><?target data?></a>'''
+
+[[case]]
+id = "wf-processing-instruction-without-data"
+wf = true
+section = "2.6 [16]"
+xml = '''<a><?target?></a>'''
+
+[[case]]
+id = "wf-processing-instruction-target-starting-xml"
+wf = true
+section = "2.6 [17]"
+xml = '''<a><?xml-model href="m.rng"?><?xmlfoo x?></a>'''
+
+[[case]]
+id = "wf-processing-instruction-with-question-mark"
+wf = true
+section = "2.6 [16]"
+xml = '''<a><?t a?b ? c?></a>'''
+
+[[case]]
+id = "wf-cdata-section"
+wf = true
+section = "2.7 [18]"
+xml = '''<a><![CDATA[<b> & ]] ]></a>'''
+
+[[case]]
+id = "wf-empty-cdata-section"
+wf = true
+section = "2.7 [18]"
+xml = '''<a><![CDATA[]]></a>'''
+
+[[case]]
+id = "wf-adjacent-cdata-sections"
+wf = true
+section = "2.7 [18]"
+xml = '''<a><![CDATA[x]]]]><![CDATA[>y]]></a>'''
+
+# References.
+
+[[case]]
+id = "wf-predefined-entities-in-text"
+wf = true
+section = "4.6"
+xml = '''<a>&lt;&gt;&amp;&apos;&quot;</a>'''
+
+[[case]]
+id = "wf-predefined-entities-in-attribute"
+wf = true
+section = "4.6"
+xml = '''<a x="&lt;&gt;&amp;&apos;&quot;"/>'''
+
+[[case]]
+id = "wf-decimal-character-references"
+wf = true
+section = "4.1 [66]"
+xml = '''<a>&#65;&#9;&#10;&#13;&#32;</a>'''
+
+[[case]]
+id = "wf-hexadecimal-character-references"
+wf = true
+section = "4.1 [66]"
+xml = '''<a>&#x41;&#x9;&#xa;&#xD;&#x20;&#x00041;</a>'''
+
+[[case]]
+id = "wf-character-reference-range-limits"
+wf = true
+section = "2.2 [2]"
+xml = '''<a>&#xD7FF;&#xE000;&#xFFFD;&#x10000;&#x10FFFF;</a>'''
+
+[[case]]
+id = "wf-character-reference-to-less-than"
+wf = true
+section = "4.1"
+xml = '''<a x="&#60;">&#60;b&#62;</a>'''
+
+[[case]]
+id = "wf-character-references-in-attribute"
+wf = true
+section = "3.3.3"
+xml = '''<a x="&#9;&#10;&#13;"/>'''
+
+# Namespaces.
+
+[[case]]
+id = "wf-namespace-default"
+wf = true
+section = "Namespaces 6.2"
+xml = '''<a xmlns="urn:a"><b/></a>'''
+
+[[case]]
+id = "wf-namespace-prefix"
+wf = true
+section = "Namespaces 6.1"
+xml = '''<p:a xmlns:p="urn:p" p:x="1"><p:b/></p:a>'''
+
+[[case]]
+id = "wf-namespace-xml-prefix"
+wf = true
+section = "Namespaces 3"
+xml = '''<a xml:lang="pl" xml:space="preserve"/>'''
+
+[[case]]
+id = "wf-namespace-redeclared-in-child"
+wf = true
+section = "Namespaces 6.1"
+xml = '''<p:a xmlns:p="urn:1"><p:b xmlns:p="urn:2"/></p:a>'''
+
+# Document type declaration.
+
+[[case]]
+id = "wf-doctype-name-only"
+wf = true
+section = "2.8 [28]"
+xml = '''<!DOCTYPE a><a/>'''
+
+[[case]]
+id = "wf-doctype-system"
+wf = true
+section = "2.8 [28]"
+xml = '''<!DOCTYPE a SYSTEM "a.dtd"><a/>'''
+
+[[case]]
+id = "wf-doctype-public"
+wf = true
+section = "4.2.2 [75]"
+xml = '''<!DOCTYPE a PUBLIC "-//Example//DTD A 1.0//EN" "http://example.com/a.dtd"><a/>'''
+
+[[case]]
+id = "wf-doctype-public-single-quotes"
+wf = true
+section = "4.2.2 [75]"
+xml = '''<!DOCTYPE a PUBLIC '-//Example//DTD "A"//EN' 'a.dtd'><a/>'''
+
+[[case]]
+id = "wf-doctype-empty-internal-subset"
+wf = true
+section = "2.8 [28]"
+xml = '''<!DOCTYPE a []><a/>'''
+
+[[case]]
+id = "wf-doctype-space-before-close"
+wf = true
+section = "2.8 [28]"
+xml = '''<!DOCTYPE a [ ] ><a/>'''
+
+[[case]]
+id = "wf-doctype-system-and-subset"
+wf = true
+section = "2.8 [28]"
+xml = '''<!DOCTYPE a SYSTEM "a.dtd" [<!ELEMENT a EMPTY>]><a/>'''
+
+[[case]]
+id = "wf-doctype-bracket-in-literal"
+wf = true
+section = "2.8 [28]"
+xml = '''<!DOCTYPE a SYSTEM "x[1].dtd" [<!ENTITY e "]">]><a>&e;</a>'''
+
+[[case]]
+id = "wf-element-declarations"
+wf = true
+section = "3.2 [45]"
+xml = '''<!DOCTYPE a [
+<!ELEMENT a (b, c?, d*, e+)>
+<!ELEMENT b EMPTY>
+<!ELEMENT c ANY>
+<!ELEMENT d (#PCDATA)>
+<!ELEMENT e (#PCDATA | b | c)*>
+]><a><b/><e/></a>'''
+
+[[case]]
+id = "wf-element-declaration-nested-groups"
+wf = true
+section = "3.2.1 [47]"
+xml = '''<!DOCTYPE a [<!ELEMENT a ((b | c)+, (d, e)?)*><!ELEMENT b EMPTY>]><a/>'''
+
+[[case]]
+id = "wf-element-declaration-pcdata-star"
+wf = true
+section = "3.2.2 [51]"
+xml = '''<!DOCTYPE a [<!ELEMENT a (#PCDATA)*>]><a>x</a>'''
+
+[[case]]
+id = "wf-element-declaration-spaces"
+wf = true
+section = "3.2.1 [49]"
+xml = '''<!DOCTYPE a [<!ELEMENT a ( b , c ) ><!ELEMENT d ( #PCDATA | b )* >]><a/>'''
+
+[[case]]
+id = "wf-attlist-types"
+wf = true
+section = "3.3.1 [54]"
+xml = '''<!DOCTYPE a [
+<!ATTLIST a
+  c CDATA #IMPLIED
+  i ID #IMPLIED
+  r IDREF #IMPLIED
+  rs IDREFS #IMPLIED
+  e ENTITY #IMPLIED
+  es ENTITIES #IMPLIED
+  t NMTOKEN #IMPLIED
+  ts NMTOKENS #IMPLIED
+  n NOTATION (png | gif) #IMPLIED
+  k (yes | no) "no">
+<!NOTATION png SYSTEM "image/png">
+<!NOTATION gif PUBLIC "-//Example//NOTATION GIF//EN">
+]><a/>'''
+
+[[case]]
+id = "wf-attlist-defaults"
+wf = true
+section = "3.3.2 [60]"
+xml = '''<!DOCTYPE a [<!ATTLIST a r CDATA #REQUIRED f CDATA #FIXED "1" d CDATA 'x'>]><a r="1"/>'''
+
+[[case]]
+id = "wf-attlist-empty"
+wf = true
+section = "3.3 [52]"
+xml = '''<!DOCTYPE a [<!ATTLIST a>]><a/>'''
+
+[[case]]
+id = "wf-attlist-default-with-predefined-entity"
+wf = true
+section = "3.3.2"
+xml = '''<!DOCTYPE a [<!ATTLIST a x CDATA "&lt;&amp;">]><a/>'''
+
+[[case]]
+id = "wf-attlist-default-with-declared-entity"
+wf = true
+section = "3.3.2"
+xml = '''<!DOCTYPE a [<!ENTITY e "v"><!ATTLIST a x CDATA "&e;">]><a/>'''
+
+[[case]]
+id = "wf-attlist-enumeration-name-tokens"
+wf = true
+section = "3.3.1 [59]"
+xml = '''<!DOCTYPE a [<!ATTLIST a x (1 | 2.5 | -a) "1">]><a/>'''
+
+[[case]]
+id = "wf-notation-system"
+wf = true
+section = "4.7 [82]"
+xml = '''<!DOCTYPE a [<!NOTATION n SYSTEM "viewer">]><a/>'''
+
+[[case]]
+id = "wf-notation-public-and-system"
+wf = true
+section = "4.7 [82]"
+xml = '''<!DOCTYPE a [<!NOTATION n PUBLIC "-//Example//N//EN" "viewer">]><a/>'''
+
+[[case]]
+id = "wf-subset-comment-and-pi"
+wf = true
+section = "2.8 [29]"
+xml = '''<!DOCTYPE a [<!-- c --><?pi data?><!ELEMENT a EMPTY>]><a/>'''
+
+[[case]]
+id = "wf-subset-comment-with-markup-characters"
+wf = true
+section = "2.8 [29]"
+xml = '''<!DOCTYPE a [<!-- ]> <!ENTITY --><!ELEMENT a EMPTY>]><a/>'''
+
+[[case]]
+id = "wf-subset-parameter-entity"
+wf = true
+section = "2.8 [28a]"
+xml = '''<!DOCTYPE a [<!ENTITY % p "<!ELEMENT a EMPTY>"> %p;]><a/>'''
+
+[[case]]
+id = "wf-subset-external-parameter-entity"
+wf = true
+section = "4.2.2"
+xml = '''<!DOCTYPE a [<!ENTITY % ext SYSTEM "ext.ent"> %ext;]><a/>'''
+
+# Entity declarations and references.
+
+[[case]]
+id = "wf-internal-entity-in-content"
+wf = true
+section = "4.2.1 [9]"
+xml = '''<!DOCTYPE a [<!ENTITY e "value">]><a>&e;</a>'''
+
+[[case]]
+id = "wf-internal-entity-in-attribute"
+wf = true
+section = "4.4.5"
+xml = '''<!DOCTYPE a [<!ENTITY e "value">]><a x="&e;"/>'''
+
+[[case]]
+id = "wf-internal-entity-single-quotes"
+wf = true
+section = "2.3 [9]"
+xml = '''<!DOCTYPE a [<!ENTITY e 'say "x"'>]><a>&e;</a>'''
+
+[[case]]
+id = "wf-nested-internal-entities"
+wf = true
+section = "4.4.5"
+xml = '''<!DOCTYPE a [<!ENTITY x "1"><!ENTITY y "&x;&x;"><!ENTITY z "&y;-&y;">]><a v="&z;">&z;</a>'''
+
+[[case]]
+id = "wf-entity-declared-after-use-in-entity-value"
+wf = true
+section = "4.4.7"
+xml = '''<!DOCTYPE a [<!ENTITY y "&x;"><!ENTITY x "1">]><a>&y;</a>'''
+
+[[case]]
+id = "wf-entity-with-character-reference"
+wf = true
+section = "4.5"
+xml = '''<!DOCTYPE a [<!ENTITY amp2 "&#38;#38;"><!ENTITY c "&#169; 2026">]><a>&amp2; &c;</a>'''
+
+[[case]]
+id = "wf-entity-with-predefined-entity"
+wf = true
+section = "4.6"
+xml = '''<!DOCTYPE a [<!ENTITY e "a &amp; b &lt; c">]><a x="&e;">&e;</a>'''
+
+[[case]]
+id = "wf-entity-with-markup-in-content"
+wf = true
+section = "4.3.2"
+xml = '''<!DOCTYPE a [<!ENTITY m "<b>bold</b> text">]><a>&m;</a>'''
+
+[[case]]
+id = "wf-entity-with-escaped-less-than-in-attribute"
+wf = true
+section = "4.4.5"
+xml = '''<!DOCTYPE a [<!ENTITY e "a&lt;b">]><a x="&e;"/>'''
+
+[[case]]
+id = "wf-entity-with-multiline-value"
+wf = true
+section = "2.11"
+xml = '''<!DOCTYPE a [<!ENTITY e "line one
+line two">]><a>&e;</a>'''
+
+[[case]]
+id = "wf-entity-redeclared-first-binding"
+wf = true
+section = "4.2"
+xml = '''<!DOCTYPE a [<!ENTITY e "first"><!ENTITY e "second">]><a>&e;</a>'''
+
+[[case]]
+id = "wf-entity-unicode-name"
+wf = true
+section = "2.3 [5]"
+xml = '''<!DOCTYPE a [<!ENTITY żółw "turtle">]><a>&żółw;</a>'''
+
+[[case]]
+id = "wf-entity-empty-value"
+wf = true
+section = "2.3 [9]"
+xml = '''<!DOCTYPE a [<!ENTITY e "">]><a>x&e;y</a>'''
+
+[[case]]
+id = "wf-predefined-entity-redeclared"
+wf = true
+section = "4.6"
+xml = '''<!DOCTYPE a [<!ENTITY lt "&#38;#60;"><!ENTITY amp "&#38;#38;">]><a>&lt;&amp;</a>'''
+
+[[case]]
+id = "wf-external-entity-declared-unused"
+wf = true
+section = "4.2.2"
+xml = '''<!DOCTYPE a [<!ENTITY ext SYSTEM "ext.xml">]><a/>'''
+
+[[case]]
+id = "wf-external-entity-public-declared-unused"
+wf = true
+section = "4.2.2"
+xml = '''<!DOCTYPE a [<!ENTITY ext PUBLIC "-//Example//ENT//EN" "ext.xml">]><a/>'''
+
+[[case]]
+id = "wf-external-entity-referenced-in-content"
+wf = true
+section = "4.4.3"
+xml = '''<!DOCTYPE a [<!ENTITY ext SYSTEM "ext.xml">]><a>&ext;</a>'''
+
+[[case]]
+id = "wf-unparsed-entity-in-entity-attribute"
+wf = true
+section = "4.2.2 [76]"
+xml = '''<!DOCTYPE a [<!NOTATION png SYSTEM "image/png"><!ENTITY pic SYSTEM "pic.png" NDATA png><!ATTLIST a src ENTITY #IMPLIED>]><a src="pic"/>'''
+
+[[case]]
+id = "wf-undeclared-entity-with-external-subset"
+wf = true
+section = "4.1 WFC: Entity Declared"
+xml = '''<!DOCTYPE a SYSTEM "a.dtd"><a>&nbsp;</a>'''
+
+[[case]]
+id = "wf-undeclared-entity-after-parameter-entity"
+wf = true
+section = "4.1 WFC: Entity Declared"
+xml = '''<!DOCTYPE a [<!ENTITY % p SYSTEM "p.ent"> %p;]><a>&copy;</a>'''
+
+[[case]]
+id = "wf-standalone-with-declared-entity"
+wf = true
+section = "2.9"
+xml = '''<?xml version="1.0" standalone="yes"?><!DOCTYPE a [<!ENTITY e "v">]><a>&e;</a>'''
+
+[[case]]
+id = "wf-entity-references-across-text-and-elements"
+wf = true
+section = "4.4.2"
+xml = '''<!DOCTYPE a [<!ENTITY n "Nurt">]><a>&n; <b>&n;</b> &n;<c x="&n;"/></a>'''
+
+[[case]]
+id = "wf-entity-declaration-spaces"
+wf = true
+section = "4.2 [71]"
+xml = '''<!DOCTYPE a [<!ENTITY   e
+   "v"  >]><a>&e;</a>'''
+
+[[case]]
+id = "wf-parameter-entity-declaration-unused"
+wf = true
+section = "4.2 [72]"
+xml = '''<!DOCTYPE a [<!ENTITY % p "x">]><a/>'''
+
+# Documents and elements that are not well-formed.
+
+[[case]]
+id = "not-wf-empty-document"
+wf = false
+section = "2.1 [1]"
+xml = ''
+
+[[case]]
+id = "not-wf-whitespace-only"
+wf = false
+section = "2.1 [1]"
+xml = '''
+'''
+
+[[case]]
+id = "not-wf-declaration-only"
+wf = false
+section = "2.1 [1]"
+xml = '''<?xml version="1.0"?>'''
+
+[[case]]
+id = "not-wf-comment-only"
+wf = false
+section = "2.1 [1]"
+xml = '''<!-- c -->'''
+
+[[case]]
+id = "not-wf-two-root-elements"
+wf = false
+section = "2.1 [1]"
+xml = '''<a/><b/>'''
+
+[[case]]
+id = "not-wf-text-before-root"
+wf = false
+section = "2.8 [27]"
+xml = '''text<a/>'''
+
+[[case]]
+id = "not-wf-text-after-root"
+wf = false
+section = "2.8 [27]"
+xml = '''<a/>text'''
+
+[[case]]
+id = "not-wf-character-reference-after-root"
+wf = false
+section = "2.8 [27]"
+xml = '''<a/>&#32;'''
+
+[[case]]
+id = "not-wf-unclosed-element"
+wf = false
+section = "3 [39]"
+xml = '''<a><b></a>'''
+
+[[case]]
+id = "not-wf-unclosed-root"
+wf = false
+section = "3 [39]"
+xml = '''<a>'''
+
+[[case]]
+id = "not-wf-mismatched-end-tag"
+wf = false
+section = "3 WFC: Element Type Match"
+xml = '''<a></b>'''
+
+[[case]]
+id = "not-wf-end-tag-case"
+wf = false
+section = "3 WFC: Element Type Match"
+xml = '''<a></A>'''
+
+[[case]]
+id = "not-wf-overlapping-elements"
+wf = false
+section = "3 WFC: Element Type Match"
+xml = '''<a><b><c></b></c></a>'''
+
+[[case]]
+id = "not-wf-end-tag-without-start"
+wf = false
+section = "3 [43]"
+xml = '''<a></b></a>'''
+
+[[case]]
+id = "not-wf-end-tag-with-attribute"
+wf = false
+section = "3.1 [42]"
+xml = '''<a></a x="1">'''
+
+[[case]]
+id = "not-wf-space-before-name"
+wf = false
+section = "3.1 [40]"
+xml = '''< a/>'''
+
+[[case]]
+id = "not-wf-space-in-empty-tag-close"
+wf = false
+section = "3.1 [44]"
+xml = '''<a/ >'''
+
+[[case]]
+id = "not-wf-end-tag-space-before-name"
+wf = false
+section = "3.1 [42]"
+xml = '''<a></ a>'''
+
+[[case]]
+id = "not-wf-name-starting-with-digit"
+wf = false
+section = "2.3 [4]"
+xml = '''<1a/>'''
+
+[[case]]
+id = "not-wf-name-starting-with-hyphen"
+wf = false
+section = "2.3 [4]"
+xml = '''<-a/>'''
+
+[[case]]
+id = "not-wf-name-starting-with-period"
+wf = false
+section = "2.3 [4]"
+xml = '''<.a/>'''
+
+[[case]]
+id = "not-wf-name-with-invalid-character"
+wf = false
+section = "2.3 [4a]"
+xml = '''<a!b/>'''
+
+[[case]]
+id = "not-wf-attribute-name-starting-with-digit"
+wf = false
+section = "2.3 [4]"
+xml = '''<a 1x="1"/>'''
+
+[[case]]
+id = "not-wf-attribute-without-value"
+wf = false
+section = "3.1 [41]"
+xml = '''<a x/>'''
+
+[[case]]
+id = "not-wf-attribute-without-equals"
+wf = false
+section = "3.1 [41]"
+xml = '''<a x "1"/>'''
+
+[[case]]
+id = "not-wf-attribute-unquoted"
+wf = false
+section = "2.3 [10]"
+xml = '''<a x=1/>'''
+
+[[case]]
+id = "not-wf-attribute-mismatched-quotes"
+wf = false
+section = "2.3 [10]"
+xml = '''<a x="1'/>'''
+
+[[case]]
+id = "not-wf-attribute-unclosed"
+wf = false
+section = "2.3 [10]"
+xml = '''<a x="1/>'''
+
+[[case]]
+id = "not-wf-attributes-without-space"
+wf = false
+section = "3.1 [40]"
+xml = '''<a x="1"y="2"/>'''
+
+[[case]]
+id = "not-wf-duplicate-attribute"
+wf = false
+section = "3.1 WFC: Unique Att Spec"
+xml = '''<a x="1" x="2"/>'''
+
+[[case]]
+id = "not-wf-less-than-in-attribute"
+wf = false
+section = "3.1 WFC: No < in Attribute Values"
+xml = '''<a x="1 < 2"/>'''
+
+[[case]]
+id = "not-wf-ampersand-in-attribute"
+wf = false
+section = "2.3 [10]"
+xml = '''<a x="a & b"/>'''
+
+[[case]]
+id = "not-wf-less-than-in-text"
+wf = false
+section = "2.4 [14]"
+xml = '''<a>1 < 2</a>'''
+
+[[case]]
+id = "not-wf-ampersand-in-text"
+wf = false
+section = "2.4 [14]"
+xml = '''<a>a & b</a>'''
+
+[[case]]
+id = "not-wf-cdata-end-in-text"
+wf = false
+section = "2.4 [14]"
+xml = '''<a>x]]>y</a>'''
+
+# Characters.
+
+[[case]]
+id = "not-wf-control-character-in-text"
+wf = false
+section = "2.2 [2]"
+xml = "<a>\u0001</a>"
+
+[[case]]
+id = "not-wf-control-character-in-attribute"
+wf = false
+section = "2.2 [2]"
+xml = "<a x=\"\u0002\"/>"
+
+[[case]]
+id = "not-wf-control-character-in-comment"
+wf = false
+section = "2.5 [15]"
+xml = "<a><!-- \u0003 --></a>"
+
+[[case]]
+id = "not-wf-control-character-in-cdata"
+wf = false
+section = "2.7 [20]"
+xml = "<a><![CDATA[\u0004]]></a>"
+
+[[case]]
+id = "not-wf-control-character-in-processing-instruction"
+wf = false
+section = "2.6 [16]"
+xml = "<a><?t \u0005?></a>"
+
+[[case]]
+id = "not-wf-noncharacter-fffe-in-text"
+wf = false
+section = "2.2 [2]"
+xml = "<a>￾</a>"
+
+[[case]]
+id = "not-wf-noncharacter-ffff-in-attribute"
+wf = false
+section = "2.2 [2]"
+xml = "<a x=\"￿\"/>"
+
+[[case]]
+id = "not-wf-control-character-before-root"
+wf = false
+section = "2.8 [27]"
+xml = "\u0006<a/>"
+
+[[case]]
+id = "not-wf-character-reference-zero"
+wf = false
+section = "4.1 WFC: Legal Character"
+xml = '''<a>&#0;</a>'''
+
+[[case]]
+id = "not-wf-character-reference-control"
+wf = false
+section = "4.1 WFC: Legal Character"
+xml = '''<a>&#x1F;</a>'''
+
+[[case]]
+id = "not-wf-character-reference-surrogate"
+wf = false
+section = "4.1 WFC: Legal Character"
+xml = '''<a>&#xD800;</a>'''
+
+[[case]]
+id = "not-wf-character-reference-fffe"
+wf = false
+section = "4.1 WFC: Legal Character"
+xml = '''<a>&#xFFFE;</a>'''
+
+[[case]]
+id = "not-wf-character-reference-above-unicode"
+wf = false
+section = "4.1 WFC: Legal Character"
+xml = '''<a>&#x110000;</a>'''
+
+[[case]]
+id = "not-wf-character-reference-in-attribute-zero"
+wf = false
+section = "4.1 WFC: Legal Character"
+xml = '''<a x="&#0;"/>'''
+
+[[case]]
+id = "not-wf-character-reference-empty"
+wf = false
+section = "4.1 [66]"
+xml = '''<a>&#;</a>'''
+
+[[case]]
+id = "not-wf-character-reference-empty-hex"
+wf = false
+section = "4.1 [66]"
+xml = '''<a>&#x;</a>'''
+
+[[case]]
+id = "not-wf-character-reference-bad-digit"
+wf = false
+section = "4.1 [66]"
+xml = '''<a>&#12a;</a>'''
+
+[[case]]
+id = "not-wf-character-reference-uppercase-x"
+wf = false
+section = "4.1 [66]"
+xml = '''<a>&#X41;</a>'''
+
+[[case]]
+id = "not-wf-character-reference-unterminated"
+wf = false
+section = "4.1 [66]"
+xml = '''<a>&#60</a>'''
+
+[[case]]
+id = "not-wf-entity-reference-unterminated"
+wf = false
+section = "4.1 [68]"
+xml = '''<a>&amp</a>'''
+
+[[case]]
+id = "not-wf-entity-reference-with-space"
+wf = false
+section = "4.1 [68]"
+xml = '''<a>& amp;</a>'''
+
+[[case]]
+id = "not-wf-entity-reference-empty-name"
+wf = false
+section = "4.1 [68]"
+xml = '''<a>&;</a>'''
+
+[[case]]
+id = "not-wf-entity-reference-bad-name"
+wf = false
+section = "4.1 [68]"
+xml = '''<a>&1x;</a>'''
+
+[[case]]
+id = "not-wf-undeclared-entity-without-doctype"
+wf = false
+section = "4.1 WFC: Entity Declared"
+xml = '''<a>&nbsp;</a>'''
+
+[[case]]
+id = "not-wf-undeclared-entity-in-attribute-without-doctype"
+wf = false
+section = "4.1 WFC: Entity Declared"
+xml = '''<a x="&nbsp;"/>'''
+
+[[case]]
+id = "not-wf-undeclared-entity-with-internal-subset"
+wf = false
+section = "4.1 WFC: Entity Declared"
+xml = '''<!DOCTYPE a [<!ENTITY e "v">]><a>&f;</a>'''
+
+[[case]]
+id = "not-wf-undeclared-entity-standalone"
+wf = false
+section = "4.1 WFC: Entity Declared"
+xml = '''<?xml version="1.0" standalone="yes"?><!DOCTYPE a SYSTEM "a.dtd"><a>&nbsp;</a>'''
+
+# Comments, processing instructions and CDATA sections that are not
+# well-formed.
+
+[[case]]
+id = "not-wf-double-hyphen-in-comment"
+wf = false
+section = "2.5 [15]"
+xml = '''<a><!-- a -- b --></a>'''
+
+[[case]]
+id = "not-wf-comment-ending-with-hyphen"
+wf = false
+section = "2.5 [15]"
+xml = '''<a><!-- a ---></a>'''
+
+[[case]]
+id = "not-wf-unclosed-comment"
+wf = false
+section = "2.5 [15]"
+xml = '''<a><!-- a </a>'''
+
+[[case]]
+id = "not-wf-comment-single-hyphen-open"
+wf = false
+section = "2.5 [15]"
+xml = '''<a><!- a --></a>'''
+
+[[case]]
+id = "not-wf-unclosed-processing-instruction"
+wf = false
+section = "2.6 [16]"
+xml = '''<a><?t data</a>'''
+
+[[case]]
+id = "not-wf-processing-instruction-target-xml"
+wf = false
+section = "2.6 [17]"
+xml = '''<a><?xml version="1.0"?></a>'''
+
+[[case]]
+id = "not-wf-processing-instruction-target-xml-uppercase"
+wf = false
+section = "2.6 [17]"
+xml = '''<a><?XML x?></a>'''
+
+[[case]]
+id = "not-wf-processing-instruction-without-target"
+wf = false
+section = "2.6 [16]"
+xml = '''<a><? data?></a>'''
+
+[[case]]
+id = "not-wf-processing-instruction-no-space-after-target"
+wf = false
+section = "2.6 [16]"
+xml = '''<a><?t"data"?></a>'''
+
+[[case]]
+id = "not-wf-unclosed-cdata"
+wf = false
+section = "2.7 [18]"
+xml = '''<a><![CDATA[x</a>'''
+
+[[case]]
+id = "not-wf-cdata-outside-root"
+wf = false
+section = "2.8 [27]"
+xml = '''<![CDATA[x]]><a/>'''
+
+[[case]]
+id = "not-wf-cdata-lowercase-keyword"
+wf = false
+section = "2.7 [19]"
+xml = '''<a><![cdata[x]]></a>'''
+
+[[case]]
+id = "not-wf-cdata-in-attribute"
+wf = false
+section = "3.1 WFC: No < in Attribute Values"
+xml = '''<a x="<![CDATA[1]]>"/>'''
+
+# XML declarations that are not well-formed.
+
+[[case]]
+id = "not-wf-declaration-after-whitespace"
+wf = false
+section = "2.8 [22]"
+xml = ''' <?xml version="1.0"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-after-comment"
+wf = false
+section = "2.8 [22]"
+xml = '''<!-- c --><?xml version="1.0"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-in-element"
+wf = false
+section = "2.8 [22]"
+xml = '''<a><?xml version="1.0"?></a>'''
+
+[[case]]
+id = "not-wf-declaration-without-version"
+wf = false
+section = "2.8 [23]"
+xml = '''<?xml encoding="UTF-8"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-version-two"
+wf = false
+section = "2.8 [26]"
+xml = '''<?xml version="2.0"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-version-without-minor"
+wf = false
+section = "2.8 [26]"
+xml = '''<?xml version="1."?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-version-unquoted"
+wf = false
+section = "2.8 [24]"
+xml = '''<?xml version=1.0?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-encoding-before-version"
+wf = false
+section = "2.8 [23]"
+xml = '''<?xml encoding="UTF-8" version="1.0"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-standalone-before-encoding"
+wf = false
+section = "2.8 [23]"
+xml = '''<?xml version="1.0" standalone="yes" encoding="UTF-8"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-encoding-name-digit"
+wf = false
+section = "4.3.3 [81]"
+xml = '''<?xml version="1.0" encoding="8859-1"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-encoding-name-space"
+wf = false
+section = "4.3.3 [81]"
+xml = '''<?xml version="1.0" encoding="UTF 8"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-encoding-unknown"
+wf = false
+section = "4.3.3"
+xml = '''<?xml version="1.0" encoding="x-no-such-encoding"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-encoding-utf16-in-utf8"
+wf = false
+section = "4.3.3"
+xml = '''<?xml version="1.0" encoding="UTF-16"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-encoding-utf8-with-latin1-bytes"
+wf = false
+section = "4.3.3"
+xml = "<?xml version=\"1.0\" encoding=\"US-ASCII\"?><a>é</a>"
+
+[[case]]
+id = "not-wf-declaration-standalone-invalid"
+wf = false
+section = "2.9 [32]"
+xml = '''<?xml version="1.0" standalone="maybe"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-standalone-uppercase"
+wf = false
+section = "2.9 [32]"
+xml = '''<?xml version="1.0" standalone="YES"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-unknown-attribute"
+wf = false
+section = "2.8 [23]"
+xml = '''<?xml version="1.0" author="x"?><a/>'''
+
+[[case]]
+id = "not-wf-declaration-unclosed"
+wf = false
+section = "2.8 [23]"
+xml = '''<?xml version="1.0"<a/>'''
+
+[[case]]
+id = "not-wf-declaration-twice"
+wf = false
+section = "2.8 [22]"
+xml = '''<?xml version="1.0"?><?xml version="1.0"?><a/>'''
+
+# Document type declarations that are not well-formed.
+
+[[case]]
+id = "not-wf-doctype-after-root"
+wf = false
+section = "2.8 [22]"
+xml = '''<a/><!DOCTYPE a>'''
+
+[[case]]
+id = "not-wf-doctype-twice"
+wf = false
+section = "2.8 [22]"
+xml = '''<!DOCTYPE a><!DOCTYPE a><a/>'''
+
+[[case]]
+id = "not-wf-doctype-in-element"
+wf = false
+section = "2.8 [22]"
+xml = '''<a><!DOCTYPE a></a>'''
+
+[[case]]
+id = "not-wf-doctype-without-name"
+wf = false
+section = "2.8 [28]"
+xml = '''<!DOCTYPE><a/>'''
+
+[[case]]
+id = "not-wf-doctype-lowercase-keyword"
+wf = false
+section = "2.8 [28]"
+xml = '''<!doctype a><a/>'''
+
+[[case]]
+id = "not-wf-doctype-system-without-literal"
+wf = false
+section = "4.2.2 [75]"
+xml = '''<!DOCTYPE a SYSTEM><a/>'''
+
+[[case]]
+id = "not-wf-doctype-public-without-system"
+wf = false
+section = "4.2.2 [75]"
+xml = '''<!DOCTYPE a PUBLIC "-//Example//DTD//EN"><a/>'''
+
+[[case]]
+id = "not-wf-doctype-public-id-invalid-character"
+wf = false
+section = "2.3 [13]"
+xml = '''<!DOCTYPE a PUBLIC "{bad}" "a.dtd"><a/>'''
+
+[[case]]
+id = "not-wf-doctype-unclosed-subset"
+wf = false
+section = "2.8 [28]"
+xml = '''<!DOCTYPE a [<!ELEMENT a EMPTY><a/>'''
+
+[[case]]
+id = "not-wf-doctype-text-in-subset"
+wf = false
+section = "2.8 [28b]"
+xml = '''<!DOCTYPE a [ text ]><a/>'''
+
+[[case]]
+id = "not-wf-doctype-unknown-declaration"
+wf = false
+section = "2.8 [29]"
+xml = '''<!DOCTYPE a [<!FOO a>]><a/>'''
+
+[[case]]
+id = "not-wf-doctype-text-after-subset"
+wf = false
+section = "2.8 [28]"
+xml = '''<!DOCTYPE a [] x><a/>'''
+
+[[case]]
+id = "not-wf-element-declaration-mixed-without-star"
+wf = false
+section = "3.2.2 [51]"
+xml = '''<!DOCTYPE a [<!ELEMENT a (#PCDATA | b)>]><a/>'''
+
+[[case]]
+id = "not-wf-element-declaration-mixed-separators"
+wf = false
+section = "3.2.1 [47]"
+xml = '''<!DOCTYPE a [<!ELEMENT a (b | c, d)>]><a/>'''
+
+[[case]]
+id = "not-wf-element-declaration-pcdata-not-first"
+wf = false
+section = "3.2.2 [51]"
+xml = '''<!DOCTYPE a [<!ELEMENT a (b | #PCDATA)*>]><a/>'''
+
+[[case]]
+id = "not-wf-element-declaration-nested-pcdata"
+wf = false
+section = "3.2.2 [51]"
+xml = '''<!DOCTYPE a [<!ELEMENT a ((#PCDATA))>]><a/>'''
+
+[[case]]
+id = "not-wf-element-declaration-without-content"
+wf = false
+section = "3.2 [45]"
+xml = '''<!DOCTYPE a [<!ELEMENT a>]><a/>'''
+
+[[case]]
+id = "not-wf-element-declaration-lowercase-empty"
+wf = false
+section = "3.2 [46]"
+xml = '''<!DOCTYPE a [<!ELEMENT a empty>]><a/>'''
+
+[[case]]
+id = "not-wf-element-declaration-unclosed-group"
+wf = false
+section = "3.2.1 [49]"
+xml = '''<!DOCTYPE a [<!ELEMENT a (b, c>]><a/>'''
+
+[[case]]
+id = "not-wf-attlist-without-type"
+wf = false
+section = "3.3 [53]"
+xml = '''<!DOCTYPE a [<!ATTLIST a x #IMPLIED>]><a/>'''
+
+[[case]]
+id = "not-wf-attlist-without-default"
+wf = false
+section = "3.3 [53]"
+xml = '''<!DOCTYPE a [<!ATTLIST a x CDATA>]><a/>'''
+
+[[case]]
+id = "not-wf-attlist-unknown-type"
+wf = false
+section = "3.3.1 [54]"
+xml = '''<!DOCTYPE a [<!ATTLIST a x STRING #IMPLIED>]><a/>'''
+
+[[case]]
+id = "not-wf-attlist-default-with-less-than"
+wf = false
+section = "3.1 WFC: No < in Attribute Values"
+xml = '''<!DOCTYPE a [<!ATTLIST a x CDATA "<">]><a/>'''
+
+[[case]]
+id = "not-wf-attlist-default-with-bare-ampersand"
+wf = false
+section = "2.3 [10]"
+xml = '''<!DOCTYPE a [<!ATTLIST a x CDATA "a & b">]><a/>'''
+
+[[case]]
+id = "not-wf-attlist-default-with-undeclared-entity"
+wf = false
+section = "4.1 WFC: Entity Declared"
+xml = '''<!DOCTYPE a [<!ATTLIST a x CDATA "&e;">]><a/>'''
+
+[[case]]
+id = "not-wf-attlist-default-with-entity-declared-later"
+wf = false
+section = "4.1 WFC: Entity Declared"
+xml = '''<!DOCTYPE a [<!ATTLIST a x CDATA "&e;"><!ENTITY e "v">]><a/>'''
+
+[[case]]
+id = "not-wf-attlist-default-with-external-entity"
+wf = false
+section = "3.1 WFC: No External Entity References"
+xml = '''<!DOCTYPE a [<!ENTITY e SYSTEM "e.xml"><!ATTLIST a x CDATA "&e;">]><a/>'''
+
+[[case]]
+id = "not-wf-attlist-default-with-markup-entity"
+wf = false
+section = "3.1 WFC: No < in Attribute Values"
+xml = '''<!DOCTYPE a [<!ENTITY e "<b/>"><!ATTLIST a x CDATA "&e;">]><a/>'''
+
+[[case]]
+id = "not-wf-attlist-fixed-without-value"
+wf = false
+section = "3.3.2 [60]"
+xml = '''<!DOCTYPE a [<!ATTLIST a x CDATA #FIXED>]><a/>'''
+
+[[case]]
+id = "not-wf-attlist-empty-enumeration"
+wf = false
+section = "3.3.1 [59]"
+xml = '''<!DOCTYPE a [<!ATTLIST a x () "1">]><a/>'''
+
+[[case]]
+id = "not-wf-notation-without-identifier"
+wf = false
+section = "4.7 [82]"
+xml = '''<!DOCTYPE a [<!NOTATION n>]><a/>'''
+
+[[case]]
+id = "not-wf-notation-system-without-literal"
+wf = false
+section = "4.7 [82]"
+xml = '''<!DOCTYPE a [<!NOTATION n SYSTEM>]><a/>'''
+
+[[case]]
+id = "not-wf-subset-comment-double-hyphen"
+wf = false
+section = "2.5 [15]"
+xml = '''<!DOCTYPE a [<!-- a -- b -->]><a/>'''
+
+[[case]]
+id = "not-wf-subset-processing-instruction-target-xml"
+wf = false
+section = "2.6 [17]"
+xml = '''<!DOCTYPE a [<?xml x?>]><a/>'''
+
+[[case]]
+id = "not-wf-subset-parameter-entity-unterminated"
+wf = false
+section = "4.1 [69]"
+xml = '''<!DOCTYPE a [<!ENTITY % p "x"> %p ]><a/>'''
+
+# Entity declarations and references that are not well-formed.
+
+[[case]]
+id = "not-wf-entity-declaration-without-value"
+wf = false
+section = "4.2 [71]"
+xml = '''<!DOCTYPE a [<!ENTITY e>]><a/>'''
+
+[[case]]
+id = "not-wf-entity-declaration-unquoted-value"
+wf = false
+section = "4.2 [73]"
+xml = '''<!DOCTYPE a [<!ENTITY e value>]><a/>'''
+
+[[case]]
+id = "not-wf-entity-declaration-unclosed-value"
+wf = false
+section = "2.3 [9]"
+xml = '''<!DOCTYPE a [<!ENTITY e "value>]><a/>'''
+
+[[case]]
+id = "not-wf-entity-declaration-without-space"
+wf = false
+section = "4.2 [71]"
+xml = '''<!DOCTYPE a [<!ENTITY e"v">]><a/>'''
+
+[[case]]
+id = "not-wf-entity-declaration-two-values"
+wf = false
+section = "4.2 [71]"
+xml = '''<!DOCTYPE a [<!ENTITY e "v" "w">]><a/>'''
+
+[[case]]
+id = "not-wf-entity-value-bare-ampersand"
+wf = false
+section = "2.3 [9]"
+xml = '''<!DOCTYPE a [<!ENTITY e "a & b">]><a/>'''
+
+[[case]]
+id = "not-wf-entity-value-parameter-reference-in-subset"
+wf = false
+section = "2.8 WFC: PEs in Internal Subset"
+xml = '''<!DOCTYPE a [<!ENTITY % p "x"><!ENTITY e "%p;">]><a/>'''
+
+[[case]]
+id = "not-wf-entity-value-control-character"
+wf = false
+section = "2.2 [2]"
+xml = "<!DOCTYPE a [<!ENTITY e \"\u0001\">]><a/>"
+
+[[case]]
+id = "not-wf-entity-ndata-without-notation-name"
+wf = false
+section = "4.2.2 [76]"
+xml = '''<!DOCTYPE a [<!ENTITY e SYSTEM "e.png" NDATA>]><a/>'''
+
+[[case]]
+id = "not-wf-parameter-entity-with-ndata"
+wf = false
+section = "4.2 [74]"
+xml = '''<!DOCTYPE a [<!NOTATION n SYSTEM "v"><!ENTITY % p SYSTEM "p.png" NDATA n>]><a/>'''
+
+[[case]]
+id = "not-wf-entity-recursive-direct"
+wf = false
+section = "4.1 WFC: No Recursion"
+xml = '''<!DOCTYPE a [<!ENTITY e "x&e;">]><a>&e;</a>'''
+
+[[case]]
+id = "not-wf-entity-recursive-indirect"
+wf = false
+section = "4.1 WFC: No Recursion"
+xml = '''<!DOCTYPE a [<!ENTITY e "&f;"><!ENTITY f "&g;"><!ENTITY g "&e;">]><a>&e;</a>'''
+
+[[case]]
+id = "not-wf-entity-recursive-in-attribute"
+wf = false
+section = "4.1 WFC: No Recursion"
+xml = '''<!DOCTYPE a [<!ENTITY e "&f;"><!ENTITY f "&e;">]><a x="&e;"/>'''
+
+[[case]]
+id = "not-wf-entity-unbalanced-start-tag"
+wf = false
+section = "4.3.2"
+xml = '''<!DOCTYPE a [<!ENTITY e "<b>">]><a>&e;</b></a>'''
+
+[[case]]
+id = "not-wf-entity-unbalanced-end-tag"
+wf = false
+section = "4.3.2"
+xml = '''<!DOCTYPE a [<!ENTITY e "</a>">]><a>&e;'''
+
+[[case]]
+id = "not-wf-entity-markup-not-well-formed"
+wf = false
+section = "4.3.2"
+xml = '''<!DOCTYPE a [<!ENTITY e "<b x='1></b>">]><a>&e;</a>'''
+
+[[case]]
+id = "not-wf-entity-ampersand-after-character-reference"
+wf = false
+section = "4.4.5"
+xml = '''<!DOCTYPE a [<!ENTITY e "&#38;">]><a>&e;</a>'''
+
+[[case]]
+id = "not-wf-entity-less-than-after-character-reference-in-attribute"
+wf = false
+section = "3.1 WFC: No < in Attribute Values"
+xml = '''<!DOCTYPE a [<!ENTITY e "&#60;">]><a x="&e;"/>'''
+
+[[case]]
+id = "not-wf-external-entity-in-attribute"
+wf = false
+section = "3.1 WFC: No External Entity References"
+xml = '''<!DOCTYPE a [<!ENTITY e SYSTEM "e.xml">]><a x="&e;"/>'''
+
+[[case]]
+id = "not-wf-unparsed-entity-in-content"
+wf = false
+section = "4.1 WFC: Parsed Entity"
+xml = '''<!DOCTYPE a [<!NOTATION n SYSTEM "v"><!ENTITY e SYSTEM "e.png" NDATA n>]><a>&e;</a>'''
+
+[[case]]
+id = "not-wf-unparsed-entity-in-attribute"
+wf = false
+section = "4.1 WFC: Parsed Entity"
+xml = '''<!DOCTYPE a [<!NOTATION n SYSTEM "v"><!ENTITY e SYSTEM "e.png" NDATA n>]><a x="&e;"/>'''
+
+[[case]]
+id = "not-wf-parameter-entity-reference-in-content"
+wf = false
+section = "4.1 WFC: Entity Declared"
+xml = '''<!DOCTYPE a [<!ENTITY % p "x">]><a>&p;</a>'''

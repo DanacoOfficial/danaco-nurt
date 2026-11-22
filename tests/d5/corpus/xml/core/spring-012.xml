@@ -1,0 +1,17 @@
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:p="http://www.springframework.org/schema/p">
+  <context:component-scan base-package="com.example.s12"/>
+  <bean id="dataSource" class="org.example.Pool" p:maxSize="22">
+    <property name="url" value="jdbc:h2:mem:db12;MODE=PostgreSQL"/>
+    <property name="user" value="sa"/>
+  </bean>
+  <!-- service layer -->
+  <bean id="service" class="org.example.Service">
+    <constructor-arg ref="dataSource"/>
+    <property name="query"><value><![CDATA[SELECT * FROM t WHERE a < 12 AND b > 0]]></value></property>
+  </bean>
+</beans>

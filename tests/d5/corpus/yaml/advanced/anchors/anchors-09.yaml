@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Anchors and aliases, variant 9.
+defaults:
+  timeout: &timeout 45
+  name: &name "service-9"
+  hosts: &hosts
+    - a9.example.com
+    - b9.example.com
+  limits: &limits {cpu: 9, memory: 1152}
+  empty: &empty
+jobs:
+  build:
+    timeout: *timeout
+    hosts: *hosts
+    limits: *limits
+    label: *name
+    nothing: *empty
+  test:
+    timeout: *timeout   # same value as build
+    hosts: [*name, c9.example.com]
+    matrix: {limits: *limits, retry: *timeout}
+  deploy: &deploy
+    stage: deploy
+    needs: [build, test]
+  deploy-copy: *deploy
+redefined:
+  first: &v one
+  use1: *v
+  second: &v two
+  use2: *v
+keys:
+  &k key9 : value
+  *k : other

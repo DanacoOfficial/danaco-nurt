@@ -1,0 +1,1 @@
+{"cat:catalog":{"+@xmlns:cat":"urn:example:catalog","+@xmlns:x":"urn:example:ext","+@xmlns":"urn:example:default1","cat:book":[{"+@cat:id":"b19","+@x:rating":"4","cat:title":"Title 19","cat:author":"Ann","x:extra":"value","plain":"default ns"},{"+@cat:id":"b2","cat:title":"Second","local":{"+content":"no namespace","+@xmlns":""}}]}}

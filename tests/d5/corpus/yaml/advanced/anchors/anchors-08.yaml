@@ -1,0 +1,30 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Anchors and aliases, variant 8.
+defaults:
+  timeout: &timeout 40
+  name: &name "service-8"
+  hosts: &hosts
+  - a8.example.com
+  - b8.example.com
+  limits: &limits {cpu: 8, memory: 1024}
+  empty: &empty
+jobs:
+  build:
+    timeout: *timeout
+    hosts: *hosts
+    limits: *limits
+    label: *name
+    nothing: *empty
+  test:
+    timeout: *timeout   # same value as build
+    hosts: [*name, c8.example.com]
+    matrix: {limits: *limits, retry: *timeout}
+  deploy: &deploy
+    stage: deploy
+    needs: [build, test]
+  deploy-copy: *deploy
+odd-names:
+  a: &a.b-c_d/1 value
+  b: *a.b-c_d/1

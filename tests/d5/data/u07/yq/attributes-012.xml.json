@@ -1,0 +1,1 @@
+{"config":{"+@name":"c12","+@version":"12.0","+@enabled":"true","server":{"+@host":"localhost","+@port":"8012","+@path":"/a&b"},"client":{"+@timeout":"30","+@retries":"2"},"pool":{"+@min":"1","+@max":"12"}}}

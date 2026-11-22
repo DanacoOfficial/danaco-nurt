@@ -1,0 +1,4 @@
+{
+  "a": 1 /* block at end of line */,
+  "b": /* before value */ [ /* inside empty-looking list */ ]
+}

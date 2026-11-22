@@ -1,0 +1,31 @@
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <!-- coordinates -->
+  <groupId>com.example.app12</groupId>
+  <artifactId>service-12</artifactId>
+  <version>1.12.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+  <properties>
+    <java.version>19</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+  <dependencies>
+    <dependency>
+      <groupId>org.example.g0</groupId>
+      <artifactId>lib-12-0</artifactId>
+      <version>0.12.0</version>
+    </dependency>
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration><release>21</release></configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

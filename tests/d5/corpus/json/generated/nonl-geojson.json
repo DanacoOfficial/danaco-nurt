@@ -1,0 +1,59 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          21.0122,
+          52.2297
+        ]
+      },
+      "properties": {
+        "name": "Warszawa",
+        "population": 1863056
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              19.90,
+              50.00
+            ],
+            [
+              20.10,
+              50.00
+            ],
+            [
+              20.10,
+              50.10
+            ],
+            [
+              19.90,
+              50.10
+            ],
+            [
+              19.90,
+              50.00
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Kraków",
+        "area_km2": 326.85
+      }
+    }
+  ],
+  "bbox": [
+    19.90,
+    50.00,
+    21.0122,
+    52.2297
+  ]
+}

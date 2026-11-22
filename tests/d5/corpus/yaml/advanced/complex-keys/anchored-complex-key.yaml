@@ -1,0 +1,7 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Explicit key with an anchor and an alias of the key.
+? &k [1, 2]
+: first
+other: *k

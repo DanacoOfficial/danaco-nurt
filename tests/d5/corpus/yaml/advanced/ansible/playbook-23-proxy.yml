@@ -1,0 +1,59 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+---
+# Playbook for the proxy tier, revision 23.
+- name: Configure proxy hosts
+  hosts: proxy_servers
+  become: true
+  gather_facts: false
+  vars:
+    common_packages: &common_packages
+      - haproxy
+      - rsync   # required by the health check
+    proxy_port: 8023
+    proxy_user: "svc-proxy"
+    retry_policy: &retry {retries: 4, delay: 46}
+  pre_tasks:
+    - name: Refresh package cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+  tasks:
+    # Packages first, configuration second.
+    - name: Install packages
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: present
+      loop: *common_packages
+      <<: *retry
+    - name: Render configuration
+      ansible.builtin.template:
+        src: templates/proxy.conf.j2
+        dest: "/etc/proxy/proxy.conf"
+        mode: "0644"
+      notify:
+        - Restart proxy
+      tags: [config, proxy]
+    - name: Create users
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        groups: "{{ item.groups | join(',') }}"
+      loop:
+        - {name: alice, groups: [adm, proxy]}
+        - {name: bob, groups: [proxy]}
+        - name: carol
+          groups:
+            - proxy
+  handlers:
+    - name: Restart proxy
+      ansible.builtin.service:
+        name: proxy
+        state: restarted
+      listen: "restart proxy"
+...
+---
+# Second play: verification only.
+- hosts: localhost
+  connection: local
+  tasks: []
