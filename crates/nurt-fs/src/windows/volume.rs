@@ -174,13 +174,17 @@ pub fn volume_guid_path(guid: &str) -> String {
 /// account. A remaining quota is reported when the bytes available to the
 /// caller are fewer than the free bytes of the volume, which happens only when
 /// a per-account limit applies; a limit whose remainder equals the free space
-/// has no effect and is not distinguishable.
+/// has no effect and is not distinguishable. The quota limit is reported with
+/// the remaining quota as `total_to_caller`, which `GetDiskFreeSpaceExW` sets
+/// to the quota.
 #[must_use]
 pub fn space_info(free_to_caller: u64, total_to_caller: u64, total_free: u64) -> SpaceInfo {
+    let quota_remaining = (free_to_caller < total_free).then_some(free_to_caller);
     SpaceInfo {
         total: total_to_caller,
         available: free_to_caller,
-        quota_remaining: (free_to_caller < total_free).then_some(free_to_caller),
+        quota_remaining,
+        quota_limit: quota_remaining.map(|_| total_to_caller),
         purgeable_system: None,
     }
 }
@@ -302,10 +306,12 @@ mod tests {
         assert_eq!(unlimited.available, 500);
         assert_eq!(unlimited.total, 1_000);
         assert_eq!(unlimited.quota_remaining, None);
+        assert_eq!(unlimited.quota_limit, None);
         assert_eq!(unlimited.purgeable_system, None);
         let limited = space_info(100, 400, 500);
         assert_eq!(limited.available, 100);
         assert_eq!(limited.total, 400);
         assert_eq!(limited.quota_remaining, Some(100));
+        assert_eq!(limited.quota_limit, Some(400));
     }
 }

@@ -1432,6 +1432,7 @@ impl Volume {
                 .map_or(self.capacity, |quota| quota.min(self.capacity)),
             available: quota_remaining.map_or(free, |remaining| remaining.min(free)),
             quota_remaining,
+            quota_limit: self.quota,
             purgeable_system: None,
         }
     }
@@ -3184,6 +3185,7 @@ mod tests {
         let space = fs.space(&id).expect("space");
         assert_eq!(space.total, 50);
         assert_eq!(space.quota_remaining, Some(20));
+        assert_eq!(space.quota_limit, Some(50));
         assert_eq!(space.available, 20);
         let mut handle = fs.create_new(&scope(), &p("/b")).expect("create");
         let error = handle.write_all(&[0; 30]).expect_err("quota");
@@ -3192,6 +3194,15 @@ mod tests {
         let error = handle.write_all(&[0; 10]).expect_err("full");
         assert_eq!(error.kind(), io::ErrorKind::StorageFull);
         assert_eq!(fs.space(&id).expect("space").available, 5);
+    }
+
+    #[test]
+    fn reports_no_quota_limit_without_quota() {
+        let fs = small_volume(1_000);
+        let id = fs.volume(&p("/")).expect("volume").id;
+        let space = fs.space(&id).expect("space");
+        assert_eq!(space.quota_remaining, None);
+        assert_eq!(space.quota_limit, None);
     }
 
     #[test]
