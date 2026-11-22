@@ -13,5 +13,11 @@
 
 pub mod codec;
 pub mod compress;
+pub mod create;
 pub mod decompress;
+pub mod extract;
+pub mod list;
+pub mod safety;
 pub mod sevenz;
+mod tar;
+mod zip;
