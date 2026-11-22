@@ -122,7 +122,7 @@
     },
     "catalog_params": {
       "type": ["object", "null"],
-      "properties": {"what": {"type": ["object", "null"], "description": "Selection of a group or a command, as in the argument of nurt_catalog."}}
+      "properties": {"what": {"type": ["object", "null"], "description": "Selection of a group or a command, as in the argument of nurt_catalog.", "properties": {"group": {"type": "string"}, "command": {"type": "string"}}, "maxProperties": 1}}
     },
     "history_params": {
       "type": ["object", "null"],
