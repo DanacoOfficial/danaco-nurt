@@ -22,7 +22,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use nurt_contracts::fs::{AbsPath, ContentHash, FileKind, Follow, Fs, FsResult};
-use nurt_contracts::journal::{OpId, OperationRecord};
+use nurt_contracts::journal::OperationRecord;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -143,16 +143,19 @@ impl TreeSnapshot {
     }
 
     /// Entries keyed by relative path.
+    #[must_use]
     pub fn entries(&self) -> &BTreeMap<PathBuf, EntrySnapshot> {
         &self.entries
     }
 
     /// Entry at a relative path.
+    #[must_use]
     pub fn get(&self, relative: &Path) -> Option<&EntrySnapshot> {
         self.entries.get(relative)
     }
 
     /// Digests of every file content in the tree.
+    #[must_use]
     pub fn hashes(&self) -> HashSet<ContentHash> {
         self.entries
             .values()
@@ -165,6 +168,7 @@ impl TreeSnapshot {
 
     /// Relative paths whose entry differs between `self` and `other`,
     /// including paths present in only one of them.
+    #[must_use]
     pub fn differences(&self, other: &TreeSnapshot) -> Vec<PathBuf> {
         let paths: BTreeSet<&PathBuf> = self.entries.keys().chain(other.entries.keys()).collect();
         paths
@@ -172,6 +176,25 @@ impl TreeSnapshot {
             .filter(|path| self.entries.get(*path) != other.entries.get(*path))
             .cloned()
             .collect()
+    }
+
+    /// Snapshot without entries named with [`TEMP_PREFIX`] and everything
+    /// below them. Recovery removes such entries, so the state left by a
+    /// crash is compared without them.
+    #[must_use]
+    pub fn without_temporary(&self) -> TreeSnapshot {
+        let temporary: Vec<&PathBuf> = self
+            .entries
+            .keys()
+            .filter(|path| is_temporary(path))
+            .collect();
+        let entries = self
+            .entries
+            .iter()
+            .filter(|(path, _)| !temporary.iter().any(|temp| path.starts_with(temp)))
+            .map(|(path, entry)| (path.clone(), entry.clone()))
+            .collect();
+        TreeSnapshot { entries }
     }
 
     /// Snapshot with `change` applied: the expected state after an operation,
@@ -236,6 +259,11 @@ impl TreeSnapshot {
 /// Permission bits of a file created by a [`Change::Write`] without a
 /// previous file.
 const DEFAULT_FILE_MODE: u32 = 0o644;
+
+fn is_temporary(path: &Path) -> bool {
+    path.file_name()
+        .is_some_and(|name| name.to_string_lossy().starts_with(TEMP_PREFIX))
+}
 
 fn digest(content: &[u8]) -> ContentHash {
     ContentHash(Sha256::digest(content).into())
@@ -492,10 +520,7 @@ pub fn check_complete(
 ///
 /// Fails with [`Violation::TemporaryLeftover`] naming the first such entry.
 pub fn check_no_leftovers(volume: &TreeSnapshot) -> Result<(), Violation> {
-    let leftover = volume.entries.keys().find(|path| {
-        path.file_name()
-            .is_some_and(|name| name.to_string_lossy().starts_with(TEMP_PREFIX))
-    });
+    let leftover = volume.entries.keys().find(|path| is_temporary(path));
     match leftover {
         Some(path) => Err(Violation::TemporaryLeftover { path: path.clone() }),
         None => Ok(()),
@@ -536,10 +561,10 @@ pub fn check_explicit(outcome: OpOutcome) -> Result<(), Violation> {
 /// Fails with [`Violation::DuplicateOperation`] naming the first repeated
 /// number.
 pub fn check_history(records: &[OperationRecord]) -> Result<(), Violation> {
-    let mut seen: HashSet<OpId> = HashSet::new();
+    let mut seen: HashSet<u64> = HashSet::new();
     for record in records {
         if !seen.insert(record.id) {
-            return Err(Violation::DuplicateOperation { op: record.id.0 });
+            return Err(Violation::DuplicateOperation { op: record.id });
         }
     }
     Ok(())

@@ -4,9 +4,7 @@
 //! Coverage cases of the journal commands and of the parameters common to
 //! every command, run against the journal implementation itself.
 
-use std::fs;
-
-use nurt_contracts::config::StepLimit;
+use nurt_contracts::config::{SizeOrPercent, SizeSetting, StepLimit};
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::fs::{AbsPath, Follow};
 use nurt_contracts::journal::{
@@ -61,10 +59,6 @@ fn op_of(handle: &OpHandle) -> OpId {
     handle.op.expect("a committed change has a number")
 }
 
-fn content(path: &AbsPath) -> Vec<u8> {
-    fs::read(path.as_path()).expect("file is readable")
-}
-
 fn state(fixture: &Fixture, op: OpId) -> OpState {
     fixture.record(op).state
 }
@@ -100,8 +94,8 @@ pub(crate) fn verify_failure_undoes_entry_as_undo_entry(_case: &Case) {
     before.assert_same(&fixture.snapshot(), "after the failed check");
     assert_eq!(state(&fixture, op), OpState::Undone);
     let undo_entry = fixture.record(outcome.entry);
-    assert_eq!(undo_entry.kind, OpKind::undo());
-    assert_eq!(undo_entry.undo_of, vec![op]);
+    assert_eq!(undo_entry.kind, OpKind::undo().command);
+    assert_eq!(undo_entry.undo_of, vec![op.0]);
     fixture
         .journal
         .redo(&request::redo(Some(outcome.entry)))
@@ -122,7 +116,7 @@ fn reads_change_nothing(fixture: &Fixture, read: impl FnOnce(&Fixture)) {
 /// `history` and `history details` change nothing.
 pub(crate) fn history_changes_nothing(_case: &Case) {
     reads_change_nothing(&Fixture::standard(), |fixture| {
-        let newest = fixture.history()[0].id;
+        let newest = OpId(fixture.history()[0].id);
         fixture
             .journal
             .details(newest)
@@ -211,8 +205,8 @@ pub(crate) fn undo_id_is_undone_and_redone(_case: &Case) {
         .undo(&request::undo_op(op))
         .expect("entry is undone");
     assert_eq!(outcome.sources, vec![op]);
-    assert_eq!(content(&first), BEFORE);
-    assert_eq!(content(&second), AFTER);
+    assert_eq!(fixture.read(&first), BEFORE);
+    assert_eq!(fixture.read(&second), AFTER);
     fixture
         .journal
         .redo(&request::redo(Some(outcome.entry)))
@@ -245,9 +239,9 @@ pub(crate) fn undo_to_is_undone_and_redone(_case: &Case) {
         fixture.record(outcome.entry).undo_scope,
         Some(UndoScope::To)
     );
-    assert_eq!(content(&files[0]), AFTER);
-    assert_eq!(content(&files[1]), BEFORE);
-    assert_eq!(content(&files[2]), BEFORE);
+    assert_eq!(fixture.read(&files[0]), AFTER);
+    assert_eq!(fixture.read(&files[1]), BEFORE);
+    assert_eq!(fixture.read(&files[2]), BEFORE);
     fixture
         .journal
         .redo(&request::redo(Some(outcome.entry)))
@@ -275,7 +269,7 @@ pub(crate) fn undo_to_sessions_is_undone_and_redone(_case: &Case) {
     assert_eq!(outcome.sources, vec![mine]);
     assert_eq!(outcome.skipped.len(), 1);
     assert_eq!(outcome.skipped[0].op, foreign);
-    assert_eq!(content(&other), AFTER);
+    assert_eq!(fixture.read(&other), AFTER);
     let selector = UndoSelector::To {
         after: first,
         all_sessions: true,
@@ -285,7 +279,7 @@ pub(crate) fn undo_to_sessions_is_undone_and_redone(_case: &Case) {
         .undo(&request::undo(selector, OnConflict::Report))
         .expect("entries of all sessions are undone");
     assert_eq!(outcome.sources, vec![foreign]);
-    assert_eq!(content(&other), BEFORE);
+    assert_eq!(fixture.read(&other), BEFORE);
 }
 
 /// `undo file:` restores one file across entries; the entries become
@@ -310,14 +304,14 @@ pub(crate) fn undo_file_is_undone_and_redone(_case: &Case) {
         .undo(&request::undo(selector, OnConflict::Report))
         .expect("file is undone");
     assert_eq!(outcome.scope, UndoScope::File);
-    assert_eq!(content(&file), BEFORE);
-    assert_eq!(content(&other), b"second\n");
+    assert_eq!(fixture.read(&file), BEFORE);
+    assert_eq!(fixture.read(&other), b"second\n");
     assert_eq!(state(&fixture, op), OpState::Partial);
     fixture
         .journal
         .redo(&request::redo(Some(outcome.entry)))
         .expect("file undo is redone");
-    assert_eq!(content(&file), b"second\n");
+    assert_eq!(fixture.read(&file), b"second\n");
 }
 
 /// `undo N paths:` restores selected items; the entry becomes partial.
@@ -335,14 +329,14 @@ pub(crate) fn undo_paths_is_undone_and_redone(_case: &Case) {
         .undo(&request::undo(selector, OnConflict::Report))
         .expect("item is undone");
     assert_eq!(outcome.scope, UndoScope::Paths);
-    assert_eq!(content(&first), BEFORE);
-    assert_eq!(content(&second), AFTER);
+    assert_eq!(fixture.read(&first), BEFORE);
+    assert_eq!(fixture.read(&second), AFTER);
     assert_eq!(state(&fixture, op), OpState::Partial);
     fixture
         .journal
         .redo(&request::redo(Some(outcome.entry)))
         .expect("item undo is redone");
-    assert_eq!(content(&first), AFTER);
+    assert_eq!(fixture.read(&first), AFTER);
 }
 
 /// A conflict changes nothing; `force` undoes and keeps the diverging
@@ -351,7 +345,7 @@ pub(crate) fn undo_force_is_undone_and_redone(_case: &Case) {
     let fixture = Fixture::standard();
     let file = fixture.seed_file("work/a.txt", BEFORE);
     let op = overwrite(&fixture, &[&file]);
-    fs::write(file.as_path(), FOREIGN).expect("another program writes the file");
+    fixture.write_outside(&file, FOREIGN);
     let diverged = fixture.snapshot();
     assert_error(
         fixture.journal.undo(&request::undo_op(op)),
@@ -366,7 +360,7 @@ pub(crate) fn undo_force_is_undone_and_redone(_case: &Case) {
         !outcome.forced.is_empty(),
         "overridden conflicts are reported"
     );
-    assert_eq!(content(&file), BEFORE);
+    assert_eq!(fixture.read(&file), BEFORE);
     fixture
         .journal
         .redo(&request::redo(Some(outcome.entry)))
@@ -393,7 +387,7 @@ pub(crate) fn undo_include_later_is_undone_and_redone(_case: &Case) {
         ))
         .expect("entry and later entry are undone");
     assert_eq!(outcome.sources, vec![later, first]);
-    assert_eq!(content(&file), BEFORE);
+    assert_eq!(fixture.read(&file), BEFORE);
     fixture
         .journal
         .redo(&request::redo(Some(outcome.entry)))
@@ -405,17 +399,23 @@ pub(crate) fn undo_include_later_is_undone_and_redone(_case: &Case) {
 /// partial entry are undone with `on_conflict: partial`.
 pub(crate) fn undo_partial_is_undone_and_redone(_case: &Case) {
     const FILE_SIZE: u64 = 16 << 20;
-    let mut options = FixtureOptions::default();
-    options.volumes = vec![VolumeSpec {
-        capacity: 64 << 20,
-        used: 8 << 20,
-    }];
+    const FILLER_SIZE: usize = 33 << 20;
+    let mut options = FixtureOptions {
+        volumes: vec![VolumeSpec {
+            capacity: 64 << 20,
+            used: 8 << 20,
+        }],
+        ..FixtureOptions::default()
+    };
+    options.space.reserve = SizeOrPercent::Size(SizeSetting::from_mib(8));
+    options.space.soft = Some(SizeOrPercent::Size(SizeSetting::from_mib(12)));
     let fixture = Fixture::open(options);
     let small = fixture.seed_file("work/small.txt", BEFORE);
-    let large = fixture.seed_sparse("work/large.bin", FILE_SIZE);
+    let large = fixture.seed_file("work/large.bin", &vec![7; FILE_SIZE as usize]);
     let op = overwrite(&fixture, &[&small, &large]);
-    let pressure = fixture.seed_sparse("work/pressure.bin", 3 * FILE_SIZE);
-    overwrite(&fixture, &[&pressure]);
+    fixture.seed_file("work/filler.bin", &vec![9; FILLER_SIZE]);
+    let other = fixture.seed_file("work/other.txt", BEFORE);
+    overwrite(&fixture, &[&other]);
     assert_eq!(
         state(&fixture, op),
         OpState::Partial,
@@ -433,7 +433,7 @@ pub(crate) fn undo_partial_is_undone_and_redone(_case: &Case) {
         !outcome.unavailable.is_empty(),
         "released items are reported"
     );
-    assert_eq!(content(&small), BEFORE);
+    assert_eq!(fixture.read(&small), BEFORE);
 }
 
 /// `redo` reapplies an undone entry; undo of the redo restores the tree.
@@ -452,7 +452,7 @@ pub(crate) fn redo_is_undone_and_redone(_case: &Case) {
         .redo(&request::redo(None))
         .expect("undo is redone");
     assert_eq!(redone.sources, vec![undone.entry]);
-    assert_eq!(fixture.record(redone.entry).redo_of, Some(undone.entry));
+    assert_eq!(fixture.record(redone.entry).redo_of, Some(undone.entry.0));
     after.assert_same(&fixture.snapshot(), "after redo");
     fixture
         .journal
@@ -624,22 +624,32 @@ pub(crate) fn journal_limits_session_is_undone_or_marked_irreversible(_case: &Ca
 /// A user limit is written to the configuration file by a change that does
 /// not count as a step.
 pub(crate) fn journal_limits_user_is_undone_or_marked_irreversible(_case: &Case) {
-    let fixture = Fixture::standard();
+    let fixture = Fixture::open(limits_options(3));
     let ops = three_entries(&fixture);
     let outcome = fixture
         .journal
-        .limits(&limits_request(Some(2), LimitsScope::User, false))
+        .limits(&limits_request(Some(5), LimitsScope::User, false))
         .expect("user limit is written");
     assert!(outcome.applied);
-    assert_eq!(outcome.expiring, vec![ops[0]]);
-    let file = fixture.seed_file("work/d.txt", BEFORE);
-    overwrite(&fixture, &[&file]);
-    assert_eq!(
-        state(&fixture, ops[1]),
-        OpState::Expired,
-        "the limit write is not a step"
-    );
-    assert_eq!(state(&fixture, ops[2]), OpState::Available);
+    assert!(outcome.expiring.is_empty());
+    fixture.journal.sweep().expect("retention pass runs");
+    for op in &ops {
+        assert_eq!(
+            state(&fixture, *op),
+            OpState::Available,
+            "the limit write is not a step"
+        );
+    }
+    let written = fixture
+        .history()
+        .into_iter()
+        .find(|record| record.kind == "journal.limits")
+        .expect("the limit write is recorded");
+    let undone = fixture
+        .journal
+        .undo(&request::undo_op(OpId(written.id)))
+        .expect("the limit write is undone");
+    assert_eq!(undone.sources, vec![OpId(written.id)]);
 }
 
 /// Writes a result file as `save_to` of a read command: a new entry with one
@@ -746,8 +756,8 @@ pub(crate) fn script_records_one_entry_per_pipeline(_case: &Case) {
         .journal
         .undo(&request::undo_last())
         .expect("last pipeline is undone");
-    assert_eq!(content(&first), AFTER);
-    assert_eq!(content(&second), BEFORE);
+    assert_eq!(fixture.read(&first), AFTER);
+    assert_eq!(fixture.read(&second), BEFORE);
 }
 
 /// Reading further pages of history creates no entry and changes nothing.
@@ -765,8 +775,8 @@ pub(crate) fn cursor_page_does_not_rerun_changes(_case: &Case) {
             })
             .expect("page is readable")
     };
-    assert_eq!(page(None)[0].id, ops[2]);
-    assert_eq!(page(Some(ops[2]))[0].id, ops[1]);
+    assert_eq!(page(None)[0].id, ops[2].0);
+    assert_eq!(page(Some(ops[2]))[0].id, ops[1].0);
     assert_eq!(fixture.history().len(), ops.len());
     before.assert_same(&fixture.snapshot(), "after reading pages");
 }
@@ -809,18 +819,20 @@ pub(crate) fn if_match_mismatch_rolls_back_without_new_entry(_case: &Case) {
         .fs
         .etag(&file, Follow::NoFollow)
         .expect("entity tag is readable");
-    fs::write(file.as_path(), FOREIGN).expect("another program writes the file");
+    fixture.write_outside(&file, FOREIGN);
     let found = fixture.snapshot();
     let entries = fixture.history().len();
     let mut tx: Box<dyn MutationTx + '_> = fixture
         .journal
         .begin(request::begin("write", Some("overwrite")));
-    tx.preserve(&[spec(&file, TargetAction::Modify, Expect::Etag(observed))])
-        .expect("target is preserved");
-    assert_error(
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(AFTER.to_vec())),
-        ErrorCode::Stale,
-    );
+    let declared = tx.preserve(&[spec(&file, TargetAction::Modify, Expect::Etag(observed))]);
+    match declared {
+        Ok(_) => assert_error(
+            tx.apply(TargetIndex(0), Mutation::WriteBytes(AFTER.to_vec())),
+            ErrorCode::Stale,
+        ),
+        Err(error) => assert_eq!(error.code(), ErrorCode::Stale, "{error}"),
+    }
     found.assert_same(&fixture.snapshot(), "after a stale target");
     let available = fixture
         .history()

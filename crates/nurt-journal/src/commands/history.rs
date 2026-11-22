@@ -5,12 +5,17 @@
 //! latest first.
 
 use nurt_contracts::error::Result;
-use nurt_contracts::journal::{HistoryQuery, OpId, OpState};
+use nurt_contracts::journal::{
+    HistoryQuery, ItemDetail, JournalStore, OpId, OpState, OperationRecord, TargetAction,
+};
+use nurt_contracts::record::OperationItem;
 use nurt_contracts::stage::{
     BoundArgs, CheckCtx, ExecCtx, OrderKey, ReadStage, RecordStream, StageDescriptor, StageImpl,
     StageInput, StageOutput, StaticInfo, StreamOrder,
 };
-use nurt_contracts::value::Record;
+use nurt_contracts::value::{Path, Record};
+
+use crate::conflict::display_path;
 
 use super::Params;
 
@@ -68,6 +73,34 @@ pub(super) fn parse(args: &BoundArgs) -> Result<HistoryArgs> {
     })
 }
 
+/// Items of an operation for `details: true`; an expired operation keeps none.
+fn items_of(store: &dyn JournalStore, operation: &OperationRecord) -> Result<Vec<OperationItem>> {
+    if operation.state == OpState::Expired {
+        return Ok(Vec::new());
+    }
+    let details = store.details(OpId(operation.id))?;
+    Ok(details.items.iter().map(operation_item).collect())
+}
+
+fn operation_item(detail: &ItemDetail) -> OperationItem {
+    OperationItem {
+        path: Path::from(display_path(&detail.path)),
+        action: action_name(&detail.action),
+        mode: detail.mode.as_str().to_owned(),
+        before_hash: detail.before_hash.map(|hash| hash.to_string()),
+        after_hash: detail.after_hash.map(|hash| hash.to_string()),
+        undone: detail.undone,
+        released: detail.released,
+    }
+}
+
+fn action_name(action: &TargetAction) -> String {
+    serde_json::to_value(action)
+        .ok()
+        .and_then(|value| value.get("action")?.as_str().map(str::to_owned))
+        .unwrap_or_default()
+}
+
 /// The `history` command.
 pub(super) struct History;
 
@@ -112,8 +145,11 @@ impl ReadStage for History {
             store.details(id)?;
         }
         let mut listed = Vec::with_capacity(operations.len());
-        for operation in operations {
+        for mut operation in operations {
             ctx.checkpoint()?;
+            if parsed.details {
+                operation.items = Some(items_of(store, &operation)?);
+            }
             listed.push(Record::from(operation));
         }
         let order = StreamOrder {
@@ -155,7 +191,7 @@ mod tests {
     }
 
     #[test]
-    fn records_with_and_without_details_follow_the_operation_contract() {
+    fn details_fill_items_of_operation_records() {
         let env = Env::new();
         let a = env.seed("a.txt", b"a");
         let b = env.seed("b.txt", b"b");
@@ -179,12 +215,21 @@ mod tests {
         )
         .unwrap();
         assert_eq!(plain.len(), 2);
-        assert_eq!(detailed, plain);
         assert_eq!(one.len(), 1);
         for record in plain.iter().chain(&detailed).chain(&one) {
             let typed = Operation::try_from(record.clone()).unwrap();
             assert_eq!(Record::from(typed), *record);
         }
+        for record in &plain {
+            assert!(Operation::try_from(record.clone()).unwrap().items.is_none());
+        }
+        for record in detailed.iter().chain(&one) {
+            let items = Operation::try_from(record.clone()).unwrap().items.unwrap();
+            assert_eq!(items.len(), 1);
+            assert!(!items[0].undone && !items[0].released);
+        }
+        let first = Operation::try_from(one[0].clone()).unwrap().items.unwrap();
+        assert_eq!(first[0].path, Path::from(a.to_language_string()));
     }
 
     #[test]

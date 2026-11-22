@@ -75,7 +75,6 @@ macro_rules! coverage_cases {
         $(
             $(#[$attr])*
             #[test]
-            #[ignore = "requires the journal store implementation"]
             fn $name() {
                 $run(case(stringify!($name)));
             }
@@ -134,6 +133,7 @@ coverage_cases! {
     #[cfg(target_os = "windows")]
     move_registry_is_undone_and_redone => Table(&[("move", Some("registry"))]), Plain, procedure::round_trip;
     remove_entry_is_undone_and_redone => Table(&[("remove", None)]), Plain, procedure::round_trip;
+    #[ignore = "runs at full scale on request"]
     remove_tree_1e6_is_undone_and_redone => Table(&[("remove", None)]), Bulk(1_000_000), procedure::round_trip;
     #[cfg(target_os = "linux")]
     remove_overlay_exdev_is_undone_and_redone => Table(&[("remove", None)]), LowerOverlayLayer, procedure::round_trip;

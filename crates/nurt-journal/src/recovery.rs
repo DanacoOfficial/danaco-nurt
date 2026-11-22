@@ -1915,6 +1915,24 @@ mod tests {
     }
 
     #[test]
+    fn target_with_the_recorded_identity_and_another_modification_time_is_not_kept() {
+        let touched = Facts {
+            modified_ns: Some(3_000),
+            ..old_file()
+        };
+        let action = decide_content(
+            PreserveMode::Exchange,
+            &scene(Some(touched), None, Some(new_file())),
+        );
+        assert_eq!(action, ContentAction::Lost);
+        let untouched = decide_content(
+            PreserveMode::Exchange,
+            &scene(Some(old_file()), None, Some(new_file())),
+        );
+        assert_eq!(untouched, ContentAction::Keep);
+    }
+
+    #[test]
     fn created_target_is_displaced_and_absent_one_kept() {
         let created = TargetScene {
             existed: false,

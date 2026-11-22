@@ -12,9 +12,9 @@
 //! nothing and opens no transaction. Mutations outside a transaction are
 //! detected by the auditing file system of the fixture.
 
-use std::fs;
-
-use nurt_contracts::fs::{AbsPath, LinkKind, MetaChange, ProviderKey, ProviderScheme, ProviderValue};
+use nurt_contracts::fs::{
+    AbsPath, LinkKind, MetaChange, ProviderKey, ProviderScheme, ProviderValue,
+};
 use nurt_contracts::journal::{
     Expect, ExternalChange, ExternalChangeKind, JournalNotable, Mutation, MutationTx, OpHandle,
     PreserveMode, TargetAction, TargetIndex, TargetPath, TargetSpec,
@@ -41,6 +41,9 @@ const SMALL_VOLUME: u64 = 64 << 20;
 
 /// Size of the file whose copy does not fit on the small volume.
 const LARGE_FILE: u64 = 48 << 20;
+
+/// Zero bytes added by an extension of a file.
+const EXTENSION_LEN: usize = 4096;
 
 /// Provider scheme registered by the fixture for value targets.
 const TEST_PROVIDER: &str = "test";
@@ -141,7 +144,11 @@ fn plan(fixture: &Fixture, row: &Row, variant: Variant) -> Vec<Step> {
         steps.extend(created_steps(fixture, action, variant));
     }
     if written_externally(row) {
-        let size = if variant == Variant::NoSpace { LARGE_FILE } else { 1 };
+        let size = if variant == Variant::NoSpace {
+            LARGE_FILE
+        } else {
+            1
+        };
         let path = fixture.seed_sparse("work/external.bin", size);
         steps.push(Step {
             spec: target(&path, TargetAction::ExternalWrite),
@@ -153,9 +160,17 @@ fn plan(fixture: &Fixture, row: &Row, variant: Variant) -> Vec<Step> {
     if has(row, PreserveMode::Append) {
         let path = fixture.seed_file("work/append.txt", b"line 1\n");
         steps.push(if action == Some("extend") {
-            applied(&path, TargetAction::Truncate, Mutation::SetLength(4096))
+            applied(
+                &path,
+                TargetAction::Append,
+                Mutation::AppendBytes(vec![0; EXTENSION_LEN]),
+            )
         } else {
-            applied(&path, TargetAction::Append, Mutation::AppendBytes(b"line 2\n".to_vec()))
+            applied(
+                &path,
+                TargetAction::Append,
+                Mutation::AppendBytes(b"line 2\n".to_vec()),
+            )
         });
     }
     if has(row, PreserveMode::Moved) {
@@ -171,7 +186,11 @@ fn plan(fixture: &Fixture, row: &Row, variant: Variant) -> Vec<Step> {
             modified_ns: Some(i64::try_from(START.unix_nanos()).unwrap_or(i64::MAX)),
             ..MetaChange::default()
         };
-        steps.push(applied(&path, TargetAction::Attributes, Mutation::SetMeta(change)));
+        steps.push(applied(
+            &path,
+            TargetAction::Attributes,
+            Mutation::SetMeta(change),
+        ));
     }
     if has(row, PreserveMode::Value) {
         let key = ProviderKey {
@@ -201,7 +220,9 @@ fn created_steps(fixture: &Fixture, action: Option<&str>, variant: Variant) -> V
                 (Some("link"), Variant::HardLink) => applied(
                     &path,
                     TargetAction::Link,
-                    Mutation::CreateHardLink { existing: source.clone() },
+                    Mutation::CreateHardLink {
+                        existing: source.clone(),
+                    },
                 ),
                 (Some("link"), _) => applied(
                     &path,
@@ -211,7 +232,11 @@ fn created_steps(fixture: &Fixture, action: Option<&str>, variant: Variant) -> V
                         kind: LinkKind::SymlinkFile,
                     },
                 ),
-                _ => applied(&path, TargetAction::Create, Mutation::WriteBytes(b"created\n".to_vec())),
+                _ => applied(
+                    &path,
+                    TargetAction::Create,
+                    Mutation::WriteBytes(b"created\n".to_vec()),
+                ),
             }
         })
         .collect()
@@ -220,15 +245,23 @@ fn created_steps(fixture: &Fixture, action: Option<&str>, variant: Variant) -> V
 fn content_steps(fixture: &Fixture, action: Option<&str>, variant: Variant) -> Vec<Step> {
     (0..count(variant))
         .map(|index| {
-            let path = fixture.seed_file(&format!("work/content-{index}.txt"), b"previous content\n");
+            let path =
+                fixture.seed_file(&format!("work/content-{index}.txt"), b"previous content\n");
             match action {
                 Some("truncate") => applied(&path, TargetAction::Truncate, Mutation::SetLength(4)),
                 Some("data") => applied(
                     &path,
                     TargetAction::Modify,
-                    Mutation::WriteAt { offset: 2, bytes: b"XY".to_vec() },
+                    Mutation::WriteAt {
+                        offset: 2,
+                        bytes: b"XY".to_vec(),
+                    },
                 ),
-                _ => applied(&path, TargetAction::Modify, Mutation::WriteBytes(b"new content\n".to_vec())),
+                _ => applied(
+                    &path,
+                    TargetAction::Modify,
+                    Mutation::WriteBytes(b"new content\n".to_vec()),
+                ),
             }
         })
         .collect()
@@ -248,7 +281,11 @@ fn rename_step(fixture: &Fixture, row: &Row, variant: Variant) -> Step {
     } else {
         fixture.path("work/new-name.txt")
     };
-    applied(&source, TargetAction::Rename { to, replace }, Mutation::Rename)
+    applied(
+        &source,
+        TargetAction::Rename { to, replace },
+        Mutation::Rename,
+    )
 }
 
 /// Runs the plan in one transaction and commits it.
@@ -258,7 +295,11 @@ fn execute(fixture: &Fixture, row: &Row, steps: Vec<Step>, markers: &[Irreversib
     let mut tx: Box<dyn MutationTx + '_> = fixture.journal.begin(begin);
     let specs: Vec<TargetSpec> = steps.iter().map(|step| step.spec.clone()).collect();
     let preserved = tx.preserve(&specs).expect("targets are preserved");
-    assert_eq!(preserved.len(), specs.len(), "one preservation result per target");
+    assert_eq!(
+        preserved.len(),
+        specs.len(),
+        "one preservation result per target"
+    );
     let mut external = Vec::new();
     for (index, step) in steps.into_iter().enumerate() {
         let index = TargetIndex(u32::try_from(index).expect("target index fits"));
@@ -267,8 +308,7 @@ fn execute(fixture: &Fixture, row: &Row, steps: Vec<Step>, markers: &[Irreversib
                 tx.apply(index, mutation).expect("change is applied");
             }
             Change::External(path) => {
-                fs::write(path.as_path(), b"written by the program\n")
-                    .expect("program writes its file");
+                fixture.write_outside(&path, b"written by the program\n");
                 external.push(ExternalChange {
                     path,
                     kind: ExternalChangeKind::Modified,
@@ -315,7 +355,11 @@ fn check_modes(handle: &OpHandle, row: &Row, table: &CoverageTable) {
     for outcome in &handle.targets {
         if outcome.mode == PreserveMode::None {
             let reason = outcome.irreversible.unwrap_or_else(|| {
-                panic!("{}: target {:?} kept nothing without a reason", row.label(), outcome.path)
+                panic!(
+                    "{}: target {:?} kept nothing without a reason",
+                    row.label(),
+                    outcome.path
+                )
             });
             assert!(
                 table.generic_irreversible.contains(&reason) || row.irreversible.contains(&reason),
@@ -336,11 +380,12 @@ fn check_modes(handle: &OpHandle, row: &Row, table: &CoverageTable) {
 
 fn reasons(handle: &OpHandle) -> Vec<Irreversible> {
     let mut reasons = Vec::new();
-    let reported = handle
-        .irreversible
-        .iter()
-        .map(|entry| entry.reason)
-        .chain(handle.targets.iter().filter_map(|outcome| outcome.irreversible));
+    let reported = handle.irreversible.iter().map(|entry| entry.reason).chain(
+        handle
+            .targets
+            .iter()
+            .filter_map(|outcome| outcome.irreversible),
+    );
     for reason in reported {
         push_unique(&mut reasons, reason);
     }
@@ -350,7 +395,13 @@ fn reasons(handle: &OpHandle) -> Vec<Irreversible> {
 fn change_round_trips(fixture: &Fixture, table: &CoverageTable, row: &Row, variant: Variant) {
     let steps = plan(fixture, row, variant);
     let before = fixture.snapshot();
-    let handle = execute(fixture, row, steps, &[]);
+    let markers = match variant {
+        Variant::PreserveLimit | Variant::PreserveBudget => {
+            vec![Irreversible::PreviousContentNotKept]
+        }
+        _ => Vec::new(),
+    };
+    let handle = execute(fixture, row, steps, &markers);
     let after = fixture.snapshot();
     check_modes(&handle, row, table);
     if variant == Variant::LowerOverlayLayer {
@@ -361,12 +412,20 @@ fn change_round_trips(fixture: &Fixture, table: &CoverageTable, row: &Row, varia
                     .iter()
                     .any(|notable| matches!(notable, JournalNotable::CrossDeviceCopy { .. }))
         });
-        assert!(copied, "{}: a lower layer directory is kept by copy", row.label());
+        assert!(
+            copied,
+            "{}: a lower layer directory is kept by copy",
+            row.label()
+        );
     }
     let reported = reasons(&handle);
     match (row.coverage, variant) {
         (Coverage::Full, _) | (Coverage::Partial, Variant::Plain | Variant::Bulk(_)) => {
-            assert!(reported.is_empty(), "{}: unexpected reasons {reported:?}", row.label());
+            assert!(
+                reported.is_empty(),
+                "{}: unexpected reasons {reported:?}",
+                row.label()
+            );
         }
         (_, Variant::NoSpace) => assert!(
             reported.contains(&Irreversible::NoSpaceForCopy)
@@ -388,13 +447,32 @@ fn change_round_trips(fixture: &Fixture, table: &CoverageTable, row: &Row, varia
         .journal
         .undo(&request::undo_last())
         .expect("operation is undone");
-    assert_eq!(undone.sources, vec![handle.op.expect("operation has a number")]);
-    before.assert_same(&fixture.snapshot(), &format!("{} after undo", row.label()));
+    assert_eq!(
+        undone.sources,
+        vec![handle.op.expect("operation has a number")]
+    );
+    let restored = fixture.snapshot();
+    if variant == Variant::HardLink {
+        before.without_link_counts().assert_same(
+            &restored.without_link_counts(),
+            &format!("{} after undo", row.label()),
+        );
+    } else {
+        before.assert_same(&restored, &format!("{} after undo", row.label()));
+    }
     fixture
         .journal
         .redo(&request::redo(Some(undone.entry)))
         .expect("undo is redone");
-    after.assert_same(&fixture.snapshot(), &format!("{} after redo", row.label()));
+    let redone = fixture.snapshot();
+    let context = format!("{} after redo", row.label());
+    if variant == Variant::HardLink {
+        after
+            .without_link_counts()
+            .assert_same(&redone.without_link_counts(), &context);
+    } else {
+        after.assert_same(&redone, &context);
+    }
 }
 
 fn effect_is_marked(fixture: &Fixture, table: &CoverageTable, row: &Row) {
@@ -413,7 +491,11 @@ fn effect_is_marked(fixture: &Fixture, table: &CoverageTable, row: &Row) {
             reason.as_str()
         );
     }
-    assert!(handle.op.is_some(), "{}: an irreversible effect is recorded", row.label());
+    assert!(
+        handle.op.is_some(),
+        "{}: an irreversible effect is recorded",
+        row.label()
+    );
 }
 
 fn read_changes_nothing(fixture: &Fixture) {

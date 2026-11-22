@@ -63,6 +63,7 @@ pub(crate) fn entry(op: u64, volume: &str) -> EntryFacts {
         bytes_physical: MIB,
         irreversible: Vec::new(),
         pinned: false,
+        rolled_back: false,
     }
 }
 

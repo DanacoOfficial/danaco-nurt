@@ -1,21 +1,24 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Fixture of the journal under test: volume directories, the journal bound
-//! to them, a read view of the file system and a virtual clock.
+//! Fixture of the journal under test: volumes, the journal bound to them, a
+//! read view of the file system and a virtual clock.
 
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use nurt_contracts::config::{ConfigLevel, JournalConfig, SpaceConfig};
-use nurt_contracts::env::Clock;
-use nurt_contracts::fs::{AbsPath, Fs};
-use nurt_contracts::journal::{HistoryQuery, JournalState, JournalStore, OpId, OperationRecord};
-use tempfile::TempDir;
+use nurt_contracts::fs::{AbsPath, Fs, FsWrite};
+use nurt_contracts::journal::{
+    Expect, HistoryQuery, JournalState, JournalStore, Mutation, OpId, OperationRecord,
+    TargetAction, TargetIndex, TargetPath, TargetSpec,
+};
+use nurt_fs::audit::AuditFs;
 
 use super::clock::VirtualClock;
+use super::services::{self, ValueProvider};
 use super::snapshot::TreeSnapshot;
+use super::volumes::Volumes;
 
 /// Bytes in one gibibyte.
 pub(crate) const GIB: u64 = 1 << 30;
@@ -23,7 +26,7 @@ pub(crate) const GIB: u64 = 1 << 30;
 /// Bytes in one gigabyte, as volume and file sizes are stated.
 pub(crate) const GB: u64 = 1_000_000_000;
 
-/// Volume simulated by the file system view of the fixture.
+/// Volume simulated by the fixture.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VolumeSpec {
     /// Capacity reported for the volume.
@@ -48,7 +51,7 @@ pub(crate) struct Setting {
     pub(crate) level: ConfigLevel,
     /// Key, for example `journal.max_ops`.
     pub(crate) key: &'static str,
-    /// Value in the configuration file syntax.
+    /// Value as JSON, or as text when it is not valid JSON (`40m`).
     pub(crate) value: String,
 }
 
@@ -60,8 +63,7 @@ pub(crate) struct FixtureOptions {
     pub(crate) journal: JournalConfig,
     /// Space settings.
     pub(crate) space: SpaceConfig,
-    /// Simulated volumes, one directory each; the first one is the working
-    /// volume.
+    /// Simulated volumes; the first one is the working volume.
     pub(crate) volumes: Vec<VolumeSpec>,
     /// Mounted directories used as the volumes instead of simulated ones; the
     /// fixture works in a new temporary directory inside each of them.
@@ -76,10 +78,10 @@ pub(crate) struct FixtureOptions {
     /// The project of the working volume is trusted by the user
     /// configuration; settings of the project level apply only then.
     pub(crate) project_trusted: bool,
-    /// Seed of the fault injection: when set, the file system runs through
-    /// the crash layer and the journal hits seeded failpoints; a crash point
-    /// ends the current call with an error and discards unsynchronised
-    /// state.
+    /// Seed of the fault injection: when set, the volumes are simulated with
+    /// power loss and the journal hits seeded failpoints; a crash ends the
+    /// current call with an error, and [`Fixture::restart`] discards the
+    /// state that was not durable.
     pub(crate) crash_seed: Option<u64>,
 }
 
@@ -99,42 +101,18 @@ impl Default for FixtureOptions {
     }
 }
 
-/// File system operations counted since the fixture was opened.
+/// File system operations on user data counted since the journal instance
+/// was bound; operations inside the journal and state directories are not
+/// counted.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct OpCounters {
-    /// Renames and exchanges of names.
+    /// Renames of user data.
     pub(crate) renames: u64,
-    /// Bytes copied by copy operations.
-    pub(crate) bytes_copied: u64,
-    /// Entries removed.
+    /// Bytes copied by the file system, journal copies included; `None` on
+    /// mounted volumes, whose file system does not count them.
+    pub(crate) bytes_copied: Option<u64>,
+    /// Removals of user data.
     pub(crate) removals: u64,
-}
-
-/// Journal under test with the read view of its file system.
-pub(crate) struct Bound {
-    /// Journal store.
-    pub(crate) journal: Box<dyn JournalStore>,
-    /// Read view of the volumes, with the simulated capacity.
-    pub(crate) fs: Arc<dyn Fs>,
-    /// Counters of the file system layer below the journal.
-    pub(crate) counters: Box<dyn Fn() -> OpCounters + Send + Sync>,
-}
-
-/// Binds a new journal instance to the volume directories.
-///
-/// The binding builds the journal store over the platform file system of the
-/// directories. The file system is wrapped by the mutation audit when the
-/// feature `mutation-audit` of the file system crate is enabled. Each
-/// simulated volume reports its capacity. The space service runs when the
-/// options say so. A writable provider with the scheme `test` serves value
-/// targets. Settings of the options apply at their levels.
-///
-/// # Panics
-///
-/// Always. The journal crate exposes no public constructor of a journal
-/// store, and every test that needs one is ignored.
-fn bind(_options: &FixtureOptions, _volumes: &[AbsPath], _clock: Arc<dyn Clock>) -> Bound {
-    panic!("no journal store implementation is bound to the test harness")
 }
 
 /// Result channel produced outside the journal store.
@@ -162,49 +140,32 @@ impl Channel {
 /// Volumes with the journal under test.
 pub(crate) struct Fixture {
     /// Journal store.
-    pub(crate) journal: Box<dyn JournalStore>,
+    pub(crate) journal: Arc<dyn JournalStore>,
     /// Read view of the volumes.
     pub(crate) fs: Arc<dyn Fs>,
-    /// Virtual clock of the journal.
+    /// Virtual clock of the journal and of the simulated volumes.
     pub(crate) clock: Arc<VirtualClock>,
-    counters: Box<dyn Fn() -> OpCounters + Send + Sync>,
+    audit: Arc<AuditFs<dyn FsWrite>>,
+    values: Arc<ValueProvider>,
     options: FixtureOptions,
-    volumes: Vec<AbsPath>,
-    _dirs: Vec<TempDir>,
+    volumes: Volumes,
 }
 
 impl Fixture {
-    /// Creates the volume directories and binds a journal to them.
+    /// Creates the volumes and binds a journal to them.
     pub(crate) fn open(options: FixtureOptions) -> Self {
-        let dirs: Vec<TempDir> = if options.mounted.is_empty() {
-            options
-                .volumes
-                .iter()
-                .map(|_| tempfile::tempdir().expect("temporary directory is created"))
-                .collect()
-        } else {
-            options
-                .mounted
-                .iter()
-                .map(|mount| {
-                    tempfile::tempdir_in(mount).expect("directory is created on the volume")
-                })
-                .collect()
-        };
-        let volumes: Vec<AbsPath> = dirs
-            .iter()
-            .map(|dir| AbsPath::new(dir.path()).expect("temporary directory is absolute"))
-            .collect();
         let clock = Arc::new(VirtualClock::new());
-        let bound = bind(&options, &volumes, clock.clone());
+        let volumes = Volumes::open(&options, clock.clone());
+        let values = Arc::new(ValueProvider::new());
+        let bound = services::bind(&options, &volumes, clock.clone(), values.clone(), true);
         Self {
             journal: bound.journal,
-            fs: bound.fs,
+            fs: volumes.fs(),
             clock,
-            counters: bound.counters,
+            audit: bound.audit,
+            values,
             options,
             volumes,
-            _dirs: dirs,
         }
     }
 
@@ -214,17 +175,51 @@ impl Fixture {
     }
 
     /// Replaces the journal by a new instance over the same volumes, as a new
-    /// process after a restart; the clock keeps its state.
+    /// process after a restart; the clock keeps its state. Volumes simulated
+    /// with power loss lose the state that was not durable.
     pub(crate) fn restart(&mut self) {
-        let bound = bind(&self.options, &self.volumes, self.clock.clone());
+        self.volumes.power_loss();
+        let bound = services::bind(
+            &self.options,
+            &self.volumes,
+            self.clock.clone(),
+            self.values.clone(),
+            false,
+        );
         self.journal = bound.journal;
-        self.fs = bound.fs;
-        self.counters = bound.counters;
+        self.audit = bound.audit;
     }
 
-    /// File system operations counted so far.
+    /// File system operations on user data counted so far.
     pub(crate) fn counters(&self) -> OpCounters {
-        (self.counters)()
+        let (renames, removals) = services::user_data_calls(&self.audit);
+        OpCounters {
+            renames,
+            bytes_copied: self.volumes.bytes_copied(),
+            removals,
+        }
+    }
+
+    /// Records one small change, so that the journal of the working volume
+    /// exists: the journal reports a volume only after its first use.
+    pub(crate) fn use_journal(&self) -> OpId {
+        let path = self.seed_file("work/first-use.txt", b"before\n");
+        let mut tx = self
+            .journal
+            .begin(super::request::begin("write", Some("overwrite")));
+        tx.preserve(&[TargetSpec {
+            path: TargetPath::Fs(path),
+            action: TargetAction::Modify,
+            expect: Expect::Unchecked,
+            size_hint: None,
+        }])
+        .expect("target is preserved");
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"after\n".to_vec()))
+            .expect("change is applied");
+        tx.commit()
+            .expect("transaction commits")
+            .op
+            .expect("a committed change has a number")
     }
 
     /// Everything the channel produced since the fixture was opened, as JSON.
@@ -242,7 +237,7 @@ impl Fixture {
 
     /// Root of volume `index`.
     pub(crate) fn volume(&self, index: usize) -> &AbsPath {
-        &self.volumes[index]
+        &self.volumes.roots()[index]
     }
 
     /// Path below the root of the working volume; `relative` uses `/`.
@@ -254,33 +249,64 @@ impl Fixture {
     /// prepare trees before an operation.
     pub(crate) fn seed_file(&self, relative: &str, content: &[u8]) -> AbsPath {
         let path = self.path(relative);
-        create_parent(path.as_path());
-        fs::write(path.as_path(), content).expect("seed file is written");
+        self.volumes.write(&path, content);
+        self.volumes.seeded(&path);
         path
     }
 
     /// Creates a sparse file of `length` bytes outside the journal; large
     /// sizes take no space on the volume.
     pub(crate) fn seed_sparse(&self, relative: &str, length: u64) -> AbsPath {
-        let path = self.path(relative);
-        create_parent(path.as_path());
-        let file = fs::File::create(path.as_path()).expect("sparse file is created");
-        file.set_len(length).expect("sparse file length is set");
+        self.seed_sparse_on(0, relative, length)
+    }
+
+    /// Creates a sparse file of `length` bytes below the root of volume
+    /// `index`.
+    pub(crate) fn seed_sparse_on(&self, index: usize, relative: &str, length: u64) -> AbsPath {
+        let path = path_below(self.volume(index), relative);
+        self.volumes.write_sparse(&path, length);
+        self.volumes.seeded(&path);
         path
     }
 
     /// Creates a directory with `count` small files outside the journal.
     pub(crate) fn seed_tree(&self, relative: &str, count: usize) -> AbsPath {
         let dir = self.path(relative);
-        fs::create_dir_all(dir.as_path()).expect("seed directory is created");
+        self.volumes.create_dir_all(&dir);
         for index in 0..count {
-            fs::write(
-                dir.as_path().join(format!("f{index:07}")),
-                index.to_le_bytes(),
-            )
-            .expect("seed file is written");
+            let file = dir
+                .join_name(&format!("f{index:07}"))
+                .expect("file name is a single component");
+            self.volumes.write(&file, &index.to_le_bytes());
         }
+        self.volumes.seeded(&dir);
         dir
+    }
+
+    /// Replaces the content of a file as another program does, without the
+    /// journal.
+    pub(crate) fn write_outside(&self, path: &AbsPath, content: &[u8]) {
+        self.volumes.write(path, content);
+    }
+
+    /// Adds the name `new` to the file `existing` without the journal.
+    pub(crate) fn hard_link(&self, existing: &AbsPath, new: &AbsPath) {
+        self.volumes.hard_link(existing, new);
+    }
+
+    /// Removes the name of a file without the journal.
+    pub(crate) fn remove_outside(&self, path: &AbsPath) {
+        self.volumes.remove_file(path);
+    }
+
+    /// Whole content of a file.
+    pub(crate) fn read(&self, path: &AbsPath) -> Vec<u8> {
+        self.volumes.read(path)
+    }
+
+    /// Whether an entry exists at `path`, without following links.
+    pub(crate) fn exists(&self, path: &AbsPath) -> bool {
+        self.volumes.exists(path)
     }
 
     /// Snapshot of the working volume without the journal directory.
@@ -297,7 +323,10 @@ impl Fixture {
     /// Every entry of `history`, newest first.
     pub(crate) fn history(&self) -> Vec<OperationRecord> {
         self.journal
-            .history(&HistoryQuery::default())
+            .history(&HistoryQuery {
+                limit: Some(u32::MAX),
+                ..HistoryQuery::default()
+            })
             .expect("history is readable")
     }
 
@@ -314,7 +343,7 @@ impl Fixture {
             .unwrap_or_else(|| panic!("entry {op:?} is listed by history"))
     }
 
-    /// `journal.status` of volume `index`.
+    /// Status of volume `index`, as `journal.status` reports it.
     pub(crate) fn status_of(&self, index: usize) -> JournalState {
         let mut states = self
             .journal
@@ -324,7 +353,7 @@ impl Fixture {
         states.remove(0)
     }
 
-    /// `journal.status` of the working volume.
+    /// Status of the working volume, as `journal.status` reports it.
     pub(crate) fn status(&self) -> JournalState {
         self.status_of(0)
     }
@@ -353,10 +382,4 @@ pub(crate) fn mounted_dir(variable: &str) -> PathBuf {
         dir.display()
     );
     dir
-}
-
-fn create_parent(path: &Path) {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).expect("parent directory is created");
-    }
 }

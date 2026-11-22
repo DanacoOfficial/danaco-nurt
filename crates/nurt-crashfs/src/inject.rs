@@ -115,6 +115,7 @@ impl Call {
     ];
 
     /// Operation name used in injected errors.
+    #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
             Self::CreateTempIn => "create_temp_in",
@@ -161,6 +162,7 @@ pub const INJECTED_KINDS: [FsErrorKind; 9] = [
 ];
 
 /// Raw system error code reported with an injected error of `kind`.
+#[must_use]
 pub fn os_code(kind: FsErrorKind) -> Option<i32> {
     if cfg!(windows) {
         match kind {
@@ -232,6 +234,7 @@ pub struct InjectRule {
 
 impl InjectRule {
     /// Rule failing occurrence `occurrence` of `call` with `kind`.
+    #[must_use]
     pub fn error_at(call: Call, occurrence: u32, kind: FsErrorKind) -> Self {
         Self {
             call: Some(call),

@@ -2,10 +2,12 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Harness shared by the journal test suites: a fixture that binds the journal
-//! under test to a temporary directory, tree snapshots for round-trip
+//! under test to simulated or mounted volumes, tree snapshots for round-trip
 //! comparisons, a virtual clock and builders of journal requests.
 
 pub(crate) mod clock;
 pub(crate) mod fixture;
 pub(crate) mod request;
+pub(crate) mod services;
 pub(crate) mod snapshot;
+pub(crate) mod volumes;

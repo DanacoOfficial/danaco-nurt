@@ -37,7 +37,8 @@ fn save(report: &CorpusReport) {
     }
 }
 
-fn assert_clean(report: &CorpusReport) {
+/// Saves the report and fails the test when any point violated the oracle.
+pub(crate) fn assert_clean(report: &CorpusReport) {
     save(report);
     assert!(
         report.failures.is_empty(),

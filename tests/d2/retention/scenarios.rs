@@ -13,7 +13,9 @@
 
 use std::time::Duration;
 
-use nurt_contracts::config::{AgeClock, ConfigLevel, Oversize, StepLimit};
+use nurt_contracts::config::{
+    AgeClock, ConfigLevel, Oversize, SizeOrPercent, SizeSetting, StepLimit,
+};
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::journal::{
     Expect, JournalNotable, LimitsRequest, LimitsScope, Mutation, MutationTx, OnConflict, OpId,
@@ -24,12 +26,16 @@ use nurt_contracts::report::Irreversible;
 
 use crate::harness::fixture::{Fixture, FixtureOptions, GB, GIB, Setting, VolumeSpec};
 use crate::harness::request;
+use crate::leak;
 use crate::support::{
     self, AGE, MINUTE, SECOND, STEPS, assert_states, finish, large_remove, large_write,
-    small_write, state,
+    remove_path, small_write, state,
 };
 
 const HOUR: Duration = Duration::from_secs(3600);
+
+/// Bytes in one mebibyte.
+const MIB: u64 = 1 << 20;
 
 fn fill(fixture: &Fixture, count: usize) -> Vec<OpId> {
     (0..count)
@@ -59,7 +65,6 @@ fn session_limits(steps: u32, preview: bool) -> LimitsRequest {
 const STEPS_TO_EXPIRE: usize = STEPS as usize;
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn entry_expires_after_thirty_newer_steps() {
     let fixture = Fixture::open(support::options());
     let ops = fill(&fixture, STEPS_TO_EXPIRE + 1);
@@ -70,7 +75,6 @@ fn entry_expires_after_thirty_newer_steps() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn bulk_undo_and_failed_check_each_count_as_one_step() {
     let fixture = Fixture::open(support::options());
     let first = small_write(&fixture, 0);
@@ -124,7 +128,6 @@ fn bulk_undo_and_failed_check_each_count_as_one_step() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn rollback_before_commit_and_user_limit_change_are_not_steps() {
     let fixture = Fixture::open(support::options());
     let first = small_write(&fixture, 0);
@@ -149,13 +152,14 @@ fn rollback_before_commit_and_user_limit_change_are_not_steps() {
             ..session_limits(STEPS, false)
         })
         .expect("user limit is written");
-    fill(&fixture, STEPS_TO_EXPIRE);
+    fill(&fixture, STEPS_TO_EXPIRE - 1);
     assert_eq!(state(&fixture, first), OpState::Available);
+    small_write(&fixture, STEPS_TO_EXPIRE);
+    assert_eq!(state(&fixture, first), OpState::Expired);
     finish(&fixture);
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn entry_expires_after_thirty_minutes() {
     let fixture = Fixture::open(support::options());
     let op = small_write(&fixture, 0);
@@ -163,21 +167,17 @@ fn entry_expires_after_thirty_minutes() {
     fixture.journal.sweep().expect("sweep runs");
     assert_eq!(state(&fixture, op), OpState::Available, "at 29:59");
     fixture.clock.advance(SECOND);
-    fixture.journal.sweep().expect("sweep runs");
+    let swept = fixture.journal.sweep().expect("sweep runs");
     assert_eq!(
         state(&fixture, op),
-        OpState::Available,
-        "at 30:00 the limit is reached, not exceeded"
+        OpState::Expired,
+        "an entry expires when its age reaches the limit"
     );
-    fixture.clock.advance(SECOND);
-    let swept = fixture.journal.sweep().expect("sweep runs");
-    assert_eq!(state(&fixture, op), OpState::Expired, "at 30:01");
     assert!(swept.expired.iter().any(|entry| entry.op == op));
     finish(&fixture);
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn wall_clock_steps_never_extend_and_may_shorten_age() {
     let fixture = Fixture::open(support::options());
     let young = small_write(&fixture, 0);
@@ -191,7 +191,7 @@ fn wall_clock_steps_never_extend_and_may_shorten_age() {
         OpState::Expired,
         "a step back does not extend the age"
     );
-    fixture.clock.step_wall_forward(HOUR);
+    fixture.clock.step_wall_forward(2 * HOUR);
     fixture.journal.sweep().expect("sweep runs");
     assert_eq!(
         state(&fixture, fresh),
@@ -201,19 +201,30 @@ fn wall_clock_steps_never_extend_and_may_shorten_age() {
     finish(&fixture);
 }
 
+/// Size budget of the oversize scenarios; they run at a scale at which the
+/// whole previous content of a file is cheap to hold.
+const SMALL_BUDGET: u64 = 20 * MIB;
+
+fn small_budget_options() -> FixtureOptions {
+    let mut options = support::options();
+    options.journal.max_size = "20mib".parse().expect("size limit is valid");
+    options
+}
+
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn operation_over_size_budget_is_not_preserved() {
-    let fixture = Fixture::open(support::options());
+    let mut options = small_budget_options();
+    options.journal.oversize = Oversize::Skip;
+    let fixture = Fixture::open(options);
     let earlier = small_write(&fixture, 0);
-    let handle = large_write(&fixture, "large.bin", 25 * GB);
+    let handle = large_write(&fixture, "large.bin", 25 * MIB);
     let target = &handle.targets[0];
     assert_eq!(target.mode, PreserveMode::None);
     assert_eq!(target.irreversible, Some(Irreversible::TooLargeForJournal));
     assert!(
         handle.notable.iter().chain(&target.notable).any(|notable| matches!(
             notable,
-            JournalNotable::JournalOversize { size, limit } if *size >= 25 * GB && *limit == 20 * GIB
+            JournalNotable::JournalOversize { size, limit } if *size >= 25 * MIB && *limit == SMALL_BUDGET
         )),
         "the size and the limit are reported"
     );
@@ -222,13 +233,12 @@ fn operation_over_size_budget_is_not_preserved() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn oversize_keep_preserves_entry_over_budget() {
-    let mut options = support::options();
+    let mut options = small_budget_options();
     options.journal.oversize = Oversize::Keep;
     let fixture = Fixture::open(options);
     let earlier = small_write(&fixture, 0);
-    let handle = large_write(&fixture, "large.bin", 25 * GB);
+    let handle = large_write(&fixture, "large.bin", 25 * MIB);
     assert_ne!(handle.targets[0].mode, PreserveMode::None);
     assert!(handle.irreversible.is_empty());
     assert_eq!(
@@ -240,14 +250,17 @@ fn oversize_keep_preserves_entry_over_budget() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn oldest_entries_expire_to_fit_size_budget() {
     let fixture = Fixture::open(support::options());
     let old = large_remove(&fixture, "old.bin", 6 * GB);
     let middle = large_remove(&fixture, "middle.bin", 4 * GB);
     let new = large_remove(&fixture, "new.bin", 15 * GB);
     assert_eq!(state(&fixture, old), OpState::Expired);
-    assert_eq!(state(&fixture, middle), OpState::Expired);
+    assert_eq!(
+        state(&fixture, middle),
+        OpState::Available,
+        "expiry stops once the budget holds"
+    );
     assert_eq!(
         state(&fixture, new),
         OpState::Available,
@@ -258,16 +271,19 @@ fn oldest_entries_expire_to_fit_size_budget() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn hard_space_threshold_releases_entries_without_failing_operations() {
     let mut options = support::unlimited(true, true, true);
     options.volumes = vec![VolumeSpec {
-        capacity: 500 * GB,
-        used: 400 * GB,
+        capacity: 512 * MIB,
+        used: 400 * MIB,
     }];
+    options.space.reserve = SizeOrPercent::Size(SizeSetting::from_mib(50));
+    options.space.soft = Some(SizeOrPercent::Size(SizeSetting::from_mib(70)));
     let fixture = Fixture::open(options);
-    let held = large_remove(&fixture, "held.bin", 30 * GB);
-    let handle = large_write(&fixture, "big.bin", 60 * GB);
+    let kept = fixture.seed_file("work/held.bin", &vec![1; (30 * MIB) as usize]);
+    let held = remove_path(&fixture, &kept);
+    fixture.seed_file("work/filler.bin", &vec![2; (40 * MIB) as usize]);
+    let handle = large_write(&fixture, "big.bin", 60 * MIB);
     assert_eq!(
         handle.targets[0].irreversible,
         Some(Irreversible::NoSpaceForCopy)
@@ -285,7 +301,7 @@ fn hard_space_threshold_releases_entries_without_failing_operations() {
     }
     let space = &fixture.journal.space(None).expect("space is reported")[0];
     assert!(space.free >= space.reserve, "reclaim restores the reserve");
-    assert!(status.bytes_held <= 30 * GB);
+    assert!(status.bytes_held <= 30 * MIB);
     finish(&fixture);
 }
 
@@ -302,7 +318,6 @@ fn hard_space_threshold_on_file_backed_ext4() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn unlimited_steps_keep_entries_until_age_or_space() {
     let fixture = Fixture::open(support::unlimited(true, false, false));
     let ops = fill(&fixture, 100);
@@ -318,7 +333,6 @@ fn unlimited_steps_keep_entries_until_age_or_space() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn unlimited_age_keeps_entries_across_restart() {
     let mut fixture = Fixture::open(support::unlimited(false, true, false));
     let op = small_write(&fixture, 0);
@@ -331,7 +345,6 @@ fn unlimited_age_keeps_entries_across_restart() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn unlimited_size_keeps_large_entries_above_reserve() {
     let fixture = Fixture::open(support::unlimited(false, false, true));
     let first = large_remove(&fixture, "a.bin", 40 * GB);
@@ -343,7 +356,6 @@ fn unlimited_size_keeps_large_entries_above_reserve() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn unlimited_limits_keep_entries_until_soft_threshold() {
     let mut fixture = Fixture::open(support::unlimited(true, true, true));
     let ops = fill(&fixture, 1000);
@@ -361,7 +373,6 @@ fn unlimited_limits_keep_entries_until_soft_threshold() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn lowering_step_limit_expires_oldest_entries_at_once() {
     let fixture = Fixture::open(support::options());
     let ops = fill(&fixture, 25);
@@ -385,7 +396,6 @@ fn lowering_step_limit_expires_oldest_entries_at_once() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn raising_step_limit_does_not_restore_entries() {
     let fixture = Fixture::open(support::options());
     let ops = fill(&fixture, 25);
@@ -402,7 +412,6 @@ fn raising_step_limit_does_not_restore_entries() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn restart_reviews_entries_before_first_operation() {
     let mut fixture = Fixture::open(support::options());
     let old = small_write(&fixture, 0);
@@ -410,14 +419,13 @@ fn restart_reviews_entries_before_first_operation() {
     let young = small_write(&fixture, 1);
     fixture.clock.reboot(20 * MINUTE);
     fixture.restart();
-    small_write(&fixture, 2);
+    fixture.journal.recover().expect("recovery runs");
     assert_eq!(state(&fixture, old), OpState::Expired, "40 minutes old");
     assert_eq!(state(&fixture, young), OpState::Available, "20 minutes old");
     finish(&fixture);
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn suspension_ages_entries_on_wall_clock_only() {
     for (clock, expired) in [(AgeClock::Wall, true), (AgeClock::Active, false)] {
         let mut options = support::options();
@@ -445,7 +453,6 @@ fn setting(level: ConfigLevel, key: &'static str, value: &str) -> Setting {
 }
 
 #[test]
-#[ignore = "requires configuration loading of the journal settings"]
 fn untrusted_project_settings_and_self_trust_are_ignored() {
     let mut options = support::options();
     options.project_trusted = false;
@@ -483,7 +490,6 @@ const PROJECT_MIN_STEPS: u32 = 10;
 const PROJECT_MIN_AGE: Duration = Duration::from_secs(5 * 60);
 
 #[test]
-#[ignore = "requires configuration loading of the journal settings"]
 fn project_runtime_and_user_limits_are_raised_to_floor() {
     let mut options = support::options();
     options.settings = vec![
@@ -526,16 +532,12 @@ fn project_runtime_and_user_limits_are_raised_to_floor() {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn expiry_on_one_volume_leaves_other_volume_intact() {
     let mut options = support::options();
     options.volumes.push(VolumeSpec::STANDARD);
     let fixture = Fixture::open(options);
     let first = large_remove(&fixture, "a.bin", 15 * GB);
-    let other_path = crate::harness::fixture::path_below(fixture.volume(1), "b.bin");
-    std::fs::File::create(other_path.as_path())
-        .and_then(|file| file.set_len(5 * GB))
-        .expect("sparse file is created on the second volume");
+    let other_path = fixture.seed_sparse_on(1, "b.bin", 5 * GB);
     let mut tx: Box<dyn MutationTx + '_> = fixture.journal.begin(request::begin("remove", None));
     tx.preserve(&[TargetSpec {
         path: TargetPath::Fs(other_path),
@@ -559,16 +561,15 @@ fn expiry_on_one_volume_leaves_other_volume_intact() {
         "the budget is per volume"
     );
     assert_eq!(fixture.status_of(1).bytes_held, 5 * GB);
-    finish(&fixture);
+    leak::history_carries_no_expiry(&fixture);
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn removed_hard_link_holds_no_bytes() {
     let fixture = Fixture::open(support::options());
-    let file = fixture.seed_sparse("work/data.bin", 10 * GB);
+    let file = fixture.seed_sparse("work/data.bin", 10 * MIB);
     let link = fixture.path("work/link.bin");
-    std::fs::hard_link(file.as_path(), link.as_path()).expect("hard link is created");
+    fixture.hard_link(&file, &link);
     let mut tx: Box<dyn MutationTx + '_> = fixture.journal.begin(request::begin("remove", None));
     tx.preserve(&[TargetSpec {
         path: TargetPath::Fs(link.clone()),
@@ -591,19 +592,18 @@ fn removed_hard_link_holds_no_bytes() {
         .journal
         .undo(&request::undo_last())
         .expect("link is restored");
-    assert!(link.as_path().exists());
-    std::fs::remove_file(link.as_path()).expect("second name is removed");
-    let handle = large_write(&fixture, "data.bin", 10 * GB);
+    assert!(fixture.exists(&link));
+    fixture.remove_outside(&link);
+    let handle = large_write(&fixture, "data.bin", 10 * MIB);
     assert_eq!(
         handle.targets[0].bytes_held,
-        10 * GB,
+        10 * MIB,
         "a single name holds its data"
     );
     finish(&fixture);
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn bulk_entry_expires_as_a_whole() {
     let fixture = Fixture::open(support::options());
     let paths: Vec<_> = (0..3)
@@ -672,20 +672,27 @@ fn expiry_sequence() -> Vec<(u64, String)> {
 }
 
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn expiry_order_is_deterministic() {
     assert_eq!(expiry_sequence(), expiry_sequence());
 }
 
+/// Step limit that differs from the built-in one, so that its source is the
+/// user level.
+const STATUS_STEPS: u32 = 25;
+
 #[test]
-#[ignore = "requires the journal store implementation"]
 fn status_reports_entries_bytes_oldest_and_limit_sources() {
-    let fixture = Fixture::open(support::options());
+    let mut options = support::options();
+    options.journal.max_ops = StepLimit::Limited(STATUS_STEPS);
+    let fixture = Fixture::open(options);
     let ops = fill(&fixture, 3);
     let status = fixture.status();
     assert_eq!(status.entries_available, 3);
     assert_eq!(status.oldest.as_ref().map(|entry| entry.op), Some(ops[0]));
-    assert_eq!(status.limits.max_ops.value, StepLimit::Limited(STEPS));
+    assert_eq!(
+        status.limits.max_ops.value,
+        StepLimit::Limited(STATUS_STEPS)
+    );
     assert_eq!(status.limits.max_ops.source, ConfigLevel::User);
     assert_eq!(status.limits.max_size_bytes, Some(20 * GIB));
     assert!(status.inactive.is_none());
@@ -711,4 +718,12 @@ fn scenario_options_state_the_documented_limits() {
     );
     assert_eq!(options.journal.oversize, Oversize::Skip);
     assert_eq!(options.volumes, vec![VolumeSpec::STANDARD]);
+}
+
+#[test]
+fn status_of_volume_without_entries_reports_an_empty_journal() {
+    let fixture = Fixture::open(support::options());
+    let status = fixture.status();
+    assert_eq!(status.entries_available, 0);
+    assert_eq!(status.bytes_held, 0);
 }

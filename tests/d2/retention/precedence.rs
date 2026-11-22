@@ -146,7 +146,6 @@ fn precedence_table_covers_every_level_and_dimension() {
 }
 
 #[test]
-#[ignore = "requires configuration loading of the journal settings"]
 fn retention_settings_follow_configuration_level_precedence() {
     let builtin = FixtureOptions::default().journal;
     let mut failures = Vec::new();

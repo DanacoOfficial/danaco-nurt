@@ -8,6 +8,13 @@
 //! These tests check the table against the catalog and run the undo and redo
 //! round trip of every row.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test assertions report failures by panicking"
+)]
+
 mod cases;
 mod catalog;
 mod consistency;

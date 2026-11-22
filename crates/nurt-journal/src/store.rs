@@ -371,6 +371,11 @@ impl JournalBuilder {
         limits: Arc<dyn RetentionLimits>,
         state_dir: AbsPath,
     ) -> Self {
+        let clock = Arc::new(retention::age::EffectiveClock::new(
+            clock,
+            fs.clone(),
+            &state_dir,
+        ));
         Self {
             ctx: JournalCtx {
                 fs,

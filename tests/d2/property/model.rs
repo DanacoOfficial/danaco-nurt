@@ -5,7 +5,7 @@
 //! is compared after random sequences of operations.
 //!
 //! An entry expires when at least the step limit of later steps exist, or
-//! when its effective age exceeds the age limit. The effective age is the
+//! when its effective age reaches the age limit. The effective age is the
 //! larger of the wall clock difference and the running and suspended time
 //! since the commit, so a wall clock step back never extends it. Expiry is
 //! final: raising a limit restores nothing.
@@ -53,7 +53,11 @@ pub(crate) struct Entry {
 pub(crate) struct Model {
     steps: u32,
     age: i64,
+    /// Wall clock as read.
     wall: i64,
+    /// Effective wall time: never moves backwards and advances with every
+    /// running or suspended minute.
+    effective: i64,
     /// Entries in commit order.
     pub(crate) entries: Vec<Entry>,
 }
@@ -67,6 +71,7 @@ impl Model {
             steps,
             age: i64::try_from(age.as_secs()).unwrap_or(i64::MAX),
             wall: 0,
+            effective: 0,
             entries: Vec::new(),
         }
     }
@@ -75,31 +80,35 @@ impl Model {
         let index = self.entries.len();
         self.entries.push(Entry {
             index,
-            wall_at_commit: self.wall,
+            wall_at_commit: self.effective,
             elapsed: 0,
             undone: false,
             expired: false,
         });
     }
 
-    fn pass(&mut self, minutes: u16, wall: bool) {
+    fn pass(&mut self, minutes: u16) {
         let seconds = i64::from(minutes) * SECONDS_PER_MINUTE;
-        if wall {
-            self.wall += seconds;
-        }
+        self.wall += seconds;
+        self.effective += seconds;
         for entry in &mut self.entries {
             entry.elapsed += seconds;
         }
     }
 
+    fn power_off(&mut self, minutes: u16) {
+        self.wall += i64::from(minutes) * SECONDS_PER_MINUTE;
+        self.effective = self.effective.max(self.wall);
+    }
+
     fn expire(&mut self) {
         let total = self.entries.len();
         let steps = usize::try_from(self.steps).unwrap_or(usize::MAX);
-        let (wall, age) = (self.wall, self.age);
+        let (wall, age) = (self.effective, self.age);
         for entry in &mut self.entries {
             let later = total - entry.index - 1;
             let effective = entry.elapsed.max(wall - entry.wall_at_commit);
-            if later >= steps || effective > age {
+            if later >= steps || effective >= age {
                 entry.expired = true;
             }
         }
@@ -131,11 +140,13 @@ impl Model {
                 }
             }
             Action::Limit(steps) => self.steps = steps,
-            Action::Advance(minutes) | Action::Suspend(minutes) | Action::Restart(minutes) => {
-                self.pass(minutes, true);
-            }
+            Action::Advance(minutes) | Action::Suspend(minutes) => self.pass(minutes),
+            Action::Restart(minutes) => self.power_off(minutes),
             Action::StepBack(minutes) => self.wall -= i64::from(minutes) * SECONDS_PER_MINUTE,
-            Action::StepForward(minutes) => self.wall += i64::from(minutes) * SECONDS_PER_MINUTE,
+            Action::StepForward(minutes) => {
+                self.wall += i64::from(minutes) * SECONDS_PER_MINUTE;
+                self.effective = self.effective.max(self.wall);
+            }
         }
         self.expire();
         undone
