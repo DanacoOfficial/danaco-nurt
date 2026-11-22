@@ -1146,7 +1146,7 @@ impl State {
             torn: 0,
         };
         for volume in &mut self.volumes {
-            let mut image = volume.durable.clone();
+            let mut image = std::mem::replace(&mut volume.durable, Image::new(CLOCK_START_NS));
             let selection = select(&volume.pending, rules, &mut rng);
             summary.pending += volume.pending.len() as u64;
             for (pending, choice) in volume.pending.iter().zip(selection) {
@@ -1856,15 +1856,26 @@ impl FsWrite for CrashFs {
         let mut state = self.state();
         state.enter("create_temp_in", dir)?;
         let located = state.resolve(dir, Follow::Follow, "create_temp_in")?;
-        let entries = match &state.node(&located)?.body {
-            Body::Dir(entries) => entries.clone(),
-            _ => return Err(error(FsErrorKind::NotADirectory, "create_temp_in", dir)),
-        };
-        let name = loop {
-            state.temp_counter += 1;
-            let candidate = OsString::from(format!("{name_hint}{:08x}", state.temp_counter));
-            if !entries.contains_key(&candidate) {
-                break candidate;
+        let name = {
+            let State {
+                volumes,
+                temp_counter,
+                ..
+            } = &mut *state;
+            let node = volumes[located.vol]
+                .live
+                .nodes
+                .get(&located.id)
+                .ok_or_else(|| error(FsErrorKind::NotFound, "lookup", &located.path))?;
+            let Body::Dir(entries) = &node.body else {
+                return Err(error(FsErrorKind::NotADirectory, "create_temp_in", dir));
+            };
+            loop {
+                *temp_counter += 1;
+                let candidate = OsString::from(format!("{name_hint}{temp_counter:08x}"));
+                if !entries.contains_key(&candidate) {
+                    break candidate;
+                }
             }
         };
         let path = State::join(dir, &name, "create_temp_in", dir)?;

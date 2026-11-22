@@ -59,6 +59,9 @@ pub(crate) struct EntryFacts {
     pub(crate) irreversible: Vec<Irreversible>,
     /// The entry is pinned by `journal.pin`.
     pub(crate) pinned: bool,
+    /// The operation was rolled back before it committed; reclaiming the
+    /// entry leaves no tombstone.
+    pub(crate) rolled_back: bool,
 }
 
 /// How an entry counts towards the step limit.
@@ -112,6 +115,17 @@ pub(crate) trait RetentionStore {
     ///
     /// Returns `E_IO` when the volume registry cannot be read.
     fn volumes(&self) -> Result<Vec<VolumeFacts>>;
+
+    /// Volume containing `path`, including a volume whose journal does not
+    /// exist yet; `None` when the path is on no known volume. The default
+    /// implementation knows no such volume.
+    ///
+    /// # Errors
+    ///
+    /// Returns `E_IO` when the volume cannot be inspected.
+    fn volume_at(&self, _path: &AbsPath) -> Result<Option<VolumeFacts>> {
+        Ok(None)
+    }
 
     /// Entry parts of a volume in every state except `expired`.
     ///

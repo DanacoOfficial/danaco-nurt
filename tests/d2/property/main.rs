@@ -67,6 +67,7 @@ fn action() -> impl Strategy<Value = Action> {
         1 => (1..=STEPS + 2).prop_map(Action::Limit),
         2 => (1u16..20).prop_map(Action::Advance),
         1 => (1u16..120).prop_map(Action::Suspend),
+        1 => (1u16..60).prop_map(Action::StepBack),
         1 => (1u16..90).prop_map(Action::StepForward),
         1 => (1u16..60).prop_map(Action::Restart),
     ]
@@ -183,11 +184,9 @@ fn states(fixture: &Fixture, ops: &[OpId]) -> Vec<OpState> {
     ops.iter().map(|op| fixture.record(*op).state).collect()
 }
 
-/// A wall clock step back is a case of its own: sequences with it do not
-/// match the model while the journal records the wall clock of a commit
-/// without the monotonic correction.
+/// An entry committed after the wall clock was moved back starts from the
+/// effective wall time, so its age is not inflated by the step.
 #[test]
-#[ignore = "an entry committed after a wall clock step back expires early"]
 fn entry_committed_after_wall_clock_step_back_keeps_its_age() {
     let mut fixture = Fixture::open(options());
     seed(&fixture);

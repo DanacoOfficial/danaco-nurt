@@ -430,7 +430,15 @@ pub(crate) fn status_store(
     store: &dyn RetentionStore,
     volume: Option<&AbsPath>,
 ) -> Result<Vec<JournalState>> {
-    let snapshot = Snapshot::load(store)?;
+    let mut snapshot = Snapshot::load(store)?;
+    let mut unused = None;
+    if let Some(path) = volume
+        && select_volumes(&snapshot.volumes, Some(path)).is_err()
+        && let Some(facts) = store.volume_at(path)?
+    {
+        unused = Some(facts.mount.clone());
+        snapshot.volumes.push(facts);
+    }
     let selected = select_volumes(&snapshot.volumes, volume)?;
     let limits = snapshot.limits();
     let over: BTreeSet<OpId> = snapshot
@@ -447,9 +455,13 @@ pub(crate) fn status_store(
         let parts: Vec<&EntryFacts> = snapshot
             .entries
             .iter()
-            .filter(|part| part.volume == volume.mount)
+            .filter(|part| part.volume == volume.mount && !part.rolled_back)
             .collect();
-        let expired = u64::try_from(tomb::list(store, &volume.mount)?.len()).unwrap_or(u64::MAX);
+        let expired = if unused.as_ref() == Some(&volume.mount) {
+            0
+        } else {
+            u64::try_from(tomb::list(store, &volume.mount)?.len()).unwrap_or(u64::MAX)
+        };
         let available =
             |part: &&&EntryFacts| matches!(part.state, EntryState::Committed | EntryState::Partial);
         let floor = resolver.floor().map(|mut floor| {

@@ -41,7 +41,9 @@ match `path` or `deleted`. Without `limit` at most 20 operations are listed.
 
 With `details: true` and `id`, an operation that is not in the journal or is
 still being recorded fails with `E_JOURNAL_NOOP` instead of an empty result.
-The listed records are the same `operation` records as without `details`.
+With `details: true` every listed record also carries `items`, the targets of
+the operation; the list is empty for an `expired` operation, and without
+`details` the field is absent.
 
 The result states whether an operation can be undone, never until when;
 retention limits and the state of the journal are reported by
@@ -58,7 +60,7 @@ retention limits and the state of the journal are reported by
 | `since` | `int` | | List only operations newer than this one. |
 | `path` | `path` | | List only operations that touched this file. |
 | `deleted` | `bool` | `false` | List only operations that removed files. |
-| `details` | `bool` | `false` | Include the changes and differences of each operation. |
+| `details` | `bool` | `false` | Include the items of each operation in `items`. |
 
 ## Input and output
 
@@ -67,7 +69,13 @@ Input: `none`. Output: `operation` records — number, commit time, kind
 changed, irreversible markers, bulk flag, session, the operations an undo
 undid (`undo_of`), the undo a redo reversed (`redo_of`), the scope of an undo,
 the program hash, the manifest hash, the hash chain link and whether the
-operation is pinned. The records are ordered by `id`, latest first.
+operation is pinned, and with `details: true` the items. The records are
+ordered by `id`, latest first.
+
+Each item of `items` has the fields `path`, `action` (the action on the target,
+for example `create`, `modify` or `rename`), `mode` (how the previous content
+is kept, for example `clone` or `none`), `before_hash` and `after_hash` (absent
+when there was no content), `undone` and `released`.
 
 ## Effect
 

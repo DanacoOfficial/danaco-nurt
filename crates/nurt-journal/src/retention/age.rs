@@ -21,12 +21,17 @@
 //! evaluation is followed by [`AgeState::observe`] and the state is persisted
 //! in the state directory as [`AGE_STATE_FILE`].
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use nurt_contracts::config::AgeClock;
-use nurt_contracts::env::{BootId, ClockStamp, WallTime};
+use nurt_contracts::env::{BootId, Clock, ClockStamp, WallTime};
 use nurt_contracts::error::{Error, ErrorCode, Result};
+use nurt_contracts::fs::{AbsPath, FsWrite};
+use nurt_contracts::stage::{CancelReason, CancelToken};
 use serde::{Deserialize, Serialize};
+
+use crate::manifest;
 
 /// Name of the file that keeps [`AgeState`] in the state directory of the
 /// account.
@@ -173,6 +178,63 @@ impl<'a> AgeEvaluator<'a> {
                 .active_total(self.now)
                 .saturating_sub(basis.active_at_commit),
         }
+    }
+}
+
+/// Clock whose stamps carry the effective wall time of the persisted
+/// [`AgeState`].
+///
+/// An entry records the stamp of its commit as the basis of its age. With the
+/// raw wall time, an entry committed after the wall clock was moved backwards
+/// would start from a basis earlier than the effective wall time of the
+/// journal and appear older than it is. Stamps of this clock never fall below
+/// the effective wall time, so the basis of every entry is monotonic.
+pub(crate) struct EffectiveClock {
+    inner: Arc<dyn Clock>,
+    fs: Arc<dyn FsWrite>,
+    state_file: Option<AbsPath>,
+}
+
+impl EffectiveClock {
+    /// Clock over `inner` that reads the age state of `state_dir`.
+    pub(crate) fn new(inner: Arc<dyn Clock>, fs: Arc<dyn FsWrite>, state_dir: &AbsPath) -> Self {
+        Self {
+            inner,
+            fs,
+            state_file: state_dir.join_name(AGE_STATE_FILE).ok(),
+        }
+    }
+
+    fn state(&self) -> Option<AgeState> {
+        let file = self.state_file.as_ref()?;
+        let content = manifest::read_bytes(self.fs.as_ref(), file).ok()?;
+        AgeState::decode(&content).ok()
+    }
+}
+
+impl Clock for EffectiveClock {
+    fn now(&self) -> WallTime {
+        self.inner.now()
+    }
+
+    fn monotonic(&self) -> Duration {
+        self.inner.monotonic()
+    }
+
+    fn stamp(&self) -> ClockStamp {
+        let mut stamp = self.inner.stamp();
+        if let Some(state) = self.state() {
+            stamp.wall = state.effective_wall(&stamp);
+        }
+        stamp
+    }
+
+    fn sleep(
+        &self,
+        duration: Duration,
+        cancel: &CancelToken,
+    ) -> std::result::Result<(), CancelReason> {
+        self.inner.sleep(duration, cancel)
     }
 }
 

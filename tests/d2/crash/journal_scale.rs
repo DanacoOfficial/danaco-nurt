@@ -3,6 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Recovery time of a large journal on the crash model.
 //!
+//! The operation under test is interrupted and the crash applied before the
+//! many copied entries are added, so that the model keeps no operation history
+//! for them and holds one image of the volume less during the preparation.
+//!
 //! The journal holds one committed entry made by a real operation and many
 //! entry directories that carry its state file, numbered above the sequence
 //! so that new operations never meet them. An operation is then interrupted
@@ -68,7 +72,6 @@ fn recover_with_entries(entries: u64) -> Measured {
     setup(&fs).unwrap();
     let create = vec![FileOp::create(absolute("data/new"), NEW.to_vec())];
     let committed = commit(&view(&fs), "write", create).unwrap().unwrap();
-    copy_entries(&fs, committed, entries);
     fs.sync_all();
 
     let rule = FailRule {
@@ -83,6 +86,8 @@ fn recover_with_entries(entries: u64) -> Measured {
     let result = commit(&instrumented(&fs, &failpoints), "remove", remove);
     assert!(result.is_err() && fs.is_halted(), "{result:?}");
     fs.crash();
+    copy_entries(&fs, committed, entries);
+    fs.sync_all();
 
     let journal = view(&fs);
     let started = Instant::now();

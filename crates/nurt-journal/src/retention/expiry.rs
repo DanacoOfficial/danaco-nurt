@@ -410,7 +410,9 @@ fn execute(
 }
 
 fn finish(store: &dyn RetentionStore, part: &EntryFacts, reason: ExpiryReason) -> Result<()> {
-    tomb::write(store, &part.volume, &Tombstone::of(part, reason))?;
+    if !part.rolled_back {
+        tomb::write(store, &part.volume, &Tombstone::of(part, reason))?;
+    }
     store.remove_reaped(&part.volume, part.op)
 }
 

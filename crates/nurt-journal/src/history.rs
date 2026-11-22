@@ -29,7 +29,7 @@ use crate::manifest::{
     self, AfterRecord, ItemState, Items, Manifest, StateRecord, TargetRecord, TargetRole,
 };
 use crate::pin::{self, PinSet};
-use crate::retention::ctx::CtxStore;
+use crate::retention::ctx::{CtxStore, is_rolled_back};
 use crate::retention::tomb;
 use crate::store::JournalCtx;
 
@@ -405,6 +405,9 @@ impl EntrySource for JournalCtx {
 
     fn load(&self, op: OpId) -> Result<Option<JournalEntry>> {
         let (parts, damaged) = stored_parts(self, op)?;
+        if !damaged && !parts.is_empty() && parts.iter().all(|part| is_rolled_back(&part.state)) {
+            return Ok(None);
+        }
         if parts.is_empty() {
             return if damaged {
                 corrupt_from_index(self, op)
@@ -604,6 +607,7 @@ pub(crate) fn record(entry: &JournalEntry, state: OpState, pinned: bool) -> Oper
         manifest_sha256: entry.manifest_hash.to_string(),
         chain: entry.chain.map(|chain| chain.to_string()),
         pinned,
+        items: None,
     }
 }
 

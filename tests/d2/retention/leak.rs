@@ -236,6 +236,7 @@ fn sample_record() -> OperationRecord {
         manifest_sha256: hash_text(4),
         chain: Some(hash_text(5)),
         pinned: true,
+        items: None,
     }
 }
 

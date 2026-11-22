@@ -22,7 +22,7 @@ use nurt_contracts::fs::{
 };
 use nurt_contracts::journal::{
     BeginRequest, EntryState, ExpiryReason, FileOp, InactiveReason, OpId, OpKind, PreserveMode,
-    ServiceLiveness, apply_ops,
+    ServiceLiveness, UndoneCause, apply_ops,
 };
 use nurt_fs::failpoint::FailPoint;
 
@@ -158,6 +158,16 @@ impl CtxStore<'_> {
     }
 }
 
+/// Whether the state records a rollback before the commit. Entries undone by
+/// `undo` or by a failed `verify` were committed before.
+pub(crate) fn is_rolled_back(record: &StateRecord) -> bool {
+    record.state == EntryState::Undone
+        && matches!(
+            record.cause,
+            Some(UndoneCause::RolledBack | UndoneCause::Crash | UndoneCause::ValidateFailed)
+        )
+}
+
 /// What the store knows about one entry part besides its manifest.
 struct PartState<'a> {
     volume: &'a AbsPath,
@@ -165,6 +175,7 @@ struct PartState<'a> {
     state: EntryState,
     reason: Option<ExpiryReason>,
     pinned: bool,
+    rolled_back: bool,
 }
 
 fn facts_of(part: &PartState<'_>, manifest: &Manifest, basis: EntryTimeBasis) -> EntryFacts {
@@ -198,6 +209,7 @@ fn facts_of(part: &PartState<'_>, manifest: &Manifest, basis: EntryTimeBasis) ->
             .sum(),
         irreversible,
         pinned: part.pinned,
+        rolled_back: part.rolled_back,
     }
 }
 
@@ -225,6 +237,7 @@ fn facts_of_tombstone(
         bytes_physical: 0,
         irreversible: tombstone.irreversible.clone(),
         pinned: false,
+        rolled_back: false,
     }
 }
 
@@ -304,6 +317,22 @@ impl RetentionStore for CtxStore<'_> {
         self.0.clock.stamp()
     }
 
+    fn volume_at(&self, path: &AbsPath) -> Result<Option<VolumeFacts>> {
+        let info = match self.0.fs.volume(path) {
+            Ok(info) => info,
+            Err(error) if error.kind == FsErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error.into()),
+        };
+        let space = self.0.fs.space(&info.id)?;
+        Ok(Some(VolumeFacts {
+            mount: info.mount,
+            capacity: space.total,
+            free: space.available,
+            inactive: (self.0.admission.liveness() == ServiceLiveness::Down)
+                .then_some(InactiveReason::ServiceDown),
+        }))
+    }
+
     fn volumes(&self) -> Result<Vec<VolumeFacts>> {
         let inactive = (self.0.admission.liveness() == ServiceLiveness::Down)
             .then_some(InactiveReason::ServiceDown);
@@ -333,9 +362,9 @@ impl RetentionStore for CtxStore<'_> {
         let mut entries = Vec::new();
         for op in layout::entries(fs, &layout)? {
             let entry = layout.entry(op)?;
-            let state = match manifest::read_state(fs, &entry.state()?) {
-                Ok(record) => record.state,
-                Err(ReadError::Format(_)) => EntryState::Corrupt,
+            let (state, rolled_back) = match manifest::read_state(fs, &entry.state()?) {
+                Ok(record) => (record.state, is_rolled_back(&record)),
+                Err(ReadError::Format(_)) => (EntryState::Corrupt, false),
                 Err(error) => match read_error(error) {
                     Some(error) => return Err(error),
                     None => continue,
@@ -354,6 +383,7 @@ impl RetentionStore for CtxStore<'_> {
                 state,
                 reason: None,
                 pinned: pins.is_pinned(op, now.wall),
+                rolled_back,
             };
             entries.push(facts_of(
                 &part,
@@ -369,6 +399,7 @@ impl RetentionStore for CtxStore<'_> {
                 state: EntryState::Expiring,
                 reason: self.reason(&entry)?,
                 pinned: false,
+                rolled_back: false,
             };
             match manifest::read_manifest(fs, &entry.manifest()?) {
                 Ok(manifest) => {

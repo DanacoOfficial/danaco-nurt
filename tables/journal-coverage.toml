@@ -351,8 +351,7 @@ group = "core"
 changes = "Record and output files of a finished background job."
 preserve = ["none"]
 coverage = "none"
-irreversible = ["job_output_removed"]
-exception = "Job records and their output files are state of the console, not user data, and are not journaled."
+exception = "Removing a finished job deletes only state of the console, its entry in the job table and its output buffer in the data directory of Nurt, not user files; it is not a change and is not journaled."
 
 [[row]]
 command = "remove"
@@ -948,6 +947,14 @@ coverage = "full"
 
 [[row]]
 command = "git.branch"
+action = "purge"
+group = "git"
+changes = "Kept copies of deleted branches: their references, reference logs and configuration."
+preserve = ["ref", "moved", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "git.branch"
 action = "switch"
 group = "git"
 changes = "A new branch and the working tree, index and HEAD switched to it."
@@ -1106,7 +1113,7 @@ exception = "Client hooks are user programs and are covered as run, with the wor
 
 [[row]]
 command = "git.tag"
-action = "create"
+action = "name"
 group = "git"
 changes = "A new tag reference."
 preserve = ["ref"]

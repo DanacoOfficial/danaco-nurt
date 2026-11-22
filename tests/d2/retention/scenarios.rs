@@ -156,7 +156,7 @@ fn rollback_before_commit_and_user_limit_change_are_not_steps() {
     assert_eq!(state(&fixture, first), OpState::Available);
     small_write(&fixture, STEPS_TO_EXPIRE);
     assert_eq!(state(&fixture, first), OpState::Expired);
-    leak::history_carries_no_expiry(&fixture);
+    finish(&fixture);
 }
 
 #[test]
@@ -461,7 +461,6 @@ fn untrusted_project_settings_and_self_trust_are_ignored() {
         setting(ConfigLevel::Project, "scope.trusted_projects", "[\".\"]"),
     ];
     let fixture = Fixture::open(options);
-    fixture.use_journal();
     let status = fixture.status();
     assert_eq!(status.limits.max_ops.value, StepLimit::Limited(STEPS));
     assert!(
@@ -480,7 +479,6 @@ fn untrusted_project_settings_and_self_trust_are_ignored() {
     let mut trusted = support::options();
     trusted.settings = vec![setting(ConfigLevel::Project, "journal.max_ops", "12")];
     let fixture = Fixture::open(trusted);
-    fixture.use_journal();
     let limits = fixture.status().limits;
     assert_eq!(limits.max_ops.value, StepLimit::Limited(12));
     assert_eq!(limits.max_ops.source, ConfigLevel::Project);
@@ -499,7 +497,6 @@ fn project_runtime_and_user_limits_are_raised_to_floor() {
         setting(ConfigLevel::Project, "journal.max_age", "\"1m\""),
     ];
     let fixture = Fixture::open(options);
-    fixture.use_journal();
     let limits = fixture.status().limits;
     assert_eq!(limits.max_ops.value, StepLimit::Limited(PROJECT_MIN_STEPS));
     assert!(limits.max_ops.raised_to_floor);
@@ -515,7 +512,6 @@ fn project_runtime_and_user_limits_are_raised_to_floor() {
     options.journal.max_ops = StepLimit::Limited(15);
     options.settings = vec![setting(ConfigLevel::System, "journal.floor.max_ops", "20")];
     let fixture = Fixture::open(options);
-    fixture.use_journal();
     let status = fixture.status();
     assert_eq!(status.limits.max_ops.value, StepLimit::Limited(20));
     assert!(status.limits.max_ops.raised_to_floor);
@@ -725,7 +721,6 @@ fn scenario_options_state_the_documented_limits() {
 }
 
 #[test]
-#[ignore = "status fails for a volume whose journal has not been used yet"]
 fn status_of_volume_without_entries_reports_an_empty_journal() {
     let fixture = Fixture::open(support::options());
     let status = fixture.status();

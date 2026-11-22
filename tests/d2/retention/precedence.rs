@@ -155,7 +155,6 @@ fn retention_settings_follow_configuration_level_precedence() {
             ..FixtureOptions::default()
         };
         let fixture = Fixture::open(options);
-        fixture.use_journal();
         let (value, source) = case.dimension.effective(&fixture.status().limits);
         let expected = if case.level == ConfigLevel::Builtin {
             match case.dimension {

@@ -1245,6 +1245,7 @@ impl UndoBackend for JournalCtx {
             plan,
             tx: None,
             steps: Vec::new(),
+            spans: Vec::new(),
             preserved: Vec::new(),
             failed: false,
         })
@@ -1335,6 +1336,8 @@ struct CtxRestore<'a> {
     plan: &'a RestorePlan,
     tx: Option<Box<dyn MutationTx + 'a>>,
     steps: Vec<Step>,
+    /// Range of `steps` that restores each plan item.
+    spans: Vec<std::ops::Range<usize>>,
     preserved: Vec<Preserved>,
     /// A call failed and the journal already rolled the transaction back.
     failed: bool,
@@ -1344,6 +1347,9 @@ struct CtxRestore<'a> {
 struct Step {
     spec: TargetSpec,
     mutation: Mutation,
+    /// Mutation that follows `mutation` on the same target, for a `Replace`
+    /// declaration (removal, then creation).
+    follow: Option<Mutation>,
     /// Preserved directory whose entries are copied into the directory the
     /// mutation recreates.
     tree: Option<AbsPath>,
@@ -1369,12 +1375,15 @@ impl<'a> RestoreTx for CtxRestore<'a> {
             .map(|(op, parts)| (*op, record_index(parts)))
             .collect();
         let mut steps = Vec::with_capacity(self.plan.items.len());
+        let mut spans = Vec::with_capacity(self.plan.items.len());
         for item in &self.plan.items {
             let found = records
                 .get(&item.source.op)
                 .and_then(|records| records.get(&item.source.index))
                 .copied();
-            steps.push(restore_step(self.ctx, found, item)?);
+            let first = steps.len();
+            steps.extend(restore_steps(self.ctx, found, item)?);
+            spans.push(first..steps.len());
         }
         let program = match &self.plan.program {
             Some(program) => program.clone(),
@@ -1396,6 +1405,7 @@ impl<'a> RestoreTx for CtxRestore<'a> {
             Ok(preserved) => {
                 self.preserved = preserved;
                 self.steps = steps;
+                self.spans = spans;
                 self.tx = Some(tx);
                 Ok(())
             }
@@ -1407,33 +1417,12 @@ impl<'a> RestoreTx for CtxRestore<'a> {
     }
 
     fn restore(&mut self, n: usize) -> Result<TargetOutcome> {
-        let (Some(tx), Some(step), Some(preserved)) =
-            (self.tx.as_mut(), self.steps.get(n), self.preserved.get(n))
-        else {
-            return Err(undeclared());
-        };
-        let applied = match tx.apply(preserved.index, step.mutation.clone()) {
-            Ok(applied) => applied,
-            Err(error) => {
-                self.failed = true;
-                return Err(error);
-            }
-        };
-        if let (Some(tree), TargetPath::Fs(dest)) = (&step.tree, &step.spec.path) {
-            let op = tx.op().ok_or_else(undeclared)?;
-            copy_children(self.ctx, op, tree, dest)?;
+        let span = self.spans.get(n).cloned().ok_or_else(undeclared)?;
+        let mut outcome = None;
+        for at in span {
+            outcome = Some(self.apply_step(at)?);
         }
-        Ok(TargetOutcome {
-            index: preserved.index,
-            path: step.spec.path.clone(),
-            action: step.spec.action.clone(),
-            mode: preserved.mode,
-            bytes_held: preserved.bytes_held,
-            before: preserved.before.clone(),
-            after: Some(applied.after),
-            irreversible: preserved.irreversible,
-            notable: preserved.notable.clone(),
-        })
+        outcome.ok_or_else(undeclared)
     }
 
     fn commit(self: Box<Self>) -> Result<Executed> {
@@ -1457,6 +1446,45 @@ impl<'a> RestoreTx for CtxRestore<'a> {
                 failed: Vec::new(),
             }),
         }
+    }
+}
+
+impl CtxRestore<'_> {
+    /// Applies the mutations of step `at` and copies the entries of a
+    /// recreated directory.
+    fn apply_step(&mut self, at: usize) -> Result<TargetOutcome> {
+        let (Some(tx), Some(step), Some(preserved)) =
+            (self.tx.as_mut(), self.steps.get(at), self.preserved.get(at))
+        else {
+            return Err(undeclared());
+        };
+        let mutations = std::iter::once(&step.mutation).chain(step.follow.as_ref());
+        let mut applied = None;
+        for mutation in mutations {
+            match tx.apply(preserved.index, mutation.clone()) {
+                Ok(done) => applied = Some(done),
+                Err(error) => {
+                    self.failed = true;
+                    return Err(error);
+                }
+            }
+        }
+        let applied = applied.ok_or_else(undeclared)?;
+        if let (Some(tree), TargetPath::Fs(dest)) = (&step.tree, &step.spec.path) {
+            let op = tx.op().ok_or_else(undeclared)?;
+            copy_children(self.ctx, op, tree, dest)?;
+        }
+        Ok(TargetOutcome {
+            index: preserved.index,
+            path: step.spec.path.clone(),
+            action: step.spec.action.clone(),
+            mode: preserved.mode,
+            bytes_held: preserved.bytes_held,
+            before: preserved.before.clone(),
+            after: Some(applied.after),
+            irreversible: preserved.irreversible,
+            notable: preserved.notable.clone(),
+        })
     }
 }
 
@@ -1509,14 +1537,15 @@ fn unsupported(target: &TargetOutcome, what: &str) -> Error {
     )
 }
 
-/// Declaration and mutation that bring the address of an item back to the
+/// Declarations and mutations that bring the address of an item back to the
 /// state recorded before its change, from the record `found` of the item in
-/// its source entry.
-fn restore_step(
+/// its source entry. One step restores an item, except a rename over an
+/// existing entry, which takes two.
+fn restore_steps(
     ctx: &JournalCtx,
     found: Option<(&EntryLayout, &TargetRecord)>,
     item: &RestoreItem,
-) -> Result<Step> {
+) -> Result<Vec<Step>> {
     let target = &item.target;
     let op = item.source.op;
     if item.role != TargetRole::Whole {
@@ -1524,6 +1553,94 @@ fn restore_step(
     }
     let (entry, record) =
         found.ok_or_else(|| conflict::corrupt_error(op).with_problem("missing_item"))?;
+    if let TargetAction::Rename { to, .. } = &target.action {
+        let TargetPath::Fs(from) = &target.path else {
+            return Err(unsupported(target, "rename of a provider key"));
+        };
+        let kept = record
+            .replaced
+            .as_ref()
+            .filter(|replaced| replaced.exists && replaced.store != PreserveMode::None);
+        return match kept {
+            Some(replaced) => {
+                rename_over_steps(ctx, item, (entry, record), replaced, (from, to)).map(Vec::from)
+            }
+            None => {
+                let back = TargetAction::Rename {
+                    to: from.clone(),
+                    replace: false,
+                };
+                Ok(vec![Step {
+                    spec: TargetSpec {
+                        path: TargetPath::Fs(to.clone()),
+                        action: back,
+                        expect: item.expect.clone(),
+                        size_hint: None,
+                    },
+                    mutation: Mutation::Rename,
+                    follow: None,
+                    tree: None,
+                }])
+            }
+        };
+    }
+    restore_step(ctx, (entry, record), item).map(|step| vec![step])
+}
+
+/// Steps that undo a rename over a kept destination: the renamed entry is
+/// copied back to its source name, and the destination name receives the
+/// entry that the rename displaced. Both are declared targets of the
+/// restoring transaction, so a failure or a crash is rolled back by the
+/// journal like any other change; the entry at the destination is preserved
+/// by the declaration of the second step.
+fn rename_over_steps(
+    ctx: &JournalCtx,
+    item: &RestoreItem,
+    (entry, record): (&EntryLayout, &TargetRecord),
+    replaced: &BeforeRecord,
+    (from, to): (&AbsPath, &AbsPath),
+) -> Result<[Step; 2]> {
+    let op = item.source.op;
+    let back = content_step(
+        ctx,
+        Content {
+            path: TargetPath::Fs(from.clone()),
+            expect: Expect::Absent,
+            data: to.clone(),
+            shared: false,
+        },
+        &record.before,
+    )?;
+    let name = replaced
+        .blob
+        .as_deref()
+        .ok_or_else(|| conflict::corrupt_error(op).with_problem("missing_preserved_content"))?;
+    let mut kept = content_step(
+        ctx,
+        Content {
+            path: TargetPath::Fs(to.clone()),
+            expect: item.expect.clone(),
+            data: entry.resolve(name)?,
+            shared: false,
+        },
+        replaced,
+    )?;
+    let in_place = |kind: Option<FileKind>| matches!(kind, None | Some(FileKind::File));
+    if !(in_place(replaced.kind) && in_place(record.before.kind)) {
+        kept.spec.action = TargetAction::Replace;
+        kept.follow = Some(std::mem::replace(&mut kept.mutation, Mutation::Remove));
+    }
+    Ok([back, kept])
+}
+
+/// Step that brings back the address of one item other than a rename.
+fn restore_step(
+    ctx: &JournalCtx,
+    (entry, record): (&EntryLayout, &TargetRecord),
+    item: &RestoreItem,
+) -> Result<Step> {
+    let target = &item.target;
+    let op = item.source.op;
     let step = |path: TargetPath, action: TargetAction, mutation: Mutation| Step {
         spec: TargetSpec {
             path,
@@ -1532,21 +1649,9 @@ fn restore_step(
             size_hint: None,
         },
         mutation,
+        follow: None,
         tree: None,
     };
-    if let TargetAction::Rename { to, .. } = &target.action {
-        let TargetPath::Fs(from) = &target.path else {
-            return Err(unsupported(target, "rename of a provider key"));
-        };
-        if record.replaced.is_some() {
-            return Err(unsupported(target, "rename over an existing entry"));
-        }
-        let back = TargetAction::Rename {
-            to: from.clone(),
-            replace: false,
-        };
-        return Ok(step(TargetPath::Fs(to.clone()), back, Mutation::Rename));
-    }
     let removal = if matches!(target.path, TargetPath::Provider(_)) {
         Mutation::ProviderRemove
     } else {
@@ -1587,37 +1692,68 @@ fn restore_step(
         | PreserveMode::ReplaceBackup
         | PreserveMode::Hardlink
         | PreserveMode::Clone
-        | PreserveMode::Copy => content_step(ctx, item, preserved_path(entry, record, op)?, record),
+        | PreserveMode::Copy => {
+            let shared = target.mode == PreserveMode::Moved
+                && record.before.kind == Some(FileKind::File)
+                && record.before.links.unwrap_or(1) > 1;
+            content_step(
+                ctx,
+                Content {
+                    path: target.path.clone(),
+                    expect: item.expect.clone(),
+                    data: preserved_path(entry, record, op)?,
+                    shared,
+                },
+                &record.before,
+            )
+        }
         _ => Err(unsupported(target, "nothing was preserved")),
     }
 }
 
-/// Step that brings back preserved content: a file by copying (or cloning)
-/// it into place, a link by recreating it, a directory by recreating it and
-/// copying its entries.
-fn content_step(
-    ctx: &JournalCtx,
-    item: &RestoreItem,
+/// Where preserved or live content is put back and how it is checked.
+struct Content {
+    path: TargetPath,
+    expect: Expect,
+    /// File or directory the content is taken from.
     data: AbsPath,
-    record: &TargetRecord,
-) -> Result<Step> {
-    let spec = |action: TargetAction| TargetSpec {
-        path: item.target.path.clone(),
-        action,
-        expect: item.expect.clone(),
-        size_hint: None,
-    };
-    Ok(match record.before.kind {
-        Some(FileKind::Directory) => Step {
-            spec: spec(TargetAction::CreateTree),
-            mutation: Mutation::CreateDir {
-                mode: record.before.mode.unwrap_or(DEFAULT_DIR_MODE),
-            },
-            tree: Some(data),
+    /// The data is a name of a file that has other hard links; the restored
+    /// name becomes a hard link of it instead of an independent copy.
+    shared: bool,
+}
+
+/// Step that brings back content of the kind `before`: a file by copying (or
+/// cloning) it into place, or by linking it when it is shared, a link by
+/// recreating it, a directory by recreating it and copying its entries.
+fn content_step(ctx: &JournalCtx, content: Content, before: &BeforeRecord) -> Result<Step> {
+    let Content {
+        path,
+        expect,
+        data,
+        shared,
+    } = content;
+    let step = |action: TargetAction, mutation: Mutation, tree: Option<AbsPath>| Step {
+        spec: TargetSpec {
+            path: path.clone(),
+            action,
+            expect: expect.clone(),
+            size_hint: None,
         },
-        Some(kind @ (FileKind::Symlink | FileKind::Junction)) => Step {
-            spec: spec(TargetAction::Link),
-            mutation: Mutation::CreateLink {
+        mutation,
+        follow: None,
+        tree,
+    };
+    Ok(match before.kind {
+        Some(FileKind::Directory) => step(
+            TargetAction::CreateTree,
+            Mutation::CreateDir {
+                mode: before.mode.unwrap_or(DEFAULT_DIR_MODE),
+            },
+            Some(data),
+        ),
+        Some(kind @ (FileKind::Symlink | FileKind::Junction)) => step(
+            TargetAction::Link,
+            Mutation::CreateLink {
                 target: ctx.fs.read_link(&data)?,
                 kind: if kind == FileKind::Junction {
                     LinkKind::Junction
@@ -1625,16 +1761,21 @@ fn content_step(
                     LinkKind::SymlinkFile
                 },
             },
-            tree: None,
-        },
-        _ => Step {
-            spec: spec(TargetAction::Modify),
-            mutation: Mutation::CopyFrom {
+            None,
+        ),
+        _ if shared => step(
+            TargetAction::Link,
+            Mutation::CreateHardLink { existing: data },
+            None,
+        ),
+        _ => step(
+            TargetAction::Modify,
+            Mutation::CopyFrom {
                 source: data,
                 clone: CloneMode::Auto,
             },
-            tree: None,
-        },
+            None,
+        ),
     })
 }
 
@@ -4582,6 +4723,108 @@ mod journal_ctx_tests {
             (1..=MAX_MANIFEST_READS).contains(&large),
             "{large} reads of the source manifest"
         );
+    }
+
+    /// Creates `link` as a hard link of `existing` in one operation.
+    fn link_operation(world: &World, existing: &str, link: &str) -> OpId {
+        let mut tx = crate::tx::begin(&world.ctx, begin("link"));
+        let spec = TargetSpec {
+            path: fs_path(link),
+            action: TargetAction::Link,
+            expect: Expect::Absent,
+            size_hint: None,
+        };
+        let preserved = tx.preserve(&[spec]).unwrap();
+        tx.apply(
+            preserved[0].index,
+            Mutation::CreateHardLink {
+                existing: abs(existing),
+            },
+        )
+        .unwrap();
+        tx.commit().unwrap().op.unwrap()
+    }
+
+    fn meta(world: &World, path: &str) -> nurt_contracts::fs::FileMeta {
+        world.fs.metadata(&abs(path), Follow::NoFollow).unwrap()
+    }
+
+    #[test]
+    fn undo_of_a_rename_over_a_file_restores_both_names_and_redo_repeats_it() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/src"), b"source").unwrap();
+        world.fs.seed_file(&abs("/a/dst"), b"displaced").unwrap();
+        let source_meta = meta(&world, "/a/src");
+        let op = world.run(vec![FileOp::rename(abs("/a/src"), abs("/a/dst"), true)]);
+        assert_eq!(world.read("/a/src"), None);
+        assert_eq!(world.read("/a/dst").as_deref(), Some(&b"source"[..]));
+        let undone = undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
+        assert_eq!(world.read("/a/src").as_deref(), Some(&b"source"[..]));
+        assert_eq!(world.read("/a/dst").as_deref(), Some(&b"displaced"[..]));
+        assert_eq!(meta(&world, "/a/src").mode, source_meta.mode);
+        assert_eq!(meta(&world, "/a/src").links, 1);
+        assert_eq!(world.state(op).state, EntryState::Undone);
+        redo(&world.ctx, &redo_latest()).unwrap();
+        assert_eq!(world.read("/a/src"), None);
+        assert_eq!(world.read("/a/dst").as_deref(), Some(&b"source"[..]));
+        assert_eq!(world.state(undone.entry).state, EntryState::Undone);
+        undo(&world.ctx, &select(UndoSelector::Last)).unwrap();
+        assert_eq!(world.read("/a/src").as_deref(), Some(&b"source"[..]));
+        assert_eq!(world.read("/a/dst").as_deref(), Some(&b"displaced"[..]));
+    }
+
+    #[test]
+    fn undo_of_a_rename_over_a_file_reports_a_changed_destination_and_force_restores_both() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/src"), b"source").unwrap();
+        world.fs.seed_file(&abs("/a/dst"), b"displaced").unwrap();
+        let op = world.run(vec![FileOp::rename(abs("/a/src"), abs("/a/dst"), true)]);
+        world.overwrite("/a/dst", b"edited elsewhere");
+        let error = undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap_err();
+        assert_eq!(error.code, ErrorCode::JournalConflict);
+        assert_eq!(world.read("/a/src"), None);
+        assert_eq!(
+            world.read("/a/dst").as_deref(),
+            Some(&b"edited elsewhere"[..])
+        );
+        let forced = UndoRequest {
+            on_conflict: OnConflict::Force,
+            ..select(UndoSelector::Op(op))
+        };
+        undo(&world.ctx, &forced).unwrap();
+        assert_eq!(
+            world.read("/a/src").as_deref(),
+            Some(&b"edited elsewhere"[..])
+        );
+        assert_eq!(world.read("/a/dst").as_deref(), Some(&b"displaced"[..]));
+    }
+
+    #[test]
+    fn undo_of_a_rename_over_a_file_is_one_entry_of_two_targets() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/src"), b"source").unwrap();
+        world.fs.seed_file(&abs("/a/dst"), b"displaced").unwrap();
+        let op = world.run(vec![FileOp::rename(abs("/a/src"), abs("/a/dst"), true)]);
+        let outcome = undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
+        let entry = world.manifest(outcome.entry);
+        assert_eq!(entry.undo_of, [op]);
+        assert_eq!(entry.items.len(), 1);
+        assert_eq!(entry.targets.len(), 2);
+    }
+
+    #[test]
+    fn redo_of_a_removed_hard_link_recreates_a_link_to_the_same_file() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/original"), b"shared").unwrap();
+        let op = link_operation(&world, "/a/original", "/a/link");
+        assert_eq!(meta(&world, "/a/link").links, 2);
+        undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
+        assert_eq!(world.read("/a/link"), None);
+        redo(&world.ctx, &redo_latest()).unwrap();
+        let (link, original) = (meta(&world, "/a/link"), meta(&world, "/a/original"));
+        assert_eq!(link.file_id, original.file_id);
+        assert!(link.links >= 2, "{} links", link.links);
+        assert_eq!(world.read("/a/link").as_deref(), Some(&b"shared"[..]));
     }
 
     fn begin(command: &str) -> BeginRequest {

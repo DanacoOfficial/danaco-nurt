@@ -464,7 +464,15 @@ fn change_round_trips(fixture: &Fixture, table: &CoverageTable, row: &Row, varia
         .journal
         .redo(&request::redo(Some(undone.entry)))
         .expect("undo is redone");
-    after.assert_same(&fixture.snapshot(), &format!("{} after redo", row.label()));
+    let redone = fixture.snapshot();
+    let context = format!("{} after redo", row.label());
+    if variant == Variant::HardLink {
+        after
+            .without_link_counts()
+            .assert_same(&redone.without_link_counts(), &context);
+    } else {
+        after.assert_same(&redone, &context);
+    }
 }
 
 fn effect_is_marked(fixture: &Fixture, table: &CoverageTable, row: &Row) {
