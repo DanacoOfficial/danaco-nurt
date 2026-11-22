@@ -11,8 +11,10 @@
 
 (function_name) @function.call
 
-(argument_name) @variable.parameter
-(map_key) @property
+(argument_name
+  (identifier) @variable.parameter)
+(map_key
+  (identifier) @property)
 
 (let_statement
   name: (identifier) @variable)

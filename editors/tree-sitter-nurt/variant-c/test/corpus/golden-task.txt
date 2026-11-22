@@ -15,17 +15,17 @@ find path="/srv/app" glob="**/*.go"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (binary_expression
           (binary_expression
             (identifier)
@@ -40,17 +40,17 @@ find path="/srv/app" glob="**/*.go"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))))
 
 ================================================================
@@ -69,28 +69,28 @@ search pattern=/oldName\(/ path="/srv/app/src" glob="**/*.go"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (regex
           (regex_pattern)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 =====================================================
@@ -108,10 +108,10 @@ find path="/srv/app/build" glob="**/*.tmp"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
@@ -132,13 +132,13 @@ set path="/srv/app/package.json" key="scripts.test" value="vitest"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ==============================================
@@ -157,14 +157,14 @@ code.symbols name="oldName" path=["/srv/app/src"] kind=function
         (identifier)
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))
     (pipe)
     (stage
@@ -172,7 +172,7 @@ code.symbols name="oldName" path=["/srv/app/src"] kind=function
         (identifier)
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 =================================================
@@ -192,17 +192,17 @@ let recent = find path="/srv/app/src" glob="**/*.ts" |> filter condition=modifie
         (command_name
           (identifier))
         (named_argument
-          (argument_name)
+          (argument_name (identifier))
           (string))
         (named_argument
-          (argument_name)
+          (argument_name (identifier))
           (string)))
       (pipe)
       (stage
         (command_name
           (identifier))
         (named_argument
-          (argument_name)
+          (argument_name (identifier))
           (binary_expression
             (identifier)
             (call_expression
@@ -230,20 +230,20 @@ run command=["go", "test", "./..."] cwd="/srv/app"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string)
           (string)
           (string)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))))
 
 =============================================
@@ -260,13 +260,13 @@ write path="/srv/app/.gitignore" text="node_modules/\n" mode=append
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 =====================================================
@@ -285,14 +285,14 @@ lines path="/srv/app/main.go"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (binary_expression
           (identifier)
           (string))))
@@ -301,10 +301,10 @@ lines path="/srv/app/main.go"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (raw_string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 ============================================
@@ -323,20 +323,20 @@ find path="/var/log/app" glob="*.log" depth=1
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (binary_expression
           (identifier)
           (call_expression
@@ -347,7 +347,7 @@ find path="/var/log/app" glob="*.log" depth=1
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ==============================================
@@ -365,10 +365,10 @@ archive.extract path="/srv/dl/data.tar.gz" into="/srv/data"
         (identifier)
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ======================================================
@@ -387,48 +387,48 @@ search pattern=/oldName\(/ path="/srv/app/src" glob="**/*.go"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (regex
           (regex_pattern)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (subpipeline
           (pipeline
             (stage
               (command_name
                 (identifier))
               (named_argument
-                (argument_name)
+                (argument_name (identifier))
                 (list
                   (string)
                   (string)
                   (string)))
               (named_argument
-                (argument_name)
+                (argument_name (identifier))
                 (string)))
             (pipe)
             (stage
               (command_name
                 (identifier))
               (named_argument
-                (argument_name)
+                (argument_name (identifier))
                 (integer)))))))))
 
 ==================================================
@@ -449,34 +449,34 @@ edit path="/srv/app/main.go" changes=[
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (integer)))
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (integer))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (identifier)))
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (range
                 (integer)
                 (integer)))))))))
@@ -495,16 +495,16 @@ run command=["npm", "run", "build"] cwd="/srv/app" background=true
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string)
           (string)
           (string)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (boolean)))))
 
 ===================================================
@@ -524,17 +524,17 @@ find path="/srv/app" glob="**/*.go"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (binary_expression
           (binary_expression
             (identifier)
@@ -549,17 +549,17 @@ find path="/srv/app" glob="**/*.go"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))))
 
 ====================================================================
@@ -578,28 +578,28 @@ search pattern=/oldName\(/ path="/srv/app/src" glob="**/*.go"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (regex
           (regex_pattern)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 =========================================================
@@ -617,10 +617,10 @@ find path="/srv/app/build" glob="**/*.tmp"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
@@ -641,13 +641,13 @@ set path="/srv/app/package.json" key="scripts.test" value="vitest"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ==================================================
@@ -666,14 +666,14 @@ code.symbols name="oldName" path=["/srv/app/src"] kind=function
         (identifier)
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))
     (pipe)
     (stage
@@ -681,7 +681,7 @@ code.symbols name="oldName" path=["/srv/app/src"] kind=function
         (identifier)
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 =====================================================
@@ -701,17 +701,17 @@ let recent = find path="/srv/app/src" glob="**/*.ts" |> filter condition=modifie
         (command_name
           (identifier))
         (named_argument
-          (argument_name)
+          (argument_name (identifier))
           (string))
         (named_argument
-          (argument_name)
+          (argument_name (identifier))
           (string)))
       (pipe)
       (stage
         (command_name
           (identifier))
         (named_argument
-          (argument_name)
+          (argument_name (identifier))
           (binary_expression
             (identifier)
             (call_expression
@@ -739,20 +739,20 @@ run command=["go", "test", "./..."] cwd="/srv/app"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string)
           (string)
           (string)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))))
 
 =================================================
@@ -769,13 +769,13 @@ write path="/srv/app/.gitignore" text="node_modules/\n" mode=append
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 =========================================================
@@ -794,14 +794,14 @@ lines path="/srv/app/main.go"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (binary_expression
           (identifier)
           (string))))
@@ -810,10 +810,10 @@ lines path="/srv/app/main.go"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (raw_string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 ================================================
@@ -832,20 +832,20 @@ find path="/var/log/app" glob="*.log" depth=1
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (binary_expression
           (identifier)
           (call_expression
@@ -856,7 +856,7 @@ find path="/var/log/app" glob="*.log" depth=1
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ==================================================
@@ -874,10 +874,10 @@ archive.extract path="/srv/dl/data.tar.gz" into="/srv/data"
         (identifier)
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ==========================================================
@@ -896,48 +896,48 @@ search pattern=/oldName\(/ path="/srv/app/src" glob="**/*.go"
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (regex
           (regex_pattern)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (subpipeline
           (pipeline
             (stage
               (command_name
                 (identifier))
               (named_argument
-                (argument_name)
+                (argument_name (identifier))
                 (list
                   (string)
                   (string)
                   (string)))
               (named_argument
-                (argument_name)
+                (argument_name (identifier))
                 (string)))
             (pipe)
             (stage
               (command_name
                 (identifier))
               (named_argument
-                (argument_name)
+                (argument_name (identifier))
                 (integer)))))))))
 
 ======================================================
@@ -958,34 +958,34 @@ edit path="/srv/app/main.go" changes=[
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (integer)))
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (integer))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (identifier)))
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (range
                 (integer)
                 (integer)))))))))
@@ -1004,14 +1004,14 @@ run command=["npm", "run", "build"] cwd="/srv/app" background=true
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string)
           (string)
           (string)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (boolean)))))

@@ -13,7 +13,7 @@ find("/srv/app", glob: "**/*.go") |> filter(size > 1mb and modified > ago(24h)) 
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
@@ -34,7 +34,7 @@ find("/srv/app", glob: "**/*.go") |> filter(size > 1mb and modified > ago(24h)) 
         (identifier))
       (identifier)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))
     (pipe)
     (stage
@@ -67,7 +67,7 @@ lines("/srv/data/data.txt") |> sort(text) |> write("/srv/data/data.txt", mode: o
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 =======================================================
@@ -86,7 +86,7 @@ replace("Zürich", "Genève", in: ["/srv/legacy/file.txt"])
       (string)
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string))))))
 
@@ -132,36 +132,36 @@ edit("/srv/app/main.go", changes: [{replace: "oldName(", with: "newName(", occur
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (integer)))
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (integer))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (identifier)))
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (range
                 (integer)
                 (integer))))))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))))
 
 ==============================================================
@@ -180,14 +180,14 @@ read("/srv/app/main.go", unchanged_since: "1a2b3c4d")
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (regex
           (regex_pattern)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (boolean))))
   (pipeline
     (stage
@@ -195,7 +195,7 @@ read("/srv/app/main.go", unchanged_since: "1a2b3c4d")
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ====================================================
@@ -217,7 +217,7 @@ CMD ["sh"]
       (string)
       (raw_string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 =============================================================
@@ -237,7 +237,7 @@ search(/oldName\(/, "/srv/app/src", glob: "**/*.go") |> replace("newName(") |> v
         (regex_pattern))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
@@ -258,14 +258,14 @@ search(/oldName\(/, "/srv/app/src", glob: "**/*.go") |> replace("newName(") |> v
               (string)
               (string))
             (named_argument
-              (argument_name)
+              (argument_name (identifier))
               (string)))
           (pipe)
           (stage
             (command_name
               (identifier))
             (named_argument
-              (argument_name)
+              (argument_name (identifier))
               (integer))))))))
 
 ==============================================
@@ -284,10 +284,10 @@ schedule.create("backup", cron: "0 3 * * *", action: (run(["backup"], cwd: "/srv
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (subpipeline
           (pipeline
             (stage
@@ -296,7 +296,7 @@ schedule.create("backup", cron: "0 3 * * *", action: (run(["backup"], cwd: "/srv
               (list
                 (string))
               (named_argument
-                (argument_name)
+                (argument_name (identifier))
                 (string)))))))))
 
 =====================================================
@@ -326,7 +326,7 @@ processes() |> describe()
         (identifier))
       (identifier)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))
     (pipe)
     (stage

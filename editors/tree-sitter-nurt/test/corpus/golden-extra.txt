@@ -43,7 +43,7 @@ jobs |> filter exit_code != -1
           (identifier))
         (string)
         (named_argument
-          (argument_name)
+          (argument_name (identifier))
           (string)))))
   (pipeline
     (stage
@@ -55,7 +55,7 @@ jobs |> filter exit_code != -1
             (reference)
             (identifier))))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier))))
   (pipeline
     (stage
@@ -113,7 +113,7 @@ jobs |> filter exit_code != -1
         (identifier))
       (identifier)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier))))
   (pipeline
     (stage
@@ -125,4 +125,5 @@ jobs |> filter exit_code != -1
         (identifier))
       (binary_expression
         (identifier)
-        (integer)))))
+        (unary_expression
+          (integer))))))

@@ -63,7 +63,8 @@ first 20 -1
       (command_name
         (identifier))
       (integer)
-      (integer))))
+      (unary_expression
+        (integer)))))
 
 ==================
 Negative number after a comparison operator
@@ -84,7 +85,8 @@ jobs |> filter exit_code != -1
         (identifier))
       (binary_expression
         (identifier)
-        (integer)))))
+        (unary_expression
+          (integer))))))
 
 ==================
 Division without spaces
@@ -198,7 +200,7 @@ replace "a" "b" in: ["/f"]
       (string)
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string))))))
 
@@ -248,3 +250,66 @@ find "/srv"
       (binary_expression
         (identifier)
         (size)))))
+
+==================
+Negation binds tighter than multiplication
+==================
+
+x -a * 2
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (binary_expression
+        (unary_expression
+          (identifier))
+        (integer)))))
+
+==================
+Negation as a named argument value
+==================
+
+x depth:-1 limit: 2
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier))
+      (named_argument
+        (argument_name
+          (identifier))
+        (unary_expression
+          (integer)))
+      (named_argument
+        (argument_name
+          (identifier))
+        (integer)))))
+
+==================
+Pipe on a continuation line after a comment
+==================
+
+jobs
+# keep failed runs
+  |> first 3
+
+---
+
+(source_file
+  (pipeline
+    (stage
+      (command_name
+        (identifier)))
+    (comment)
+    (pipe)
+    (stage
+      (command_name
+        (identifier))
+      (integer))))
