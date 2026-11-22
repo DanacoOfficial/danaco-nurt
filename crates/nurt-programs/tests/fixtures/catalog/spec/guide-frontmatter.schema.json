@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:nurt:program-catalog:1:guide-frontmatter",
+  "title": "nurt-program-catalog/1 guide front matter",
+  "description": "Front matter of a guide file, read as a mapping. Keys not listed are permitted and ignored.",
+  "type": "object",
+  "required": ["name", "description", "version"],
+  "properties": {
+    "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,119}$", "description": "Name of the guide; equal to the file name without .md." },
+    "description": { "type": "string", "minLength": 1, "maxLength": 1024, "description": "When and for what to use the guide or the program." },
+    "version": { "type": "string", "minLength": 1, "maxLength": 60, "description": "Version of the guide or of the described program." },
+    "programs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,119}$" },
+      "description": "Programs the guide describes."
+    },
+    "language": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$" },
+    "license": { "type": "string", "maxLength": 200 },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Data of the producer; ignored by readers."
+    }
+  }
+}

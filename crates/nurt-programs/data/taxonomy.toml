@@ -1,0 +1,152 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Built-in taxonomy of program categories.
+#
+# Each category has an id, an English title and summary, and translations
+# by language code. The order of the array is the order of listings with
+# equal counts.
+
+[[category]]
+id = "audio"
+title = "Audio"
+summary = "Playback, recording, editing and conversion of sound."
+pl = { title = "D\u017Awi\u0119k", summary = "Odtwarzanie, nagrywanie, edycja i konwersja d\u017Awi\u0119ku." }
+
+[[category]]
+id = "video"
+title = "Video"
+summary = "Playback, editing, encoding and packaging of video."
+pl = { title = "Wideo", summary = "Odtwarzanie, edycja, kodowanie i pakowanie wideo." }
+
+[[category]]
+id = "images"
+title = "Images and photos"
+summary = "Viewing, conversion and processing of raster images and photos."
+pl = { title = "Obrazy i zdj\u0119cia", summary = "Przegl\u0105danie, konwersja i obr\u00F3bka obraz\u00F3w rastrowych i zdj\u0119\u0107." }
+
+[[category]]
+id = "graphics"
+title = "Graphics and design"
+summary = "Vector graphics, drawing, diagrams and design."
+pl = { title = "Grafika i projektowanie", summary = "Grafika wektorowa, rysunek, diagramy i projektowanie." }
+
+[[category]]
+id = "3d"
+title = "3D"
+summary = "Modelling, rendering and conversion of 3D scenes and meshes."
+pl = { title = "3D", summary = "Modelowanie, renderowanie i konwersja scen i siatek 3D." }
+
+[[category]]
+id = "documents"
+title = "Documents and text"
+summary = "Text editors, typesetting, PDF and document conversion."
+pl = { title = "Dokumenty i tekst", summary = "Edytory tekstu, sk\u0142ad, PDF i konwersja dokument\u00F3w." }
+
+[[category]]
+id = "office"
+title = "Office and productivity"
+summary = "Spreadsheets, presentations, calendars and finance."
+pl = { title = "Biuro", summary = "Arkusze, prezentacje, kalendarze i finanse." }
+
+[[category]]
+id = "code"
+title = "Development"
+summary = "Compilers, interpreters, build tools, version control and editors for code."
+pl = { title = "Programowanie", summary = "Kompilatory, interpretery, narz\u0119dzia budowania, kontrola wersji i edytory kodu." }
+
+[[category]]
+id = "data"
+title = "Databases and data"
+summary = "Database servers and clients, data formats and analysis."
+pl = { title = "Bazy danych i dane", summary = "Serwery i klienty baz danych, formaty danych i analiza." }
+
+[[category]]
+id = "network"
+title = "Network"
+summary = "Network tools, transfer, mail and communication."
+pl = { title = "Sie\u0107", summary = "Narz\u0119dzia sieciowe, przesy\u0142anie plik\u00F3w, poczta i komunikacja." }
+
+[[category]]
+id = "web"
+title = "Web"
+summary = "Web browsers, web servers and web development."
+pl = { title = "WWW", summary = "Przegl\u0105darki, serwery WWW i tworzenie stron." }
+
+[[category]]
+id = "security"
+title = "Security"
+summary = "Encryption, signatures, keys, scanners and auditing."
+pl = { title = "Bezpiecze\u0144stwo", summary = "Szyfrowanie, podpisy, klucze, skanery i audyt." }
+
+[[category]]
+id = "system"
+title = "System and administration"
+summary = "Shells, file utilities, system administration and settings."
+pl = { title = "System i administracja", summary = "Pow\u0142oki, narz\u0119dzia plikowe, administracja i ustawienia systemu." }
+
+[[category]]
+id = "diagnostics"
+title = "Monitoring and diagnostics"
+summary = "Processes, performance, tracing, hardware and logs."
+pl = { title = "Monitorowanie i diagnostyka", summary = "Procesy, wydajno\u015B\u0107, \u015Bledzenie, sprz\u0119t i dzienniki." }
+
+[[category]]
+id = "devops"
+title = "Containers, deployment and cloud"
+summary = "Containers, orchestration, provisioning and cloud tools."
+pl = { title = "Kontenery, wdro\u017Cenia i chmura", summary = "Kontenery, orkiestracja, konfiguracja serwer\u00F3w i narz\u0119dzia chmury." }
+
+[[category]]
+id = "archives"
+title = "Archives and compression"
+summary = "Archives, compression and checksums."
+pl = { title = "Archiwa i kompresja", summary = "Archiwa, kompresja i sumy kontrolne." }
+
+[[category]]
+id = "tests"
+title = "Testing"
+summary = "Test runners, fuzzing, benchmarks and load testing."
+pl = { title = "Testy", summary = "Uruchamianie test\u00F3w, fuzzing, pomiary wydajno\u015Bci i testy obci\u0105\u017Ceniowe." }
+
+[[category]]
+id = "science"
+title = "Science and math"
+summary = "Mathematics, statistics, astronomy, chemistry and other sciences."
+pl = { title = "Nauka i matematyka", summary = "Matematyka, statystyka, astronomia, chemia i inne nauki." }
+
+[[category]]
+id = "education"
+title = "Education"
+summary = "Learning and teaching software."
+pl = { title = "Edukacja", summary = "Programy do nauki i nauczania." }
+
+[[category]]
+id = "games"
+title = "Games"
+summary = "Games and entertainment."
+pl = { title = "Gry", summary = "Gry i rozrywka." }
+
+[[category]]
+id = "ai"
+title = "Machine learning"
+summary = "Machine learning models, inference and training tools."
+pl = { title = "Uczenie maszynowe", summary = "Modele uczenia maszynowego, wnioskowanie i trenowanie." }
+
+[[category]]
+id = "mobile"
+title = "Mobile development"
+summary = "Tools for Android and iOS devices and applications."
+pl = { title = "Aplikacje mobilne", summary = "Narz\u0119dzia urz\u0105dze\u0144 i aplikacji Android oraz iOS." }
+
+[[category]]
+id = "desktop"
+title = "Desktop utilities"
+summary = "Desktop accessories and accessibility tools."
+pl = { title = "Narz\u0119dzia pulpitu", summary = "Akcesoria pulpitu i u\u0142atwienia dost\u0119pu." }
+
+[[category]]
+id = "other"
+title = "Other"
+summary = "Programs without a more specific category."
+pl = { title = "Inne", summary = "Programy bez bardziej szczeg\u00F3\u0142owej kategorii." }

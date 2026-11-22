@@ -1,0 +1,8 @@
+disabled services = {
+	"org.example.backup" => disabled
+	"com.openssh.sshd" => enabled
+	"org.example.legacy" => true
+	"org.example.unknown" => maybe
+}
+login item associations = {
+}

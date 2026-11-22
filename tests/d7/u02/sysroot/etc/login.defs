@@ -1,0 +1,3 @@
+# Range of identifiers of ordinary users
+UID_MIN                  1000
+UID_MAX                 60000

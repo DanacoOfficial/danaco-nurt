@@ -4,10 +4,58 @@
 
 //! Background service of Danaco Nurt.
 //!
-//! The service hosts the space module, which keeps free space above the
-//! reserve on journal volumes, and the schedule module, which runs scheduled
-//! programs. It installs itself as a systemd unit, a launchd agent or a Windows
-//! service.
+//! The service process ([`run`]) hosts modules such as the schedule module
+//! ([`ScheduleService`]) and the free space module of the journal. It holds
+//! the single-instance lock `service.lock`, writes the heartbeat
+//! `service.hb` and answers on a control channel: the Unix socket
+//! `service.sock` in the state directory or, on Windows, a named pipe of the
+//! account. The protocol is described in [`ipc::protocol`].
+//!
+//! [`install`] registers the service with systemd, launchd, the Windows
+//! service control manager or the Windows Task Scheduler, [`uninstall`]
+//! removes it and [`status`] reports whether it is installed and running.
+//!
+//! ```no_run
+//! use std::sync::Arc;
+//!
+//! use nurt_contracts::config::Config;
+//! use nurt_service::module::ServiceModule;
+//! use nurt_service::{ScheduleService, ServiceSetup, run};
+//!
+//! let setup = ServiceSetup::new(Config::default())?;
+//! let modules: Vec<Arc<dyn ServiceModule>> = vec![Arc::new(ScheduleService::new())];
+//! run(setup, modules)?;
+//! # Ok::<(), nurt_contracts::error::Error>(())
+//! ```
 
 #![deny(missing_docs)]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
+
+mod clock;
+pub mod heartbeat;
+mod host;
+mod hub;
+pub mod install;
+pub mod ipc;
+mod lock;
+pub mod module;
+mod paths;
+pub mod priority;
+pub mod process;
+mod schedule;
+#[cfg(windows)]
+mod scm;
+#[cfg(unix)]
+mod signals;
+pub mod status;
+mod supervisor;
+
+pub use clock::SystemClock;
+pub use host::{ConfigSource, ServiceSetup, run};
+pub use install::{
+    Backend, InstallReport, InstallRequest, Manifest, UninstallReport, UninstallRequest, install,
+    uninstall,
+};
+pub use paths::{ServicePaths, default_state_dir};
+pub use schedule::ScheduleService;
+pub use status::{InactiveReason, Liveness, ServiceStatus, StatusRequest, status};

@@ -17,11 +17,32 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_System_EventLog",
+    "Win32_Security",
+] }
+
 [dependencies]
 nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
-siphasher = { workspace = true }
+zstd = { workspace = true }
+lz4_flex = { workspace = true }
 lzma-rust2 = { workspace = true }
+siphasher = { workspace = true }
+quick-xml = { workspace = true }
+regex = { workspace = true }
+globset = { workspace = true }
+jiff = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+indexmap = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+proptest = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { workspace = true }
@@ -29,3 +50,4 @@ objc2-foundation = { workspace = true }
 objc2-os-log = { workspace = true }
 block2 = { workspace = true }
 macos-unifiedlogs = { workspace = true }
+libc = { workspace = true }

@@ -1,0 +1,22 @@
+system/org.example.agentd = {
+	active count = 0
+	path = /Library/LaunchDaemons/org.example.agentd.plist
+	type = LaunchDaemon
+	state = not running
+
+	program = /usr/local/libexec/agentd
+	arguments = {
+		/usr/local/libexec/agentd
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	domain = system
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 3
+	last exit code = 78: EX_CONFIG
+	spawn type = daemon (3)
+}

@@ -1,0 +1,24 @@
+system/com.openssh.sshd = {
+	active count = 1
+	path = /System/Library/LaunchDaemons/ssh.plist
+	type = LaunchDaemon
+	state = running
+
+	program = /usr/libexec/sshd-keygen-wrapper
+	arguments = {
+		/usr/libexec/sshd-keygen-wrapper
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	domain = system
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 1
+	pid = 412
+	last exit code = (never exited)
+	spawn type = daemon (3)
+	jetsam priority = 4
+}

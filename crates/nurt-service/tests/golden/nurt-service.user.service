@@ -1,0 +1,12 @@
+[Unit]
+Description=Danaco Nurt background service
+Documentation=https://github.com/DanacoOfficial/nurt
+
+[Service]
+Type=simple
+ExecStart=/opt/nurt/bin/nurt service run
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

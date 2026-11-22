@@ -1,0 +1,25 @@
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'>
+  <System>
+    <Provider Name='Example-Service-Manager' Guid='{00000000-0000-0000-0000-000000000001}' EventSourceName='Example-Service-Manager'/>
+    <EventID Qualifiers='16384'>7036</EventID>
+    <Version>0</Version>
+    <Level>4</Level>
+    <Task>0</Task>
+    <Opcode>0</Opcode>
+    <Keywords>0x8080000000000000</Keywords>
+    <TimeCreated SystemTime='2026-11-21T10:15:30.1234567Z'/>
+    <EventRecordID>1001</EventRecordID>
+    <Correlation ActivityID='{00000000-0000-0000-0000-0000000000aa}'/>
+    <Execution ProcessID='812' ThreadID='4400'/>
+    <Channel>System</Channel>
+    <Computer>host.example.com</Computer>
+    <Security UserID='S-1-5-18'/>
+  </System>
+  <EventData>
+    <Data Name='param1'>Example Service</Data>
+    <Data Name='param2'>running</Data>
+  </EventData>
+</Event>

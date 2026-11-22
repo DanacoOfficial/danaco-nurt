@@ -19,3 +19,31 @@ workspace = true
 [dependencies]
 nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true, features = ["raw_value"] }
+ciborium = { workspace = true }
+toml = { workspace = true }
+rusqlite = { workspace = true }
+plist = { workspace = true }
+quick-xml = { workspace = true, features = ["serialize"] }
+flate2 = { workspace = true }
+liblzma = { workspace = true }
+bzip2 = { workspace = true }
+zstd = { workspace = true }
+lz4_flex = { workspace = true }
+encoding_rs = { workspace = true }
+chardetng = { workspace = true }
+unicode-normalization = { workspace = true }
+memchr = { workspace = true }
+rayon = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Registry"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+proptest = { workspace = true }
+jsonschema = { workspace = true }

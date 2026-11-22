@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:nurt:program-catalog:1:catalog",
+  "title": "nurt-program-catalog/1 index",
+  "description": "Index file catalog.json of a program catalog. An included part validates against #/$defs/part and a localized overlay against #/$defs/overlay.",
+  "type": "object",
+  "required": ["format", "categories", "programs"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "nurt-program-catalog/1" },
+    "format_minor": { "type": "integer", "minimum": 0, "default": 0, "description": "Additive revision of format 1." },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$", "description": "Catalog identifier. Default: derived from the name of the root directory." },
+    "title": { "type": "string", "maxLength": 120 },
+    "version": { "type": "string", "maxLength": 60, "description": "Version of the catalog data." },
+    "language": { "$ref": "#/$defs/language", "default": "en", "description": "Language of the texts of the index and of the guides." },
+    "languages": { "type": "array", "items": { "$ref": "#/$defs/language" }, "uniqueItems": true, "description": "Languages for which overlays exist under i18n/." },
+    "license": { "type": "string", "maxLength": 200, "description": "License of the catalog data." },
+    "include": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/relpath" }, "uniqueItems": true, "description": "Included parts merged into programs." },
+    "categories": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/category" } },
+    "programs": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/$defs/program" } },
+    "guides": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/$defs/standalone_guide" }, "description": "Guides not bound to a program." },
+    "synonyms": { "type": "array", "maxItems": 5000, "items": { "$ref": "#/$defs/synonym_group" } },
+    "x": { "$ref": "#/$defs/extension" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,59}$", "description": "Identifier of a category." },
+    "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,119}$", "description": "Command, program or guide name as typed, case preserved." },
+    "relpath": {
+      "type": "string",
+      "maxLength": 512,
+      "pattern": "^[^/\\\\:*?\"<>|\u0000-\u001f]*[^/\\\\:*?\"<>|\u0000-\u001f.][^/\\\\:*?\"<>|\u0000-\u001f]*(/[^/\\\\:*?\"<>|\u0000-\u001f]*[^/\\\\:*?\"<>|\u0000-\u001f.][^/\\\\:*?\"<>|\u0000-\u001f]*)*$",
+      "description": "Path relative to the catalog root with '/' separators; no empty segment, no segment of dots only, no backslash, colon or wildcard."
+    },
+    "date": { "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$" },
+    "language": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$" },
+    "platform": { "enum": ["linux", "macos", "windows", "freebsd", "any"] },
+    "tag": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "tags": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/tag" } },
+    "extension": { "type": "object", "description": "Data of the producer of the catalog; ignored by readers." },
+    "synonym_group": { "type": "array", "minItems": 2, "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 60 } },
+    "category": {
+      "type": "object",
+      "required": ["id", "title"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "parent": { "$ref": "#/$defs/id", "description": "Identifier of the parent category; one level of nesting." },
+        "summary": { "type": "string", "maxLength": 300, "description": "One sentence." },
+        "aliases": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 120 }, "description": "Alternative names accepted where a category or subcategory is named." },
+        "same_as": { "type": "string", "maxLength": 60, "description": "Built-in category of the reader this category is equivalent to." },
+        "order": { "type": "integer", "description": "Position in listings." },
+        "x": { "$ref": "#/$defs/extension" }
+      }
+    },
+    "alias": {
+      "oneOf": [
+        { "$ref": "#/$defs/name" },
+        {
+          "type": "object",
+          "required": ["name"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "$ref": "#/$defs/name" },
+            "kind": { "enum": ["alias", "versioned", "companion"], "default": "alias", "description": "alias: same function; versioned: same program with a version in its name; companion: helper command of the same package." },
+            "path": { "type": "string", "maxLength": 1024, "description": "Absolute path on the described host; informational." }
+          }
+        }
+      ]
+    },
+    "not_for": {
+      "type": "object",
+      "required": ["task"],
+      "additionalProperties": false,
+      "properties": {
+        "task": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "use": { "type": "string", "maxLength": 200, "description": "Program to use instead." }
+      }
+    },
+    "section": {
+      "type": "object",
+      "required": ["kind", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["purpose", "when", "when_not", "io", "example", "check", "pitfalls", "related", "aliases", "other"] },
+        "label": { "type": "string", "maxLength": 60, "description": "Display label in the language of the catalog." },
+        "text": { "type": "string", "minLength": 1, "maxLength": 4000 }
+      }
+    },
+    "program": {
+      "type": "object",
+      "required": ["name", "category", "summary"],
+      "additionalProperties": false,
+      "not": {
+        "required": ["guide_optional", "guide_required"],
+        "properties": { "guide_optional": { "const": true }, "guide_required": { "const": true } }
+      },
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "category": { "$ref": "#/$defs/id", "description": "Category or subcategory declared in categories." },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 300, "description": "One or two sentences: what the program does." },
+        "aliases": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/alias" } },
+        "platforms": { "type": "array", "items": { "$ref": "#/$defs/platform" }, "uniqueItems": true },
+        "guide": { "$ref": "#/$defs/relpath", "description": "Guide of the program; several programs may name the same guide." },
+        "verified": { "$ref": "#/$defs/date", "description": "Date of the last verification of the entry." },
+        "tags": { "$ref": "#/$defs/tags" },
+        "overview": { "type": "string", "maxLength": 600, "description": "One paragraph for category listings." },
+        "description": { "type": "string", "maxLength": 8000, "description": "Full description, Markdown." },
+        "sections": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/section" } },
+        "when_to_use": { "type": "array", "maxItems": 32, "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+        "not_for": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/not_for" } },
+        "example": { "type": "string", "maxLength": 500, "description": "One complete invocation; never executed." },
+        "guide_optional": { "type": "boolean", "default": false },
+        "guide_required": { "type": "boolean", "default": false },
+        "version": { "type": "string", "maxLength": 60 },
+        "path": { "type": "string", "maxLength": 1024, "description": "Absolute path on the described host; never executed." },
+        "homepage": { "type": "string", "maxLength": 300, "description": "Address of the project page; never fetched." },
+        "license": { "type": "string", "maxLength": 200 },
+        "package": { "type": "string", "maxLength": 120 },
+        "input": { "type": "string", "maxLength": 400 },
+        "output": { "type": "string", "maxLength": 400 },
+        "related": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/name" } },
+        "x": { "$ref": "#/$defs/extension" }
+      }
+    },
+    "standalone_guide": {
+      "type": "object",
+      "required": ["name", "guide"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "guide": { "$ref": "#/$defs/relpath" },
+        "summary": { "type": "string", "maxLength": 300, "description": "Default: description of the front matter." },
+        "category": { "$ref": "#/$defs/id" },
+        "tags": { "$ref": "#/$defs/tags" }
+      }
+    },
+    "part": {
+      "title": "nurt-program-catalog/1 included part",
+      "type": "object",
+      "required": ["programs"],
+      "additionalProperties": false,
+      "properties": {
+        "programs": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/$defs/program" } },
+        "x": { "$ref": "#/$defs/extension" }
+      }
+    },
+    "overlay": {
+      "title": "nurt-program-catalog/1 localized overlay",
+      "type": "object",
+      "required": ["format", "language"],
+      "additionalProperties": false,
+      "properties": {
+        "format": { "const": "nurt-program-catalog/1" },
+        "language": { "$ref": "#/$defs/language" },
+        "categories": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+              "summary": { "type": "string", "maxLength": 300 },
+              "description": { "type": "string", "maxLength": 2000 }
+            }
+          }
+        },
+        "programs": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "$ref": "#/$defs/name" },
+              "summary": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "overview": { "type": "string", "maxLength": 600 },
+              "description": { "type": "string", "maxLength": 8000 },
+              "when_to_use": { "type": "array", "maxItems": 32, "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+              "not_for": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/not_for" } },
+              "sections": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/section" } },
+              "tags": { "$ref": "#/$defs/tags" },
+              "guide": { "$ref": "#/$defs/relpath", "description": "Translated guide." }
+            }
+          }
+        },
+        "guides": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "$ref": "#/$defs/name" },
+              "summary": { "type": "string", "maxLength": 300 },
+              "tags": { "$ref": "#/$defs/tags" },
+              "guide": { "$ref": "#/$defs/relpath", "description": "Translated guide." }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+root:x:0:
+sudo:x:27:anna
+docker:x:999:anna,build
+anna:x:1000:
+build:x:1001:
+svc:x:998:
+nogroup:x:65534:

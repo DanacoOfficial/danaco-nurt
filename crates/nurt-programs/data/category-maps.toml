@@ -1,0 +1,255 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Mappings of system classifications to taxonomy ids.
+#
+# debian_section: section of a Debian package, without the archive area
+#   prefix (`contrib/`, `non-free/`).
+# debian_weak: sections too general to decide alone; the keyword classifier
+#   is consulted first.
+# freedesktop: `Categories=` values; the first mapped additional category
+#   wins over main categories listed in freedesktop_main.
+# macos_category: `LSApplicationCategoryType` without `public.app-category.`.
+# rpm_group: prefixes of `Group` values, matched case-insensitively, longest
+#   prefix first.
+# man_section: section of the manual page with the command.
+# keywords: words matched against the command name, package name, tags and
+#   keywords; the category with most matches wins, ties go to the smaller id.
+
+[debian_section]
+sound = "audio"
+video = "video"
+graphics = "graphics"
+text = "documents"
+tex = "documents"
+doc = "documents"
+editors = "documents"
+devel = "code"
+vcs = "code"
+interpreters = "code"
+python = "code"
+perl = "code"
+ruby = "code"
+rust = "code"
+golang = "code"
+java = "code"
+javascript = "code"
+haskell = "code"
+ocaml = "code"
+lisp = "code"
+php = "code"
+database = "data"
+net = "network"
+mail = "network"
+comm = "network"
+news = "network"
+web = "web"
+httpd = "web"
+admin = "system"
+shells = "system"
+utils = "system"
+kernel = "system"
+otherosfs = "system"
+misc = "other"
+science = "science"
+math = "science"
+gnu-r = "science"
+electronics = "science"
+education = "education"
+games = "games"
+x11 = "desktop"
+gnome = "desktop"
+kde = "desktop"
+xfce = "desktop"
+introspection = "code"
+
+[debian_weak]
+sections = ["utils", "misc", "admin", "x11", "gnome", "kde", "xfce"]
+
+[freedesktop]
+Audio = "audio"
+Music = "audio"
+Midi = "audio"
+Mixer = "audio"
+Sequencer = "audio"
+Recorder = "audio"
+Video = "video"
+AudioVideoEditing = "video"
+TV = "video"
+Player = "video"
+Photography = "images"
+RasterGraphics = "images"
+Viewer = "images"
+Scanning = "images"
+OCR = "images"
+VectorGraphics = "graphics"
+2DGraphics = "graphics"
+Graphics = "graphics"
+3DGraphics = "3d"
+WordProcessor = "documents"
+Publishing = "documents"
+TextEditor = "documents"
+Dictionary = "documents"
+Office = "office"
+Spreadsheet = "office"
+Presentation = "office"
+Calendar = "office"
+ContactManagement = "office"
+Finance = "office"
+ProjectManagement = "office"
+Development = "code"
+IDE = "code"
+Debugger = "code"
+RevisionControl = "code"
+GUIDesigner = "code"
+Translation = "code"
+Building = "code"
+Database = "data"
+Network = "network"
+Email = "network"
+Chat = "network"
+InstantMessaging = "network"
+IRCClient = "network"
+FileTransfer = "network"
+P2P = "network"
+RemoteAccess = "network"
+Telephony = "network"
+VideoConference = "network"
+News = "network"
+Feed = "network"
+WebBrowser = "web"
+WebDevelopment = "web"
+Security = "security"
+System = "system"
+Settings = "system"
+FileManager = "system"
+TerminalEmulator = "system"
+FileTools = "system"
+PackageManager = "system"
+HardwareSettings = "system"
+Filesystem = "system"
+Monitor = "diagnostics"
+Archiving = "archives"
+Compression = "archives"
+Science = "science"
+Math = "science"
+Astronomy = "science"
+Chemistry = "science"
+Biology = "science"
+Physics = "science"
+DataVisualization = "science"
+Geography = "science"
+Electronics = "science"
+Education = "education"
+Languages = "education"
+Game = "games"
+ArcadeGame = "games"
+BoardGame = "games"
+CardGame = "games"
+StrategyGame = "games"
+Utility = "desktop"
+Accessibility = "desktop"
+Clock = "desktop"
+Calculator = "desktop"
+Documentation = "documents"
+
+[freedesktop_main]
+values = ["AudioVideo", "Audio", "Video", "Development", "Education", "Game", "Graphics", "Network", "Office", "Science", "Settings", "System", "Utility"]
+
+[macos_category]
+music = "audio"
+video = "video"
+photography = "images"
+graphics-design = "graphics"
+productivity = "office"
+business = "office"
+finance = "office"
+developer-tools = "code"
+education = "education"
+games = "games"
+utilities = "desktop"
+social-networking = "network"
+news = "network"
+reference = "documents"
+medical = "science"
+healthcare-fitness = "other"
+lifestyle = "other"
+entertainment = "other"
+sports = "other"
+travel = "other"
+weather = "other"
+
+[rpm_group]
+"Amusements/Games" = "games"
+"Amusements" = "games"
+"Applications/Archiving" = "archives"
+"Applications/Databases" = "data"
+"Applications/Editors" = "documents"
+"Applications/Engineering" = "science"
+"Applications/Internet" = "network"
+"Applications/Multimedia" = "video"
+"Applications/Productivity" = "office"
+"Applications/Publishing" = "documents"
+"Applications/System" = "system"
+"Applications/Text" = "documents"
+"Development" = "code"
+"Documentation" = "documents"
+"System Environment/Shells" = "system"
+"System Environment/Base" = "system"
+"System/Shells" = "system"
+"System/Monitoring" = "diagnostics"
+"System/Benchmark" = "tests"
+"System" = "system"
+"Productivity/Archiving" = "archives"
+"Productivity/Databases" = "data"
+"Productivity/Editors" = "documents"
+"Productivity/Graphics/3D" = "3d"
+"Productivity/Graphics/Vector" = "graphics"
+"Productivity/Graphics/Viewers" = "images"
+"Productivity/Graphics" = "images"
+"Productivity/Multimedia/Sound" = "audio"
+"Productivity/Multimedia/Video" = "video"
+"Productivity/Multimedia" = "video"
+"Productivity/Networking/Web" = "web"
+"Productivity/Networking/Security" = "security"
+"Productivity/Networking" = "network"
+"Productivity/Office" = "office"
+"Productivity/Publishing" = "documents"
+"Productivity/Scientific" = "science"
+"Productivity/Security" = "security"
+"Productivity/Text" = "documents"
+"Productivity/File utilities" = "system"
+"Productivity/Clustering" = "devops"
+"Productivity" = "office"
+"Development/Tools/Version Control" = "code"
+"Development/Languages" = "code"
+"Development/Tools" = "code"
+"Development/Libraries" = "code"
+"Documentation/Man" = "documents"
+"Hardware" = "system"
+"Scientific" = "science"
+
+[man_section]
+"6" = "games"
+"8" = "system"
+
+[keywords]
+archives = ["tar", "zip", "unzip", "gzip", "gunzip", "bzip2", "xz", "zstd", "lz4", "7z", "7za", "rar", "unrar", "cpio", "archive", "compress", "compression", "checksum", "sha256sum", "md5sum", "b2sum"]
+devops = ["docker", "podman", "kubectl", "helm", "terraform", "tofu", "ansible", "vagrant", "buildah", "skopeo", "k9s", "kind", "minikube", "nerdctl", "containerd", "cloud", "aws", "gcloud", "az", "container", "kubernetes"]
+diagnostics = ["top", "htop", "btop", "atop", "iotop", "strace", "ltrace", "perf", "gdb", "lsof", "smartctl", "dmesg", "journalctl", "sar", "vmstat", "iostat", "trace", "monitor", "sensors", "lshw", "lspci", "lsusb", "valgrind"]
+security = ["gpg", "gpg2", "ssh-keygen", "openssl", "age", "nmap", "trivy", "gitleaks", "lynis", "clamscan", "sops", "pass", "keepassxc", "security", "encrypt", "encryption", "scanner", "vulnerability", "password"]
+tests = ["test", "testing", "fuzz", "fuzzing", "bench", "benchmark", "pytest", "jest", "k6", "hyperfine", "coverage"]
+ai = ["llama", "whisper", "onnx", "ollama", "torch", "tensorflow", "transformers", "llm", "machine-learning", "neural"]
+mobile = ["adb", "fastboot", "simctl", "xcrun", "android", "ios", "apktool", "flutter", "gradle"]
+video = ["ffmpeg", "ffprobe", "ffplay", "mpv", "vlc", "mkvmerge", "handbrake", "video", "x264", "x265", "av1", "mp4box"]
+audio = ["sox", "lame", "flac", "opusenc", "audacity", "pulseaudio", "pipewire", "audio", "sound", "music", "mp3"]
+images = ["convert", "magick", "gimp", "exiftool", "jpegoptim", "optipng", "pngquant", "cwebp", "image", "photo", "imagemagick"]
+graphics = ["inkscape", "dot", "graphviz", "svg", "vector", "diagram", "drawing"]
+3d = ["blender", "openscad", "freecad", "meshlab", "3d"]
+documents = ["pandoc", "pdftotext", "qpdf", "pdftk", "latex", "pdflatex", "xelatex", "typst", "groff", "libreoffice", "pdf", "markdown", "document", "editor", "vim", "nano", "emacs"]
+data = ["sqlite3", "psql", "mysql", "mariadb", "duckdb", "redis-cli", "mongo", "mongosh", "jq", "yq", "csvkit", "database", "sql", "json", "csv"]
+network = ["curl", "wget", "ssh", "scp", "sftp", "rsync", "ping", "dig", "nslookup", "host", "traceroute", "ip", "ss", "netstat", "nc", "ncat", "socat", "iperf3", "tcpdump", "network", "dns", "http"]
+web = ["nginx", "apache2", "httpd", "caddy", "firefox", "chromium", "node", "npm", "browser", "web"]
+code = ["git", "gcc", "g++", "clang", "rustc", "cargo", "go", "python3", "python", "java", "javac", "make", "cmake", "ninja", "meson", "gdb", "compiler", "interpreter", "debugger", "programming", "development"]
+science = ["octave", "maxima", "gnuplot", "r", "rscript", "math", "statistics", "science"]
+system = ["bash", "zsh", "fish", "sh", "dash", "ls", "cp", "mv", "rm", "find", "grep", "sed", "awk", "systemctl", "sudo", "mount", "chmod", "chown", "shell", "filesystem", "admin", "administration"]

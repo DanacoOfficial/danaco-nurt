@@ -1,0 +1,91 @@
+{
+  "format": "nurt-program-catalog/1",
+  "format_minor": 0,
+  "id": "media-tools",
+  "title": "Media tools",
+  "version": "2026.11.2",
+  "language": "en",
+  "languages": ["en", "de"],
+  "license": "CC-BY-4.0",
+  "include": ["programs/archives.json"],
+  "categories": [
+    {
+      "id": "video",
+      "title": "Video",
+      "summary": "Video encoding and packaging.",
+      "description": "Encoding, packaging, subtitles and streaming formats.",
+      "same_as": "video",
+      "order": 1
+    },
+    {
+      "id": "video-packaging",
+      "title": "Packaging and streaming",
+      "parent": "video",
+      "description": "Containers, DASH and HLS.",
+      "aliases": ["VideoPackaging", "packaging"],
+      "x": { "review": "quarterly" }
+    },
+    { "id": "system", "title": "System", "summary": "Shell and file utilities.", "same_as": "system", "order": 2 },
+    { "id": "archives", "title": "Archives", "summary": "Archiving and compression.", "same_as": "archives" }
+  ],
+  "programs": [
+    {
+      "name": "MP4Box",
+      "category": "video-packaging",
+      "summary": "Packages and repackages MP4 files without re-encoding: tracks, subtitles, chapters, DASH.",
+      "aliases": [{ "name": "mp4box", "kind": "alias", "path": "/usr/local/bin/mp4box" }],
+      "platforms": ["linux", "macos", "windows"],
+      "guide": "guides/mp4box.md",
+      "verified": "2026-10-10",
+      "tags": ["mp4", "dash", "subtitles"],
+      "overview": "Adds subtitle tracks with a language, chapters, fragments files and creates DASH segments; encoding belongs to ffmpeg.",
+      "description": "MP4Box edits ISO base media files. It adds and removes tracks, sets track languages, writes chapters, fragments files and segments them for DASH.",
+      "sections": [
+        { "kind": "purpose", "label": "Purpose", "text": "Packaging of MP4 files without re-encoding." },
+        { "kind": "pitfalls", "label": "Pitfalls", "text": "- Use -new to avoid modifying the input file in place." },
+        { "kind": "check", "label": "Check", "text": "MP4Box -version" }
+      ],
+      "when_to_use": ["subtitles as an MP4 track, not burned in", "chapters in an MP4 file", "DASH from an MP4 file"],
+      "not_for": [
+        { "task": "encoding and image filters", "use": "ffmpeg" },
+        { "task": "MKV container", "use": "mkvmerge" }
+      ],
+      "example": "MP4Box -add film.mp4 -add subs.srt:lang=deu -new film-subs.mp4",
+      "guide_required": true,
+      "version": "26.07",
+      "path": "/usr/bin/MP4Box",
+      "homepage": "https://gpac.io",
+      "license": "LGPL-2.1-or-later",
+      "package": "gpac",
+      "input": "MP4, SRT, WebVTT, raw elementary streams",
+      "output": "MP4, fragmented MP4, DASH manifests and segments",
+      "related": ["ffmpeg"],
+      "x": { "reviewed_by": "media team" }
+    },
+    {
+      "name": "ffmpeg",
+      "category": "video",
+      "summary": "Converts, cuts and filters video and audio streams.",
+      "aliases": [
+        { "name": "ffprobe", "kind": "companion" },
+        { "name": "ffmpeg7", "kind": "versioned" }
+      ],
+      "platforms": ["linux", "macos", "windows"],
+      "guide": "guides/ffmpeg.md",
+      "guide_optional": false,
+      "verified": "2026-11-01"
+    },
+    { "name": "ls", "category": "system", "summary": "Lists directory contents.", "guide_optional": true }
+  ],
+  "guides": [
+    {
+      "name": "streaming-basics",
+      "guide": "guides/streaming-basics.md",
+      "summary": "Choosing between DASH and HLS and preparing files for both.",
+      "category": "video",
+      "tags": ["dash", "hls"]
+    }
+  ],
+  "synonyms": [["untertitel", "subtitles"], ["video", "film", "movie"]],
+  "x": { "generator": "catalog export 3" }
+}
