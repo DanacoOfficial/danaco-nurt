@@ -22,7 +22,9 @@ use std::time::Duration;
 
 use serde_json::Value;
 
-pub(crate) use self::connection::{Call, Connection, PROTOCOL, Reply, receive, receive_timeout};
+pub(crate) use self::connection::{
+    ABI_MAJOR, ABI_REQUIRED, Call, Connection, PROTOCOL, Reply, receive, receive_timeout,
+};
 pub(crate) use self::locate::locate;
 use crate::error::{Error, ErrorKind};
 use crate::response::Event;
@@ -175,14 +177,18 @@ impl Supervisor {
             .get("protocol")
             .and_then(Value::as_str)
             .unwrap_or_default();
-        if connection::is_compatible(protocol) {
+        let abi = result.get("abi").and_then(Value::as_u64);
+        if connection::is_compatible(protocol) && connection::is_abi_compatible(abi) {
             Ok(())
         } else {
             Err(Error::new(
                 ErrorKind::Incompatible,
                 format!(
-                    "nurt serve uses protocol `{protocol}`, this client needs `{PROTOCOL}`; \
-                     install a matching version of nurt"
+                    "nurt serve uses protocol `{protocol}` and interface version {}, \
+                     this client needs `{PROTOCOL}` and interface version {}.x; \
+                     install a matching version of nurt",
+                    abi.map_or_else(|| "unknown".to_owned(), |abi| abi.to_string()),
+                    ABI_MAJOR
                 ),
             ))
         }

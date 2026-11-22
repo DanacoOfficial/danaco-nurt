@@ -29,6 +29,15 @@ use crate::response::Event;
 /// Name and major version of the protocol.
 pub(crate) const PROTOCOL: &str = "nurt-rpc/1";
 
+/// Bits of the interface version below the major number.
+const ABI_MAJOR_SHIFT: u32 = 16;
+
+/// Major number of the interface version the client needs.
+pub(crate) const ABI_MAJOR: u32 = 1;
+
+/// Interface version the client needs, `(major << 16) | minor`.
+pub(crate) const ABI_REQUIRED: u32 = ABI_MAJOR << ABI_MAJOR_SHIFT;
+
 /// Largest message accepted from the server, in bytes.
 const MAX_MESSAGE_BYTES: u64 = 64 * 1024 * 1024;
 
@@ -100,7 +109,7 @@ impl Shared {
     fn deliver(&self, event: Event) {
         let target = event
             .raw()
-            .get("request_id")
+            .get("request")
             .and_then(request_id)
             .and_then(|id| {
                 lock(&self.state)
@@ -425,6 +434,15 @@ pub(crate) fn rpc_error(error: &Value) -> Error {
     Error::new(kind, format!("nurt serve: {message} (code {code})"))
 }
 
+/// Whether the interface version reported by the server, when it reports
+/// one, has the major number of [`ABI_REQUIRED`] and at least its minor.
+pub(crate) fn is_abi_compatible(abi: Option<u64>) -> bool {
+    abi.is_none_or(|abi| {
+        let required = u64::from(ABI_REQUIRED);
+        abi >> ABI_MAJOR_SHIFT == required >> ABI_MAJOR_SHIFT && abi >= required
+    })
+}
+
 /// Whether the server protocol named in `initialize` is compatible.
 pub(crate) fn is_compatible(protocol: &str) -> bool {
     protocol == PROTOCOL
@@ -493,6 +511,15 @@ mod tests {
         assert_eq!(request_id(&json!("x")), None);
         assert_eq!(request_id(&json!(-1)), None);
         assert_eq!(request_id(&Value::Null), None);
+    }
+
+    #[test]
+    fn interface_version_needs_the_same_major() {
+        assert!(is_abi_compatible(None));
+        assert!(is_abi_compatible(Some(1 << 16)));
+        assert!(is_abi_compatible(Some((1 << 16) | 3)));
+        assert!(!is_abi_compatible(Some(2 << 16)));
+        assert!(!is_abi_compatible(Some(0)));
     }
 
     #[test]
