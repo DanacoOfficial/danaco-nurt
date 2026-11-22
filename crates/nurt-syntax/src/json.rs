@@ -532,7 +532,7 @@ fn allowed_members(role: Role, kind: &str) -> Option<&'static [&'static str]> {
     match role {
         Role::Program => Some(&["statements"]),
         Role::Arg => Some(&["name", "value", "span"]),
-        Role::Entry => Some(&["k", "v"]),
+        Role::Entry => Some(&["k", "v", "span"]),
         Role::KeySeg => Some(&["wild", "filter"]),
         Role::Statement if matches!(kind, "let" | "pipeline") => node_members(kind),
         Role::Pipeline if kind == "pipeline" => node_members(kind),

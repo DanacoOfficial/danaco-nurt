@@ -20,7 +20,7 @@ use nurt_contracts::ast::{
     Statement, UnOp, strip_for_hash,
 };
 use nurt_syntax::parse::{self, ParseOptions, Variant};
-use nurt_syntax::print::{self, MAX_NESTING_DEPTH, PositionalNames, PrintError};
+use nurt_syntax::print::{self, MAX_NESTING_DEPTH, PositionalForm, PositionalNames, PrintError};
 use nurt_syntax::{fmt, json};
 
 const B_TEXTS: [&str; 14] = [
@@ -431,5 +431,275 @@ fn naming_reports_nesting_beyond_the_limit() {
         Some(PrintError::TooDeep {
             limit: MAX_NESTING_DEPTH
         })
+    );
+}
+
+/// Positional forms of the commands of the golden programs, transcribed from
+/// `catalog/*.toml` in catalog order: command, whether the form applies to the
+/// first stage of a pipeline (input `none`), whether it applies after `|>`
+/// (any other input kind), positional parameters and the index of the
+/// repeated parameter. A command without forms has one form made of its
+/// parameters with a position.
+type FormRow = (
+    &'static str,
+    bool,
+    bool,
+    &'static [&'static str],
+    Option<usize>,
+);
+
+const CATALOG_FORMS: &[FormRow] = &[
+    ("archive.create", false, true, &["to"], None),
+    ("archive.extract", true, false, &["path"], None),
+    ("code.references", true, false, &["path"], None),
+    ("code.references", false, true, &[], None),
+    ("code.rename", false, true, &["to"], None),
+    ("code.rename", true, false, &["to"], None),
+    ("code.symbols", true, false, &["name"], None),
+    ("copy", true, false, &["from", "to"], Some(0)),
+    ("copy", false, true, &["to"], None),
+    ("create", true, false, &["path"], Some(0)),
+    ("edit", true, false, &["path"], None),
+    ("filter", false, true, &["condition"], None),
+    ("find", true, false, &["path", "glob"], None),
+    ("first", false, true, &["count"], None),
+    ("git.commit", true, false, &["repo"], None),
+    ("git.status", true, false, &["repo"], Some(0)),
+    ("http.download", true, false, &["url", "to"], None),
+    ("http.request", true, false, &["url"], None),
+    ("info", true, false, &["path"], Some(0)),
+    ("insert", true, false, &["text"], None),
+    ("insert", false, true, &["text"], None),
+    ("jobs", true, false, &["id"], None),
+    ("lines", true, false, &["path", "range"], None),
+    ("lines", false, true, &["range"], None),
+    ("move", true, false, &["from", "to"], Some(0)),
+    ("move", false, true, &["to"], None),
+    ("notebook.replace", true, false, &["path"], None),
+    ("program.search", true, false, &["query"], None),
+    ("read", true, false, &["path"], Some(0)),
+    ("read", false, true, &[], None),
+    ("remove", true, false, &["path"], Some(0)),
+    ("remove", false, true, &[], None),
+    ("replace", true, false, &["pattern", "with"], None),
+    ("replace", false, true, &["with"], None),
+    ("replace", false, true, &["pattern", "with"], None),
+    ("run", true, true, &["command"], None),
+    ("schedule.create", true, false, &["label"], None),
+    ("search", true, false, &["pattern", "path"], Some(1)),
+    ("search", false, true, &["pattern"], None),
+    ("select", false, true, &["fields"], Some(0)),
+    ("set", true, false, &["path"], None),
+    ("set", false, true, &["value"], None),
+    ("sort", false, true, &["by"], Some(0)),
+    ("sql", true, false, &["path", "query"], None),
+    ("test.run", true, false, &["path"], None),
+    ("undo", true, false, &["id"], None),
+    ("verify", false, true, &["check"], None),
+    ("write", true, true, &["path", "text"], None),
+];
+
+/// Number of reference tasks.
+const TASK_COUNT: usize = 14;
+/// Number of examples.
+const EXAMPLE_COUNT: usize = 48;
+
+/// Parameter names from the forms of [`CATALOG_FORMS`].
+struct CatalogForms;
+
+impl PositionalNames for CatalogForms {
+    fn name(&self, command: &str, index: usize) -> Option<String> {
+        self.forms(command).first()?.parameters.get(index).cloned()
+    }
+
+    fn forms(&self, command: &str) -> Vec<PositionalForm> {
+        CATALOG_FORMS
+            .iter()
+            .filter(|(name, ..)| *name == command)
+            .map(
+                |&(_, head, follower, parameters, repeated)| PositionalForm {
+                    parameters: parameters.iter().map(|&name| name.to_owned()).collect(),
+                    repeated,
+                    head,
+                    follower,
+                },
+            )
+            .collect()
+    }
+}
+
+fn variant_c_golden_dir() -> PathBuf {
+    workspace().join("tests/d1/golden/ast/c")
+}
+
+/// Reference tasks and examples with a variant C golden tree, sorted. The
+/// trees are the variant A trees named by the catalog table of the variant C
+/// equivalence test, so equal trees show that the forms name every program
+/// as that table does.
+fn variant_c_programs() -> Vec<String> {
+    let directory = variant_c_golden_dir();
+    let mut names: Vec<String> = fs::read_dir(&directory)
+        .unwrap_or_else(|error| panic!("{}: {error}", directory.display()))
+        .filter_map(|entry| {
+            let path = entry.expect("directory entry").path();
+            let name = path.file_name()?.to_str()?.strip_suffix(".json")?;
+            (!name.contains('.')).then(|| name.to_owned())
+        })
+        .collect();
+    names.sort();
+    names
+}
+
+fn read_tree(path: &Path) -> AstDocument {
+    let text =
+        fs::read_to_string(path).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+    json::decode_surface(&text).unwrap_or_else(|error| panic!("{}: {error}", path.display()))
+}
+
+fn named_by_catalog_forms(name: &str) -> AstDocument {
+    let variant_a = read_tree(&workspace().join(format!("spec/golden/ast/{name}.json")));
+    print::name_positional(&variant_a, &CatalogForms)
+        .unwrap_or_else(|error| panic!("{name}: {error}"))
+}
+
+#[test]
+fn catalog_forms_name_the_golden_programs_as_their_variant_c_trees() {
+    let programs = variant_c_programs();
+    let tasks = programs
+        .iter()
+        .filter(|name| name.starts_with("task-"))
+        .count();
+    assert_eq!((tasks, programs.len() - tasks), (TASK_COUNT, EXAMPLE_COUNT));
+    let mismatches: Vec<String> = programs
+        .iter()
+        .filter_map(|name| {
+            let named = named_by_catalog_forms(name);
+            let expected = read_tree(&variant_c_golden_dir().join(format!("{name}.json")));
+            (hash_form(&named) != hash_form(&expected))
+                .then(|| format!("{name}: {}", print::print(&named, Variant::C)))
+        })
+        .collect();
+    assert!(mismatches.is_empty(), "{}", mismatches.join("\n"));
+}
+
+#[test]
+fn catalog_forms_print_the_examples_as_their_variant_c_texts() {
+    for name in variant_c_programs()
+        .iter()
+        .filter(|name| name.starts_with("example-"))
+    {
+        let path = variant_c_golden_dir().join(format!("{name}.nurt"));
+        let expected = fs::read_to_string(&path).expect("variant C text");
+        let printed = print::try_print(&named_by_catalog_forms(name), Variant::C)
+            .unwrap_or_else(|error| panic!("{name}: {error}"));
+        assert_eq!(printed, expected, "{name}");
+    }
+}
+
+fn catalog_variant_c(text: &str) -> Result<String, PrintError> {
+    let document =
+        parse::parse(text, Variant::A, &ParseOptions::default()).expect("variant A text parses");
+    print::name_positional(&document, &CatalogForms)
+        .and_then(|named| print::try_print(&named, Variant::C))
+}
+
+#[test]
+fn argument_count_selects_the_form_of_a_command() {
+    for (text, expected) in [
+        (
+            "search /old/ \"/src\"\n|> replace \"new\"\n",
+            "search pattern=/old/ path=\"/src\"\n|> replace with=\"new\"\n",
+        ),
+        (
+            "lines \"/f\"\n|> replace \"old\" \"new\"\n",
+            "lines path=\"/f\"\n|> replace pattern=\"old\" with=\"new\"\n",
+        ),
+        (
+            "replace \"old\" \"new\" in: [\"/src\"]\n",
+            "replace pattern=\"old\" with=\"new\" in=[\"/src\"]\n",
+        ),
+    ] {
+        assert_eq!(catalog_variant_c(text).as_deref(), Ok(expected), "{text}");
+    }
+}
+
+#[test]
+fn place_of_the_stage_selects_the_form_of_a_command() {
+    assert_eq!(
+        catalog_variant_c("lines \"/f\"\n").as_deref(),
+        Ok("lines path=\"/f\"\n")
+    );
+    assert_eq!(
+        catalog_variant_c("find \"/srv\"\n|> lines 1..3\n").as_deref(),
+        Ok("find path=\"/srv\"\n|> lines range=1..3\n")
+    );
+}
+
+#[test]
+fn surplus_arguments_fill_the_repeated_parameter() {
+    for (text, expected) in [
+        (
+            "find \"/srv\"\n|> select pid name memory\n",
+            "find path=\"/srv\"\n|> select fields=[pid, name, memory]\n",
+        ),
+        (
+            "copy \"/a\" overwrite: true \"/b\" \"/dst\"\n",
+            "copy from=[\"/a\", \"/b\"] overwrite=true to=\"/dst\"\n",
+        ),
+        ("copy \"/a\" \"/dst\"\n", "copy from=\"/a\" to=\"/dst\"\n"),
+        ("copy \"/a\"\n", "copy from=\"/a\"\n"),
+    ] {
+        assert_eq!(catalog_variant_c(text).as_deref(), Ok(expected), "{text}");
+    }
+}
+
+fn head_stage(document: &AstDocument) -> &Stage {
+    match document.program.statements.first() {
+        Some(Statement::Pipeline(Pipeline {
+            head: Head::Stage(stage),
+            ..
+        })) => stage,
+        other => panic!("no head stage in {other:?}"),
+    }
+}
+
+#[test]
+fn list_of_surplus_arguments_spans_its_items() {
+    let document = parse::parse(
+        "copy \"/a\" \"/b\" \"/dst\"\n",
+        Variant::A,
+        &ParseOptions::default(),
+    )
+    .expect("variant A text parses");
+    let spans: Vec<Span> = head_stage(&document)
+        .args
+        .iter()
+        .map(|arg| arg.span.expect("parsed argument has a span"))
+        .collect();
+    let expected = Span {
+        line: spans[0].line,
+        column: spans[0].column,
+        end_line: spans[1].end_line,
+        end_column: spans[1].end_column,
+    };
+    let named = print::name_positional(&document, &CatalogForms).expect("named");
+    let list = &head_stage(&named).args[0];
+    assert_eq!(list.span, Some(expected));
+    assert!(
+        matches!(list.value, Expr::List { span: Some(span), .. } if span == expected),
+        "{list:?}"
+    );
+    assert_eq!(head_stage(&named).args[1].span, Some(spans[2]));
+}
+
+#[test]
+fn surplus_arguments_without_a_repeated_parameter_have_no_name() {
+    let error = catalog_variant_c("find \"/srv\" \"*.go\" 2\n").expect_err("third argument");
+    assert!(
+        matches!(
+            &error,
+            PrintError::UnnamedArgument { command, index: 2, span: Some(_) } if command == "find"
+        ),
+        "{error:?}"
     );
 }
