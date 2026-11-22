@@ -32,7 +32,9 @@
       "code": "E_UNCORRECTABLE",
       "reason": "rule",
       "problem": "environment variables are not expanded; read the value with environment name: \"USERNAME\" (environment_variable)",
-      "fix": []
+      "fix": [
+        "environment name: \"USERNAME\""
+      ]
     }
   ],
   "fallback": "run [\"pwsh\", \"p31-env.ps1\"]"

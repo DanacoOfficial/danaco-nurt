@@ -8,3 +8,4 @@
 environment name: "PATH"
 # untranslated: E_UNCORRECTABLE: Write-Output $env:USERNAME
 #   problem: environment variables are not expanded; read the value with environment name: "USERNAME" (environment_variable)
+#   fix: environment name: "USERNAME"

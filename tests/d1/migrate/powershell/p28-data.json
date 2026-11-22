@@ -5,8 +5,8 @@
   "summary": {
     "statements": 4,
     "translated": 0,
-    "assumption": 2,
-    "impossible": 2,
+    "assumption": 3,
+    "impossible": 1,
     "error": 0
   },
   "items": [
@@ -14,13 +14,17 @@
       "line": 2,
       "column": 1,
       "source": "Get-Content C:\\data.json | ConvertFrom-Json",
-      "status": "impossible",
-      "rules": [],
-      "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "rule",
-      "problem": "the conversion applies to the output of read; read the file first (conversion_input)",
-      "fix": []
+      "status": "assumption",
+      "rules": [
+        "P03",
+        "L19",
+        "P28"
+      ],
+      "assumptions": [
+        "the document is read as a whole and its values are returned as items"
+      ],
+      "fix": [],
+      "output": "read \"C:/data.json\" key: \"$\""
     },
     {
       "line": 3,
