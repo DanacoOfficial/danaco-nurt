@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE inventory [
+  <!ENTITY unused "never referenced">
+  <!ENTITY also-unused "never referenced either">
+]>
+<inventory>
+  <item sku="A-100">Bolt</item>
+  <item sku="A-200">Nut</item>
+</inventory>

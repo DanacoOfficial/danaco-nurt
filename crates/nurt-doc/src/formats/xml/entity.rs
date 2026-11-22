@@ -8,7 +8,10 @@
 //! subset of the document type declaration. Nested expansion is limited to
 //! [`MAX_ENTITY_DEPTH`] levels and the bytes produced by entity expansion in
 //! one document to [`MAX_EXPANSION_BYTES`]; both limits bound exponential
-//! ("billion laughs") and quadratic expansion with `E_LIMIT`.
+//! ("billion laughs") and quadratic expansion with `E_LIMIT`. [`install`]
+//! expands every reference of the document once; after that check the
+//! budget is closed, because a later read expands no more than the check
+//! did.
 //!
 //! External entities, parameter entities and unparsed entities are never
 //! resolved. A value that depends on an external entity, or on a declaration
@@ -22,6 +25,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 
+use super::EntitySource;
 use super::cdata::Context;
 use super::dtd::{self, Dtd, EntityDefinition};
 use super::tree::{Node, XmlTree};
@@ -146,6 +150,7 @@ struct Expansion {
 #[derive(Debug, Default)]
 struct State {
     produced: usize,
+    sealed: bool,
     active: Vec<String>,
     cache: HashMap<String, Arc<Expansion>>,
 }
@@ -154,7 +159,8 @@ struct State {
 ///
 /// The expansion budget is shared by every call on the same value, so a
 /// document uses one `DtdEntities` for all its values. The type is the
-/// entity resolver that [`install`] sets on an [`XmlTree`].
+/// [`EntitySource`] that [`install`] sets on an [`XmlTree`]; once
+/// [`install`] has checked the document, reads no longer charge the budget.
 ///
 /// # Examples
 ///
@@ -199,6 +205,12 @@ impl DtdEntities {
 
     fn state(&self) -> MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Closes the expansion budget after every reference of the document
+    /// has been expanded within it.
+    fn seal(&self) {
+        self.state().sealed = true;
     }
 
     /// Replacement of the general entity reference `&name;` that appears in
@@ -490,6 +502,9 @@ impl DtdEntities {
 
     fn charge(&self, bytes: usize, at: Option<usize>) -> Result<()> {
         let mut state = self.state();
+        if state.sealed {
+            return Ok(());
+        }
         let produced = state.produced.saturating_add(bytes);
         if produced > MAX_EXPANSION_BYTES {
             return Err(located(
@@ -503,7 +518,7 @@ impl DtdEntities {
     }
 }
 
-impl super::EntityResolver for DtdEntities {
+impl EntitySource for DtdEntities {
     fn resolve(&self, name: &str) -> Result<Option<String>> {
         let declared = self
             .dtd
@@ -524,6 +539,16 @@ impl super::EntityResolver for DtdEntities {
             .with_found(ENTITY_MARKUP)),
         }
     }
+
+    /// An attribute is tokenized when the first `ATTLIST` declaration of
+    /// `attribute` for `element` gives it a type other than `CDATA`; an
+    /// undeclared attribute is not.
+    fn tokenized(&self, element: &str, attribute: &str) -> bool {
+        self.dtd
+            .as_ref()
+            .and_then(|dtd| dtd.attribute(element, attribute))
+            .is_some_and(|decl| decl.kind.is_tokenized())
+    }
 }
 
 /// Parses the document type declaration of a tree, installs its entities
@@ -531,7 +556,9 @@ impl super::EntityResolver for DtdEntities {
 ///
 /// A reference whose value cannot be read (`E_UNSUPPORTED_CONSTRUCT`) does
 /// not make the document unreadable; the error is reported when that value
-/// is read.
+/// is read. After a successful check the expansion budget is closed, so the
+/// document can be read any number of times. Values of attributes declared
+/// with a tokenized type are normalized when read.
 ///
 /// # Errors
 ///
@@ -556,8 +583,11 @@ pub fn install(tree: &mut XmlTree) -> Result<()> {
     };
     let span = doctype.span.clone();
     let dtd = Dtd::parse(&tree.text()[span.clone()], span.start, is_standalone(tree))?;
-    tree.set_entity_resolver(Arc::new(DtdEntities::new(Some(dtd))));
-    check_references(tree)
+    let entities = Arc::new(DtdEntities::new(Some(dtd)));
+    tree.set_entity_source(Arc::clone(&entities) as Arc<dyn EntitySource>);
+    check_references(tree, &entities)?;
+    entities.seal();
+    Ok(())
 }
 
 fn is_standalone(tree: &XmlTree) -> bool {
@@ -569,12 +599,22 @@ fn is_standalone(tree: &XmlTree) -> bool {
     })
 }
 
-fn check_references(tree: &XmlTree) -> Result<()> {
+/// Checks every reference of the document. Attribute values are decoded
+/// here rather than by the tree, because only the attribute context tells an
+/// external entity, which is malformed there, from an unread one.
+fn check_references(tree: &XmlTree, entities: &DtdEntities) -> Result<()> {
+    let text = tree.text();
     for id in tree.node_ids() {
         let checked = match tree.node(id) {
-            Node::Text(text) => tree.decode(text.span.clone(), Context::Text).map(drop),
+            Node::Text(node) => tree.decode(node.span.clone(), Context::Text).map(drop),
             Node::Element(element) => element.attributes.iter().try_for_each(|attribute| {
-                tree.decode(attribute.value.clone(), Context::Attribute)
+                let tokenized = entities.tokenized(tree.name(id), &text[attribute.name.clone()]);
+                entities
+                    .decode_attribute(
+                        &text[attribute.value.clone()],
+                        attribute.value.start,
+                        tokenized,
+                    )
                     .map(drop)
             }),
             _ => Ok(()),

@@ -38,6 +38,7 @@ pub mod dtd;
 mod element;
 pub mod encoding;
 pub mod entity;
+mod handle;
 mod ns;
 mod parse;
 mod style;
@@ -50,12 +51,20 @@ use nurt_contracts::error::{Error, ErrorCode, Location, Result};
 pub use attr::Attribute;
 pub use cdata::EntitySource;
 pub use element::{ATTRIBUTE_KEY_PREFIX, CONTENT_KEY, DIRECTIVE_KEY, PI_KEY_PREFIX, XmlItem};
+pub use handle::{XmlFormat, XmlHandle};
 pub use ns::{XML_NAMESPACE, XMLNS_NAMESPACE, is_valid_name, split_qname};
 pub use style::XmlStyle;
 pub use tree::{
     ATTRIBUTE_SEGMENT_PREFIX, CDataSection, Comment, Declaration, DocType, Element, Node, NodeId,
     ProcessingInstruction, TEXT_SEGMENT, Target, TextNode, XmlTree,
 };
+
+/// Formats of this module, registered by
+/// [`Registry::builtin`](crate::registry::Registry::builtin).
+#[must_use]
+pub fn formats() -> Vec<Box<dyn crate::registry::DocFormat>> {
+    vec![Box::new(XmlFormat)]
+}
 
 /// Construct name: a reader event without an exact byte range.
 pub const CONSTRUCT_EVENT_SPAN: &str = "xml.event_span";
@@ -179,17 +188,16 @@ impl XmlChange {
         let mut position = 0;
         let mut previous: Option<&Range<usize>> = None;
         for edit in edits {
-            if let Some(previous) = previous {
-                if edit.range.start < previous.end
+            if let Some(previous) = previous
+                && (edit.range.start < previous.end
                     || (edit.range.start == previous.start
                         && edit.range.is_empty()
-                        && previous.is_empty())
-                {
-                    return Err(key_conflict(
-                        "the change edits one part of the document twice; set the overlapping keys in separate calls",
-                        Vec::new(),
-                    ));
-                }
+                        && previous.is_empty()))
+            {
+                return Err(key_conflict(
+                    "the change edits one part of the document twice; set the overlapping keys in separate calls",
+                    Vec::new(),
+                ));
             }
             let Some(kept) = text
                 .get(position..edit.range.start)
@@ -246,6 +254,30 @@ impl XmlTree {
 
 /// `E_DOC_PARSE` error located at a byte offset of `text`.
 pub(crate) fn doc_parse_error(text: &str, offset: usize, message: impl Into<String>) -> Error {
+    located_error(ErrorCode::DocParse, text, offset, message)
+}
+
+/// Error with the given code located at a byte offset of `text`.
+pub(crate) fn located_error(
+    code: ErrorCode,
+    text: &str,
+    offset: usize,
+    message: impl Into<String>,
+) -> Error {
+    Error::new(code, message).with_location(location_at(text, offset))
+}
+
+/// `error` located at a byte offset of `text` unless it carries a location.
+pub(crate) fn locate(error: Error, text: &str, offset: usize) -> Error {
+    if error.data().location.is_some() {
+        error
+    } else {
+        error.with_location(location_at(text, offset))
+    }
+}
+
+/// Line, column and byte of an offset of `text`.
+fn location_at(text: &str, offset: usize) -> Location {
     let offset = offset.min(text.len());
     let prefix = text.get(..offset).unwrap_or(text);
     let line = prefix.matches('\n').count() + 1;
@@ -255,14 +287,14 @@ pub(crate) fn doc_parse_error(text: &str, offset: usize, message: impl Into<Stri
         .chars()
         .count()
         + 1;
-    Error::new(ErrorCode::DocParse, message).with_location(Location {
+    Location {
         path: String::new(),
         line: u64::try_from(line).ok(),
         column: u64::try_from(column).ok(),
         end_line: None,
         end_column: None,
         byte: u64::try_from(offset).ok(),
-    })
+    }
 }
 
 /// `E_UNSUPPORTED_CONSTRUCT` error for the named construct.

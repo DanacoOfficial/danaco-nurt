@@ -1,0 +1,6 @@
+{
+	"quoted key" = plain;
+	plain = "quoted value";
+	path = /usr/local/bin;
+	version = 1.2.3;
+}

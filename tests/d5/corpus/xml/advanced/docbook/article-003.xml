@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0">
+  <info>
+    <title>DocBook 5 Article</title>
+    <author><personname><firstname>Ada</firstname><surname>Example</surname></personname></author>
+  </info>
+  <section xml:id="usage">
+    <title>Usage</title>
+    <para>See <link xlink:href="https://example.org/docs">the documentation</link>.</para>
+    <programlisting language="sh"><![CDATA[nurt set config.xml project.version 1.1]]></programlisting>
+  </section>
+</article>

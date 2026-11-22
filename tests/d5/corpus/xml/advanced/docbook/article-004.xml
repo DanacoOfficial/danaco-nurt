@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+  <!ENTITY cmd "nurt">
+]>
+<refentry id="nurt-set">
+  <refmeta>
+    <refentrytitle>&cmd;-set</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+  <refnamediv>
+    <refname>&cmd; set</refname>
+    <refpurpose>change a value of a structured document</refpurpose>
+  </refnamediv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>&cmd;</command>
+      <arg choice="plain">set</arg>
+      <arg choice="plain"><replaceable>file</replaceable></arg>
+      <arg choice="plain"><replaceable>key</replaceable></arg>
+      <arg choice="plain"><replaceable>value</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+</refentry>

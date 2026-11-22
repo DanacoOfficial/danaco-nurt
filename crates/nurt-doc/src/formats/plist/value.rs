@@ -60,14 +60,19 @@ pub(crate) fn to_value(value: &plist::Value) -> Value {
         plist::Value::Uid(uid) => uid_value(*uid),
         plist::Value::Array(items) => Value::List(items.iter().map(to_value).collect()),
         plist::Value::Dictionary(dictionary) => Value::Map(
-            dictionary.iter().map(|(key, item)| (key.clone(), to_value(item))).collect::<Fields>(),
+            dictionary
+                .iter()
+                .map(|(key, item)| (key.clone(), to_value(item)))
+                .collect::<Fields>(),
         ),
         _ => Value::Null,
     }
 }
 
 fn integer_value(integer: Integer) -> Value {
-    integer.as_signed().map_or_else(|| Value::BigInt(integer.to_string()), Value::Int)
+    integer
+        .as_signed()
+        .map_or_else(|| Value::BigInt(integer.to_string()), Value::Int)
 }
 
 /// Engine value of a `UID`.
@@ -77,7 +82,10 @@ pub(crate) fn uid_value(uid: Uid) -> Value {
 
 /// Engine value of a date: RFC 3339 text in UTC.
 pub(crate) fn date_value(date: plist::Date) -> Value {
-    Value::Date(Date { kind: DateKind::OffsetDateTime, text: date.to_xml_format() })
+    Value::Date(Date {
+        kind: DateKind::OffsetDateTime,
+        text: date.to_xml_format(),
+    })
 }
 
 /// Property list value for `value`, stored over a node described by `hint`.
@@ -105,11 +113,16 @@ pub(crate) fn from_value(value: &Value, hint: Hint) -> Result<plist::Value, Erro
         Value::Instant(instant) => plist::Value::Date(parse_date(&instant.to_string())?),
         Value::Bytes(bytes) => plist::Value::Data(bytes.as_slice().to_vec()),
         Value::List(items) => plist::Value::Array(
-            items.iter().map(|item| from_value(item, Hint::Other)).collect::<Result<_, _>>()?,
+            items
+                .iter()
+                .map(|item| from_value(item, Hint::Other))
+                .collect::<Result<_, _>>()?,
         ),
         Value::Map(fields) => plist::Value::Dictionary(dictionary(fields.iter())?),
         Value::Record(record) => plist::Value::Dictionary(dictionary(
-            record.field_names().filter_map(|name| Some((name, record.get(name)?))),
+            record
+                .field_names()
+                .filter_map(|name| Some((name, record.get(name)?))),
         )?),
         other => {
             return Err(Error::new(
@@ -192,14 +205,28 @@ pub(crate) fn parse_date(text: &str) -> Result<plist::Date, Error> {
 
 #[cfg(test)]
 mod tests {
+    use nurt_contracts::value::{Duration, Instant, Record, RecordKind, Size};
+
     use super::*;
 
     #[test]
     fn integer_over_real_and_uid_keeps_the_node_type() {
-        assert_eq!(from_value(&Value::Int(2), Hint::Real).unwrap(), plist::Value::Real(2.0));
-        assert_eq!(from_value(&Value::Int(4), Hint::Uid).unwrap(), plist::Value::Uid(Uid::new(4)));
-        assert_eq!(from_value(&Value::Int(-4), Hint::Uid).unwrap(), plist::Value::Integer((-4).into()));
-        assert_eq!(from_value(&Value::Int(5), Hint::Other).unwrap(), plist::Value::Integer(5.into()));
+        assert_eq!(
+            from_value(&Value::Int(2), Hint::Real).unwrap(),
+            plist::Value::Real(2.0)
+        );
+        assert_eq!(
+            from_value(&Value::Int(4), Hint::Uid).unwrap(),
+            plist::Value::Uid(Uid::new(4))
+        );
+        assert_eq!(
+            from_value(&Value::Int(-4), Hint::Uid).unwrap(),
+            plist::Value::Integer((-4).into())
+        );
+        assert_eq!(
+            from_value(&Value::Int(5), Hint::Other).unwrap(),
+            plist::Value::Integer(5.into())
+        );
         assert_eq!(Hint::of(&plist::Value::Real(1.0)), Hint::Real);
         assert_eq!(Hint::of(&plist::Value::Boolean(true)), Hint::Other);
     }
@@ -209,14 +236,25 @@ mod tests {
         let mut dictionary = Dictionary::new();
         dictionary.insert("z".into(), plist::Value::Integer(1.into()));
         dictionary.insert("a".into(), plist::Value::Real(1.0));
-        dictionary.insert("d".into(), plist::Value::Date(parse_date("2026-01-31T12:00:00Z").unwrap()));
+        dictionary.insert(
+            "d".into(),
+            plist::Value::Date(parse_date("2026-01-31T12:00:00Z").unwrap()),
+        );
         dictionary.insert("b".into(), plist::Value::Data(vec![0, 255]));
         dictionary.insert("u".into(), plist::Value::Integer(u64::MAX.into()));
-        dictionary.insert("l".into(), plist::Value::Array(vec![plist::Value::Boolean(false)]));
+        dictionary.insert(
+            "l".into(),
+            plist::Value::Array(vec![plist::Value::Boolean(false)]),
+        );
         let original = plist::Value::Dictionary(dictionary);
         let value = to_value(&original);
-        let Value::Map(fields) = &value else { panic!("map expected") };
-        assert_eq!(fields.keys().collect::<Vec<_>>(), ["z", "a", "d", "b", "u", "l"]);
+        let Value::Map(fields) = &value else {
+            panic!("map expected")
+        };
+        assert_eq!(
+            fields.keys().collect::<Vec<_>>(),
+            ["z", "a", "d", "b", "u", "l"]
+        );
         assert_eq!(fields["a"], Value::Number(1.0));
         assert_eq!(fields["u"], Value::BigInt(u64::MAX.to_string()));
         assert_eq!(from_value(&value, Hint::Other).unwrap(), original);
@@ -225,17 +263,92 @@ mod tests {
     #[test]
     fn uid_values_are_integers() {
         assert_eq!(to_value(&plist::Value::Uid(Uid::new(9))), Value::Int(9));
-        assert_eq!(uid_value(Uid::new(u64::MAX)), Value::BigInt(u64::MAX.to_string()));
+        assert_eq!(
+            uid_value(Uid::new(u64::MAX)),
+            Value::BigInt(u64::MAX.to_string())
+        );
     }
 
     #[test]
     fn rejects_null_bad_dates_and_huge_integers() {
-        assert_eq!(from_value(&Value::Null, Hint::Other).unwrap_err().code().as_str(), "E_TYPE");
-        let date = Value::Date(Date { kind: DateKind::LocalDate, text: "2026-01-31".into() });
-        assert_eq!(from_value(&date, Hint::Other).unwrap_err().code().as_str(), "E_INVALID_VALUE");
+        assert_eq!(
+            from_value(&Value::Null, Hint::Other)
+                .unwrap_err()
+                .code()
+                .as_str(),
+            "E_TYPE"
+        );
+        let date = Value::Date(Date {
+            kind: DateKind::LocalDate,
+            text: "2026-01-31".into(),
+        });
+        assert_eq!(
+            from_value(&date, Hint::Other).unwrap_err().code().as_str(),
+            "E_INVALID_VALUE"
+        );
         let huge = Value::BigInt("99999999999999999999".into());
-        assert_eq!(from_value(&huge, Hint::Other).unwrap_err().code().as_str(), "E_INVALID_VALUE");
+        assert_eq!(
+            from_value(&huge, Hint::Other).unwrap_err().code().as_str(),
+            "E_INVALID_VALUE"
+        );
         let decimal = Value::Decimal("1.25".into());
-        assert_eq!(from_value(&decimal, Hint::Other).unwrap(), plist::Value::Real(1.25));
+        assert_eq!(
+            from_value(&decimal, Hint::Other).unwrap(),
+            plist::Value::Real(1.25)
+        );
+    }
+
+    #[test]
+    fn named_text_values_are_strings() {
+        for value in [
+            Value::Path("a/b".into()),
+            Value::Glob("*.c".into()),
+            Value::Key("a.b".into()),
+            Value::Enum("on".into()),
+        ] {
+            assert_eq!(
+                from_value(&value, Hint::Other).unwrap(),
+                plist::Value::String(value.as_str().unwrap().to_owned())
+            );
+        }
+    }
+
+    #[test]
+    fn sizes_durations_and_instants_have_property_list_types() {
+        assert_eq!(
+            from_value(&Value::Size(Size::from_bytes(2048)), Hint::Other).unwrap(),
+            plist::Value::Integer(2048_u64.into())
+        );
+        assert_eq!(
+            from_value(&Value::Duration(Duration::from_millis(1500)), Hint::Other).unwrap(),
+            plist::Value::Integer(1500_i64.into())
+        );
+        assert_eq!(
+            from_value(&Value::Instant(Instant::UNIX_EPOCH), Hint::Other).unwrap(),
+            plist::Value::Date(parse_date("1970-01-01T00:00:00Z").unwrap())
+        );
+    }
+
+    #[test]
+    fn records_become_dictionaries_in_field_order() {
+        let record = Record::new(RecordKind::ALL[0])
+            .with("z", Value::Int(1))
+            .with("a", Value::Bool(true));
+        let plist::Value::Dictionary(dictionary) =
+            from_value(&Value::Record(record), Hint::Other).unwrap()
+        else {
+            panic!("dictionary expected")
+        };
+        assert_eq!(dictionary.keys().collect::<Vec<_>>(), ["z", "a"]);
+        assert_eq!(dictionary.get("a"), Some(&plist::Value::Boolean(true)));
+    }
+
+    #[test]
+    fn rejects_decimals_that_are_not_numbers() {
+        let error = from_value(&Value::Decimal("1,5".into()), Hint::Other).unwrap_err();
+        assert_eq!(error.code().as_str(), "E_INVALID_VALUE");
+        assert!(error.to_string().contains("1.5"), "{error}");
+        let error = from_value(&Value::List(vec![Value::Null]), Hint::Other).unwrap_err();
+        assert_eq!(error.code().as_str(), "E_TYPE");
     }
 }

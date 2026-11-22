@@ -77,10 +77,10 @@ fn indent_unit(tree: &XmlTree) -> String {
         };
         uses_tabs |= child_indent.contains('\t');
         let parent_indent = tree.line_indentation(tree.node(parent).span().start);
-        if let Some(delta) = child_indent.strip_prefix(parent_indent) {
-            if !delta.is_empty() {
-                *counts.entry(delta).or_default() += 1;
-            }
+        if let Some(delta) = child_indent.strip_prefix(parent_indent)
+            && !delta.is_empty()
+        {
+            *counts.entry(delta).or_default() += 1;
         }
     }
     let best = counts

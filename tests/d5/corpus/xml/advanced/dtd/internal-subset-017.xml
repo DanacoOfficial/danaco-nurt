@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN 2.0//EN" "http://www.springframework.org/dtd/spring-beans-2.0.dtd" [
+  <!ENTITY datasource-url "jdbc:postgresql://localhost:5432/app">
+]>
+<beans>
+  <bean id="dataSource" class="org.example.DataSource">
+    <property name="url" value="&datasource-url;"/>
+    <property name="poolSize" value="10"/>
+  </bean>
+</beans>

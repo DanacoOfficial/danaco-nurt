@@ -1,0 +1,4 @@
+/* Title of the main window */
+"title" = "Main";
+"greeting" = "Hello";
+farewell = Bye;

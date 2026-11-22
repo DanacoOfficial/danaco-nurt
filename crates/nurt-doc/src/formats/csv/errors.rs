@@ -16,13 +16,20 @@ pub(crate) fn not_utf8(valid_up_to: usize) -> Error {
 
 /// Key path that the table does not contain.
 pub(crate) fn key_not_found(key: &KeyPath, problem: &str) -> Error {
-    Error::new(ErrorCode::KeyNotFound, format!("key {key} not found: {problem}")).with_found(key.to_string())
+    Error::new(
+        ErrorCode::KeyNotFound,
+        format!("key {key} not found: {problem}"),
+    )
+    .with_found(key.to_string())
 }
 
 /// Key path segment that has no meaning in a table.
 pub(crate) fn key_shape(key: &KeyPath, problem: &str) -> Error {
-    Error::new(ErrorCode::KeyConflict, format!("key {key} does not address a table cell: {problem}"))
-        .with_found(key.to_string())
+    Error::new(
+        ErrorCode::KeyConflict,
+        format!("key {key} does not address a table cell: {problem}"),
+    )
+    .with_found(key.to_string())
 }
 
 /// Value that cannot be stored at the addressed node.

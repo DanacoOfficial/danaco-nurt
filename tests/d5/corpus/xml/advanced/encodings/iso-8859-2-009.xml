@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="ISO-8859-2"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<branch code="B09">
+  <!-- branch office in Maribor -->
+  <city>Maribor</city>
+  <address street="Glavni trg" number="12"/>
+  <note><![CDATA[Maribor: open 8-16, ticket < 5 min]]></note>
+  <sign>&#x20AC; and &#x2122; are written as references</sign>
+</branch>

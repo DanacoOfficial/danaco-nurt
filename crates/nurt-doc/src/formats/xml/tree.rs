@@ -493,8 +493,11 @@ impl XmlTree {
     /// match child elements by name (see [`XmlTree::lookup_namespace`] for
     /// prefixes and `{uri}local`); `[n]` selects among siblings with that
     /// name, and a name shared by several siblings without an index or a
-    /// wildcard is ambiguous. `@name` addresses an attribute and `#text`
-    /// the text chunks of an element.
+    /// wildcard is ambiguous. A wildcard directly after a name (`dep[*]`,
+    /// `dep.*`) selects every sibling with that name; a wildcard after an
+    /// index or at the start of the key selects child elements
+    /// (`deps[0].*`). `@name` addresses an attribute and `#text` the text
+    /// chunks of an element.
     ///
     /// # Errors
     ///

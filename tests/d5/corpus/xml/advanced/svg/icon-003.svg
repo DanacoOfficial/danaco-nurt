@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" [
+  <!ENTITY size "040">
+  <!ENTITY color "#040404">
+]>
+<svg xmlns="http://www.w3.org/2000/svg" width="&size;" height="&size;">
+  <g id="icon-04">
+    <rect width="&size;" height="&size;" fill="&color;"/>
+    <text x="2" y="12">icon 04</text>
+  </g>
+</svg>

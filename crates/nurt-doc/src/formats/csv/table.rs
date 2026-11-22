@@ -43,21 +43,39 @@ impl Table {
         delimiter: Option<u8>,
         default_delimiter: u8,
     ) -> Result<Self, Error> {
-        let bom = if bytes.starts_with(super::scan::UTF8_BOM) { super::scan::UTF8_BOM.len() } else { 0 };
+        let bom = if bytes.starts_with(super::scan::UTF8_BOM) {
+            super::scan::UTF8_BOM.len()
+        } else {
+            0
+        };
         if let Err(error) = std::str::from_utf8(&bytes[bom..]) {
             return Err(errors::not_utf8(bom + error.valid_up_to()));
         }
         let dialect = dialect::detect(&bytes[bom..], delimiter, default_delimiter);
         let scan = scan_file(bytes, dialect);
         let terminator = dominant_terminator(bytes, &scan.records);
-        let quote_all = scan.records.iter().flat_map(|record| &record.fields).all(|field| field.quoted)
+        let quote_all = scan
+            .records
+            .iter()
+            .flat_map(|record| &record.fields)
+            .all(|field| field.quoted)
             && !scan.records.is_empty();
-        Ok(Self { dialect, header, scan, terminator, quote_all })
+        Ok(Self {
+            dialect,
+            header,
+            scan,
+            terminator,
+            quote_all,
+        })
     }
 
     /// Header record, when the table has one.
     pub(crate) fn header_record(&self) -> Option<&Record> {
-        if self.header { self.scan.records.first() } else { None }
+        if self.header {
+            self.scan.records.first()
+        } else {
+            None
+        }
     }
 
     /// Records holding data, without the header.
@@ -69,34 +87,45 @@ impl Table {
     /// Column names from the header, empty without a header.
     pub(crate) fn column_names(&self) -> Vec<&str> {
         self.header_record()
-            .map(|record| record.fields.iter().map(|field| field.value.as_str()).collect())
+            .map(|record| {
+                record
+                    .fields
+                    .iter()
+                    .map(|field| field.value.as_str())
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
-    /// Index of the first column named `name`.
-    pub(crate) fn column_index(&self, name: &str) -> Option<usize> {
-        self.header_record()?.fields.iter().position(|field| field.value == name)
+    /// Column named `label` by [`Table::column_label`], or the column with
+    /// that decimal index past the header.
+    pub(crate) fn label_column(&self, label: &str) -> Option<usize> {
+        let names = self.column_names();
+        (0..names.len())
+            .find(|index| label_of(&names, *index) == label)
+            .or_else(|| label.parse().ok().filter(|index| *index >= names.len()))
     }
 
-    /// Name of column `index` in rows read as maps: the header name, or the
-    /// decimal index for columns past the header and in tables without one.
+    /// Name of column `index` in rows read as maps; see [`label_of`].
     pub(crate) fn column_label(&self, index: usize) -> String {
-        self.header_record()
-            .and_then(|record| record.fields.get(index))
-            .map_or_else(|| index.to_string(), |field| field.value.clone())
+        label_of(&self.column_names(), index)
     }
 
     /// Cells of a row by column label, in column order.
     ///
     /// A row shorter than the header has empty cells for the missing
-    /// columns; a later column with a name seen before keeps the first
-    /// value.
+    /// columns.
     pub(crate) fn row_cells(&self, record: &Record) -> IndexMap<String, Value> {
         let width = self.header_record().map_or(0, |header| header.fields.len());
         let mut cells = IndexMap::new();
         for index in 0..width.max(record.fields.len()) {
-            let value = record.fields.get(index).map_or("", |field| field.value.as_str());
-            cells.entry(self.column_label(index)).or_insert_with(|| Value::Text(value.to_owned()));
+            let value = record
+                .fields
+                .get(index)
+                .map_or("", |field| field.value.as_str());
+            cells
+                .entry(self.column_label(index))
+                .or_insert_with(|| Value::Text(value.to_owned()));
         }
         cells
     }
@@ -112,7 +141,26 @@ impl Table {
 
     /// Value of the whole table: a list of rows.
     pub(crate) fn to_value(&self) -> Value {
-        Value::List(self.rows().iter().map(|record| self.row_value(record)).collect())
+        Value::List(
+            self.rows()
+                .iter()
+                .map(|record| self.row_value(record))
+                .collect(),
+        )
+    }
+}
+
+/// Label of column `index` given the header `names`: the header name when it
+/// is not empty and no earlier column has it, the decimal index otherwise,
+/// so that every column of a row map has its own label.
+pub(crate) fn label_of<S: AsRef<str>>(names: &[S], index: usize) -> String {
+    match names.get(index).map(AsRef::as_ref) {
+        Some(name)
+            if !name.is_empty() && !names[..index].iter().any(|other| other.as_ref() == name) =>
+        {
+            name.to_owned()
+        }
+        _ => index.to_string(),
     }
 }
 
@@ -159,7 +207,18 @@ mod tests {
         let table = table("id,name\n1,ann\n2,bob\n", true);
         assert_eq!(table.column_names(), ["id", "name"]);
         assert_eq!(table.rows().len(), 2);
-        assert_eq!(table.column_index("name"), Some(1));
+        assert_eq!(table.label_column("name"), Some(1));
+    }
+
+    #[test]
+    fn repeated_and_empty_column_names_are_labelled_by_index() {
+        let table = table("a,a,,b\n1,2,3,4\n", true);
+        let cells = table.row_cells(&table.rows()[0]);
+        assert_eq!(cells.keys().collect::<Vec<_>>(), ["a", "1", "2", "b"]);
+        assert_eq!(table.label_column("a"), Some(0));
+        assert_eq!(table.label_column("1"), Some(1));
+        assert_eq!(table.label_column("7"), Some(7));
+        assert_eq!(table.label_column("c"), None);
     }
 
     #[test]

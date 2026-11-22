@@ -12,8 +12,8 @@ use nurt_contracts::error::Error;
 use nurt_contracts::keypath::{KeyPath, KeySegment};
 
 use super::errors;
-use crate::model::{DocTree, MapSemantics, NodeId};
 use super::table::Table;
+use crate::model::{DocTree, MapSemantics, NodeId};
 
 /// Node of a table addressed by a key path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,7 +67,10 @@ pub(crate) fn resolve(
         return Ok(vec![Target::Table]);
     };
     if rest.len() > 1 {
-        return Err(errors::key_shape(key, "a cell holds text and has no members"));
+        return Err(errors::key_shape(
+            key,
+            "a cell holds text and has no members",
+        ));
     }
     if matches!(first, KeySegment::Recursive) {
         return Ok(descendants(table));
@@ -94,12 +97,16 @@ fn select_rows(
     match segment {
         KeySegment::Index(index) => row_index(key, *index, count, access).map(|row| vec![row]),
         KeySegment::Append if access == Access::Write => Ok(vec![Target::NewRow]),
-        KeySegment::Append => Err(errors::key_not_found(key, "[+] addresses a row that does not exist yet")),
+        KeySegment::Append => Err(errors::key_not_found(
+            key,
+            "[+] addresses a row that does not exist yet",
+        )),
         KeySegment::Wildcard => Ok((0..count).map(Target::Row).collect()),
         KeySegment::Filter(_) => filtered_rows(tree, key, segment),
-        _ => {
-            Err(errors::key_shape(key, "the first segment selects a row; write [0], [-1], [*] or [+]"))
-        }
+        _ => Err(errors::key_shape(
+            key,
+            "the first segment selects a row; write [0], [-1], [*] or [+]",
+        )),
     }
 }
 
@@ -108,7 +115,10 @@ fn row_index(key: &KeyPath, index: i64, count: usize, access: Access) -> Result<
     match resolved {
         Some(row) if row < count => Ok(Target::Row(row)),
         Some(row) if row == count && access == Access::Write => Ok(Target::NewRow),
-        _ => Err(errors::key_not_found(key, &format!("the table has {count} data rows"))),
+        _ => Err(errors::key_not_found(
+            key,
+            &format!("the table has {count} data rows"),
+        )),
     }
 }
 
@@ -125,10 +135,17 @@ fn absolute_index(index: i64, count: usize) -> Option<usize> {
 
 /// Rows selected by a filter segment, evaluated on the row values of the
 /// node tree.
-fn filtered_rows(tree: &DocTree, key: &KeyPath, segment: &KeySegment) -> Result<Vec<Target>, Error> {
+fn filtered_rows(
+    tree: &DocTree,
+    key: &KeyPath,
+    segment: &KeySegment,
+) -> Result<Vec<Target>, Error> {
     let filter = KeyPath::new(None, vec![segment.clone()])
         .map_err(|error| errors::key_shape(key, &error.to_string()))?;
-    let rows: &[NodeId] = tree.roots().first().map_or(&[], |root| tree[*root].children.as_slice());
+    let rows: &[NodeId] = tree
+        .roots()
+        .first()
+        .map_or(&[], |root| tree[*root].children.as_slice());
     Ok(tree
         .resolve(&filter, &MapSemantics::LAST_WINS)?
         .into_iter()
@@ -154,12 +171,20 @@ fn select_cells(
             let column = absolute_index(*index, width)
                 .ok_or_else(|| errors::key_not_found(key, &format!("the row has {width} cells")))?;
             if column >= width && access == Access::Read {
-                return Err(errors::key_not_found(key, &format!("the row has {width} cells")));
+                return Err(errors::key_not_found(
+                    key,
+                    &format!("the row has {width} cells"),
+                ));
             }
             vec![column]
         }
         KeySegment::Wildcard => (0..width).collect(),
-        _ => return Err(errors::key_shape(key, "the second segment selects a cell; write .name, [0] or [*]")),
+        _ => {
+            return Err(errors::key_shape(
+                key,
+                "the second segment selects a cell; write .name, [0] or [*]",
+            ));
+        }
     };
     Ok(columns
         .into_iter()
@@ -171,7 +196,9 @@ fn select_cells(
 }
 
 fn header_width(table: &Table) -> usize {
-    table.header_record().map_or(0, |record| record.fields.len())
+    table
+        .header_record()
+        .map_or(0, |record| record.fields.len())
 }
 
 fn column_by_name(table: &Table, key: &KeyPath, name: &str) -> Result<usize, Error> {
@@ -181,7 +208,7 @@ fn column_by_name(table: &Table, key: &KeyPath, name: &str) -> Result<usize, Err
             "the table is read without a header; address cells by index, for example [0][1]",
         ));
     }
-    table.column_index(name).ok_or_else(|| {
+    table.label_column(name).ok_or_else(|| {
         let columns = table.column_names().join(", ");
         errors::key_not_found(key, &format!("no column {name:?}; columns: {columns}"))
     })
@@ -227,9 +254,171 @@ fn index_segment(index: usize) -> KeySegment {
 fn column_segment(table: &Table, column: usize) -> KeySegment {
     let names = table.column_names();
     match names.get(column) {
-        Some(name) if !name.is_empty() && names.iter().filter(|other| *other == name).count() == 1 => {
+        Some(name)
+            if !name.is_empty() && names.iter().filter(|other| *other == name).count() == 1 =>
+        {
             KeySegment::Key((*name).to_owned())
         }
         _ => index_segment(column),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::services::DocFormatId;
+
+    use super::*;
+    use crate::formats::csv::{CsvDocument, CsvOptions};
+
+    fn document(text: &str, header: bool) -> CsvDocument {
+        let options = CsvOptions {
+            header,
+            delimiter: None,
+        };
+        CsvDocument::parse(text.as_bytes(), &DocFormatId::CSV, &options).unwrap()
+    }
+
+    fn targets(document: &CsvDocument, key: &str, access: Access) -> Result<Vec<Target>, Error> {
+        resolve(
+            &document.table,
+            &document.tree,
+            &KeyPath::parse(key).unwrap(),
+            access,
+        )
+    }
+
+    fn code(error: &Error) -> &str {
+        error.code().as_str()
+    }
+
+    #[test]
+    fn root_key_addresses_the_table() {
+        let document = document("id,name\n1,ann\n", true);
+        let found = resolve(
+            &document.table,
+            &document.tree,
+            &KeyPath::root(),
+            Access::Read,
+        )
+        .unwrap();
+        assert_eq!(found, [Target::Table]);
+        assert_eq!(
+            canonical_key(&document.table, Target::Table),
+            KeyPath::root()
+        );
+    }
+
+    #[test]
+    fn recursive_key_lists_rows_followed_by_their_cells() {
+        let document = document("a,b\n1,2,3\n4\n", true);
+        let found = targets(&document, "**", Access::Read).unwrap();
+        assert_eq!(
+            found,
+            [
+                Target::Row(0),
+                Target::Cell { row: 0, column: 0 },
+                Target::Cell { row: 0, column: 1 },
+                Target::Cell { row: 0, column: 2 },
+                Target::Row(1),
+                Target::Cell { row: 1, column: 0 },
+                Target::Cell { row: 1, column: 1 },
+            ]
+        );
+    }
+
+    #[test]
+    fn new_row_cells_use_the_header_width() {
+        let document = document("id,name\n1,ann\n", true);
+        assert_eq!(
+            targets(&document, "[1].name", Access::Write).unwrap(),
+            [Target::NewRowCell { column: 1 }]
+        );
+        assert_eq!(
+            targets(&document, "[1][*]", Access::Write).unwrap(),
+            [
+                Target::NewRowCell { column: 0 },
+                Target::NewRowCell { column: 1 }
+            ]
+        );
+        let error = targets(&document, "[1]", Access::Read).unwrap_err();
+        assert_eq!(code(&error), "E_KEY_NOT_FOUND");
+        let error = targets(&document, "[+]", Access::Read).unwrap_err();
+        assert_eq!(code(&error), "E_KEY_NOT_FOUND");
+    }
+
+    #[test]
+    fn cell_indexes_past_the_row_exist_only_for_writing() {
+        let document = document("id,name\n1,ann\n", true);
+        let error = targets(&document, "[0][5]", Access::Read).unwrap_err();
+        assert_eq!(code(&error), "E_KEY_NOT_FOUND");
+        assert_eq!(
+            targets(&document, "[0][5]", Access::Write).unwrap(),
+            [Target::Cell { row: 0, column: 5 }]
+        );
+        assert_eq!(
+            targets(&document, "[0][-1]", Access::Read).unwrap(),
+            [Target::Cell { row: 0, column: 1 }]
+        );
+        let error = targets(&document, "[0][-3]", Access::Read).unwrap_err();
+        assert_eq!(code(&error), "E_KEY_NOT_FOUND");
+        let error = targets(&document, "[-2]", Access::Read).unwrap_err();
+        assert_eq!(code(&error), "E_KEY_NOT_FOUND");
+    }
+
+    #[test]
+    fn rejects_segments_without_meaning_in_a_table() {
+        let document = document("id,name\n1,ann\n", true);
+        for key in ["[0][+]", "[0].**", "name", "[0].name.first"] {
+            let error = targets(&document, key, Access::Write).unwrap_err();
+            assert_eq!(code(&error), "E_KEY_CONFLICT", "{key}");
+        }
+        let error = targets(&document, "[0].missing", Access::Read).unwrap_err();
+        assert_eq!(code(&error), "E_KEY_NOT_FOUND");
+        assert!(error.to_string().contains("columns: id, name"), "{error}");
+    }
+
+    #[test]
+    fn names_require_a_header() {
+        let document = document("1,ann\n", false);
+        let error = targets(&document, "[0].name", Access::Read).unwrap_err();
+        assert_eq!(code(&error), "E_KEY_NOT_FOUND");
+        assert_eq!(
+            targets(&document, "[0][1]", Access::Read).unwrap(),
+            [Target::Cell { row: 0, column: 1 }]
+        );
+    }
+
+    #[test]
+    fn filters_select_matching_rows() {
+        let document = document("id,name\n1,ann\n2,bob\n1,cy\n", true);
+        assert_eq!(
+            targets(&document, "[?id == \"1\"].name", Access::Read).unwrap(),
+            [
+                Target::Cell { row: 0, column: 1 },
+                Target::Cell { row: 2, column: 1 }
+            ]
+        );
+    }
+
+    #[test]
+    fn canonical_keys_name_unique_columns_and_index_the_rest() {
+        let document = document("id,id,\n1,2,3\n", true);
+        let table = &document.table;
+        let key = |target| canonical_key(table, target).to_string();
+        assert_eq!(key(Target::Row(0)), "[0]");
+        assert_eq!(key(Target::Cell { row: 0, column: 0 }), "[0][0]");
+        assert_eq!(key(Target::Cell { row: 0, column: 2 }), "[0][2]");
+        assert_eq!(key(Target::NewRow), "[1]");
+        assert_eq!(key(Target::NewRowCell { column: 1 }), "[1][1]");
+        let named = CsvDocument::parse(
+            b"id,name\n1,ann\n",
+            &DocFormatId::CSV,
+            &CsvOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            canonical_key(&named.table, Target::NewRowCell { column: 1 }).to_string(),
+            "[1].name"
+        );
     }
 }

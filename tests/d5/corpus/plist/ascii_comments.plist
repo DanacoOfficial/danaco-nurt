@@ -1,0 +1,6 @@
+// settings
+{
+	/* block comment */
+	a = b; // trailing
+	c = (d, /* inner */ e);
+}

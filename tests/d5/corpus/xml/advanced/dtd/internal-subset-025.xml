@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE math [
+  <!ENTITY alpha "&#x3B1;">
+  <!ENTITY beta "&#x3B2;">
+  <!ENTITY le "&#x2264;">
+]>
+<math>
+  <expr>&alpha; &le; &beta;</expr>
+  <expr symbol="&alpha;">first</expr>
+</math>

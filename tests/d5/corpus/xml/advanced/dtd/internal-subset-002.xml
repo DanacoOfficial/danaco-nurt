@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE rule [
+  <!ENTITY cmp "x &#38;lt; y &#38;amp;&#38;amp; y &#38;gt; z">
+]>
+<rule>
+  <condition>&cmp;</condition>
+</rule>

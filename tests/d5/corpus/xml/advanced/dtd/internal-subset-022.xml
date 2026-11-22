@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!DOCTYPE recipe [
+  <!ELEMENT recipe (title, ingredient*, step+)>
+  <!ELEMENT title (#PCDATA)>
+  <!ELEMENT ingredient EMPTY>
+  <!ELEMENT step (#PCDATA | em)*>
+  <!ELEMENT em (#PCDATA)>
+  <!ATTLIST ingredient name CDATA #REQUIRED amount CDATA #IMPLIED>
+  <!ENTITY oven "the oven at 180 degrees">
+]>
+<recipe>
+  <title>Bread</title>
+  <ingredient name="flour" amount="500 g"/>
+  <ingredient name="water" amount="350 ml"/>
+  <step>Preheat &oven;.</step>
+  <step>Bake for <em>40</em> minutes in &oven;.</step>
+</recipe>

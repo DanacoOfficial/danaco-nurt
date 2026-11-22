@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>text</key>
+	<string>value</string>
+	<key>count</key>
+	<integer>7</integer>
+	<key>negative</key>
+	<integer>-12</integer>
+	<key>largest</key>
+	<integer>9223372036854775807</integer>
+	<key>ratio</key>
+	<real>3.25</real>
+	<key>enabled</key>
+	<false/>
+	<key>created</key>
+	<date>2026-01-31T12:00:00Z</date>
+	<key>blob</key>
+	<data>AAH+/w==</data>
+	<key>empty</key>
+	<string></string>
+</dict>
+</plist>

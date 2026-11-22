@@ -714,6 +714,11 @@ fn operation(
     Ok(())
 }
 
+/// Removing a cell of a delimited file empties it, so the cell stays readable.
+fn is_tabular(format: &str) -> bool {
+    matches!(format, "csv" | "tsv")
+}
+
 fn removal(sample: &Sample) -> std::result::Result<(), String> {
     let fixture = Fixture::new();
     fixture.file(sample.file, sample.content.as_bytes());
@@ -733,6 +738,7 @@ fn removal(sample: &Sample) -> std::result::Result<(), String> {
     let after = query_file(&fixture, sample.file, &read).map_err(|error| error.message.clone())?;
     match after.first().map(|item| &item.value) {
         Some(Value::Null) | None => Ok(()),
+        Some(Value::Text(text)) if text.is_empty() && is_tabular(sample.format) => Ok(()),
         Some(other) => Err(format!("`{read}` still reads {other:?} after the removal")),
     }
 }

@@ -1,0 +1,10 @@
+{
+	CFBundleIdentifier = com.example.app;
+	CFBundleName = Example;
+	CFBundleVersion = 42;
+	LSRequiresIPhoneOS = YES;
+	UIRequiredDeviceCapabilities = (
+		armv7
+	);
+	CFBundleIconFiles = ();
+}

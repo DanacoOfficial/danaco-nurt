@@ -10,7 +10,7 @@
 
 use std::ops::Range;
 
-use nurt_contracts::error::{Error, Result};
+use nurt_contracts::error::{Error, ErrorCode, Result};
 use quick_xml::events::Event;
 use quick_xml::reader::{Config, Reader};
 
@@ -22,7 +22,7 @@ use super::tree::{
     CDataSection, Comment, Declaration, DocType, Element, Node, NodeId, ProcessingInstruction,
     TextNode, XmlTree,
 };
-use super::{CONSTRUCT_EVENT_SPAN, doc_parse_error, unsupported};
+use super::{CONSTRUCT_EVENT_SPAN, doc_parse_error, located_error, unsupported};
 
 /// Byte order mark encoded in UTF-8.
 const BOM: char = '\u{FEFF}';
@@ -50,6 +50,10 @@ const DECLARATION_OPEN: &str = "<?xml";
 
 /// Opening delimiter of a document type declaration.
 const DOCTYPE_OPEN: &str = "<!DOCTYPE";
+
+/// Deepest nesting of elements accepted; values and edits walk the tree
+/// recursively, and this bound keeps them within the stack of a thread.
+const MAX_DEPTH: usize = 512;
 
 /// Parses `text` into a lossless tree.
 pub(crate) fn parse(text: &str) -> Result<XmlTree> {
@@ -207,6 +211,14 @@ impl<'a> Builder<'a> {
                 "document has more than one root element; wrap the elements in a single root",
             ));
         }
+        if self.stack.len() >= MAX_DEPTH {
+            return Err(located_error(
+                ErrorCode::Limit,
+                self.text,
+                span.start,
+                format!("elements are nested deeper than {MAX_DEPTH} levels; flatten the document"),
+            ));
+        }
         let body_end = span.end - close.len();
         let name_end = self.text[span.start + 1..body_end]
             .find(|c: char| !is_name_char(c))
@@ -294,11 +306,11 @@ impl<'a> Builder<'a> {
                 .and_then(|element| element.children.last().copied()),
             None => self.document.last().copied(),
         };
-        if let Some(Node::Text(text)) = previous.and_then(|id| self.nodes.get_mut(id.0)) {
-            if text.span.end == span.start {
-                text.span.end = span.end;
-                return Ok(());
-            }
+        if let Some(Node::Text(text)) = previous.and_then(|id| self.nodes.get_mut(id.0))
+            && text.span.end == span.start
+        {
+            text.span.end = span.end;
+            return Ok(());
         }
         self.push(Node::Text(TextNode { span }));
         Ok(())
@@ -396,6 +408,12 @@ impl<'a> Builder<'a> {
     }
 
     fn doctype(&mut self, span: Range<usize>) -> Result<()> {
+        if !self.text[span.clone()].starts_with(DOCTYPE_OPEN) {
+            return Err(self.error(
+                span.start,
+                "the keyword of a document type declaration is `DOCTYPE` in upper case; correct the declaration",
+            ));
+        }
         self.delimited(&span, DOCTYPE_OPEN, ">")?;
         let misplaced = self.root.is_some()
             || self

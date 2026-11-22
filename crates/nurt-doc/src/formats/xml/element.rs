@@ -112,11 +112,13 @@ fn scalar_text(value: &Value, what: &str) -> Result<String> {
 enum Member<'a> {
     Attribute(&'a str),
     Content,
+    Instruction(&'a str),
     Child(&'a str),
 }
 
 /// Role of a map member: `@name` and `+@name` are attributes, `#text` and
-/// `+content` the text, other names child elements.
+/// `+content` the text, `+p_target` a processing instruction, other names
+/// child elements.
 fn member(name: &str) -> Result<Member<'_>> {
     if let Some(attribute) = name
         .strip_prefix(ATTRIBUTE_KEY_PREFIX)
@@ -128,14 +130,19 @@ fn member(name: &str) -> Result<Member<'_>> {
         return Ok(Member::Content);
     }
     if name.starts_with(PI_KEY_PREFIX) {
-        return Err(unsupported(
-            CONSTRUCT_PROCESSING_INSTRUCTION,
-            format!(
-                "member `{name}` would create a processing instruction; edit the file text with `replace`"
-            ),
-        ));
+        return Ok(Member::Instruction(name));
     }
     Ok(Member::Child(name))
+}
+
+/// Error for a member that would create a processing instruction.
+fn instruction_error(name: &str) -> nurt_contracts::error::Error {
+    unsupported(
+        CONSTRUCT_PROCESSING_INSTRUCTION,
+        format!(
+            "member `{name}` would create a processing instruction; edit the file text with `replace`"
+        ),
+    )
 }
 
 /// Value that a new value has in the model after it is written.
@@ -159,6 +166,12 @@ fn map_model(fields: &Fields) -> Result<Value> {
                 attributes.insert(
                     format!("{ATTRIBUTE_KEY_PREFIX}{attribute}"),
                     Value::Text(scalar_text(value, "an attribute")?),
+                );
+            }
+            Member::Instruction(target) => {
+                children.insert(
+                    target.to_owned(),
+                    Value::Text(scalar_text(value, "a processing instruction")?),
                 );
             }
             Member::Child(child) => {
@@ -459,6 +472,9 @@ impl XmlTree {
     ///
     /// Returns the errors described for [`XmlTree::set`].
     pub fn set_element_value(&self, element: NodeId, value: &Value) -> Result<XmlChange> {
+        if model_of(value).is_ok_and(|model| self.element_value(element).ok() == Some(model)) {
+            return Ok(XmlChange::default());
+        }
         match shape(value) {
             Shape::Null => self.replace_content(element, "", false),
             Shape::Scalar(text) => self.set_element_text(element, &text),
@@ -959,6 +975,10 @@ fn print_key(segments: &[KeySegment]) -> String {
         .unwrap_or_default()
 }
 
+/// Written attributes, content markup and whether the content holds
+/// elements.
+type Members = (Vec<(String, String)>, String, bool);
+
 /// Markup writer for new elements in the scope of an existing element.
 struct Render<'a> {
     tree: &'a XmlTree,
@@ -1025,10 +1045,10 @@ impl<'a> Render<'a> {
     ) -> Result<String> {
         let mut scope: Vec<String> = declared.to_vec();
         for member_name in fields.keys() {
-            if let Ok(Member::Attribute(attribute)) = member(member_name) {
-                if let Some(Some(prefix)) = declared_prefix(attribute) {
-                    scope.push(prefix.to_owned());
-                }
+            if let Ok(Member::Attribute(attribute)) = member(member_name)
+                && let Some(Some(prefix)) = declared_prefix(attribute)
+            {
+                scope.push(prefix.to_owned());
             }
         }
         let child_indent = format!("{indent}{}", self.tree.style().indent_unit);
@@ -1063,7 +1083,7 @@ impl<'a> Render<'a> {
         prefix: Option<&str>,
         child_indent: &str,
         declared: &[String],
-    ) -> Result<(Vec<(String, String)>, String, bool)> {
+    ) -> Result<Members> {
         let mut attributes = Vec::new();
         let mut text = String::new();
         let mut children = Vec::new();
@@ -1076,6 +1096,7 @@ impl<'a> Render<'a> {
                     attributes.push((written, value));
                 }
                 Member::Content => text = self.content_text(value)?,
+                Member::Instruction(target) => return Err(instruction_error(target)),
                 Member::Child(child) => {
                     let written = self.child_name(child, prefix, declared)?;
                     match shape(value) {
@@ -1138,10 +1159,10 @@ impl<'a> Render<'a> {
     }
 
     fn attribute_name(&self, name: &str, declared: &[String]) -> Result<String> {
-        if let (Some(prefix), _) = split_qname(name) {
-            if declared.iter().any(|known| known == prefix) {
-                return Ok(name.to_owned());
-            }
+        if let (Some(prefix), _) = split_qname(name)
+            && declared.iter().any(|known| known == prefix)
+        {
+            return Ok(name.to_owned());
         }
         let written = self.tree.written_name(self.scope, None, name, false).ok_or_else(|| {
             unsupported(
@@ -1153,10 +1174,10 @@ impl<'a> Render<'a> {
     }
 
     fn child_name(&self, name: &str, prefix: Option<&str>, declared: &[String]) -> Result<String> {
-        if let (Some(own), _) = split_qname(name) {
-            if declared.iter().any(|known| known == own) {
-                return valid_name(name.to_owned());
-            }
+        if let (Some(own), _) = split_qname(name)
+            && declared.iter().any(|known| known == own)
+        {
+            return valid_name(name.to_owned());
         }
         let written = self
             .tree
