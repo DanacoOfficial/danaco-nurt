@@ -8,6 +8,7 @@
   "required": ["format", "entries"],
   "properties": {
     "format": { "const": "nurt-fs-snapshot/1" },
+    "exhaustive": { "type": "boolean", "default": true, "description": "False when the snapshot lists only a subset of the tree; consumers compare the listed entries without requiring absent paths to be missing." },
     "entries": {
       "type": "array",
       "items": { "$ref": "#/$defs/entry" }
