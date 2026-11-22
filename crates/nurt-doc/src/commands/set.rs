@@ -46,7 +46,7 @@ use nurt_contracts::value::{Record, RecordKind, Size, Value};
 use super::query::read_file;
 use crate::edit::EditReport;
 use crate::model::{NodeKind, SetOptions, key_not_found};
-use crate::registry::{DocOptions, OpenDocument, Registry, open_with};
+use crate::registry::{DocOptions, OpenDocument, Registry, open_with_path};
 use crate::value::to_document_value;
 
 /// Name of the command in the catalog.
@@ -561,6 +561,7 @@ fn plan_file(
     let (initial, mut document) = open_document(
         registry,
         &format,
+        FsPath::new(&request.path),
         before.as_deref(),
         &request.ops,
         &doc_options,
@@ -660,6 +661,7 @@ fn locate(error: Error, path: &str) -> Error {
 fn open_document(
     registry: &Registry,
     format: &DocFormatId,
+    path: &FsPath,
     bytes: Option<&[u8]>,
     ops: &[Op],
     options: &DocOptions,
@@ -671,11 +673,14 @@ fn open_document(
         )
     })?;
     if let Some(bytes) = bytes {
-        return Ok((bytes.to_vec(), open_with(handler, bytes, options)?));
+        return Ok((
+            bytes.to_vec(),
+            open_with_path(handler, Some(path), bytes, options)?,
+        ));
     }
     let mut last = None;
     for initial in initial_contents(format, ops) {
-        match open_with(handler, &initial, options) {
+        match open_with_path(handler, Some(path), &initial, options) {
             Ok(document) => return Ok((initial, document)),
             Err(error) => last = Some(error),
         }

@@ -12,6 +12,8 @@
 
 mod u09_support;
 
+use std::path::Path;
+
 use nurt_contracts::error::{ErrorCode, Result};
 use nurt_contracts::journal::{Expect, OpKind, TargetAction};
 use nurt_contracts::record::ChangeAction;
@@ -840,4 +842,24 @@ fn every_registered_format_supports_the_operations() {
         "{covered:?}"
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn documents_are_opened_with_the_path_of_their_file() {
+    let fixture = Fixture::new();
+    fixture.file("/data/app.kvp", b"name = web\n");
+    set_on(
+        &fixture,
+        "/data/app.kvp",
+        &[("key", text("name")), ("value", text("api"))],
+    )
+    .unwrap();
+    assert_eq!(fixture.text("/data/app.kvp"), "name = api\n");
+    let opened = fixture.opened.lock().unwrap();
+    assert!(
+        opened
+            .iter()
+            .all(|path| path.as_deref() == Some(Path::new("/data/app.kvp")))
+    );
+    assert!(!opened.is_empty());
 }
