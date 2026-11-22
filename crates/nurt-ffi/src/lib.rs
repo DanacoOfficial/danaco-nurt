@@ -16,8 +16,10 @@
 //! `panic = "unwind"`. Details of the last failure of the calling thread are
 //! returned by [`nurt_last_error`].
 //!
-//! With the cargo feature `stub` the engine is replaced by a test double that
-//! answers from a directory of recorded cases (module `stub`).
+//! An engine handle serves the engine of `nurt-core`, opened with the clock
+//! and the host of the process. With the cargo feature `stub` the engine is
+//! replaced by a test double that answers from a directory of recorded cases
+//! (module `stub`).
 //!
 //! # Examples
 //!
@@ -49,13 +51,30 @@ mod backend;
 mod boundary;
 mod buffer;
 mod engine;
+#[cfg_attr(
+    feature = "stub",
+    allow(
+        dead_code,
+        reason = "the test double replaces the engine; the unit tests still use it"
+    )
+)]
+mod engine_backend;
 mod error;
 mod exec;
 mod info;
 mod log;
+#[cfg(feature = "stub")]
 mod response;
 #[cfg(feature = "stub")]
 pub mod stub;
+#[cfg_attr(
+    feature = "stub",
+    allow(
+        dead_code,
+        reason = "the test double uses only the wall time of the system"
+    )
+)]
+mod system;
 
 pub use abi::*;
 pub use backend::{Function, OutputKind};

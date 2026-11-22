@@ -1,0 +1,117 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-cli-subcommands/1"
+
+[[subcommand]]
+name = "exec"
+description = "Run a program given as arguments."
+arguments = [
+  "[--variant a|b|c]",
+  "[--preview]",
+  "[--json | --format F]",
+  "[--limit N]",
+  "[--cursor C]",
+  "[--verbosity V]",
+  "<program>",
+]
+
+[[subcommand]]
+name = "script"
+description = "Run a script file, each pipeline as its own operation."
+arguments = ["<file | ->", "[--preview]", "[--json | --format F]", "[--limit N]", "[--verbosity V]"]
+
+[[subcommand]]
+name = "repl"
+description = "Start an interactive session."
+arguments = []
+
+[[subcommand]]
+name = "check"
+description = "Parse, correct and bind a program without running it."
+arguments = ["<file | -e program>", "[--variant a|b|c]", "[--json | --format F]"]
+
+[[subcommand]]
+name = "fmt"
+description = "Print a program in canonical form."
+arguments = ["<file | ->", "[--variant a|b|c]"]
+
+[[subcommand]]
+name = "ast"
+description = "Convert a syntax tree between notations."
+arguments = ["[--from a|b|c|json]", "[--to json|cbor|a|b|c]", "<input | ->"]
+
+[[subcommand]]
+name = "schema"
+description = "Print a published JSON Schema."
+arguments = ["ast|bound|report|request|config|tool"]
+
+[[subcommand]]
+name = "catalog"
+description = "Describe the command catalog, a group or a command."
+arguments = ["[command | group | check-distance]"]
+
+[[subcommand]]
+name = "help"
+description = "Show the built-in help."
+arguments = ["[topic]"]
+
+[[subcommand]]
+name = "history"
+description = "List the recorded operations."
+arguments = ["[arguments of the history command]"]
+
+[[subcommand]]
+name = "undo"
+description = "Undo recorded operations."
+arguments = ["[arguments of the undo command]"]
+
+[[subcommand]]
+name = "redo"
+description = "Redo undone operations."
+arguments = ["[arguments of the redo command]"]
+
+[[subcommand]]
+name = "serve"
+description = "Serve the request protocol to a client process."
+arguments = ["--stdio | --socket <path>", "[--framing ndjson|content-length]", "[--stub <directory>]"]
+
+[[subcommand]]
+name = "mcp"
+description = "Serve the tool interface of the Model Context Protocol."
+arguments = ["[--stdio | --http <address>]"]
+
+[[subcommand]]
+name = "lsp"
+description = "Serve the language protocol for editors."
+arguments = []
+
+[[subcommand]]
+name = "migrate"
+description = "Translate a shell script to a Nurt script."
+arguments = ["<file.sh | file.ps1>"]
+
+[[subcommand]]
+name = "service"
+description = "Manage the background service."
+arguments = ["install | uninstall | start | stop | status | run"]
+
+[[subcommand]]
+name = "journal"
+description = "Maintain the journal."
+arguments = ["salvage <volume>"]
+
+[[subcommand]]
+name = "ext"
+description = "Manage extensions."
+arguments = ["install | remove | list"]
+
+[[subcommand]]
+name = "doctor"
+description = "Check the installation."
+arguments = []
+
+[[subcommand]]
+name = "version"
+description = "Print the full version, the same text as `nurt --version`."
+arguments = []

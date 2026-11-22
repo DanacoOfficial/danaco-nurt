@@ -4,23 +4,23 @@
 //! Engine handles (`nurt_engine`).
 
 use std::process;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Mutex, Weak};
 
 use nurt_contracts::config::Config;
-use nurt_contracts::stage::{CancelToken, DiscardEvents};
+use nurt_contracts::envelope::Request;
 use serde_json::Value;
 
-use crate::backend::{self, Backend, Function};
+use crate::backend::{self, Backend, Function, to_json};
 use crate::boundary::lock;
 use crate::error::CallError;
-use crate::exec::{Callback, Exec, Job, Shared};
+use crate::exec::{Callback, Exec, Shared};
 
 /// Engine instance behind a `nurt_engine` handle.
 ///
 /// The handle is shared by every thread of the caller; executions started
-/// from it keep the engine alive until they are released.
+/// from it keep the engine data they need until they are released.
 pub struct Engine {
-    backend: Arc<dyn Backend>,
+    backend: Box<dyn Backend>,
     executions: Mutex<Vec<Weak<Shared>>>,
     process: u32,
 }
@@ -35,9 +35,8 @@ impl Engine {
                 ))
             })?;
         }
-        let backend = backend::open(&config)?;
         Ok(Self {
-            backend: Arc::from(backend),
+            backend: backend::open(&config)?,
             executions: Mutex::new(Vec::new()),
             process: process::id(),
         })
@@ -74,16 +73,18 @@ impl Engine {
         }
     }
 
-    /// Runs a request and waits for the response.
-    pub(crate) fn run(&self, request: &Value) -> Result<Vec<u8>, CallError> {
-        self.backend
-            .run(request, &DiscardEvents, &CancelToken::new())
-            .map(|outcome| outcome.response)
+    /// Runs a request and returns its response as JSON.
+    pub(crate) fn run(&self, request: &Request) -> Result<Vec<u8>, CallError> {
+        to_json(&self.backend.run(request)?)
     }
 
     /// Starts an execution.
-    pub(crate) fn start(&self, job: Job, callback: Option<Callback>) -> Result<Exec, CallError> {
-        let exec = Exec::start(Arc::clone(&self.backend), job, callback)?;
+    pub(crate) fn start(
+        &self,
+        request: &Request,
+        callback: Option<Callback>,
+    ) -> Result<Exec, CallError> {
+        let exec = Exec::start(self.backend.as_ref(), request, callback)?;
         let mut executions = lock(&self.executions);
         executions.retain(|shared| shared.strong_count() > 0);
         executions.push(exec.downgrade());

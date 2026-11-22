@@ -227,9 +227,10 @@ impl Frontend for FixtureFrontend {
         _variant: Option<SyntaxVariant>,
         _config: &Config,
     ) -> Result<Compiled, Error> {
-        let (_, bound) = self.lookup(text)?;
+        let (ast, bound) = self.lookup(text)?;
         Ok(Compiled {
             bound: bound.clone(),
+            ast_hash: ast.and_then(crate::frontend::ast_hash),
             corrections: Vec::new(),
             ran: None,
         })

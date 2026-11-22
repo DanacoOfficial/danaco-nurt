@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use nurt_contracts::error::Result;
 use nurt_contracts::spec::{CatalogIssue, IoSpec};
-use nurt_contracts::stage::{InputKinds, StageDescriptor, StageImpl};
+use nurt_contracts::stage::{InputKinds, StageDescriptor, StageImpl, StageRegistrar};
 use nurt_contracts::value::RecordKind;
 
 use crate::error::{invalid, not_implemented, unsupported_input};
@@ -270,5 +270,13 @@ impl Registry {
             .map(|spec| spec.name.as_str())
             .filter(|name| self.implementations(name).next().is_none())
             .collect()
+    }
+}
+
+/// Registers the implementation as [`Registry::register_impl`] does, so a
+/// command crate can add its stages through `register(&mut registry)`.
+impl StageRegistrar for Registry {
+    fn register(&mut self, stage: Arc<dyn StageImpl>) -> Result<()> {
+        self.register_impl(stage)
     }
 }

@@ -12,11 +12,15 @@
 //!
 //! A request passes these steps: envelope rules and defaults, session,
 //! language front end (correction and binding, or `accept` of a candidate),
-//! planning, execution, report assembly, rendering and paging. A request
-//! with `cursor` reads a kept page and runs nothing. Planning, execution,
-//! report assembly and rendering are connected when the engine is assembled
-//! with all components; until then a program that reaches planning fails
-//! with `E_UNSUPPORTED`.
+//! planning against the command registry, execution by the executor of
+//! `nurt-exec`, report assembly, rendering and paging. A request with
+//! `cursor` reads a kept page and runs nothing. The reports of executed
+//! programs and of programs that fail before execution are assembled by the
+//! report rules, and every response carries the rendered result for the
+//! requested format. Executing a program needs a file system in the
+//! [`EngineConfig`]; without it the request fails with `E_UNSUPPORTED`. A
+//! program with effects also needs a journal, and fails at its apply step
+//! without one; a program that only reads runs without a journal.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -25,6 +29,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
+use nurt_catalog::{CatalogQuery, Registry};
 use nurt_contracts::ast::{AST_VERSION, AstDocument};
 use nurt_contracts::bound::{BOUND_VERSION, BoundDocument, BoundHead, BoundStatement};
 use nurt_contracts::config::{CONFIG_FORMAT, Config, DurationSetting, Language as ConfigLanguage};
@@ -37,21 +42,30 @@ use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::fs::{AbsPath, Fs};
 use nurt_contracts::journal::{HistoryQuery, JournalStore, OperationRecord, VolumeSpace};
 use nurt_contracts::kinds::SyntaxVariant;
-use nurt_contracts::report::{Correction, REPORT_VERSION, Report, ReportStatus, Timing};
+use nurt_contracts::report::{REPORT_VERSION, RecordsPage, Report, ReportStatus, Timing};
 use nurt_contracts::schema;
 use nurt_contracts::services::Services;
-use nurt_contracts::stage::{CancelReason, CancelToken, ExecCtx, Extensions, Limits};
+use nurt_contracts::stage::{
+    CancelReason, CancelToken, EventSink, ExecCtx, ExecStep, Extensions, Limits, StageImpl,
+};
+use nurt_contracts::value::{Record, RecordKind};
+use nurt_exec::{ExecEnv, Executor, OperationOutcome, Outcome, ResultData};
+use nurt_plan::{CheckSummary, Plan, PlanOptions};
+use nurt_report::assemble::{ReportBuilder, ReportContext, TargetChange};
+use nurt_report::rules::PathContext;
+use nurt_report::{RenderOptions, respond};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value as Json, json};
+use serde_json::{Value as Json, json};
 
 use crate::candidates::CandidateStore;
 use crate::config::{ConfigLoader, ConfigSources, LoadedConfig};
 use crate::cursor::{CursorStore, ProgramRef};
 use crate::error::{EngineError, envelope_error, unavailable};
-use crate::events::{EventListener, Lifecycle, Sequencer};
+use crate::events::{EventListener, Sequencer};
 use crate::frontend::{Compiled, Corrected, Frontend, UnavailableFrontend};
 use crate::readcache::ReadCache;
+use crate::registry::standard_registry_with;
 use crate::session::{SessionId, Sessions};
 use crate::state::{StateArea, StateDir, write_atomic};
 
@@ -73,7 +87,10 @@ const FIXTURES_FEATURE: &str = "fixtures";
 /// The clock and the host are always given; the file system, the journal,
 /// the language front end and the services of other command groups are
 /// optional. Without a front end every program fails with `E_UNSUPPORTED`;
-/// without a journal `history` and `space` fail the same way.
+/// without a file system a program fails the same way when it is executed.
+/// Without a journal programs that only read still run, programs with effects
+/// fail at their apply step, and `history` and `space` fail with
+/// `E_UNSUPPORTED`.
 ///
 /// # Examples
 ///
@@ -97,6 +114,7 @@ pub struct EngineConfig {
     journal: Option<Arc<dyn JournalStore>>,
     frontend: Arc<dyn Frontend>,
     services: Services,
+    stages: Vec<Arc<dyn StageImpl>>,
     sources: ConfigSources,
     session: Option<String>,
     state_dir: Option<PathBuf>,
@@ -110,6 +128,7 @@ impl fmt::Debug for EngineConfig {
             .field("session", &self.session)
             .field("state_dir", &self.state_dir)
             .field("services", &self.services)
+            .field("stages", &self.stages.len())
             .finish_non_exhaustive()
     }
 }
@@ -126,6 +145,7 @@ impl EngineConfig {
             journal: None,
             frontend: Arc::new(UnavailableFrontend),
             services: Services::new(),
+            stages: Vec::new(),
             sources: ConfigSources::new(),
             session: None,
             state_dir: None,
@@ -158,6 +178,16 @@ impl EngineConfig {
     #[must_use]
     pub fn with_services(mut self, services: Services) -> Self {
         self.services = services;
+        self
+    }
+
+    /// Stage implementation registered with the command catalog in addition
+    /// to the implementations compiled into the build. The command named by
+    /// its descriptor must be in the catalog, and no other implementation may
+    /// accept the same record kinds; otherwise [`Engine::open`] fails.
+    #[must_use]
+    pub fn with_stage(mut self, stage: Arc<dyn StageImpl>) -> Self {
+        self.stages.push(stage);
         self
     }
 
@@ -195,17 +225,18 @@ impl EngineConfig {
 
 /// Result of [`Engine::check`]: the bound program and what running it would
 /// touch, without running it.
+///
+/// In JSON the members of the summary (`nurt-check/1`) and the member
+/// `bound` form one object.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CheckReport {
     /// The bound program.
     pub bound: BoundDocument,
-    /// Corrections applied to the program text.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub corrections: Vec<Correction>,
-    /// Targets, network addresses, external programs, waits and the class of
-    /// the effect, as computed by the planner.
+    /// Class of the effect and reversibility, paths, network endpoints,
+    /// external programs, waits, command groups and the corrections applied
+    /// to the program text.
     #[serde(flatten)]
-    pub summary: Map<String, Json>,
+    pub summary: CheckSummary,
 }
 
 /// Versions of the formats spoken by the engine.
@@ -320,6 +351,8 @@ struct Inner {
     journal: Option<Arc<dyn JournalStore>>,
     frontend: Arc<dyn Frontend>,
     services: Arc<Services>,
+    registry: Arc<Registry>,
+    catalog_rev: String,
     loader: ConfigLoader,
     default_config: Arc<LoadedConfig>,
     projects: Mutex<HashMap<Option<PathBuf>, Arc<LoadedConfig>>>,
@@ -387,9 +420,15 @@ impl Engine {
     /// # Errors
     ///
     /// Returns [`EngineError`] when the configuration is invalid, the
-    /// session identifier is invalid or the state directory cannot be
-    /// created.
+    /// session identifier is invalid, the state directory cannot be created
+    /// or the command registry of the build cannot be assembled.
     pub fn open(config: EngineConfig) -> Result<Self, EngineError> {
+        let registry = standard_registry_with(&config.stages)
+            .map(Arc::new)
+            .map_err(|error| EngineError::registry(&error))?;
+        let catalog_rev = registry
+            .catalog_rev()
+            .map_err(|error| EngineError::registry(&error))?;
         let loader = ConfigLoader::new(&config.sources, config.host.as_ref())?;
         let project = loader.project_for(None);
         let loaded = Arc::new(loader.load(project.as_deref())?);
@@ -436,6 +475,8 @@ impl Engine {
             journal: config.journal,
             frontend: config.frontend,
             services: Arc::new(config.services),
+            registry,
+            catalog_rev,
             loader,
             state,
             default_session,
@@ -490,7 +531,7 @@ impl Engine {
     /// reported in the effect report of the response.
     #[must_use]
     pub fn run(&self, request: &Request) -> Response {
-        self.execute(request, &CancelToken::new())
+        self.execute(request, &CancelToken::new(), None)
     }
 
     /// Starts a request on its own thread and delivers its events to
@@ -506,39 +547,43 @@ impl Engine {
             completion: Arc::clone(&completion),
         };
         let kind = input_kind(request);
-        let sequencer = Sequencer::new(listener, Arc::clone(&self.inner.clock), request_id);
+        let sequencer = Arc::new(Sequencer::new(
+            listener,
+            Arc::clone(&self.inner.clock),
+            request_id,
+        ));
         let engine = self.clone();
-        let request = request.clone();
+        let owned = request.clone();
         let finished = Arc::clone(&completion);
         let spawned = std::thread::Builder::new()
             .name(EXEC_THREAD_NAME.to_owned())
             .spawn(move || {
-                sequencer.lifecycle(Lifecycle::Started);
-                let response = engine.execute(&request, &cancel);
-                sequencer.lifecycle(Lifecycle::Finished {
-                    status: response.report.status,
-                });
+                let events: Arc<dyn EventSink> = sequencer.clone();
+                let response = engine.execute(&owned, &cancel, Some(events));
+                sequencer.close(response.report.status);
                 finished.complete(response);
             });
         if let Err(error) = spawned {
-            completion.complete(Response::new(failed_report(
+            let report = failed_report(
                 kind,
                 Error::new(
                     ErrorCode::Internal,
                     format!("cannot start the execution thread: {error}"),
                 ),
-            )));
+            );
+            completion.complete(respond_with(&report, &request.options));
         }
         handle
     }
 
-    /// Binds a request and computes what running it would touch, without
-    /// running it.
+    /// Binds and plans a request and computes what running it would touch,
+    /// without running it.
     ///
     /// # Errors
     ///
-    /// Returns the language error of the envelope, the front end or the
-    /// planner; a request with `cursor` is `E_ARG`.
+    /// Returns the language error of the envelope, the front end, the planner
+    /// (for example `E_ONE_EFFECT` with the split program in `next_steps`) or
+    /// the static check of a stage; a request with `cursor` is `E_ARG`.
     pub fn check(&self, request: &Request) -> Result<CheckReport, Error> {
         let prepared = self.prepare(request)?;
         let compiled = match request
@@ -553,7 +598,17 @@ impl Engine {
                 "check needs `program`, `ast` or `accept`",
             )),
         }?;
-        Err(unavailable("planner").with_detail("command", json!(kind_of(&compiled.bound))))
+        let plan = self.plan(&compiled, &prepared)?;
+        let summary = nurt_plan::check(
+            &plan,
+            &self.inner.registry,
+            self.inner.host.as_ref(),
+            prepared.config.config(),
+        )?;
+        Ok(CheckReport {
+            bound: compiled.bound,
+            summary,
+        })
     }
 
     /// Parses program text without correcting it.
@@ -622,13 +677,33 @@ impl Engine {
         )
     }
 
-    /// The command catalog as JSON.
+    /// The command catalog as JSON (`nurt-catalog-result/1`): the revision
+    /// `catalog_rev`, the number of commands `total` and the groups with the
+    /// number of their commands.
     ///
     /// # Errors
     ///
-    /// Returns `E_UNSUPPORTED` while no command catalog is connected.
+    /// Returns `E_INTERNAL` when the catalog cannot be serialized.
     pub fn catalog(&self) -> Result<Json, Error> {
-        Err(unavailable("command catalog"))
+        self.catalog_query(&CatalogQuery::Summary)
+    }
+
+    /// One query of the command catalog as JSON: the groups, the commands of
+    /// one group or the full specification of one command.
+    ///
+    /// # Errors
+    ///
+    /// Returns `E_UNKNOWN_NAME` for an unknown group and `E_UNKNOWN_COMMAND`
+    /// for an unknown command.
+    pub fn catalog_query(&self, query: &CatalogQuery<'_>) -> Result<Json, Error> {
+        self.inner.registry.catalog_json(query)
+    }
+
+    /// Revision of the command catalog: `sha256:` and the digest of its
+    /// canonical form.
+    #[must_use]
+    pub fn catalog_rev(&self) -> &str {
+        &self.inner.catalog_rev
     }
 
     /// Published JSON Schema `name`: `ast`, `bound`, `report`, `request`,
@@ -717,11 +792,19 @@ impl Engine {
         Ok(self.build_context(&prepared, CancelToken::new()))
     }
 
-    fn execute(&self, request: &Request, cancel: &CancelToken) -> Response {
+    fn execute(
+        &self,
+        request: &Request,
+        cancel: &CancelToken,
+        events: Option<Arc<dyn EventSink>>,
+    ) -> Response {
         let started = self.inner.clock.monotonic();
         let prepared = match self.prepare(request) {
             Ok(prepared) => prepared,
-            Err(error) => return Response::new(failed_report(input_kind(request), error)),
+            Err(error) => {
+                let report = failed_report(input_kind(request), error);
+                return respond_with(&report, &request.options);
+            }
         };
         let compiled = match request.input() {
             Ok(RequestInput::Cursor(cursor)) => return self.read_page(cursor, &prepared),
@@ -731,29 +814,125 @@ impl Engine {
             Ok(_) => Err(Error::new(ErrorCode::Arg, "unsupported request input")),
             Err(error) => Err(envelope_error(&error, request)),
         };
+        let reports = self.report_context(prepared.config.config());
         let compiled = match compiled {
             Ok(compiled) => compiled,
             Err(error) => {
-                let report = failed_report(input_kind(request), error);
+                let report = failure(&reports, &ProgramKind::input(request), None, error);
                 return self.finish(report, &prepared, None, started);
             }
         };
-        let kind = kind_of(&compiled.bound);
+        let kind = ProgramKind::of(&compiled.bound);
         let program = ProgramRef::of(
             &compiled.bound.program,
             compiled.ran.clone().or_else(|| request.program.clone()),
         );
-        let error = match cancel.check() {
-            Err(error) => error,
-            Ok(()) => unavailable("planner"),
-        };
-        let mut report = failed_report(&kind, error);
-        report.ran = compiled.ran.filter(|_| !compiled.corrections.is_empty());
-        report.corrections = compiled.corrections;
+        let report = cancel
+            .check()
+            .and_then(|()| {
+                let run = Run {
+                    compiled: &compiled,
+                    prepared: &prepared,
+                    kind: &kind,
+                    reports: &reports,
+                    cancel,
+                    events,
+                    started,
+                };
+                self.run_program(run)
+            })
+            .unwrap_or_else(|error| failure(&reports, &kind, Some(&compiled), error));
         self.finish(report, &prepared, Some(&program), started)
     }
 
-    /// Completes a report: durations, result file and the first page.
+    /// Plans a bound program, executes the plan and assembles its report.
+    fn run_program(&self, run: Run<'_>) -> Result<Report, Error> {
+        let Run {
+            compiled,
+            prepared,
+            kind,
+            reports,
+            cancel,
+            events,
+            started,
+        } = run;
+        let clock = &self.inner.clock;
+        let planning = clock.monotonic();
+        let plan = self.plan(compiled, prepared)?;
+        let planned = clock.monotonic();
+        let env = self.exec_env(prepared, cancel, events)?;
+        let env = match &compiled.ast_hash {
+            Some(hash) => env.with_ast_hash(hash.clone()),
+            None => env,
+        };
+        let outcome = Executor::new().run(&plan, &env);
+        let timing = (prepared.options.verbosity == Some(Verbosity::Detailed)).then(|| {
+            let mut timing = timing_of(&outcome);
+            timing.parse_ms = Some(millis(planning.saturating_sub(started)));
+            timing.plan_ms =
+                Some(millis(planned.saturating_sub(planning)) + timing.plan_ms.unwrap_or(0));
+            timing
+        });
+        report_of(reports, kind, compiled, outcome, timing)
+    }
+
+    /// Environment of the executor for one request.
+    fn exec_env(
+        &self,
+        prepared: &Prepared,
+        cancel: &CancelToken,
+        events: Option<Arc<dyn EventSink>>,
+    ) -> Result<ExecEnv, Error> {
+        let fs = self
+            .inner
+            .fs
+            .clone()
+            .ok_or_else(|| unavailable("file system"))?;
+        let registry = Arc::clone(&self.inner.registry);
+        let clock = Arc::clone(&self.inner.clock);
+        let host = Arc::clone(&self.inner.host);
+        let base = match self.inner.journal.clone() {
+            Some(journal) => ExecEnv::new(registry, fs, journal, clock, host),
+            None => ExecEnv::read_only(registry, fs, clock, host),
+        };
+        let mut env = base
+            .with_extension(Arc::clone(&self.inner.read_cache))
+            .with_config(Arc::new(prepared.config.config().clone()))
+            .with_options(Arc::new(prepared.options.clone()))
+            .with_services(Arc::clone(&self.inner.services))
+            .with_cancel(cancel.clone())
+            .with_timeout(prepared.timeout);
+        if let Some(events) = events {
+            env = env.with_events(events);
+        }
+        if let Some(state) = &self.inner.state {
+            env = env.with_state_dir(state.root().to_path_buf());
+        }
+        Ok(env)
+    }
+
+    /// Plans a bound program against the command registry. The fields
+    /// requested by the caller reach the planner; the page size does not,
+    /// because a kept result serves every later page.
+    fn plan(&self, compiled: &Compiled, prepared: &Prepared) -> Result<Plan, Error> {
+        let mut options = PlanOptions::new().with_corrections(compiled.corrections.clone());
+        if let Some(fields) = &prepared.options.fields {
+            options = options.with_fields(fields.iter().cloned());
+        }
+        nurt_plan::plan_with(&compiled.bound, &self.inner.registry, &options)
+    }
+
+    /// Context of the report rules for the configuration of one request.
+    fn report_context(&self, config: &Config) -> ReportContext {
+        ReportContext::new(
+            config.report.clone(),
+            PathContext::from_host(self.inner.host.as_ref()),
+        )
+        .with_scope(&config.scope)
+    }
+
+    /// Completes a report: durations, result file, the first page and the
+    /// rendered result.
     fn finish(
         &self,
         mut report: Report,
@@ -763,8 +942,8 @@ impl Engine {
     ) -> Response {
         if prepared.options.verbosity == Some(Verbosity::Detailed) {
             let elapsed = self.inner.clock.monotonic().saturating_sub(started);
-            report.timing = Some(Timing {
-                parse_ms: Some(u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX)),
+            report.timing.get_or_insert_with(|| Timing {
+                parse_ms: Some(millis(elapsed)),
                 ..Timing::default()
             });
         }
@@ -787,7 +966,7 @@ impl Engine {
                 .cursors
                 .first_page(report, limit, program, self.now());
         }
-        Response::new(report)
+        respond_with(&report, &prepared.options)
     }
 
     fn read_page(&self, cursor: &str, prepared: &Prepared) -> Response {
@@ -796,7 +975,7 @@ impl Engine {
             .cursors
             .page(cursor, prepared.options.limit(), self.now())
             .unwrap_or_else(|error| failed_report(PAGE_KIND, error));
-        Response::new(report)
+        respond_with(&report, &prepared.options)
     }
 
     fn compile(
@@ -820,6 +999,7 @@ impl Engine {
             .bind(document, prepared.config.config())
             .map(|bound| Compiled {
                 bound,
+                ast_hash: crate::frontend::ast_hash(document),
                 corrections: Vec::new(),
                 ran: None,
             })
@@ -1002,9 +1182,34 @@ fn input_kind(request: &Request) -> &'static str {
     }
 }
 
-/// Kind of the report of a bound program: its last effect command, or the
-/// source command of its first pipeline.
-fn kind_of(bound: &BoundDocument) -> String {
+/// Report kind of a program and whether it changes targets.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ProgramKind {
+    kind: String,
+    changing: bool,
+}
+
+impl ProgramKind {
+    /// Kind of a request whose program is not bound: `program`, `accept` or
+    /// `page`.
+    fn input(request: &Request) -> Self {
+        Self {
+            kind: input_kind(request).to_owned(),
+            changing: false,
+        }
+    }
+
+    /// Kind of a bound program: its last effect command, or the source
+    /// command of its first pipeline.
+    fn of(bound: &BoundDocument) -> Self {
+        let (kind, changing) = kind_of(bound);
+        Self { kind, changing }
+    }
+}
+
+/// Last effect command of a bound program, or the source command of its
+/// first pipeline, and whether the program has an effect command.
+fn kind_of(bound: &BoundDocument) -> (String, bool) {
     let pipelines = bound
         .program
         .statements
@@ -1031,7 +1236,190 @@ fn kind_of(bound: &BoundDocument) -> String {
             effect = Some(stage.name.clone());
         }
     }
-    effect.or(source).unwrap_or_else(|| PROGRAM_KIND.to_owned())
+    let changing = effect.is_some();
+    let kind = effect.or(source).unwrap_or_else(|| PROGRAM_KIND.to_owned());
+    (kind, changing)
+}
+
+/// Inputs of one program execution.
+struct Run<'a> {
+    compiled: &'a Compiled,
+    prepared: &'a Prepared,
+    kind: &'a ProgramKind,
+    reports: &'a ReportContext,
+    cancel: &'a CancelToken,
+    events: Option<Arc<dyn EventSink>>,
+    started: Duration,
+}
+
+fn millis(duration: Duration) -> u64 {
+    u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
+}
+
+/// Durations of the execution steps: reading, planning and applying the
+/// effect. The steps `check` and `after` count as reading and `verify` as
+/// applying.
+fn timing_of(outcome: &Outcome) -> Timing {
+    let mut timing = Timing::default();
+    for step in outcome.operations.iter().flat_map(|op| &op.timings) {
+        let slot = match step.step {
+            ExecStep::Read | ExecStep::Check | ExecStep::After => &mut timing.read_ms,
+            ExecStep::Plan => &mut timing.plan_ms,
+            ExecStep::Apply | ExecStep::Verify => &mut timing.apply_ms,
+            _ => continue,
+        };
+        *slot = Some(slot.unwrap_or(0) + millis(step.elapsed));
+    }
+    timing
+}
+
+/// Page of records of a result: the records, or a single value as one `row`
+/// record with the field `value`.
+fn records_page(result: &ResultData, skip: &[RecordKind]) -> Option<RecordsPage> {
+    let rows: Vec<Record> = match &result.value {
+        Some(value) => vec![Record::new(RecordKind::Row).with("value", value.clone())],
+        None => result
+            .records
+            .iter()
+            .filter(|record| !skip.contains(&record.kind))
+            .cloned()
+            .collect(),
+    };
+    if rows.is_empty() && !skip.is_empty() && result.header.is_none() {
+        return None;
+    }
+    let record_type = result
+        .header
+        .as_ref()
+        .or_else(|| rows.first())
+        .map_or(RecordKind::Entry, |record| record.kind);
+    Some(RecordsPage {
+        record_type,
+        matched: Some(rows.len() as u64),
+        header: result.header.clone(),
+        rows,
+    })
+}
+
+/// Report of an executed program: the changes, notable and irreversible
+/// effects of every operation, the records of the last one and the error
+/// that ended the execution.
+fn report_of(
+    ctx: &ReportContext,
+    program: &ProgramKind,
+    compiled: &Compiled,
+    outcome: Outcome,
+    timing: Option<Timing>,
+) -> Result<Report, Error> {
+    let Outcome {
+        status,
+        error,
+        operations,
+        ..
+    } = outcome;
+    let mut builder = if program.changing {
+        ReportBuilder::changing(ctx, program.kind.clone(), status)
+    } else {
+        ReportBuilder::reading(ctx, program.kind.clone(), status)
+    };
+    if !compiled.corrections.is_empty() {
+        builder = builder.corrections(compiled.corrections.clone());
+        if let Some(ran) = &compiled.ran {
+            builder = builder.ran(ran.clone());
+        }
+    }
+    if let Some(hash) = &compiled.ast_hash {
+        builder = builder.ast_hash(hash.clone());
+    }
+    let last = operations.last().map(|operation| operation.index);
+    for operation in operations {
+        builder = add_operation(builder, operation, last);
+    }
+    if let Some(error) = error {
+        builder = builder.error(error);
+    }
+    if let Some(timing) = timing {
+        builder = builder.timing(timing);
+    }
+    builder.build().map_err(|violation| {
+        Error::new(
+            ErrorCode::Internal,
+            format!("the report of the program breaks a rule of the format: {violation}"),
+        )
+    })
+}
+
+fn add_operation<'c>(
+    mut builder: ReportBuilder<'c>,
+    operation: OperationOutcome,
+    last: Option<u32>,
+) -> ReportBuilder<'c> {
+    let OperationOutcome {
+        index,
+        result,
+        effect,
+        notable,
+        ..
+    } = operation;
+    builder = builder.notes(notable);
+    let is_last = last == Some(index);
+    let mut skip: &[RecordKind] = &[];
+    if let Some(effect) = effect {
+        builder = builder
+            .notes(effect.notable)
+            .irreversible_entries(effect.irreversible)
+            .changes(effect.changes.into_iter().map(|facts| {
+                TargetChange::observed(facts.change, facts.entry, facts.replaced_existing)
+            }));
+        if let Some(op) = effect.handle.as_ref().and_then(|handle| handle.op) {
+            builder = builder.op(op.0);
+        }
+        skip = &[RecordKind::Effect, RecordKind::Exec, RecordKind::Job];
+        if is_last {
+            for record in &result.records {
+                builder = match record.kind {
+                    RecordKind::Exec => builder.exec(record.clone()),
+                    RecordKind::Job => builder.job(record.clone()),
+                    _ => builder,
+                };
+            }
+        }
+    }
+    if is_last && let Some(page) = records_page(&result, skip) {
+        builder = builder.records(page);
+    }
+    builder
+}
+
+/// Report of a program that failed before execution, assembled by the report
+/// rules for a reading or a changing program, with the corrections applied
+/// to its text.
+fn failure(
+    ctx: &ReportContext,
+    program: &ProgramKind,
+    compiled: Option<&Compiled>,
+    error: Error,
+) -> Report {
+    let builder = if program.changing {
+        ReportBuilder::changing(ctx, program.kind.clone(), ReportStatus::Failed)
+    } else {
+        ReportBuilder::reading(ctx, program.kind.clone(), ReportStatus::Failed)
+    };
+    let mut builder = builder.error(error.clone());
+    if let Some(compiled) = compiled.filter(|compiled| !compiled.corrections.is_empty()) {
+        builder = builder.corrections(compiled.corrections.clone());
+        if let Some(ran) = &compiled.ran {
+            builder = builder.ran(ran.clone());
+        }
+    }
+    builder
+        .build()
+        .unwrap_or_else(|_| failed_report(&program.kind, error))
+}
+
+/// Response with the result rendered for the options of the request.
+fn respond_with(report: &Report, options: &RequestOptions) -> Response {
+    respond(report, &RenderOptions::from_request(options))
 }
 
 fn failed_report(kind: &str, error: Error) -> Report {
@@ -1191,6 +1579,37 @@ mod tests {
     }
 
     #[test]
+    fn failures_before_execution_follow_the_report_rules() {
+        let ctx = ReportContext::default();
+        let compiled = Compiled {
+            bound: nurt_testkit::fixtures::empty_program(),
+            corrections: vec![
+                serde_json::from_value(json!({
+                    "id": "k1", "rule": "L01", "class": "F", "from": "fnd", "to": "find"
+                }))
+                .unwrap(),
+            ],
+            ran: Some("find \"/srv\"".to_owned()),
+            ast_hash: None,
+        };
+        let changing = ProgramKind {
+            kind: "remove".to_owned(),
+            changing: true,
+        };
+        let error = Error::new(ErrorCode::OneEffect, "two effect stages");
+        let report = failure(&ctx, &changing, Some(&compiled), error.clone());
+        assert_eq!(report.status, ReportStatus::Failed);
+        assert_eq!(report.kind, "remove");
+        assert_eq!(report.error.as_ref(), Some(&error));
+        assert_eq!(report.ran.as_deref(), Some("find \"/srv\""));
+        assert_eq!(report.corrections.len(), 1);
+        assert!(report.notable.is_empty());
+        let reading = failure(&ctx, &ProgramKind::of(&compiled.bound), None, error);
+        assert_eq!(reading.kind, PROGRAM_KIND);
+        assert!(reading.corrections.is_empty());
+    }
+
+    #[test]
     fn report_kind_is_the_effect_command() {
         let bound: BoundDocument = serde_json::from_value(json!({
             "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
@@ -1201,10 +1620,10 @@ mod tests {
             }]}
         }))
         .unwrap();
-        assert_eq!(kind_of(&bound), "remove");
+        assert_eq!(kind_of(&bound), ("remove".to_owned(), true));
         assert_eq!(
             kind_of(&nurt_testkit::fixtures::empty_program()),
-            PROGRAM_KIND
+            (PROGRAM_KIND.to_owned(), false)
         );
     }
 }

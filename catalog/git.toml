@@ -350,6 +350,7 @@ effects = [
   { action = "create", effect = "local", reversibility = "reversible", note = "Applies when create is given, with or without switch." },
   { action = "rename", effect = "local", reversibility = "reversible", note = "Applies when rename is given." },
   { action = "delete", effect = "local", reversibility = "reversible", note = "Applies when delete is given." },
+  { action = "purge", effect = "local", reversibility = "reversible", note = "Applies when purge is given." },
 ]
 
 [[command.param]]
@@ -479,6 +480,12 @@ name = "exclude"
 type = "list<glob>"
 default = "[]"
 summary = "Paths to leave out of add; the report counts the excluded files."
+
+[[command.param]]
+name = "intent_to_add"
+type = "bool"
+default = "false"
+summary = "With add: record the paths in the index without their content."
 
 [[command]]
 name = "git.checkpoint"
@@ -833,7 +840,7 @@ output = ["git_tag", "effect"]
 summary = "List tags, or create or delete a tag."
 reversibility_note = "Tag changes are reversible from the journal, which keeps the previous value of each reference."
 effects = [
-  { action = "create", effect = "local", reversibility = "reversible", note = "Applies when name is given." },
+  { action = "name", effect = "local", reversibility = "reversible", note = "Applies when name is given; creates the tag." },
   { action = "delete", effect = "local", reversibility = "reversible", note = "Applies when delete is given." },
 ]
 
