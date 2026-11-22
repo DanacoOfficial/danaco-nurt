@@ -13,15 +13,20 @@
 
 use std::sync::Arc;
 
-use nurt_contracts::stage::StageImpl;
+use nurt_contracts::error::Result;
+use nurt_contracts::stage::{StageImpl, StageRegistrar};
 
 pub mod common;
 pub mod fuzzy;
 pub mod read;
 pub mod walk;
 
-/// Stage implementations of the commands of this crate, for the registry of
-/// the engine.
+mod commands {
+    pub(crate) mod find;
+    pub(crate) mod list;
+}
+
+/// Stage implementations of the commands of this crate.
 ///
 /// The registry selects an implementation by the command name and the input
 /// record kinds of its
@@ -30,7 +35,33 @@ pub mod walk;
 /// implementation of this crate has.
 #[must_use]
 pub fn stages() -> Vec<Arc<dyn StageImpl>> {
-    Vec::new()
+    [commands::find::stages(), commands::list::stages()]
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
+/// Adds the stage implementations of this crate to the registry of the engine.
+///
+/// # Errors
+///
+/// Returns the first error of the registrar, for example `E_UNKNOWN_COMMAND`
+/// when the catalog does not declare a command of this crate.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+/// use nurt_contracts::stage::StageImpl;
+///
+/// let mut stages: Vec<Arc<dyn StageImpl>> = Vec::new();
+/// nurt_files::register(&mut stages).expect("a vector accepts every stage");
+/// assert_eq!(stages.len(), nurt_files::stages().len());
+/// ```
+pub fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
+    stages()
+        .into_iter()
+        .try_for_each(|stage| registrar.register(stage))
 }
 
 #[cfg(test)]
