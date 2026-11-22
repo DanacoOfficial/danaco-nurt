@@ -5,25 +5,30 @@
 //!
 //! The journal is built over the system file system with space admission
 //! control, the volume directories of the account and the retention limits of
-//! the configuration layers. No space service runs inside the process, so the
-//! link to it reports the service as not running and admission decides on its
-//! own.
+//! the configuration layers. The space service runs inside the process: the
+//! journal starts its module, which recovers the journal and writes the
+//! heartbeats that admission requires before it preserves data.
 
 use std::path::Path;
-use std::sync::{Arc, OnceLock, Weak};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, TryLockError, Weak};
 use std::time::Duration;
 
 use nurt_contracts::config::ConfigLayer;
 use nurt_contracts::env::Clock;
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::{AbsPath, FileLock, Fs, FsWrite, VolumeId};
-use nurt_contracts::journal::{ExpiredEntry, ExpiryReason, JournalStore, OpId, VolumeState};
+use nurt_contracts::fs::{AbsPath, FileLock, Fs, FsWrite, VolumeId, VolumeInfo};
+use nurt_contracts::journal::{
+    Eligibility, ExpiredEntry, ExpiryReason, JournalStore, OpId, RecoveryReport, ServiceLiveness,
+    SweepReport, VolumeState,
+};
 use nurt_fs::failpoint::NoFailpoints;
 use nurt_journal::store::{EntryCatalog, EntrySummary, HeldItem, ReclaimPaths};
 use nurt_journal::volumes::{JournalDirectories, Registry};
 use nurt_journal::{ConfiguredLimits, Journal, JournalBuilder};
-use nurt_space::admission::SpaceAdmission;
-use nurt_space::service::{RegistryLink, ServiceProbe};
+use nurt_space::admission::{ServiceLink, SpaceAdmission};
+use nurt_space::service::{
+    JournalMaintenance, RegistryLink, ServiceProbe, SpaceModule, SpaceService, SpaceWorker,
+};
 
 use crate::config::LoadedConfig;
 use crate::error::EngineError;
@@ -31,20 +36,102 @@ use crate::error::EngineError;
 /// File of the user limits of the journal in the state directory.
 const USER_LIMITS_FILE: &str = "user-config.toml";
 
-/// Probe of a space service that does not run in this process.
-#[derive(Debug, Clone, Copy)]
-struct NoService;
+/// Space module hosted by this process.
+type ProcessModule = Mutex<SpaceModule<LateCatalog>>;
 
-impl ServiceProbe for NoService {
-    fn process_alive(&self, _pid: u32) -> bool {
-        false
+fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// Transport to the space module that runs inside this process.
+struct ProcessProbe {
+    module: Arc<ProcessModule>,
+}
+
+impl ServiceProbe for ProcessProbe {
+    fn process_alive(&self, pid: u32) -> bool {
+        pid == std::process::id()
     }
 
     fn ping(&self, _timeout: Duration) -> bool {
-        false
+        match self.module.try_lock() {
+            Ok(module) => module.ping() == ServiceLiveness::Alive,
+            Err(TryLockError::Poisoned(poisoned)) => {
+                poisoned.into_inner().ping() == ServiceLiveness::Alive
+            }
+            Err(TryLockError::WouldBlock) => true,
+        }
     }
 
     fn wake(&self, _volume: &VolumeId, _state: VolumeState) {}
+}
+
+/// Link to the space module of this process. Admission asks for the liveness
+/// before the journal directory of a volume is recorded, so the link answers
+/// from the module itself after it refreshes the heartbeats.
+struct ProcessLink {
+    inner: RegistryLink,
+    module: Arc<ProcessModule>,
+}
+
+impl ServiceLink for ProcessLink {
+    fn eligibility(&self, volume: &VolumeInfo) -> Eligibility {
+        self.inner.eligibility(volume)
+    }
+
+    fn liveness(&self) -> ServiceLiveness {
+        match self.module.try_lock() {
+            Ok(mut module) => {
+                module.refresh();
+                module.ping()
+            }
+            Err(TryLockError::Poisoned(poisoned)) => {
+                let mut module = poisoned.into_inner();
+                module.refresh();
+                module.ping()
+            }
+            Err(TryLockError::WouldBlock) => ServiceLiveness::Alive,
+        }
+    }
+
+    fn volumes(&self) -> Vec<VolumeInfo> {
+        self.inner.volumes()
+    }
+
+    fn wake(&self, volume: &VolumeId, state: VolumeState) {
+        self.inner.wake(volume, state);
+    }
+}
+
+/// Reclaim worker bound once the admission control is built.
+#[derive(Default)]
+struct LateWorker {
+    admission: OnceLock<Weak<SpaceAdmission>>,
+}
+
+impl LateWorker {
+    fn admission(&self) -> Result<Arc<SpaceAdmission>> {
+        self.admission
+            .get()
+            .and_then(Weak::upgrade)
+            .ok_or_else(|| Error::new(ErrorCode::ServiceNotRunning, "the journal is closed"))
+    }
+}
+
+impl SpaceWorker for LateWorker {
+    fn calibrate(&self, volume: &VolumeInfo, scratch: &AbsPath) -> Result<()> {
+        SpaceWorker::calibrate(&*self.admission()?, volume, scratch)
+    }
+
+    fn state(&self, volume: &VolumeInfo) -> VolumeState {
+        self.admission().map_or(VolumeState::Normal, |admission| {
+            SpaceWorker::state(&*admission, volume)
+        })
+    }
+
+    fn reclaim(&self, volume: &VolumeId, budget: Duration) -> Result<()> {
+        SpaceWorker::reclaim(&*self.admission()?, volume, budget)
+    }
 }
 
 /// Catalog of the entries of the journal, bound once the journal is built
@@ -64,6 +151,16 @@ impl LateCatalog {
             .get()
             .and_then(Weak::upgrade)
             .ok_or_else(|| Error::new(ErrorCode::ServiceNotRunning, "the journal is closed"))
+    }
+}
+
+impl JournalMaintenance for LateCatalog {
+    fn recover(&self) -> Result<RecoveryReport> {
+        JournalStore::recover(&*self.journal()?)
+    }
+
+    fn sweep(&self) -> Result<SweepReport> {
+        JournalStore::sweep(&*self.journal()?)
     }
 }
 
@@ -120,6 +217,16 @@ pub(crate) fn open_journal(
         .map_err(|error| EngineError::journal(&error))
 }
 
+#[cfg(windows)]
+fn with_providers(builder: JournalBuilder) -> JournalBuilder {
+    builder.provider(Arc::new(nurt_sys::registry::RegistryProvider::system()))
+}
+
+#[cfg(not(windows))]
+fn with_providers(builder: JournalBuilder) -> JournalBuilder {
+    builder
+}
+
 fn build(
     layers: &[ConfigLayer],
     loaded: &LoadedConfig,
@@ -132,15 +239,29 @@ fn build(
     let reader: Arc<dyn Fs> = fs.clone();
     let settings = loaded.config();
     let catalog = Arc::new(LateCatalog::default());
-    let link = Arc::new(RegistryLink::new(
-        reader.clone(),
+    let worker = Arc::new(LateWorker::default());
+    let module: Arc<ProcessModule> = Arc::new(Mutex::new(SpaceModule::new(
+        fs.clone(),
         clock.clone(),
-        settings.journal.clone(),
-        settings.space.clone(),
+        catalog.clone(),
+        worker.clone(),
         Registry::new(state_dir.clone()),
-        Arc::new(NoService),
-    ));
-    let admission = Arc::new(SpaceAdmission::new(
+        settings.space.clone(),
+    )));
+    let link = Arc::new(ProcessLink {
+        inner: RegistryLink::new(
+            reader.clone(),
+            clock.clone(),
+            settings.journal.clone(),
+            settings.space.clone(),
+            Registry::new(state_dir.clone()),
+            Arc::new(ProcessProbe {
+                module: module.clone(),
+            }),
+        ),
+        module: module.clone(),
+    });
+    let admission_handle = Arc::new(SpaceAdmission::new(
         fs.clone(),
         clock.clone(),
         Arc::new(NoFailpoints),
@@ -156,19 +277,19 @@ fn build(
         vec![state_dir.clone()],
     );
     let user_limits = state_dir.join_name(USER_LIMITS_FILE).map_err(Error::from)?;
-    let journal = Arc::new(
-        JournalBuilder::new(
-            fs,
-            admission.clone(),
-            clock,
-            Arc::new(journals),
-            Arc::new(limits),
-            state_dir,
-        )
-        .user_config(user_limits)
-        .space_reporter(admission)
-        .build()?,
-    );
+    let builder = JournalBuilder::new(
+        fs,
+        admission_handle.clone(),
+        clock,
+        Arc::new(journals),
+        Arc::new(limits),
+        state_dir,
+    )
+    .user_config(user_limits)
+    .space_reporter(admission_handle.clone());
+    let journal = Arc::new(with_providers(builder).build()?);
     catalog.bind(&journal);
+    let _ = worker.admission.set(Arc::downgrade(&admission_handle));
+    locked(&module).start()?;
     Ok(journal)
 }

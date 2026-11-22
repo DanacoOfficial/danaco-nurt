@@ -187,6 +187,23 @@ impl<J: JournalMaintenance + ?Sized> SpaceModule<J> {
         self.last_error.as_ref()
     }
 
+    /// Writes a heartbeat when a recorded volume has none or the heartbeat
+    /// round is due, without recovery, expiry or reclaim. A host that runs
+    /// the module inside a command process calls it before it asks for the
+    /// liveness, because volumes are recorded after the module started.
+    pub fn refresh(&mut self) {
+        if !self.running {
+            return;
+        }
+        let volumes = self.volumes();
+        let missing = volumes
+            .iter()
+            .any(|(_, dir)| heartbeat::read(self.fs.as_ref(), dir).is_none());
+        if missing || self.heartbeat_due() {
+            self.beat(&volumes, RunState::Running);
+        }
+    }
+
     fn millis(value: u32) -> Duration {
         Duration::from_millis(u64::from(value))
     }
