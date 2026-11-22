@@ -160,7 +160,7 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> u8 {
 
 /// Runs one invocation of the executable and returns its exit code.
 ///
-/// The protocol server of `serve` owns the standard output of the process, so
+/// The protocol servers of `serve` and `mcp` own the standard output of the process, so
 /// it is started here; every other invocation runs through [`run`].
 pub fn run_process(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> ExitCode {
     if let Invocation::Subcommand {
@@ -169,6 +169,16 @@ pub fn run_process(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) 
     } = args::resolve(args)
     {
         return match integrations::serve::start(&rest, source, &mut *io.input, io::stdout()) {
+            Ok(code) => code,
+            Err(error) => ExitCode::from(report(&error, io)),
+        };
+    }
+    if let Invocation::Subcommand {
+        name: "mcp",
+        args: rest,
+    } = args::resolve(args)
+    {
+        return match integrations::mcp::start(&rest, source) {
             Ok(code) => code,
             Err(error) => ExitCode::from(report(&error, io)),
         };

@@ -182,6 +182,7 @@ impl Backend for StubBackend {
             Call::Catalog(params) => self.first(Function::Catalog, params),
             Call::History(params) => self.first(Function::History, params),
             Call::Space(params) => self.first(Function::Space, params.volume.into()),
+            Call::Rejected { method, error } => call::failure(method, *error),
             Call::Info => Ok(json!({
                 "version": env!("CARGO_PKG_VERSION"),
                 "formats": {

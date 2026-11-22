@@ -278,6 +278,7 @@ impl Backend for EngineBackend {
             Call::History(query) => self.history(query),
             Call::Space(params) => self.space(params),
             Call::Info => call::to_json(&self.engine.info()),
+            Call::Rejected { method, error } => call::failure(method, *error),
         }
     }
 }

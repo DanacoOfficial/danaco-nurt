@@ -28,8 +28,7 @@ service = ["dep:nurt-service"]
 journal = ["dep:nurt-journal"]
 # Answers of the protocol server and of the C interface from recorded cases.
 stub = ["dep:nurt-ffi", "nurt-ffi/stub"]
-# Stages of the structured commands (documents, code) in the registry.
-structured = ["nurt-core/structured"]
+testkit = ["nurt-core/fixtures"]
 
 [[bin]]
 name = "nurt"

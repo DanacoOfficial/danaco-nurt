@@ -66,8 +66,8 @@ Every message is a JSON-RPC 2.0 object with `"jsonrpc": "2.0"`.
 | Method | Parameters | Result |
 |---|---|---|
 | `initialize` | see [`initialize`](#initialize) | see [`initialize`](#initialize) |
-| `run` | request envelope `nurt-request/1` | response `nurt-response/1` |
-| `check` | request envelope `nurt-request/1` | check document `nurt-check/1` with the member `bound` (the bound tree), and `diagnostics` |
+| `run` | request envelope `nurt-request/1` | response `nurt-response/1`; a request whose only fault is an `ast` that is not a tree `nurt-ast/1` is answered with the language error `E_AST_SCHEMA` (report status `failed`), not with `-32602` |
+| `check` | request envelope `nurt-request/1` | check document `nurt-check/1` with the members `bound` (the bound tree), `ast_hash` (hash of the syntax tree the program was bound from, `sha256:<hex>`; absent when the tree is not known) and `diagnostics` |
 | `parse` | `{program: string, variant?: "a" \| "b" \| "c"}` | `{ast: nurt-ast/1, diagnostics: []}` |
 | `print` | `{ast: nurt-ast/1, variant?: "a" \| "b" \| "c"}` | `{text: string}` |
 | `correct` | `{program: string, variant?: "a" \| "b" \| "c"}` | corrected program and its corrections |

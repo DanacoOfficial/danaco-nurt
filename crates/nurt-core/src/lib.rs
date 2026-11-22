@@ -29,6 +29,7 @@ pub mod readcache;
 pub mod registry;
 pub mod session;
 pub mod state;
+pub mod system;
 
 pub use engine::{CheckReport, Engine, EngineConfig, EngineInfo, ExecHandle, Formats};
 pub use error::EngineError;

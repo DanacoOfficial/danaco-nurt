@@ -8,6 +8,7 @@
 //! result is then a response `nurt-response/1` whose report has the status
 //! `failed`, the error and, as `kind`, the name of the method.
 
+use nurt_contracts::ast::AstDocument;
 use nurt_contracts::envelope::{Language, Request, Response};
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::kinds::SyntaxVariant;
@@ -118,14 +119,29 @@ pub(crate) enum Call {
     History(Value),
     Space(SpaceParams),
     Info,
+    /// A `run` or `check` whose syntax tree is not a valid `nurt-ast/1`
+    /// tree; answered as a language error of the method, not as invalid
+    /// parameters.
+    Rejected {
+        /// Name of the method.
+        method: &'static str,
+        /// The language error `E_AST_SCHEMA`.
+        error: Box<Error>,
+    },
 }
 
 impl Call {
     /// Reads the parameters of an engine method.
     pub(crate) fn parse(method: &str, params: Option<Value>) -> Result<Self, RpcError> {
         let call = match method {
-            "run" => Self::Run(Box::new(envelope(method, params)?)),
-            "check" => Self::Check(Box::new(envelope(method, params)?)),
+            "run" => match envelope(method, params.clone()) {
+                Ok(request) => Self::Run(Box::new(request)),
+                Err(error) => return rejected("run", params.as_ref(), error),
+            },
+            "check" => match envelope(method, params.clone()) {
+                Ok(request) => Self::Check(Box::new(request)),
+                Err(error) => return rejected("check", params.as_ref(), error),
+            },
             "parse" => Self::Parse(object(method, params)?),
             "print" => Self::Print(object(method, params)?),
             "correct" => Self::Correct(object(method, params)?),
@@ -161,8 +177,41 @@ impl Call {
             Self::History(_) => "history",
             Self::Space(_) => "space",
             Self::Info => "info",
+            Self::Rejected { method, .. } => method,
         }
     }
+}
+
+/// Outcome of a `run` or `check` whose parameters are not a request
+/// envelope: a language error `E_AST_SCHEMA` when only the syntax tree is
+/// at fault, otherwise the error of the invalid parameters.
+fn rejected(
+    method: &'static str,
+    params: Option<&Value>,
+    invalid: RpcError,
+) -> Result<Call, RpcError> {
+    match params.and_then(ast_schema_error) {
+        Some(error) => Ok(Call::Rejected {
+            method,
+            error: Box::new(error),
+        }),
+        None => Err(invalid),
+    }
+}
+
+/// The error of a request whose only fault is a `ast` member that is not a
+/// syntax tree `nurt-ast/1`.
+fn ast_schema_error(params: &Value) -> Option<Error> {
+    let members = params.as_object()?;
+    let ast = members.get("ast")?;
+    let mut rest = members.clone();
+    rest.remove("ast");
+    serde_json::from_value::<Request>(Value::Object(rest)).ok()?;
+    let fault = serde_json::from_value::<AstDocument>(ast.clone()).err()?;
+    Some(Error::new(
+        ErrorCode::AstSchema,
+        format!("`ast` is not a syntax tree nurt-ast/1: {fault}"),
+    ))
 }
 
 /// Parameters of a method that takes an object; absent parameters are an
@@ -572,5 +621,21 @@ mod tests {
             let error = parse(params.clone()).unwrap_err();
             assert_eq!(error.code, INVALID_PARAMS, "{params}");
         }
+    }
+
+    #[test]
+    fn a_tree_that_is_not_nurt_ast_is_a_language_error_of_the_method() {
+        let params = json!({"nurt": "1.0", "ast": {"nurt": "1.0", "program": 5}});
+        let Ok(Call::Rejected { method, error }) = Call::parse("run", Some(params)) else {
+            panic!("the tree is not rejected as a language error");
+        };
+        assert_eq!(method, "run");
+        assert_eq!(error.code, ErrorCode::AstSchema);
+    }
+
+    #[test]
+    fn other_invalid_parameters_stay_invalid_parameters() {
+        let params = json!({"nurt": "1.0", "program": 5});
+        assert!(Call::parse("check", Some(params)).is_err());
     }
 }

@@ -68,6 +68,7 @@ use crate::readcache::ReadCache;
 use crate::registry::standard_registry_with;
 use crate::session::{SessionId, Sessions};
 use crate::state::{StateArea, StateDir, write_atomic};
+use crate::system::{SystemClock, SystemHost};
 
 /// Report kind of a failed request whose program is not known.
 const PROGRAM_KIND: &str = "program";
@@ -80,7 +81,7 @@ const CANDIDATES_FILE: &str = "candidates.json";
 /// Name of the threads started by [`Engine::start`].
 const EXEC_THREAD_NAME: &str = "nurt-exec";
 /// Cargo feature compiled into this build, listed by [`Engine::info`].
-const FIXTURES_FEATURE: &str = "fixtures";
+const FIXTURES_FEATURE: &str = "testkit";
 
 /// Everything an engine is built from.
 ///
@@ -151,6 +152,17 @@ impl EngineConfig {
             state_dir: None,
             use_state_dir: true,
         }
+    }
+
+    /// Configuration for the running process: the system clock and host
+    /// ([`SystemClock`], [`SystemHost`]), the platform configuration sources
+    /// and no optional component.
+    ///
+    /// The language front end, the services, the file system and the journal
+    /// are added with the `with_*` methods; see [`Engine::open_system`].
+    #[must_use]
+    pub fn system() -> Self {
+        Self::new(Arc::new(SystemClock::new()), Arc::new(SystemHost::detect()))
     }
 
     /// Read-only file system given to stages.
@@ -232,6 +244,10 @@ impl EngineConfig {
 pub struct CheckReport {
     /// The bound program.
     pub bound: BoundDocument,
+    /// Hash of the syntax tree the program was bound from, as
+    /// `sha256:<hex>`; absent when the tree is not known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ast_hash: Option<String>,
     /// Class of the effect and reversibility, paths, network endpoints,
     /// external programs, waits, command groups and the corrections applied
     /// to the program text.
@@ -440,6 +456,27 @@ impl fmt::Debug for Engine {
 }
 
 impl Engine {
+    /// Opens an engine of the running process: system clock and host, the
+    /// platform configuration sources, the given language front end and the
+    /// given services.
+    ///
+    /// This is the assembly point of an executable; the front end and the
+    /// services come from the crates of the language and of the commands.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Engine::open`].
+    pub fn open_system(
+        frontend: Arc<dyn Frontend>,
+        services: Services,
+    ) -> Result<Self, EngineError> {
+        Self::open(
+            EngineConfig::system()
+                .with_frontend(frontend)
+                .with_services(services),
+        )
+    }
+
     /// Opens an engine.
     ///
     /// # Errors
@@ -639,6 +676,7 @@ impl Engine {
         )?;
         Ok(CheckReport {
             bound: compiled.bound,
+            ast_hash: compiled.ast_hash,
             summary,
         })
     }
