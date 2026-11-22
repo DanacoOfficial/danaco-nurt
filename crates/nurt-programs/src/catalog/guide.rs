@@ -112,7 +112,9 @@ pub fn split_guide(text: &str, limit: usize) -> Result<SplitGuide<'_>, FrontMatt
     let front_start = first_end + 1;
     let mut offset = front_start;
     while offset < text.len() && offset <= limit {
-        let end = text[offset..].find('\n').map_or(text.len(), |at| offset + at);
+        let end = text[offset..]
+            .find('\n')
+            .map_or(text.len(), |at| offset + at);
         if trim_line(&text[offset..end]) == DELIMITER && end <= limit {
             let body_start = (end + 1).min(text.len());
             return Ok(SplitGuide {
@@ -152,8 +154,14 @@ fn trim_line(line: &str) -> &str {
 ///     FrontValue::List(vec!["tar".to_owned(), "zstd".to_owned()])
 /// );
 /// ```
-pub fn parse_front_matter(front: &str, first_line: u64) -> Result<Vec<(String, FrontValue)>, FrontMatterError> {
-    let lines: Vec<&str> = front.lines().map(|line| line.trim_end_matches('\r')).collect();
+pub fn parse_front_matter(
+    front: &str,
+    first_line: u64,
+) -> Result<Vec<(String, FrontValue)>, FrontMatterError> {
+    let lines: Vec<&str> = front
+        .lines()
+        .map(|line| line.trim_end_matches('\r'))
+        .collect();
     let mut parser = FrontParser {
         lines: &lines,
         first_line,
@@ -162,7 +170,10 @@ pub fn parse_front_matter(front: &str, first_line: u64) -> Result<Vec<(String, F
     let mut entries: Vec<(String, FrontValue)> = Vec::new();
     while let Some((key, value)) = parser.next_entry()? {
         if entries.iter().any(|(known, _)| *known == key) {
-            return Err(parser.error_at(parser.index.saturating_sub(1), format!("key `{key}` is repeated; keep one")));
+            return Err(parser.error_at(
+                parser.index.saturating_sub(1),
+                format!("key `{key}` is repeated; keep one"),
+            ));
         }
         entries.push((key, value));
     }
@@ -191,9 +202,12 @@ impl<'a> FrontParser<'a> {
                 continue;
             }
             if line.starts_with([' ', '\t']) {
-                return Err(self.error_at(at, "unexpected indentation; start keys in the first column"));
+                return Err(
+                    self.error_at(at, "unexpected indentation; start keys in the first column")
+                );
             }
-            let (key, rest) = split_key(line).ok_or_else(|| self.error_at(at, "expected `key: value`"))?;
+            let (key, rest) =
+                split_key(line).ok_or_else(|| self.error_at(at, "expected `key: value`"))?;
             let value = self.value(at, rest.trim())?;
             return Ok(Some((key.to_owned(), value)));
         }
@@ -248,19 +262,29 @@ impl<'a> FrontParser<'a> {
                     .trim_start()
                     .strip_prefix('-')
                     .filter(|item| item.is_empty() || item.starts_with(' '))
-                    .ok_or_else(|| self.error_at(start + offset, "expected a sequence item `- value`"))?;
-                items.push(parse_scalar(item.trim()).map_err(|message| self.error_at(start + offset, message))?);
+                    .ok_or_else(|| {
+                        self.error_at(start + offset, "expected a sequence item `- value`")
+                    })?;
+                items.push(
+                    parse_scalar(item.trim())
+                        .map_err(|message| self.error_at(start + offset, message))?,
+                );
             }
             return Ok(FrontValue::List(items));
         }
         let mut map: Vec<(String, String)> = Vec::new();
         for (offset, line) in lines.iter().enumerate() {
-            let (key, rest) = split_key(line.trim_start())
-                .ok_or_else(|| self.error_at(start + offset, "expected `key: value` in a nested mapping"))?;
+            let (key, rest) = split_key(line.trim_start()).ok_or_else(|| {
+                self.error_at(start + offset, "expected `key: value` in a nested mapping")
+            })?;
             if rest.trim().is_empty() {
-                return Err(self.error_at(start + offset, "nesting deeper than one level is not permitted"));
+                return Err(self.error_at(
+                    start + offset,
+                    "nesting deeper than one level is not permitted",
+                ));
             }
-            let value = parse_scalar(rest.trim()).map_err(|message| self.error_at(start + offset, message))?;
+            let value = parse_scalar(rest.trim())
+                .map_err(|message| self.error_at(start + offset, message))?;
             map.push((key.to_owned(), value));
         }
         Ok(FrontValue::Map(map))
@@ -424,7 +448,9 @@ fn parse_double_quoted(text: &str) -> Result<(String, &str), String> {
                         let code = u32::from_str_radix(&digits, 16)
                             .ok()
                             .and_then(char::from_u32)
-                            .ok_or_else(|| format!("escape `\\u{digits}` is not a valid character"))?;
+                            .ok_or_else(|| {
+                                format!("escape `\\u{digits}` is not a valid character")
+                            })?;
                         value.push(code);
                     }
                     other => return Err(format!("escape `\\{other}` is not permitted")),
@@ -533,7 +559,10 @@ impl FrontMatter {
                 faults.push(FrontFault { key, message });
             }
         }
-        let required = [("name", front.name.is_none()), ("description", front.description.is_none())];
+        let required = [
+            ("name", front.name.is_none()),
+            ("description", front.description.is_none()),
+        ];
         for (key, missing) in required {
             if missing && !faults.iter().any(|item| item.key == key) {
                 faults.push(FrontFault {
@@ -549,15 +578,25 @@ impl FrontMatter {
         match (key, value) {
             ("name", FrontValue::Text(name)) if is_valid_name(&name) => self.name = Some(name),
             ("name", _) => {
-                return Err("must be a guide name of letters, digits, `.`, `_`, `+` or `-`".to_owned());
+                return Err(
+                    "must be a guide name of letters, digits, `.`, `_`, `+` or `-`".to_owned(),
+                );
             }
             ("description", FrontValue::Text(text)) => {
                 self.description = Some(checked_text(&text, MAX_DESCRIPTION)?);
             }
-            ("version", FrontValue::Text(text)) => self.version = Some(checked_text(&text, MAX_VERSION)?),
-            ("license", FrontValue::Text(text)) => self.license = Some(checked_text(&text, MAX_LICENSE)?),
-            ("language", FrontValue::Text(tag)) if is_valid_language(&tag) => self.language = Some(tag),
-            ("language", _) => return Err("must be a language tag such as `en` or `pt-BR`".to_owned()),
+            ("version", FrontValue::Text(text)) => {
+                self.version = Some(checked_text(&text, MAX_VERSION)?)
+            }
+            ("license", FrontValue::Text(text)) => {
+                self.license = Some(checked_text(&text, MAX_LICENSE)?)
+            }
+            ("language", FrontValue::Text(tag)) if is_valid_language(&tag) => {
+                self.language = Some(tag)
+            }
+            ("language", _) => {
+                return Err("must be a language tag such as `en` or `pt-BR`".to_owned());
+            }
             ("programs", FrontValue::List(names)) => self.programs = checked_programs(names)?,
             ("programs", _) => return Err("must be a sequence of program names".to_owned()),
             ("metadata", FrontValue::Map(pairs)) => self.metadata = pairs.into_iter().collect(),
@@ -655,7 +694,9 @@ fn heading_starts(body: &str) -> Vec<usize> {
         let content = line.trim_end_matches(['\n', '\r']);
         match fence {
             Some((mark, length)) => {
-                if fence_of(content).is_some_and(|(close, count, rest)| close == mark && count >= length && rest.trim().is_empty()) {
+                if fence_of(content).is_some_and(|(close, count, rest)| {
+                    close == mark && count >= length && rest.trim().is_empty()
+                }) {
                     fence = None;
                 }
             }
@@ -707,7 +748,10 @@ pub fn find_section<'a>(body: &'a str, wanted: &str) -> Option<GuideSection<'a>>
     let all = sections(body);
     all.iter()
         .find(|section| fold(section.title) == wanted)
-        .or_else(|| all.iter().find(|section| fold(section.title).contains(&wanted)))
+        .or_else(|| {
+            all.iter()
+                .find(|section| fold(section.title).contains(&wanted))
+        })
         .copied()
 }
 
@@ -736,7 +780,11 @@ pub fn search_sections<'a>(body: &'a str, query: &str, limit: usize) -> Vec<Guid
             let score: usize = words
                 .iter()
                 .map(|word| {
-                    let in_title = if title.contains(word.as_str()) { TITLE_WEIGHT } else { 0 };
+                    let in_title = if title.contains(word.as_str()) {
+                        TITLE_WEIGHT
+                    } else {
+                        0
+                    };
                     in_title + usize::from(text.contains(word.as_str()))
                 })
                 .sum();
@@ -744,7 +792,11 @@ pub fn search_sections<'a>(body: &'a str, query: &str, limit: usize) -> Vec<Guid
         })
         .collect();
     scored.sort_by(|left, right| right.0.cmp(&left.0).then(left.1.cmp(&right.1)));
-    scored.into_iter().take(limit).map(|(_, _, section)| section).collect()
+    scored
+        .into_iter()
+        .take(limit)
+        .map(|(_, _, section)| section)
+        .collect()
 }
 
 /// Guide file read in full.
@@ -762,7 +814,10 @@ pub struct GuideFile {
 
 /// Reads the front matter of the guide file at `path`, reading at most
 /// `limits.front_matter_bytes` of it.
-pub(crate) fn read_head(path: &Path, limits: &Limits) -> Result<(FrontMatter, Vec<FrontFault>), String> {
+pub(crate) fn read_head(
+    path: &Path,
+    limits: &Limits,
+) -> Result<(FrontMatter, Vec<FrontFault>), String> {
     let size = std::fs::metadata(path)
         .map_err(|error| format!("guide cannot be read: {error}"))?
         .len();
@@ -772,8 +827,12 @@ pub(crate) fn read_head(path: &Path, limits: &Limits) -> Result<(FrontMatter, Ve
     let mut bytes = Vec::new();
     File::open(path)
         .and_then(|file| {
-            file.take(u64::try_from(limits.front_matter_bytes).unwrap_or(u64::MAX).saturating_add(1))
-                .read_to_end(&mut bytes)
+            file.take(
+                u64::try_from(limits.front_matter_bytes)
+                    .unwrap_or(u64::MAX)
+                    .saturating_add(1),
+            )
+            .read_to_end(&mut bytes)
         })
         .map_err(|error| format!("guide cannot be read: {error}"))?;
     let text = utf8_prefix(&bytes)?;
@@ -790,9 +849,11 @@ pub(crate) fn read_full(path: &Path, limits: &Limits) -> Result<GuideFile, Strin
     if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > limits.guide_bytes {
         return Err(too_large(limits.guide_bytes));
     }
-    let text = std::str::from_utf8(&bytes).map_err(|_| "guide is not valid UTF-8; save it as UTF-8".to_owned())?;
+    let text = std::str::from_utf8(&bytes)
+        .map_err(|_| "guide is not valid UTF-8; save it as UTF-8".to_owned())?;
     let split = split_guide(text, limits.front_matter_bytes).map_err(|error| error.to_string())?;
-    let entries = parse_front_matter(split.front, FRONT_FIRST_LINE).map_err(|error| error.to_string())?;
+    let entries =
+        parse_front_matter(split.front, FRONT_FIRST_LINE).map_err(|error| error.to_string())?;
     let (front, faults) = FrontMatter::from_entries(entries);
     Ok(GuideFile {
         front,
@@ -804,7 +865,8 @@ pub(crate) fn read_full(path: &Path, limits: &Limits) -> Result<GuideFile, Strin
 
 fn parse_head(text: &str, limit: usize) -> Result<(FrontMatter, Vec<FrontFault>), String> {
     let split = split_guide(text, limit).map_err(|error| error.to_string())?;
-    let entries = parse_front_matter(split.front, FRONT_FIRST_LINE).map_err(|error| error.to_string())?;
+    let entries =
+        parse_front_matter(split.front, FRONT_FIRST_LINE).map_err(|error| error.to_string())?;
     Ok(FrontMatter::from_entries(entries))
 }
 

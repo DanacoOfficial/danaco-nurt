@@ -69,7 +69,9 @@ const SECTION_KINDS: &str = "`purpose`, `when`, `when_not`, `io`, `example`, `ch
 /// Reads a category.
 pub(crate) fn read_category(fields: &mut Fields<'_>) -> Category {
     let category = Category {
-        id: fields.required_pattern("id", CATEGORY_ID).unwrap_or_default(),
+        id: fields
+            .required_pattern("id", CATEGORY_ID)
+            .unwrap_or_default(),
         title: fields.required_text("title", TITLE).unwrap_or_default(),
         description: fields.text("description", CATEGORY_DESCRIPTION),
         parent: fields.pattern("parent", CATEGORY_ID),
@@ -87,8 +89,12 @@ pub(crate) fn read_category(fields: &mut Fields<'_>) -> Category {
 pub(crate) fn read_program(fields: &mut Fields<'_>) -> Program {
     let mut program = Program {
         name: fields.required_pattern("name", NAME).unwrap_or_default(),
-        category: fields.required_pattern("category", CATEGORY_ID).unwrap_or_default(),
-        summary: fields.required_text("summary", PROGRAM_SUMMARY).unwrap_or_default(),
+        category: fields
+            .required_pattern("category", CATEGORY_ID)
+            .unwrap_or_default(),
+        summary: fields
+            .required_text("summary", PROGRAM_SUMMARY)
+            .unwrap_or_default(),
         aliases: read_aliases(fields),
         platforms: read_platforms(fields),
         guide: relpath(fields, "guide"),
@@ -229,7 +235,11 @@ fn read_platforms(fields: &mut Fields<'_>) -> Vec<String> {
         } else if PLATFORMS.contains(&platform.as_str()) {
             platforms.push(platform.clone());
         } else {
-            fields.unknown_value(item_path, platform, "`linux`, `macos`, `windows`, `freebsd` or `any`");
+            fields.unknown_value(
+                item_path,
+                platform,
+                "`linux`, `macos`, `windows`, `freebsd` or `any`",
+            );
         }
     }
     platforms

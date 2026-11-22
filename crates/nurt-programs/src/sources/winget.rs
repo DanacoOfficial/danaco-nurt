@@ -20,15 +20,14 @@ use crate::model::{
     CategoryHint, CategoryScheme, LocalizedText, PackageRef, RawPackage, RawProgram, SourceData,
 };
 use crate::source::{
-    Deadline, Fingerprint, FingerprintBuilder, HostEnv, ProgramSource, RegistryHive,
-    RegistryView, SourceError, SourceId, SourceKind, SourceWarning, WarningCode,
+    Deadline, Fingerprint, FingerprintBuilder, HostEnv, ProgramSource, RegistryHive, RegistryView,
+    SourceError, SourceId, SourceKind, SourceWarning, WarningCode,
 };
 
 /// Uninstall key read for entries of portable packages.
 pub const UNINSTALL_KEY: &str = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
 /// Directory of the tracking database below `%LOCALAPPDATA%`.
-pub const TRACKING_DIR: &str =
-    "Packages\\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\\LocalState\\Microsoft.Winget.Source_8wekyb3d8bbwe";
+pub const TRACKING_DIR: &str = "Packages\\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\\LocalState\\Microsoft.Winget.Source_8wekyb3d8bbwe";
 /// File name of the tracking database.
 pub const TRACKING_DB: &str = "installed.db";
 const EXE_EXTENSION: &str = ".exe";
@@ -92,7 +91,8 @@ pub fn read_tracking_db(path: &Path) -> Result<Vec<TrackedPackage>, String> {
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let connection = Connection::open_with_flags(path, flags)
         .map_err(|error| format!("tracking database cannot be opened: {error}"))?;
-    let schema = |error: rusqlite::Error| format!("tracking database has an unknown schema: {error}");
+    let schema =
+        |error: rusqlite::Error| format!("tracking database has an unknown schema: {error}");
     let mut packages: BTreeMap<String, TrackedPackage> = BTreeMap::new();
     let mut statement = connection.prepare(MANIFEST_QUERY).map_err(schema)?;
     let rows = statement
@@ -112,7 +112,9 @@ pub fn read_tracking_db(path: &Path) -> Result<Vec<TrackedPackage>, String> {
     }
     if let Ok(mut statement) = connection.prepare(TAGS_QUERY) {
         let rows = statement
-            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
             .map_err(schema)?;
         for (id, tag) in rows.flatten() {
             if let Some(package) = packages.get_mut(&id) {
@@ -148,7 +150,9 @@ pub fn package_of_dir(name: &str) -> Option<String> {
 #[must_use]
 pub fn package_of_link(target: &str) -> Option<String> {
     let parts: Vec<&str> = target.split(['\\', '/']).collect();
-    let at = parts.iter().position(|part| part.eq_ignore_ascii_case("Packages"))?;
+    let at = parts
+        .iter()
+        .position(|part| part.eq_ignore_ascii_case("Packages"))?;
     package_of_dir(parts.get(at + 1)?)
 }
 
@@ -186,8 +190,15 @@ struct Package {
 }
 
 impl WingetSource {
-    fn read_registry(&self, env: &HostEnv, packages: &mut BTreeMap<String, Package>, data: &mut SourceData) {
-        let Some(registry) = env.registry() else { return };
+    fn read_registry(
+        &self,
+        env: &HostEnv,
+        packages: &mut BTreeMap<String, Package>,
+        data: &mut SourceData,
+    ) {
+        let Some(registry) = env.registry() else {
+            return;
+        };
         let views = [
             (RegistryHive::CurrentUser, RegistryView::Native),
             (RegistryHive::LocalMachine, RegistryView::Native),
@@ -203,9 +214,18 @@ impl WingetSource {
             };
             for subkey in subkeys {
                 let key = format!("{UNINSTALL_KEY}\\{subkey}");
-                let Ok(Some(values)) = registry.values(hive, view, &key) else { continue };
-                let text = |name: &str| values.get(name).and_then(|value| value.as_text()).map(str::to_owned);
-                let Some(id) = text("WinGetPackageIdentifier") else { continue };
+                let Ok(Some(values)) = registry.values(hive, view, &key) else {
+                    continue;
+                };
+                let text = |name: &str| {
+                    values
+                        .get(name)
+                        .and_then(|value| value.as_text())
+                        .map(str::to_owned)
+                };
+                let Some(id) = text("WinGetPackageIdentifier") else {
+                    continue;
+                };
                 let package = packages.entry(id).or_default();
                 package.name = package.name.take().or_else(|| text("DisplayName"));
                 package.version = package.version.take().or_else(|| text("DisplayVersion"));
@@ -227,7 +247,8 @@ impl ProgramSource for WingetSource {
     fn detect(&self, env: &HostEnv) -> bool {
         env.os() == Os::Windows
             && winget_dir(env).is_some_and(|dir| {
-                env.sys_path(dir.join("Links")).is_dir() || env.sys_path(dir.join("Packages")).is_dir()
+                env.sys_path(dir.join("Links")).is_dir()
+                    || env.sys_path(dir.join("Packages")).is_dir()
             })
     }
 
@@ -240,9 +261,21 @@ impl ProgramSource for WingetSource {
             builder = builder.path(db);
         }
         builder = builder
-            .registry_key(RegistryHive::CurrentUser, RegistryView::Native, UNINSTALL_KEY)
-            .registry_key(RegistryHive::LocalMachine, RegistryView::Native, UNINSTALL_KEY)
-            .registry_key(RegistryHive::LocalMachine, RegistryView::Wow32, UNINSTALL_KEY);
+            .registry_key(
+                RegistryHive::CurrentUser,
+                RegistryView::Native,
+                UNINSTALL_KEY,
+            )
+            .registry_key(
+                RegistryHive::LocalMachine,
+                RegistryView::Native,
+                UNINSTALL_KEY,
+            )
+            .registry_key(
+                RegistryHive::LocalMachine,
+                RegistryView::Wow32,
+                UNINSTALL_KEY,
+            );
         Ok(builder.finish())
     }
 
@@ -259,13 +292,24 @@ impl ProgramSource for WingetSource {
             for file in names_in(&env.sys_path(&links)) {
                 deadline.check(&self.id)?;
                 let lower = file.to_ascii_lowercase();
-                let Some(command) = lower.strip_suffix(EXE_EXTENSION).map(|_| &file[..file.len() - EXE_EXTENSION.len()]) else {
+                let Some(command) = lower
+                    .strip_suffix(EXE_EXTENSION)
+                    .map(|_| &file[..file.len() - EXE_EXTENSION.len()])
+                else {
                     continue;
                 };
-                let Ok(target) = std::fs::read_link(env.sys_path(links.join(&file))) else { continue };
-                let Some(id) = package_of_link(&target.to_string_lossy()) else { continue };
+                let Ok(target) = std::fs::read_link(env.sys_path(links.join(&file))) else {
+                    continue;
+                };
+                let Some(id) = package_of_link(&target.to_string_lossy()) else {
+                    continue;
+                };
                 let path = links.join(&file).display().to_string();
-                packages.entry(id).or_default().commands.push((command.to_owned(), path));
+                packages
+                    .entry(id)
+                    .or_default()
+                    .commands
+                    .push((command.to_owned(), path));
             }
         }
         if let Some(db) = tracking_db(env) {
@@ -295,7 +339,12 @@ impl ProgramSource for WingetSource {
             };
             let summary = package.name.as_deref().map(LocalizedText::new);
             let mut hints = vec![CategoryHint::new(CategoryScheme::Keyword, id.clone())];
-            hints.extend(package.tags.iter().map(|tag| CategoryHint::new(CategoryScheme::Keyword, tag.clone())));
+            hints.extend(
+                package
+                    .tags
+                    .iter()
+                    .map(|tag| CategoryHint::new(CategoryScheme::Keyword, tag.clone())),
+            );
             for (command, path) in &package.commands {
                 data.file_packages.push((path.clone(), reference.clone()));
                 data.programs.push(RawProgram {

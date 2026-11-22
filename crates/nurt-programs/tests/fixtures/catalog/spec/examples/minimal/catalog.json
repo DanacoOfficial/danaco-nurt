@@ -1,0 +1,18 @@
+{
+  "format": "nurt-program-catalog/1",
+  "categories": [
+    { "id": "video", "title": "Video", "description": "Encoding, editing and analysis of video files." }
+  ],
+  "programs": [
+    {
+      "name": "ffmpeg",
+      "category": "video",
+      "summary": "Converts, cuts and filters video and audio streams.",
+      "aliases": ["ffprobe"],
+      "platforms": ["linux", "macos", "windows"],
+      "guide": "guides/ffmpeg.md",
+      "verified": "2026-11-01",
+      "tags": ["transcode", "av1"]
+    }
+  ]
+}

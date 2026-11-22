@@ -47,14 +47,21 @@ pub fn parse_sections(text: &str) -> HashMap<String, Vec<String>> {
         } else if line.is_empty() {
             current = None;
         } else if let Some(name) = &current {
-            sections.entry(name.clone()).or_default().push(line.to_owned());
+            sections
+                .entry(name.clone())
+                .or_default()
+                .push(line.to_owned());
         }
     }
     sections
 }
 
 fn first(sections: &HashMap<String, Vec<String>>, name: &str) -> Option<String> {
-    sections.get(name)?.first().cloned().filter(|value| !value.is_empty())
+    sections
+        .get(name)?
+        .first()
+        .cloned()
+        .filter(|value| !value.is_empty())
 }
 
 /// Package of a `desc` file; `None` without `%NAME%`.
@@ -68,7 +75,10 @@ pub fn package_from_desc(text: &str) -> Option<RawPackage> {
         architecture: first(&sections, "ARCH"),
         summary: first(&sections, "DESC").map(|text| LocalizedText::in_lang(text, "en")),
         homepage: first(&sections, "URL"),
-        license: sections.get("LICENSE").map(|items| items.join(" AND ")).filter(|text| !text.is_empty()),
+        license: sections
+            .get("LICENSE")
+            .map(|items| items.join(" AND "))
+            .filter(|text| !text.is_empty()),
         groups: sections.get("GROUPS").cloned().unwrap_or_default(),
         origin: first(&sections, "BASE"),
         installed_size: first(&sections, "SIZE").and_then(|size| size.parse().ok()),
@@ -99,7 +109,9 @@ pub fn db_path_from_conf(text: &str) -> Option<String> {
     text.lines().find_map(|line| {
         let line = line.split('#').next().unwrap_or_default().trim();
         let (key, value) = line.split_once('=')?;
-        (key.trim() == "DBPath").then(|| value.trim().to_owned()).filter(|value| !value.is_empty())
+        (key.trim() == "DBPath")
+            .then(|| value.trim().to_owned())
+            .filter(|value| !value.is_empty())
     })
 }
 
@@ -177,8 +189,10 @@ fn read_with_deadline(
 ) -> Result<SourceData, SourceError> {
     let local = db_path(env).join(LOCAL_DIR);
     if !is_dir(env, &local) {
-        return Err(SourceError::new(id, SourceErrorKind::Unavailable, "no local database")
-            .at(local.display().to_string()));
+        return Err(
+            SourceError::new(id, SourceErrorKind::Unavailable, "no local database")
+                .at(local.display().to_string()),
+        );
     }
     let mut data = SourceData::default();
     for (_, dir) in list_dir(env, &local) {
@@ -246,7 +260,10 @@ mod tests {
         assert_eq!(package.license.as_deref(), Some("MIT AND Unlicense"));
         assert_eq!(package.groups, vec!["utils"]);
         assert_eq!(package.explicit, Some(false));
-        assert_eq!(package.installed_at.as_deref(), Some("1970-01-01T00:00:00Z"));
+        assert_eq!(
+            package.installed_at.as_deref(),
+            Some("1970-01-01T00:00:00Z")
+        );
         assert!(package_from_desc("%VERSION%\n1\n").is_none());
     }
 

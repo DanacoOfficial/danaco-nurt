@@ -8,8 +8,8 @@ use serde_json::value::RawValue;
 
 use crate::catalog::diag::{At, DiagnosticCode};
 use crate::catalog::entries::{
-    self, CATEGORY_DESCRIPTION, CATEGORY_ID, DESCRIPTION, MAX_TAGS, MAX_WHEN_TO_USE, NAME, OVERVIEW,
-    PROGRAM_SUMMARY, SUMMARY, TAG, TITLE, WHEN_TO_USE,
+    self, CATEGORY_DESCRIPTION, CATEGORY_ID, DESCRIPTION, MAX_TAGS, MAX_WHEN_TO_USE, NAME,
+    OVERVIEW, PROGRAM_SUMMARY, SUMMARY, TAG, TITLE, WHEN_TO_USE,
 };
 use crate::catalog::fields::Fields;
 use crate::catalog::index::{Reader, guide_name};
@@ -44,8 +44,15 @@ impl Reader<'_> {
         let path = match self.root.resolve(&file) {
             Ok(path) => path,
             Err(error) => {
-                let message = format!("overlay of language `{language}`: {error}; add the file or remove the language from `languages`");
-                self.invalid(At::new(INDEX_FILE, None).field("languages").name(Some(language)), message);
+                let message = format!(
+                    "overlay of language `{language}`: {error}; add the file or remove the language from `languages`"
+                );
+                self.invalid(
+                    At::new(INDEX_FILE, None)
+                        .field("languages")
+                        .name(Some(language)),
+                    message,
+                );
                 return None;
             }
         };
@@ -72,12 +79,16 @@ impl Reader<'_> {
         };
         for (key, raw) in &members {
             match key.as_str() {
-                "categories" => self.overlay_items(&file, &text, raw, key, |reader, fields, origin| {
-                    reader.overlay_category(fields, origin, &mut overlay);
-                }),
-                "programs" => self.overlay_items(&file, &text, raw, key, |reader, fields, origin| {
-                    reader.overlay_program(fields, origin, &mut overlay);
-                }),
+                "categories" => {
+                    self.overlay_items(&file, &text, raw, key, |reader, fields, origin| {
+                        reader.overlay_category(fields, origin, &mut overlay);
+                    })
+                }
+                "programs" => {
+                    self.overlay_items(&file, &text, raw, key, |reader, fields, origin| {
+                        reader.overlay_program(fields, origin, &mut overlay);
+                    })
+                }
                 "guides" => self.overlay_items(&file, &text, raw, key, |reader, fields, origin| {
                     reader.overlay_guide(fields, origin, &mut overlay);
                 }),
@@ -88,14 +99,23 @@ impl Reader<'_> {
     }
 
     /// Checks `format`, `language` and the top-level members of an overlay.
-    fn overlay_header(&mut self, file: &str, text: &str, members: &RawObject<'_>, language: &str) -> bool {
+    fn overlay_header(
+        &mut self,
+        file: &str,
+        text: &str,
+        members: &RawObject<'_>,
+        language: &str,
+    ) -> bool {
         let text_of = |key: &str| {
             members
                 .get(key)
                 .and_then(|raw| serde_json::from_str::<String>(raw.get()).ok())
         };
         if text_of("format").as_deref() != Some(FORMAT) {
-            self.invalid(At::new(file, Some(1)).field("format"), format!("`format` must be `{FORMAT}`"));
+            self.invalid(
+                At::new(file, Some(1)).field("format"),
+                format!("`format` must be `{FORMAT}`"),
+            );
             return false;
         }
         if text_of("language").as_deref() != Some(language) {
@@ -130,13 +150,19 @@ impl Reader<'_> {
         let items = match json::parse_array(text, raw) {
             Ok(items) => items,
             Err(error) => {
-                self.invalid(At::new(file, error.line()).field(key.to_owned()), "must be an array");
+                self.invalid(
+                    At::new(file, error.line()).field(key.to_owned()),
+                    "must be an array",
+                );
                 return;
             }
         };
         for (index, item) in items.iter().enumerate() {
-            let line = Some(json::line_at(text, json::offset_of(text, item.get())));
-            let Ok(value) = serde_json::from_str::<Value>(item.get()) else { continue };
+            let number = json::line_at(text, json::offset_of(text, item.get()));
+            let line = Some(number);
+            let Ok(value) = serde_json::from_str::<Value>(item.get()) else {
+                continue;
+            };
             let fields = match Fields::of(&value, format!("{key}[{index}]")) {
                 Ok(fields) => fields,
                 Err(fault) => {
@@ -146,7 +172,7 @@ impl Reader<'_> {
             };
             let origin = Origin {
                 file: file.to_owned(),
-                line: line.unwrap_or(1),
+                line: number,
                 pointer: format!("{key}[{index}]"),
             };
             read(self, fields, &origin);
@@ -160,10 +186,10 @@ impl Reader<'_> {
             summary: fields.text("summary", SUMMARY),
             description: fields.text("description", CATEGORY_DESCRIPTION),
         };
-        if self.accept(fields, origin, id.as_deref()) {
-            if let Some(id) = id.filter(|id| self.catalog.category(id).is_some()) {
-                overlay.categories.insert(id, texts);
-            }
+        if self.accept(fields, origin, id.as_deref())
+            && let Some(id) = id.filter(|id| self.catalog.category(id).is_some())
+        {
+            overlay.categories.insert(id, texts);
         }
     }
 
@@ -176,9 +202,15 @@ impl Reader<'_> {
             when_to_use: fields
                 .has("when_to_use")
                 .then(|| fields.text_list("when_to_use", MAX_WHEN_TO_USE, WHEN_TO_USE)),
-            not_for: fields.has("not_for").then(|| entries::read_not_for(&mut fields)),
-            sections: fields.has("sections").then(|| entries::read_sections(&mut fields)),
-            tags: fields.has("tags").then(|| fields.text_list("tags", MAX_TAGS, TAG)),
+            not_for: fields
+                .has("not_for")
+                .then(|| entries::read_not_for(&mut fields)),
+            sections: fields
+                .has("sections")
+                .then(|| entries::read_sections(&mut fields)),
+            tags: fields
+                .has("tags")
+                .then(|| fields.text_list("tags", MAX_TAGS, TAG)),
             guide: entries::relpath(&mut fields, "guide"),
         };
         if !self.accept(fields, origin, name.as_deref()) {
@@ -199,13 +231,16 @@ impl Reader<'_> {
         let name = fields.required_pattern("name", NAME);
         let mut texts = GuideText {
             summary: fields.text("summary", SUMMARY),
-            tags: fields.has("tags").then(|| fields.text_list("tags", MAX_TAGS, TAG)),
+            tags: fields
+                .has("tags")
+                .then(|| fields.text_list("tags", MAX_TAGS, TAG)),
             guide: entries::relpath(&mut fields, "guide"),
         };
         if !self.accept(fields, origin, name.as_deref()) {
             return;
         }
-        let Some(guide) = name.and_then(|name| self.catalog.standalone_guide(&name).cloned()) else {
+        let Some(guide) = name.and_then(|name| self.catalog.standalone_guide(&name).cloned())
+        else {
             return;
         };
         let original = guide_name(&guide.guide);
@@ -224,11 +259,21 @@ impl Reader<'_> {
 
     /// Reads the front matter of a translated guide; its name must equal the
     /// name of the original guide.
-    fn translated_guide(&mut self, path: &str, original: Option<&str>, origin: &Origin) -> Option<String> {
+    fn translated_guide(
+        &mut self,
+        path: &str,
+        original: Option<&str>,
+        origin: &Origin,
+    ) -> Option<String> {
         let header = self.read_guide_header(path, std::slice::from_ref(origin))?;
-        let declared = header.front.name.clone().unwrap_or_else(|| header.name.clone());
+        let declared = header
+            .front
+            .name
+            .clone()
+            .unwrap_or_else(|| header.name.clone());
         if original.is_some_and(|original| original != declared) {
-            let at = At::new(&origin.file, Some(origin.line)).field(format!("{}.guide", origin.pointer));
+            let at =
+                At::new(&origin.file, Some(origin.line)).field(format!("{}.guide", origin.pointer));
             let message = format!(
                 "translated guide has the name `{declared}`; it must carry the name of the original guide, `{}`",
                 original.unwrap_or_default()
@@ -240,4 +285,3 @@ impl Reader<'_> {
         Some(path.to_owned())
     }
 }
-

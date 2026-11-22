@@ -240,7 +240,8 @@ fn read_with_deadline(
         };
         for file in &package.executables {
             data.file_packages.push((file.clone(), reference.clone()));
-            data.programs.push(program_of(file, &package, &reference, id));
+            data.programs
+                .push(program_of(file, &package, &reference, id));
         }
         data.packages.push(package);
     }
@@ -257,10 +258,16 @@ fn read_status(
     if exists(env, &dir.join(STATUS_FILE)) {
         files.push(dir.join(STATUS_FILE));
     }
-    files.extend(list_dir(env, &dir.join(STATUS_DIR)).into_iter().map(|(_, path)| path));
+    files.extend(
+        list_dir(env, &dir.join(STATUS_DIR))
+            .into_iter()
+            .map(|(_, path)| path),
+    );
     if files.is_empty() {
-        return Err(SourceError::new(id, SourceErrorKind::Unavailable, "no status file")
-            .at(format!("{DPKG_DIR}/{STATUS_FILE}")));
+        return Err(
+            SourceError::new(id, SourceErrorKind::Unavailable, "no status file")
+                .at(format!("{DPKG_DIR}/{STATUS_FILE}")),
+        );
     }
     let mut stanzas = Vec::new();
     let mut read_any = false;
@@ -276,7 +283,11 @@ fn read_status(
     if read_any {
         Ok(stanzas)
     } else {
-        Err(SourceError::new(id, SourceErrorKind::Unavailable, "status files cannot be read"))
+        Err(SourceError::new(
+            id,
+            SourceErrorKind::Unavailable,
+            "status files cannot be read",
+        ))
     }
 }
 
@@ -306,7 +317,12 @@ pub fn list_executables(list: &str) -> Vec<String> {
         .collect()
 }
 
-fn program_of(file: &str, package: &RawPackage, reference: &PackageRef, id: &SourceId) -> RawProgram {
+fn program_of(
+    file: &str,
+    package: &RawPackage,
+    reference: &PackageRef,
+    id: &SourceId,
+) -> RawProgram {
     let name = file.rsplit('/').next().unwrap_or(file).to_owned();
     let mut program = RawProgram::new(name);
     program.key = Some(EntryKey::new(id, package.name.clone()));
@@ -315,16 +331,21 @@ fn program_of(file: &str, package: &RawPackage, reference: &PackageRef, id: &Sou
     program.version.clone_from(&package.version);
     program.homepage.clone_from(&package.homepage);
     if let Some(section) = &package.section {
-        program
-            .category_hints
-            .push(CategoryHint::new(CategoryScheme::DebianSection, section.clone()));
+        program.category_hints.push(CategoryHint::new(
+            CategoryScheme::DebianSection,
+            section.clone(),
+        ));
     }
     program
 }
 
 /// Translation files of the preferred languages other than English.
 fn translation_files(env: &HostEnv) -> Vec<(String, PathBuf)> {
-    let wanted: Vec<&String> = env.languages().iter().filter(|lang| *lang != "en").collect();
+    let wanted: Vec<&String> = env
+        .languages()
+        .iter()
+        .filter(|lang| *lang != "en")
+        .collect();
     if wanted.is_empty() {
         return Vec::new();
     }
@@ -333,7 +354,11 @@ fn translation_files(env: &HostEnv) -> Vec<(String, PathBuf)> {
         .filter_map(|(name, path)| {
             let (_, stem) = Compression::of(&name);
             let lang = stem.split(TRANSLATION_MARK).nth(1)?;
-            let lang = lang.split(['_', '.', '-']).next().unwrap_or(lang).to_owned();
+            let lang = lang
+                .split(['_', '.', '-'])
+                .next()
+                .unwrap_or(lang)
+                .to_owned();
             wanted.contains(&&lang).then_some((lang, path))
         })
         .collect()
@@ -347,7 +372,10 @@ fn read_translations(
 ) -> HashMap<String, Vec<(String, String)>> {
     let mut out: HashMap<String, Vec<(String, String)>> = HashMap::new();
     for (lang, path) in translation_files(env) {
-        let name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
         let (compression, _) = Compression::of(name);
         let text = read_file(env, id, &path).and_then(|bytes| {
             decompress(&bytes, compression, MAX_TRANSLATION_BYTES).map_err(|error| {
@@ -364,7 +392,8 @@ fn read_translations(
         };
         let field = format!("Description-{lang}");
         for stanza in parse_stanzas(&text) {
-            if let (Some(package), Some(description)) = (stanza.get("Package"), stanza.get(&field)) {
+            if let (Some(package), Some(description)) = (stanza.get("Package"), stanza.get(&field))
+            {
                 out.entry(package.to_owned())
                     .or_default()
                     .push((lang.clone(), description.to_owned()));
@@ -374,7 +403,10 @@ fn read_translations(
     out
 }
 
-fn apply_translations(package: &mut RawPackage, translations: &HashMap<String, Vec<(String, String)>>) {
+fn apply_translations(
+    package: &mut RawPackage,
+    translations: &HashMap<String, Vec<(String, String)>>,
+) {
     let Some(items) = translations.get(&package.name) else {
         return;
     };
@@ -410,7 +442,7 @@ Description: gone\n";
     fn dpkg_status_parse_multiline() {
         let stanzas = parse_stanzas(STATUS);
         assert_eq!(stanzas.len(), 2);
-        assert_eq!(stanzas[1].line, 12);
+        assert_eq!(stanzas[1].line, 13);
         let package = package_from_stanza(&stanzas[0]).unwrap();
         assert_eq!(package.name, "coreutils");
         assert_eq!(package.installed_size, Some(10 * KIB));

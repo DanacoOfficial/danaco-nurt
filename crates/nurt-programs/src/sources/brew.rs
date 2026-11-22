@@ -26,7 +26,8 @@ use crate::source::{
 };
 
 /// Prefixes searched when `HOMEBREW_PREFIX` is not set, in order.
-pub const DEFAULT_PREFIXES: [&str; 3] = ["/opt/homebrew", "/usr/local", "/home/linuxbrew/.linuxbrew"];
+pub const DEFAULT_PREFIXES: [&str; 3] =
+    ["/opt/homebrew", "/usr/local", "/home/linuxbrew/.linuxbrew"];
 
 const RECEIPT: &str = "INSTALL_RECEIPT.json";
 const FORMULA_API: &str = "formula.jws.json";
@@ -34,7 +35,6 @@ const CASK_API: &str = "cask.jws.json";
 /// Directory where casks install applications.
 const APPLICATIONS: &str = "/Applications";
 const APP_SUFFIX: &str = ".app";
-const SECONDS_PER_DAY: i64 = 86_400;
 
 /// Provider of Homebrew formulae and casks.
 #[derive(Debug, Clone)]
@@ -103,10 +103,10 @@ pub fn cache_dir(env: &HostEnv) -> Option<PathBuf> {
     if let Some(cache) = env.var_text("HOMEBREW_CACHE") {
         return Some(PathBuf::from(cache));
     }
-    if env.os() != Os::Macos {
-        if let Some(xdg) = env.var_text("XDG_CACHE_HOME") {
-            return Some(Path::new(xdg).join("Homebrew"));
-        }
+    if env.os() != Os::Macos
+        && let Some(xdg) = env.var_text("XDG_CACHE_HOME")
+    {
+        return Some(Path::new(xdg).join("Homebrew"));
     }
     let home = env.home()?;
     Some(match env.os() {
@@ -168,7 +168,8 @@ fn quoted_argument(line: &str) -> Option<String> {
 /// Returns a short reason when the file is not a JWS document or the payload
 /// is not an array.
 pub fn parse_api_cache(text: &str) -> Result<BTreeMap<String, FormulaInfo>, String> {
-    let document: Value = serde_json::from_str(text).map_err(|error| format!("api cache is not JSON: {error}"))?;
+    let document: Value =
+        serde_json::from_str(text).map_err(|error| format!("api cache is not JSON: {error}"))?;
     let signed = document
         .get("signatures")
         .and_then(Value::as_array)
@@ -185,11 +186,12 @@ pub fn parse_api_cache(text: &str) -> Result<BTreeMap<String, FormulaInfo>, Stri
         .get("payload")
         .and_then(Value::as_str)
         .ok_or_else(|| "api cache has no payload".to_owned())?;
-    let entries: Vec<Value> =
-        serde_json::from_str(payload).map_err(|error| format!("api cache payload is not an array: {error}"))?;
+    let entries: Vec<Value> = serde_json::from_str(payload)
+        .map_err(|error| format!("api cache payload is not an array: {error}"))?;
     let mut out = BTreeMap::new();
     for entry in entries {
-        let Some(name) = entry.get("name").or_else(|| entry.get("token")).and_then(Value::as_str) else {
+        let token = entry.get("token").and_then(Value::as_str);
+        let Some(name) = token.or_else(|| entry.get("name").and_then(Value::as_str)) else {
             continue;
         };
         out.insert(name.to_owned(), info_from_json(&entry));
@@ -206,7 +208,11 @@ fn info_from_json(entry: &Value) -> FormulaInfo {
         .map(str::to_owned)
         .or_else(|| text("version"));
     let names = match entry.get("name") {
-        Some(Value::Array(names)) => names.iter().filter_map(Value::as_str).map(str::to_owned).collect(),
+        Some(Value::Array(names)) => names
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect(),
         _ => Vec::new(),
     };
     FormulaInfo {
@@ -237,14 +243,18 @@ pub struct Receipt {
 ///
 /// Returns a short reason when the text is not a JSON object.
 pub fn parse_receipt(text: &str) -> Result<Receipt, String> {
-    let value: Value = serde_json::from_str(text).map_err(|error| format!("receipt is not JSON: {error}"))?;
+    let value: Value =
+        serde_json::from_str(text).map_err(|error| format!("receipt is not JSON: {error}"))?;
     if !value.is_object() {
         return Err("receipt is not a JSON object".to_owned());
     }
     let source = value.get("source");
     Ok(Receipt {
         on_request: value.get("installed_on_request").and_then(Value::as_bool),
-        installed_at: value.get("time").and_then(Value::as_i64).map(rfc3339_from_unix),
+        installed_at: value
+            .get("time")
+            .and_then(Value::as_i64)
+            .map(super::rfc3339),
         stable: source
             .and_then(|source| source.get("versions"))
             .and_then(|versions| versions.get("stable"))
@@ -255,29 +265,6 @@ pub fn parse_receipt(text: &str) -> Result<Receipt, String> {
             .and_then(Value::as_str)
             .map(str::to_owned),
     })
-}
-
-/// Time in seconds since 1970-01-01 UTC as RFC 3339 text.
-fn rfc3339_from_unix(seconds: i64) -> String {
-    let days = seconds.div_euclid(SECONDS_PER_DAY);
-    let rest = seconds.rem_euclid(SECONDS_PER_DAY);
-    // Civil date from a day count, after H. Hinnant, "chrono-Compatible
-    // Low-Level Date Algorithms".
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let day_of_era = z.rem_euclid(146_097);
-    let year_of_era = (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let mp = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * mp + 2) / 5 + 1;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    let year = year_of_era + era * 400 + i64::from(month <= 2);
-    format!(
-        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
-        rest / 3600,
-        rest % 3600 / 60,
-        rest % 60
-    )
 }
 
 /// Orders version texts by their numeric parts, then as text.
@@ -353,7 +340,11 @@ impl Reader<'_> {
         let cellar = prefix.join("Cellar");
         for formula in dir_names(&self.env.sys_path(&cellar)) {
             deadline.check(self.id)?;
-            self.read_formula(&cellar, &formula, links.get(&formula).cloned().unwrap_or_default());
+            self.read_formula(
+                &cellar,
+                &formula,
+                links.get(&formula).cloned().unwrap_or_default(),
+            );
         }
         let caskroom = prefix.join("Caskroom");
         for cask in dir_names(&self.env.sys_path(&caskroom)) {
@@ -372,8 +363,12 @@ impl Reader<'_> {
             return out;
         };
         for entry in entries.flatten() {
-            let Ok(target) = std::fs::read_link(entry.path()) else { continue };
-            let Some(name) = entry.file_name().to_str().map(str::to_owned) else { continue };
+            let Ok(target) = std::fs::read_link(entry.path()) else {
+                continue;
+            };
+            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+                continue;
+            };
             if let Some(formula) = formula_of_link(&target) {
                 let host = bin.join(&name).display().to_string();
                 out.entry(formula).or_default().push((host, name));
@@ -388,7 +383,11 @@ impl Reader<'_> {
     fn read_formula(&mut self, cellar: &Path, formula: &str, commands: Vec<(String, String)>) {
         let dir = cellar.join(formula);
         let versions = dir_names(&self.env.sys_path(&dir));
-        let Some(version) = versions.iter().max_by(|left, right| version_order(left, right)).cloned() else {
+        let Some(version) = versions
+            .iter()
+            .max_by(|left, right| version_order(left, right))
+            .cloned()
+        else {
             return;
         };
         let version_dir = dir.join(&version);
@@ -411,19 +410,21 @@ impl Reader<'_> {
         let mut info = std::fs::read_to_string(self.env.sys_path(&rb))
             .map(|text| parse_formula_rb(&text))
             .unwrap_or_default();
-        if info.desc.is_none() {
-            if let Some(api) = self.formula_api().get(formula).cloned() {
-                info.desc = api.desc;
-                info.homepage = info.homepage.or(api.homepage);
-                info.license = info.license.or(api.license);
-            }
+        if info.desc.is_none()
+            && let Some(api) = self.formula_api().get(formula).cloned()
+        {
+            info.desc = api.desc;
+            info.homepage = info.homepage.or(api.homepage);
+            info.license = info.license.or(api.license);
         }
         let package = PackageRef {
             manager: self.id.clone(),
             name: formula.to_owned(),
         };
         for (path, name) in &commands {
-            self.data.file_packages.push((path.clone(), package.clone()));
+            self.data
+                .file_packages
+                .push((path.clone(), package.clone()));
             self.data.programs.push(RawProgram {
                 path: Some(path.clone()),
                 summary: info.desc.as_deref().map(LocalizedText::new),
@@ -452,7 +453,11 @@ impl Reader<'_> {
     fn read_cask(&mut self, dir: &Path, token: &str) {
         let metadata = dir.join(".metadata");
         let versions = dir_names(&self.env.sys_path(&metadata));
-        let Some(version) = versions.iter().max_by(|left, right| version_order(left, right)).cloned() else {
+        let Some(version) = versions
+            .iter()
+            .max_by(|left, right| version_order(left, right))
+            .cloned()
+        else {
             return;
         };
         let mut info = FormulaInfo {
@@ -460,7 +465,7 @@ impl Reader<'_> {
             ..FormulaInfo::default()
         };
         let mut apps = Vec::new();
-        let stamps = dir_names(&self.env.sys_path(&metadata.join(&version)));
+        let stamps = dir_names(&self.env.sys_path(metadata.join(&version)));
         if let Some(stamp) = stamps.last() {
             let casks = metadata.join(&version).join(stamp).join("Casks");
             let json = self.env.sys_path(casks.join(format!("{token}.json")));
@@ -480,13 +485,13 @@ impl Reader<'_> {
                 };
             }
         }
-        if info.desc.is_none() {
-            if let Some(api) = self.cask_api().get(token).cloned() {
-                info.desc = api.desc;
-                info.homepage = info.homepage.or(api.homepage);
-                if info.names.is_empty() {
-                    info.names = api.names;
-                }
+        if info.desc.is_none()
+            && let Some(api) = self.cask_api().get(token).cloned()
+        {
+            info.desc = api.desc;
+            info.homepage = info.homepage.or(api.homepage);
+            if info.names.is_empty() {
+                info.names = api.names;
             }
         }
         let package = PackageRef {
@@ -498,7 +503,10 @@ impl Reader<'_> {
             self.data.programs.push(RawProgram {
                 kind: EntryKind::App,
                 path: Some(format!("{APPLICATIONS}/{app}")),
-                app_name: info.names.first().map(|name| LocalizedText::new(name.as_str())),
+                app_name: info
+                    .names
+                    .first()
+                    .map(|name| LocalizedText::new(name.as_str())),
                 summary: info.desc.as_deref().map(LocalizedText::new),
                 version: info.version.clone(),
                 package: Some(package.clone()),
@@ -554,7 +562,8 @@ impl ProgramSource for BrewSource {
 
     fn detect(&self, env: &HostEnv) -> bool {
         prefixes(env).iter().any(|prefix| {
-            env.sys_path(prefix.join("Cellar")).is_dir() || env.sys_path(prefix.join("Caskroom")).is_dir()
+            env.sys_path(prefix.join("Cellar")).is_dir()
+                || env.sys_path(prefix.join("Caskroom")).is_dir()
         })
     }
 
@@ -594,12 +603,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn unix_time_converts_to_rfc3339() {
-        assert_eq!(rfc3339_from_unix(0), "1970-01-01T00:00:00Z");
-        assert_eq!(rfc3339_from_unix(1_700_000_000), "2023-11-14T22:13:20Z");
-    }
-
-    #[test]
     fn versions_order_numerically() {
         assert_eq!(version_order("1.10", "1.9"), std::cmp::Ordering::Greater);
         assert_eq!(version_order("2.0_1", "2.0"), std::cmp::Ordering::Greater);
@@ -612,7 +615,10 @@ mod tests {
 
     #[test]
     fn link_target_names_the_formula() {
-        assert_eq!(formula_of_link(Path::new("../Cellar/jq/1.7/bin/jq")).as_deref(), Some("jq"));
+        assert_eq!(
+            formula_of_link(Path::new("../Cellar/jq/1.7/bin/jq")).as_deref(),
+            Some("jq")
+        );
         assert_eq!(formula_of_link(Path::new("/usr/bin/jq")), None);
     }
 }

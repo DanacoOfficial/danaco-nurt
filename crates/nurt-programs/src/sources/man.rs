@@ -83,7 +83,10 @@ fn line_text(line: &str) -> Option<String> {
     let Some(request) = line.strip_prefix('.').or_else(|| line.strip_prefix('\'')) else {
         return Some(strip_escapes(line));
     };
-    let (name, rest) = request.trim_start().split_once(char::is_whitespace).unwrap_or((request.trim(), ""));
+    let (name, rest) = request
+        .trim_start()
+        .split_once(char::is_whitespace)
+        .unwrap_or((request.trim(), ""));
     let arguments = split_arguments(rest);
     match name {
         "Nm" => Some(arguments.join(" ")),
@@ -157,7 +160,11 @@ pub fn strip_escapes(text: &str) -> String {
                 };
                 out.push_str(glyph(&name));
             }
-            '-' => out.push(if out.contains(DASH_MARK) { '-' } else { DASH_MARK }),
+            '-' => out.push(if out.contains(DASH_MARK) {
+                '-'
+            } else {
+                DASH_MARK
+            }),
             'e' | '\\' => out.push('\\'),
             ' ' | '~' | '0' => out.push(' '),
             '"' => break,
@@ -216,11 +223,16 @@ pub fn split_name_line(line: &str) -> Option<ManName> {
         .map(|name| name.trim().to_owned())
         .filter(|name| !name.is_empty())
         .collect();
-    let description = description.replace(DASH_MARK, "-").trim().trim_start_matches('-').trim().to_owned();
+    let description = description
+        .replace(DASH_MARK, "-")
+        .trim()
+        .trim_start_matches('-')
+        .trim()
+        .to_owned();
     (!names.is_empty() && !description.is_empty()).then_some(ManName { names, description })
 }
 
-/// Entries of a `whatis` file: `name(section), … - description`.
+/// Entries of a `whatis` file: `name(section), ... - description`.
 #[must_use]
 pub fn parse_whatis(text: &str) -> Vec<(String, String, String)> {
     let mut out = Vec::new();
@@ -234,7 +246,11 @@ pub fn parse_whatis(text: &str) -> Vec<(String, String, String)> {
                 continue;
             };
             let section = section.trim_end_matches(')').trim();
-            out.push((name.trim().to_owned(), section.to_owned(), description.trim().to_owned()));
+            out.push((
+                name.trim().to_owned(),
+                section.to_owned(),
+                description.trim().to_owned(),
+            ));
         }
     }
     out
@@ -282,14 +298,20 @@ fn default_dirs(env: &HostEnv) -> Vec<PathBuf> {
             let words: Vec<&str> = line.split_whitespace().collect();
             match words.as_slice() {
                 ["MANDATORY_MANPATH" | "MANPATH", dir, ..] => mandatory.push(PathBuf::from(dir)),
-                ["MANPATH_MAP", bin, man, ..] => maps.push((PathBuf::from(bin), PathBuf::from(man))),
+                ["MANPATH_MAP", bin, man, ..] => {
+                    maps.push((PathBuf::from(bin), PathBuf::from(man)))
+                }
                 _ => {}
             }
         }
     }
     let mut dirs = Vec::new();
     for bin in env.path_dirs() {
-        dirs.extend(maps.iter().filter(|(dir, _)| *dir == bin).map(|(_, man)| man.clone()));
+        dirs.extend(
+            maps.iter()
+                .filter(|(dir, _)| *dir == bin)
+                .map(|(_, man)| man.clone()),
+        );
         if let Some(parent) = bin.parent() {
             dirs.push(parent.join("share/man"));
             dirs.push(parent.join("man"));
@@ -366,13 +388,20 @@ fn read_page(env: &HostEnv, id: &SourceId, path: &Path, dir: &Path) -> Result<St
     let text = read_page_file(env, id, path)?;
     match redirect(&text) {
         Some(target) => {
-            let target = target.strip_suffix(".gz").map_or(target.clone(), str::to_owned);
+            let target = target
+                .strip_suffix(".gz")
+                .map_or(target.clone(), str::to_owned);
             let base = dir.join(&target);
-            let candidates = [base.clone(), PathBuf::from(format!("{}.gz", base.display()))];
+            let candidates = [
+                base.clone(),
+                PathBuf::from(format!("{}.gz", base.display())),
+            ];
             candidates
                 .iter()
                 .find_map(|candidate| read_page_file(env, id, candidate).ok())
-                .ok_or_else(|| SourceError::new(id, SourceErrorKind::Unavailable, "broken page redirect"))
+                .ok_or_else(|| {
+                    SourceError::new(id, SourceErrorKind::Unavailable, "broken page redirect")
+                })
         }
         None => Ok(text),
     }
@@ -380,10 +409,14 @@ fn read_page(env: &HostEnv, id: &SourceId, path: &Path, dir: &Path) -> Result<St
 
 fn read_page_file(env: &HostEnv, id: &SourceId, path: &Path) -> Result<String, SourceError> {
     let (bytes, _) = read_prefix(env, id, path, crate::sources::MAX_METADATA_BYTES)?;
-    let name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
     let (compression, _) = Compression::of(name);
     let raw = decompress(&bytes, compression, PAGE_PREFIX_BYTES).map_err(|error| {
-        SourceError::new(id, SourceErrorKind::Corrupt, error.to_string()).at(path.display().to_string())
+        SourceError::new(id, SourceErrorKind::Corrupt, error.to_string())
+            .at(path.display().to_string())
     })?;
     Ok(decode(&raw))
 }
@@ -402,7 +435,8 @@ impl ProgramSource for ManSource {
     }
 
     fn fingerprint(&self, env: &HostEnv) -> Result<Fingerprint, SourceError> {
-        let mut builder = FingerprintBuilder::new(env).text("languages", &env.languages().join(","));
+        let mut builder =
+            FingerprintBuilder::new(env).text("languages", &env.languages().join(","));
         for dir in man_dirs(env) {
             builder = builder.path(dir.join(WHATIS_FILE));
             for section in SECTIONS {
@@ -424,7 +458,15 @@ impl ProgramSource for ManSource {
                     Ok(text) => {
                         if let Some(name) = parse_name_section(&text) {
                             let summary = (page.lang, name.description);
-                            add(&mut data, &mut by_name, &self.id, &page.name, &page.section, summary, &page.path);
+                            add(
+                                &mut data,
+                                &mut by_name,
+                                &self.id,
+                                &page.name,
+                                &page.section,
+                                summary,
+                                &page.path,
+                            );
                         }
                     }
                     Err(error) => data.warnings.push(error.into()),
@@ -434,15 +476,28 @@ impl ProgramSource for ManSource {
         Ok(data)
     }
 
-    fn detail(&self, env: &HostEnv, key: &EntryKey, want: &DetailWant) -> Result<Option<Detail>, SourceError> {
+    fn detail(
+        &self,
+        env: &HostEnv,
+        key: &EntryKey,
+        want: &DetailWant,
+    ) -> Result<Option<Detail>, SourceError> {
         if !want.man {
             return Ok(None);
         }
         let path = PathBuf::from(&key.key);
-        let dir = path.parent().and_then(Path::parent).unwrap_or(Path::new("/"));
+        let dir = path
+            .parent()
+            .and_then(Path::parent)
+            .unwrap_or(Path::new("/"));
         let text = read_page(env, &self.id, &path, dir)?;
         Ok(parse_name_section(&text).map(|name| Detail {
-            man: Some(format!("{} - {} ({})", name.names.join(", "), name.description, path.display())),
+            man: Some(format!(
+                "{} - {} ({})",
+                name.names.join(", "),
+                name.description,
+                path.display()
+            )),
             ..Detail::default()
         }))
     }
@@ -461,7 +516,15 @@ fn read_whatis(
     };
     for (name, section, description) in parse_whatis(&decode(&bytes)) {
         if SECTIONS.iter().any(|wanted| section.starts_with(wanted)) {
-            add(data, by_name, id, &name, &section, ("en".to_owned(), description), &path);
+            add(
+                data,
+                by_name,
+                id,
+                &name,
+                &section,
+                ("en".to_owned(), description),
+                &path,
+            );
         }
     }
 }
@@ -477,7 +540,8 @@ fn add(
 ) {
     if let Some(index) = by_name.get(name) {
         if let Some(summary) = data.programs[*index].summary.as_mut()
-            && summary.lang.as_deref() != Some(lang.as_str()) && !summary.translations.contains_key(&lang)
+            && summary.lang.as_deref() != Some(lang.as_str())
+            && !summary.translations.contains_key(&lang)
         {
             summary.set(&lang, description);
         }
@@ -507,13 +571,19 @@ mod tests {
         let name = parse_name_section(mdoc).unwrap();
         assert_eq!(name.names, vec!["cat"]);
         assert_eq!(name.description, "concatenate and print files");
-        let polish = ".SH NAZWA\nls \\- wypisuje zawartość katalogu\n";
-        assert_eq!(parse_name_section(polish).unwrap().description, "wypisuje zawartość katalogu");
+        let polish = ".SH NAZWA\nls \\- wypisuje zawarto\u{15b}\u{107} katalogu\n";
+        assert_eq!(
+            parse_name_section(polish).unwrap().description,
+            "wypisuje zawarto\u{15b}\u{107} katalogu"
+        );
     }
 
     #[test]
     fn escapes_and_requests() {
-        assert_eq!(strip_escapes("a\\f[CB]b\\fP\\s-1c\\s0\\&d\\e\\*(lqq\\*(rq"), "abcd\\\"q\"");
+        assert_eq!(
+            strip_escapes("a\\f[CB]b\\fP\\s-1c\\s0\\&d\\e\\*(lqq\\*(rq"),
+            "abcd\\\"q\""
+        );
         assert_eq!(line_text(".BR gzip (1)").as_deref(), Some("gzip(1)"));
         assert_eq!(line_text(".PP"), None);
         assert_eq!(line_text(".\\\" comment"), None);
@@ -522,11 +592,20 @@ mod tests {
 
     #[test]
     fn name_line_without_marker_and_whatis() {
-        assert_eq!(split_name_line("foo - does foo").unwrap().description, "does foo");
+        assert_eq!(
+            split_name_line("foo - does foo").unwrap().description,
+            "does foo"
+        );
         assert!(split_name_line("no separator").is_none());
         let entries = parse_whatis("ls(1), dir(1) - list directory\nbad line\nx (8) - admin\n");
         assert_eq!(entries.len(), 3);
-        assert_eq!(entries[2], ("x".to_owned(), "8".to_owned(), "admin".to_owned()));
-        assert_eq!(redirect(".so man1/other.1\n").as_deref(), Some("man1/other.1"));
+        assert_eq!(
+            entries[2],
+            ("x".to_owned(), "8".to_owned(), "admin".to_owned())
+        );
+        assert_eq!(
+            redirect(".so man1/other.1\n").as_deref(),
+            Some("man1/other.1")
+        );
     }
 }

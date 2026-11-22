@@ -210,14 +210,22 @@ impl<'o> Reader<'o> {
 
     /// Records the findings about one object; returns `true` when the
     /// object satisfies the format.
-    pub(crate) fn report(&mut self, file: &str, line: Option<u64>, name: Option<&str>, findings: Findings) -> bool {
+    pub(crate) fn report(
+        &mut self,
+        file: &str,
+        line: Option<u64>,
+        name: Option<&str>,
+        findings: Findings,
+    ) -> bool {
         let valid = findings.faults.is_empty();
         let at = |field: String| At::new(file, line).field(field).name(name);
         for Fault { field, message } in findings.faults {
-            self.diags.push(DiagnosticCode::EntryInvalid, at(field), message);
+            self.diags
+                .push(DiagnosticCode::EntryInvalid, at(field), message);
         }
         for Fault { field, message } in findings.unknown {
-            self.diags.push(DiagnosticCode::UnknownField, at(field), message);
+            self.diags
+                .push(DiagnosticCode::UnknownField, at(field), message);
         }
         for field in findings.cleaned {
             self.diags.push(
@@ -272,14 +280,17 @@ impl<'o> Reader<'o> {
     fn read_categories(&mut self, text: &str, items: &[&RawValue]) {
         let limit = self.options.limits.categories;
         for (index, raw) in items.iter().enumerate() {
-            let line = Some(json::line_at(text, json::offset_of(text, raw.get())));
+            let number = json::line_at(text, json::offset_of(text, raw.get()));
+            let line = Some(number);
             let pointer = format!("categories[{index}]");
             if index >= limit {
                 let message = format!("more than {limit} categories; merge or remove categories");
                 self.invalid(At::new(INDEX_FILE, line).field(pointer), message);
                 break;
             }
-            let Some(value) = parse_value(raw) else { continue };
+            let Some(value) = parse_value(raw) else {
+                continue;
+            };
             let mut fields = match Fields::of(&value, pointer.clone()) {
                 Ok(fields) => fields,
                 Err(fault) => {
@@ -294,13 +305,21 @@ impl<'o> Reader<'o> {
                 continue;
             }
             if let Some(first) = self.catalog.category(&name) {
-                let message = format!("category `{name}` is already declared at {}; keep one", first.origin);
-                self.invalid(At::new(INDEX_FILE, line).field(format!("{pointer}.id")).name(Some(&name)), message);
+                let message = format!(
+                    "category `{name}` is already declared at {}; keep one",
+                    first.origin
+                );
+                self.invalid(
+                    At::new(INDEX_FILE, line)
+                        .field(format!("{pointer}.id"))
+                        .name(Some(&name)),
+                    message,
+                );
                 continue;
             }
             category.origin = Origin {
                 file: INDEX_FILE.to_owned(),
-                line: line.unwrap_or(1),
+                line: number,
                 pointer,
             };
             self.catalog.categories.push(category);
@@ -317,16 +336,24 @@ impl<'o> Reader<'o> {
             .collect();
         let mut rejected = Vec::new();
         for category in &self.catalog.categories {
-            let Some(parent) = &category.parent else { continue };
+            let Some(parent) = &category.parent else {
+                continue;
+            };
             let message = match parents.get(parent) {
-                None => format!("parent `{parent}` is not declared in `categories`; declare it or correct the identifier"),
-                Some(Some(_)) => format!("parent `{parent}` is itself a subcategory; categories have at most two levels"),
+                None => format!(
+                    "parent `{parent}` is not declared in `categories`; declare it or correct the identifier"
+                ),
+                Some(Some(_)) => format!(
+                    "parent `{parent}` is itself a subcategory; categories have at most two levels"
+                ),
                 Some(None) => continue,
             };
             rejected.push((category.id.clone(), category.origin.clone(), message));
         }
         for (id, origin, message) in rejected {
-            let at = At::new(&origin.file, Some(origin.line)).field(format!("{}.parent", origin.pointer)).name(Some(&id));
+            let at = At::new(&origin.file, Some(origin.line))
+                .field(format!("{}.parent", origin.pointer))
+                .name(Some(&id));
             self.invalid(at, message);
             self.catalog.categories.retain(|category| category.id != id);
         }
@@ -335,7 +362,8 @@ impl<'o> Reader<'o> {
     /// Reads program entries of the index or of an included part.
     pub(crate) fn read_programs(&mut self, file: &str, text: &str, items: &[&RawValue]) {
         for (index, raw) in items.iter().enumerate() {
-            let line = Some(json::line_at(text, json::offset_of(text, raw.get())));
+            let number = json::line_at(text, json::offset_of(text, raw.get()));
+            let line = Some(number);
             let pointer = format!("programs[{index}]");
             let at = At::new(file, line).field(pointer.clone());
             if self.catalog.programs.len() >= self.options.limits.programs {
@@ -345,10 +373,15 @@ impl<'o> Reader<'o> {
             }
             if raw.get().len() > self.options.limits.entry_bytes {
                 let limit = self.options.limits.entry_bytes;
-                self.invalid(at, format!("entry is larger than {limit} bytes; shorten its texts"));
+                self.invalid(
+                    at,
+                    format!("entry is larger than {limit} bytes; shorten its texts"),
+                );
                 continue;
             }
-            let Some(value) = parse_value(raw) else { continue };
+            let Some(value) = parse_value(raw) else {
+                continue;
+            };
             let mut fields = match Fields::of(&value, pointer.clone()) {
                 Ok(fields) => fields,
                 Err(fault) => {
@@ -370,13 +403,21 @@ impl<'o> Reader<'o> {
                 continue;
             }
             if let Some(first) = self.catalog.program(&name) {
-                let message = format!("program `{name}` is already defined at {}; keep one entry", first.origin);
-                self.invalid(At::new(file, line).field(format!("{pointer}.name")).name(Some(&name)), message);
+                let message = format!(
+                    "program `{name}` is already defined at {}; keep one entry",
+                    first.origin
+                );
+                self.invalid(
+                    At::new(file, line)
+                        .field(format!("{pointer}.name"))
+                        .name(Some(&name)),
+                    message,
+                );
                 continue;
             }
             program.origin = Origin {
                 file: file.to_owned(),
-                line: line.unwrap_or(1),
+                line: number,
                 pointer,
             };
             self.catalog.programs.push(program);
@@ -388,7 +429,9 @@ impl<'o> Reader<'o> {
             .get("include")
             .map(|raw| json::line_at(index_text, json::offset_of(index_text, raw.get())));
         for (position, part) in std::mem::take(&mut self.includes).into_iter().enumerate() {
-            let at = At::new(INDEX_FILE, include_line).field(format!("include[{position}]")).name(Some(&part));
+            let at = At::new(INDEX_FILE, include_line)
+                .field(format!("include[{position}]"))
+                .name(Some(&part));
             let path = match self.root.resolve(&part) {
                 Ok(path) => path,
                 Err(error) => {
@@ -399,7 +442,10 @@ impl<'o> Reader<'o> {
             let size = json::file_size(&path).unwrap_or(0);
             if self.total_bytes.saturating_add(size) > self.options.limits.total_bytes {
                 let limit = self.options.limits.total_bytes;
-                self.invalid(at, format!("index and parts exceed {limit} bytes in total; reduce the catalog"));
+                self.invalid(
+                    at,
+                    format!("index and parts exceed {limit} bytes in total; reduce the catalog"),
+                );
                 continue;
             }
             let text = match json::read_text(&path, self.options.limits.part_bytes) {
@@ -436,7 +482,10 @@ impl<'o> Reader<'o> {
             }
         }
         let Some(raw) = members.get("programs") else {
-            self.invalid(At::new(part, Some(1)).field("programs"), "member `programs` is required; add it");
+            self.invalid(
+                At::new(part, Some(1)).field("programs"),
+                "member `programs` is required; add it",
+            );
             return;
         };
         match json::parse_array(text, raw) {
@@ -444,14 +493,22 @@ impl<'o> Reader<'o> {
                 self.read_programs(part, text, &items);
                 self.catalog.parts.push(part.to_owned());
             }
-            Err(error) => self.invalid(At::new(part, error.line()).field("programs"), "must be an array"),
+            Err(error) => self.invalid(
+                At::new(part, error.line()).field("programs"),
+                "must be an array",
+            ),
         }
     }
 
     /// Drops every alias whose name equals a program name or an earlier
     /// alias, in document order.
     fn resolve_aliases(&mut self) {
-        let names: BTreeSet<String> = self.catalog.programs.iter().map(|program| program.name.clone()).collect();
+        let names: BTreeSet<String> = self
+            .catalog
+            .programs
+            .iter()
+            .map(|program| program.name.clone())
+            .collect();
         let mut seen: BTreeSet<String> = BTreeSet::new();
         let mut collisions = Vec::new();
         for program in &mut self.catalog.programs {
@@ -466,17 +523,24 @@ impl<'o> Reader<'o> {
             });
         }
         for (origin, owner, alias) in collisions {
-            let at = At::new(&origin.file, Some(origin.line)).field(format!("{}.aliases", origin.pointer)).name(Some(&owner));
+            let at = At::new(&origin.file, Some(origin.line))
+                .field(format!("{}.aliases", origin.pointer))
+                .name(Some(&owner));
             self.invalid(at, format!("alias `{alias}` collides with a program or an earlier alias; rename or remove it"));
         }
     }
 
     fn read_standalone_guides(&mut self, text: &str, members: &RawObject<'_>) {
-        let Some(raw) = members.get("guides") else { return };
+        let Some(raw) = members.get("guides") else {
+            return;
+        };
         let items = match json::parse_array(text, raw) {
             Ok(items) => items,
             Err(error) => {
-                self.invalid(At::new(INDEX_FILE, error.line()).field("guides"), "must be an array");
+                self.invalid(
+                    At::new(INDEX_FILE, error.line()).field("guides"),
+                    "must be an array",
+                );
                 return;
             }
         };
@@ -484,17 +548,25 @@ impl<'o> Reader<'o> {
             .catalog
             .programs
             .iter()
-            .flat_map(|program| std::iter::once(program.name.clone()).chain(program.aliases.iter().map(|alias| alias.name.clone())))
+            .flat_map(|program| {
+                std::iter::once(program.name.clone())
+                    .chain(program.aliases.iter().map(|alias| alias.name.clone()))
+            })
             .collect();
         for (index, raw) in items.iter().enumerate() {
             let line = Some(json::line_at(text, json::offset_of(text, raw.get())));
             let pointer = format!("guides[{index}]");
             if index >= self.options.limits.guides {
                 let limit = self.options.limits.guides;
-                self.invalid(At::new(INDEX_FILE, line).field(pointer), format!("more than {limit} standalone guides"));
+                self.invalid(
+                    At::new(INDEX_FILE, line).field(pointer),
+                    format!("more than {limit} standalone guides"),
+                );
                 break;
             }
-            let Some(value) = parse_value(raw) else { continue };
+            let Some(value) = parse_value(raw) else {
+                continue;
+            };
             let mut fields = match Fields::of(&value, pointer.clone()) {
                 Ok(fields) => fields,
                 Err(fault) => {
@@ -507,9 +579,16 @@ impl<'o> Reader<'o> {
                 let path = fields.path("name");
                 fields.fault(path, format!("name `{}` is already used by a program, an alias or a guide; rename the guide", guide.name));
             }
-            if let Some(category) = guide.category.as_deref().filter(|id| self.catalog.category(id).is_none()) {
+            if let Some(category) = guide
+                .category
+                .as_deref()
+                .filter(|id| self.catalog.category(id).is_none())
+            {
                 let path = fields.path("category");
-                fields.fault(path, format!("category `{category}` is not declared in `categories`"));
+                fields.fault(
+                    path,
+                    format!("category `{category}` is not declared in `categories`"),
+                );
             }
             let findings = fields.finish();
             let name = guide.name.clone();
@@ -525,7 +604,10 @@ impl<'o> Reader<'o> {
         let mut references: BTreeMap<String, Vec<Origin>> = BTreeMap::new();
         for program in &self.catalog.programs {
             if let Some(guide) = &program.guide {
-                references.entry(guide.clone()).or_default().push(program.origin.clone());
+                references
+                    .entry(guide.clone())
+                    .or_default()
+                    .push(program.origin.clone());
             }
         }
         for guide in &self.catalog.guides {
@@ -543,11 +625,17 @@ impl<'o> Reader<'o> {
             }
         }
         for program in &mut self.catalog.programs {
-            if program.guide.as_ref().is_some_and(|guide| unusable.contains(guide)) {
+            if program
+                .guide
+                .as_ref()
+                .is_some_and(|guide| unusable.contains(guide))
+            {
                 program.guide = None;
             }
         }
-        self.catalog.guides.retain(|guide| !unusable.contains(&guide.guide));
+        self.catalog
+            .guides
+            .retain(|guide| !unusable.contains(&guide.guide));
         if self.options.strict {
             self.check_guide_programs();
         }
@@ -555,14 +643,19 @@ impl<'o> Reader<'o> {
 
     /// Reads the front matter of one guide; `origins` are the entries that
     /// name it, used to locate a missing file.
-    pub(crate) fn read_guide_header(&mut self, path: &str, origins: &[Origin]) -> Option<GuideHeader> {
+    pub(crate) fn read_guide_header(
+        &mut self,
+        path: &str,
+        origins: &[Origin],
+    ) -> Option<GuideHeader> {
         let file = match self.root.resolve(path) {
             Ok(file) => file,
             Err(error) => {
                 let message = format!("guide `{path}`: {error}");
                 match origins.first() {
                     Some(origin) => {
-                        let at = At::new(&origin.file, Some(origin.line)).field(format!("{}.guide", origin.pointer));
+                        let at = At::new(&origin.file, Some(origin.line))
+                            .field(format!("{}.guide", origin.pointer));
                         self.invalid(at, message);
                     }
                     None => self.invalid(At::new(INDEX_FILE, None).name(Some(path)), message),
@@ -579,7 +672,10 @@ impl<'o> Reader<'o> {
         };
         if !faults.is_empty() {
             for fault in faults {
-                self.invalid(At::new(path, Some(1)).field(format!("front matter `{}`", fault.key)), fault.message);
+                self.invalid(
+                    At::new(path, Some(1)).field(format!("front matter `{}`", fault.key)),
+                    fault.message,
+                );
             }
             return None;
         }
@@ -600,7 +696,11 @@ impl<'o> Reader<'o> {
                 "front matter has no `version`; the version of the program entry is used",
             );
         }
-        if front.name.as_deref().is_some_and(|declared| declared != name) {
+        if front
+            .name
+            .as_deref()
+            .is_some_and(|declared| declared != name)
+        {
             self.diags.push(
                 DiagnosticCode::GuideMismatch,
                 At::new(path, Some(1)).field("front matter `name`"),
@@ -616,19 +716,38 @@ impl<'o> Reader<'o> {
                 continue;
             }
             for listed in &header.front.programs {
-                let names_guide = self.catalog.program(listed).and_then(|program| program.guide.as_deref()) == Some(path.as_str());
+                let names_guide = self
+                    .catalog
+                    .program(listed)
+                    .and_then(|program| program.guide.as_deref())
+                    == Some(path.as_str());
                 if !names_guide {
-                    findings.push((path.clone(), format!("front matter lists `{listed}`, which does not name this guide")));
+                    findings.push((
+                        path.clone(),
+                        format!("front matter lists `{listed}`, which does not name this guide"),
+                    ));
                 }
             }
             for program in &self.catalog.programs {
-                if program.guide.as_deref() == Some(path.as_str()) && !header.front.programs.contains(&program.name) {
-                    findings.push((path.clone(), format!("`{}` names this guide but is not listed in `programs`", program.name)));
+                if program.guide.as_deref() == Some(path.as_str())
+                    && !header.front.programs.contains(&program.name)
+                {
+                    findings.push((
+                        path.clone(),
+                        format!(
+                            "`{}` names this guide but is not listed in `programs`",
+                            program.name
+                        ),
+                    ));
                 }
             }
         }
         for (path, message) in findings {
-            self.diags.push(DiagnosticCode::GuideMismatch, At::new(&path, Some(1)).field("front matter `programs`"), message);
+            self.diags.push(
+                DiagnosticCode::GuideMismatch,
+                At::new(&path, Some(1)).field("front matter `programs`"),
+                message,
+            );
         }
     }
 }
@@ -649,19 +768,27 @@ fn read_format(members: &RawObject<'_>) -> Result<(), CatalogError> {
         ));
     };
     let format: String = serde_json::from_str(raw.get()).map_err(|_| unsupported(None))?;
-    let major = format.strip_prefix(FORMAT_PREFIX).ok_or_else(|| unsupported(None))?;
+    let major = format
+        .strip_prefix(FORMAT_PREFIX)
+        .ok_or_else(|| unsupported(None))?;
     match major.parse::<u64>() {
         Ok(FORMAT_MAJOR) => Ok(()),
         Ok(other) => Err(CatalogError::new(
             CatalogErrorKind::Format,
             None,
-            format!("format version {other} is not supported; this reader implements version {FORMAT_MAJOR}"),
+            format!(
+                "format version {other} is not supported; this reader implements version {FORMAT_MAJOR}"
+            ),
         )),
         Err(_) => Err(unsupported(None)),
     }
 }
 
-fn required_array<'a>(text: &'a str, members: &RawObject<'a>, key: &str) -> Result<Vec<&'a RawValue>, CatalogError> {
+fn required_array<'a>(
+    text: &'a str,
+    members: &RawObject<'a>,
+    key: &str,
+) -> Result<Vec<&'a RawValue>, CatalogError> {
     let Some(raw) = members.get(key) else {
         return Err(CatalogError::new(
             CatalogErrorKind::Structure,
@@ -670,7 +797,11 @@ fn required_array<'a>(text: &'a str, members: &RawObject<'a>, key: &str) -> Resu
         ));
     };
     json::parse_array(text, raw).map_err(|error| {
-        CatalogError::new(CatalogErrorKind::Structure, error.line(), format!("member `{key}` must be an array"))
+        CatalogError::new(
+            CatalogErrorKind::Structure,
+            error.line(),
+            format!("member `{key}` must be an array"),
+        )
     })
 }
 
@@ -692,7 +823,10 @@ fn read_includes(fields: &mut Fields<'_>) -> Vec<String> {
         if let Err(error) = check_relpath(part) {
             fields.fault(item_path, error.to_string());
         } else if part == INDEX_FILE || includes.contains(part) {
-            fields.fault(item_path, format!("`{part}` is the index or is listed twice; list each part once"));
+            fields.fault(
+                item_path,
+                format!("`{part}` is the index or is listed twice; list each part once"),
+            );
         } else {
             includes.push(part.clone());
         }
@@ -718,7 +852,9 @@ fn read_synonyms(fields: &mut Fields<'_>) -> Vec<Vec<String>> {
         let texts: Vec<String> = words
             .iter()
             .enumerate()
-            .filter_map(|(word, value)| fields.text_value(value, format!("{group_path}[{word}]"), len(1, 60)))
+            .filter_map(|(word, value)| {
+                fields.text_value(value, format!("{group_path}[{word}]"), len(1, 60))
+            })
             .collect();
         if texts.len() == words.len() {
             out.push(texts);
@@ -729,7 +865,11 @@ fn read_synonyms(fields: &mut Fields<'_>) -> Vec<Vec<String>> {
 
 /// Findings about members of the index header, each with the line of the
 /// member it concerns.
-fn split_by_member(text: &str, members: &RawObject<'_>, findings: Findings) -> Vec<(Option<u64>, Findings)> {
+fn split_by_member(
+    text: &str,
+    members: &RawObject<'_>,
+    findings: Findings,
+) -> Vec<(Option<u64>, Findings)> {
     let line_of = |field: &str| {
         let member = field.split(['.', '[']).next().unwrap_or(field);
         members
@@ -738,13 +878,28 @@ fn split_by_member(text: &str, members: &RawObject<'_>, findings: Findings) -> V
     };
     let mut grouped: BTreeMap<String, (Option<u64>, Findings)> = BTreeMap::new();
     for fault in findings.faults {
-        grouped.entry(fault.field.clone()).or_insert_with(|| (line_of(&fault.field), Findings::default())).1.faults.push(fault);
+        grouped
+            .entry(fault.field.clone())
+            .or_insert_with(|| (line_of(&fault.field), Findings::default()))
+            .1
+            .faults
+            .push(fault);
     }
     for fault in findings.unknown {
-        grouped.entry(fault.field.clone()).or_insert_with(|| (line_of(&fault.field), Findings::default())).1.unknown.push(fault);
+        grouped
+            .entry(fault.field.clone())
+            .or_insert_with(|| (line_of(&fault.field), Findings::default()))
+            .1
+            .unknown
+            .push(fault);
     }
     for field in findings.cleaned {
-        grouped.entry(field.clone()).or_insert_with(|| (line_of(&field), Findings::default())).1.cleaned.push(field);
+        grouped
+            .entry(field.clone())
+            .or_insert_with(|| (line_of(&field), Findings::default()))
+            .1
+            .cleaned
+            .push(field);
     }
     grouped.into_values().collect()
 }
@@ -752,5 +907,7 @@ fn split_by_member(text: &str, members: &RawObject<'_>, findings: Findings) -> V
 /// Name of the guide at `path`: the file name without `.md`.
 pub(crate) fn guide_name(path: &str) -> String {
     let file = path.rsplit('/').next().unwrap_or(path);
-    file.strip_suffix(GUIDE_EXTENSION).unwrap_or(file).to_owned()
+    file.strip_suffix(GUIDE_EXTENSION)
+        .unwrap_or(file)
+        .to_owned()
 }

@@ -106,11 +106,6 @@ impl<'m> Fields<'m> {
         self.map.contains_key(key)
     }
 
-    /// Returns `true` when no violation was recorded so far.
-    pub(crate) fn is_clean(&self) -> bool {
-        self.faults.is_empty()
-    }
-
     /// Value of a member, marking it as defined by the format.
     pub(crate) fn get(&mut self, key: &'static str) -> Option<&'m Value> {
         self.used.insert(key);
@@ -144,7 +139,11 @@ impl<'m> Fields<'m> {
     }
 
     /// Required text member that must match `pattern`.
-    pub(crate) fn required_pattern(&mut self, key: &'static str, pattern: Pattern) -> Option<String> {
+    pub(crate) fn required_pattern(
+        &mut self,
+        key: &'static str,
+        pattern: Pattern,
+    ) -> Option<String> {
         if self.map.contains_key(key) {
             self.pattern(key, pattern)
         } else {
@@ -185,13 +184,20 @@ impl<'m> Fields<'m> {
 
     /// Optional array member of at most `max_items` items, with the path of
     /// the member.
-    pub(crate) fn array(&mut self, key: &'static str, max_items: usize) -> Option<(&'m [Value], String)> {
+    pub(crate) fn array(
+        &mut self,
+        key: &'static str,
+        max_items: usize,
+    ) -> Option<(&'m [Value], String)> {
         let value = self.get(key)?;
         let path = self.path(key);
         match value {
             Value::Array(items) if items.len() <= max_items => Some((items.as_slice(), path)),
             Value::Array(_) => {
-                self.fault(path, format!("has more than {max_items} items; remove some"));
+                self.fault(
+                    path,
+                    format!("has more than {max_items} items; remove some"),
+                );
                 None
             }
             _ => {
@@ -202,7 +208,12 @@ impl<'m> Fields<'m> {
     }
 
     /// Optional array of texts.
-    pub(crate) fn text_list(&mut self, key: &'static str, max_items: usize, limit: Len) -> Vec<String> {
+    pub(crate) fn text_list(
+        &mut self,
+        key: &'static str,
+        max_items: usize,
+        limit: Len,
+    ) -> Vec<String> {
         let Some((items, path)) = self.array(key, max_items) else {
             return Vec::new();
         };
@@ -241,11 +252,11 @@ impl<'m> Fields<'m> {
 
     /// Optional extension member `x`, which must be an object.
     pub(crate) fn extension(&mut self) {
-        if let Some(value) = self.get("x") {
-            if !value.is_object() {
-                let path = self.path("x");
-                self.fault(path, "must be an object");
-            }
+        if let Some(value) = self.get("x")
+            && !value.is_object()
+        {
+            let path = self.path("x");
+            self.fault(path, "must be an object");
         }
     }
 
@@ -262,7 +273,10 @@ impl<'m> Fields<'m> {
             return None;
         }
         if count > limit.max {
-            self.fault(path, format!("is longer than {} characters; shorten it", limit.max));
+            self.fault(
+                path,
+                format!("is longer than {} characters; shorten it", limit.max),
+            );
             return None;
         }
         if removed {
@@ -272,7 +286,12 @@ impl<'m> Fields<'m> {
     }
 
     /// Text of `value` at `path` that must match `pattern`.
-    pub(crate) fn pattern_value(&mut self, value: &Value, path: String, pattern: Pattern) -> Option<String> {
+    pub(crate) fn pattern_value(
+        &mut self,
+        value: &Value,
+        path: String,
+        pattern: Pattern,
+    ) -> Option<String> {
         let Value::String(text) = value else {
             self.fault(path, "must be text");
             return None;

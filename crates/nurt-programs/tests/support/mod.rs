@@ -17,10 +17,11 @@ use std::time::Duration;
 
 use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::services::{ProcessHost, ProgramOutcome, ProgramSpec, ServiceChild, ServiceSpawnSpec};
+use nurt_contracts::services::{
+    ProcessHost, ProgramOutcome, ProgramSpec, ServiceChild, ServiceSpawnSpec, Services,
+};
 use nurt_contracts::stage::{
-    ArgValue, BoundArgs, CancelReason, CancelToken, Event, EventSink, ExecCtx, StageImpl,
-    StageInput,
+    ArgValue, BoundArgs, CancelReason, CancelToken, Event, EventSink, ExecCtx, StageInput,
 };
 use nurt_contracts::value::{Record, Value};
 use nurt_programs::index::{IndexCache, IndexOptions};
@@ -32,17 +33,19 @@ use nurt_programs::source::{
 use nurt_programs::stages::{ProgramsSetup, stages_with};
 
 /// Wall time of the test clock: 2026-11-01T00:00:00Z.
-pub const EPOCH_NANOS: i128 = 1_793_491_200_000_000_000;
+pub(crate) const EPOCH_NANOS: i128 = 1_793_491_200_000_000_000;
 
 /// Clock with a fixed wall time and a real monotonic reading.
 #[derive(Debug)]
-pub struct TestClock {
+pub(crate) struct TestClock {
     start: std::time::Instant,
 }
 
 impl TestClock {
-    pub fn new() -> Self {
-        Self { start: std::time::Instant::now() }
+    pub(crate) fn new() -> Self {
+        Self {
+            start: std::time::Instant::now(),
+        }
     }
 }
 
@@ -64,7 +67,11 @@ impl Clock for TestClock {
         }
     }
 
-    fn sleep(&self, duration: Duration, cancel: &CancelToken) -> std::result::Result<(), CancelReason> {
+    fn sleep(
+        &self,
+        duration: Duration,
+        cancel: &CancelToken,
+    ) -> std::result::Result<(), CancelReason> {
         match cancel.wait_timeout(duration) {
             Some(reason) => Err(reason),
             None => Ok(()),
@@ -74,12 +81,12 @@ impl Clock for TestClock {
 
 /// Host with a fixed description and no variables.
 #[derive(Debug)]
-pub struct TestHost {
+pub(crate) struct TestHost {
     info: HostInfo,
 }
 
 impl TestHost {
-    pub fn new(temp: &Path) -> Self {
+    pub(crate) fn new(temp: &Path) -> Self {
         Self {
             info: HostInfo {
                 os: Os::Linux,
@@ -114,10 +121,10 @@ impl Host for TestHost {
 
 /// Process host that records calls and answers with a fixed output.
 #[derive(Debug, Default)]
-pub struct TestProcess {
-    pub calls: Mutex<Vec<Vec<String>>>,
-    pub stdout: Vec<u8>,
-    pub timed_out: bool,
+pub(crate) struct TestProcess {
+    pub(crate) calls: Mutex<Vec<Vec<String>>>,
+    pub(crate) stdout: Vec<u8>,
+    pub(crate) timed_out: bool,
 }
 
 impl ProcessHost for TestProcess {
@@ -145,7 +152,7 @@ impl ProcessHost for TestProcess {
 
 /// Event sink that keeps the messages of log events.
 #[derive(Debug, Default)]
-pub struct Logs(pub Mutex<Vec<String>>);
+pub(crate) struct Logs(pub(crate) Mutex<Vec<String>>);
 
 impl EventSink for Logs {
     fn emit(&self, event: Event) {
@@ -156,43 +163,48 @@ impl EventSink for Logs {
 }
 
 /// Context of one test: clock, host, process host and logs.
-pub struct Fixture {
-    pub root: tempfile::TempDir,
-    pub process: Arc<TestProcess>,
-    pub logs: Arc<Logs>,
+pub(crate) struct Fixture {
+    pub(crate) root: tempfile::TempDir,
+    pub(crate) process: Arc<TestProcess>,
+    pub(crate) logs: Arc<Logs>,
 }
 
 impl Fixture {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             root: tempfile::tempdir().unwrap(),
-            process: Arc::new(TestProcess { stdout: b"usage: tool [options]\n".to_vec(), ..TestProcess::default() }),
+            process: Arc::new(TestProcess {
+                stdout: b"usage: tool [options]\n".to_vec(),
+                ..TestProcess::default()
+            }),
             logs: Arc::new(Logs::default()),
         }
     }
 
-    pub fn path(&self) -> &Path {
+    pub(crate) fn path(&self) -> &Path {
         self.root.path()
     }
 
-    pub fn env(&self) -> HostEnv {
+    pub(crate) fn env(&self) -> HostEnv {
         HostEnv::new(Os::Linux)
             .with_root(self.path())
             .with_var("PATH", "/usr/local/bin:/usr/bin:/bin")
             .with_home("/home/user")
     }
 
-    pub fn ctx(&self) -> ExecCtx {
+    pub(crate) fn ctx(&self) -> ExecCtx {
         let temp = self.path().join("tmp");
         std::fs::create_dir_all(&temp).unwrap();
         ExecCtx::builder(Arc::new(TestClock::new()), Arc::new(TestHost::new(&temp)))
-            .process(self.process.clone())
+            .services(Arc::new(
+                Services::new().with_process_host(self.process.clone()),
+            ))
             .events(self.logs.clone())
             .build()
     }
 
     /// Writes a file below the root, creating directories.
-    pub fn write(&self, host_path: &str, bytes: &[u8]) -> PathBuf {
+    pub(crate) fn write(&self, host_path: &str, bytes: &[u8]) -> PathBuf {
         let file = self.path().join(host_path.trim_start_matches('/'));
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
         std::fs::write(&file, bytes).unwrap();
@@ -200,7 +212,7 @@ impl Fixture {
     }
 
     /// Writes an executable file below the root.
-    pub fn executable(&self, host_path: &str) -> PathBuf {
+    pub(crate) fn executable(&self, host_path: &str) -> PathBuf {
         let file = self.write(host_path, b"#!/bin/sh\necho help\n");
         #[cfg(unix)]
         {
@@ -212,7 +224,7 @@ impl Fixture {
 
     /// Creates a symbolic link below the root.
     #[cfg(unix)]
-    pub fn symlink(&self, target: &str, host_path: &str) {
+    pub(crate) fn symlink(&self, target: &str, host_path: &str) {
         let link = self.path().join(host_path.trim_start_matches('/'));
         std::fs::create_dir_all(link.parent().unwrap()).unwrap();
         std::os::unix::fs::symlink(target, link).unwrap();
@@ -220,15 +232,15 @@ impl Fixture {
 
     /// Setup with the built-in providers plus `extra`, a private cache and
     /// the fixture environment.
-    pub fn setup(&self, extra: Vec<Arc<dyn ProgramSource>>) -> ProgramsSetup {
-        let mut registry = nurt_programs::sources::builtin(&Default::default());
+    pub(crate) fn setup(&self, extra: Vec<Arc<dyn ProgramSource>>) -> ProgramsSetup {
+        let mut registry = nurt_programs::sources::builtin(&self.env(), &Default::default());
         for source in extra {
             registry.add(source);
         }
         self.setup_with(registry)
     }
 
-    pub fn setup_with(&self, registry: SourceRegistry) -> ProgramsSetup {
+    pub(crate) fn setup_with(&self, registry: SourceRegistry) -> ProgramsSetup {
         ProgramsSetup {
             registry: Some(registry),
             env: Some(self.env()),
@@ -238,18 +250,21 @@ impl Fixture {
         }
     }
 
-    pub fn logs(&self) -> Vec<String> {
+    pub(crate) fn logs(&self) -> Vec<String> {
         self.logs.0.lock().unwrap().clone()
     }
 }
 
 /// Runs one command of the group and collects its records.
-pub fn run(setup: &ProgramsSetup, ctx: &ExecCtx, args: BoundArgs) -> Result<Vec<Record>> {
+pub(crate) fn run(setup: &ProgramsSetup, ctx: &ExecCtx, args: BoundArgs) -> Result<Vec<Record>> {
     let stage = stages_with(setup.clone())
         .into_iter()
         .find(|stage| stage.descriptor().command == args.command())
         .unwrap();
-    let output = stage.as_read().unwrap().execute(&args, StageInput::none(), ctx)?;
+    let output = stage
+        .as_read()
+        .unwrap()
+        .execute(&args, StageInput::none(), ctx)?;
     match output.data {
         nurt_contracts::stage::StageData::Records(stream) => stream.collect(),
         _ => Ok(Vec::new()),
@@ -257,7 +272,7 @@ pub fn run(setup: &ProgramsSetup, ctx: &ExecCtx, args: BoundArgs) -> Result<Vec<
 }
 
 /// Arguments of a command from `(name, value)` pairs.
-pub fn args(command: &str, values: &[(&str, Value)]) -> BoundArgs {
+pub(crate) fn args(command: &str, values: &[(&str, Value)]) -> BoundArgs {
     let mut args = BoundArgs::new(command);
     for (name, value) in values {
         args.insert(*name, ArgValue::Value(value.clone()), false);
@@ -265,16 +280,16 @@ pub fn args(command: &str, values: &[(&str, Value)]) -> BoundArgs {
     args
 }
 
-pub fn text(value: &str) -> Value {
+pub(crate) fn text(value: &str) -> Value {
     Value::Text(value.to_owned())
 }
 
-pub fn texts(values: &[&str]) -> Value {
+pub(crate) fn texts(values: &[&str]) -> Value {
     Value::List(values.iter().map(|value| text(value)).collect())
 }
 
 /// Text of a record field.
-pub fn field(record: &Record, name: &str) -> Option<String> {
+pub(crate) fn field(record: &Record, name: &str) -> Option<String> {
     match record.get(name)? {
         Value::Text(text) | Value::Enum(text) | Value::Path(text) => Some(text.clone()),
         Value::Bool(flag) => Some(flag.to_string()),
@@ -294,22 +309,25 @@ pub fn field(record: &Record, name: &str) -> Option<String> {
     }
 }
 
-pub fn names(records: &[Record]) -> Vec<String> {
-    records.iter().filter_map(|record| field(record, "name")).collect()
+pub(crate) fn names(records: &[Record]) -> Vec<String> {
+    records
+        .iter()
+        .filter_map(|record| field(record, "name"))
+        .collect()
 }
 
 /// Provider that returns fixed data, for catalogs and failure cases.
-pub struct StaticSource {
-    pub id: SourceId,
-    pub kind: SourceKind,
-    pub priority: i32,
-    pub data: std::result::Result<SourceData, SourceErrorKind>,
-    pub guides: HashMap<String, GuideBody>,
-    pub loads: AtomicUsize,
+pub(crate) struct StaticSource {
+    pub(crate) id: SourceId,
+    pub(crate) kind: SourceKind,
+    pub(crate) priority: i32,
+    pub(crate) data: std::result::Result<SourceData, SourceErrorKind>,
+    pub(crate) guides: HashMap<String, GuideBody>,
+    pub(crate) loads: AtomicUsize,
 }
 
 impl StaticSource {
-    pub fn catalog(id: &str, data: SourceData) -> Self {
+    pub(crate) fn catalog(id: &str, data: SourceData) -> Self {
         Self {
             id: SourceId::catalog(id),
             kind: SourceKind::Catalog,
@@ -320,7 +338,7 @@ impl StaticSource {
         }
     }
 
-    pub fn failing(id: &str) -> Self {
+    pub(crate) fn failing(id: &str) -> Self {
         Self {
             id: SourceId::new(id),
             kind: SourceKind::Package,
@@ -350,38 +368,52 @@ impl ProgramSource for StaticSource {
     }
 
     fn fingerprint(&self, env: &HostEnv) -> std::result::Result<Fingerprint, SourceError> {
-        Ok(FingerprintBuilder::new(env).text("static", self.id.as_str()).finish())
+        Ok(FingerprintBuilder::new(env)
+            .text("static", self.id.as_str())
+            .finish())
     }
 
-    fn load(&self, _env: &HostEnv, _deadline: &Deadline<'_>) -> std::result::Result<SourceData, SourceError> {
+    fn load(
+        &self,
+        _env: &HostEnv,
+        _deadline: &Deadline<'_>,
+    ) -> std::result::Result<SourceData, SourceError> {
         self.loads.fetch_add(1, Ordering::SeqCst);
-        self.data
-            .clone()
-            .map_err(|kind| SourceError::new(&self.id, kind, "damaged test data").at("/var/lib/test/db"))
+        self.data.clone().map_err(|kind| {
+            SourceError::new(&self.id, kind, "damaged test data").at("/var/lib/test/db")
+        })
     }
 
-    fn detail(&self, _env: &HostEnv, key: &EntryKey, want: &DetailWant) -> std::result::Result<Option<Detail>, SourceError> {
+    fn detail(
+        &self,
+        _env: &HostEnv,
+        key: &EntryKey,
+        want: &DetailWant,
+    ) -> std::result::Result<Option<Detail>, SourceError> {
         if !want.guide {
             return Ok(None);
         }
-        Ok(self.guides.get(&key.key).map(|guide| Detail { guide: Some(guide.clone()), ..Detail::default() }))
+        Ok(self.guides.get(&key.key).map(|guide| Detail {
+            guide: Some(guide.clone()),
+            ..Detail::default()
+        }))
     }
 }
 
 /// Builder of stored RPM headers.
 #[derive(Default)]
-pub struct HeaderBuilder {
+pub(crate) struct HeaderBuilder {
     entries: Vec<(u32, u32, u32, u32)>,
     data: Vec<u8>,
 }
 
 impl HeaderBuilder {
-    pub const STRING: u32 = 6;
-    pub const STRING_ARRAY: u32 = 8;
-    pub const I18N_STRING: u32 = 9;
-    pub const INT32: u32 = 4;
+    pub(crate) const STRING: u32 = 6;
+    pub(crate) const STRING_ARRAY: u32 = 8;
+    pub(crate) const I18N_STRING: u32 = 9;
+    pub(crate) const INT32: u32 = 4;
 
-    pub fn strings(mut self, tag: u32, kind: u32, values: &[&str]) -> Self {
+    pub(crate) fn strings(mut self, tag: u32, kind: u32, values: &[&str]) -> Self {
         let offset = self.data.len() as u32;
         for value in values {
             self.data.extend(value.as_bytes());
@@ -391,19 +423,20 @@ impl HeaderBuilder {
         self
     }
 
-    pub fn int32(mut self, tag: u32, values: &[u32]) -> Self {
-        while self.data.len() % 4 != 0 {
+    pub(crate) fn int32(mut self, tag: u32, values: &[u32]) -> Self {
+        while !self.data.len().is_multiple_of(4) {
             self.data.push(0);
         }
         let offset = self.data.len() as u32;
         for value in values {
             self.data.extend(value.to_be_bytes());
         }
-        self.entries.push((tag, Self::INT32, offset, values.len() as u32));
+        self.entries
+            .push((tag, Self::INT32, offset, values.len() as u32));
         self
     }
 
-    pub fn build(self) -> Vec<u8> {
+    pub(crate) fn build(self) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend((self.entries.len() as u32).to_be_bytes());
         out.extend((self.data.len() as u32).to_be_bytes());

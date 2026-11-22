@@ -7,7 +7,8 @@
 //! provider is cached in `<index dir>/<id>.cbor` together with its
 //! fingerprint and reused while the fingerprint is unchanged; the file is
 //! written atomically (temporary file and rename) and readable only by the
-//! owner. Without an index directory the index lives in memory only.
+//! account that wrote it. Without an index directory the index lives in
+//! memory only.
 //!
 //! Entries are merged by name ([`HostEnv::name_key`]): programs in `PATH`
 //! first, then package databases, applications, manual pages and external
@@ -90,6 +91,8 @@ pub struct Card {
     pub source: Option<SourceKind>,
     /// Package.
     pub package: Option<PackageRef>,
+    /// Package name named without a package manager.
+    pub package_name: Option<String>,
     /// Description of the package.
     pub package_description: Option<LocalizedText>,
     /// Application id.
@@ -266,10 +269,15 @@ impl IndexOptions {
 #[must_use]
 pub fn default_cache_dir(env: &HostEnv) -> Option<PathBuf> {
     match env.os() {
-        Os::Windows => env
-            .var_text("LOCALAPPDATA")
-            .map(|dir| PathBuf::from(dir).join("Nurt").join("cache").join("programs")),
-        Os::Macos => env.home().map(|home| home.join("Library/Caches/Nurt/programs")),
+        Os::Windows => env.var_text("LOCALAPPDATA").map(|dir| {
+            PathBuf::from(dir)
+                .join("Nurt")
+                .join("cache")
+                .join("programs")
+        }),
+        Os::Macos => env
+            .home()
+            .map(|home| home.join("Library/Caches/Nurt/programs")),
         _ => env
             .var_text("XDG_CACHE_HOME")
             .map(PathBuf::from)
@@ -312,14 +320,22 @@ pub fn load_source(
     if let (Some(file), Some(fingerprint)) = (&cache_file, &fingerprint)
         && let Some(data) = read_cache(file, fingerprint)
     {
-        return Loaded { id, data, fingerprint: Some(fingerprint.clone()) };
+        return Loaded {
+            id,
+            data,
+            fingerprint: Some(fingerprint.clone()),
+        };
     }
     match source.load(env, deadline) {
         Ok(data) => {
             if let (Some(file), Some(fingerprint)) = (&cache_file, &fingerprint) {
                 write_cache(file, fingerprint, &data);
             }
-            Loaded { id, data, fingerprint }
+            Loaded {
+                id,
+                data,
+                fingerprint,
+            }
         }
         Err(error) => Loaded {
             id,
@@ -339,7 +355,13 @@ pub fn cache_path(dir: &Path, id: &SourceId) -> PathBuf {
     let name: String = id
         .as_str()
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '-') { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '.' | '-') {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     dir.join(format!("{name}.{CACHE_SUFFIX}"))
 }
@@ -380,12 +402,12 @@ fn write_cache(file: &Path, fingerprint: &Fingerprint, data: &SourceData) {
 fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
-    const OWNER_ONLY: u32 = 0o600;
+    const USER_READ_WRITE: u32 = 0o600;
     let mut file = std::fs::OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(true)
-        .mode(OWNER_ONLY)
+        .mode(USER_READ_WRITE)
         .open(path)?;
     file.write_all(bytes)
 }
@@ -411,7 +433,12 @@ impl ProgramIndex {
     /// their data. Providers that fail or exceed the budget contribute a
     /// warning instead of data.
     #[must_use]
-    pub fn load(registry: &SourceRegistry, env: &HostEnv, options: &IndexOptions, clock: &dyn Clock) -> Self {
+    pub fn load(
+        registry: &SourceRegistry,
+        env: &HostEnv,
+        options: &IndexOptions,
+        clock: &dyn Clock,
+    ) -> Self {
         let deadline = Deadline::after(clock, options.budget);
         let sources: Vec<Arc<dyn ProgramSource>> = registry
             .sources()
@@ -439,7 +466,12 @@ impl ProgramIndex {
             .collect();
         order.sort_by_key(|(position, item)| {
             let source = &sources[*position];
-            (kind_rank(source.kind()), -i64::from(source.priority()), *position, item.id.clone())
+            (
+                kind_rank(source.kind()),
+                -i64::from(source.priority()),
+                *position,
+                item.id.clone(),
+            )
         });
         for (rank, (position, item)) in order.iter().enumerate() {
             let source = &sources[*position];
@@ -468,12 +500,16 @@ impl ProgramIndex {
         if let Some(index) = self.by_key.get(&key) {
             return Some((*index, None));
         }
-        self.aliases.get(&key).map(|(index, kind)| (*index, Some(*kind)))
+        self.aliases
+            .get(&key)
+            .map(|(index, kind)| (*index, Some(*kind)))
     }
 
     /// Alias names with the position of their card.
     pub fn alias_names(&self) -> impl Iterator<Item = (&str, usize)> {
-        self.aliases.iter().map(|(name, (index, _))| (name.as_str(), *index))
+        self.aliases
+            .iter()
+            .map(|(name, (index, _))| (name.as_str(), *index))
     }
 
     /// Standalone guides.
@@ -595,7 +631,10 @@ impl<'a> Builder<'a> {
             self.files.insert(file.clone(), package.clone());
         }
         for package in &data.packages {
-            let reference = PackageRef { manager: id.clone(), name: package.name.clone() };
+            let reference = PackageRef {
+                manager: id.clone(),
+                name: package.name.clone(),
+            };
             self.packages.insert(reference, package.clone());
         }
         self.synonyms.extend(data.synonyms.iter().cloned());
@@ -628,10 +667,19 @@ impl<'a> Builder<'a> {
             });
             let top = parent.clone().unwrap_or_else(|| target.clone());
             let sub = parent.is_some().then(|| target.clone());
-            self.catalog_parents.insert((id.clone(), raw.id.clone()), (top, sub));
+            self.catalog_parents
+                .insert((id.clone(), raw.id.clone()), (top, sub));
             let order = self.categories.len();
-            if let Some(existing) = self.categories.iter_mut().find(|category| category.id == target) {
-                if existing.sources.iter().all(|source| source == TAXONOMY_SOURCE) {
+            if let Some(existing) = self
+                .categories
+                .iter_mut()
+                .find(|category| category.id == target)
+            {
+                if existing
+                    .sources
+                    .iter()
+                    .all(|source| source == TAXONOMY_SOURCE)
+                {
                     existing.title = raw.title.clone();
                     existing.summary.clone_from(&raw.summary);
                     existing.description.clone_from(&raw.description);
@@ -648,7 +696,9 @@ impl<'a> Builder<'a> {
                 parent,
                 aliases: raw.aliases.clone(),
                 sources: vec![id.to_string()],
-                order: raw.order.map_or(order, |order| usize::try_from(order).unwrap_or(order as usize)),
+                order: raw.order.map_or(order, |order| {
+                    usize::try_from(order).unwrap_or(order as usize)
+                }),
             });
         }
     }
@@ -658,16 +708,25 @@ impl<'a> Builder<'a> {
             self.linked_guides.insert(guide.name.clone());
         }
         if let (Some(target), Some(alias_kind)) = (&raw.alias_of, raw.alias_kind) {
-            self.pending_aliases.push((raw.name.clone(), target.clone(), alias_kind));
+            self.pending_aliases
+                .push((raw.name.clone(), target.clone(), alias_kind));
             return;
         }
-        let existing = self.find(&raw.name).or_else(|| {
-            raw.aliases.iter().find_map(|alias| self.find(&alias.name))
-        });
+        let executable = raw
+            .executable
+            .as_deref()
+            .filter(|_| kind == SourceKind::App)
+            .and_then(|name| self.find(name));
+        let existing = self
+            .find(&raw.name)
+            .or(executable)
+            .or_else(|| raw.aliases.iter().find_map(|alias| self.find(&alias.name)));
         let index = match (existing, kind) {
             (Some(index), _) => index,
             (None, SourceKind::Description) => return,
-            (None, SourceKind::App) if raw.path.is_none() || !self.in_path(raw) => self.new_app_card(raw, rank),
+            (None, SourceKind::App) if raw.path.is_none() || !self.in_path(raw) => {
+                self.new_app_card(raw, rank)
+            }
             (None, _) => self.new_card(&raw.name, raw.kind, rank),
         };
         let parents = &self.catalog_parents;
@@ -711,12 +770,17 @@ impl<'a> Builder<'a> {
     }
 
     fn new_app_card(&mut self, raw: &RawProgram, rank: usize) -> usize {
-        let display = raw.app_name.as_ref().map_or_else(|| raw.name.clone(), |name| name.text.clone());
+        let display = raw
+            .app_name
+            .as_ref()
+            .map_or_else(|| raw.name.clone(), |name| name.text.clone());
         let index = self.new_card(&display, EntryKind::App, rank);
         if display != raw.name {
             let key = self.env.name_key(&raw.name);
             self.aliases.entry(key).or_insert((index, AliasKind::Alias));
-            self.cards[index].aliases.push(RawAlias::new(raw.name.clone(), AliasKind::Alias));
+            self.cards[index]
+                .aliases
+                .push(RawAlias::new(raw.name.clone(), AliasKind::Alias));
         }
         index
     }
@@ -774,8 +838,12 @@ impl<'a> Builder<'a> {
             *executables.entry(reference.clone()).or_default() += 1;
         }
         for index in 0..self.cards.len() {
-            let Some(reference) = self.package_of(index) else { continue };
-            let Some(package) = self.packages.get(&reference).cloned() else { continue };
+            let Some(reference) = self.package_of(index) else {
+                continue;
+            };
+            let Some(package) = self.packages.get(&reference).cloned() else {
+                continue;
+            };
             let single = executables.get(&reference).copied().unwrap_or_default() <= 1;
             let card = &mut self.cards[index];
             let own_name = card.name == package.name;
@@ -788,6 +856,15 @@ impl<'a> Builder<'a> {
         if let Some(package) = &card.package {
             return Some(package.clone());
         }
+        if let Some(name) = &card.package_name
+            && let Some(found) = self
+                .packages
+                .keys()
+                .filter(|known| known.name == *name)
+                .min()
+        {
+            return Some(found.clone());
+        }
         let path = card.path.as_ref()?;
         if let Some(found) = self.files.get(path) {
             return Some(found.clone());
@@ -797,7 +874,9 @@ impl<'a> Builder<'a> {
             return Some(found.clone());
         }
         let resolved = crate::sources::resolve_links(self.env, Path::new(path))?;
-        self.files.get(&resolved.to_string_lossy().into_owned()).cloned()
+        self.files
+            .get(&resolved.to_string_lossy().into_owned())
+            .cloned()
     }
 }
 
@@ -816,11 +895,12 @@ fn apply_package(card: &mut Card, reference: &PackageRef, package: &RawPackage, 
         card.license.clone_from(&package.license);
     }
     if card.package_description.is_none() {
-        card.package_description = package.description.clone().or_else(|| package.summary.clone());
+        card.package_description = package
+            .description
+            .clone()
+            .or_else(|| package.summary.clone());
     }
-    if summary
-        && let Some(text) = &package.summary
-    {
+    if summary && let Some(text) = &package.summary {
         card.summaries.push((SummaryRank::Package, text.clone()));
     }
     if let Some(section) = &package.section {
@@ -831,10 +911,21 @@ fn apply_package(card: &mut Card, reference: &PackageRef, package: &RawPackage, 
         };
         card.hints.push(CategoryHint::new(scheme, section.clone()));
     }
-    card.hints.extend(package.groups.iter().map(|group| CategoryHint::new(CategoryScheme::PacmanGroup, group.clone())));
+    card.hints.extend(
+        package
+            .groups
+            .iter()
+            .map(|group| CategoryHint::new(CategoryScheme::PacmanGroup, group.clone())),
+    );
 }
 
-fn merge(card: &mut Card, kind: SourceKind, id: &SourceId, raw: &RawProgram, category: Option<(String, Option<String>)>) {
+fn merge(
+    card: &mut Card,
+    kind: SourceKind,
+    id: &SourceId,
+    raw: &RawProgram,
+    category: Option<(String, Option<String>)>,
+) {
     if !card.sources.contains(id) {
         card.sources.push(id.clone());
     }
@@ -854,6 +945,7 @@ fn merge(card: &mut Card, kind: SourceKind, id: &SourceId, raw: &RawProgram, cat
         card.hints.extend(raw.category_hints.iter().cloned());
     }
     fill(&mut card.package, &raw.package);
+    fill(&mut card.package_name, &raw.package_name);
     fill(&mut card.app_id, &raw.app_id);
     fill(&mut card.app_name, &raw.app_name);
     fill(&mut card.homepage, &raw.homepage);
@@ -874,7 +966,10 @@ fn merge(card: &mut Card, kind: SourceKind, id: &SourceId, raw: &RawProgram, cat
 fn merge_location(card: &mut Card, kind: SourceKind, raw: &RawProgram) {
     match kind {
         SourceKind::Catalog => {
-            fill(&mut card.catalog_path, &raw.path.clone().or_else(|| raw.catalog_path.clone()));
+            fill(
+                &mut card.catalog_path,
+                &raw.path.clone().or_else(|| raw.catalog_path.clone()),
+            );
             if !card.installed {
                 card.installed = raw.installed.unwrap_or(false);
             }
@@ -947,7 +1042,10 @@ fn finalize(card: &mut Card, taxonomy: &Taxonomy, titles: &HashMap<String, Strin
         card.category = classification.id;
         card.category_source = Some(classification.source);
     }
-    if card.kind == EntryKind::Program && !card.installed && card.source != Some(SourceKind::Catalog) {
+    if card.kind == EntryKind::Program
+        && !card.installed
+        && card.source != Some(SourceKind::Catalog)
+    {
         card.installed = card.path.is_some();
     }
     let when: Vec<String> = card.when_to_use.iter().map(fold_all).collect();
@@ -968,8 +1066,16 @@ fn finalize(card: &mut Card, taxonomy: &Taxonomy, titles: &HashMap<String, Strin
             .map(fold_all)
             .unwrap_or_default(),
         tags: fold(&tags.join(" ")),
-        package: card.package.as_ref().map(|package| fold(&package.name)).unwrap_or_default(),
-        package_description: card.package_description.as_ref().map(fold_all).unwrap_or_default(),
+        package: card
+            .package
+            .as_ref()
+            .map(|package| fold(&package.name))
+            .unwrap_or_default(),
+        package_description: card
+            .package_description
+            .as_ref()
+            .map(fold_all)
+            .unwrap_or_default(),
         aliases: card.aliases.iter().map(|alias| fold(&alias.name)).collect(),
     };
 }
@@ -1038,16 +1144,28 @@ impl IndexCache {
     /// Index for the registry and environment: the cached one when every
     /// fingerprint is unchanged and no provider was cut by the budget,
     /// otherwise a new one.
-    pub fn get(&self, registry: &SourceRegistry, env: &HostEnv, options: &IndexOptions, clock: &dyn Clock) -> Arc<ProgramIndex> {
+    pub fn get(
+        &self,
+        registry: &SourceRegistry,
+        env: &HostEnv,
+        options: &IndexOptions,
+        clock: &dyn Clock,
+    ) -> Arc<ProgramIndex> {
         let key = state_key(registry, env, options);
-        let mut slot = self.slot.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut slot = self
+            .slot
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some((cached, index)) = slot.as_ref()
             && *cached == key
         {
             return Arc::clone(index);
         }
         let index = Arc::new(ProgramIndex::load(registry, env, options, clock));
-        let complete = !index.warnings().iter().any(|warning| warning.code == WarningCode::IndexPartial);
+        let complete = !index
+            .warnings()
+            .iter()
+            .any(|warning| warning.code == WarningCode::IndexPartial);
         if complete {
             *slot = Some((key, Arc::clone(&index)));
         }

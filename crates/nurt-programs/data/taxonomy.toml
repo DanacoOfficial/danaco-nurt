@@ -11,7 +11,7 @@
 id = "audio"
 title = "Audio"
 summary = "Playback, recording, editing and conversion of sound."
-pl = { title = "Dźwięk", summary = "Odtwarzanie, nagrywanie, edycja i konwersja dźwięku." }
+pl = { title = "D\u017Awi\u0119k", summary = "Odtwarzanie, nagrywanie, edycja i konwersja d\u017Awi\u0119ku." }
 
 [[category]]
 id = "video"
@@ -23,7 +23,7 @@ pl = { title = "Wideo", summary = "Odtwarzanie, edycja, kodowanie i pakowanie wi
 id = "images"
 title = "Images and photos"
 summary = "Viewing, conversion and processing of raster images and photos."
-pl = { title = "Obrazy i zdjęcia", summary = "Przeglądanie, konwersja i obróbka obrazów rastrowych i zdjęć." }
+pl = { title = "Obrazy i zdj\u0119cia", summary = "Przegl\u0105danie, konwersja i obr\u00F3bka obraz\u00F3w rastrowych i zdj\u0119\u0107." }
 
 [[category]]
 id = "graphics"
@@ -41,7 +41,7 @@ pl = { title = "3D", summary = "Modelowanie, renderowanie i konwersja scen i sia
 id = "documents"
 title = "Documents and text"
 summary = "Text editors, typesetting, PDF and document conversion."
-pl = { title = "Dokumenty i tekst", summary = "Edytory tekstu, skład, PDF i konwersja dokumentów." }
+pl = { title = "Dokumenty i tekst", summary = "Edytory tekstu, sk\u0142ad, PDF i konwersja dokument\u00F3w." }
 
 [[category]]
 id = "office"
@@ -53,7 +53,7 @@ pl = { title = "Biuro", summary = "Arkusze, prezentacje, kalendarze i finanse." 
 id = "code"
 title = "Development"
 summary = "Compilers, interpreters, build tools, version control and editors for code."
-pl = { title = "Programowanie", summary = "Kompilatory, interpretery, narzędzia budowania, kontrola wersji i edytory kodu." }
+pl = { title = "Programowanie", summary = "Kompilatory, interpretery, narz\u0119dzia budowania, kontrola wersji i edytory kodu." }
 
 [[category]]
 id = "data"
@@ -65,37 +65,37 @@ pl = { title = "Bazy danych i dane", summary = "Serwery i klienty baz danych, fo
 id = "network"
 title = "Network"
 summary = "Network tools, transfer, mail and communication."
-pl = { title = "Sieć", summary = "Narzędzia sieciowe, przesyłanie plików, poczta i komunikacja." }
+pl = { title = "Sie\u0107", summary = "Narz\u0119dzia sieciowe, przesy\u0142anie plik\u00F3w, poczta i komunikacja." }
 
 [[category]]
 id = "web"
 title = "Web"
 summary = "Web browsers, web servers and web development."
-pl = { title = "WWW", summary = "Przeglądarki, serwery WWW i tworzenie stron." }
+pl = { title = "WWW", summary = "Przegl\u0105darki, serwery WWW i tworzenie stron." }
 
 [[category]]
 id = "security"
 title = "Security"
 summary = "Encryption, signatures, keys, scanners and auditing."
-pl = { title = "Bezpieczeństwo", summary = "Szyfrowanie, podpisy, klucze, skanery i audyt." }
+pl = { title = "Bezpiecze\u0144stwo", summary = "Szyfrowanie, podpisy, klucze, skanery i audyt." }
 
 [[category]]
 id = "system"
 title = "System and administration"
 summary = "Shells, file utilities, system administration and settings."
-pl = { title = "System i administracja", summary = "Powłoki, narzędzia plikowe, administracja i ustawienia systemu." }
+pl = { title = "System i administracja", summary = "Pow\u0142oki, narz\u0119dzia plikowe, administracja i ustawienia systemu." }
 
 [[category]]
 id = "diagnostics"
 title = "Monitoring and diagnostics"
 summary = "Processes, performance, tracing, hardware and logs."
-pl = { title = "Monitorowanie i diagnostyka", summary = "Procesy, wydajność, śledzenie, sprzęt i dzienniki." }
+pl = { title = "Monitorowanie i diagnostyka", summary = "Procesy, wydajno\u015B\u0107, \u015Bledzenie, sprz\u0119t i dzienniki." }
 
 [[category]]
 id = "devops"
 title = "Containers, deployment and cloud"
 summary = "Containers, orchestration, provisioning and cloud tools."
-pl = { title = "Kontenery, wdrożenia i chmura", summary = "Kontenery, orkiestracja, konfiguracja serwerów i narzędzia chmury." }
+pl = { title = "Kontenery, wdro\u017Cenia i chmura", summary = "Kontenery, orkiestracja, konfiguracja serwer\u00F3w i narz\u0119dzia chmury." }
 
 [[category]]
 id = "archives"
@@ -107,7 +107,7 @@ pl = { title = "Archiwa i kompresja", summary = "Archiwa, kompresja i sumy kontr
 id = "tests"
 title = "Testing"
 summary = "Test runners, fuzzing, benchmarks and load testing."
-pl = { title = "Testy", summary = "Uruchamianie testów, fuzzing, pomiary wydajności i testy obciążeniowe." }
+pl = { title = "Testy", summary = "Uruchamianie test\u00F3w, fuzzing, pomiary wydajno\u015Bci i testy obci\u0105\u017Ceniowe." }
 
 [[category]]
 id = "science"
@@ -137,16 +137,16 @@ pl = { title = "Uczenie maszynowe", summary = "Modele uczenia maszynowego, wnios
 id = "mobile"
 title = "Mobile development"
 summary = "Tools for Android and iOS devices and applications."
-pl = { title = "Aplikacje mobilne", summary = "Narzędzia urządzeń i aplikacji Android oraz iOS." }
+pl = { title = "Aplikacje mobilne", summary = "Narz\u0119dzia urz\u0105dze\u0144 i aplikacji Android oraz iOS." }
 
 [[category]]
 id = "desktop"
 title = "Desktop utilities"
 summary = "Desktop accessories and accessibility tools."
-pl = { title = "Narzędzia pulpitu", summary = "Akcesoria pulpitu i ułatwienia dostępu." }
+pl = { title = "Narz\u0119dzia pulpitu", summary = "Akcesoria pulpitu i u\u0142atwienia dost\u0119pu." }
 
 [[category]]
 id = "other"
 title = "Other"
 summary = "Programs without a more specific category."
-pl = { title = "Inne", summary = "Programy bez bardziej szczegółowej kategorii." }
+pl = { title = "Inne", summary = "Programy bez bardziej szczeg\u00F3\u0142owej kategorii." }

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Help text of a program, read on explicit request.
 //!
-//! `program.describe … help: true` is the only place where the command
+//! `program.describe ... help: true` is the only place where the command
 //! group starts a program. The program runs once through the
 //! [`ProcessHost`](nurt_contracts::services::ProcessHost) of the context
 //! with the argument list `[path, "--help"]` (`/?` for programs in the
@@ -40,7 +40,11 @@ pub const REFUSED_PROGRAMS: &[&str] = &[
 pub const REFUSED_PREFIXES: &[&str] = &["mkfs"];
 const ELF_MAGIC: &[u8] = b"\x7fELF";
 const SCRIPT_MAGIC: &[u8] = b"#!";
-const MACHO_MAGICS: &[[u8; 4]] = &[[0xcf, 0xfa, 0xed, 0xfe], [0xce, 0xfa, 0xed, 0xfe], [0xca, 0xfe, 0xba, 0xbe]];
+const MACHO_MAGICS: &[[u8; 4]] = &[
+    [0xcf, 0xfa, 0xed, 0xfe],
+    [0xce, 0xfa, 0xed, 0xfe],
+    [0xca, 0xfe, 0xba, 0xbe],
+];
 const WINDOWS_SYSTEM_DIR: &str = "\\windows\\system32\\";
 const WINDOWS_EXECUTABLES: &[&str] = &[".exe", ".com"];
 const TEMP_PREFIX: &str = "nurt-help-";
@@ -109,15 +113,23 @@ impl HelpResult {
 #[must_use]
 pub fn refusal(env: &HostEnv, path: &Path, patterns: &[String]) -> Option<String> {
     let file_name = path.file_name()?.to_str()?;
-    let name = env.command_name(file_name).unwrap_or_else(|| file_name.to_owned()).to_lowercase();
-    if REFUSED_PROGRAMS.contains(&name.as_str()) || REFUSED_PREFIXES.iter().any(|prefix| name.starts_with(prefix)) {
+    let name = env
+        .command_name(file_name)
+        .unwrap_or_else(|| file_name.to_owned())
+        .to_lowercase();
+    if REFUSED_PROGRAMS.contains(&name.as_str())
+        || REFUSED_PREFIXES
+            .iter()
+            .any(|prefix| name.starts_with(prefix))
+    {
         return Some(format!("{name} has effects outside the computer"));
     }
     let configured = patterns.iter().any(|pattern| {
-        pattern
-            .split_whitespace()
-            .next()
-            .is_some_and(|first| first.split('|').any(|item| item == "*" || item.eq_ignore_ascii_case(&name)))
+        pattern.split_whitespace().next().is_some_and(|first| {
+            first
+                .split('|')
+                .any(|item| item == "*" || item.eq_ignore_ascii_case(&name))
+        })
     });
     if configured {
         return Some(format!("{name} matches run.irreversible_patterns"));
@@ -129,7 +141,8 @@ pub fn refusal(env: &HostEnv, path: &Path, patterns: &[String]) -> Option<String
 }
 
 fn in_search_path(env: &HostEnv, path: &Path) -> bool {
-    path.parent().is_some_and(|dir| env.path_dirs().iter().any(|known| known == dir))
+    path.parent()
+        .is_some_and(|dir| env.path_dirs().iter().any(|known| known == dir))
 }
 
 /// Checks that the file is a native executable or a script with an
@@ -137,7 +150,10 @@ fn in_search_path(env: &HostEnv, path: &Path) -> bool {
 fn executable_format(env: &HostEnv, path: &Path) -> Result<(), String> {
     if env.os() == Os::Windows {
         let lower = path.to_string_lossy().to_lowercase();
-        return if WINDOWS_EXECUTABLES.iter().any(|extension| lower.ends_with(extension)) {
+        return if WINDOWS_EXECUTABLES
+            .iter()
+            .any(|extension| lower.ends_with(extension))
+        {
             Ok(())
         } else {
             Err("only .exe and .com programs are started for their help".to_owned())
@@ -148,7 +164,8 @@ fn executable_format(env: &HostEnv, path: &Path) -> Result<(), String> {
         .and_then(|mut file| std::io::Read::read(&mut file, &mut head))
         .map_err(|error| format!("cannot read the program file: {error}"))?;
     let head = &head[..read];
-    let native = head.starts_with(ELF_MAGIC) || MACHO_MAGICS.iter().any(|magic| head == magic.as_slice());
+    let native =
+        head.starts_with(ELF_MAGIC) || MACHO_MAGICS.iter().any(|magic| head == magic.as_slice());
     if native || head.starts_with(SCRIPT_MAGIC) {
         Ok(())
     } else {
@@ -161,7 +178,11 @@ fn executable_format(env: &HostEnv, path: &Path) -> Result<(), String> {
 pub fn help_command(env: &HostEnv, path: &Path) -> Vec<String> {
     let text = path.to_string_lossy().into_owned();
     let system = env.os() == Os::Windows && text.to_lowercase().contains(WINDOWS_SYSTEM_DIR);
-    let argument = if system { WINDOWS_HELP_ARGUMENT } else { HELP_ARGUMENT };
+    let argument = if system {
+        WINDOWS_HELP_ARGUMENT
+    } else {
+        HELP_ARGUMENT
+    };
     vec![text, argument.to_owned()]
 }
 
@@ -175,7 +196,10 @@ fn locale_vars(env: &HostEnv) -> Vec<EnvVar> {
     };
     ["LC_ALL", "LANG"]
         .into_iter()
-        .map(|name| EnvVar { name: name.to_owned(), value: Some(locale.clone()) })
+        .map(|name| EnvVar {
+            name: name.to_owned(),
+            value: Some(locale.clone()),
+        })
         .collect()
 }
 
@@ -215,7 +239,11 @@ pub fn read_help(ctx: &ExecCtx, env: &HostEnv, path: &Path, timeout: Duration) -
     match outcome {
         Ok(outcome) => {
             result.changed = outcome.changed_paths;
-            let bytes = if outcome.stdout.iter().any(|byte| !byte.is_ascii_whitespace()) {
+            let bytes = if outcome
+                .stdout
+                .iter()
+                .any(|byte| !byte.is_ascii_whitespace())
+            {
                 outcome.stdout
             } else {
                 outcome.stderr
@@ -247,15 +275,29 @@ mod tests {
         assert!(refusal(&env, Path::new("/usr/sbin/reboot"), &[]).is_some());
         assert!(refusal(&env, Path::new("/usr/bin/mkfs.ext4"), &[]).is_some());
         let patterns = vec!["deploy-tool publish".to_owned()];
-        assert!(refusal(&env, Path::new("/usr/bin/deploy-tool"), &patterns).unwrap().contains("irreversible"));
-        assert!(refusal(&env, Path::new("/opt/x/tool"), &[]).unwrap().contains("search path"));
+        assert!(
+            refusal(&env, Path::new("/usr/bin/deploy-tool"), &patterns)
+                .unwrap()
+                .contains("irreversible")
+        );
+        assert!(
+            refusal(&env, Path::new("/opt/x/tool"), &[])
+                .unwrap()
+                .contains("search path")
+        );
     }
 
     #[test]
     fn windows_command_line() {
         let env = HostEnv::new(Os::Windows);
-        assert_eq!(help_command(&env, Path::new("C:\\Windows\\System32\\where.exe"))[1], "/?");
-        assert_eq!(help_command(&env, Path::new("C:\\Tools\\git.exe"))[1], "--help");
+        assert_eq!(
+            help_command(&env, Path::new("C:\\Windows\\System32\\where.exe"))[1],
+            "/?"
+        );
+        assert_eq!(
+            help_command(&env, Path::new("C:\\Tools\\git.exe"))[1],
+            "--help"
+        );
         assert!(executable_format(&env, Path::new("C:\\Tools\\x.bat")).is_err());
         assert_eq!(HelpStatus::Timeout.as_str(), "timeout");
     }

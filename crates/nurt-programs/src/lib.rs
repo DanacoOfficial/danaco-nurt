@@ -12,7 +12,7 @@
 //! program ever started is the one whose `--help` is requested explicitly.
 
 #![deny(missing_docs)]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 pub mod catalog;
 pub mod check;
@@ -25,3 +25,5 @@ pub mod sources;
 pub mod stages;
 pub mod taxonomy;
 pub mod text;
+#[cfg(windows)]
+pub mod win;

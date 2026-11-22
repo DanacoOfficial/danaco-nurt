@@ -23,7 +23,9 @@ use std::sync::Arc;
 
 use nurt_contracts::config::{ProgramSource as ConfigSource, ProgramsConfig};
 
-use crate::source::{HostEnv, ProgramSource, SourceError, SourceErrorKind, SourceId, SourceRegistry};
+use crate::source::{
+    CatalogSpec, HostEnv, ProgramSource, SourceError, SourceErrorKind, SourceId, SourceRegistry,
+};
 
 /// Directories whose executables are mapped to packages. Files in other
 /// directories (libraries, `libexec`) do not create cards.
@@ -44,9 +46,14 @@ pub const MAX_LINK_HOPS: usize = 16;
 pub const MAX_METADATA_BYTES: u64 = 64 * 1024 * 1024;
 
 /// Built-in providers enabled by `config`, in priority order of system
-/// data: search path, package databases, applications, manual pages.
+/// data: search path, package databases, applications, manual pages, then
+/// the external catalogs of `programs.catalogs` in configuration order.
+///
+/// Every provider is registered on every system; [`ProgramSource::detect`]
+/// decides whether it applies to the environment. Catalog ids are taken
+/// from the `id` of each `catalog.json` when it is valid and unique.
 #[must_use]
-pub fn builtin(config: &ProgramsConfig) -> SourceRegistry {
+pub fn builtin(env: &HostEnv, config: &ProgramsConfig) -> SourceRegistry {
     let disabled = |kind: ConfigSource| config.sources_disabled.contains(&kind);
     let mut registry = SourceRegistry::new();
     let mut add = |kind: ConfigSource, source: Arc<dyn ProgramSource>| {
@@ -58,8 +65,19 @@ pub fn builtin(config: &ProgramsConfig) -> SourceRegistry {
     add(ConfigSource::Package, Arc::new(dpkg::DpkgSource::new()));
     add(ConfigSource::Package, Arc::new(rpm::RpmSource::new()));
     add(ConfigSource::Package, Arc::new(pacman::PacmanSource::new()));
+    add(ConfigSource::Package, Arc::new(brew::BrewSource::new()));
+    add(ConfigSource::Package, Arc::new(winget::WingetSource::new()));
+    add(ConfigSource::Package, Arc::new(scoop::ScoopSource::new()));
+    add(ConfigSource::Package, Arc::new(choco::ChocoSource::new()));
     add(ConfigSource::App, Arc::new(desktop::DesktopSource::new()));
+    add(ConfigSource::App, Arc::new(winapp::WinAppSource::new()));
+    add(ConfigSource::App, Arc::new(macapp::MacAppSource::new()));
     add(ConfigSource::Man, Arc::new(man::ManSource::new()));
+    if !disabled(ConfigSource::Catalog) {
+        for spec in catalog::resolve_ids(CatalogSpec::from_config(config), env) {
+            registry.add(Arc::new(catalog::CatalogProvider::new(spec)));
+        }
+    }
     registry
 }
 
@@ -74,8 +92,10 @@ pub fn read_file(env: &HostEnv, id: &SourceId, host_path: &Path) -> Result<Vec<u
         if complete {
             Ok(bytes)
         } else {
-            Err(SourceError::new(id, SourceErrorKind::Corrupt, "file too large")
-                .at(host_path.display().to_string()))
+            Err(
+                SourceError::new(id, SourceErrorKind::Corrupt, "file too large")
+                    .at(host_path.display().to_string()),
+            )
         }
     })
 }
@@ -93,7 +113,8 @@ pub fn read_prefix(
     limit: u64,
 ) -> Result<(Vec<u8>, bool), SourceError> {
     let file = env.sys_path(host_path);
-    let handle = std::fs::File::open(&file).map_err(|error| SourceError::io(id, host_path, &error))?;
+    let handle =
+        std::fs::File::open(&file).map_err(|error| SourceError::io(id, host_path, &error))?;
     let mut bytes = Vec::new();
     handle
         .take(limit.saturating_add(1))
@@ -325,7 +346,10 @@ mod tests {
 
     #[test]
     fn normalize_resolves_parent_components() {
-        assert_eq!(normalize(Path::new("/usr/bin/../lib/./x")), PathBuf::from("/usr/lib/x"));
+        assert_eq!(
+            normalize(Path::new("/usr/bin/../lib/./x")),
+            PathBuf::from("/usr/lib/x")
+        );
     }
 
     #[cfg(unix)]
@@ -336,9 +360,16 @@ mod tests {
         std::fs::create_dir_all(dir.path().join("usr/bin")).unwrap_or_default();
         std::fs::write(dir.path().join("usr/bin/vim"), b"").unwrap_or_default();
         std::os::unix::fs::symlink("/usr/bin", dir.path().join("bin")).unwrap_or_default();
-        std::os::unix::fs::symlink("/usr/bin/vim", dir.path().join("usr/bin/vi")).unwrap_or_default();
-        assert_eq!(resolve_links(&env, Path::new("/usr/bin/vi")), Some(PathBuf::from("/usr/bin/vim")));
-        assert_eq!(canonical_dir_path(&env, Path::new("/bin/vi")), PathBuf::from("/usr/bin/vi"));
+        std::os::unix::fs::symlink("/usr/bin/vim", dir.path().join("usr/bin/vi"))
+            .unwrap_or_default();
+        assert_eq!(
+            resolve_links(&env, Path::new("/usr/bin/vi")),
+            Some(PathBuf::from("/usr/bin/vim"))
+        );
+        assert_eq!(
+            canonical_dir_path(&env, Path::new("/bin/vi")),
+            PathBuf::from("/usr/bin/vi")
+        );
         std::os::unix::fs::symlink("loop", dir.path().join("loop")).unwrap_or_default();
         assert_eq!(resolve_links(&env, Path::new("/loop")), None);
     }
@@ -349,7 +380,13 @@ mod tests {
         let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
         encoder.write_all(b"hello world").unwrap_or_default();
         let packed = encoder.finish().unwrap_or_default();
-        assert_eq!(decompress(&packed, Compression::Gzip, 5).unwrap_or_default(), b"hello");
-        assert_eq!(decompress(b"abc", Compression::None, 10).unwrap_or_default(), b"abc");
+        assert_eq!(
+            decompress(&packed, Compression::Gzip, 5).unwrap_or_default(),
+            b"hello"
+        );
+        assert_eq!(
+            decompress(b"abc", Compression::None, 10).unwrap_or_default(),
+            b"abc"
+        );
     }
 }

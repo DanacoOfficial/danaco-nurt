@@ -367,7 +367,10 @@ impl Catalog {
     /// Other programs that name the same guide as `name`, in catalog order.
     #[must_use]
     pub fn guide_shared_with(&self, name: &str) -> Vec<String> {
-        let Some(guide) = self.program(name).and_then(|program| program.guide.as_deref()) else {
+        let Some(guide) = self
+            .program(name)
+            .and_then(|program| program.guide.as_deref())
+        else {
             return Vec::new();
         };
         self.programs
@@ -418,7 +421,9 @@ pub fn is_valid_language(tag: &str) -> bool {
     };
     (2..=3).contains(&language.len())
         && language.bytes().all(|b| b.is_ascii_lowercase())
-        && region.is_none_or(|region| region.len() == 2 && region.bytes().all(|b| b.is_ascii_uppercase()))
+        && region.is_none_or(|region| {
+            region.len() == 2 && region.bytes().all(|b| b.is_ascii_uppercase())
+        })
 }
 
 /// Checks a date `YYYY-MM-DD` with a month from 01 to 12 and a day from 01
@@ -429,7 +434,8 @@ pub fn is_valid_date(date: &str) -> bool {
     let [year, month, day] = parts.as_slice() else {
         return false;
     };
-    let digits = |text: &str, count: usize| text.len() == count && text.bytes().all(|b| b.is_ascii_digit());
+    let digits =
+        |text: &str, count: usize| text.len() == count && text.bytes().all(|b| b.is_ascii_digit());
     if !(digits(year, 4) && digits(month, 2) && digits(day, 2)) {
         return false;
     }

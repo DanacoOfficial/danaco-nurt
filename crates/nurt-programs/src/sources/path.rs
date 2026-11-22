@@ -105,7 +105,11 @@ impl ProgramSource for PathSource {
 /// # Errors
 ///
 /// Fails only when the deadline passes.
-pub fn scan(env: &HostEnv, deadline: &Deadline<'_>, id: &SourceId) -> Result<Vec<PathHit>, SourceError> {
+pub fn scan(
+    env: &HostEnv,
+    deadline: &Deadline<'_>,
+    id: &SourceId,
+) -> Result<Vec<PathHit>, SourceError> {
     let mut hits = Vec::new();
     for dir in env.path_dirs() {
         deadline.check(id)?;
@@ -249,7 +253,10 @@ fn candidate_names(env: &HostEnv, name: &str) -> Vec<String> {
     }
     let upper = name.to_ascii_uppercase();
     let extensions = env.path_extensions();
-    if extensions.iter().any(|extension| upper.ends_with(extension.as_str())) {
+    if extensions
+        .iter()
+        .any(|extension| upper.ends_with(extension.as_str()))
+    {
         return vec![name.to_owned()];
     }
     extensions
@@ -259,7 +266,8 @@ fn candidate_names(env: &HostEnv, name: &str) -> Vec<String> {
 }
 
 fn is_runnable(env: &HostEnv, host: &Path) -> bool {
-    let Ok(meta) = std::fs::metadata(env.sys_path(host)) else {
+    let target = resolve_links(env, host).unwrap_or_else(|| host.to_path_buf());
+    let Ok(meta) = std::fs::metadata(env.sys_path(&target)) else {
         return false;
     };
     meta.is_file() && (env.os() == Os::Windows || is_executable(&meta))
@@ -293,7 +301,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap_or_else(|error| panic!("{error}"));
         executable(dir.path(), "/bin/a");
         std::fs::write(dir.path().join("bin/plain"), b"").unwrap_or_default();
-        let env = HostEnv::new(Os::Linux).with_root(dir.path()).with_var("PATH", "/bin");
+        let env = HostEnv::new(Os::Linux)
+            .with_root(dir.path())
+            .with_var("PATH", "/bin");
         let hits = scan(&env, &Deadline::none(), &SourceId::new("path")).unwrap_or_default();
         let names: Vec<&str> = hits.iter().map(|hit| hit.name.as_str()).collect();
         assert_eq!(names, vec!["a"]);

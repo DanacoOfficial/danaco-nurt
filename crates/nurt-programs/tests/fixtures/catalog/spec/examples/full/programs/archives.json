@@ -1,0 +1,20 @@
+{
+  "programs": [
+    {
+      "name": "tar",
+      "category": "archives",
+      "summary": "Creates and extracts tar archives.",
+      "guide": "guides/archives.md",
+      "platforms": ["linux", "macos", "freebsd"]
+    },
+    {
+      "name": "zstd",
+      "category": "archives",
+      "summary": "Compresses and decompresses files in the Zstandard format.",
+      "aliases": [{ "name": "unzstd", "kind": "companion" }, "zstdcat"],
+      "guide": "guides/archives.md",
+      "platforms": ["any"]
+    }
+  ],
+  "x": { "part": "archives" }
+}

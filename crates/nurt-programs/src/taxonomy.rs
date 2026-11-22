@@ -278,7 +278,10 @@ impl Taxonomy {
                 continue;
             };
             let is_main = hint.scheme == CategoryScheme::Freedesktop
-                && self.freedesktop_main.iter().any(|value| value == &hint.value);
+                && self
+                    .freedesktop_main
+                    .iter()
+                    .any(|value| value == &hint.value);
             if !is_main {
                 return Some(id);
             }
@@ -287,7 +290,10 @@ impl Taxonomy {
         main
     }
 
-    fn package_category<'a>(&'a self, hints: &'a [CategoryHint]) -> (Option<&'a str>, Option<&'a str>) {
+    fn package_category<'a>(
+        &'a self,
+        hints: &'a [CategoryHint],
+    ) -> (Option<&'a str>, Option<&'a str>) {
         let mut weak: Option<&'a str> = None;
         for hint in hints.iter().filter(|hint| {
             matches!(
@@ -426,8 +432,10 @@ mod tests {
         let taxonomy = Taxonomy::builtin();
         assert!(taxonomy.categories().len() >= 24);
         assert!(taxonomy.get(OTHER).is_some());
-        let audio = taxonomy.get("audio").map(|c| c.title.pick(&["pl".to_owned()]).0);
-        assert_eq!(audio, Some("Dźwięk"));
+        let audio = taxonomy
+            .get("audio")
+            .map(|c| c.title.pick(&["pl".to_owned()]).0);
+        assert_eq!(audio, Some("D\u{17a}wi\u{119}k"));
         assert!(Synonyms::builtin().len() > 100);
     }
 
@@ -452,18 +460,30 @@ mod tests {
         let taxonomy = Taxonomy::builtin();
         let cases = [
             (hint(CategoryScheme::DebianSection, "sound"), Some("audio")),
-            (hint(CategoryScheme::DebianSection, "contrib/net"), Some("network")),
+            (
+                hint(CategoryScheme::DebianSection, "contrib/net"),
+                Some("network"),
+            ),
             (hint(CategoryScheme::Freedesktop, "3DGraphics"), Some("3d")),
             (hint(CategoryScheme::Freedesktop, "Unknown"), None),
             (
-                hint(CategoryScheme::MacosCategory, "public.app-category.developer-tools"),
+                hint(
+                    CategoryScheme::MacosCategory,
+                    "public.app-category.developer-tools",
+                ),
                 Some("code"),
             ),
             (
                 hint(CategoryScheme::RpmGroup, "Productivity/Graphics/3D/Blender"),
                 Some("3d"),
             ),
-            (hint(CategoryScheme::RpmGroup, "productivity/archiving/compression"), Some("archives")),
+            (
+                hint(
+                    CategoryScheme::RpmGroup,
+                    "productivity/archiving/compression",
+                ),
+                Some("archives"),
+            ),
             (hint(CategoryScheme::RpmGroup, "Unspecified"), None),
             (hint(CategoryScheme::ManSection, "6x"), Some("games")),
             (hint(CategoryScheme::ManSection, "1"), None),
@@ -492,9 +512,18 @@ mod tests {
     fn classify_weak_section_yields_to_keywords() {
         let taxonomy = Taxonomy::builtin();
         let tar = taxonomy.classify("tar", &[hint(CategoryScheme::DebianSection, "utils")]);
-        assert_eq!((tar.id.as_str(), tar.source), ("archives", CategorySource::Inferred));
-        let other = taxonomy.classify("frobnicate", &[hint(CategoryScheme::DebianSection, "utils")]);
-        assert_eq!((other.id.as_str(), other.source), ("system", CategorySource::Package));
+        assert_eq!(
+            (tar.id.as_str(), tar.source),
+            ("archives", CategorySource::Inferred)
+        );
+        let other = taxonomy.classify(
+            "frobnicate",
+            &[hint(CategoryScheme::DebianSection, "utils")],
+        );
+        assert_eq!(
+            (other.id.as_str(), other.source),
+            ("system", CategorySource::Package)
+        );
         let strong = taxonomy.classify("tar", &[hint(CategoryScheme::DebianSection, "devel")]);
         assert_eq!(strong.id, "code");
     }
@@ -503,16 +532,28 @@ mod tests {
     fn classify_catalog_man_and_fallback() {
         let taxonomy = Taxonomy::builtin();
         let catalog = taxonomy.classify("x", &[hint(CategoryScheme::Catalog, "video-encoding")]);
-        assert_eq!((catalog.id.as_str(), catalog.source), ("video-encoding", CategorySource::Catalog));
+        assert_eq!(
+            (catalog.id.as_str(), catalog.source),
+            ("video-encoding", CategorySource::Catalog)
+        );
         let man = taxonomy.classify("frob", &[hint(CategoryScheme::ManSection, "8")]);
-        assert_eq!((man.id.as_str(), man.source), ("system", CategorySource::Man));
+        assert_eq!(
+            (man.id.as_str(), man.source),
+            ("system", CategorySource::Man)
+        );
         let tags = taxonomy.classify(
             "frob",
-            &[hint(CategoryScheme::Keyword, "fuzzing"), hint(CategoryScheme::Keyword, "test")],
+            &[
+                hint(CategoryScheme::Keyword, "fuzzing"),
+                hint(CategoryScheme::Keyword, "test"),
+            ],
         );
         assert_eq!(tags.id, "tests");
         let none = taxonomy.classify("frob", &[]);
-        assert_eq!((none.id.as_str(), none.source), (OTHER, CategorySource::Inferred));
+        assert_eq!(
+            (none.id.as_str(), none.source),
+            (OTHER, CategorySource::Inferred)
+        );
     }
 
     #[test]
@@ -523,7 +564,10 @@ mod tests {
         assert!(synonyms.alternatives("dzwiek").contains(&"audio"));
         assert!(synonyms.alternatives("nonexistent").is_empty());
         let mut extended = Synonyms::default();
-        extended.extend(vec![vec!["Napisy".to_owned(), "subtitles".to_owned()], vec!["x".to_owned()]]);
+        extended.extend(vec![
+            vec!["Napisy".to_owned(), "subtitles".to_owned()],
+            vec!["x".to_owned()],
+        ]);
         assert_eq!(extended.len(), 1);
         assert_eq!(extended.alternatives("napisy"), vec!["subtitles"]);
     }

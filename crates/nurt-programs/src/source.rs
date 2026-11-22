@@ -1092,7 +1092,7 @@ pub struct CatalogSpec {
 
 impl CatalogSpec {
     /// Enabled catalogs of the configuration, in configuration order, with
-    /// unique ids (`media`, `media-2`, …).
+    /// unique ids (`media`, `media-2`, ...).
     #[must_use]
     pub fn from_config(config: &ProgramsConfig) -> Vec<Self> {
         let mut specs: Vec<Self> = Vec::new();

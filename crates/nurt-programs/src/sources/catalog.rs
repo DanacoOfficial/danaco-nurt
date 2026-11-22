@@ -108,10 +108,10 @@ impl CatalogProvider {
     fn head(&self, env: &HostEnv) -> Head {
         let index = self.root(env).join(INDEX_FILE);
         let marker = FingerprintBuilder::new(env).path(&index).finish();
-        if let Some((known, head)) = &self.state().head {
-            if *known == marker {
-                return head.clone();
-            }
+        if let Some((known, head)) = &self.state().head
+            && *known == marker
+        {
+            return head.clone();
         }
         let head = read_head(&index).unwrap_or_default();
         self.state().head = Some((marker, head.clone()));
@@ -120,14 +120,14 @@ impl CatalogProvider {
 
     fn catalog(&self, env: &HostEnv) -> Result<Arc<Catalog>, SourceError> {
         let fingerprint = self.fingerprint(env)?;
-        if let Some((known, catalog)) = &self.state().catalog {
-            if *known == fingerprint {
-                return Ok(Arc::clone(catalog));
-            }
+        if let Some((known, catalog)) = &self.state().catalog
+            && *known == fingerprint
+        {
+            return Ok(Arc::clone(catalog));
         }
-        let loaded = self
-            .read(env)
-            .map_err(|error| SourceError::new(&self.id, SourceErrorKind::Corrupt, error.message).at(error.file))?;
+        let loaded = self.read(env).map_err(|error| {
+            SourceError::new(&self.id, SourceErrorKind::Corrupt, error.message).at(error.file)
+        })?;
         let catalog = Arc::new(loaded.catalog);
         self.state().catalog = Some((fingerprint, Arc::clone(&catalog)));
         Ok(catalog)
@@ -146,8 +146,11 @@ impl CatalogProvider {
             Some(field) => format!("{field}: {}", diagnostic.message),
             None => diagnostic.message.clone(),
         };
-        let mut warning = SourceWarning::new(code, &self.id, reason)
-            .at(format!("{}/{}", self.host_root(), diagnostic.file));
+        let mut warning = SourceWarning::new(code, &self.id, reason).at(format!(
+            "{}/{}",
+            self.host_root(),
+            diagnostic.file
+        ));
         if let Some(name) = &diagnostic.name {
             warning = warning.named(name.clone());
         }
@@ -163,8 +166,11 @@ impl CatalogProvider {
         } else {
             WarningCode::CatalogInvalid
         };
-        let mut warning = SourceWarning::new(code, &self.id, error.message.clone())
-            .at(format!("{}/{}", self.host_root(), error.file));
+        let mut warning = SourceWarning::new(code, &self.id, error.message.clone()).at(format!(
+            "{}/{}",
+            self.host_root(),
+            error.file
+        ));
         if let Some(line) = error.line {
             warning = warning.line(line);
         }
@@ -172,7 +178,10 @@ impl CatalogProvider {
     }
 
     fn warnings(&self, diagnostics: &[Diagnostic]) -> Vec<SourceWarning> {
-        let all: Vec<SourceWarning> = diagnostics.iter().filter_map(|item| self.warning(item)).collect();
+        let all: Vec<SourceWarning> = diagnostics
+            .iter()
+            .filter_map(|item| self.warning(item))
+            .collect();
         let extra = all.len().saturating_sub(MAX_WARNINGS);
         let mut warnings: Vec<SourceWarning> = all.into_iter().take(MAX_WARNINGS).collect();
         if extra > 0 {
@@ -220,10 +229,18 @@ impl ProgramSource for CatalogProvider {
             .path(root.join(INDEX_FILE))
             .path(&root)
             .path(root.join(GUIDES_DIR));
-        for part in head.include.iter().filter(|part| catalog::check_relpath(part).is_ok()) {
+        for part in head
+            .include
+            .iter()
+            .filter(|part| catalog::check_relpath(part).is_ok())
+        {
             builder = builder.path(root.join(part));
         }
-        for language in head.languages.iter().filter(|tag| catalog::is_valid_language(tag)) {
+        for language in head
+            .languages
+            .iter()
+            .filter(|tag| catalog::is_valid_language(tag))
+        {
             builder = builder.path(root.join(I18N_DIR).join(language).join(INDEX_FILE));
         }
         Ok(builder.finish())
@@ -242,13 +259,18 @@ impl ProgramSource for CatalogProvider {
             }
         };
         deadline.check(&self.id)?;
-        let mut data = convert(&loaded.catalog, &self.id, &self.host_root());
+        let mut data = convert(&loaded.catalog, &self.id);
         data.warnings = self.warnings(&loaded.diagnostics);
         self.state().catalog = Some((fingerprint, Arc::new(loaded.catalog)));
         Ok(data)
     }
 
-    fn detail(&self, env: &HostEnv, key: &EntryKey, want: &DetailWant) -> Result<Option<Detail>, SourceError> {
+    fn detail(
+        &self,
+        env: &HostEnv,
+        key: &EntryKey,
+        want: &DetailWant,
+    ) -> Result<Option<Detail>, SourceError> {
         if key.source != self.id {
             return Ok(None);
         }
@@ -261,26 +283,26 @@ impl ProgramSource for CatalogProvider {
         if want.description {
             detail.description = target.description(&catalog, languages);
         }
-        if want.guide {
-            if let Some((path, language)) = target.guide(&catalog, languages) {
-                let file = catalog
-                    .read_guide(&path, &ReadOptions::default().limits)
-                    .map_err(|message| {
-                        SourceError::new(&self.id, SourceErrorKind::Corrupt, message)
-                            .at(format!("{}/{path}", self.host_root()))
-                    })?;
-                let fallback_version = target.version();
-                detail.guide = Some(GuideBody {
-                    sections: catalog::guide::sections(&file.body)
-                        .iter()
-                        .map(|section| section.title.to_owned())
-                        .collect(),
-                    files: catalog.guide_material(&path, &ReadOptions::default().limits),
-                    version: file.front.version.or(fallback_version),
-                    language: file.front.language.or(Some(language)),
-                    text: file.body,
-                });
-            }
+        if want.guide
+            && let Some((path, language)) = target.guide(&catalog, languages)
+        {
+            let file = catalog
+                .read_guide(&path, &ReadOptions::default().limits)
+                .map_err(|message| {
+                    SourceError::new(&self.id, SourceErrorKind::Corrupt, message)
+                        .at(format!("{}/{path}", self.host_root()))
+                })?;
+            let fallback_version = target.version();
+            detail.guide = Some(GuideBody {
+                sections: catalog::guide::sections(&file.body)
+                    .iter()
+                    .map(|section| section.title.to_owned())
+                    .collect(),
+                files: catalog.guide_material(&path, &ReadOptions::default().limits),
+                version: file.front.version.or(fallback_version),
+                language: file.front.language.or(Some(language)),
+                text: file.body,
+            });
         }
         Ok(Some(detail))
     }
@@ -337,10 +359,18 @@ impl<'a> Target<'a> {
             if *language == catalog.language {
                 break;
             }
-            let Some(overlay) = catalog.overlay(language) else { continue };
+            let Some(overlay) = catalog.overlay(language) else {
+                continue;
+            };
             let translated = match self {
-                Self::Program(_) => overlay.programs.get(name).and_then(|texts| texts.guide.clone()),
-                Self::Guide(_) => overlay.guides.get(name).and_then(|texts| texts.guide.clone()),
+                Self::Program(_) => overlay
+                    .programs
+                    .get(name)
+                    .and_then(|texts| texts.guide.clone()),
+                Self::Guide(_) => overlay
+                    .guides
+                    .get(name)
+                    .and_then(|texts| texts.guide.clone()),
             };
             if let Some(path) = translated {
                 return Some((path, language.clone()));
@@ -353,14 +383,18 @@ impl<'a> Target<'a> {
 /// Root directory of a catalog named by its directory or its index file.
 fn root_of(path: &Path) -> PathBuf {
     match path.parent() {
-        Some(parent) if path.file_name().is_some_and(|name| name == INDEX_FILE) => parent.to_path_buf(),
+        Some(parent) if path.file_name().is_some_and(|name| name == INDEX_FILE) => {
+            parent.to_path_buf()
+        }
         _ => path.to_path_buf(),
     }
 }
 
 fn read_head(index: &Path) -> Option<Head> {
     let bytes = std::fs::read(index).ok()?;
-    let bytes = bytes.strip_prefix(b"\xef\xbb\xbf".as_slice()).unwrap_or(&bytes);
+    let bytes = bytes
+        .strip_prefix(b"\xef\xbb\xbf".as_slice())
+        .unwrap_or(&bytes);
     serde_json::from_slice(bytes).ok()
 }
 
@@ -389,19 +423,26 @@ pub fn resolve_ids(specs: Vec<CatalogSpec>, env: &HostEnv) -> Vec<CatalogSpec> {
     out
 }
 
-/// Converts a catalog into neutral entries of the provider `source`;
-/// `host_root` is the catalog root as a host path.
+/// Converts a catalog into neutral entries of the provider `source`.
 #[must_use]
-pub fn convert(catalog: &Catalog, source: &SourceId, host_root: &str) -> SourceData {
+pub fn convert(catalog: &Catalog, source: &SourceId) -> SourceData {
     let texts = Texts { catalog };
     SourceData {
         programs: catalog
             .programs
             .iter()
-            .map(|program| texts.program(program, source, host_root))
+            .map(|program| texts.program(program, source))
             .collect(),
-        categories: catalog.categories.iter().map(|category| texts.category(category)).collect(),
-        guides: catalog.guides.iter().map(|guide| texts.guide(guide, source)).collect(),
+        categories: catalog
+            .categories
+            .iter()
+            .map(|category| texts.category(category))
+            .collect(),
+        guides: catalog
+            .guides
+            .iter()
+            .map(|guide| texts.guide(guide, source))
+            .collect(),
         synonyms: catalog.synonyms.clone(),
         ..SourceData::default()
     }
@@ -413,7 +454,11 @@ struct Texts<'a> {
 }
 
 impl Texts<'_> {
-    fn text(&self, main: &str, translations: impl Fn(&catalog::Overlay) -> Option<String>) -> LocalizedText {
+    fn text(
+        &self,
+        main: &str,
+        translations: impl Fn(&catalog::Overlay) -> Option<String>,
+    ) -> LocalizedText {
         let mut text = LocalizedText::in_lang(main, &self.catalog.language);
         for overlay in &self.catalog.overlays {
             if let Some(translated) = translations(overlay) {
@@ -423,16 +468,23 @@ impl Texts<'_> {
         text
     }
 
-    fn optional(&self, main: Option<&str>, translations: impl Fn(&catalog::Overlay) -> Option<String>) -> Option<LocalizedText> {
+    fn optional(
+        &self,
+        main: Option<&str>,
+        translations: impl Fn(&catalog::Overlay) -> Option<String>,
+    ) -> Option<LocalizedText> {
         main.map(|main| self.text(main, translations))
     }
 
-    fn program(&self, program: &catalog::Program, source: &SourceId, host_root: &str) -> RawProgram {
+    fn program(&self, program: &catalog::Program, source: &SourceId) -> RawProgram {
         let name = &program.name;
         let overlay_of = |overlay: &catalog::Overlay| overlay.programs.get(name).cloned();
         let mut tags = program.tags.clone();
         for overlay in &self.catalog.overlays {
-            for tag in overlay_of(overlay).and_then(|texts| texts.tags).unwrap_or_default() {
+            for tag in overlay_of(overlay)
+                .and_then(|texts| texts.tags)
+                .unwrap_or_default()
+            {
                 if !tags.contains(&tag) {
                     tags.push(tag);
                 }
@@ -450,13 +502,22 @@ impl Texts<'_> {
                 })
                 .collect(),
             summary: Some(self.text(&program.summary, |overlay| overlay_of(overlay)?.summary)),
-            overview: self.optional(program.overview.as_deref(), |overlay| overlay_of(overlay)?.overview),
-            description: self.optional(program.description.as_deref(), |overlay| overlay_of(overlay)?.description),
+            overview: self.optional(program.overview.as_deref(), |overlay| {
+                overlay_of(overlay)?.overview
+            }),
+            description: self.optional(program.description.as_deref(), |overlay| {
+                overlay_of(overlay)?.description
+            }),
             sections: self.sections(&program.sections, |overlay| overlay_of(overlay)?.sections),
-            when_to_use: self.list(&program.when_to_use, |overlay| overlay_of(overlay)?.when_to_use),
+            when_to_use: self.list(&program.when_to_use, |overlay| {
+                overlay_of(overlay)?.when_to_use
+            }),
             not_for: self.not_for(&program.not_for, |overlay| overlay_of(overlay)?.not_for),
             example: program.example.clone(),
-            category_hints: vec![CategoryHint::new(CategoryScheme::Catalog, program.category.clone())],
+            category_hints: vec![CategoryHint::new(
+                CategoryScheme::Catalog,
+                program.category.clone(),
+            )],
             version: program.version.clone(),
             homepage: program.homepage.clone(),
             license: program.license.clone(),
@@ -464,7 +525,11 @@ impl Texts<'_> {
             platforms: program.platforms.clone(),
             verified: program.verified.clone(),
             catalog_path: program.path.clone(),
-            guide: program.guide.as_deref().and_then(|path| self.guide_ref(path, host_root, |overlay| overlay_of(overlay)?.guide)),
+            guide: program
+                .guide
+                .as_deref()
+                .and_then(|path| self.guide_ref(path, |overlay| overlay_of(overlay)?.guide)),
+            package_name: program.package.clone(),
             guide_optional: program.guide_optional,
             guide_required: program.guide_required,
             related: program.related.clone(),
@@ -477,30 +542,45 @@ impl Texts<'_> {
     /// Items of a list in the main language, with the items of an overlay as
     /// translations when the overlay has as many items; otherwise the
     /// overlay items are appended in their own language.
-    fn list(&self, main: &[String], translations: impl Fn(&catalog::Overlay) -> Option<Vec<String>>) -> Vec<LocalizedText> {
+    fn list(
+        &self,
+        main: &[String],
+        translations: impl Fn(&catalog::Overlay) -> Option<Vec<String>>,
+    ) -> Vec<LocalizedText> {
         let mut items: Vec<LocalizedText> = main
             .iter()
             .map(|item| LocalizedText::in_lang(item.as_str(), &self.catalog.language))
             .collect();
         for overlay in &self.catalog.overlays {
-            let Some(translated) = translations(overlay) else { continue };
+            let Some(translated) = translations(overlay) else {
+                continue;
+            };
             if translated.len() == main.len() {
                 for (item, text) in items.iter_mut().zip(translated) {
                     item.set(&overlay.language, text);
                 }
             } else {
-                items.extend(translated.into_iter().map(|text| LocalizedText::in_lang(text, &overlay.language)));
+                items.extend(
+                    translated
+                        .into_iter()
+                        .map(|text| LocalizedText::in_lang(text, &overlay.language)),
+                );
             }
         }
         items
     }
 
-    fn not_for(&self, main: &[NotForTask], translations: impl Fn(&catalog::Overlay) -> Option<Vec<NotForTask>>) -> Vec<NotFor> {
+    fn not_for(
+        &self,
+        main: &[NotForTask],
+        translations: impl Fn(&catalog::Overlay) -> Option<Vec<NotForTask>>,
+    ) -> Vec<NotFor> {
         let tasks: Vec<String> = main.iter().map(|task| task.task.clone()).collect();
         let texts = self.list(&tasks, |overlay| {
             translations(overlay).map(|items| items.into_iter().map(|task| task.task).collect())
         });
-        let mut instead: Vec<Option<String>> = main.iter().map(|task| task.instead.clone()).collect();
+        let mut instead: Vec<Option<String>> =
+            main.iter().map(|task| task.instead.clone()).collect();
         for overlay in &self.catalog.overlays {
             if let Some(items) = translations(overlay).filter(|items| items.len() != main.len()) {
                 instead.extend(items.into_iter().map(|task| task.instead));
@@ -513,7 +593,11 @@ impl Texts<'_> {
             .collect()
     }
 
-    fn sections(&self, main: &[Section], translations: impl Fn(&catalog::Overlay) -> Option<Vec<Section>>) -> Vec<DescriptionSection> {
+    fn sections(
+        &self,
+        main: &[Section],
+        translations: impl Fn(&catalog::Overlay) -> Option<Vec<Section>>,
+    ) -> Vec<DescriptionSection> {
         let mut sections: Vec<DescriptionSection> = main
             .iter()
             .map(|section| DescriptionSection {
@@ -523,9 +607,14 @@ impl Texts<'_> {
             })
             .collect();
         for overlay in &self.catalog.overlays {
-            let Some(translated) = translations(overlay) else { continue };
+            let Some(translated) = translations(overlay) else {
+                continue;
+            };
             let aligned = translated.len() == main.len()
-                && translated.iter().zip(main).all(|(left, right)| left.kind == right.kind);
+                && translated
+                    .iter()
+                    .zip(main)
+                    .all(|(left, right)| left.kind == right.kind);
             if aligned {
                 for (section, text) in sections.iter_mut().zip(translated) {
                     section.text.set(&overlay.language, text.text);
@@ -544,11 +633,14 @@ impl Texts<'_> {
     fn guide_ref(
         &self,
         path: &str,
-        host_root: &str,
         translated_path: impl Fn(&catalog::Overlay) -> Option<String>,
     ) -> Option<GuideRef> {
         let header = self.catalog.guide_headers.get(path)?;
-        let language = header.front.language.clone().unwrap_or_else(|| self.catalog.language.clone());
+        let language = header
+            .front
+            .language
+            .clone()
+            .unwrap_or_else(|| self.catalog.language.clone());
         let description = header.front.description.as_deref().map(|text| {
             let mut description = LocalizedText::in_lang(text, &language);
             for overlay in &self.catalog.overlays {
@@ -561,7 +653,6 @@ impl Texts<'_> {
             }
             description
         });
-        let _ = host_root;
         Some(GuideRef {
             name: header.name.clone(),
             path: path.to_owned(),
@@ -575,8 +666,12 @@ impl Texts<'_> {
         RawCategory {
             id: id.clone(),
             title: self.text(&category.title, |overlay| texts(overlay)?.title),
-            summary: self.optional(category.summary.as_deref(), |overlay| texts(overlay)?.summary),
-            description: self.optional(category.description.as_deref(), |overlay| texts(overlay)?.description),
+            summary: self.optional(category.summary.as_deref(), |overlay| {
+                texts(overlay)?.summary
+            }),
+            description: self.optional(category.description.as_deref(), |overlay| {
+                texts(overlay)?.description
+            }),
             parent: category.parent.clone(),
             aliases: category.aliases.clone(),
             same_as: category.same_as.clone(),
@@ -594,7 +689,10 @@ impl Texts<'_> {
         });
         let mut tags = guide.tags.clone();
         for overlay in &self.catalog.overlays {
-            for tag in texts(overlay).and_then(|texts| texts.tags).unwrap_or_default() {
+            for tag in texts(overlay)
+                .and_then(|texts| texts.tags)
+                .unwrap_or_default()
+            {
                 if !tags.contains(&tag) {
                     tags.push(tag);
                 }

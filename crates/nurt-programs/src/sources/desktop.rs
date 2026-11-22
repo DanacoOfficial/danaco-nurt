@@ -72,7 +72,10 @@ impl DesktopEntry {
     /// Unlocalized value of a key.
     #[must_use]
     pub fn get(&self, key: &str) -> Option<&str> {
-        self.values.get(key).map(String::as_str).filter(|value| !value.is_empty())
+        self.values
+            .get(key)
+            .map(String::as_str)
+            .filter(|value| !value.is_empty())
     }
 
     /// Value of a key with its `key[lang]` variants.
@@ -81,7 +84,10 @@ impl DesktopEntry {
         let mut text = LocalizedText::in_lang(self.get(key)?, "en");
         let prefix = format!("{key}[");
         for (name, value) in self.values.range(prefix.clone()..) {
-            let Some(locale) = name.strip_prefix(&prefix).and_then(|rest| rest.strip_suffix(']')) else {
+            let Some(locale) = name
+                .strip_prefix(&prefix)
+                .and_then(|rest| rest.strip_suffix(']'))
+            else {
                 break;
             };
             let lang = locale.split(['_', '.', '@']).next().unwrap_or(locale);
@@ -140,22 +146,31 @@ fn unescape(value: &str) -> String {
     out
 }
 
-/// Command of an `Exec` value: the first argument after `env` and
-/// variable assignments, with quotes removed.
+/// Options of `env` that take the following argument as their value.
+const ENV_OPTIONS_WITH_VALUE: &[&str] = &["-u", "--unset", "-C", "--chdir"];
+
+/// Command of an `Exec` value: the first argument after `env`, its options
+/// and variable assignments, with quotes removed.
 #[must_use]
 pub fn exec_command(exec: &str) -> Option<String> {
     let arguments = split_exec(exec);
     let mut index = 0;
     if arguments.first().map(String::as_str) == Some("env") {
         index = 1;
-        while arguments
-            .get(index)
-            .is_some_and(|argument| argument.starts_with('-') || argument.contains('='))
-        {
-            index += 1;
+        while let Some(argument) = arguments.get(index) {
+            if ENV_OPTIONS_WITH_VALUE.contains(&argument.as_str()) {
+                index += 2;
+            } else if argument.starts_with('-') || argument.contains('=') {
+                index += 1;
+            } else {
+                break;
+            }
         }
     }
-    arguments.get(index).filter(|argument| !argument.starts_with('%')).cloned()
+    arguments
+        .get(index)
+        .filter(|argument| !argument.starts_with('%'))
+        .cloned()
 }
 
 fn split_exec(exec: &str) -> Vec<String> {
@@ -219,7 +234,11 @@ pub fn application_dirs(env: &HostEnv) -> Vec<PathBuf> {
         dirs.push(data.join(APPLICATIONS));
     }
     let data_dirs = env.var_text("XDG_DATA_DIRS").unwrap_or(DEFAULT_DATA_DIRS);
-    dirs.extend(env.split_paths(data_dirs).into_iter().map(|dir| dir.join(APPLICATIONS)));
+    dirs.extend(
+        env.split_paths(data_dirs)
+            .into_iter()
+            .map(|dir| dir.join(APPLICATIONS)),
+    );
     if let Some(home) = env.home() {
         dirs.push(home.join(USER_FLATPAK_DIR));
     }
@@ -244,7 +263,8 @@ impl ProgramSource for DesktopSource {
     }
 
     fn fingerprint(&self, env: &HostEnv) -> Result<Fingerprint, SourceError> {
-        let mut builder = FingerprintBuilder::new(env).text("languages", &env.languages().join(","));
+        let mut builder =
+            FingerprintBuilder::new(env).text("languages", &env.languages().join(","));
         for dir in application_dirs(env) {
             builder = builder.path(dir);
         }
@@ -279,7 +299,13 @@ impl ProgramSource for DesktopSource {
 
 /// Desktop files below `dir` with their desktop file ids (subdirectories
 /// joined with `-`).
-fn collect_files(env: &HostEnv, dir: &Path, prefix: &str, depth: usize, out: &mut Vec<(String, PathBuf)>) {
+fn collect_files(
+    env: &HostEnv,
+    dir: &Path,
+    prefix: &str,
+    depth: usize,
+    out: &mut Vec<(String, PathBuf)>,
+) {
     for (name, path) in list_dir(env, dir) {
         if let Some(stem) = name.strip_suffix(DESKTOP_SUFFIX) {
             out.push((format!("{prefix}{stem}"), path));
@@ -291,7 +317,12 @@ fn collect_files(env: &HostEnv, dir: &Path, prefix: &str, depth: usize, out: &mu
 
 /// Raw entry of a visible application; `None` for other entries.
 #[must_use]
-pub fn program_of(entry: &DesktopEntry, desktop_id: &str, path: &Path, id: &SourceId) -> Option<RawProgram> {
+pub fn program_of(
+    entry: &DesktopEntry,
+    desktop_id: &str,
+    path: &Path,
+    id: &SourceId,
+) -> Option<RawProgram> {
     if !entry.is_visible_application() {
         return None;
     }
@@ -303,13 +334,20 @@ pub fn program_of(entry: &DesktopEntry, desktop_id: &str, path: &Path, id: &Sour
     let command_name = command
         .as_deref()
         .map(|command| command.rsplit('/').next().unwrap_or(command).to_owned());
-    let mut program = RawProgram::new(command_name.clone().unwrap_or_else(|| app_name.text.clone()));
+    let mut program = RawProgram::new(
+        command_name
+            .clone()
+            .unwrap_or_else(|| app_name.text.clone()),
+    );
     program.kind = EntryKind::App;
     program.key = Some(EntryKey::new(id, path.display().to_string()));
     program.app_id = Some(desktop_id.to_owned());
-    program.summary = entry.localized("Comment").or_else(|| entry.localized("GenericName"));
+    program.summary = entry
+        .localized("Comment")
+        .or_else(|| entry.localized("GenericName"));
     program.path = command.filter(|command| command.starts_with('/'));
     program.app_name = Some(app_name);
+    program.executable = command_name;
     program.category_hints = entry
         .list("Categories")
         .into_iter()
@@ -318,7 +356,11 @@ pub fn program_of(entry: &DesktopEntry, desktop_id: &str, path: &Path, id: &Sour
     if let Some(keywords) = entry.localized("Keywords") {
         for variant in keywords.variants() {
             program.tags.extend(
-                variant.split(';').map(str::trim).filter(|word| !word.is_empty()).map(str::to_owned),
+                variant
+                    .split(';')
+                    .map(str::trim)
+                    .filter(|word| !word.is_empty())
+                    .map(str::to_owned),
             );
         }
     }
@@ -329,18 +371,36 @@ pub fn program_of(entry: &DesktopEntry, desktop_id: &str, path: &Path, id: &Sour
 mod tests {
     use super::*;
 
-    const ENTRY: &str = "[Desktop Entry]\nType=Application\nName=Image Viewer\nName[pl]=Przeglądarka obrazów\nComment=View images\nComment[pl_PL]=Przeglądanie obrazów\nExec=env GDK_BACKEND=x11 \"/usr/bin/eog viewer\" %U\nCategories=Graphics;Viewer;\nKeywords=picture;photo;\n\n[Desktop Action new]\nName=Other\n";
+    const ENTRY: &str = "[Desktop Entry]\nType=Application\nName=Image Viewer\nName[pl]=Przegl\u{105}darka obraz\u{f3}w\nComment=View images\nComment[pl_PL]=Przegl\u{105}danie obraz\u{f3}w\nExec=env GDK_BACKEND=x11 \"/usr/bin/eog viewer\" %U\nCategories=Graphics;Viewer;\nKeywords=picture;photo;\n\n[Desktop Action new]\nName=Other\n";
 
     #[test]
     fn desktop_categories_map() {
         let entry = DesktopEntry::parse(ENTRY);
-        let program = program_of(&entry, "org.example.Viewer", Path::new("/a.desktop"), &SourceId::new("desktop")).unwrap();
+        let program = program_of(
+            &entry,
+            "org.example.Viewer",
+            Path::new("/a.desktop"),
+            &SourceId::new("desktop"),
+        )
+        .unwrap();
         assert_eq!(program.name, "eog viewer");
         assert_eq!(program.path.as_deref(), Some("/usr/bin/eog viewer"));
-        assert_eq!(program.app_name.as_ref().unwrap().pick(&["pl".to_owned()]).0, "Przeglądarka obrazów");
-        assert_eq!(program.summary.as_ref().unwrap().pick(&["pl".to_owned()]).0, "Przeglądanie obrazów");
+        assert_eq!(
+            program
+                .app_name
+                .as_ref()
+                .unwrap()
+                .pick(&["pl".to_owned()])
+                .0,
+            "Przegl\u{105}darka obraz\u{f3}w"
+        );
+        assert_eq!(
+            program.summary.as_ref().unwrap().pick(&["pl".to_owned()]).0,
+            "Przegl\u{105}danie obraz\u{f3}w"
+        );
         assert_eq!(program.tags, vec!["picture", "photo"]);
-        let classified = crate::taxonomy::Taxonomy::builtin().classify(&program.name, &program.category_hints);
+        let classified =
+            crate::taxonomy::Taxonomy::builtin().classify(&program.name, &program.category_hints);
         assert_eq!(classified.id, "images");
     }
 

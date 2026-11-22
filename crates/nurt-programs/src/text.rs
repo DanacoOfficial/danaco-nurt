@@ -4,9 +4,10 @@
 //! Text folding, stop words, sentences, edit distance and decoding of
 //! description files.
 //!
-//! [`fold`] defines how every text is compared in search: lower case, `ł`
-//! as `l`, compatibility decomposition (NFKD) and no combining marks, so
-//! `Dźwięk` matches `dzwiek`.
+//! [`fold`] defines how every text is compared in search: lower case,
+//! U+0142 (Latin small letter l with stroke) as `l`, compatibility
+//! decomposition (NFKD) and no combining marks, so a query without
+//! diacritics matches a text with them.
 
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::is_combining_mark;
@@ -38,7 +39,7 @@ pub const STEM_MIN_PREFIX: usize = 5;
 /// Characters cut from the end of a word to form its prefix stem.
 pub const STEM_CUT: usize = 2;
 
-/// Folds a text for comparison: lower case, `ł` as `l`, NFKD, combining
+/// Folds a text for comparison: lower case, U+0142 as `l`, NFKD, combining
 /// marks removed.
 ///
 /// # Examples
@@ -46,12 +47,12 @@ pub const STEM_CUT: usize = 2;
 /// ```
 /// use nurt_programs::text::fold;
 ///
-/// assert_eq!(fold("Dźwięk ŁĄCZE"), "dzwiek lacze");
+/// assert_eq!(fold("D\u{17a}wi\u{119}k \u{141}\u{104}CZE"), "dzwiek lacze");
 /// ```
 #[must_use]
 pub fn fold(text: &str) -> String {
     text.to_lowercase()
-        .replace('ł', "l")
+        .replace('\u{142}', "l")
         .nfkd()
         .filter(|c| !is_combining_mark(*c))
         .collect()
@@ -77,9 +78,8 @@ pub fn query_words(query: &str, extended: bool) -> Vec<String> {
             words.push(word.to_owned());
         }
     }
-    let stop = |word: &str| {
-        STOP_WORDS.contains(&word) || (extended && EXTRA_STOP_WORDS.contains(&word))
-    };
+    let stop =
+        |word: &str| STOP_WORDS.contains(&word) || (extended && EXTRA_STOP_WORDS.contains(&word));
     let meaningful: Vec<String> = words.iter().filter(|word| !stop(word)).cloned().collect();
     if meaningful.is_empty() {
         words
@@ -89,7 +89,7 @@ pub fn query_words(query: &str, extended: bool) -> Vec<String> {
 }
 
 /// Text in one line, cut at a word boundary to at most `limit` characters
-/// with `…` at the end when cut.
+/// with `...` at the end when cut.
 ///
 /// # Examples
 ///
@@ -97,7 +97,7 @@ pub fn query_words(query: &str, extended: bool) -> Vec<String> {
 /// use nurt_programs::text::clip;
 ///
 /// assert_eq!(clip("Converts  video\nfiles", 40), "Converts video files");
-/// assert_eq!(clip("Converts video and audio files", 16), "Converts video…");
+/// assert_eq!(clip("Converts video and audio files", 16), "Converts video\u{2026}");
 /// ```
 #[must_use]
 pub fn clip(text: &str, limit: usize) -> String {
@@ -112,10 +112,10 @@ pub fn clip(text: &str, limit: usize) -> String {
     match space {
         Some(chars) if chars >= limit / 2 => {
             let head: String = cut.chars().take(chars).collect();
-            let trimmed = head.trim_end_matches([' ', ',', ';', ':', '—', '-']);
-            format!("{trimmed}…")
+            let trimmed = head.trim_end_matches([' ', ',', ';', ':', '\u{2014}', '-']);
+            format!("{trimmed}\u{2026}")
         }
-        _ => format!("{cut}…"),
+        _ => format!("{cut}\u{2026}"),
     }
 }
 
@@ -173,7 +173,9 @@ pub fn edit_distance(left: &str, right: &str) -> usize {
         current.push(row + 1);
         for (column, right_char) in right.iter().enumerate() {
             let change = previous[column] + usize::from(left_char != right_char);
-            let value = (previous[column + 1] + 1).min(current[column] + 1).min(change);
+            let value = (previous[column + 1] + 1)
+                .min(current[column] + 1)
+                .min(change);
             current.push(value);
         }
         previous = current;
@@ -252,23 +254,35 @@ mod tests {
 
     #[test]
     fn fold_removes_marks_and_slashed_l() {
-        assert_eq!(fold("Zażółć gęślą jaźń"), "zazolc gesla jazn");
-        assert_eq!(fold("ﬁle"), "file");
+        assert_eq!(
+            fold("Za\u{17c}\u{f3}\u{142}\u{107} g\u{119}\u{15b}l\u{105} ja\u{17a}\u{144}"),
+            "zazolc gesla jazn"
+        );
+        assert_eq!(fold("\u{fb01}le"), "file");
     }
 
     #[test]
     fn query_words_drop_stop_words_and_repetitions() {
-        assert_eq!(query_words("PDF i pdf oraz Word", false), vec!["pdf", "word"]);
-        assert_eq!(query_words("search in files", true), vec!["search", "files"]);
-        assert_eq!(query_words("search in files", false), vec!["search", "in", "files"]);
+        assert_eq!(
+            query_words("PDF i pdf oraz Word", false),
+            vec!["pdf", "word"]
+        );
+        assert_eq!(
+            query_words("search in files", true),
+            vec!["search", "files"]
+        );
+        assert_eq!(
+            query_words("search in files", false),
+            vec!["search", "in", "files"]
+        );
         assert!(query_words("   ", false).is_empty());
     }
 
     #[test]
     fn clip_cuts_short_text_without_space() {
-        assert_eq!(clip("abcdefghij", 5), "abcd…");
-        assert_eq!(clip("ab cdefghij", 6), "ab cd…");
-        assert_eq!(clip("one two, three", 10), "one two…");
+        assert_eq!(clip("abcdefghij", 5), "abcd\u{2026}");
+        assert_eq!(clip("ab cdefghij", 6), "ab cd\u{2026}");
+        assert_eq!(clip("one two, three", 10), "one two\u{2026}");
     }
 
     #[test]
@@ -280,7 +294,7 @@ mod tests {
 
     #[test]
     fn edit_distance_counts_characters() {
-        assert_eq!(edit_distance("żółw", "zolw"), 3);
+        assert_eq!(edit_distance("\u{17c}\u{f3}\u{142}w", "zolw"), 3);
         assert_eq!(edit_distance("", "abc"), 3);
         assert_eq!(edit_distance("kitten", "sitting"), 3);
         assert_eq!(similar_distance(2), 1);

@@ -11,8 +11,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use nurt_contracts::env::Os;
-use quick_xml::Reader as XmlReader;
-use quick_xml::events::Event;
+use serde::Deserialize;
 
 use crate::model::{
     CategoryHint, CategoryScheme, LocalizedText, PackageRef, RawPackage, RawProgram, SourceData,
@@ -73,8 +72,7 @@ pub struct Nuspec {
     pub license_url: Option<String>,
 }
 
-/// Reads the `metadata` element of a `.nuspec` file; namespaces are
-/// ignored.
+/// Reads the `metadata` element of a `.nuspec` file and ignores namespaces.
 ///
 /// # Errors
 ///
@@ -94,51 +92,55 @@ pub struct Nuspec {
 /// ```
 pub fn parse_nuspec(text: &str) -> Result<Nuspec, String> {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-    let mut reader = XmlReader::from_str(text);
-    let mut path: Vec<String> = Vec::new();
-    let mut values: BTreeMap<String, String> = BTreeMap::new();
-    loop {
-        match reader.read_event() {
-            Ok(Event::Start(element)) => {
-                path.push(String::from_utf8_lossy(element.local_name().as_ref()).into_owned());
-            }
-            Ok(Event::End(_)) => {
-                path.pop();
-            }
-            Ok(Event::Text(content)) => {
-                let in_metadata = path.len() == 3 && path.get(1).is_some_and(|name| name == "metadata");
-                if let (true, Some(field)) = (in_metadata, path.last()) {
-                    let decoded = content
-                        .decode()
-                        .map_err(|error| format!("nuspec text cannot be decoded: {error}"))?;
-                    let text = quick_xml::escape::unescape(&decoded)
-                        .map_err(|error| format!("nuspec text cannot be decoded: {error}"))?;
-                    values.entry(field.clone()).or_default().push_str(&text);
-                }
-            }
-            Ok(Event::Eof) => break,
-            Ok(_) => {}
-            Err(error) => return Err(format!("nuspec is not well-formed XML: {error}")),
-        }
-    }
-    let take = |values: &mut BTreeMap<String, String>, key: &str| {
-        values
-            .remove(key)
+    let document: NuspecDocument = quick_xml::de::from_str(text)
+        .map_err(|error| format!("nuspec is not well-formed XML: {error}"))?;
+    let metadata = document.metadata.unwrap_or_default();
+    let clean = |value: Option<String>| {
+        value
             .map(|value| value.trim().to_owned())
             .filter(|value| !value.is_empty())
     };
     Ok(Nuspec {
-        id: take(&mut values, "id"),
-        version: take(&mut values, "version"),
-        title: take(&mut values, "title"),
-        summary: take(&mut values, "summary"),
-        description: take(&mut values, "description"),
-        tags: take(&mut values, "tags")
+        id: clean(metadata.id),
+        version: clean(metadata.version),
+        title: clean(metadata.title),
+        summary: clean(metadata.summary),
+        description: clean(metadata.description),
+        tags: metadata
+            .tags
             .map(|tags| tags.split_whitespace().map(str::to_owned).collect())
             .unwrap_or_default(),
-        project_url: take(&mut values, "projectUrl"),
-        license_url: take(&mut values, "licenseUrl"),
+        project_url: clean(metadata.project_url),
+        license_url: clean(metadata.license_url),
     })
+}
+
+/// Root element of a `.nuspec` file; other members are ignored.
+#[derive(Debug, Default, Deserialize)]
+struct NuspecDocument {
+    #[serde(default)]
+    metadata: Option<NuspecMetadata>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NuspecMetadata {
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    version: Option<String>,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    summary: Option<String>,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    tags: Option<String>,
+    #[serde(default)]
+    project_url: Option<String>,
+    #[serde(default)]
+    license_url: Option<String>,
 }
 
 /// Installation directory of Chocolatey as a host path.
@@ -164,7 +166,9 @@ fn executables_below(dir: &Path) -> Vec<String> {
     let mut found = Vec::new();
     let mut pending = vec![(dir.to_path_buf(), 1usize)];
     while let Some((dir, depth)) = pending.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() && depth < TOOLS_DEPTH {
@@ -181,7 +185,13 @@ fn executables_below(dir: &Path) -> Vec<String> {
 }
 
 impl ChocoSource {
-    fn read_package(&self, env: &HostEnv, lib: &Path, id: &str, data: &mut SourceData) -> Option<(Nuspec, Vec<String>)> {
+    fn read_package(
+        &self,
+        env: &HostEnv,
+        lib: &Path,
+        id: &str,
+        data: &mut SourceData,
+    ) -> Option<(Nuspec, Vec<String>)> {
         let path = lib.join(id).join(format!("{id}{NUSPEC_EXTENSION}"));
         let text = std::fs::read_to_string(env.sys_path(&path)).ok()?;
         match parse_nuspec(&text) {
@@ -237,26 +247,47 @@ impl ProgramSource for ChocoSource {
         let mut executables: BTreeMap<String, Vec<String>> = BTreeMap::new();
         for shim in names_in(&env.sys_path(&bin)) {
             let lower = shim.to_ascii_lowercase();
-            let Some(command) = shim.get(..shim.len().saturating_sub(EXE_EXTENSION.len())).filter(|_| lower.ends_with(EXE_EXTENSION)) else {
+            let Some(command) = shim
+                .get(..shim.len().saturating_sub(EXE_EXTENSION.len()))
+                .filter(|_| lower.ends_with(EXE_EXTENSION))
+            else {
                 continue;
             };
             let owner = packages
                 .iter()
                 .find(|(_, _, tools)| tools.contains(&lower))
-                .or_else(|| packages.iter().find(|(id, _, _)| id.eq_ignore_ascii_case(command)));
-            let Some((id, nuspec, _)) = owner else { continue };
+                .or_else(|| {
+                    packages
+                        .iter()
+                        .find(|(id, _, _)| id.eq_ignore_ascii_case(command))
+                });
+            let Some((id, nuspec, _)) = owner else {
+                continue;
+            };
             let path = bin.join(&shim).display().to_string();
             let package = PackageRef {
                 manager: self.id.clone(),
                 name: id.clone(),
             };
             data.file_packages.push((path.clone(), package.clone()));
-            executables.entry(id.clone()).or_default().push(path.clone());
+            executables
+                .entry(id.clone())
+                .or_default()
+                .push(path.clone());
             let mut hints = vec![CategoryHint::new(CategoryScheme::Keyword, id.clone())];
-            hints.extend(nuspec.tags.iter().map(|tag| CategoryHint::new(CategoryScheme::Keyword, tag.clone())));
+            hints.extend(
+                nuspec
+                    .tags
+                    .iter()
+                    .map(|tag| CategoryHint::new(CategoryScheme::Keyword, tag.clone())),
+            );
             data.programs.push(RawProgram {
                 path: Some(path),
-                summary: nuspec.summary.as_deref().or(nuspec.title.as_deref()).map(LocalizedText::new),
+                summary: nuspec
+                    .summary
+                    .as_deref()
+                    .or(nuspec.title.as_deref())
+                    .map(LocalizedText::new),
                 description: nuspec.description.as_deref().map(LocalizedText::new),
                 version: nuspec.version.clone(),
                 package: Some(package),
@@ -271,7 +302,11 @@ impl ProgramSource for ChocoSource {
                 executables: executables.remove(&id).unwrap_or_default(),
                 name: nuspec.id.clone().unwrap_or(id),
                 version: nuspec.version,
-                summary: nuspec.summary.or(nuspec.title).as_deref().map(LocalizedText::new),
+                summary: nuspec
+                    .summary
+                    .or(nuspec.title)
+                    .as_deref()
+                    .map(LocalizedText::new),
                 description: nuspec.description.as_deref().map(LocalizedText::new),
                 homepage: nuspec.project_url,
                 license: nuspec.license_url,

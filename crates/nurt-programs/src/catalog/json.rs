@@ -138,7 +138,10 @@ pub(crate) fn parse_object(text: &str, depth_limit: usize) -> Result<RawObject<'
 }
 
 /// Parses an unparsed member as an array whose items stay unparsed.
-pub(crate) fn parse_array<'a>(text: &'a str, raw: &'a RawValue) -> Result<Vec<&'a RawValue>, JsonError> {
+pub(crate) fn parse_array<'a>(
+    text: &'a str,
+    raw: &'a RawValue,
+) -> Result<Vec<&'a RawValue>, JsonError> {
     serde_json::from_str(raw.get()).map_err(|error| JsonError::Syntax {
         line: line_at(text, offset_of(text, raw.get())),
         message: error.to_string(),

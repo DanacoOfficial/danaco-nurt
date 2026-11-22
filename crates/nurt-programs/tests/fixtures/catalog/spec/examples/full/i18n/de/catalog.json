@@ -1,0 +1,23 @@
+{
+  "format": "nurt-program-catalog/1",
+  "language": "de",
+  "categories": [
+    { "id": "video", "title": "Video", "summary": "Kodierung und Verpackung von Videos." },
+    { "id": "video-packaging", "title": "Verpackung und Streaming", "description": "Container, DASH und HLS." }
+  ],
+  "programs": [
+    {
+      "name": "MP4Box",
+      "summary": "Verpackt MP4-Dateien ohne Neukodierung: Spuren, Untertitel, Kapitel, DASH.",
+      "when_to_use": ["Untertitel als MP4-Spur, nicht eingebrannt", "Kapitel in einer MP4-Datei"],
+      "not_for": [{ "task": "Kodierung und Bildfilter", "use": "ffmpeg" }],
+      "sections": [{ "kind": "pitfalls", "label": "Fallstricke", "text": "- Die Option -new schützt die Eingabedatei vor Änderungen." }],
+      "tags": ["mp4", "untertitel"],
+      "guide": "i18n/de/guides/mp4box.md"
+    },
+    { "name": "ls", "summary": "Zeigt den Inhalt eines Verzeichnisses an." }
+  ],
+  "guides": [
+    { "name": "streaming-basics", "summary": "Auswahl zwischen DASH und HLS und Vorbereitung der Dateien für beide." }
+  ]
+}

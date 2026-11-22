@@ -94,14 +94,18 @@ pub struct Manifest {
 /// ```
 pub fn parse_manifest(text: &str) -> Result<Manifest, String> {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-    let value: Value = serde_json::from_str(text).map_err(|error| format!("manifest is not JSON: {error}"))?;
+    let value: Value =
+        serde_json::from_str(text).map_err(|error| format!("manifest is not JSON: {error}"))?;
     if !value.is_object() {
         return Err("manifest is not a JSON object".to_owned());
     }
     let text_of = |key: &str| value.get(key).and_then(Value::as_str).map(str::to_owned);
     let license = match value.get("license") {
         Some(Value::String(license)) => Some(license.clone()),
-        Some(Value::Object(license)) => license.get("identifier").and_then(Value::as_str).map(str::to_owned),
+        Some(Value::Object(license)) => license
+            .get("identifier")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
         _ => None,
     };
     let bin = match value.get("bin") {
@@ -110,7 +114,9 @@ pub fn parse_manifest(text: &str) -> Result<Manifest, String> {
             .iter()
             .filter_map(|item| match item {
                 Value::String(path) => bin_entry(path, None),
-                Value::Array(pair) => bin_entry(pair.first()?.as_str()?, pair.get(1).and_then(Value::as_str)),
+                Value::Array(pair) => {
+                    bin_entry(pair.first()?.as_str()?, pair.get(1).and_then(Value::as_str))
+                }
                 _ => None,
             })
             .collect(),
@@ -155,11 +161,15 @@ fn file_stem(path: &str) -> Option<String> {
 /// ```
 #[must_use]
 pub fn shim_application(text: &str) -> Option<String> {
-    let line = text.lines().find(|line| line.trim_start().starts_with("path"))?;
+    let line = text
+        .lines()
+        .find(|line| line.trim_start().starts_with("path"))?;
     let (_, value) = line.split_once('=')?;
     let path = value.trim().trim_matches('"');
     let parts: Vec<&str> = path.split(['\\', '/']).collect();
-    let at = parts.iter().position(|part| part.eq_ignore_ascii_case("apps"))?;
+    let at = parts
+        .iter()
+        .position(|part| part.eq_ignore_ascii_case("apps"))?;
     parts.get(at + 1).map(|app| (*app).to_owned())
 }
 
@@ -196,14 +206,27 @@ fn names_in(dir: &Path) -> Vec<String> {
 }
 
 impl ScoopSource {
-    fn read_root(&self, env: &HostEnv, root: &Path, deadline: &Deadline<'_>, data: &mut SourceData) -> Result<(), SourceError> {
+    fn read_root(
+        &self,
+        env: &HostEnv,
+        root: &Path,
+        deadline: &Deadline<'_>,
+        data: &mut SourceData,
+    ) -> Result<(), SourceError> {
         let shims = root.join("shims");
         let mut shims_by_app: BTreeMap<String, Vec<String>> = BTreeMap::new();
         for file in names_in(&env.sys_path(&shims)) {
-            let Some(command) = file.strip_suffix(SHIM_EXTENSION) else { continue };
-            let Ok(text) = std::fs::read_to_string(env.sys_path(shims.join(&file))) else { continue };
+            let Some(command) = file.strip_suffix(SHIM_EXTENSION) else {
+                continue;
+            };
+            let Ok(text) = std::fs::read_to_string(env.sys_path(shims.join(&file))) else {
+                continue;
+            };
             if let Some(app) = shim_application(&text) {
-                shims_by_app.entry(app.to_ascii_lowercase()).or_default().push(command.to_owned());
+                shims_by_app
+                    .entry(app.to_ascii_lowercase())
+                    .or_default()
+                    .push(command.to_owned());
             }
         }
         let apps = root.join("apps");
@@ -211,7 +234,9 @@ impl ScoopSource {
             deadline.check(&self.id)?;
             let current = apps.join(&app).join("current");
             let manifest_path = current.join(MANIFEST);
-            let Ok(text) = std::fs::read_to_string(env.sys_path(&manifest_path)) else { continue };
+            let Ok(text) = std::fs::read_to_string(env.sys_path(&manifest_path)) else {
+                continue;
+            };
             let manifest = match parse_manifest(&text) {
                 Ok(manifest) => manifest,
                 Err(reason) => {
@@ -225,15 +250,32 @@ impl ScoopSource {
             };
             let bucket = std::fs::read_to_string(env.sys_path(current.join(INSTALL)))
                 .ok()
-                .and_then(|text| serde_json::from_str::<Value>(text.trim_start_matches('\u{feff}')).ok())
-                .and_then(|value| value.get("bucket").and_then(Value::as_str).map(str::to_owned));
-            let shim_commands = shims_by_app.remove(&app.to_ascii_lowercase()).unwrap_or_default();
+                .and_then(|text| {
+                    serde_json::from_str::<Value>(text.trim_start_matches('\u{feff}')).ok()
+                })
+                .and_then(|value| {
+                    value
+                        .get("bucket")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                });
+            let shim_commands = shims_by_app
+                .remove(&app.to_ascii_lowercase())
+                .unwrap_or_default();
             self.add_app(&shims, &app, manifest, bucket, &shim_commands, data);
         }
         Ok(())
     }
 
-    fn add_app(&self, shims: &Path, app: &str, manifest: Manifest, bucket: Option<String>, shim_commands: &[String], data: &mut SourceData) {
+    fn add_app(
+        &self,
+        shims: &Path,
+        app: &str,
+        manifest: Manifest,
+        bucket: Option<String>,
+        shim_commands: &[String],
+        data: &mut SourceData,
+    ) {
         let package = PackageRef {
             manager: self.id.clone(),
             name: app.to_owned(),
@@ -242,12 +284,16 @@ impl ScoopSource {
             .bin
             .iter()
             .map(|entry| {
-                let stem = file_stem(&entry.target).filter(|stem| !stem.eq_ignore_ascii_case(&entry.command));
+                let stem = file_stem(&entry.target)
+                    .filter(|stem| !stem.eq_ignore_ascii_case(&entry.command));
                 (entry.command.clone(), stem)
             })
             .collect();
         for command in shim_commands {
-            if !commands.iter().any(|(known, _)| known.eq_ignore_ascii_case(command)) {
+            if !commands
+                .iter()
+                .any(|(known, _)| known.eq_ignore_ascii_case(command))
+            {
                 commands.push((command.clone(), None));
             }
         }
@@ -270,7 +316,11 @@ impl ScoopSource {
                 ..RawProgram::new(command)
             });
         }
-        for program in data.programs.iter_mut().filter(|program| program.alias_of.is_some()) {
+        for program in data
+            .programs
+            .iter_mut()
+            .filter(|program| program.alias_of.is_some())
+        {
             program.alias_kind = Some(AliasKind::Shim);
         }
         data.packages.push(RawPackage {
@@ -296,7 +346,10 @@ impl ProgramSource for ScoopSource {
     }
 
     fn detect(&self, env: &HostEnv) -> bool {
-        env.os() == Os::Windows && roots(env).iter().any(|root| env.sys_path(root.join("apps")).is_dir())
+        env.os() == Os::Windows
+            && roots(env)
+                .iter()
+                .any(|root| env.sys_path(root.join("apps")).is_dir())
     }
 
     fn fingerprint(&self, env: &HostEnv) -> Result<Fingerprint, SourceError> {

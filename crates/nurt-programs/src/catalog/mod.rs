@@ -55,6 +55,7 @@ impl Catalog {
     }
 
     fn open_root(&self) -> Result<Root, String> {
-        Root::open(&self.root).map_err(|error| format!("catalog directory cannot be opened: {error}"))
+        Root::open(&self.root)
+            .map_err(|error| format!("catalog directory cannot be opened: {error}"))
     }
 }

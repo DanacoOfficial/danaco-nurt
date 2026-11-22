@@ -183,7 +183,10 @@ impl Header {
     /// First string of a string entry.
     #[must_use]
     pub fn string(&self, tag: u32) -> Option<String> {
-        self.strings(tag)?.into_iter().next().filter(|text| !text.is_empty())
+        self.strings(tag)?
+            .into_iter()
+            .next()
+            .filter(|text| !text.is_empty())
     }
 
     /// Integers of an `INT8`, `INT16`, `INT32` or `INT64` entry.
@@ -203,7 +206,11 @@ impl Header {
         Some(
             bytes
                 .chunks_exact(width)
-                .map(|chunk| chunk.iter().fold(0u64, |value, byte| value << 8 | u64::from(*byte)))
+                .map(|chunk| {
+                    chunk
+                        .iter()
+                        .fold(0u64, |value, byte| value << 8 | u64::from(*byte))
+                })
                 .collect(),
         )
     }
@@ -229,7 +236,11 @@ impl Header {
             let lang = if locale == "C" || locale.is_empty() {
                 "en".to_owned()
             } else {
-                locale.split(['_', '.', '@']).next().unwrap_or(locale).to_owned()
+                locale
+                    .split(['_', '.', '@'])
+                    .next()
+                    .unwrap_or(locale)
+                    .to_owned()
             };
             match text.as_mut() {
                 None => text = Some(LocalizedText::in_lang(value, &lang)),
@@ -297,7 +308,11 @@ mod tests {
     #[test]
     fn parses_strings_and_integers() {
         let data = b"bash\0\0\0\0\0\0\0\x05";
-        let header = Header::parse(&blob(&[(TAG_NAME, TYPE_STRING, 0, 1), (TAG_EPOCH, TYPE_INT32, 8, 1)], data)).unwrap();
+        let header = Header::parse(&blob(
+            &[(TAG_NAME, TYPE_STRING, 0, 1), (TAG_EPOCH, TYPE_INT32, 8, 1)],
+            data,
+        ))
+        .unwrap();
         assert_eq!(header.string(TAG_NAME).as_deref(), Some("bash"));
         assert_eq!(header.integer(TAG_EPOCH), Some(5));
         assert_eq!(header.entries().len(), 2);

@@ -47,12 +47,15 @@ impl EntryKind {
 /// the other variants by language code. Search reads every variant; cards
 /// show the variant of the most preferred language.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct LocalizedText {
     /// Main variant.
     pub text: String,
     /// Language of the main variant.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub lang: Option<String>,
     /// Other variants by language code.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub translations: BTreeMap<String, String>,
 }
 
@@ -351,75 +354,117 @@ impl EntryKey {
 /// provider knows it. The index merges entries with the same name from
 /// several providers.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct RawProgram {
     /// Command name as typed, or the display name of an application without
     /// a command.
     pub name: String,
     /// Identity for [`ProgramSource::detail`](crate::source::ProgramSource::detail).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub key: Option<EntryKey>,
     /// Kind.
     pub kind: EntryKind,
     /// Local file of the command or application.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
     /// Further local files with the same name, in resolution order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub alternatives: Vec<String>,
     /// Main entry when this name is an alias of another program.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub alias_of: Option<String>,
     /// Kind of the alias in `alias_of`.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub alias_kind: Option<AliasKind>,
     /// Alternative names of this entry.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<RawAlias>,
     /// One sentence.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<LocalizedText>,
     /// One paragraph for category listings.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub overview: Option<LocalizedText>,
     /// Full description.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<LocalizedText>,
     /// Structured parts of the description.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub sections: Vec<DescriptionSection>,
     /// Situations in which to use the program.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub when_to_use: Vec<LocalizedText>,
     /// Tasks the program is not meant for.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub not_for: Vec<NotFor>,
     /// One working invocation.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub example: Option<String>,
     /// Hints for the category, strongest first.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub category_hints: Vec<CategoryHint>,
     /// Version.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     /// Package that provides the entry.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub package: Option<PackageRef>,
+    /// Name of the package that provides the entry when the provider does
+    /// not know the package manager, as in catalog entries. The index joins
+    /// it with a package of that name from any package database.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub package_name: Option<String>,
     /// Application identifier (bundle id, desktop file id, AppX family,
     /// uninstall key).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
     /// Display name of the application.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub app_name: Option<LocalizedText>,
+    /// File name of the main executable of an application
+    /// (`CFBundleExecutable`). An application whose executable is a command
+    /// in `PATH` is merged with the card of that command.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub executable: Option<String>,
     /// Project home page.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub homepage: Option<String>,
     /// Licence of the program.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub license: Option<String>,
     /// Tags and keywords, ranked with a low weight.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
     /// Operating systems named by a catalog.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub platforms: Vec<String>,
     /// Date the catalog entry was verified, `YYYY-MM-DD`.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub verified: Option<String>,
     /// Path named by a catalog for another computer; never executed.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub catalog_path: Option<String>,
     /// The entry exists on this computer; `None` lets the index decide from
     /// `PATH` and the other providers.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub installed: Option<bool>,
     /// Usage guide.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub guide: Option<GuideRef>,
     /// The guide is not a prerequisite of use.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub guide_optional: bool,
     /// The guide should be read before the first use.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub guide_required: bool,
     /// Related programs.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub related: Vec<String>,
     /// Description of the input.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub input: Option<String>,
     /// Description of the output.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
 }
 
@@ -436,35 +481,49 @@ impl RawProgram {
 
 /// Metadata of an installed package.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct RawPackage {
     /// Package name.
     pub name: String,
     /// Full version as the manager writes it (with epoch and release).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     /// Architecture.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub architecture: Option<String>,
     /// One-line summary.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<LocalizedText>,
     /// Long description.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<LocalizedText>,
     /// Section or group as written by the manager.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub section: Option<String>,
     /// Further groups (pacman groups, Homebrew taps).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub groups: Vec<String>,
     /// Project home page.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub homepage: Option<String>,
     /// Licence.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub license: Option<String>,
     /// Source package or repository.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub origin: Option<String>,
     /// Installed size in bytes.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub installed_size: Option<u64>,
     /// Install time, RFC 3339 UTC.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub installed_at: Option<String>,
     /// Installed on explicit request (`false` for dependencies; `None` when
     /// the manager does not record it).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub explicit: Option<bool>,
     /// Executable files of the package in binary directories, as host paths.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub executables: Vec<String>,
 }
 

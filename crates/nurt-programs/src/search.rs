@@ -150,7 +150,10 @@ impl SourceFilter {
     pub fn admits_guide(&self, guide: &IndexGuide) -> bool {
         self.is_all()
             || self.kinds.contains(&SourceKind::Catalog)
-            || self.ids.iter().any(|wanted| wanted == guide.source.as_str())
+            || self
+                .ids
+                .iter()
+                .any(|wanted| wanted == guide.source.as_str())
     }
 }
 
@@ -212,15 +215,31 @@ pub fn search(index: &ProgramIndex, query: &Query<'_>, options: SearchOptions) -
         } else {
             points
         };
-        hits.push((Hit { target: Target::Card(position), points, instead }, card.rank, &card.name));
+        hits.push((
+            Hit {
+                target: Target::Card(position),
+                points,
+                instead,
+            },
+            card.rank,
+            &card.name,
+        ));
     }
     if category.is_none() && matches!(query.kind, KindFilter::All | KindFilter::Guides) {
         hits.extend(guide_hits(index, &words, query.sources));
     }
     hits.sort_by(|left, right| {
-        right.0.points.cmp(&left.0.points).then(left.1.cmp(&right.1)).then(left.2.cmp(right.2))
+        right
+            .0
+            .points
+            .cmp(&left.0.points)
+            .then(left.1.cmp(&right.1))
+            .then(left.2.cmp(right.2))
     });
-    let filtered = hits.into_iter().map(|(hit, _, _)| hit).filter(|hit| kind_matches(index, hit, query.kind));
+    let filtered = hits
+        .into_iter()
+        .map(|(hit, _, _)| hit)
+        .filter(|hit| kind_matches(index, hit, query.kind));
     if query.kind == KindFilter::All {
         filtered.take(query.limit).collect()
     } else {
@@ -232,24 +251,32 @@ fn kind_matches(index: &ProgramIndex, hit: &Hit, kind: KindFilter) -> bool {
     match (kind, hit.target) {
         (KindFilter::All, _) => true,
         (KindFilter::Guides, target) => matches!(target, Target::Guide(_)),
-        (KindFilter::Programs, Target::Card(position)) => {
-            index.card(position).is_some_and(|card| card.kind == EntryKind::Program)
-        }
-        (KindFilter::Apps, Target::Card(position)) => {
-            index.card(position).is_some_and(|card| card.kind == EntryKind::App)
-        }
+        (KindFilter::Programs, Target::Card(position)) => index
+            .card(position)
+            .is_some_and(|card| card.kind == EntryKind::Program),
+        (KindFilter::Apps, Target::Card(position)) => index
+            .card(position)
+            .is_some_and(|card| card.kind == EntryKind::App),
         _ => false,
     }
 }
 
-fn card_admitted(card: &Card, index: &ProgramIndex, query: &Query<'_>, category: Option<&str>) -> bool {
+fn card_admitted(
+    card: &Card,
+    index: &ProgramIndex,
+    query: &Query<'_>,
+    category: Option<&str>,
+) -> bool {
     if let Some(category) = category {
         let sub = card.subcategory.as_deref().map(fold);
         if card.fields.category != category && sub.as_deref() != Some(category) {
             return false;
         }
     }
-    if query.installed.is_some_and(|installed| installed != card.installed) {
+    if query
+        .installed
+        .is_some_and(|installed| installed != card.installed)
+    {
         return false;
     }
     query.sources.admits(card, index)
@@ -283,7 +310,12 @@ fn word_points(fields: &SearchFields, word: &str, extra: bool) -> u32 {
     points
 }
 
-fn card_points(index: &ProgramIndex, fields: &SearchFields, words: &[String], options: SearchOptions) -> u32 {
+fn card_points(
+    index: &ProgramIndex,
+    fields: &SearchFields,
+    words: &[String],
+    options: SearchOptions,
+) -> u32 {
     let mut points = 0;
     let mut everywhere = true;
     for word in words {
@@ -335,28 +367,51 @@ pub fn substitute(card: &Card, words: &[String]) -> Option<String> {
     card.not_for.iter().find_map(|item| {
         let instead = item.instead.as_deref()?.trim().trim_end_matches('.');
         let task = fold_all(&item.task);
-        (!instead.is_empty() && words.iter().all(|word| task.contains(word.as_str()))).then(|| instead.to_owned())
+        (!instead.is_empty() && words.iter().all(|word| task.contains(word.as_str())))
+            .then(|| instead.to_owned())
     })
 }
 
-fn guide_hits<'a>(index: &'a ProgramIndex, words: &[String], sources: &SourceFilter) -> Vec<(Hit, usize, &'a str)> {
+fn guide_hits<'a>(
+    index: &'a ProgramIndex,
+    words: &[String],
+    sources: &SourceFilter,
+) -> Vec<(Hit, usize, &'a str)> {
     let mut hits = Vec::new();
     for (position, guide) in index.guides().iter().enumerate() {
         let name = guide.guide.name.as_str();
-        if index.guide_is_linked(name) || index.resolve(name).is_some() || !sources.admits_guide(guide) {
+        if index.guide_is_linked(name)
+            || index.resolve(name).is_some()
+            || !sources.admits_guide(guide)
+        {
             continue;
         }
         let points: u32 = words
             .iter()
             .map(|word| {
-                let in_name = if guide.folded_name.contains(word.as_str()) { GUIDE_NAME_POINTS } else { 0 };
-                let in_summary =
-                    if guide.folded_summary.contains(word.as_str()) { GUIDE_DESCRIPTION_POINTS } else { 0 };
+                let in_name = if guide.folded_name.contains(word.as_str()) {
+                    GUIDE_NAME_POINTS
+                } else {
+                    0
+                };
+                let in_summary = if guide.folded_summary.contains(word.as_str()) {
+                    GUIDE_DESCRIPTION_POINTS
+                } else {
+                    0
+                };
                 in_name + in_summary
             })
             .sum();
         if points > 0 {
-            hits.push((Hit { target: Target::Guide(position), points, instead: None }, guide.rank, name));
+            hits.push((
+                Hit {
+                    target: Target::Guide(position),
+                    points,
+                    instead: None,
+                },
+                guide.rank,
+                name,
+            ));
         }
     }
     hits
@@ -404,7 +459,10 @@ pub fn similar(index: &ProgramIndex, requested: &str, limit: usize) -> Vec<Strin
 pub fn hit_name<'a>(index: &'a ProgramIndex, hit: &Hit) -> Option<&'a str> {
     match hit.target {
         Target::Card(position) => index.card(position).map(|card| card.name.as_str()),
-        Target::Guide(position) => index.guides().get(position).map(|guide| guide.guide.name.as_str()),
+        Target::Guide(position) => index
+            .guides()
+            .get(position)
+            .map(|guide| guide.guide.name.as_str()),
     }
 }
 
@@ -427,12 +485,18 @@ pub fn guide_sections(text: &str) -> Vec<Section> {
             fenced = !fenced;
         }
         if !fenced && line.starts_with("## ") {
-            sections.push(Section { heading: line[3..].trim().to_owned(), body: line.to_owned() });
+            sections.push(Section {
+                heading: line[3..].trim().to_owned(),
+                body: line.to_owned(),
+            });
         } else if let Some(last) = sections.last_mut() {
             last.body.push('\n');
             last.body.push_str(line);
         } else {
-            sections.push(Section { heading: String::new(), body: line.to_owned() });
+            sections.push(Section {
+                heading: String::new(),
+                body: line.to_owned(),
+            });
         }
     }
     sections
@@ -444,9 +508,15 @@ pub fn card_sections(card: &Card, languages: &[String]) -> Vec<Section> {
     card.sections
         .iter()
         .filter_map(|section| {
-            let heading = section.label.clone().unwrap_or_else(|| section_label(section.kind).to_owned());
+            let heading = section
+                .label
+                .clone()
+                .unwrap_or_else(|| section_label(section.kind).to_owned());
             let text = section.text.pick(languages).0;
-            (!heading.is_empty()).then(|| Section { body: format!("{heading}: {text}"), heading })
+            (!heading.is_empty()).then(|| Section {
+                body: format!("{heading}: {text}"),
+                heading,
+            })
         })
         .collect()
 }
@@ -476,7 +546,11 @@ pub fn find_section<'a>(sections: &'a [Section], wanted: &str) -> Option<&'a Sec
     sections
         .iter()
         .find(|section| fold(&section.heading) == key)
-        .or_else(|| sections.iter().find(|section| !section.heading.is_empty() && fold(&section.heading).contains(&key)))
+        .or_else(|| {
+            sections.iter().find(|section| {
+                !section.heading.is_empty() && fold(&section.heading).contains(&key)
+            })
+        })
 }
 
 /// Up to [`QUERY_SECTIONS`] sections matching the words of `query`; words
@@ -493,7 +567,11 @@ pub fn match_sections<'a>(sections: &'a [Section], query: &str) -> Vec<&'a Secti
             let points = words
                 .iter()
                 .map(|word| {
-                    let in_heading = if heading.contains(word.as_str()) { HEADING_WEIGHT } else { 0 };
+                    let in_heading = if heading.contains(word.as_str()) {
+                        HEADING_WEIGHT
+                    } else {
+                        0
+                    };
                     in_heading + u32::from(body.contains(word.as_str()))
                 })
                 .sum();
@@ -502,7 +580,11 @@ pub fn match_sections<'a>(sections: &'a [Section], query: &str) -> Vec<&'a Secti
         .filter(|(points, _, _)| *points > 0)
         .collect();
     scored.sort_by(|left, right| right.0.cmp(&left.0).then(left.1.cmp(&right.1)));
-    scored.into_iter().take(QUERY_SECTIONS).map(|(_, _, section)| section).collect()
+    scored
+        .into_iter()
+        .take(QUERY_SECTIONS)
+        .map(|(_, _, section)| section)
+        .collect()
 }
 
 #[cfg(test)]
@@ -513,11 +595,20 @@ mod tests {
     fn sections_split_outside_code_blocks() {
         let text = "intro\n## Use\nrun it\n```\n## not a heading\n```\n## Pitfalls\nbeware";
         let sections = guide_sections(text);
-        let headings: Vec<&str> = sections.iter().map(|section| section.heading.as_str()).collect();
+        let headings: Vec<&str> = sections
+            .iter()
+            .map(|section| section.heading.as_str())
+            .collect();
         assert_eq!(headings, vec!["", "Use", "Pitfalls"]);
         assert!(sections[1].body.contains("## not a heading"));
-        assert_eq!(find_section(&sections, "## pitfalls").map(|s| s.heading.as_str()), Some("Pitfalls"));
-        assert_eq!(find_section(&sections, "pit").map(|s| s.heading.as_str()), Some("Pitfalls"));
+        assert_eq!(
+            find_section(&sections, "## pitfalls").map(|s| s.heading.as_str()),
+            Some("Pitfalls")
+        );
+        assert_eq!(
+            find_section(&sections, "pit").map(|s| s.heading.as_str()),
+            Some("Pitfalls")
+        );
         assert!(find_section(&sections, "missing").is_none());
         let matched = match_sections(&sections, "beware use");
         assert_eq!(matched.len(), 2);

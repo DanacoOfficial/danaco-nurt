@@ -147,9 +147,8 @@ fn read_with_deadline(
     deadline: &Deadline<'_>,
     id: &SourceId,
 ) -> Result<SourceData, SourceError> {
-    let file = locate(env).ok_or_else(|| {
-        SourceError::new(id, SourceErrorKind::Unavailable, "no rpm database")
-    })?;
+    let file = locate(env)
+        .ok_or_else(|| SourceError::new(id, SourceErrorKind::Unavailable, "no rpm database"))?;
     let location = file.path.display().to_string();
     let blobs = match file.format {
         DbFormat::Sqlite => read_sqlite(env, id, &file.path)?,
@@ -175,9 +174,13 @@ fn read_with_deadline(
         match Header::parse(blob) {
             Ok(header) => add_package(&mut data, &header, id),
             Err(error) => data.warnings.push(
-                SourceWarning::new(WarningCode::SourceUnavailable, id, format!("damaged header: {error}"))
-                    .at(location.clone())
-                    .line(number as u64 + 1),
+                SourceWarning::new(
+                    WarningCode::SourceUnavailable,
+                    id,
+                    format!("damaged header: {error}"),
+                )
+                .at(location.clone())
+                .line(number as u64 + 1),
             ),
         }
     }
@@ -185,7 +188,11 @@ fn read_with_deadline(
 }
 
 /// Stored headers of a SQLite database.
-fn read_sqlite(env: &HostEnv, id: &SourceId, host_path: &Path) -> Result<Vec<Vec<u8>>, SourceError> {
+fn read_sqlite(
+    env: &HostEnv,
+    id: &SourceId,
+    host_path: &Path,
+) -> Result<Vec<Vec<u8>>, SourceError> {
     let file = env.sys_path(host_path);
     let fail = |error: rusqlite::Error| {
         SourceError::new(id, SourceErrorKind::Unavailable, error.to_string())
@@ -229,14 +236,18 @@ fn uri_path(path: &Path) -> String {
 #[must_use]
 pub fn package_from_header(header: &Header) -> Option<RawPackage> {
     let name = header.string(TAG_NAME)?;
-    let size = header.integer(TAG_LONG_SIZE).or_else(|| header.integer(TAG_SIZE));
+    let size = header
+        .integer(TAG_LONG_SIZE)
+        .or_else(|| header.integer(TAG_SIZE));
     Some(RawPackage {
         name,
         version: header.full_version(),
         architecture: header.string(TAG_ARCH),
         summary: header.localized(TAG_SUMMARY),
         description: header.localized(TAG_DESCRIPTION),
-        section: header.string(TAG_GROUP).filter(|group| group != "Unspecified"),
+        section: header
+            .string(TAG_GROUP)
+            .filter(|group| group != "Unspecified"),
         homepage: header.string(TAG_URL),
         license: header.string(TAG_LICENSE),
         origin: header.string(TAG_SOURCE_RPM),
@@ -256,8 +267,11 @@ pub fn package_from_header(header: &Header) -> Option<RawPackage> {
 
 fn add_package(data: &mut SourceData, header: &Header, id: &SourceId) {
     let Some(package) = package_from_header(header) else {
-        data.warnings
-            .push(SourceWarning::new(WarningCode::SourceUnavailable, id, "header without name"));
+        data.warnings.push(SourceWarning::new(
+            WarningCode::SourceUnavailable,
+            id,
+            "header without name",
+        ));
         return;
     };
     let reference = PackageRef {
