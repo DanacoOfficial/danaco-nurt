@@ -30,6 +30,15 @@ pub(crate) const CORE_TAG_PREFIX: &str = "tag:yaml.org,2002:";
 /// Characters that end an anchor name or a tag shorthand.
 const FLOW_INDICATORS: &[u8] = b",[]{}";
 
+/// Length of the document markers `---` and `...`.
+const MARKER_LEN: usize = 3;
+
+/// Length of a URI percent escape (`%` and two hexadecimal digits).
+const PERCENT_ESCAPE_LEN: usize = 3;
+
+/// Radix of the digits of a percent escape.
+const HEX_RADIX: u32 = 16;
+
 impl YamlModel {
     /// Model of the YAML stream `text`, typed by the YAML 1.2 rules unless a
     /// document declares version 1.1.
@@ -367,11 +376,11 @@ impl<'a> Builder<'a> {
             rest.get(length)
                 .is_none_or(|&byte| matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
         };
-        if rest.starts_with(b"---") && separated(3) {
-            return Some(Marker::Start(start..start + 3));
+        if rest.starts_with(b"---") && separated(MARKER_LEN) {
+            return Some(Marker::Start(start..start + MARKER_LEN));
         }
-        if rest.starts_with(b"...") && separated(3) {
-            return Some(Marker::End(start..start + 3));
+        if rest.starts_with(b"...") && separated(MARKER_LEN) {
+            return Some(Marker::End(start..start + MARKER_LEN));
         }
         if rest.first() == Some(&b'%') {
             return Some(Marker::Directive(self.directive_at(start)));
@@ -1188,12 +1197,12 @@ fn percent_decode(text: &str) -> String {
     let mut index = 0;
     while index < bytes.len() {
         let escape = (bytes[index] == b'%')
-            .then(|| text.get(index + 1..index + 3))
+            .then(|| text.get(index + 1..index + PERCENT_ESCAPE_LEN))
             .flatten()
-            .and_then(|hex| u8::from_str_radix(hex, 16).ok());
+            .and_then(|hex| u8::from_str_radix(hex, HEX_RADIX).ok());
         if let Some(byte) = escape {
             decoded.push(byte);
-            index += 3;
+            index += PERCENT_ESCAPE_LEN;
         } else {
             decoded.push(bytes[index]);
             index += 1;

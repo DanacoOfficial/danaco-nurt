@@ -19,8 +19,6 @@
 
 pub mod anchor;
 mod backend_saphyr;
-#[cfg(test)]
-mod backend_yaml_edit;
 pub mod comment;
 mod map;
 pub mod merge;
