@@ -1,0 +1,22 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol":"nurt-rpc/1","client":{"name":"transcript","version":"1"},"capabilities":{"events":false}}}
+{"jsonrpc":"2.0","id":2,"method":"run","params":{"nurt":"1.0","program":"find \"/srv/app\" glob: \"*.go\""}}
+{"jsonrpc":"2.0","id":3,"method":"run","params":{"nurt":"1.0","program":"find \"/srv/app\" glob: [\"*.go\""}}
+{"jsonrpc":"2.0","id":4,"method":"check","params":{"nurt":"1.0","program":"find \"/srv/app\" glob: \"*.go\""}}
+{"jsonrpc":"2.0","id":5,"method":"parse","params":{"program":"find \"/srv/app\""}}
+{"jsonrpc":"2.0","id":6,"method":"print","params":{"ast":{"nurt":"1.0","pipelines":[{"stages":[{"command":"find","args":["/srv/app"]}]}]}}}
+{"jsonrpc":"2.0","id":7,"method":"correct","params":{"program":"fnd \"/srv/app\"","variant":"a"}}
+{"jsonrpc":"2.0","id":8,"method":"page","params":{"cursor":"c_91fe"}}
+{"jsonrpc":"2.0","id":9,"method":"describe","params":{}}
+{"jsonrpc":"2.0","id":10,"method":"help"}
+{"jsonrpc":"2.0","id":11,"method":"schema","params":{"name":"nothing"}}
+{"jsonrpc":"2.0","id":12,"method":"catalog","params":{}}
+{"jsonrpc":"2.0","id":13,"method":"history","params":{}}
+{"jsonrpc":"2.0","id":14,"method":"space"}
+{"jsonrpc":"2.0","id":15,"method":"info"}
+{"jsonrpc":"2.0","id":16,"method":"undo"}
+{"jsonrpc":"2.0","id":17,"method":"cancel","params":{"request_id":99}}
+{"jsonrpc":"2.0","id":18,"method":"cancel","params":{"job_id":"j1"}}
+{"jsonrpc":"2.0","id":19,"method":"parse","params":{"program":1}}
+{"jsonrpc":"2.0","method":"info"}
+{"jsonrpc":"2.0","id":20,"method":"shutdown"}
+{"jsonrpc":"2.0","id":21,"method":"info"}

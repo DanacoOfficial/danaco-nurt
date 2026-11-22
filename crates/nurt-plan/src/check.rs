@@ -24,7 +24,7 @@ use nurt_contracts::spec::{ScalarType, StageSpec};
 use nurt_contracts::stage::{
     ArgValue, BoundArgs, CheckCtx, ExecStep, InputKinds, NetworkTarget, StageImpl, StaticInfo,
 };
-use nurt_contracts::value::{RecordKind, Value};
+use nurt_contracts::value::{Range, RecordKind, Value};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -210,6 +210,7 @@ fn static_value(value: &BoundExpr) -> Option<Value> {
         BoundExpr::Glob { v } => Some(Value::Glob(v.clone())),
         BoundExpr::Key { v } => Some(Value::Key(v.clone())),
         BoundExpr::Enum { v } => Some(Value::Enum(v.clone())),
+        BoundExpr::Range { lo, hi } => Range::new(*lo, *hi).ok().map(Value::Range),
         BoundExpr::List { items } => items
             .iter()
             .map(static_value)
@@ -228,7 +229,7 @@ fn static_arg(value: &BoundExpr) -> ArgValue {
 }
 
 /// Bound arguments of a stage as seen by its static check.
-fn static_args(stage: &BoundStage) -> BoundArgs {
+pub(crate) fn static_args(stage: &BoundStage) -> BoundArgs {
     let mut args = BoundArgs::new(stage.name.clone());
     for arg in &stage.args {
         args.insert(arg.name.clone(), static_arg(&arg.value), arg.default);
@@ -237,7 +238,7 @@ fn static_args(stage: &BoundStage) -> BoundArgs {
 }
 
 /// Implementation whose static check applies to the stage.
-fn implementation_for(
+pub(crate) fn implementation_for(
     registry: &Registry,
     command: &str,
     head: bool,
@@ -583,6 +584,30 @@ mod tests {
         ] {
             assert!(matches!(static_arg(&literal), ArgValue::Value(_)));
         }
+    }
+
+    #[test]
+    fn range_literals_become_range_values() {
+        assert_eq!(
+            static_arg(&BoundExpr::Range {
+                lo: Some(12),
+                hi: Some(12)
+            }),
+            ArgValue::Value(Value::Range(Range::new(Some(12), Some(12)).unwrap()))
+        );
+        let open = BoundExpr::Range {
+            lo: Some(3),
+            hi: None,
+        };
+        assert!(matches!(
+            static_arg(&open),
+            ArgValue::Value(Value::Range(_))
+        ));
+        let inverted = BoundExpr::Range {
+            lo: Some(5),
+            hi: Some(1),
+        };
+        assert!(matches!(static_arg(&inverted), ArgValue::Expr(_)));
     }
 
     #[test]

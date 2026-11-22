@@ -336,12 +336,12 @@ mod tests {
             common(&["/srv/app", "/srv/app/a"]),
             Some("/srv/app".to_owned())
         );
-        assert_eq!(common(&["/srv/a", "/home/b"]), None);
-        assert_eq!(common(&["C:/Users/a", "D:/Users/a"]), None);
-        assert_eq!(common(&["C:/Users/a", "C:/Temp/a"]), None);
+        assert_eq!(common(&["/srv/a", "/opt/b"]), None);
+        assert_eq!(common(&["C:/Work/a", "D:/Work/a"]), None);
+        assert_eq!(common(&["C:/Work/a", "C:/Temp/a"]), None);
         assert_eq!(
-            common(&["C:/Users/a/x", "C:/Users/a/y"]),
-            Some("C:/Users/a".to_owned())
+            common(&["C:/Work/a/x", "C:/Work/a/y"]),
+            Some("C:/Work/a".to_owned())
         );
         assert_eq!(common(&["service:nginx", "service:redis"]), None);
         assert_eq!(common(&["/srv/app/one"]), Some("/srv/app/one".to_owned()));

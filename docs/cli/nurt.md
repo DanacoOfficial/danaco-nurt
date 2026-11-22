@@ -1,0 +1,460 @@
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+# nurt
+
+The `nurt` executable runs programs of the language, offers an interactive session and hosts the protocol servers.
+
+## Invocation
+
+```
+nurt [OPTIONS] <program>
+nurt <subcommand> [arguments]
+nurt -V | --version | -h | --help
+```
+
+The first argument selects a subcommand only when it equals the name of a subcommand exactly. Any other first argument starts a program of the language, and all arguments are joined with single spaces into the program text. `nurt exec` is always unambiguous. Names are case-sensitive; an argument in quotes or with surrounding white space is a program.
+
+Without arguments the executable starts the interactive session.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `-V` | flag | | Print `nurt <version>`. |
+| `--version` | flag | | Print the version with the build data, the copyright and the license. |
+| `-h`, `--help` | flag | | Print the usage. |
+
+The options of a program (`--variant`, `--preview`, `--json`, `--format`, `--limit`, `--cursor`, `--verbosity`) are accepted before the first word of a program, so `nurt --preview remove ...` equals `nurt exec --preview remove ...`. Words after the first word of a program belong to the program. The language has no options with a dash.
+
+## Output and colour
+
+The result is written to the standard output in the requested format. Errors of the command line are written to the standard error output. Colours follow `output.color` (`NURT_COLOR`): with `auto`, only a terminal is coloured and the variable `NO_COLOR` disables colours. The banner of an interactive session is written only to an interactive terminal.
+
+## Build features
+
+The subcommands `mcp`, `lsp`, `migrate`, `service` and `journal` are implemented by optional components. Each component is linked by a Cargo feature of the `nurt-cli` crate; the default build links none of them. A subcommand whose component is not part of the build writes `nurt: <subcommand> is not available in this build` to the standard error output and ends with exit code 3. `nurt doctor` lists these subcommands with the feature each one needs.
+
+| Feature | Links | Subcommand |
+|---|---|---|
+| `mcp` | `nurt-mcp` | `mcp --stdio` |
+| `mcp-http` | `nurt-mcp` with the HTTP transport | `mcp --http` |
+| `lsp` | `nurt-langserver` | `lsp` |
+| `migrate` | `nurt-migrate` | `migrate` |
+| `service` | `nurt-service` | `service` |
+| `journal` | `nurt-journal` | `journal salvage` |
+| `stub` | `nurt-ffi` with recorded answers | `serve` (testing only) |
+
+## `exec`
+
+Runs a program given as arguments.
+
+Syntax:
+
+```
+nurt exec [--variant a|b|c] [--preview] [--json | --format F] [--limit N]
+          [--cursor C] [--verbosity V] <program>
+```
+
+| Parameter | Type | Default | Meaning |
+|---|---|---|---|
+| `--variant` | `a`, `b`, `c` | configured variant | Notation of the program text. |
+| `--preview` | flag | off | Compute the effect without applying it. |
+| `--json` | flag | off | Same as `--format json`. |
+| `--format` | `text`, `json`, `markdown`, `compact` | `text` | Format of the result. |
+| `--limit` | integer 1 to 5000 | 50 | Records per page. |
+| `--cursor` | text | none | Read a further page of an earlier result; no program is given. |
+| `--verbosity` | `quiet`, `normal`, `detailed` | `normal` | Level of detail. |
+
+Result: the rendered result of the program; with `--json` the response document. Exit code: see `exit-codes.md`.
+
+Errors: a language error is part of the result and sets the exit code; an invalid option is a usage error (2).
+
+Example:
+
+```
+nurt exec --preview remove "/tmp/build/old.log"
+```
+
+## `script`
+
+Runs a script file. Each pipeline of the file is its own operation. A first line starting with `#!` is ignored, so a file can start with `#!/usr/bin/env nurt`.
+
+Syntax:
+
+```
+nurt script <file | -> [--preview] [--json | --format F] [--limit N] [--verbosity V]
+```
+
+The file `-` is the standard input. The options are those of `exec`.
+
+Errors: an unreadable file ends with exit code 1.
+
+Example:
+
+```
+nurt script clean.nurt --preview
+```
+
+## `repl`
+
+Starts an interactive session.
+
+Syntax:
+
+```
+nurt repl
+```
+
+On a terminal the session offers a history kept in the state directory, completion of command names and parameters from the command catalog, highlighting and a banner. Input that is not a terminal is read line by line without the banner. A line is a program, or one of these session words:
+
+| Word | Meaning |
+|---|---|
+| `help [topic]` | Show the introduction or a topic. |
+| `bg <program>` | Run a program in the background as a numbered job. |
+| `jobs` | List the jobs. |
+| `fg [id]` | Wait for a job and show its result; the newest job without `id`. |
+| `kill [id]` | Cancel a job; the newest job without `id`. |
+| `exit`, `quit` | End the session. |
+
+Ctrl-C while a program runs cancels it and returns to the prompt; the program reports `E_CANCELLED` and the session continues. Ctrl-C at the prompt discards the line; Ctrl-D ends the session. The exit code is that of the last program that ran.
+
+Example:
+
+```
+printf 'find "/srv"\nexit\n' | nurt repl
+```
+
+## `check`
+
+Parses, corrects and binds a program and reports what it would touch, without running it.
+
+Syntax:
+
+```
+nurt check <file | -e program> [--variant a|b|c] [--json | --format F]
+```
+
+| Parameter | Type | Default | Meaning |
+|---|---|---|---|
+| `file` | path or `-` | none | Program file; `-` is the standard input. |
+| `-e` | text | none | Program text given on the command line. |
+
+Result: `ok`, the number of corrections and the summary of the check; with `--json`, the check document. Errors: a language error is written to the standard error output.
+
+Example:
+
+```
+nurt check -e 'remove "/tmp/build/old.log"'
+```
+
+## `fmt`
+
+Prints a program in canonical form.
+
+Syntax:
+
+```
+nurt fmt <file | -> [--variant a|b|c]
+```
+
+Result: the program text in the given variant, by default the configured variant.
+
+Example:
+
+```
+nurt fmt clean.nurt --variant b
+```
+
+## `ast`
+
+Converts a syntax tree between notations.
+
+Syntax:
+
+```
+nurt ast [--from a|b|c|json] [--to json|cbor|a|b|c] <input | ->
+```
+
+| Parameter | Type | Default | Meaning |
+|---|---|---|---|
+| `--from` | `a`, `b`, `c`, `json` | `json` | Notation of the input. |
+| `--to` | `json`, `cbor`, `a`, `b`, `c` | `json` | Notation of the output. |
+| `input` | text or `-` | none | The input text; `-` is the standard input. |
+
+Result: the tree in the requested notation; `cbor` is binary.
+
+Example:
+
+```
+nurt ast --from a --to json 'find "/srv"'
+```
+
+## `schema`
+
+Prints a published JSON Schema.
+
+Syntax:
+
+```
+nurt schema ast|bound|report|request|config|tool
+```
+
+Errors: an unknown name is `E_UNKNOWN_VALUE` with the known names.
+
+Example:
+
+```
+nurt schema report
+```
+
+## `catalog`
+
+Describes the command catalog, a group or a command.
+
+Syntax:
+
+```
+nurt catalog [command | group | check-distance]
+```
+
+Without an argument the command prints the summary of the catalog. `check-distance` is available when the correction components are part of the build.
+
+Example:
+
+```
+nurt catalog remove
+```
+
+## `help`
+
+Shows the built-in help.
+
+Syntax:
+
+```
+nurt help [topic]
+```
+
+Without a topic the command prints an introduction; the first line names the product and its version. A topic is a command, a group or `core`.
+
+Example:
+
+```
+nurt help remove
+```
+
+## `history`
+
+Lists recorded operations. The command is a shortcut for the program `history` with the given arguments.
+
+Syntax:
+
+```
+nurt history [arguments of the history command]
+```
+
+The options of `exec` are accepted before the arguments.
+
+Example:
+
+```
+nurt history limit: 5
+```
+
+## `undo`
+
+Undoes recorded operations. The command is a shortcut for the program `undo` with the given arguments.
+
+Syntax:
+
+```
+nurt undo [arguments of the undo command]
+```
+
+Example:
+
+```
+nurt undo
+```
+
+## `redo`
+
+Redoes undone operations. The command is a shortcut for the program `redo` with the given arguments.
+
+Syntax:
+
+```
+nurt redo [arguments of the redo command]
+```
+
+Example:
+
+```
+nurt redo
+```
+
+## `serve`
+
+Serves the request protocol to a client process.
+
+Syntax:
+
+```
+nurt serve --stdio | --socket <path> [--framing ndjson|content-length] [--stub <directory>]
+```
+
+| Parameter | Type | Default | Meaning |
+|---|---|---|---|
+| `--stdio` | flag | none | Serves one client on the standard input and output. |
+| `--socket <path>` | path | none | Serves a client on a local socket. Ends with exit code 3. |
+| `--framing` | `ndjson` or `content-length` | `ndjson` | Framing of the messages. |
+| `--stub <directory>` | path | none | Answers requests from recorded cases instead of the engine. Needs the `stub` feature; without it the command ends with exit code 3. |
+
+Exactly one attachment is required. Nothing is written to the standard output except protocol messages, and no banner is printed. The exit code is 0 after `shutdown` or at the end of the input and 1 when the input cannot be read or the output cannot be written. Invalid arguments end with exit code 2.
+
+Example:
+
+```
+nurt serve --stdio
+```
+
+## `mcp`
+
+Serves the tool interface of the Model Context Protocol.
+
+Syntax:
+
+```
+nurt mcp [--stdio | --http <address>]
+```
+
+Without the component in the build the command ends with exit code 3.
+
+Example:
+
+```
+nurt mcp --stdio
+```
+
+## `lsp`
+
+Serves the language protocol for `.nurt` files.
+
+Syntax:
+
+```
+nurt lsp
+```
+
+Without the component in the build the command ends with exit code 3.
+
+Example:
+
+```
+nurt lsp
+```
+
+## `migrate`
+
+Translates a shell script to a Nurt script.
+
+Syntax:
+
+```
+nurt migrate <file.sh | file.ps1>
+```
+
+Without the component in the build the command ends with exit code 3.
+
+Example:
+
+```
+nurt migrate deploy.sh
+```
+
+## `service`
+
+Manages the background service.
+
+Syntax:
+
+```
+nurt service install | uninstall | start | stop | status | run
+```
+
+Without the component in the build the command ends with exit code 3.
+
+Example:
+
+```
+nurt service status
+```
+
+## `journal`
+
+Maintains the journal.
+
+Syntax:
+
+```
+nurt journal salvage <volume>
+```
+
+`salvage` repairs entries marked corrupt on a volume. Without the component in the build the command ends with exit code 3.
+
+Example:
+
+```
+nurt journal salvage /
+```
+
+## `ext`
+
+Manages extensions.
+
+Syntax:
+
+```
+nurt ext install | remove | list
+```
+
+Without the component in the build the command ends with exit code 3.
+
+Example:
+
+```
+nurt ext list
+```
+
+## `doctor`
+
+Checks the installation and prints a table of checks: version, platform, formats, features, state directory (created and removed probe file), configuration files, services, journal, language components and the subcommands that are not available. A part that the build cannot examine is listed as `unavailable`. The exit code is 1 when a check failed, otherwise 0.
+
+Syntax:
+
+```
+nurt doctor
+```
+
+Example:
+
+```
+nurt doctor
+```
+
+## `version`
+
+Prints the full version, the same text as `nurt --version`.
+
+Syntax:
+
+```
+nurt version
+```
+
+Result: three lines. The first is `nurt <version> (<commit> <date>)`; a build without repository data omits the parenthesis. The second is the copyright line, the third `License: Apache-2.0`. Exit code 0.
+
+Example:
+
+```
+nurt version
+```

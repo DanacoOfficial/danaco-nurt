@@ -3,27 +3,31 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Asynchronous executions (`nurt_exec`) and delivery of their events.
 //!
-//! An execution runs on its own worker thread. Events emitted by the engine
-//! go through an unbounded channel to a delivery thread, which numbers them
-//! with `seq` from 1, wraps them between `exec.started` and `exec.finished`
-//! and calls the event callback one event at a time. A slow callback
-//! therefore never blocks the execution. The execution is complete when
-//! `exec.finished` has been delivered; only then does `nurt_exec_wait`
-//! return its result, so no callback runs after a successful wait.
+//! The backend runs an execution on a thread of its own and passes its
+//! events, numbered with `seq` from 1 and framed by `exec.started` and
+//! `exec.finished`, to a listener. The listener of the C interface queues
+//! them for a delivery thread, which calls the event callback one event at a
+//! time, so a slow callback never blocks the execution. When an execution
+//! ends without `exec.finished` (the backend failed), the delivery thread
+//! adds the missing frame events itself. The execution is complete when its
+//! last event has been delivered; only then does `nurt_exec_wait` return its
+//! result, so no callback runs after a successful wait.
 
 use std::ffi::{CString, c_char, c_void};
-use std::panic::{self, AssertUnwindSafe};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Condvar, Mutex, PoisonError, Weak};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use nurt_contracts::stage::{CancelReason, CancelToken, Event, EventSink};
-use serde_json::{Map, Value, json};
+use nurt_contracts::envelope::{Request, Response};
+use nurt_contracts::error::ErrorCode;
+use nurt_contracts::report::ReportStatus;
+use nurt_core::{DeliveredEvent, EventBody, EventListener, Lifecycle};
 
-use crate::backend::Backend;
-use crate::boundary::{caught_panic, lock};
+use crate::backend::{Backend, Run, to_json};
+use crate::boundary::lock;
 use crate::error::{CallError, NurtStatus};
+use crate::system;
 
 /// Receiver of the events of one execution (`nurt_event_cb`): the user
 /// pointer and the event as JSON, valid only during the call.
@@ -47,13 +51,6 @@ impl Callback {
     }
 }
 
-/// Work of an execution: a request to run, or a response known before the
-/// engine is involved (a request that breaks a rule of the envelope).
-pub(crate) enum Job {
-    Run(Value),
-    Done(Vec<u8>),
-}
-
 /// Result of a completed execution.
 #[derive(Debug, Clone)]
 pub(crate) struct Outcome {
@@ -63,16 +60,34 @@ pub(crate) struct Outcome {
 }
 
 impl Outcome {
-    fn finished(response: Vec<u8>, cancelled: bool) -> Self {
-        let status = if cancelled {
-            NurtStatus::Cancelled
-        } else {
-            NurtStatus::Ok
+    /// Outcome of the result of a backend: a response that reports
+    /// `E_CANCELLED` is [`NurtStatus::Cancelled`].
+    fn of(result: Option<Result<Response, CallError>>) -> Self {
+        let response = match result {
+            Some(Ok(response)) => response,
+            Some(Err(error)) => return Self::failed(error),
+            None => {
+                return Self::failed(CallError::internal(
+                    "the execution ended without a response",
+                ));
+            }
         };
-        Self {
-            status,
-            response,
-            error: None,
+        let cancelled = response
+            .report
+            .error
+            .as_ref()
+            .is_some_and(|error| error.code == ErrorCode::Cancelled);
+        match to_json(&response) {
+            Ok(bytes) => Self {
+                status: if cancelled {
+                    NurtStatus::Cancelled
+                } else {
+                    NurtStatus::Ok
+                },
+                response: bytes,
+                error: None,
+            },
+            Err(error) => Self::failed(error),
         }
     }
 
@@ -85,31 +100,25 @@ impl Outcome {
     }
 }
 
-#[derive(Default)]
-struct State {
-    outcome: Option<Outcome>,
-    complete: bool,
-}
-
-/// State shared by the handle, the worker and the delivery thread.
+/// State shared by the handle and the delivery thread.
 pub(crate) struct Shared {
-    state: Mutex<State>,
+    outcome: Mutex<Option<Outcome>>,
     completed: Condvar,
-    cancel: CancelToken,
+    run: Arc<dyn Run>,
 }
 
 impl Shared {
-    fn new() -> Self {
+    fn new(run: Arc<dyn Run>) -> Self {
         Self {
-            state: Mutex::new(State::default()),
+            outcome: Mutex::new(None),
             completed: Condvar::new(),
-            cancel: CancelToken::new(),
+            run,
         }
     }
 
     /// Requests cancellation; repeated requests have no further effect.
     pub(crate) fn cancel(&self) {
-        self.cancel.cancel(CancelReason::Requested);
+        self.run.cancel();
     }
 
     /// Waits without limit until the execution is complete.
@@ -121,12 +130,12 @@ impl Shared {
     /// waits without limit. Returns `None` on timeout.
     fn wait(&self, timeout: Option<Duration>) -> Option<Outcome> {
         let deadline = timeout.map(|timeout| Instant::now() + timeout);
-        let mut state = lock(&self.state);
-        while !state.complete {
-            state = match deadline {
+        let mut outcome = lock(&self.outcome);
+        while outcome.is_none() {
+            outcome = match deadline {
                 None => self
                     .completed
-                    .wait(state)
+                    .wait(outcome)
                     .unwrap_or_else(PoisonError::into_inner),
                 Some(deadline) => {
                     let remaining = deadline.saturating_duration_since(Instant::now());
@@ -134,83 +143,65 @@ impl Shared {
                         return None;
                     }
                     self.completed
-                        .wait_timeout(state, remaining)
+                        .wait_timeout(outcome, remaining)
                         .unwrap_or_else(PoisonError::into_inner)
                         .0
                 }
             };
         }
-        state.outcome.clone()
+        outcome.clone()
     }
 
-    fn set_outcome(&self, outcome: Outcome) {
-        lock(&self.state).outcome = Some(outcome);
-    }
-
-    fn status(&self) -> NurtStatus {
-        let mut state = lock(&self.state);
-        let outcome = state.outcome.get_or_insert_with(|| {
-            Outcome::failed(CallError::internal("the execution ended without a result"))
-        });
-        outcome.status
-    }
-
-    fn complete(&self) {
-        lock(&self.state).complete = true;
+    fn complete(&self, outcome: Outcome) {
+        *lock(&self.outcome) = Some(outcome);
         self.completed.notify_all();
     }
 }
 
-enum Message {
-    Event(Event),
-    Done,
-}
+/// Listener that queues the events of an execution for the delivery thread.
+struct Queue(Sender<DeliveredEvent>);
 
-struct EventChannel(Sender<Message>);
-
-impl EventSink for EventChannel {
-    fn emit(&self, event: Event) {
-        // The delivery thread ends only after `Done`, so sending fails only
-        // when it could not be started; the event is then dropped.
-        drop(self.0.send(Message::Event(event)));
+impl EventListener for Queue {
+    fn deliver(&self, event: DeliveredEvent) {
+        // The delivery thread receives until the listener is released, so
+        // sending fails only when that thread could not be started; the
+        // event is then dropped with the execution.
+        drop(self.0.send(event));
     }
 }
 
 /// Asynchronous execution behind a `nurt_exec` handle.
 ///
-/// Dropping the handle cancels a running execution and waits for its
-/// threads.
+/// Dropping the handle cancels a running execution and waits until it is
+/// complete.
 pub struct Exec {
     shared: Arc<Shared>,
-    worker: Option<JoinHandle<()>>,
     delivery: Option<JoinHandle<()>>,
 }
 
 impl Exec {
-    /// Starts the delivery thread and the worker of an execution.
+    /// Starts an execution on `backend` and the thread delivering its
+    /// events.
     pub(crate) fn start(
-        backend: Arc<dyn Backend>,
-        job: Job,
+        backend: &dyn Backend,
+        request: &Request,
         callback: Option<Callback>,
     ) -> Result<Self, CallError> {
-        let shared = Arc::new(Shared::new());
         let (sender, receiver) = mpsc::channel();
-        let delivery = spawn("nurt-events", {
-            let shared = Arc::clone(&shared);
-            move || deliver(&shared, &receiver, callback)
-        })?;
-        let worker = spawn("nurt-exec", {
-            let shared = Arc::clone(&shared);
-            move || {
-                let events = EventChannel(sender);
-                let outcome = execute(backend.as_ref(), job, &events, &shared.cancel);
-                shared.set_outcome(outcome);
-                drop(events.0.send(Message::Done));
-            }
-        })?;
+        let run = backend.start(request, Arc::new(Queue(sender)))?;
+        let shared = Arc::new(Shared::new(run));
+        let delivery = thread::Builder::new()
+            .name("nurt-events".to_owned())
+            .spawn({
+                let shared = Arc::clone(&shared);
+                move || deliver(&shared, &receiver, callback)
+            })
+            .map_err(|error| {
+                shared.cancel();
+                CallError::internal(format!("cannot start a thread of the execution: {error}"))
+            })?;
         Ok(Self {
             shared,
-            worker: Some(worker),
             delivery: Some(delivery),
         })
     }
@@ -237,69 +228,34 @@ impl Exec {
 impl Drop for Exec {
     fn drop(&mut self) {
         self.shared.cancel();
-        let current = thread::current().id();
-        for handle in [self.worker.take(), self.delivery.take()]
-            .into_iter()
-            .flatten()
-        {
+        if let Some(handle) = self.delivery.take() {
             // Releasing the handle from its own event callback is forbidden
             // by the interface; joining the delivery thread there would never
             // return, so the thread is left to finish on its own.
-            if handle.thread().id() != current {
+            if handle.thread().id() != thread::current().id() {
                 drop(handle.join());
             }
         }
     }
 }
 
-fn spawn<F>(name: &str, body: F) -> Result<JoinHandle<()>, CallError>
-where
-    F: FnOnce() + Send + 'static,
-{
-    thread::Builder::new()
-        .name(name.to_owned())
-        .spawn(body)
-        .map_err(|error| {
-            CallError::internal(format!("cannot start a thread of the execution: {error}"))
-        })
-}
-
-fn execute(
-    backend: &dyn Backend,
-    job: Job,
-    events: &EventChannel,
-    cancel: &CancelToken,
-) -> Outcome {
-    let request = match job {
-        Job::Done(response) => return Outcome::finished(response, false),
-        Job::Run(request) => request,
-    };
-    match panic::catch_unwind(AssertUnwindSafe(|| backend.run(&request, events, cancel))) {
-        Ok(Ok(run)) => Outcome::finished(run.response, run.cancelled),
-        Ok(Err(error)) => Outcome::failed(error),
-        Err(payload) => Outcome::failed(caught_panic("an execution", payload.as_ref())),
-    }
-}
-
-/// Numbers events and passes them to the callback.
+/// Passes events to the callback and records what was delivered.
 struct Delivery {
-    next: u64,
     callback: Option<Callback>,
+    last_seq: u64,
+    finished: bool,
 }
 
 impl Delivery {
-    fn send(&mut self, body: Value) {
-        let mut event = Map::new();
-        event.insert("seq".to_owned(), Value::from(self.next));
-        if let Value::Object(fields) = body {
-            event.extend(fields);
+    fn send(&mut self, event: &DeliveredEvent) {
+        self.last_seq = event.seq;
+        if matches!(event.body, EventBody::Lifecycle(Lifecycle::Finished { .. })) {
+            self.finished = true;
         }
-        self.next += 1;
         let Some(callback) = self.callback else {
             return;
         };
-        let Ok(text) = CString::new(serde_json::to_vec(&Value::Object(event)).unwrap_or_default())
-        else {
+        let Ok(text) = CString::new(serde_json::to_vec(event).unwrap_or_default()) else {
             return;
         };
         // SAFETY: The callback `function` and its `user` pointer were passed together to
@@ -307,75 +263,167 @@ impl Delivery {
         // which is all the interface promises about `event_json`.
         unsafe { (callback.function)(callback.user, text.as_ptr()) };
     }
+
+    /// Delivers the frame events that an execution ended without.
+    fn close(&mut self, request_id: &str, status: ReportStatus) {
+        if self.last_seq == 0 {
+            self.send(&self.frame(request_id, Lifecycle::Started));
+        }
+        self.send(&self.frame(request_id, Lifecycle::Finished { status }));
+    }
+
+    fn frame(&self, request_id: &str, lifecycle: Lifecycle) -> DeliveredEvent {
+        DeliveredEvent {
+            seq: self.last_seq + 1,
+            time: system::now(),
+            request_id: request_id.to_owned(),
+            body: EventBody::Lifecycle(lifecycle),
+        }
+    }
 }
 
-fn deliver(shared: &Shared, receiver: &Receiver<Message>, callback: Option<Callback>) {
-    // No message arrives when the worker could not be started; the execution
-    // then never existed for the caller and nothing is delivered.
-    let Ok(first) = receiver.recv() else {
-        return;
+fn deliver(shared: &Shared, receiver: &Receiver<DeliveredEvent>, callback: Option<Callback>) {
+    let mut delivery = Delivery {
+        callback,
+        last_seq: 0,
+        finished: false,
     };
-    let mut delivery = Delivery { next: 1, callback };
-    delivery.send(json!({ "t": "exec.started" }));
-    let mut message = Some(first);
-    while let Some(Message::Event(event)) = message {
-        delivery.send(serde_json::to_value(&event).unwrap_or(Value::Null));
-        message = receiver.recv().ok();
+    for event in receiver {
+        delivery.send(&event);
     }
-    let status = shared.status();
-    delivery.send(json!({ "t": "exec.finished", "status": status.code() }));
-    shared.complete();
+    // The response follows `exec.finished` at once; an execution that ended
+    // without it has a response already or none at all.
+    let timeout = if delivery.finished {
+        None
+    } else {
+        Some(Duration::ZERO)
+    };
+    let result = shared.run.result(timeout);
+    if !delivery.finished {
+        let status = match &result {
+            Some(Ok(response)) => response.report.status,
+            _ => ReportStatus::Failed,
+        };
+        delivery.close(shared.run.request_id(), status);
+    }
+    shared.complete(Outcome::of(result));
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
-    use nurt_contracts::stage::{CancelToken, EventSink};
+    use nurt_contracts::envelope::{Request, Response};
+    use nurt_contracts::error::{Error, ErrorCode};
+    use nurt_contracts::report::{Report, ReportStatus};
+    use nurt_contracts::stage::{CancelReason, CancelToken};
+    use nurt_core::{DeliveredEvent, EventBody, EventListener, Lifecycle};
     use serde_json::Value;
 
-    use super::{Exec, Job};
-    use crate::backend::{Backend, Function, RunOutcome};
+    use super::{Exec, Outcome};
+    use crate::backend::{Backend, Function, Run};
     use crate::error::{CallError, NurtStatus};
 
-    struct WaitForCancel;
+    fn response(status: ReportStatus, error: Option<ErrorCode>) -> Response {
+        let mut report = Report::new(status, "find");
+        report.error = error.map(|code| Error::new(code, "failure"));
+        Response::new(report)
+    }
 
-    impl Backend for WaitForCancel {
+    /// Execution that waits for cancellation and reports `E_CANCELLED`.
+    struct Waiting {
+        cancel: CancelToken,
+    }
+
+    impl Run for Waiting {
+        fn request_id(&self) -> &str {
+            "r1"
+        }
+
+        fn cancel(&self) {
+            self.cancel.cancel(CancelReason::Requested);
+        }
+
+        fn result(&self, timeout: Option<Duration>) -> Option<Result<Response, CallError>> {
+            let cancelled = self
+                .cancel
+                .wait_timeout(timeout.unwrap_or(Duration::from_secs(60)))
+                .is_some();
+            cancelled.then(|| Ok(response(ReportStatus::Failed, Some(ErrorCode::Cancelled))))
+        }
+    }
+
+    /// Backend whose executions end in a way chosen by the test.
+    enum Scripted {
+        /// Waits for cancellation; the listener is kept until then.
+        Waiting,
+        /// Ends at once without events and without a response.
+        Vanished,
+        /// Ends at once without events, with an ok response.
+        Silent,
+    }
+
+    struct Ended(Option<Response>);
+
+    impl Run for Ended {
+        fn request_id(&self) -> &str {
+            "r9"
+        }
+
+        fn cancel(&self) {}
+
+        fn result(&self, _timeout: Option<Duration>) -> Option<Result<Response, CallError>> {
+            self.0.clone().map(Ok)
+        }
+    }
+
+    impl Backend for Scripted {
         fn call(&self, _function: Function, _input: &Value) -> Result<Vec<Vec<u8>>, CallError> {
             Ok(Vec::new())
         }
 
-        fn run(
+        fn run(&self, _request: &Request) -> Result<Response, CallError> {
+            Ok(response(ReportStatus::Ok, None))
+        }
+
+        fn start(
             &self,
-            _request: &Value,
-            _events: &dyn EventSink,
-            cancel: &CancelToken,
-        ) -> Result<RunOutcome, CallError> {
-            let cancelled = cancel.wait_timeout(Duration::from_secs(60)).is_some();
-            Ok(RunOutcome {
-                response: b"{}".to_vec(),
-                cancelled,
-            })
+            _request: &Request,
+            listener: Arc<dyn EventListener>,
+        ) -> Result<Arc<dyn Run>, CallError> {
+            match self {
+                Self::Waiting => {
+                    let run = Arc::new(Waiting {
+                        cancel: CancelToken::new(),
+                    });
+                    let waiting = Arc::clone(&run);
+                    std::thread::spawn(move || {
+                        let _ = waiting.cancel.wait_timeout(Duration::from_secs(60));
+                        drop(listener);
+                    });
+                    Ok(run)
+                }
+                Self::Vanished => Ok(Arc::new(Ended(None))),
+                Self::Silent => Ok(Arc::new(Ended(Some(response(ReportStatus::Ok, None))))),
+            }
         }
     }
 
-    #[test]
-    fn known_response_completes_without_engine_work() {
-        let exec = Exec::start(
-            Arc::new(WaitForCancel),
-            Job::Done(b"{\"nurt\":\"1.0\"}".to_vec()),
-            None,
-        )
-        .unwrap();
-        let outcome = exec.wait(u32::MAX).unwrap();
-        assert_eq!(outcome.status, NurtStatus::Ok);
-        assert_eq!(outcome.response, b"{\"nurt\":\"1.0\"}");
+    static EVENTS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+    unsafe extern "C" fn record(_user: *mut std::ffi::c_void, event: *const std::ffi::c_char) {
+        // SAFETY: The library passes a NUL-terminated event valid during the call.
+        let text = unsafe { std::ffi::CStr::from_ptr(event) };
+        EVENTS
+            .lock()
+            .unwrap()
+            .push(text.to_string_lossy().into_owned());
     }
 
     #[test]
     fn cancellation_ends_a_waiting_execution() {
-        let exec = Exec::start(Arc::new(WaitForCancel), Job::Run(Value::Null), None).unwrap();
+        let exec = Exec::start(&Scripted::Waiting, &Request::program("find"), None).unwrap();
         assert!(exec.wait(0).is_none());
         exec.cancel();
         exec.cancel();
@@ -386,9 +434,85 @@ mod tests {
 
     #[test]
     fn dropping_a_running_execution_cancels_it() {
-        let exec = Exec::start(Arc::new(WaitForCancel), Job::Run(Value::Null), None).unwrap();
+        let exec = Exec::start(&Scripted::Waiting, &Request::program("find"), None).unwrap();
         let shared = exec.downgrade();
         drop(exec);
         assert!(shared.upgrade().is_none());
+    }
+
+    #[test]
+    fn missing_frame_events_are_added_by_the_delivery_thread() {
+        let callback = super::Callback::new(Some(record), std::ptr::null_mut());
+        let exec = Exec::start(&Scripted::Vanished, &Request::program("find"), callback).unwrap();
+        let outcome = exec.wait(u32::MAX).unwrap();
+        assert_eq!(outcome.status, NurtStatus::Internal);
+        assert!(outcome.response.is_empty());
+        drop(exec);
+        let silent = Exec::start(&Scripted::Silent, &Request::program("find"), callback).unwrap();
+        assert_eq!(silent.wait(u32::MAX).unwrap().status, NurtStatus::Ok);
+        drop(silent);
+        let events: Vec<Value> = EVENTS
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|text| serde_json::from_str(text).unwrap())
+            .collect();
+        let frames: Vec<(&str, u64, &str)> = events
+            .iter()
+            .map(|event| {
+                (
+                    event["t"].as_str().unwrap(),
+                    event["seq"].as_u64().unwrap(),
+                    event["status"].as_str().unwrap_or(""),
+                )
+            })
+            .collect();
+        assert_eq!(
+            frames,
+            [
+                ("exec.started", 1, ""),
+                ("exec.finished", 2, "failed"),
+                ("exec.started", 1, ""),
+                ("exec.finished", 2, "ok"),
+            ]
+        );
+        assert!(events.iter().all(|event| event["request_id"] == "r9"));
+    }
+
+    #[test]
+    fn outcomes_follow_the_result_of_the_backend() {
+        let ok = Outcome::of(Some(Ok(response(ReportStatus::Ok, None))));
+        assert_eq!(ok.status, NurtStatus::Ok);
+        assert!(ok.error.is_none());
+        let failed = Outcome::of(Some(Ok(response(
+            ReportStatus::Failed,
+            Some(ErrorCode::Unsupported),
+        ))));
+        assert_eq!(failed.status, NurtStatus::Ok);
+        let cancelled = Outcome::of(Some(Ok(response(
+            ReportStatus::Failed,
+            Some(ErrorCode::Cancelled),
+        ))));
+        assert_eq!(cancelled.status, NurtStatus::Cancelled);
+        let error = Outcome::of(Some(Err(CallError::arg("bad"))));
+        assert_eq!(error.status, NurtStatus::Arg);
+        assert!(error.response.is_empty());
+        assert_eq!(Outcome::of(None).status, NurtStatus::Internal);
+    }
+
+    #[test]
+    fn delivered_events_are_serialised_with_their_frame_members() {
+        let event = DeliveredEvent {
+            seq: 3,
+            time: crate::system::now(),
+            request_id: "r2".to_owned(),
+            body: EventBody::Lifecycle(Lifecycle::Finished {
+                status: ReportStatus::Ok,
+            }),
+        };
+        let json = serde_json::to_value(&event).unwrap();
+        assert_eq!(json["t"], "exec.finished");
+        assert_eq!(json["status"], "ok");
+        assert!(json["time"].is_number() || json["time"].is_string());
     }
 }

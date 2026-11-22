@@ -3,7 +3,11 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Operations of the engine reached through the C interface.
 
-use nurt_contracts::stage::{CancelToken, EventSink};
+use std::sync::Arc;
+use std::time::Duration;
+
+use nurt_contracts::envelope::{Request, Response};
+use nurt_core::EventListener;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -134,32 +138,44 @@ impl Function {
     }
 }
 
-/// Response of an execution and whether it ended by cancellation.
-#[cfg_attr(
-    not(feature = "stub"),
-    allow(
-        dead_code,
-        reason = "constructed by the engine backend, which is connected with the engine API"
-    )
-)]
-pub(crate) struct RunOutcome {
-    pub(crate) response: Vec<u8>,
-    pub(crate) cancelled: bool,
+/// Execution started by a backend.
+///
+/// The backend runs it on a thread of its own and passes its events to the
+/// listener given to [`Backend::start`], from `exec.started` to
+/// `exec.finished`; the listener is released when the execution ends.
+pub(crate) trait Run: Send + Sync {
+    /// Identifier of the request, as carried by its events.
+    fn request_id(&self) -> &str;
+
+    /// Requests cancellation; repeated requests have no further effect.
+    fn cancel(&self);
+
+    /// Result of the execution, waiting at most `timeout` (`None`: without
+    /// limit); `None` when the execution has not ended in time.
+    fn result(&self, timeout: Option<Duration>) -> Option<Result<Response, CallError>>;
 }
 
 /// Engine behind an open `nurt_engine` handle.
 pub(crate) trait Backend: Send + Sync {
-    /// Runs an operation other than [`Function::Run`] and returns its
-    /// results in the order of [`Function::outputs`].
+    /// Runs an operation and returns its results in the order of
+    /// [`Function::outputs`].
     fn call(&self, function: Function, input: &Value) -> Result<Vec<Vec<u8>>, CallError>;
 
-    /// Runs a request envelope, emitting events and observing cancellation.
-    fn run(
+    /// Runs a request envelope and returns its response.
+    fn run(&self, request: &Request) -> Result<Response, CallError>;
+
+    /// Starts a request envelope; its events go to `listener`.
+    fn start(
         &self,
-        request: &Value,
-        events: &dyn EventSink,
-        cancel: &CancelToken,
-    ) -> Result<RunOutcome, CallError>;
+        request: &Request,
+        listener: Arc<dyn EventListener>,
+    ) -> Result<Arc<dyn Run>, CallError>;
+}
+
+/// JSON form of a value returned through an output buffer.
+pub(crate) fn to_json(value: &impl Serialize) -> Result<Vec<u8>, CallError> {
+    serde_json::to_vec(value)
+        .map_err(|error| CallError::internal(format!("cannot serialise the result: {error}")))
 }
 
 /// Opens the engine for a validated configuration.
@@ -171,15 +187,13 @@ pub(crate) fn open(config: &Value) -> Result<Box<dyn Backend>, CallError> {
 /// Opens the engine for a validated configuration.
 #[cfg(not(feature = "stub"))]
 pub(crate) fn open(config: &Value) -> Result<Box<dyn Backend>, CallError> {
-    let _ = config;
-    Err(CallError::internal(
-        "the engine is not available in this build of the library",
-    ))
+    crate::engine_backend::EngineBackend::open(config)
+        .map(|backend| Box::new(backend) as Box<dyn Backend>)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Function, OutputKind};
+    use super::{Function, OutputKind, to_json};
 
     #[test]
     fn names_round_trip_through_json() {
@@ -199,5 +213,13 @@ mod tests {
         assert_eq!(Function::Check.outputs().len(), 2);
         assert!(Function::SessionEnd.outputs().is_empty());
         assert_eq!(Function::Help.outputs(), &[OutputKind::Text]);
+    }
+
+    #[test]
+    fn results_serialise_to_compact_json() {
+        assert_eq!(
+            to_json(&serde_json::json!({"a": [1]})).unwrap(),
+            b"{\"a\":[1]}"
+        );
     }
 }

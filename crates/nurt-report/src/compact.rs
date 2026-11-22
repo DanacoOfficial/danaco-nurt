@@ -53,6 +53,12 @@ pub(crate) fn render(shaped: &Shaped, options: &RenderOptions) -> String {
             .as_ref()
             .map(|cursor| format!("next {}", pair("cursor", cursor))),
     );
+    lines.extend(
+        report
+            .result_file
+            .as_ref()
+            .map(|path| format!("result {}", pair("file", path))),
+    );
     lines.extend(report.timing.map(|timing| object_line("timing", &timing)));
     lines.join("\n")
 }
