@@ -1,0 +1,4 @@
+[
+  "class User @1:7 [1:1-4:4] | class User",
+  "  constant MAX in User @2:3 [2:3-2:11] | MAX = 10"
+]

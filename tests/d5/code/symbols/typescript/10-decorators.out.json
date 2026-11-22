@@ -1,0 +1,5 @@
+[
+  "class AppComponent @2:14 [2:8-8:2] exported | class AppComponent",
+  "  field title in AppComponent @3:12 [3:3-3:22] exported | @Input() title = \"\"",
+  "  method ngOnInit in AppComponent @5:3 [5:3-7:4] exported | ngOnInit(): void"
+]

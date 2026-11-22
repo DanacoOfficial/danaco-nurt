@@ -1,0 +1,6 @@
+[
+  "enum Color @1:6 [1:1-5:2] | enum Color",
+  "  constant Red in Color @2:5 [2:5-2:8] | Red",
+  "  constant Green in Color @3:5 [3:5-3:10] | Green",
+  "  constant Blue in Color @4:5 [4:5-4:9] | Blue"
+]

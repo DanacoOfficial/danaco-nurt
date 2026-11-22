@@ -1,0 +1,5 @@
+[
+  "variable ThemeContext @1:14 [1:14-1:64] exported | ThemeContext = React.createContext<Theme>(\"light\")",
+  "function ThemeProvider @3:17 [3:8-5:2] exported | function ThemeProvider({ children }: { children: React.ReactNode })",
+  "  field children in ThemeProvider @3:47 [3:47-3:72] private | children: React.ReactNode"
+]

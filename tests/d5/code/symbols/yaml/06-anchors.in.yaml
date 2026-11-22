@@ -1,0 +1,5 @@
+defaults: &defaults
+  timeout: 30
+production:
+  <<: *defaults
+  host: example.org

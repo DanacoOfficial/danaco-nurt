@@ -1,0 +1,5 @@
+[
+  "function Card @1:14 [1:14-1:73] exported | Card = ({ title }: { title: string }) => <div>{title}</div>",
+  "  field title in Card @1:35 [1:35-1:48] private | title: string",
+  "function Empty @3:7 [3:7-3:25] private | Empty = () => null"
+]

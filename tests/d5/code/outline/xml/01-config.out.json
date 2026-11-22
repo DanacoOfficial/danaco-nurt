@@ -1,0 +1,16 @@
+{
+  "depth_0": [
+    "field config @1:2 [1:1-6:10] | <config>"
+  ],
+  "outline": [
+    "field config @1:2 [1:1-6:10] | <config>",
+    "  field server in config @2:4 [2:3-4:12] | <server>",
+    "    field host in config.server @3:6 [3:5-3:27] | <host>localhost</host>",
+    "  field debug in config @5:4 [5:3-5:23] | <debug>false</debug>"
+  ],
+  "lookups": [
+    "config.server -> 1",
+    "config.server.host -> 1",
+    "config.debug -> 1"
+  ]
+}

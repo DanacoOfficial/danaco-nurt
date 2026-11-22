@@ -1,0 +1,20 @@
+{
+  "depth_0": [
+    "class Service @1:7 [1:1-10:21] exported | class Service",
+    "function main @13:5 [13:1-14:22] exported | def main()"
+  ],
+  "outline": [
+    "class Service @1:7 [1:1-10:21] exported | class Service",
+    "  class Config in Service @2:11 [2:5-4:24] exported | class Config",
+    "    method validate in Service.Config @3:13 [3:9-4:24] exported | def validate(self)",
+    "  method start in Service @6:9 [6:5-10:21] exported | def start(self)",
+    "    function log in Service.start @7:13 [7:9-8:27] exported | def log(message)",
+    "function main @13:5 [13:1-14:22] exported | def main()"
+  ],
+  "lookups": [
+    "Service.Config -> 1",
+    "Service.Config.validate -> 1",
+    "Service.start -> 1",
+    "Service.start.log -> 1"
+  ]
+}

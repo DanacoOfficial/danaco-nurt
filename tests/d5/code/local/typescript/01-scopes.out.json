@@ -1,0 +1,18 @@
+{
+  "definitions": [
+    "import readFile @1:10 -> [9:3]",
+    "symbol area @3:10 -> [8:13]",
+    "local r @3:15 -> [4:14, 4:18]",
+    "symbol main @7:17 -> []",
+    "local r @8:9 -> [9:35]"
+  ],
+  "unresolved": [
+    "console"
+  ],
+  "calls": [
+    "main -> area @8:13",
+    "main -> readFile @9:3",
+    "main -> log @9:31"
+  ],
+  "syntax": []
+}

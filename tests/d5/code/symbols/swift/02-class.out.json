@@ -1,0 +1,6 @@
+[
+  "class Animal @1:7 [1:1-11:2] private | class Animal",
+  "  constant name in Animal @2:9 [2:5-2:21] private | let name: String",
+  "  method init in Animal @4:5 [4:5-6:6] private | init(name: String)",
+  "  method speak in Animal @8:10 [8:5-10:6] private | func speak() -> String"
+]

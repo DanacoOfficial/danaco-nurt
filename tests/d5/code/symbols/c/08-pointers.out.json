@@ -1,0 +1,3 @@
+[
+  "function copy @4:7 [4:1-8:2] exported | char *copy(const char *text)"
+]

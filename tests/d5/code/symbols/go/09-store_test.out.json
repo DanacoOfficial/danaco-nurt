@@ -1,0 +1,4 @@
+[
+  "function TestGet @5:6 [5:1-11:2] exported | func TestGet(t *testing.T)",
+  "function BenchmarkSet @13:6 [13:1-13:35] exported | func BenchmarkSet(b *testing.B)"
+]

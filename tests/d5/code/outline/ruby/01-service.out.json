@@ -1,0 +1,16 @@
+{
+  "depth_0": [
+    "module App @1:8 [1:1-7:4] | module App"
+  ],
+  "outline": [
+    "module App @1:8 [1:1-7:4] | module App",
+    "  class Service in App @2:9 [2:3-6:6] | class Service",
+    "    method start in App.Service @3:9 [3:5-3:19] | def start; end",
+    "    method stop in App.Service @5:9 [5:5-5:18] | def stop; end"
+  ],
+  "lookups": [
+    "App.Service -> 1",
+    "App.Service.start -> 1",
+    "App.Service.stop -> 1"
+  ]
+}

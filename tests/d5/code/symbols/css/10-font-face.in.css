@@ -1,0 +1,8 @@
+@font-face {
+  font-family: "Mono";
+  src: url("mono.woff2");
+}
+
+code {
+  font-family: "Mono";
+}

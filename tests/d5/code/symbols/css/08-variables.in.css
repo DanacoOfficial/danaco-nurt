@@ -1,0 +1,7 @@
+:root {
+  --accent: #0af;
+}
+
+.button {
+  color: var(--accent);
+}

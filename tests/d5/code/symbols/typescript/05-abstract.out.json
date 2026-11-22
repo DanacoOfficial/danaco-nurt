@@ -1,0 +1,7 @@
+[
+  "class Shape @1:23 [1:8-7:2] exported | abstract class Shape",
+  "  method area in Shape @2:12 [2:3-2:26] exported | abstract area(): number",
+  "  method describe in Shape @4:3 [4:3-6:4] exported | describe(): string",
+  "class Square @9:7 [9:1-13:2] private | class Square extends Shape",
+  "  method area in Square @10:3 [10:3-12:4] exported | area(): number"
+]

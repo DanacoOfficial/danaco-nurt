@@ -1,0 +1,18 @@
+{
+  "depth_0": [
+    "struct Service @3:6 [3:6-5:2] exported | Service struct",
+    "function New @13:6 [13:1-15:2] exported | func New(name string) *Service"
+  ],
+  "outline": [
+    "struct Service @3:6 [3:6-5:2] exported | Service struct",
+    "  field name in Service @4:2 [4:2-4:13] private | name string",
+    "  method Start in Service @7:19 [7:1-9:2] exported | func (s *Service) Start() error",
+    "  method Stop in Service @11:19 [11:1-11:28] exported | func (s *Service) Stop()",
+    "function New @13:6 [13:1-15:2] exported | func New(name string) *Service"
+  ],
+  "lookups": [
+    "Service.name -> 1",
+    "Service.Start -> 1",
+    "Service.Stop -> 1"
+  ]
+}

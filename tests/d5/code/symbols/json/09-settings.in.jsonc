@@ -1,0 +1,6 @@
+{
+  // editor settings
+  "editor.tabSize": 2,
+  /* formatting */
+  "editor.formatOnSave": true
+}

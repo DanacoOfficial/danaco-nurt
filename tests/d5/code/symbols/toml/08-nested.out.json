@@ -1,0 +1,8 @@
+[
+  "module a @1:2 [1:1-4:1] | [a]",
+  "  field one in a @2:1 [2:1-2:8] | one = 1",
+  "module a.b @4:2 [4:1-7:1] | [a.b]",
+  "  field two in a.b @5:1 [5:1-5:8] | two = 2",
+  "module a.b.c @7:2 [7:1-9:1] | [a.b.c]",
+  "  field three in a.b.c @8:1 [8:1-8:10] | three = 3"
+]

@@ -1,0 +1,18 @@
+{
+  "definitions": [
+    "symbol value @3:5 -> []",
+    "symbol shadow @5:6 -> []",
+    "local value @5:13 -> [6:9]",
+    "symbol loop @9:6 -> []",
+    "local items @9:11 -> [11:23]",
+    "local total @10:2 -> [12:3, 14:9]",
+    "local _ @11:6 -> []",
+    "local item @11:9 -> [12:12]"
+  ],
+  "unresolved": [
+    "int",
+    "main"
+  ],
+  "calls": [],
+  "syntax": []
+}

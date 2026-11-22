@@ -1,0 +1,6 @@
+[
+  "function max_of @2:3 [2:1-4:2] exported | T max_of(T a, T b)",
+  "class Stack @7:7 [7:1-11:2] exported | class Stack",
+  "  method push in Stack @9:10 [9:5-9:24] exported | void push(T value);",
+  "  method size in Stack @10:9 [10:5-10:22] exported | int size() const;"
+]

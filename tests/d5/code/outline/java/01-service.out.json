@@ -1,0 +1,18 @@
+{
+  "depth_0": [
+    "class Service @1:14 [1:1-11:2] exported | public class Service"
+  ],
+  "outline": [
+    "class Service @1:14 [1:1-11:2] exported | public class Service",
+    "  class Config in Service @2:25 [2:5-6:6] exported | public static class Config",
+    "    method validate in Service.Config @3:17 [3:9-5:10] private | boolean validate()",
+    "  method start in Service @8:17 [8:5-8:27] exported | public void start()",
+    "  method stop in Service @10:18 [10:5-10:27] private | private void stop()"
+  ],
+  "lookups": [
+    "Service.Config -> 1",
+    "Service.Config.validate -> 1",
+    "Service.start -> 1",
+    "Service.stop -> 1"
+  ]
+}

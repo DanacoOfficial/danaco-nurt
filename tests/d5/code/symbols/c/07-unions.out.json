@@ -1,0 +1,5 @@
+[
+  "struct value @1:7 [1:1-4:2] exported | union value",
+  "  field i in value @2:9 [2:5-2:11] exported | int i;",
+  "  field f in value @3:11 [3:5-3:13] exported | float f;"
+]

@@ -1,0 +1,5 @@
+[
+  "function main @1:5 [1:1-3:2] exported | fun main()",
+  "function add @5:5 [5:1-5:37] exported | fun add(a: Int, b: Int): Int = a + b",
+  "function internal @7:13 [7:1-7:26] private | private fun internal() {}"
+]

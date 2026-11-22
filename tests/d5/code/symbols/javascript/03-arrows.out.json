@@ -1,0 +1,5 @@
+[
+  "function square @1:7 [1:7-1:28] private | square = (x) => x * x",
+  "variable counter @2:5 [2:5-2:16] private | counter = 0",
+  "variable legacy @3:5 [3:5-5:2] private | legacy = function ()"
+]

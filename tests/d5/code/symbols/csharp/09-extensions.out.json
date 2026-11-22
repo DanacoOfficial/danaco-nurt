@@ -1,0 +1,5 @@
+[
+  "class Extensions @1:21 [1:1-6:2] exported | public static class Extensions",
+  "  method Twice in Extensions @3:23 [3:5-3:50] exported | public static int Twice(this int x)",
+  "  class Hidden in Extensions @5:19 [5:5-5:28] private | private class Hidden"
+]

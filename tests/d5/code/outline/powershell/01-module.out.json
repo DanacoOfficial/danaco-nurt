@@ -1,0 +1,16 @@
+{
+  "depth_0": [
+    "class Service @1:7 [1:1-5:2] | class Service",
+    "function Start-App @7:10 [7:1-9:2] | function Start-App"
+  ],
+  "outline": [
+    "class Service @1:7 [1:1-5:2] | class Service",
+    "  field Name in Service @2:13 [2:5-2:18] | [string]$Name",
+    "  method Start in Service @4:12 [4:5-4:22] | [void] Start() {}",
+    "function Start-App @7:10 [7:1-9:2] | function Start-App"
+  ],
+  "lookups": [
+    "Service.Name -> 1",
+    "Service.Start -> 1"
+  ]
+}

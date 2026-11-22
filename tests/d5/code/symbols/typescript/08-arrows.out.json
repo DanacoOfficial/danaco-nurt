@@ -1,0 +1,5 @@
+[
+  "function handler @1:14 [1:14-3:2] exported | handler = async (event: Event): Promise<void> =>",
+  "variable count @5:5 [5:5-5:22] private | count: number = 0",
+  "function increment @7:7 [7:7-7:40] private | increment = (): number => ++count"
+]

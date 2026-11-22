@@ -1,0 +1,18 @@
+{
+  "definitions": [
+    "import System @1:7 -> []",
+    "symbol Geometry @3:21 -> []",
+    "symbol Area @5:16 -> [12:17]",
+    "local r @5:25 -> [7:20, 7:24]",
+    "symbol Main @10:24 -> []",
+    "local r @12:13 -> [13:27]"
+  ],
+  "unresolved": [
+    "Console"
+  ],
+  "calls": [
+    "Main -> Area @12:17",
+    "Main -> WriteLine @13:17"
+  ],
+  "syntax": []
+}

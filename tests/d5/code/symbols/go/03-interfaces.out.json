@@ -1,0 +1,7 @@
+[
+  "interface Shape @3:6 [3:6-6:2] exported | Shape interface",
+  "  method Area in Shape @4:2 [4:2-4:16] exported | Area() float64",
+  "  method Perimeter in Shape @5:2 [5:2-5:21] exported | Perimeter() float64",
+  "interface reader @8:6 [8:6-10:2] private | reader interface",
+  "  method Read in reader @9:2 [9:2-9:29] exported | Read(p []byte) (int, error)"
+]

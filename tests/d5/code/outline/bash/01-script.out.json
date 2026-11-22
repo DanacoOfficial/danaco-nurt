@@ -1,0 +1,16 @@
+{
+  "depth_0": [
+    "constant VERSION @2:1 [2:1-2:10] | VERSION=1",
+    "function build @4:1 [4:1-9:2] | build()",
+    "function main @11:1 [11:1-13:2] | main()"
+  ],
+  "outline": [
+    "constant VERSION @2:1 [2:1-2:10] | VERSION=1",
+    "function build @4:1 [4:1-9:2] | build()",
+    "  function compile in build @5:3 [5:3-7:4] | compile()",
+    "function main @11:1 [11:1-13:2] | main()"
+  ],
+  "lookups": [
+    "build.compile -> 1"
+  ]
+}

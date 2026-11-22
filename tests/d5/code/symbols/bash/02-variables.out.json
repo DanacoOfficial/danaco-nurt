@@ -1,0 +1,6 @@
+[
+  "constant NAME @1:1 [1:1-1:12] | NAME=\"nurt\"",
+  "constant TARGET @2:8 [2:1-2:24] | export TARGET=/opt/nurt",
+  "constant MAX @3:10 [3:1-3:16] | readonly MAX=10",
+  "function with_local @5:1 [5:1-8:2] | with_local()"
+]

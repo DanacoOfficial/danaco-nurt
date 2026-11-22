@@ -1,0 +1,4 @@
+[
+  "function outer @1:1 [1:1-6:2] | outer()",
+  "  function inner in outer @2:3 [2:3-4:4] | inner()"
+]

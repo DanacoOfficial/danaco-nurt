@@ -1,0 +1,4 @@
+[
+  "class UserTest @3:7 [3:1-6:2] exported | class UserTest",
+  "  method createsUser in UserTest @5:9 [4:5-5:25] exported | @Test"
+]

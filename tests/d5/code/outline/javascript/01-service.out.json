@@ -1,0 +1,16 @@
+{
+  "depth_0": [
+    "class Service @1:7 [1:1-8:2] private | class Service",
+    "function main @10:10 [10:1-12:2] private | function main()"
+  ],
+  "outline": [
+    "class Service @1:7 [1:1-8:2] private | class Service",
+    "  method start in Service @2:3 [2:3-5:4] exported | start()",
+    "  method stop in Service @7:3 [7:3-7:12] exported | stop()",
+    "function main @10:10 [10:1-12:2] private | function main()"
+  ],
+  "lookups": [
+    "Service.start -> 1",
+    "Service.stop -> 1"
+  ]
+}

@@ -1,0 +1,5 @@
+[
+  "variable square @1:1 [1:1-1:25] exported | square = lambda x: x * x",
+  "variable counter @2:1 [2:1-2:12] exported | counter = 0",
+  "function increment @5:5 [5:1-8:19] exported | def increment()"
+]

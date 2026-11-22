@@ -1,0 +1,6 @@
+[
+  "function Exported @3:6 [3:1-3:19] exported | func Exported()",
+  "function unexported @5:6 [5:1-5:21] private | func unexported()",
+  "struct Public @7:6 [7:6-7:21] exported | Public struct{}",
+  "struct private @9:6 [9:6-9:22] private | private struct{}"
+]

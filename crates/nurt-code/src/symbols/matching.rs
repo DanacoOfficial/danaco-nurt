@@ -120,7 +120,11 @@ impl NameMatcher {
             .dot_matches_new_line(regex.flags.dot_matches_new_line)
             .ignore_whitespace(regex.flags.extended);
         let compiled = compile(builder, &regex.pattern)?;
-        Ok(Self::with_regex(&regex.pattern, MatchMode::Regex, Some(compiled)))
+        Ok(Self::with_regex(
+            &regex.pattern,
+            MatchMode::Regex,
+            Some(compiled),
+        ))
     }
 
     fn with_regex(query: &str, mode: MatchMode, regex: Option<Regex>) -> Self {
@@ -162,16 +166,32 @@ impl NameMatcher {
         }
         let candidate = name.to_lowercase();
         let ranks = [
-            (candidate == self.lower, RANK_CASELESS, MatchMode::Exact),
-            (candidate.starts_with(&self.lower), RANK_PREFIX, MatchMode::Prefix),
-            (candidate.contains(&self.lower), RANK_SUBSTRING, MatchMode::Substring),
-            (words_match(&self.words, &name_words(name)), RANK_WORDS, MatchMode::Fuzzy),
+            (
+                candidate == self.lower,
+                RANK_CASELESS,
+                Some(MatchMode::Exact),
+            ),
+            (
+                candidate.starts_with(&self.lower),
+                RANK_PREFIX,
+                Some(MatchMode::Prefix),
+            ),
+            (
+                candidate.contains(&self.lower),
+                RANK_SUBSTRING,
+                Some(MatchMode::Substring),
+            ),
+            (
+                words_match(&self.words, &name_words(name)),
+                RANK_WORDS,
+                None,
+            ),
         ];
         for (matched, rank, last_mode) in ranks {
             if matched {
                 return rank;
             }
-            if self.mode == last_mode {
+            if last_mode == Some(self.mode) {
                 return 0;
             }
         }
@@ -284,7 +304,10 @@ mod tests {
     #[test]
     fn fuzzy_mode_matches_words_and_letters() {
         assert_eq!(rank("user id", MatchMode::Fuzzy, "getUserById"), RANK_WORDS);
-        assert_eq!(rank("UsrId", MatchMode::Fuzzy, "get_user_by_id"), RANK_LETTERS);
+        assert_eq!(
+            rank("UsrId", MatchMode::Fuzzy, "get_user_by_id"),
+            RANK_LETTERS
+        );
         assert_eq!(rank("xyz", MatchMode::Fuzzy, "getUserById"), 0);
     }
 

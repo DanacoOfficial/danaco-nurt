@@ -1,0 +1,5 @@
+[
+  "field server @1:1 [1:1-4:1] | server",
+  "  field host in server @2:3 [2:3-2:18] | host: localhost",
+  "  field port in server @3:3 [3:3-3:13] | port: 8080"
+]

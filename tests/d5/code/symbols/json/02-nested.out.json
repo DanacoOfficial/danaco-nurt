@@ -1,0 +1,5 @@
+[
+  "field server @2:4 [2:3-5:4] | \"server\"",
+  "  field host in server @3:6 [3:5-3:24] | \"host\": \"localhost\"",
+  "  field port in server @4:6 [4:5-4:17] | \"port\": 8080"
+]

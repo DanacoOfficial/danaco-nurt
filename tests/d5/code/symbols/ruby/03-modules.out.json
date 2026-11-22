@@ -1,0 +1,5 @@
+[
+  "module Geometry @1:8 [1:1-7:4] | module Geometry",
+  "  class Point in Geometry @2:9 [2:3-2:19] | class Point; end",
+  "  method origin in Geometry @4:12 [4:3-6:6] | def self.origin"
+]

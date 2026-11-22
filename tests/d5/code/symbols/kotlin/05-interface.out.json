@@ -1,0 +1,5 @@
+[
+  "interface Shape @1:11 [1:1-5:2] exported | interface Shape",
+  "  method area in Shape @2:9 [2:5-2:23] exported | fun area(): Double",
+  "  method name in Shape @4:9 [4:5-4:33] exported | fun name(): String = \"shape\""
+]

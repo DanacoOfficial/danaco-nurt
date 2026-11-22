@@ -1,0 +1,5 @@
+[
+  "interface IShape @1:18 [1:1-5:2] exported | public interface IShape",
+  "  method Area in IShape @3:12 [3:5-3:19] exported | double Area();",
+  "  field Name in IShape @4:12 [4:5-4:25] exported | string Name { get; }"
+]

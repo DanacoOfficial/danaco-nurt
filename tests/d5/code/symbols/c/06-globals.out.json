@@ -1,0 +1,5 @@
+[
+  "variable counter @1:5 [1:1-1:17] exported | int counter = 0;",
+  "variable name @2:20 [2:1-2:34] private | static const char *name = \"nurt\";",
+  "function increment @4:6 [4:1-6:2] exported | void increment(void)"
+]

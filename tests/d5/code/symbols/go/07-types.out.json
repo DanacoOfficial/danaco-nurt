@@ -1,0 +1,6 @@
+[
+  "type ID @3:6 [3:6-3:17] exported | ID = string",
+  "type Handler @5:6 [5:6-5:29] exported | Handler func(int) error",
+  "type Celsius @7:6 [7:6-7:21] exported | Celsius float64",
+  "  method Fahrenheit in Celsius @9:18 [9:1-11:2] exported | func (c Celsius) Fahrenheit() float64"
+]

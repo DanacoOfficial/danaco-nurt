@@ -1,0 +1,7 @@
+[
+  "field compilerOptions @2:4 [2:3-7:4] | \"compilerOptions\"",
+  "  field strict in compilerOptions @3:6 [3:5-3:19] | \"strict\": true",
+  "  field paths in compilerOptions @4:6 [4:5-6:6] | \"paths\"",
+  "    field @/* in compilerOptions.paths @5:8 [5:7-5:23] | \"@/*\": [\"src/*\"]",
+  "field include @8:4 [8:3-8:21] | \"include\": [\"src\"]"
+]

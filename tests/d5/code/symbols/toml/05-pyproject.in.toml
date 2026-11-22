@@ -1,0 +1,6 @@
+[project]
+name = "tool"
+dependencies = ["requests"]
+
+[tool.pytest.ini_options]
+addopts = "-q"

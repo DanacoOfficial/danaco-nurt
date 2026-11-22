@@ -1,0 +1,7 @@
+[
+  "class Point @5:7 [5:1-15:27] exported | class Point",
+  "  field x in Point @6:5 [6:5-6:11] exported | x: int",
+  "  field y in Point @7:5 [7:5-7:11] exported | y: int",
+  "  method norm in Point @10:9 [10:5-11:49] exported | def norm(self)",
+  "  method origin in Point @14:9 [14:5-15:27] exported | def origin()"
+]

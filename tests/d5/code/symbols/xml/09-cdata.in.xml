@@ -1,0 +1,4 @@
+<doc>
+  <!-- comment -->
+  <script><![CDATA[ if (a < b) {} ]]></script>
+</doc>

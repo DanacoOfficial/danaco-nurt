@@ -1,0 +1,6 @@
+[
+  "enum Color @1:12 [1:1-6:2] exported | enum class Color",
+  "  constant RED in Color @2:5 [2:5-2:8] exported | RED",
+  "  constant GREEN in Color @3:5 [3:5-3:10] exported | GREEN",
+  "  method next in Color @5:9 [5:5-5:30] exported | fun next(): Color = GREEN"
+]

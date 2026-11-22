@@ -1,0 +1,6 @@
+[
+  "field services @1:1 [1:1-6:1] | services",
+  "  field web in services @2:3 [2:3-6:1] | web",
+  "    field image in services.web @3:5 [3:5-3:17] | image: nginx",
+  "    field ports in services.web @4:5 [4:5-6:1] | ports"
+]

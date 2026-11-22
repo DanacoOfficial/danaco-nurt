@@ -1,0 +1,7 @@
+[
+  "class Service @1:14 [1:8-13:2] exported | class Service",
+  "  field items in Service @2:11 [2:3-2:31] private | private items: string[] = []",
+  "  method constructor in Service @4:3 [4:3-4:48] exported | constructor(private readonly name: string)",
+  "  method add in Service @6:10 [6:3-8:4] exported | public add(item: string): void",
+  "  method create in Service @10:20 [10:3-12:4] private | protected static create(): Service"
+]

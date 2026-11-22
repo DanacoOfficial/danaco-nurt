@@ -1,0 +1,4 @@
+[
+  "field single @1:8 [1:1-1:26] | <p id='single'>single</p>",
+  "field double @2:8 [2:1-2:26] | <p id=\"double\">double</p>"
+]

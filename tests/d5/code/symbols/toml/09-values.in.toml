@@ -1,0 +1,5 @@
+date = 2026-11-22
+float = 1.5
+multiline = """
+text
+"""

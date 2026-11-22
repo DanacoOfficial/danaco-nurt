@@ -99,7 +99,11 @@ pub fn kind_name(kind: SymbolKind) -> &'static str {
 /// assert_eq!(symbols[1].container.as_deref(), Some("Stack"));
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub fn symbols_of(registry: &Registry, source: &[u8], language: &LanguageId) -> Result<Vec<SymbolInfo>> {
+pub fn symbols_of(
+    registry: &Registry,
+    source: &[u8],
+    language: &LanguageId,
+) -> Result<Vec<SymbolInfo>> {
     let parsed = registry.parse(language, source)?;
     Ok(extract(&parsed))
 }
@@ -121,7 +125,8 @@ pub fn extract(parsed: &ParsedSource<'_>) -> Vec<SymbolInfo> {
         let key = (
             raw.node.start_byte(),
             Reverse(raw.node.end_byte()),
-            raw.name_node.map_or(raw.node.start_byte(), |node| node.start_byte()),
+            raw.name_node
+                .map_or(raw.node.start_byte(), |node| node.start_byte()),
         );
         match found.get(&key) {
             Some(existing) if existing.pattern <= raw.pattern => {}
@@ -197,10 +202,7 @@ impl Parent {
         matches!(
             self.kind,
             None | Some(
-                SymbolKind::Class
-                    | SymbolKind::Struct
-                    | SymbolKind::Interface
-                    | SymbolKind::Enum
+                SymbolKind::Class | SymbolKind::Struct | SymbolKind::Interface | SymbolKind::Enum
             )
         )
     }
@@ -401,7 +403,7 @@ mod tests {
 
     fn symbols(language: &str, source: &str) -> Vec<SymbolInfo> {
         symbols_of(
-            &Registry::builtin(),
+            Registry::builtin(),
             source.as_bytes(),
             &LanguageId::new(language).unwrap(),
         )
@@ -418,7 +420,7 @@ mod tests {
 
     #[test]
     fn long_signature_is_shortened_on_a_character_boundary() {
-        let text = "ż".repeat(SIGNATURE_MAX);
+        let text = "é".repeat(SIGNATURE_MAX);
         let short = shorten(&text);
         assert!(short.len() <= SIGNATURE_MAX);
         assert!(short.ends_with(SIGNATURE_ELLIPSIS));
@@ -459,7 +461,10 @@ mod tests {
 
     #[test]
     fn local_variables_are_not_symbols() {
-        let found = symbols("swift", "func run() {\n    let total = 1\n}\nlet LIMIT = 3\n");
+        let found = symbols(
+            "swift",
+            "func run() {\n    let total = 1\n}\nlet LIMIT = 3\n",
+        );
         let names: Vec<&str> = found.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(names, ["run", "LIMIT"]);
         assert_eq!(found[1].kind, SymbolKind::Constant);

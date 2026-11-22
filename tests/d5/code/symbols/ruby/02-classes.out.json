@@ -1,0 +1,7 @@
+[
+  "class Animal @1:7 [1:1-7:4] | class Animal",
+  "  method initialize in Animal @2:7 [2:3-4:6] | def initialize(name)",
+  "  method speak in Animal @6:7 [6:3-6:17] | def speak; end",
+  "class Dog @9:7 [9:1-13:4] | class Dog < Animal",
+  "  method speak in Dog @10:7 [10:3-12:6] | def speak"
+]

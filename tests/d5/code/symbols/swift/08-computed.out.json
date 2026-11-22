@@ -1,0 +1,5 @@
+[
+  "struct Circle @1:8 [1:1-7:2] private | struct Circle",
+  "  field radius in Circle @2:9 [2:5-2:23] private | var radius: Double",
+  "  field area in Circle @4:9 [4:5-6:6] private | var area: Double"
+]

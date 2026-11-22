@@ -1,0 +1,6 @@
+[
+  "module Outer @1:8 [1:1-7:4] | module Outer",
+  "  module Middle in Outer @2:10 [2:3-6:6] | module Middle",
+  "    class Leaf in Outer.Middle @3:11 [3:5-5:8] | class Leaf",
+  "      method value in Outer.Middle.Leaf @4:11 [4:7-4:21] | def value; end"
+]

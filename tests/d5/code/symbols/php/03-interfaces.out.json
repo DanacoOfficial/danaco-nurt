@@ -1,0 +1,6 @@
+[
+  "interface Shape @3:11 [3:1-5:2] exported | interface Shape",
+  "  method area in Shape @4:21 [4:5-4:35] exported | public function area(): float;",
+  "interface Greets @7:7 [7:1-9:2] exported | trait Greets",
+  "  method greet in Greets @8:21 [8:5-8:31] exported | public function greet()"
+]

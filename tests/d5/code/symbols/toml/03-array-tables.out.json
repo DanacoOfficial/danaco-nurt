@@ -1,0 +1,6 @@
+[
+  "module bin @1:3 [1:1-4:1] | [[bin]]",
+  "  field name in bin @2:1 [2:1-2:15] | name = \"first\"",
+  "module bin @4:3 [4:1-6:1] | [[bin]]",
+  "  field name in bin @5:1 [5:1-5:16] | name = \"second\""
+]

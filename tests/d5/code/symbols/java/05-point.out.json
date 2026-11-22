@@ -1,0 +1,6 @@
+[
+  "class Point @1:14 [1:1-11:2] exported | public class Point",
+  "  field x in Point @2:23 [2:5-2:25] private | private final int x;",
+  "  method Point in Point @4:12 [4:5-6:6] exported | public Point(int x)",
+  "  method getX in Point @8:16 [8:5-10:6] exported | public int getX()"
+]

@@ -1,0 +1,8 @@
+[
+  "class Animal @1:7 [1:1-11:2] private | class Animal",
+  "  method constructor in Animal @2:3 [2:3-4:4] exported | constructor(name)",
+  "  method speak in Animal @6:3 [6:3-6:13] exported | speak()",
+  "  method create in Animal @8:10 [8:3-10:4] exported | static create(name)",
+  "class Dog @13:7 [13:1-17:2] private | class Dog extends Animal",
+  "  method speak in Dog @14:3 [14:3-16:4] exported | speak()"
+]

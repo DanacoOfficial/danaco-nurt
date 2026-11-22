@@ -1,0 +1,7 @@
+[
+  "class User @1:14 [1:1-7:2] exported | public class User",
+  "  field Name in User @3:19 [3:5-3:37] exported | public string Name { get; set; }",
+  "  field age in User @4:17 [4:5-4:21] private | private int age;",
+  "  constant Max in User @5:22 [5:5-5:31] exported | public const int Max = 10;",
+  "  field Changed in User @6:38 [6:5-6:46] exported | public event System.EventHandler Changed;"
+]

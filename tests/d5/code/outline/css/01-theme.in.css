@@ -1,0 +1,9 @@
+.card {
+  padding: 1rem;
+}
+
+@media print {
+  .card {
+    padding: 0;
+  }
+}

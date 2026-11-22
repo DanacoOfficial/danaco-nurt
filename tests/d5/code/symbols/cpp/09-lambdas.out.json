@@ -1,0 +1,4 @@
+[
+  "variable square @1:6 [1:1-1:43] exported | auto square = [](int x) { return x * x; };",
+  "function apply @3:5 [3:1-5:2] exported | int apply()"
+]

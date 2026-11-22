@@ -1,0 +1,5 @@
+[
+  "class Program @1:14 [1:1-6:2] exported | public class Program",
+  "  method Main in Program @3:24 [3:5-3:46] exported | public static void Main(string[] args)",
+  "  method Helper in Program @5:17 [5:5-5:31] private | private int Helper()"
+]

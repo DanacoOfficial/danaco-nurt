@@ -1,0 +1,6 @@
+[
+  "class Config @1:14 [1:1-5:2] exported | public class Config",
+  "  constant MAX in Config @2:29 [2:5-2:38] exported | public static final int MAX = 10;",
+  "  field name in Config @3:20 [3:5-3:25] private | private String name;",
+  "  field count in Config @4:19 [4:5-4:25] private | protected int count;"
+]

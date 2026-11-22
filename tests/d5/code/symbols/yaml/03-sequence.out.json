@@ -1,0 +1,7 @@
+[
+  "field users @1:1 [1:1-6:1] | users",
+  "  field name in users @2:5 [2:5-2:14] | name: ada",
+  "  field role in users @3:5 [3:5-3:16] | role: admin",
+  "  field name in users @4:5 [4:5-4:15] | name: alan",
+  "  field role in users @5:5 [5:5-5:15] | role: user"
+]

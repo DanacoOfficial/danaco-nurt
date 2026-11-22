@@ -1,0 +1,15 @@
+{
+  "definitions": [
+    "symbol Counter @1:14 -> []",
+    "symbol value @2:11 -> [5:10]",
+    "symbol bump @4:3 -> []",
+    "local step @4:8 -> [5:19, 6:24]",
+    "symbol double @9:3 -> [6:17]",
+    "local step @9:10 -> [10:12]"
+  ],
+  "unresolved": [],
+  "calls": [
+    "bump -> double @6:17"
+  ],
+  "syntax": []
+}

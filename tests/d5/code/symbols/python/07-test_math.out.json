@@ -1,0 +1,5 @@
+[
+  "function test_add @4:5 [4:1-5:26] exported | def test_add()",
+  "class TestMath @8:7 [8:1-10:26] exported | class TestMath",
+  "  method test_sub in TestMath @9:9 [9:5-10:26] exported | def test_sub(self)"
+]

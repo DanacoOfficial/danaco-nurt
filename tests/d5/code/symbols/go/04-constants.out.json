@@ -1,0 +1,8 @@
+[
+  "constant Pi @3:7 [3:7-3:16] exported | Pi = 3.14",
+  "constant First @6:2 [6:2-6:14] exported | First = iota",
+  "constant second @7:2 [7:2-7:8] private | second",
+  "variable counter @10:5 [10:5-10:16] private | counter int",
+  "variable Width @13:2 [13:2-13:22] exported | Width, height = 1, 2",
+  "variable height @13:9 [13:2-13:22] private | Width, height = 1, 2"
+]

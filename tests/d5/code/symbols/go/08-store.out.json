@@ -1,0 +1,7 @@
+[
+  "struct Store @3:6 [3:6-5:2] exported | Store struct",
+  "  field values in Store @4:2 [4:2-4:23] private | values map[string]int",
+  "function New @7:6 [7:1-9:2] exported | func New() *Store",
+  "  method Get in Store @11:17 [11:1-14:2] exported | func (s *Store) Get(key string) (int, bool)",
+  "  method Set in Store @16:17 [16:1-18:2] exported | func (s *Store) Set(key string, value int)"
+]

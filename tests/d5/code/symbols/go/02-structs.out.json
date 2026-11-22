@@ -1,0 +1,7 @@
+[
+  "struct Point @3:6 [3:6-5:2] exported | Point struct",
+  "  field X in Point @4:2 [4:2-4:10] exported | X, Y int",
+  "  field Y in Point @4:5 [4:2-4:10] exported | X, Y int",
+  "  method Norm in Point @7:16 [7:1-9:2] exported | func (p Point) Norm() int",
+  "  method Scale in Point @11:17 [11:1-14:2] exported | func (p *Point) Scale(factor int)"
+]

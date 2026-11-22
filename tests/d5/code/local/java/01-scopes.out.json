@@ -1,0 +1,24 @@
+{
+  "definitions": [
+    "import List @1:18 -> [10:9, 10:32]",
+    "symbol Geometry @3:14 -> []",
+    "symbol area @4:16 -> [9:17]",
+    "local r @4:25 -> [5:20, 5:24]",
+    "symbol main @8:24 -> []",
+    "local args @8:38 -> []",
+    "local r @9:13 -> [10:40]",
+    "local values @10:23 -> [11:28]"
+  ],
+  "unresolved": [
+    "Integer",
+    "String",
+    "System",
+    "java"
+  ],
+  "calls": [
+    "main -> area @9:17",
+    "main -> of @10:37",
+    "main -> println @11:20"
+  ],
+  "syntax": []
+}

@@ -1,0 +1,5 @@
+[
+  "function main @1:5 [1:1-2:21] exported | def main()",
+  "function add @5:5 [5:1-6:17] exported | def add(a, b=1)",
+  "function fetch @9:11 [9:1-10:15] exported | async def fetch(url)"
+]

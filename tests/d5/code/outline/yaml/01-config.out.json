@@ -1,0 +1,18 @@
+{
+  "depth_0": [
+    "field server @1:1 [1:1-4:18] | server",
+    "field debug @5:1 [5:1-5:13] | debug: false"
+  ],
+  "outline": [
+    "field server @1:1 [1:1-4:18] | server",
+    "  field host in server @2:3 [2:3-2:18] | host: localhost",
+    "  field tls in server @3:3 [3:3-4:18] | tls",
+    "    field enabled in server.tls @4:5 [4:5-4:18] | enabled: true",
+    "field debug @5:1 [5:1-5:13] | debug: false"
+  ],
+  "lookups": [
+    "server.host -> 1",
+    "server.tls -> 1",
+    "server.tls.enabled -> 1"
+  ]
+}

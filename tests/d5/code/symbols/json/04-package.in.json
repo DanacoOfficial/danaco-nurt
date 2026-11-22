@@ -1,0 +1,10 @@
+{
+  "name": "app",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "react": "^18.0.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "definitions": [
+    "symbol value @1:7 -> []",
+    "symbol shadow @3:10 -> []",
+    "local value @3:17 -> [4:10]",
+    "symbol closure @7:10 -> []",
+    "local count @8:7 -> [10:5, 11:12]"
+  ],
+  "unresolved": [],
+  "calls": [],
+  "syntax": []
+}

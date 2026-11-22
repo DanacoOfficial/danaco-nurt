@@ -1,0 +1,4 @@
+[
+  "function List @1:17 [1:8-4:2] exported | function List({ items }: { items: string[] })",
+  "  field items in List @1:35 [1:35-1:50] private | items: string[]"
+]

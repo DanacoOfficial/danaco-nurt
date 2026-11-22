@@ -1,0 +1,4 @@
+[
+  "module Title @1:1 [1:1-8:1] | Title",
+  "module Subtitle @4:1 [1:1-8:1] | Title"
+]

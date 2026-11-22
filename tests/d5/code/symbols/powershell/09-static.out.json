@@ -1,0 +1,5 @@
+[
+  "class MathUtil @1:7 [1:1-7:2] | class MathUtil",
+  "  field Max in MathUtil @2:18 [2:5-2:27] | static [int] $Max = 10",
+  "  method Twice in MathUtil @4:18 [4:5-6:6] | static [int] Twice([int]$x)"
+]

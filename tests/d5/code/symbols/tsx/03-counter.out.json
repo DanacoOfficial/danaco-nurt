@@ -1,0 +1,5 @@
+[
+  "class Counter @1:14 [1:8-7:2] exported | class Counter extends React.Component<Props, State>",
+  "  field state in Counter @2:3 [2:3-2:23] exported | state = { count: 0 }",
+  "  method render in Counter @4:3 [4:3-6:4] exported | render()"
+]

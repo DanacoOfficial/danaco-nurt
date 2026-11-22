@@ -1,0 +1,18 @@
+{
+  "depth_0": [
+    "field debug @1:1 [1:1-1:14] | debug = false",
+    "module server @3:2 [3:1-6:1] | [server]",
+    "module server.tls @6:2 [6:1-8:1] | [server.tls]"
+  ],
+  "outline": [
+    "field debug @1:1 [1:1-1:14] | debug = false",
+    "module server @3:2 [3:1-6:1] | [server]",
+    "  field host in server @4:1 [4:1-4:19] | host = \"localhost\"",
+    "module server.tls @6:2 [6:1-8:1] | [server.tls]",
+    "  field enabled in server.tls @7:1 [7:1-7:15] | enabled = true"
+  ],
+  "lookups": [
+    "server.host -> 1",
+    "server.tls.enabled -> 1"
+  ]
+}

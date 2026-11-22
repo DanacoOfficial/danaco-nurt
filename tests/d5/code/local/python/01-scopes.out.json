@@ -1,0 +1,25 @@
+{
+  "definitions": [
+    "import os @1:8 -> [16:24]",
+    "import sqrt @2:18 -> [11:12]",
+    "symbol area @5:5 -> [15:9]",
+    "local r @5:10 -> [6:16, 6:20]",
+    "symbol hypot @9:5 -> [16:11]",
+    "local a @9:11 -> [10:13, 10:17]",
+    "local b @9:14 -> [10:21, 10:25]",
+    "local total @10:5 -> [11:17]",
+    "symbol main @14:5 -> []",
+    "local r @15:5 -> [16:17]"
+  ],
+  "unresolved": [
+    "math",
+    "print"
+  ],
+  "calls": [
+    "hypot -> sqrt @11:12",
+    "main -> area @15:9",
+    "main -> print @16:5",
+    "main -> hypot @16:11"
+  ],
+  "syntax": []
+}

@@ -1,0 +1,9 @@
+<project>
+  <groupId>org.example</groupId>
+  <artifactId>app</artifactId>
+  <dependencies>
+    <dependency>
+      <artifactId>junit</artifactId>
+    </dependency>
+  </dependencies>
+</project>

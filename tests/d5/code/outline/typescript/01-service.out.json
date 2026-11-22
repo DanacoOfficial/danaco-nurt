@@ -1,0 +1,22 @@
+{
+  "depth_0": [
+    "module App @1:18 [1:8-11:2] exported | namespace App",
+    "function main @13:17 [13:8-13:32] exported | function main(): void"
+  ],
+  "outline": [
+    "module App @1:18 [1:8-11:2] exported | namespace App",
+    "  class Service in App @2:16 [2:10-6:4] exported | class Service",
+    "    method start in App.Service @3:5 [3:5-3:21] exported | start(): void",
+    "    method stop in App.Service @5:5 [5:5-5:20] exported | stop(): void",
+    "  interface Options in App @8:20 [8:10-10:4] exported | interface Options",
+    "    field verbose in App.Options @9:5 [9:5-9:21] exported | verbose: boolean",
+    "function main @13:17 [13:8-13:32] exported | function main(): void"
+  ],
+  "lookups": [
+    "App.Service -> 1",
+    "App.Service.start -> 1",
+    "App.Service.stop -> 1",
+    "App.Options -> 1",
+    "App.Options.verbose -> 1"
+  ]
+}

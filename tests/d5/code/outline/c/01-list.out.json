@@ -1,0 +1,18 @@
+{
+  "depth_0": [
+    "struct node @1:8 [1:1-4:2] exported | struct node",
+    "function push @6:14 [6:1-6:49] exported | struct node *push(struct node *head, int value);",
+    "function length @8:5 [8:1-15:2] exported | int length(const struct node *head)"
+  ],
+  "outline": [
+    "struct node @1:8 [1:1-4:2] exported | struct node",
+    "  field value in node @2:9 [2:5-2:15] exported | int value;",
+    "  field next in node @3:18 [3:5-3:23] exported | struct node *next;",
+    "function push @6:14 [6:1-6:49] exported | struct node *push(struct node *head, int value);",
+    "function length @8:5 [8:1-15:2] exported | int length(const struct node *head)"
+  ],
+  "lookups": [
+    "node.value -> 1",
+    "node.next -> 1"
+  ]
+}

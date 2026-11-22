@@ -1,0 +1,6 @@
+[
+  "enum Color @1:13 [1:1-8:2] exported | public enum Color",
+  "  constant RED in Color @2:5 [2:5-2:8] exported | RED",
+  "  constant GREEN in Color @3:5 [3:5-3:10] exported | GREEN",
+  "  method next in Color @5:18 [5:5-7:6] exported | public Color next()"
+]

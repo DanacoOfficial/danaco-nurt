@@ -1,0 +1,5 @@
+[
+  "field title @1:1 [1:1-1:15] | title = \"root\"",
+  "module owner @3:2 [3:1-5:1] | [owner]",
+  "  field name in owner @4:1 [4:1-4:13] | name = \"ada\""
+]

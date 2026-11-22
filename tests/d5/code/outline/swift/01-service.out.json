@@ -1,0 +1,18 @@
+{
+  "depth_0": [
+    "class Service @1:7 [1:1-9:2] private | class Service",
+    "function main @11:6 [11:1-11:15] private | func main()"
+  ],
+  "outline": [
+    "class Service @1:7 [1:1-9:2] private | class Service",
+    "  struct Config in Service @2:12 [2:5-6:6] private | struct Config",
+    "    method validate in Service.Config @3:14 [3:9-5:10] private | func validate() -> Bool",
+    "  method start in Service @8:10 [8:5-8:20] private | func start()",
+    "function main @11:6 [11:1-11:15] private | func main()"
+  ],
+  "lookups": [
+    "Service.Config -> 1",
+    "Service.Config.validate -> 1",
+    "Service.start -> 1"
+  ]
+}

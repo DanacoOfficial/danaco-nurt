@@ -1,0 +1,5 @@
+[
+  "function _helper @1:5 [1:1-2:13] private | def _helper()",
+  "class _Internal @5:7 [5:1-6:9] private | class _Internal",
+  "function public @9:5 [9:1-10:21] exported | def public()"
+]

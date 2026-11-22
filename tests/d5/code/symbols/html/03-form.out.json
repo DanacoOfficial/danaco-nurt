@@ -1,0 +1,5 @@
+[
+  "field login @1:11 [1:1-5:8] | <form id=\"login\">",
+  "  field user in login @2:14 [2:3-3:3] | <input id=\"user\" name=\"user\">",
+  "  field password in login @3:14 [3:3-4:3] | <input id=\"password\" type=\"password\">"
+]

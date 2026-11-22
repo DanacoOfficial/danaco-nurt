@@ -1,0 +1,19 @@
+{
+  "definitions": [
+    "symbol Counter @1:7 -> []",
+    "symbol __init__ @2:9 -> []",
+    "local self @2:18 -> [3:9]",
+    "local start @2:24 -> [3:22]",
+    "symbol bump @5:9 -> []",
+    "local self @5:14 -> [6:9, 7:16]",
+    "local step @5:20 -> [6:23, 7:28]",
+    "symbol helper @9:9 -> [7:21]",
+    "local self @9:16 -> []",
+    "local step @9:22 -> [10:16]"
+  ],
+  "unresolved": [],
+  "calls": [
+    "bump -> helper @7:21"
+  ],
+  "syntax": []
+}

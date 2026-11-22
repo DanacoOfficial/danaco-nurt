@@ -1,0 +1,6 @@
+[
+  "class Vector @1:7 [1:1-7:4] | class Vector",
+  "  method + in Vector @2:7 [2:3-2:20] | def +(other); end",
+  "  method == in Vector @4:7 [4:3-4:21] | def ==(other); end",
+  "  method [] in Vector @6:7 [6:3-6:21] | def [](index); end"
+]
