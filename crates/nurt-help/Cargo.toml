@@ -20,3 +20,5 @@ workspace = true
 [dependencies]
 nurt-contracts = { workspace = true }
 nurt-catalog = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }

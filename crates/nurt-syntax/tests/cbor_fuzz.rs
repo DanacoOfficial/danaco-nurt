@@ -9,6 +9,9 @@
 //! panic. Every accepted tree must pass validation, encode again to the same
 //! tree and have a hash.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod hash_support;
 
 use hash_support::{Format, SplitMix, all_trees, decode_cbor, mutate};

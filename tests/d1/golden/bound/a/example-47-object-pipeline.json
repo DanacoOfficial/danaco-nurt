@@ -1,0 +1,267 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "processes",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "name",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "user",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "pid",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "cwd",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "tree",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            10
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "effect": "read",
+            "phase": "transform",
+            "args": [
+              {
+                "name": "condition",
+                "value": {
+                  "t": "bin",
+                  "op": ">",
+                  "l": {
+                    "t": "field",
+                    "name": "memory"
+                  },
+                  "r": {
+                    "t": "size",
+                    "v": 500000000
+                  }
+                },
+                "span": [
+                  1,
+                  21,
+                  1,
+                  35
+                ]
+              }
+            ],
+            "span": [
+              1,
+              14,
+              1,
+              35
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "sort",
+            "effect": "read",
+            "phase": "transform",
+            "args": [
+              {
+                "name": "by",
+                "value": {
+                  "t": "list",
+                  "items": [
+                    {
+                      "t": "field",
+                      "name": "memory"
+                    }
+                  ]
+                },
+                "span": [
+                  1,
+                  44,
+                  1,
+                  50
+                ]
+              },
+              {
+                "name": "order",
+                "value": {
+                  "t": "enum",
+                  "v": "desc"
+                },
+                "span": [
+                  1,
+                  51,
+                  1,
+                  62
+                ]
+              }
+            ],
+            "span": [
+              1,
+              39,
+              1,
+              62
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "select",
+            "effect": "read",
+            "phase": "transform",
+            "args": [
+              {
+                "name": "fields",
+                "value": {
+                  "t": "list",
+                  "items": [
+                    {
+                      "t": "field",
+                      "name": "pid"
+                    },
+                    {
+                      "t": "field",
+                      "name": "name"
+                    },
+                    {
+                      "t": "field",
+                      "name": "memory"
+                    }
+                  ]
+                },
+                "span": [
+                  1,
+                  73,
+                  1,
+                  88
+                ]
+              }
+            ],
+            "span": [
+              1,
+              66,
+              1,
+              88
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          88
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "processes",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "name",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "user",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "pid",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "cwd",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "tree",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            2,
+            1,
+            2,
+            10
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "describe",
+            "effect": "read",
+            "phase": "transform",
+            "args": [],
+            "span": [
+              2,
+              14,
+              2,
+              22
+            ]
+          }
+        ],
+        "span": [
+          2,
+          1,
+          2,
+          22
+        ]
+      }
+    ]
+  }
+}

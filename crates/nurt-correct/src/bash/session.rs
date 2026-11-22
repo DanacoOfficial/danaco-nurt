@@ -1193,7 +1193,7 @@ impl<'a> Session<'a> {
             .map(Statement::Let)
             .collect();
         statements.push(Statement::Pipeline(pipeline(&variants.primary().stages)));
-        print_program(&nurt_contracts::ast::Program { statements })
+        print_program(statements)
     }
 
     fn finish_live(&self, statements: Vec<(Variants, Span)>) -> Result<Translation, Error> {
@@ -1577,7 +1577,7 @@ pub(crate) fn pipeline(stages: &[Stage]) -> Pipeline {
 }
 
 pub(crate) fn piece_text(piece: &Piece) -> String {
-    print_pipeline(&pipeline(&piece.stages), "")
+    print_pipeline(&pipeline(&piece.stages))
 }
 
 pub(crate) fn named(name: &str, value: Expr) -> Arg {

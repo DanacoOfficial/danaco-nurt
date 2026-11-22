@@ -1,0 +1,551 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "search",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "pattern",
+              "value": {
+                "t": "regex",
+                "v": "oldName\\(",
+                "flags": ""
+              },
+              "span": [
+                1,
+                8,
+                1,
+                19
+              ]
+            },
+            {
+              "name": "path",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "path",
+                    "v": "/srv/app/src"
+                  }
+                ]
+              },
+              "span": [
+                1,
+                20,
+                1,
+                34
+              ]
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "glob",
+                "v": "**/*.go"
+              },
+              "span": [
+                1,
+                35,
+                1,
+                50
+              ]
+            },
+            {
+              "name": "mode",
+              "value": {
+                "t": "enum",
+                "v": "regex"
+              },
+              "default": true
+            },
+            {
+              "name": "case_sensitive",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "whole_word",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "multiline",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "invert",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "only_matching",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "trim",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "dedupe",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "scope",
+              "value": {
+                "t": "enum",
+                "v": "any"
+              },
+              "default": true
+            },
+            {
+              "name": "enclosing",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "max_line",
+              "value": {
+                "t": "int",
+                "v": 500
+              },
+              "default": true
+            },
+            {
+              "name": "exclude",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "exclude_preset",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "context",
+              "value": {
+                "t": "int",
+                "v": 0
+              },
+              "default": true
+            },
+            {
+              "name": "before",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "after",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "output",
+              "value": {
+                "t": "enum",
+                "v": "matches"
+              },
+              "default": true
+            },
+            {
+              "name": "max_per_file",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "binary",
+              "value": {
+                "t": "enum",
+                "v": "skip"
+              },
+              "default": true
+            },
+            {
+              "name": "whitespace",
+              "value": {
+                "t": "enum",
+                "v": "exact"
+              },
+              "default": true
+            },
+            {
+              "name": "hidden",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "gitignore",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "language",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "file_type",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "exclude_file_type",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "sort",
+              "value": {
+                "t": "enum",
+                "v": "path"
+              },
+              "default": true
+            },
+            {
+              "name": "adaptive",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            50
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "assert",
+            "effect": "read",
+            "phase": "check",
+            "args": [
+              {
+                "name": "count",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "paths",
+                "value": {
+                  "t": "range",
+                  "lo": 12,
+                  "hi": 12
+                },
+                "span": [
+                  2,
+                  11,
+                  2,
+                  20
+                ]
+              },
+              {
+                "name": "exit_code",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "all",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "any",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "empty",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "contains",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "if_match",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              }
+            ],
+            "span": [
+              2,
+              4,
+              2,
+              20
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "replace",
+            "effect": "local",
+            "phase": "mutate",
+            "args": [
+              {
+                "name": "pattern",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "with",
+                "value": {
+                  "t": "text",
+                  "v": "newName("
+                },
+                "span": [
+                  3,
+                  12,
+                  3,
+                  22
+                ]
+              },
+              {
+                "name": "in",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "glob",
+                "value": {
+                  "t": "glob",
+                  "v": "**"
+                },
+                "default": true
+              },
+              {
+                "name": "mode",
+                "value": {
+                  "t": "enum",
+                  "v": "auto"
+                },
+                "default": true
+              },
+              {
+                "name": "occurrence",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "case_sensitive",
+                "value": {
+                  "t": "bool",
+                  "v": true
+                },
+                "default": true
+              },
+              {
+                "name": "whole_word",
+                "value": {
+                  "t": "bool",
+                  "v": false
+                },
+                "default": true
+              },
+              {
+                "name": "multiline",
+                "value": {
+                  "t": "bool",
+                  "v": false
+                },
+                "default": true
+              },
+              {
+                "name": "whitespace",
+                "value": {
+                  "t": "enum",
+                  "v": "normalize"
+                },
+                "default": true
+              },
+              {
+                "name": "scope",
+                "value": {
+                  "t": "enum",
+                  "v": "any"
+                },
+                "default": true
+              },
+              {
+                "name": "check_references",
+                "value": {
+                  "t": "bool",
+                  "v": false
+                },
+                "default": true
+              },
+              {
+                "name": "template",
+                "value": {
+                  "t": "bool",
+                  "v": true
+                },
+                "default": true
+              },
+              {
+                "name": "on_missing",
+                "value": {
+                  "t": "enum",
+                  "v": "skip"
+                },
+                "default": true
+              },
+              {
+                "name": "expect",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "if_match",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "validate",
+                "value": {
+                  "t": "enum",
+                  "v": "reject"
+                },
+                "default": true
+              },
+              {
+                "name": "hidden",
+                "value": {
+                  "t": "bool",
+                  "v": true
+                },
+                "default": true
+              },
+              {
+                "name": "gitignore",
+                "value": {
+                  "t": "bool",
+                  "v": false
+                },
+                "default": true
+              },
+              {
+                "name": "binary",
+                "value": {
+                  "t": "enum",
+                  "v": "skip"
+                },
+                "default": true
+              },
+              {
+                "name": "file_type",
+                "value": {
+                  "t": "list",
+                  "items": []
+                },
+                "default": true
+              }
+            ],
+            "span": [
+              3,
+              4,
+              3,
+              22
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          3,
+          22
+        ]
+      }
+    ]
+  }
+}

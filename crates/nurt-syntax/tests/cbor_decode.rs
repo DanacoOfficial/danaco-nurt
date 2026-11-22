@@ -4,6 +4,9 @@
 //! Decoding of CBOR: the JSON data model, the rejected items, the nesting
 //! limit, length headers and the strict decoders.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod hash_support;
 
 use hash_support::json_depth;

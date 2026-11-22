@@ -24,8 +24,9 @@ pub(crate) fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/ast")
 }
 
-/// Golden programs whose file name starts with one of `prefixes`, sorted
-/// by name: `(name, text)`.
+/// Golden programs of variant A whose file name starts with one of
+/// `prefixes`, sorted by name: `(name, text)`. Programs of the variants B
+/// and C carry the suffix `.b` or `.c` before `.nurt` and are skipped.
 pub(crate) fn golden_programs(prefixes: &[&str]) -> Vec<(String, String)> {
     let mut programs: Vec<(String, String)> = std::fs::read_dir(golden_dir())
         .expect("golden directory is readable")
@@ -33,6 +34,9 @@ pub(crate) fn golden_programs(prefixes: &[&str]) -> Vec<(String, String)> {
         .filter_map(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
             let stem = name.strip_suffix(".nurt")?.to_owned();
+            if stem.ends_with(".b") || stem.ends_with(".c") {
+                return None;
+            }
             prefixes
                 .iter()
                 .any(|prefix| stem.starts_with(prefix))
@@ -106,15 +110,15 @@ fn check_value(value: &Value, parent: Option<[u64; 4]>, in_list: bool) -> Result
         Value::Object(members) => {
             check_node(value, in_list)?;
             let own = span_of(value);
-            if let (Some(own), Some(parent)) = (own, parent) {
-                if start(own) < start(parent) || end(own) > end(parent) {
-                    return Err(format!("span {own:?} outside parent {parent:?}"));
-                }
+            if let (Some(own), Some(parent)) = (own, parent)
+                && (start(own) < start(parent) || end(own) > end(parent))
+            {
+                return Err(format!("span {own:?} outside parent {parent:?}"));
             }
-            if let Some(own) = own {
-                if start(own) > end(own) {
-                    return Err(format!("span {own:?} ends before it starts"));
-                }
+            if let Some(own) = own
+                && start(own) > end(own)
+            {
+                return Err(format!("span {own:?} ends before it starts"));
             }
             let scope = own.or(parent);
             let mut children = Vec::new();

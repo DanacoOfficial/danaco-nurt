@@ -422,6 +422,8 @@ mod tests {
         assert_eq!(basic_to_extended("[^)]"), "[^)]");
         assert_eq!(basic_to_extended("a\\"), "a\\\\");
         assert_eq!(basic_to_extended(r"^\(x\)*$"), r"^(x)*$");
+        assert_eq!(basic_to_extended(r"\(a$\)"), r"(a$)");
+        assert_eq!(basic_to_extended(r"a$\.b"), r"a\$\.b");
     }
 
     #[test]

@@ -1,0 +1,91 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "undo",
+          "effect": "local",
+          "phase": "mutate",
+          "args": [
+            {
+              "name": "id",
+              "value": {
+                "t": "int",
+                "v": 18
+              },
+              "span": [
+                1,
+                6,
+                1,
+                8
+              ]
+            },
+            {
+              "name": "to",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "file",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "since",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "paths",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "all_sessions",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "on_conflict",
+              "value": {
+                "t": "enum",
+                "v": "report"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            8
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          8
+        ]
+      }
+    ]
+  }
+}

@@ -4,6 +4,12 @@
 //! Deterministic mutation test: golden programs with deleted, duplicated,
 //! swapped and inserted tokens never make the parser panic, and every tree
 //! it accepts holds the invariants.
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "tests report failures by panicking"
+)]
 
 mod parse_a_support;
 

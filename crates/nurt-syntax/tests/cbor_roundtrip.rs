@@ -5,6 +5,9 @@
 //!
 //! The properties run `PROPTEST_CASES` cases, 100 000 by default.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod hash_support;
 
 use std::collections::BTreeMap;
@@ -22,7 +25,7 @@ use nurt_contracts::bound::{
 use nurt_contracts::kinds::EffectKind;
 use nurt_syntax::cbor::encode;
 use nurt_syntax::hash::ast_hash;
-use nurt_syntax::validate::MAX_SAFE_INTEGER;
+use nurt_syntax::validate::{MAX_SAFE_INTEGER, is_reserved_word};
 use proptest::prelude::*;
 use proptest::test_runner::{Config, TestRunner};
 
@@ -85,7 +88,7 @@ fn unsigned() -> impl Strategy<Value = u64> {
 }
 
 fn identifier() -> impl Strategy<Value = String> {
-    "[a-z][a-z0-9_]{0,5}"
+    "[a-z][a-z0-9_]{0,5}".prop_filter("not a reserved word", |name| !is_reserved_word(name))
 }
 
 fn text() -> impl Strategy<Value = String> {
@@ -95,10 +98,7 @@ fn text() -> impl Strategy<Value = String> {
 fn finite() -> impl Strategy<Value = f64> {
     prop_oneof![
         any::<f64>().prop_filter("finite", |value| value.is_finite()),
-        Just(3.0),
-        Just(-0.0),
-        Just(0.5),
-        Just(1.1),
+        prop::sample::select(vec![3.0, -0.0, 0.5, 1.1]),
     ]
 }
 
@@ -201,7 +201,10 @@ fn surface_expr() -> BoxedStrategy<Expr> {
                     .prop_map(|(items, span)| Expr::List { items, span }),
                 (prop::collection::btree_map(identifier(), inner.clone(), 0..3), span()).prop_map(
                     |(entries, span)| Expr::Map {
-                        entries: entries.into_iter().map(|(k, v)| MapEntry { k, v }).collect(),
+                        entries: entries
+                            .into_iter()
+                            .map(|(k, v)| MapEntry { k, v, span: None })
+                            .collect(),
                         span,
                     }
                 ),
@@ -311,7 +314,7 @@ fn instant() -> impl Strategy<Value = String> {
 
 fn bound_leaf() -> impl Strategy<Value = BoundExpr> {
     prop_oneof![
-        Just(BoundExpr::Null),
+        any::<()>().prop_map(|()| BoundExpr::Null),
         any::<bool>().prop_map(|v| BoundExpr::Bool { v }),
         safe_integer().prop_map(|v| BoundExpr::Int { v }),
         finite().prop_map(|v| BoundExpr::Num { v }),
@@ -391,7 +394,7 @@ fn effect_for(phase: Phase) -> BoxedStrategy<EffectKind> {
             prop::sample::select(vec![EffectKind::Local, EffectKind::External]).boxed()
         }
         Phase::Run => prop::sample::select(vec![EffectKind::Process, EffectKind::External]).boxed(),
-        _ => Just(EffectKind::Read).boxed(),
+        _ => prop::sample::select(vec![EffectKind::Read]).boxed(),
     }
 }
 

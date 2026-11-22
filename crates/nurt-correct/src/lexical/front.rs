@@ -1,0 +1,798 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//! Front part of correction: from program text to a surface tree.
+//!
+//! [`front`] runs the following steps in this order and stops at the first
+//! that yields a tree:
+//!
+//! 1. Strict parse of the text as written. A program that parses strictly
+//!    gets no correction.
+//! 2. Character normalization: Unicode spaces and zero-width characters
+//!    outside literals (`L17`).
+//! 3. Habits of other shells: a statement that does not parse strictly and
+//!    is a bash or PowerShell command is replaced by its translation, with
+//!    the corrections of the translation rules.
+//! 4. Another syntax variant (`L20`, only with `syntax.tolerant`): a
+//!    statement that parses strictly neither as written nor after the token
+//!    rules, but parses strictly in other variants with one tree, is written
+//!    in the configured variant. Readings with different trees give
+//!    `E_AMBIGUOUS`.
+//! 5. Token rules `L03`, `L04`, `L07`, `L13`, `L16` and `L21`.
+//! 6. Parse with the repair policy of the rules `L10`, `L11`, `L12`, `L13`,
+//!    `L14`, `L15`, `L08`, `L09`: a strict parse first, then at most three
+//!    repairs per statement; other repaired readings become alternatives.
+//! 7. Tree rules `L14` (a command name after the arguments of a stage) and
+//!    `L18` (positional arguments after named ones).
+//!
+//! Every correction has its position in the text as written, and the list
+//! is sorted by position and numbered `C1`, `C2`, …. The rules that need
+//! the type of an argument place (`L01`, `L02`, `L05`, `L06`, `L19`, `L22`,
+//! `L23`, `L24`) run during binding.
+
+use std::ops::Range;
+
+use nurt_contracts::ast::{AstDocument, Expr, Head, Span, Statement};
+use nurt_contracts::config::{CorrectionConfig, SyntaxConfig};
+use nurt_contracts::error::{At, Candidate, Error, ErrorCode, Stage};
+use nurt_contracts::report::TextPosition;
+use nurt_syntax::parse::{ParseOptions, Repaired, Variant, parse, parse_tolerant};
+use nurt_syntax::print::try_print;
+
+use super::CatalogView;
+use super::locate::{Locator, offset_of};
+use super::repairs::LexicalRepairs;
+use super::rules::{Rule, number_corrections};
+use super::scan::{Piece, PieceKind, scan};
+use super::tokens::{TokenContext, rewrite, rewrite_located};
+use super::tree::{TreeChange, TreeRule, reorder_arguments, split_missing_pipes};
+use crate::bash::{self, Assumption, TranslateContext};
+use crate::normalize::{Edit, Normalized, PositionMap, apply_edits, normalize};
+use crate::powershell;
+use crate::record::{Correction, CorrectionKind};
+use crate::tables::Tables;
+
+/// Maximum number of alternatives of a result.
+pub const MAX_ALTERNATIVES: usize = 3;
+
+/// Every syntax variant, in the order in which other readings are tried.
+const VARIANTS: [Variant; 3] = [Variant::A, Variant::B, Variant::C];
+
+/// Operators after which a line break continues the statement.
+const CONTINUING: [&str; 6] = ["|>", "|", "->", "|->", ",", "="];
+
+/// Result of the front part of correction.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Front {
+    /// Surface tree of the corrected program. Its spans refer to
+    /// [`Front::source`]; arguments moved by `L18` and stages split by `L14`
+    /// keep the spans they were written with.
+    pub document: AstDocument,
+    /// Corrections in the order of their position in the text as written,
+    /// numbered `C1`, `C2`, …; empty for a program that parses strictly.
+    pub corrections: Vec<Correction>,
+    /// Other readings with different trees, the likeliest first; at most
+    /// [`MAX_ALTERNATIVES`]. Alternatives have no alternatives of their own.
+    pub alternatives: Vec<Front>,
+    /// Assumptions of the translation of habits of other shells.
+    pub assumptions: Vec<Assumption>,
+    /// The text after character normalization.
+    pub normalized: String,
+    /// The text the tree was parsed from.
+    pub source: String,
+}
+
+impl Front {
+    fn strict(text: &str, document: AstDocument) -> Self {
+        Self {
+            document,
+            corrections: Vec::new(),
+            alternatives: Vec::new(),
+            assumptions: Vec::new(),
+            normalized: text.to_owned(),
+            source: text.to_owned(),
+        }
+    }
+}
+
+/// Reads a program text with the lexical correction rules.
+///
+/// The steps and their order are described in the [module](self)
+/// documentation. With `correction.enabled = false` the function is a strict
+/// parse. With `syntax.tolerant = false` rule `L20` does not apply.
+///
+/// # Errors
+///
+/// Returns the error of the strict parse of the text as written (`E_SYNTAX`,
+/// `E_LEXICAL`, `E_ESCAPE`, with ready fixes where the parser has them) when
+/// correction is disabled or no reading yields a tree; `E_AMBIGUOUS` with
+/// candidates when a statement reads differently in two other variants; and
+/// the error of the translation of a habit of another shell, such as
+/// `E_ONE_EFFECT`.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_contracts::config::{CorrectionConfig, SyntaxConfig};
+/// use nurt_correct::lexical::{ArgumentShape, CatalogView, front};
+/// use nurt_correct::tables::load_embedded;
+///
+/// struct Commands;
+///
+/// impl CatalogView for Commands {
+///     fn is_command(&self, name: &str) -> bool {
+///         ["find", "search"].contains(&name)
+///     }
+///     fn command_names(&self) -> &[&str] {
+///         &["find", "search"]
+///     }
+///     fn is_mutating(&self, _: &str) -> bool {
+///         false
+///     }
+///     fn can_take_argument(&self, _: &str, _: usize, _: ArgumentShape) -> bool {
+///         false
+///     }
+/// }
+///
+/// let tables = load_embedded()?;
+/// let syntax = SyntaxConfig::default();
+/// let correction = CorrectionConfig::default();
+/// let result = front("Find /srv/app | search /x/", &syntax, &correction, &tables, &Commands)?;
+/// let rules: Vec<String> = result.corrections.iter().map(|c| c.rule.to_string()).collect();
+/// assert_eq!(rules, ["L03", "L21", "L13"]);
+/// assert_eq!(result.source, "find \"/srv/app\" |> search /x/");
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn front(
+    text: &str,
+    syntax: &SyntaxConfig,
+    correction: &CorrectionConfig,
+    tables: &Tables,
+    catalog: &dyn CatalogView,
+) -> Result<Front, Error> {
+    let variant = syntax.variant;
+    let options = ParseOptions::default();
+    let strict_error = match parse(text, variant, &options) {
+        Ok(document) => return Ok(Front::strict(text, document)),
+        Err(error) => error,
+    };
+    if !correction.enabled {
+        return Err(strict_error.into());
+    }
+    let is_habit = |word: &str| tables.habits().any(|habit| habit == word);
+    let context = TokenContext {
+        variant,
+        catalog,
+        is_habit: &is_habit,
+    };
+    let mut work = Work::new(text, normalize(text));
+    work.translate_habits(&context)?;
+    if syntax.tolerant {
+        work.other_variants(&context)?;
+    }
+    work.rewrite(&context);
+    let policy = LexicalRepairs::new(variant, catalog, &is_habit);
+    let Ok(repaired) = parse_tolerant(&work.text, variant, &options, &policy) else {
+        return Err(strict_error.into());
+    };
+    Ok(work.finish(repaired, variant, catalog))
+}
+
+/// State of the text between the steps of [`front`].
+struct Work<'a> {
+    original: &'a str,
+    normalized: String,
+    text: String,
+    map: PositionMap,
+    corrections: Vec<Correction>,
+    assumptions: Vec<Assumption>,
+}
+
+/// Result of the translation of one statement.
+struct Habit {
+    tree: AstDocument,
+    rules: Vec<Correction>,
+    assumptions: Vec<Assumption>,
+}
+
+impl<'a> Work<'a> {
+    fn new(original: &'a str, normalized: Normalized) -> Self {
+        Self {
+            original,
+            text: normalized.text.clone(),
+            normalized: normalized.text,
+            map: normalized.positions,
+            corrections: normalized.corrections,
+            assumptions: Vec::new(),
+        }
+    }
+
+    fn locator(&self) -> Locator<'a> {
+        Locator::new(self.original, self.map.clone())
+    }
+
+    fn edit(&mut self, edits: &[Edit]) {
+        if edits.is_empty() {
+            return;
+        }
+        let (text, map) = apply_edits(&self.text, edits);
+        self.map = self.map.then(&map);
+        self.text = text;
+    }
+
+    fn rewrite(&mut self, context: &TokenContext<'_>) {
+        let locator = self.locator();
+        let (text, corrections, map) = rewrite_located(&self.text, context, &locator);
+        self.corrections.extend(corrections);
+        self.map = self.map.then(&map);
+        self.text = text;
+    }
+
+    /// Step 3: statements written as habits of other shells; a statement
+    /// that the token rules make valid is not a habit.
+    fn translate_habits(&mut self, context: &TokenContext<'_>) -> Result<(), Error> {
+        let variant = context.variant;
+        let locator = self.locator();
+        let mut edits = Vec::new();
+        for range in statements(&self.text) {
+            let statement = self.text.get(range.clone()).unwrap_or_default();
+            if parses(statement, variant) || parses(&rewrite(statement, context).text, variant) {
+                continue;
+            }
+            let Some(habit) = translate_statement(statement)? else {
+                continue;
+            };
+            let Ok(printed) = try_print(&habit.tree, variant) else {
+                continue;
+            };
+            let start = locator.at(range.start..range.start);
+            self.corrections.extend(
+                habit
+                    .rules
+                    .into_iter()
+                    .map(|correction| shift(correction, start)),
+            );
+            self.assumptions.extend(habit.assumptions);
+            edits.push(Edit::new(range, printed.trim_end()));
+        }
+        self.edit(&edits);
+        Ok(())
+    }
+
+    /// Step 4: statements written in another syntax variant (`L20`).
+    fn other_variants(&mut self, context: &TokenContext<'_>) -> Result<(), Error> {
+        let variant = context.variant;
+        let locator = self.locator();
+        let mut edits = Vec::new();
+        for range in statements(&self.text) {
+            let statement = self.text.get(range.clone()).unwrap_or_default();
+            if parses(statement, variant) || parses(&rewrite(statement, context).text, variant) {
+                continue;
+            }
+            match other_readings(statement, variant, context.catalog).as_slice() {
+                [] => {}
+                [(_, reading)] => {
+                    let at = locator.at(range.clone());
+                    self.corrections.push(Rule::L20.record(
+                        at,
+                        statement,
+                        reading.clone(),
+                        CorrectionKind::Syntax,
+                    ));
+                    edits.push(Edit::new(range, reading.clone()));
+                }
+                readings => return Err(self.ambiguous_variant(&range, readings, &locator)),
+            }
+        }
+        self.edit(&edits);
+        Ok(())
+    }
+
+    fn ambiguous_variant(
+        &self,
+        range: &Range<usize>,
+        readings: &[(Variant, String)],
+        locator: &Locator<'_>,
+    ) -> Error {
+        let at = locator.at(range.clone());
+        let mut error = Error::new(
+            ErrorCode::Ambiguous,
+            "the statement reads differently in two syntax variants; write it in the configured variant",
+        )
+        .with_stage(Stage::Parse)
+        .with_at(to_at(at))
+        .with_found(self.text.get(range.clone()).unwrap_or_default())
+        .with_help("help corrections");
+        for (rank, (variant, reading)) in readings.iter().take(MAX_ALTERNATIVES).enumerate() {
+            let mut program = self.text.clone();
+            program.replace_range(range.clone(), reading);
+            error = error.with_candidate(Candidate {
+                rank: u32::try_from(rank + 1).unwrap_or(u32::MAX),
+                reference: None,
+                program,
+                why: Some(format!("read in variant {}", variant_name(*variant))),
+            });
+        }
+        error
+    }
+
+    /// Steps 6 and 7 for the repaired reading and its alternatives.
+    fn finish(&self, mut repaired: Repaired, variant: Variant, catalog: &dyn CatalogView) -> Front {
+        let others: Vec<Repaired> = repaired
+            .alternatives
+            .drain(..)
+            .take(MAX_ALTERNATIVES)
+            .collect();
+        let mut result = self.reading(repaired, variant, catalog);
+        result.alternatives = others
+            .into_iter()
+            .map(|other| self.reading(other, variant, catalog))
+            .collect();
+        result
+    }
+
+    fn reading(&self, repaired: Repaired, variant: Variant, catalog: &dyn CatalogView) -> Front {
+        let mut corrections = self.corrections.clone();
+        let locator = self.locator();
+        let mut edits = Vec::with_capacity(repaired.repairs.len());
+        for applied in &repaired.repairs {
+            let Some(rule) = Rule::ALL
+                .iter()
+                .copied()
+                .find(|rule| rule.id() == applied.rule)
+            else {
+                continue;
+            };
+            let start = offset_of(
+                &self.text,
+                applied.at.line.unwrap_or(1),
+                applied.at.column.unwrap_or(1),
+            );
+            let range = start..start + applied.from.len();
+            corrections.push(rule.record(
+                locator.at(range.clone()),
+                applied.from.clone(),
+                applied.to.clone(),
+                repair_kind(rule),
+            ));
+            edits.push(Edit::new(range, applied.to.clone()));
+        }
+        edits.sort_by_key(|edit| edit.range.start);
+        let (replayed, map) = apply_edits(&self.text, &edits);
+        let source_map = if replayed == repaired.source {
+            self.map.then(&map)
+        } else {
+            self.map.clone()
+        };
+        let source_locator = Locator::new(self.original, source_map);
+        let mut document = repaired.document;
+        let changes: Vec<TreeChange> = split_missing_pipes(&mut document, catalog)
+            .into_iter()
+            .chain(reorder_arguments(&mut document, variant))
+            .collect();
+        for change in changes {
+            let at = span_range(&repaired.source, change.span)
+                .map_or_else(|| source_locator.at(0..0), |range| source_locator.at(range));
+            let (rule, kind) = match change.rule {
+                TreeRule::MissingPipe => (Rule::L14, CorrectionKind::Pipe),
+                TreeRule::ArgumentOrder => (Rule::L18, CorrectionKind::Order),
+            };
+            corrections.push(rule.record(at, change.from, change.to, kind));
+        }
+        corrections.sort_by_key(|correction| correction.at.map(|at| (at.line, at.column)));
+        number_corrections(&mut corrections);
+        Front {
+            document,
+            corrections,
+            alternatives: Vec::new(),
+            assumptions: self.assumptions.clone(),
+            normalized: self.normalized.clone(),
+            source: repaired.source,
+        }
+    }
+}
+
+fn parses(text: &str, variant: Variant) -> bool {
+    parse(text, variant, &ParseOptions::default()).is_ok()
+}
+
+/// Readings of a statement in the other variants, written in `variant`;
+/// readings with the same text are listed once. A reading that takes a
+/// command name for an argument value (`find("/a") count()` read in word
+/// notation) is not a reading of the statement.
+fn other_readings(
+    statement: &str,
+    variant: Variant,
+    catalog: &dyn CatalogView,
+) -> Vec<(Variant, String)> {
+    let mut readings: Vec<(Variant, String)> = Vec::new();
+    for other in VARIANTS.into_iter().filter(|other| *other != variant) {
+        let Ok(document) = parse(statement, other, &ParseOptions::default()) else {
+            continue;
+        };
+        if names_a_command_as_value(&document, catalog) {
+            continue;
+        }
+        let Ok(printed) = try_print(&document, variant) else {
+            continue;
+        };
+        let reading = printed.trim_end().to_owned();
+        let known = readings.iter().any(|(_, text)| *text == reading);
+        if !known && parses(&reading, variant) {
+            readings.push((other, reading));
+        }
+    }
+    readings
+}
+
+/// Whether a positional argument of a stage is a command name, bare
+/// (`count`) or called (`count()`).
+fn names_a_command_as_value(document: &AstDocument, catalog: &dyn CatalogView) -> bool {
+    let stages = document
+        .program
+        .statements
+        .iter()
+        .filter_map(|statement| match statement {
+            Statement::Let(binding) => Some(&binding.value),
+            Statement::Pipeline(pipeline) => Some(pipeline),
+            _ => None,
+        })
+        .flat_map(|pipeline| {
+            let head = match &pipeline.head {
+                Head::Stage(stage) => Some(stage),
+                _ => None,
+            };
+            head.into_iter().chain(pipeline.stages.iter())
+        });
+    stages
+        .flat_map(|stage| stage.args.iter())
+        .filter(|arg| arg.name.is_none())
+        .any(|arg| match &arg.value {
+            Expr::Ident { v, .. } => catalog.is_command(v),
+            Expr::Call { function, .. } => catalog.is_command(function),
+            _ => false,
+        })
+}
+
+fn translate_statement(statement: &str) -> Result<Option<Habit>, Error> {
+    let context = TranslateContext::default();
+    if bash::detect(statement) {
+        return match bash::translate_with(statement, &context) {
+            Some(Ok(translation)) => Ok(Some(Habit {
+                tree: translation.tree,
+                rules: translation.rules,
+                assumptions: translation.assumptions,
+            })),
+            Some(Err(error)) => Err(error),
+            None => Ok(None),
+        };
+    }
+    if powershell::detect(statement) {
+        return match powershell::translate_with(statement, &context) {
+            Some(Ok(translation)) => Ok(Some(Habit {
+                tree: translation.tree,
+                rules: translation
+                    .rules
+                    .into_iter()
+                    .filter_map(|rule| Correction::try_from(rule).ok())
+                    .collect(),
+                assumptions: translation.assumptions,
+            })),
+            Some(Err(error)) => Err(error),
+            None => Ok(None),
+        };
+    }
+    Ok(None)
+}
+
+/// Moves the position of a correction made on a statement alone to the
+/// statement that starts at `start`.
+fn shift(mut correction: Correction, start: TextPosition) -> Correction {
+    if let Some(at) = &mut correction.at {
+        if at.line == 1 {
+            at.column = at.column.saturating_add(start.column.saturating_sub(1));
+        }
+        at.line = at.line.saturating_add(start.line.saturating_sub(1));
+    }
+    correction
+}
+
+/// Byte ranges of the statements of a text, from the first to the last
+/// significant character; a line break inside brackets, after a continuing
+/// operator or before a line that starts with a pipe does not end a
+/// statement.
+fn statements(text: &str) -> Vec<Range<usize>> {
+    let pieces: Vec<Piece> = scan(text)
+        .into_iter()
+        .filter(|piece| !piece.kind.is_trivia())
+        .collect();
+    let mut ranges = Vec::new();
+    let mut depth = 0usize;
+    let mut current: Option<Range<usize>> = None;
+    for (index, piece) in pieces.iter().enumerate() {
+        let slice = piece.text(text);
+        if piece.kind == PieceKind::Newline {
+            let after_operator = index
+                .checked_sub(1)
+                .and_then(|before| pieces.get(before))
+                .is_some_and(|before| {
+                    before.kind == PieceKind::Punct && CONTINUING.contains(&before.text(text))
+                });
+            let before_pipe = pieces
+                .get(index + 1..)
+                .unwrap_or_default()
+                .iter()
+                .find(|next| next.kind != PieceKind::Newline)
+                .is_some_and(|next| matches!(next.text(text), "|>" | "|"));
+            if depth == 0 && !after_operator && !before_pipe {
+                ranges.extend(current.take());
+            }
+            continue;
+        }
+        if piece.kind == PieceKind::Punct {
+            match slice {
+                "(" | "[" | "{" => depth += 1,
+                ")" | "]" | "}" => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+        }
+        current = Some(match current {
+            Some(range) => range.start..piece.range.end,
+            None => piece.range.clone(),
+        });
+    }
+    ranges.extend(current);
+    ranges
+}
+
+/// Byte range of a span in the text it refers to.
+fn span_range(text: &str, span: Option<Span>) -> Option<Range<usize>> {
+    let span = span?;
+    let start = offset_of(text, span.line, span.column);
+    let end = offset_of(text, span.end_line, span.end_column).max(start);
+    Some(start..end)
+}
+
+fn repair_kind(rule: Rule) -> CorrectionKind {
+    match rule {
+        Rule::L08 | Rule::L09 => CorrectionKind::Quote,
+        Rule::L10 | Rule::L11 | Rule::L12 => CorrectionKind::Bracket,
+        Rule::L13 | Rule::L14 => CorrectionKind::Pipe,
+        Rule::L15 => CorrectionKind::Separator,
+        _ => CorrectionKind::Syntax,
+    }
+}
+
+fn variant_name(variant: Variant) -> &'static str {
+    match variant {
+        Variant::A => "a",
+        Variant::B => "b",
+        Variant::C => "c",
+    }
+}
+
+fn to_at(position: TextPosition) -> At {
+    At {
+        line: Some(position.line),
+        column: Some(position.column),
+        length: position.length,
+        stage: Some(Stage::Parse),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::report::CorrectionClass;
+    use nurt_syntax::print::print;
+
+    use super::*;
+    use crate::lexical::ArgumentShape;
+    use crate::tables::load_embedded;
+
+    const COMMANDS: [&str; 10] = [
+        "find", "search", "count", "verify", "run", "replace", "remove", "list", "first", "filter",
+    ];
+
+    struct Commands;
+
+    impl CatalogView for Commands {
+        fn is_command(&self, name: &str) -> bool {
+            COMMANDS.contains(&name)
+        }
+        fn command_names(&self) -> &[&str] {
+            &COMMANDS
+        }
+        fn is_mutating(&self, name: &str) -> bool {
+            matches!(name, "run" | "replace" | "remove")
+        }
+        fn can_take_argument(&self, command: &str, _: usize, _: ArgumentShape) -> bool {
+            command == "filter"
+        }
+    }
+
+    fn syntax(variant: Variant, tolerant: bool) -> SyntaxConfig {
+        let mut config = SyntaxConfig::default();
+        config.variant = variant;
+        config.tolerant = tolerant;
+        config
+    }
+
+    fn run_with(
+        text: &str,
+        syntax: &SyntaxConfig,
+        correction: &CorrectionConfig,
+    ) -> Result<Front, Error> {
+        let tables = load_embedded().expect("embedded tables");
+        front(text, syntax, correction, &tables, &Commands)
+    }
+
+    fn run(text: &str) -> Front {
+        run_with(
+            text,
+            &syntax(Variant::A, true),
+            &CorrectionConfig::default(),
+        )
+        .expect("corrected")
+    }
+
+    fn rules(result: &Front) -> Vec<String> {
+        result
+            .corrections
+            .iter()
+            .map(|correction| correction.rule.to_string())
+            .collect()
+    }
+
+    fn canonical(result: &Front) -> String {
+        print(&result.document, Variant::A).trim_end().to_owned()
+    }
+
+    #[test]
+    fn gives_no_correction_to_a_valid_program() {
+        let text = "find \"/srv/app\" glob: \"*.go\"\n|> filter size > 1mb\n|> first 20";
+        let result = run(text);
+        assert!(result.corrections.is_empty());
+        assert_eq!(result.source, text);
+        assert!(result.alternatives.is_empty());
+    }
+
+    #[test]
+    fn applies_token_rules_and_numbers_corrections_by_position() {
+        let result = run("Find /srv/app glob: '*.go' | count");
+        assert_eq!(
+            canonical(&result),
+            "find \"/srv/app\" glob: \"*.go\"\n|> count"
+        );
+        assert_eq!(rules(&result), ["L03", "L21", "L07", "L13"]);
+        let ids: Vec<&str> = result.corrections.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(ids, ["C1", "C2", "C3", "C4"]);
+    }
+
+    #[test]
+    fn closes_brackets_and_reports_the_repair_in_the_text_as_written() {
+        let result = run("verify (run [\"go\", \"build\"] cwd: \"/a\"");
+        assert_eq!(rules(&result), ["L10"]);
+        assert_eq!(result.corrections[0].class, CorrectionClass::Structural);
+        let at = result.corrections[0].at.expect("position");
+        assert_eq!((at.line, at.column), (1, 38));
+    }
+
+    #[test]
+    fn positions_of_repairs_skip_earlier_normalization() {
+        let result = run("find\u{a0}\"/a\" |> count)");
+        assert_eq!(rules(&result), ["L17", "L12"]);
+        let at = result.corrections[1].at.expect("position");
+        assert_eq!((at.line, at.column), (1, 19));
+    }
+
+    #[test]
+    fn closes_an_unterminated_text_as_a_probable_correction() {
+        let result = run("replace \"x\" \"newName(");
+        assert_eq!(rules(&result), ["L08"]);
+        assert_eq!(result.corrections[0].class, CorrectionClass::Probable);
+    }
+
+    #[test]
+    fn writes_another_variant_in_the_configured_one() {
+        let result = run("find(\"/srv\", glob: \"*.go\")");
+        assert_eq!(rules(&result), ["L20"]);
+        assert_eq!(canonical(&result), "find \"/srv\" glob: \"*.go\"");
+        let called = run_with(
+            "find \"/srv\" glob: \"*.go\"",
+            &syntax(Variant::B, true),
+            &CorrectionConfig::default(),
+        )
+        .expect("corrected");
+        assert_eq!(rules(&called), ["L20"]);
+    }
+
+    #[test]
+    fn keeps_other_variants_when_the_syntax_is_not_tolerant() {
+        let error = run_with(
+            "find(\"/srv\", glob: \"*.go\")",
+            &syntax(Variant::A, false),
+            &CorrectionConfig::default(),
+        );
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn parses_strictly_when_correction_is_disabled() {
+        let mut correction = CorrectionConfig::default();
+        correction.enabled = false;
+        let error =
+            run_with("Find \"/a\"", &syntax(Variant::A, true), &correction).expect_err("strict");
+        assert_eq!(error.code, ErrorCode::Lexical);
+        let valid = run_with("find \"/a\"", &syntax(Variant::A, true), &correction).expect("valid");
+        assert!(valid.corrections.is_empty());
+    }
+
+    #[test]
+    fn moves_positional_arguments_in_a_corrected_program() {
+        let result = run("Find glob: \"*.go\" \"/srv/app\"");
+        assert_eq!(rules(&result), ["L03", "L18"]);
+        assert_eq!(canonical(&result), "find \"/srv/app\" glob: \"*.go\"");
+    }
+
+    #[test]
+    fn returns_the_strict_error_when_nothing_reads() {
+        let error = run_with(
+            "find \"/a\" ; ; )(",
+            &syntax(Variant::A, true),
+            &CorrectionConfig::default(),
+        )
+        .expect_err("no reading");
+        assert_eq!(error.code, ErrorCode::Uncorrectable);
+    }
+
+    #[test]
+    fn running_front_on_its_result_makes_no_correction() {
+        for text in [
+            "Find /srv/app glob: '*.go' | count",
+            "verify (run [\"go\", \"build\"] cwd: \"/a\"",
+            "find(\"/srv\", glob: \"*.go\")",
+        ] {
+            let first = run(text);
+            let again = run(&print(&first.document, Variant::A));
+            assert!(again.corrections.is_empty(), "{text}");
+        }
+    }
+
+    #[test]
+    fn splits_statements_at_line_ends_outside_brackets() {
+        let text = "find \"/a\"\n|> count\nlist [\n\"/b\"\n]\nfind \"/c\" |>\n  count";
+        let ranges: Vec<&str> = statements(text)
+            .into_iter()
+            .map(|range| &text[range])
+            .collect();
+        assert_eq!(
+            ranges,
+            [
+                "find \"/a\"\n|> count",
+                "list [\n\"/b\"\n]",
+                "find \"/c\" |>\n  count"
+            ]
+        );
+    }
+
+    #[test]
+    fn shifts_positions_of_statement_corrections() {
+        let correction = Rule::L13.record(
+            TextPosition {
+                line: 1,
+                column: 4,
+                length: Some(1),
+            },
+            "|",
+            "|>",
+            CorrectionKind::Pipe,
+        );
+        let start = TextPosition {
+            line: 3,
+            column: 2,
+            length: None,
+        };
+        let at = shift(correction, start).at.expect("position");
+        assert_eq!((at.line, at.column), (3, 5));
+    }
+}

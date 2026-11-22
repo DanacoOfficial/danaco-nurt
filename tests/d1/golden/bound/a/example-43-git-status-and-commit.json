@@ -1,0 +1,248 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "git.status",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "repo",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "path",
+                    "v": "/srv/app"
+                  }
+                ]
+              },
+              "span": [
+                1,
+                12,
+                1,
+                22
+              ]
+            },
+            {
+              "name": "untracked",
+              "value": {
+                "t": "enum",
+                "v": "normal"
+              },
+              "default": true
+            },
+            {
+              "name": "ignored",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "limit",
+              "value": {
+                "t": "int",
+                "v": 200
+              },
+              "default": true
+            },
+            {
+              "name": "stat",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "exclude",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            22
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          22
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "git.commit",
+          "effect": "local",
+          "phase": "mutate",
+          "args": [
+            {
+              "name": "repo",
+              "value": {
+                "t": "path",
+                "v": "/srv/app"
+              },
+              "span": [
+                2,
+                12,
+                2,
+                22
+              ]
+            },
+            {
+              "name": "message",
+              "value": {
+                "t": "text",
+                "v": "fix: parser"
+              },
+              "span": [
+                2,
+                23,
+                2,
+                45
+              ]
+            },
+            {
+              "name": "paths",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "path",
+                    "v": "/srv/app/a.go"
+                  }
+                ]
+              },
+              "span": [
+                2,
+                46,
+                2,
+                70
+              ]
+            },
+            {
+              "name": "all",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "staged",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "amend",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "trailers",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "Co-Authored-By: User <user@example.com>"
+                  }
+                ]
+              },
+              "span": [
+                2,
+                71,
+                2,
+                124
+              ]
+            },
+            {
+              "name": "sign_off",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "author",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "allow_empty",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "hooks",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "exclude",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "expect_state",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            2,
+            1,
+            2,
+            124
+          ]
+        },
+        "stages": [],
+        "span": [
+          2,
+          1,
+          2,
+          124
+        ]
+      }
+    ]
+  }
+}

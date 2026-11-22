@@ -1,8 +1,8 @@
 {
   "nurt": "1.0",
   "bound": "1.0",
-  "catalog_rev": "cat-draft-1",
-  "corr_rev": "corr-draft-1",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
   "program": {
     "statements": [
       {
@@ -18,14 +18,26 @@
               "value": {
                 "t": "path",
                 "v": "/srv/app/build"
-              }
+              },
+              "span": [
+                1,
+                6,
+                1,
+                22
+              ]
             },
             {
               "name": "glob",
               "value": {
                 "t": "glob",
                 "v": "**/*.tmp"
-              }
+              },
+              "span": [
+                1,
+                23,
+                1,
+                39
+              ]
             },
             {
               "name": "type",
@@ -83,6 +95,14 @@
               "default": true
             },
             {
+              "name": "file_type",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
               "name": "fuzzy",
               "value": {
                 "t": "null"
@@ -121,6 +141,12 @@
               },
               "default": true
             }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            39
           ]
         },
         "stages": [
@@ -153,8 +179,20 @@
                 },
                 "default": true
               }
+            ],
+            "span": [
+              2,
+              4,
+              2,
+              10
             ]
           }
+        ],
+        "span": [
+          1,
+          1,
+          2,
+          10
         ]
       }
     ]

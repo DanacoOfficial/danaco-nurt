@@ -39,7 +39,7 @@ pub const SYNTAX_HELP: &str = "help syntax";
 /// assert_eq!(error.found.as_deref(), Some("glob:"));
 /// let error = Error::from(error);
 /// assert_eq!(error.code, ErrorCode::Syntax);
-/// assert_eq!(error.stage, Some(Stage::Parse));
+/// assert_eq!(error.stage(), Some(Stage::Parse));
 /// assert_eq!(error.help.as_deref(), Some("help syntax"));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -191,12 +191,12 @@ impl DerefMut for SyntaxError {
 impl fmt::Display for SyntaxError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.at {
-            Some(at) => write!(
-                f,
-                "{}: {} at {}:{}",
-                self.code, self.message, at.line, at.column
-            ),
-            None => write!(f, "{}: {}", self.code, self.message),
+            Some(At {
+                line: Some(line),
+                column: Some(column),
+                ..
+            }) => write!(f, "{}: {} at {line}:{column}", self.code, self.message),
+            _ => write!(f, "{}: {}", self.code, self.message),
         }
     }
 }
@@ -279,8 +279,11 @@ mod tests {
             .with_expected(["`)`"]);
         let converted = Error::from(error);
         assert_eq!(converted.code, ErrorCode::Syntax);
-        assert_eq!(converted.stage, Some(Stage::Parse));
-        assert_eq!(converted.at, Some(At::new(2, 3, 1)));
+        assert_eq!(converted.stage(), Some(Stage::Parse));
+        assert_eq!(
+            converted.at,
+            Some(At::new(2, 3, 1).with_stage(Stage::Parse))
+        );
         assert_eq!(converted.found.as_deref(), Some("]"));
         assert_eq!(converted.problem.as_deref(), Some("unexpected_token"));
         assert_eq!(converted.fix, ["count"]);
@@ -292,7 +295,7 @@ mod tests {
     fn omits_absent_fields_in_the_language_error() {
         let converted = Error::from(SyntaxError::ast_schema("missing member `program`"));
         assert_eq!(converted.code, ErrorCode::AstSchema);
-        assert_eq!(converted.at, None);
+        assert_eq!(converted.at, Some(At::stage(Stage::Parse)));
         assert_eq!(converted.expected, None);
         assert_eq!(converted.help, None);
         let converted = Error::from(SyntaxError::ast_version("version 2.0 is newer"));

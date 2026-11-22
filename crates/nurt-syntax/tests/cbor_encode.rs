@@ -8,6 +8,9 @@
 //! floating-point forms, no tags and map keys in the bytewise order of their
 //! encodings.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod hash_support;
 
 use hash_support::all_trees;

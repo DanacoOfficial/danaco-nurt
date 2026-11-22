@@ -350,7 +350,7 @@ impl Pass<'_, '_> {
         self.command_expected = false;
         let word = fold(self.slice(index));
         if word == "let" {
-            self.fix_name(index, index, CorrectionKind::Syntax);
+            self.fix_name(index, index, CorrectionKind::Keyword);
             self.let_name_expected = true;
             return index + 1;
         }
@@ -393,7 +393,7 @@ impl Pass<'_, '_> {
             return CorrectionKind::Function;
         }
         if KEYWORDS.contains(&fold(self.slice(index)).as_str()) {
-            return CorrectionKind::Syntax;
+            return CorrectionKind::Keyword;
         }
         CorrectionKind::Value
     }
@@ -770,7 +770,7 @@ mod tests {
             .collect();
         assert_eq!(
             kinds,
-            ["syntax", "ref", "value", "syntax", "function", "ref"]
+            ["keyword", "ref", "value", "keyword", "function", "ref"]
         );
     }
 

@@ -1,0 +1,426 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "http.request",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "url",
+              "value": {
+                "t": "text",
+                "v": "https://api.example.com/health"
+              },
+              "span": [
+                1,
+                14,
+                1,
+                46
+              ]
+            },
+            {
+              "name": "method",
+              "value": {
+                "t": "enum",
+                "v": "get"
+              },
+              "default": true
+            },
+            {
+              "name": "headers",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "body",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "json",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "save",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "as",
+              "value": {
+                "t": "enum",
+                "v": "raw"
+              },
+              "default": true
+            },
+            {
+              "name": "extract",
+              "value": {
+                "t": "enum",
+                "v": "content"
+              },
+              "default": true
+            },
+            {
+              "name": "table",
+              "value": {
+                "t": "int",
+                "v": 0
+              },
+              "default": true
+            },
+            {
+              "name": "main_only",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "links",
+              "value": {
+                "t": "enum",
+                "v": "inline"
+              },
+              "default": true
+            },
+            {
+              "name": "images",
+              "value": {
+                "t": "enum",
+                "v": "alt"
+              },
+              "default": true
+            },
+            {
+              "name": "section",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "outline",
+              "value": {
+                "t": "enum",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "query",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "query_limit",
+              "value": {
+                "t": "int",
+                "v": 5
+              },
+              "default": true
+            },
+            {
+              "name": "find",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "find_context",
+              "value": {
+                "t": "int",
+                "v": 1
+              },
+              "default": true
+            },
+            {
+              "name": "links_filter",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "same_host",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "charset",
+              "value": {
+                "t": "text",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "offset",
+              "value": {
+                "t": "int",
+                "v": 0
+              },
+              "default": true
+            },
+            {
+              "name": "cache",
+              "value": {
+                "t": "enum",
+                "v": "bypass"
+              },
+              "default": true
+            },
+            {
+              "name": "unchanged_since",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "timeout",
+              "value": {
+                "t": "dur",
+                "v": 30000
+              },
+              "default": true
+            },
+            {
+              "name": "follow_redirects",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "max_redirects",
+              "value": {
+                "t": "int",
+                "v": 10
+              },
+              "default": true
+            },
+            {
+              "name": "verify_tls",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "retries",
+              "value": {
+                "t": "int",
+                "v": 0
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            46
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "assert",
+            "effect": "read",
+            "phase": "check",
+            "args": [
+              {
+                "name": "count",
+                "value": {
+                  "t": "range",
+                  "lo": 1,
+                  "hi": 1
+                },
+                "span": [
+                  1,
+                  57,
+                  1,
+                  65
+                ]
+              },
+              {
+                "name": "paths",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "exit_code",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "all",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "any",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "empty",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "contains",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "if_match",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              }
+            ],
+            "span": [
+              1,
+              50,
+              1,
+              65
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          65
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "http.download",
+          "effect": "local",
+          "phase": "mutate",
+          "args": [
+            {
+              "name": "url",
+              "value": {
+                "t": "text",
+                "v": "https://example.com/a.tar.gz"
+              },
+              "span": [
+                2,
+                15,
+                2,
+                45
+              ]
+            },
+            {
+              "name": "to",
+              "value": {
+                "t": "path",
+                "v": "/srv/dl/a.tar.gz"
+              },
+              "span": [
+                2,
+                46,
+                2,
+                64
+              ]
+            },
+            {
+              "name": "resume",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "hash",
+              "value": {
+                "t": "text",
+                "v": "sha256:50d858e0985ecc7f60418aaf0cc5ab587f42c2570a884095a9e8ccacd0f6545c"
+              },
+              "span": [
+                2,
+                65,
+                2,
+                144
+              ]
+            },
+            {
+              "name": "headers",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "timeout",
+              "value": {
+                "t": "dur",
+                "v": 300000
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            2,
+            1,
+            2,
+            144
+          ]
+        },
+        "stages": [],
+        "span": [
+          2,
+          1,
+          2,
+          144
+        ]
+      }
+    ]
+  }
+}

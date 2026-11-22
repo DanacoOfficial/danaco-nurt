@@ -4,6 +4,9 @@
 //! Properties of `ast_hash` on the golden trees and the number formatting of
 //! the JSON Canonicalization Scheme (RFC 8785) used by the hash.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod hash_support;
 
 use hash_support::{Format, all_trees, decode_json, without_layout};

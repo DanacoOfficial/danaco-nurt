@@ -1,0 +1,20 @@
+{
+  "steps": [
+    {"open": {"uri": "file:///work/filter.nurt", "text": "filter a < b < c\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {
+      "uri": "file:///work/filter.nurt",
+      "version": 1,
+      "diagnostics": [{"code": "E_SYNTAX", "source": "nurt", "severity": 1, "message": {"$includes": "\nfix: filter a < b and b < c"}}]
+    }},
+    {"change": {"uri": "file:///work/filter.nurt", "version": 2, "text": "filter a < b and b < c\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"uri": "file:///work/filter.nurt", "version": 2, "diagnostics": []}},
+    {"change": {"uri": "file:///work/filter.nurt", "version": 3, "contentChanges": [
+      {"range": {"start": {"line": 0, "character": 13}, "end": {"line": 0, "character": 16}}, "text": "<"}
+    ]}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"version": 3, "diagnostics": [{"code": "E_SYNTAX"}]}},
+    {"close": "file:///work/filter.nurt"},
+    {"notification": "textDocument/publishDiagnostics", "params": {"uri": "file:///work/filter.nurt", "diagnostics": []}},
+    {"open": {"uri": "file:///work/empty.nurt", "text": "# nothing yet\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"uri": "file:///work/empty.nurt", "diagnostics": []}}
+  ]
+}

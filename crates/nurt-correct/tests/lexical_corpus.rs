@@ -26,10 +26,13 @@ use toml_edit::{Document, Item};
 const TOKEN_RULES: [&str; 7] = ["L03", "L04", "L07", "L13", "L16", "L17", "L21"];
 
 /// Least number of cases of the mistake corpus.
-const MIN_MISTAKE_CASES: usize = 150;
+const MIN_MISTAKE_CASES: usize = 250;
 
 /// Least number of cases of the adversarial corpus.
-const MIN_ADVERSARIAL_CASES: usize = 50;
+const MIN_ADVERSARIAL_CASES: usize = 80;
+
+/// Least number of mistake cases of each rule.
+const MIN_CASES_PER_RULE: usize = 10;
 
 /// Least number of mistake cases decided by the token rules alone.
 const MIN_TOKEN_CASES: usize = 80;
@@ -356,9 +359,9 @@ fn corpus_covers_every_lexical_rule() {
     let missing: Vec<&str> = Rule::ALL
         .iter()
         .map(|rule| rule.id())
-        .filter(|id| !per_rule.contains_key(*id))
+        .filter(|id| per_rule.get(*id).copied().unwrap_or(0) < MIN_CASES_PER_RULE)
         .collect();
-    assert!(missing.is_empty(), "rules without cases: {missing:?}");
+    assert!(missing.is_empty(), "rules with too few cases: {missing:?}");
 }
 
 #[test]

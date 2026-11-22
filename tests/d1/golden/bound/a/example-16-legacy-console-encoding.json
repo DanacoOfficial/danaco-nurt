@@ -1,0 +1,296 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "run",
+          "effect": "process",
+          "phase": "run",
+          "args": [
+            {
+              "name": "command",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "cmd.exe"
+                  },
+                  {
+                    "t": "text",
+                    "v": "/c"
+                  },
+                  {
+                    "t": "text",
+                    "v": "dir"
+                  },
+                  {
+                    "t": "text",
+                    "v": "C:\\proj"
+                  }
+                ]
+              },
+              "span": [
+                1,
+                5,
+                1,
+                41
+              ]
+            },
+            {
+              "name": "cwd",
+              "value": {
+                "t": "path",
+                "v": "C:/proj"
+              },
+              "span": [
+                1,
+                42,
+                1,
+                56
+              ]
+            },
+            {
+              "name": "env",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "inherit_env",
+              "value": {
+                "t": "enum",
+                "v": "all"
+              },
+              "default": true
+            },
+            {
+              "name": "stdin",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "timeout",
+              "value": {
+                "t": "dur",
+                "v": 120000
+              },
+              "default": true
+            },
+            {
+              "name": "idle_timeout",
+              "value": {
+                "t": "dur",
+                "v": 60000
+              },
+              "default": true
+            },
+            {
+              "name": "wait",
+              "value": {
+                "t": "dur",
+                "v": 3000
+              },
+              "default": true
+            },
+            {
+              "name": "background",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "merge_stderr",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "show",
+              "value": {
+                "t": "enum",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "head",
+              "value": {
+                "t": "int",
+                "v": 20
+              },
+              "default": true
+            },
+            {
+              "name": "tail",
+              "value": {
+                "t": "int",
+                "v": 40
+              },
+              "default": true
+            },
+            {
+              "name": "filter",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "context",
+              "value": {
+                "t": "int",
+                "v": 0
+              },
+              "default": true
+            },
+            {
+              "name": "dedupe",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "quiet_on_success",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "output_encoding",
+              "value": {
+                "t": "text",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "watch",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "path",
+                    "v": "C:/proj"
+                  }
+                ]
+              },
+              "default": true
+            },
+            {
+              "name": "track_changes",
+              "value": {
+                "t": "enum",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "max_cpu",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "max_memory",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "priority",
+              "value": {
+                "t": "enum",
+                "v": "normal"
+              },
+              "default": true
+            },
+            {
+              "name": "label",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "description",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "progress",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "summary",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "batch",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "parallel",
+              "value": {
+                "t": "int",
+                "v": 1
+              },
+              "default": true
+            },
+            {
+              "name": "bail",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            56
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          56
+        ]
+      }
+    ]
+  }
+}

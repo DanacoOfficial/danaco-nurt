@@ -1,0 +1,86 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "sql",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "path",
+                "v": "/srv/app/app.db"
+              },
+              "span": [
+                1,
+                5,
+                1,
+                22
+              ]
+            },
+            {
+              "name": "query",
+              "value": {
+                "t": "text",
+                "v": "select id, name from users where active = ? limit 5"
+              },
+              "span": [
+                1,
+                23,
+                1,
+                76
+              ]
+            },
+            {
+              "name": "params",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "int",
+                    "v": 1
+                  }
+                ]
+              },
+              "span": [
+                1,
+                77,
+                1,
+                88
+              ]
+            },
+            {
+              "name": "write",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            88
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          88
+        ]
+      }
+    ]
+  }
+}

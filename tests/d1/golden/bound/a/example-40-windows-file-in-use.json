@@ -1,0 +1,113 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "info",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "path",
+                    "v": "C:/proj/out/app.exe"
+                  }
+                ]
+              },
+              "span": [
+                1,
+                8,
+                1,
+                29
+              ]
+            },
+            {
+              "name": "hash",
+              "value": {
+                "t": "enum",
+                "v": "none"
+              },
+              "default": true
+            },
+            {
+              "name": "details",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "known",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            29
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "remove",
+            "effect": "local",
+            "phase": "mutate",
+            "args": [
+              {
+                "name": "path",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "on_missing",
+                "value": {
+                  "t": "enum",
+                  "v": "skip"
+                },
+                "default": true
+              },
+              {
+                "name": "check_references",
+                "value": {
+                  "t": "bool",
+                  "v": false
+                },
+                "default": true
+              }
+            ],
+            "span": [
+              1,
+              1,
+              1,
+              29
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          29
+        ]
+      }
+    ]
+  }
+}

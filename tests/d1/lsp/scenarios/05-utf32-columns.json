@@ -1,0 +1,11 @@
+{
+  "initialize": {"capabilities": {"general": {"positionEncodings": ["utf-32"]}}},
+  "steps": [
+    {"open": {"uri": "file:///work/emoji.nurt", "text": "count \"\ud83d\ude00\" )"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {
+      "diagnostics": [{"range": {"start": {"line": 0, "character": 10}}}]
+    }},
+    {"request": "textDocument/hover", "params": {"textDocument": {"uri": "file:///work/emoji.nurt"}, "position": {"line": 0, "character": 2}},
+     "result": {"range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 5}}}}
+  ]
+}

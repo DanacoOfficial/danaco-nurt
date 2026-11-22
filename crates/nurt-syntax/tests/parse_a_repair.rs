@@ -3,6 +3,12 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Tolerant parsing: the order of repairs, alternatives, the limits per
 //! statement and the information given to a repair policy.
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "tests report failures by panicking"
+)]
 
 mod parse_a_support;
 
@@ -100,7 +106,7 @@ fn closes_an_unterminated_sub_pipeline_at_the_end() {
     assert_eq!(repaired.repairs.len(), 1);
     let repair = &repaired.repairs[0];
     assert_eq!(repair.rule, "L10");
-    assert_eq!((repair.at.line, repair.at.column), (1, 71));
+    assert_eq!((repair.at.line, repair.at.column), (Some(1), Some(71)));
     assert_eq!((repair.from.as_str(), repair.to.as_str()), ("", ")"));
     assert_eq!(
         repaired.document,
@@ -135,8 +141,8 @@ fn counts_repairs_per_statement() {
 fn replaces_foreign_pipes_and_maps_positions_to_the_original_text() {
     let repaired = tolerant("a | b | c", &PipeToOperator).expect("repaired");
     assert_eq!(repaired.source, "a |> b |> c");
-    let columns: Vec<u32> = repaired.repairs.iter().map(|r| r.at.column).collect();
-    assert_eq!(columns, [3, 7]);
+    let columns: Vec<Option<u32>> = repaired.repairs.iter().map(|r| r.at.column).collect();
+    assert_eq!(columns, [Some(3), Some(7)]);
     assert!(
         repaired
             .repairs
@@ -188,6 +194,15 @@ fn describes_the_failure_to_the_policy() {
 }
 
 #[test]
+fn a_text_accepted_only_by_the_tolerant_lexer_keeps_the_strict_error() {
+    let text = "nottrue/re/i 1r#\"q\"#glob:\"/a\"";
+    let strict = parse_a(text).expect_err("strict lexical error");
+    let options = ParseOptions::default();
+    let tolerant = parse_tolerant(text, Variant::A, &options, &NoRepair).expect_err("no tree");
+    assert_eq!(strict, tolerant);
+}
+
+#[test]
 fn bounds_the_number_of_attempts() {
     let policy = Fixed::new(vec![
         Repair::insert("L10", 0, " "),
@@ -203,6 +218,10 @@ fn bounds_the_number_of_attempts() {
 }
 
 #[test]
+#[expect(
+    clippy::reversed_empty_ranges,
+    reason = "a reversed range is the invalid repair under test"
+)]
 fn ignores_repairs_outside_the_text() {
     let policy = Fixed::new(vec![
         Repair::insert("L10", 99, ")"),

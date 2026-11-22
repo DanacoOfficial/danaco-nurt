@@ -1,0 +1,268 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "code.symbols",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "name",
+              "value": {
+                "t": "text",
+                "v": "oldName"
+              },
+              "span": [
+                1,
+                14,
+                1,
+                23
+              ]
+            },
+            {
+              "name": "path",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "path",
+                    "v": "/srv/app/src"
+                  }
+                ]
+              },
+              "span": [
+                1,
+                24,
+                1,
+                46
+              ]
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "glob",
+                "v": "**"
+              },
+              "default": true
+            },
+            {
+              "name": "kind",
+              "value": {
+                "t": "enum",
+                "v": "function"
+              },
+              "span": [
+                1,
+                47,
+                1,
+                61
+              ]
+            },
+            {
+              "name": "match",
+              "value": {
+                "t": "enum",
+                "v": "fuzzy"
+              },
+              "default": true
+            },
+            {
+              "name": "language",
+              "value": {
+                "t": "text",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "source",
+              "value": {
+                "t": "enum",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "with_signature",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "with_references",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "exported_only",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "exclude",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "exclude_preset",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            61
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "code.rename",
+            "effect": "local",
+            "phase": "mutate",
+            "args": [
+              {
+                "name": "to",
+                "value": {
+                  "t": "text",
+                  "v": "newName"
+                },
+                "span": [
+                  1,
+                  77,
+                  1,
+                  86
+                ]
+              },
+              {
+                "name": "path",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "line",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "column",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "symbol",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "scope",
+                "value": {
+                  "t": "enum",
+                  "v": "project"
+                },
+                "default": true
+              },
+              {
+                "name": "paths",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "include_comments",
+                "value": {
+                  "t": "bool",
+                  "v": false
+                },
+                "default": true
+              },
+              {
+                "name": "include_strings",
+                "value": {
+                  "t": "bool",
+                  "v": false
+                },
+                "default": true
+              },
+              {
+                "name": "source",
+                "value": {
+                  "t": "enum",
+                  "v": "auto"
+                },
+                "default": true
+              },
+              {
+                "name": "check_references",
+                "value": {
+                  "t": "bool",
+                  "v": true
+                },
+                "default": true
+              },
+              {
+                "name": "language",
+                "value": {
+                  "t": "text",
+                  "v": "auto"
+                },
+                "default": true
+              },
+              {
+                "name": "root",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              }
+            ],
+            "span": [
+              1,
+              65,
+              1,
+              86
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          86
+        ]
+      }
+    ]
+  }
+}

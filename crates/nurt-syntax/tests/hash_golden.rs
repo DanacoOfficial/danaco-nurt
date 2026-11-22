@@ -8,6 +8,9 @@
 //! the hashes of `tests/d1/golden` and the index `tests/d1/golden/hashes.tsv`
 //! are written instead; the specification files are always compared.
 
+// A failed unwrap, expectation or panic is how a test reports a failure.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod hash_support;
 
 use std::fs;

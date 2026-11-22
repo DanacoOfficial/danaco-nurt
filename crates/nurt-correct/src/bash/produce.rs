@@ -735,10 +735,17 @@ pub(crate) fn apply_to_entries(
         .iter()
         .map(|word| word.value.literal().unwrap_or_default())
         .collect();
-    let staged = session
-        .table
-        .command(&names)
-        .filter(|entry| entry.stages.iter().any(|stage| stage.input.contains(&kind)));
+    // Only a stage that takes the entries as its targets receives them as
+    // operands; `wc -l` or `head` as a stage would read the entry list itself.
+    let staged = session.table.command(&names).filter(|entry| {
+        entry.stages.iter().any(|stage| {
+            stage.input.contains(&kind)
+                && stage
+                    .template
+                    .first()
+                    .is_some_and(|first| session.table.value("stage_input", &first.name).is_some())
+        })
+    });
     if staged.is_some() {
         let stage = session.words(simple, words, Some(&kind), &RunOptions::default())?;
         let result = previous.then(stage);

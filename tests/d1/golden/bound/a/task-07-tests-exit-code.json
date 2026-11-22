@@ -1,8 +1,8 @@
 {
   "nurt": "1.0",
   "bound": "1.0",
-  "catalog_rev": "cat-draft-1",
-  "corr_rev": "corr-draft-1",
+  "catalog_rev": "sha256:4c86d745ab91ec59071252fdbbc40570f148e249550757edf3d81b8c79c4613b",
+  "corr_rev": "sha256:a506c2ad45a37e0911ca8691f4e356a154f9ded932e2019b44754886f292893a",
   "program": {
     "statements": [
       {
@@ -31,14 +31,26 @@
                     "v": "./..."
                   }
                 ]
-              }
+              },
+              "span": [
+                1,
+                5,
+                1,
+                28
+              ]
             },
             {
               "name": "cwd",
               "value": {
                 "t": "path",
                 "v": "/srv/app"
-              }
+              },
+              "span": [
+                1,
+                29,
+                1,
+                44
+              ]
             },
             {
               "name": "env",
@@ -242,7 +254,29 @@
                 "t": "null"
               },
               "default": true
+            },
+            {
+              "name": "parallel",
+              "value": {
+                "t": "int",
+                "v": 1
+              },
+              "default": true
+            },
+            {
+              "name": "bail",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
             }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            44
           ]
         },
         "stages": [
@@ -272,7 +306,13 @@
                   "t": "range",
                   "lo": 0,
                   "hi": 0
-                }
+                },
+                "span": [
+                  2,
+                  11,
+                  2,
+                  23
+                ]
               },
               {
                 "name": "all",
@@ -309,8 +349,20 @@
                 },
                 "default": true
               }
+            ],
+            "span": [
+              2,
+              4,
+              2,
+              23
             ]
           }
+        ],
+        "span": [
+          1,
+          1,
+          2,
+          23
         ]
       }
     ]

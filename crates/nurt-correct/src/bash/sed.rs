@@ -507,5 +507,17 @@ mod tests {
         assert_eq!(template_text(r"a\&b\n"), "a&b\n");
         assert_eq!(template_text("&x"), "${0}x");
         assert_eq!(template_text("x\\"), "x\\");
+        assert_eq!(template_text(r"a\tb"), "a\tb");
+    }
+
+    #[test]
+    fn unterminated_scripts_are_rejected() {
+        assert_eq!(parse_script("s/a/b\\"), None);
+        assert_eq!(parse_script("/a\\"), None);
+        assert_eq!(
+            parse_script(r"/a\/b\.c/p"),
+            Some(Script::Print(Address::Match(r"a/b\.c".into())))
+        );
+        assert_eq!(parse_script("5x"), None);
     }
 }
