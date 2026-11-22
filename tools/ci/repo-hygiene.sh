@@ -427,17 +427,37 @@ check_boilerplate() {
   report_hits boilerplate
 }
 
-# References to automated authorship tools. Permitted: names of standards (for
-# example Model Context Protocol) and the technical terms of other systems: SSH
-# agent, gpg-agent, agent authentication, agent forwarding, launchd agent and
-# the User-Agent header of HTTP; the terms AI agent and AI coding agent, which
-# name the users of the product. Identifiers such as user_agent do not match,
-# because whole words are compared.
+readonly TOOL_MENTION_UPPER='A[I]|L[L]Ms?'
+readonly TOOL_MENTION_TERMS='artificial [i]ntelligence|language m[o]dels?|a[s]sistants?|a[g]ents?|chatb[o]ts?|system p[r]ompts?|prompt e[n]gineering'
+
+# Permitted phrases of the tool-mention check, compared without regard to case:
+# the product description, which names the users of the product in the
+# repository description and in the first paragraph of README.md, the product
+# terms in descriptions of functions, names of standards and the technical
+# terms of other systems (SSH, gpg, launchd, the HTTP header).
+readonly TOOL_MENTION_ALLOWED='for people and A[I] a[g]ents|\bA[I] (coding )?a[g]ents?\b|model c[o]ntext protocol|(ssh|gpg)[- ]a[g]ents?|a[g]ent (authentication|forwarding)|launchd a[g]ents?|launch a[g]ents?|user-a[g]ent'
+
+# Removes the permitted phrases from every hit and keeps the hits that still
+# contain a reference, so that a permitted phrase does not hide another
+# reference in the same line.
+mask_tool_mentions() {
+  sed -E "s/$TOOL_MENTION_ALLOWED//gI" "$work/hits" >"$work/hits.masked"
+  {
+    grep -nwE "$TOOL_MENTION_UPPER" "$work/hits.masked" || true
+    grep -niwE "$TOOL_MENTION_TERMS" "$work/hits.masked" || true
+  } | cut -d: -f1 | sort -un >"$work/hits.index"
+  awk 'NR == FNR { keep[$1]; next } FNR in keep' "$work/hits.index" "$work/hits" >"$work/hits.kept"
+  mv "$work/hits.kept" "$work/hits"
+}
+
+# References to automated authorship tools, except the phrases listed in
+# TOOL_MENTION_ALLOWED. Identifiers such as user_agent do not match, because
+# whole words are compared.
 check_tool_mention() {
   select_files tool-mention
-  grep_files -wE 'A[I]|L[L]Ms?'
-  grep_files_append -iwE 'artificial [i]ntelligence|language m[o]dels?|a[s]sistants?|a[g]ents?|chatb[o]ts?|system p[r]ompts?|prompt e[n]gineering'
-  drop_hits -iE 'model c[o]ntext protocol|(ssh|gpg)[- ]agents?|agent (authentication|forwarding)|launchd agents?|launch agents?|user-agent|\ba[i] (coding )?a[g]ents?\b'
+  grep_files -wE "$TOOL_MENTION_UPPER"
+  grep_files_append -iwE "$TOOL_MENTION_TERMS"
+  mask_tool_mentions
   sort -u "$work/hits" >"$work/hits.sorted"
   mv "$work/hits.sorted" "$work/hits"
   report_hits tool-mention

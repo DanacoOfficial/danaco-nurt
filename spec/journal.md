@@ -28,6 +28,8 @@ reference semantics of test implementations.
 
 ## 2. Concepts
 
+The term change is defined in the [glossary](glossary.md#change).
+
 | Term | Meaning |
 |---|---|
 | Operation | One effect stage of one program; one number (`OpId`), one entry per account, one entry part per volume. |

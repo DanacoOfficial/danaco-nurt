@@ -471,6 +471,18 @@ pub enum Notable {
     /// A signing program named by the repository configuration was not run;
     /// the signature was created without it.
     SigningProgramIgnored,
+    /// Credentials written in the URL of a remote were used.
+    CredentialsInUrl,
+    /// The output stopped at the number of entries given by `limit`; `count`
+    /// gives the number of entries left out.
+    LimitReached,
+    /// A program classified as interactive was run: an editor, a pager, a
+    /// terminal monitor or an interpreter without a script. It can wait for
+    /// terminal input.
+    InteractiveProgram,
+    /// A program ran a script given in its arguments, for example `bash -c`
+    /// or `python -c`; the effects of the script are not classified.
+    OpaqueScript,
 }
 
 impl Notable {
@@ -570,6 +582,10 @@ impl Notable {
         Self::HostKeyUnverified,
         Self::MatchExecIgnored,
         Self::SigningProgramIgnored,
+        Self::CredentialsInUrl,
+        Self::LimitReached,
+        Self::InteractiveProgram,
+        Self::OpaqueScript,
     ];
 
     /// Returns the stable code, as written in JSON.
@@ -670,6 +686,10 @@ impl Notable {
             Self::HostKeyUnverified => "host_key_unverified",
             Self::MatchExecIgnored => "match_exec_ignored",
             Self::SigningProgramIgnored => "signing_program_ignored",
+            Self::CredentialsInUrl => "credentials_in_url",
+            Self::LimitReached => "limit_reached",
+            Self::InteractiveProgram => "interactive_program",
+            Self::OpaqueScript => "opaque_script",
         }
     }
 
@@ -713,7 +733,8 @@ impl Notable {
             | Self::FilterNotApplied
             | Self::TlsVerificationDisabled
             | Self::PushStatusUnknown
-            | Self::HostKeyUnverified => Severity::Warning,
+            | Self::HostKeyUnverified
+            | Self::CredentialsInUrl => Severity::Warning,
             Self::DeleteTree
             | Self::ManyPerFile
             | Self::TargetCountHigh
@@ -752,7 +773,9 @@ impl Notable {
             | Self::LinkLoopSkipped
             | Self::HttpOptionIgnored
             | Self::MatchExecIgnored
-            | Self::SigningProgramIgnored => Severity::Notice,
+            | Self::SigningProgramIgnored
+            | Self::InteractiveProgram
+            | Self::OpaqueScript => Severity::Notice,
             Self::Unchanged
             | Self::HardlinkSetPreserved
             | Self::EncodingPreserved
@@ -770,7 +793,8 @@ impl Notable {
             | Self::LineEndingsConverted
             | Self::UpstreamSet
             | Self::Signed
-            | Self::PackWithoutDeltas => Severity::Info,
+            | Self::PackWithoutDeltas
+            | Self::LimitReached => Severity::Info,
         }
     }
 

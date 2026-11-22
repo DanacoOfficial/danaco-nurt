@@ -8668,6 +8668,11 @@
         },
         {
           "type": "string",
+          "const": "npm",
+          "description": "Tests run by the `test` script of `package.json` through npm."
+        },
+        {
+          "type": "string",
           "const": "custom",
           "description": "A command given by the user."
         }

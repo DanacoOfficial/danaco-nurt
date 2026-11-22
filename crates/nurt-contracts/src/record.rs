@@ -1501,6 +1501,8 @@ text_enum! {
         Go = "go",
         /// Cargo tests.
         Cargo = "cargo",
+        /// Tests run by the `test` script of `package.json` through npm.
+        Npm = "npm",
         /// A command given by the user.
         Custom = "custom",
     }
