@@ -1,0 +1,39 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p41-scheduled-task.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 0,
+    "assumption": 0,
+    "impossible": 2,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Register-ScheduledTask -TaskName Backup -Action $action -Trigger $trigger",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "tasks of the system scheduler are not created; schedule a console program with schedule.create (system_task)",
+      "fix": []
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "schtasks /create /tn Backup /tr C:\\bin\\backup.cmd /sc daily",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "tasks of the system scheduler are not created; schedule a console program with schedule.create (system_task)",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"pwsh\", \"p41-scheduled-task.ps1\"]"
+}

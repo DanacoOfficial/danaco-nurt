@@ -1,0 +1,44 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b22-two-effects.sh",
+  "summary": {
+    "statements": 2,
+    "translated": 1,
+    "assumption": 1,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "mkdir -p /srv/out && cp /srv/a.txt /srv/out",
+      "status": "translated",
+      "rules": [
+        "B05",
+        "L21",
+        "B04"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "create \"/srv/out\" type: directory\ncopy \"/srv/a.txt\" to: \"/srv/out\" preserve: false"
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "rm /srv/a.txt; rm /srv/b.txt",
+      "status": "assumption",
+      "rules": [
+        "B01",
+        "L21"
+      ],
+      "assumptions": [
+        "the script stops at the first error; bash continues after `;`",
+        "the script stops on the first error; the shell runs a statement after `;` even when the previous one fails"
+      ],
+      "fix": [],
+      "output": "remove \"/srv/a.txt\" on_missing: error\nremove \"/srv/b.txt\" on_missing: error"
+    }
+  ]
+}

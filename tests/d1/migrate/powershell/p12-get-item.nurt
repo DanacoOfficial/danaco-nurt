@@ -1,0 +1,9 @@
+# Source: p12-get-item.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P12: Get-Item and Get-ItemProperty of the registry.
+# translated: P12, L19
+info "C:/out/a.txt"
+# translated: P12, L19
+read "registry:/HKLM/SOFTWARE/App/Version"

@@ -1,0 +1,14 @@
+# Source: b13-ls.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 3; with assumptions: 0; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B13: ls of a directory and of a glob.
+# translated: B13, L21
+list "/srv/app"
+# translated: B13, L21
+find "/srv/app/src" glob: "*.go" depth: 1 hidden: false
+# translated: B13, L21
+list "/etc" hidden: false

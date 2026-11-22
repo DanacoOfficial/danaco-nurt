@@ -1,0 +1,13 @@
+# Source: p03-read.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 4; with assumptions: 0; impossible: 0; errors: 0.
+
+# P03: Get-Content with tail, count, raw and encoding.
+# translated: P03, L19
+read "C:/logs/app.log" last: 50
+# translated: P03, L19
+read "C:/notes.txt" lines: ..10
+# translated: P03, L19
+read "C:/data.json" encoding: "utf-8"
+# translated: P03, L19
+read "C:/notes.txt"

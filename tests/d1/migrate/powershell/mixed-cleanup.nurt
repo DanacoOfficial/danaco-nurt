@@ -1,0 +1,25 @@
+# Source: mixed-cleanup.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 8; translated: 1; with assumptions: 0; impossible: 7; errors: 0.
+# Untranslated statements run unchanged with: run ["pwsh", "mixed-cleanup.ps1"]
+# Relative paths require the invocation parameter base: "C:\\logs"
+
+# Mixed: variables, loops, functions, evaluation and location changes.
+# translated: P32, P02, L19, P15
+let old = find "C:/logs" glob: "**/*.log" type: any hidden: false
+|> filter modified < ago(30d)
+# untranslated: E_UNCORRECTABLE: foreach ($file in $old) { Compress-Archive -Path $file.FullName -DestinationPath "$($file.FullName).zip" }
+#   problem: loops have no equivalent; a pattern or a pipeline over records replaces a loop
+# untranslated: E_UNCORRECTABLE: $old | Remove-Item -WhatIf
+#   problem: a preview of a single statement has no equivalent in a script; run the program with the invocation parameter preview set to true
+#   fix: @old |> remove
+# untranslated: E_UNCORRECTABLE: function Write-Log { param($Message) Add-Content C:\logs\cleanup.log $Message }
+#   problem: definitions of functions and types have no equivalent
+# untranslated: E_UNCORRECTABLE: Set-Location C:\logs
+#   problem: no current directory; paths are absolute or relative to the call parameter base (no_current_directory)
+# untranslated: E_PATH_RELATIVE: Remove-Item .\tmp -Recurse; Write-Host "cleaned"
+#   problem: relative path without the call parameter base; write an absolute path or set base
+# untranslated: E_UNCORRECTABLE: Invoke-Expression $extraCommand
+#   problem: evaluation of text as code has no equivalent
+# untranslated: E_UNCORRECTABLE: if (Test-Path C:\logs\lock) { exit 1 }
+#   problem: conditional statements have no equivalent; assert checks a precondition

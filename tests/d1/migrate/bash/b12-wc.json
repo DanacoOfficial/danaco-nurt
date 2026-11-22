@@ -1,0 +1,53 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b12-wc.sh",
+  "summary": {
+    "statements": 3,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 1,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "wc -l /srv/app/data.csv",
+      "status": "translated",
+      "rules": [
+        "B12",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "lines \"/srv/app/data.csv\"\n|> count"
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "wc -w /srv/notes.txt",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "flag `-w` of `wc` has no equivalent; parameters of `count`:  (flag_without_equivalent)",
+      "fix": []
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "wc -c /srv/notes.txt",
+      "status": "translated",
+      "rules": [
+        "B12",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "info \"/srv/notes.txt\"\n|> select size"
+    }
+  ],
+  "fallback": "run [\"bash\", \"b12-wc.sh\"]"
+}

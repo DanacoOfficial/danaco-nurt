@@ -1,0 +1,26 @@
+# Source: b35-system.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 9; translated: 9; with assumptions: 0; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B35: processes, disks, ports, environment and host.
+# translated: B35
+processes
+# translated: B35
+disks
+# translated: B35
+ports protocol: tcp
+# translated: B35
+environment
+# translated: B35
+host
+# translated: B35
+host
+# translated: B35
+program.find "git"
+# translated: B35
+program.find "docker"
+# translated: B35, L21
+open_files "/srv/app/data.db"

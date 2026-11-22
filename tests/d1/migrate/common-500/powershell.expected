@@ -1,0 +1,251 @@
+translated without error: 216 of 250
+translated	Get-ChildItem C:\proj	list "C:/proj" hidden: false
+translated	Get-ChildItem -Path C:\Users\dev\Documents	list "C:/Users/dev/Documents" hidden: false
+translated	gci C:\Windows\Temp	list "C:/Windows/Temp" hidden: false
+translated	dir C:\proj	list "C:/proj" hidden: false
+translated	ls C:\proj -Recurse	find "C:/proj" type: any hidden: false
+translated	Get-ChildItem C:\proj -Force	list "C:/proj" hidden: true
+translated	Get-ChildItem -Path C:\logs -Filter *.log	find "C:/logs" glob: "*.log" depth: 1 type: any hidden: false
+translated	Get-ChildItem C:\proj -Directory	list "C:/proj" type: directory hidden: false
+translated	Get-ChildItem C:\proj -File	list "C:/proj" type: file hidden: false
+translated	Get-ChildItem -Path C:\proj -Recurse -Include *.cs	find "C:/proj" type: any hidden: false |> filter name ~ /\.cs$/i
+translated	Get-ChildItem C:\proj -Name	list "C:/proj" hidden: false |> select name
+translated	Get-ChildItem HKLM:\SOFTWARE\Microsoft	list "registry:/HKLM/SOFTWARE/Microsoft" hidden: false
+translated	Get-ChildItem -Path C:\proj -Recurse -Filter *.go	find "C:/proj" glob: "**/*.go" type: any hidden: false
+translated	Get-ChildItem C:\proj -Recurse -File -Filter *.json	find "C:/proj" glob: "**/*.json" type: file hidden: false
+translated	gci -Recurse C:\src -Include *.ps1	find "C:/src" type: any hidden: false |> filter name ~ /\.ps1$/i
+translated	Get-ChildItem -Path C:\logs -Recurse -Filter *.log	find "C:/logs" glob: "**/*.log" type: any hidden: false
+translated	dir C:\proj -Recurse -Filter *.dll	find "C:/proj" glob: "**/*.dll" type: any hidden: false
+translated	Get-ChildItem -Path C:\Users\dev -Recurse -Filter *.pdf	find "C:/Users/dev" glob: "**/*.pdf" type: any hidden: false
+translated	Get-Content C:\proj\README.md	read "C:/proj/README.md"
+translated	Get-Content -Path C:\logs\app.log -Tail 50	read "C:/logs/app.log" last: 50
+translated	gc C:\proj\config.json	read "C:/proj/config.json"
+translated	cat C:\proj\notes.txt	read "C:/proj/notes.txt"
+translated	type C:\Windows\System32\drivers\etc\hosts	read "C:/Windows/System32/drivers/etc/hosts"
+translated	Get-Content C:\logs\app.log -Head 20	read "C:/logs/app.log" lines: ..20
+failed	Get-Content -Path C:\logs\app.log -Wait	E_UNCORRECTABLE: -Wait of Get-Content has no Nurt translation; translated parameters: -Path, -LiteralPath, -Tail, -TotalCount, -Raw, -Encoding (unknown_parameter)
+translated	Get-Content C:\proj\data.csv -TotalCount 5	read "C:/proj/data.csv" lines: ..5
+translated	Get-Content -Raw C:\proj\template.html	read "C:/proj/template.html"
+translated	Set-Content -Path C:\proj\VERSION -Value "1.4.2"	write "C:/proj/VERSION" "1.4.2\n" mode: overwrite
+translated	Add-Content -Path C:\logs\custom.log -Value "started"	write "C:/logs/custom.log" "started\n" mode: append
+translated	"hello" | Out-File C:\temp\hello.txt	write "C:/temp/hello.txt" "hello\n" mode: overwrite
+translated	Set-Content C:\temp\a.txt "abc"	write "C:/temp/a.txt" "abc\n" mode: overwrite
+translated	ac C:\logs\app.log "line"	write "C:/logs/app.log" "line\n" mode: append
+translated	Get-Process | Out-File C:\temp\processes.txt	processes |> write "C:/temp/processes.txt" mode: overwrite
+translated	"x" | Out-File -FilePath C:\temp\x.txt -Append	write "C:/temp/x.txt" "x\n" mode: append
+translated	"data" | Set-Content C:\temp\data.txt	write "C:/temp/data.txt" "data\n" mode: overwrite
+translated	Select-String -Path C:\logs\app.log -Pattern "error"	search /error/ "C:/logs/app.log" case_sensitive: false
+translated	Select-String -Path C:\proj\*.cs -Pattern "TODO"	search /TODO/ "C:/proj" glob: "*.cs" case_sensitive: false
+translated	sls -Path C:\logs\*.log -Pattern "timeout"	search /timeout/ "C:/logs" glob: "*.log" case_sensitive: false
+translated	Get-Content C:\logs\app.log | Select-String "warn"	lines "C:/logs/app.log" |> search /warn/ case_sensitive: false
+translated	Select-String -Path C:\logs\app.log -Pattern "fail" -CaseSensitive	search /fail/ "C:/logs/app.log" case_sensitive: true
+translated	Get-ChildItem C:\proj -Recurse -Filter *.cs | Select-String "Obsolete"	find "C:/proj" glob: "**/*.cs" type: any hidden: false |> search /Obsolete/ case_sensitive: false
+translated	Select-String -Path C:\logs\app.log -Pattern "error" -SimpleMatch	search "error" "C:/logs/app.log" mode: literal case_sensitive: false
+translated	Copy-Item C:\proj\a.txt C:\backup\a.txt	copy "C:/proj/a.txt" to: "C:/backup/a.txt"
+translated	Copy-Item -Path C:\proj\config.json -Destination C:\backup	copy "C:/proj/config.json" to: "C:/backup"
+translated	Copy-Item C:\proj\static C:\proj\public -Recurse	copy "C:/proj/static" to: "C:/proj/public"
+translated	cp C:\temp\a.txt C:\temp\b.txt	copy "C:/temp/a.txt" to: "C:/temp/b.txt"
+translated	copy C:\data\report.xlsx D:\reports\	copy "C:/data/report.xlsx" to: "D:/reports"
+translated	cpi C:\proj\app.exe C:\deploy\app.exe	copy "C:/proj/app.exe" to: "C:/deploy/app.exe"
+translated	Copy-Item -Path C:\proj\*.dll -Destination C:\deploy	find "C:/proj" glob: "*.dll" depth: 1 type: any hidden: false |> copy into: "C:/deploy"
+translated	Copy-Item C:\proj\settings.json C:\proj\settings.bak -Force	copy "C:/proj/settings.json" to: "C:/proj/settings.bak"
+translated	Copy-Item -Path C:\site -Destination D:\site-backup -Recurse	copy "C:/site" to: "D:/site-backup"
+translated	Copy-Item \\server\share\file.txt C:\temp	copy "//server/share/file.txt" to: "C:/temp"
+translated	Move-Item C:\temp\a.txt C:\archive\a.txt	move "C:/temp/a.txt" to: "C:/archive/a.txt" on_conflict: error
+translated	Move-Item -Path C:\downloads\*.zip -Destination C:\archive	find "C:/downloads" glob: "*.zip" depth: 1 type: any hidden: false |> move into: "C:/archive" on_conflict: error
+translated	mv C:\temp\old.log C:\logs\old.log	move "C:/temp/old.log" to: "C:/logs/old.log" on_conflict: error
+translated	move C:\data\in.csv C:\data\done\in.csv	move "C:/data/in.csv" to: "C:/data/done/in.csv" on_conflict: error
+translated	mi C:\proj\dist C:\proj\dist-old	move "C:/proj/dist" to: "C:/proj/dist-old" on_conflict: error
+translated	Move-Item -Path C:\proj\build -Destination C:\proj\build-prev -Force	move "C:/proj/build" to: "C:/proj/build-prev" on_conflict: overwrite
+translated	Move-Item C:\logs\app.log C:\logs\app.log.1	move "C:/logs/app.log" to: "C:/logs/app.log.1" on_conflict: error
+translated	Remove-Item C:\temp\a.txt	remove "C:/temp/a.txt"
+translated	Remove-Item -Path C:\proj\build -Recurse	remove "C:/proj/build"
+translated	Remove-Item C:\proj\bin -Recurse -Force	remove "C:/proj/bin"
+translated	rm C:\temp\old.log	remove "C:/temp/old.log"
+translated	del C:\temp\*.tmp	find "C:/temp" glob: "*.tmp" depth: 1 type: any hidden: false |> remove
+translated	rd C:\temp\work -Recurse	remove "C:/temp/work"
+translated	ri C:\proj\obj -Recurse -Force	remove "C:/proj/obj"
+translated	Remove-Item -Path C:\logs\*.log	find "C:/logs" glob: "*.log" depth: 1 type: any hidden: false |> remove
+translated	Remove-Item C:\temp\* -Recurse	find "C:/temp" glob: "*" depth: 1 type: any hidden: false |> remove
+translated	erase C:\temp\x.txt	remove "C:/temp/x.txt"
+translated	rmdir C:\temp\empty	remove "C:/temp/empty"
+translated	Remove-Item -LiteralPath C:\temp\file[1].txt	remove "C:/temp/file[1].txt"
+translated	New-Item -ItemType Directory -Path C:\proj\logs	create "C:/proj/logs" type: directory
+translated	New-Item -Path C:\temp\new.txt -ItemType File	create "C:/temp/new.txt" type: file
+translated	mkdir C:\proj\out	create "C:/proj/out" type: directory
+translated	md C:\data\2026	create "C:/data/2026" type: directory
+translated	ni C:\temp\marker.txt	create "C:/temp/marker.txt" type: file
+translated	New-Item -ItemType Directory -Force -Path C:\proj\out\reports	create "C:/proj/out/reports" type: directory
+translated	New-Item -Path C:\temp\notes.txt -ItemType File -Value "start"	write "C:/temp/notes.txt" "start" mode: create
+translated	New-Item -ItemType SymbolicLink -Path C:\proj\current -Target C:\proj\releases\42	create "C:/proj/current" type: link target: r"C:\proj\releases\42"
+translated	New-Item -Path HKCU:\Software\MyApp	create "registry:/HKCU/Software/MyApp" type: file
+translated	New-Item -ItemType Directory C:\tools	create "C:/tools" type: directory
+translated	Rename-Item C:\temp\a.txt b.txt	rename path: "C:/temp/a.txt" to: "b.txt"
+translated	Rename-Item -Path C:\proj\old.cs -NewName new.cs	rename path: "C:/proj/old.cs" to: "new.cs"
+translated	ren C:\temp\draft.md final.md	rename path: "C:/temp/draft.md" to: "final.md"
+translated	rni C:\logs\app.log app.old.log	rename path: "C:/logs/app.log" to: "app.old.log"
+translated	Rename-Item -Path C:\proj\build -NewName build-old	rename path: "C:/proj/build" to: "build-old"
+translated	Test-Path C:\proj\config.json	info "C:/proj/config.json"
+translated	Test-Path -Path C:\temp -PathType Container	info "C:/temp" |> assert all: type == directory
+translated	Test-Path C:\proj\app.exe -PathType Leaf	info "C:/proj/app.exe" |> assert all: type == file
+translated	Test-Path HKLM:\SOFTWARE\MyApp	info "registry:/HKLM/SOFTWARE/MyApp"
+translated	Get-Item C:\proj\app.exe	info "C:/proj/app.exe"
+translated	Get-Item -Path C:\proj	info "C:/proj"
+translated	gi C:\temp\a.txt	info "C:/temp/a.txt"
+translated	Get-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion	read "registry:/HKLM/SOFTWARE/Microsoft/Windows/CurrentVersion"
+translated	Get-ItemProperty C:\proj\app.exe	info "C:/proj/app.exe"
+translated	Get-ItemPropertyValue -Path HKCU:\Software\MyApp -Name Version	read "registry:/HKCU/Software/MyApp/Version"
+translated	Get-Item C:\proj\app.exe | Select-Object Name, Length	info "C:/proj/app.exe" |> select name size
+translated	Set-ItemProperty -Path HKCU:\Software\MyApp -Name Version -Value 2	write "registry:/HKCU/Software/MyApp/Version" 2 mode: overwrite
+failed	Set-ItemProperty -Path C:\proj\a.txt -Name IsReadOnly -Value $true	E_UNCORRECTABLE: properties of files are changed with attributes (not_registry)
+translated	New-ItemProperty -Path HKCU:\Software\MyApp -Name Mode -Value Fast	write "registry:/HKCU/Software/MyApp/Mode" "Fast" mode: overwrite
+translated	Get-Acl C:\proj	info "C:/proj"
+translated	Get-Acl -Path C:\proj\secret.txt	info "C:/proj/secret.txt"
+translated	icacls C:\proj	info "C:/proj"
+translated	attrib +R C:\proj\a.txt	attributes "C:/proj/a.txt" readonly: true
+translated	attrib -H C:\proj\hidden.txt	attributes "C:/proj/hidden.txt" hidden: false
+failed	Get-Process | Where-Object { $_.CPU -gt 100 }	E_UNCORRECTABLE: property CPU has no field in process records; properties: Id, Name, ProcessName, WorkingSet, WorkingSet64, WS, StartTime, Path, UserName (unknown_property)
+translated	Get-ChildItem C:\logs | Where-Object { $_.Length -gt 1MB }	list "C:/logs" hidden: false |> filter size > 1mib
+translated	Get-Service | Where-Object Status -eq Running	services |> filter state == running
+translated	Get-ChildItem C:\proj | ? { $_.Name -like "*.cs" }	list "C:/proj" hidden: false |> filter name ~ /\.cs$/i
+translated	Get-Process | where { $_.WorkingSet -gt 500MB }	processes |> filter memory > 500mib
+translated	Get-Service | Where-Object { $_.StartType -eq "Automatic" }	services |> filter start_type == automatic
+translated	Get-Process | Where-Object Name -eq "chrome"	processes |> filter lower(name) == "chrome"
+translated	Get-ChildItem C:\data | Where-Object Extension -eq ".csv"	list "C:/data" hidden: false |> filter lower(extension) == "csv"
+translated	Get-Process | Select-Object Name, Id	processes |> select name pid
+translated	Get-Process | Select-Object -First 10	processes |> first 10
+translated	Get-ChildItem C:\proj | Select-Object Name, Length	list "C:/proj" hidden: false |> select name size
+translated	Get-Service | select Name, Status	services |> select name state
+translated	Get-Content C:\logs\app.log | Select-Object -Last 5	lines "C:/logs/app.log" |> last 5
+failed	Get-Process | Select-Object -Property Name, CPU -First 5	E_UNCORRECTABLE: property CPU has no field in process records; properties: Id, Name, ProcessName, WorkingSet, WorkingSet64, WS, StartTime, Path, UserName (unknown_property)
+failed	Get-ChildItem C:\proj | Select-Object -ExpandProperty Name	E_UNCORRECTABLE: -ExpandProperty of Select-Object has no Nurt translation; translated parameters: -Property, -Unique, -Skip, -First, -Last (unknown_parameter)
+failed	Get-Process | Sort-Object CPU -Descending	E_UNCORRECTABLE: property CPU has no field in process records; properties: Id, Name, ProcessName, WorkingSet, WorkingSet64, WS, StartTime, Path, UserName (unknown_property)
+translated	Get-ChildItem C:\proj | Sort-Object Length	list "C:/proj" hidden: false |> sort size
+translated	Get-ChildItem C:\logs | Sort-Object LastWriteTime -Descending	list "C:/logs" hidden: false |> sort modified order: desc
+translated	Get-Service | sort Name	services |> sort name
+translated	Get-Process | Sort-Object -Property WorkingSet -Descending | Select-Object -First 5	processes |> sort memory order: desc |> first 5
+failed	Get-Content C:\data\names.txt | Sort-Object -Unique	E_UNCORRECTABLE: -Unique of Sort-Object has no Nurt translation; translated parameters: -Property, -Descending (unknown_parameter)
+translated	Get-ChildItem C:\proj -Recurse | Measure-Object	find "C:/proj" type: any hidden: false |> count
+translated	Get-ChildItem C:\proj -Recurse -File | Measure-Object -Property Length -Sum	find "C:/proj" type: file hidden: false |> summarize size
+translated	Get-Content C:\logs\app.log | Measure-Object -Line	lines "C:/logs/app.log" |> count
+translated	Get-Process | Group-Object Name	processes |> group by: name
+translated	Get-ChildItem C:\proj -Recurse -File | Group-Object Extension	find "C:/proj" type: file hidden: false |> group by: extension
+translated	Get-Service | Group-Object Status	services |> group by: state
+failed	Get-Content C:\proj\essay.txt | Measure-Object -Word	E_UNCORRECTABLE: words and characters are not counted; count lines with count (text_measure)
+translated	Get-ChildItem C:\logs -Filter *.log | ForEach-Object { $_.Name }	find "C:/logs" glob: "*.log" depth: 1 type: any hidden: false |> select name
+translated	Get-Process | ForEach-Object { $_.Name }	processes |> select name
+translated	Get-ChildItem C:\temp | % { $_.FullName }	list "C:/temp" hidden: false |> select path
+translated	Get-ChildItem C:\logs | ForEach-Object Name	list "C:/logs" hidden: false |> select name
+failed	Get-ChildItem C:\proj -Filter *.txt | ForEach-Object { Remove-Item $_.FullName }	E_UNCORRECTABLE: no loops; one pattern per step (no_loops)
+translated	Compare-Object (Get-Content C:\a.txt) (Get-Content C:\b.txt)	diff "C:/a.txt" "C:/b.txt"
+translated	Compare-Object -ReferenceObject (Get-Content C:\old.txt) -DifferenceObject (Get-Content C:\new.txt)	diff "C:/old.txt" "C:/new.txt"
+translated	Get-FileHash C:\downloads\setup.exe	hash "C:/downloads/setup.exe"
+translated	Get-FileHash -Path C:\downloads\setup.exe -Algorithm SHA256	hash "C:/downloads/setup.exe" algorithm: sha256
+translated	Get-FileHash C:\proj\app.zip -Algorithm MD5	hash "C:/proj/app.zip" algorithm: md5
+translated	Get-FileHash -Algorithm SHA512 C:\proj\release.zip	hash "C:/proj/release.zip" algorithm: sha512
+translated	Get-Process	processes
+translated	Get-Process -Name chrome	processes name: "chrome"
+translated	gps notepad	processes name: "notepad"
+translated	Get-Process -Id 1234	processes pid: 1234
+translated	Stop-Process -Id 1234	processes pid: 1234 |> stop
+translated	Stop-Process -Name notepad	processes name: "notepad" |> stop
+translated	kill 4321	processes pid: 4321 |> stop
+translated	Stop-Process -Name chrome -Force	processes name: "chrome" |> stop signal: kill
+translated	spps -Id 999	processes pid: 999 |> stop
+translated	Start-Process notepad.exe	run ["notepad.exe"]
+translated	Start-Process -FilePath C:\tools\app.exe -Wait	run ["C:/tools/app.exe"] wait: forever
+translated	Start-Process -FilePath git -ArgumentList "status --short" -Wait	run ["git", "status", "--short"] wait: forever
+failed	Start-Process -FilePath powershell -Verb RunAs	E_UNCORRECTABLE: programs run with the rights of the console; start the console with the required rights (unsupported_parameter)
+translated	Start-Process -FilePath C:\tools\setup.exe -ArgumentList "/S" -Wait	run ["C:/tools/setup.exe", "/S"] wait: forever
+translated	Get-Service	services
+translated	Get-Service -Name sshd	services name: "sshd"
+translated	gsv wuauserv	services name: "wuauserv"
+translated	Start-Service -Name sshd	services name: "sshd" |> start
+translated	Stop-Service -Name spooler	services name: "spooler" |> stop
+translated	Restart-Service -Name W3SVC	services name: "W3SVC" |> restart
+translated	Set-Service -Name sshd -StartupType Automatic	services name: "sshd" |> enable
+translated	Get-Service -Name win*	services name: /^win/i
+translated	Restart-Service -Name sshd -Force	services name: "sshd" |> restart
+translated	Stop-Service wuauserv	services name: "wuauserv" |> stop
+translated	sasv -Name W3SVC	services name: "W3SVC" |> start
+translated	Set-Service -Name spooler -StartupType Disabled	services name: "spooler" |> disable
+translated	Invoke-WebRequest https://example.com	http.request "https://example.com"
+translated	Invoke-WebRequest -Uri https://example.com/file.zip -OutFile C:\temp\file.zip	http.download "https://example.com/file.zip" "C:/temp/file.zip"
+translated	iwr https://example.com/install.ps1	http.request "https://example.com/install.ps1"
+translated	Invoke-RestMethod https://api.example.com/status	http.request "https://api.example.com/status" |> select body
+translated	irm https://api.example.com/items	http.request "https://api.example.com/items" |> select body
+translated	Invoke-RestMethod -Uri https://api.example.com/items -Method Post -Body '{"a":1}'	http.request "https://api.example.com/items" method: post body: r#"{"a":1}"# |> select body
+translated	Invoke-WebRequest -Uri https://example.com -UseBasicParsing	http.request "https://example.com"
+translated	Get-Date	evaluate now()
+failed	Get-Date -Format "yyyy-MM-dd"	E_UNCORRECTABLE: -Format of Get-Date has no Nurt translation; translated parameters: none (unknown_parameter)
+translated	Start-Sleep -Seconds 5	sleep 5s
+translated	sleep 10	sleep 10s
+translated	Start-Sleep -Milliseconds 500	sleep 500ms
+translated	Get-Command	help
+translated	Get-Command -Name Get-Process	program.find "Get-Process"
+translated	gcm git	program.find "git"
+translated	Get-Help Get-ChildItem	help "Get-ChildItem"
+translated	help Copy-Item	help "Copy-Item"
+translated	Get-Process | Get-Member	processes |> describe
+failed	Get-Content C:\proj\config.json | ConvertFrom-Json	E_UNCORRECTABLE: the conversion applies to the output of read; read the file first (conversion_input)
+failed	Get-Process | ConvertTo-Json	E_UNCORRECTABLE: ConvertTo-Json only shows text unless a file is written; write the records with write format: json (conversion_without_write)
+translated	Import-Csv C:\data\people.csv	read "C:/data/people.csv" key: "[*]"
+translated	Get-Process | Export-Csv C:\temp\processes.csv	processes |> write "C:/temp/processes.csv" format: csv mode: overwrite
+failed	Import-Csv -Path C:\data\sales.csv | Where-Object { $_.Amount -gt 100 }	E_UNCORRECTABLE: the properties of the input objects are not known; write the Nurt fields (unknown_record)
+translated	Get-Service | Export-Csv -Path C:\temp\services.csv -NoTypeInformation	services |> write "C:/temp/services.csv" format: csv mode: overwrite
+failed	Get-ChildItem C:\proj | ConvertTo-Json -Depth 2	E_UNCORRECTABLE: ConvertTo-Json only shows text unless a file is written; write the records with write format: json (conversion_without_write)
+translated	Compress-Archive -Path C:\proj\dist -DestinationPath C:\release\dist.zip	find "C:/proj/dist" |> archive.create "C:/release/dist.zip"
+translated	Expand-Archive -Path C:\downloads\tool.zip -DestinationPath C:\tools\tool	archive.extract "C:/downloads/tool.zip" into: "C:/tools/tool" on_conflict: error
+translated	Compress-Archive -Path C:\logs\*.log -DestinationPath C:\backup\logs.zip	find "C:/logs/*.log" |> archive.create "C:/backup/logs.zip"
+translated	Expand-Archive C:\downloads\data.zip C:\data	archive.extract "C:/downloads/data.zip" into: "C:/data" on_conflict: error
+failed	Compress-Archive -Path C:\site -DestinationPath C:\backup\site.zip -Force	E_UNCORRECTABLE: -Force of Compress-Archive has no Nurt translation; translated parameters: -Path, -LiteralPath, -DestinationPath (unknown_parameter)
+translated	Expand-Archive -Path C:\downloads\pkg.zip -DestinationPath C:\pkg -Force	archive.extract "C:/downloads/pkg.zip" into: "C:/pkg" on_conflict: overwrite
+failed	Set-Location C:\proj	E_UNCORRECTABLE: no current directory; paths are absolute or relative to the call parameter base (no_current_directory)
+failed	cd C:\Users\dev	E_UNCORRECTABLE: no current directory; paths are absolute or relative to the call parameter base (no_current_directory)
+failed	Get-Location	E_UNCORRECTABLE: no current directory; paths are absolute or relative to the call parameter base (no_current_directory)
+failed	Push-Location C:\temp	E_UNCORRECTABLE: no current directory; paths are absolute or relative to the call parameter base (no_current_directory)
+translated	$env:PATH	environment name: "PATH"
+failed	$env:JAVA_HOME = "C:\tools\jdk"	E_UNCORRECTABLE: scoped and environment variables are not set; give environment variables to a program with run env: (variable_scope)
+failed	Get-ChildItem Env:	E_UNCORRECTABLE: environment variables are read with environment (environment_drive)
+translated	$files = Get-ChildItem C:\proj -Recurse -Filter *.cs	let files = find "C:/proj" glob: "**/*.cs" type: any hidden: false
+translated	$procs = Get-Process	let procs = processes
+translated	$date = Get-Date	let date = evaluate now()
+translated	$content = Get-Content C:\proj\README.md	let content = read "C:/proj/README.md"
+translated	$services = Get-Service	let services = services
+failed	Remove-Item C:\temp\* -Recurse -WhatIf	E_UNCORRECTABLE: a preview of a single statement has no equivalent in a script; run the program with the invocation parameter preview set to true
+failed	Stop-Service -Name spooler -WhatIf	E_UNCORRECTABLE: a preview of a single statement has no equivalent in a script; run the program with the invocation parameter preview set to true
+translated	Remove-Item C:\temp\a.txt -Confirm:$false	remove "C:/temp/a.txt"
+translated	Stop-Process -Name notepad -Confirm:$false	processes name: "notepad" |> stop
+translated	Remove-Item C:\temp\a.txt -ErrorAction SilentlyContinue	remove "C:/temp/a.txt" on_missing: skip
+translated	Get-Item C:\missing -ErrorAction Stop	info "C:/missing"
+translated	Stop-Service spooler -ErrorAction Ignore	services name: "spooler" |> stop
+translated	Get-ChildItem C:\proj -ErrorAction SilentlyContinue	list "C:/proj" hidden: false
+translated	Write-Host "done"	evaluate "done"
+translated	Write-Output "hello"	evaluate "hello"
+translated	echo "hello"	evaluate "hello"
+translated	Write-Host "Build finished" -ForegroundColor Green	evaluate "Build finished"
+failed	Write-Output $env:USERNAME	E_UNCORRECTABLE: environment variables are not expanded; read the value with environment name: "USERNAME" (environment_variable)
+translated	Get-WinEvent -LogName System -MaxEvents 20	logs source: "System" limit: 20
+translated	Get-EventLog -LogName Application -Newest 50	logs source: "Application" limit: 50
+translated	Get-WinEvent -LogName Application -MaxEvents 10	logs source: "Application" limit: 10
+translated	Get-EventLog -LogName System -EntryType Error -Newest 20	logs source: "System" limit: 20 level: error
+translated	Test-Connection example.com	network.ping "example.com"
+translated	Test-Connection -ComputerName server01 -Count 2	network.ping "server01" count: 2
+translated	Get-NetTCPConnection	ports protocol: tcp state: all
+failed	Get-NetTCPConnection -LocalPort 443	E_UNCORRECTABLE: -LocalPort of Get-NetTCPConnection has no Nurt translation; translated parameters: -State (unknown_parameter)
+translated	Resolve-DnsName example.com	network.resolve "example.com"
+translated	Get-NetIPAddress	network.interfaces
+translated	Get-CimInstance Win32_OperatingSystem	windows.cim "Win32_OperatingSystem"
+translated	Get-CimInstance -ClassName Win32_LogicalDisk	windows.cim "Win32_LogicalDisk"
+translated	Get-CimInstance Win32_Processor	windows.cim "Win32_Processor"
+failed	Get-PSDrive	E_UNCORRECTABLE: Get-PSDrive has no Nurt translation (unknown_cmdlet)
+translated	Get-Volume	disks
+translated	Get-Disk	disks
+failed	Get-ScheduledTask	E_UNCORRECTABLE: Get-ScheduledTask has no Nurt translation (unknown_cmdlet)
+failed	Get-ScheduledTask -TaskName Backup	E_UNCORRECTABLE: Get-ScheduledTask has no Nurt translation (unknown_cmdlet)
+failed	Start-ScheduledTask -TaskName Backup	E_UNCORRECTABLE: Start-ScheduledTask has no Nurt translation (unknown_cmdlet)
+failed	Invoke-Expression "Get-Process"	E_UNCORRECTABLE: evaluation of text as code has no equivalent
+translated	& C:\tools\app.exe --version	run ["C:/tools/app.exe", "--version"]
+failed	Invoke-Command -ScriptBlock { Get-Process }	E_UNCORRECTABLE: remote execution belongs to the host that sends the program to the other device; write the program itself (remote_execution)
+failed	foreach ($f in Get-ChildItem C:\logs) { Remove-Item $f.FullName }	E_UNCORRECTABLE: loops have no equivalent; a pattern or a pipeline over records replaces a loop
+failed	if (Test-Path C:\a.txt) { Remove-Item C:\a.txt }	E_UNCORRECTABLE: conditional statements have no equivalent; assert checks a precondition

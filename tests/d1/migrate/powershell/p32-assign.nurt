@@ -1,0 +1,12 @@
+# Source: p32-assign.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 1; with assumptions: 0; impossible: 2; errors: 0.
+# Untranslated statements run unchanged with: run ["pwsh", "p32-assign.ps1"]
+
+# P32: pipelines bound to variables and used later.
+# translated: P32, P02, L19
+let logs = find "C:/logs" glob: "*.log" depth: 1 type: any hidden: false
+# untranslated: E_UNCORRECTABLE: $big = $logs | Where-Object { $_.Length -gt 10MB }
+#   problem: the properties of the input objects are not known; write the Nurt fields (unknown_record)
+# untranslated: E_UNCORRECTABLE: $big | Remove-Item
+#   problem: `$big` is not a result named with let in this program (unknown_variable)

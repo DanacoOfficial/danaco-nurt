@@ -11,7 +11,7 @@ use crate::language::ScriptLanguage;
 use crate::output::{self, Block};
 use crate::report::{Item, MigrationReport, Reason, Status};
 use crate::segment::{self, Join, Part, Position, Segment, SegmentKind};
-use crate::translate::{LetBinding, TranslateRequest, Translation, Translator};
+use crate::translate::{LetBinding, TableTranslator, TranslateRequest, Translation, Translator};
 
 /// Assumption added to a statement that follows `;`.
 const SEQUENCE_ASSUMPTION: &str = "the script stops on the first error; the shell runs a statement after `;` even when the previous one fails";
@@ -54,7 +54,38 @@ pub struct Migration {
     pub report: MigrationReport,
 }
 
-/// Translates a bash or PowerShell script into a program file.
+/// Translates a bash or PowerShell script into a program file with the
+/// embedded habit tables.
+///
+/// Equivalent to [`migrate_with`] with a [`TableTranslator`] that uses the
+/// embedded tables.
+///
+/// # Errors
+///
+/// Returns `E_INTERNAL` when the grammar of the language cannot be loaded.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_migrate::{MigrateOptions, ScriptLanguage, Status, migrate};
+///
+/// let options = MigrateOptions::new().with_script("/srv/clean.sh");
+/// let migration = migrate("rm -rf /srv/app/build\n", ScriptLanguage::Bash, &options)?;
+/// assert_eq!(migration.report.items[0].status, Status::Translated);
+/// assert_eq!(migration.report.items[0].rules[0], "B01");
+/// assert!(migration.nurt.contains("\nremove \"/srv/app/build\"\n"));
+/// # Ok::<(), nurt_contracts::error::Error>(())
+/// ```
+pub fn migrate(
+    source: &str,
+    language: ScriptLanguage,
+    options: &MigrateOptions,
+) -> Result<Migration, Error> {
+    migrate_with(source, language, options, &TableTranslator::new())
+}
+
+/// Translates a bash or PowerShell script into a program file with the given
+/// translator.
 ///
 /// Each statement is translated by `translator` in script order. A list
 /// joined with `&&` or `;` that the translator rejects with `E_ONE_EFFECT`
@@ -73,7 +104,8 @@ pub struct Migration {
 /// use nurt_contracts::ast::AstDocument;
 /// use nurt_contracts::error::{Error, ErrorCode};
 /// use nurt_migrate::{
-///     MigrateOptions, ScriptLanguage, Status, TranslateRequest, Translation, Translator, migrate,
+///     MigrateOptions, ScriptLanguage, Status, TranslateRequest, Translation, Translator,
+///     migrate_with,
 /// };
 ///
 /// struct Untranslated;
@@ -91,12 +123,12 @@ pub struct Migration {
 /// }
 ///
 /// let options = MigrateOptions::new().with_script("/srv/a.sh");
-/// let migration = migrate("for f in *; do echo $f; done\n", ScriptLanguage::Bash, &options, &Untranslated)?;
+/// let migration = migrate_with("for f in *; do echo $f; done\n", ScriptLanguage::Bash, &options, &Untranslated)?;
 /// assert_eq!(migration.report.items[0].status, Status::Impossible);
 /// assert!(migration.nurt.contains("# untranslated: E_UNCORRECTABLE: for f in *"));
 /// # Ok::<(), Error>(())
 /// ```
-pub fn migrate(
+pub fn migrate_with(
     source: &str,
     language: ScriptLanguage,
     options: &MigrateOptions,
@@ -191,7 +223,10 @@ impl Session<'_> {
         let [part] = statement.parts.as_slice() else {
             let outcome = self.translate(unit.text);
             match outcome {
-                Ok(translation) => self.accept(&unit, translation, Vec::new()),
+                Ok(translation) => {
+                    let extra = sequence_assumption(statement, &translation.tree);
+                    self.accept(&unit, translation, extra);
+                }
                 Err(error) if error.code() == ErrorCode::OneEffect && !or_list => {
                     self.parts(segment, statement);
                 }
@@ -347,11 +382,27 @@ impl Session<'_> {
     }
 }
 
+/// The assumption of a list joined with `;` that the translator turned into
+/// several pipelines: the script stops where the shell would continue.
+fn sequence_assumption(statement: &segment::Statement, tree: &AstDocument) -> Vec<String> {
+    let pipelines = tree
+        .program
+        .statements
+        .iter()
+        .filter(|statement| matches!(statement, Statement::Pipeline(_)))
+        .count();
+    if pipelines > 1 && statement.joins.contains(&Join::Sequence) {
+        vec![SEQUENCE_ASSUMPTION.to_owned()]
+    } else {
+        Vec::new()
+    }
+}
+
 fn error_item(unit: &Unit<'_>, status: Status, error: &Error) -> Item {
     let data = error.data();
     let mut item = Item::new(unit.start.line, unit.start.column, unit.text, status);
     item.code = Some(data.code);
-    item.problem = Some(data.problem.clone().unwrap_or_else(|| data.message.clone()));
+    item.problem = Some(problem_text(&data.message, data.problem.as_deref()));
     let candidates = data.candidates.iter().map(|candidate| &candidate.program);
     for program in data.fix.iter().chain(candidates) {
         if !item.fix.contains(program) {
@@ -359,6 +410,24 @@ fn error_item(unit: &Unit<'_>, status: Status, error: &Error) -> Item {
         }
     }
     item
+}
+
+/// Problem of a rejected statement: a problem written as a sentence, or the
+/// error message followed by the problem identifier, such as
+/// `privilege_elevation`.
+fn problem_text(message: &str, problem: Option<&str>) -> String {
+    match problem {
+        Some(key) if is_identifier(key) => format!("{message} ({key})"),
+        Some(text) => text.to_owned(),
+        None => message.to_owned(),
+    }
+}
+
+fn is_identifier(text: &str) -> bool {
+    !text.is_empty()
+        && text
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
 }
 
 fn construct_problem(reason: Reason) -> &'static str {

@@ -11,7 +11,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use nurt_contracts::error::ErrorCode;
-use nurt_migrate::{MigrateOptions, ScriptLanguage, migrate};
+use nurt_migrate::{MigrateOptions, ScriptLanguage, migrate_with};
 
 use crate::mock::MockTranslator;
 
@@ -66,7 +66,7 @@ fn check_script(
         Err(error) => panic!("cannot read {script}: {error}"),
     };
     let options = MigrateOptions::new().with_script(script.as_str());
-    let migration = match migrate(&source, language, &options, translator) {
+    let migration = match migrate_with(&source, language, &options, translator) {
         Ok(migration) => migration,
         Err(error) => panic!("migration of {script} failed: {error:?}"),
     };

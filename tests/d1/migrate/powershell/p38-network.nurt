@@ -1,0 +1,13 @@
+# Source: p38-network.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 4; with assumptions: 0; impossible: 0; errors: 0.
+
+# P38: connections, ping, name resolution and addresses.
+# translated: P38
+ports protocol: tcp state: all
+# translated: P38
+network.ping "example.com"
+# translated: P38
+network.resolve "example.com"
+# translated: P38
+network.interfaces

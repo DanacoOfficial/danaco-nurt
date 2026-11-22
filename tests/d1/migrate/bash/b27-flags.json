@@ -1,0 +1,66 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b27-flags.sh",
+  "summary": {
+    "statements": 4,
+    "translated": 3,
+    "assumption": 0,
+    "impossible": 1,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "ls --all /srv",
+      "status": "translated",
+      "rules": [
+        "B13",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "list \"/srv\""
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "grep --ignore-case --line-number error /var/log/app.log",
+      "status": "translated",
+      "rules": [
+        "B15",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "search /error/ \"/var/log/app.log\" case_sensitive: false"
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "head --lines=5 /etc/passwd",
+      "status": "translated",
+      "rules": [
+        "B11",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "read \"/etc/passwd\" lines: ..5"
+    },
+    {
+      "line": 8,
+      "column": 1,
+      "source": "sort -r -n /srv/numbers.txt",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "flag `-n` of `sort` has no equivalent; parameters of `sort`: by, order (flag_without_equivalent)",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"bash\", \"b27-flags.sh\"]"
+}

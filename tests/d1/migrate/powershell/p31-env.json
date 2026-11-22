@@ -1,0 +1,39 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p31-env.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 1,
+    "assumption": 0,
+    "impossible": 1,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "$env:PATH",
+      "status": "translated",
+      "rules": [
+        "P31"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "environment name: \"PATH\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Write-Output $env:USERNAME",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "environment variables are not expanded; read the value with environment name: \"USERNAME\" (environment_variable)",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"pwsh\", \"p31-env.ps1\"]"
+}

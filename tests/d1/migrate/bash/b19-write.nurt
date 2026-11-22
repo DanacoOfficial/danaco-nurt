@@ -1,0 +1,18 @@
+# Source: b19-write.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 5; translated: 5; with assumptions: 0; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B19: echo, printf and tee written to files.
+# translated: B19, L21
+write "/srv/app/status" "ready\n" mode: overwrite
+# translated: B19, L21
+write "/srv/app/log.txt" "line\n" mode: append
+# translated: B19, L21
+write "/srv/app/done" "done\n" mode: overwrite
+# translated: B19, L21
+write "/srv/app/flag" "x" mode: overwrite
+# translated: B40, B19, L21
+write "/srv/app/started" from: (evaluate now()) mode: overwrite

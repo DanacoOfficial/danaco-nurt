@@ -1,0 +1,17 @@
+# Source: b27-flags.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 3; with assumptions: 0; impossible: 1; errors: 0.
+# Untranslated statements run unchanged with: run ["bash", "b27-flags.sh"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B27: long and short flags with values.
+# translated: B13, L21
+list "/srv"
+# translated: B15, L21
+search /error/ "/var/log/app.log" case_sensitive: false
+# translated: B11, L21
+read "/etc/passwd" lines: ..5
+# untranslated: E_UNCORRECTABLE: sort -r -n /srv/numbers.txt
+#   problem: flag `-n` of `sort` has no equivalent; parameters of `sort`: by, order (flag_without_equivalent)

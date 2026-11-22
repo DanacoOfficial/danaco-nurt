@@ -1,0 +1,40 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p20-compare.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Compare-Object (Get-Content C:\\a.txt) (Get-Content C:\\b.txt)",
+      "status": "translated",
+      "rules": [
+        "P20",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "diff \"C:/a.txt\" \"C:/b.txt\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "diff (gc C:\\a.conf) (gc C:\\b.conf)",
+      "status": "translated",
+      "rules": [
+        "P20",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "diff \"C:/a.conf\" \"C:/b.conf\""
+    }
+  ]
+}

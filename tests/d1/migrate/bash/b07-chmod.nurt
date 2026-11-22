@@ -1,0 +1,12 @@
+# Source: b07-chmod.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B07: chmod, also recursive.
+# translated: B07, L21
+attributes "/srv/app/bin/run.sh" mode: "755"
+# translated: B07, L21
+attributes "/srv/app/conf" mode: "640" recursive: true

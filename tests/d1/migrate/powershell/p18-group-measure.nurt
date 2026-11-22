@@ -1,0 +1,14 @@
+# Source: p18-group-measure.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 2; with assumptions: 0; impossible: 1; errors: 0.
+# Untranslated statements run unchanged with: run ["pwsh", "p18-group-measure.ps1"]
+
+# P18: Group-Object and Measure-Object.
+# translated: P01, L19, P18
+list "C:/logs" hidden: false
+|> group by: extension
+# translated: P01, L19, P18
+list "C:/logs" hidden: false
+|> summarize size
+# untranslated: E_UNCORRECTABLE: Get-Content C:\a.txt | Measure-Object -Line -Word -Character
+#   problem: words and characters are not counted; count lines with count (text_measure)

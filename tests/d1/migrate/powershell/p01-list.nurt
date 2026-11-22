@@ -1,0 +1,13 @@
+# Source: p01-list.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 4; with assumptions: 0; impossible: 0; errors: 0.
+
+# P01: Get-ChildItem of one directory and its aliases.
+# translated: P01, L19
+list "C:/proj" hidden: false
+# translated: P01, L19
+list "C:/proj" hidden: false
+# translated: P01, L19
+list "C:/Windows" hidden: false
+# translated: P01, L19
+list "C:/Users" hidden: false

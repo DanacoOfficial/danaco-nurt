@@ -1,0 +1,13 @@
+# Source: p05-select-string.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 4; with assumptions: 0; impossible: 0; errors: 0.
+
+# P05: Select-String with its switches.
+# translated: P05, L19
+search /error/ "C:/logs/app.log" case_sensitive: false
+# translated: P05, L19
+search /oldName\(/ "C:/src" glob: "*.go" case_sensitive: true
+# translated: P05, L19
+search "GET /" "C:/logs/access.log" mode: literal before: 2 after: 3 case_sensitive: false
+# translated: P05, L19
+search /deprecated/ "C:/src" glob: "*.cs" invert: true output: files case_sensitive: false

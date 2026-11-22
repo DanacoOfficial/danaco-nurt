@@ -1,0 +1,19 @@
+# Source: p24-services.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 5; translated: 5; with assumptions: 0; impossible: 0; errors: 0.
+
+# P24: services.
+# translated: P24
+services name: "Spooler"
+# translated: P24
+services name: "Spooler"
+|> start
+# translated: P24
+services name: "Spooler"
+|> stop
+# translated: P24
+services name: "W3SVC"
+|> restart
+# translated: P24
+services name: "W3SVC"
+|> enable

@@ -1,0 +1,41 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p19-foreach-object.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 1,
+    "assumption": 0,
+    "impossible": 1,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Get-ChildItem C:\\logs | ForEach-Object { $_.Name }",
+      "status": "translated",
+      "rules": [
+        "P01",
+        "L19",
+        "P19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "list \"C:/logs\" hidden: false\n|> select name"
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Get-ChildItem C:\\logs | % { Remove-Item $_.FullName }",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "no loops; one pattern per step (no_loops)",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"pwsh\", \"p19-foreach-object.ps1\"]"
+}

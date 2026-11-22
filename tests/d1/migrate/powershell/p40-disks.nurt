@@ -1,0 +1,9 @@
+# Source: p40-disks.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P40: volumes and disks.
+# translated: P40
+disks
+# translated: P40
+disks

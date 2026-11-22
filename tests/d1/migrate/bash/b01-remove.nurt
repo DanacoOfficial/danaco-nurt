@@ -1,0 +1,14 @@
+# Source: b01-remove.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 3; with assumptions: 0; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B01: rm with and without flags.
+# translated: B01, L21
+remove "/srv/app/build"
+# translated: B01, L21
+remove "/srv/app/old.log" "/srv/app/older.log" on_missing: error
+# translated: B01, L21
+remove "/srv/app/missing.txt"

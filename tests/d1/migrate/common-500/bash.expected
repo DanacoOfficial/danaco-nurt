@@ -1,0 +1,251 @@
+translated without error: 205 of 250
+translated	rm /tmp/build.log	remove "/tmp/build.log" on_missing: error
+translated	rm -f /var/tmp/app.pid	remove "/var/tmp/app.pid"
+translated	rm -rf /srv/app/build	remove "/srv/app/build"
+translated	rm -r /home/dev/old-project	remove "/home/dev/old-project" on_missing: error
+translated	rm -rf /srv/app/node_modules	remove "/srv/app/node_modules"
+translated	rm /srv/app/logs/*.log	find "/srv/app/logs" glob: "*.log" depth: 1 hidden: false |> remove on_missing: error
+translated	rm -f /tmp/*.tmp	find "/tmp" glob: "*.tmp" depth: 1 hidden: false |> remove
+translated	rm -rf /var/cache/app/*	find "/var/cache/app" glob: "*" depth: 1 hidden: false |> remove
+translated	rm /data/export/report.csv	remove "/data/export/report.csv" on_missing: error
+translated	mv /srv/app/a.txt /srv/app/b.txt	move "/srv/app/a.txt" to: "/srv/app/b.txt"
+translated	mv /tmp/report.pdf /home/dev/Documents/	move "/tmp/report.pdf" into: "/home/dev/Documents"
+translated	mv /srv/app/dist /srv/app/dist-old	move "/srv/app/dist" to: "/srv/app/dist-old"
+translated	mv -f /tmp/config.yaml /etc/app/config.yaml	move "/tmp/config.yaml" to: "/etc/app/config.yaml"
+translated	mv /home/dev/Downloads/*.zip /home/dev/archive/	find "/home/dev/Downloads" glob: "*.zip" depth: 1 hidden: false |> move into: "/home/dev/archive"
+translated	mv -v /srv/app/build.log /srv/app/logs/	move "/srv/app/build.log" into: "/srv/app/logs"
+translated	mv /var/log/app.log /var/log/app.log.1	move "/var/log/app.log" to: "/var/log/app.log.1"
+translated	cp /etc/hosts /tmp/hosts.bak	copy "/etc/hosts" to: "/tmp/hosts.bak" preserve: false
+translated	cp -r /srv/app/static /srv/app/public	copy "/srv/app/static" to: "/srv/app/public" preserve: false
+translated	cp -a /home/dev/project /backup/project	copy "/home/dev/project" to: "/backup/project"
+translated	cp /srv/app/config.example.yaml /srv/app/config.yaml	copy "/srv/app/config.example.yaml" to: "/srv/app/config.yaml" preserve: false
+translated	cp -R /etc/nginx /backup/nginx	copy "/etc/nginx" to: "/backup/nginx" preserve: false
+translated	cp /home/dev/.bashrc /home/dev/.bashrc.bak	copy "/home/dev/.bashrc" to: "/home/dev/.bashrc.bak" preserve: false
+translated	cp -f /opt/app/bin/app /usr/local/bin/app	copy "/opt/app/bin/app" to: "/usr/local/bin/app" preserve: false
+translated	cp -p /etc/ssh/sshd_config /root/sshd_config.orig	copy "/etc/ssh/sshd_config" to: "/root/sshd_config.orig"
+translated	cp -rv /srv/site/assets /srv/site/dist/assets	copy "/srv/site/assets" to: "/srv/site/dist/assets" preserve: false
+translated	mkdir /srv/app/logs	create "/srv/app/logs" type: directory parents: false
+translated	mkdir -p /srv/app/out/reports	create "/srv/app/out/reports" type: directory
+translated	mkdir -p /home/dev/projects/new-app	create "/home/dev/projects/new-app" type: directory
+translated	mkdir -p /var/lib/app/cache	create "/var/lib/app/cache" type: directory
+translated	mkdir -p /data/backup/2026/11	create "/data/backup/2026/11" type: directory
+translated	mkdir -p /opt/tools/bin	create "/opt/tools/bin" type: directory
+failed	mkdir -m 700 /home/dev/.secrets	E_UNCORRECTABLE: flag `-m` of `mkdir` has no equivalent; parameters of `create`: path, type, target, hard, temporary, parents, on_exists (flag_without_equivalent)
+translated	touch /tmp/marker	create "/tmp/marker" type: file on_exists: touch
+translated	touch /srv/app/.gitkeep	create "/srv/app/.gitkeep" type: file on_exists: touch
+translated	touch /var/log/app.log	create "/var/log/app.log" type: file on_exists: touch
+translated	touch /home/dev/notes.txt	create "/home/dev/notes.txt" type: file on_exists: touch
+translated	chmod +x /usr/local/bin/deploy.sh	attributes "/usr/local/bin/deploy.sh" mode: "+x"
+translated	chmod 755 /srv/app/bin/run	attributes "/srv/app/bin/run" mode: "755"
+translated	chmod 644 /etc/app/config.yaml	attributes "/etc/app/config.yaml" mode: "644"
+translated	chmod 600 /home/dev/.ssh/id_ed25519	attributes "/home/dev/.ssh/id_ed25519" mode: "600"
+translated	chmod -R 755 /srv/site/public	attributes "/srv/site/public" mode: "755" recursive: true
+translated	chmod u+x /home/dev/bin/backup.sh	attributes "/home/dev/bin/backup.sh" mode: "u+x"
+translated	chown www-data /srv/site/index.html	attributes "/srv/site/index.html" owner: "www-data"
+translated	chown -R www-data:www-data /srv/site	attributes "/srv/site" owner: "www-data" group: "www-data" recursive: true
+translated	chown dev:dev /home/dev/project	attributes "/home/dev/project" owner: "dev" group: "dev"
+translated	chown root:root /etc/app/config.yaml	attributes "/etc/app/config.yaml" owner: "root" group: "root"
+translated	ln -s /opt/app/releases/1.4.2 /opt/app/current	create "/opt/app/current" type: link target: "/opt/app/releases/1.4.2"
+failed	ln -sf /etc/nginx/sites-available/app /etc/nginx/sites-enabled/app	E_UNCORRECTABLE: flag `-sf` of `ln` has no equivalent; parameters of `create`: path, type, target, hard, temporary, parents, on_exists (flag_without_equivalent)
+translated	ln -s /usr/local/bin/python3 /usr/local/bin/python	create "/usr/local/bin/python" type: link target: "/usr/local/bin/python3"
+translated	ln /data/file.txt /data/link.txt	create "/data/link.txt" type: link target: "/data/file.txt" hard: true
+translated	cat /etc/hosts	read "/etc/hosts"
+translated	cat /var/log/syslog	read "/var/log/syslog"
+translated	cat /srv/app/config.yaml	read "/srv/app/config.yaml"
+translated	cat /etc/os-release	read "/etc/os-release"
+translated	cat /proc/cpuinfo	read "/proc/cpuinfo"
+translated	cat /home/dev/.ssh/id_ed25519.pub	read "/home/dev/.ssh/id_ed25519.pub"
+translated	cat /srv/app/a.txt /srv/app/b.txt	read "/srv/app/a.txt" "/srv/app/b.txt"
+translated	cat /var/log/nginx/error.log	read "/var/log/nginx/error.log"
+translated	head /var/log/syslog	read "/var/log/syslog" lines: ..10
+translated	head -n 20 /srv/app/data.csv	read "/srv/app/data.csv" lines: ..20
+translated	head -5 /etc/passwd	read "/etc/passwd" lines: ..5
+translated	tail /var/log/syslog	read "/var/log/syslog" last: 10
+translated	tail -n 100 /var/log/nginx/access.log	read "/var/log/nginx/access.log" last: 100
+failed	tail -f /var/log/app.log	E_UNCORRECTABLE: flag `-f` of `tail` has no equivalent; parameters of `read`: path, lines, last, around, context, symbol, section, cell, targets, key, depth, view, pages, mode, encoding, decompress, unchanged_since, since, known, line_numbers, max_line (flag_without_equivalent)
+translated	tail -n 50 /srv/app/logs/error.log	read "/srv/app/logs/error.log" last: 50
+translated	head -n 1 /srv/app/data.csv	read "/srv/app/data.csv" lines: ..1
+translated	tail -n +2 /srv/app/data.csv	read "/srv/app/data.csv" last: 2
+failed	head -c 100 /srv/app/blob.bin	E_UNCORRECTABLE: flag `-c` of `head` has no equivalent; parameters of `read`: path, lines, last, around, context, symbol, section, cell, targets, key, depth, view, pages, mode, encoding, decompress, unchanged_since, since, known, line_numbers, max_line (flag_without_equivalent)
+translated	wc -l /srv/app/data.csv	lines "/srv/app/data.csv" |> count
+failed	wc /etc/passwd	E_UNCORRECTABLE: `wc` with these flags has no translation (no_translation)
+failed	wc -w /home/dev/essay.txt	E_UNCORRECTABLE: flag `-w` of `wc` has no equivalent; parameters of `count`:  (flag_without_equivalent)
+translated	wc -c /srv/app/blob.bin	info "/srv/app/blob.bin" |> select size
+translated	cat /var/log/syslog | wc -l	lines "/var/log/syslog" |> count
+translated	ls /srv/app	list "/srv/app" hidden: false
+translated	ls -l /srv/app	list "/srv/app" hidden: false
+translated	ls -la /home/dev	list "/home/dev"
+translated	ls -lh /var/log	list "/var/log" hidden: false
+translated	ls -a /etc	list "/etc"
+translated	ls -lt /srv/app/logs	list "/srv/app/logs" sort: modified order: desc hidden: false
+failed	ls -R /srv/app/src	E_UNCORRECTABLE: flag `-R` of `ls` has no equivalent; parameters of `list`: path, depth, type, hidden, sort, order, view (flag_without_equivalent)
+translated	ls /srv/app/*.log	find "/srv/app" glob: "*.log" depth: 1 hidden: false
+translated	ls -lS /data/export	list "/data/export" sort: size order: desc hidden: false
+failed	ls -ltr /var/log	E_UNCORRECTABLE: flag `-ltr` of `ls` has no equivalent; parameters of `list`: path, depth, type, hidden, sort, order, view (flag_without_equivalent)
+translated	ls -alh /tmp	list "/tmp"
+translated	ls /etc/nginx/sites-enabled	list "/etc/nginx/sites-enabled" hidden: false
+translated	find /srv/app -name "*.log"	find "/srv/app" glob: "**/*.log" type: any
+translated	find /srv/app -name '*.go'	find "/srv/app" glob: "**/*.go" type: any
+translated	find /home/dev -type f -name "*.pdf"	find "/home/dev" type: file glob: "**/*.pdf"
+translated	find /srv/app -type d -name node_modules	find "/srv/app" type: directory glob: "**/node_modules"
+translated	find /tmp -mtime +7	find "/tmp" type: any |> filter modified <= ago(8d)
+translated	find /var/log -name "*.gz" -delete	find "/var/log" glob: "**/*.gz" type: any |> remove
+translated	find /srv/app -size +100M	find "/srv/app" type: any |> filter size > 100mib
+translated	find /home/dev/projects -maxdepth 2 -name package.json	find "/home/dev/projects" depth: 2 glob: "**/package.json" type: any
+failed	find /data -empty	E_UNCORRECTABLE: predicate `-empty` of `find` has no translation (unsupported_find_predicate)
+translated	find /srv/app -iname "*.jpg"	find "/srv/app" glob: "**/*.jpg" case_sensitive: false type: any
+translated	find /srv/app -type f -mtime -1	find "/srv/app" type: file |> filter modified > ago(1d)
+translated	find /srv/app/src -name "*.rs" | wc -l	find "/srv/app/src" glob: "**/*.rs" type: any |> count
+translated	find /tmp -name "*.tmp" -exec rm {} \;	find "/tmp" glob: "**/*.tmp" type: any |> remove on_missing: error
+translated	find /srv/app -type f -name "*.bak" -delete	find "/srv/app" type: file glob: "**/*.bak" |> remove
+translated	grep error /var/log/syslog	search /error/ "/var/log/syslog"
+translated	grep -i "connection refused" /var/log/app.log	search /connection refused/ "/var/log/app.log" case_sensitive: false
+translated	grep -r TODO /srv/app/src	search /TODO/ "/srv/app/src"
+translated	grep -rn "func main" /srv/app	search /func main/ "/srv/app"
+translated	grep -v "^#" /etc/ssh/sshd_config	search /^#/ "/etc/ssh/sshd_config" invert: true
+translated	grep -c ERROR /var/log/app.log	search /ERROR/ "/var/log/app.log" output: counts
+failed	grep -l "oldName" /srv/app/src/*.go	E_UNCORRECTABLE: shell pattern `/srv/app/src/*.go` has no translation; write `find` with `glob` (unsupported_pattern)
+translated	grep -rl "api_key" /srv/app/config	search /api_key/ "/srv/app/config" output: files
+translated	grep -E "warn|error" /var/log/app.log	search /warn|error/ "/var/log/app.log"
+translated	grep -n "listen" /etc/nginx/nginx.conf	search /listen/ "/etc/nginx/nginx.conf"
+translated	grep -ri "password" /etc/app	search /password/ "/etc/app" case_sensitive: false
+translated	grep -A 3 "Exception" /var/log/app.log	search /Exception/ "/var/log/app.log" after: 3
+translated	grep -B 2 "panic" /var/log/app.log	search /panic/ "/var/log/app.log" before: 2
+translated	grep -F "a.b" /srv/app/notes.txt	search "a.b" "/srv/app/notes.txt"
+translated	cat /var/log/syslog | grep sshd	lines "/var/log/syslog" |> search /sshd/
+failed	ps aux | grep nginx	E_UNCORRECTABLE: `grep` after `|` has no translation for the records of the previous command (unsupported_stage)
+translated	sed -i 's/foo/bar/g' /srv/app/config.yaml	replace /foo/ "bar" in: ["/srv/app/config.yaml"]
+failed	sed 's/http:/https:/' /srv/app/links.txt	E_UNCORRECTABLE: sed without `-i` prints the changed text and changes nothing; with `-i` it changes the file (sed_without_in_place)
+translated	sed -n '1,10p' /srv/app/data.csv	read "/srv/app/data.csv" lines: 1..10
+translated	sed -i '/^#/d' /etc/app/app.conf	lines "/etc/app/app.conf" |> filter text ~ /^#/ |> remove
+translated	sed -i 's/version: 1.4.1/version: 1.4.2/' /srv/app/chart.yaml	replace /version: 1.4.1/ "version: 1.4.2" in: ["/srv/app/chart.yaml"] occurrence: 1
+failed	sed '5d' /srv/app/list.txt	E_UNCORRECTABLE: sed script `5d` has no translation; only `s/A/B/` in place and line addresses with `p` or `d` are translated (unsupported_sed_script)
+translated	sed -i 's/\r$//' /srv/app/script.sh	replace /\r$/ "" in: ["/srv/app/script.sh"] occurrence: 1
+failed	sed -i.bak 's/old/new/g' /srv/app/readme.md	E_UNCORRECTABLE: flag `-i.bak` of `sed` has no equivalent; parameters of ``:  (flag_without_equivalent)
+translated	awk '{print $1}' /var/log/nginx/access.log	lines "/var/log/nginx/access.log" |> split /\s+/ names: ["f1"] |> select f1
+translated	awk -F: '{print $1}' /etc/passwd	lines "/etc/passwd" |> split ":" names: ["f1"] |> select f1
+translated	awk -F, '{print $3}' /srv/app/data.csv	lines "/srv/app/data.csv" |> split "," names: ["f1", "f2", "f3"] |> select f3
+failed	awk 'NR==5' /srv/app/list.txt	E_UNCORRECTABLE: awk program `NR==5` has no translation; only `{print $N}` with a pattern or a field comparison is translated (unsupported_awk_program)
+failed	awk '{sum += $1} END {print sum}' /srv/app/numbers.txt	E_UNCORRECTABLE: awk program `{sum += $1} END {print sum}` has no translation; only `{print $N}` with a pattern or a field comparison is translated (unsupported_awk_program)
+translated	awk '/error/ {print}' /var/log/app.log	lines "/var/log/app.log" |> filter text ~ /error/
+failed	echo "hello"	E_UNCORRECTABLE: text printed without a file has no translation; to compute a value use `evaluate` (output_without_file)
+translated	echo "done" > /tmp/status.txt	write "/tmp/status.txt" "done\n" mode: overwrite
+translated	echo "line" >> /var/log/custom.log	write "/var/log/custom.log" "line\n" mode: append
+failed	printf "%s\n" "hello"	E_UNCORRECTABLE: text printed without a file has no translation; to compute a value use `evaluate` (output_without_file)
+translated	echo -n "abc" > /tmp/abc.txt	write "/tmp/abc.txt" "abc" mode: overwrite
+translated	echo "127.0.0.1 app.local" >> /etc/hosts	write "/etc/hosts" "127.0.0.1 app.local\n" mode: append
+translated	printf "name,age\n" > /srv/app/people.csv	write "/srv/app/people.csv" "name,age\n" mode: overwrite
+failed	echo "build finished"	E_UNCORRECTABLE: text printed without a file has no translation; to compute a value use `evaluate` (output_without_file)
+translated	cd /srv/app && make	run ["make"] cwd: "/srv/app"
+translated	cd /srv/app && git pull	git.pull "/srv/app"
+translated	cd /srv/app && npm install	run ["npm", "install"] cwd: "/srv/app"
+translated	cd /home/dev/project && cargo build	run ["cargo", "build"] cwd: "/home/dev/project"
+translated	cd /srv/app && go test ./...	run ["go", "test", "./..."] cwd: "/srv/app"
+translated	test -f /etc/app/config.yaml	info "/etc/app/config.yaml" |> assert all: type == file
+translated	[ -d /srv/app ]	info "/srv/app" |> assert all: type == directory
+translated	test -d /var/lib/app	info "/var/lib/app" |> assert all: type == directory
+translated	[ -f /srv/app/.env ]	info "/srv/app/.env" |> assert all: type == file
+translated	test -e /tmp/lock	info "/tmp/lock" |> assert all: exists
+translated	mkdir -p /srv/out && cp /srv/a.txt /srv/out/	create "/srv/out" type: directory copy "/srv/a.txt" into: "/srv/out" preserve: false
+translated	rm -rf /srv/app/build && mkdir /srv/app/build	remove "/srv/app/build" create "/srv/app/build" type: directory parents: false
+translated	cp /etc/hosts /tmp/hosts && chmod 644 /tmp/hosts	copy "/etc/hosts" to: "/tmp/hosts" preserve: false attributes "/tmp/hosts" mode: "644"
+failed	ls /srv/app/out || echo "missing"	E_UNCORRECTABLE: `||` has no translation: a program has no alternative branch; check the condition with `assert` and run the alternative as a separate step (alternative_branch)
+failed	echo $USER	E_UNCORRECTABLE: `$USER` is not substituted; the account is the field `user` of `host` (host_variable)
+failed	ls $HOME	E_UNCORRECTABLE: `$HOME` is not substituted; the home directory is the field `home` of `host` (host_variable)
+failed	FILES=$(find /srv/app -name "*.go")	E_UNCORRECTABLE: shell syntax has no translation: no command (unsupported_syntax)
+failed	NOW=$(date)	E_UNCORRECTABLE: shell syntax has no translation: no command (unsupported_syntax)
+failed	sudo systemctl restart nginx	E_UNCORRECTABLE: `sudo` is not translated; privileges are not raised, and the program runs with the privileges of the console (privilege_elevation)
+failed	sudo rm -rf /var/cache/app	E_UNCORRECTABLE: `sudo` is not translated; privileges are not raised, and the program runs with the privileges of the console (privilege_elevation)
+failed	tar -czf /backup/app.tgz /srv/app &	E_UNCORRECTABLE: only a program run with `run` can run in the background (background_change)
+failed	export NODE_ENV=production	E_UNCORRECTABLE: environment variables apply only to a program run in the same line: `VAR=x program` or `export VAR=x; program` (environment_without_program)
+translated	curl https://example.com	http.request "https://example.com" follow_redirects: false
+failed	curl -O https://example.com/file.tar.gz	E_PATH_RELATIVE: relative path `file.tar.gz` without the call parameter `base`; write an absolute path or set `base` (relative_path)
+translated	curl -s https://api.example.com/status	http.request "https://api.example.com/status" follow_redirects: false
+translated	curl -o /tmp/page.html https://example.com	http.request "https://example.com" save: "/tmp/page.html" follow_redirects: false
+failed	wget https://example.com/file.zip	E_PATH_RELATIVE: relative path `file.zip` without the call parameter `base`; write an absolute path or set `base` (relative_path)
+translated	wget -O /tmp/file.zip https://example.com/file.zip	http.download "https://example.com/file.zip" "/tmp/file.zip"
+translated	curl -L https://example.com/install.sh	http.request "https://example.com/install.sh"
+translated	curl -X POST -d '{"a":1}' https://api.example.com/items	http.request "https://api.example.com/items" method: post body: r#"{"a":1}"# follow_redirects: false
+failed	cat config.yaml	E_PATH_RELATIVE: relative path `config.yaml` without the call parameter `base`; write an absolute path or set `base` (relative_path)
+translated	tar -czf /backup/app.tar.gz /srv/app	find "/srv/app" type: any |> archive.create "/backup/app.tar.gz" format: tar_gz base: "/"
+translated	tar -xzf /tmp/release.tar.gz -C /opt/app	archive.extract "/tmp/release.tar.gz" into: "/opt/app"
+translated	tar -xf /tmp/archive.tar -C /tmp/out	archive.extract "/tmp/archive.tar" into: "/tmp/out"
+failed	tar -tzf /backup/app.tar.gz	E_UNCORRECTABLE: flag `-tzf` of `tar` has no equivalent; parameters of `archive.extract`: path, into, only, strip_components, on_conflict, preserve_permissions, allow_outside (flag_without_equivalent)
+translated	zip -r /backup/site.zip /srv/site	find "/srv/site" type: any |> archive.create "/backup/site.zip" format: zip base: "/"
+translated	unzip /tmp/file.zip -d /tmp/file	archive.extract "/tmp/file.zip" into: "/tmp/file"
+translated	gzip /var/log/app.log.1	compress "/var/log/app.log.1" keep: false
+translated	gunzip /tmp/data.csv.gz	decompress "/tmp/data.csv.gz" keep: false
+failed	unzip -l /tmp/file.zip	E_UNCORRECTABLE: flag `-l` of `unzip` has no equivalent; parameters of `archive.extract`: path, into, only, strip_components, on_conflict, preserve_permissions, allow_outside (flag_without_equivalent)
+translated	ps aux	processes
+translated	ps -ef	processes
+translated	df -h	disks
+failed	df -h /srv	E_UNCORRECTABLE: too many operands of `df` for one translation (too_many_operands)
+translated	uname -a	host
+translated	whoami	host
+translated	hostname	host
+translated	uptime	host
+translated	which python3	program.find "python3"
+translated	command -v git	program.find "git"
+translated	env	environment
+translated	printenv PATH	environment "PATH"
+translated	ss -tlnp	ports protocol: tcp
+translated	netstat -tulpn	ports
+failed	lsof -i :8080	E_UNCORRECTABLE: `lsof` with these flags has no translation (no_translation)
+translated	lsof /var/log/syslog	open_files "/var/log/syslog"
+translated	kill 1234	processes pid: 1234 |> stop
+translated	kill -9 4321	processes pid: 4321 |> stop signal: kill
+translated	kill -TERM 2048	processes pid: 2048 |> stop
+translated	diff /srv/app/a.txt /srv/app/b.txt	diff "/srv/app/a.txt" "/srv/app/b.txt"
+translated	diff -u /etc/app/old.conf /etc/app/new.conf	diff "/etc/app/old.conf" "/etc/app/new.conf"
+translated	sort /srv/app/names.txt	lines "/srv/app/names.txt" |> sort text
+translated	sort -u /srv/app/emails.txt	lines "/srv/app/emails.txt" |> sort text |> distinct text
+failed	sort -n /srv/app/numbers.txt	E_UNCORRECTABLE: flag `-n` of `sort` has no equivalent; parameters of `sort`: by, order (flag_without_equivalent)
+translated	sort -r /srv/app/names.txt	lines "/srv/app/names.txt" |> sort text order: desc
+translated	uniq /srv/app/sorted.txt	lines "/srv/app/sorted.txt" |> distinct text
+translated	uniq -c /srv/app/sorted.txt	lines "/srv/app/sorted.txt" |> group by: text
+translated	du -sh /srv/app	find "/srv/app" |> summarize size
+failed	du -h /var/log	E_UNCORRECTABLE: `du` with these flags has no translation (no_translation)
+translated	stat /etc/hosts	info "/etc/hosts"
+translated	file /usr/bin/ls	info "/usr/bin/ls" details: [text]
+translated	sha256sum /tmp/release.tar.gz	hash "/tmp/release.tar.gz"
+translated	md5sum /tmp/file.zip	hash "/tmp/file.zip" algorithm: md5
+translated	sha1sum /srv/app/bin/app	hash "/srv/app/bin/app" algorithm: sha1
+translated	basename /srv/app/file.txt	info "/srv/app/file.txt" |> select name
+translated	dirname /srv/app/file.txt	info "/srv/app/file.txt" |> select parent
+translated	iconv -f latin1 -t utf-8 /srv/app/old.txt	convert "/srv/app/old.txt" encoding: "utf-8"
+translated	dos2unix /srv/app/script.sh	convert "/srv/app/script.sh" line_ending: lf
+translated	sort /srv/app/names.txt | uniq	lines "/srv/app/names.txt" |> sort text |> distinct text
+translated	cat /var/log/app.log | sort | uniq -c	lines "/var/log/app.log" |> sort text |> group by: text
+translated	git -C /srv/app status	git.status "/srv/app"
+translated	git -C /srv/app diff	git.diff "/srv/app"
+translated	git -C /srv/app log --oneline	git.log "/srv/app"
+failed	git -C /srv/app add -A	E_UNCORRECTABLE: flag `-A` of `git add` has no equivalent; parameters of `git.stage`: repo, action, paths, hunks, staged (flag_without_equivalent)
+translated	git -C /srv/app commit -m "fix build"	git.commit "/srv/app" message: "fix build"
+failed	git -C /srv/app push	E_UNCORRECTABLE: `git push` with these flags has no translation (no_translation)
+translated	git -C /srv/app pull	git.pull "/srv/app"
+translated	git -C /srv/app fetch	git.fetch "/srv/app"
+translated	git -C /srv/app switch main	git.switch "/srv/app" branch: "main"
+translated	git -C /srv/app checkout -b feature/login	git.switch "/srv/app" branch: "feature/login" create: true
+translated	git -C /srv/app branch	git.branch "/srv/app"
+translated	git -C /srv/app stash	git.stash "/srv/app" action: push
+translated	git -C /srv/app reset --hard HEAD	git.reset "/srv/app" revision: "HEAD" mode: hard
+translated	git -C /srv/app tag v1.4.2	git.tag "/srv/app" name: "v1.4.2"
+translated	git clone https://github.com/example/app.git /srv/app	git.clone "https://github.com/example/app.git" "/srv/app"
+failed	git status	E_UNCORRECTABLE: the repository is not given; write `git -C <absolute path>` or `cd <absolute path> &&` before it (repository_directory)
+translated	systemctl restart nginx	services name: "nginx" |> restart
+translated	systemctl status nginx	services name: "nginx"
+translated	systemctl start docker	services name: "docker" |> start
+translated	systemctl stop app	services name: "app" |> stop
+translated	systemctl enable nginx	services name: "nginx" |> enable
+translated	service nginx restart	services name: "nginx" |> restart
+translated	apt install curl	package.install ["curl"] manager: apt
+translated	apt-get install -y git	package.install ["git"] manager: apt
+translated	brew install jq	package.install ["jq"] manager: brew
+translated	date	evaluate now()
+translated	sleep 5	sleep 5s
+failed	date +%Y-%m-%d	E_UNCORRECTABLE: too many operands of `date` for one translation (too_many_operands)
+translated	find /srv/app -name "*.tmp" | xargs rm	find "/srv/app" glob: "**/*.tmp" type: any |> remove on_missing: error
+failed	echo "x" | tee /tmp/x.txt	E_UNCORRECTABLE: text printed without a file has no translation; to compute a value use `evaluate` (output_without_file)
+failed	nohup /srv/app/bin/server &	E_UNCORRECTABLE: the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)
+failed	timeout 10 curl https://example.com	E_UNCORRECTABLE: environment, time limit and output options apply only to a program run with `run` (options_without_program)
+failed	for f in /srv/app/*.log; do gzip "$f"; done	E_UNCORRECTABLE: loops have no equivalent; a pattern or a pipeline over records replaces a loop

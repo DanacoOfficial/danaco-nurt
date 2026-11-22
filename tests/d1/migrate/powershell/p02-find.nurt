@@ -1,0 +1,13 @@
+# Source: p02-find.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 3; with assumptions: 0; impossible: 0; errors: 0.
+
+# P02: recursive Get-ChildItem with filters.
+# translated: P02, L19
+find "C:/proj" glob: "**/*.go" type: any hidden: false
+# translated: P02, L19
+find "C:/proj" depth: 3 type: file hidden: false
+# translated: P02, L19
+find "C:/logs" hidden: true type: any
+|> filter name ~ /(?:\.log$|\.txt$)/i
+|> select name

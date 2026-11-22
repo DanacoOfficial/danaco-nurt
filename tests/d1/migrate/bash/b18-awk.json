@@ -1,0 +1,59 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b18-awk.sh",
+  "summary": {
+    "statements": 3,
+    "translated": 0,
+    "assumption": 3,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "awk '{print $1}' /var/log/nginx/access.log",
+      "status": "assumption",
+      "rules": [
+        "B18",
+        "L21"
+      ],
+      "assumptions": [
+        "fields are split by split; leading whitespace and numeric comparison may differ from awk"
+      ],
+      "fix": [],
+      "output": "lines \"/var/log/nginx/access.log\"\n|> split /\\s+/ names: [\"f1\"]\n|> select f1"
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "awk -F: '{print $1, $7}' /etc/passwd",
+      "status": "assumption",
+      "rules": [
+        "B18",
+        "L21"
+      ],
+      "assumptions": [
+        "fields are split by split; leading whitespace and numeric comparison may differ from awk"
+      ],
+      "fix": [],
+      "output": "lines \"/etc/passwd\"\n|> split \":\" names: [\"f1\", \"f2\", \"f3\", \"f4\", \"f5\", \"f6\", \"f7\"]\n|> select f1 f7"
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "awk '$3 > 100 {print $1}' /srv/data.txt",
+      "status": "assumption",
+      "rules": [
+        "B18",
+        "L21"
+      ],
+      "assumptions": [
+        "fields are split by split; leading whitespace and numeric comparison may differ from awk"
+      ],
+      "fix": [],
+      "output": "lines \"/srv/data.txt\"\n|> split /\\s+/ names: [\"f1\", \"f2\", \"f3\"]\n|> filter f3 > 100\n|> select f1"
+    }
+  ]
+}

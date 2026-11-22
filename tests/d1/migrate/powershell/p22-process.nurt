@@ -1,0 +1,18 @@
+# Source: p22-process.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 5; translated: 5; with assumptions: 0; impossible: 0; errors: 0.
+
+# P22: Get-Process and Stop-Process.
+# translated: P22
+processes
+# translated: P22
+processes name: "chrome"
+# translated: P22
+processes pid: 4242
+|> stop
+# translated: P22
+processes pid: 4243
+|> stop signal: kill
+# translated: P22
+processes pid: 4244
+|> stop

@@ -1,0 +1,21 @@
+# Source: b15-grep.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 6; translated: 5; with assumptions: 1; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B15: grep with recursion, case, inversion, counts and file lists.
+# translated: B15, L21
+# assumption: the pattern is read as literal text
+search "oldName(" "/srv/app/src"
+# translated: B15, L21
+search /error/ "/var/log/app.log" case_sensitive: false
+# translated: B15, L21
+search /func main/ "/srv/app" output: files glob: "**/*.go"
+# translated: B15, L21
+search /GET \// "/var/log/nginx/access.log" output: counts
+# translated: B15, L21
+search /^#|^$/ "/etc/app.conf" invert: true
+# translated: B15, L21
+search /timeout/ "/etc/app.conf" whole_word: true context: 2

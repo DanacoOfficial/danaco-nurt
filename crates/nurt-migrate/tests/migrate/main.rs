@@ -11,3 +11,4 @@ mod golden;
 mod language;
 mod mock;
 mod scripts;
+mod tables;

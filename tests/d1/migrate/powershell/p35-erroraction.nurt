@@ -1,0 +1,9 @@
+# Source: p35-erroraction.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P35: -ErrorAction.
+# translated: P08, L19, P35
+remove "C:/tmp/missing.txt" on_missing: skip
+# translated: P12, L19, P35
+info "C:/a.txt"

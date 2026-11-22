@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use nurt_contracts::error::ErrorCode;
 use nurt_migrate::{
-    Item, MigrateOptions, Migration, REPORT_FORMAT, Reason, ScriptLanguage, Status, migrate,
+    Item, MigrateOptions, Migration, REPORT_FORMAT, Reason, ScriptLanguage, Status, migrate_with,
 };
 
 use crate::mock::MockTranslator;
@@ -26,7 +26,7 @@ const PARTS_PER_LINE: usize = 3;
 
 fn run(source: &str, language: ScriptLanguage, translator: &MockTranslator) -> Migration {
     let options = MigrateOptions::new().with_script("/srv/s.sh");
-    match migrate(source, language, &options, translator) {
+    match migrate_with(source, language, &options, translator) {
         Ok(migration) => migration,
         Err(error) => panic!("migration failed: {error:?}"),
     }
@@ -596,10 +596,10 @@ fn windows_line_endings_and_byte_order_mark_are_accepted() {
 fn fallback_names_interpreter_and_script() {
     let options = MigrateOptions::new();
     let mock = MockTranslator::new();
-    let bash = migrate("sudo ls\n", BASH, &options, &mock)
+    let bash = migrate_with("sudo ls\n", BASH, &options, &mock)
         .ok()
         .map(|m| m.report.fallback);
-    let powershell = migrate("Get-Foo\n", POWERSHELL, &options, &mock)
+    let powershell = migrate_with("Get-Foo\n", POWERSHELL, &options, &mock)
         .ok()
         .map(|m| m.report.fallback);
     assert_eq!(bash, Some(Some("run [\"bash\", \"script.sh\"]".to_owned())));

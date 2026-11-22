@@ -1,0 +1,250 @@
+Get-ChildItem C:\proj
+Get-ChildItem -Path C:\Users\dev\Documents
+gci C:\Windows\Temp
+dir C:\proj
+ls C:\proj -Recurse
+Get-ChildItem C:\proj -Force
+Get-ChildItem -Path C:\logs -Filter *.log
+Get-ChildItem C:\proj -Directory
+Get-ChildItem C:\proj -File
+Get-ChildItem -Path C:\proj -Recurse -Include *.cs
+Get-ChildItem C:\proj -Name
+Get-ChildItem HKLM:\SOFTWARE\Microsoft
+Get-ChildItem -Path C:\proj -Recurse -Filter *.go
+Get-ChildItem C:\proj -Recurse -File -Filter *.json
+gci -Recurse C:\src -Include *.ps1
+Get-ChildItem -Path C:\logs -Recurse -Filter *.log
+dir C:\proj -Recurse -Filter *.dll
+Get-ChildItem -Path C:\Users\dev -Recurse -Filter *.pdf
+Get-Content C:\proj\README.md
+Get-Content -Path C:\logs\app.log -Tail 50
+gc C:\proj\config.json
+cat C:\proj\notes.txt
+type C:\Windows\System32\drivers\etc\hosts
+Get-Content C:\logs\app.log -Head 20
+Get-Content -Path C:\logs\app.log -Wait
+Get-Content C:\proj\data.csv -TotalCount 5
+Get-Content -Raw C:\proj\template.html
+Set-Content -Path C:\proj\VERSION -Value "1.4.2"
+Add-Content -Path C:\logs\custom.log -Value "started"
+"hello" | Out-File C:\temp\hello.txt
+Set-Content C:\temp\a.txt "abc"
+ac C:\logs\app.log "line"
+Get-Process | Out-File C:\temp\processes.txt
+"x" | Out-File -FilePath C:\temp\x.txt -Append
+"data" | Set-Content C:\temp\data.txt
+Select-String -Path C:\logs\app.log -Pattern "error"
+Select-String -Path C:\proj\*.cs -Pattern "TODO"
+sls -Path C:\logs\*.log -Pattern "timeout"
+Get-Content C:\logs\app.log | Select-String "warn"
+Select-String -Path C:\logs\app.log -Pattern "fail" -CaseSensitive
+Get-ChildItem C:\proj -Recurse -Filter *.cs | Select-String "Obsolete"
+Select-String -Path C:\logs\app.log -Pattern "error" -SimpleMatch
+Copy-Item C:\proj\a.txt C:\backup\a.txt
+Copy-Item -Path C:\proj\config.json -Destination C:\backup
+Copy-Item C:\proj\static C:\proj\public -Recurse
+cp C:\temp\a.txt C:\temp\b.txt
+copy C:\data\report.xlsx D:\reports\
+cpi C:\proj\app.exe C:\deploy\app.exe
+Copy-Item -Path C:\proj\*.dll -Destination C:\deploy
+Copy-Item C:\proj\settings.json C:\proj\settings.bak -Force
+Copy-Item -Path C:\site -Destination D:\site-backup -Recurse
+Copy-Item \\server\share\file.txt C:\temp
+Move-Item C:\temp\a.txt C:\archive\a.txt
+Move-Item -Path C:\downloads\*.zip -Destination C:\archive
+mv C:\temp\old.log C:\logs\old.log
+move C:\data\in.csv C:\data\done\in.csv
+mi C:\proj\dist C:\proj\dist-old
+Move-Item -Path C:\proj\build -Destination C:\proj\build-prev -Force
+Move-Item C:\logs\app.log C:\logs\app.log.1
+Remove-Item C:\temp\a.txt
+Remove-Item -Path C:\proj\build -Recurse
+Remove-Item C:\proj\bin -Recurse -Force
+rm C:\temp\old.log
+del C:\temp\*.tmp
+rd C:\temp\work -Recurse
+ri C:\proj\obj -Recurse -Force
+Remove-Item -Path C:\logs\*.log
+Remove-Item C:\temp\* -Recurse
+erase C:\temp\x.txt
+rmdir C:\temp\empty
+Remove-Item -LiteralPath C:\temp\file[1].txt
+New-Item -ItemType Directory -Path C:\proj\logs
+New-Item -Path C:\temp\new.txt -ItemType File
+mkdir C:\proj\out
+md C:\data\2026
+ni C:\temp\marker.txt
+New-Item -ItemType Directory -Force -Path C:\proj\out\reports
+New-Item -Path C:\temp\notes.txt -ItemType File -Value "start"
+New-Item -ItemType SymbolicLink -Path C:\proj\current -Target C:\proj\releases\42
+New-Item -Path HKCU:\Software\MyApp
+New-Item -ItemType Directory C:\tools
+Rename-Item C:\temp\a.txt b.txt
+Rename-Item -Path C:\proj\old.cs -NewName new.cs
+ren C:\temp\draft.md final.md
+rni C:\logs\app.log app.old.log
+Rename-Item -Path C:\proj\build -NewName build-old
+Test-Path C:\proj\config.json
+Test-Path -Path C:\temp -PathType Container
+Test-Path C:\proj\app.exe -PathType Leaf
+Test-Path HKLM:\SOFTWARE\MyApp
+Get-Item C:\proj\app.exe
+Get-Item -Path C:\proj
+gi C:\temp\a.txt
+Get-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion
+Get-ItemProperty C:\proj\app.exe
+Get-ItemPropertyValue -Path HKCU:\Software\MyApp -Name Version
+Get-Item C:\proj\app.exe | Select-Object Name, Length
+Set-ItemProperty -Path HKCU:\Software\MyApp -Name Version -Value 2
+Set-ItemProperty -Path C:\proj\a.txt -Name IsReadOnly -Value $true
+New-ItemProperty -Path HKCU:\Software\MyApp -Name Mode -Value Fast
+Get-Acl C:\proj
+Get-Acl -Path C:\proj\secret.txt
+icacls C:\proj
+attrib +R C:\proj\a.txt
+attrib -H C:\proj\hidden.txt
+Get-Process | Where-Object { $_.CPU -gt 100 }
+Get-ChildItem C:\logs | Where-Object { $_.Length -gt 1MB }
+Get-Service | Where-Object Status -eq Running
+Get-ChildItem C:\proj | ? { $_.Name -like "*.cs" }
+Get-Process | where { $_.WorkingSet -gt 500MB }
+Get-Service | Where-Object { $_.StartType -eq "Automatic" }
+Get-Process | Where-Object Name -eq "chrome"
+Get-ChildItem C:\data | Where-Object Extension -eq ".csv"
+Get-Process | Select-Object Name, Id
+Get-Process | Select-Object -First 10
+Get-ChildItem C:\proj | Select-Object Name, Length
+Get-Service | select Name, Status
+Get-Content C:\logs\app.log | Select-Object -Last 5
+Get-Process | Select-Object -Property Name, CPU -First 5
+Get-ChildItem C:\proj | Select-Object -ExpandProperty Name
+Get-Process | Sort-Object CPU -Descending
+Get-ChildItem C:\proj | Sort-Object Length
+Get-ChildItem C:\logs | Sort-Object LastWriteTime -Descending
+Get-Service | sort Name
+Get-Process | Sort-Object -Property WorkingSet -Descending | Select-Object -First 5
+Get-Content C:\data\names.txt | Sort-Object -Unique
+Get-ChildItem C:\proj -Recurse | Measure-Object
+Get-ChildItem C:\proj -Recurse -File | Measure-Object -Property Length -Sum
+Get-Content C:\logs\app.log | Measure-Object -Line
+Get-Process | Group-Object Name
+Get-ChildItem C:\proj -Recurse -File | Group-Object Extension
+Get-Service | Group-Object Status
+Get-Content C:\proj\essay.txt | Measure-Object -Word
+Get-ChildItem C:\logs -Filter *.log | ForEach-Object { $_.Name }
+Get-Process | ForEach-Object { $_.Name }
+Get-ChildItem C:\temp | % { $_.FullName }
+Get-ChildItem C:\logs | ForEach-Object Name
+Get-ChildItem C:\proj -Filter *.txt | ForEach-Object { Remove-Item $_.FullName }
+Compare-Object (Get-Content C:\a.txt) (Get-Content C:\b.txt)
+Compare-Object -ReferenceObject (Get-Content C:\old.txt) -DifferenceObject (Get-Content C:\new.txt)
+Get-FileHash C:\downloads\setup.exe
+Get-FileHash -Path C:\downloads\setup.exe -Algorithm SHA256
+Get-FileHash C:\proj\app.zip -Algorithm MD5
+Get-FileHash -Algorithm SHA512 C:\proj\release.zip
+Get-Process
+Get-Process -Name chrome
+gps notepad
+Get-Process -Id 1234
+Stop-Process -Id 1234
+Stop-Process -Name notepad
+kill 4321
+Stop-Process -Name chrome -Force
+spps -Id 999
+Start-Process notepad.exe
+Start-Process -FilePath C:\tools\app.exe -Wait
+Start-Process -FilePath git -ArgumentList "status --short" -Wait
+Start-Process -FilePath powershell -Verb RunAs
+Start-Process -FilePath C:\tools\setup.exe -ArgumentList "/S" -Wait
+Get-Service
+Get-Service -Name sshd
+gsv wuauserv
+Start-Service -Name sshd
+Stop-Service -Name spooler
+Restart-Service -Name W3SVC
+Set-Service -Name sshd -StartupType Automatic
+Get-Service -Name win*
+Restart-Service -Name sshd -Force
+Stop-Service wuauserv
+sasv -Name W3SVC
+Set-Service -Name spooler -StartupType Disabled
+Invoke-WebRequest https://example.com
+Invoke-WebRequest -Uri https://example.com/file.zip -OutFile C:\temp\file.zip
+iwr https://example.com/install.ps1
+Invoke-RestMethod https://api.example.com/status
+irm https://api.example.com/items
+Invoke-RestMethod -Uri https://api.example.com/items -Method Post -Body '{"a":1}'
+Invoke-WebRequest -Uri https://example.com -UseBasicParsing
+Get-Date
+Get-Date -Format "yyyy-MM-dd"
+Start-Sleep -Seconds 5
+sleep 10
+Start-Sleep -Milliseconds 500
+Get-Command
+Get-Command -Name Get-Process
+gcm git
+Get-Help Get-ChildItem
+help Copy-Item
+Get-Process | Get-Member
+Get-Content C:\proj\config.json | ConvertFrom-Json
+Get-Process | ConvertTo-Json
+Import-Csv C:\data\people.csv
+Get-Process | Export-Csv C:\temp\processes.csv
+Import-Csv -Path C:\data\sales.csv | Where-Object { $_.Amount -gt 100 }
+Get-Service | Export-Csv -Path C:\temp\services.csv -NoTypeInformation
+Get-ChildItem C:\proj | ConvertTo-Json -Depth 2
+Compress-Archive -Path C:\proj\dist -DestinationPath C:\release\dist.zip
+Expand-Archive -Path C:\downloads\tool.zip -DestinationPath C:\tools\tool
+Compress-Archive -Path C:\logs\*.log -DestinationPath C:\backup\logs.zip
+Expand-Archive C:\downloads\data.zip C:\data
+Compress-Archive -Path C:\site -DestinationPath C:\backup\site.zip -Force
+Expand-Archive -Path C:\downloads\pkg.zip -DestinationPath C:\pkg -Force
+Set-Location C:\proj
+cd C:\Users\dev
+Get-Location
+Push-Location C:\temp
+$env:PATH
+$env:JAVA_HOME = "C:\tools\jdk"
+Get-ChildItem Env:
+$files = Get-ChildItem C:\proj -Recurse -Filter *.cs
+$procs = Get-Process
+$date = Get-Date
+$content = Get-Content C:\proj\README.md
+$services = Get-Service
+Remove-Item C:\temp\* -Recurse -WhatIf
+Stop-Service -Name spooler -WhatIf
+Remove-Item C:\temp\a.txt -Confirm:$false
+Stop-Process -Name notepad -Confirm:$false
+Remove-Item C:\temp\a.txt -ErrorAction SilentlyContinue
+Get-Item C:\missing -ErrorAction Stop
+Stop-Service spooler -ErrorAction Ignore
+Get-ChildItem C:\proj -ErrorAction SilentlyContinue
+Write-Host "done"
+Write-Output "hello"
+echo "hello"
+Write-Host "Build finished" -ForegroundColor Green
+Write-Output $env:USERNAME
+Get-WinEvent -LogName System -MaxEvents 20
+Get-EventLog -LogName Application -Newest 50
+Get-WinEvent -LogName Application -MaxEvents 10
+Get-EventLog -LogName System -EntryType Error -Newest 20
+Test-Connection example.com
+Test-Connection -ComputerName server01 -Count 2
+Get-NetTCPConnection
+Get-NetTCPConnection -LocalPort 443
+Resolve-DnsName example.com
+Get-NetIPAddress
+Get-CimInstance Win32_OperatingSystem
+Get-CimInstance -ClassName Win32_LogicalDisk
+Get-CimInstance Win32_Processor
+Get-PSDrive
+Get-Volume
+Get-Disk
+Get-ScheduledTask
+Get-ScheduledTask -TaskName Backup
+Start-ScheduledTask -TaskName Backup
+Invoke-Expression "Get-Process"
+& C:\tools\app.exe --version
+Invoke-Command -ScriptBlock { Get-Process }
+foreach ($f in Get-ChildItem C:\logs) { Remove-Item $f.FullName }
+if (Test-Path C:\a.txt) { Remove-Item C:\a.txt }

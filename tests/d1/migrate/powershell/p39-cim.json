@@ -1,0 +1,38 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p39-cim.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Get-CimInstance -ClassName Win32_OperatingSystem",
+      "status": "translated",
+      "rules": [
+        "P39"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "windows.cim \"Win32_OperatingSystem\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Get-CimInstance -ClassName Win32_LogicalDisk -Filter \"DriveType=3\"",
+      "status": "translated",
+      "rules": [
+        "P39"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "windows.cim \"Win32_LogicalDisk\" where: \"DriveType=3\""
+    }
+  ]
+}

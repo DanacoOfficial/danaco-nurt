@@ -1,0 +1,41 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b23-or.sh",
+  "summary": {
+    "statements": 2,
+    "translated": 0,
+    "assumption": 0,
+    "impossible": 2,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "ls /srv/app/out || mkdir /srv/app/out",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "or_list",
+      "problem": "`||` has no translation: a program has no alternative branch; check the condition with `assert` and run the alternative as a separate step (alternative_branch)",
+      "fix": [
+        "list \"/srv/app/out\" hidden: false"
+      ]
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "grep -q app /etc/hosts || echo \"127.0.0.1 app\" >> /etc/hosts",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "or_list",
+      "problem": "`||` has no translation: a program has no alternative branch; check the condition with `assert` and run the alternative as a separate step (alternative_branch)",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"bash\", \"b23-or.sh\"]"
+}

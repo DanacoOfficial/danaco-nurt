@@ -1,0 +1,9 @@
+# Source: p20-compare.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P20: Compare-Object of two files.
+# translated: P20, L19
+diff "C:/a.txt" "C:/b.txt"
+# translated: P20, L19
+diff "C:/a.conf" "C:/b.conf"

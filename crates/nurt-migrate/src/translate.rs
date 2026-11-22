@@ -1,18 +1,31 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Interface between the migration and the translation engines of the
-//! bash and PowerShell habit tables.
+//! Interface between the migration and the translation of the bash and
+//! PowerShell habit tables.
 //!
 //! The migration reads the structure of a script and decides which
 //! statements are translated; the rules that turn one statement into a
 //! program belong to the habit tables and are applied by a [`Translator`].
+//! [`TableTranslator`] applies the tables of `nurt-correct` in script mode,
+//! prints with the canonical printer of syntax variant A and checks that the
+//! result parses.
+
+use std::fmt;
 
 use nurt_contracts::ast::AstDocument;
-use nurt_contracts::error::Error;
+use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::report::Correction;
+use nurt_correct::bash::{self, Assumption, BashTable, Mode, TranslateContext};
+use nurt_correct::powershell::{self, PowerShellTable};
+use nurt_correct::record::Log;
+use nurt_syntax::parse::{ParseOptions, Variant, parse};
+use nurt_syntax::print::print;
 
 use crate::language::ScriptLanguage;
+
+/// Problem of a statement that only previews its changes (`-WhatIf`).
+const PREVIEW_PROBLEM: &str = "a preview of a single statement has no equivalent in a script; run the program with the invocation parameter preview set to true";
 
 /// Result of translating one shell statement.
 #[derive(Debug, Clone, PartialEq)]
@@ -53,7 +66,7 @@ pub struct TranslateRequest<'a> {
 ///
 /// Implementations apply the habit tables to one statement in script mode,
 /// print programs in the canonical form of syntax variant A and check that a
-/// script parses and binds. The migration never applies table rules itself.
+/// script parses. The migration never applies table rules itself.
 pub trait Translator {
     /// Translates one shell statement.
     ///
@@ -69,13 +82,289 @@ pub trait Translator {
     /// Prints a program in the canonical form of syntax variant A.
     fn print(&self, tree: &AstDocument) -> String;
 
-    /// Checks that a script parses and binds with the command catalog.
+    /// Checks that a script parses.
     ///
     /// The script consists of the `let` statements accepted so far followed by
     /// the statement under test.
     ///
     /// # Errors
     ///
-    /// Returns the first syntax or binding error of the script.
+    /// Returns the first syntax error of the script.
     fn check(&self, script: &str) -> Result<(), Error>;
+}
+
+/// Translator that applies the bash and PowerShell habit tables of
+/// `nurt-correct` in script mode.
+///
+/// Without further configuration the embedded tables are used; a table read
+/// from another source replaces the embedded one for its language. The
+/// context of every translation has no `base` and no current directory, so
+/// targets that depend on them are reported, not guessed.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_migrate::{ScriptLanguage, TableTranslator, TranslateRequest, Translator};
+///
+/// let translator = TableTranslator::new();
+/// let request = TranslateRequest {
+///     language: ScriptLanguage::Bash,
+///     statement: "mkdir -p /srv/out",
+///     lets: &[],
+/// };
+/// let translation = translator.translate(&request)?;
+/// assert_eq!(translator.print(&translation.tree), "create \"/srv/out\" type: directory");
+/// assert_eq!(translation.rules[0].rule, "B05");
+/// # Ok::<(), nurt_contracts::error::Error>(())
+/// ```
+#[derive(Default)]
+pub struct TableTranslator {
+    bash: Option<BashTable>,
+    powershell: Option<PowerShellTable>,
+}
+
+impl TableTranslator {
+    /// Creates a translator with the embedded habit tables.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Replaces the embedded bash habit table.
+    #[must_use]
+    pub fn with_bash_table(mut self, table: BashTable) -> Self {
+        self.bash = Some(table);
+        self
+    }
+
+    /// Replaces the embedded PowerShell habit table.
+    #[must_use]
+    pub fn with_powershell_table(mut self, table: PowerShellTable) -> Self {
+        self.powershell = Some(table);
+        self
+    }
+
+    fn translate_bash(
+        &self,
+        statement: &str,
+        context: &TranslateContext<'_>,
+    ) -> Option<Result<Translation, Error>> {
+        let outcome = match &self.bash {
+            Some(table) => bash::translate_with_table(statement, context, table),
+            None => bash::translate_with(statement, context),
+        };
+        outcome.map(|result| {
+            result.map(|translation| {
+                let mut log = Log::new();
+                for correction in translation.rules {
+                    log.push(correction);
+                }
+                Translation {
+                    tree: translation.tree,
+                    rules: log.into_report(),
+                    assumptions: assumption_texts(translation.assumptions),
+                }
+            })
+        })
+    }
+
+    fn translate_powershell(
+        &self,
+        statement: &str,
+        context: &TranslateContext<'_>,
+    ) -> Option<Result<Translation, Error>> {
+        let outcome = match &self.powershell {
+            Some(table) => powershell::translate_with_table(statement, context, table),
+            None => powershell::translate_with(statement, context),
+        };
+        outcome.map(|result| {
+            result.and_then(|translation| {
+                if translation.options.preview == Some(true) {
+                    let program = print_program(&translation.tree);
+                    return Err(Error::new(
+                        ErrorCode::Uncorrectable,
+                        "the statement only previews its changes",
+                    )
+                    .with_problem(PREVIEW_PROBLEM)
+                    .with_fix(program));
+                }
+                Ok(Translation {
+                    tree: translation.tree,
+                    rules: translation.rules,
+                    assumptions: assumption_texts(translation.assumptions),
+                })
+            })
+        })
+    }
+}
+
+impl fmt::Debug for TableTranslator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TableTranslator")
+            .field("custom_bash_table", &self.bash.is_some())
+            .field("custom_powershell_table", &self.powershell.is_some())
+            .finish()
+    }
+}
+
+impl Translator for TableTranslator {
+    fn translate(&self, request: &TranslateRequest<'_>) -> Result<Translation, Error> {
+        let names: Vec<String> = request
+            .lets
+            .iter()
+            .map(|binding| binding.name.clone())
+            .collect();
+        let context = TranslateContext {
+            base: None,
+            lets: &names,
+            mode: Mode::Script,
+        };
+        let outcome = match request.language {
+            ScriptLanguage::Bash => self.translate_bash(request.statement, &context),
+            ScriptLanguage::PowerShell => self.translate_powershell(request.statement, &context),
+        };
+        outcome.unwrap_or_else(|| Err(not_a_habit(request)))
+    }
+
+    fn print(&self, tree: &AstDocument) -> String {
+        print_program(tree)
+    }
+
+    fn check(&self, script: &str) -> Result<(), Error> {
+        parse(script, Variant::A, &ParseOptions::default())
+            .map(drop)
+            .map_err(Error::from)
+    }
+}
+
+/// Canonical text of a program in syntax variant A, without the final line
+/// break.
+fn print_program(tree: &AstDocument) -> String {
+    let mut text = print(tree, Variant::A);
+    let trimmed = text.trim_end().len();
+    text.truncate(trimmed);
+    text
+}
+
+fn assumption_texts(assumptions: Vec<Assumption>) -> Vec<String> {
+    assumptions
+        .into_iter()
+        .map(|assumption| assumption.text)
+        .collect()
+}
+
+/// `E_UNCORRECTABLE` for a statement that the habit table does not read as a
+/// command of its shell.
+fn not_a_habit(request: &TranslateRequest<'_>) -> Error {
+    let command = request
+        .statement
+        .split_whitespace()
+        .next()
+        .unwrap_or_default();
+    let table = match request.language {
+        ScriptLanguage::Bash => "bash",
+        ScriptLanguage::PowerShell => "PowerShell",
+    };
+    Error::new(ErrorCode::Uncorrectable, "no translation rule").with_problem(format!(
+        "`{command}` is not a command of the {table} habit table"
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn request<'a>(
+        language: ScriptLanguage,
+        statement: &'a str,
+        lets: &'a [LetBinding],
+    ) -> TranslateRequest<'a> {
+        TranslateRequest {
+            language,
+            statement,
+            lets,
+        }
+    }
+
+    #[test]
+    fn translates_bash_statement_with_table_rule() -> Result<(), Error> {
+        let translator = TableTranslator::new();
+        let translation =
+            translator.translate(&request(ScriptLanguage::Bash, "rm -rf /srv/app/build", &[]))?;
+        assert_eq!(
+            translator.print(&translation.tree),
+            "remove \"/srv/app/build\""
+        );
+        assert_eq!(translation.rules[0].rule, "B01");
+        Ok(())
+    }
+
+    #[test]
+    fn translates_powershell_statement_with_table_rule() -> Result<(), Error> {
+        let translator = TableTranslator::new();
+        let translation = translator.translate(&request(
+            ScriptLanguage::PowerShell,
+            "Remove-Item -Path C:\\build\\out -Recurse",
+            &[],
+        ))?;
+        assert_eq!(
+            translator.print(&translation.tree),
+            "remove \"C:/build/out\""
+        );
+        assert_eq!(translation.rules[0].rule, "P08");
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_privilege_elevation_with_fix() {
+        let translator = TableTranslator::new();
+        let error = translator
+            .translate(&request(ScriptLanguage::Bash, "sudo rm -f /etc/x", &[]))
+            .err();
+        assert_eq!(
+            error.map(|error| error.code()),
+            Some(ErrorCode::Uncorrectable)
+        );
+    }
+
+    #[test]
+    fn rejects_preview_of_single_statement() {
+        let translator = TableTranslator::new();
+        let error = translator
+            .translate(&request(
+                ScriptLanguage::PowerShell,
+                "Remove-Item -Path C:\\build\\out -Recurse -WhatIf",
+                &[],
+            ))
+            .err();
+        let data = error.as_ref().map(Error::data);
+        assert_eq!(data.map(|data| data.code), Some(ErrorCode::Uncorrectable));
+        assert_eq!(
+            data.and_then(|data| data.problem.clone()).as_deref(),
+            Some(PREVIEW_PROBLEM)
+        );
+    }
+
+    #[test]
+    fn check_reports_syntax_error() {
+        let translator = TableTranslator::new();
+        assert!(translator.check("remove \"/srv/a\"").is_ok());
+        let error = translator.check("filter a < b < c").err();
+        assert_eq!(error.map(|error| error.code()), Some(ErrorCode::Syntax));
+    }
+
+    #[test]
+    fn debug_names_custom_tables() {
+        let text = format!("{:?}", TableTranslator::new());
+        assert!(text.contains("custom_bash_table: false"));
+    }
+
+    #[test]
+    fn not_a_habit_names_the_command() {
+        let error = not_a_habit(&request(ScriptLanguage::PowerShell, "Get-Foo -Bar", &[]));
+        assert_eq!(
+            error.data().problem.as_deref(),
+            Some("`Get-Foo` is not a command of the PowerShell habit table")
+        );
+    }
 }

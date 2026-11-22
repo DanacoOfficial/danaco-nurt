@@ -1,0 +1,9 @@
+# Source: p33-whatif.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 1; translated: 0; with assumptions: 0; impossible: 1; errors: 0.
+# Untranslated statements run unchanged with: run ["pwsh", "p33-whatif.ps1"]
+
+# P33: -WhatIf.
+# untranslated: E_UNCORRECTABLE: Remove-Item C:\tmp\cache -Recurse -WhatIf
+#   problem: a preview of a single statement has no equivalent in a script; run the program with the invocation parameter preview set to true
+#   fix: remove "C:/tmp/cache"

@@ -1,0 +1,63 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b25-variables.sh",
+  "summary": {
+    "statements": 4,
+    "translated": 0,
+    "assumption": 0,
+    "impossible": 4,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "rm $FILE",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "`$FILE` is not substituted; Nurt has no variables: write the value, or name a result with `let file = …` and use `@file` (unknown_variable)",
+      "fix": []
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "cat \"$HOME/notes.txt\"",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "`$HOME` is not substituted; the home directory is the field `home` of `host` (host_variable)",
+      "fix": []
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "ls ${DIR}",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "`$DIR` is not substituted; Nurt has no variables: write the value, or name a result with `let dir = …` and use `@dir` (unknown_variable)",
+      "fix": []
+    },
+    {
+      "line": 8,
+      "column": 1,
+      "source": "echo $PWD",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "`$PWD` is not substituted; there is no current directory; relative paths use the call parameter `base` (host_variable)",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"bash\", \"b25-variables.sh\"]"
+}

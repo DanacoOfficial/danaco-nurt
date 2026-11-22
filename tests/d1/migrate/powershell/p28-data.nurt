@@ -1,0 +1,16 @@
+# Source: p28-data.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 0; with assumptions: 2; impossible: 2; errors: 0.
+# Untranslated statements run unchanged with: run ["pwsh", "p28-data.ps1"]
+
+# P28: JSON and CSV conversions.
+# untranslated: E_UNCORRECTABLE: Get-Content C:\data.json | ConvertFrom-Json
+#   problem: the conversion applies to the output of read; read the file first (conversion_input)
+# translated: P28, L19
+# assumption: every row of the file is returned as an item keyed by the header
+read "C:/data.csv" key: "[*]"
+# translated: P22, P28, L19
+# assumption: the fields of the records become the columns of the file
+processes |> write "C:/out/processes.csv" format: csv mode: overwrite
+# untranslated: E_UNCORRECTABLE: Get-Service | ConvertTo-Json
+#   problem: ConvertTo-Json only shows text unless a file is written; write the records with write format: json (conversion_without_write)

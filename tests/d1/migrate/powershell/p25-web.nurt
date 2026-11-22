@@ -1,0 +1,15 @@
+# Source: p25-web.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 4; with assumptions: 0; impossible: 0; errors: 0.
+
+# P25: Invoke-WebRequest and Invoke-RestMethod.
+# translated: P25, L19
+http.download "https://example.com/app.zip" "C:/tmp/app.zip"
+# translated: P25
+http.request "https://example.com" method: head
+# translated: P25
+http.request "https://api.example.com/items" method: post body: r#"{"a":1}"#
+|> select body
+# translated: P25
+http.request "https://api.example.com/items"
+|> select body

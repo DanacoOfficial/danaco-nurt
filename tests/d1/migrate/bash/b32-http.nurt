@@ -1,0 +1,16 @@
+# Source: b32-http.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 3; with assumptions: 0; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B32: curl and wget.
+# translated: B32, L21
+http.request "https://example.com/install.sh" save: "/tmp/install.sh"
+# translated: B32
+http.request "https://api.example.com/items" method: post headers: {
+  "Content-Type": "application/json"
+} body: r#"{"a":1}"# follow_redirects: false
+# translated: B32, L21
+http.download "https://example.com/app.tgz" "/tmp/app.tgz"

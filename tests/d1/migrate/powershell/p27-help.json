@@ -1,0 +1,52 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p27-help.ps1",
+  "summary": {
+    "statements": 3,
+    "translated": 3,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Get-Command git",
+      "status": "translated",
+      "rules": [
+        "P27"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "program.find \"git\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Get-Help Get-ChildItem",
+      "status": "translated",
+      "rules": [
+        "P27"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "help \"Get-ChildItem\""
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "Get-Item C:\\a.txt | Get-Member",
+      "status": "translated",
+      "rules": [
+        "P12",
+        "L19",
+        "P27"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "info \"C:/a.txt\"\n|> describe"
+    }
+  ]
+}

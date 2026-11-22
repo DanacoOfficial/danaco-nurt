@@ -1,0 +1,40 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p29-archives.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Expand-Archive -Path C:\\tmp\\app.zip -DestinationPath C:\\app",
+      "status": "translated",
+      "rules": [
+        "P29",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "archive.extract \"C:/tmp/app.zip\" into: \"C:/app\" on_conflict: error"
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Compress-Archive -Path C:\\out -DestinationPath C:\\backup\\out.zip",
+      "status": "translated",
+      "rules": [
+        "P29",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "find \"C:/out\"\n|> archive.create \"C:/backup/out.zip\""
+    }
+  ]
+}

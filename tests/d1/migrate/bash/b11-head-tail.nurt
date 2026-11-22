@@ -1,0 +1,14 @@
+# Source: b11-head-tail.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 3; with assumptions: 0; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B11: head and tail with and without a line count.
+# translated: B11, L21
+read "/var/log/syslog" lines: ..20
+# translated: B11, L21
+read "/var/log/app.log" last: 50
+# translated: B11, L21
+read "/etc/passwd" lines: ..10

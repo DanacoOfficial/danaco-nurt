@@ -1,0 +1,17 @@
+# Source: b31-environment.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 0; with assumptions: 0; impossible: 3; errors: 0.
+# Untranslated statements run unchanged with: run ["bash", "b31-environment.sh"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B31: environment variables for one command.
+# untranslated: E_UNCORRECTABLE: DEBUG=1 /srv/app/bin/run
+#   problem: the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)
+#   fix: run ["/srv/app/bin/run"] cwd: "/srv/app/bin"
+# untranslated: E_UNCORRECTABLE: env LANG=C sort /srv/a.txt
+#   problem: environment, time limit and output options apply only to a program run with `run` (options_without_program)
+# untranslated: E_UNCORRECTABLE: export GOFLAGS=-mod=vendor; go build -C /srv/app
+#   problem: the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)
+#   fix: run ["go", "build", "-C", "/srv/app"] cwd: "/srv"

@@ -1,0 +1,40 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p07-move.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Move-Item -Path C:\\proj\\report.txt -Destination C:\\archive",
+      "status": "translated",
+      "rules": [
+        "P07",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "move \"C:/proj/report.txt\" to: \"C:/archive\" on_conflict: error"
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "mv C:\\old C:\\new",
+      "status": "translated",
+      "rules": [
+        "P07",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "move \"C:/old\" to: \"C:/new\" on_conflict: error"
+    }
+  ]
+}

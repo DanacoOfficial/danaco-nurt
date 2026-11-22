@@ -1,0 +1,43 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b28-sudo.sh",
+  "summary": {
+    "statements": 2,
+    "translated": 0,
+    "assumption": 0,
+    "impossible": 2,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "sudo rm /etc/app.conf",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "`sudo` is not translated; privileges are not raised, and the program runs with the privileges of the console (privilege_elevation)",
+      "fix": [
+        "remove \"/etc/app.conf\" on_missing: error"
+      ]
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "sudo systemctl restart nginx",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "`sudo` is not translated; privileges are not raised, and the program runs with the privileges of the console (privilege_elevation)",
+      "fix": [
+        "services name: \"nginx\"\n|> restart"
+      ]
+    }
+  ],
+  "fallback": "run [\"bash\", \"b28-sudo.sh\"]"
+}

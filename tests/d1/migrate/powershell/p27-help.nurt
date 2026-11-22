@@ -1,0 +1,12 @@
+# Source: p27-help.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 3; with assumptions: 0; impossible: 0; errors: 0.
+
+# P27: Get-Command, Get-Help and Get-Member.
+# translated: P27
+program.find "git"
+# translated: P27
+help "Get-ChildItem"
+# translated: P12, L19, P27
+info "C:/a.txt"
+|> describe

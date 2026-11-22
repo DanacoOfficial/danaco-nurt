@@ -1,0 +1,16 @@
+# Source: b22-two-effects.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 1; with assumptions: 1; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B22: two effects joined with && and with ;.
+# translated: B05, L21, B04
+create "/srv/out" type: directory
+copy "/srv/a.txt" to: "/srv/out" preserve: false
+# translated: B01, L21
+# assumption: the script stops at the first error; bash continues after `;`
+# assumption: the script stops on the first error; the shell runs a statement after `;` even when the previous one fails
+remove "/srv/a.txt" on_missing: error
+remove "/srv/b.txt" on_missing: error

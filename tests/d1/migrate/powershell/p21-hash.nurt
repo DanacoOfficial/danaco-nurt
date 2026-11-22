@@ -1,0 +1,9 @@
+# Source: p21-hash.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P21: Get-FileHash.
+# translated: P21, L19
+hash "C:/app.zip" algorithm: sha256
+# translated: P21, L19
+hash "C:/app.zip"

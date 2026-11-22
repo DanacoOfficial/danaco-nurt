@@ -1,0 +1,11 @@
+# Source: p36-output.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 3; with assumptions: 0; impossible: 0; errors: 0.
+
+# P36: Write-Output, Write-Host and a text statement.
+# translated: P36
+evaluate "done"
+# translated: P36
+evaluate "Build finished"
+# translated: P36
+evaluate "plain text"

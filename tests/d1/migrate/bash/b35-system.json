@@ -1,0 +1,123 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b35-system.sh",
+  "summary": {
+    "statements": 9,
+    "translated": 9,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "ps aux",
+      "status": "translated",
+      "rules": [
+        "B35"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "processes"
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "df -h",
+      "status": "translated",
+      "rules": [
+        "B35"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "disks"
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "ss -ltnp",
+      "status": "translated",
+      "rules": [
+        "B35"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "ports protocol: tcp"
+    },
+    {
+      "line": 8,
+      "column": 1,
+      "source": "env",
+      "status": "translated",
+      "rules": [
+        "B35"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "environment"
+    },
+    {
+      "line": 9,
+      "column": 1,
+      "source": "uname -a",
+      "status": "translated",
+      "rules": [
+        "B35"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "host"
+    },
+    {
+      "line": 10,
+      "column": 1,
+      "source": "whoami",
+      "status": "translated",
+      "rules": [
+        "B35"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "host"
+    },
+    {
+      "line": 11,
+      "column": 1,
+      "source": "which git",
+      "status": "translated",
+      "rules": [
+        "B35"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "program.find \"git\""
+    },
+    {
+      "line": 12,
+      "column": 1,
+      "source": "command -v docker",
+      "status": "translated",
+      "rules": [
+        "B35"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "program.find \"docker\""
+    },
+    {
+      "line": 13,
+      "column": 1,
+      "source": "lsof /srv/app/data.db",
+      "status": "translated",
+      "rules": [
+        "B35",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "open_files \"/srv/app/data.db\""
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+# Source: b24-pipe.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 3; with assumptions: 0; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B24: pipelines of translatable commands.
+# translated: B10, L21, B15, B24
+lines "/var/log/app.log"
+|> search /ERROR/
+# translated: B13, L21, B12, B24
+list "/srv/app" hidden: false
+|> count
+# translated: B14, L21, B11, B24
+find "/srv" glob: "**/*.log" type: any
+|> first 5

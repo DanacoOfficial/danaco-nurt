@@ -1,0 +1,9 @@
+# Source: p10-rename.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P10: Rename-Item and its aliases.
+# translated: P10, L19
+rename path: "C:/out/a.txt" to: "b.txt"
+# translated: P10, L19
+rename path: "C:/out/c.txt" to: "d.txt"

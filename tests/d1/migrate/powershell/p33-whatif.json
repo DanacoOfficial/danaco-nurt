@@ -1,0 +1,29 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p33-whatif.ps1",
+  "summary": {
+    "statements": 1,
+    "translated": 0,
+    "assumption": 0,
+    "impossible": 1,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Remove-Item C:\\tmp\\cache -Recurse -WhatIf",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "a preview of a single statement has no equivalent in a script; run the program with the invocation parameter preview set to true",
+      "fix": [
+        "remove \"C:/tmp/cache\""
+      ]
+    }
+  ],
+  "fallback": "run [\"pwsh\", \"p33-whatif.ps1\"]"
+}

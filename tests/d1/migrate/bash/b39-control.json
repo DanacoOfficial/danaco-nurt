@@ -1,0 +1,88 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b39-control.sh",
+  "summary": {
+    "statements": 6,
+    "translated": 1,
+    "assumption": 0,
+    "impossible": 5,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "for f in /srv/logs/*.log; do gzip \"$f\"; done",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "loop",
+      "problem": "loops have no equivalent; a pattern or a pipeline over records replaces a loop",
+      "fix": []
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "while true; do sleep 5; done",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "loop",
+      "problem": "loops have no equivalent; a pattern or a pipeline over records replaces a loop",
+      "fix": []
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "if [ -f /srv/app/.ready ]; then echo ready; fi",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "condition",
+      "problem": "conditional statements have no equivalent; assert checks a precondition",
+      "fix": []
+    },
+    {
+      "line": 8,
+      "column": 1,
+      "source": "case \"$1\" in start) echo start;; stop) echo stop;; esac",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "condition",
+      "problem": "conditional statements have no equivalent; assert checks a precondition",
+      "fix": []
+    },
+    {
+      "line": 9,
+      "column": 1,
+      "source": "deploy() { rsync -a /srv/app/ /srv/www/; }",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "function",
+      "problem": "definitions of functions and types have no equivalent",
+      "fix": []
+    },
+    {
+      "line": 10,
+      "column": 1,
+      "source": "cat > /srv/app/motd <<EOF2\nMaintenance at 22:00.\nEOF2",
+      "status": "translated",
+      "rules": [
+        "B39",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "write \"/srv/app/motd\" \"Maintenance at 22:00.\\n\" mode: overwrite"
+    }
+  ],
+  "fallback": "run [\"bash\", \"b39-control.sh\"]"
+}

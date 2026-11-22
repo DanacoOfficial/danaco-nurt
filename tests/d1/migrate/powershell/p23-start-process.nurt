@@ -1,0 +1,10 @@
+# Source: p23-start-process.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 1; with assumptions: 1; impossible: 0; errors: 0.
+
+# P23: Start-Process with a list and with a text of arguments.
+# translated: P23, L19
+run ["git", "status", "--short"] cwd: "C:/proj" wait: forever
+# translated: P23
+# assumption: the argument text is split at white space; PowerShell passes it to the program as one command line
+run ["git", "status", "--short"] wait: forever

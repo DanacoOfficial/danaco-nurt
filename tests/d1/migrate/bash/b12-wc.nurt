@@ -1,0 +1,17 @@
+# Source: b12-wc.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 2; with assumptions: 0; impossible: 1; errors: 0.
+# Untranslated statements run unchanged with: run ["bash", "b12-wc.sh"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B12: wc of lines, words and bytes.
+# translated: B12, L21
+lines "/srv/app/data.csv"
+|> count
+# untranslated: E_UNCORRECTABLE: wc -w /srv/notes.txt
+#   problem: flag `-w` of `wc` has no equivalent; parameters of `count`:  (flag_without_equivalent)
+# translated: B12, L21
+info "/srv/notes.txt"
+|> select size

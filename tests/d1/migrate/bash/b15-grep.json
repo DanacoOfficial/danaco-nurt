@@ -1,0 +1,94 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b15-grep.sh",
+  "summary": {
+    "statements": 6,
+    "translated": 5,
+    "assumption": 1,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "grep -rn \"oldName(\" /srv/app/src",
+      "status": "assumption",
+      "rules": [
+        "B15",
+        "L21"
+      ],
+      "assumptions": [
+        "the pattern is read as literal text"
+      ],
+      "fix": [],
+      "output": "search \"oldName(\" \"/srv/app/src\""
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "grep -i error /var/log/app.log",
+      "status": "translated",
+      "rules": [
+        "B15",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "search /error/ \"/var/log/app.log\" case_sensitive: false"
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "grep -rl --include='*.go' \"func main\" /srv/app",
+      "status": "translated",
+      "rules": [
+        "B15",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "search /func main/ \"/srv/app\" output: files glob: \"**/*.go\""
+    },
+    {
+      "line": 8,
+      "column": 1,
+      "source": "grep -c \"GET /\" /var/log/nginx/access.log",
+      "status": "translated",
+      "rules": [
+        "B15",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "search /GET \\// \"/var/log/nginx/access.log\" output: counts"
+    },
+    {
+      "line": 9,
+      "column": 1,
+      "source": "grep -vE '^#|^$' /etc/app.conf",
+      "status": "translated",
+      "rules": [
+        "B15",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "search /^#|^$/ \"/etc/app.conf\" invert: true"
+    },
+    {
+      "line": 10,
+      "column": 1,
+      "source": "grep -w -C 2 timeout /etc/app.conf",
+      "status": "translated",
+      "rules": [
+        "B15",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "search /timeout/ \"/etc/app.conf\" whole_word: true context: 2"
+    }
+  ]
+}

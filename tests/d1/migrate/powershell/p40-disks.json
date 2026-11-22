@@ -1,0 +1,38 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p40-disks.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Get-Volume",
+      "status": "translated",
+      "rules": [
+        "P40"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "disks"
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Get-Disk",
+      "status": "translated",
+      "rules": [
+        "P40"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "disks"
+    }
+  ]
+}

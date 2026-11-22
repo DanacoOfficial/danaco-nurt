@@ -1,0 +1,9 @@
+# Source: p39-cim.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P39: Get-CimInstance.
+# translated: P39
+windows.cim "Win32_OperatingSystem"
+# translated: P39
+windows.cim "Win32_LogicalDisk" where: "DriveType=3"

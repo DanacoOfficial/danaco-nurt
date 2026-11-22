@@ -1,0 +1,111 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b40-services.sh",
+  "summary": {
+    "statements": 8,
+    "translated": 7,
+    "assumption": 0,
+    "impossible": 1,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "crontab -e",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "`crontab -e` opens an interactive editor; create the schedule with `schedule.create` (interactive_edit)",
+      "fix": []
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "systemctl restart nginx",
+      "status": "translated",
+      "rules": [
+        "B40"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "services name: \"nginx\"\n|> restart"
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "systemctl enable app",
+      "status": "translated",
+      "rules": [
+        "B40"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "services name: \"app\"\n|> enable"
+    },
+    {
+      "line": 8,
+      "column": 1,
+      "source": "service cron restart",
+      "status": "translated",
+      "rules": [
+        "B40"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "services name: \"cron\"\n|> restart"
+    },
+    {
+      "line": 9,
+      "column": 1,
+      "source": "apt install -y jq",
+      "status": "translated",
+      "rules": [
+        "B40"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "package.install [\"jq\"] manager: apt"
+    },
+    {
+      "line": 10,
+      "column": 1,
+      "source": "brew install jq",
+      "status": "translated",
+      "rules": [
+        "B40"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "package.install [\"jq\"] manager: brew"
+    },
+    {
+      "line": 11,
+      "column": 1,
+      "source": "date",
+      "status": "translated",
+      "rules": [
+        "B40"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "evaluate now()"
+    },
+    {
+      "line": 12,
+      "column": 1,
+      "source": "sleep 5",
+      "status": "translated",
+      "rules": [
+        "B40"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "sleep 5s"
+    }
+  ],
+  "fallback": "run [\"bash\", \"b40-services.sh\"]"
+}

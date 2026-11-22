@@ -1,0 +1,18 @@
+# Source: p16-select-object.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 5; translated: 5; with assumptions: 0; impossible: 0; errors: 0.
+
+# P16: Select-Object first, last, skip, properties and unique.
+# translated: P22, P16
+processes |> first 5
+# translated: P01, L19, P16
+list "C:/logs" hidden: false
+|> select name size
+# translated: P03, L19, P16
+lines "C:/a.txt"
+# translated: P03, L19, P16
+lines "C:/a.txt"
+|> last 3
+# translated: P03, L19, P16
+lines "C:/a.txt"
+|> skip 2

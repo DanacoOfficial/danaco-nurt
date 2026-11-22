@@ -1,0 +1,117 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "mixed-cleanup.ps1",
+  "summary": {
+    "statements": 8,
+    "translated": 1,
+    "assumption": 0,
+    "impossible": 7,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "$old = Get-ChildItem C:\\logs -Recurse -Filter *.log | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) }",
+      "status": "translated",
+      "rules": [
+        "P32",
+        "P02",
+        "L19",
+        "P15"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "let old = find \"C:/logs\" glob: \"**/*.log\" type: any hidden: false\n|> filter modified < ago(30d)"
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "foreach ($file in $old) { Compress-Archive -Path $file.FullName -DestinationPath \"$($file.FullName).zip\" }",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "loop",
+      "problem": "loops have no equivalent; a pattern or a pipeline over records replaces a loop",
+      "fix": []
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "$old | Remove-Item -WhatIf",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "a preview of a single statement has no equivalent in a script; run the program with the invocation parameter preview set to true",
+      "fix": [
+        "@old |> remove"
+      ]
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "source": "function Write-Log { param($Message) Add-Content C:\\logs\\cleanup.log $Message }",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "function",
+      "problem": "definitions of functions and types have no equivalent",
+      "fix": []
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "Set-Location C:\\logs",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "current_directory",
+      "problem": "no current directory; paths are absolute or relative to the call parameter base (no_current_directory)",
+      "fix": []
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "Remove-Item .\\tmp -Recurse; Write-Host \"cleaned\"",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_PATH_RELATIVE",
+      "reason": "current_directory",
+      "problem": "relative path without the call parameter base; write an absolute path or set base",
+      "fix": []
+    },
+    {
+      "line": 8,
+      "column": 1,
+      "source": "Invoke-Expression $extraCommand",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "eval",
+      "problem": "evaluation of text as code has no equivalent",
+      "fix": []
+    },
+    {
+      "line": 9,
+      "column": 1,
+      "source": "if (Test-Path C:\\logs\\lock) { exit 1 }",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "condition",
+      "problem": "conditional statements have no equivalent; assert checks a precondition",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"pwsh\", \"mixed-cleanup.ps1\"]",
+  "base": "C:\\logs"
+}

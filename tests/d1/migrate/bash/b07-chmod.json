@@ -1,0 +1,40 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b07-chmod.sh",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "chmod 755 /srv/app/bin/run.sh",
+      "status": "translated",
+      "rules": [
+        "B07",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "attributes \"/srv/app/bin/run.sh\" mode: \"755\""
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "chmod -R 640 /srv/app/conf",
+      "status": "translated",
+      "rules": [
+        "B07",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "attributes \"/srv/app/conf\" mode: \"640\" recursive: true"
+    }
+  ]
+}

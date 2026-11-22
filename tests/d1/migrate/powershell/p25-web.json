@@ -1,0 +1,63 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p25-web.ps1",
+  "summary": {
+    "statements": 4,
+    "translated": 4,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Invoke-WebRequest -Uri https://example.com/app.zip -OutFile C:\\tmp\\app.zip",
+      "status": "translated",
+      "rules": [
+        "P25",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "http.download \"https://example.com/app.zip\" \"C:/tmp/app.zip\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "iwr https://example.com -Method Head",
+      "status": "translated",
+      "rules": [
+        "P25"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "http.request \"https://example.com\" method: head"
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "Invoke-RestMethod -Uri https://api.example.com/items -Method Post -Body '{\"a\":1}'",
+      "status": "translated",
+      "rules": [
+        "P25"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "http.request \"https://api.example.com/items\" method: post body: r#\"{\"a\":1}\"#\n|> select body"
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "source": "irm https://api.example.com/items",
+      "status": "translated",
+      "rules": [
+        "P25"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "http.request \"https://api.example.com/items\"\n|> select body"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+# Source: b09-link.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B09: symbolic and hard links.
+# translated: B09, L21
+create "/srv/app/current" type: link target: "/srv/app/releases/1.4"
+# translated: B09, L21
+create "/srv/data/a-link.db" type: link target: "/srv/data/a.db" hard: true
