@@ -2982,10 +2982,10 @@ mod tests {
             assert_eq!(handle.targets[0].mode, expected);
             assert_eq!(env.read(&path), b"new");
             assert_eq!(env.read(&env.blob(0, 1, 0, BlobRole::Previous)), b"old");
-            use std::os::unix::fs::MetadataExt;
+            use crate::store::test_support::file_ino;
             assert_eq!(
-                std::fs::metadata(path.as_path()).unwrap().ino(),
-                inode.ino()
+                file_ino(&std::fs::metadata(path.as_path()).unwrap()),
+                file_ino(&inode)
             );
             assert!(env.manifest(0, 1).targets[0].in_place);
         }
@@ -3269,11 +3269,7 @@ mod tests {
         let env = Env::new();
         let created = env.fixture.fs.path("vol-a/new.txt");
         let meta = env.file("vol-a/meta.txt", b"m");
-        std::fs::set_permissions(
-            meta.as_path(),
-            std::os::unix::fs::PermissionsExt::from_mode(0o644),
-        )
-        .unwrap();
+        crate::store::test_support::set_path_mode(meta.as_path(), 0o644).unwrap();
         let from = env.file("vol-a/from.txt", b"from");
         let to = env.file("vol-a/to.txt", b"to");
         let mut tx = begin(&env.ctx, request("mixed"));
