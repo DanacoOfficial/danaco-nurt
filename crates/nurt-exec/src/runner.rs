@@ -19,8 +19,9 @@ use nurt_contracts::value::Value;
 use crate::effect::{ProgramSource, apply_effect};
 use crate::eval::ExprBinding;
 use crate::flow::{
-    at_step, effect_interface, guard_kinds, read_interface, resolve, step_of, tag_output,
+    Selection, at_step, execute_split, guard_kinds, read_interface, resolve, step_of, tag_output,
 };
+use crate::grouped::plan_effect;
 use crate::outcome::ResultData;
 
 /// Runs the pipeline arguments of stages, such as the check pipeline of
@@ -110,20 +111,27 @@ impl SubpipelineRunner {
             .binding
             .bind(stage, ctx.clock())
             .map_err(|error| at_step(error, step))?;
-        let (implementation, input) =
-            resolve(&self.registry, &stage.name, input).map_err(|error| at_step(error, step))?;
         let max = ctx.limits().max_records;
+        let selection = resolve(&self.registry, &stage.name, input, None, max)
+            .map_err(|error| at_step(error, step))?;
         if !stage.phase.is_effect() {
-            let read = read_interface(&implementation, &stage.name)?;
-            let input = guard_kinds(input, &stage.name, &implementation.descriptor().input);
-            let output = read
-                .execute(&args, input, &stage_ctx)
-                .map_err(|error| at_step(error, step))?;
-            return ResultData::collect(tag_output(output, step, &stage_ctx), max);
+            return match selection {
+                Selection::One(implementation, input) => {
+                    let read = read_interface(&implementation, &stage.name)?;
+                    let input = guard_kinds(input, &stage.name, &implementation.descriptor().input);
+                    let output = read
+                        .execute(&args, input, &stage_ctx)
+                        .map_err(|error| at_step(error, step))?;
+                    ResultData::collect(tag_output(output, step, &stage_ctx), max)
+                }
+                Selection::Split(split) => {
+                    let output = execute_split(split, &stage.name, &args, &stage_ctx, max)
+                        .map_err(|error| at_step(error, step))?;
+                    ResultData::collect(tag_output(output, step, &stage_ctx), max)
+                }
+            };
         }
-        let effect = effect_interface(&implementation, &stage.name)?;
-        let plan = effect
-            .plan(&args, input, &stage_ctx)
+        let (effect, plan) = plan_effect(selection, &stage.name, &args, &stage_ctx)
             .map_err(|error| at_step(error, ExecStep::Plan))?;
         if ctx.options().preview == Some(true) {
             return Ok(ResultData::from_records(plan.preview));
@@ -146,7 +154,7 @@ impl SubpipelineRunner {
             step: ExecStep::Apply,
             ..frame
         });
-        apply_effect(effect, &args, plan, journal, request, &apply_ctx)
+        apply_effect(&effect, &args, plan, journal, request, &apply_ctx)
             .map(|applied| applied.records)
     }
 

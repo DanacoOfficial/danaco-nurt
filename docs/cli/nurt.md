@@ -115,7 +115,7 @@ On a terminal the session offers a history kept in the state directory, completi
 | `kill [id]` | Cancel a job; the newest job without `id`. |
 | `exit`, `quit` | End the session. |
 
-Ctrl-C at the prompt discards the line; Ctrl-D ends the session. The exit code is that of the last program that ran.
+Ctrl-C while a program runs cancels it and returns to the prompt; the program reports `E_CANCELLED` and the session continues. Ctrl-C at the prompt discards the line; Ctrl-D ends the session. The exit code is that of the last program that ran.
 
 Example:
 

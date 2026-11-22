@@ -9,8 +9,11 @@
 //! the check without effect and the catalog queries of the engine all read
 //! the registry built here.
 
+use std::sync::Arc;
+
 use nurt_catalog::Registry;
 use nurt_contracts::error::Error;
+use nurt_contracts::stage::StageImpl;
 
 /// Builds the registry of this build: the embedded command catalog and the
 /// stage implementations compiled into the build.
@@ -35,8 +38,22 @@ use nurt_contracts::error::Error;
 /// # Ok::<(), nurt_contracts::error::Error>(())
 /// ```
 pub fn standard_registry() -> Result<Registry, Error> {
+    standard_registry_with(&[])
+}
+
+/// Builds the registry of this build with further stage implementations.
+///
+/// # Errors
+///
+/// Returns the errors of [`standard_registry`], and `E_CATALOG` when an
+/// implementation names a command that is not in the catalog or overlaps
+/// another implementation of its command.
+pub fn standard_registry_with(extra: &[Arc<dyn StageImpl>]) -> Result<Registry, Error> {
     let mut registry = Registry::load_embedded()?;
     nurt_exec::stages::register(&mut registry)?;
+    for stage in extra {
+        registry.register_impl(Arc::clone(stage))?;
+    }
     Ok(registry)
 }
 

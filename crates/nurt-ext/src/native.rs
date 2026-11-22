@@ -296,4 +296,100 @@ mod tests {
         assert!(decode("acme.lint", 0, b"[]").is_err());
         assert!(decode("acme.lint", 0, b"{}").is_err());
     }
+
+    #[cfg(unix)]
+    mod loaded {
+        use std::sync::Arc;
+
+        use nurt_contracts::error::ErrorCode;
+        use nurt_testkit::ctx::TestContext;
+        use serde_json::Value;
+
+        use super::super::{FreeFn, NativeExtension, RunFn};
+        use crate::manifest::Permissions;
+        use crate::policy::{PathPolicy, PlaceholderRoots};
+        use crate::stage::{ExtRuntime, GuestCall};
+
+        const OK_RESPONSE: &[u8] = br#"{"records":[{"kind":"item","fields":{}}]}"#;
+        const ERROR_RESPONSE: &[u8] = br#"{"error":"boom"}"#;
+
+        unsafe fn respond(body: &[u8], response: *mut *mut u8, length: *mut usize) {
+            let boxed: Box<[u8]> = body.into();
+            let size = boxed.len();
+            // SAFETY: the caller passes valid out pointers.
+            unsafe {
+                *response = Box::into_raw(boxed).cast::<u8>();
+                *length = size;
+            }
+        }
+
+        unsafe extern "C" fn echo_run(
+            request: *const u8,
+            request_len: usize,
+            response: *mut *mut u8,
+            length: *mut usize,
+        ) -> i32 {
+            // SAFETY: the host passes a buffer valid for `request_len` bytes.
+            let bytes = unsafe { std::slice::from_raw_parts(request, request_len) };
+            let parsed: Value = serde_json::from_slice(bytes).unwrap_or(Value::Null);
+            let command = parsed.get("command").and_then(Value::as_str);
+            let body = match command {
+                Some("acme.fail") => ERROR_RESPONSE,
+                Some("acme.silent") => return 0,
+                Some(_) => OK_RESPONSE,
+                None => b"not json",
+            };
+            // SAFETY: the out pointers come from the host.
+            unsafe { respond(body, response, length) };
+            if command == Some("acme.fail") { 1 } else { 0 }
+        }
+
+        unsafe extern "C" fn release(response: *mut u8, length: usize) {
+            // SAFETY: the buffer was produced by `respond` with this length.
+            drop(unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(response, length)) });
+        }
+
+        fn loaded() -> NativeExtension {
+            let run: RunFn = echo_run;
+            let free: FreeFn = release;
+            NativeExtension {
+                name: "acme".to_owned(),
+                run,
+                free,
+                _library: libloading::os::unix::Library::this().into(),
+            }
+        }
+
+        fn call(command: &str) -> nurt_contracts::error::Result<crate::stage::GuestOutput> {
+            let policy = PathPolicy::new(
+                "acme",
+                &Permissions::default(),
+                &PlaceholderRoots::default(),
+            );
+            let context = TestContext::new();
+            loaded().run(
+                GuestCall {
+                    command,
+                    args: r#"{"path":"/x"}"#.to_owned(),
+                    input: vec![r#"{"kind":"item","fields":{}}"#.to_owned(), "x".to_owned()],
+                    policy: &policy,
+                    writes: false,
+                },
+                &context.ctx(),
+            )
+        }
+
+        #[test]
+        fn responses_of_the_library_become_records_and_errors() {
+            let output = call("acme.list").unwrap();
+            assert_eq!(output.records, [r#"{"kind":"item","fields":{}}"#]);
+            assert!(output.writes.is_empty());
+            let failed = call("acme.fail").unwrap_err();
+            assert_eq!(failed.code(), ErrorCode::StageFailed);
+            assert!(failed.message.contains("boom"));
+            assert!(call("acme.silent").is_err());
+            assert_eq!(Arc::new(loaded()).name, "acme");
+            assert!(format!("{:?}", loaded()).starts_with("NativeExtension"));
+        }
+    }
 }

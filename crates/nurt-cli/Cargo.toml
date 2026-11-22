@@ -44,6 +44,7 @@ nurt-service = { workspace = true, optional = true }
 nurt-journal = { workspace = true, optional = true }
 ciborium = { workspace = true }
 comfy-table = { workspace = true }
+ctrlc = { workspace = true }
 reedline = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

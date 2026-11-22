@@ -18,10 +18,11 @@ use nurt_contracts::journal::{
 };
 use nurt_contracts::record::Change;
 use nurt_contracts::report::{Correction, IrreversibleEntry, NotableEntry};
-use nurt_contracts::stage::{BoundArgs, EffectOutcome, EffectPlan, EffectStage, ExecCtx, ExecStep};
+use nurt_contracts::stage::{BoundArgs, EffectOutcome, EffectPlan, ExecCtx, ExecStep};
 use serde_json::json;
 
 use crate::flow::at_step;
+use crate::grouped::Effect;
 use crate::outcome::{ChangeFacts, ResultData};
 
 /// Text that replaces the value of a secret parameter in the program stored
@@ -125,7 +126,7 @@ impl ProgramSource<'_> {
 /// the transaction back; a rollback that leaves targets unrestored is
 /// `E_ROLLBACK_FAILED` with the targets in the detail `failed`.
 pub(crate) fn apply_effect(
-    effect: &dyn EffectStage,
+    effect: &Effect,
     args: &BoundArgs,
     plan: EffectPlan,
     journal: &dyn JournalStore,

@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use nurt_contracts::error::{Error, Result};
+use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::FileKind;
 use nurt_contracts::journal::{OpHandle, UndoOutcome};
 use nurt_contracts::record::Change;
@@ -14,6 +14,7 @@ use nurt_contracts::stage::{
     EffectPlan, ExecStep, RecordStream, RenderHint, StageData, StageInput, StageOutput, StreamOrder,
 };
 use nurt_contracts::value::{Instant, Record, Value};
+use serde_json::json;
 
 /// Result of [`crate::Executor::run`].
 ///
@@ -145,6 +146,42 @@ pub struct ResultData {
     pub render: Option<RenderHint>,
 }
 
+/// Number of records of `partial_read` in the error of a failed stage.
+const PARTIAL_READ_SAMPLE: usize = 10;
+/// Name of the error detail with the records read before a failure.
+const PARTIAL_READ: &str = "partial_read";
+
+/// Collects a stream within `max` records. The error of a failed stage
+/// carries the records read before the failure as the detail `partial_read`:
+/// the number read and a sample of the first records.
+fn collect_records(stream: RecordStream<'_>, max: u64) -> Result<Vec<Record>> {
+    let mut records = Vec::new();
+    for item in stream {
+        match item {
+            Ok(_) if u64::try_from(records.len()).unwrap_or(u64::MAX) >= max => {
+                return Err(Error::new(
+                    ErrorCode::Limit,
+                    format!("the stream holds more than {max} records"),
+                ));
+            }
+            Ok(record) => records.push(record),
+            Err(error) => return Err(with_partial_read(error, &records)),
+        }
+    }
+    Ok(records)
+}
+
+fn with_partial_read(error: Error, records: &[Record]) -> Error {
+    if error.code() != ErrorCode::StageFailed || error.details.contains_key(PARTIAL_READ) {
+        return error;
+    }
+    let sample: Vec<&Record> = records.iter().take(PARTIAL_READ_SAMPLE).collect();
+    error.with_detail(
+        PARTIAL_READ,
+        json!({ "count": records.len(), "records": sample }),
+    )
+}
+
 impl ResultData {
     /// Result consisting of records.
     #[must_use]
@@ -201,7 +238,7 @@ impl ResultData {
             render,
         } = input;
         let (records, value) = match data {
-            StageData::Records(stream) => (stream.collect_bounded(max)?, None),
+            StageData::Records(stream) => (collect_records(stream, max)?, None),
             StageData::Value(value) => (Vec::new(), Some(value)),
             _ => (Vec::new(), None),
         };

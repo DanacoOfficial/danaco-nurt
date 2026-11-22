@@ -10,7 +10,7 @@
 //! is `exec.started` and the last one `exec.finished`.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use nurt_contracts::env::{Clock, WallTime};
 use nurt_contracts::report::ReportStatus;
@@ -95,6 +95,8 @@ pub(crate) struct Sequencer {
     clock: Arc<dyn Clock>,
     request_id: String,
     seq: AtomicU64,
+    started: AtomicBool,
+    finished: AtomicBool,
 }
 
 impl Sequencer {
@@ -108,11 +110,24 @@ impl Sequencer {
             clock,
             request_id,
             seq: AtomicU64::new(0),
+            started: AtomicBool::new(false),
+            finished: AtomicBool::new(false),
         }
     }
 
     pub(crate) fn lifecycle(&self, lifecycle: Lifecycle) {
         self.deliver(EventBody::Lifecycle(lifecycle));
+    }
+
+    /// Completes the sequence: delivers `exec.started` and `exec.finished`
+    /// unless the executor has delivered them.
+    pub(crate) fn close(&self, status: ReportStatus) {
+        if !self.started.swap(true, Ordering::SeqCst) {
+            self.lifecycle(Lifecycle::Started);
+        }
+        if !self.finished.swap(true, Ordering::SeqCst) {
+            self.lifecycle(Lifecycle::Finished { status });
+        }
     }
 
     fn deliver(&self, body: EventBody) {
@@ -128,6 +143,11 @@ impl Sequencer {
 
 impl EventSink for Sequencer {
     fn emit(&self, event: Event) {
+        match &event {
+            Event::ExecStarted(_) => self.started.store(true, Ordering::SeqCst),
+            Event::ExecFinished(_) => self.finished.store(true, Ordering::SeqCst),
+            _ => {}
+        }
         self.deliver(EventBody::Stage(event));
     }
 }
@@ -136,7 +156,8 @@ impl EventSink for Sequencer {
 mod tests {
     use std::sync::Mutex;
 
-    use nurt_contracts::stage::{LogEvent, LogLevel};
+    use nurt_contracts::kinds::EffectKind;
+    use nurt_contracts::stage::{ExecFinished, ExecStarted, LogEvent, LogLevel};
     use nurt_testkit::clock::VirtualClock;
 
     use super::*;
@@ -155,15 +176,12 @@ mod tests {
         let listener = Arc::new(Collect::default());
         let clock = Arc::new(VirtualClock::new());
         let sequencer = Sequencer::new(listener.clone(), clock.clone(), "r7".to_owned());
-        sequencer.lifecycle(Lifecycle::Started);
         sequencer.emit(Event::Log(LogEvent {
             level: LogLevel::Info,
             message: "scanning".to_owned(),
             source: None,
         }));
-        sequencer.lifecycle(Lifecycle::Finished {
-            status: ReportStatus::Ok,
-        });
+        sequencer.close(ReportStatus::Ok);
         let events = listener.0.lock().unwrap().clone();
         let seqs: Vec<u64> = events.iter().map(|event| event.seq).collect();
         assert_eq!(seqs, vec![1, 2, 3]);
@@ -173,9 +191,30 @@ mod tests {
             .iter()
             .map(|event| serde_json::to_value(event).unwrap())
             .collect();
-        assert_eq!(json[1]["t"], "log");
-        assert_eq!(json[1]["message"], "scanning");
+        assert_eq!(json[0]["t"], "log");
+        assert_eq!(json[0]["message"], "scanning");
+        assert_eq!(json[1]["t"], "exec.started");
         assert_eq!(json[2]["t"], "exec.finished");
         assert_eq!(json[2]["status"], "ok");
+    }
+
+    #[test]
+    fn events_of_the_executor_are_not_repeated() {
+        let listener = Arc::new(Collect::default());
+        let sequencer = Sequencer::new(
+            listener.clone(),
+            Arc::new(VirtualClock::new()),
+            "r1".to_owned(),
+        );
+        sequencer.emit(Event::ExecStarted(ExecStarted {
+            ast_hash: None,
+            effect: EffectKind::Read,
+        }));
+        sequencer.emit(Event::ExecFinished(ExecFinished {
+            status: ReportStatus::Ok,
+            error: None,
+        }));
+        sequencer.close(ReportStatus::Ok);
+        assert_eq!(listener.0.lock().unwrap().len(), 2);
     }
 }

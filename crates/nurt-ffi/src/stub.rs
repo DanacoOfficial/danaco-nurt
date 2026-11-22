@@ -40,24 +40,31 @@
 //! matching case fails with `NURT_E_INTERNAL`, and `nurt_last_error` names
 //! the key.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write as _;
 use std::fs;
+use std::panic::{self, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
+use std::thread;
 use std::time::Duration;
 
 use nurt_contracts::envelope::{Request, Response};
 use nurt_contracts::error::{AbiStatus, Error, ErrorCode, Stage};
-use nurt_contracts::stage::{CancelToken, Event, EventSink};
+use nurt_contracts::report::ReportStatus;
+use nurt_contracts::stage::{CancelReason, CancelToken, Event};
+use nurt_core::{DeliveredEvent, EventBody, EventListener, Lifecycle};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-use crate::backend::{Backend, Function, OutputKind, RunOutcome};
+use crate::backend::{Backend, Function, OutputKind, Run};
+use crate::boundary::{caught_panic, lock};
 use crate::error::{CallError, NurtStatus};
-use crate::response;
+use crate::{response, system};
 
 /// Variable naming the case directory.
 pub const CASES_DIR_VAR: &str = "NURT_STUB_DIR";
@@ -281,7 +288,17 @@ impl Case {
             .with_detail("case", self.name.as_str()))
     }
 
-    fn cancelled_response(&self) -> Vec<u8> {
+    fn response(&self) -> Result<Response, CallError> {
+        let value = self.output.first().cloned().unwrap_or(Value::Null);
+        serde_json::from_value(value).map_err(|error| {
+            CallError::internal(format!(
+                "the stub case `{}` has no valid response: {error}",
+                self.name
+            ))
+        })
+    }
+
+    fn cancelled_response(&self) -> Response {
         let kind = self
             .output
             .first()
@@ -391,7 +408,8 @@ impl Catalog {
 
 /// Engine replaced by the cases of a [`Catalog`].
 pub(crate) struct StubBackend {
-    catalog: Catalog,
+    catalog: Arc<Catalog>,
+    requests: AtomicU64,
 }
 
 impl StubBackend {
@@ -401,67 +419,190 @@ impl StubBackend {
         let _ = config;
         let dir = cases_dir();
         Catalog::load(&dir)
-            .map(|catalog| Self { catalog })
+            .map(|catalog| Self {
+                catalog: Arc::new(catalog),
+                requests: AtomicU64::new(0),
+            })
             .map_err(|error| {
                 CallError::new(NurtStatus::Io, error.to_string())
                     .with_detail("path", error.path.display().to_string())
             })
     }
+}
 
-    fn find(&self, function: Function, input: &Value) -> Result<&Case, CallError> {
-        let case = self.catalog.lookup(function, input).ok_or_else(|| {
-            CallError::internal(format!(
-                "no stub case answers this call of `{}`",
-                function.name()
-            ))
-            .with_detail("key", case_key(function, input))
-            .with_detail("input", input.clone())
-        })?;
-        case.answer()?;
-        Ok(case)
+/// Case answering a call, after its requested failure or panic.
+fn find<'a>(
+    catalog: &'a Catalog,
+    function: Function,
+    input: &Value,
+) -> Result<&'a Case, CallError> {
+    let case = catalog.lookup(function, input).ok_or_else(|| {
+        CallError::internal(format!(
+            "no stub case answers this call of `{}`",
+            function.name()
+        ))
+        .with_detail("key", case_key(function, input))
+        .with_detail("input", input.clone())
+    })?;
+    case.answer()?;
+    Ok(case)
+}
+
+/// Answers a request envelope. A request that breaks a rule of the envelope
+/// gets the language error `E_ARG`; any other request gets the response of
+/// its case after the events and the delay of the case. Cancellation stops
+/// the events and ends the delay with an `E_CANCELLED` response.
+fn answer(
+    catalog: &Catalog,
+    request: &Request,
+    emit: &dyn Fn(Event),
+    cancel: &CancelToken,
+) -> Result<Response, CallError> {
+    if let Err(violation) = request.validate() {
+        return Ok(response::envelope_rule(&violation));
+    }
+    let input = serde_json::to_value(request).map_err(|error| {
+        CallError::internal(format!("cannot serialise the request envelope: {error}"))
+    })?;
+    let case = find(catalog, Function::Run, &input)?;
+    for event in &case.events {
+        if cancel.is_cancelled() {
+            break;
+        }
+        emit(event.clone());
+    }
+    if cancel
+        .wait_timeout(Duration::from_millis(case.delay_ms))
+        .is_some()
+    {
+        return Ok(case.cancelled_response());
+    }
+    case.response()
+}
+
+/// Execution of the test double, answered on a thread of its own.
+struct StubRun {
+    request_id: String,
+    cancel: CancelToken,
+    result: Mutex<Option<Result<Response, CallError>>>,
+    ready: Condvar,
+}
+
+impl StubRun {
+    fn complete(&self, result: Result<Response, CallError>) {
+        *lock(&self.result) = Some(result);
+        self.ready.notify_all();
+    }
+}
+
+impl Run for StubRun {
+    fn request_id(&self) -> &str {
+        &self.request_id
+    }
+
+    fn cancel(&self) {
+        self.cancel.cancel(CancelReason::Requested);
+    }
+
+    fn result(&self, timeout: Option<Duration>) -> Option<Result<Response, CallError>> {
+        let pending = |result: &mut Option<Result<Response, CallError>>| result.is_none();
+        let guard = lock(&self.result);
+        let guard = match timeout {
+            None => self
+                .ready
+                .wait_while(guard, pending)
+                .unwrap_or_else(PoisonError::into_inner),
+            Some(timeout) => {
+                self.ready
+                    .wait_timeout_while(guard, timeout, pending)
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .0
+            }
+        };
+        guard.clone()
+    }
+}
+
+/// Numbers the events of one execution of the test double, as the engine
+/// does.
+struct Sequence {
+    listener: Arc<dyn EventListener>,
+    request_id: String,
+    seq: Cell<u64>,
+}
+
+impl Sequence {
+    fn deliver(&self, body: EventBody) {
+        let seq = self.seq.get() + 1;
+        self.seq.set(seq);
+        self.listener.deliver(DeliveredEvent {
+            seq,
+            time: system::now(),
+            request_id: self.request_id.clone(),
+            body,
+        });
     }
 }
 
 impl Backend for StubBackend {
     fn call(&self, function: Function, input: &Value) -> Result<Vec<Vec<u8>>, CallError> {
-        self.find(function, input).map(Case::outputs)
+        find(&self.catalog, function, input).map(Case::outputs)
     }
 
-    fn run(
+    fn run(&self, request: &Request) -> Result<Response, CallError> {
+        answer(&self.catalog, request, &|_| {}, &CancelToken::new())
+    }
+
+    fn start(
         &self,
-        request: &Value,
-        events: &dyn EventSink,
-        cancel: &CancelToken,
-    ) -> Result<RunOutcome, CallError> {
-        let case = self.find(Function::Run, request)?;
-        for event in &case.events {
-            if cancel.is_cancelled() {
-                break;
-            }
-            events.emit(event.clone());
-        }
-        if cancel
-            .wait_timeout(Duration::from_millis(case.delay_ms))
-            .is_some()
-        {
-            return Ok(RunOutcome {
-                response: case.cancelled_response(),
-                cancelled: true,
-            });
-        }
-        Ok(RunOutcome {
-            response: case.outputs().into_iter().next().unwrap_or_default(),
-            cancelled: false,
-        })
+        request: &Request,
+        listener: Arc<dyn EventListener>,
+    ) -> Result<Arc<dyn Run>, CallError> {
+        let number = self.requests.fetch_add(1, Ordering::Relaxed) + 1;
+        let run = Arc::new(StubRun {
+            request_id: format!("r{number}"),
+            cancel: CancelToken::new(),
+            result: Mutex::new(None),
+            ready: Condvar::new(),
+        });
+        let sequence = Sequence {
+            listener,
+            request_id: run.request_id.clone(),
+            seq: Cell::new(0),
+        };
+        let catalog = Arc::clone(&self.catalog);
+        let request = request.clone();
+        let running = Arc::clone(&run);
+        thread::Builder::new()
+            .name("nurt-stub".to_owned())
+            .spawn(move || {
+                sequence.deliver(EventBody::Lifecycle(Lifecycle::Started));
+                let emit = |event: Event| sequence.deliver(EventBody::Stage(event));
+                let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                    answer(&catalog, &request, &emit, &running.cancel)
+                }))
+                .unwrap_or_else(|payload| Err(caught_panic("an execution", payload.as_ref())));
+                let status = result
+                    .as_ref()
+                    .map_or(ReportStatus::Failed, |response| response.report.status);
+                sequence.deliver(EventBody::Lifecycle(Lifecycle::Finished { status }));
+                running.complete(result);
+            })
+            .map_err(|error| {
+                CallError::internal(format!("cannot start a thread of the execution: {error}"))
+            })?;
+        Ok(run)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::sync::Arc;
+    use std::time::Duration;
 
-    use nurt_contracts::envelope::Response;
-    use nurt_contracts::stage::{CancelToken, DiscardEvents};
+    use nurt_contracts::envelope::Request;
+    use nurt_core::{DeliveredEvent, EventListener};
     use serde_json::json;
 
     use super::{Catalog, Function, StubBackend, case_key, cases_dir, normalize_input};
@@ -553,21 +694,34 @@ mod tests {
         );
     }
 
+    struct Discard;
+
+    impl EventListener for Discard {
+        fn deliver(&self, _event: DeliveredEvent) {}
+    }
+
     #[test]
     fn cancelled_run_reports_e_cancelled_with_the_kind_of_the_case() {
         let backend = StubBackend::open(&serde_json::Value::Null).unwrap();
-        let input = normalize_input(
-            Function::Run,
-            json!({"nurt": "1.0", "program": "find \"/srv/archive\""}),
-        )
-        .unwrap();
-        let cancel = CancelToken::new();
-        cancel.cancel(nurt_contracts::stage::CancelReason::Requested);
-        let outcome = backend.run(&input, &DiscardEvents, &cancel).unwrap();
-        assert!(outcome.cancelled);
-        let response: Response = serde_json::from_slice(&outcome.response).unwrap();
+        let request: Request =
+            serde_json::from_value(json!({"nurt": "1.0", "program": "find \"/srv/archive\""}))
+                .unwrap();
+        let run = backend.start(&request, Arc::new(Discard)).unwrap();
+        run.cancel();
+        let response = run.result(None).unwrap().unwrap();
         response.validate().unwrap();
         assert_eq!(response.report.kind, "find");
         assert_eq!(response.report.error.unwrap().code.as_str(), "E_CANCELLED");
+        assert_eq!(run.request_id(), "r1");
+        assert!(run.result(Some(Duration::ZERO)).is_some());
+    }
+
+    #[test]
+    fn requests_breaking_an_envelope_rule_get_e_arg() {
+        let backend = StubBackend::open(&serde_json::Value::Null).unwrap();
+        let mut request = Request::program("find \"/srv/app\"");
+        request.cursor = Some("c_91fe".to_owned());
+        let response = backend.run(&request).unwrap();
+        assert_eq!(response.report.error.unwrap().code.as_str(), "E_ARG");
     }
 }

@@ -911,3 +911,33 @@ impl CheckArea<'_> {
         self.scope
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::{CheckArea, FsContract};
+    use crate::clock::VirtualClock;
+    use crate::vfs::{VirtualFs, test_path};
+
+    #[test]
+    fn check_area_exposes_its_directory_file_system_and_scope() {
+        let fs = VirtualFs::new(Arc::new(VirtualClock::new()));
+        let dir = test_path("/area").unwrap();
+        let scope = FsContract::scope();
+        let area = CheckArea {
+            fs: &fs,
+            scope: &scope,
+            dir: dir.clone(),
+        };
+        assert_eq!(area.dir(), &dir);
+        assert!(
+            area.fs()
+                .metadata(&dir, nurt_contracts::fs::Follow::Follow)
+                .is_err()
+        );
+        assert!(std::ptr::eq(area.scope(), &scope));
+        assert!(format!("{area:?}").starts_with("CheckArea"));
+        assert!(format!("{:?}", FsContract::new(&fs, dir, &scope)).starts_with("FsContract"));
+    }
+}

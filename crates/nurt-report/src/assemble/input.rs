@@ -3,6 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Changes and directories given to the report builder.
 
+use nurt_contracts::fs::FileKind;
 use nurt_contracts::report::Change;
 
 use crate::rules::is_fs_path;
@@ -20,6 +21,19 @@ pub enum EntryKind {
     Link,
     /// A target outside the file system, for example `service:nginx`.
     Other,
+}
+
+impl From<FileKind> for EntryKind {
+    /// Maps the kind reported by the journal: devices, pipes and sockets
+    /// count as [`EntryKind::Other`].
+    fn from(kind: FileKind) -> Self {
+        match kind {
+            FileKind::File => Self::File,
+            FileKind::Directory => Self::Directory,
+            FileKind::Symlink | FileKind::Junction => Self::Link,
+            _ => Self::Other,
+        }
+    }
 }
 
 impl EntryKind {
@@ -82,6 +96,20 @@ impl TargetChange {
     #[must_use]
     pub fn directory(change: Change) -> Self {
         Self::new(change, EntryKind::Directory)
+    }
+
+    /// A change with the facts reported by the executor: the kind of the
+    /// entry as recorded by the journal (inferred from the path when absent)
+    /// and whether the change replaced an existing entry.
+    #[must_use]
+    pub fn observed(change: Change, entry: Option<FileKind>, replaced_existing: bool) -> Self {
+        let entry = entry.map_or_else(|| EntryKind::infer(change.path.as_str()), EntryKind::from);
+        Self {
+            change,
+            entry,
+            replaced_existing,
+            entries_inside: None,
+        }
     }
 
     /// Marks the change as one that replaced an existing file.

@@ -231,3 +231,129 @@ fn report(error: &CliError, io: &mut Io<'_>) -> u8 {
     }
     code
 }
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::error::ErrorCode;
+
+    use super::*;
+
+    fn failed(error: &CliError, stderr_is_terminal: bool) -> (u8, String) {
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        let mut input: &[u8] = b"";
+        let mut io = Io {
+            out: &mut out,
+            err: &mut err,
+            input: &mut input,
+            terminal: Terminal {
+                stdin: false,
+                stdout: false,
+                stderr: stderr_is_terminal,
+            },
+        };
+        let code = report(error, &mut io);
+        assert!(out.is_empty());
+        (code, String::from_utf8(err).unwrap())
+    }
+
+    #[test]
+    fn interactive_terminal_needs_input_and_output() {
+        let both = Terminal {
+            stdin: true,
+            stdout: true,
+            stderr: false,
+        };
+        assert!(both.is_interactive());
+        assert!(
+            !Terminal {
+                stdout: false,
+                ..both
+            }
+            .is_interactive()
+        );
+        assert!(
+            !Terminal {
+                stdin: false,
+                ..both
+            }
+            .is_interactive()
+        );
+        assert!(!Terminal::default().is_interactive());
+    }
+
+    #[test]
+    fn usage_error_names_the_help_option() {
+        let (code, text) = failed(&CliError::Usage("bad option".to_owned()), false);
+        assert_eq!(code, exit::USAGE);
+        assert_eq!(text, "nurt: bad option\nrun 'nurt --help' for usage\n");
+    }
+
+    #[test]
+    fn unavailable_error_names_the_subcommand() {
+        let (code, text) = failed(&CliError::Unavailable("lsp".to_owned()), false);
+        assert_eq!(code, exit::UNAVAILABLE);
+        assert_eq!(text, "nurt: lsp is not available in this build\n");
+    }
+
+    #[test]
+    fn failure_error_is_reported_with_the_failure_code() {
+        let (code, text) = failed(&CliError::Failure("disk full".to_owned()), false);
+        assert_eq!(code, exit::FAILURE);
+        assert_eq!(text, "nurt: disk full\n");
+    }
+
+    #[test]
+    fn language_error_prints_the_message_and_the_fix() {
+        let error = Error::new(ErrorCode::UnknownCommand, "unknown command `remvoe`")
+            .with_fix("remove \"/tmp/a\"");
+        let (code, text) = failed(&CliError::from(error), false);
+        assert_eq!(code, exit::for_error_code(ErrorCode::UnknownCommand));
+        assert!(text.contains("unknown command `remvoe`"));
+        assert!(text.ends_with("fix: remove \"/tmp/a\"\n"));
+    }
+
+    #[test]
+    fn io_error_becomes_a_failure_naming_the_output() {
+        let error = CliError::from(io::Error::other("closed"));
+        assert_eq!(
+            error,
+            CliError::Failure("cannot write the output: closed".to_owned())
+        );
+    }
+
+    #[test]
+    fn engine_error_becomes_a_language_error() {
+        let error = EngineError::argument("no engine");
+        assert!(matches!(CliError::from(error), CliError::Language(_)));
+    }
+
+    #[test]
+    fn report_stops_at_a_broken_error_stream() {
+        struct Closed;
+        impl Write for Closed {
+            fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+                Err(io::Error::other("closed"))
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        let (mut out, mut err) = (Vec::new(), Closed);
+        let mut input: &[u8] = b"";
+        let mut io = Io {
+            out: &mut out,
+            err: &mut err,
+            input: &mut input,
+            terminal: Terminal::default(),
+        };
+        assert_eq!(
+            report(&CliError::Failure("x".to_owned()), &mut io),
+            exit::FAILURE
+        );
+    }
+
+    #[test]
+    fn system_engine_reports_a_host() {
+        assert!(SystemEngine.host().env_var("NURT_UNSET_VARIABLE").is_none());
+    }
+}

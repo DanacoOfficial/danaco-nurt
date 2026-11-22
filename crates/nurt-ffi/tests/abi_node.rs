@@ -1,12 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Interface test in Node: `tests/abi/node/addon.c` is compiled with `clang`
+//! Interface tests in Node: `tests/abi/node/addon.c` is compiled with `clang`
 //! into a Node-API module against the headers of the installed Node and
-//! loaded by `tests/abi/node/abi_test.js`. The test is skipped when `node`,
-//! its headers or `clang` are missing.
+//! loaded by `tests/abi/node/abi_test.js` (feature `stub`) or
+//! `tests/abi/node/engine_test.js` (engine of `nurt-core`). The tests are
+//! skipped when `node`, its headers or `clang` are missing.
 
-#![cfg(all(feature = "stub", unix))]
+#![cfg(unix)]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -31,17 +32,13 @@ fn node_headers(node: &Path) -> Option<PathBuf> {
     headers.join("node_api.h").is_file().then_some(headers)
 }
 
-#[test]
-fn node_module_passes_the_status_matrix_and_interface_checks() {
-    let (Some(node), Some(clang)) = (common::find_program("node"), common::find_program("clang"))
-    else {
-        return;
-    };
-    let Some(headers) = node_headers(&node) else {
-        return;
-    };
-    let work = tempfile::tempdir().unwrap();
-    let module = work.path().join("nurt_abi.node");
+/// Compiles the Node-API module into `work`; `None` when `node`, its
+/// headers or `clang` are missing.
+fn build_module(work: &Path) -> Option<(PathBuf, PathBuf)> {
+    let node = common::find_program("node")?;
+    let clang = common::find_program("clang")?;
+    let headers = node_headers(&node)?;
+    let module = work.join("nurt_abi.node");
     let dir = common::manifest_dir().join("tests/abi/node");
     let mut flags = vec![
         "-shared",
@@ -55,12 +52,35 @@ fn node_module_passes_the_status_matrix_and_interface_checks() {
     let include = format!("-I{}", headers.display());
     flags.push(&include);
     common::compile_c(&clang, &[dir.join("addon.c")], &module, &flags);
+    Some((node, module))
+}
+
+#[cfg(feature = "stub")]
+#[test]
+fn node_module_passes_the_status_matrix_and_interface_checks() {
+    let work = tempfile::tempdir().unwrap();
+    let Some((node, module)) = build_module(work.path()) else {
+        return;
+    };
+    let script = common::manifest_dir().join("tests/abi/node/abi_test.js");
     let output = common::run(
         Command::new(node)
-            .arg(dir.join("abi_test.js"))
+            .arg(script)
             .arg(&module)
             .env_remove("NURT_STUB_DIR")
             .env_remove("NURT_STUB_PANIC"),
     );
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ok");
+}
+
+#[cfg(not(feature = "stub"))]
+#[test]
+fn node_module_passes_the_interface_checks_on_the_engine() {
+    let work = tempfile::tempdir().unwrap();
+    let Some((node, module)) = build_module(work.path()) else {
+        return;
+    };
+    let script = common::manifest_dir().join("tests/abi/node/engine_test.js");
+    let output = common::run_isolated(Command::new(node).arg(script).arg(&module), work.path());
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ok");
 }

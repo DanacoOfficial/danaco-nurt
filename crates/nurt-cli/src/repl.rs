@@ -10,14 +10,17 @@
 //!
 //! Besides programs the session understands `help`, `jobs`, `bg <program>`,
 //! `fg [id]`, `kill [id]` and `exit`.
+//!
+//! Ctrl-C while a program runs cancels that program and returns to the
+//! prompt; the session continues. At the prompt Ctrl-C discards the line.
 
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
-use nurt_contracts::envelope::{OutputFormat, Request, Response};
-use nurt_contracts::error::{Error, ErrorCode};
-use nurt_contracts::report::{Report, ReportStatus};
+use nurt_contracts::envelope::{OutputFormat, Request};
 use nurt_core::{DeliveredEvent, Engine, EventListener, ExecHandle};
 use reedline::{
     Color, ColumnarMenu, CompletionResult, DefaultPrompt, DefaultPromptSegment, Emacs,
@@ -36,6 +39,8 @@ use crate::text;
 const HISTORY_LINES: usize = 1000;
 /// Name of the history file in the state directory.
 const HISTORY_FILE: &str = "history.txt";
+/// Interval at which a running program is checked for an interrupt.
+const INTERRUPT_POLL: Duration = Duration::from_millis(50);
 /// Name of the completion menu of the line editor.
 const MENU_NAME: &str = "completion_menu";
 /// Prompt of the session.
@@ -78,6 +83,48 @@ impl LineSource for PlainLines<'_> {
             Ok(0) | Err(_) => Input::End,
             Ok(_) => Input::Line(line.trim_end_matches(['\n', '\r']).to_owned()),
         }
+    }
+}
+
+/// Interrupt event of the session: set by the Ctrl-C handler, read by the
+/// session while a program runs.
+#[derive(Debug, Clone, Default)]
+pub struct Interrupt {
+    raised: Arc<AtomicBool>,
+}
+
+impl Interrupt {
+    /// Creates an interrupt that is not raised.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Raises the interrupt.
+    pub fn raise(&self) {
+        self.raised.store(true, Ordering::SeqCst);
+    }
+
+    /// Whether the interrupt is raised and not yet taken.
+    #[must_use]
+    pub fn is_raised(&self) -> bool {
+        self.raised.load(Ordering::SeqCst)
+    }
+
+    /// Clears the interrupt and returns whether it was raised.
+    pub fn take(&self) -> bool {
+        self.raised.swap(false, Ordering::SeqCst)
+    }
+
+    /// Raises this interrupt on every Ctrl-C of the process.
+    ///
+    /// # Errors
+    ///
+    /// Returns the message of the problem when the process already has a
+    /// Ctrl-C handler or the handler cannot be installed.
+    pub fn install_handler(&self) -> Result<(), String> {
+        let interrupt = self.clone();
+        ctrlc::set_handler(move || interrupt.raise()).map_err(|error| error.to_string())
     }
 }
 
@@ -204,20 +251,12 @@ pub struct Session<'a> {
     jobs: Vec<Job>,
     next_job: u32,
     last: u8,
+    interrupt: Interrupt,
 }
 
 enum Flow {
     Continue,
     Exit,
-}
-
-fn lost_response() -> Response {
-    let mut report = Report::new(ReportStatus::Failed, "program");
-    report.error = Some(Error::new(
-        ErrorCode::Internal,
-        "the program did not finish",
-    ));
-    Response::new(report)
 }
 
 fn split_word(line: &str) -> (&str, &str) {
@@ -237,7 +276,16 @@ impl<'a> Session<'a> {
             jobs: Vec::new(),
             next_job: 1,
             last: exit::SUCCESS,
+            interrupt: Interrupt::new(),
         }
+    }
+
+    /// Uses `interrupt` as the event that cancels the program in the
+    /// foreground.
+    #[must_use]
+    pub fn with_interrupt(mut self, interrupt: Interrupt) -> Self {
+        self.interrupt = interrupt;
+        self
     }
 
     /// Exit code of the last program that ran.
@@ -293,12 +341,20 @@ impl<'a> Session<'a> {
     }
 
     fn start(&self, program: &str) -> ExecHandle {
+        self.interrupt.take();
         self.engine
             .start(&Request::program(program), Arc::new(Discard))
     }
 
     fn finish(&mut self, handle: &ExecHandle, out: &mut dyn Write) -> io::Result<()> {
-        let response = handle.wait(None).unwrap_or_else(lost_response);
+        let response = loop {
+            if self.interrupt.take() {
+                handle.cancel();
+            }
+            if let Some(response) = handle.wait(Some(INTERRUPT_POLL)) {
+                break response;
+            }
+        };
         let text = output::render(&response, OutputFormat::Text, self.style);
         writeln!(out, "{text}")?;
         self.last = exit::for_report(&response.report);
@@ -418,9 +474,14 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resul
         input,
         terminal,
     } = io;
-    let mut session = Session::new(&context.engine, context.out_style);
+    let interrupt = Interrupt::new();
+    let mut session =
+        Session::new(&context.engine, context.out_style).with_interrupt(interrupt.clone());
     if let Some(banner) = banner_for(*terminal) {
         writeln!(out, "{banner}")?;
+        if let Err(problem) = interrupt.install_handler() {
+            let _ = writeln!(err, "nurt: Ctrl-C does not cancel programs: {problem}");
+        }
         let vocabulary = Vocabulary::from_engine(&context.engine);
         let mut editor = match context.engine.state_dir() {
             Some(state) => EditorLines::new(&vocabulary, state.root().join(HISTORY_FILE))
@@ -436,4 +497,71 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resul
         session.run(&mut PlainLines::new(*input), *out, *err)?;
     }
     Ok(session.last_exit_code())
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn vocabulary() -> Vocabulary {
+        Vocabulary::from_documents(&[json!({
+            "format": "nurt-catalog-result/1",
+            "commands": [{"name": "find", "params": [{"name": "path"}]}]
+        })])
+    }
+
+    #[test]
+    fn interrupt_is_taken_once() {
+        let interrupt = Interrupt::new();
+        assert!(!interrupt.take());
+        interrupt.raise();
+        assert!(interrupt.is_raised());
+        assert!(interrupt.take());
+        assert!(!interrupt.is_raised());
+        assert!(!interrupt.take());
+    }
+
+    #[test]
+    fn interrupt_clones_share_the_event() {
+        let interrupt = Interrupt::new();
+        interrupt.clone().raise();
+        assert!(interrupt.take());
+    }
+
+    #[test]
+    fn handler_is_installed_once_per_process() {
+        let interrupt = Interrupt::new();
+        assert!(interrupt.install_handler().is_ok());
+        assert!(interrupt.install_handler().is_err());
+    }
+
+    #[test]
+    fn completer_replaces_the_word_before_the_cursor() {
+        let mut completer = Suggestions(vocabulary());
+        let found = reedline::Completer::complete(&mut completer, "fi", 2);
+        let values: Vec<String> = found
+            .suggestions()
+            .iter()
+            .map(|s| s.value.clone())
+            .collect();
+        assert_eq!(values, vec!["find".to_owned()]);
+    }
+
+    #[test]
+    fn highlighter_styles_every_part_of_the_line() {
+        let highlighter = Coloured(vocabulary());
+        let styled = highlighter.highlight("find path: \"/srv\" | find", 0);
+        assert_eq!(styled.raw_string(), "find path: \"/srv\" | find");
+        assert!(styled.buffer.len() > 4);
+    }
+
+    #[test]
+    fn editor_is_created_with_and_without_a_history_file() {
+        let temp = tempfile::tempdir().unwrap();
+        assert!(EditorLines::new(&vocabulary(), temp.path().join(HISTORY_FILE)).is_ok());
+        let _ = EditorLines::without_history(&vocabulary());
+        assert!(EditorLines::new(&vocabulary(), temp.path().to_path_buf()).is_err());
+    }
 }

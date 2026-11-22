@@ -10,11 +10,13 @@ use nurt_catalog::Registry;
 use nurt_contracts::bound::Phase;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::stage::{
-    EffectStage, ExecCtx, ExecStep, InputKinds, ReadStage, RecordStream, StageData, StageImpl,
-    StageInput, StageOutput,
+    BoundArgs, EffectStage, ExecCtx, ExecStep, InputKinds, ReadStage, RecordStream, StageData,
+    StageImpl, StageInput, StageOutput,
 };
 use nurt_contracts::value::{Record, RecordKind};
 use serde_json::json;
+
+use crate::outcome::ResultData;
 
 /// Sets the step of an error that has none.
 pub(crate) fn at_step(error: Error, step: ExecStep) -> Error {
@@ -61,17 +63,70 @@ pub(crate) fn effect_interface<'a>(
         .ok_or_else(|| internal(format!("`{command}` has no effect implementation")))
 }
 
+/// Implementations selected for the input of a stage.
+pub(crate) enum Selection<'a> {
+    /// One implementation serves the whole input.
+    One(Arc<dyn StageImpl>, StageInput<'a>),
+    /// The input holds records of kinds served by different implementations.
+    Split(Split),
+}
+
+/// Records of one input split by the implementation that serves their kind.
+pub(crate) struct Split {
+    groups: Vec<Group>,
+    header: Option<Record>,
+}
+
+struct Group {
+    implementation: Arc<dyn StageImpl>,
+    records: Vec<Record>,
+}
+
+impl Split {
+    /// The implementations in order of the first record of their kinds, each
+    /// with the records it serves.
+    pub(crate) fn into_inputs(self) -> Vec<(Arc<dyn StageImpl>, StageInput<'static>)> {
+        let Self { groups, header } = self;
+        groups
+            .into_iter()
+            .map(|group| {
+                let input = StageInput {
+                    data: StageData::Records(RecordStream::from_records(group.records)),
+                    header: header.clone(),
+                    order: None,
+                    render: None,
+                };
+                (group.implementation, input)
+            })
+            .collect()
+    }
+}
+
+/// Whether more than one implementation of `command` is registered, so that
+/// the implementation depends on the kind of the record.
+fn is_polymorphic(registry: &Registry, command: &str) -> bool {
+    registry.implementations(command).nth(1).is_some()
+}
+
 /// Selects the implementation of `command` for its input.
 ///
 /// A stage without input uses the source implementation. For a record
 /// stream the first record is read to learn its kind and put back in front
 /// of the stream; an empty stream or a single value uses the first
 /// registered implementation of the command.
+///
+/// A command with several implementations reads its input (at most `limit`
+/// records when the rest of the pipeline needs no more, and within `max`
+/// records) and splits it by the implementation that serves the kind of each
+/// record; the groups keep the order of the first record of their kinds and
+/// the order of records within a group.
 pub(crate) fn resolve<'a>(
     registry: &Registry,
     command: &str,
     input: StageInput<'a>,
-) -> Result<(Arc<dyn StageImpl>, StageInput<'a>)> {
+    limit: Option<u64>,
+    max: u64,
+) -> Result<Selection<'a>> {
     let StageInput {
         data,
         header,
@@ -80,6 +135,37 @@ pub(crate) fn resolve<'a>(
     } = input;
     let (implementation, data) = match data {
         StageData::None => (registry.resolve_source(command)?, StageData::None),
+        StageData::Records(stream) if is_polymorphic(registry, command) => {
+            let stream = match limit.map(usize::try_from) {
+                Some(Ok(count)) => RecordStream::new(stream.take(count)),
+                _ => stream,
+            };
+            let mut groups =
+                split_by_implementation(registry, command, stream.collect_bounded(max)?)?;
+            if groups.len() > 1 {
+                return Ok(Selection::Split(Split { groups, header }));
+            }
+            return Ok(match groups.pop() {
+                Some(group) => Selection::One(
+                    group.implementation,
+                    StageInput {
+                        data: StageData::Records(RecordStream::from_records(group.records)),
+                        header,
+                        order,
+                        render,
+                    },
+                ),
+                None => Selection::One(
+                    resolve_any(registry, command)?,
+                    StageInput {
+                        data: StageData::Records(RecordStream::empty()),
+                        header,
+                        order,
+                        render,
+                    },
+                ),
+            });
+        }
         StageData::Records(mut stream) => match stream.next() {
             Some(Ok(first)) => {
                 let found = registry.resolve(command, first.kind)?;
@@ -94,7 +180,7 @@ pub(crate) fn resolve<'a>(
         },
         other => (resolve_any(registry, command)?, other),
     };
-    Ok((
+    Ok(Selection::One(
         implementation,
         StageInput {
             data,
@@ -103,6 +189,76 @@ pub(crate) fn resolve<'a>(
             render,
         },
     ))
+}
+
+fn split_by_implementation(
+    registry: &Registry,
+    command: &str,
+    records: Vec<Record>,
+) -> Result<Vec<Group>> {
+    let mut groups: Vec<Group> = Vec::new();
+    let mut slots: Vec<(RecordKind, usize)> = Vec::new();
+    for record in records {
+        let known = slots.iter().find(|(kind, _)| *kind == record.kind);
+        let slot = match known {
+            Some((_, slot)) => *slot,
+            None => {
+                let found = registry.resolve(command, record.kind)?;
+                let slot = match groups
+                    .iter()
+                    .position(|group| Arc::ptr_eq(&group.implementation, &found))
+                {
+                    Some(slot) => slot,
+                    None => {
+                        groups.push(Group {
+                            implementation: found,
+                            records: Vec::new(),
+                        });
+                        groups.len() - 1
+                    }
+                };
+                slots.push((record.kind, slot));
+                slot
+            }
+        };
+        groups[slot].records.push(record);
+    }
+    Ok(groups)
+}
+
+/// Runs the read stage of every group on its records and joins the outputs
+/// in the order of the groups.
+///
+/// Every group output is collected within `max` records. A stage that
+/// answers with a single value cannot be joined with the output of another
+/// implementation.
+pub(crate) fn execute_split(
+    split: Split,
+    command: &str,
+    args: &BoundArgs,
+    ctx: &ExecCtx,
+    max: u64,
+) -> Result<StageOutput<'static>> {
+    let mut records = Vec::new();
+    let mut header = None;
+    for (implementation, input) in split.into_inputs() {
+        let read = read_interface(&implementation, command)?;
+        let output = read.execute(args, input, ctx)?;
+        let collected = ResultData::collect(output.into(), max)?;
+        if collected.value.is_some() {
+            return Err(Error::new(
+                ErrorCode::Type,
+                format!(
+                    "`{command}` answers with a single value for one kind of records; split the pipeline by record kind"
+                ),
+            ));
+        }
+        header = header.or(collected.header);
+        records.extend(collected.records);
+    }
+    let mut output = StageOutput::records(RecordStream::from_records(records));
+    output.header = header;
+    Ok(output)
 }
 
 fn resolve_any(registry: &Registry, command: &str) -> Result<Arc<dyn StageImpl>> {
