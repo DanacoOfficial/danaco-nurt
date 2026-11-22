@@ -53,9 +53,10 @@ First release.
 
 - The journal is active on volumes that keep a journal; changes on volumes held
   in memory, such as `tmpfs`, are reported as irreversible.
-- Only the Linux archive of the glibc target is built for this release. The
-  code for Windows and macOS exists, but it was neither built nor run; the
-  registry provider is available only on Windows.
+- This release has archives for Linux (glibc, x86-64) and Windows (MSVC,
+  x86-64). The Windows executable was run only under Wine, not on Windows, and
+  the registry provider is available only on Windows. The code for macOS exists,
+  but no macOS archive is built.
 - Native extensions are not available; extensions are WebAssembly modules.
 - The subcommand `journal` offers only `salvage`; the other journal operations
   are commands of the language.
