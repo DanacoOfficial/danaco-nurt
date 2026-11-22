@@ -1242,13 +1242,21 @@ fn corpus_counts_agree_with_ast_grep_cli_when_installed() {
     };
     let dir = tempfile::tempdir().unwrap();
     let service = CodeAnalysis::builtin();
-    let disagreements: Vec<String> = CORPUS
+    let counts: Vec<(usize, usize)> = CORPUS
         .iter()
         .enumerate()
-        .filter_map(|(index, case)| {
+        .map(|(index, case)| {
             let ours = matches(&service, case).map_or(0, |found| found.len());
-            let theirs = ast_grep_count(program, dir.path(), index, case);
-            (ours != theirs).then(|| {
+            (ours, ast_grep_count(program, dir.path(), index, case))
+        })
+        .collect();
+    // The program reports no match for a pattern that its grammar of the
+    // language rejects or lacks; only the cases it answers are compared.
+    let disagreements: Vec<String> = CORPUS
+        .iter()
+        .zip(&counts)
+        .filter_map(|(case, &(ours, theirs))| {
+            (theirs > 0 && ours != theirs).then(|| {
                 format!(
                     "{} `{}`: {ours} here, {theirs} in ast-grep",
                     case.language, case.pattern

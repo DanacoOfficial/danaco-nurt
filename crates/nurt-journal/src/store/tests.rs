@@ -422,7 +422,10 @@ fn status_and_limits_follow_the_retention_limits() {
     let unused = journal.status(Some(&path("/srv"))).unwrap();
     assert_eq!(unused.len(), 1);
     assert_eq!(unused[0].volume, path("/"));
-    assert_eq!((unused[0].entries_total, unused[0].entries_available), (0, 0));
+    assert_eq!(
+        (unused[0].entries_total, unused[0].entries_available),
+        (0, 0)
+    );
 
     let preview = journal.limits(&steps(2, true)).unwrap();
     assert!(!preview.applied);

@@ -4,7 +4,7 @@
 //! Connections to the components of other command groups.
 //!
 //! The crates of these components are optional dependencies, each linked by
-//! the Cargo feature named in [`COMPONENTS`]; the default build links none of
+//! the Cargo feature named in [`COMPONENTS`]; the default build links all of
 //! them. A subcommand whose component is not connected ends with the error
 //! "not available in this build" and exit code 3. [`unavailable`] is the only
 //! source of that error. The language front end is chosen by [`frontend`].
@@ -145,8 +145,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn components_without_an_interface_are_not_connected() {
-        assert!(!is_connected("journal"));
+    fn connected_subcommands_are_reported_as_connected() {
+        assert!(NOT_CONNECTED.is_empty());
+        assert!(is_connected("journal"));
         assert!(is_connected("check"));
     }
 
@@ -159,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    fn default_build_links_no_optional_crate() {
+    fn build_links_the_optional_crates_of_its_features() {
         let linked: Vec<&str> = COMPONENTS
             .iter()
             .filter(|component| component.feature.is_some() && component.linked)
@@ -179,8 +180,8 @@ mod tests {
     }
 
     #[test]
-    fn components_report_the_error_of_an_unavailable_subcommand() {
-        let error = run("journal", &[]).unwrap_err();
-        assert_eq!(error, CliError::Unavailable("journal".to_owned()));
+    fn names_without_a_component_are_unavailable() {
+        let error = run("unknown", &[]).unwrap_err();
+        assert_eq!(error, CliError::Unavailable("unknown".to_owned()));
     }
 }

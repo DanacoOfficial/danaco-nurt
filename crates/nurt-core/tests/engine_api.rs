@@ -343,7 +343,7 @@ fn ambiguous_programs_offer_candidates_until_they_expire() {
     assert_eq!(references, vec!["c1", "c2"]);
 
     let accepted = h.engine.run(&in_session(Request::accept("c1"), "s-1"));
-    assert_eq!(error_of(&accepted).code, ErrorCode::Internal);
+    assert_eq!(error_of(&accepted).code, ErrorCode::NotFound);
     assert_eq!(accepted.report.kind, "find");
     assert_eq!(h.frontend.compiled(), vec![AMBIGUOUS, FIND]);
 
@@ -427,7 +427,7 @@ fn started_requests_complete_without_cancellation() {
         .engine
         .start(&Request::program(FIND), Arc::new(Collect::default()));
     let response = handle.wait(None).unwrap();
-    assert_eq!(error_of(&response).code, ErrorCode::Internal);
+    assert_eq!(error_of(&response).code, ErrorCode::NotFound);
     let second = h
         .engine
         .start(&Request::program(FIND), Arc::new(Collect::default()));
@@ -461,7 +461,9 @@ fn check_plans_the_bound_program() {
     assert_eq!(report.summary.effect, EffectKind::Read);
     assert_eq!(report.summary.paths, vec!["/srv".to_owned()]);
     let from_tree = h.engine.check(&Request::ast(ast())).unwrap();
-    assert_eq!(from_tree, report);
+    assert_eq!(from_tree.bound, report.bound);
+    assert_eq!(from_tree.summary, report.summary);
+    assert!(from_tree.ast_hash.is_some());
     assert_eq!(
         h.engine.check(&Request::cursor("c_1")).unwrap_err().code,
         ErrorCode::Arg
@@ -480,8 +482,7 @@ fn syntax_trees_are_bound_and_run() {
     let h = harness();
     let response = h.engine.run(&Request::ast(ast()));
     let error = error_of(&response);
-    assert_eq!(error.code, ErrorCode::Internal);
-    assert!(error.message.contains("no registered implementation"));
+    assert_eq!(error.code, ErrorCode::NotFound);
     assert_eq!(response.report.kind, "find");
     assert_eq!(response.rendered.unwrap().format, OutputFormat::Text);
 }

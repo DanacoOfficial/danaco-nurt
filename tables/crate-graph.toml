@@ -157,9 +157,8 @@ deps = ["nurt-contracts", "nurt-types", "nurt-fs", "nurt-journal"]
 [crate.nurt-crashfs]
 layer = "library"
 area = "storage"
-reserved = true
 summary = "Crash harness: simulated file system that loses unsynchronised writes, fault injection, crash points."
-deps = ["nurt-contracts", "nurt-types", "nurt-fs", "nurt-journal"]
+deps = ["nurt-contracts", "nurt-types", "nurt-fs", "nurt-journal", "nurt-space"]
 
 [crate.nurt-report]
 layer = "library"
@@ -268,7 +267,7 @@ deps = ["nurt-contracts", "nurt-types", "nurt-text"]
 layer = "component"
 area = "files"
 summary = "File commands."
-deps = ["nurt-contracts", "nurt-types", "nurt-text", "nurt-archive"]
+deps = ["nurt-contracts", "nurt-types", "nurt-text", "nurt-archive", "nurt-notebook"]
 
 [crate.nurt-lspclient]
 layer = "component"
@@ -372,7 +371,7 @@ deps = ["nurt-contracts", "nurt-types", "nurt-fs", "nurt-journal", "nurt-space",
 layer = "interface"
 area = "runtime"
 summary = "C ABI of the library."
-deps = ["nurt-contracts", "nurt-core", "nurt-catalog"]
+deps = ["nurt-contracts", "nurt-core", "nurt-catalog", "nurt-testkit"]
 
 [crate.nurt-mcp]
 layer = "interface"
@@ -394,6 +393,11 @@ deps = [
   "nurt-service",
   "nurt-ffi",
   "nurt-journal",
+  "nurt-bind",
+  "nurt-catalog",
+  "nurt-ext",
+  "nurt-fs",
+  "nurt-help",
 ]
 
 [crate.nurt]
@@ -405,7 +409,6 @@ deps = ["nurt-contracts", "nurt-core", "nurt-cli"]
 [crate.nurt-node]
 layer = "interface"
 area = "integration"
-reserved = true
 summary = "Node.js addon of the library."
 deps = ["nurt-contracts", "nurt-core"]
 
