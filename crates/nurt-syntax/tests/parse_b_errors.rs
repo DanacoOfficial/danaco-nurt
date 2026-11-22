@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Syntax errors of the call notation (variant B) and their ready fixes.
 
-// Tests report failures by panicking.
+// A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use nurt_contracts::error::{At, Error, ErrorCode, ErrorData, Stage};
@@ -23,8 +23,16 @@ fn error(text: &str) -> ErrorData {
 fn assert_syntax_error(text: &str, at: At, fixes: &[&str]) -> ErrorData {
     let data = error(text);
     assert_eq!(data.code, ErrorCode::Syntax, "{text:?}: {data:?}");
-    assert_eq!(data.stage, Some(Stage::Parse), "{text:?}");
-    assert_eq!(data.at, Some(at), "{text:?}: {data:?}");
+    assert_eq!(
+        data.at.and_then(|at| at.stage),
+        Some(Stage::Parse),
+        "{text:?}"
+    );
+    assert_eq!(
+        data.at,
+        Some(at.with_stage(Stage::Parse)),
+        "{text:?}: {data:?}"
+    );
     assert_eq!(data.fix, fixes, "{text:?}");
     assert_eq!(data.help.as_deref(), Some("help syntax"), "{text:?}");
     assert!(data.found.is_some(), "{text:?}: found");
@@ -73,7 +81,7 @@ fn missing_parentheses_after_command_offers_empty_call() {
 fn missing_parentheses_before_arguments_has_no_fix() {
     let data = error("find \"/a\" glob: \"*.go\"");
     assert_eq!(data.code, ErrorCode::Syntax);
-    assert_eq!(data.at, Some(At::new(1, 1, 4)));
+    assert_eq!(data.at, Some(At::new(1, 1, 4).with_stage(Stage::Parse)));
     assert!(data.fix.is_empty(), "{:?}", data.fix);
 }
 
@@ -157,14 +165,14 @@ fn unclosed_parenthesis_at_end_offers_closing_parenthesis() {
 fn extra_closing_parenthesis_is_reported() {
     let data = error("count())");
     assert_eq!(data.code, ErrorCode::Syntax);
-    assert_eq!(data.at, Some(At::new(1, 8, 1)));
+    assert_eq!(data.at, Some(At::new(1, 8, 1).with_stage(Stage::Parse)));
 }
 
 #[test]
 fn two_statements_on_one_line_offer_line_break() {
     let data = error("history() journal.space()");
     assert_eq!(data.code, ErrorCode::Syntax);
-    assert_eq!(data.at, Some(At::new(1, 11, 7)));
+    assert_eq!(data.at, Some(At::new(1, 11, 7).with_stage(Stage::Parse)));
     assert_eq!(data.fix, ["history()\njournal.space()"]);
     assert_message_style(&data.message);
 }
@@ -173,7 +181,7 @@ fn two_statements_on_one_line_offer_line_break() {
 fn keyword_in_command_position_is_reported() {
     let data = error("find(\"/a\") |> not()");
     assert_eq!(data.code, ErrorCode::Syntax);
-    assert_eq!(data.at, Some(At::new(1, 15, 3)));
+    assert_eq!(data.at, Some(At::new(1, 15, 3).with_stage(Stage::Parse)));
     assert_message_style(&data.message);
 }
 
@@ -182,7 +190,7 @@ fn reference_after_pipe_is_reported() {
     let data = error("find(\"/a\") |> @x");
     assert_eq!(data.code, ErrorCode::Syntax);
     let at = data.at.unwrap();
-    assert_eq!((at.line, at.column), (1, 15));
+    assert_eq!((at.line, at.column), (Some(1), Some(15)));
 }
 
 #[test]

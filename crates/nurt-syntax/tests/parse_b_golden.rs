@@ -9,7 +9,7 @@
 //! notation, compared without spans and metadata, and has its recorded
 //! `ast_hash`.
 
-// Tests report failures by panicking.
+// A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::fs;

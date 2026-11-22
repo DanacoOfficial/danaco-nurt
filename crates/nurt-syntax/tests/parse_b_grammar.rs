@@ -4,7 +4,7 @@
 //! Grammar of the call notation (variant B): stages, argument lists, the
 //! meaning of `name(…)` by position and sub-pipelines as arguments.
 
-// Tests report failures by panicking.
+// A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use nurt_contracts::ast::strip_for_hash;
@@ -431,4 +431,17 @@ fn moderate_nesting_is_accepted() {
         value = value["args"][0]["value"]["p"]["head"].clone();
     }
     assert_eq!(value["name"], "a.b");
+}
+
+#[test]
+fn raw_text_is_read_in_every_argument_position() {
+    let tree = statements("write(r\"/a\", r#\"x\"y\"#, mode: r\"z\")");
+    let args = &tree[0]["head"]["args"];
+    assert_eq!(args[0]["value"], json!({"t": "text", "v": "/a"}));
+    assert_eq!(args[1]["value"], json!({"t": "text", "v": "x\"y"}));
+    assert_eq!(args[2]["value"], json!({"t": "text", "v": "z"}));
+    assert_eq!(
+        only_value("verify(run([r\"go\"], cwd: r\"/a\") |> count())")["p"]["head"]["args"][1]["value"],
+        json!({"t": "text", "v": "/a"})
+    );
 }

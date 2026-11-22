@@ -5,7 +5,7 @@
 //! input, and generated programs parse into the tree they were generated
 //! from, with nested and ordered spans.
 
-// Tests report failures by panicking.
+// A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use nurt_contracts::ast::strip_for_hash;
@@ -274,20 +274,20 @@ fn spanned_children<'a>(node: &'a Value, children: &mut Vec<&'a Value>) {
 
 fn spans_nested(node: &Value, outer: Option<(Position, Position)>) -> bool {
     let own = span_of(node);
-    if let (Some((start, end)), Some((outer_start, outer_end))) = (own, outer) {
-        if start < outer_start || outer_end < end || end < start {
-            return false;
-        }
+    if let (Some((start, end)), Some((outer_start, outer_end))) = (own, outer)
+        && (start < outer_start || outer_end < end || end < start)
+    {
+        return false;
     }
     let mut children = Vec::new();
     spanned_children(node, &mut children);
     let mut previous_end: Option<Position> = None;
     for child in children {
         let child_span = span_of(child);
-        if let (Some(end), Some((start, _))) = (previous_end, child_span) {
-            if start < end {
-                return false;
-            }
+        if let (Some(end), Some((start, _))) = (previous_end, child_span)
+            && start < end
+        {
+            return false;
         }
         previous_end = child_span.map(|(_, end)| end);
         if !spans_nested(child, own.or(outer)) {
