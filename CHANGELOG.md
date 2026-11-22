@@ -52,10 +52,17 @@ First release.
 - Dependency policy for `cargo-deny`, continuous integration on Linux, macOS
   and Windows, and a repository hygiene check.
 - The banner of an interactive session draws the name of the product with
-  characters; the cursor is a blinking underscore while a line is typed.
+  characters in silver and gold; the prompt is gold with a silver indicator and
+  the cursor is a blinking underscore while a line is typed. The highlighting of
+  a typed line uses gold for commands, silver for the pipe and cyan for strings.
+  A terminal that reports 24-bit colour shows exactly the colours of the mark,
+  any other terminal the nearest colours of the 256-colour palette.
+- The visual identity in `branding`: the mark of two chevrons turned by 180
+  degrees, the application icons, the favicon of the documentation site, the
+  lockups with the name, a render of the mark and the identity guidelines.
 - `nurt.exe` carries version information and a manifest with the execution
-  level `asInvoker`, long path support and the UTF-8 code page. The build
-  embeds an icon when the file `crates/nurt-cli/windows/nurt.ico` exists.
+  level `asInvoker`, long path support and the UTF-8 code page, and the icon
+  of the product (`crates/nurt-cli/windows/nurt.ico`).
 - `install.ps1` installs for the current user by default and for all users into
   `%ProgramFiles%\Nurt` with `NURT_SCOPE=machine` from a terminal that runs as
   administrator; it installs the documentation next to the executable.
@@ -75,7 +82,6 @@ First release.
   and the registry provider is available only on Windows. The code for macOS
   exists, but no macOS archive is built. `install.sh` takes the glibc archive of
   Linux because the release has no musl archive.
-- `nurt.exe` has no icon yet; the icon of the product is not designed.
 - Native extensions are not available; extensions are WebAssembly modules.
 - The subcommand `journal` offers only `salvage`; the other journal operations
   are commands of the language.
