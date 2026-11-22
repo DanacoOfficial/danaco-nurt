@@ -1,0 +1,25 @@
+# Git configuration with every value rule of the Git syntax
+[core]
+    bare
+    editor = "vim -f"   ; trailing comment
+    pager = less -R # note
+    autoCRLF = Input
+[Alias]
+    lg = log --graph \
+        --oneline
+    quoted = "say \"hi\" and \\ back"
+    tabbed = a\tb
+    newline = first\nsecond
+    inner = "a ; not comment" tail
+    spaced = one   two
+    empty =
+[remote "Origin"]
+    url = https://example.org/x.git
+    fetch = +refs/heads/*:refs/remotes/origin/*
+    fetch = +refs/tags/*:refs/tags/*
+[branch "feature/Q\"x"]
+    merge = refs/heads/q
+[section.SubName]
+    key = old style
+[core]
+    editor = nano

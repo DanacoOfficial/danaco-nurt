@@ -33,6 +33,9 @@ pub(crate) struct Map {
     /// Member names are compared without regard to ASCII case; an exact
     /// match takes precedence.
     pub(crate) fold_case: bool,
+    /// Case folding does not apply to members that are maps: they are
+    /// subsections whose names are case-sensitive.
+    pub(crate) exact_maps: bool,
     /// Format-defined identifiers of the constructs that form the map, for
     /// example the sections of an INI file that share a name.
     pub(crate) ids: Vec<usize>,
@@ -44,6 +47,7 @@ impl Map {
         Self {
             members: Vec::new(),
             fold_case,
+            exact_maps: false,
             ids: Vec::new(),
         }
     }
@@ -54,10 +58,19 @@ impl Map {
             .iter()
             .position(|(member, _)| member == name)
             .or_else(|| {
-                self.members
-                    .iter()
-                    .position(|(member, _)| self.fold_case && member.eq_ignore_ascii_case(name))
+                self.members.iter().position(|(member, node)| {
+                    self.fold_case
+                        && !(self.exact_maps && matches!(node, Node::Map(_)))
+                        && member.eq_ignore_ascii_case(name)
+                })
             })
+    }
+
+    /// Map that compares the names of its keys as `self` does but the names
+    /// of its map members exactly.
+    pub(crate) fn with_exact_maps(mut self) -> Self {
+        self.exact_maps = true;
+        self
     }
 
     /// Member named `name`.
@@ -67,7 +80,23 @@ impl Map {
 
     /// Member named `name`, inserted with `make` when missing.
     pub(crate) fn entry(&mut self, name: &str, make: impl FnOnce() -> Node) -> &mut Node {
-        let index = match self.position(name) {
+        let found = self.position(name);
+        self.entry_at(found, name, make)
+    }
+
+    /// Member named exactly `name`, inserted with `make` when missing.
+    pub(crate) fn entry_exact(&mut self, name: &str, make: impl FnOnce() -> Node) -> &mut Node {
+        let found = self.members.iter().position(|(member, _)| member == name);
+        self.entry_at(found, name, make)
+    }
+
+    fn entry_at(
+        &mut self,
+        found: Option<usize>,
+        name: &str,
+        make: impl FnOnce() -> Node,
+    ) -> &mut Node {
+        let index = match found {
             Some(index) => index,
             None => {
                 self.members.push((name.to_owned(), make()));
