@@ -424,11 +424,14 @@ impl RegistryValue {
 ///
 /// Key paths are relative to the hive and use `\` as separator, for example
 /// `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`. The operating
-/// system implementation is registered by the embedding application in
-/// [`ExecCtx::extensions`] as `dyn RegistryReader`; [`MemoryRegistry`] serves
-/// tests on every system.
+/// system implementation may be registered by the embedding application in
+/// [`ExecCtx::extensions`] as `dyn RegistryReader`; on Windows
+/// [`HostEnv::from_ctx`] otherwise reads the registry of the running system.
+/// [`MemoryRegistry`] serves tests on every system. Key names compare
+/// without regard to case and keep the case they were created with.
 pub trait RegistryReader: Send + Sync {
-    /// Names of the subkeys of a key; `None` when the key does not exist.
+    /// Names of the subkeys of a key in the case they were created with; the
+    /// result is `None` when the key does not exist.
     ///
     /// # Errors
     ///
@@ -475,6 +478,7 @@ pub struct MemoryRegistry {
 
 #[derive(Debug, Clone, Default)]
 struct MemoryKey {
+    name: String,
     values: BTreeMap<String, RegistryValue>,
     written: Option<SystemTime>,
 }
@@ -487,6 +491,9 @@ impl MemoryRegistry {
     }
 
     /// Creates a key and its parents.
+    ///
+    /// A key that exists under a name differing only in case is reused and
+    /// keeps the case it was created with.
     pub fn insert_key(&mut self, hive: RegistryHive, view: RegistryView, key: &str) {
         let mut path = String::new();
         for part in key.split('\\').filter(|part| !part.is_empty()) {
@@ -496,7 +503,10 @@ impl MemoryRegistry {
             path.push_str(part);
             self.keys
                 .entry((hive, view, path.to_ascii_lowercase()))
-                .or_default();
+                .or_insert_with(|| MemoryKey {
+                    name: part.to_owned(),
+                    ..MemoryKey::default()
+                });
         }
     }
 
@@ -542,6 +552,18 @@ fn normalize_key(key: &str) -> String {
         .to_ascii_lowercase()
 }
 
+/// Registry of the running system, used when the context registers none.
+#[cfg(windows)]
+fn system_registry() -> Option<Arc<dyn RegistryReader>> {
+    Some(Arc::new(crate::win::SystemRegistry::new()))
+}
+
+/// Registry of the running system, used when the context registers none.
+#[cfg(not(windows))]
+fn system_registry() -> Option<Arc<dyn RegistryReader>> {
+    None
+}
+
 impl RegistryReader for MemoryRegistry {
     fn subkeys(
         &self,
@@ -556,12 +578,10 @@ impl RegistryReader for MemoryRegistry {
         let prefix = format!("{parent}\\");
         let names = self
             .keys
-            .keys()
-            .filter(|(h, v, path)| *h == hive && *v == view && path.starts_with(&prefix))
-            .filter_map(|(_, _, path)| {
-                let rest = &path[prefix.len()..];
-                (!rest.contains('\\')).then(|| rest.to_owned())
-            })
+            .iter()
+            .filter(|((h, v, path), _)| *h == hive && *v == view && path.starts_with(&prefix))
+            .filter(|((_, _, path), _)| !path[prefix.len()..].contains('\\'))
+            .map(|(_, entry)| entry.name.clone())
             .collect();
         Ok(Some(names))
     }
@@ -623,7 +643,9 @@ impl HostEnv {
 
     /// Environment of the running stage: operating system, variables and
     /// home directory of the host, preferred languages from the locale and
-    /// the registry reader registered in the context, if any.
+    /// the registry reader registered in the context. Without a registered
+    /// reader the environment reads the registry of the running system on
+    /// Windows and has no registry elsewhere.
     #[must_use]
     pub fn from_ctx(ctx: &ExecCtx) -> Self {
         let info = ctx.host().info();
@@ -637,9 +659,10 @@ impl HostEnv {
             env.languages.insert(0, language);
             env.languages.dedup();
         }
-        if let Some(registry) = ctx.extensions().get::<dyn RegistryReader>() {
-            env.registry = Some(registry);
-        }
+        env.registry = ctx
+            .extensions()
+            .get::<dyn RegistryReader>()
+            .or_else(system_registry);
         env
     }
 

@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-services … |> start [wait: <duration>]
+services ... |> start [wait: <duration>]
 ```
 
 ## Description
@@ -44,7 +44,7 @@ order; an error stops the processing of the remaining services.
 
 | Form | Input | Output |
 |---|---|---|
-| `services … \|> start` | `service` | `effect` |
+| `services ... \|> start` | `service` | `effect` |
 
 Each `effect` record holds `kind: "start"`, `target` (`service:<name>`),
 `action`, `before` and `after`. A preview shows the same records with

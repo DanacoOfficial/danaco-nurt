@@ -102,7 +102,7 @@ not completed or expired, paused ones included, is limited by
 
 | Form | Input | Output |
 |---|---|---|
-| `schedule.create <label> …` | none | one `schedule` record |
+| `schedule.create <label> ...` | none | one `schedule` record |
 
 The record holds `id`, `label`, `trigger` (`kind`, `expression`, `timezone`),
 `next_run`, `state`, `active`, `reason`, `action`, `action_kind`, `runs`,

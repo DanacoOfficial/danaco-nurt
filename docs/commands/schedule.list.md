@@ -48,7 +48,7 @@ The command reads the schedule store and changes nothing.
 
 | Form | Input | Output |
 |---|---|---|
-| `schedule.list [state: …]` | none | `schedule` records, one per schedule |
+| `schedule.list [state: ...]` | none | `schedule` records, one per schedule |
 | `schedule.list <id>` | none | one `schedule` record |
 
 ## Effect

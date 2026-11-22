@@ -23,6 +23,17 @@ interface of the host, ordered by name. Addresses of an alias such as
 `eth0:1` belong to the interface `eth0`. The default gateway of an interface
 is taken from the IPv4 routing table, otherwise from the IPv6 routing table.
 
+The fields are read from the following interfaces of the operating system.
+
+| System | Addresses | State, MAC, MTU, kind | Gateway |
+|---|---|---|---|
+| Linux | `getifaddrs` | `/sys/class/net/<name>/{operstate,flags,address,mtu,type}`; `wireless` or `phy80211` gives `wireless`, a missing `device` gives `virtual` | `/proc/net/route`, `/proc/net/ipv6_route` |
+| macOS | `getifaddrs` | link-layer entries of `getifaddrs` and their interface data; the link type and the name prefix give the kind | routing table read through `sysctl` (`NET_RT_FLAGS`) |
+| Windows | `GetAdaptersAddresses` | the adapter entry; the interface type gives the kind | gateways of the adapter, IPv4 first |
+
+On Linux, an `operstate` of `unknown`, as reported by the loopback interface
+and some virtual interfaces, is resolved by the `IFF_UP` flag.
+
 ## Parameters
 
 The command has no parameters.
@@ -47,17 +58,6 @@ The command has no parameters.
 
 Category `source`, effect `read`, reversibility `read`. The command reads the
 interface tables of the operating system and changes nothing.
-
-## Notes
-
-| System | Addresses | State, MAC, MTU, kind | Gateway |
-|---|---|---|---|
-| Linux | `getifaddrs` | `/sys/class/net/<name>/{operstate,flags,address,mtu,type}`; `wireless` or `phy80211` gives `wireless`, a missing `device` gives `virtual` | `/proc/net/route`, `/proc/net/ipv6_route` |
-| macOS | `getifaddrs` | link-layer entries of `getifaddrs` and their interface data; the link type and the name prefix give the kind | routing table read through `sysctl` (`NET_RT_FLAGS`) |
-| Windows | `GetAdaptersAddresses` | the adapter entry; the interface type gives the kind | gateways of the adapter, IPv4 first |
-
-On Linux, an `operstate` of `unknown`, as reported by the loopback interface
-and some virtual interfaces, is resolved by the `IFF_UP` flag.
 
 ## Examples
 

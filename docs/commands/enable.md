@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-services … |> enable
+services ... |> enable
 ```
 
 ## Description
@@ -39,7 +39,7 @@ The command has no parameters.
 
 | Form | Input | Output |
 |---|---|---|
-| `services … \|> enable` | `service` | `effect` |
+| `services ... \|> enable` | `service` | `effect` |
 
 Each `effect` record holds `kind: "enable"`, `target` (`service:<name>`),
 `action`, `before` and `after`. A preview shows the same records with

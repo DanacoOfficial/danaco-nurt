@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-services … |> restart [wait: <duration>]
+services ... |> restart [wait: <duration>]
 ```
 
 ## Description
@@ -41,7 +41,7 @@ services.
 
 | Form | Input | Output |
 |---|---|---|
-| `services … \|> restart` | `service` | `effect` |
+| `services ... \|> restart` | `service` | `effect` |
 
 Each `effect` record holds `kind: "restart"`, `target` (`service:<name>`),
 `action`, `before` and `after`. A preview shows the same records with
