@@ -775,6 +775,7 @@ pub(crate) fn generator_error(directive: &str) -> Option<String> {
     let valid = match kind {
         "big_source" => argument.parse::<u32>().is_ok(),
         "png" => parse_size(argument).is_some(),
+        "webp_image" => parse_size(argument).is_some(),
         "pdf" => !argument.is_empty(),
         "repeat" => argument
             .rsplit_once('*')

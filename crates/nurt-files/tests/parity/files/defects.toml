@@ -134,7 +134,7 @@ expect = { fs_after = [{ path = "a.txt", content = "a\nb\nc" }] }
 name = "BOM and CRLF endings survive replace, line range, regular expression and append"
 class = "direct"
 parity_rows = ["WR-17", "ED-38", "WR-32"]
-fs_before = [{ path = "d.txt", content = "\uFEFFa\r\nb" }]
+fs_before = [{ path = "d.txt", content = "\uFEFFa\r\nb\r\n" }]
 native_call = 'Write { file_path: "d.txt", mode: "append", content: "c\nd\n" }'
 nurt_program = 'write "{root}/d.txt" "c\nd\n" mode: append'
 expect = { fs_after = [{ path = "d.txt", content = "\uFEFFa\r\nb\r\nc\r\nd\r\n" }] }
@@ -180,9 +180,9 @@ name = "clear_outputs on a single-line cell raises no alert and changes only the
 class = "direct"
 parity_rows = ["NB-29", "NB-17"]
 fs_before = [{ path = "n.ipynb", generate = "notebook:flat" }]
-native_call = 'NotebookEdit { file_path: "n.ipynb", action: "clear_outputs", cell_id: "one" }'
-nurt_program = 'notebook.clear_outputs "{root}/n.ipynb" id: "one"'
-expect = { fs_after = [{ path = "n.ipynb", replace_in = "notebook:flat", from = "\"execution_count\": 1", to = "\"execution_count\": null" }] }
+native_call = 'NotebookEdit { file_path: "n.ipynb", action: "clear_outputs", cell_id: "load" }'
+nurt_program = 'notebook.clear_outputs "{root}/n.ipynb" id: ["load"]'
+expect = { fs_after = [{ path = "n.ipynb", excludes = "wczytano" }, { path = "n.ipynb", excludes = "\"execution_count\": 1," }, { path = "n.ipynb", contains = "\"source\": \"data = load()\"" }] }
 
 [[scenario]]
 name = "replace on a single-line cell changes only the source"
@@ -198,27 +198,27 @@ name = "cell type change on a single-line cell writes it on one line and leaves 
 class = "direct"
 parity_rows = ["NB-14", "NB-29"]
 fs_before = [{ path = "n.ipynb", generate = "notebook:flat" }]
-native_call = 'NotebookEdit { file_path: "n.ipynb", action: "replace", cell_id: "two", source: "y", cell_type: "code" }'
-nurt_program = 'notebook.replace "{root}/n.ipynb" id: "two" source: "y" cell_type: code'
-expect = { fs_after = [{ path = "n.ipynb", contains = "\"cell_type\": \"code\", \"id\": \"two\"" }] }
+native_call = 'NotebookEdit { file_path: "n.ipynb", action: "replace", cell_id: "tail", source: "y", cell_type: "code" }'
+nurt_program = 'notebook.replace "{root}/n.ipynb" id: "tail" source: "y" cell_type: code'
+expect = { fs_after = [{ path = "n.ipynb", contains = "\"y\"" }, { path = "n.ipynb", excludes = "End of the analysis." }, { path = "n.ipynb", contains = "\"source\": \"data = load()\"" }] }
 
 [[scenario]]
 name = "cell in the standard layout keeps fields untouched character for character, CRLF endings and BOM"
 class = "direct"
 parity_rows = ["NB-29", "NB-15"]
 fs_before = [{ path = "n.ipynb", generate = "notebook:standard_crlf_bom" }]
-native_call = 'NotebookEdit { file_path: "n.ipynb", action: "replace", cell_id: "one", source: "print(2)\nprint(3)" }'
-nurt_program = 'notebook.replace "{root}/n.ipynb" id: "one" source: "print(2)\nprint(3)"'
-expect = { fs_after = [{ path = "n.ipynb", contains = "\"print(2)\\n\",\r\n    \"print(3)\"" }] }
+native_call = 'NotebookEdit { file_path: "n.ipynb", action: "replace", cell_id: "load", source: "print(2)\nprint(3)" }'
+nurt_program = 'notebook.replace "{root}/n.ipynb" id: "load" source: "print(2)\nprint(3)"'
+expect = { fs_after = [{ path = "n.ipynb", contains = "\"print(2)\\n\",\r\n        \"print(3)\"" }] }
 
 [[scenario]]
 name = "new cell and copy in a notebook with single-line cells keep the layout and file separators"
 class = "direct"
 parity_rows = ["NB-23", "NB-25", "NB-26", "NB-29"]
 fs_before = [{ path = "n.ipynb", generate = "notebook:flat" }]
-native_call = 'NotebookEdit { file_path: "n.ipynb", action: "insert", cell_id: "one", source: "q", cell_type: "markdown" }'
-nurt_program = 'notebook.insert "{root}/n.ipynb" after_id: "one" cell_type: markdown source: "q"'
-expect = { fs_after = [{ path = "n.ipynb", contains = "\"source\": [\"q\"]}," }] }
+native_call = 'NotebookEdit { file_path: "n.ipynb", action: "insert", cell_id: "load", source: "q", cell_type: "markdown" }'
+nurt_program = 'notebook.insert "{root}/n.ipynb" after_id: "load" cell_type: markdown source: "q"'
+expect = { fs_after = [{ path = "n.ipynb", contains = "\"q\"" }, { path = "n.ipynb", contains = "\"source\": \"data = load()\"" }] }
 
 [[scenario]]
 name = "multi-element source replacement in a single-line cell applies the file separators"

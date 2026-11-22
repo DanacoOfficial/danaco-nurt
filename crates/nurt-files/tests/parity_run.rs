@@ -309,6 +309,11 @@ fn generators_produce_the_documented_content() {
     assert_eq!(&webp[..4], b"RIFF");
     assert_eq!(&webp[8..16], b"WEBPVP8X");
     assert_eq!(&webp[24..30], &[63, 1, 0, 239, 0, 0]);
+    let decodable = tree::generate("webp_image:32x16").unwrap();
+    assert_eq!(&decodable[..4], b"RIFF");
+    assert_eq!(&decodable[8..12], b"WEBP");
+    let decoded = image::load_from_memory(&decodable).unwrap();
+    assert_eq!((decoded.width(), decoded.height()), (32, 16));
     for variant in ["VP8", "VP8L"] {
         let image = tree::webp(variant, 2, 2).unwrap();
         let declared = u32::from_le_bytes(image[4..8].try_into().unwrap());

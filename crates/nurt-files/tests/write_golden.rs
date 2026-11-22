@@ -147,6 +147,36 @@ fn appends_a_line_to_an_existing_file() {
 }
 
 #[test]
+fn reports_the_added_lines_of_a_new_file_and_of_an_append() {
+    let test = app();
+    let created = run(
+        &test,
+        &write_args("/home/user/app/new.txt", "a\nb\n", "create"),
+    )
+    .unwrap();
+    assert_eq!(created.changes[0].added, Some(2));
+    let appended = run(
+        &test,
+        &write_args("/home/user/app/new.txt", "c\nd\ne\n", "append"),
+    )
+    .unwrap();
+    assert_eq!(appended.changes[0].added, Some(3));
+}
+
+#[test]
+fn append_joins_the_text_to_a_last_line_without_a_line_ending() {
+    let test = app();
+    let file = abs("/home/user/app/d.txt");
+    test.fs().write_file(&file, b"a\r\nb").unwrap();
+    run(
+        &test,
+        &write_args("/home/user/app/d.txt", "c\nd\n", "append"),
+    )
+    .unwrap();
+    assert_eq!(test.fs().read_file(&file).unwrap(), b"a\r\nbc\r\nd\r\n");
+}
+
+#[test]
 fn overwrite_keeps_the_line_endings_of_the_file() {
     let test = app();
     let config = abs("/home/user/app/config.ini");

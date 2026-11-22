@@ -108,6 +108,9 @@ pub(crate) fn generate(directive: &str) -> Result<Vec<u8>, String> {
         }
         "bytes" => hex(argument).ok_or_else(invalid),
         "png" => size(argument).map(|(w, h)| png(w, h)).ok_or_else(invalid),
+        "webp_image" => size(argument)
+            .map(|(w, h)| webp_image(w, h))
+            .ok_or_else(invalid),
         "webp" => {
             let (variant, dimensions) = argument.split_once(',').ok_or_else(invalid)?;
             let (width, height) = size(dimensions).ok_or_else(invalid)?;
@@ -152,6 +155,19 @@ pub(crate) fn png(width: u32, height: u32) -> Vec<u8> {
     let mut out = Vec::new();
     let encoded = image::DynamicImage::new_rgb8(width, height)
         .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png);
+    if encoded.is_err() {
+        out.clear();
+    }
+    out
+}
+
+/// Decodable lossless WebP image of the given size.
+pub(crate) fn webp_image(width: u32, height: u32) -> Vec<u8> {
+    let mut out = Vec::new();
+    let encoded = image::DynamicImage::new_rgb8(width, height).write_to(
+        &mut std::io::Cursor::new(&mut out),
+        image::ImageFormat::WebP,
+    );
     if encoded.is_err() {
         out.clear();
     }

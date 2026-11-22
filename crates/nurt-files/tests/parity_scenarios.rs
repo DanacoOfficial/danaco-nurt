@@ -77,6 +77,7 @@ fn generators_accept_documented_directives_only() {
         "pdf:text",
         "repeat:x*2500",
         "webp:VP8X,320x240",
+        "webp_image:320x240",
         "bytes:00ff",
         "notebook:flat",
     ] {
@@ -87,6 +88,7 @@ fn generators_accept_documented_directives_only() {
         "png:640",
         "repeat:x",
         "webp:VP9,1x1",
+        "webp_image:320",
         "bytes:0",
         "notebook:none",
         "other:1",

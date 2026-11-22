@@ -144,22 +144,6 @@ name = "undo restores a file with BOM and CRLF endings byte for byte"
 reason = "stage outside nurt-files: undo"
 
 [[scenario]]
-name = "clear_outputs on a single-line cell raises no alert and changes only the output fields"
-reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
-
-[[scenario]]
-name = "cell type change on a single-line cell writes it on one line and leaves other cells character for character"
-reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
-
-[[scenario]]
-name = "cell in the standard layout keeps fields untouched character for character, CRLF endings and BOM"
-reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
-
-[[scenario]]
-name = "new cell and copy in a notebook with single-line cells keep the layout and file separators"
-reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
-
-[[scenario]]
 name = "preview deletes nothing, apply moves to trash, restore brings back"
 reason = "stage outside nurt-files: undo"
 
@@ -376,14 +360,6 @@ name = "stopping the task interrupts the computation before writing and creates 
 reason = "the program changes the tree or the task between two steps, which the runner does not perform"
 
 [[scenario]]
-name = "named cell gives the full source and outputs in the selected mode"
-reason = "the program passes `outputs: true` where the catalog declares enum(none|summary|text|full); the program contradicts the catalog"
-
-[[scenario]]
-name = "replace changes only the named cell, outputs stay, the rest of the file character for character"
-reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
-
-[[scenario]]
 name = "delete returns a plan with the list of cells and remaining name usages; apply deletes exactly those cells"
 reason = "command not in the catalog: notebook.delete"
 
@@ -532,20 +508,8 @@ name = "TOML and YAML key value: trailing line comment stays, a # character in a
 reason = "stage outside nurt-files: set"
 
 [[scenario]]
-name = "replace with find in one cell does not touch the identical name in other cells"
-reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
-
-[[scenario]]
-name = "insert, copy and move do not change the content of any existing cell"
-reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
-
-[[scenario]]
 name = "delete: preview and result list the remaining usages; only the named cell is removed"
 reason = "command not in the catalog: notebook.delete"
-
-[[scenario]]
-name = "normalize does not change cell sources or outputs"
-reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
 
 [[scenario]]
 name = "dry_run reports the difference, the syntax check result and the size without writing"
@@ -674,11 +638,3 @@ reason = "parameter `index` is not in the catalog of `notebook.move`"
 [[scenario]]
 name = "ops and find replacement in many cells: preview writes nothing, apply changes only the cells from the preview"
 reason = "command not in the catalog: the"
-
-[[scenario]]
-name = "reading a WebP image reports the dimensions in the description line"
-reason = "the image reader decodes the image and the generator writes only the container header with the declared size"
-
-[[scenario]]
-name = "PDF as page text and as images in the session directory"
-reason = "the program reads one record per page (`content.text`, `content.page`); the scenario addresses `content.pages[0]`, which the record layout does not have, and the images of pages are not rendered"
