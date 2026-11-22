@@ -2,5 +2,5 @@ corrected: 1
   C1 L01  1:1  remvoe → remove  (or: move)
 ran: remove "/srv/app/build/old.log"
 op 21  remove  ok
-targets 1 file · 3.3kb freed
-  /srv/app/build/old.log  delete  3.3kb  3c3c3c3c
+targets 1 file · 3.2kib freed
+  /srv/app/build/old.log  delete  3.2kib  3c3c3c3c

@@ -267,7 +267,7 @@ behaviour in the meaning column applies.
 | `report.notable.mass_files` | integer | `100` | deleted files from which `mass_delete` is reported |
 | `report.notable.mass_bytes` | size | `1gib` | deleted bytes from which `mass_delete` is reported |
 | `report.notable.mass_ratio` | number | `0.8` | share of a directory deleted from which `mass_delete` is reported |
-| `report.notable.shrink_ratio` | number | `0.5` | size ratio below which `size_shrunk` is reported |
+| `report.notable.shrink_ratio` | number | `0.5` | share of its size by which a file of at least 1 KiB shrinks from which `size_shrunk` is reported |
 | `report.notable.per_file_repl` | integer | `100` | replacements in one file from which `many_per_file` is reported |
 | `report.notable.targets_high` | integer | `500` | targets from which `target_count_high` is reported |
 

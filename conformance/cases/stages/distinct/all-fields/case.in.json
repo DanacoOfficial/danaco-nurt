@@ -1,0 +1,9 @@
+{"program": "search /error/ \"/home/user/logs\" |> select path |> distinct",
+ "command": "distinct",
+ "args": {"by": {"kind": "value", "value": {"t": "null"}}},
+ "defaulted": ["by"],
+ "input": [
+  {"kind": "match", "fields": {"path": {"t": "path", "v": "/home/user/logs/a.log"}}},
+  {"kind": "match", "fields": {"path": {"t": "path", "v": "/home/user/logs/b.log"}}},
+  {"kind": "match", "fields": {"path": {"t": "path", "v": "/home/user/logs/a.log"}}}
+ ]}

@@ -1,10 +1,9 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
-
 [package]
 name = "nurt-cli"
-description = "Command line interface of Danaco Nurt."
+description = "Command shell and language where every change can be undone"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,6 +16,19 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = []
+# Components of other command groups. Each feature links the crate that
+# implements one subcommand; without it the subcommand is not available.
+mcp = ["dep:nurt-mcp"]
+mcp-http = ["mcp", "nurt-mcp/http"]
+lsp = ["dep:nurt-langserver"]
+migrate = ["dep:nurt-migrate"]
+service = ["dep:nurt-service"]
+journal = ["dep:nurt-journal"]
+# Answers of the protocol server and of the C interface from recorded cases.
+stub = ["dep:nurt-ffi", "nurt-ffi/stub"]
+
 [[bin]]
 name = "nurt"
 path = "src/main.rs"
@@ -24,12 +36,21 @@ path = "src/main.rs"
 [dependencies]
 nurt-contracts = { workspace = true }
 nurt-core = { workspace = true }
-nurt-mcp = { workspace = true }
-nurt-langserver = { workspace = true }
-nurt-service = { workspace = true }
-clap = { workspace = true }
-reedline = { workspace = true }
-miette = { workspace = true }
+nurt-ffi = { workspace = true, optional = true }
+nurt-mcp = { workspace = true, optional = true }
+nurt-langserver = { workspace = true, optional = true }
+nurt-migrate = { workspace = true, optional = true }
+nurt-service = { workspace = true, optional = true }
+nurt-journal = { workspace = true, optional = true }
+ciborium = { workspace = true }
 comfy-table = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
+reedline = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+nurt-core = { workspace = true, features = ["fixtures"] }
+nurt-testkit = { workspace = true }
+jsonschema = { workspace = true }
+tempfile = { workspace = true }
+toml = { workspace = true }

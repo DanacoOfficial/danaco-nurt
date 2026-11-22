@@ -44,7 +44,7 @@ mod tests {
     #[test]
     fn writes_sizes_and_durations_in_the_short_notation() {
         assert_eq!(format_size(12), "12b");
-        assert_eq!(format_size(41_230), "41.2kb");
+        assert_eq!(format_size(42_189), "41.2kib");
         assert_eq!(format_duration(12_400), "12.4s");
         assert_eq!(format_duration(250), "250ms");
     }

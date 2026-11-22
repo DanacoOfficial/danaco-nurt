@@ -392,6 +392,8 @@ deps = [
   "nurt-langserver",
   "nurt-migrate",
   "nurt-service",
+  "nurt-ffi",
+  "nurt-journal",
 ]
 
 [crate.nurt]

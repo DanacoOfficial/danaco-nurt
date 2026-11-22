@@ -120,8 +120,8 @@ mod tests {
             [
                 "app/",
                 "|-- src/",
-                "|   |-- a.go  1.1kb",
-                "|   `-- b.go  8.2kb",
+                "|   |-- a.go  1.1kib",
+                "|   `-- b.go  8.0kib",
                 "`-- README  12b",
             ]
         );

@@ -20,7 +20,7 @@ use crate::units::{display_duration, display_instant, display_size};
 /// use nurt_contracts::value::{Size, Value};
 /// use nurt_types::display_short;
 ///
-/// assert_eq!(display_short(&Value::Size(Size::from_bytes(3_400_000))), "3.4mb");
+/// assert_eq!(display_short(&Value::Size(Size::from_bytes(3_565_158))), "3.4mib");
 /// let list = Value::List(vec![Value::Int(1), Value::Null]);
 /// assert_eq!(display_short(&list), "[1, null]");
 /// ```

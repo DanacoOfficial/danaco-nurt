@@ -22,9 +22,15 @@ wasm = ["dep:wasmtime"]
 native = ["dep:libloading"]
 
 [dependencies]
+nurt-catalog = { workspace = true }
 nurt-contracts = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 toml = { workspace = true }
 wasmtime = { workspace = true, optional = true }
 libloading = { workspace = true, optional = true }
+
+[dev-dependencies]
+nurt-testkit = { workspace = true }
+tempfile = { workspace = true }

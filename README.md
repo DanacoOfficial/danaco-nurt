@@ -4,9 +4,10 @@
 
 # Danaco Nurt
 
-Danaco Nurt — command console with typed pipelines and per-operation undo.
+Danaco Nurt is a command shell and language where every change can be undone,
+built for people and AI agents. One tool for Linux, Windows and macOS.
 
-`nurt` (pronounced *NOORT*) is a command console with its own language for
+`nurt` (pronounced *NOORT*) is a command shell with its own language for
 working with files, text, structured documents, source code, version control,
 processes and the operating system. Programs are pipelines of typed records;
 each program is checked before it runs, and each run is described by a

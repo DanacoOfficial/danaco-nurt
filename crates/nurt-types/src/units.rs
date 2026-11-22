@@ -38,11 +38,11 @@ const SIZE_UNITS_BY_FACTOR: [(&str, u64); 8] = [
     ("kb", KB),
 ];
 
-/// Decimal units of the short form, smallest first.
-const DISPLAY_SIZE_UNITS: [&str; 4] = ["kb", "mb", "gb", "tb"];
+/// Binary units of the short form, smallest first.
+const DISPLAY_SIZE_UNITS: [&str; 6] = ["kib", "mib", "gib", "tib", "pib", "eib"];
 
 /// Tenths of a unit from which the short form moves to the next unit.
-const TENTHS_PER_NEXT_UNIT: u128 = 10_000;
+const TENTHS_PER_NEXT_UNIT: u128 = 10 * KIB as u128;
 
 /// Fraction digits accepted in a size; more cannot change the byte count
 /// of any size that fits 64 bits.
@@ -163,9 +163,9 @@ pub fn format_size(size: Size) -> String {
         )
 }
 
-/// Short form of a size in reports: bytes below one kilobyte, otherwise
-/// one fraction digit of the largest decimal unit that keeps the number
-/// below 1000.
+/// Short form of a size in reports: bytes below one kibibyte, otherwise
+/// one fraction digit of the largest binary unit (powers of 1024) that keeps
+/// the number below 1024.
 ///
 /// # Examples
 ///
@@ -174,24 +174,24 @@ pub fn format_size(size: Size) -> String {
 /// use nurt_types::display_size;
 ///
 /// assert_eq!(display_size(Size::from_bytes(12)), "12b");
-/// assert_eq!(display_size(Size::from_bytes(41_230)), "41.2kb");
-/// assert_eq!(display_size(Size::from_bytes(8_000)), "8.0kb");
+/// assert_eq!(display_size(Size::from_bytes(42_189)), "41.2kib");
+/// assert_eq!(display_size(Size::from_bytes(8_192)), "8.0kib");
 /// ```
 #[must_use]
 pub fn display_size(size: Size) -> String {
     let bytes = u128::from(size.bytes());
-    let mut factor = u128::from(KB);
+    let mut factor = u128::from(KIB);
     if bytes < factor {
         return format!("{bytes}b");
     }
-    let mut chosen = ("kb", 0);
-    for unit in DISPLAY_SIZE_UNITS {
+    let mut chosen = ("kib", 0);
+    for (index, unit) in DISPLAY_SIZE_UNITS.into_iter().enumerate() {
         let tenths = (bytes * 10 + factor / 2) / factor;
         chosen = (unit, tenths);
-        if tenths < TENTHS_PER_NEXT_UNIT {
+        if tenths < TENTHS_PER_NEXT_UNIT || index + 1 == DISPLAY_SIZE_UNITS.len() {
             break;
         }
-        factor *= u128::from(KB);
+        factor *= u128::from(KIB);
     }
     let (unit, tenths) = chosen;
     format!("{}.{}{unit}", tenths / 10, tenths % 10)

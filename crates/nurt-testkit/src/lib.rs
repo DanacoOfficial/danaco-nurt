@@ -17,6 +17,7 @@
 //! | [`ctx`] | execution contexts assembled from the doubles |
 //! | [`snapshot`] | file tree snapshots in the `nurt-fs-snapshot/1` format |
 //! | [`golden`] | golden file and case directory runners with JSON comparison and blessing |
+//! | [`fs_contract`] | conformance checks of `Fs` and `FsWrite` implementations |
 //! | [`fixtures`] | journal requests and target declarations |
 //! | [`hash`] | SHA-256 of content |
 
@@ -26,6 +27,7 @@
 pub mod clock;
 pub mod ctx;
 pub mod fixtures;
+pub mod fs_contract;
 pub mod golden;
 pub mod hash;
 pub mod host;

@@ -3,37 +3,16 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Short texts used in the `detail` field of notable entries.
 
-/// Binary units above bytes, in increasing order.
-const UNITS: [&str; 6] = ["kib", "mib", "gib", "tib", "pib", "eib"];
-
-/// Ratio between consecutive binary units.
-const STEP: f64 = 1024.0;
-
-/// Bytes below which a size is written in bytes.
-const STEP_BYTES: u64 = 1024;
+use nurt_contracts::value::Size;
+use nurt_types::display_size;
 
 /// Factor that converts a ratio to a percentage.
 const PERCENT: f64 = 100.0;
 
-/// Size in the shortest binary unit with one decimal digit, for example
-/// `3.4gib`, `512b` or `1mib`.
+/// Size in the short report notation of `nurt_types`, for example `3.4gib`,
+/// `512b` or `1.0mib`.
 pub(crate) fn format_size(bytes: u64) -> String {
-    if bytes < STEP_BYTES {
-        return format!("{bytes}b");
-    }
-    let mut value = bytes as f64 / STEP;
-    let mut unit = 0;
-    while round_tenth(value) >= STEP && unit + 1 < UNITS.len() {
-        value /= STEP;
-        unit += 1;
-    }
-    let text = format!("{:.1}", round_tenth(value));
-    let text = text.strip_suffix(".0").unwrap_or(&text);
-    format!("{text}{}", UNITS[unit])
-}
-
-fn round_tenth(value: f64) -> f64 {
-    (value * 10.0).round() / 10.0
+    display_size(Size::from_bytes(bytes))
 }
 
 /// Number followed by the singular or plural noun, for example `1 file` or
@@ -56,12 +35,12 @@ mod tests {
     fn sizes_use_the_shortest_binary_unit() {
         assert_eq!(format_size(0), "0b");
         assert_eq!(format_size(1023), "1023b");
-        assert_eq!(format_size(1024), "1kib");
+        assert_eq!(format_size(1024), "1.0kib");
         assert_eq!(format_size(1536), "1.5kib");
-        assert_eq!(format_size(1 << 20), "1mib");
-        assert_eq!(format_size((1 << 20) - 1), "1mib");
+        assert_eq!(format_size(1 << 20), "1.0mib");
+        assert_eq!(format_size((1 << 20) - 1), "1.0mib");
         assert_eq!(format_size(3_650_722_201), "3.4gib");
-        assert_eq!(format_size(u64::MAX), "16eib");
+        assert_eq!(format_size(u64::MAX), "16.0eib");
     }
 
     #[test]
