@@ -195,8 +195,15 @@ mod arguments {
     }
 }
 
+mod outcomes;
+mod parameters;
+
 mod environment {
     use super::*;
+
+    /// Prefix of the variables that the profiling runtime of a test program
+    /// built for coverage measurement sets in its own environment.
+    const PROFILE_RUNTIME_PREFIX: &str = "__LLVM_PROFILE";
 
     fn child_env(args: &BoundArgs, ctx: &ExecCtx) -> BTreeMap<String, String> {
         let host = DirectRunHost::new(HostMode::Run);
@@ -272,7 +279,12 @@ mod environment {
             Config::default().run.env_defaults.keys().cloned().collect();
         expected.push("ONLY".to_owned());
         expected.sort();
-        assert_eq!(env.keys().cloned().collect::<Vec<_>>(), expected);
+        let received: Vec<String> = env
+            .keys()
+            .filter(|name| !name.starts_with(PROFILE_RUNTIME_PREFIX))
+            .cloned()
+            .collect();
+        assert_eq!(received, expected);
     }
 
     #[test]

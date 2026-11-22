@@ -123,6 +123,7 @@ impl EffectStage for Retry {
             EffectOutcome::new(StageOutput::records(RecordStream::from_records(records)));
         outcome.notable = notable;
         outcome.detached = detached;
+        outcome.irreversible = irreversible;
         Ok(outcome)
     }
 }
