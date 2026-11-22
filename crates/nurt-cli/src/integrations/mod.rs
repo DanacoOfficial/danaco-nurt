@@ -16,6 +16,8 @@ use nurt_core::{Frontend, LanguageFrontend, UnavailableFrontend};
 use crate::app::CliError;
 
 pub mod ext;
+#[cfg(feature = "journal")]
+pub mod journal;
 #[cfg(feature = "lsp")]
 pub mod lsp;
 pub mod mcp;
@@ -80,7 +82,7 @@ pub const COMPONENTS: &[Component] = &[
 ///
 /// A subcommand whose feature is off in this build is not connected either;
 /// see [`is_connected`].
-pub const NOT_CONNECTED: &[&str] = &["journal"];
+pub const NOT_CONNECTED: &[&str] = &[];
 
 /// Language front end of the executable.
 ///
@@ -126,6 +128,8 @@ pub fn run(name: &str, args: &[String]) -> Result<u8, CliError> {
     match name {
         "serve" => serve::run(args),
         "ext" => ext::run(args),
+        #[cfg(feature = "journal")]
+        "journal" => journal::run(args),
         #[cfg(feature = "lsp")]
         "lsp" => lsp::run(args),
         #[cfg(feature = "migrate")]

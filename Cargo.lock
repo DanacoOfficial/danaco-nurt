@@ -6100,6 +6100,7 @@ dependencies = [
  "nurt-core",
  "nurt-ext",
  "nurt-ffi",
+ "nurt-fs",
  "nurt-help",
  "nurt-journal",
  "nurt-langserver",
