@@ -24,3 +24,5 @@ pub mod style;
 #[cfg(feature = "testing")]
 pub mod testing;
 pub mod value;
+
+pub use commands::register;

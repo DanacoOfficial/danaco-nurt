@@ -26,3 +26,5 @@ pub mod spans;
 pub mod structural;
 pub mod symbols;
 pub mod syntax_check;
+
+pub use commands::register;
