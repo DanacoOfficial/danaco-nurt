@@ -54,6 +54,7 @@
   "scripts": {
     "generate": "node scripts/generate-types.mjs",
     "build": "node scripts/generate-types.mjs && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.esm.json",
     "test": "node scripts/run-tests.mjs",
     "prepack": "node scripts/prepare-pack.mjs"
   },

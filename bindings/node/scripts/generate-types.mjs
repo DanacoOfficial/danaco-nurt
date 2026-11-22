@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
 // Writes TypeScript types derived from the JSON schemas of the specification
 // to src/generated/. Supports the subset of JSON Schema 2020-12 used by the
 // schemas: type, properties, required, additionalProperties, items, enum,
@@ -193,7 +196,7 @@ function reference(target, context) {
   if (match === null) {
     throw new Error(`${context.source}: unsupported reference ${target}`);
   }
-  const key = match[1].replaceAll("~1", "/").replaceAll("~0", "~");
+  const key = (match[1] ?? "").replaceAll("~1", "/").replaceAll("~0", "~");
   const name = context.names.get(key);
   if (name === undefined) {
     throw new Error(`${context.source}: reference to a missing definition ${target}`);
@@ -261,6 +264,7 @@ function docComment(schema, indent) {
   return `${indent}/**\n${body}\n${indent} */\n`;
 }
 
+/** @returns {value is Record<string, any>} */
 function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

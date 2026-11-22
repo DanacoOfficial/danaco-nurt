@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { describe, it } from "node:test";
@@ -10,7 +13,7 @@ describe("supervision of the server process", () => {
       const slow = client.run("delay 10000 never");
       const crash = client.run("crash");
       for (const call of [slow, crash]) {
-        await assert.rejects(call, (error) => {
+        await assert.rejects(call, (/** @type {any} */ error) => {
           assert.equal(error.name, "NurtError");
           assert.equal(error.status, "NURT_E_INTERNAL");
           assert.match(error.message, /exited with code 3/);
@@ -27,7 +30,7 @@ describe("supervision of the server process", () => {
 
   it("fails on a message written over several lines and restarts", async () => {
     await withClient(fakeServe(), async (client) => {
-      await assert.rejects(client.run("noise"), (error) => {
+      await assert.rejects(client.run("noise"), (/** @type {any} */ error) => {
         assert.equal(error.status, "NURT_E_INTERNAL");
         assert.match(error.message, /invalid message from the server/);
         return true;

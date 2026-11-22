@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
 // Runs the language-neutral cases of conformance/bindings/ against a server.
 //
 // The server is the conformance test server when NURT_CONFORMANCE_EXECUTABLE
@@ -84,7 +87,7 @@ async function check(client, testCase) {
   const { method, args } = testCase.call;
   const expect = testCase.expect ?? {};
   if (expect.error !== undefined) {
-    await assert.rejects(invoke(client, method, args), (error) => {
+    await assert.rejects(invoke(client, method, args), (/** @type {any} */ error) => {
       assert.equal(error.name, "NurtError");
       assert.equal(error.status, expect.error.status);
       return true;

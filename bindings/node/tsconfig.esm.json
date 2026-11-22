@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "rootDir": ".",
+    "declaration": false,
+    "noImplicitAny": false
+  },
+  "include": ["esm", "scripts", "test"]
+}
