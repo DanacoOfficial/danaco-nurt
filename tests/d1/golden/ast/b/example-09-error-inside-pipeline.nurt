@@ -1,0 +1,3 @@
+read("/srv/data/missing.csv")
+|> search(/foo/)
+|> count()

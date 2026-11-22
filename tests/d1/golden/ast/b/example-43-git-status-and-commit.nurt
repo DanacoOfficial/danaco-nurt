@@ -1,0 +1,4 @@
+git.status("/srv/app")
+git.commit("/srv/app", message: "fix: parser", paths: ["/srv/app/a.go"], trailers: [
+  "Co-Authored-By: User <user@example.com>"
+])

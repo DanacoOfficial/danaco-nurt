@@ -2,20 +2,34 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Properties of the call notation parser (variant B): no panic on any
-//! input, and generated programs parse into the tree they were generated
-//! from, with nested and ordered spans.
+//! input, generated programs parse into the tree they were generated from,
+//! and the variant B print of any tree in the image of the parser reads back
+//! as that tree; parsed trees have nested and ordered spans.
 
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use nurt_contracts::ast::strip_for_hash;
+mod roundtrip_support;
+
+use nurt_contracts::ast::{AstDocument, Expr, Head, Pipeline, Stage, Statement, strip_for_hash};
 use nurt_syntax::parse::{ParseOptions, Variant, parse};
+use nurt_syntax::print;
 use proptest::prelude::*;
-use proptest::test_runner::RngSeed;
+use proptest::test_runner::{RngSeed, TestCaseError};
+use roundtrip_support::{Shape, hash_form};
 use serde_json::{Value, json};
 
+/// Number of cases of every property in an optimized build.
+const RELEASE_CASES: u32 = 100_000;
+/// Number of cases of every property in a debug build, which runs about
+/// twenty times slower; the optimized build checks the full number.
+const DEBUG_CASES: u32 = 5_000;
 /// Number of cases of every property.
-const CASES: u32 = 100_000;
+const CASES: u32 = if cfg!(debug_assertions) {
+    DEBUG_CASES
+} else {
+    RELEASE_CASES
+};
 /// Fixed seed, so that every run checks the same inputs.
 const SEED: u64 = 0x6e75_7274_0b00;
 /// Nesting levels of generated sub-pipelines.
@@ -297,8 +311,86 @@ fn spans_nested(node: &Value, outer: Option<(Position, Position)>) -> bool {
     true
 }
 
+/// Reduces every sub-pipeline whose head is a stage to that stage alone, so
+/// that sub-pipelines of one stage, with or without arguments, are printed
+/// in their parenthesized form `name((stage))`.
+fn single_stage_subs(document: &AstDocument) -> AstDocument {
+    let mut document = document.clone();
+    for statement in &mut document.program.statements {
+        let pipeline = match statement {
+            Statement::Pipeline(pipeline) => pipeline,
+            Statement::Let(binding) => &mut binding.value,
+            _ => continue,
+        };
+        trim_pipeline(pipeline);
+    }
+    document
+}
+
+fn trim_pipeline(pipeline: &mut Pipeline) {
+    if let Head::Stage(stage) = &mut pipeline.head {
+        trim_stage(stage);
+    }
+    for stage in &mut pipeline.stages {
+        trim_stage(stage);
+    }
+}
+
+fn trim_stage(stage: &mut Stage) {
+    for arg in &mut stage.args {
+        trim_expr(&mut arg.value);
+    }
+}
+
+fn trim_expr(expr: &mut Expr) {
+    match expr {
+        Expr::Sub { p, .. } => {
+            if matches!(p.head, Head::Stage(_)) {
+                p.stages.clear();
+            }
+            trim_pipeline(p);
+        }
+        Expr::List { items, .. } | Expr::Call { args: items, .. } => {
+            items.iter_mut().for_each(trim_expr);
+        }
+        Expr::Map { entries, .. } => {
+            for entry in entries {
+                trim_expr(&mut entry.v);
+            }
+        }
+        Expr::Spread { x, .. } | Expr::Un { x, .. } => trim_expr(x),
+        Expr::Field { of: Some(of), .. } => trim_expr(of),
+        Expr::Bin { l, r, .. } => {
+            trim_expr(l);
+            trim_expr(r);
+        }
+        _ => {}
+    }
+}
+
+/// Prints a tree in variant B, parses the text and compares the trees
+/// without spans; the parsed spans must nest.
+fn print_and_parse(document: &AstDocument) -> Result<(), TestCaseError> {
+    let text = print::try_print(document, Variant::B)
+        .map_err(|error| TestCaseError::fail(error.to_string()))?;
+    let parsed = parse(&text, Variant::B, &ParseOptions::default())
+        .map_err(|error| TestCaseError::fail(format!("{error}\n{text}")))?;
+    prop_assert_eq!(hash_form(&parsed), hash_form(document), "{}", text);
+    let tree = serde_json::to_value(&parsed).unwrap();
+    prop_assert!(spans_nested(&tree, None), "{}: spans", text);
+    Ok(())
+}
+
 proptest! {
     #![proptest_config(config())]
+
+    #[test]
+    fn printed_trees_read_back_in_variant_b(
+        document in roundtrip_support::program(Shape::POSITIONAL)
+    ) {
+        print_and_parse(&document)?;
+        print_and_parse(&single_stage_subs(&document))?;
+    }
 
     #[test]
     fn parser_never_panics_on_any_text(text in any::<String>()) {

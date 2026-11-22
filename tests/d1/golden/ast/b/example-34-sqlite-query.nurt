@@ -1,0 +1,1 @@
+sql("/srv/app/app.db", "select id, name from users where active = ? limit 5", params: [1])

@@ -1,0 +1,2 @@
+find("/srv/in", glob: "*.log", depth: 1)
+|> move(into: "/srv/arch")

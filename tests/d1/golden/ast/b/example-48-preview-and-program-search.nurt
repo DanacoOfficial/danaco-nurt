@@ -1,0 +1,3 @@
+find("/srv/app/build", glob: "**/*.o")
+|> remove()
+program.search("ocr pdf", kind: programs, limit: 3)
