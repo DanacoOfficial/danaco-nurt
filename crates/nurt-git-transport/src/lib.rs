@@ -18,4 +18,5 @@ pub mod http;
 pub mod local;
 pub mod send_pack;
 pub mod sign;
+#[cfg(feature = "git-ssh")]
 pub mod ssh;

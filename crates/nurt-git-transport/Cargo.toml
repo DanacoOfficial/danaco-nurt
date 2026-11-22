@@ -17,6 +17,10 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["git-ssh"]
+git-ssh = ["dep:russh", "dep:tokio"]
+
 [dependencies]
 nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
@@ -32,9 +36,9 @@ gix-sec = "0.16.1"
 gix-transport = { version = "0.62.0", features = ["blocking-client", "http-client"] }
 gix-url = "0.40.1"
 gix-utils = "0.5.2"
-russh = { workspace = true }
+russh = { workspace = true, optional = true }
 pgp = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, optional = true }
 ureq = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
