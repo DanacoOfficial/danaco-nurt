@@ -10,3 +10,6 @@
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+pub mod assemble;
+pub mod rules;
