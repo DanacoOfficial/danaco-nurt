@@ -28,7 +28,8 @@ pub(crate) const COPY_BUFFER: usize = 64 * 1024;
 /// copy. Returns the mode used.
 ///
 /// The copy is written under the name of the blob in `temp_dir`, flushed
-/// and renamed; the blob never exists incomplete.
+/// and renamed; the blob never exists incomplete. Both directories are
+/// flushed before the function returns, so the blob is durable.
 pub(crate) fn preserve_copy(
     fs: &dyn FsWrite,
     scope: &TxScope,
@@ -54,7 +55,60 @@ pub(crate) fn preserve_copy(
         let _ = discard(fs, scope, &temp);
         return Err(error);
     }
+    sync_parents(fs, scope, &[&temp, blob])?;
     Ok(mode)
+}
+
+/// Flushes the directories holding `paths`, each once. A rename is durable
+/// when the directories of its source and destination are flushed.
+pub(crate) fn sync_parents(fs: &dyn FsWrite, scope: &TxScope, paths: &[&AbsPath]) -> FsResult<()> {
+    let mut flushed: Vec<AbsPath> = Vec::with_capacity(paths.len());
+    for path in paths {
+        if let Some(parent) = path.parent()
+            && !flushed.contains(&parent)
+        {
+            fs.sync_dir(scope, &parent)?;
+            flushed.push(parent);
+        }
+    }
+    Ok(())
+}
+
+/// Flushes the metadata of the entry at `path`: a file through a write
+/// handle, a directory directly. A file that cannot be opened for writing
+/// (read-only permission bits) and entries of other kinds are flushed
+/// through their directory.
+pub(crate) fn sync_entry(fs: &dyn FsWrite, scope: &TxScope, path: &AbsPath) -> FsResult<()> {
+    match fs.metadata(path, Follow::NoFollow)?.kind {
+        FileKind::Directory => fs.sync_dir(scope, path),
+        FileKind::File => match fs.open_in_place(scope, path) {
+            Ok(mut handle) => handle.sync(Durability::Full),
+            Err(error) if error.kind == FsErrorKind::PermissionDenied => {
+                sync_parents(fs, scope, &[path])
+            }
+            Err(error) => Err(error),
+        },
+        _ => sync_parents(fs, scope, &[path]),
+    }
+}
+
+/// Flushes a copied entry: every file and directory below `path` and the
+/// directory holding `path`.
+pub(crate) fn sync_tree(fs: &dyn FsWrite, scope: &TxScope, path: &AbsPath) -> FsResult<()> {
+    let mut pending = vec![path.clone()];
+    while let Some(next) = pending.pop() {
+        if fs.metadata(&next, Follow::NoFollow)?.kind == FileKind::Directory {
+            for child in fs.read_dir(&next)? {
+                let name = child?.name;
+                let name = name.to_str().ok_or_else(|| {
+                    FsError::new(FsErrorKind::InvalidPath, "sync_tree", Some(next.as_path()))
+                })?;
+                pending.push(next.join_name(name)?);
+            }
+        }
+        sync_entry(fs, scope, &next)?;
+    }
+    sync_parents(fs, scope, &[path])
 }
 
 fn copy_into(
@@ -228,7 +282,8 @@ mod tests {
     use nurt_contracts::journal::OpId;
 
     use super::*;
-    use crate::store::{scope, test_support::Fixture};
+    use crate::store::scope;
+    use crate::store::test_support::{Fixture, unflushed};
 
     fn id(low: u64) -> FileId {
         FileId {
@@ -241,7 +296,10 @@ mod tests {
     #[test]
     fn bytes_held_follow_the_counting_rules() {
         let mut held = HeldBytes::default();
-        assert_eq!(held.count(PreserveMode::Exchange, 100, Some(id(1)), false), 100);
+        assert_eq!(
+            held.count(PreserveMode::Exchange, 100, Some(id(1)), false),
+            100
+        );
         assert_eq!(held.count(PreserveMode::Moved, 100, Some(id(1)), false), 0);
         assert_eq!(held.count(PreserveMode::Moved, 50, Some(id(2)), true), 0);
         assert_eq!(held.count(PreserveMode::Clone, 70, None, false), 70);
@@ -281,6 +339,7 @@ mod tests {
         let sync = log.iter().position(|e| e.starts_with("sync_file")).unwrap();
         let rename = log.iter().position(|e| e.starts_with("rename")).unwrap();
         assert!(sync < rename);
+        assert!(unflushed(&log, log.len()).is_empty(), "{log:#?}");
 
         fs.configure(0, |volume| volume.features.reflink = true);
         let cloned = blobs.join_name("1.blob").unwrap();
@@ -315,7 +374,10 @@ mod tests {
         std::os::unix::fs::symlink("sub/f", tree.as_path().join("link")).unwrap();
         let copy = fs.path("vol-b/tree");
         assert_eq!(copy_entry(fs, &scope, &tree, &copy), Ok(5));
-        assert_eq!(std::fs::read(copy.as_path().join("sub/f")).unwrap(), b"12345");
+        assert_eq!(
+            std::fs::read(copy.as_path().join("sub/f")).unwrap(),
+            b"12345"
+        );
         assert!(fs.read_link(&copy.join_name("link").unwrap()).is_ok());
         remove_entry(fs, &scope, &copy).unwrap();
         assert!(!fixture.exists(&copy));

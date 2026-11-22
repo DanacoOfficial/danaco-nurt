@@ -23,9 +23,8 @@ use nurt_contracts::env::Clock;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{AbsPath, FsWrite, VolumeId, VolumeInfo};
 use nurt_contracts::journal::{
-    Admission, AdmissionDecision, AdmissionRequest, Eligibility,
-    InactiveReason, OpId, ServiceLiveness, Thresholds, VolumeSpace, VolumeState,
-    VolumeStatus,
+    Admission, AdmissionDecision, AdmissionRequest, Eligibility, InactiveReason, OpId,
+    ServiceLiveness, Thresholds, VolumeSpace, VolumeState, VolumeStatus,
 };
 use nurt_contracts::report::Irreversible;
 use nurt_fs::failpoint::Failpoints;
@@ -121,15 +120,6 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 
 fn skip(reason: Irreversible) -> AdmissionDecision {
     AdmissionDecision::Skip { reason }
-}
-
-fn irreversible_for(reason: InactiveReason) -> Irreversible {
-    match reason {
-        InactiveReason::NetworkVolume => Irreversible::NetworkVolume,
-        InactiveReason::RemovableVolume => Irreversible::RemovableVolume,
-        InactiveReason::BelowReserve => Irreversible::NoSpaceForCopy,
-        _ => Irreversible::JournalInactive,
-    }
 }
 
 fn too_large(request: &AdmissionRequest) -> bool {
@@ -307,7 +297,10 @@ impl SpaceAdmission {
     /// cannot be read.
     pub fn reclaim(&self, volume: &VolumeId, budget: Duration) -> Result<ReclaimReport> {
         let known = self.known(volume).ok_or_else(|| {
-            Error::new(ErrorCode::NotFound, "volume has no journal; establish eligibility first")
+            Error::new(
+                ErrorCode::NotFound,
+                "volume has no journal; establish eligibility first",
+            )
         })?;
         let reading = self.measure(volume)?;
         let thresholds = self.thresholds(&reading);
@@ -350,7 +343,7 @@ impl SpaceAdmission {
             return Some(Irreversible::JournalInactive);
         };
         if let Eligibility::Inactive(reason) = known.class {
-            return Some(irreversible_for(reason));
+            return Some(reason.irreversible());
         }
         if self.link.liveness() == ServiceLiveness::Down {
             return Some(Irreversible::JournalInactive);
@@ -377,7 +370,14 @@ impl SpaceAdmission {
         let reclaimer = self.reclaimer(&known.info, workers);
         let model = self.cost_model(&known.info);
         let mut released = Released::default();
-        if !Self::meet_budget(request, &reclaimer, &entries, &model, deadline, &mut released) {
+        if !Self::meet_budget(
+            request,
+            &reclaimer,
+            &entries,
+            &model,
+            deadline,
+            &mut released,
+        ) {
             return skip(Irreversible::NoSpaceForCopy);
         }
         let goal = SpaceGoal {
@@ -652,7 +652,10 @@ mod tests {
     #[test]
     fn admit_conditions_space_boundary_is_reserve_plus_margin() {
         let setup = Setup::new(5_000);
-        assert_eq!(setup.admission.admit(&request(3_900)), AdmissionDecision::Keep);
+        assert_eq!(
+            setup.admission.admit(&request(3_900)),
+            AdmissionDecision::Keep
+        );
         assert_eq!(
             setup.admission.admit(&request(3_901)),
             skipped(Irreversible::NoSpaceForCopy)
@@ -776,7 +779,10 @@ mod tests {
     fn admit_inactive_classes_map_to_irreversible_reasons() {
         let cases = [
             (InactiveReason::NetworkVolume, Irreversible::NetworkVolume),
-            (InactiveReason::RemovableVolume, Irreversible::RemovableVolume),
+            (
+                InactiveReason::RemovableVolume,
+                Irreversible::RemovableVolume,
+            ),
             (InactiveReason::BelowReserve, Irreversible::NoSpaceForCopy),
             (InactiveReason::MemoryVolume, Irreversible::JournalInactive),
             (InactiveReason::NoAnchor, Irreversible::JournalInactive),
@@ -793,6 +799,29 @@ mod tests {
             );
             assert_eq!(setup.admission.admit(&request(1)), skipped(expected));
         }
+    }
+
+    #[test]
+    fn quota_size_sets_the_capacity_of_the_thresholds() {
+        let setup = Setup::new(0);
+        setup.volume.set_quota_limit(Some(4_000));
+        setup.volume.set_quota_remaining(Some(3_000));
+        let status = setup.admission.volume_status(&volume_id());
+        assert_eq!(status.thresholds.reserve, 600);
+        assert_eq!(status.thresholds.hysteresis, 40);
+        assert_eq!(status.state, VolumeState::Normal);
+        let space = setup.admission.space(None).expect("space");
+        assert_eq!(space[0].total, 4_000);
+        assert_eq!(space[0].free, 3_000);
+        assert_eq!(space[0].reserve, 600);
+        assert_eq!(
+            setup.admission.admit(&request(2_300)),
+            AdmissionDecision::Keep
+        );
+        assert_eq!(
+            setup.admission.admit(&request(2_301)),
+            skipped(Irreversible::NoSpaceForCopy)
+        );
     }
 
     #[test]
@@ -874,7 +903,10 @@ mod tests {
     #[test]
     fn admit_sync_reclaim_budget() {
         let setup = timed_setup(4_000);
-        assert_eq!(setup.admission.admit(&request(1_000)), after_reclaim(&[1, 2]));
+        assert_eq!(
+            setup.admission.admit(&request(1_000)),
+            after_reclaim(&[1, 2])
+        );
         assert!(setup.volume.clock.monotonic() <= Duration::from_millis(1_500));
 
         let setup = timed_setup(4_000);
@@ -923,6 +955,7 @@ mod tests {
                 setup.volume.put_file(&path("vol/j/new"), extra);
                 proptest::prop_assert!(setup.volume.free() >= RESERVE + MARGIN);
             }
+        }
     }
 
     #[test]
@@ -975,10 +1008,19 @@ mod tests {
         assert_eq!(status.thresholds.soft, SOFT);
         assert_eq!(status.thresholds.margin, MARGIN);
         assert_eq!(status.thresholds.hysteresis, HYSTERESIS);
-        assert_eq!(setup.admission.poll_period(&volume_id()), Duration::from_millis(250));
+        assert_eq!(
+            setup.admission.poll_period(&volume_id()),
+            Duration::from_millis(250)
+        );
         setup.volume.set_foreign(8_500);
-        assert_eq!(setup.admission.volume_status(&volume_id()).state, VolumeState::Soft);
-        assert_eq!(setup.admission.poll_period(&volume_id()), Duration::from_millis(50));
+        assert_eq!(
+            setup.admission.volume_status(&volume_id()).state,
+            VolumeState::Soft
+        );
+        assert_eq!(
+            setup.admission.poll_period(&volume_id()),
+            Duration::from_millis(50)
+        );
     }
 
     fn entry(op: u64, state: EntryState, bytes: u64) -> EntrySummary {
@@ -1013,7 +1055,13 @@ mod tests {
             total: CAPACITY,
             quota_limited: false,
         };
-        let record = space_record(&info, &reading, &thresholds, &entries, Eligibility::Eligible);
+        let record = space_record(
+            &info,
+            &reading,
+            &thresholds,
+            &entries,
+            Eligibility::Eligible,
+        );
         assert_eq!(record.mount, info.mount);
         assert_eq!(record.filesystem, "ext4");
         assert_eq!(record.total, CAPACITY);
@@ -1024,7 +1072,10 @@ mod tests {
         assert_eq!(record.reserve, RESERVE);
         assert_eq!(record.soft, SOFT);
         assert_eq!(record.inactive, None);
-        let low = Measurement { free: 999, ..reading };
+        let low = Measurement {
+            free: 999,
+            ..reading
+        };
         let record = space_record(&info, &low, &thresholds, &[], Eligibility::Eligible);
         assert_eq!(record.inactive, Some(InactiveReason::BelowReserve));
         for reason in [

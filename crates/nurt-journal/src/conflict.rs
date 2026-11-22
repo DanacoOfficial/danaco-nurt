@@ -9,10 +9,8 @@
 //! still be absent, and the preserved content of an overwritten or deleted
 //! file must still have the hash it had before the change. The module also
 //! builds the language errors of `undo` and `redo`.
-#![cfg_attr(
-    not(test),
-    expect(dead_code, reason = "entry points are called by the journal store")
-)]
+
+use std::collections::{BTreeMap, HashMap};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{
@@ -24,7 +22,9 @@ use nurt_contracts::journal::{
 };
 use serde_json::Value;
 
+use crate::history;
 use crate::manifest::TargetRole;
+use crate::store::JournalCtx;
 
 /// Identity of an item address: the volume path key of a file system entry,
 /// or the provider key. Spellings that denote the same entry have equal keys.
@@ -60,10 +60,18 @@ pub(crate) trait TargetProbe {
     /// Identity key of an address.
     fn item_key(&self, path: &TargetPath) -> Result<ItemKey>;
 
-    /// Hash of the content preserved for an item; `None` when the entry keeps
-    /// no preserved content for it.
-    fn blob_hash(&self, op: OpId, index: TargetIndex) -> Result<Option<ContentHash>>;
+    /// Hashes of the content preserved for the items `indexes` of entry
+    /// `op`, read from the entry once for all of them; an item for which the
+    /// entry keeps no preserved content is absent from the map.
+    fn blob_hashes(
+        &self,
+        op: OpId,
+        indexes: &[TargetIndex],
+    ) -> Result<HashMap<TargetIndex, ContentHash>>;
 }
+
+/// Hashes of preserved content by entry and target index.
+pub(crate) type BlobHashes = HashMap<(OpId, TargetIndex), ContentHash>;
 
 /// State an address must have for the undo of an item to proceed.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -172,7 +180,12 @@ fn differs<T: PartialEq>(expected: Option<T>, observed: Option<T>) -> bool {
 pub(crate) fn observe_fs(fs: &dyn Fs, path: &AbsPath, with_hash: bool) -> Result<Observed> {
     let meta = match fs.metadata(path, Follow::NoFollow) {
         Ok(meta) => meta,
-        Err(error) if matches!(error.kind, FsErrorKind::NotFound | FsErrorKind::NotADirectory) => {
+        Err(error)
+            if matches!(
+                error.kind,
+                FsErrorKind::NotFound | FsErrorKind::NotADirectory
+            ) =>
+        {
             return Ok(Observed::default());
         }
         Err(error) => return Err(error.into()),
@@ -288,18 +301,13 @@ where
     }))
 }
 
-/// Compares the preserved content of an item with the hash recorded before
-/// the change.
+/// Hash recorded before the change for a target whose preserved content is
+/// compared with it.
 ///
 /// Deleted and overwritten files are preserved by keeping the old file
 /// itself; a process that kept it open can still write to it. Copies and
 /// clones are private to the journal and are not checked.
-///
-/// Fails with `E_JOURNAL_CORRUPT` when the preserved content is missing.
-pub(crate) fn check_blob<P>(probe: &P, op: OpId, target: &TargetOutcome) -> Result<Option<Conflict>>
-where
-    P: TargetProbe + ?Sized,
-{
+fn checked_blob(target: &TargetOutcome) -> Option<ContentHash> {
     let keeps_old_file = matches!(
         target.mode,
         PreserveMode::Moved
@@ -307,13 +315,52 @@ where
             | PreserveMode::ReplaceBackup
             | PreserveMode::Hardlink
     );
-    let Some(recorded) = target.before.hash else {
+    if keeps_old_file && target.before.kind == Some(FileKind::File) {
+        target.before.hash
+    } else {
+        None
+    }
+}
+
+/// Hashes of the preserved content of every target that [`check_blob`]
+/// compares, with one call of [`TargetProbe::blob_hashes`] per entry.
+///
+/// Fails when the preserved content of an entry cannot be read.
+pub(crate) fn preserved_hashes<'t, P>(
+    probe: &P,
+    targets: impl IntoIterator<Item = (OpId, &'t TargetOutcome)>,
+) -> Result<BlobHashes>
+where
+    P: TargetProbe + ?Sized,
+{
+    let mut wanted: BTreeMap<OpId, Vec<TargetIndex>> = BTreeMap::new();
+    for (op, target) in targets {
+        if checked_blob(target).is_some() {
+            wanted.entry(op).or_default().push(target.index);
+        }
+    }
+    let mut hashes = BlobHashes::new();
+    for (op, indexes) in wanted {
+        for (index, hash) in probe.blob_hashes(op, &indexes)? {
+            hashes.insert((op, index), hash);
+        }
+    }
+    Ok(hashes)
+}
+
+/// Compares the preserved content of an item, hashed by
+/// [`preserved_hashes`], with the hash recorded before the change.
+///
+/// Fails with `E_JOURNAL_CORRUPT` when the preserved content is missing.
+pub(crate) fn check_blob(
+    hashes: &BlobHashes,
+    op: OpId,
+    target: &TargetOutcome,
+) -> Result<Option<Conflict>> {
+    let Some(recorded) = checked_blob(target) else {
         return Ok(None);
     };
-    if !keeps_old_file || target.before.kind != Some(FileKind::File) {
-        return Ok(None);
-    }
-    match probe.blob_hash(op, target.index)? {
+    match hashes.get(&(op, target.index)).copied() {
         None => Err(corrupt_error(op).with_problem("missing_preserved_content")),
         Some(found) if found != recorded => Ok(Some(Conflict {
             op,
@@ -326,14 +373,70 @@ where
     }
 }
 
+/// Current state of items on the file system and the providers of the
+/// journal store, and the preserved content of its entries.
+///
+/// Provider values are compared by existence only: the journal records no
+/// hash of a provider value after the change.
+impl TargetProbe for JournalCtx {
+    fn observe(&self, path: &TargetPath, with_hash: bool) -> Result<Observed> {
+        match path {
+            TargetPath::Fs(path) => observe_fs(self.fs.as_ref(), path, with_hash),
+            TargetPath::Provider(key) => {
+                let provider = self.provider(&key.scheme).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::NotFound,
+                        format!(
+                            "no provider serves the scheme {}; enable it to undo its values",
+                            key.scheme.0
+                        ),
+                    )
+                })?;
+                Ok(Observed {
+                    exists: provider.get(key)?.is_some(),
+                    ..Observed::default()
+                })
+            }
+        }
+    }
+
+    fn item_key(&self, path: &TargetPath) -> Result<ItemKey> {
+        fs_item_key(self.fs.as_ref(), path)
+    }
+
+    fn blob_hashes(
+        &self,
+        op: OpId,
+        indexes: &[TargetIndex],
+    ) -> Result<HashMap<TargetIndex, ContentHash>> {
+        let mut hashes = HashMap::with_capacity(indexes.len());
+        for (index, data) in history::preserved_files(self, op, indexes)? {
+            match self.fs.content_hash(&data) {
+                Ok(hash) => {
+                    hashes.insert(index, hash);
+                }
+                Err(error) if error.kind == FsErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+        Ok(hashes)
+    }
+}
+
 /// `E_JOURNAL_NOOP` for an entry that cannot be undone or redone in its
 /// state, or that does not exist (`state: None`).
 pub(crate) fn noop_error(op: OpId, state: Option<EntryState>) -> Error {
     let message = match state.and_then(OpState::from_entry) {
         None if state.is_some() => {
-            format!("operation {} is still in progress; retry after it completes", op.0)
+            format!(
+                "operation {} is still in progress; retry after it completes",
+                op.0
+            )
         }
-        None => format!("operation {} is not in the journal; list operations with history", op.0),
+        None => format!(
+            "operation {} is not in the journal; list operations with history",
+            op.0
+        ),
         Some(OpState::Undone) => format!(
             "operation {} is already undone; list operations with history",
             op.0
@@ -381,8 +484,10 @@ pub(crate) fn conflict_error(conflicts: &[Conflict], fixes: &[String]) -> Error 
         "{} changed after the operation; nothing changed, choose on_conflict: force or include_later",
         count_phrase(conflicts.len(), "item")
     );
-    let mut error = Error::new(ErrorCode::JournalConflict, message)
-        .with_detail("conflicts", serde_json::to_value(conflicts).unwrap_or_default());
+    let mut error = Error::new(ErrorCode::JournalConflict, message).with_detail(
+        "conflicts",
+        serde_json::to_value(conflicts).unwrap_or_default(),
+    );
     for fix in fixes {
         error = error.with_fix(fix.clone());
     }
@@ -499,19 +604,40 @@ mod tests {
         let b = hash_of(b"b");
         assert_eq!(present(a).classify(&file(a)), None);
         assert_eq!(present(a).classify(&file(b)), Some(ConflictKind::Modified));
-        assert_eq!(present(a).classify(&Observed::default()), Some(ConflictKind::Deleted));
-        let directory = Observed { kind: Some(FileKind::Directory), hash: None, ..file(a) };
-        assert_eq!(present(a).classify(&directory), Some(ConflictKind::TypeChanged));
-        let chmod = Observed { mode: Some(0o600), ..file(a) };
+        assert_eq!(
+            present(a).classify(&Observed::default()),
+            Some(ConflictKind::Deleted)
+        );
+        let directory = Observed {
+            kind: Some(FileKind::Directory),
+            hash: None,
+            ..file(a)
+        };
+        assert_eq!(
+            present(a).classify(&directory),
+            Some(ConflictKind::TypeChanged)
+        );
+        let chmod = Observed {
+            mode: Some(0o600),
+            ..file(a)
+        };
         assert_eq!(present(a).classify(&chmod), Some(ConflictKind::Modified));
-        assert_eq!(Expected::Absent.classify(&file(a)), Some(ConflictKind::Created));
+        assert_eq!(
+            Expected::Absent.classify(&file(a)),
+            Some(ConflictKind::Created)
+        );
         assert_eq!(Expected::Absent.classify(&Observed::default()), None);
     }
 
     #[test]
     fn unknown_fields_are_not_compared() {
         let a = hash_of(b"a");
-        let loose = Expected::Present { kind: None, size: None, mode: None, hash: None };
+        let loose = Expected::Present {
+            kind: None,
+            size: None,
+            mode: None,
+            hash: None,
+        };
         assert_eq!(loose.classify(&file(a)), None);
         assert_eq!(loose.to_expect(), Expect::Unchecked);
         assert_eq!(present(a).to_expect(), Expect::Hash(a));
@@ -520,11 +646,21 @@ mod tests {
 
     #[test]
     fn expected_states_follow_recorded_existence() {
-        let gone = AfterState { exists: false, ..AfterState::default() };
+        let gone = AfterState {
+            exists: false,
+            ..AfterState::default()
+        };
         assert_eq!(Expected::after(&gone), Expected::Absent);
-        let absent = BeforeState { exists: false, ..BeforeState::default() };
+        let absent = BeforeState {
+            exists: false,
+            ..BeforeState::default()
+        };
         assert_eq!(Expected::before(&absent), Expected::Absent);
-        let kept = BeforeState { exists: true, hash: Some(hash_of(b"x")), ..BeforeState::default() };
+        let kept = BeforeState {
+            exists: true,
+            hash: Some(hash_of(b"x")),
+            ..BeforeState::default()
+        };
         assert_eq!(Expected::before(&kept).hash(), Some(hash_of(b"x")));
     }
 
@@ -541,7 +677,10 @@ mod tests {
             let unhashed = observe_fs(fs, &abs("/home/user/a"), false).unwrap();
             assert_eq!(unhashed.hash, None);
             let directory = observe_fs(fs, &abs("/home/user/d"), true).unwrap();
-            assert_eq!((directory.kind, directory.size, directory.hash), (Some(FileKind::Directory), None, None));
+            assert_eq!(
+                (directory.kind, directory.size, directory.hash),
+                (Some(FileKind::Directory), None, None)
+            );
             let missing = observe_fs(fs, &abs("/home/user/none"), true).unwrap();
             assert_eq!(missing, Observed::default());
             let failing = observe_fs(fs, &abs("/denied/a"), true).unwrap_err();
@@ -561,7 +700,7 @@ mod tests {
         assert_eq!(aborted.code, ErrorCode::JournalConflict);
         assert!(!aborted.details.contains_key("conflicts"));
         let path = TargetPath::Fs(abs("/home/user/a"));
-        let partial = partial_error(&[OpId(1), OpId(2)], &[], &[path.clone()]);
+        let partial = partial_error(&[OpId(1), OpId(2)], &[], std::slice::from_ref(&path));
         assert_eq!(partial.details["ops"], serde_json::json!([1, 2]));
         let failed = rollback_failed_error(&[path]);
         assert_eq!(failed.code, ErrorCode::RollbackFailed);

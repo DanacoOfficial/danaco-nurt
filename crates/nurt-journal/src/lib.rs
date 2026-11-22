@@ -15,7 +15,8 @@
 #![forbid(unsafe_code)]
 
 pub(crate) mod blob;
-pub mod commands;
+pub(crate) mod catalog;
+mod commands;
 pub(crate) mod conflict;
 pub(crate) mod history;
 pub(crate) mod integrity;
@@ -31,3 +32,7 @@ pub mod store;
 pub(crate) mod tx;
 pub(crate) mod undo;
 pub mod volumes;
+
+pub use commands::register;
+pub use retention::resolve::ConfiguredLimits;
+pub use store::{Journal, JournalBuilder};

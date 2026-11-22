@@ -101,7 +101,8 @@ Input: none. Output: `volume` records with the fields:
 | `reserve` | `size` | reserve `R` |
 | `soft` | `size` | soft threshold `S` |
 | `journal_bytes` | `size` | logical size of the data the journal holds |
-| `inactive` | `string` | why the journal keeps no data on the volume: `service_down`, `network_volume`, `removable_volume`, `memory_volume`, `below_reserve`, `no_anchor`, `disabled` or `not_durable`; absent when the journal is on |
+| `journal` | `bool` | the journal keeps data on the volume |
+| `journal_reason` | `string` | why the journal keeps no data on the volume: `service_down`, `network_volume`, `removable_volume`, `memory_volume`, `below_reserve`, `no_anchor`, `disabled` or `not_durable`; absent when the journal is on |
 
 Sizes are logical: data shared with names outside the journal through hard
 links counts as zero, and on file systems that release blocks lazily `free`
@@ -138,6 +139,7 @@ journal.space volume: "/home/user/projects/app"
 | Code | Meaning | Typical fix |
 |---|---|---|
 | `E_NOT_FOUND` | no volume contains the path | give an existing path or omit `volume` |
+| `E_SERVICE_NOT_RUNNING` | the space service is not running, so no volume can be measured | start the space service, then repeat the command |
 | `E_IO` | free space or the journal index cannot be read | check the volume and repeat the command |
 
 ## Related

@@ -76,11 +76,23 @@ cancels it, and neither is undone; a `redo` of such an undo is undone.
 
 ## Input and output
 
-Input: `none`. Output: `effect` — the new journal entry, its scope, the
-operations undone (latest first), the restored items, the items that could
-not be restored (`unavailable`), the operations skipped (`skipped`), the
-differences overridden by `force` (`forced`) and the irreversible markers of
-the new entry.
+Input: `none`. Output: one `effect` record of kind `undo`:
+
+| Field | Meaning |
+|---|---|
+| `op` | number of the new journal entry |
+| `targets` | number of restored items |
+| `changes` | the restored items |
+| `summary` | `operations` undone, `items_restored`, `items_unavailable` |
+| `after.scope` | scope of the new entry: `op`, `to`, `file` or `paths` |
+| `after.sources` | the operations undone, latest first |
+| `after.unavailable` | items that could not be restored because they were released for space |
+| `after.skipped` | operations of other sessions skipped by `to`, with `op` and `session` |
+| `after.forced` | differences overridden by `force`, with `op`, `path`, `difference`, `later`, `expected` and `actual` |
+| `irreversible` | irreversible markers of the new entry; absent when there are none |
+
+A preview of `undo id` and `undo id paths:` lists the items the undo would
+restore; the other forms are previewed without items.
 
 ## Effect
 
@@ -130,10 +142,12 @@ undo to: 30
 | Code | Meaning | Typical fix |
 |---|---|---|
 | `E_JOURNAL_NOOP` | the operation does not exist, is already undone or still in progress, a path is not an item of the operation, or nothing is left to undo | list operations with `history` |
+| `E_INVALID_VALUE` | the arguments mix forms: more than one of `id`, `to` and `file`, `since` without `file`, `paths` without `id`, an empty `paths`, or `all_sessions` without `to` | use one form of the synopsis |
 | `E_JOURNAL_EXPIRED` | an operation of the selection expired; nothing changed; `expired` lists them | select later operations |
 | `E_JOURNAL_CONFLICT` | items changed after the operation; nothing changed; `conflicts` lists every difference | use one of the programs in `fix`, or `on_conflict: force` or `include_later` |
 | `E_JOURNAL_PARTIAL` | items of the operation were released for space; nothing changed | `on_conflict: partial` |
 | `E_JOURNAL_CORRUPT` | an operation failed its integrity check; its data is kept for salvage | `nurt journal salvage` |
+| `E_UNSUPPORTED` | an item cannot be restored by the journal (a rename across volumes or over an existing entry); nothing changed | restore the item from the data listed by `history N details: true`, or undo the other items with `paths` |
 | `E_STALE` | an item changed while the undo ran; the undo was rolled back | repeat the undo |
 | `E_ROLLBACK_FAILED` | an undo that failed could not restore every item; `failed` lists them | restore the listed paths |
 

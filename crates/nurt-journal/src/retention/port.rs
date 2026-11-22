@@ -24,8 +24,9 @@ pub(crate) struct VolumeFacts {
     pub(crate) mount: AbsPath,
     /// Capacity in bytes (the account quota when smaller).
     pub(crate) capacity: u64,
-    /// Free bytes including the bytes held by the journal (`F + J`).
-    pub(crate) free_with_journal: u64,
+    /// Free bytes available to the account (`F`), without the bytes held by
+    /// the journal.
+    pub(crate) free: u64,
     /// Why the journal is off on the volume; `None` when it is on.
     pub(crate) inactive: Option<InactiveReason>,
 }
@@ -186,11 +187,11 @@ pub(crate) trait RetentionStore {
     /// Returns `E_IO` when the directory cannot be read.
     fn list_dir(&self, area: Area<'_>, dir: &str) -> Result<Vec<String>>;
 
-    /// Appends one audit record to the operation index (`ops.jsonl`).
+    /// Appends one audit record to the retention audit log of the account.
     ///
     /// # Errors
     ///
-    /// Returns `E_IO` when the index cannot be written.
+    /// Returns `E_IO` when the log cannot be written.
     fn audit(&self, record: &serde_json::Value) -> Result<()>;
 
     /// Content of the user configuration file; `None` when it does not

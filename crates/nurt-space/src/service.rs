@@ -24,8 +24,7 @@ use nurt_contracts::env::{BootId, Clock};
 use nurt_contracts::error::{Error, Result};
 use nurt_contracts::fs::{AbsPath, Fs, FsErrorKind, FsWrite, VolumeId, VolumeInfo};
 use nurt_contracts::journal::{
-    Admission, Eligibility, JournalStore, RecoveryReport, ServiceLiveness, SweepReport,
-    VolumeState,
+    Admission, Eligibility, JournalStore, RecoveryReport, ServiceLiveness, SweepReport, VolumeState,
 };
 use nurt_contracts::stage::CancelToken;
 use nurt_journal::layout::TMP_SUFFIX;
@@ -479,7 +478,10 @@ mod tests {
             let dirs = ["/home/user/notes.txt", "/mnt/data/file"]
                 .into_iter()
                 .map(|target| {
-                    match resolve(&fs, &config, &registry, &abs(target)).unwrap().place {
+                    match resolve(&fs, &config, &registry, &abs(target))
+                        .unwrap()
+                        .place
+                    {
                         JournalPlace::Active { dir, .. } => dir,
                         JournalPlace::Inactive(reason) => panic!("{}", reason.as_str()),
                     }
@@ -504,7 +506,11 @@ mod tests {
             )
         }
 
-        fn module(&self, journal: Arc<TestJournal>, worker: Arc<TestWorker>) -> SpaceModule<TestJournal> {
+        fn module(
+            &self,
+            journal: Arc<TestJournal>,
+            worker: Arc<TestWorker>,
+        ) -> SpaceModule<TestJournal> {
             SpaceModule::new(
                 Arc::new(self.fs.clone()),
                 self.clock.clone(),
@@ -558,7 +564,10 @@ mod tests {
         fn recover(&self) -> Result<RecoveryReport> {
             self.note("recover");
             if self.fail_recover.load(Ordering::SeqCst) {
-                return Err(Error::new(ErrorCode::Io, "journal directory cannot be read"));
+                return Err(Error::new(
+                    ErrorCode::Io,
+                    "journal directory cannot be read",
+                ));
             }
             Ok(RecoveryReport::default())
         }
@@ -685,7 +694,7 @@ mod tests {
         );
         first.start().unwrap();
         drop(first);
-        world.clock.advance(Duration::from_secs(40 * 60));
+        world.clock.advance(Duration::from_mins(40));
         assert_eq!(world.caller_view(), ServiceLiveness::Down);
         events_of(&events);
 
@@ -740,15 +749,15 @@ mod tests {
         module.start().unwrap();
         events_of(&events);
         let delays: Vec<Duration> = (0..4).map(|_| module.tick()).collect();
-        assert_eq!(
-            delays,
-            [250, 50, 50, 50].map(Duration::from_millis)
-        );
+        assert_eq!(delays, [250, 50, 50, 50].map(Duration::from_millis));
         let reclaims: Vec<String> = events_of(&events)
             .into_iter()
             .filter(|event| event.starts_with("reclaim"))
             .collect();
-        assert_eq!(reclaims, ["reclaim 1 500ms", "reclaim 2 500ms", "reclaim 1 500ms"]);
+        assert_eq!(
+            reclaims,
+            ["reclaim 1 500ms", "reclaim 2 500ms", "reclaim 1 500ms"]
+        );
     }
 
     #[test]
@@ -761,7 +770,7 @@ mod tests {
         );
         module.start().unwrap();
         events_of(&events);
-        world.clock.suspend(Duration::from_secs(2 * 3600));
+        world.clock.suspend(Duration::from_hours(2));
         assert_eq!(world.caller_view(), ServiceLiveness::Down);
         assert_eq!(module.ping(), ServiceLiveness::Down);
         module.tick();
@@ -796,6 +805,7 @@ mod tests {
         );
         module.start().unwrap();
         events_of(&events);
+        world.clock.advance(Duration::from_millis(500));
         module.tick();
         module.stop();
         assert_eq!(events_of(&events), ["sweep alive", "reclaim 1 500ms"]);
@@ -832,11 +842,14 @@ mod tests {
             ))
             .unwrap();
         module.tick();
-        assert_eq!(
-            module.last_error().unwrap().code(),
-            ErrorCode::Io
+        assert_eq!(module.last_error().unwrap().code(), ErrorCode::Io);
+        assert!(
+            module
+                .last_error()
+                .unwrap()
+                .message
+                .contains("create_temp_in")
         );
-        assert!(module.last_error().unwrap().message.contains("create_temp_in"));
         assert_eq!(world.caller_view(), ServiceLiveness::Alive);
     }
 
@@ -862,7 +875,7 @@ mod tests {
         world
             .fs
             .inject(MemFault::persistent(
-                abs("/home/user/.local/state/nurt"),
+                abs("/home/user/.local/state/nurt/volumes.json"),
                 Some("open_read"),
                 FsErrorKind::Io,
             ))
@@ -888,7 +901,7 @@ mod tests {
         let started = world.clock.monotonic();
         run(&mut module, &*world.clock, &cancel).unwrap();
         assert_eq!(
-            world.clock.monotonic() - started,
+            world.clock.monotonic().saturating_sub(started),
             Duration::from_millis(3 * 250)
         );
         let last = heartbeat::read(&world.fs, &world.dirs[0]).unwrap();
@@ -913,7 +926,10 @@ mod tests {
             world.probe.clone(),
         );
         let volumes = link.volumes();
-        let mounts: Vec<String> = volumes.iter().map(|volume| volume.mount.to_string()).collect();
+        let mounts: Vec<String> = volumes
+            .iter()
+            .map(|volume| volume.mount.to_string())
+            .collect();
         assert_eq!(mounts, ["/home", "/mnt/data"]);
         assert_eq!(link.eligibility(&volumes[0]), Eligibility::Eligible);
         let mut memory = volumes[0].clone();

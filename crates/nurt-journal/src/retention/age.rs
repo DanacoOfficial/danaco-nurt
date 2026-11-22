@@ -103,17 +103,6 @@ impl AgeState {
         self.last_active_reading = now.since_boot_active;
     }
 
-    /// Observes `now` and returns the time basis of an entry committed at
-    /// that moment.
-    pub(crate) fn commit_basis(&mut self, now: &ClockStamp) -> EntryTimeBasis {
-        self.observe(now);
-        EntryTimeBasis {
-            committed: now.clone(),
-            effective_wall: self.last_seen_wall.unwrap_or(now.wall),
-            active_at_commit: self.active_accumulated,
-        }
-    }
-
     /// Content of [`AGE_STATE_FILE`].
     ///
     /// # Errors
@@ -261,7 +250,13 @@ mod tests {
     }
 
     fn committed(state: &mut AgeState, clock: &Virtual) -> EntryTimeBasis {
-        state.commit_basis(&clock.stamp())
+        let now = clock.stamp();
+        state.observe(&now);
+        EntryTimeBasis {
+            committed: now.clone(),
+            effective_wall: state.last_seen_wall.unwrap_or(now.wall),
+            active_at_commit: state.active_accumulated,
+        }
     }
 
     #[test]

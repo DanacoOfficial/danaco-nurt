@@ -28,7 +28,7 @@ const CALIBRATION_DIRS: u32 = 20;
 /// The file whose removal measures the cost per byte is written in this
 /// many chunks of [`CALIBRATION_CHUNK`] (4 MiB in total).
 const CALIBRATION_CHUNKS: u32 = 64;
-const CALIBRATION_CHUNK: [u8; 64 << 10] = [0; 64 << 10];
+static CALIBRATION_CHUNK: [u8; 64 << 10] = [0; 64 << 10];
 
 /// Wall time a calibration may take; file creation stops when it runs out.
 pub(crate) const CALIBRATION_BUDGET: Duration = Duration::from_millis(150);
@@ -341,7 +341,7 @@ mod tests {
         let root = path("vol/j/reap/calibration");
         let start = clock.monotonic();
         let sample = calibrate(&volume, &clock, &scope, &root).expect("calibrate");
-        let elapsed = clock.monotonic() - start;
+        let elapsed = clock.monotonic().saturating_sub(start);
         assert!(
             elapsed <= CALIBRATION_BUDGET,
             "calibration took {elapsed:?}"

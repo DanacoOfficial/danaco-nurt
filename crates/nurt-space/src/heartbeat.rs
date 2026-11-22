@@ -261,6 +261,7 @@ mod tests {
 
     use super::testing::TestProbe;
     use super::{Heartbeat, RunState, liveness, read, write};
+    use crate::reclaim::maintenance_scope;
 
     fn abs(path: &str) -> AbsPath {
         AbsPath::new(path).unwrap()
@@ -284,7 +285,12 @@ mod tests {
         Heartbeat::new(4242, 1, &clock.stamp(), state)
     }
 
-    fn check(fs: &MemFs, clock: &VirtualClock, dir: &AbsPath, probe: &TestProbe) -> ServiceLiveness {
+    fn check(
+        fs: &MemFs,
+        clock: &VirtualClock,
+        dir: &AbsPath,
+        probe: &TestProbe,
+    ) -> ServiceLiveness {
         liveness(
             fs,
             clock,
@@ -340,8 +346,12 @@ mod tests {
     #[test]
     fn removes_temporary_file_when_rename_fails() {
         let (fs, clock, dir) = setup();
-        fs.inject(MemFault::persistent(dir.clone(), Some("rename"), FsErrorKind::Io))
-            .unwrap();
+        fs.inject(MemFault::persistent(
+            dir.join_name("service.hb").unwrap(),
+            Some("rename"),
+            FsErrorKind::Io,
+        ))
+        .unwrap();
         let error = write(&fs, &dir, &beat(&clock, RunState::Running)).unwrap_err();
         assert_eq!(error.kind, FsErrorKind::Io);
         fs.clear_faults();
@@ -400,6 +410,7 @@ mod tests {
         )
         .unwrap();
         bytes[2] ^= 0x20;
+        nurt_contracts::fs::FsWrite::remove_file(&fs, &maintenance_scope(), &path).unwrap();
         fs.seed_file(&path, &bytes).unwrap();
         assert_eq!(check(&fs, &clock, &dir, &probe), ServiceLiveness::Down);
     }

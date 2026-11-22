@@ -397,7 +397,9 @@ impl JournalLayout {
     ///
     /// As [`JournalLayout::version`].
     pub fn entry(&self, op: OpId) -> FsResult<EntryLayout> {
-        Ok(EntryLayout::new(self.ops_dir()?.join_name(&entry_name(op))?))
+        Ok(EntryLayout::new(
+            self.ops_dir()?.join_name(&entry_name(op))?,
+        ))
     }
 
     /// Directory of the entry `op` while it is written, before it becomes
@@ -426,7 +428,9 @@ impl JournalLayout {
     ///
     /// As [`JournalLayout::version`].
     pub fn reaped(&self, op: OpId) -> FsResult<EntryLayout> {
-        Ok(EntryLayout::new(self.reap_dir()?.join_name(&entry_name(op))?))
+        Ok(EntryLayout::new(
+            self.reap_dir()?.join_name(&entry_name(op))?,
+        ))
     }
 
     /// Directory of tombstones.
@@ -766,8 +770,16 @@ mod tests {
 
     #[test]
     fn staged_names_are_derived_from_operation_and_target() {
-        assert_eq!(parse_staged_name(".nurt-tmp-12-0"), Some((OpId(12), TargetIndex(0))));
-        for name in [".nurt-tmp-12", ".nurt-tmp--1", ".nurt-tmp-a-1", "x.nurt-tmp-1-1"] {
+        assert_eq!(
+            parse_staged_name(".nurt-tmp-12-0"),
+            Some((OpId(12), TargetIndex(0)))
+        );
+        for name in [
+            ".nurt-tmp-12",
+            ".nurt-tmp--1",
+            ".nurt-tmp-a-1",
+            "x.nurt-tmp-1-1",
+        ] {
             assert_eq!(parse_staged_name(name), None, "{name}");
         }
     }
@@ -780,8 +792,12 @@ mod tests {
         assert_eq!(id.content_name(), "blobs/0000123400000001.blob");
         assert_eq!(id.meta_name(), "blobs/0000123400000001.meta");
         assert_eq!(id.tree_name(), "blobs/0000123400000001.tree");
-        for text in ["000012340000000", "0000123400000002", "0000123400000O01", "ABCDEF0000000000"]
-        {
+        for text in [
+            "000012340000000",
+            "0000123400000002",
+            "0000123400000O01",
+            "ABCDEF0000000000",
+        ] {
             assert_eq!(BlobId::parse(text), None, "{text}");
         }
     }
@@ -790,34 +806,48 @@ mod tests {
     fn entry_paths_are_inside_the_journal_directory() {
         let layout = JournalLayout::new(root());
         let entry = layout.entry(OpId(18)).unwrap();
-        assert!(entry.dir().as_path().ends_with("ops/000000000018"));
-        assert!(
-            layout
-                .entry_tmp(OpId(18))
-                .unwrap()
-                .dir()
-                .as_path()
-                .ends_with("ops/000000000018.tmp")
-        );
-        assert!(entry.manifest().unwrap().as_path().ends_with("000000000018/op.json"));
-        assert!(entry.state().unwrap().as_path().ends_with("000000000018/STATE"));
-        assert!(entry.items().unwrap().as_path().ends_with("000000000018/ITEMS"));
-        assert!(entry.tmp().unwrap().as_path().ends_with("000000000018/tmp"));
         let id = BlobId::new(TargetIndex(1), BlobRole::Previous);
-        assert!(entry.blob(id).unwrap().as_path().ends_with("blobs/0000000100000000.blob"));
-        assert!(entry.blob_meta(id).unwrap().as_path().ends_with("blobs/0000000100000000.meta"));
-        assert!(entry.blob_tree(id).unwrap().as_path().ends_with("blobs/0000000100000000.tree"));
-        assert_eq!(entry.resolve(&id.content_name()).unwrap(), entry.blob(id).unwrap());
-        assert!(entry.displaced(TargetIndex(4)).unwrap().as_path().ends_with("displaced/4"));
-        assert!(layout.pending(OpId(3)).unwrap().as_path().ends_with("pending/000000000003"));
-        assert!(layout.entry_lock(OpId(3)).unwrap().as_path().ends_with("lock/000000000003.lock"));
-        assert!(layout.journal_lock().unwrap().as_path().ends_with("lock/journal.lock"));
-        assert!(layout.tomb(OpId(3)).unwrap().as_path().ends_with("tomb/000000000003.json"));
-        assert!(layout.reaped(OpId(3)).unwrap().dir().as_path().ends_with("reap/000000000003"));
-        assert!(layout.version().unwrap().as_path().ends_with(VERSION_FILE));
-        assert!(layout.volume_file().unwrap().as_path().ends_with(VOLUME_FILE));
-        assert!(layout.heartbeat().unwrap().as_path().ends_with(HEARTBEAT_FILE));
-        assert!(layout.pins().unwrap().as_path().ends_with(PINS_FILE));
+        let paths = [
+            (entry.dir().clone(), "ops/000000000018"),
+            (
+                layout.entry_tmp(OpId(18)).unwrap().dir().clone(),
+                "ops/000000000018.tmp",
+            ),
+            (entry.manifest().unwrap(), "000000000018/op.json"),
+            (entry.state().unwrap(), "000000000018/STATE"),
+            (entry.items().unwrap(), "000000000018/ITEMS"),
+            (entry.tmp().unwrap(), "000000000018/tmp"),
+            (entry.blob(id).unwrap(), "blobs/0000000100000000.blob"),
+            (entry.blob_meta(id).unwrap(), "blobs/0000000100000000.meta"),
+            (entry.blob_tree(id).unwrap(), "blobs/0000000100000000.tree"),
+            (entry.displaced(TargetIndex(4)).unwrap(), "displaced/4"),
+            (layout.pending(OpId(3)).unwrap(), "pending/000000000003"),
+            (
+                layout.entry_lock(OpId(3)).unwrap(),
+                "lock/000000000003.lock",
+            ),
+            (layout.journal_lock().unwrap(), "lock/journal.lock"),
+            (layout.tomb(OpId(3)).unwrap(), "tomb/000000000003.json"),
+            (
+                layout.reaped(OpId(3)).unwrap().dir().clone(),
+                "reap/000000000003",
+            ),
+            (layout.version().unwrap(), VERSION_FILE),
+            (layout.volume_file().unwrap(), VOLUME_FILE),
+            (layout.heartbeat().unwrap(), HEARTBEAT_FILE),
+            (layout.pins().unwrap(), PINS_FILE),
+        ];
+        for (path, suffix) in &paths {
+            assert!(
+                path.as_path().ends_with(suffix),
+                "{} does not end with {suffix}",
+                path.as_path().display()
+            );
+        }
+        assert_eq!(
+            entry.resolve(&id.content_name()).unwrap(),
+            entry.blob(id).unwrap()
+        );
         assert_eq!(layout.structure().unwrap().len(), 5);
         assert_eq!(layout.root(), &root());
     }
@@ -825,7 +855,12 @@ mod tests {
     #[test]
     fn resolve_accepts_only_blob_paths() {
         let entry = JournalLayout::new(root()).entry(OpId(1)).unwrap();
-        for recorded in ["op.json", "blobs/../op.json", "blobs/x.blob", "tmp/0000000000000000.blob"] {
+        for recorded in [
+            "op.json",
+            "blobs/../op.json",
+            "blobs/x.blob",
+            "tmp/0000000000000000.blob",
+        ] {
             assert_eq!(
                 entry.resolve(recorded).unwrap_err().kind,
                 FsErrorKind::InvalidPath,
@@ -841,13 +876,23 @@ mod tests {
         assert!(state.seq().unwrap().as_path().ends_with(SEQ_FILE));
         assert!(state.index().unwrap().as_path().ends_with(INDEX_FILE));
         assert!(state.volumes().unwrap().as_path().ends_with(VOLUMES_FILE));
-        assert!(state.account_lock().unwrap().as_path().ends_with(ACCOUNT_LOCK_FILE));
+        assert!(
+            state
+                .account_lock()
+                .unwrap()
+                .as_path()
+                .ends_with(ACCOUNT_LOCK_FILE)
+        );
         assert_eq!(state.root(), &root());
     }
 
     #[test]
     fn default_name_depends_on_the_host_system() {
-        let expected = if cfg!(target_os = "macos") { DIR_NAME_MACOS } else { DIR_NAME };
+        let expected = if cfg!(target_os = "macos") {
+            DIR_NAME_MACOS
+        } else {
+            DIR_NAME
+        };
         assert_eq!(default_dir_name(), expected);
     }
 }

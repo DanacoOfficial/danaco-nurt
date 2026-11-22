@@ -138,7 +138,10 @@ mod tests {
         assert_eq!(decode(&bytes), Some(OpId(2)));
         let log = fixture.fs.log();
         let rename = log.iter().position(|op| op.starts_with("rename ")).unwrap();
-        let sync = log.iter().position(|op| op.starts_with("sync_file ")).unwrap();
+        let sync = log
+            .iter()
+            .position(|op| op.starts_with("sync_file "))
+            .unwrap();
         assert!(sync < rename, "{log:?}");
         assert!(log[rename..].iter().any(|op| op.starts_with("sync_dir ")));
     }
@@ -149,7 +152,10 @@ mod tests {
         let ctx = fixture.ctx();
         let journal = &ctx.active_journals()[0];
         let scope = store::scope(OpId(1), ScopePurpose::Maintenance);
-        fixture.fs.create_dir(&scope, &journal.tomb_dir().unwrap(), 0o700).unwrap();
+        fixture
+            .fs
+            .create_dir(&scope, &journal.tomb_dir().unwrap(), 0o700)
+            .unwrap();
         fixture.write(&journal.tomb(OpId(41)).unwrap(), b"{}");
         let row = IndexRow {
             op: OpId(39),
@@ -181,7 +187,10 @@ mod tests {
     fn injected_faults_stop_assignment_and_keep_the_previous_number() {
         for (point, action) in [
             (FailPoint::SeqBefore, FailAction::Error(FsErrorKind::Io)),
-            (FailPoint::SeqWritten, FailAction::Error(FsErrorKind::NoSpace)),
+            (
+                FailPoint::SeqWritten,
+                FailAction::Error(FsErrorKind::NoSpace),
+            ),
             (FailPoint::SeqWritten, FailAction::Crash),
         ] {
             let fixture = Fixture::new();
@@ -199,7 +208,11 @@ mod tests {
             let expected = if action == FailAction::Crash {
                 Err(Fault::Halt)
             } else {
-                Err(Fault::Fs(FsError::new(FsErrorKind::Io, point.as_str(), None)))
+                Err(Fault::Fs(FsError::new(
+                    FsErrorKind::Io,
+                    point.as_str(),
+                    None,
+                )))
             };
             let result = allocate(&ctx);
             if action == FailAction::Crash {
@@ -219,7 +232,10 @@ mod tests {
         fixture.fs.fail("rename", "seq", FsErrorKind::Io);
         assert!(allocate(&ctx).is_err());
         let names = fixture.names(ctx.state.root());
-        assert!(names.iter().all(|name| !name.starts_with(TEMP_HINT)), "{names:?}");
+        assert!(
+            names.iter().all(|name| !name.starts_with(TEMP_HINT)),
+            "{names:?}"
+        );
     }
 
     #[test]
@@ -229,7 +245,11 @@ mod tests {
         let second = Arc::new(fixture.ctx());
         let mut threads = Vec::new();
         for worker in 0..8 {
-            let ctx = if worker % 2 == 0 { first.clone() } else { second.clone() };
+            let ctx = if worker % 2 == 0 {
+                first.clone()
+            } else {
+                second.clone()
+            };
             threads.push(std::thread::spawn(move || {
                 (0..25)
                     .map(|_| {

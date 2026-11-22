@@ -333,6 +333,7 @@ impl AfterRecord {
             size: self.size,
             hash: self.hash,
             mode: self.mode,
+            meta: None,
         }
     }
 }
@@ -837,8 +838,9 @@ pub fn read_bytes(fs: &dyn Fs, path: &AbsPath) -> FsResult<Vec<u8>> {
 }
 
 /// Writes a file atomically: a temporary file in `temp_dir` (on the same
-/// volume) is written, flushed, renamed over `target` and the directory of
-/// `target` is flushed.
+/// volume) is written, flushed and renamed over `target`; then the directory
+/// of `target` and, when it differs, `temp_dir` are flushed. A rename between
+/// two directories is durable only when both directories are flushed.
 ///
 /// # Errors
 ///
@@ -863,10 +865,14 @@ pub fn write_atomic(
         let _ = fs.remove_file(scope, &temp);
         return Err(error);
     }
-    match target.parent() {
-        Some(parent) => fs.sync_dir(scope, &parent),
-        None => Ok(()),
+    let parent = target.parent();
+    if let Some(parent) = &parent {
+        fs.sync_dir(scope, parent)?;
     }
+    if parent.as_ref() != Some(temp_dir) {
+        fs.sync_dir(scope, temp_dir)?;
+    }
+    Ok(())
 }
 
 /// Writes all bytes to a handle, mapping the I/O error to [`FsError`].
@@ -875,10 +881,7 @@ pub fn write_atomic(
 ///
 /// Fails with [`FsErrorKind::NoSpace`] when the volume is full and with
 /// [`FsErrorKind::Io`] otherwise.
-pub fn write_all(
-    handle: &mut dyn nurt_contracts::fs::WriteHandle,
-    bytes: &[u8],
-) -> FsResult<()> {
+pub fn write_all(handle: &mut dyn nurt_contracts::fs::WriteHandle, bytes: &[u8]) -> FsResult<()> {
     handle.write_all(bytes).map_err(|error| {
         let kind = if error.kind() == std::io::ErrorKind::StorageFull {
             FsErrorKind::NoSpace
@@ -999,12 +1002,39 @@ pub fn append_index_row(
         }
         Err(error) => return Err(error.into()),
     };
+    if let Some(complete) = torn_tail(fs, path)? {
+        handle.set_length(complete)?;
+    }
     handle
         .seek(SeekFrom::End(0))
         .map_err(|_| FsError::new(FsErrorKind::Io, "seek", Some(path.as_path())))?;
     write_all(handle.as_mut(), &line)?;
     handle.sync(Durability::Data)?;
     Ok(())
+}
+
+/// Length of the account index without its torn last line, when it has
+/// one. A crash during an append can leave a row without its line end; the
+/// next row appended after it would form one malformed line.
+fn torn_tail(fs: &dyn Fs, path: &AbsPath) -> FsResult<Option<u64>> {
+    let io_error = || FsError::new(FsErrorKind::Io, "read", Some(path.as_path()));
+    let mut reader = fs.open_read(path)?;
+    let length = reader.seek(SeekFrom::End(0)).map_err(|_| io_error())?;
+    if length == 0 {
+        return Ok(None);
+    }
+    reader.seek(SeekFrom::End(-1)).map_err(|_| io_error())?;
+    let mut last = [0_u8; 1];
+    reader.read_exact(&mut last).map_err(|_| io_error())?;
+    if last[0] == b'\n' {
+        return Ok(None);
+    }
+    let bytes = read_bytes(fs, path)?;
+    let complete = bytes
+        .iter()
+        .rposition(|&byte| byte == b'\n')
+        .map_or(0, |end| end + 1);
+    Ok(Some(u64::try_from(complete).unwrap_or(length)))
 }
 
 /// Reads every complete row of the account index in append order; a missing
@@ -1039,7 +1069,9 @@ pub fn last_index_row(fs: &dyn Fs, path: &AbsPath) -> Result<Option<IndexRow>, R
     let io_error = || FsError::new(FsErrorKind::Io, "read", Some(path.as_path()));
     let length = handle.seek(SeekFrom::End(0)).map_err(|_| io_error())?;
     let start = length.saturating_sub(INDEX_TAIL);
-    handle.seek(SeekFrom::Start(start)).map_err(|_| io_error())?;
+    handle
+        .seek(SeekFrom::Start(start))
+        .map_err(|_| io_error())?;
     let mut tail = Vec::new();
     handle.read_to_end(&mut tail).map_err(|_| io_error())?;
     let complete = match tail.iter().rposition(|&byte| byte == b'\n') {
@@ -1080,7 +1112,7 @@ pub fn hash_bytes(bytes: &[u8]) -> ContentHash {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use nurt_contracts::env::BootId;
     use proptest::prelude::*;
 
@@ -1092,7 +1124,7 @@ mod tests {
 
     /// Manifest of a single overwrite with fixed values, used by the digest
     /// vector.
-    fn sample() -> Manifest {
+    pub(crate) fn sample() -> Manifest {
         Manifest {
             v: FORMAT_VERSION,
             op: OpId(18),
@@ -1181,7 +1213,9 @@ mod tests {
         let decoded = Manifest::decode(&manifest.encode().unwrap()).unwrap();
         assert_eq!(decoded, manifest);
         assert_eq!(
-            decoded.target(TargetIndex(0), TargetRole::Whole).map(|t| t.bytes_held),
+            decoded
+                .target(TargetIndex(0), TargetRole::Whole)
+                .map(|t| t.bytes_held),
             Some(1127)
         );
         assert!(decoded.target(TargetIndex(0), TargetRole::Source).is_none());
@@ -1193,7 +1227,7 @@ mod tests {
         let digest = manifest.seal().unwrap();
         assert_eq!(
             digest.to_string(),
-            "sha256:94e1a5d0e5b3f0a5a8fd1c9dea47f2d93c35fd84ad1ec5d5e29e8ee2c5b1b1a4"
+            "sha256:ed4645d1180df8cd7e98424d56da0ebe5533bd629bc7342d0bd7f9ba4d5396f8"
         );
     }
 
@@ -1211,11 +1245,17 @@ mod tests {
         let mut manifest = sample();
         let digest = manifest.seal().unwrap();
         let verdict = integrity::verify_manifest(&manifest.encode().unwrap());
-        assert!(verdict.is_intact(), "{verdict:?}");
+        assert!(
+            matches!(verdict, integrity::ManifestVerdict::Intact { .. }),
+            "{verdict:?}"
+        );
         let mut altered = manifest.clone();
         altered.bytes_held += 1;
         let verdict = integrity::verify_manifest(&altered.encode().unwrap());
-        assert!(!verdict.is_intact());
+        assert!(!matches!(
+            verdict,
+            integrity::ManifestVerdict::Intact { .. }
+        ));
         assert_eq!(manifest.integrity.manifest_sha256, Some(digest));
     }
 
@@ -1225,7 +1265,10 @@ mod tests {
         value["v"] = serde_json::json!(2);
         let bytes = serde_json::to_vec(&value).unwrap();
         assert_eq!(Manifest::decode(&bytes), Err(FormatError::Version(2)));
-        assert!(matches!(Manifest::decode(b"{}"), Err(FormatError::Decoding(_))));
+        assert!(matches!(
+            Manifest::decode(b"{}"),
+            Err(FormatError::Decoding(_))
+        ));
     }
 
     #[test]
@@ -1280,7 +1323,11 @@ mod tests {
         bytes[3] ^= 1;
         assert_eq!(Items::decode(&bytes), Err(FormatError::Checksum));
         for garbage in [&b"{}"[..], b"{}\ncrc32 zz\n", b"{}\ncrc32 0\n"] {
-            assert_eq!(Items::decode(garbage), Err(FormatError::Checksum), "{garbage:?}");
+            assert_eq!(
+                Items::decode(garbage),
+                Err(FormatError::Checksum),
+                "{garbage:?}"
+            );
         }
     }
 
@@ -1307,8 +1354,35 @@ mod tests {
         let mut bytes = row.encode().unwrap();
         bytes.extend_from_slice(b"{\"op\":");
         assert_eq!(parse_rows(&bytes).unwrap(), vec![row.clone()]);
-        let empty = IndexRow { parts: Vec::new(), ..row };
+        let empty = IndexRow {
+            parts: Vec::new(),
+            ..row
+        };
         assert_eq!(empty.digest(), None);
+    }
+
+    #[test]
+    fn append_after_a_torn_row_drops_the_fragment() {
+        let fixture = crate::store::test_support::Fixture::new();
+        let path = fixture.fs.path("vol-a/state/ops.jsonl");
+        let row = |op: u64| IndexRow {
+            op: OpId(op),
+            time: WallTime(5),
+            kind: OpKind::command("write"),
+            session: None,
+            bulk: false,
+            counts_as_step: true,
+            parts: Vec::new(),
+        };
+        let mut bytes = row(1).encode().unwrap();
+        bytes.extend_from_slice(b"{\"op\":2,\"time\":");
+        fixture.write(&path, &bytes);
+        let scope = crate::store::scope(OpId(2), nurt_contracts::fs::ScopePurpose::Maintenance);
+        append_index_row(&fixture.fs, &scope, &path, &row(2)).unwrap();
+        assert_eq!(
+            read_index(&fixture.fs, &path).unwrap(),
+            vec![row(1), row(2)]
+        );
     }
 
     #[test]
@@ -1318,14 +1392,29 @@ mod tests {
         let missing: Error =
             ReadError::Fs(FsError::new(FsErrorKind::NotFound, "open", None)).into();
         assert_eq!(missing.code(), ErrorCode::NotFound);
-        assert_eq!(FormatError::Version(7).to_string(), "unsupported manifest version 7");
+        assert_eq!(
+            FormatError::Version(7).to_string(),
+            "unsupported manifest version 7"
+        );
         assert_eq!(
             FormatError::State("x\n".to_owned()).to_string(),
             "unknown entry state `x`"
         );
-        assert!(ReadError::Format(FormatError::Checksum).to_string().starts_with("checksum"));
-        assert!(FormatError::Decoding("d".into()).to_string().starts_with("malformed"));
-        assert!(FormatError::Encoding("e".into()).to_string().ends_with(": e"));
+        assert!(
+            ReadError::Format(FormatError::Checksum)
+                .to_string()
+                .starts_with("checksum")
+        );
+        assert!(
+            FormatError::Decoding("d".into())
+                .to_string()
+                .starts_with("malformed")
+        );
+        assert!(
+            FormatError::Encoding("e".into())
+                .to_string()
+                .ends_with(": e")
+        );
     }
 
     proptest! {

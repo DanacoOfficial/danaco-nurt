@@ -39,9 +39,9 @@ comparing paths as the volume does (letter case and Unicode normalisation on
 case-insensitive volumes); expired operations keep no item list and never
 match `path` or `deleted`. Without `limit` at most 20 operations are listed.
 
-With `details: true` every listed operation includes its items: address,
-action, how the previous state is kept, the content hashes before and after,
-and whether the item was undone individually or released for space.
+With `details: true` and `id`, an operation that is not in the journal or is
+still being recorded fails with `E_JOURNAL_NOOP` instead of an empty result.
+The listed records are the same `operation` records as without `details`.
 
 The result states whether an operation can be undone, never until when;
 retention limits and the state of the journal are reported by
@@ -67,7 +67,7 @@ Input: `none`. Output: `operation` records — number, commit time, kind
 changed, irreversible markers, bulk flag, session, the operations an undo
 undid (`undo_of`), the undo a redo reversed (`redo_of`), the scope of an undo,
 the program hash, the manifest hash, the hash chain link and whether the
-operation is pinned.
+operation is pinned. The records are ordered by `id`, latest first.
 
 ## Effect
 
@@ -88,7 +88,7 @@ List the operations that changed one file:
 history path: "/home/user/app/main.go"
 ```
 
-Describe operation 18 with its items:
+Describe operation 18; the call fails when the operation is not in the journal:
 
 ```nurt example
 history 18 details: true
@@ -104,8 +104,8 @@ history deleted: true state: available
 
 | Code | Meaning | Typical fix |
 |---|---|---|
-| `E_JOURNAL_NOOP` | with `details: true`, the operation is not in the journal or is still being recorded | list operations without `id` |
-| `E_JOURNAL_CORRUPT` | with `details: true`, the operation failed its integrity check | `nurt journal salvage` |
+| `E_JOURNAL_NOOP` | with `details: true`, operation `id` is not in the journal or is still being recorded | list operations without `id` |
+| `E_INVALID_VALUE` | `limit` or an operation number is below 1 | give a number of at least 1 |
 | `E_IO` | the journal index cannot be read | check the state directory of the account |
 
 ## Related

@@ -23,7 +23,7 @@ use std::time::Duration;
 use nurt_contracts::env::Clock;
 use nurt_contracts::error::{Error, Result};
 use nurt_contracts::fs::{
-    FsError, FsErrorKind, FsWrite, RenameMode, ScopePurpose, TxScope, VolumeInfo,
+    AbsPath, FsError, FsErrorKind, FsWrite, RenameMode, ScopePurpose, TxScope, VolumeInfo,
 };
 use nurt_contracts::journal::{EntryState, ExpiryReason, OpId, VolumeState};
 use nurt_fs::failpoint::{FailAction, FailPoint, Failpoints};
@@ -207,6 +207,7 @@ impl Reclaimer<'_> {
         let scope = reclaim_scope(entry.op);
         self.fs
             .rename(&scope, &paths.entry, &paths.reap, RenameMode::NoReplace)?;
+        self.sync_parents(&scope, [&paths.entry, &paths.reap])?;
         checkpoint(self.failpoints, FailPoint::ReclaimMoved)?;
         self.fs.remove_tree(&scope, &paths.reap, self.workers)?;
         self.catalog.complete_reclaim(volume, entry.op)?;
@@ -245,9 +246,30 @@ impl Reclaimer<'_> {
         let indices: Vec<u32> = chosen.iter().map(|item| item.index).collect();
         self.catalog.mark_released(volume, entry.op, &indices)?;
         self.remove_items(entry.op, &chosen)?;
+        self.sync_parents(
+            &reclaim_scope(entry.op),
+            chosen.iter().map(|item| &item.data),
+        )?;
         checkpoint(self.failpoints, FailPoint::ReclaimPartial)?;
         self.catalog.finish_release(volume, entry.op)?;
         Ok(bytes)
+    }
+
+    /// Makes the removal or rename of every path durable by syncing its parent
+    /// directory, once per directory. The pending marker is cleared only after
+    /// this, so that recovery still sees the release as unfinished when a
+    /// removal is lost in a crash.
+    fn sync_parents<'p>(
+        &self,
+        scope: &TxScope,
+        paths: impl IntoIterator<Item = &'p AbsPath>,
+    ) -> Result<()> {
+        let mut dirs: Vec<AbsPath> = paths.into_iter().filter_map(AbsPath::parent).collect();
+        dirs.sort();
+        dirs.dedup();
+        dirs.iter()
+            .try_for_each(|dir| self.fs.sync_dir(scope, dir))
+            .map_err(Error::from)
     }
 
     fn remove_items(&self, op: OpId, items: &[HeldItem]) -> Result<()> {
@@ -298,11 +320,11 @@ impl Reclaimer<'_> {
         released: &mut Released,
     ) {
         if goal.partial && entry.overdue.is_none() && entry.bytes > need {
-            if let Ok(bytes) = self.release_items(entry, need) {
-                if bytes > 0 {
-                    released.partial.push(entry.op);
-                    released.bytes = released.bytes.saturating_add(bytes);
-                }
+            if let Ok(bytes) = self.release_items(entry, need)
+                && bytes > 0
+            {
+                released.partial.push(entry.op);
+                released.bytes = released.bytes.saturating_add(bytes);
             }
             return;
         }
@@ -736,7 +758,8 @@ mod tests {
         assert_eq!(catalog.locks(), vec![op]);
         let log = volume.log();
         assert!(log[0].starts_with("rename") && log[0].contains("/reap/5"));
-        assert!(log[1].starts_with("remove_tree") && log[1].ends_with("/reap/5"));
+        assert!(log[1].starts_with("sync_dir") && log[2].starts_with("sync_dir"));
+        assert!(log[3].starts_with("remove_tree") && log[3].ends_with("/reap/5"));
         assert_eq!(volume.tree_parallelism(), vec![4]);
     }
 
@@ -779,6 +802,35 @@ mod tests {
         assert!(volume.exists(&entry_dir(op)));
         assert!(catalog.tombs().is_empty());
         assert_eq!(catalog.locks(), vec![op]);
+        assert!(catalog.pending().is_empty());
+    }
+
+    #[test]
+    fn partial_release_syncs_block_directories_before_clearing_the_marker() {
+        let volume = TestVolume::new(10_000);
+        let catalog = TestCatalog::default();
+        let op = catalog.add(&volume, 3, &[100, 900]);
+        let info = volume_info(false);
+        let reclaimer = reclaimer(&volume, &catalog, &NoFailpoints, &info);
+        reclaimer
+            .release_items(&summary(3, 1_000, 2), 500)
+            .expect("partial");
+        let log = volume.log();
+        let removed = log
+            .iter()
+            .position(|line| line.starts_with("remove_file"))
+            .expect("remove_file");
+        let synced = log
+            .iter()
+            .position(|line| {
+                *line
+                    == format!(
+                        "sync_dir {}",
+                        blob(op, 1).as_path().parent().expect("parent").display()
+                    )
+            })
+            .expect("sync_dir of the block directory");
+        assert!(removed < synced);
         assert!(catalog.pending().is_empty());
     }
 

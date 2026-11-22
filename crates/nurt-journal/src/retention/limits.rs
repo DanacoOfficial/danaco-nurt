@@ -32,10 +32,12 @@ use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 use toml_edit::{DocumentMut, Item, TableLike};
 
+use super::ctx::CtxStore;
 use super::expiry::{Snapshot, expirable, select_volumes};
 use super::port::{Area, EntryFacts, RetentionStore, VolumeFacts};
 use super::resolve::{LimitValues, RuntimeLimits, validate};
 use super::tomb;
+use crate::store::JournalCtx;
 
 /// Directory of session limit files in the state directory.
 pub(crate) const SESSION_DIR: &str = "journal-limits";
@@ -155,7 +157,7 @@ pub(crate) fn touch_session(
 /// # Errors
 ///
 /// Returns `E_IO` when the session file cannot be removed.
-pub(crate) fn end_session(store: &dyn RetentionStore, session: &SessionId) -> Result<()> {
+pub(crate) fn end_session_store(store: &dyn RetentionStore, session: &SessionId) -> Result<()> {
     store.remove_file(Area::State, &session_file(session))
 }
 
@@ -276,12 +278,6 @@ fn apply_user(
     values: &LimitValues,
     preview: bool,
 ) -> Result<()> {
-    if mount.is_some() && values.size.is_some() {
-        return Err(Error::new(
-            ErrorCode::InvalidValue,
-            "the size budget of a single volume cannot be written to the user configuration; omit volume or use scope: session",
-        ));
-    }
     let edited = edit_user_config(store.read_user_config()?.as_deref(), mount, values)?;
     let layers = with_user_values(store.config_layers(), mount, values)?;
     snapshot.resolved = resolve(&layers, store.project_trusted())
@@ -495,6 +491,43 @@ pub(crate) fn status_store(
     Ok(states)
 }
 
+/// Retention state of the journal store per volume (`journal.status`).
+///
+/// # Errors
+///
+/// Returns `E_NOT_FOUND` when no journal volume contains `volume`,
+/// `E_CONFIG` for an invalid configuration and `E_IO` when a journal
+/// directory cannot be read.
+pub(crate) fn status(ctx: &JournalCtx, volume: Option<&AbsPath>) -> Result<Vec<JournalState>> {
+    status_store(&CtxStore(ctx), volume)
+}
+
+/// Removes the session limits of `session` from the journal store; the host
+/// calls it when the session ends, instead of waiting for the session time
+/// to live to pass.
+///
+/// # Errors
+///
+/// Returns `E_IO` when the session file cannot be removed.
+pub(crate) fn end_session(ctx: &JournalCtx, session: &SessionId) -> Result<()> {
+    end_session_store(&CtxStore(ctx), session)
+}
+
+/// Shows or changes the limits of the journal store (`journal.limits`).
+///
+/// `scope: user` writes the user configuration file set by
+/// [`JournalBuilder::user_config`](crate::JournalBuilder::user_config)
+/// through a transaction of kind `journal.limits` that does not count as a
+/// step and can be undone.
+///
+/// # Errors
+///
+/// As [`limits_store`]; `scope: user` with values fails with
+/// `E_UNSUPPORTED` when the journal has no user configuration file.
+pub(crate) fn limits(ctx: &JournalCtx, request: &LimitsRequest) -> Result<LimitsOutcome> {
+    limits_store(&CtxStore(ctx), request)
+}
+
 fn count(value: usize) -> u64 {
     u64::try_from(value).unwrap_or(u64::MAX)
 }
@@ -684,7 +717,7 @@ mod tests {
     fn ended_session_removes_its_limits() {
         let store = store();
         limits_store(&store, &steps(20, session("s1"), false)).unwrap();
-        end_session(&store, &SessionId("s1".to_owned())).unwrap();
+        end_session_store(&store, &SessionId("s1".to_owned())).unwrap();
         assert_eq!(effective_steps(&store), StepLimit::Limited(30));
         touch_session(&store, &SessionId("s1".to_owned()), &stamp_at(1)).unwrap();
         assert!(store.list_dir(Area::State, SESSION_DIR).unwrap().is_empty());
@@ -779,8 +812,13 @@ mod tests {
 
         request.steps = Some(StepLimit::Unlimited);
         request.size = Some(SizeLimit::Unlimited);
-        let error = limits_store(&store, &request).unwrap_err();
-        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        let outcome = limits_store(&store, &request).unwrap();
+        let written = store.user_config().unwrap();
+        assert!(written.contains("max_size = \"unlimited\""), "{written}");
+        let home = &outcome.effective[0];
+        assert_eq!(home.volume, mount("/home"));
+        assert_eq!(home.limits.max_size.value, SizeLimit::Unlimited);
+        assert_eq!(home.limits.max_size.source, ConfigLevel::User);
     }
 
     #[test]
@@ -819,11 +857,15 @@ mod tests {
         assert_eq!(states.len(), 1);
         let state = &states[0];
         assert_eq!(state.volume, mount("/home"));
-        assert_eq!(state.entries_total, 5);
-        assert_eq!(state.entries_available, 2);
-        assert_eq!(state.entries_expired, 2);
-        assert_eq!(state.bytes_held, 3 * MIB);
-        assert_eq!(state.bytes_physical, 2 * MIB);
+        assert_eq!(
+            (
+                state.entries_total,
+                state.entries_available,
+                state.entries_expired
+            ),
+            (5, 2, 2)
+        );
+        assert_eq!((state.bytes_held, state.bytes_physical), (3 * MIB, 2 * MIB));
         assert_eq!(state.oldest.as_ref().map(|oldest| oldest.op), Some(OpId(1)));
         assert_eq!(state.limits.max_ops.source, ConfigLevel::User);
         assert_eq!(state.over_limit, 1);

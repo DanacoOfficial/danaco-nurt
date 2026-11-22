@@ -18,8 +18,8 @@ use std::io::{self, Write};
 
 use nurt_contracts::env::Os;
 use nurt_contracts::fs::{
-    AbsPath, Durability, FileKind, Follow, Fs, FsError, FsErrorKind, FsFeatures, FsResult,
-    FsWrite, RenameMode, TxScope, VolumeInfo,
+    AbsPath, Durability, FileKind, Follow, Fs, FsError, FsErrorKind, FsFeatures, FsResult, FsWrite,
+    RenameMode, TxScope, VolumeInfo,
 };
 use serde::Serialize;
 
@@ -369,6 +369,7 @@ mod tests {
         total: 1 << 30,
         available: 1 << 29,
         quota_remaining: None,
+        quota_limit: None,
         purgeable_system: None,
     };
 
@@ -435,9 +436,11 @@ mod tests {
         let within = [abs("/home/user/project"), abs("/home/shared")];
         let dir = select(&fs, &volume, &within, ".nurt-journal", Os::Linux).unwrap();
         assert_eq!(dir, Some(abs("/home/user/project/.nurt-journal")));
-        assert!(select(&fs, &volume, &[], ".nurt-journal", Os::Linux)
-            .unwrap()
-            .is_none());
+        assert!(
+            select(&fs, &volume, &[], ".nurt-journal", Os::Linux)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
@@ -490,7 +493,11 @@ mod tests {
         let within = [abs("/home/user/project")];
         let failures = [
             ("volume", "/home/user", FsErrorKind::Io),
-            ("create_dir", "/home/user/.nurt-journal", FsErrorKind::NoSpace),
+            (
+                "create_dir",
+                "/home/user/.nurt-journal",
+                FsErrorKind::NoSpace,
+            ),
             ("metadata", "/home/user", FsErrorKind::Io),
         ];
         for (op, path, kind) in failures {
@@ -504,9 +511,8 @@ mod tests {
     #[test]
     fn creates_private_hidden_directory_with_markers_and_format_files() {
         let (fs, volume) = home();
-        let dir =
-            ensure_journal_dir(&fs, &abs("/home/user"), ".nurt-journal", Os::Linux, &volume)
-                .unwrap();
+        let dir = ensure_journal_dir(&fs, &abs("/home/user"), ".nurt-journal", Os::Linux, &volume)
+            .unwrap();
         let root = "/home/user/.nurt-journal";
         assert_eq!(dir, abs(root));
         assert_eq!(fs.mode(root), Some(0o700));

@@ -45,9 +45,11 @@ like any other operation.
 
 ## Input and output
 
-Input: `none`. Output: `effect` — the new journal entry, the undo operation
-reversed (`sources`), the restored items and the irreversible markers of the
-new entry.
+Input: `none`. Output: one `effect` record of kind `redo` with the fields of
+the `undo` result: `op` (the new journal entry), `targets` and `changes` (the
+restored items), `summary`, `after.sources` (the undo operation reversed) and
+`irreversible` (the irreversible markers of the new entry). A preview of
+`redo id` lists the items the redo would restore.
 
 ## Effect
 
@@ -85,6 +87,7 @@ undo 43
 | `E_JOURNAL_CONFLICT` | the files changed after the undo; nothing changed | inspect the differences in `conflicts` |
 | `E_JOURNAL_PARTIAL` | items of the undo operation were released for space; nothing changed | `undo N on_conflict: partial` with the undo operation |
 | `E_JOURNAL_CORRUPT` | the undo operation failed its integrity check | `nurt journal salvage` |
+| `E_UNSUPPORTED` | an item cannot be restored by the journal (a rename across volumes or over an existing entry); nothing changed | apply the change again with the original command |
 | `E_STALE` | an item changed while the redo ran; the redo was rolled back | repeat the redo |
 
 ## Related

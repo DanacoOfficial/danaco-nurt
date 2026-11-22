@@ -6,25 +6,31 @@
 //! [`Journal`] is assembled by [`JournalBuilder`] from the file system, the
 //! admission control of the space service, the clock, the volume journal
 //! locator and the retention limits. Every module of the crate works on the
-//! shared context held by the journal.
+//! shared context held by the journal; [`Journal`] implements
+//! [`JournalStore`] by delegating to them, and [`EntryCatalog`] for reclaim
+//! by the space service.
 
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use nurt_contracts::config::OverwriteStrategy;
 use nurt_contracts::env::Clock;
-use nurt_contracts::error::{Error, Result};
+use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{
-    AbsPath, FileLock, FsError, FsResult, FsWrite, ProviderScheme, ProviderWrite, ScopePurpose,
-    TxScope, VolumeId, VolumeInfo,
+    AbsPath, FileKind, FileLock, Follow, FsError, FsResult, FsWrite, ProviderScheme, ProviderWrite,
+    ScopePurpose, TxScope, VolumeId, VolumeInfo,
 };
 use nurt_contracts::journal::{
     Admission, BeginRequest, EffectiveRetention, EntryState, ExpiredEntry, ExpiryReason,
-    InactiveReason, MutationTx, OpId, RecoveryReport, VolumeSpace,
+    HistoryQuery, InactiveReason, JournalState, JournalStore, LimitsOutcome, LimitsRequest,
+    MutationTx, OpId, OperationDetails, OperationRecord, PinOutcome, PinRequest, PurgeOutcome,
+    PurgeRequest, RecoveryReport, RedoRequest, RollbackReason, SessionId, SweepReport, UndoOutcome,
+    UndoRequest, VolumeSpace,
 };
 use nurt_fs::failpoint::{FailAction, FailPoint, Failpoints, NoFailpoints};
 
 use crate::layout::{JournalLayout, StateLayout};
+use crate::{catalog, history, pin, recovery, retention, tx, undo};
 
 /// Time to wait for a journal or account lock before the journal is treated
 /// as failing for the operation.
@@ -59,6 +65,57 @@ pub trait VolumeJournals: Send + Sync {
 pub trait RetentionLimits: Send + Sync {
     /// Effective limits of `volume`.
     fn effective(&self, volume: &VolumeInfo) -> EffectiveRetention;
+
+    /// Configuration layers the limits are resolved from, weakest first.
+    ///
+    /// Expiry passes and `journal.limits` resolve the limits again from these
+    /// layers. The default implementation has no layers, so the built-in
+    /// limits apply.
+    fn layers(&self) -> Vec<nurt_contracts::config::ConfigLayer> {
+        Vec::new()
+    }
+
+    /// Whether the project configuration level is trusted and may set
+    /// retention keys.
+    ///
+    /// The default implementation does not trust the project level.
+    fn project_trusted(&self) -> bool {
+        false
+    }
+
+    /// User configuration file written by `journal.limits` with
+    /// `scope: user`; `None` when the journal has none.
+    ///
+    /// The default implementation has no file; [`JournalBuilder::user_config`]
+    /// sets one for a journal.
+    fn user_config(&self) -> Option<AbsPath> {
+        None
+    }
+}
+
+/// Retention limits extended with the user configuration file set by
+/// [`JournalBuilder::user_config`].
+struct UserConfigLimits {
+    limits: Arc<dyn RetentionLimits>,
+    path: AbsPath,
+}
+
+impl RetentionLimits for UserConfigLimits {
+    fn effective(&self, volume: &VolumeInfo) -> EffectiveRetention {
+        self.limits.effective(volume)
+    }
+
+    fn layers(&self) -> Vec<nurt_contracts::config::ConfigLayer> {
+        self.limits.layers()
+    }
+
+    fn project_trusted(&self) -> bool {
+        self.limits.project_trusted()
+    }
+
+    fn user_config(&self) -> Option<AbsPath> {
+        Some(self.path.clone())
+    }
 }
 
 /// Space report of the space service, injected because the journal does not
@@ -304,7 +361,7 @@ impl JournalBuilder {
     /// `state_dir` is the account state directory (`seq`, `ops.jsonl`); it
     /// must exist. Defaults: overwrite strategy `exchange`, lock timeout
     /// [`DEFAULT_LOCK_TIMEOUT`], no providers, no reference schemes, no space
-    /// reporter.
+    /// reporter, no user configuration file.
     #[must_use]
     pub fn new(
         fs: Arc<dyn FsWrite>,
@@ -371,6 +428,29 @@ impl JournalBuilder {
         self
     }
 
+    /// Sets the user configuration file that `journal.limits` with
+    /// `scope: user` writes.
+    ///
+    /// The file is written through a mutation transaction of kind
+    /// `journal.limits` that does not count as a step, so the change can be
+    /// undone; missing parent directories are created in the same
+    /// transaction. The path is not checked here.
+    ///
+    /// # Errors
+    ///
+    /// Setting the path does not fail. Without it, [`JournalStore::limits`]
+    /// with `scope: user` and new values fails with `E_UNSUPPORTED`; with it,
+    /// the call fails with `E_CONFIG` when the file is not valid TOML or
+    /// UTF-8 and with `E_IO` when the file cannot be written.
+    #[must_use]
+    pub fn user_config(mut self, path: AbsPath) -> Self {
+        self.ctx.limits = Arc::new(UserConfigLimits {
+            limits: self.ctx.limits.clone(),
+            path,
+        });
+        self
+    }
+
     /// Sets the fault injection registry.
     #[cfg(feature = "failpoints")]
     #[must_use]
@@ -380,43 +460,211 @@ impl JournalBuilder {
     }
 
     /// Builds the journal.
-    #[must_use]
-    pub fn build(self) -> Journal {
-        Journal { ctx: self.ctx }
+    ///
+    /// No journal file is read or written here; crash recovery runs before
+    /// the first transaction or when [`JournalStore::recover`] is called.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_NOT_FOUND` when the account state directory does not
+    /// exist and with `E_IO` when it is not a directory or cannot be
+    /// inspected.
+    pub fn build(self) -> Result<Journal> {
+        let state_dir = self.ctx.state.root();
+        let meta = self.ctx.fs.metadata(state_dir, Follow::Follow)?;
+        if meta.kind != FileKind::Directory {
+            return Err(Error::new(
+                ErrorCode::Io,
+                format!(
+                    "the journal state path {state_dir} is not a directory; remove it or choose another state directory"
+                ),
+            ));
+        }
+        Ok(Journal { ctx: self.ctx })
     }
 }
 
 /// Operation journal of an account.
+///
+/// Assembled by [`JournalBuilder`] from injected services: the file system
+/// ([`FsWrite`]), admission control of the space service ([`Admission`]), the
+/// clock, the volume journal locator ([`VolumeJournals`], implemented by
+/// [`JournalDirectories`](crate::volumes::JournalDirectories)), the retention
+/// limits ([`RetentionLimits`], implemented by
+/// [`ConfiguredLimits`](crate::ConfiguredLimits)) and optionally the space
+/// report of the space service ([`SpaceReporter`]) and, with the feature
+/// `failpoints`, a fault injection registry.
+///
+/// Crash recovery runs once per process before the first transaction, undo
+/// or redo; when it fails, every target of the process is changed without
+/// preservation and carries the irreversible reason `journal_error`. That
+/// recovery does not expire entries: the expiry pass reads every entry, so
+/// overdue entries expire in [`JournalStore::recover`], called by the space
+/// service at start, and in [`JournalStore::sweep`].
 pub struct Journal {
     ctx: JournalCtx,
 }
 
 impl Journal {
-    /// Opens a mutation transaction.
+    /// Removes the session limits set by `journal.limits` with
+    /// `scope: session` for `session`.
     ///
-    /// Infallible: journal problems degrade preservation of the affected
-    /// targets to `none` with an irreversible reason, never the operation. No
-    /// number is consumed until the first `preserve`, or the commit of a
-    /// transaction of markers only.
-    #[must_use]
-    pub fn begin(&self, request: BeginRequest) -> Box<dyn MutationTx + '_> {
-        crate::tx::begin(&self.ctx, request)
-    }
-
-    /// Space report per volume, served by the space reporter; empty when no
-    /// reporter is configured.
+    /// The host calls it when the session ends; without the call the limits
+    /// are removed after the session time to live passes without calls.
     ///
     /// # Errors
     ///
-    /// Returns the error of the reporter (`E_NOT_FOUND` for an unknown
-    /// volume).
-    pub fn space(&self, volume: Option<&AbsPath>) -> Result<Vec<VolumeSpace>> {
-        match &self.ctx.space {
-            Some(reporter) => reporter.space(volume),
-            None => Ok(Vec::new()),
-        }
+    /// Fails with `E_IO` when the session file cannot be removed.
+    pub fn end_session(&self, session: &SessionId) -> Result<()> {
+        retention::limits::end_session(&self.ctx, session)
+    }
+
+    /// Runs crash recovery once per process; the result is kept for every
+    /// later transaction, which degrades to `journal_error` after a failed
+    /// recovery. No expiry pass runs here, so the time before the first
+    /// transaction depends only on the entries left by an interruption.
+    fn ensure_recovered(&self) {
+        // A failed recovery is recorded in the context and reported by every
+        // transaction as `journal_error`; the operation itself proceeds.
+        let _ = recovery::ensure_recovered(&self.ctx);
     }
 }
+
+impl JournalStore for Journal {
+    /// Completes or reverts interrupted entries, then expires entries over
+    /// the retention limits.
+    ///
+    /// Recovery runs first and reads only entries that are not terminal;
+    /// `elapsed_ms` covers recovery alone. The expiry pass runs after it as a
+    /// separate step, reads every entry and lists the entries it expired in
+    /// `expired`. The first call of the process also serves as the recovery
+    /// before the first transaction.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the error of recovery (`E_IO`); no entry is then expired.
+    /// Fails with the error of the expiry pass (`E_CONFIG`, `E_IN_USE`,
+    /// `E_IO`) after a successful recovery; the error then carries the
+    /// recovery report in the detail `recovered`.
+    fn recover(&self) -> Result<RecoveryReport> {
+        let recovered = recovery::recover(&self.ctx);
+        // The first pass of the process also serves as the recovery before
+        // the first transaction.
+        let _ = self.ctx.startup.set(recovered.clone());
+        let mut report = recovered?;
+        let swept = retention::expiry::sweep(&self.ctx).map_err(|error| {
+            error.with_detail(
+                "recovered",
+                serde_json::to_value(&report).unwrap_or_default(),
+            )
+        })?;
+        report.expired = swept.expired.into_iter().map(|entry| entry.op).collect();
+        Ok(report)
+    }
+
+    fn begin(&self, request: BeginRequest) -> Box<dyn MutationTx + '_> {
+        self.ensure_recovered();
+        tx::begin(&self.ctx, request)
+    }
+
+    fn rollback_committed(&self, op: OpId, reason: RollbackReason) -> Result<UndoOutcome> {
+        self.ensure_recovered();
+        undo::rollback_committed(&self.ctx, op, reason)
+    }
+
+    fn history(&self, query: &HistoryQuery) -> Result<Vec<OperationRecord>> {
+        history::history(&self.ctx, query)
+    }
+
+    fn details(&self, op: OpId) -> Result<OperationDetails> {
+        history::details(&self.ctx, op)
+    }
+
+    fn undo(&self, request: &UndoRequest) -> Result<UndoOutcome> {
+        self.ensure_recovered();
+        undo::undo(&self.ctx, request)
+    }
+
+    fn redo(&self, request: &RedoRequest) -> Result<UndoOutcome> {
+        self.ensure_recovered();
+        undo::redo(&self.ctx, request)
+    }
+
+    fn pin(&self, request: &PinRequest) -> Result<PinOutcome> {
+        pin::pin(&self.ctx, request)
+    }
+
+    fn purge(&self, request: &PurgeRequest) -> Result<PurgeOutcome> {
+        retention::expiry::purge(&self.ctx, request)
+    }
+
+    fn status(&self, volume: Option<&AbsPath>) -> Result<Vec<JournalState>> {
+        retention::limits::status(&self.ctx, volume)
+    }
+
+    fn limits(&self, request: &LimitsRequest) -> Result<LimitsOutcome> {
+        retention::limits::limits(&self.ctx, request)
+    }
+
+    /// Space report of the injected [`SpaceReporter`].
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_SERVICE_NOT_RUNNING` when no space reporter is
+    /// configured, otherwise with the error of the reporter (`E_NOT_FOUND`
+    /// for an unknown volume).
+    fn space(&self, volume: Option<&AbsPath>) -> Result<Vec<VolumeSpace>> {
+        match &self.ctx.space {
+            Some(reporter) => reporter.space(volume),
+            None => Err(Error::new(
+                ErrorCode::ServiceNotRunning,
+                "the space service is not connected to the journal; start the space service",
+            )),
+        }
+    }
+
+    fn sweep(&self) -> Result<SweepReport> {
+        retention::expiry::sweep(&self.ctx)
+    }
+}
+
+impl EntryCatalog for Journal {
+    fn lock_entry(&self, volume: &VolumeId, op: OpId) -> Result<Box<dyn FileLock>> {
+        catalog::lock_entry(&self.ctx, volume, op)
+    }
+
+    fn entries(&self, volume: &VolumeId) -> Result<Vec<EntrySummary>> {
+        catalog::entries(&self.ctx, volume)
+    }
+
+    fn held_items(&self, volume: &VolumeId, op: OpId) -> Result<Vec<HeldItem>> {
+        catalog::held_items(&self.ctx, volume, op)
+    }
+
+    fn begin_reclaim(
+        &self,
+        volume: &VolumeId,
+        op: OpId,
+        reason: ExpiryReason,
+    ) -> Result<ReclaimPaths> {
+        catalog::begin_reclaim(&self.ctx, volume, op, reason)
+    }
+
+    fn complete_reclaim(&self, volume: &VolumeId, op: OpId) -> Result<ExpiredEntry> {
+        catalog::complete_reclaim(&self.ctx, volume, op)
+    }
+
+    fn mark_released(&self, volume: &VolumeId, op: OpId, items: &[u32]) -> Result<()> {
+        catalog::mark_released(&self.ctx, volume, op, items)
+    }
+
+    fn finish_release(&self, volume: &VolumeId, op: OpId) -> Result<()> {
+        catalog::finish_release(&self.ctx, volume, op)
+    }
+}
+
+#[cfg(test)]
+mod tests;
 
 /// File system and services for tests of the journal store.
 ///
@@ -438,7 +686,6 @@ pub(crate) mod test_support {
     use nurt_contracts::config::{
         AgeClock, AgeLimit, ByteLimit, ConfigLevel, Oversize, SizeLimit, StepLimit,
     };
-    use nurt_contracts::env::Clock;
     use nurt_contracts::fs::{
         AbsPath, ContentHash, DirEntry, Durability, Etag, ExtendedMeta, FileId, FileKind, FileLock,
         FileMeta, Follow, Fs, FsError, FsErrorKind, FsFeatures, FsResult, FsWrite, Holder,
@@ -557,7 +804,9 @@ pub(crate) mod test_support {
         }
 
         fn state(&self) -> std::sync::MutexGuard<'_, State> {
-            self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+            self.state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
         }
 
         /// Absolute path below the temporary root.
@@ -686,9 +935,10 @@ pub(crate) mod test_support {
 
         fn check(&self, op: &'static str, path: &Path) -> FsResult<()> {
             let state = self.state();
-            let position = state.faults.iter().position(|fault| {
-                fault.op == op && path.to_string_lossy().contains(&fault.needle)
-            });
+            let position = state
+                .faults
+                .iter()
+                .position(|fault| fault.op == op && path.to_string_lossy().contains(&fault.needle));
             drop(state);
             if let Some(position) = position {
                 let mut state = self.state();
@@ -773,7 +1023,10 @@ pub(crate) mod test_support {
                 matching.into_iter().map(|(_, bytes)| bytes).collect()
             };
             for bytes in pending {
-                let mut file = std::fs::OpenOptions::new().append(true).open(now_at).unwrap();
+                let mut file = std::fs::OpenOptions::new()
+                    .append(true)
+                    .open(now_at)
+                    .unwrap();
                 file.write_all(&bytes).unwrap();
             }
         }
@@ -983,12 +1236,15 @@ pub(crate) mod test_support {
                 total: 1 << 40,
                 available: 1 << 39,
                 quota_remaining: None,
+                quota_limit: None,
                 purgeable_system: None,
             })
         }
 
         fn path_key(&self, path: &AbsPath) -> FsResult<PathKey> {
-            Ok(PathKey(path.as_path().to_string_lossy().as_bytes().to_vec()))
+            Ok(PathKey(
+                path.as_path().to_string_lossy().as_bytes().to_vec(),
+            ))
         }
 
         fn holders(&self, _path: &AbsPath) -> FsResult<Vec<Holder>> {
@@ -1007,7 +1263,7 @@ pub(crate) mod test_support {
     impl FsWrite for SharedFs {
         fn create_temp_in(
             &self,
-            _scope: &TxScope,
+            scope: &TxScope,
             dir: &AbsPath,
             name_hint: &str,
         ) -> FsResult<Box<dyn WriteHandle>> {
@@ -1016,7 +1272,7 @@ pub(crate) mod test_support {
                 if std::fs::symlink_metadata(path.as_path()).is_ok() {
                     continue;
                 }
-                return self.create_new(_scope, &path);
+                return self.create_new(scope, &path);
             }
             unreachable!("unbounded attempts")
         }
@@ -1077,7 +1333,11 @@ pub(crate) mod test_support {
             self.record("rename", &[from.as_path(), to.as_path()])?;
             self.same_volume_or_cross(from.as_path(), to.as_path())?;
             if mode == RenameMode::NoReplace && std::fs::symlink_metadata(to.as_path()).is_ok() {
-                return Err(FsError::new(FsErrorKind::Exists, "rename", Some(to.as_path())));
+                return Err(FsError::new(
+                    FsErrorKind::Exists,
+                    "rename",
+                    Some(to.as_path()),
+                ));
             }
             std::fs::rename(from.as_path(), to.as_path())
                 .map_err(|error| fs_error("rename", from.as_path(), &error))
@@ -1085,9 +1345,15 @@ pub(crate) mod test_support {
 
         fn exchange(&self, _scope: &TxScope, a: &AbsPath, b: &AbsPath) -> FsResult<()> {
             self.record("exchange", &[a.as_path(), b.as_path()])?;
-            let supported = self.volume_of(a.as_path()).is_some_and(|v| v.features.exchange);
+            let supported = self
+                .volume_of(a.as_path())
+                .is_some_and(|v| v.features.exchange);
             if !supported {
-                return Err(FsError::new(FsErrorKind::Unsupported, "exchange", Some(a.as_path())));
+                return Err(FsError::new(
+                    FsErrorKind::Unsupported,
+                    "exchange",
+                    Some(a.as_path()),
+                ));
             }
             self.same_volume_or_cross(a.as_path(), b.as_path())?;
             let swap = a.as_path().with_extension("swap-test");
@@ -1143,7 +1409,9 @@ pub(crate) mod test_support {
 
         fn clone_file(&self, _scope: &TxScope, src: &AbsPath, dst: &AbsPath) -> FsResult<()> {
             self.record("clone_file", &[src.as_path(), dst.as_path()])?;
-            let supported = self.volume_of(src.as_path()).is_some_and(|v| v.features.reflink);
+            let supported = self
+                .volume_of(src.as_path())
+                .is_some_and(|v| v.features.reflink);
             if !supported {
                 return Err(FsError::new(
                     FsErrorKind::Unsupported,
@@ -1152,7 +1420,11 @@ pub(crate) mod test_support {
                 ));
             }
             if std::fs::symlink_metadata(dst.as_path()).is_ok() {
-                return Err(FsError::new(FsErrorKind::Exists, "clone_file", Some(dst.as_path())));
+                return Err(FsError::new(
+                    FsErrorKind::Exists,
+                    "clone_file",
+                    Some(dst.as_path()),
+                ));
             }
             let bytes = std::fs::copy(src.as_path(), dst.as_path())
                 .map_err(|error| fs_error("clone_file", src.as_path(), &error))?;
@@ -1163,7 +1435,11 @@ pub(crate) mod test_support {
         fn copy_file(&self, _scope: &TxScope, src: &AbsPath, dst: &AbsPath) -> FsResult<u64> {
             self.record("copy_file", &[src.as_path(), dst.as_path()])?;
             if std::fs::symlink_metadata(dst.as_path()).is_ok() {
-                return Err(FsError::new(FsErrorKind::Exists, "copy_file", Some(dst.as_path())));
+                return Err(FsError::new(
+                    FsErrorKind::Exists,
+                    "copy_file",
+                    Some(dst.as_path()),
+                ));
             }
             let bytes = std::fs::copy(src.as_path(), dst.as_path())
                 .map_err(|error| fs_error("copy_file", src.as_path(), &error))?;
@@ -1454,7 +1730,10 @@ pub(crate) mod test_support {
 
     impl ProviderWrite for MemProvider {
         fn set(&self, _scope: &TxScope, key: &ProviderKey, value: &ProviderValue) -> FsResult<()> {
-            self.values.lock().unwrap().insert(key.clone(), value.clone());
+            self.values
+                .lock()
+                .unwrap()
+                .insert(key.clone(), value.clone());
             Ok(())
         }
 
@@ -1489,6 +1768,9 @@ pub(crate) mod test_support {
         pub(crate) state_dir: AbsPath,
     }
 
+    // The direct file helpers are methods so that tests read as operations on
+    // the fixture; they use the temporary directory, not the fixture state.
+    #[allow(clippy::unused_self)]
     impl Fixture {
         pub(crate) fn new() -> Self {
             let fs = SharedFs(Arc::new(DiskFs::new()));
@@ -1535,21 +1817,19 @@ pub(crate) mod test_support {
         /// Shared context whose file system is wrapped by the mutation audit;
         /// the state oracle reads the `STATE` file of the entry.
         pub(crate) fn audited_ctx(&self) -> JournalCtx {
-            use nurt_contracts::fs::FsWrite as _;
             let inner: Arc<dyn nurt_contracts::fs::FsWrite> = Arc::new(self.fs.clone());
             let dirs = self.journals.active();
             let reader = inner.clone();
             let oracle_dirs = dirs.clone();
-            let oracle: Arc<dyn nurt_fs::audit::StateOracle> = Arc::new(
-                move |op: nurt_contracts::journal::OpId| {
+            let oracle: Arc<dyn nurt_fs::audit::StateOracle> =
+                Arc::new(move |op: nurt_contracts::journal::OpId| {
                     oracle_dirs.iter().find_map(|dir| {
                         let entry = layout::JournalLayout::new(dir.clone()).entry(op).ok()?;
                         crate::manifest::read_state(reader.as_ref(), &entry.state().ok()?)
                             .ok()
                             .map(|record| record.state)
                     })
-                },
-            );
+                });
             let audit = nurt_fs::audit::AuditFs::new(inner, oracle);
             for dir in dirs {
                 audit.add_internal_root(dir);
@@ -1562,15 +1842,13 @@ pub(crate) mod test_support {
 
         /// Journal over the fixture services.
         pub(crate) fn journal(&self) -> super::Journal {
-            JournalBuilder {
-                ctx: self.ctx(),
-            }
-            .build()
+            JournalBuilder { ctx: self.ctx() }.build().unwrap()
         }
 
         /// Journal directory of test volume `index`.
         pub(crate) fn journal_dir(&self, index: usize) -> AbsPath {
-            self.fs.path(&format!("{}/{}", VOLUMES[index], layout::DIR_NAME))
+            self.fs
+                .path(&format!("{}/{}", VOLUMES[index], layout::DIR_NAME))
         }
 
         /// Writes a file directly, outside any transaction.
@@ -1599,5 +1877,58 @@ pub(crate) mod test_support {
             names.sort();
             names
         }
+    }
+
+    /// Mutating calls in `log[..end]` that are not durable at `end` under the
+    /// minimum POSIX persistence rules: a rename, exchange, hard link or
+    /// directory creation is durable after `sync_dir` of every directory it
+    /// changes, a metadata change or truncation after a flush of the entry
+    /// itself. Each call is listed with the flushes it still needs.
+    pub(crate) fn unflushed(log: &[String], end: usize) -> Vec<String> {
+        let calls = &log[..end.min(log.len())];
+        let mut missing = Vec::new();
+        for (position, call) in calls.iter().enumerate() {
+            let mut words = call.split(' ');
+            let op = words.next().unwrap_or_default();
+            let paths: Vec<&Path> = words.map(Path::new).collect();
+            let dir_sync = |path: &Path| {
+                path.parent()
+                    .map(|dir| vec![format!("sync_dir {}", dir.display())])
+            };
+            let needs: Vec<Vec<String>> = match op {
+                "rename" | "exchange" => paths.iter().filter_map(|path| dir_sync(path)).collect(),
+                "hard_link" => paths
+                    .get(1)
+                    .and_then(|path| dir_sync(path))
+                    .into_iter()
+                    .collect(),
+                "create_dir" => paths
+                    .first()
+                    .and_then(|path| dir_sync(path))
+                    .into_iter()
+                    .collect(),
+                "set_meta" | "restore_meta" | "truncate" => paths
+                    .first()
+                    .map(|path| {
+                        vec![
+                            format!("sync_file {}", path.display()),
+                            format!("sync_dir {}", path.display()),
+                        ]
+                    })
+                    .into_iter()
+                    .collect(),
+                _ => continue,
+            };
+            let later = &calls[position + 1..];
+            let lacking: Vec<String> = needs
+                .into_iter()
+                .filter(|any| !later.iter().any(|entry| any.contains(entry)))
+                .map(|any| any.join(" or "))
+                .collect();
+            if !lacking.is_empty() {
+                missing.push(format!("{call}: needs {}", lacking.join(", ")));
+            }
+        }
+        missing
     }
 }
