@@ -1,0 +1,25 @@
+basic = "tab\tand \"quote\""
+literal = 'C:\Users\name'
+multi_basic = """
+Roses are red
+Violets are blue"""
+multi_literal = '''
+raw \n text
+'''
+point = { x = 1, y = 2 }
+site.name = "dotted"
+site.port = 8080
+
+[[products]]
+name = "Hammer"
+sku = 738594937
+
+[[products]]
+
+[[products]]
+name = "Nail"
+sku = 284758393
+color = "gray"
+
+[server.alpha]
+ip = "10.0.0.1"

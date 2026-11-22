@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=App 4
+Icon=app
+Terminal=false
+Name[de]=Bearbeiter
+
+[Desktop Action new-window]
+Name=New Window
+Exec=app --new-window

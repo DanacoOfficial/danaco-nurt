@@ -113,7 +113,10 @@ mod tests {
         assert_eq!(single_name(&key).as_deref(), Some("server.port"));
         let quoted = flat_key(&KeyPath::parse("[\"a.b\"].c").unwrap()).unwrap();
         assert_eq!(single_name(&quoted).as_deref(), Some("a.b.c"));
-        assert_eq!(single_name(&flat_key(&KeyPath::parse("a[*]").unwrap()).unwrap()), None);
+        assert_eq!(
+            single_name(&flat_key(&KeyPath::parse("a[*]").unwrap()).unwrap()),
+            None
+        );
     }
 
     #[test]

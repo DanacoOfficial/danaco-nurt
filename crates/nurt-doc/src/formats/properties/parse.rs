@@ -119,7 +119,12 @@ pub(crate) fn parse(text: &str) -> Result<Parsed, Error> {
 /// Characters of a logical line with their offsets, without continuation
 /// backslashes, line breaks and the leading whitespace of continuation
 /// lines.
-fn logical_chars(text: &str, lines: &[Line], first: usize, start: usize) -> (Vec<(usize, char)>, usize) {
+fn logical_chars(
+    text: &str,
+    lines: &[Line],
+    first: usize,
+    start: usize,
+) -> (Vec<(usize, char)>, usize) {
     let mut chars = Vec::new();
     let mut index = first;
     let mut from = start;
@@ -201,7 +206,14 @@ mod tests {
     #[test]
     fn reads_the_separators_of_java_properties() {
         let text = "a=1\nb : 2\nc 3\n  d\t=\t4\ne\nf=\n";
-        let expected = [("a", "1"), ("b", "2"), ("c", "3"), ("d", "4"), ("e", ""), ("f", "")];
+        let expected = [
+            ("a", "1"),
+            ("b", "2"),
+            ("c", "3"),
+            ("d", "4"),
+            ("e", ""),
+            ("f", ""),
+        ];
         let found = pairs(text);
         assert_eq!(found.len(), expected.len());
         for ((key, value), (k, v)) in found.iter().zip(expected) {
@@ -215,7 +227,10 @@ mod tests {
         let parsed = parse(text).unwrap();
         assert_eq!(parsed.entries[0].value, "a,b,c");
         assert_eq!(parsed.entries[0].last_line, 2);
-        assert_eq!(&text[parsed.entries[0].value_range.clone()], "a,\\\n       b,\\\r\n   c");
+        assert_eq!(
+            &text[parsed.entries[0].value_range.clone()],
+            "a,\\\n       b,\\\r\n   c"
+        );
         assert_eq!(parsed.entries[1].value, "\\");
     }
 

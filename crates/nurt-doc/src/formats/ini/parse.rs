@@ -110,7 +110,8 @@ impl Parser<'_> {
             }
             Some(c) if self.rules.comment_chars.contains(&c) => {
                 self.parsed.comment_lines[index] = true;
-                self.pending_comment.push(body[c.len_utf8()..].trim().to_owned());
+                self.pending_comment
+                    .push(body[c.len_utf8()..].trim().to_owned());
                 Ok(index + 1)
             }
             Some('[') => {
@@ -129,7 +130,12 @@ impl Parser<'_> {
 
     fn header(&mut self, index: usize, start: usize, body: &str) -> Result<(), Error> {
         let close = self.header_close(body).ok_or_else(|| {
-            parse_error(FORMAT, "section header has no closing `]`", self.text, start)
+            parse_error(
+                FORMAT,
+                "section header has no closing `]`",
+                self.text,
+                start,
+            )
         })?;
         let after = body[close + 1..].trim_start_matches([' ', '\t']);
         let trailing = match after.chars().next() {
@@ -193,7 +199,10 @@ impl Parser<'_> {
                 .strip_prefix('"')
                 .and_then(|s| s.strip_suffix('"'))
                 .ok_or("subsection name must be quoted")?;
-            return Ok(vec![section.to_ascii_lowercase(), unescape_subsection(inner)]);
+            return Ok(vec![
+                section.to_ascii_lowercase(),
+                unescape_subsection(inner),
+            ]);
         }
         Ok(match trimmed.split_once('.') {
             Some((section, sub)) => vec![section.to_ascii_lowercase(), sub.to_ascii_lowercase()],
@@ -235,7 +244,8 @@ impl Parser<'_> {
             return Ok(index + 1);
         };
         let after = &body[separator + 1..];
-        let value_start = start + separator + 1 + (after.len() - after.trim_start_matches([' ', '\t']).len());
+        let value_start =
+            start + separator + 1 + (after.len() - after.trim_start_matches([' ', '\t']).len());
         let (last_line, value_end, trailing) = self.value_lines(index, value_start)?;
         let raw = &self.text[value_start..value_end];
         let value = decode(self.profile, raw)
@@ -290,8 +300,15 @@ impl Parser<'_> {
                 && ends_with_continuation(raw, self.profile)
                 && index + 1 < self.parsed.lines.len();
             if !continued {
-                if self.profile == IniProfile::Gitconfig && open_quote(&self.text[value_start..from + raw.len()]) {
-                    return Err(parse_error(FORMAT, "quoted value is not terminated", self.text, from));
+                if self.profile == IniProfile::Gitconfig
+                    && open_quote(&self.text[value_start..from + raw.len()])
+                {
+                    return Err(parse_error(
+                        FORMAT,
+                        "quoted value is not terminated",
+                        self.text,
+                        from,
+                    ));
                 }
                 let trailing = comment_at.map(|at| body[at + 1..].trim().to_owned());
                 return Ok((index, from + raw.len(), trailing));

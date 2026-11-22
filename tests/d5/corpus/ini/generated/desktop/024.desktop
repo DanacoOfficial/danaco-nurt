@@ -1,0 +1,11 @@
+# Desktop entry
+[Desktop Entry]
+Type=Application
+Name=App 24
+Name[fr]=Éditeur 24
+Exec=app %U
+Categories=Utility;TextEditor;
+
+[Desktop Action new-window]
+Name=New Window
+Exec=app --new-window

@@ -16,10 +16,19 @@
 //! is accepted.
 
 mod edit;
+mod format;
 mod parse;
 mod profile;
 pub(crate) mod support;
 mod value;
+
+pub use format::IniFormat;
+
+/// Registration function of the format `ini`.
+#[must_use]
+pub fn formats() -> Vec<Box<dyn crate::registry::DocFormat>> {
+    vec![Box::new(IniFormat::new())]
+}
 
 use std::ops::Range;
 
@@ -111,9 +120,7 @@ impl IniDocument {
         let value_of = |node: &Node| self.node_value(node);
         let hits = resolve(&self.tree, key, &value_of)?;
         let index = LineIndex::new(&self.text);
-        hits.iter()
-            .map(|hit| self.item(hit, &index))
-            .collect()
+        hits.iter().map(|hit| self.item(hit, &index)).collect()
     }
 
     /// Content of the document as a map of sections and global keys.
@@ -226,7 +233,10 @@ impl IniDocument {
     fn lines_range(&self, node: &Node) -> Range<usize> {
         let mut lines = Vec::new();
         collect_lines(&self.parsed, node, &mut lines);
-        let start = lines.iter().min().map_or(0, |&l| self.parsed.lines[l].start);
+        let start = lines
+            .iter()
+            .min()
+            .map_or(0, |&l| self.parsed.lines[l].start);
         let end = lines
             .iter()
             .max()
@@ -243,7 +253,11 @@ fn collect_lines(parsed: &Parsed, node: &Node, out: &mut Vec<usize>) {
             out.extend(entry.first_line..=entry.last_line);
         }
         Node::Map(map) => {
-            out.extend(map.ids.iter().filter_map(|&s| parsed.sections[s].header_line));
+            out.extend(
+                map.ids
+                    .iter()
+                    .filter_map(|&s| parsed.sections[s].header_line),
+            );
             for (_, child) in &map.members {
                 collect_lines(parsed, child, out);
             }
@@ -277,7 +291,12 @@ fn build_tree(text: &str, parsed: &Parsed, profile: IniProfile) -> Result<Node, 
         }
         for &entry_id in &section.entries {
             add_entry(map, parsed, entry_id, profile).map_err(|name| {
-                name_clash(text, parsed, Some(parsed.entries[entry_id].first_line), &name)
+                name_clash(
+                    text,
+                    parsed,
+                    Some(parsed.entries[entry_id].first_line),
+                    &name,
+                )
             })?;
         }
     }

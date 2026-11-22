@@ -259,7 +259,11 @@ mod tests {
             ("\"in # quotes\"", "in # quotes"),
         ];
         for (raw, expected) in cases {
-            assert_eq!(decode(IniProfile::Gitconfig, raw).as_deref(), Ok(expected), "{raw}");
+            assert_eq!(
+                decode(IniProfile::Gitconfig, raw).as_deref(),
+                Ok(expected),
+                "{raw}"
+            );
         }
         assert!(decode(IniProfile::Gitconfig, "\"open").is_err());
         assert!(decode(IniProfile::Gitconfig, "bad \\q").is_err());
@@ -267,7 +271,10 @@ mod tests {
 
     #[test]
     fn joins_continuation_lines_by_profile() {
-        assert_eq!(decode(IniProfile::Generic, "a \\\n  b").as_deref(), Ok("a   b"));
+        assert_eq!(
+            decode(IniProfile::Generic, "a \\\n  b").as_deref(),
+            Ok("a   b")
+        );
         assert_eq!(
             decode(IniProfile::Systemd, "/bin/run \\\r\n    --flag").as_deref(),
             Ok("/bin/run --flag")
@@ -279,7 +286,10 @@ mod tests {
         assert_eq!(decode_php("\"a;b\" ; note"), "a;b");
         assert_eq!(decode_php("'C:\\path'"), "C:\\path");
         assert_eq!(decode_php("say \"x\\\"y\""), "sayx\"y");
-        assert_eq!(decode_desktop("\\sa\\tb\\\\c\\nd\\re\\q\\"), " a\tb\\c\nd\re\\q\\");
+        assert_eq!(
+            decode_desktop("\\sa\\tb\\\\c\\nd\\re\\q\\"),
+            " a\tb\\c\nd\re\\q\\"
+        );
     }
 
     #[test]
@@ -303,17 +313,33 @@ mod tests {
                     assert_eq!(profile, IniProfile::Php);
                     continue;
                 };
-                assert_eq!(decode(profile, &raw).as_deref(), Ok(sample), "{profile} {raw}");
+                assert_eq!(
+                    decode(profile, &raw).as_deref(),
+                    Ok(sample),
+                    "{profile} {raw}"
+                );
             }
         }
     }
 
     #[test]
     fn keeps_the_quoting_style_of_the_old_value() {
-        assert_eq!(encode(IniProfile::Gitconfig, "x", Some("\"y\"")).as_deref(), Some("\"x\""));
-        assert_eq!(encode(IniProfile::Php, "x", Some("'y'")).as_deref(), Some("'x'"));
-        assert_eq!(encode(IniProfile::Php, "it's", Some("'y'")).as_deref(), Some("\"it's\""));
-        assert_eq!(encode(IniProfile::Php, "x", Some("\"y\"")).as_deref(), Some("\"x\""));
+        assert_eq!(
+            encode(IniProfile::Gitconfig, "x", Some("\"y\"")).as_deref(),
+            Some("\"x\"")
+        );
+        assert_eq!(
+            encode(IniProfile::Php, "x", Some("'y'")).as_deref(),
+            Some("'x'")
+        );
+        assert_eq!(
+            encode(IniProfile::Php, "it's", Some("'y'")).as_deref(),
+            Some("\"it's\"")
+        );
+        assert_eq!(
+            encode(IniProfile::Php, "x", Some("\"y\"")).as_deref(),
+            Some("\"x\"")
+        );
     }
 
     #[test]
@@ -321,7 +347,13 @@ mod tests {
         for value in ["a\nb", " a", "a ", "ends\\"] {
             assert_eq!(encode(IniProfile::Generic, value, None), None, "{value}");
         }
-        assert_eq!(encode(IniProfile::Editorconfig, "x\\", None).as_deref(), Some("x\\"));
-        assert_eq!(encode(IniProfile::Systemd, "a b", None).as_deref(), Some("a b"));
+        assert_eq!(
+            encode(IniProfile::Editorconfig, "x\\", None).as_deref(),
+            Some("x\\")
+        );
+        assert_eq!(
+            encode(IniProfile::Systemd, "a b", None).as_deref(),
+            Some("a b")
+        );
     }
 }

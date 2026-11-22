@@ -1,0 +1,25 @@
+title = "Example 4"
+version = "1.4.0"
+
+[server]
+host = "localhost"
+ports = [ 8000, 8001, 8004 ]
+limits = { cpu = 2, memory = "512M" }
+
+[tool.poetry]
+name = "pkg4"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = { version = "2.31", optional = true }
+
+[numbers]
+hex = 0xDEAD_BEEF
+oct = 0o755
+bin = 0b1101
+big = 1_000_000
+float = 6.626e-34
+infinity = inf
+not_a_number = nan
+negative = -0.01
+

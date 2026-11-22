@@ -1,0 +1,11 @@
+# Desktop entry
+[Desktop Entry]
+Type=Application
+Name=App 18
+Comment=Edit text files
+Categories=Utility;TextEditor;
+Terminal=false
+
+[Desktop Action new-window]
+Name=New Window
+Exec=app --new-window

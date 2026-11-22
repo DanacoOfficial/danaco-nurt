@@ -1,0 +1,11 @@
+[Unit]
+Description=Unit 0
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/app --port 800
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

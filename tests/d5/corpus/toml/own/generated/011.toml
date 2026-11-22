@@ -1,0 +1,28 @@
+[numbers]
+hex = 0xDEAD_BEEF
+oct = 0o755
+bin = 0b1101
+big = 1_000_000
+float = 6.626e-34
+infinity = inf
+not_a_number = nan
+negative = -0.01
+
+[server]
+host = "localhost"
+ports = [ 8000, 8001, 80011 ]
+limits = { cpu = 2, memory = "512M" }
+
+[[fruits]]
+name = "apple"
+
+[fruits.physical]
+color = "red"
+shape = "round"
+
+[[fruits.varieties]]
+name = "red delicious"
+
+[[fruits]]
+name = "banana"
+

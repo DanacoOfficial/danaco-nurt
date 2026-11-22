@@ -6,5 +6,6 @@
 
 pub(crate) mod errors;
 pub(crate) mod flat;
+pub(crate) mod handle;
 pub(crate) mod text;
 pub(crate) mod tree;

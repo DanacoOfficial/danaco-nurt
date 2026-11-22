@@ -1,0 +1,11 @@
+[Unit]
+Description=Unit 24
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/app --port 8024
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

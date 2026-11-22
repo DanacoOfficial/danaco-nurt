@@ -1,0 +1,31 @@
+title = "Example 28"
+version = "1.28.0"
+
+[[fruits]]
+name = "apple"
+
+[fruits.physical]
+color = "red"
+shape = "round"
+
+[[fruits.varieties]]
+name = "red delicious"
+
+[[fruits]]
+name = "banana"
+
+[numbers]
+hex = 0xDEAD_BEEF
+oct = 0o755
+bin = 0b1101
+big = 1_000_000
+float = 6.626e-34
+infinity = inf
+not_a_number = nan
+negative = -0.01
+
+[owner]
+name.first = "Tom"
+name.last = "Preston-Werner"
+site."example.org" = true
+

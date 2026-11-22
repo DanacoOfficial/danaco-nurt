@@ -1,0 +1,12 @@
+[Unit]
+Description=Unit 22
+After=network.target
+
+[Mount]
+What=/dev/sdb1
+Where=/mnt/data
+Type=ext4
+Options=defaults,noatime
+
+[Install]
+WantedBy=multi-user.target
