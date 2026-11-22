@@ -227,3 +227,82 @@ fn entries_of_documents_and_images_are_read_in_the_stage_form() {
         Some((Some(5), Some(7)))
     );
 }
+
+/// PDF document of one page showing `text` in Helvetica, written in ASCII
+/// characters only, with an exact cross-reference table.
+fn ascii_pdf(text: &str) -> Vec<u8> {
+    let content = format!("BT /F1 12 Tf 72 760 Td ({text}) Tj ET");
+    let objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>".to_owned(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 595 842] >>".to_owned(),
+        "<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>"
+            .to_owned(),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"
+            .to_owned(),
+        format!(
+            "<< /Length {} >>\nstream\n{content}\nendstream",
+            content.len()
+        ),
+    ];
+    let mut bytes = b"%PDF-1.4\n".to_vec();
+    let mut offsets = Vec::new();
+    for (index, object) in objects.iter().enumerate() {
+        offsets.push(bytes.len());
+        bytes.extend_from_slice(format!("{} 0 obj\n{object}\nendobj\n", index + 1).as_bytes());
+    }
+    let xref = bytes.len();
+    let size = objects.len() + 1;
+    bytes.extend_from_slice(format!("xref\n0 {size}\n0000000000 65535 f \n").as_bytes());
+    for offset in offsets {
+        bytes.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+    }
+    bytes.extend_from_slice(
+        format!("trailer\n<< /Size {size} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").as_bytes(),
+    );
+    bytes
+}
+
+#[test]
+fn pdf_of_ascii_characters_only_is_read_as_a_document() {
+    let test = TestContext::new();
+    let bytes = ascii_pdf("Plain ASCII page");
+    assert!(bytes.is_ascii());
+    let path = file(&test, "/d/plain.pdf", &bytes);
+    let ctx = test.ctx();
+    let pages = read(&ctx, &path, Vec::new()).expect("readable");
+    assert_eq!(texts(&pages), [(Some(1), "Plain ASCII page")]);
+    assert_eq!(pages[0].pages_total, Some(1));
+    assert_eq!(pages[0].encoding, "binary");
+    let entries = read_entries(&ctx, &[&path], Vec::new()).expect("readable");
+    assert_eq!(entries[0].page, Some(1));
+    assert_eq!(
+        read(&ctx, &path, vec![("lines", Value::Int(1))])
+            .expect_err("lines of a document")
+            .code(),
+        ErrorCode::Unsupported
+    );
+    let source = read(
+        &ctx,
+        &path,
+        vec![("encoding", Value::Text("utf-8".to_owned()))],
+    )
+    .expect("the source as text");
+    assert!(source[0].text.starts_with("%PDF-1.4\n"));
+    assert_eq!(source[0].page, None);
+}
+
+#[test]
+fn text_that_starts_like_an_image_signature_stays_text() {
+    let test = TestContext::new();
+    let ctx = test.ctx();
+    for (name, text) in [
+        ("/d/cars.txt", "BMW and GIF notes\n"),
+        ("/d/formats.txt", "GIF is an image format\n"),
+    ] {
+        let path = file(&test, name, text.as_bytes());
+        let read = read(&ctx, &path, Vec::new()).expect("readable");
+        assert_eq!(read[0].text, text);
+        assert!(read[0].image.is_none());
+        assert_ne!(read[0].encoding, "binary");
+    }
+}

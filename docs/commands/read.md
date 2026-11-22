@@ -14,8 +14,8 @@ since: 0.1.0
 
 ```text
 read <path>… [lines: <range> | <list<range>>] [last: <int>] [around: <text> | <regex>] [context: <int>] [symbol: <text>] [section: <text>] [cell: <int> | <text>] [key: <key>] [depth: <int>] [view: full|outline|outline_first|symbols|header|hex] [pages: <range> | <list<range>>] [mode: text|layout|images] [encoding: <text>] [decompress: auto|none] [unchanged_since: <text>] [since: <text>] [known: <map<text>>] [line_numbers: <bool>] [max_line: <int>]
-read targets: <list<map<any>>> [view: …] [context: <int>] [depth: <int>] [encoding: <text>] [unchanged_since: <text>] [since: <text>] [known: <map<text>>] [line_numbers: <bool>] [max_line: <int>]
-<entry records> |> read [lines: …] [last: …] [around: …] [context: …] [symbol: …] [section: …] [cell: …] [key: …] [depth: …] [view: …] [encoding: …] [unchanged_since: …] [since: …] [known: …] [line_numbers: …] [max_line: …]
+read targets: <list<map<any>>> [view: …] [context: <int>] [depth: <int>] [pages: <range> | <list<range>>] [mode: text|layout|images] [encoding: <text>] [decompress: auto|none] [unchanged_since: <text>] [since: <text>] [known: <map<text>>] [line_numbers: <bool>] [max_line: <int>]
+<entry records> |> read [lines: …] [last: …] [around: …] [context: …] [symbol: …] [section: …] [cell: …] [key: …] [depth: …] [view: …] [pages: …] [mode: …] [encoding: …] [decompress: …] [unchanged_since: …] [since: …] [known: …] [line_numbers: …] [max_line: …]
 ```
 
 ## Description
@@ -42,7 +42,7 @@ A call takes at most one selector:
 | Selector | Result |
 |---|---|
 | none | the whole text |
-| `lines` | the lines of one or more ranges, in the order given; overlapping ranges are merged into the place of the first of them; lines beyond the end of the file are left out |
+| `lines` | the lines of one or more ranges, in the order given; overlapping ranges are merged into the place of the first of them; the end of a range beyond the last line is reduced to the last line, and a range that starts after it fails with `E_OUT_OF_RANGE` |
 | `last` | the last lines; the whole text when the file is shorter |
 | `around` | the lines of every match of the text or regular expression with `context` lines before and after; spans that overlap or touch are merged |
 | `section` | a Markdown section: its ATX or Setext heading and the lines up to the next heading of the same or a higher level; nested headings are joined with ` > `; headings in fenced code are ignored, and emphasis, code and link markers are ignored when headings are compared |
@@ -82,7 +82,9 @@ notable effect `truncated_lines` gives the number of lines cut.
 
 ### PDF documents
 
-A PDF document gives one `content` record per page, with the page number in
+A file that starts with `%PDF-` is a PDF document, also when it consists of
+ASCII characters only; a named `encoding` reads its source as text. A PDF
+document gives one `content` record per page, with the page number in
 `page` and the number of pages of the document in `pages_total`. `pages`
 selects pages as one or more ranges, read in the order given; the end of a
 range beyond the last page is reduced to the last page, and a range that
@@ -138,8 +140,12 @@ content with `since_missing: true`.
 
 ### Encoding detection
 
-With `encoding: auto` the first 64 KiB of a file decide its encoding, in this
-order: a byte order mark selects UTF-8, UTF-16 LE or UTF-16 BE; valid UTF-8
+With `encoding: auto` the signatures of binary formats are checked first: a
+file that starts with `%PDF-` is a PDF document, a file read with
+`decompress: auto` whose name and signature agree on a compression format is
+decompressed, and a file that starts with the signature of an image is an
+image unless its leading bytes are plain ASCII text. The first 64 KiB of any
+other file decide its encoding, in this order: a byte order mark selects UTF-8, UTF-16 LE or UTF-16 BE; valid UTF-8
 without NUL characters is UTF-8; content in which one code unit in ten or
 more has a zero high byte is UTF-16 without a byte order mark; a NUL byte
 makes the content binary; otherwise a statistical detector proposes a legacy
@@ -158,8 +164,10 @@ Content with more than one control character in twenty characters is binary.
   least one character in ten lies in the range U+0000 to U+00FF, such as
   text in Latin script; other UTF-16 text without a byte order mark is
   binary.
-- PDF documents, images and compressed files are recognised among content
-  that is not text; a PDF document that consists of ASCII characters only is
+- A PDF document that consists of ASCII characters only is read as a PDF
+  document; a named `encoding` reads its source as text.
+- Image signatures that consist of ASCII letters, such as `BM` and `GIF`,
+  do not apply to plain ASCII text, so a text file that starts with them is
   read as text.
 
 ## Parameters
@@ -317,6 +325,7 @@ image: {mime: image/png, width: 64, height: 32}
 | `E_NOT_FOUND` | The file does not exist. | Check the path, for example with `find`. |
 | `E_PERMISSION` | The file cannot be read. | Read a file the account may read. |
 | `E_INVALID_VALUE` | A directory or special file was given, a line number is below 1, `last` or `max_line` is below 1, a value is not an etag, or `cell` was given for a file that is not a notebook. | Give a file, or a valid value. |
+| `E_OUT_OF_RANGE` | A range of `lines` starts after the last line of the file, which includes every range of an empty file, or the index of `cell` is not below the number of cells. `found` holds the range and `actual` the number of lines or cells. | Use lines from 1 to `total_lines`, or a cell index below `actual`. |
 | `E_PARAM_CONFLICT` | More than one selector, selectors both for the call and in `targets`, or a selector with `view: header`, `outline` or `symbols`. | Use one selector, or `view: outline_first`. |
 | `E_MISSING_PARAM` | Neither `path` nor `targets`, or a target without `path`. | Give the files to read. |
 | `E_UNKNOWN_FIELD` | A map of `targets` has an unknown key. | Use the keys listed in `expected`. |
@@ -324,12 +333,15 @@ image: {mime: image/png, width: 64, height: 32}
 | `E_ENCODING` | The content is not valid in the encoding given with `encoding`. | Use `encoding: auto` or the encoding of the file. |
 | `E_LIMIT` | The text is larger than the text limit. | Search the file with `search`. |
 | `E_REGEX` | The pattern of `around` is not a valid regular expression. | Correct the pattern. |
-| `E_KEY_NOT_FOUND` | The section, key or cell does not exist. | Use a heading listed in `expected`, or an existing key or cell. |
+| `E_KEY_NOT_FOUND` | The section or key does not exist, or no cell has the identifier given with `cell`. | Use a heading listed in `expected`, or an existing key or cell identifier. |
 | `E_SYMBOL_NOT_FOUND` | The file defines no such symbol. | List the symbols with `view: symbols`. |
 | `E_SYMBOL_AMBIGUOUS` | The name denotes several symbols. | Qualify the name with its container. |
 | `E_UNSUPPORTED_LANGUAGE` | No grammar recognises the file given with `symbol`. | Read lines or a section instead. |
 | `E_UNSUPPORTED` | The file given with `key` is not a structured document of a known format. | Read lines instead. |
 | `E_FORMAT` | A notebook is not valid JSON of the notebook format. | Read its text with `lines`, which does not parse the notebook. |
+
+`last` larger than the number of lines gives the whole text, and `around`
+without a match gives empty text; neither is an error.
 
 ### Errors of PDF documents, images, dumps and compressed files
 

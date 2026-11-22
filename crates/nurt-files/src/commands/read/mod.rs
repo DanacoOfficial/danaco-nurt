@@ -7,19 +7,24 @@
 //! In the source form the targets are the paths of `path` or the maps of
 //! `targets`, each map with its own selector; in the stage form they are the
 //! files of the input `entry` records, and directories among them are
-//! skipped. Each target is loaded and recognised as text or binary content;
-//! text goes to [`text::read_source`], and content that is not text and
-//! `view: hex` go to [`binary::read_binary`].
+//! skipped. With `encoding: auto` a file that starts with the signature of a
+//! PDF document, of an image or of a compressed file goes to
+//! [`binary::read_binary`] before its encoding is detected, so a PDF
+//! document written in ASCII is read as a document. Every other target is
+//! loaded and recognised as text or binary content; text goes to
+//! [`text::read_source`], and content that is not text and `view: hex` go to
+//! [`binary::read_binary`].
 
 pub(crate) mod binary;
 mod cache;
 mod select;
 mod text;
 
+use std::io::Read as _;
 use std::sync::Arc;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::AbsPath;
+use nurt_contracts::fs::{AbsPath, FileKind, Follow};
 use nurt_contracts::record::EntryType;
 use nurt_contracts::stage::{
     BoundArgs, ExecCtx, InputKinds, ReadStage, RecordStream, StageDescriptor, StageImpl,
@@ -32,6 +37,7 @@ use self::select::{CONTEXT, DEFAULT_CONTEXT, PATH, Selector};
 use self::text::{Loaded, ReadOptions, TagMatch, View};
 use crate::common::params::{EncodingParam, encoding_param};
 use crate::common::path::{path_list_arg, record_path, resolve};
+use crate::read::{compressed, image};
 
 const COMMAND: &str = "read";
 const TARGETS: &str = "targets";
@@ -42,9 +48,24 @@ const SINCE: &str = "since";
 const KNOWN: &str = "known";
 const LINE_NUMBERS: &str = "line_numbers";
 const MAX_LINE: &str = "max_line";
+const DECOMPRESS: &str = "decompress";
+
+/// Value of `decompress` that reads compressed files as they are.
+const DECOMPRESS_NONE: &str = "none";
 
 /// Field of `entry` records with the type of the entry.
 const TYPE_FIELD: &str = "type";
+
+/// Leading bytes of every PDF document.
+const PDF_SIGNATURE: &[u8] = b"%PDF-";
+
+/// Leading bytes read to recognise PDF documents, images and compressed
+/// files before the encoding is detected.
+const SIGNATURE_LEN: usize = if image::SIGNATURE_LEN > compressed::SIGNATURE_LEN {
+    image::SIGNATURE_LEN
+} else {
+    compressed::SIGNATURE_LEN
+};
 
 /// Stage of `read`, with the cache of texts used when the engine registers
 /// no shared [`ReadCache`].
@@ -128,8 +149,9 @@ impl ReadStage for Read {
     }
 }
 
-/// Records of one target: text through [`text::read_source`], content that
-/// is not text and `view: hex` through [`binary::read_binary`].
+/// Records of one target: text through [`text::read_source`]; content with
+/// the signature of a binary format, content that is not text and
+/// `view: hex` through [`binary::read_binary`].
 fn read_target(
     ctx: &ExecCtx,
     cache: &dyn ReadCache,
@@ -137,13 +159,82 @@ fn read_target(
     args: &BoundArgs,
     options: &ReadOptions,
 ) -> Result<Vec<Record>> {
-    if options.view == View::Hex {
+    if options.view == View::Hex || signature_first(ctx, &target.path, args, options.encoding)? {
         return binary::read_binary(ctx, args, &target.path, &target.selector, options);
     }
     match text::load(ctx, &target.path, options.encoding)? {
         Loaded::Text(source) => text::read_source(ctx, cache, &source, &target.selector, options),
         Loaded::Binary => binary::read_binary(ctx, args, &target.path, &target.selector, options),
     }
+}
+
+/// Whether a file starts with the signature of a format read by
+/// [`binary::read_binary`], checked before the encoding is detected.
+///
+/// Only `encoding: auto` checks signatures; a named encoding reads the
+/// source of any file as text. A directory or special file gives `false`,
+/// and [`text::load`] reports it.
+fn signature_first(
+    ctx: &ExecCtx,
+    path: &AbsPath,
+    args: &BoundArgs,
+    encoding: EncodingParam,
+) -> Result<bool> {
+    if !matches!(encoding, EncodingParam::Auto) {
+        return Ok(false);
+    }
+    let fs = ctx.require_fs()?;
+    if fs.metadata(path, Follow::Follow)?.kind != FileKind::File {
+        return Ok(false);
+    }
+    let mut handle = fs.open_read(path)?;
+    let mut prefix = Vec::with_capacity(SIGNATURE_LEN);
+    if let Some(mapped) = handle.as_bytes() {
+        prefix.extend_from_slice(&mapped[..SIGNATURE_LEN.min(mapped.len())]);
+    } else {
+        handle
+            .by_ref()
+            .take(u64::try_from(SIGNATURE_LEN).unwrap_or(u64::MAX))
+            .read_to_end(&mut prefix)
+            .map_err(|error| {
+                Error::new(ErrorCode::Io, format!("reading `{path}` failed: {error}"))
+            })?;
+    }
+    Ok(binary_signature(
+        &path.to_language_string(),
+        &prefix,
+        decompress_param(args),
+    ))
+}
+
+/// Whether `prefix` starts with the signature of a PDF document, of a
+/// compressed file whose name agrees with it (when `decompress` is on), or
+/// of an image.
+///
+/// Some image signatures, such as `BM` and `GIF`, are ASCII letters, so an
+/// image signature counts only when the leading bytes are not plain ASCII
+/// text.
+fn binary_signature(name: &str, prefix: &[u8], decompress: bool) -> bool {
+    prefix.starts_with(PDF_SIGNATURE)
+        || (decompress && compressed::compression_of(name, prefix).is_some())
+        || (image::image_mime(prefix).is_some() && !is_plain_ascii(prefix))
+}
+
+/// Whether every byte is a printable ASCII character, a space, a tab or a
+/// line ending.
+fn is_plain_ascii(bytes: &[u8]) -> bool {
+    bytes
+        .iter()
+        .all(|byte| byte.is_ascii_graphic() || matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
+}
+
+/// Whether `decompress` is on; values other than `none` are checked by
+/// [`binary::read_binary`].
+fn decompress_param(args: &BoundArgs) -> bool {
+    !matches!(
+        args.value(DECOMPRESS),
+        Some(Value::Enum(value) | Value::Text(value)) if value == DECOMPRESS_NONE
+    )
 }
 
 fn read_options(args: &BoundArgs, ctx: &ExecCtx) -> Result<ReadOptions> {
@@ -637,5 +728,52 @@ mod tests {
         assert_eq!(error(KNOWN, Value::Text("x".to_owned())), ErrorCode::Type);
         assert_eq!(error(TARGETS, Value::Int(1)), ErrorCode::Type);
         assert_eq!(error(VIEW, Value::Int(1)), ErrorCode::Type);
+    }
+
+    #[test]
+    fn signatures_of_binary_formats_are_recognised_before_text() {
+        let gzip = b"\x1f\x8b\x08\x00\x00\x00";
+        let png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR";
+        assert!(binary_signature("a.pdf", b"%PDF-1.4\n1 0 obj\n", true));
+        assert!(binary_signature("a.txt", b"%PDF-1.4\n", false));
+        assert!(binary_signature("a.log.gz", gzip, true));
+        assert!(!binary_signature("a.log.gz", gzip, false));
+        assert!(!binary_signature("a.log", gzip, true));
+        assert!(binary_signature("a.png", png, true));
+        assert!(!binary_signature("a.txt", b"BMW and GIF notes\n", true));
+        assert!(!binary_signature(
+            "a.txt",
+            b"GIF is an image format\n",
+            true
+        ));
+        assert!(!binary_signature("a.txt", b"%PDF is a prefix\n", true));
+    }
+
+    #[test]
+    fn decompress_is_off_only_for_none() {
+        let with = |value: Value| value_args(vec![(DECOMPRESS, value)]);
+        assert!(decompress_param(&BoundArgs::new(COMMAND)));
+        assert!(decompress_param(&with(Value::Enum("auto".to_owned()))));
+        assert!(!decompress_param(&with(Value::Enum("none".to_owned()))));
+        assert!(!decompress_param(&with(Value::Text("none".to_owned()))));
+    }
+
+    #[test]
+    fn an_ascii_pdf_signature_is_read_as_a_document_and_a_named_encoding_as_text() {
+        let (test, path) = with_file("/p/a.pdf", b"%PDF-1.4\nnot a document\n");
+        let ctx = test.ctx();
+        let document = run(&ctx, &value_args(vec![(PATH, path_value(&path))])).unwrap_err();
+        assert_eq!(document.code(), ErrorCode::Format);
+        let source = contents(
+            run(
+                &ctx,
+                &value_args(vec![
+                    (PATH, path_value(&path)),
+                    ("encoding", Value::Text("utf-8".to_owned())),
+                ]),
+            )
+            .unwrap(),
+        );
+        assert_eq!(source[0].text, "%PDF-1.4\nnot a document\n");
     }
 }
