@@ -17,7 +17,10 @@
 #            history comments, placeholder macros;
 #   headers  source files without the producer header, per-file license
 #            identifier lines (the license is stated in LICENSE), marks of the
-#            authoring tool.
+#            authoring tool. Test data is not checked by this group: the
+#            directories third_party/ and spec/golden/, and the directories
+#            data/, corpus/, golden/ and fixtures/ below a tests/ directory at
+#            any depth.
 #
 # Environment:
 #   NURT_HYGIENE_PATTERNS          additional extended regular expressions, one
@@ -243,6 +246,25 @@ keep_files() {
   mv "$work/files.kept" "$work/files"
 }
 
+# Removes the selected files that are test data: inputs, expected results and
+# corpora are kept byte for byte and carry no header.
+drop_test_data() {
+  : >"$work/files.kept"
+  while IFS= read -r path; do
+    case "$path" in
+      third_party/* | */third_party/* | spec/golden/*) continue ;;
+    esac
+    case "/$path" in
+      */tests/data/* | */tests/*/data/*) continue ;;
+      */tests/corpus/* | */tests/*/corpus/*) continue ;;
+      */tests/golden/* | */tests/*/golden/*) continue ;;
+      */tests/fixtures/* | */tests/*/fixtures/*) continue ;;
+    esac
+    printf '%s\n' "$path" >>"$work/files.kept"
+  done <"$work/files"
+  mv "$work/files.kept" "$work/files"
+}
+
 # Source code formats with line comments.
 readonly CODE_FILES="*.rs *.toml *.sh *.bash *.yml *.yaml *.py *.ps1 *.h *.c *.js *.ts"
 
@@ -407,14 +429,15 @@ check_boilerplate() {
 
 # References to automated authorship tools. Permitted: names of standards (for
 # example Model Context Protocol) and the technical terms of other systems: SSH
-# agent, agent authentication, agent forwarding, launchd agent and the
-# User-Agent header of HTTP. Identifiers such as user_agent do not match,
+# agent, gpg-agent, agent authentication, agent forwarding, launchd agent and
+# the User-Agent header of HTTP; the terms AI agent and AI coding agent, which
+# name the users of the product. Identifiers such as user_agent do not match,
 # because whole words are compared.
 check_tool_mention() {
   select_files tool-mention
   grep_files -wE 'A[I]|L[L]Ms?'
   grep_files_append -iwE 'artificial [i]ntelligence|language m[o]dels?|a[s]sistants?|a[g]ents?|chatb[o]ts?|system p[r]ompts?|prompt e[n]gineering'
-  drop_hits -iE 'model c[o]ntext protocol|ssh[- ]agents?|agent (authentication|forwarding)|launchd agents?|launch agents?|user-agent'
+  drop_hits -iE 'model c[o]ntext protocol|(ssh|gpg)[- ]agents?|agent (authentication|forwarding)|launchd agents?|launch agents?|user-agent|\ba[i] (coding )?a[g]ents?\b'
   sort -u "$work/hits" >"$work/hits.sorted"
   mv "$work/hits.sorted" "$work/hits"
   report_hits tool-mention
@@ -491,6 +514,7 @@ check_placeholder_macro() {
 # lines. Files without comments (for example JSON) are not checked.
 check_producer_header() {
   select_files producer-header
+  drop_test_data
   # shellcheck disable=SC2086
   keep_files $CODE_FILES '*.md' .gitignore '*/.gitignore' .gitattributes '*/.gitattributes' .editorconfig
   while IFS= read -r path; do
@@ -504,6 +528,7 @@ check_producer_header() {
 # Marks of the authoring tool are replaced by the producer header.
 check_tool_mark() {
   select_files tool-mark
+  drop_test_data
   grep_files -E 'Danaco A[g]ent'
   report_hits tool-mark
 }
@@ -512,6 +537,7 @@ check_tool_mark() {
 # identifier.
 check_spdx_line() {
   select_files spdx-line
+  drop_test_data
   grep_files -E 'SPDX-License-Identifie[r]'
   report_hits spdx-line
 }

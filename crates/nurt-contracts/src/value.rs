@@ -729,6 +729,8 @@ record_kinds! {
     GitConflict = "git_conflict",
     /// Effect of an operation on a repository (part `git` of an effect).
     GitEffect = "git_effect",
+    /// Preserved copy of a deleted branch or stash entry (`git.branch`).
+    GitTrashEntry = "git_trash_entry",
     /// Record of computed or source-defined fields without a fixed kind
     /// (`select` with computed fields, `parse`, `windows.cim`).
     Map = "map",
@@ -956,6 +958,31 @@ impl Instant {
     #[must_use]
     pub const fn as_unix_nanos(self) -> i64 {
         self.0
+    }
+
+    /// Instant of a wall-clock time, saturated to the supported range
+    /// (about 1677 to 2262), so that every component converts the time of
+    /// the journal in the same way.
+    ///
+    /// ```
+    /// use nurt_contracts::env::WallTime;
+    /// use nurt_contracts::value::Instant;
+    ///
+    /// let time = WallTime::from_unix_nanos(1_500);
+    /// assert_eq!(Instant::saturating_from_wall(time).as_unix_nanos(), 1_500);
+    /// let late = WallTime::from_unix_nanos(i128::MAX);
+    /// assert_eq!(Instant::saturating_from_wall(late).as_unix_nanos(), i64::MAX);
+    /// let early = WallTime::from_unix_nanos(i128::MIN);
+    /// assert_eq!(Instant::saturating_from_wall(early).as_unix_nanos(), i64::MIN);
+    /// ```
+    #[must_use]
+    pub fn saturating_from_wall(time: crate::env::WallTime) -> Self {
+        let nanos = time.unix_nanos();
+        match i64::try_from(nanos) {
+            Ok(nanos) => Self(nanos),
+            Err(_) if nanos < 0 => Self(i64::MIN),
+            Err(_) => Self(i64::MAX),
+        }
     }
 
     /// The instant moved forward by the duration, or `None` outside the

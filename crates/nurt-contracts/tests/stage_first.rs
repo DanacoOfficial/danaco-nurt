@@ -20,13 +20,17 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
+use nurt_contracts::error::{Error, ErrorCode};
+use nurt_contracts::kinds::EffectKind;
+use nurt_contracts::report::ReportStatus;
 use nurt_contracts::services::{FileListService, ServiceKind, Services, WalkIter, WalkSpec};
 use nurt_contracts::stage::{
-    ArgValue, BoundArgs, CancelReason, CancelToken, EffectPlan, EffectStage, Event, EventSink,
-    ExecCtx, ExecStep, Extensions, InputKinds, Progress, ReadStage, RecordStream, StageData,
-    StageDescriptor, StageFrame, StageImpl, StageInput, StageOutput,
+    ArgValue, BoundArgs, CancelReason, CancelToken, DeliveredEvent, EffectPlan, EffectStage, Event,
+    EventSink, ExecCtx, ExecFinished, ExecStarted, ExecStep, Extensions, InputKinds, Progress,
+    ReadStage, RecordStream, StageData, StageDescriptor, StageFrame, StageImpl, StageInput,
+    StageOutput, StageRegistrar,
 };
-use nurt_contracts::value::{Record, RecordKind, Value};
+use nurt_contracts::value::{Instant, Record, RecordKind, Value};
 
 fn entry(no: i64) -> Record {
     let mut record = Record::new(RecordKind::Entry);
@@ -364,6 +368,78 @@ fn events_have_a_type_member_and_round_trip() {
     assert_eq!(json["done"], 10);
     let back: Event = serde_json::from_value(json).unwrap();
     assert_eq!(back, event);
+}
+
+#[test]
+fn delivered_events_carry_sequence_time_and_request() {
+    let started = Event::ExecStarted(ExecStarted {
+        ast_hash: Some("sha256:00".to_owned()),
+        effect: EffectKind::Local,
+    });
+    let json = serde_json::to_value(&started).unwrap();
+    assert_eq!(json["t"], "exec.started");
+    assert_eq!(json["effect"], "local");
+
+    let finished = DeliveredEvent {
+        seq: 7,
+        time: Instant::from_unix_nanos(1_500_000_000),
+        request: Some("req-1".to_owned()),
+        event: Event::ExecFinished(ExecFinished {
+            status: ReportStatus::Failed,
+            error: Some(ErrorCode::Stale),
+        }),
+    };
+    let json = serde_json::to_value(&finished).unwrap();
+    assert_eq!(json["t"], "exec.finished");
+    assert_eq!(json["seq"], 7);
+    assert_eq!(json["time"], "1970-01-01T00:00:01.500Z");
+    assert_eq!(json["request"], "req-1");
+    assert_eq!(json["status"], "failed");
+    assert_eq!(json["error"], "E_STALE");
+    let back: DeliveredEvent = serde_json::from_value(json).unwrap();
+    assert_eq!(back, finished);
+}
+
+struct Named(&'static str);
+
+impl StageImpl for Named {
+    fn descriptor(&self) -> StageDescriptor {
+        StageDescriptor {
+            command: self.0.to_owned(),
+            source: true,
+            input: InputKinds::None,
+        }
+    }
+}
+
+fn register_group(registrar: &mut dyn StageRegistrar) -> nurt_contracts::error::Result<()> {
+    registrar.register(Arc::new(Named("git.status")))?;
+    registrar.register(Arc::new(Named("git.diff")))
+}
+
+struct EmptyCatalog;
+
+impl StageRegistrar for EmptyCatalog {
+    fn register(&mut self, stage: Arc<dyn StageImpl>) -> nurt_contracts::error::Result<()> {
+        Err(Error::new(
+            ErrorCode::UnknownCommand,
+            format!("unknown command `{}`", stage.descriptor().command),
+        ))
+    }
+}
+
+#[test]
+fn command_crates_register_stages_through_the_registrar() {
+    let mut stages: Vec<Arc<dyn StageImpl>> = Vec::new();
+    register_group(&mut stages).unwrap();
+    let commands: Vec<String> = stages
+        .iter()
+        .map(|stage| stage.descriptor().command)
+        .collect();
+    assert_eq!(commands, ["git.status", "git.diff"]);
+
+    let error = register_group(&mut EmptyCatalog).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::UnknownCommand);
 }
 
 #[test]

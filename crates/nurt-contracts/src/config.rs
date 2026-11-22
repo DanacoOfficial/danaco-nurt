@@ -1129,6 +1129,17 @@ pub enum KnownHosts {
     AcceptNew,
 }
 
+/// Holder of the secret key for OpenPGP signatures.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum OpenPgpSource {
+    /// A running gpg-agent.
+    GpgAgent,
+    /// The key file named by `git.signing.key_file`.
+    KeyFile,
+}
+
 /// Installation mode of the background service.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -1479,6 +1490,8 @@ pub struct VolumeOverride {
     pub max_ops: Option<StepLimit>,
     /// Age limit on this volume.
     pub max_age: Option<AgeLimit>,
+    /// Size budget on this volume.
+    pub max_size: Option<SizeLimit>,
 }
 
 /// Section `[space]`.
@@ -2062,6 +2075,10 @@ pub struct GitSigningConfig {
     /// Key `git.signing.key_file`: key file for signing commits when the
     /// repository configuration does not name one. Default none.
     pub key_file: Option<String>,
+    /// Key `git.signing.openpgp_source`: the only holder of the secret key
+    /// used for OpenPGP signatures (`gpg_agent` or `key_file`). Default none:
+    /// gpg-agent first, then the key file.
+    pub openpgp_source: Option<OpenPgpSource>,
 }
 
 /// Section `[git.checkpoint]`.
@@ -2707,7 +2724,18 @@ fn set_path(root: &mut Map<String, Json>, segments: &[String], value: Json) {
 
 /// Writes key segments as a dotted key, quoting segments that are not bare
 /// keys of TOML (for example mount points).
-fn display_key(segments: &[String]) -> String {
+///
+/// Every component that names a configuration key in a message or a source
+/// uses this form.
+///
+/// ```
+/// use nurt_contracts::config::display_key;
+///
+/// let segments = ["journal", "volume", "/mnt/data", "max_size"].map(String::from);
+/// assert_eq!(display_key(&segments), "journal.volume.\"/mnt/data\".max_size");
+/// ```
+#[must_use]
+pub fn display_key(segments: &[String]) -> String {
     let bare = |segment: &str| {
         !segment.is_empty()
             && segment

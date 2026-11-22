@@ -205,7 +205,7 @@ behaviour in the meaning column applies.
 | `journal.dir_name` | text | `.nurt-journal` | name of the journal directory on each volume |
 | `journal.volumes.network` | boolean | `false` | keep a journal on network volumes |
 | `journal.volumes.removable` | boolean | `false` | keep a journal on removable volumes |
-| `journal.volume` | table by mount point | empty | settings of one volume: `enabled`, `reserve`, `soft`, `max_ops`, `max_age`; absent keys are inherited |
+| `journal.volume` | table by mount point | empty | settings of one volume: `enabled`, `reserve`, `soft`, `max_ops`, `max_age`, `max_size`; absent keys are inherited |
 
 ### 7.5 `[space]`
 
@@ -325,6 +325,7 @@ behaviour in the meaning column applies.
 | `git.ssh.known_hosts` | `strict`, `accept_new` | `strict` | verification of SSH host keys |
 | `git.ssh.identity_files` | list of paths | `[]`: standard identity files | private key files |
 | `git.signing.key_file` | path | none | key file for signing commits when the repository configuration does not name one |
+| `git.signing.openpgp_source` | `gpg_agent`, `key_file` | none: gpg-agent, then the key file | the only holder of the secret key used for OpenPGP signatures |
 | `git.checkpoint.keep` | integer | `50` | checkpoints kept per repository |
 | `git.status.limit` | integer | `200` | entries listed by `git.status` before paging |
 | `git.network.timeout` | duration | `5m` | time limit of a network operation |
