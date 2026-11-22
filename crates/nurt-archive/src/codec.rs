@@ -36,11 +36,11 @@ pub const ALGORITHMS: [Algorithm; 5] = [
     Algorithm::Lz4,
 ];
 
-const GZIP_MAGIC: &[u8] = &[0x1f, 0x8b];
-const ZSTD_MAGIC: &[u8] = &[0x28, 0xb5, 0x2f, 0xfd];
-const XZ_MAGIC: &[u8] = &[0xfd, b'7', b'z', b'X', b'Z', 0x00];
-const BZIP2_MAGIC: &[u8] = b"BZh";
-const LZ4_MAGIC: &[u8] = &[0x04, 0x22, 0x4d, 0x18];
+const GZIP_SIGNATURE: &[u8] = &[0x1f, 0x8b];
+const ZSTD_SIGNATURE: &[u8] = &[0x28, 0xb5, 0x2f, 0xfd];
+const XZ_SIGNATURE: &[u8] = &[0xfd, b'7', b'z', b'X', b'Z', 0x00];
+const BZIP2_SIGNATURE: &[u8] = b"BZh";
+const LZ4_SIGNATURE: &[u8] = &[0x04, 0x22, 0x4d, 0x18];
 
 impl Algorithm {
     /// Name used in command parameters (`gzip`, `zstd`, `xz`, `bzip2`, `lz4`).
@@ -105,13 +105,13 @@ impl Algorithm {
         }
     }
 
-    fn magic(self) -> &'static [u8] {
+    fn signature(self) -> &'static [u8] {
         match self {
-            Self::Gzip => GZIP_MAGIC,
-            Self::Zstd => ZSTD_MAGIC,
-            Self::Xz => XZ_MAGIC,
-            Self::Bzip2 => BZIP2_MAGIC,
-            Self::Lz4 => LZ4_MAGIC,
+            Self::Gzip => GZIP_SIGNATURE,
+            Self::Zstd => ZSTD_SIGNATURE,
+            Self::Xz => XZ_SIGNATURE,
+            Self::Bzip2 => BZIP2_SIGNATURE,
+            Self::Lz4 => LZ4_SIGNATURE,
         }
     }
 }
@@ -123,7 +123,7 @@ impl Algorithm {
 pub fn detect(prefix: &[u8]) -> Option<Algorithm> {
     ALGORITHMS
         .into_iter()
-        .find(|algorithm| prefix.starts_with(algorithm.magic()))
+        .find(|algorithm| prefix.starts_with(algorithm.signature()))
 }
 
 /// Returns a reader that yields the decompressed content of `inner`.
@@ -250,7 +250,7 @@ pub fn encoder<W: Write>(
     Ok(Encoder { kind })
 }
 
-const LZ4_FRAME_MAGIC: u32 = 0x184d_2204;
+const LZ4_FRAME_SIGNATURE: u32 = 0x184d_2204;
 const LZ4_FLAG_DICTIONARY_ID: u8 = 0x01;
 const LZ4_FLAG_CONTENT_CHECKSUM: u8 = 0x04;
 const LZ4_FLAG_CONTENT_SIZE: u8 = 0x08;
@@ -263,7 +263,7 @@ const LZ4_CHECKSUM_LEN: u64 = 4;
 
 #[derive(Debug, Clone, Copy)]
 enum Lz4Phase {
-    Magic,
+    Signature,
     Descriptor,
     BlockHeader,
     Skip { remaining: u64, then: Lz4Next },
@@ -291,7 +291,7 @@ struct Lz4Tracker {
 impl Lz4Tracker {
     fn new() -> Self {
         Self {
-            phase: Lz4Phase::Magic,
+            phase: Lz4Phase::Signature,
             head: [0; 4],
             filled: 0,
             flags: 0,
@@ -300,7 +300,7 @@ impl Lz4Tracker {
 
     fn at_frame_boundary(&self) -> bool {
         match self.phase {
-            Lz4Phase::Magic => self.filled == 0,
+            Lz4Phase::Signature => self.filled == 0,
             Lz4Phase::Untracked => true,
             _ => false,
         }
@@ -315,7 +315,7 @@ impl Lz4Tracker {
                     data = &data[take as usize..];
                     self.skip(remaining - take, then);
                 }
-                Lz4Phase::Magic | Lz4Phase::BlockHeader | Lz4Phase::Descriptor => {
+                Lz4Phase::Signature | Lz4Phase::BlockHeader | Lz4Phase::Descriptor => {
                     let wanted = match self.phase {
                         Lz4Phase::Descriptor => 2,
                         _ => 4,
@@ -339,15 +339,15 @@ impl Lz4Tracker {
         } else {
             match then {
                 Lz4Next::BlockHeader => Lz4Phase::BlockHeader,
-                Lz4Next::FrameEnd => Lz4Phase::Magic,
+                Lz4Next::FrameEnd => Lz4Phase::Signature,
             }
         };
     }
 
     fn gathered(&mut self) {
         match self.phase {
-            Lz4Phase::Magic => {
-                self.phase = if u32::from_le_bytes(self.head) == LZ4_FRAME_MAGIC {
+            Lz4Phase::Signature => {
+                self.phase = if u32::from_le_bytes(self.head) == LZ4_FRAME_SIGNATURE {
                     Lz4Phase::Descriptor
                 } else {
                     Lz4Phase::Untracked
