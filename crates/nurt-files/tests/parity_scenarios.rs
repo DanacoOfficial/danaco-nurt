@@ -11,8 +11,8 @@ mod support_parity;
 use std::path::PathBuf;
 
 use support_parity::{
-    AfterEntry, Class, Expect, FieldCheck, Fixture, FixtureFile, FsEntry, HostOnly, Model, Pending,
-    Row, Scenario, ScenarioFile, Source, generator_error,
+    AfterEntry, Class, Divergence, Expect, FieldCheck, Fixture, FixtureFile, FsEntry, HostOnly,
+    Model, Pending, PendingScenario, Row, Scenario, ScenarioFile, Source, generator_error,
 };
 
 const SOURCE_CASES: u32 = 293;
@@ -169,7 +169,33 @@ fn base_model() -> Model {
             scenarios: Some("read.toml".into()),
         }],
         pending: Vec::new(),
+        pending_scenarios: Vec::new(),
+        divergences: Vec::new(),
     }
+}
+
+#[test]
+fn rejects_listed_scenarios_that_do_not_exist_or_are_listed_twice() {
+    let mut model = base_model();
+    model.pending_scenarios.push(PendingScenario {
+        name: "reads a file".into(),
+        reason: "command not merged: read".into(),
+    });
+    assert_eq!(model.validate(), Vec::<String>::new());
+    model.divergences.push(Divergence {
+        name: "reads a file".into(),
+        command: "read".into(),
+        detail: "content.lines: expected 1, found 2".into(),
+    });
+    assert_reports(&model, "both pending and diverging");
+    model.divergences[0].name = "missing".into();
+    assert_reports(&model, "divergence missing names no scenario");
+    model.pending_scenarios.push(PendingScenario {
+        name: "reads a file".into(),
+        reason: " ".into(),
+    });
+    assert_reports(&model, "pending scenario reads a file needs a reason");
+    assert_reports(&model, "pending scenario reads a file is listed twice");
 }
 
 fn scenario_mut(model: &mut Model) -> &mut Scenario {

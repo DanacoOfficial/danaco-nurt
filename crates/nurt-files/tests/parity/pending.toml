@@ -85,3 +85,600 @@ reason = "Character limit of the removal report belongs to the host."
 [[pending]]
 id = "UN-02"
 reason = "Preview of undo has no source case."
+
+# Scenarios that do not run on the stages of the crate. A reason starting with
+# `command not merged` lets the scenario run once the stage of its command is
+# registered; the other reasons name the missing facility or the conflict of
+# the scenario with the catalog.
+
+[[scenario]]
+name = "replacement for an unindented method receives the element indentation on every line"
+reason = "command not in the catalog: replace_all"
+
+[[scenario]]
+name = "replacement with file indentation on later lines receives the indentation on the first line only"
+reason = "command not in the catalog: replace_all"
+
+[[scenario]]
+name = "replacement with full file indentation stays unchanged"
+reason = "command not in the catalog: replace_all"
+
+[[scenario]]
+name = "unindented Python method raises no alert and keeps the adjacent method"
+reason = "command not in the catalog: replace_all"
+
+[[scenario]]
+name = "space indentation converts to the file tabs, also in the Write tool"
+reason = "command not in the catalog: replace_all"
+
+[[scenario]]
+name = "CRLF file keeps line endings and indentation"
+reason = "command not in the catalog: replace_all"
+
+[[scenario]]
+name = "leading comment stays when the replacement has no comment, and a replacement with a comment supersedes it"
+reason = "command not in the catalog: replace_all"
+
+[[scenario]]
+name = "Markdown section keeps the blank line before the next heading"
+reason = "command not in the catalog: replace_all"
+
+[[scenario]]
+name = "last element of a file without a final newline stays without it"
+reason = "command not in the catalog: replace_all"
+
+[[scenario]]
+name = "multi-line JSON key value receives the indentation of the key line"
+reason = "stage outside nurt-files: set"
+
+[[scenario]]
+name = "YAML key value with a trailing comment keeps the comment and line endings"
+reason = "stage outside nurt-files: set"
+
+[[scenario]]
+name = "insertion in an element other than the named target still holds the write with an alert"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "undo restores a file with BOM and CRLF endings byte for byte"
+reason = "stage outside nurt-files: undo"
+
+[[scenario]]
+name = "clear_outputs on a single-line cell raises no alert and changes only the output fields"
+reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
+
+[[scenario]]
+name = "cell type change on a single-line cell writes it on one line and leaves other cells character for character"
+reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
+
+[[scenario]]
+name = "cell in the standard layout keeps fields untouched character for character, CRLF endings and BOM"
+reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
+
+[[scenario]]
+name = "new cell and copy in a notebook with single-line cells keep the layout and file separators"
+reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
+
+[[scenario]]
+name = "preview deletes nothing, apply moves to trash, restore brings back"
+reason = "stage outside nurt-files: undo"
+
+[[scenario]]
+name = "apply without a plan and with an unknown plan is rejected"
+reason = "parameter `if_match` is not in the catalog of `remove`"
+
+[[scenario]]
+name = "plan becomes stale after a file change and is single-use"
+reason = "the program changes the tree or the task between two steps, which the runner does not perform"
+
+[[scenario]]
+name = "remaining references raise an alert and hold the deletion until confirmed"
+reason = "field `undoable`: the report carries no undo state"
+
+[[scenario]]
+name = "reference check is disabled by a parameter and by an Operator setting"
+reason = "field `check_references`: the report does not echo parameters"
+
+[[scenario]]
+name = "non-empty directory requires recursive, and restore recreates the content"
+reason = "stage outside nurt-files: undo"
+
+[[scenario]]
+name = "restore of selected entries, conflict and force"
+reason = "stage outside nurt-files: undo"
+
+[[scenario]]
+name = "restore rejects an operation without deletions"
+reason = "stage outside nurt-files: undo"
+
+[[scenario]]
+name = "trash listing limits the number of entries"
+reason = "stage outside nurt-files: history"
+
+[[scenario]]
+name = "restore recreates the bytes of a file with BOM and CRLF endings, file permissions and the symlink"
+reason = "stage outside nurt-files: undo"
+
+[[scenario]]
+name = "file added to the directory after the preview invalidates the plan; nothing is deleted"
+reason = "the program changes the tree or the task between two steps, which the runner does not perform"
+
+[[scenario]]
+name = "restore of a selected entry does not change files modified after the deletion"
+reason = "stage outside nurt-files: undo"
+
+[[scenario]]
+name = "fragment outside the named target is not replaced"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "line range extending beyond one function holds the write and lists the elements"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "retry without the full list is rejected, with the full list it writes"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "change within the target that damages the adjacent function reports it in the alert"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "removal of a whole element in a single change requires two steps"
+reason = "notable code `element_removed` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "change that breaks code syntax is rolled back with the file and line"
+reason = "field `effect.errors[0].line` has no counterpart in the change records"
+
+[[scenario]]
+name = "change that breaks JSON syntax: structure loss alert first, rollback after confirmation"
+reason = "syntax validation needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "validate=warn keeps the write with a warning, and the Operator minimum raises validate=off to reject"
+reason = "field `warnings`: the report has no warnings list"
+
+[[scenario]]
+name = "new language server diagnostic rolls the write back"
+reason = "syntax validation needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "replace_all of an identifier does not change parts of longer names, strings or comments"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "matches only in skipped zones are refused with the reason"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "scope=comments changes only the comment"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "after a rename the result lists remaining references in other files"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "JSON key: only the value of the named key changes"
+reason = "stage outside nurt-files: set"
+
+[[scenario]]
+name = "YAML key and TOML key"
+reason = "stage outside nurt-files: set"
+
+[[scenario]]
+name = "replacement of a whole function named by target without giving the old content"
+reason = "command not in the catalog: replace_all"
+
+[[scenario]]
+name = "nonexistent target, ambiguous target and file without structure"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "undo with an operation identifier and last restores the content"
+reason = "stage outside nurt-files: undo"
+
+[[scenario]]
+name = "diff=none, diff=unified with context_lines and verbosity"
+reason = "field `effect.diff.context` has no counterpart in the change records"
+
+[[scenario]]
+name = "per-pattern counters: the (?i) flag is counted, syntax without an equivalent gets a question mark"
+reason = "field `per_pattern`: matches carry no per-pattern totals"
+
+[[scenario]]
+name = "long line is truncated with the number of omitted characters"
+reason = "option `max_chars` is applied by the executor"
+
+[[scenario]]
+name = "symbol in TypeScript and Python"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "section, key in YAML, TOML and JSON"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "missing element, format without structure and several selectors are errors"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "syntax outline, symbols and outline_first"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "json_path and json_depth return a value with a preview"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "targets reads ranges of many files with a common directory"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "format json and fields return structured data"
+reason = "option `fields` is applied by the executor"
+
+[[scenario]]
+name = "pagination with head_limit and cursor"
+reason = "field `next_cursor`: paging is applied by the executor"
+
+[[scenario]]
+name = "scope limits matches to code, comments or strings"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "enclosing appends the enclosing element in TypeScript, Python and Markdown"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "patterns reports counters per pattern"
+reason = "field `per_pattern`: matches carry no per-pattern totals"
+
+[[scenario]]
+name = "pagination with limit, offset and cursor"
+reason = "field `next_cursor`: paging is applied by the executor"
+
+[[scenario]]
+name = "newer_than and older_than: date, relative time and reference file"
+reason = "stage outside nurt-files: filter"
+
+[[scenario]]
+name = "columns after the path separated by a tab"
+reason = "stage outside nurt-files: select"
+
+[[scenario]]
+name = "count_only, group_by, tree and sizes"
+reason = "stage outside nurt-files: count"
+
+[[scenario]]
+name = "etag, unchanged_since and format json"
+reason = "field `next_cursor`: paging is applied by the executor"
+
+[[scenario]]
+name = "glob patterns in paths expand to files"
+reason = "stage outside nurt-files: select"
+
+[[scenario]]
+name = "git column reports the state of files in the repository"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "reading some of the files is not enough; the error names only the unread file"
+reason = "the requirement to read before a change depends on open item LP-24"
+
+[[scenario]]
+name = "file changed after the read yields stale in the plan"
+reason = "the requirement to read before a change depends on open item LP-24"
+
+[[scenario]]
+name = "stopping the task interrupts the computation before writing and creates no plan"
+reason = "the program changes the tree or the task between two steps, which the runner does not perform"
+
+[[scenario]]
+name = "named cell gives the full source and outputs in the selected mode"
+reason = "the program passes `outputs: true` where the catalog declares enum(none|summary|text|full); the program contradicts the catalog"
+
+[[scenario]]
+name = "replace changes only the named cell, outputs stay, the rest of the file character for character"
+reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
+
+[[scenario]]
+name = "delete returns a plan with the list of cells and remaining name usages; apply deletes exactly those cells"
+reason = "command not in the catalog: notebook.delete"
+
+[[scenario]]
+name = "delete of many cells by range and list; plan becomes stale after a file change"
+reason = "command not in the catalog: notebook.delete"
+
+[[scenario]]
+name = "deleting all cells leaves a valid notebook"
+reason = "command not in the catalog: notebook.delete"
+
+[[scenario]]
+name = "preview reports the plan, files, change count, difference sample and remaining references; writes nothing"
+reason = "references needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "apply with a plan applies exactly the changes from the preview in one operation that undo reverts"
+reason = "command not in the catalog: the"
+
+[[scenario]]
+name = "apply without a plan is rejected, and the plan becomes stale after a file change"
+reason = "the program changes the tree or the task between two steps, which the runner does not perform"
+
+[[scenario]]
+name = "binary files within the pattern scope are skipped with a note"
+reason = "field `skipped.binary`: skipped files are not counted in the records"
+
+[[scenario]]
+name = "change reaching beyond the target holds the plan with an alert; the plan is created after confirmation"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "function removal: preview and result list the remaining import, the adjacent function stays untouched"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "JSON key removal keeps valid syntax for a middle and a last key"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "old_string spanning two functions: alert before writing, file character for character, no operation"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "regex matched across a function boundary: alert before writing, file character for character, no operation"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "line_range extending beyond the function: alert before writing, file character for character, no operation"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "insert_after closing another function: alert before writing, file character for character, no operation"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "insert_before with at_line opening a block that swallows the neighbor: alert before writing, file character for character, no operation"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "structural target with content swallowing the neighbor: alert before writing, file character for character, no operation"
+reason = "command not in the catalog: replace_all"
+
+[[scenario]]
+name = "edits series in which the second change reaches beyond the target: alert before writing, file character for character, no operation"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "occurrence with a fragment reaching the neighbor: alert before writing, file character for character, no operation"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "old_string spanning two functions: dry_run also starts with an alert and writes nothing"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "regex matched across a function boundary: dry_run also starts with an alert and writes nothing"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "line_range extending beyond the function: dry_run also starts with an alert and writes nothing"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "insert_after closing another function: dry_run also starts with an alert and writes nothing"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "insert_before with at_line opening a block that swallows the neighbor: dry_run also starts with an alert and writes nothing"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "structural target with content swallowing the neighbor: dry_run also starts with an alert and writes nothing"
+reason = "command not in the catalog: replace_all"
+
+[[scenario]]
+name = "edits series in which the second change reaches beyond the target: dry_run also starts with an alert and writes nothing"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "occurrence with a fragment reaching the neighbor: dry_run also starts with an alert and writes nothing"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "replace_all with a target changes only the target; adjacent functions character for character"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "insertion that breaks syntax is rolled back after the alert is confirmed, file character for character"
+reason = "syntax validation needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "undo of an operation after a later file change is refused and does not lose the later content"
+reason = "stage outside nurt-files: undo"
+
+[[scenario]]
+name = "multi-file plan: a change damaging a neighbor in one file holds the whole plan, no file is written"
+reason = "notable code `scope_exceeded` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "completeness check in the plan preview and in the apply result after a rename"
+reason = "needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "content_from losing functions holds the write with an alert"
+reason = "notable code `elements_removed` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "dry_run of an overwrite losing functions also starts with an alert"
+reason = "notable code `elements_removed` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "files batch: a file losing functions holds the whole batch, a valid batch file is not written either"
+reason = "notable code `elements_removed` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "append that breaks syntax is rolled back; prepend and append do not change existing content"
+reason = "syntax validation needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "structural write with target: adjacent keys and comments character for character"
+reason = "stage outside nurt-files: set"
+
+[[scenario]]
+name = "TOML and YAML key value: trailing line comment stays, a # character in a string is not a comment"
+reason = "stage outside nurt-files: set"
+
+[[scenario]]
+name = "replace with find in one cell does not touch the identical name in other cells"
+reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
+
+[[scenario]]
+name = "insert, copy and move do not change the content of any existing cell"
+reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
+
+[[scenario]]
+name = "delete: preview and result list the remaining usages; only the named cell is removed"
+reason = "command not in the catalog: notebook.delete"
+
+[[scenario]]
+name = "normalize does not change cell sources or outputs"
+reason = "the scenario names cell identifiers or file content that its fixture does not contain, so the assertion cannot hold; the fixture and the expectation need to agree"
+
+[[scenario]]
+name = "dry_run reports the difference, the syntax check result and the size without writing"
+reason = "field `effect.diff.added` has no counterpart in the change records"
+
+[[scenario]]
+name = "diff=unified appends the difference after the decisive line"
+reason = "field `effect.diff.format` has no counterpart in the change records"
+
+[[scenario]]
+name = "overwrite that removes a function holds the write with an alert; changing function content needs no confirmation"
+reason = "notable code `elements_removed` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "overwrite of a JSON file missing a key names the key in the alert"
+reason = "notable code `elements_removed` is not in the contract; open item LP-23"
+
+[[scenario]]
+name = "syntax error in a new file rolls the write back: the file is not created, the result gives the location"
+reason = "field `effect.errors[0].line` has no counterpart in the change records"
+
+[[scenario]]
+name = "YAML and TOML syntax errors also roll the write back"
+reason = "syntax validation needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "files batch of new files only is a single transaction: an error in one file leaves all unchanged"
+reason = "syntax validation needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "structural write with target changes only a key value or a section"
+reason = "stage outside nurt-files: set"
+
+[[scenario]]
+name = "batch with an existing file returns a preview with a plan, and apply writes exactly the preview in one operation"
+reason = "command not in the catalog: then"
+
+[[scenario]]
+name = "plan becomes stale after a file change or after a file planned as new appears"
+reason = "the program changes the tree or the task between two steps, which the runner does not perform"
+
+[[scenario]]
+name = "alert and new syntax error are reported in the batch preview, and no plan is created then"
+reason = "syntax validation needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "batch apply with existing files is a single transaction: a new error after writing restores all files"
+reason = "syntax validation needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "file in an encoding other than UTF-8 is rejected without changing bytes"
+reason = "the bytes are valid in ISO-8859-2 and in windows-1250; the expected encoding cannot be told from the content"
+
+[[scenario]]
+name = "edits series is a transaction: an error in the second change leaves the file unchanged and names the position"
+reason = "a change that matches nothing is skipped by default (catalog: edit on_missing = skip); the scenario expects a failed transaction"
+
+[[scenario]]
+name = "paths with known returns a = line for an unchanged file, a target error does not stop the others"
+reason = "files named in known are skipped when unchanged (catalog: read known); the scenario expects an unchanged record"
+
+[[scenario]]
+name = "diff_since returns the difference against an earlier read"
+reason = "since takes the etag of an earlier read (catalog: read since); `last` is not an etag"
+
+[[scenario]]
+name = "file over the size limit requires a selector"
+reason = "the size limit of the previous call is a configuration value that the scenario does not set"
+
+[[scenario]]
+name = "returns files with a common directory in the first line by default"
+reason = "hidden files are included by default (catalog: search hidden = true); the scenario expects them excluded"
+
+[[scenario]]
+name = "count and count_by"
+reason = "hidden files are included by default (catalog: search hidden = true); the scenario expects them excluded"
+
+[[scenario]]
+name = "sort=rank places the definition in sources before tests, documentation and generated files"
+reason = "hidden files are included by default (catalog: search hidden = true); the scenario expects them excluded"
+
+[[scenario]]
+name = "content groups matches by file and marks the context"
+reason = "context lines of a match record are texts without line numbers (record match: before, after)"
+
+[[scenario]]
+name = "common directory once, paths relative, newest first"
+reason = "the scenario gives no modification times; the files of a fixture share one time"
+
+[[scenario]]
+name = "no matches, mismatched change count, missing scope and Operator file limit"
+reason = "glob filters the files below `in` (catalog: replace glob); the scenario gives no `in`"
+
+[[scenario]]
+name = "file style stays: CRLF, final newline, BOM and permissions"
+reason = "a write adds no final line ending by default (catalog: write ensure_newline = false)"
+
+[[scenario]]
+name = "Python syntax error in a changed cell rejects the change; IPython percent commands are not an error"
+reason = "parameter `validate` is not in the catalog of `notebook.replace`"
+
+[[scenario]]
+name = "insert, move and copy assign unique identifiers and do not change the content of the other cells"
+reason = "parameter `id` is not in the catalog of `notebook.move`"
+
+[[scenario]]
+name = "ops runs a list of operations in one write after the preview and names the invalid position"
+reason = "command not in the catalog: notebook.delete"
+
+[[scenario]]
+name = "find replacement in the sources of many cells is syntax-aware and requires a plan"
+reason = "command not in the catalog: the"
+
+[[scenario]]
+name = "read registers the file in the read ledger, without a read the change is rejected"
+reason = "parameter `if_match` is not in the catalog of `notebook.replace`"
+
+[[scenario]]
+name = "replace: other cells character for character; a removed definition used in another cell is listed in the result"
+reason = "references needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "ops: an invalid list position writes no operation from the list"
+reason = "parameter `index` is not in the catalog of `notebook.move`"
+
+[[scenario]]
+name = "ops and find replacement in many cells: preview writes nothing, apply changes only the cells from the preview"
+reason = "command not in the catalog: the"
+
+[[scenario]]
+name = "reading a WebP image reports the dimensions in the description line"
+reason = "the image reader decodes the image and the generator writes only the container header with the declared size"
+
+[[scenario]]
+name = "PDF as page text and as images in the session directory"
+reason = "the program reads one record per page (`content.text`, `content.page`); the scenario addresses `content.pages[0]`, which the record layout does not have, and the images of pages are not rendered"
