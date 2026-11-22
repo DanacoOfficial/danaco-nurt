@@ -1,0 +1,4 @@
+[
+  "function add @1:17 [1:8-3:2] exported | function add(a: number, b: number): number",
+  "function internal @5:10 [5:1-5:29] private | function internal(): void"
+]

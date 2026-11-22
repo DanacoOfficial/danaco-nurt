@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Construction of a [`YamlModel`] from source text.
 //!
-//! The `saphyr` loader validates the stream and reports the range of every
+//! The `saphyr-parser` event parser validates the stream and reports the range of every
 //! node. Indicators (`?`, `:`, `-`, `,`, brackets), properties, directives,
 //! document markers and comments are then read from the source between those
 //! ranges with a cursor that moves forward through the text.
@@ -13,7 +13,8 @@ use std::ops::Range;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 
-use super::backend_saphyr::{self, RawEvent, RawKind, RawScalar};
+use super::backend_saphyr::{self, RawEvent, RawKind};
+
 use super::model::{
     BlockHeader, Chomping, CollectionStyle, Directive, DirectiveKind, FlowDelimiters, MapEntry,
     MappingNode, NodeId, NodeKind, Property, ScalarNode, ScalarStyle, SeqItem, SequenceNode,
@@ -21,7 +22,7 @@ use super::model::{
 };
 
 /// Byte order mark.
-const BOM: &str = "\u{FEFF}";
+const BYTE_ORDER_MARK: &str = "\u{FEFF}";
 
 /// Prefix of the tags of the YAML core schema.
 pub(crate) const CORE_TAG_PREFIX: &str = "tag:yaml.org,2002:";
@@ -35,9 +36,8 @@ impl YamlModel {
     ///
     /// # Errors
     ///
-    /// `E_DOC_PARSE` when the text is not a valid YAML stream, when it
-    /// contains template syntax (`{{ }}`, `{% %}`), or when a mapping
-    /// repeats a key.
+    /// `E_DOC_PARSE` when the text is not a valid YAML stream or when it
+    /// contains template syntax (`{{ }}`, `{% %}`).
     ///
     /// # Examples
     ///
@@ -198,7 +198,7 @@ impl<'a> Builder<'a> {
                 line_starts.push(index + 1);
             }
         }
-        let bom = text.starts_with(BOM);
+        let bom = text.starts_with(BYTE_ORDER_MARK);
         Self {
             text,
             bytes,
@@ -215,7 +215,7 @@ impl<'a> Builder<'a> {
             events: Vec::new(),
             ends: Vec::new(),
             next: 0,
-            cursor: if bom { BOM.len() } else { 0 },
+            cursor: if bom { BYTE_ORDER_MARK.len() } else { 0 },
             document: 0,
             handles: Vec::new(),
             anchors: HashMap::new(),
@@ -227,7 +227,7 @@ impl<'a> Builder<'a> {
             .iter()
             .flatten()
             .filter(|event| matches!(event.kind, RawKind::Scalar(_) | RawKind::Alias))
-            .map(|event| event.span.clone())
+            .map(|event| event.span.start..raw_scalar_end(self.bytes, &event.span))
             .filter(|span| !span.is_empty())
             .collect();
         scalars.sort_by_key(|span| span.start);
@@ -306,7 +306,11 @@ impl<'a> Builder<'a> {
             if inside(scalars, line) {
                 continue;
             }
-            let start = if line == 0 && self.model.bom { BOM.len() } else { line };
+            let start = if line == 0 && self.model.bom {
+                BYTE_ORDER_MARK.len()
+            } else {
+                line
+            };
             if let Some(item) = self.marker_at(start) {
                 items.push((start, item));
             }
@@ -418,9 +422,9 @@ impl<'a> Builder<'a> {
     }
 
     fn peek_is_end(&self) -> bool {
-        self.events.get(self.next).is_none_or(|event| {
-            matches!(event.kind, RawKind::MappingEnd | RawKind::SequenceEnd)
-        })
+        self.events
+            .get(self.next)
+            .is_none_or(|event| matches!(event.kind, RawKind::MappingEnd | RawKind::SequenceEnd))
     }
 
     fn node(&mut self, parent: Option<NodeId>, slot: Slot, in_flow: bool) -> NodeId {
@@ -467,7 +471,9 @@ impl<'a> Builder<'a> {
     }
 
     fn alias(&mut self, span: &Range<usize>, parent: Option<NodeId>, in_flow: bool) -> NodeId {
-        let name = self.text[span.start + 1..span.end].to_owned();
+        let end = token_end(self.bytes, span.start + 1, span.end);
+        let span = &(span.start..end);
+        let name = self.text[span.start + 1..end].to_owned();
         let mut node = self.base(span.clone(), parent, in_flow);
         node.kind = NodeKind::Alias(Property {
             name: name.clone(),
@@ -484,19 +490,30 @@ impl<'a> Builder<'a> {
     fn scalar(
         &mut self,
         span: &Range<usize>,
-        raw: RawScalar,
+        raw: String,
         parent: Option<NodeId>,
         slot: Slot,
         in_flow: bool,
     ) -> NodeId {
         let props = self.read_props(span.start, span.end);
-        let mut content = if props.is_empty() {
-            span.clone()
+        let after_props = if props.is_empty() {
+            span.start
         } else {
-            let start = skip_space_and_comments(self.bytes, props.end, span.end);
-            start.min(span.end)..span.end
+            props.end
         };
-        if span.is_empty() || content.is_empty() {
+        let start = skip_space_and_comments(self.bytes, after_props, span.end);
+        let mut content = start.min(span.end)..span.end;
+        if !content.is_empty() {
+            content.end = scalar_end(self.bytes, content.start, content.end);
+        }
+        // The parser reports an empty node with the range of the next token
+        // (`?`, `,`, `---`).
+        let misplaced = raw.is_empty()
+            && !matches!(
+                self.bytes.get(content.start),
+                Some(b'\'' | b'"' | b'|' | b'>')
+            );
+        if span.is_empty() || content.is_empty() || misplaced {
             let at = match slot {
                 _ if !props.is_empty() => props.end,
                 Slot::Value {
@@ -517,17 +534,14 @@ impl<'a> Builder<'a> {
                 _ => ScalarStyle::Plain,
             }
         };
-        let source_text = &self.text[content.clone()];
-        let value = match raw {
-            RawScalar::Text(value) => value,
-            RawScalar::Typed => source_text.to_owned(),
-            RawScalar::Unresolved => fold_plain(source_text),
-        };
+        let value = raw;
         let block = style
             .is_block()
             .then(|| self.block_header(content.start, span.end, &value));
         if let Some(header) = &block {
-            content.end = self.block_end(span.end, header.chomping).max(header.span.end);
+            content.end = self
+                .block_end(span.end, header.chomping)
+                .max(header.span.end);
         }
         let mut node = self.base(content, parent, in_flow);
         node.kind = NodeKind::Scalar(ScalarNode {
@@ -539,7 +553,12 @@ impl<'a> Builder<'a> {
         node.tag = props.tag.map(|(text, span)| self.tag(text, span));
         let id = self.model.push_node(node);
         self.register_anchor(id);
-        self.cursor = self.cursor.max(span.end).max(self.model.node(id).span.end);
+        let consumed = if style.is_block() {
+            span.end
+        } else {
+            self.model.node(id).span.end
+        };
+        self.cursor = self.cursor.max(consumed);
         id
     }
 
@@ -599,7 +618,7 @@ impl<'a> Builder<'a> {
             while end > 0 && matches!(bytes[end - 1], b'\n' | b'\r') {
                 end -= 1;
             }
-            let start = self.model.line_start(end.saturating_sub(1).max(0));
+            let start = self.model.line_start(end.saturating_sub(1));
             let blank = bytes[start..end]
                 .iter()
                 .all(|&byte| byte == b' ' || byte == b'\t');
@@ -673,7 +692,7 @@ impl<'a> Builder<'a> {
         in_flow: bool,
     ) -> NodeId {
         let end_position = self.end_position(index);
-        let flow_close = self.bytes.get(end_position) == Some(&b'}');
+        let flow_close = closes_with(self.bytes, end_position, b'}');
         let mut props = self.read_props(span.start, self.limit(index));
         if !flow_close && props.same_line && !in_flow {
             props = Props {
@@ -681,7 +700,9 @@ impl<'a> Builder<'a> {
                 ..Props::default()
             };
         }
-        self.cursor = self.cursor.max(props.end);
+        if !props.is_empty() {
+            self.cursor = self.cursor.max(props.end);
+        }
         let content_start = skip_space_and_comments(self.bytes, self.cursor, self.bytes.len());
         let flow = flow_close && self.bytes.get(content_start) == Some(&b'{');
         let style = if flow {
@@ -741,8 +762,9 @@ impl<'a> Builder<'a> {
 
     fn entry(&mut self, map: NodeId, style: CollectionStyle, in_flow: bool) -> MapEntry {
         let start = skip_space_and_comments(self.bytes, self.cursor, self.bytes.len());
-        let question = (self.bytes.get(start) == Some(&b'?') && separated_at(self.bytes, start + 1))
-            .then(|| start..start + 1);
+        let question = (self.bytes.get(start) == Some(&b'?')
+            && separated_at(self.bytes, start + 1))
+        .then(|| start..start + 1);
         if let Some(question) = &question {
             self.cursor = question.end;
         }
@@ -811,10 +833,14 @@ impl<'a> Builder<'a> {
         in_flow: bool,
     ) -> NodeId {
         let end_position = self.end_position(index);
-        let flow = self.bytes.get(end_position) == Some(&b']');
-        let props = self.read_props(span.start, self.limit(index));
-        self.cursor = self.cursor.max(props.end);
+        let lead = skip_space_and_comments(self.bytes, self.cursor, self.bytes.len());
+        let props = self.read_props(lead.min(span.start), self.limit(index));
+        if !props.is_empty() {
+            self.cursor = self.cursor.max(props.end);
+        }
         let content_start = skip_space_and_comments(self.bytes, self.cursor, self.bytes.len());
+        let flow = closes_with(self.bytes, end_position, b']')
+            && self.bytes.get(content_start) == Some(&b'[');
         let id = self.placeholder(content_start, parent, in_flow, props);
         if flow {
             self.cursor = content_start + 1;
@@ -839,9 +865,9 @@ impl<'a> Builder<'a> {
         };
         let end = match &delimiters {
             Some(delimiters) => delimiters.close.end,
-            None => items
-                .last()
-                .map_or(start, |item| self.model.node(item.node).span.end.max(item.span.start + 1)),
+            None => items.last().map_or(start, |item| {
+                self.model.node(item.node).span.end.max(item.span.start + 1)
+            }),
         };
         let indent = self.model.column(start);
         let node = self.model.node_mut(id);
@@ -870,11 +896,11 @@ impl<'a> Builder<'a> {
             }
         }
         let node = self.node(Some(sequence), Slot::Item, in_flow);
-        if let Some(dash) = &dash {
-            if self.model.node(node).is_empty_node() && self.model.node(node).span.start < dash.end
-            {
-                self.model.node_mut(node).span = dash.end..dash.end;
-            }
+        if let Some(dash) = &dash
+            && self.model.node(node).is_empty_node()
+            && self.model.node(node).span.start < dash.end
+        {
+            self.model.node_mut(node).span = dash.end..dash.end;
         }
         let comma = if flow { self.comma() } else { None };
         let node_span = self.model.node(node).full_span();
@@ -962,6 +988,88 @@ fn matching_ends(events: &[RawEvent]) -> Vec<usize> {
     ends
 }
 
+const fn is_blank(byte: u8) -> bool {
+    matches!(byte, b' ' | b'\t' | b'\r' | b'\n')
+}
+
+/// Returns `true` when the collection end reported at `position` is the
+/// bracket `bracket`, possibly after blanks and a trailing comma.
+fn closes_with(bytes: &[u8], position: usize, bracket: u8) -> bool {
+    if bytes.get(position) == Some(&bracket) {
+        return true;
+    }
+    let mut forward = position;
+    while bytes
+        .get(forward)
+        .is_some_and(|&byte| is_blank(byte) || byte == b',')
+    {
+        forward += 1;
+    }
+    if bytes.get(forward) == Some(&bracket) {
+        return true;
+    }
+    let mut back = position.min(bytes.len());
+    while back > 0 && is_blank(bytes[back - 1]) {
+        back -= 1;
+    }
+    back > 0 && bytes[back - 1] == bracket
+}
+
+/// End of the content of a scalar starting at `start`: the loader reports
+/// the range up to the next token, which includes blanks and comments after
+/// a quoted or plain scalar.
+fn scalar_end(bytes: &[u8], start: usize, end: usize) -> usize {
+    match bytes.get(start) {
+        Some(b'"') => quoted_end(bytes, start, end, b'"'),
+        Some(b'\'') => quoted_end(bytes, start, end, b'\''),
+        Some(b'|' | b'>') => end,
+        _ => plain_end(bytes, start, end),
+    }
+}
+
+fn quoted_end(bytes: &[u8], start: usize, end: usize, quote: u8) -> usize {
+    let mut position = start + 1;
+    while position < end {
+        match bytes[position] {
+            b'\\' if quote == b'"' => position += 2,
+            b'\'' if quote == b'\'' && bytes.get(position + 1) == Some(&b'\'') => position += 2,
+            byte if byte == quote => return position + 1,
+            _ => position += 1,
+        }
+    }
+    end
+}
+
+fn plain_end(bytes: &[u8], start: usize, end: usize) -> usize {
+    let mut last = start;
+    for position in start..end.min(bytes.len()) {
+        let byte = bytes[position];
+        if byte == b'#' && position > start && is_blank(bytes[position - 1]) {
+            break;
+        }
+        if !is_blank(byte) {
+            last = position + 1;
+        }
+    }
+    last
+}
+
+/// End of the content of a raw scalar or alias range, which may start with
+/// an anchor and a tag.
+fn raw_scalar_end(bytes: &[u8], span: &Range<usize>) -> usize {
+    let mut start = span.start;
+    while matches!(bytes.get(start), Some(b'&' | b'!')) {
+        start = token_end(bytes, start + 1, span.end);
+        while start < span.end && is_blank(bytes[start]) {
+            start += 1;
+        }
+    }
+    if start >= span.end {
+        return span.end;
+    }
+    scalar_end(bytes, start, span.end)
+}
+
 fn separated_at(bytes: &[u8], position: usize) -> bool {
     bytes
         .get(position)
@@ -1029,7 +1137,7 @@ fn scan_comments(bytes: &[u8], scalars: &[Range<usize>]) -> Vec<Range<usize>> {
             .is_some_and(|range| range.start <= position && position < range.end);
         let after_blank = position == 0
             || matches!(bytes[position - 1], b' ' | b'\t' | b'\r' | b'\n')
-            || (position == BOM.len() && bytes.starts_with(BOM.as_bytes()));
+            || (position == BYTE_ORDER_MARK.len() && bytes.starts_with(BYTE_ORDER_MARK.as_bytes()));
         if in_scalar || !after_blank {
             position += 1;
             continue;
@@ -1043,34 +1151,13 @@ fn scan_comments(bytes: &[u8], scalars: &[Range<usize>]) -> Vec<Range<usize>> {
     comments
 }
 
-/// Value of a plain scalar from its source text: lines are trimmed, a single
-/// line break becomes a space and each further empty line a line break.
-fn fold_plain(text: &str) -> String {
-    let mut result = String::new();
-    let mut breaks = 0;
-    for (index, line) in text.split('\n').enumerate() {
-        let line = line.trim_matches(|c| c == ' ' || c == '\t' || c == '\r');
-        if index > 0 && line.is_empty() {
-            breaks += 1;
-            continue;
-        }
-        if index > 0 {
-            if breaks == 0 {
-                result.push(' ');
-            } else {
-                result.push_str(&"\n".repeat(breaks));
-            }
-        }
-        breaks = 0;
-        result.push_str(line);
-    }
-    result
-}
-
 /// Full form of a tag: verbatim tags unchanged, shorthands with their handle
 /// replaced by its prefix and percent escapes decoded.
 pub(crate) fn resolve_tag(text: &str, handles: &[(String, String)]) -> String {
-    if let Some(verbatim) = text.strip_prefix("!<").and_then(|rest| rest.strip_suffix('>')) {
+    if let Some(verbatim) = text
+        .strip_prefix("!<")
+        .and_then(|rest| rest.strip_suffix('>'))
+    {
         return verbatim.to_owned();
     }
     if text == "!" {
@@ -1133,7 +1220,8 @@ mod tests {
         assert_eq!(model.text(&model.node(entry.value).span), "'x'");
         assert_eq!(model.text(entry.colon.as_ref().unwrap()), ":");
         assert_eq!(model.text(&entry.span), "b:   'x' # note");
-        assert_eq!(model.comments(), &[14..20]);
+        assert_eq!(model.comments().len(), 1);
+        assert_eq!(model.comments()[0], 14..20);
     }
 
     #[test]
@@ -1204,7 +1292,7 @@ mod tests {
     fn rejects_templates_with_a_text_fix() {
         let error = YamlModel::parse("a: {{ .Values.x }}\n").unwrap_err();
         assert_eq!(error.code(), ErrorCode::DocParse);
-        assert_eq!(error.data().fix.as_deref(), Some("replace"));
+        assert_eq!(error.fix.first().map(String::as_str), Some("replace"));
         let error = YamlModel::parse("{% if x %}\na: 1\n").unwrap_err();
         assert_eq!(error.code(), ErrorCode::DocParse);
     }
@@ -1218,21 +1306,19 @@ mod tests {
     fn reports_position_of_syntax_errors() {
         let error = YamlModel::parse("a: [1\nb: 2\n").unwrap_err();
         assert_eq!(error.code(), ErrorCode::DocParse);
-        assert!(error.data().detail.contains_key("line"));
+        assert!(error.details.contains_key("line"));
     }
 
     #[test]
     fn resolves_tag_handles() {
         let handles = vec![("!e!".to_owned(), "tag:example.com,2000:".to_owned())];
-        assert_eq!(resolve_tag("!e!foo%21", &handles), "tag:example.com,2000:foo!");
+        assert_eq!(
+            resolve_tag("!e!foo%21", &handles),
+            "tag:example.com,2000:foo!"
+        );
         assert_eq!(resolve_tag("!<!bar>", &handles), "!bar");
         assert_eq!(resolve_tag("!local", &handles), "!local");
         assert_eq!(resolve_tag("!", &handles), "!");
-    }
-
-    #[test]
-    fn folds_plain_lines() {
-        assert_eq!(fold_plain("a\n  b\n\n  c"), "a b\nc");
     }
 
     #[test]

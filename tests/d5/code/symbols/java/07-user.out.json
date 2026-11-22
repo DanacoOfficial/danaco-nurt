@@ -1,0 +1,4 @@
+[
+  "class User @1:15 [1:1-5:2] exported | public record User(String name, int age)",
+  "  method greeting in User @2:19 [2:5-4:6] exported | public String greeting()"
+]

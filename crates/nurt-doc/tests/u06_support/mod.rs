@@ -8,6 +8,11 @@
     dead_code,
     reason = "each test file uses a different subset of the helpers"
 )]
+#![allow(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "the helpers fail the test on unexpected input"
+)]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,25 +26,25 @@ use saphyr::{LoadableYamlNode, Scalar, Yaml};
 use serde_json::Value as Json;
 
 /// Parses `text`, failing the test on error.
-pub fn parse(text: &str) -> YamlModel {
+pub(crate) fn parse(text: &str) -> YamlModel {
     YamlModel::parse(text).unwrap_or_else(|error| panic!("parse failed: {error:?}\n{text}"))
 }
 
 /// Text after applying `edits` to the source of `model`.
-pub fn apply_edits(model: &YamlModel, edits: &[ByteEdit]) -> String {
+pub(crate) fn apply_edits(model: &YamlModel, edits: &[ByteEdit]) -> String {
     let applied = apply(model.source().as_bytes(), edits).expect("edits apply");
     String::from_utf8(applied.bytes).expect("edits keep UTF-8")
 }
 
 /// Node selected by a concrete key path: aliases are followed between
 /// segments and merged keys are found through their merge keys.
-pub fn node_at(model: &YamlModel, path: &str) -> NodeId {
+pub(crate) fn node_at(model: &YamlModel, path: &str) -> NodeId {
     try_node_at(model, &KeyPath::parse(path).expect("key path"))
         .unwrap_or_else(|| panic!("no node at `{path}`"))
 }
 
 /// Node selected by `key`, or `None`.
-pub fn try_node_at(model: &YamlModel, key: &KeyPath) -> Option<NodeId> {
+pub(crate) fn try_node_at(model: &YamlModel, key: &KeyPath) -> Option<NodeId> {
     let document = match key.document() {
         None => 0,
         Some(DocSelector::Index(index)) => usize::try_from(index).ok()?,
@@ -56,7 +61,9 @@ pub fn try_node_at(model: &YamlModel, key: &KeyPath) -> Option<NodeId> {
             KeySegment::Index(index) => {
                 let items = &model.node(node).as_sequence()?.items;
                 let position = if *index < 0 {
-                    items.len().checked_sub(usize::try_from(index.unsigned_abs()).ok()?)?
+                    items
+                        .len()
+                        .checked_sub(usize::try_from(index.unsigned_abs()).ok()?)?
                 } else {
                     usize::try_from(*index).ok()?
                 };
@@ -70,7 +77,7 @@ pub fn try_node_at(model: &YamlModel, key: &KeyPath) -> Option<NodeId> {
 
 /// Returns `true` when `node` or one of its ancestors is the target of an
 /// alias, so that a change of `node` is visible elsewhere.
-pub fn reachable_by_alias(model: &YamlModel, anchors: &Anchors, node: NodeId) -> bool {
+pub(crate) fn reachable_by_alias(model: &YamlModel, anchors: &Anchors, node: NodeId) -> bool {
     let mut current = Some(node);
     while let Some(id) = current {
         if !anchors.aliases_of(id).is_empty() {
@@ -81,14 +88,24 @@ pub fn reachable_by_alias(model: &YamlModel, anchors: &Anchors, node: NodeId) ->
     false
 }
 
+/// Returns `true` when `node` or a node inside it defines an anchor that an
+/// alias refers to, so that removing `node` leaves the alias undefined.
+pub(crate) fn defines_used_anchor(model: &YamlModel, anchors: &Anchors, node: NodeId) -> bool {
+    let span = model.node(node).full_span();
+    model.node_ids().any(|id| {
+        let inner = model.node(id).full_span();
+        inner.start >= span.start && inner.end <= span.end && !anchors.aliases_of(id).is_empty()
+    })
+}
+
 /// Returns `true` when `node` lies inside the key of a mapping entry.
-pub fn inside_key(model: &YamlModel, node: NodeId) -> bool {
+pub(crate) fn inside_key(model: &YamlModel, node: NodeId) -> bool {
     let mut child = node;
     while let Some(parent) = model.parent(child) {
-        if let NodeKind::Mapping(mapping) = &model.node(parent).kind {
-            if mapping.entries.iter().any(|entry| entry.key == child) {
-                return true;
-            }
+        if let NodeKind::Mapping(mapping) = &model.node(parent).kind
+            && mapping.entries.iter().any(|entry| entry.key == child)
+        {
+            return true;
         }
         child = parent;
     }
@@ -96,14 +113,14 @@ pub fn inside_key(model: &YamlModel, node: NodeId) -> bool {
 }
 
 /// Documents of `text` read by the reference parser, as JSON values.
-pub fn reference(text: &str) -> Result<Vec<Json>, String> {
+pub(crate) fn reference(text: &str) -> Result<Vec<Json>, String> {
     Yaml::load_from_str(text)
         .map(|documents| documents.iter().map(json_of).collect())
         .map_err(|error| error.to_string())
 }
 
 /// JSON form of a value of the reference parser; mapping keys become text.
-pub fn json_of(yaml: &Yaml<'_>) -> Json {
+pub(crate) fn json_of(yaml: &Yaml<'_>) -> Json {
     match yaml {
         Yaml::Value(scalar) => scalar_json(scalar),
         Yaml::Representation(text, _, _) => Json::String(text.to_string()),
@@ -138,7 +155,7 @@ fn key_text(key: &Yaml<'_>) -> String {
 }
 
 /// Value at `key` inside the documents `documents`, for changes.
-pub fn json_at<'a>(documents: &'a mut [Json], key: &KeyPath) -> Option<&'a mut Json> {
+pub(crate) fn json_at<'a>(documents: &'a mut [Json], key: &KeyPath) -> Option<&'a mut Json> {
     let document = match key.document() {
         None => 0,
         Some(DocSelector::Index(index)) => usize::try_from(index).ok()?,
@@ -148,7 +165,9 @@ pub fn json_at<'a>(documents: &'a mut [Json], key: &KeyPath) -> Option<&'a mut J
     for segment in key.segments() {
         current = match segment {
             KeySegment::Key(name) => current.as_object_mut()?.get_mut(name)?,
-            KeySegment::Index(index) => current.as_array_mut()?.get_mut(usize::try_from(*index).ok()?)?,
+            KeySegment::Index(index) => current
+                .as_array_mut()?
+                .get_mut(usize::try_from(*index).ok()?)?,
             _ => return None,
         };
     }
@@ -156,12 +175,12 @@ pub fn json_at<'a>(documents: &'a mut [Json], key: &KeyPath) -> Option<&'a mut J
 }
 
 /// Repository directory of the advanced YAML corpus.
-pub fn corpus_dir() -> PathBuf {
+pub(crate) fn corpus_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/corpus/yaml/advanced")
 }
 
 /// Every `.yaml` and `.yml` file below `dir`, sorted.
-pub fn yaml_files(dir: &Path) -> Vec<PathBuf> {
+pub(crate) fn yaml_files(dir: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
     let mut pending = vec![dir.to_path_buf()];
     while let Some(next) = pending.pop() {
@@ -184,7 +203,7 @@ pub fn yaml_files(dir: &Path) -> Vec<PathBuf> {
 /// Identifiers of the valid YAML Test Suite cases that use the constructs
 /// of this unit (sequences, anchors, aliases, documents, comments, tags,
 /// explicit keys), from `tests/d5/data/u06/yaml-test-suite-cases.tsv`.
-pub fn suite_case_ids() -> Vec<String> {
+pub(crate) fn suite_case_ids() -> Vec<String> {
     let list = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/d5/data/u06/yaml-test-suite-cases.tsv");
     let text = fs::read_to_string(list).expect("case list");

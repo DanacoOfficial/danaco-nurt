@@ -1,0 +1,7 @@
+[
+  "class Animal @1:7 [1:1-6:34] exported | class Animal",
+  "  method __init__ in Animal @2:9 [2:5-3:25] private | def __init__(self, name)",
+  "  method speak in Animal @5:9 [5:5-6:34] exported | def speak(self)",
+  "class Dog @9:7 [9:1-11:22] exported | class Dog(Animal)",
+  "  method speak in Dog @10:9 [10:5-11:22] exported | def speak(self)"
+]

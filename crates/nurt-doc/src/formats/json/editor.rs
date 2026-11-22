@@ -46,7 +46,8 @@ impl Change {
 pub(crate) fn apply(text: &str, changes: &[Change]) -> Result<String, Error> {
     let mut sorted: Vec<&Change> = changes.iter().collect();
     sorted.sort_by_key(|change| (change.span.start, change.span.end));
-    let mut out = String::with_capacity(text.len() + changes.iter().map(|c| c.text.len()).sum::<usize>());
+    let mut out =
+        String::with_capacity(text.len() + changes.iter().map(|c| c.text.len()).sum::<usize>());
     let mut cursor = 0;
     for change in sorted {
         if change.span.start < cursor {
@@ -72,7 +73,13 @@ pub(crate) fn difference(old: &str, new: &str) -> Change {
         prefix -= 1;
     }
     let limit = a.len().min(b.len()) - prefix;
-    let mut suffix = a.iter().rev().zip(b.iter().rev()).take(limit).take_while(|(x, y)| x == y).count();
+    let mut suffix = a
+        .iter()
+        .rev()
+        .zip(b.iter().rev())
+        .take(limit)
+        .take_while(|(x, y)| x == y)
+        .count();
     while !(old.is_char_boundary(a.len() - suffix) && new.is_char_boundary(b.len() - suffix)) {
         suffix -= 1;
     }
@@ -114,12 +121,23 @@ impl<'d> Editor<'d> {
     /// # Errors
     ///
     /// `E_INVALID_VALUE` when the value has no JSON form.
-    pub(crate) fn append(&self, container: NodeId, key: Option<&str>, value: &Value) -> Result<Vec<Change>, Error> {
-        let entries = self.layout.tree.nodes[container].entries().unwrap_or_default();
+    pub(crate) fn append(
+        &self,
+        container: NodeId,
+        key: Option<&str>,
+        value: &Value,
+    ) -> Result<Vec<Change>, Error> {
+        let entries = self.layout.tree.nodes[container]
+            .entries()
+            .unwrap_or_default();
         let style = self.layout.style_for(container);
         match entries.last() {
             None => self.append_to_empty(container, key, value, &style),
-            Some(last) if self.layout.is_multiline(self.layout.tree.nodes[container].span) => {
+            Some(last)
+                if self
+                    .layout
+                    .is_multiline(self.layout.tree.nodes[container].span) =>
+            {
                 self.append_on_new_line(last, key, value, &style)
             }
             Some(last) => self.append_inline(last, key, value, &style),
@@ -139,7 +157,8 @@ impl<'d> Editor<'d> {
         if entries.len() == 1 {
             let span = tree.nodes[container].span;
             let interior = Span::new(span.start + 1, span.end - 1);
-            let removed = range.unwrap_or_else(|| Span::new(entry.start(tree), self.entry_end(entry)));
+            let removed =
+                range.unwrap_or_else(|| Span::new(entry.start(tree), self.entry_end(entry)));
             let other_comments = self
                 .layout
                 .comments_in(interior)
@@ -152,10 +171,11 @@ impl<'d> Editor<'d> {
         match range {
             Some(lines) => {
                 let mut changes = vec![Change::delete(lines)];
-                if index + 1 == entries.len() && entry.comma.is_none() {
-                    if let Some(comma) = entries[index - 1].comma {
-                        changes.push(Change::delete(Span::new(comma, comma + 1)));
-                    }
+                if index + 1 == entries.len()
+                    && entry.comma.is_none()
+                    && let Some(comma) = entries[index - 1].comma
+                {
+                    changes.push(Change::delete(Span::new(comma, comma + 1)));
                 }
                 changes
             }
@@ -167,7 +187,9 @@ impl<'d> Editor<'d> {
     fn entry_end(&self, entry: &Entry) -> usize {
         entry
             .comma
-            .map_or(self.layout.tree.nodes[entry.value].span.end, |comma| comma + 1)
+            .map_or(self.layout.tree.nodes[entry.value].span.end, |comma| {
+                comma + 1
+            })
     }
 
     /// Lines occupied only by the entry and its comments, when the
@@ -183,12 +205,16 @@ impl<'d> Editor<'d> {
             return None;
         }
         let after = layout.skip_same_line_trivia(self.entry_end(entry));
-        if !matches!(layout.text.as_bytes().get(after), None | Some(b'\r' | b'\n')) {
+        if !matches!(
+            layout.text.as_bytes().get(after),
+            None | Some(b'\r' | b'\n')
+        ) {
             return None;
         }
-        let first_line = layout
-            .leading_comments(start)
-            .map_or_else(|| layout.line_start(start), |comments| layout.line_start(comments.start));
+        let first_line = layout.leading_comments(start).map_or_else(
+            || layout.line_start(start),
+            |comments| layout.line_start(comments.start),
+        );
         Some(Span::new(first_line, layout.next_line_start(after)))
     }
 
@@ -205,7 +231,9 @@ impl<'d> Editor<'d> {
                 let after = self.layout.skip_same_line_trivia(comma + 1);
                 let end = match self.layout.text.as_bytes().get(after) {
                     Some(b'\r' | b'\n') => after,
-                    _ => entries.get(index + 1).map_or(after, |next| next.start(tree)),
+                    _ => entries
+                        .get(index + 1)
+                        .map_or(after, |next| next.start(tree)),
                 };
                 Span::new(entry.start(tree), end)
             }
@@ -251,7 +279,10 @@ impl<'d> Editor<'d> {
                 text: format!("{eol}{inner}{entry}{trailing}{eol}{indent}"),
             }
         } else if layout.starts_line(close) {
-            Change::insert(layout.line_start(close), format!("{inner}{entry}{trailing}{eol}"))
+            Change::insert(
+                layout.line_start(close),
+                format!("{inner}{entry}{trailing}{eol}"),
+            )
         } else {
             Change::insert(close, format!("{eol}{inner}{entry}{trailing}{eol}{indent}"))
         }])

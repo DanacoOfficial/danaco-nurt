@@ -1,0 +1,7 @@
+[
+  "class Stack @1:7 [1:1-5:2] exported | class Stack",
+  "  method push in Stack @3:10 [3:5-3:26] exported | void push(int value);",
+  "  method size in Stack @4:9 [4:5-4:22] exported | int size() const;",
+  "  method push in Stack @7:13 [7:1-7:31] exported | void Stack::push(int value)",
+  "  method size in Stack @9:12 [9:1-11:2] exported | int Stack::size() const"
+]

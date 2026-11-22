@@ -1,0 +1,6 @@
+[
+  "field point @1:1 [1:1-1:25] | point = { x = 1, y = 2 }",
+  "  field x in point @1:11 [1:11-1:16] | x = 1",
+  "  field y in point @1:18 [1:18-1:23] | y = 2",
+  "field colors @2:1 [2:1-2:26] | colors = [\"red\", \"green\"]"
+]

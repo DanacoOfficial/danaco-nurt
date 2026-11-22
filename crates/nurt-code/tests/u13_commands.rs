@@ -1257,6 +1257,105 @@ fn hover_without_server_information_falls_back_or_stays_empty_under_lsp() {
     assert!(records.is_empty());
 }
 
+#[test]
+fn hover_without_a_code_block_takes_the_first_line_as_the_signature() {
+    let project = Project::new();
+    let script = Script {
+        hover: Ok(Some(HoverInfo {
+            contents: "\n  def scale(value)  \n\nDouble the value.\nUsed by total.".to_owned(),
+            range: None,
+        })),
+        ..Script::unavailable()
+    }
+    .shared();
+    let records = run(
+        &CodeHover::new(Some(script)),
+        &hover_args(&project, &[]),
+        &plain_context(),
+    )
+    .unwrap();
+    let hover = Hover::try_from(records.into_iter().next().unwrap()).unwrap();
+    assert_eq!(hover.signature.as_deref(), Some("def scale(value)"));
+    assert_eq!(hover.documentation.as_deref(), Some("Double the value."));
+}
+
+/// Module whose function is documented by the comment lines above it.
+const GEOMETRY: &str = "LIMIT = 3
+# Triple the value. Kept for older callers.
+# Prefer scale.
+def triple(value):
+    return value * 3
+
+
+def use():
+    return triple(2)
+";
+
+#[test]
+fn hover_from_syntax_reads_the_comment_above_the_definition() {
+    let project = Project::new();
+    let geometry = project.path("geometry.py");
+    std::fs::write(&geometry, GEOMETRY).unwrap();
+    let ctx = plain_context();
+    let records = run(
+        &CodeHover::new(None),
+        &args(
+            "code.hover",
+            &[
+                ("path", path_value(&geometry)),
+                ("line", Value::Int(9)),
+                ("column", Value::Int(13)),
+            ],
+        ),
+        &ctx,
+    )
+    .unwrap();
+    let hover = Hover::try_from(records.into_iter().next().unwrap()).unwrap();
+    assert_eq!(hover.source, SymbolSource::Syntax);
+    assert_eq!(hover.signature.as_deref(), Some("def triple(value)"));
+    assert_eq!(hover.documentation.as_deref(), Some("Triple the value."));
+}
+
+#[test]
+fn hover_from_syntax_without_documentation_has_only_the_signature() {
+    let project = Project::new();
+    let records = run(
+        &CodeHover::new(None),
+        &args(
+            "code.hover",
+            &[
+                ("path", path_value(&project.path("shapes.py"))),
+                ("symbol", word("Circle")),
+            ],
+        ),
+        &plain_context(),
+    )
+    .unwrap();
+    let hover = Hover::try_from(records.into_iter().next().unwrap()).unwrap();
+    assert_eq!(hover.signature.as_deref(), Some("class Circle(Shape)"));
+    assert_eq!(hover.documentation, None);
+}
+
+#[test]
+fn hover_text_helpers_keep_decimal_points_and_drop_trailing_commas() {
+    use nurt_code::commands::hover::{first_sentence, flat_signature, shorten_hover};
+
+    assert_eq!(
+        first_sentence("Version 1.5 is used.\nNext sentence."),
+        "Version 1.5 is used."
+    );
+    assert_eq!(first_sentence("Is it done? Yes."), "Is it done?");
+    assert_eq!(
+        flat_signature("fn area(\n    shape: &Shape,\n    scale: f64,\n) -> f64"),
+        "fn area(shape: &Shape, scale: f64) -> f64"
+    );
+    assert_eq!(flat_signature("\n\n"), "");
+    assert_eq!(shorten_hover(""), (String::new(), String::new()));
+    let (signature, documentation) = shorten_hover("```rust\nfn area()\n```\n***\nArea.");
+    assert_eq!(signature, "fn area()");
+    assert_eq!(documentation, "Area.");
+}
+
 fn shape_args(command: &str, project: &Project, extra: &[(&str, Value)]) -> BoundArgs {
     let mut pairs = vec![
         ("path", path_value(&project.path("shapes.py"))),

@@ -1,0 +1,8 @@
+[
+  "struct Point @1:15 [1:1-5:2] exported | public struct Point",
+  "  field X in Point @3:16 [3:5-3:18] exported | public int X;",
+  "  field Y in Point @4:16 [4:5-4:18] exported | public int Y;",
+  "enum Color @7:13 [7:1-7:33] exported | public enum Color",
+  "  constant Red in Color @7:21 [7:21-7:24] exported | Red",
+  "  constant Green in Color @7:26 [7:26-7:31] exported | Green"
+]

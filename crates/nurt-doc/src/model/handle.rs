@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+use std::fmt;
+
 use nurt_contracts::error::Result;
 use nurt_contracts::keypath::KeyPath;
 use nurt_contracts::services::DocFormatId;
@@ -78,5 +80,14 @@ pub trait DocHandle: Send {
             .first()
             .map(|root| tree.value_of(*root, self.semantics(), None))
             .unwrap_or_default())
+    }
+}
+
+impl fmt::Debug for dyn DocHandle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DocHandle")
+            .field("format", &self.format())
+            .field("bytes", &self.text().len())
+            .finish_non_exhaustive()
     }
 }

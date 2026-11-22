@@ -1,0 +1,4 @@
+[
+  "module @media (max-width: 600px) @1:1 [1:1-5:2] | @media (max-width: 600px)",
+  "  class .sidebar in @media (max-width: 600px) @2:3 [2:3-4:4] | .sidebar"
+]

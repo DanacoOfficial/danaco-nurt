@@ -1,0 +1,7 @@
+[
+  "function outer @1:5 [1:1-5:17] exported | def outer()",
+  "  function inner in outer @2:9 [2:5-3:17] exported | def inner()",
+  "class A @8:7 [8:1-11:21] exported | class A",
+  "  class B in A @9:11 [9:5-11:21] exported | class B",
+  "    method method in A.B @10:13 [10:9-11:21] exported | def method(self)"
+]

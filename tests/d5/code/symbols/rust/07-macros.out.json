@@ -1,0 +1,5 @@
+[
+  "macro square @1:14 [1:1-5:2] private | macro_rules! square",
+  "macro cube @8:14 [8:1-12:2] private | macro_rules! cube",
+  "function use_macros @14:4 [14:1-16:2] private | fn use_macros() -> i32"
+]

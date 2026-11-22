@@ -1,0 +1,5 @@
+[
+  "class Box @3:14 [3:1-9:2] exported | public class Box<T>",
+  "  field value in Box @4:15 [4:5-4:21] private | private T value;",
+  "  method map in Box @6:23 [6:5-8:6] exported | public <U> Box<U> map(Function<T, U> f)"
+]

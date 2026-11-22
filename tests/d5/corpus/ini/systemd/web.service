@@ -1,0 +1,16 @@
+[Unit]
+Description=Web server
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/mkdir -p /run/web
+ExecStartPre=/usr/bin/chown web /run/web
+ExecStart=/usr/bin/web --port 8080
+Restart=on-failure
+Environment=MODE=production
+Environment=LOG=info
+
+[Install]
+WantedBy=multi-user.target

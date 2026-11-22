@@ -9,6 +9,10 @@
 //! carriage return, `⇔` a byte order mark, `↵` marks a line end and `∎`
 //! marks input without a final line break.
 
+// The loader is shared by several test crates, each of which reads a
+// different subset of its items.
+#![allow(dead_code)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -16,26 +20,26 @@ use saphyr::{LoadableYamlNode, Yaml};
 
 /// One case of the suite.
 #[derive(Debug, Clone)]
-pub struct SuiteCase {
+pub(crate) struct SuiteCase {
     /// Identifier: `<ID>` for a single case, `<ID>-<nn>` otherwise.
-    pub id: String,
+    pub(crate) id: String,
     /// Input text.
-    pub yaml: String,
+    pub(crate) yaml: String,
     /// Expected event tree, one event per line, when the suite gives it.
-    pub tree: Option<String>,
+    pub(crate) tree: Option<String>,
     /// Expected JSON values of the documents, when the suite gives them.
-    pub json: Option<String>,
+    pub(crate) json: Option<String>,
     /// Whether the input is invalid.
-    pub fail: bool,
+    pub(crate) fail: bool,
 }
 
 /// Directory of the suite inside the repository.
-pub fn suite_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/corpus/yaml/yaml-test-suite")
+pub(crate) fn suite_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/third_party/yaml/yaml-test-suite")
 }
 
 /// Every case of the suite, sorted by identifier.
-pub fn load_cases() -> Vec<SuiteCase> {
+pub(crate) fn load_cases() -> Vec<SuiteCase> {
     let mut files: Vec<PathBuf> = fs::read_dir(suite_dir())
         .expect("suite directory")
         .map(|entry| entry.expect("directory entry").path())
@@ -62,7 +66,12 @@ fn load_file(path: &Path) -> Vec<SuiteCase> {
     let mut json: Option<String> = None;
     let mut cases = Vec::new();
     for (index, entry) in entries.iter().enumerate() {
-        let field = |name: &str| entry.as_mapping_get(name).and_then(Yaml::as_str).map(visual_to_raw);
+        let field = |name: &str| {
+            entry
+                .as_mapping_get(name)
+                .and_then(Yaml::as_str)
+                .map(visual_to_raw)
+        };
         if let Some(value) = field("yaml") {
             yaml = Some(value);
         }
@@ -70,7 +79,10 @@ fn load_file(path: &Path) -> Vec<SuiteCase> {
             tree = Some(value);
         }
         if entry.as_mapping_get("json").is_some() {
-            json = entry.as_mapping_get("json").and_then(Yaml::as_str).map(str::to_owned);
+            json = entry
+                .as_mapping_get("json")
+                .and_then(Yaml::as_str)
+                .map(str::to_owned);
         }
         if entry.as_mapping_get("skip").is_some() {
             continue;
@@ -96,7 +108,7 @@ fn load_file(path: &Path) -> Vec<SuiteCase> {
 }
 
 /// Converts the visual notation of the suite to the raw input.
-pub fn visual_to_raw(visual: &str) -> String {
+pub(crate) fn visual_to_raw(visual: &str) -> String {
     let mut raw = visual.to_owned();
     for (pattern, replacement) in [
         ("␣", " "),

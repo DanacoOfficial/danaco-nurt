@@ -38,7 +38,8 @@ pub fn detect_language(
         .and_then(|name| registry.resolve_name(&name))
         .or_else(|| path.and_then(|path| by_name(registry, path)))
         .or_else(|| {
-            interpreter_of_shebang(bytes).and_then(|interpreter| by_interpreter(registry, &interpreter))
+            interpreter_of_shebang(bytes)
+                .and_then(|interpreter| by_interpreter(registry, &interpreter))
         })
 }
 
@@ -53,7 +54,7 @@ pub(super) fn by_name(registry: &Registry, path: &Path) -> Option<LanguageId> {
     let extension = path.extension()?.to_str()?.to_ascii_lowercase();
     registry
         .specs()
-        .find(|spec| spec.extensions.iter().any(|known| *known == extension))
+        .find(|spec| spec.extensions.contains(&extension))
         .map(|spec| spec.id.clone())
 }
 
@@ -82,7 +83,8 @@ pub fn interpreter_of_shebang(bytes: &[u8]) -> Option<String> {
     let mut words = line.split_whitespace();
     let mut program = base_name(words.next()?);
     if program == "env" {
-        program = words.find(|word| !word.starts_with('-') && !word.contains('='))
+        program = words
+            .find(|word| !word.starts_with('-') && !word.contains('='))
             .map(base_name)?;
     }
     let name = program.trim_end_matches(|c: char| c.is_ascii_digit() || c == '.');

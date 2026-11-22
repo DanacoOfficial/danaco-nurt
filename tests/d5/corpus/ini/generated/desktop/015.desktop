@@ -1,0 +1,7 @@
+# Desktop entry
+[Desktop Entry]
+Type=Application
+Name=App 15
+Terminal=false
+Comment=Edit text files
+Icon=app

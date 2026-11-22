@@ -1,0 +1,4 @@
+[
+  "function cleanup @1:1 [1:1-3:2] | cleanup()",
+  "variable tmp @6:1 [6:1-6:14] | tmp=$(mktemp)"
+]

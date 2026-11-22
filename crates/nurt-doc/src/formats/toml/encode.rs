@@ -29,10 +29,16 @@ pub(crate) fn normalize(value: &Value) -> Result<Value, Error> {
             text: instant.to_string(),
         }),
         Value::BigInt(text) => Value::Int(text.parse().map_err(|_| {
-            unsupported(VALUE_TYPE, "TOML integers have 64 bits; write a smaller integer or a text")
+            unsupported(
+                VALUE_TYPE,
+                "TOML integers have 64 bits; write a smaller integer or a text",
+            )
         })?),
         Value::Decimal(text) => Value::Number(text.parse().map_err(|_| {
-            unsupported(VALUE_TYPE, "the decimal number cannot be written as a TOML float")
+            unsupported(
+                VALUE_TYPE,
+                "the decimal number cannot be written as a TOML float",
+            )
         })?),
         Value::List(items) => Value::List(items.iter().map(normalize).collect::<Result<_, _>>()?),
         Value::Map(fields) => Value::Map(
@@ -42,7 +48,10 @@ pub(crate) fn normalize(value: &Value) -> Result<Value, Error> {
                 .collect::<Result<Fields, Error>>()?,
         ),
         Value::Null => {
-            return Err(unsupported(NULL, "TOML has no null; remove the key instead"));
+            return Err(unsupported(
+                NULL,
+                "TOML has no null; remove the key instead",
+            ));
         }
         _ => {
             return Err(unsupported(
@@ -53,18 +62,27 @@ pub(crate) fn normalize(value: &Value) -> Result<Value, Error> {
     })
 }
 
-/// Structural equality in which `NaN` equals `NaN` and map members are
-/// compared without regard to order.
+/// Structural equality in which `NaN` equals `NaN`, dates compare in
+/// canonical form (`1979-05-27 07:32:00Z` is `1979-05-27T07:32:00Z`) and map
+/// members are compared without regard to order.
 pub(crate) fn same(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Number(x), Value::Number(y)) => x == y || (x.is_nan() && y.is_nan()),
+        (Value::Date(x), Value::Date(y)) => {
+            let canonical = |text: &str| {
+                text.parse::<toml_edit::Datetime>()
+                    .ok()
+                    .map(|d| d.to_string())
+            };
+            x.kind == y.kind
+                && (x.text == y.text
+                    || matches!((canonical(&x.text), canonical(&y.text)), (Some(p), Some(q)) if p == q))
+        }
         (Value::List(x), Value::List(y)) => {
             x.len() == y.len() && x.iter().zip(y).all(|(p, q)| same(p, q))
         }
         (Value::Map(x), Value::Map(y)) => {
-            x.len() == y.len()
-                && x.iter()
-                    .all(|(k, v)| y.get(k).is_some_and(|w| same(v, w)))
+            x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| same(v, w)))
         }
         _ => a == b,
     }
@@ -103,7 +121,9 @@ pub(crate) fn string(text: &str, style: StringStyle, leading_newline: bool) -> S
     let lead = if leading_newline { "\n" } else { "" };
     match style {
         StringStyle::Literal if literal_fits(text, false) => format!("'{text}'"),
-        StringStyle::MultiLiteral if literal_fits(text, true) && !text.contains("'''") && !text.ends_with('\'') => {
+        StringStyle::MultiLiteral
+            if literal_fits(text, true) && !text.contains("'''") && !text.ends_with('\'') =>
+        {
             format!("'''{lead}{text}'''")
         }
         StringStyle::MultiBasic => format!("\"\"\"{lead}{}\"\"\"", escape_basic(text, true)),
@@ -177,7 +197,9 @@ pub(crate) fn inline(value: &Value, old_raw: Option<&str>) -> String {
             let raw = old_raw.unwrap_or_default();
             let style = StringStyle::of(raw).unwrap_or(StringStyle::Basic);
             let lead = matches!(style, StringStyle::MultiBasic | StringStyle::MultiLiteral)
-                && raw.get(3..).is_some_and(|rest| rest.starts_with(['\n', '\r']));
+                && raw
+                    .get(3..)
+                    .is_some_and(|rest| rest.starts_with(['\n', '\r']));
             string(text, style, lead)
         }
         Value::Int(int) => integer(*int, old_raw),
@@ -186,7 +208,11 @@ pub(crate) fn inline(value: &Value, old_raw: Option<&str>) -> String {
         Value::Date(date) => date.text.clone(),
         Value::List(items) => format!(
             "[{}]",
-            items.iter().map(|i| inline(i, None)).collect::<Vec<_>>().join(", ")
+            items
+                .iter()
+                .map(|i| inline(i, None))
+                .collect::<Vec<_>>()
+                .join(", ")
         ),
         Value::Map(fields) if fields.is_empty() => "{}".to_owned(),
         Value::Map(fields) => format!(
@@ -236,7 +262,10 @@ mod tests {
             inline(&Value::Text("q\"\n".into()), Some("\"\"\"x\"\"\"")),
             "\"\"\"q\\\"\n\"\"\""
         );
-        assert_eq!(inline(&Value::Text("tab\tz\u{1}".into()), None), "\"tab\tz\\u0001\"");
+        assert_eq!(
+            inline(&Value::Text("tab\tz\u{1}".into()), None),
+            "\"tab\tz\\u0001\""
+        );
         assert_eq!(string("end'", StringStyle::MultiLiteral, false), "\"end'\"");
     }
 
@@ -263,9 +292,15 @@ mod tests {
 
     #[test]
     fn normalizes_values_and_rejects_null() {
-        assert_eq!(normalize(&Value::BigInt("12".into())).unwrap(), Value::Int(12));
+        assert_eq!(
+            normalize(&Value::BigInt("12".into())).unwrap(),
+            Value::Int(12)
+        );
         assert!(normalize(&Value::BigInt("99999999999999999999".into())).is_err());
-        assert_eq!(normalize(&Value::Null).unwrap_err().found.as_deref(), Some(NULL));
+        assert_eq!(
+            normalize(&Value::Null).unwrap_err().found.as_deref(),
+            Some(NULL)
+        );
         let mut fields = Fields::new();
         fields.insert("a".into(), Value::List(vec![Value::Int(1)]));
         let map = Value::Map(fields);

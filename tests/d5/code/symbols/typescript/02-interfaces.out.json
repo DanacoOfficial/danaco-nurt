@@ -1,0 +1,8 @@
+[
+  "interface User @1:18 [1:8-5:2] exported | interface User",
+  "  field id in User @2:3 [2:3-2:13] exported | id: number",
+  "  field name in User @3:3 [3:3-3:15] exported | name: string",
+  "  method greet in User @4:3 [4:3-4:18] exported | greet(): string",
+  "interface Internal @7:11 [7:1-9:2] private | interface Internal",
+  "  field flag in Internal @8:3 [8:3-8:16] private | flag: boolean"
+]

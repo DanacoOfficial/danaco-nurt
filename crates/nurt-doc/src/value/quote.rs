@@ -47,8 +47,21 @@ pub fn yaml_plain_kind(text: &str, version: YamlVersion) -> PlainKind {
         || (yaml11
             && matches!(
                 text,
-                "y" | "Y" | "yes" | "Yes" | "YES" | "n" | "N" | "no" | "No" | "NO" | "on" | "On"
-                    | "ON" | "off" | "Off" | "OFF"
+                "y" | "Y"
+                    | "yes"
+                    | "Yes"
+                    | "YES"
+                    | "n"
+                    | "N"
+                    | "no"
+                    | "No"
+                    | "NO"
+                    | "on"
+                    | "On"
+                    | "ON"
+                    | "off"
+                    | "Off"
+                    | "OFF"
             ))
     {
         return PlainKind::Bool;
@@ -101,15 +114,13 @@ pub fn needs_quotes(text: &str, rules: QuoteRules) -> bool {
         QuoteRules::Ini => {
             blank_edges || text.contains([';', '#', '"']) || text.starts_with(['\'', '['])
         }
-        QuoteRules::Env => {
-            text.chars().any(|c| {
-                c.is_whitespace()
-                    || matches!(
-                        c,
-                        '#' | '\'' | '"' | '$' | '\\' | '`' | ';' | '&' | '|' | '<' | '>' | '(' | ')'
-                    )
-            })
-        }
+        QuoteRules::Env => text.chars().any(|c| {
+            c.is_whitespace()
+                || matches!(
+                    c,
+                    '#' | '\'' | '"' | '$' | '\\' | '`' | ';' | '&' | '|' | '<' | '>' | '(' | ')'
+                )
+        }),
     }
 }
 
@@ -138,7 +149,11 @@ pub(super) fn yaml_number_kind(text: &str, yaml11: bool) -> Option<PlainKind> {
     if matches!(unsigned, ".inf" | ".Inf" | ".INF") {
         return Some(PlainKind::Float);
     }
-    if yaml11 { yaml11_number(unsigned) } else { yaml12_number(text, unsigned) }
+    if yaml11 {
+        yaml11_number(unsigned)
+    } else {
+        yaml12_number(text, unsigned)
+    }
 }
 
 fn digits(text: &str, radix: u32) -> bool {
@@ -171,16 +186,19 @@ fn yaml12_number(text: &str, unsigned: &str) -> Option<PlainKind> {
         }
         None => digits(mantissa, 10),
     };
-    let exponent_ok =
-        exponent.is_none_or(|e| digits(e.strip_prefix(['-', '+']).unwrap_or(e), 10));
+    let exponent_ok = exponent.is_none_or(|e| digits(e.strip_prefix(['-', '+']).unwrap_or(e), 10));
     (mantissa_ok && exponent_ok && (mantissa.contains('.') || exponent.is_some()))
         .then_some(PlainKind::Float)
 }
 
 fn yaml11_number(unsigned: &str) -> Option<PlainKind> {
     let starts_digit = unsigned.starts_with(|c: char| c.is_ascii_digit());
-    if unsigned.strip_prefix("0b").is_some_and(|d| !d.is_empty() && digits_or_underscore(d, 2))
-        || unsigned.strip_prefix("0x").is_some_and(|d| !d.is_empty() && digits_or_underscore(d, 16))
+    if unsigned
+        .strip_prefix("0b")
+        .is_some_and(|d| !d.is_empty() && digits_or_underscore(d, 2))
+        || unsigned
+            .strip_prefix("0x")
+            .is_some_and(|d| !d.is_empty() && digits_or_underscore(d, 16))
         || (starts_digit && digits_or_underscore(unsigned, 10))
     {
         return Some(PlainKind::Int);
@@ -194,12 +212,19 @@ fn yaml11_number(unsigned: &str) -> Option<PlainKind> {
 /// Matches `[1-9][0-9_]*(:[0-5]?[0-9])+` without the sign.
 fn is_sexagesimal(text: &str) -> bool {
     let mut parts = text.split(':');
-    let head_ok = parts.next().is_some_and(|head| digits_or_underscore(head, 10) && !head.is_empty());
+    let head_ok = parts
+        .next()
+        .is_some_and(|head| digits_or_underscore(head, 10) && !head.is_empty());
     let mut rest = parts.peekable();
     head_ok
         && rest.peek().is_some()
         && rest.all(|part| {
-            digits(part, 10) && part.len() <= 2 && part.chars().next().is_some_and(|c| c <= '5' || part.len() == 1)
+            digits(part, 10)
+                && part.len() <= 2
+                && part
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c <= '5' || part.len() == 1)
         })
 }
 
@@ -210,14 +235,15 @@ fn yaml11_float(unsigned: &str) -> Option<PlainKind> {
         Some(at) => (&unsigned[..at], Some(&unsigned[at + 1..])),
         None => (unsigned, None),
     };
-    let exponent_ok = exponent.is_none_or(|e| {
-        e.strip_prefix(['-', '+']).is_some_and(|d| digits(d, 10))
-    });
+    let exponent_ok =
+        exponent.is_none_or(|e| e.strip_prefix(['-', '+']).is_some_and(|d| digits(d, 10)));
     let (whole, fraction) = mantissa.split_once('.')?;
     let whole_ok = whole.is_empty()
         || (whole.starts_with(|c: char| c.is_ascii_digit())
             && (digits_or_underscore(whole, 10) || is_sexagesimal(whole)));
-    let fraction_ok = fraction.chars().all(|c| c.is_ascii_digit() || c == '.' || c == '_');
+    let fraction_ok = fraction
+        .chars()
+        .all(|c| c.is_ascii_digit() || c == '.' || c == '_');
     let nonempty = !(whole.is_empty() && fraction.is_empty());
     (whole_ok && fraction_ok && exponent_ok && nonempty).then_some(PlainKind::Float)
 }
@@ -272,7 +298,10 @@ fn is_time_part(text: &str) -> bool {
         || zone == "Z"
         || zone.strip_prefix(['+', '-']).is_some_and(|offset| {
             let (hours, minutes) = offset.split_once(':').unwrap_or((offset, "00"));
-            (1..=2).contains(&hours.len()) && digits(hours, 10) && minutes.len() == 2 && digits(minutes, 10)
+            (1..=2).contains(&hours.len())
+                && digits(hours, 10)
+                && minutes.len() == 2
+                && digits(minutes, 10)
         });
     clock_ok && zone_ok
 }

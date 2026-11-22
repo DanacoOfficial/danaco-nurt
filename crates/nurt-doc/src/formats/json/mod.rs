@@ -17,8 +17,19 @@
 //! An object with a repeated member name reads as its last occurrence;
 //! changing the name changes the last occurrence and removing it removes
 //! every occurrence.
+//!
+//! ```
+//! use nurt_contracts::services::DocFormatId;
+//! use nurt_doc::formats::json;
+//! use nurt_doc::registry::Registry;
+//!
+//! let registry = Registry::with(json::formats());
+//! let detected = registry.detect(Some(std::path::Path::new("tsconfig.json")), b"{}");
+//! assert_eq!(detected, Some(DocFormatId::JSONC));
+//! ```
 
 mod editor;
+mod handle;
 mod layout;
 mod lexeme;
 mod reference;
@@ -30,11 +41,35 @@ use std::path::Path;
 use indexmap::IndexMap;
 use nurt_contracts::error::{Error, ErrorCode, Location};
 use nurt_contracts::keypath::{DocSelector, KeyPath, KeySegment};
+use nurt_contracts::services::DocFormatId;
 use nurt_contracts::value::Value;
 
+pub use handle::{JsonFormat, JsonHandle};
+
+use crate::model::{doc_parse, key_conflict, key_not_found};
+use crate::registry::DocFormat;
 use editor::{Change, Editor};
 use layout::Layout;
-use syntax::{NodeId, NodeKind, Tree};
+use syntax::{NodeId, NodeKind, Span, Tree};
+
+/// The formats `json` and `jsonc`, in this order, for registration in a
+/// [`Registry`](crate::registry::Registry).
+///
+/// # Examples
+///
+/// ```
+/// use nurt_doc::formats::json;
+///
+/// let ids: Vec<String> = json::formats().iter().map(|format| format.id().to_string()).collect();
+/// assert_eq!(ids, ["json", "jsonc"]);
+/// ```
+#[must_use]
+pub fn formats() -> Vec<Box<dyn DocFormat>> {
+    vec![
+        Box::new(JsonFormat::new(Dialect::Json)),
+        Box::new(JsonFormat::new(Dialect::Jsonc)),
+    ]
+}
 
 /// Variant of the JSON syntax a document is read in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -45,10 +80,12 @@ pub enum Dialect {
     Jsonc,
 }
 
-/// File names read as JSONC although their extension is `.json`.
+/// Names of `.json` files that tools read as JSONC, in the pattern form of
+/// [`DocFormat::file_names`]: a final `*` matches every name with the
+/// prefix.
 const JSONC_FILE_NAMES: [&str; 6] = [
-    "tsconfig.json",
-    "jsconfig.json",
+    "tsconfig.*",
+    "jsconfig.*",
     "devcontainer.json",
     ".devcontainer.json",
     ".eslintrc.json",
@@ -64,23 +101,24 @@ impl Dialect {
     /// # Examples
     ///
     /// ```
+    /// use nurt_contracts::services::DocFormatId;
     /// use nurt_doc::formats::json::Dialect;
     ///
-    /// assert_eq!(Dialect::Jsonc.id(), "jsonc");
+    /// assert_eq!(Dialect::Jsonc.format_id(), DocFormatId::JSONC);
     /// ```
     #[must_use]
-    pub const fn id(self) -> &'static str {
+    pub const fn format_id(self) -> DocFormatId {
         match self {
-            Self::Json => "json",
-            Self::Jsonc => "jsonc",
+            Self::Json => DocFormatId::JSON,
+            Self::Jsonc => DocFormatId::JSONC,
         }
     }
 
-    /// Dialect of a file from its name: `.jsonc` files, and `.json` files
+    /// Dialect of a file from its path: `.jsonc` files, and `.json` files
     /// that tools read with comments (`tsconfig.json`, `tsconfig.*.json`,
-    /// `jsconfig.json`, `devcontainer.json`, `.eslintrc.json`, files in
-    /// `.vscode`), are JSONC; other `.json` files are JSON. Other names,
-    /// `.json5` included, have no dialect.
+    /// `jsconfig.json`, `devcontainer.json`, `.eslintrc.json`,
+    /// `.babelrc.json`, files in `.vscode`), are JSONC; other `.json` files
+    /// are JSON. Other names, `.json5` included, have no dialect.
     ///
     /// # Examples
     ///
@@ -94,7 +132,7 @@ impl Dialect {
     /// ```
     #[must_use]
     pub fn detect(path: &Path) -> Option<Self> {
-        let name = path.file_name()?.to_str()?;
+        let name = path.file_name()?.to_str()?.to_ascii_lowercase();
         let extension = path.extension()?.to_str()?;
         if extension.eq_ignore_ascii_case("jsonc") {
             return Some(Self::Jsonc);
@@ -102,15 +140,21 @@ impl Dialect {
         if !extension.eq_ignore_ascii_case("json") {
             return None;
         }
-        let lower = name.to_ascii_lowercase();
         let in_editor_settings = path
             .parent()
             .and_then(Path::file_name)
             .is_some_and(|parent| parent == JSONC_DIRECTORY);
-        let tool_config = JSONC_FILE_NAMES.contains(&lower.as_str())
-            || lower.starts_with("tsconfig.")
-            || lower.starts_with("jsconfig.");
-        Some(if in_editor_settings || tool_config { Self::Jsonc } else { Self::Json })
+        let tool_config = JSONC_FILE_NAMES
+            .iter()
+            .any(|pattern| match pattern.strip_suffix('*') {
+                Some(prefix) => name.starts_with(prefix),
+                None => name == *pattern,
+            });
+        Some(if in_editor_settings || tool_config {
+            Self::Jsonc
+        } else {
+            Self::Json
+        })
     }
 }
 
@@ -144,6 +188,9 @@ enum Step {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Outcome {
     pub(crate) changes: Vec<Change>,
+    /// Spans of the original text the changes may alter: the replaced
+    /// value, or the object or array that gains or loses an entry.
+    pub(crate) targets: Vec<Span>,
     /// A repeated member name was involved.
     pub(crate) duplicate_key: bool,
     /// Intermediate keys were created.
@@ -156,7 +203,7 @@ impl JsonDocument {
     /// # Errors
     ///
     /// `E_DOC_PARSE` with the line, column and byte offset of the first
-    /// syntax error.
+    /// syntax error in its location and details.
     ///
     /// # Examples
     ///
@@ -169,8 +216,13 @@ impl JsonDocument {
     /// ```
     pub fn parse(text: impl Into<String>, dialect: Dialect) -> Result<Self, Error> {
         let text = text.into();
-        let tree = syntax::parse(&text, dialect).map_err(|error| parse_error(&text, &error))?;
-        Ok(Self { text, dialect, tree })
+        let tree =
+            syntax::parse(&text, dialect).map_err(|error| parse_error(&text, dialect, &error))?;
+        Ok(Self {
+            text,
+            dialect,
+            tree,
+        })
     }
 
     /// Current text of the document.
@@ -199,7 +251,9 @@ impl JsonDocument {
             NodeKind::Bool(flag) => Value::Bool(*flag),
             NodeKind::Number => lexeme::number_value(&self.text[node.span.start..node.span.end]),
             NodeKind::String(text) => Value::Text(text.clone()),
-            NodeKind::Array(entries) => Value::List(entries.iter().map(|e| self.value_of(e.value)).collect()),
+            NodeKind::Array(entries) => {
+                Value::List(entries.iter().map(|e| self.value_of(e.value)).collect())
+            }
             NodeKind::Object(entries) => {
                 let mut fields = IndexMap::with_capacity(entries.len());
                 for entry in entries {
@@ -214,33 +268,46 @@ impl JsonDocument {
 
     /// Plans setting the value at `key`.
     ///
-    /// Setting the current value changes nothing. A missing final member
-    /// or element is added at the end of its object or array, and with
-    /// `create` missing intermediate members are added as well.
-    pub(crate) fn plan_set(&self, key: &KeyPath, value: &Value, create: bool) -> Result<Outcome, Error> {
+    /// Setting the current value changes nothing. With `create` a missing
+    /// member is added at the end of its object, together with missing
+    /// intermediate members; `[+]` and an index equal to the length of a
+    /// list append without it.
+    pub(crate) fn plan_set(
+        &self,
+        key: &KeyPath,
+        value: &Value,
+        create: bool,
+    ) -> Result<Outcome, Error> {
         let editor = Editor::new(Layout::new(&self.text, &self.tree));
         match self.locate(key)? {
             Target::Node { id, duplicate } => {
-                let changes = if self.value_of(id) == *value { Vec::new() } else { editor.replace(id, value)? };
+                let changes = if self.value_of(id) == *value {
+                    Vec::new()
+                } else {
+                    editor.replace(id, value)?
+                };
                 Ok(Outcome {
                     changes,
+                    targets: vec![self.tree.nodes[id].span],
                     duplicate_key: duplicate,
                     keys_created: false,
                 })
             }
             Target::Append(array) => Ok(Outcome {
                 changes: editor.append(array, None, value)?,
+                targets: vec![self.tree.nodes[array].span],
                 ..Outcome::default()
             }),
             Target::Missing { container, segment } => {
                 let rest = &key.segments()[segment..];
                 let explicit_position = rest.len() == 1 && matches!(rest[0], KeySegment::Index(_));
                 if !create && !explicit_position {
-                    return Err(not_found(key, "add create: true to create the missing keys"));
+                    return Err(key_not_found(key, &[]));
                 }
-                let (name, nested) = self.nested_value(container, rest, value)?;
+                let (name, nested) = self.nested_value(container, rest, value, key)?;
                 Ok(Outcome {
                     changes: editor.append(container, name.as_deref(), &nested)?,
+                    targets: vec![self.tree.nodes[container].span],
                     duplicate_key: false,
                     keys_created: rest.len() > 1,
                 })
@@ -252,20 +319,22 @@ impl JsonDocument {
     /// its occurrences; the change then covers the region between the first
     /// and the last removed byte.
     pub(crate) fn plan_remove(&self, key: &KeyPath) -> Result<Outcome, Error> {
-        let first = self.plan_remove_once(key)?;
-        if !first.duplicate_key {
+        let (first, repeated) = self.plan_remove_once(key)?;
+        if !repeated {
             return Ok(first);
         }
-        let mut current = self.clone();
-        let mut outcome = first;
-        while outcome.duplicate_key {
-            let text = editor::apply(&current.text, &outcome.changes)?;
-            current = Self::parse(text, self.dialect)?;
-            outcome = current.plan_remove_once(key)?;
+        let mut text = editor::apply(&self.text, &first.changes)?;
+        loop {
+            let current = Self::parse(text, self.dialect)?;
+            let (next, again) = current.plan_remove_once(key)?;
+            text = editor::apply(&current.text, &next.changes)?;
+            if !again {
+                break;
+            }
         }
-        let text = editor::apply(&current.text, &outcome.changes)?;
         Ok(Outcome {
             changes: vec![editor::difference(&self.text, &text)],
+            targets: first.targets,
             duplicate_key: true,
             keys_created: false,
         })
@@ -276,12 +345,13 @@ impl JsonDocument {
     /// comment markers.
     pub(crate) fn comment_of(&self, id: NodeId) -> Option<String> {
         let layout = Layout::new(&self.text, &self.tree);
-        let entry = self.tree.nodes[id]
-            .parent
-            .and_then(|parent| self.tree.nodes[parent].entries())
-            .and_then(|entries| entries.iter().find(|entry| entry.value == id));
-        let start = entry.map_or(self.tree.nodes[id].span.start, |entry| entry.start(&self.tree));
-        let block = layout.leading_comments(start).or_else(|| entry.and_then(|e| layout.trailing_comment(e)))?;
+        let entry = self.entry_of(id);
+        let start = entry.map_or(self.tree.nodes[id].span.start, |entry| {
+            entry.start(&self.tree)
+        });
+        let block = layout
+            .leading_comments(start)
+            .or_else(|| entry.and_then(|e| layout.trailing_comment(e)))?;
         let texts: Vec<&str> = layout
             .comments_in(block)
             .map(|span| layout::comment_text(&self.text[span.start..span.end]))
@@ -289,26 +359,60 @@ impl JsonDocument {
         Some(texts.join("\n"))
     }
 
+    /// Offset of the comment lines directly above the entry of the value
+    /// `id`; such comments are removed together with the entry.
+    pub(crate) fn leading_comment_start(&self, id: NodeId) -> Option<usize> {
+        let entry = self.entry_of(id)?;
+        let layout = Layout::new(&self.text, &self.tree);
+        layout
+            .leading_comments(entry.start(&self.tree))
+            .map(|block| block.start)
+    }
+
+    /// Entry of the value `id` in its object or array.
+    fn entry_of(&self, id: NodeId) -> Option<&syntax::Entry> {
+        let parent = self.tree.nodes[id].parent?;
+        self.tree.nodes[parent]
+            .entries()?
+            .iter()
+            .find(|entry| entry.value == id)
+    }
+
     /// Plans removing one value at `key`; for a repeated member name the
-    /// last occurrence.
-    fn plan_remove_once(&self, key: &KeyPath) -> Result<Outcome, Error> {
+    /// last occurrence. The flag tells whether other occurrences of the
+    /// name remain.
+    fn plan_remove_once(&self, key: &KeyPath) -> Result<(Outcome, bool), Error> {
         let Target::Node { id, duplicate } = self.locate(key)? else {
-            return Err(not_found(key, "read the document to list its keys"));
+            return Err(key_not_found(key, &[]));
         };
         let Some(container) = self.tree.nodes[id].parent else {
-            return Err(Error::new(
-                ErrorCode::KeyConflict,
-                "the document root cannot be removed; set it to a new value instead",
+            return Err(key_conflict(
+                key,
+                "root",
+                "selects the document root, which cannot be removed; set it to a new value instead",
             ));
         };
         let entries = self.tree.nodes[container].entries().unwrap_or_default();
-        let index = entries.iter().position(|entry| entry.value == id).unwrap_or_default();
+        let index = entries
+            .iter()
+            .position(|entry| entry.value == id)
+            .unwrap_or_default();
+        let name = entries[index].key.as_ref().map(|name| name.text.as_str());
+        let repeated = name.is_some_and(|name| {
+            entries
+                .iter()
+                .filter(|entry| entry.key.as_ref().is_some_and(|key| key.text == name))
+                .count()
+                > 1
+        });
         let editor = Editor::new(Layout::new(&self.text, &self.tree));
-        Ok(Outcome {
+        let outcome = Outcome {
             changes: editor.remove(container, index),
+            targets: vec![self.tree.nodes[container].span],
             duplicate_key: duplicate,
             keys_created: false,
-        })
+        };
+        Ok((outcome, repeated))
     }
 
     /// Name of the entry to add to `container` and its value, with the
@@ -318,37 +422,51 @@ impl JsonDocument {
         container: NodeId,
         rest: &[KeySegment],
         value: &Value,
+        key: &KeyPath,
     ) -> Result<(Option<String>, Value), Error> {
         let mut nested = value.clone();
         for segment in rest[1..].iter().rev() {
             nested = match segment {
                 KeySegment::Key(name) => Value::Map(IndexMap::from([(name.clone(), nested)])),
                 KeySegment::Index(0) | KeySegment::Append => Value::List(vec![nested]),
-                _ => return Err(cannot_create()),
+                _ => return Err(cannot_create(key)),
             };
         }
         let is_object = matches!(self.tree.nodes[container].kind, NodeKind::Object(_));
         match &rest[0] {
             KeySegment::Key(name) if is_object => Ok((Some(name.clone()), nested)),
             KeySegment::Key(_) | KeySegment::Index(_) => Ok((None, nested)),
-            _ => Err(cannot_create()),
+            _ => Err(cannot_create(key)),
         }
     }
 
     /// Follows a concrete key path (keys, indices and a final `[+]`).
     fn locate(&self, key: &KeyPath) -> Result<Target, Error> {
         if matches!(key.document(), Some(DocSelector::Index(index)) if index > 0) {
-            return Err(not_found(key, "a JSON file holds one document; remove the document selector"));
+            return Err(Error::new(
+                ErrorCode::KeyNotFound,
+                format!(
+                    "key `{key}` selects a document after the first; a JSON file holds one document, remove the document selector"
+                ),
+            ));
         }
         let mut id = self.tree.root;
         let mut duplicate = false;
         for (position, segment) in key.segments().iter().enumerate() {
             match self.step(id, segment, key)? {
-                Step::Child { id: child, duplicate: repeated } => {
+                Step::Child {
+                    id: child,
+                    duplicate: repeated,
+                } => {
                     id = child;
                     duplicate |= repeated;
                 }
-                Step::Missing => return Ok(Target::Missing { container: id, segment: position }),
+                Step::Missing => {
+                    return Ok(Target::Missing {
+                        container: id,
+                        segment: position,
+                    });
+                }
                 Step::Append => return Ok(Target::Append(id)),
             }
         }
@@ -359,7 +477,9 @@ impl JsonDocument {
         let node = &self.tree.nodes[id];
         match (&node.kind, segment) {
             (NodeKind::Object(entries), KeySegment::Key(name)) => {
-                let mut matches = entries.iter().filter(|e| e.key.as_ref().is_some_and(|k| &k.text == name));
+                let mut matches = entries
+                    .iter()
+                    .filter(|e| e.key.as_ref().is_some_and(|k| &k.text == name));
                 let Some(last) = matches.next_back() else {
                     return Ok(Step::Missing);
                 };
@@ -369,31 +489,43 @@ impl JsonDocument {
                 })
             }
             (NodeKind::Array(entries), KeySegment::Key(name)) => match name.parse::<i64>() {
-                Ok(index) if !name.starts_with(['-', '+']) => index_step(entries.len(), index, key)
-                    .map(|step| self.element_step(step, entries)),
-                _ => Err(kind_conflict(key, "a list", "use an index such as [0]")),
+                Ok(index) if !name.starts_with(['-', '+']) => {
+                    index_step(entries.len(), index, key).map(|step| element_step(step, entries))
+                }
+                _ => Err(key_conflict(
+                    key,
+                    "list",
+                    "passes through a list; use an index such as [0]",
+                )),
             },
             (NodeKind::Array(entries), KeySegment::Index(index)) => {
-                index_step(entries.len(), *index, key).map(|step| self.element_step(step, entries))
+                index_step(entries.len(), *index, key).map(|step| element_step(step, entries))
             }
             (NodeKind::Array(_), KeySegment::Append) => Ok(Step::Append),
-            (NodeKind::Object(_), KeySegment::Index(_) | KeySegment::Append) => {
-                Err(kind_conflict(key, "a map", "use a member name"))
-            }
-            (NodeKind::Object(_) | NodeKind::Array(_), _) => Err(Error::new(
-                ErrorCode::KeyConflict,
-                format!("key path '{key}' does not address a single value; use member names and indices"),
+            (NodeKind::Object(_), KeySegment::Index(_) | KeySegment::Append) => Err(key_conflict(
+                key,
+                "map",
+                "passes through a map; use a member name",
             )),
-            _ => Err(kind_conflict(key, "a scalar", "set the value itself or replace it with a map")),
+            (NodeKind::Object(_) | NodeKind::Array(_), _) => Err(key_conflict(
+                key,
+                "pattern",
+                "does not address a single value; use member names and indices",
+            )),
+            _ => Err(key_conflict(
+                key,
+                "scalar",
+                "passes through a scalar; set the value itself or replace it with a map",
+            )),
         }
     }
+}
 
-    fn element_step(&self, step: Option<usize>, entries: &[syntax::Entry]) -> Step {
-        step.map_or(Step::Missing, |index| Step::Child {
-            id: entries[index].value,
-            duplicate: false,
-        })
-    }
+fn element_step(step: Option<usize>, entries: &[syntax::Entry]) -> Step {
+    step.map_or(Step::Missing, |index| Step::Child {
+        id: entries[index].value,
+        duplicate: false,
+    })
 }
 
 /// Position of an index in a list of `len` elements: `Some` for an
@@ -404,44 +536,42 @@ fn index_step(len: usize, index: i64, key: &KeyPath) -> Result<Option<usize>, Er
     match usize::try_from(resolved) {
         Ok(position) if position < len => Ok(Some(position)),
         Ok(position) if position == len && index >= 0 => Ok(None),
-        _ => Err(Error::new(
-            ErrorCode::KeyConflict,
-            format!("index {index} in '{key}' is outside a list of {len} elements; use [+] to append"),
+        _ => Err(key_conflict(
+            key,
+            "list",
+            format!("has index {index} outside a list of {len} elements; use [+] to append"),
         )),
     }
 }
 
-fn kind_conflict(key: &KeyPath, kind: &str, fix: &str) -> Error {
-    Error::new(ErrorCode::KeyConflict, format!("key path '{key}' passes through {kind}; {fix}"))
-}
-
-fn not_found(key: &KeyPath, fix: &str) -> Error {
-    Error::new(ErrorCode::KeyNotFound, format!("key path '{key}' does not exist; {fix}"))
-}
-
-fn cannot_create() -> Error {
-    Error::new(
-        ErrorCode::KeyConflict,
-        "only member names, [0] and [+] can create missing values; set the existing parent instead",
+fn cannot_create(key: &KeyPath) -> Error {
+    key_conflict(
+        key,
+        "pattern",
+        "can create missing values only with member names, [0] and [+]; set the existing parent instead",
     )
 }
 
-/// `E_DOC_PARSE` with the position of a syntax error.
-fn parse_error(text: &str, error: &syntax::SyntaxError) -> Error {
+/// `E_DOC_PARSE` with the position of a syntax error in its message,
+/// details and location.
+fn parse_error(text: &str, dialect: Dialect, error: &syntax::SyntaxError) -> Error {
     let offset = error.offset.min(text.len());
-    let before = &text.as_bytes()[..offset];
-    let line_start = before.iter().rposition(|&b| b == b'\n').map_or(0, |pos| pos + 1);
-    let line = before.iter().filter(|&&b| b == b'\n').count() + 1;
-    let column = String::from_utf8_lossy(&before[line_start..]).chars().count() + 1;
-    let to_u64 = |number: usize| u64::try_from(number).unwrap_or(u64::MAX);
-    Error::new(ErrorCode::DocParse, error.message.clone()).with_location(Location {
+    let parsed = doc_parse(
+        &dialect.format_id(),
+        text.as_bytes(),
+        Some(offset),
+        &error.message,
+    );
+    let detail = |name: &str| parsed.details.get(name).and_then(serde_json::Value::as_u64);
+    let location = Location {
         path: String::new(),
-        line: Some(to_u64(line)),
-        column: Some(to_u64(column)),
+        line: detail("line"),
+        column: detail("column"),
         end_line: None,
         end_column: None,
-        byte: Some(to_u64(offset)),
-    })
+        byte: detail("byte"),
+    };
+    parsed.with_location(location)
 }
 
 #[cfg(test)]

@@ -47,8 +47,10 @@ pub(crate) fn check_file(request: &SqlRequest) -> Result<()> {
     if header.is_empty() || header == HEADER {
         return Ok(());
     }
-    Err(error::doc_parse(request, "the file does not start with the SQLite header")
-        .with_problem("not_sqlite"))
+    Err(
+        error::doc_parse(request, "the file does not start with the SQLite header")
+            .with_problem("not_sqlite"),
+    )
 }
 
 /// Opens a configured connection: read-only unless `request.write` is set,
@@ -155,7 +157,10 @@ fn emit_rows(
     let site = Site::Statement(number);
     let mut rows = statement.raw_query();
     let mut no = 0;
-    while let Some(row) = rows.next().map_err(|e| error::from_sqlite(&e, request, site))? {
+    while let Some(row) = rows
+        .next()
+        .map_err(|e| error::from_sqlite(&e, request, site))?
+    {
         no += 1;
         let mut cells = IndexMap::with_capacity(names.len());
         for (index, name) in names.iter().enumerate() {

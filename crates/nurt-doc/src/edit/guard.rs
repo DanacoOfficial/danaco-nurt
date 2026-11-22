@@ -49,6 +49,7 @@
 //! let mut plan = EditPlan::new();
 //! plan.target(Span::new(2, 3));
 //! plan.edit(ByteEdit::replace(Span::new(2, 3), "9"));
+//! plan.report.replacements = 1;
 //! let expectation = Expectation::new(before, &MapSemantics::LAST_WINS)
 //!     .set(KeyPath::parse("a")?, Value::Text("9".to_owned()));
 //! let committed = commit(original, plan, &expectation, &Lines)?;
@@ -62,7 +63,9 @@ use nurt_contracts::keypath::{DocSelector, KeyPath};
 use nurt_contracts::value::Value;
 
 use super::{ByteEdit, EditReport, apply, diff};
-use crate::constructs::{self, DOC_OUT_OF_SCOPE_CHANGE, DOC_ROUND_TRIP_LOSS, DOC_SEMANTIC_MISMATCH};
+use crate::constructs::{
+    self, DOC_OUT_OF_SCOPE_CHANGE, DOC_ROUND_TRIP_LOSS, DOC_SEMANTIC_MISMATCH,
+};
 use crate::model::{FormatSemantics, LineIndex, Span, key_conflict, key_not_found};
 use crate::value::{apply_remove, apply_set, first_difference, to_document_value};
 
@@ -270,7 +273,12 @@ impl<'s> Expectation<'s> {
                 .ok_or_else(|| key_not_found(key, &[]))?;
             match operation {
                 Operation::Set { value, .. } => {
-                    apply_set(document, &local, to_document_value(value.clone()), self.semantics)?;
+                    apply_set(
+                        document,
+                        &local,
+                        to_document_value(value.clone()),
+                        self.semantics,
+                    )?;
                 }
                 Operation::Remove { .. } => apply_remove(document, &local, self.semantics)?,
             }
@@ -329,7 +337,10 @@ pub fn commit(
         surroundings,
         mut report,
     } = plan;
-    let edits: Vec<ByteEdit> = edits.into_iter().filter(|edit| !edit.is_noop(original)).collect();
+    let edits: Vec<ByteEdit> = edits
+        .into_iter()
+        .filter(|edit| !edit.is_noop(original))
+        .collect();
     check_scope(original, &targets, &edits, surroundings)?;
     let applied = apply(original, &edits)?;
     check_meaning(&applied.bytes, expectation, reference)?;
@@ -407,6 +418,9 @@ fn reaches(original: &[u8], targets: &[Span], surroundings: Surroundings) -> Vec
 
 /// Meaning guard: the new bytes read back as the expected value.
 ///
+/// Both values are compared in the form given by
+/// [`FormatSemantics::canonical`] of the semantics of the expectation.
+///
 /// # Errors
 ///
 /// Fails with `E_UNSUPPORTED_CONSTRUCT` naming `doc.semantic_mismatch`,
@@ -429,9 +443,16 @@ pub fn check_meaning(
         )
         .with_cause(error)
     })?;
-    let expected = Value::List(expected);
-    let actual = Value::List(actual);
-    match first_difference(&expected, &actual) {
+    let semantics = expectation.semantics;
+    let canonical = |documents: Vec<Value>| {
+        Value::List(
+            documents
+                .into_iter()
+                .map(|document| semantics.canonical(document))
+                .collect(),
+        )
+    };
+    match first_difference(&canonical(expected), &canonical(actual)) {
         None => Ok(()),
         Some(path) => Err(mismatch(expectation, &path)),
     }

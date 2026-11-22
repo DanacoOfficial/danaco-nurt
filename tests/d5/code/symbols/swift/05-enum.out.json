@@ -1,0 +1,6 @@
+[
+  "enum Direction @1:6 [1:1-8:2] private | enum Direction",
+  "  constant north in Direction @2:10 [2:5-2:15] private | case north",
+  "  constant south in Direction @3:10 [3:5-3:15] private | case south",
+  "  method opposite in Direction @5:10 [5:5-7:6] private | func opposite() -> Direction"
+]

@@ -1,0 +1,7 @@
+[
+  "struct Point @1:12 [1:1-4:2] exported | pub struct Point",
+  "  field x in Point @2:9 [2:5-2:15] exported | pub x: f64",
+  "  field y in Point @3:5 [3:5-3:11] private | y: f64",
+  "  method new in Point @7:12 [7:5-9:6] exported | pub fn new(x: f64, y: f64) -> Self",
+  "  method length in Point @11:8 [11:5-13:6] private | fn length(&self) -> f64"
+]

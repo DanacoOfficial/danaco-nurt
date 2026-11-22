@@ -1,0 +1,43 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  GIT_DEPTH: "10"
+
+.defaults: &defaults
+  image: rust:1.98
+  before_script:
+    - rustc --version
+  tags: [docker]
+
+build:
+  <<: *defaults
+  stage: build
+  script:
+    - cargo build --release
+  artifacts:
+    paths:
+      - target/release/app
+    expire_in: 1 week
+
+test:
+  <<: *defaults
+  stage: test
+  script:
+    - cargo test
+  coverage: '/^\d+\.\d+% coverage/'
+
+deploy:
+  stage: deploy
+  image: alpine:3.20
+  script:
+    - ./deploy.sh
+  only:
+    - main
+  when: manual

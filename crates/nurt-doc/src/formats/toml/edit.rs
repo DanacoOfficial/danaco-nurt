@@ -104,7 +104,9 @@ fn append_target(doc: &TomlDocument, key: &KeyPath) -> Option<KeyPath> {
             let hits = resolve(doc.tree(), &parent, &value_of).ok()?;
             match hits.as_slice() {
                 [hit] => match hit.node {
-                    Node::List(elements) if usize::try_from(*index).ok() == Some(elements.len()) => {
+                    Node::List(elements)
+                        if usize::try_from(*index).ok() == Some(elements.len()) =>
+                    {
                         Some(parent)
                     }
                     _ => None,
@@ -160,25 +162,29 @@ fn extend(path: &[KeySegment], segment: KeySegment) -> Vec<KeySegment> {
 }
 
 fn value_at<'v>(value: &'v Value, path: &[KeySegment]) -> Option<&'v Value> {
-    path.iter().try_fold(value, |current, segment| match (current, segment) {
-        (Value::Map(map), KeySegment::Key(name)) => map.get(name),
-        (Value::List(list), KeySegment::Index(index)) => list.get(usize::try_from(*index).ok()?),
-        _ => None,
-    })
+    path.iter()
+        .try_fold(value, |current, segment| match (current, segment) {
+            (Value::Map(map), KeySegment::Key(name)) => map.get(name),
+            (Value::List(list), KeySegment::Index(index)) => {
+                list.get(usize::try_from(*index).ok()?)
+            }
+            _ => None,
+        })
 }
 
 /// Value at `path`, with missing map members created as empty maps.
 fn slot<'v>(value: &'v mut Value, path: &[KeySegment]) -> Option<&'v mut Value> {
-    path.iter().try_fold(value, |current, segment| match (current, segment) {
-        (Value::Map(map), KeySegment::Key(name)) => Some(
-            map.entry(name.clone())
-                .or_insert_with(|| Value::Map(Fields::new())),
-        ),
-        (Value::List(list), KeySegment::Index(index)) => {
-            list.get_mut(usize::try_from(*index).ok()?)
-        }
-        _ => None,
-    })
+    path.iter()
+        .try_fold(value, |current, segment| match (current, segment) {
+            (Value::Map(map), KeySegment::Key(name)) => Some(
+                map.entry(name.clone())
+                    .or_insert_with(|| Value::Map(Fields::new())),
+            ),
+            (Value::List(list), KeySegment::Index(index)) => {
+                list.get_mut(usize::try_from(*index).ok()?)
+            }
+            _ => None,
+        })
 }
 
 /// Kind of a table for the placement of new keys.
@@ -374,7 +380,12 @@ impl<'a> Planner<'a> {
         )
     }
 
-    fn replace_fields(&mut self, path: &[KeySegment], old: &Value, fields: &Fields) -> Result<(), Error> {
+    fn replace_fields(
+        &mut self,
+        path: &[KeySegment],
+        old: &Value,
+        fields: &Fields,
+    ) -> Result<(), Error> {
         let old_names: Vec<String> = match old {
             Value::Map(map) => map.keys().cloned().collect(),
             _ => Vec::new(),
@@ -393,7 +404,12 @@ impl<'a> Planner<'a> {
         Ok(())
     }
 
-    fn replace_elements(&mut self, path: &[KeySegment], array: &Array, items: &[Value]) -> Result<(), Error> {
+    fn replace_elements(
+        &mut self,
+        path: &[KeySegment],
+        array: &Array,
+        items: &[Value],
+    ) -> Result<(), Error> {
         let spans = array_spans(array)?;
         for (index, item) in items.iter().enumerate().take(spans.len()) {
             let index = i64::try_from(index).unwrap_or(i64::MAX);
@@ -401,7 +417,11 @@ impl<'a> Planner<'a> {
         }
         if items.len() < spans.len() {
             let from = items.len();
-            let start = if from == 0 { spans[0].start } else { spans[from - 1].end };
+            let start = if from == 0 {
+                spans[0].start
+            } else {
+                spans[from - 1].end
+            };
             self.removed.push(start..spans[spans.len() - 1].end);
         } else if items.len() > spans.len() {
             self.array_insert(array, &items[spans.len()..])?;
@@ -469,7 +489,9 @@ impl<'a> Planner<'a> {
             (Found::Value(toml_edit::Value::Array(array)), _) => {
                 self.array_insert(array, std::slice::from_ref(value))?;
             }
-            (Found::Tables(tables), Value::Map(fields)) => self.append_table(path, tables, fields)?,
+            (Found::Tables(tables), Value::Map(fields)) => {
+                self.append_table(path, tables, fields)?
+            }
             (Found::Tables(_), _) => {
                 return Err(unsupported(
                     TABLE_TO_VALUE,
@@ -544,7 +566,12 @@ impl<'a> Planner<'a> {
         opening
     }
 
-    fn append_table(&mut self, path: &[KeySegment], tables: &ArrayOfTables, fields: &Fields) -> Result<(), Error> {
+    fn append_table(
+        &mut self,
+        path: &[KeySegment],
+        tables: &ArrayOfTables,
+        fields: &Fields,
+    ) -> Result<(), Error> {
         let names = self.header_names(path).ok_or_else(|| {
             unsupported(
                 TABLE_POSITION,
@@ -555,9 +582,18 @@ impl<'a> Planner<'a> {
         if let Some(last) = tables.iter().last() {
             self.doc.table_blocks(last, &mut blocks);
         }
-        let offset = blocks.iter().map(|b| b.end).max().unwrap_or(self.text.len());
+        let offset = blocks
+            .iter()
+            .map(|b| b.end)
+            .max()
+            .unwrap_or(self.text.len());
+        let separation = if offset < self.text.len() {
+            self.newline
+        } else {
+            ""
+        };
         let block = format!(
-            "{}[[{}]]{}{}",
+            "{}[[{}]]{}{}{separation}",
             self.block_opening(offset),
             dotted(&names),
             self.newline,
@@ -630,6 +666,14 @@ impl<'a> Planner<'a> {
                 }
                 self.insert_pair(table_path, table, kind, rest, value)
             }
+            (TableKind::Root, _) if rest.len() > 1 => {
+                let mut names = rest.to_vec();
+                let leaf = names.pop().unwrap_or_default();
+                let mut fields = Fields::new();
+                fields.insert(leaf, value.clone());
+                self.new_header(&names, &fields);
+                Ok(())
+            }
             (TableKind::Implicit, _) => {
                 let mut names = full().ok_or_else(|| {
                     unsupported(
@@ -681,9 +725,15 @@ impl<'a> Planner<'a> {
             || (String::new(), DEFAULT_SEPARATOR.to_owned()),
             |(key, _)| self.pair_style(key, table),
         );
-        let line = format!("{indent}{}{separator}{}", dotted(&names), inline(value, None));
+        let line = format!(
+            "{indent}{}{separator}{}",
+            dotted(&names),
+            inline(value, None)
+        );
         match (reference, kind) {
-            (Some((_, end)), _) => self.insert_after_line(self.doc.line_of(end.saturating_sub(1)), &line),
+            (Some((_, end)), _) => {
+                self.insert_after_line(self.doc.line_of(end.saturating_sub(1)), &line)
+            }
             (None, TableKind::Header) => {
                 let header = header_span(table).ok_or_else(Self::layout)?;
                 self.insert_after_line(self.doc.line_of(header.start), &line);
@@ -733,7 +783,12 @@ impl<'a> Planner<'a> {
         }
     }
 
-    fn create_in_inline(&mut self, table: &InlineTable, rest: &[String], value: &Value) -> Result<(), Error> {
+    fn create_in_inline(
+        &mut self,
+        table: &InlineTable,
+        rest: &[String],
+        value: &Value,
+    ) -> Result<(), Error> {
         if table.is_dotted() {
             return Err(unsupported(
                 INLINE_DOTTED,
@@ -765,7 +820,11 @@ impl<'a> Planner<'a> {
         let close = span.end.checked_sub(1).ok_or_else(Self::layout)?;
         let Some(last) = elements.last() else {
             let joined = items.join(", ");
-            let text = if braces { format!(" {joined} ") } else { joined };
+            let text = if braces {
+                format!(" {joined} ")
+            } else {
+                joined
+            };
             self.insert(span.start + 1, &text);
             return Ok(());
         };
@@ -787,14 +846,26 @@ impl<'a> Planner<'a> {
                 last.end + c + 1,
                 items
                     .iter()
-                    .map(|i| if multiline { format!("{newline}{indent}{i},") } else { format!(" {i},") })
+                    .map(|i| {
+                        if multiline {
+                            format!("{newline}{indent}{i},")
+                        } else {
+                            format!(" {i},")
+                        }
+                    })
                     .collect::<String>(),
             ),
             None => (
                 last.end,
                 items
                     .iter()
-                    .map(|i| if multiline { format!(",{newline}{indent}{i}") } else { format!(", {i}") })
+                    .map(|i| {
+                        if multiline {
+                            format!(",{newline}{indent}{i}")
+                        } else {
+                            format!(", {i}")
+                        }
+                    })
                     .collect::<String>(),
             ),
         };
@@ -814,7 +885,8 @@ impl<'a> Planner<'a> {
             }
             (Some(Parent::Array(array)), _) => {
                 let spans = array_spans(array)?;
-                self.removed.push(element_range(&spans, located.index));
+                self.removed
+                    .push(element_range(self.text, &spans, located.index)?);
             }
             (Some(Parent::Inline(table)), found) => {
                 let dotted_member = matches!(found, Found::Value(toml_edit::Value::InlineTable(t)) if t.is_dotted());
@@ -826,10 +898,15 @@ impl<'a> Planner<'a> {
                 }
                 let spans = member_spans(table)?;
                 let start = located.key.and_then(Key::span).map(|s| s.start);
-                let index = spans.iter().position(|s| Some(s.start) == start).ok_or_else(Self::layout)?;
-                self.removed.push(element_range(&spans, index));
+                let index = spans
+                    .iter()
+                    .position(|s| Some(s.start) == start)
+                    .ok_or_else(Self::layout)?;
+                self.removed.push(element_range(self.text, &spans, index)?);
             }
-            (Some(Parent::Tables(_) | Parent::Table(_)), found) => self.remove_blocks(located.key, found)?,
+            (Some(Parent::Tables | Parent::Table), found) => {
+                self.remove_blocks(located.key, found)?
+            }
         }
         self.expect_remove(path);
         Ok(())
@@ -907,15 +984,68 @@ fn member_spans(table: &InlineTable) -> Result<Vec<Range<usize>>, Error> {
     Ok(spans)
 }
 
-/// Byte range removed with the element `index`, with the separator that
-/// joins it to its neighbour.
-fn element_range(spans: &[Range<usize>], index: usize) -> Range<usize> {
-    if spans.len() == 1 {
-        spans[0].clone()
-    } else if index + 1 < spans.len() {
-        spans[index].start..spans[index + 1].start
+/// Byte range removed with the element `index` of an array or inline
+/// table, kept within the lines of the element so that the lines of the
+/// other elements keep their bytes.
+///
+/// The element goes with the comma that follows it on its line. The last
+/// element without such a comma goes with the comma before it on its line;
+/// when that comma ends the previous line, it stays as a trailing comma,
+/// which arrays and multi-line inline tables accept. A line left without
+/// content is removed whole.
+///
+/// # Errors
+///
+/// `E_UNSUPPORTED_CONSTRUCT` (`toml.layout`) when the separator of the
+/// element is on another line.
+fn element_range(text: &str, spans: &[Range<usize>], index: usize) -> Result<Range<usize>, Error> {
+    let bytes = text.as_bytes();
+    let span = spans[index].clone();
+    let line_start = text[..span.start].rfind('\n').map_or(0, |at| at + 1);
+    let alone = text[line_start..span.start]
+        .bytes()
+        .all(|b| b == b' ' || b == b'\t');
+    let after = skip_blanks(bytes, span.end);
+    if bytes.get(after) == Some(&b',') {
+        let end = skip_blanks(bytes, after + 1);
+        return Ok(own_line(bytes, line_start, alone, end).unwrap_or(span.start..end));
+    }
+    if index + 1 < spans.len() {
+        return Err(Planner::layout());
+    }
+    if let Some(line) = own_line(bytes, line_start, alone, after) {
+        return Ok(line);
+    }
+    let before = text[line_start..span.start].trim_end_matches([' ', '\t']);
+    if before.ends_with(',') {
+        Ok(line_start + before.len() - 1..span.end)
+    } else if alone || spans.len() == 1 {
+        Ok(span.start..after)
     } else {
-        spans[index - 1].end..spans[index].end
+        Err(Planner::layout())
+    }
+}
+
+/// Offset of the first byte at or after `from` that is not a space or a
+/// tab.
+fn skip_blanks(bytes: &[u8], from: usize) -> usize {
+    bytes[from..]
+        .iter()
+        .position(|b| *b != b' ' && *b != b'\t')
+        .map_or(bytes.len(), |at| from + at)
+}
+
+/// The whole line from `line_start` with its line break, when the element
+/// is `alone` on it and nothing but the line break follows `end`.
+fn own_line(bytes: &[u8], line_start: usize, alone: bool, end: usize) -> Option<Range<usize>> {
+    if !alone {
+        return None;
+    }
+    match &bytes[end..] {
+        [] => Some(line_start..end),
+        [b'\n', ..] => Some(line_start..end + 1),
+        [b'\r', b'\n', ..] => Some(line_start..end + 2),
+        _ => None,
     }
 }
 
@@ -942,14 +1072,26 @@ mod tests {
     #[test]
     fn places_new_keys_by_the_table_that_holds_them() {
         let text = "a = 1\n\n[t]\nx = 1\n\n[u]\n";
-        assert_eq!(set(text, "t.y", Value::Int(2)), "a = 1\n\n[t]\nx = 1\ny = 2\n\n[u]\n");
-        assert_eq!(set(text, "b", Value::Int(2)), "a = 1\nb = 2\n\n[t]\nx = 1\n\n[u]\n");
-        assert_eq!(set(text, "u.z", Value::Int(3)), "a = 1\n\n[t]\nx = 1\n\n[u]\nz = 3\n");
+        assert_eq!(
+            set(text, "t.y", Value::Int(2)),
+            "a = 1\n\n[t]\nx = 1\ny = 2\n\n[u]\n"
+        );
+        assert_eq!(
+            set(text, "b", Value::Int(2)),
+            "a = 1\nb = 2\n\n[t]\nx = 1\n\n[u]\n"
+        );
+        assert_eq!(
+            set(text, "u.z", Value::Int(3)),
+            "a = 1\n\n[t]\nx = 1\n\n[u]\nz = 3\n"
+        );
         assert_eq!(
             set(text, "n.m", Value::Bool(true)),
             "a = 1\n\n[t]\nx = 1\n\n[u]\n\n[n]\nm = true\n"
         );
-        assert_eq!(set("[t]\nx = 1", "t.d.e", Value::Int(4)), "[t]\nx = 1\nd.e = 4");
+        assert_eq!(
+            set("[t]\nx = 1", "t.d.e", Value::Int(4)),
+            "[t]\nx = 1\nd.e = 4"
+        );
     }
 
     #[test]
@@ -970,21 +1112,34 @@ mod tests {
     #[test]
     fn implicit_tables_get_a_header() {
         let text = "[a.b]\nx = 1\n";
-        assert_eq!(set(text, "a.y", Value::Int(2)), "[a.b]\nx = 1\n\n[a]\ny = 2\n");
+        assert_eq!(
+            set(text, "a.y", Value::Int(2)),
+            "[a.b]\nx = 1\n\n[a]\ny = 2\n"
+        );
     }
 
     #[test]
     fn edits_arrays_and_inline_tables_in_place() {
-        assert_eq!(set("a = [1, 2]\n", "a[+]", Value::Int(3)), "a = [1, 2, 3]\n");
+        assert_eq!(
+            set("a = [1, 2]\n", "a[+]", Value::Int(3)),
+            "a = [1, 2, 3]\n"
+        );
         assert_eq!(set("a = []\n", "a[+]", Value::Int(3)), "a = [3]\n");
         assert_eq!(
             set("a = [\n  1,\n  2,\n]\n", "a[2]", Value::Int(3)),
             "a = [\n  1,\n  2,\n  3,\n]\n"
         );
-        assert_eq!(set("p = { x = 1 }\n", "p.y", Value::Int(2)), "p = { x = 1, y = 2 }\n");
+        assert_eq!(
+            set("p = { x = 1 }\n", "p.y", Value::Int(2)),
+            "p = { x = 1, y = 2 }\n"
+        );
         assert_eq!(set("p = {}\n", "p.y", Value::Int(2)), "p = { y = 2 }\n");
         assert_eq!(
-            set("a = [1, 2, 3]\n", "a", Value::List(vec![Value::Int(1), Value::Int(9)])),
+            set(
+                "a = [1, 2, 3]\n",
+                "a",
+                Value::List(vec![Value::Int(1), Value::Int(9)])
+            ),
             "a = [1, 9]\n"
         );
     }
@@ -1005,14 +1160,41 @@ mod tests {
     }
 
     #[test]
+    fn removes_elements_of_multi_line_arrays_within_their_lines() {
+        let text = "a = [\n  1,\n  2,\n  3\n]\n";
+        assert_eq!(removed(text, "a[0]"), "a = [\n  2,\n  3\n]\n");
+        assert_eq!(removed(text, "a[2]"), "a = [\n  1,\n  2,\n]\n");
+        assert_eq!(removed("b = [1,\n  2]\n", "b[0]"), "b = [\n  2]\n");
+        assert_eq!(removed("b = [1,\n  2]\n", "b[1]"), "b = [1,\n  ]\n");
+        assert_eq!(removed("b = [1\n, 2]\n", "b[1]"), "b = [1\n]\n");
+        assert_eq!(removed("c = { x = 1, }\n", "c.x"), "c = { }\n");
+        let error = TomlDocument::parse("d = [\n  1 # one\n  , 2\n]\n")
+            .unwrap()
+            .remove(&key("d[0]"))
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::UnsupportedConstruct);
+    }
+
+    #[test]
     fn removes_pairs_tables_and_elements() {
         let text = "a = 1\n# about b\nb = 2\n\n[t]\nx = 1\n[t.sub]\ny = 2\n\n[u]\nz = [1, 2, 3]\n";
-        assert_eq!(removed(text, "b"), "a = 1\n\n[t]\nx = 1\n[t.sub]\ny = 2\n\n[u]\nz = [1, 2, 3]\n");
-        assert_eq!(removed(text, "t"), "a = 1\n# about b\nb = 2\n\n[u]\nz = [1, 2, 3]\n");
+        assert_eq!(
+            removed(text, "b"),
+            "a = 1\n\n[t]\nx = 1\n[t.sub]\ny = 2\n\n[u]\nz = [1, 2, 3]\n"
+        );
+        assert_eq!(
+            removed(text, "t"),
+            "a = 1\n# about b\nb = 2\n\n[u]\nz = [1, 2, 3]\n"
+        );
         assert_eq!(removed(text, "u.z[1]"), text.replace("[1, 2, 3]", "[1, 3]"));
         assert_eq!(removed(text, "u.z[2]"), text.replace("[1, 2, 3]", "[1, 2]"));
         assert_eq!(removed("p = { x = 1, y = 2 }\n", "p.x"), "p = { y = 2 }\n");
-        assert!(TomlDocument::parse(text).unwrap().remove(&KeyPath::root()).is_err());
+        assert!(
+            TomlDocument::parse(text)
+                .unwrap()
+                .remove(&KeyPath::root())
+                .is_err()
+        );
     }
 
     #[test]
@@ -1020,7 +1202,9 @@ mod tests {
         let text = "n = 0x1F\nf = 1.50\ns = '''\nx'''\nd = 1979-05-27\n";
         let mut doc = TomlDocument::parse(text).unwrap();
         let value = doc.to_value();
-        let Value::Map(fields) = value else { panic!("map expected") };
+        let Value::Map(fields) = value else {
+            panic!("map expected")
+        };
         for (name, value) in fields {
             doc.set(&key(&name), &value, false).unwrap();
         }

@@ -1,0 +1,5 @@
+[
+  "class Shape @1:7 [1:1-5:2] exported | class Shape",
+  "  method area in Shape @3:20 [3:5-3:37] exported | virtual double area() const = 0;",
+  "  method ~Shape in Shape @4:13 [4:5-4:32] exported | virtual ~Shape() = default;"
+]

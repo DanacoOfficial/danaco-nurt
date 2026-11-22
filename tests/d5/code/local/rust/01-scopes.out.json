@@ -1,0 +1,24 @@
+{
+  "definitions": [
+    "import Display @1:15 -> [7:12]",
+    "symbol area @3:4 -> [12:13]",
+    "local r @3:9 -> [4:9, 4:13]",
+    "symbol show @7:4 -> [13:20]",
+    "local value @7:21 -> []",
+    "symbol main @11:4 -> []",
+    "local r @12:9 -> [13:25]"
+  ],
+  "unresolved": [
+    "String",
+    "T",
+    "format",
+    "println",
+    "std"
+  ],
+  "calls": [
+    "show -> format @8:5",
+    "main -> area @12:13",
+    "main -> println @13:5"
+  ],
+  "syntax": []
+}

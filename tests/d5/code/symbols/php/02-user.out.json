@@ -1,0 +1,5 @@
+[
+  "class User @3:7 [3:1-9:2] exported | class User",
+  "  method __construct in User @4:21 [4:5-4:57] exported | public function __construct(private string $name)",
+  "  method name in User @6:21 [6:5-8:6] exported | public function name(): string"
+]

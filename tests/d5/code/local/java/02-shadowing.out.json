@@ -1,0 +1,15 @@
+{
+  "definitions": [
+    "symbol Shadow @1:14 -> []",
+    "symbol value @2:17 -> [5:29]",
+    "symbol shadow @4:9 -> []",
+    "local value @4:20 -> [5:16]",
+    "symbol loop @8:9 -> []",
+    "local items @8:20 -> [10:25]",
+    "local total @9:13 -> [11:13, 13:16]",
+    "local item @10:18 -> [11:22]"
+  ],
+  "unresolved": [],
+  "calls": [],
+  "syntax": []
+}

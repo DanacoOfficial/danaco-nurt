@@ -1,0 +1,19 @@
+[Unit]
+Description=Unit 7
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/mkdir -p /run/app
+ExecStartPre=/usr/bin/chown app /run/app
+ExecStart=/usr/bin/app \
+    --config /etc/app.conf \
+    --verbose
+Environment=MODE=production
+Environment=LOG=info
+
+# Comment line
+; Semicolon comment
+[Install]
+WantedBy=timers.target
+Also=helper.socket

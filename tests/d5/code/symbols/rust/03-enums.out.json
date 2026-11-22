@@ -1,0 +1,7 @@
+[
+  "enum Shape @1:10 [1:1-4:2] exported | pub enum Shape",
+  "  constant Circle in Shape @2:5 [2:5-2:16] exported | Circle",
+  "  constant Square in Shape @3:5 [3:5-3:25] exported | Square",
+  "    field side in Shape.Square @3:14 [3:14-3:23] private | side: f64",
+  "  method area in Shape @7:12 [7:5-12:6] exported | pub fn area(&self) -> f64"
+]

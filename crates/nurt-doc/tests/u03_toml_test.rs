@@ -6,6 +6,8 @@
 //! Every document under `valid/` must read as the typed JSON next to it;
 //! every document under `invalid/` must be rejected, except the cases that
 //! TOML 1.1 made valid.
+// Helpers outside `#[test]` functions fail the test on an unreadable suite.
+#![allow(clippy::unwrap_used)]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -17,7 +19,7 @@ use serde_json::Value as Json;
 
 /// Root of the suite in the repository.
 fn suite() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/corpus/toml/toml-test")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/third_party/toml/toml-test")
 }
 
 /// Invalid cases of TOML 1.0 that TOML 1.1 accepts: times without seconds,
@@ -67,8 +69,24 @@ fn float_of(text: &str) -> Option<f64> {
 }
 
 fn same_datetime(actual: &str, expected: &str) -> bool {
-    let parse = |text: &str| text.parse::<toml_edit::Datetime>().map(|d| d.to_string());
+    let parse = |text: &str| {
+        text.parse::<toml_edit::Datetime>()
+            .map(|d| with_seconds(&d.to_string()))
+    };
     matches!((parse(actual), parse(expected)), (Ok(a), Ok(b)) if a == b)
+}
+
+/// Canonical text with `:00` seconds added to a time written without them
+/// (TOML 1.1), as `toml-test` writes it.
+fn with_seconds(text: &str) -> String {
+    let start = text.find(['T', 't', ' ']).map_or(0, |at| at + 1);
+    let bytes = text.as_bytes();
+    let time = bytes.get(start + 2) == Some(&b':');
+    if time && bytes.get(start + 5) != Some(&b':') {
+        format!("{}:00{}", &text[..start + 5], &text[start + 5..])
+    } else {
+        text.to_owned()
+    }
 }
 
 /// Compares a value with the typed JSON of `toml-test`.
@@ -124,7 +142,11 @@ fn scalar_matches(actual: &Value, object: &serde_json::Map<String, Json>) -> boo
 fn reads_every_valid_document_as_its_typed_json() {
     let mut documents = Vec::new();
     files(&suite().join("valid"), "toml", &mut documents);
-    assert!(documents.len() > 150, "the suite has {} valid documents", documents.len());
+    assert!(
+        documents.len() > 150,
+        "the suite has {} valid documents",
+        documents.len()
+    );
     let mut failures = Vec::new();
     for path in &documents {
         let expected: Json =
@@ -136,14 +158,23 @@ fn reads_every_valid_document_as_its_typed_json() {
             Err(error) => failures.push(format!("{}: {error}", relative(path))),
         }
     }
-    assert!(failures.is_empty(), "{} failures:\n{}", failures.len(), failures.join("\n"));
+    assert!(
+        failures.is_empty(),
+        "{} failures:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
 }
 
 #[test]
 fn rejects_every_invalid_document() {
     let mut documents = Vec::new();
     files(&suite().join("invalid"), "toml", &mut documents);
-    assert!(documents.len() > 300, "the suite has {} invalid documents", documents.len());
+    assert!(
+        documents.len() > 300,
+        "the suite has {} invalid documents",
+        documents.len()
+    );
     let mut accepted = Vec::new();
     for path in &documents {
         let name = relative(path);
@@ -156,7 +187,11 @@ fn rejects_every_invalid_document() {
             Ok(_) => accepted.push(name),
         }
     }
-    assert!(accepted.is_empty(), "accepted invalid documents:\n{}", accepted.join("\n"));
+    assert!(
+        accepted.is_empty(),
+        "accepted invalid documents:\n{}",
+        accepted.join("\n")
+    );
 }
 
 #[test]

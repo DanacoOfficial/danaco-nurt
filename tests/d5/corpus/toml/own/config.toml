@@ -1,0 +1,22 @@
+baseURL = "https://example.org/"
+languageCode = "en-us"
+title = "Site"
+theme = "plain"
+paginate = 10
+
+[params]
+  description = "Notes"
+  dateFormat = "2006-01-02"
+
+[menu]
+  [[menu.main]]
+    name = "Posts"
+    url = "/posts/"
+    weight = 1
+  [[menu.main]]
+    name = "About"
+    url = "/about/"
+    weight = 2
+
+[markup.goldmark.renderer]
+  unsafe = false

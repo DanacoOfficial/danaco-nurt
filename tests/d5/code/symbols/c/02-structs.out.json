@@ -1,0 +1,8 @@
+[
+  "struct point @1:8 [1:1-4:2] exported | struct point",
+  "  field x in point @2:9 [2:5-2:11] exported | int x;",
+  "  field y in point @3:9 [3:5-3:11] exported | int y;",
+  "type size @9:3 [6:1-9:8] exported | typedef struct",
+  "  field width in size @7:9 [7:5-7:15] exported | int width;",
+  "  field height in size @8:9 [8:5-8:16] exported | int height;"
+]

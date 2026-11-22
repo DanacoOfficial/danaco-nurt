@@ -1,0 +1,17 @@
+{
+  "definitions": [
+    "symbol area @5:6 -> [10:7]",
+    "local r @5:11 -> [6:13, 6:17]",
+    "symbol main @9:6 -> [1:9]",
+    "local r @10:2 -> [11:14]"
+  ],
+  "unresolved": [
+    "fmt",
+    "int"
+  ],
+  "calls": [
+    "main -> area @10:7",
+    "main -> Println @11:6"
+  ],
+  "syntax": []
+}

@@ -1,0 +1,5 @@
+[
+  "class Config @1:7 [1:1-7:2] exported | class Config private constructor(val name: String)",
+  "  constant MAX in Config @3:19 [3:9-3:27] exported | const val MAX = 10",
+  "  method create in Config @5:13 [5:9-5:49] exported | fun create(): Config = Config(\"default\")"
+]

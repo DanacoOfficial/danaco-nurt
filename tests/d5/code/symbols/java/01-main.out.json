@@ -1,0 +1,5 @@
+[
+  "class Main @1:14 [1:1-9:2] exported | public class Main",
+  "  method main in Main @2:24 [2:5-4:6] exported | public static void main(String[] args)",
+  "  method helper in Main @6:17 [6:5-8:6] private | private int helper()"
+]

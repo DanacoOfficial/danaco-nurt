@@ -77,9 +77,6 @@ mod tests {
         let error = key_conflict("ambiguous key", "repeated key", &candidates);
         assert_eq!(error.sample.len(), MAX_CANDIDATES);
         assert_eq!(key_not_found("a", &candidates).sample.len(), MAX_CANDIDATES);
-        assert_eq!(
-            unsupported("ini.x", "m").found.as_deref(),
-            Some("ini.x")
-        );
+        assert_eq!(unsupported("ini.x", "m").found.as_deref(), Some("ini.x"));
     }
 }

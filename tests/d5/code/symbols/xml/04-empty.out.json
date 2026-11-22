@@ -1,0 +1,5 @@
+[
+  "field items @1:2 [1:1-4:9] | <items>",
+  "  field item in items @2:4 [2:3-2:10] | <item/>",
+  "  field item in items @3:4 [3:3-3:10] | <item/>"
+]

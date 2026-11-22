@@ -1,0 +1,4 @@
+[
+  "class CartTests @1:14 [1:1-5:2] exported | public class CartTests",
+  "  method AddsItem in CartTests @4:17 [3:5-4:30] exported | [Fact] public void AddsItem()"
+]

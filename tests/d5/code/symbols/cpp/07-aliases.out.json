@@ -1,0 +1,5 @@
+[
+  "type Id @1:7 [1:1-1:16] exported | using Id = int;",
+  "type size_type @2:23 [2:1-2:33] exported | typedef unsigned long size_type;",
+  "variable kMax @3:15 [3:1-3:25] exported | constexpr int kMax = 10;"
+]

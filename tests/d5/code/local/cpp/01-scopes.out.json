@@ -1,0 +1,15 @@
+{
+  "definitions": [
+    "symbol area @3:5 -> [8:13]",
+    "local r @3:14 -> [4:16, 4:20]",
+    "symbol main @7:5 -> []",
+    "local r @8:9 -> [9:18]"
+  ],
+  "unresolved": [
+    "std"
+  ],
+  "calls": [
+    "main -> area @8:13"
+  ],
+  "syntax": []
+}

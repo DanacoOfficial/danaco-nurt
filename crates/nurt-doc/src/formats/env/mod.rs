@@ -12,6 +12,8 @@
 //! expanded nor changed. A variable written more than once has the value of
 //! its last occurrence.
 
+mod format;
+
 use std::ops::Range;
 
 use nurt_contracts::error::{Error, ErrorCode};
@@ -31,6 +33,14 @@ use crate::formats::ini::support::tree::{Node, resolve};
 /// File names of environment files; names starting with `.env.` (such as
 /// `.env.local`) are environment files as well.
 pub const FILE_NAMES: [&str; 1] = [".env"];
+
+pub use format::EnvFormat;
+
+/// Registration function of the format `env`.
+#[must_use]
+pub fn formats() -> Vec<Box<dyn crate::registry::DocFormat>> {
+    vec![Box::new(EnvFormat)]
+}
 
 /// Name of the format in error messages.
 const FORMAT: &str = "env";
@@ -199,7 +209,10 @@ impl EnvDocument {
     /// `env.key_name` for a name that is not a variable name.
     pub fn set(&mut self, key: &KeyPath, value: &Value, create: bool) -> Result<usize, Error> {
         let text = scalar_text(value).ok_or_else(|| {
-            unsupported(NESTED, "environment variables hold text; write a scalar value")
+            unsupported(
+                NESTED,
+                "environment variables hold text; write a scalar value",
+            )
         })?;
         let flat = flat_key(key)?;
         let mut plan = self.plan();
@@ -261,7 +274,8 @@ impl EnvDocument {
             })
             .collect();
         plan.splices = removals(ranges);
-        plan.expected.retain(|(name, _)| !names.contains(&name.as_str()));
+        plan.expected
+            .retain(|(name, _)| !names.contains(&name.as_str()));
         plan.count = names.len();
         self.commit(plan)
     }
@@ -305,9 +319,11 @@ impl EnvDocument {
         let raw = &self.text[entry.value_range.clone()];
         let encoded = encode(value, entry.quote, raw.contains('\n'));
         if entry.value.is_some() {
-            plan.splices.push(Splice::new(entry.value_range.clone(), encoded));
+            plan.splices
+                .push(Splice::new(entry.value_range.clone(), encoded));
         } else {
-            plan.splices.push(Splice::insert(entry.key_range.end, format!("={encoded}")));
+            plan.splices
+                .push(Splice::insert(entry.key_range.end, format!("={encoded}")));
         }
     }
 
@@ -319,7 +335,8 @@ impl EnvDocument {
             ));
         }
         plan.count += 1;
-        plan.expected.push((name.to_owned(), Some(value.to_owned())));
+        plan.expected
+            .push((name.to_owned(), Some(value.to_owned())));
         let last = self.parsed.entries.iter().rev().find(|e| e.value.is_some());
         let (prefix, separator) = match last {
             Some(entry) => {
@@ -482,7 +499,12 @@ fn parse_entry(text: &str, lines: &[Line], index: usize, start: usize) -> Result
     let (value, quote, value_end, last_line) = parse_value(text, lines, index, value_start)?;
     let rest = &text[value_end..lines[last_line].content_end];
     let trailing = trailing_comment(rest, quote != Quote::None).ok_or_else(|| {
-        parse_error(FORMAT, "unexpected text after the closing quote", text, value_end)
+        parse_error(
+            FORMAT,
+            "unexpected text after the closing quote",
+            text,
+            value_end,
+        )
     })?;
     Ok(Entry {
         key: key.to_owned(),
@@ -504,8 +526,14 @@ fn name_only(
     rest: &str,
     line_end: usize,
 ) -> Result<Entry, Error> {
-    let comment = trailing_comment(rest, true)
-        .ok_or_else(|| parse_error(FORMAT, "expected `=` after the variable name", text, line_end - rest.len()))?;
+    let comment = trailing_comment(rest, true).ok_or_else(|| {
+        parse_error(
+            FORMAT,
+            "expected `=` after the variable name",
+            text,
+            line_end - rest.len(),
+        )
+    })?;
     Ok(Entry {
         key: key.to_owned(),
         value_range: key_range.end..key_range.end,
@@ -627,7 +655,10 @@ mod tests {
     fn reads_quoting_styles_comments_and_interpolation() {
         let text = "# db\nexport DB_URL=postgres://h/${DB} # main\nA='x # y'\nB=\"l1\nl2\\t\\$X\"\nC=a#b\nD=\nE\nF = spaced\n";
         let doc = EnvDocument::parse(text).unwrap();
-        assert_eq!(value(&doc, "DB_URL"), Value::Text("postgres://h/${DB}".into()));
+        assert_eq!(
+            value(&doc, "DB_URL"),
+            Value::Text("postgres://h/${DB}".into())
+        );
         assert_eq!(value(&doc, "A"), Value::Text("x # y".into()));
         assert_eq!(value(&doc, "B"), Value::Text("l1\nl2\t\\$X".into()));
         assert_eq!(value(&doc, "C"), Value::Text("a#b".into()));
@@ -648,18 +679,26 @@ mod tests {
     #[test]
     fn keeps_the_quote_style_when_it_holds_the_value() {
         let mut doc = EnvDocument::parse("A='x'\nB=plain\nC=\"q\"\n").unwrap();
-        doc.set(&key("A"), &Value::Text("y z".into()), false).unwrap();
-        doc.set(&key("B"), &Value::Text("needs # quoting".into()), false).unwrap();
-        doc.set(&key("C"), &Value::Text("say \"hi\"\n".into()), false).unwrap();
-        assert_eq!(doc.text(), "A='y z'\nB=\"needs # quoting\"\nC=\"say \\\"hi\\\"\\n\"\n");
-        doc.set(&key("A"), &Value::Text("it's".into()), false).unwrap();
+        doc.set(&key("A"), &Value::Text("y z".into()), false)
+            .unwrap();
+        doc.set(&key("B"), &Value::Text("needs # quoting".into()), false)
+            .unwrap();
+        doc.set(&key("C"), &Value::Text("say \"hi\"\n".into()), false)
+            .unwrap();
+        assert_eq!(
+            doc.text(),
+            "A='y z'\nB=\"needs # quoting\"\nC=\"say \\\"hi\\\"\\n\"\n"
+        );
+        doc.set(&key("A"), &Value::Text("it's".into()), false)
+            .unwrap();
         assert_eq!(value(&doc, "A"), Value::Text("it's".into()));
     }
 
     #[test]
     fn keeps_literal_line_breaks_of_multiline_values() {
         let mut doc = EnvDocument::parse("CERT=\"a\nb\"\nX=1\n").unwrap();
-        doc.set(&key("CERT"), &Value::Text("c\nd\ne".into()), false).unwrap();
+        doc.set(&key("CERT"), &Value::Text("c\nd\ne".into()), false)
+            .unwrap();
         assert_eq!(doc.text(), "CERT=\"c\nd\ne\"\nX=1\n");
     }
 
@@ -688,10 +727,14 @@ mod tests {
     fn setting_the_same_value_changes_no_byte() {
         let text = "A=\"x\"  # c\r\nB='y'\r\n";
         let mut doc = EnvDocument::parse(text).unwrap();
-        assert_eq!(doc.set(&key("*"), &Value::Text("x".into()), false).unwrap(), 2);
+        assert_eq!(
+            doc.set(&key("*"), &Value::Text("x".into()), false).unwrap(),
+            2
+        );
         assert_eq!(value(&doc, "B"), Value::Text("x".into()));
         let mut same = EnvDocument::parse(text).unwrap();
-        same.set(&key("A"), &Value::Text("x".into()), false).unwrap();
+        same.set(&key("A"), &Value::Text("x".into()), false)
+            .unwrap();
         assert_eq!(same.text(), text);
     }
 

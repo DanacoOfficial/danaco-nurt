@@ -1,0 +1,5 @@
+[
+  "field Project @1:2 [1:1-5:11] | <Project Sdk=\"Microsoft.NET.Sdk\">",
+  "  field PropertyGroup in Project @2:4 [2:3-4:19] | <PropertyGroup>",
+  "    field TargetFramework in Project.PropertyGroup @3:6 [3:5-3:46] | <TargetFramework>net8.0</TargetFramework>"
+]

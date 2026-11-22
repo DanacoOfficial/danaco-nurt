@@ -1,0 +1,18 @@
+{
+  "depth_0": [
+    "module shapes @1:9 [1:1-11:2] exported | pub mod shapes",
+    "function main @13:8 [13:1-13:17] exported | pub fn main()"
+  ],
+  "outline": [
+    "module shapes @1:9 [1:1-11:2] exported | pub mod shapes",
+    "  struct Circle in shapes @2:16 [2:5-4:6] exported | pub struct Circle",
+    "    field radius in shapes.Circle @3:13 [3:9-3:24] exported | pub radius: f64",
+    "    method area in shapes.Circle @7:16 [7:9-9:10] exported | pub fn area(&self) -> f64",
+    "function main @13:8 [13:1-13:17] exported | pub fn main()"
+  ],
+  "lookups": [
+    "shapes.Circle -> 1",
+    "shapes.Circle.radius -> 1",
+    "shapes.Circle.area -> 1"
+  ]
+}

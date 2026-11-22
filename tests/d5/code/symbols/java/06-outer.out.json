@@ -1,0 +1,6 @@
+[
+  "class Outer @1:14 [1:1-7:2] exported | public class Outer",
+  "  class Nested in Outer @2:18 [2:5-4:6] private | static class Nested",
+  "    method run in Outer.Nested @3:14 [3:9-3:22] private | void run()",
+  "  class Inner in Outer @6:11 [6:5-6:19] private | class Inner"
+]

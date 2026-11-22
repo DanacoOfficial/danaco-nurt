@@ -1,0 +1,5 @@
+[
+  "macro API_H @2:9 [2:1-3:1] exported | #define API_H",
+  "function api_open @4:5 [4:1-4:32] exported | int api_open(const char *path);",
+  "function api_close @5:6 [5:1-5:24] exported | void api_close(int fd);"
+]

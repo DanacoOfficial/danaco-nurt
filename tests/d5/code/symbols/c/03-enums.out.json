@@ -1,0 +1,9 @@
+[
+  "enum color @1:6 [1:1-1:32] exported | enum color",
+  "  constant RED in color @1:14 [1:14-1:17] exported | RED",
+  "  constant GREEN in color @1:19 [1:19-1:24] exported | GREEN",
+  "  constant BLUE in color @1:26 [1:26-1:30] exported | BLUE",
+  "type letter @3:37 [3:1-3:44] exported | typedef enum { LETTER_A, LETTER_B } letter;",
+  "  constant LETTER_A in letter @3:16 [3:16-3:24] exported | LETTER_A",
+  "  constant LETTER_B in letter @3:26 [3:26-3:34] exported | LETTER_B"
+]

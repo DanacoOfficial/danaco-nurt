@@ -1,0 +1,4 @@
+[
+  "variable handler @3:5 [3:5-3:24] private | handler = func() {}",
+  "function counter @5:6 [5:1-11:2] private | func counter() func() int"
+]

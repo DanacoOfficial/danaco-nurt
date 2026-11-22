@@ -1,0 +1,18 @@
+{
+  "depth_0": [
+    "module App @1:11 [1:1-12:2] private | namespace App"
+  ],
+  "outline": [
+    "module App @1:11 [1:1-12:2] private | namespace App",
+    "  class Service in App @3:18 [3:5-11:6] exported | public class Service",
+    "    class Config in App.Service @5:22 [5:9-8:10] exported | public class Config",
+    "      method Validate in App.Service.Config @7:25 [7:13-7:44] exported | public bool Validate()",
+    "    method Start in App.Service @10:21 [10:9-10:31] exported | public void Start()"
+  ],
+  "lookups": [
+    "App.Service -> 1",
+    "App.Service.Config -> 1",
+    "App.Service.Config.Validate -> 1",
+    "App.Service.Start -> 1"
+  ]
+}

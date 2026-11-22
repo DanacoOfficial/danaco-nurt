@@ -16,10 +16,14 @@ use crate::value::{compare_numbers, equivalent, numeric};
 pub(crate) fn matches(expr: &FilterExpr, element: &Value) -> bool {
     match expr {
         FilterExpr::Field { path } => field(element, path).is_some(),
-        FilterExpr::Literal { value } => !matches!(value, FilterLiteral::Bool(false) | FilterLiteral::Null),
-        FilterExpr::Compare { op, left, right } => {
-            compare(*op, operand(left, element).as_ref(), operand(right, element).as_ref())
+        FilterExpr::Literal { value } => {
+            !matches!(value, FilterLiteral::Bool(false) | FilterLiteral::Null)
         }
+        FilterExpr::Compare { op, left, right } => compare(
+            *op,
+            operand(left, element).as_ref(),
+            operand(right, element).as_ref(),
+        ),
         FilterExpr::And { left, right } => matches(left, element) && matches(right, element),
         FilterExpr::Or { left, right } => matches(left, element) || matches(right, element),
         FilterExpr::Not { operand } => !matches(operand, element),
@@ -56,7 +60,10 @@ fn compare(op: CompareOp, left: Option<&Value>, right: Option<&Value>) -> bool {
         CompareOp::Lt => order(left, right) == Some(Ordering::Less),
         CompareOp::Le => matches!(order(left, right), Some(Ordering::Less | Ordering::Equal)),
         CompareOp::Gt => order(left, right) == Some(Ordering::Greater),
-        CompareOp::Ge => matches!(order(left, right), Some(Ordering::Greater | Ordering::Equal)),
+        CompareOp::Ge => matches!(
+            order(left, right),
+            Some(Ordering::Greater | Ordering::Equal)
+        ),
     }
 }
 

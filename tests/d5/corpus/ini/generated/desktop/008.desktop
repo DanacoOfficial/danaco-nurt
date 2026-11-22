@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=App 8
+Name[fr]=Éditeur 8
+Exec=app %U
+Categories=Utility;TextEditor;
+
+[Desktop Action new-window]
+Name=New Window
+Exec=app --new-window

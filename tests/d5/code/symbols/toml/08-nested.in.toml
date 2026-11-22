@@ -1,0 +1,8 @@
+[a]
+one = 1
+
+[a.b]
+two = 2
+
+[a.b.c]
+three = 3

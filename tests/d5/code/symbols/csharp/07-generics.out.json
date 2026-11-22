@@ -1,0 +1,5 @@
+[
+  "class Repository @1:14 [1:1-9:2] exported | public class Repository<T> where T : class",
+  "  method Find in Repository @3:14 [3:5-3:39] exported | public T Find(int id)",
+  "  method All in Repository @5:54 [5:5-8:6] exported | public System.Collections.Generic.IEnumerable<T> All()"
+]

@@ -335,7 +335,10 @@ fn typed_int(text: &str) -> Option<Value> {
         Some(value) => Some(Value::Int(value)),
         None if radix == 10 => {
             let sign = if negative { "-" } else { "" };
-            Some(Value::BigInt(format!("{sign}{}", body.trim_start_matches('0'))))
+            Some(Value::BigInt(format!(
+                "{sign}{}",
+                body.trim_start_matches('0')
+            )))
         }
         None => None,
     }
@@ -351,5 +354,144 @@ fn typed_float(text: &str) -> Option<Value> {
         Some(Value::Number(number))
     } else {
         Some(Value::Decimal(trimmed.to_owned()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use indexmap::IndexMap;
+    use nurt_contracts::value::{Bytes, Value};
+
+    use super::*;
+
+    fn parse(text: &str) -> YamlModel {
+        YamlModel::parse(text).expect("valid YAML")
+    }
+
+    fn value_node(model: &YamlModel, key: &str) -> NodeId {
+        let root = model.documents()[0].root;
+        model.map_get(root, key).expect("key exists")
+    }
+
+    fn text(value: &str) -> Value {
+        Value::Text(value.to_owned())
+    }
+
+    #[test]
+    fn resolves_core_tags_by_name_only() {
+        let names = [
+            ("str", CoreTag::Str),
+            ("int", CoreTag::Int),
+            ("float", CoreTag::Float),
+            ("bool", CoreTag::Bool),
+            ("null", CoreTag::Null),
+            ("binary", CoreTag::Binary),
+            ("timestamp", CoreTag::Timestamp),
+            ("map", CoreTag::Map),
+            ("seq", CoreTag::Seq),
+            ("set", CoreTag::Set),
+            ("omap", CoreTag::Omap),
+            ("pairs", CoreTag::Pairs),
+        ];
+        for (name, core) in names {
+            assert_eq!(CoreTag::of(&format!("{CORE_PREFIX}{name}")), Some(core));
+        }
+        assert_eq!(CoreTag::of(&format!("{CORE_PREFIX}regex")), None);
+        assert_eq!(CoreTag::of("!Ref"), None);
+    }
+
+    #[test]
+    fn admits_collections_of_the_shape_of_the_tag() {
+        let map = Value::Map(IndexMap::new());
+        let list = Value::List(Vec::new());
+        assert!(CoreTag::Set.admits(&map));
+        assert!(!CoreTag::Map.admits(&list));
+        assert!(CoreTag::Omap.admits(&list));
+        assert!(!CoreTag::Pairs.admits(&map));
+        assert!(!CoreTag::Timestamp.admits(&text("today")));
+    }
+
+    #[test]
+    fn keeps_a_local_tag_only_for_a_value_of_the_same_shape() {
+        let model = parse("a: !Ref {b: 1}\nc: !!str x\n");
+        let mapping = value_node(&model, "a");
+        let empty = Value::Map(IndexMap::new());
+        assert_eq!(NodeShape::of_node(&model, mapping), NodeShape::Mapping);
+        assert_eq!(NodeShape::of_value(&empty), NodeShape::Mapping);
+        assert_eq!(on_set("!Ref", NodeShape::Mapping, &empty), TagAction::Keep);
+        assert_eq!(
+            on_set("!Ref", NodeShape::Mapping, &Value::Int(1)),
+            TagAction::Remove
+        );
+        assert_eq!(on_set("!", NodeShape::Scalar, &text("x")), TagAction::Keep);
+        assert_eq!(
+            on_set("!", NodeShape::Scalar, &Value::Int(1)),
+            TagAction::Remove
+        );
+        let removed = plan_set(&model, mapping, &Value::Int(1));
+        assert_eq!(removed.removed.as_deref(), Some("!Ref"));
+        assert_eq!(removed.edits.len(), 1);
+        let kept = plan_set(&model, value_node(&model, "c"), &text("y"));
+        assert_eq!(kept, TagPlan::default());
+    }
+
+    #[test]
+    fn writes_binary_data_in_the_quoting_of_the_tagged_scalar() {
+        let data = Bytes::new(b"hello".to_vec());
+        let model = parse("q: !!binary \"aGk=\"\np: !!binary aGk=\nu: aGk=\n");
+        assert_eq!(
+            render_binary(&model, value_node(&model, "q"), &data),
+            "\"aGVsbG8=\""
+        );
+        assert_eq!(
+            render_binary(&model, value_node(&model, "p"), &data),
+            "aGVsbG8="
+        );
+        assert_eq!(
+            render_binary(&model, value_node(&model, "u"), &data),
+            "!!binary aGVsbG8="
+        );
+    }
+
+    #[test]
+    fn types_integers_in_every_radix_and_beyond_64_bits() {
+        let int = |content: &str| typed_scalar(CoreTag::Int, content);
+        assert_eq!(int("0o17"), Some(Value::Int(15)));
+        assert_eq!(int("0x1F"), Some(Value::Int(31)));
+        assert_eq!(int("+7"), Some(Value::Int(7)));
+        assert_eq!(int("-12"), Some(Value::Int(-12)));
+        assert_eq!(
+            int("-0012345678901234567890123"),
+            Some(Value::BigInt("-12345678901234567890123".to_owned()))
+        );
+        assert_eq!(int("0xFFFFFFFFFFFFFFFFFFFF"), None);
+        assert_eq!(int("0x"), None);
+        assert_eq!(int("12a"), None);
+    }
+
+    #[test]
+    fn types_floats_and_rejects_values_that_are_not_finite() {
+        let float = |content: &str| typed_scalar(CoreTag::Float, content);
+        assert_eq!(float("1.5"), Some(Value::Number(1.5)));
+        assert_eq!(float("1.50"), Some(Value::Decimal("1.50".to_owned())));
+        assert_eq!(float("inf"), None);
+        assert_eq!(float("1e999"), None);
+        assert_eq!(float("one"), None);
+    }
+
+    #[test]
+    fn types_booleans_text_null_and_binary_and_leaves_other_tags_untyped() {
+        assert_eq!(typed_scalar(CoreTag::Bool, "Off"), Some(Value::Bool(false)));
+        assert_eq!(typed_scalar(CoreTag::Bool, "Y"), Some(Value::Bool(true)));
+        assert_eq!(typed_scalar(CoreTag::Bool, "maybe"), None);
+        assert_eq!(typed_scalar(CoreTag::Str, "10"), Some(text("10")));
+        assert_eq!(typed_scalar(CoreTag::Null, ""), Some(Value::Null));
+        assert_eq!(typed_scalar(CoreTag::Timestamp, "2026-11-21"), None);
+        assert_eq!(typed_scalar(CoreTag::Pairs, "x"), None);
+        assert_eq!(
+            decode_binary("aGVs\n bG8="),
+            Some(Bytes::new(b"hello".to_vec()))
+        );
+        assert_eq!(typed_scalar(CoreTag::Binary, "not base64!"), None);
     }
 }

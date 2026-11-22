@@ -1,0 +1,4 @@
+[
+  "field doc @1:2 [1:1-4:7] | <doc>",
+  "  field script in doc @3:4 [3:3-3:47] | <script><![CDATA[ if (a < b) {} ]]></script>"
+]

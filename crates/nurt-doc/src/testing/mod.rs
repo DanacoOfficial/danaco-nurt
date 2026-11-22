@@ -35,7 +35,8 @@ mod journal;
 mod kv;
 
 pub use harness::{
-    FileFilter, Guard, HarnessOperation, HarnessOptions, Summary, Violation, run_corpus, run_document,
+    FileFilter, Guard, HarnessOperation, HarnessOptions, Summary, Violation, first_change_outside,
+    run_corpus, run_document,
 };
 pub use journal::{MemoryJournal, MemoryTx};
 pub use kv::{KeyValueFormat, KeyValueReference};

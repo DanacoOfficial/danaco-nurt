@@ -1,0 +1,5 @@
+[
+  "field root @1:2 [1:1-5:8] | <root>",
+  "  field parent in root @2:4 [2:3-4:12] | <parent>",
+  "    field child in root.parent @3:6 [3:5-3:25] | <child>value</child>"
+]

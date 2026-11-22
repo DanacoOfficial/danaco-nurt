@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=App 19
+Exec=app %U
+MimeType=text/plain;text/markdown;
+Name[fr]=Éditeur 19

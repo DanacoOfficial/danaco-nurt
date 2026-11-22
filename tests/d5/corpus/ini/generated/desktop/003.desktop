@@ -1,0 +1,7 @@
+# Desktop entry
+[Desktop Entry]
+Type=Application
+Name=App 3
+Exec=app %U
+MimeType=text/plain;text/markdown;
+Name[fr]=Éditeur 3

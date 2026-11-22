@@ -8,6 +8,7 @@ use nurt_contracts::value::Value;
 
 use super::layout::Style;
 use super::lexeme;
+use crate::value::{to_document_value, value_type};
 
 /// Value lowered to JSON: scalars are finished lexemes.
 enum Json {
@@ -25,9 +26,16 @@ enum Json {
 /// # Errors
 ///
 /// `E_INVALID_VALUE` when a number has no JSON form (a non-finite number or
-/// a decimal text outside the JSON number grammar).
-pub(crate) fn render(value: &Value, indent: &str, style: &Style, multiline: bool) -> Result<String, Error> {
-    let json = lower(value)?;
+/// a decimal text outside the JSON number grammar) and for bytes. Values of
+/// the language that documents store as text, numbers or maps (paths,
+/// durations, sizes, records) are converted first, as for every format.
+pub(crate) fn render(
+    value: &Value,
+    indent: &str,
+    style: &Style,
+    multiline: bool,
+) -> Result<String, Error> {
+    let json = lower(&to_document_value(value.clone()))?;
     let mut out = String::new();
     write(&json, indent, style, multiline, &mut out);
     Ok(out)
@@ -65,21 +73,19 @@ fn lower(value: &Value) -> Result<Json, Error> {
                 .map(|(key, item)| Ok((key.clone(), lower(item)?)))
                 .collect::<Result<_, Error>>()?,
         ),
-        other => lower_plain(other.to_plain_json()),
+        Value::Date(date) => Json::Lexeme(lexeme::quote(&date.text)),
+        other => return Err(no_json_form(other)),
     })
 }
 
-fn lower_plain(json: serde_json::Value) -> Json {
-    match json {
-        serde_json::Value::Null => Json::Lexeme("null".to_owned()),
-        serde_json::Value::Bool(flag) => Json::Lexeme(flag.to_string()),
-        serde_json::Value::Number(number) => Json::Lexeme(number.to_string()),
-        serde_json::Value::String(text) => Json::Lexeme(lexeme::quote(&text)),
-        serde_json::Value::Array(items) => Json::List(items.into_iter().map(lower_plain).collect()),
-        serde_json::Value::Object(fields) => {
-            Json::Map(fields.into_iter().map(|(key, item)| (key, lower_plain(item))).collect())
-        }
-    }
+fn no_json_form(value: &Value) -> Error {
+    Error::new(
+        ErrorCode::InvalidValue,
+        format!(
+            "a {} value has no JSON form; pass text, a number, a boolean, null, a list or a map",
+            value_type(value)
+        ),
+    )
 }
 
 fn number_lexeme(text: &str) -> Result<String, Error> {
@@ -172,7 +178,10 @@ mod tests {
     fn sample() -> Value {
         let mut fields = IndexMap::new();
         fields.insert("a".to_owned(), Value::Int(1));
-        fields.insert("b".to_owned(), Value::List(vec![Value::Bool(true), Value::Null]));
+        fields.insert(
+            "b".to_owned(),
+            Value::List(vec![Value::Bool(true), Value::Null]),
+        );
         fields.insert("c".to_owned(), Value::Map(IndexMap::new()));
         Value::Map(fields)
     }
@@ -180,7 +189,10 @@ mod tests {
     #[test]
     fn renders_nested_values_on_separate_lines() {
         let text = render(&sample(), "  ", &style(false), true).unwrap();
-        assert_eq!(text, "{\n    \"a\": 1,\n    \"b\": [\n      true,\n      null\n    ],\n    \"c\": {}\n  }");
+        assert_eq!(
+            text,
+            "{\n    \"a\": 1,\n    \"b\": [\n      true,\n      null\n    ],\n    \"c\": {}\n  }"
+        );
     }
 
     #[test]
@@ -192,14 +204,43 @@ mod tests {
     #[test]
     fn adds_trailing_commas_in_trailing_comma_style() {
         let value = Value::List(vec![Value::Int(1)]);
-        assert_eq!(render(&value, "", &style(true), true).unwrap(), "[\n  1,\n]");
+        assert_eq!(
+            render(&value, "", &style(true), true).unwrap(),
+            "[\n  1,\n]"
+        );
     }
 
     #[test]
     fn keeps_decimal_lexemes_and_rejects_non_json_numbers() {
-        assert_eq!(render(&Value::Decimal("1.10".to_owned()), "", &style(false), false).unwrap(), "1.10");
-        assert_eq!(render(&Value::Number(0.5), "", &style(false), false).unwrap(), "0.5");
-        let error = render(&Value::Decimal("0x1F".to_owned()), "", &style(false), false).unwrap_err();
+        assert_eq!(
+            render(&Value::Decimal("1.10".to_owned()), "", &style(false), false).unwrap(),
+            "1.10"
+        );
+        assert_eq!(
+            render(&Value::Number(0.5), "", &style(false), false).unwrap(),
+            "0.5"
+        );
+        let error =
+            render(&Value::Decimal("0x1F".to_owned()), "", &style(false), false).unwrap_err();
         assert_eq!(error.code(), ErrorCode::InvalidValue);
+    }
+
+    #[test]
+    fn writes_language_values_as_document_values() {
+        let duration = Value::Duration(nurt_contracts::value::Duration::from_millis(1500));
+        assert_eq!(
+            render(&duration, "", &style(false), false).unwrap(),
+            "\"1500ms\""
+        );
+        let path = Value::List(vec![Value::Path("src/main.rs".to_owned())]);
+        assert_eq!(
+            render(&path, "", &style(false), false).unwrap(),
+            "[\"src/main.rs\"]"
+        );
+        let bytes = Value::Bytes(nurt_contracts::value::Bytes::from(vec![1_u8, 2]));
+        assert_eq!(
+            render(&bytes, "", &style(false), false).unwrap_err().code(),
+            ErrorCode::InvalidValue
+        );
     }
 }

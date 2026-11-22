@@ -1,0 +1,30 @@
+title = "Example 6"
+version = "1.6.0"
+
+[matrix]
+rows = [
+  [1, 2],
+  [3, 4],
+]
+labels = [
+  "a", # first
+  "b",
+]
+
+# comment before table
+[empty]
+
+[a.b.c]
+d = 1 # trailing comment
+
+[strings]
+basic = "tab\there"
+literal = 'C:\Users\path'
+multi = """
+Roses are red
+Violets are blue"""
+multi_literal = '''
+The first newline is
+trimmed in raw strings.
+'''
+

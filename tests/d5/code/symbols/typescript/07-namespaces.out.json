@@ -1,0 +1,5 @@
+[
+  "module Geometry @1:18 [1:8-5:2] exported | namespace Geometry",
+  "  function area in Geometry @2:19 [2:10-4:4] exported | function area(): number",
+  "function run @8:19 [8:10-8:31] exported | function run(): void;"
+]

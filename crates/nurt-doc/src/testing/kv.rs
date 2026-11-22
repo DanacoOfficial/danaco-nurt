@@ -13,7 +13,7 @@ use crate::model::{
     TreeBuilder, doc_parse, key_conflict, key_not_found,
 };
 use crate::registry::{Confidence, DocFormat, DocOptions};
-use crate::style::StyleProbe;
+use crate::style::{Spacing, StyleProbe};
 use crate::value::{Syntax, parse_number, render_scalar, to_document_value};
 
 /// Minimal format of `name = value` lines with `#` comments, for tests of
@@ -130,7 +130,8 @@ fn trimmed(text: &[u8], span: Span) -> Span {
 }
 
 fn parse(id: &DocFormatId, text: &[u8]) -> Result<DocTree> {
-    let source = std::str::from_utf8(text).map_err(|error| doc_parse(id, text, Some(error.valid_up_to()), "invalid UTF-8"))?;
+    let source = std::str::from_utf8(text)
+        .map_err(|error| doc_parse(id, text, Some(error.valid_up_to()), "invalid UTF-8"))?;
     let mut builder = TreeBuilder::new(text);
     let root = builder.node(None, NodeSpec::new(NodeKind::Map, Span::new(0, text.len())));
     let mut comment: Option<String> = None;
@@ -146,13 +147,23 @@ fn parse(id: &DocFormatId, text: &[u8]) -> Result<DocTree> {
             continue;
         }
         let Some(equals) = content.find('=') else {
-            return Err(doc_parse(id, text, Some(line.start), "expected `name = value`"));
+            return Err(doc_parse(
+                id,
+                text,
+                Some(line.start),
+                "expected `name = value`",
+            ));
         };
         let key_span = trimmed(text, Span::new(line.start, line.start + equals));
         let value_span = trimmed(text, Span::new(line.start + equals + 1, line.end));
         let name = &source[key_span.start..key_span.end];
         if name.is_empty() {
-            return Err(doc_parse(id, text, Some(line.start), "expected a name before `=`"));
+            return Err(doc_parse(
+                id,
+                text,
+                Some(line.start),
+                "expected a name before `=`",
+            ));
         }
         let mut spec = NodeSpec::new(NodeKind::Scalar, Span::new(line.start, line.end))
             .with_name(name)
@@ -181,9 +192,9 @@ impl ReferenceParser for KeyValueReference {
             if line.is_empty() || line.starts_with('#') {
                 continue;
             }
-            let (name, value) = line
-                .split_once('=')
-                .ok_or_else(|| Error::new(ErrorCode::DocParse, format!("line `{line}` has no `=`")))?;
+            let (name, value) = line.split_once('=').ok_or_else(|| {
+                Error::new(ErrorCode::DocParse, format!("line `{line}` has no `=`"))
+            })?;
             fields.insert(name.trim().to_owned(), typed(value.trim()));
         }
         Ok(vec![Value::Map(fields)])
@@ -212,7 +223,10 @@ impl KeyValueDocument {
             other => render_scalar(&other, Syntax::Json).ok_or_else(|| {
                 Error::new(
                     ErrorCode::InvalidValue,
-                    format!("a {} value cannot be written; set text or a number", other.type_name()),
+                    format!(
+                        "a {} value cannot be written; set text or a number",
+                        other.type_name()
+                    ),
                 )
             }),
         }
@@ -229,7 +243,11 @@ impl KeyValueDocument {
             .collect();
         match names {
             Some(names) if !names.is_empty() => Ok(names.join(".")),
-            _ => Err(key_conflict(key, "map", "is not a name; the format has flat names only")),
+            _ => Err(key_conflict(
+                key,
+                "map",
+                "is not a name; the format has flat names only",
+            )),
         }
     }
 
@@ -243,11 +261,27 @@ impl KeyValueDocument {
         Expectation::new(vec![value], &FlatSemantics)
     }
 
-    fn accept(&mut self, plan: EditPlan, expectation: &Expectation<'_>) -> Result<EditReport> {
-        let committed = commit(&self.text, plan, expectation, &KeyValueReference)?;
-        self.tree = parse(&self.id, &committed.bytes)?;
-        self.text = committed.bytes;
-        Ok(committed.report)
+    /// Commits the plan and rebuilds the tree from the new text.
+    ///
+    /// The expectation and the old tree are released before the new tree
+    /// is built, so that a change of a large document does not hold two
+    /// trees at once; when the new text does not parse, the tree of the old
+    /// text is rebuilt.
+    fn accept(&mut self, plan: EditPlan, expectation: Expectation<'_>) -> Result<EditReport> {
+        let committed = commit(&self.text, plan, &expectation, &KeyValueReference)?;
+        drop(expectation);
+        self.tree = DocTree::default();
+        match parse(&self.id, &committed.bytes) {
+            Ok(tree) => {
+                self.tree = tree;
+                self.text = committed.bytes;
+                Ok(committed.report)
+            }
+            Err(error) => {
+                self.tree = parse(&self.id, &self.text)?;
+                Err(error)
+            }
+        }
     }
 
     fn line_with_break(&self, span: Span) -> Span {
@@ -285,14 +319,31 @@ impl DocHandle for KeyValueDocument {
         let mut expectation = self.expectation();
         if found.is_empty() {
             if !options.create {
-                return Err(key_not_found(key, &self.tree.similar_keys(key, &FlatSemantics)));
+                return Err(key_not_found(
+                    key,
+                    &self.tree.similar_keys(key, &FlatSemantics),
+                ));
             }
             let name = Self::name_of(key)?;
             let probe = StyleProbe::new(&self.text);
-            let spacing = probe.separator(b'=');
+            let spacing = if self.text.contains(&b'=') {
+                probe.separator(b'=')
+            } else {
+                Spacing {
+                    before: " ".to_owned(),
+                    after: " ".to_owned(),
+                }
+            };
             let eol = probe.line_ending().as_str();
-            let lead = if self.text.is_empty() || self.text.ends_with(b"\n") { "" } else { eol };
-            let line = format!("{lead}{name}{}={}{rendered}{eol}", spacing.before, spacing.after);
+            let lead = if self.text.is_empty() || self.text.ends_with(b"\n") {
+                ""
+            } else {
+                eol
+            };
+            let line = format!(
+                "{lead}{name}{}={}{rendered}{eol}",
+                spacing.before, spacing.after
+            );
             plan.target(Span::at(self.text.len()));
             plan.edit(ByteEdit::insert(self.text.len(), line));
             plan.report.replacements = 1;
@@ -301,27 +352,38 @@ impl DocHandle for KeyValueDocument {
         for resolved in &found {
             let node = &self.tree[resolved.node];
             if node.kind.is_container() {
-                return Err(key_conflict(key, node.kind.as_str(), "selects the document; set a name"));
+                return Err(key_conflict(
+                    key,
+                    node.kind.as_str(),
+                    "selects the document; set a name",
+                ));
             }
             plan.target(node.value_span);
             plan.edit(ByteEdit::replace(node.value_span, rendered.clone()));
             plan.report.replacements += 1;
             expectation = expectation.set(resolved.key.clone(), value.clone());
         }
-        self.accept(plan, &expectation)
+        self.accept(plan, expectation)
     }
 
     fn remove(&mut self, key: &KeyPath) -> Result<EditReport> {
         let found = self.get(key)?;
         if found.is_empty() {
-            return Err(key_not_found(key, &self.tree.similar_keys(key, &FlatSemantics)));
+            return Err(key_not_found(
+                key,
+                &self.tree.similar_keys(key, &FlatSemantics),
+            ));
         }
         let mut plan = EditPlan::new();
         let mut expectation = self.expectation();
         for resolved in &found {
             let node = &self.tree[resolved.node];
             if node.parent.is_none() {
-                return Err(key_conflict(key, "map", "selects the document; remove a name"));
+                return Err(key_conflict(
+                    key,
+                    "map",
+                    "selects the document; remove a name",
+                ));
             }
             let line = self.line_with_break(node.span);
             plan.target(line);
@@ -329,6 +391,6 @@ impl DocHandle for KeyValueDocument {
             plan.report.replacements += 1;
             expectation = expectation.remove(resolved.key.clone());
         }
-        self.accept(plan, &expectation)
+        self.accept(plan, expectation)
     }
 }

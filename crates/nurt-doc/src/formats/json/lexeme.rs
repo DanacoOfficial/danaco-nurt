@@ -34,7 +34,10 @@ pub(crate) fn validate_number(text: &str) -> Result<(), LexemeError> {
         Some(b'0') => {
             pos += 1;
             if bytes.get(pos).is_some_and(u8::is_ascii_digit) {
-                return Err(LexemeError::new(pos, "leading zeros are not allowed in numbers"));
+                return Err(LexemeError::new(
+                    pos,
+                    "leading zeros are not allowed in numbers",
+                ));
             }
         }
         Some(b'1'..=b'9') => pos = skip_digits(bytes, pos),
@@ -80,7 +83,10 @@ fn require_digits(bytes: &[u8], pos: usize, message: &'static str) -> Result<usi
 pub(crate) fn validate_string(text: &str) -> Result<(), LexemeError> {
     let bytes = text.as_bytes();
     if bytes.first() != Some(&b'"') {
-        return Err(LexemeError::new(0, "strings must be enclosed in double quotes"));
+        return Err(LexemeError::new(
+            0,
+            "strings must be enclosed in double quotes",
+        ));
     }
     let mut pos = 1;
     while let Some(&byte) = bytes.get(pos) {
@@ -110,7 +116,10 @@ fn validate_escape(bytes: &[u8], pos: usize) -> Result<usize, LexemeError> {
             if digits.is_some_and(|d| d.iter().all(u8::is_ascii_hexdigit)) {
                 Ok(pos + UNICODE_ESCAPE_LEN)
             } else {
-                Err(LexemeError::new(pos, "\\u must be followed by four hexadecimal digits"))
+                Err(LexemeError::new(
+                    pos,
+                    "\\u must be followed by four hexadecimal digits",
+                ))
             }
         }
         _ => Err(LexemeError::new(
@@ -178,14 +187,25 @@ mod tests {
 
     #[test]
     fn accepts_rfc_number_forms() {
-        for text in ["0", "-0", "12", "-1.5", "1e9", "1E+2", "0.5e-3", "123456789012345678901234567890"] {
+        for text in [
+            "0",
+            "-0",
+            "12",
+            "-1.5",
+            "1e9",
+            "1E+2",
+            "0.5e-3",
+            "123456789012345678901234567890",
+        ] {
             assert_eq!(validate_number(text), Ok(()), "{text}");
         }
     }
 
     #[test]
     fn rejects_non_rfc_number_forms() {
-        for text in ["01", "-", "1.", ".5", "+1", "1e", "1e+", "0x1F", "Infinity", "1.0.0", "-01"] {
+        for text in [
+            "01", "-", "1.", ".5", "+1", "1e", "1e+", "0x1F", "Infinity", "1.0.0", "-01",
+        ] {
             assert!(validate_number(text).is_err(), "{text}");
         }
     }

@@ -119,8 +119,6 @@ fn inside_export(node: Node<'_>) -> bool {
 
 fn has_static_storage(parsed: &ParsedSource<'_>, node: Node<'_>) -> bool {
     let mut cursor = node.walk();
-    let found = node.children(&mut cursor).any(|child| {
-        child.kind() == "storage_class_specifier" && parsed.text(child) == "static"
-    });
-    found
+    node.children(&mut cursor)
+        .any(|child| child.kind() == "storage_class_specifier" && parsed.text(child) == "static")
 }

@@ -1,0 +1,8 @@
+[
+  "field name @2:4 [2:3-2:16] | \"name\": \"app\"",
+  "field scripts @3:4 [3:3-6:4] | \"scripts\"",
+  "  field build in scripts @4:6 [4:5-4:19] | \"build\": \"tsc\"",
+  "  field test in scripts @5:6 [5:5-5:19] | \"test\": \"jest\"",
+  "field dependencies @7:4 [7:3-9:4] | \"dependencies\"",
+  "  field react in dependencies @8:6 [8:5-8:23] | \"react\": \"^18.0.0\""
+]

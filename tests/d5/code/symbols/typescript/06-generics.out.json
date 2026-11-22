@@ -1,0 +1,6 @@
+[
+  "function identity @1:17 [1:8-3:2] exported | function identity<T>(value: T): T",
+  "class Box @5:14 [5:8-11:2] exported | class Box<T>",
+  "  method constructor in Box @6:3 [6:3-6:34] exported | constructor(public value: T)",
+  "  method map in Box @8:3 [8:3-10:4] exported | map<U>(f: (v: T) => U): Box<U>"
+]

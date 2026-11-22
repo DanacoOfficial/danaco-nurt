@@ -135,8 +135,11 @@ fn append_parent(doc: &IniDocument, key: &KeyPath) -> Result<Option<KeyPath>, Er
     let Some(last) = key.segments().last() else {
         return Ok(None);
     };
-    let parent = KeyPath::new(key.document(), key.segments()[..key.segments().len() - 1].to_vec())
-        .map_err(|error| key_conflict(&error.to_string(), "key path", &[]))?;
+    let parent = KeyPath::new(
+        key.document(),
+        key.segments()[..key.segments().len() - 1].to_vec(),
+    )
+    .map_err(|error| key_conflict(&error.to_string(), "key path", &[]))?;
     match last {
         KeySegment::Append => Ok(Some(parent)),
         KeySegment::Index(index) if *index >= 0 => {
@@ -149,7 +152,10 @@ fn append_parent(doc: &IniDocument, key: &KeyPath) -> Result<Option<KeyPath>, Er
                 Err(_) => None,
             };
             Ok(length
-                .filter(|&len| normalize_index(*index, len).is_none() && usize::try_from(*index).ok() == Some(len))
+                .filter(|&len| {
+                    normalize_index(*index, len).is_none()
+                        && usize::try_from(*index).ok() == Some(len)
+                })
                 .map(|_| parent))
         }
         _ => Ok(None),
@@ -223,7 +229,10 @@ fn texts(value: &Value) -> Result<Vec<String>, Error> {
         .into_iter()
         .map(|item| {
             scalar_text(item).ok_or_else(|| {
-                unsupported(NESTED, "list elements of INI keys are text; write scalars only")
+                unsupported(
+                    NESTED,
+                    "list elements of INI keys are text; write scalars only",
+                )
             })
         })
         .collect()
@@ -287,7 +296,10 @@ impl<'a> Planner<'a> {
                 if self.is_list_profile() || entry.list_suffix {
                     self.replace_occurrences(&[*id], &texts(value)?)
                 } else {
-                    Err(unsupported(NESTED, "this INI profile has no lists; write one value"))
+                    Err(unsupported(
+                        NESTED,
+                        "this INI profile has no lists; write one value",
+                    ))
                 }
             }
             (Node::Leaf(id), _) => {
@@ -442,7 +454,7 @@ impl<'a> Planner<'a> {
             node = map.get(name)?;
         }
         match node {
-            Node::Map(map) if path.is_empty() => Some(0).filter(|_| map.ids.is_empty()),
+            Node::Map(map) if path.is_empty() => map.ids.is_empty().then_some(0),
             Node::Map(map) => map.ids.last().copied(),
             _ => None,
         }
@@ -536,9 +548,15 @@ impl<'a> Planner<'a> {
         let target = self.parsed().lines[line];
         let newline = self.newline;
         let text = if target.end == target.content_end {
-            lines.iter().map(|l| format!("{newline}{l}")).collect::<String>()
+            lines
+                .iter()
+                .map(|l| format!("{newline}{l}"))
+                .collect::<String>()
         } else {
-            lines.iter().map(|l| format!("{l}{newline}")).collect::<String>()
+            lines
+                .iter()
+                .map(|l| format!("{l}{newline}"))
+                .collect::<String>()
         };
         self.insert(target.end, &text);
     }
@@ -623,8 +641,12 @@ impl<'a> Planner<'a> {
                 && !name.contains(['\n', '\r'])
         };
         match (self.doc.profile, path) {
-            (IniProfile::Gitconfig, [section]) if git_name(section, true) => Ok(format!("[{section}]")),
-            (IniProfile::Gitconfig, [section, sub]) if git_name(section, true) && !sub.contains(['\n', '\r']) => {
+            (IniProfile::Gitconfig, [section]) if git_name(section, true) => {
+                Ok(format!("[{section}]"))
+            }
+            (IniProfile::Gitconfig, [section, sub])
+                if git_name(section, true) && !sub.contains(['\n', '\r']) =>
+            {
                 let escaped = sub.replace('\\', "\\\\").replace('"', "\\\"");
                 Ok(format!("[{section} \"{escaped}\"]"))
             }
@@ -664,7 +686,9 @@ impl<'a> Planner<'a> {
             }
             ([key], _) if !git => (Vec::new(), Some(key.clone())),
             ([section, key], _) => (vec![section.clone()], Some(key.clone())),
-            ([section, sub, key], _) if git => (vec![section.clone(), sub.clone()], Some(key.clone())),
+            ([section, sub, key], _) if git => {
+                (vec![section.clone(), sub.clone()], Some(key.clone()))
+            }
             ([_], _) => {
                 return Err(unsupported(
                     GLOBAL_KEY,
@@ -714,7 +738,10 @@ impl<'a> Planner<'a> {
             };
             let Some(Node::Leaf(last)) = last else {
                 return Err(key_conflict(
-                    &format!("`{}` is not a list; `[+]` adds an element to a list", hit.key()),
+                    &format!(
+                        "`{}` is not a list; `[+]` adds an element to a list",
+                        hit.key()
+                    ),
                     "not a list",
                     &[],
                 ));
@@ -770,7 +797,10 @@ impl<'a> Planner<'a> {
             first -= 1;
         }
         let last = parsed.lines[end_line - 1];
-        let mut start = parsed.lines[first].start.max(if first == 0 { bom_len(self.text()) } else { 0 });
+        let mut start =
+            parsed.lines[first]
+                .start
+                .max(if first == 0 { bom_len(self.text()) } else { 0 });
         if end_line == parsed.lines.len() && last.end == last.content_end && first > 0 {
             start = parsed.lines[first - 1].content_end;
         }
@@ -779,16 +809,20 @@ impl<'a> Planner<'a> {
 }
 
 fn bom_len(text: &str) -> usize {
-    if text.starts_with(super::BOM) { BOM_LEN } else { 0 }
+    if text.starts_with(super::BOM) {
+        BOM_LEN
+    } else {
+        0
+    }
 }
 
 /// Git section names: letters, digits, `-` and `.`; variable names: letters,
 /// digits and `-`, starting with a letter.
 fn git_name(name: &str, section: bool) -> bool {
     let mut chars = name.chars();
-    let first_ok = chars
-        .next()
-        .is_some_and(|c| c.is_ascii_alphabetic() || (section && (c.is_ascii_digit() || c == '-' || c == '.')));
+    let first_ok = chars.next().is_some_and(|c| {
+        c.is_ascii_alphabetic() || (section && (c.is_ascii_digit() || c == '-' || c == '.'))
+    });
     first_ok && chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || (section && c == '.'))
 }
 

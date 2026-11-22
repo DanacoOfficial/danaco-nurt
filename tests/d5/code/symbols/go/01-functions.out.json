@@ -1,0 +1,4 @@
+[
+  "function main @3:6 [3:1-5:2] private | func main()",
+  "function helper @7:6 [7:1-9:2] private | func helper(x int) int"
+]

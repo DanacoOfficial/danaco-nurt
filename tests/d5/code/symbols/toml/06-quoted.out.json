@@ -1,0 +1,4 @@
+[
+  "field quoted key @1:1 [1:1-1:17] | \"quoted key\" = 1",
+  "field literal key @2:1 [2:1-2:18] | 'literal key' = 2"
+]

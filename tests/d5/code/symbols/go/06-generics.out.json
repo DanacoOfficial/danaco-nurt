@@ -1,0 +1,6 @@
+[
+  "function Map @3:6 [3:1-9:2] exported | func Map[T any, U any](items []T, f func(T) U) []U",
+  "struct Stack @11:6 [11:6-13:2] exported | Stack[T any] struct",
+  "  field items in Stack @12:2 [12:2-12:11] private | items []T",
+  "  method Push in Stack @15:20 [15:1-17:2] exported | func (s *Stack[T]) Push(value T)"
+]

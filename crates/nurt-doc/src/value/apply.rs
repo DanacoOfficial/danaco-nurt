@@ -83,7 +83,11 @@ pub fn apply_set(
 /// assert_eq!(root, Value::from_plain_json(serde_json::json!({"a": [2]})));
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub fn apply_remove(root: &mut Value, key: &KeyPath, semantics: &dyn FormatSemantics) -> Result<()> {
+pub fn apply_remove(
+    root: &mut Value,
+    key: &KeyPath,
+    semantics: &dyn FormatSemantics,
+) -> Result<()> {
     let steps = steps(key, semantics)?;
     let Some((last, path)) = steps.split_last() else {
         *document(root, key)? = Value::Null;
@@ -160,7 +164,9 @@ fn document<'v>(root: &'v mut Value, key: &KeyPath) -> Result<&'v mut Value> {
         Some(DocSelector::Index(index)) => {
             let at = usize::try_from(index).unwrap_or(usize::MAX);
             match root {
-                Value::List(documents) => documents.get_mut(at).ok_or_else(|| key_not_found(key, &[])),
+                Value::List(documents) => {
+                    documents.get_mut(at).ok_or_else(|| key_not_found(key, &[]))
+                }
                 other => Err(conflict(key, other)),
             }
         }
@@ -174,7 +180,12 @@ fn document<'v>(root: &'v mut Value, key: &KeyPath) -> Result<&'v mut Value> {
 
 /// Member or element for the step, created when missing; `next` decides
 /// whether a missing container is a map or a list.
-fn child<'v>(current: &'v mut Value, step: &Step, next: Option<&Step>, key: &KeyPath) -> Result<&'v mut Value> {
+fn child<'v>(
+    current: &'v mut Value,
+    step: &Step,
+    next: Option<&Step>,
+    key: &KeyPath,
+) -> Result<&'v mut Value> {
     if current.is_null() {
         *current = match step {
             Step::Name(_) => Value::Map(Fields::new()),
@@ -186,7 +197,9 @@ fn child<'v>(current: &'v mut Value, step: &Step, next: Option<&Step>, key: &Key
         _ => Value::Map(Fields::new()),
     };
     match (current, step) {
-        (Value::Map(fields), Step::Name(name)) => Ok(fields.entry(name.clone()).or_insert_with(fresh)),
+        (Value::Map(fields), Step::Name(name)) => {
+            Ok(fields.entry(name.clone()).or_insert_with(fresh))
+        }
         (Value::List(items), Step::Index(index)) => {
             let at = position(items.len(), *index, true).ok_or_else(|| key_not_found(key, &[]))?;
             if at == items.len() {
@@ -199,7 +212,9 @@ fn child<'v>(current: &'v mut Value, step: &Step, next: Option<&Step>, key: &Key
             items.last_mut().ok_or_else(|| key_not_found(key, &[]))
         }
         (Value::List(items), Step::Name(name)) => {
-            let at: usize = name.parse().map_err(|_| conflict(key, &Value::List(Vec::new())))?;
+            let at: usize = name
+                .parse()
+                .map_err(|_| conflict(key, &Value::List(Vec::new())))?;
             items.get_mut(at).ok_or_else(|| key_not_found(key, &[]))
         }
         (other, _) => Err(conflict(key, other)),
@@ -213,7 +228,9 @@ fn existing<'v>(current: &'v mut Value, step: &Step, key: &KeyPath) -> Result<&'
             let at = position(items.len(), *index, false);
             at.and_then(|at| items.get_mut(at))
         }
-        (Value::List(items), Step::Name(name)) => name.parse::<usize>().ok().and_then(|at| items.get_mut(at)),
+        (Value::List(items), Step::Name(name)) => {
+            name.parse::<usize>().ok().and_then(|at| items.get_mut(at))
+        }
         (other, _) => return Err(conflict(key, other)),
     };
     found.ok_or_else(|| key_not_found(key, &[]))
@@ -240,7 +257,9 @@ fn put(current: &mut Value, last: &Step, value: Value, key: &KeyPath) -> Result<
             }
         }
         (Value::List(items), Step::Name(name)) => {
-            let at: usize = name.parse().map_err(|_| conflict(key, &Value::List(Vec::new())))?;
+            let at: usize = name
+                .parse()
+                .map_err(|_| conflict(key, &Value::List(Vec::new())))?;
             let slot = items.get_mut(at).ok_or_else(|| key_not_found(key, &[]))?;
             *slot = value;
         }

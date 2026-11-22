@@ -16,6 +16,9 @@
 
 mod edit;
 mod encode;
+mod format;
+
+pub use format::TomlFormat;
 
 use std::ops::Range;
 
@@ -33,8 +36,14 @@ use crate::formats::ini::support::tree::{Map, Node, resolve};
 /// File name extension of TOML documents.
 pub const EXTENSIONS: [&str; 1] = ["toml"];
 
-/// File names of TOML documents without the `.toml` extension.
-pub const FILE_NAMES: [&str; 3] = ["Cargo.lock", "Pipfile", "poetry.lock"];
+/// File names of TOML documents without the `.toml` extension, lower case.
+pub const FILE_NAMES: [&str; 3] = ["cargo.lock", "pipfile", "poetry.lock"];
+
+/// Registration function of the format `toml`.
+#[must_use]
+pub fn formats() -> Vec<Box<dyn crate::registry::DocFormat>> {
+    vec![Box::new(TomlFormat)]
+}
 
 /// Name of the format in error messages.
 const FORMAT: &str = "toml";
@@ -82,10 +91,10 @@ pub(crate) enum Found<'a> {
 /// Structure that holds a located node.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Parent<'a> {
-    Table(&'a Table),
+    Table,
     Inline(&'a InlineTable),
     Array(&'a Array),
-    Tables(&'a ArrayOfTables),
+    Tables,
 }
 
 /// Located node with the key or index under which its parent holds it.
@@ -268,7 +277,13 @@ impl TomlDocument {
     pub(crate) fn pair_block(&self, key: &Key, value_end: usize) -> Option<Range<usize>> {
         let first = self.line_of(key.span()?.start);
         let last = self.line_of(value_end.saturating_sub(1));
-        Some(block_range(&self.lines, &self.comment_lines, first, last, 0))
+        Some(block_range(
+            &self.lines,
+            &self.comment_lines,
+            first,
+            last,
+            0,
+        ))
     }
 
     /// Byte range of a table header with its content, up to the comment
@@ -371,7 +386,10 @@ impl TomlDocument {
 
 fn root_table(doc: &Document<String>) -> Result<&Table, Error> {
     doc.as_item().as_table().ok_or_else(|| {
-        Error::new(ErrorCode::DocParse, "toml document has no root table; check the document")
+        Error::new(
+            ErrorCode::DocParse,
+            "toml document has no root table; check the document",
+        )
     })
 }
 
@@ -428,7 +446,7 @@ fn step<'a>(found: Found<'a>, segment: &KeySegment) -> Option<Located<'a>> {
             let (key, item) = table.get_key_value(name)?;
             Some(Located {
                 found: found_of(item)?,
-                parent: Some(Parent::Table(table)),
+                parent: Some(Parent::Table),
                 key: Some(key),
                 index: 0,
             })
@@ -455,7 +473,7 @@ fn step<'a>(found: Found<'a>, segment: &KeySegment) -> Option<Located<'a>> {
             let index = usize::try_from(*index).ok()?;
             Some(Located {
                 found: Found::Table(tables.get(index)?),
-                parent: Some(Parent::Tables(tables)),
+                parent: Some(Parent::Tables),
                 key: None,
                 index,
             })

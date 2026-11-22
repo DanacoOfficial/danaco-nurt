@@ -1,0 +1,11 @@
+[Unit]
+Description=Unit 12
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/app --port 8012
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

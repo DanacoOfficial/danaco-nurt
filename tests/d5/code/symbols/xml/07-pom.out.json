@@ -1,0 +1,8 @@
+[
+  "field project @1:2 [1:1-9:11] | <project>",
+  "  field groupId in project @2:4 [2:3-2:33] | <groupId>org.example</groupId>",
+  "  field artifactId in project @3:4 [3:3-3:31] | <artifactId>app</artifactId>",
+  "  field dependencies in project @4:4 [4:3-8:18] | <dependencies>",
+  "    field dependency in project.dependencies @5:6 [5:5-7:18] | <dependency>",
+  "      field artifactId in project.dependencies.dependency @6:8 [6:7-6:37] | <artifactId>junit</artifactId>"
+]

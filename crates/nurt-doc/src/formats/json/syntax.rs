@@ -144,7 +144,10 @@ pub(crate) fn parse(text: &str, dialect: Dialect) -> Result<Tree, SyntaxError> {
     let parsed = jsonc_parser::parse_to_ast(text, &CollectOptions::default(), &options)
         .map_err(|error| SyntaxError::new(error.range().start, parser_message(error.kind())))?;
     let Some(value) = parsed.value else {
-        return Err(SyntaxError::new(text.len(), "document is empty; a JSON document holds one value"));
+        return Err(SyntaxError::new(
+            text.len(),
+            "document is empty; a JSON document holds one value",
+        ));
     };
     let mut builder = Builder {
         text,
@@ -179,7 +182,12 @@ fn parser_message(kind: &jsonc_parser::errors::ParseErrorKind) -> String {
 fn lowercase_first(text: &str) -> String {
     let mut chars = text.chars();
     chars.next().map_or_else(String::new, |first| {
-        first.to_lowercase().chain(chars).collect::<String>().trim_end_matches('.').to_owned()
+        first
+            .to_lowercase()
+            .chain(chars)
+            .collect::<String>()
+            .trim_end_matches('.')
+            .to_owned()
     })
 }
 
@@ -281,7 +289,8 @@ impl Builder<'_> {
 
     fn string(&self, lit: &ast::StringLit<'_>) -> Result<String, SyntaxError> {
         let span = Span::new(lit.start(), lit.end());
-        lexeme::validate_string(&self.text[span.start..span.end]).map_err(|error| lexeme_error(span, &error))?;
+        lexeme::validate_string(&self.text[span.start..span.end])
+            .map_err(|error| lexeme_error(span, &error))?;
         Ok(lit.value.clone().into_owned())
     }
 
@@ -290,9 +299,16 @@ impl Builder<'_> {
         let mut cursor = object.start() + 1;
         for prop in &object.properties {
             let ast::ObjectPropName::String(name) = &prop.name else {
-                return Err(SyntaxError::new(prop.name.start(), "object member names must be strings in double quotes"));
+                return Err(SyntaxError::new(
+                    prop.name.start(),
+                    "object member names must be strings in double quotes",
+                ));
             };
-            let separator = if entries.is_empty() { &[][..] } else { &[b','][..] };
+            let separator = if entries.is_empty() {
+                &[][..]
+            } else {
+                &b","[..]
+            };
             let comma = self.gap(cursor, name.start(), separator)?;
             set_previous_comma(&mut entries, comma);
             let key = Key {
@@ -316,7 +332,11 @@ impl Builder<'_> {
         let mut entries = Vec::with_capacity(array.elements.len());
         let mut cursor = array.start() + 1;
         for element in &array.elements {
-            let separator = if entries.is_empty() { &[][..] } else { &[b','][..] };
+            let separator = if entries.is_empty() {
+                &[][..]
+            } else {
+                &b","[..]
+            };
             let comma = self.gap(cursor, element.start(), separator)?;
             set_previous_comma(&mut entries, comma);
             let value = self.value(element)?;
@@ -333,7 +353,12 @@ impl Builder<'_> {
 
     /// Checks the gap before the closing bracket and records a trailing
     /// comma.
-    fn close(&mut self, entries: &mut [Entry], cursor: usize, closing: usize) -> Result<(), SyntaxError> {
+    fn close(
+        &mut self,
+        entries: &mut [Entry],
+        cursor: usize,
+        closing: usize,
+    ) -> Result<(), SyntaxError> {
         let trailing_allowed = self.dialect == Dialect::Jsonc && !entries.is_empty();
         let comma = self.gap_with(cursor, closing, |found| {
             found.is_empty() || (trailing_allowed && found == b",")
@@ -342,7 +367,12 @@ impl Builder<'_> {
         Ok(())
     }
 
-    fn gap(&mut self, start: usize, end: usize, expected: &[u8]) -> Result<Option<usize>, SyntaxError> {
+    fn gap(
+        &mut self,
+        start: usize,
+        end: usize,
+        expected: &[u8],
+    ) -> Result<Option<usize>, SyntaxError> {
         self.gap_with(start, end, |found| found == expected)
     }
 
@@ -361,7 +391,9 @@ impl Builder<'_> {
         while pos < end {
             match bytes[pos] {
                 b' ' | b'\t' | b'\n' | b'\r' => pos += 1,
-                b'/' if self.dialect == Dialect::Jsonc && matches!(bytes.get(pos + 1), Some(b'/' | b'*')) => {
+                b'/' if self.dialect == Dialect::Jsonc
+                    && matches!(bytes.get(pos + 1), Some(b'/' | b'*')) =>
+                {
                     let comment_end = if bytes[pos + 1] == b'/' {
                         skip_line_comment(bytes, pos)
                     } else {
@@ -383,7 +415,10 @@ impl Builder<'_> {
         if accept(&punctuation) {
             Ok(comma)
         } else {
-            Err(SyntaxError::new(start, "unexpected or missing separator between values"))
+            Err(SyntaxError::new(
+                start,
+                "unexpected or missing separator between values",
+            ))
         }
     }
 }
@@ -397,7 +432,10 @@ fn set_previous_comma(entries: &mut [Entry], comma: Option<usize>) {
 fn unexpected_message(text: &str, pos: usize) -> String {
     let found = text[pos..].chars().next().unwrap_or(' ');
     if found.is_whitespace() {
-        format!("whitespace U+{:04X} is not allowed in JSON; use space, tab or line breaks", u32::from(found))
+        format!(
+            "whitespace U+{:04X} is not allowed in JSON; use space, tab or line breaks",
+            u32::from(found)
+        )
     } else {
         format!("unexpected character '{found}'")
     }

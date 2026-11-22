@@ -1,0 +1,6 @@
+[
+  "class Circle @1:7 [1:1-8:2] exported | class Circle : public Shape",
+  "  method Circle in Circle @3:14 [3:5-3:41] exported | explicit Circle(double r) : r_(r)",
+  "  method area in Circle @4:12 [4:5-4:60] exported | double area() const override",
+  "  field r_ in Circle @7:12 [7:5-7:15] exported | double r_;"
+]

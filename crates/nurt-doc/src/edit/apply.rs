@@ -72,10 +72,10 @@ impl OffsetMap {
     #[must_use]
     pub fn map(&self, offset: usize) -> usize {
         let before = self.old.partition_point(|span| span.end <= offset);
-        if let (Some(old), Some(new)) = (self.old.get(before), self.new.get(before)) {
-            if old.start < offset {
-                return new.start;
-            }
+        if let (Some(old), Some(new)) = (self.old.get(before), self.new.get(before))
+            && old.start < offset
+        {
+            return new.start;
         }
         match before.checked_sub(1) {
             Some(last) => offset - self.old[last].end + self.new[last].end,

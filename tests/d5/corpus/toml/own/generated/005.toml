@@ -1,0 +1,29 @@
+[owner]
+name.first = "Tom"
+name.last = "Preston-Werner"
+site."example.org" = true
+
+[[fruits]]
+name = "apple"
+
+[fruits.physical]
+color = "red"
+shape = "round"
+
+[[fruits.varieties]]
+name = "red delicious"
+
+[[fruits]]
+name = "banana"
+
+[[products]]
+name = "Hammer"
+sku = 738594937
+
+[[products]]
+
+[[products]]
+name = "Nail"
+sku = 284758393
+color = "gray"
+

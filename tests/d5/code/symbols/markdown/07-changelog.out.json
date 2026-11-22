@@ -1,0 +1,5 @@
+[
+  "module Changelog @1:3 [1:1-8:1] | # Changelog",
+  "  module [Unreleased] in Changelog @3:4 [3:1-8:1] | ## [Unreleased]",
+  "    module Added in Changelog.[Unreleased] @5:5 [5:1-8:1] | ### Added"
+]

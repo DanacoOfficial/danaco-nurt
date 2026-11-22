@@ -3,14 +3,14 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Escapes of property files as defined by `java.util.Properties`.
 
-/// Number of hexadecimal digits of a `\uXXXX` escape.
+/// Number of hexadecimal digits of a `\uHHHH` escape.
 const UNICODE_DIGITS: usize = 4;
 
 /// Highest character of ISO-8859-1.
 const LATIN1_MAX: char = '\u{ff}';
 
 /// Decodes the escapes of a key or value: `\t`, `\n`, `\r`, `\f`,
-/// `\uXXXX` (with UTF-16 surrogate pairs) and `\c` for any other `c`.
+/// `\uHHHH` (with UTF-16 surrogate pairs) and `\c` for any other `c`.
 ///
 /// Returns a message describing the defect for a malformed `\u` escape or
 /// an unpaired surrogate.
@@ -34,7 +34,11 @@ pub(crate) fn unescape(raw: &[char]) -> Result<String, &'static str> {
         i += 1;
         let unit = match next {
             'u' => {
-                let digits: String = raw.get(i..i + UNICODE_DIGITS).ok_or(MALFORMED)?.iter().collect();
+                let digits: String = raw
+                    .get(i..i + UNICODE_DIGITS)
+                    .ok_or(MALFORMED)?
+                    .iter()
+                    .collect();
                 i += UNICODE_DIGITS;
                 u16::from_str_radix(&digits, 16).map_err(|_| MALFORMED)?
             }
@@ -61,7 +65,8 @@ pub(crate) fn unescape(raw: &[char]) -> Result<String, &'static str> {
                     .ok_or("unpaired surrogate in a \\u escape")?;
                 out.push(c);
             }
-            (None, _) => out.push(char::from_u32(u32::from(unit)).ok_or("unpaired surrogate in a \\u escape")?),
+            (None, _) => out
+                .push(char::from_u32(u32::from(unit)).ok_or("unpaired surrogate in a \\u escape")?),
             (Some(_), _) => return Err("unpaired surrogate in a \\u escape"),
         }
     }
@@ -71,7 +76,7 @@ pub(crate) fn unescape(raw: &[char]) -> Result<String, &'static str> {
     Ok(out)
 }
 
-const MALFORMED: &str = "malformed \\uXXXX escape; write four hexadecimal digits";
+const MALFORMED: &str = "malformed \\uHHHH escape; write four hexadecimal digits";
 
 /// Part of a key or value written by [`escape`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,7 +90,7 @@ pub(crate) enum Part {
 }
 
 /// Escapes `text` for a property file; characters outside ISO-8859-1 are
-/// written as `\uXXXX` when `latin1` is set, control characters always.
+/// written as `\uHHHH` when `latin1` is set, control characters always.
 pub(crate) fn escape(text: &str, part: Part, latin1: bool) -> String {
     let mut out = String::with_capacity(text.len());
     for (i, c) in text.chars().enumerate() {
@@ -149,7 +154,15 @@ mod tests {
 
     #[test]
     fn escapes_values_that_read_back_unchanged() {
-        let samples = [" lead", "a=b:c", "tab\tnl\n", "#hash", "zażółć", "\u{1F600}", "\\"];
+        let samples = [
+            " lead",
+            "a=b:c",
+            "tab\tnl\n",
+            "#hash",
+            "λ€üé",
+            "\u{1F600}",
+            "\\",
+        ];
         for latin1 in [true, false] {
             for part in [Part::Key, Part::Value, Part::Continuation] {
                 for sample in samples {
@@ -163,6 +176,6 @@ mod tests {
         }
         assert_eq!(escape("a b", Part::Key, false), "a\\ b");
         assert_eq!(escape("a b", Part::Value, false), "a b");
-        assert_eq!(escape("ż", Part::Value, true), "\\u017C");
+        assert_eq!(escape("€", Part::Value, true), "\\u20AC");
     }
 }

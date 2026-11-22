@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Editor
+Name[fr]=Éditeur
+GenericName=Text Editor
+Exec=editor %F
+Icon=editor
+Categories=Utility;TextEditor;
+MimeType=text/plain;
+
+[Desktop Action new-window]
+Name=New Window
+Exec=editor --new-window

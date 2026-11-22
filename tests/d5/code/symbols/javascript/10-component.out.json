@@ -1,0 +1,4 @@
+[
+  "function Button @1:17 [1:8-3:2] exported | function Button({ label })",
+  "function App @5:7 [5:7-5:40] private | App = () => <Button label=\"ok\" />"
+]

@@ -200,7 +200,9 @@ const BUILTIN: &[Builtin] = &[
     Builtin {
         id: "cpp",
         name: "C++",
-        extensions: &["cc", "cpp", "cxx", "c++", "hpp", "hh", "hxx", "h++", "ipp", "inl"],
+        extensions: &[
+            "cc", "cpp", "cxx", "c++", "hpp", "hh", "hxx", "h++", "ipp", "inl",
+        ],
         file_names: NONE,
         interpreters: NONE,
         aliases: &["c++", "cxx"],
@@ -463,7 +465,11 @@ mod tests {
             let grammar = registry
                 .grammar(&id)
                 .unwrap_or_else(|error| panic!("{}: {error}", builtin.id));
-            assert!(grammar.tags().is_some(), "{} has no symbol query", builtin.id);
+            assert!(
+                grammar.tags().is_some(),
+                "{} has no symbol query",
+                builtin.id
+            );
             assert_eq!(grammar.locals().is_some(), builtin.locals.is_some());
         }
     }

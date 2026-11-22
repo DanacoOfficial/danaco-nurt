@@ -1,0 +1,4 @@
+[
+  "struct Vec @1:8 [1:1-5:2] exported | struct Vec",
+  "  field x in Vec @2:9 [2:5-2:11] exported | int x;"
+]

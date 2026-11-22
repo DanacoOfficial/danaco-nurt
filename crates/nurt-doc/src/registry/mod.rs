@@ -5,10 +5,15 @@
 //!
 //! Every format implements [`DocFormat`] and is registered in a
 //! [`Registry`]. The registry detects the format of a file from the
-//! `format` parameter, the file name (`.env`, `Cargo.lock`, `pom.xml`), the
-//! extension and the content, enforces `documents.max_bytes`, decodes text
-//! formats from UTF-8 with or without a byte order mark and from UTF-16, and
-//! checks on opening that the document keeps the file byte for byte.
+//! `format` parameter, the file name (`.env`, `Cargo.lock`, `pom.xml`,
+//! `.vscode/settings.json`), the extension and the content, enforces
+//! `documents.max_bytes`, decodes text formats from UTF-8 with or without a
+//! byte order mark and from UTF-16, and checks on opening that the document
+//! keeps the file byte for byte.
+//!
+//! Each module of [`crate::formats`] provides a registration function
+//! `pub fn formats() -> Vec<Box<dyn DocFormat>>` listed in
+//! `formats::BUILTIN`; [`Registry::builtin`] registers all of them.
 //!
 //! ```
 //! use nurt_doc::registry::{DocOptions, Registry};
@@ -21,12 +26,12 @@
 mod encoding;
 
 use std::fmt;
-use std::path::Path;
+use std::path::{Component, Path};
 
 use nurt_contracts::config::{DocumentsConfig, YamlVersion};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::services::{
-    DocFormatId, DocFormatInfo, IssueSeverity, SyntaxIssue, TextPosition, TextSpan,
+    ByteRange, DocFormatId, DocFormatInfo, IssueSeverity, SyntaxIssue, TextPosition, TextSpan,
 };
 
 pub use encoding::TextEncoding;
@@ -114,8 +119,13 @@ pub trait DocFormat: Send + Sync {
     /// File name extensions without the leading period, lower case.
     fn extensions(&self) -> &[&'static str];
 
-    /// File names of the format, lower case; a name ending with `*` matches
-    /// every name with that prefix (`.env.*`).
+    /// File name patterns of the format, lower case.
+    ///
+    /// A pattern is an exact name (`cargo.lock`), a name with one `*`
+    /// matching any run of characters (`.env.*`), or names separated by `/`
+    /// matched against the last components of the path (`.vscode/*.json`).
+    /// When patterns of several formats match, the one with the larger
+    /// number of components wins.
     fn file_names(&self) -> &[&'static str] {
         &[]
     }
@@ -143,6 +153,25 @@ pub trait DocFormat: Send + Sync {
     /// format.
     fn open(&self, content: Vec<u8>, options: &DocOptions) -> Result<Box<dyn DocHandle>>;
 
+    /// Opens a document of the file at `path`.
+    ///
+    /// A format whose dialect follows from the file name (INI profiles of
+    /// `.service` units, `.gitconfig` or `php.ini`) overrides it, so that the
+    /// dialect does not depend on the content and stays the same after a
+    /// change. The default ignores the path and calls [`DocFormat::open`].
+    ///
+    /// # Errors
+    ///
+    /// Fails as described for [`DocFormat::open`].
+    fn open_at(
+        &self,
+        _path: Option<&Path>,
+        content: Vec<u8>,
+        options: &DocOptions,
+    ) -> Result<Box<dyn DocHandle>> {
+        self.open(content, options)
+    }
+
     /// Syntax problems of `content`; an empty list when it parses.
     ///
     /// The default opens the document and reports the error of a failed
@@ -155,21 +184,29 @@ pub trait DocFormat: Send + Sync {
     }
 }
 
+/// Registration function of a module of [`crate::formats`]: the formats the
+/// module provides, in detection priority order.
+pub type FormatsFn = fn() -> Vec<Box<dyn DocFormat>>;
+
 /// Syntax issue describing an error with optional `line`, `column` and
 /// `byte` details.
 #[must_use]
 pub fn issue_of(error: &Error) -> SyntaxIssue {
     let detail = |name: &str| error.details.get(name).and_then(serde_json::Value::as_u64);
     let position = TextPosition {
-        line: detail("line").and_then(|line| u32::try_from(line).ok()).unwrap_or(1),
-        column: detail("column").and_then(|column| u32::try_from(column).ok()).unwrap_or(1),
+        line: detail("line")
+            .and_then(|line| u32::try_from(line).ok())
+            .unwrap_or(1),
+        column: detail("column")
+            .and_then(|column| u32::try_from(column).ok())
+            .unwrap_or(1),
     };
     let byte = detail("byte").unwrap_or_default();
     SyntaxIssue {
         severity: IssueSeverity::Error,
         message: error.message.clone(),
         span: TextSpan {
-            bytes: nurt_contracts::services::ByteRange::new(byte, byte),
+            bytes: ByteRange::new(byte, byte),
             start: position,
             end: position,
         },
@@ -226,6 +263,20 @@ impl Registry {
         Self::default()
     }
 
+    /// Registry with every built-in format, in the order of
+    /// `formats::BUILTIN`.
+    #[must_use]
+    pub fn builtin() -> Self {
+        Self::from_functions(crate::formats::BUILTIN)
+    }
+
+    /// Registry with the formats returned by the registration functions,
+    /// in order.
+    #[must_use]
+    pub fn from_functions(functions: &[FormatsFn]) -> Self {
+        Self::with(functions.iter().flat_map(|formats| formats()))
+    }
+
     /// Registry with the given formats.
     #[must_use]
     pub fn with(formats: impl IntoIterator<Item = Box<dyn DocFormat>>) -> Self {
@@ -259,26 +310,26 @@ impl Registry {
             .iter()
             .map(|format| DocFormatInfo {
                 id: format.id(),
-                extensions: format.extensions().iter().map(|ext| (*ext).to_owned()).collect(),
+                extensions: format
+                    .extensions()
+                    .iter()
+                    .map(|ext| (*ext).to_owned())
+                    .collect(),
                 editable: format.editable(),
             })
             .collect()
     }
 
-    /// Detects the format from the file name and the content.
+    /// Detects the format from the path and the content.
     ///
-    /// A file name of a format wins; then the formats with the extension,
-    /// the one whose sniffing is the most certain; then sniffing alone, at
-    /// least [`Confidence::Medium`].
+    /// A file name pattern wins, the pattern with the larger number of path
+    /// components first; then the formats with the extension, the one whose
+    /// sniffing is the surest; then sniffing alone, at least
+    /// [`Confidence::Medium`]. The first registered format wins a tie.
     #[must_use]
     pub fn detect(&self, path: Option<&Path>, content: &[u8]) -> Option<DocFormatId> {
-        let name = path
-            .and_then(Path::file_name)
-            .map(|name| name.to_string_lossy().to_lowercase());
-        if let Some(name) = &name {
-            if let Some(format) = self.formats.iter().find(|format| matches_name(*format, name)) {
-                return Some(format.id());
-            }
+        if let Some(id) = path.and_then(|path| self.by_name(path)) {
+            return Some(id);
         }
         let extension = path
             .and_then(Path::extension)
@@ -293,11 +344,25 @@ impl Registry {
             })
             .map(AsRef::as_ref)
             .collect();
-        if let Some(format) = most_certain(&by_extension, content, Confidence::None) {
+        if let Some(format) = best_sniffed(&by_extension, content, Confidence::None) {
             return Some(format);
         }
         let all: Vec<&dyn DocFormat> = self.formats.iter().map(AsRef::as_ref).collect();
-        most_certain(&all, content, Confidence::Medium)
+        best_sniffed(&all, content, Confidence::Medium)
+    }
+
+    fn by_name(&self, path: &Path) -> Option<DocFormatId> {
+        let components = components_of(path);
+        let mut best: Option<(usize, DocFormatId)> = None;
+        for format in &self.formats {
+            let Some(width) = name_match(format.as_ref(), &components) else {
+                continue;
+            };
+            if best.as_ref().is_none_or(|(top, _)| width > *top) {
+                best = Some((width, format.id()));
+            }
+        }
+        best.map(|(_, id)| id)
     }
 
     /// Format named by the `format` parameter, or detected when the
@@ -314,7 +379,11 @@ impl Registry {
         content: &[u8],
     ) -> Result<DocFormatId> {
         if let Some(name) = requested {
-            let known: Vec<String> = self.formats.iter().map(|format| format.id().to_string()).collect();
+            let known: Vec<String> = self
+                .formats
+                .iter()
+                .map(|format| format.id().to_string())
+                .collect();
             return self
                 .formats
                 .iter()
@@ -323,7 +392,10 @@ impl Registry {
                 .ok_or_else(|| {
                     Error::new(
                         ErrorCode::UnknownValue,
-                        format!("unknown document format `{name}`; use one of: {}", known.join(", ")),
+                        format!(
+                            "unknown document format `{name}`; use one of: {}",
+                            known.join(", ")
+                        ),
                     )
                     .with_found(name)
                 });
@@ -345,7 +417,29 @@ impl Registry {
     /// valid UTF-8 or UTF-16, the errors of [`DocFormat::open`], and
     /// `E_UNSUPPORTED_CONSTRUCT` naming `doc.round_trip_loss` when the
     /// opened document would not keep the file byte for byte.
-    pub fn open(&self, id: &DocFormatId, bytes: &[u8], options: &DocOptions) -> Result<OpenDocument> {
+    pub fn open(
+        &self,
+        id: &DocFormatId,
+        bytes: &[u8],
+        options: &DocOptions,
+    ) -> Result<OpenDocument> {
+        self.open_at(id, None, bytes, options)
+    }
+
+    /// Opens a document of the format `id` from the bytes of the file at
+    /// `path`, as [`Registry::open`] does, and passes the path to
+    /// [`DocFormat::open_at`].
+    ///
+    /// # Errors
+    ///
+    /// Fails as described for [`Registry::open`].
+    pub fn open_at(
+        &self,
+        id: &DocFormatId,
+        path: Option<&Path>,
+        bytes: &[u8],
+        options: &DocOptions,
+    ) -> Result<OpenDocument> {
         let format = self.get(id).ok_or_else(|| {
             Error::new(
                 ErrorCode::UnknownValue,
@@ -353,7 +447,7 @@ impl Registry {
             )
             .with_found(id.as_str())
         })?;
-        open_with(format, bytes, options)
+        open_with_path(format, path, bytes, options)
     }
 }
 
@@ -362,7 +456,26 @@ impl Registry {
 /// # Errors
 ///
 /// Fails as described for [`Registry::open`].
-pub fn open_with(format: &dyn DocFormat, bytes: &[u8], options: &DocOptions) -> Result<OpenDocument> {
+pub fn open_with(
+    format: &dyn DocFormat,
+    bytes: &[u8],
+    options: &DocOptions,
+) -> Result<OpenDocument> {
+    open_with_path(format, None, bytes, options)
+}
+
+/// Opens a document of the file at `path` with `format`, as
+/// [`Registry::open_at`] does.
+///
+/// # Errors
+///
+/// Fails as described for [`Registry::open`].
+pub fn open_with_path(
+    format: &dyn DocFormat,
+    path: Option<&Path>,
+    bytes: &[u8],
+    options: &DocOptions,
+) -> Result<OpenDocument> {
     let size = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
     if size > options.max_bytes {
         return Err(Error::new(
@@ -378,22 +491,73 @@ pub fn open_with(format: &dyn DocFormat, bytes: &[u8], options: &DocOptions) -> 
         InputKind::Utf8Text => TextEncoding::decode(bytes)?,
         InputKind::Bytes => (TextEncoding::Utf8, bytes.to_vec()),
     };
-    let handle = format.open(text.clone(), options)?;
-    check_round_trip(&text, handle.text())?;
+    // For UTF-8 without a byte order mark and for formats that read bytes
+    // the text equals the file, so no copy is kept for the identity check.
+    let decoded = (encoding != TextEncoding::Utf8).then(|| text.clone());
+    let handle = format.open_at(path, text, options)?;
+    check_round_trip(decoded.as_deref().unwrap_or(bytes), handle.text())?;
     Ok(OpenDocument { handle, encoding })
 }
 
-fn matches_name(format: &dyn DocFormat, name: &str) -> bool {
-    format.file_names().iter().any(|pattern| match pattern.strip_suffix('*') {
-        Some(prefix) => name.starts_with(prefix),
-        None => name == *pattern,
-    })
+/// Returns `true` when the name or the extension of `path` belongs to
+/// `format`.
+pub(crate) fn matches_file(format: &dyn DocFormat, path: &Path) -> bool {
+    let extension = path
+        .extension()
+        .map(|ext| ext.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    format.extensions().contains(&extension.as_str())
+        || name_match(format, &components_of(path)).is_some()
 }
 
-/// Format with the highest confidence above `floor`; the first registered
-/// wins a tie, and a single candidate with no confidence wins when `floor`
-/// is [`Confidence::None`].
-fn most_certain(formats: &[&dyn DocFormat], content: &[u8], floor: Confidence) -> Option<DocFormatId> {
+/// Lower-case names of the components of `path`, root and `.` excluded.
+fn components_of(path: &Path) -> Vec<String> {
+    path.components()
+        .filter_map(|component| match component {
+            Component::Normal(name) => Some(name.to_string_lossy().to_lowercase()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Number of components of the widest file name pattern of `format` that
+/// matches the end of `components`.
+fn name_match(format: &dyn DocFormat, components: &[String]) -> Option<usize> {
+    format
+        .file_names()
+        .iter()
+        .filter_map(|pattern| {
+            let parts: Vec<&str> = pattern.split('/').collect();
+            let first = components.len().checked_sub(parts.len())?;
+            parts
+                .iter()
+                .zip(&components[first..])
+                .all(|(part, name)| glob(part, name))
+                .then_some(parts.len())
+        })
+        .max()
+}
+
+/// Matches `name` against a pattern with at most one `*`.
+fn glob(pattern: &str, name: &str) -> bool {
+    match pattern.split_once('*') {
+        Some((prefix, suffix)) => {
+            name.len() >= prefix.len() + suffix.len()
+                && name.starts_with(prefix)
+                && name.ends_with(suffix)
+        }
+        None => pattern == name,
+    }
+}
+
+/// Format with the highest confidence at or above `floor`; the first
+/// registered wins a tie, and a single candidate with no confidence wins
+/// when `floor` is [`Confidence::None`].
+fn best_sniffed(
+    formats: &[&dyn DocFormat],
+    content: &[u8],
+    floor: Confidence,
+) -> Option<DocFormatId> {
     if floor == Confidence::None && formats.len() == 1 {
         return formats.first().map(|format| format.id());
     }

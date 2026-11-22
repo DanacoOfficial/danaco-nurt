@@ -1,0 +1,5 @@
+[
+  "field name @1:1 [1:1-1:11] | name: nurt",
+  "field version @2:1 [2:1-2:11] | version: 1",
+  "field enabled @3:1 [3:1-3:14] | enabled: true"
+]

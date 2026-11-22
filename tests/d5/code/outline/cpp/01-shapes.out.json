@@ -1,0 +1,18 @@
+{
+  "depth_0": [
+    "module shapes @1:11 [1:1-13:2] exported | namespace shapes"
+  ],
+  "outline": [
+    "module shapes @1:11 [1:1-13:2] exported | namespace shapes",
+    "  class Circle in shapes @2:7 [2:1-8:2] exported | class Circle",
+    "    method area in shapes.Circle @4:12 [4:5-4:25] exported | double area() const;",
+    "    field radius_ in shapes.Circle @7:12 [7:5-7:20] exported | double radius_;",
+    "  method area in Circle @10:16 [10:1-12:2] exported | double Circle::area() const"
+  ],
+  "lookups": [
+    "shapes.Circle -> 1",
+    "shapes.Circle.area -> 1",
+    "shapes.Circle.radius_ -> 1",
+    "Circle.area -> 2"
+  ]
+}

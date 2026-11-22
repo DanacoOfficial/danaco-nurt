@@ -1,0 +1,19 @@
+{
+  "definitions": [
+    "import Foundation @1:8 -> []",
+    "symbol area @3:6 -> [8:13]",
+    "local r @3:13 -> [4:16, 4:20]",
+    "symbol main @7:6 -> []",
+    "local r @8:9 -> [9:11]"
+  ],
+  "unresolved": [
+    "Int",
+    "_",
+    "print"
+  ],
+  "calls": [
+    "main -> area @8:13",
+    "main -> print @9:5"
+  ],
+  "syntax": []
+}

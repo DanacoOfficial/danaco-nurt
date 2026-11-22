@@ -6,9 +6,15 @@
 //! every list with a check by the reference parser, the YAML Test Suite cases
 //! of these constructs and a comparison of merged keys with `yq`.
 
-mod u06_support;
+#![allow(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "helpers outside test functions fail the test on unexpected input"
+)]
+
 #[path = "u05_support/suite.rs"]
 mod suite;
+mod u06_support;
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -23,8 +29,8 @@ use nurt_doc::formats::yaml::model::{NodeId, NodeKind, YamlModel};
 use nurt_doc::formats::yaml::seq;
 use serde_json::Value as Json;
 use u06_support::{
-    apply_edits, corpus_dir, inside_key, json_at, reachable_by_alias, reference, suite_case_ids,
-    yaml_files,
+    apply_edits, corpus_dir, defines_used_anchor, inside_key, json_at, reachable_by_alias,
+    reference, suite_case_ids, yaml_files,
 };
 
 /// Minimum number of files of the advanced corpus.
@@ -32,6 +38,9 @@ const MIN_CORPUS_FILES: usize = 250;
 
 /// Text appended to every list by the operation test.
 const APPENDED: &str = "appended item";
+
+/// Failures listed in the message of a failed corpus test.
+const LISTED_FAILURES: usize = 20;
 
 #[derive(Default)]
 struct Tally {
@@ -50,23 +59,28 @@ impl Tally {
             "{what}: {} of {} operations failed:\n{}",
             self.failures.len(),
             self.operations,
-            self.failures.iter().take(20).cloned().collect::<Vec<_>>().join("\n")
+            self.failures
+                .iter()
+                .take(LISTED_FAILURES)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n")
         );
     }
 }
 
-fn lists(model: &YamlModel) -> Vec<NodeId> {
-    let anchors = Anchors::new(model);
+fn lists(model: &YamlModel, anchors: &Anchors) -> Vec<NodeId> {
     model
         .node_ids()
         .filter(|&id| matches!(model.node(id).kind, NodeKind::Sequence(_)))
-        .filter(|&id| !reachable_by_alias(model, &anchors, id) && !inside_key(model, id))
+        .filter(|&id| !reachable_by_alias(model, anchors, id) && !inside_key(model, id))
         .collect()
 }
 
 /// Appends to and removes the first item of every list of `text`, checking
 /// that bytes outside the edit are kept and that the reference parser reads
-/// the expected value.
+/// the expected value. An item that defines an anchor used by an alias is
+/// not removed, since the alias would be left undefined.
 fn exercise_lists(name: &str, text: &str, tally: &mut Tally) {
     let Ok(model) = YamlModel::parse(text) else {
         tally.fail(format!("{name}: does not parse"));
@@ -75,7 +89,8 @@ fn exercise_lists(name: &str, text: &str, tally: &mut Tally) {
     let Ok(before) = reference(text) else {
         return;
     };
-    for list in lists(&model) {
+    let anchors = Anchors::new(&model);
+    for list in lists(&model, &anchors) {
         let path = anchor::path_of(&model, list);
         let mut expected = before.clone();
         let Some(Json::Array(items)) = json_at(&mut expected, &path) else {
@@ -87,18 +102,27 @@ fn exercise_lists(name: &str, text: &str, tally: &mut Tally) {
             Ok(plan) => check(name, &path, "append", &model, &plan.edits, &expected, tally),
             Err(error) => tally.fail(format!("{name}: append to `{path}`: {}", error.message)),
         }
+        let first = model
+            .node(list)
+            .as_sequence()
+            .and_then(|sequence| sequence.items.first())
+            .map(|item| item.node);
+        let Some(first) = first.filter(|&item| !defines_used_anchor(&model, &anchors, item)) else {
+            continue;
+        };
         let mut expected = before.clone();
         let Some(Json::Array(items)) = json_at(&mut expected, &path) else {
             continue;
         };
-        if items.is_empty() {
-            continue;
-        }
         items.remove(0);
         tally.operations += 1;
         match seq::plan_remove(&model, list, 0, &path) {
             Ok(plan) => check(name, &path, "remove", &model, &plan.edits, &expected, tally),
-            Err(error) => tally.fail(format!("{name}: remove from `{path}`: {}", error.message)),
+            Err(error) => tally.fail(format!(
+                "{name}: remove `{path}[0]` at byte {}: {}",
+                model.node(first).span.start,
+                error.message
+            )),
         }
     }
 }
@@ -117,13 +141,20 @@ fn check(
     let first = edits.iter().map(|edit| edit.span.start).min().unwrap_or(0);
     let last = edits.iter().map(|edit| edit.span.end).max().unwrap_or(0);
     if !result.starts_with(&source[..first]) || !result.ends_with(&source[last..]) {
-        tally.fail(format!("{name}: {operation} `{path}` changed bytes outside the edit"));
+        tally.fail(format!(
+            "{name}: {operation} `{path}` changed bytes outside the edit"
+        ));
         return;
     }
+    let region = &result[first..result.len() - (source.len() - last)];
     match reference(&result) {
         Ok(after) if after == expected => {}
-        Ok(_) => tally.fail(format!("{name}: {operation} `{path}` gives another value:\n{result}")),
-        Err(error) => tally.fail(format!("{name}: {operation} `{path}` breaks the document: {error}\n{result}")),
+        Ok(_) => tally.fail(format!(
+            "{name}: {operation} `{path}` gives another value; edited text {region:?}"
+        )),
+        Err(error) => tally.fail(format!(
+            "{name}: {operation} `{path}` breaks the document: {error}; edited text {region:?}"
+        )),
     }
 }
 
@@ -163,7 +194,10 @@ fn check_bindings(name: &str, model: &YamlModel, tally: &mut Tally) {
     for id in model.node_ids() {
         let node = model.node(id);
         if matches!(node.kind, NodeKind::Alias(_)) && anchors.target(id).is_none() {
-            tally.fail(format!("{name}: alias without anchor at byte {}", node.span.start));
+            tally.fail(format!(
+                "{name}: alias without anchor at byte {}",
+                node.span.start
+            ));
         }
         let path = anchor::path_of(model, id);
         if KeyPath::parse(&path.to_string()).ok().as_ref() != Some(&path) {
@@ -205,21 +239,30 @@ fn yaml_test_suite_cases_of_these_constructs_are_read_and_edited() {
                     tally.fail(format!("{}: {}", case.id, error.message));
                 }
                 check_bindings(&case.id, &model, &mut tally);
+                exercise_lists(&case.id, &case.yaml, &mut tally);
             }
             Err(error) => tally.fail(format!("{}: {}", case.id, error.message)),
         }
-        exercise_lists(&case.id, &case.yaml, &mut tally);
     }
     tally.assert_clean("yaml-test-suite");
 }
 
 fn yq_available() -> bool {
-    Command::new("yq").arg("--version").output().is_ok_and(|output| output.status.success())
+    Command::new("yq")
+        .arg("--version")
+        .output()
+        .is_ok_and(|output| output.status.success())
 }
 
 fn yq_documents(file: &Path) -> Option<Vec<Json>> {
     let output = Command::new("yq")
-        .args(["--yaml-fix-merge-anchor-to-spec=true", "-o", "json", "-I0", "."])
+        .args([
+            "--yaml-fix-merge-anchor-to-spec=true",
+            "-o",
+            "json",
+            "-I0",
+            ".",
+        ])
         .arg(file)
         .output()
         .ok()?;
@@ -236,7 +279,6 @@ fn yq_documents(file: &Path) -> Option<Vec<Json>> {
 #[test]
 fn merged_keys_match_yq_when_yq_is_installed() {
     if !yq_available() {
-        println!("skipped: yq is not in PATH");
         return;
     }
     let mut tally = Tally::default();
@@ -269,17 +311,23 @@ fn merged_keys_match_yq_when_yq_is_installed() {
                 .filter_map(|entry| merge::key_name(&model, entry.key))
                 .collect();
             for member in merge::inherited_members(&model, map) {
-                if let (Some(scalar), Some(Json::String(theirs))) =
-                    (model.node(member.value).as_scalar(), object.get(&member.name))
-                    && &scalar.value != theirs
+                if let (Some(scalar), Some(Json::String(theirs))) = (
+                    model.node(member.value).as_scalar(),
+                    object.get(&member.name),
+                ) && &scalar.value != theirs
                 {
-                    tally.fail(format!("{name}: `{path}.{}` is `{}`, yq reads `{theirs}`", member.name, scalar.value));
+                    tally.fail(format!(
+                        "{name}: `{path}.{}` is `{}`, yq reads `{theirs}`",
+                        member.name, scalar.value
+                    ));
                 }
                 ours.insert(member.name);
             }
             let theirs: BTreeSet<String> = object.keys().cloned().collect();
             if ours != theirs {
-                tally.fail(format!("{name}: keys of `{path}` differ: {ours:?} and yq {theirs:?}"));
+                tally.fail(format!(
+                    "{name}: keys of `{path}` differ: {ours:?} and yq {theirs:?}"
+                ));
             }
         }
     }

@@ -1,0 +1,16 @@
+{
+  "definitions": [
+    "symbol shadow @1:4 -> []",
+    "local value @1:11 -> [2:17]",
+    "local value @2:9 -> [3:17]",
+    "local value @3:9 -> [4:5]",
+    "symbol closure @7:4 -> []",
+    "local offset @8:9 -> [9:18]",
+    "local x @9:11 -> [9:14]"
+  ],
+  "unresolved": [
+    "Fn"
+  ],
+  "calls": [],
+  "syntax": []
+}

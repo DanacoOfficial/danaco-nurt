@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=App 14
+MimeType=text/plain;text/markdown;
+Name[de]=Bearbeiter
+Exec=app %U
+
+[Desktop Action new-window]
+Name=New Window
+Exec=app --new-window

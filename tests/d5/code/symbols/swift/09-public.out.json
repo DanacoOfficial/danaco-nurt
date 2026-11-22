@@ -1,0 +1,6 @@
+[
+  "class Client @1:14 [1:1-5:2] exported | public class Client",
+  "  method connect in Client @2:17 [2:5-2:29] exported | public func connect()",
+  "  method reset in Client @4:22 [4:5-4:32] private | fileprivate func reset()",
+  "constant defaultTimeout @7:5 [7:1-7:24] private | let defaultTimeout = 30"
+]

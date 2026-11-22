@@ -1,0 +1,6 @@
+[
+  "field plist @2:2 [2:1-7:9] | <plist version=\"1.0\">",
+  "  field dict in plist @3:4 [3:3-6:10] | <dict>",
+  "    field key in plist.dict @4:6 [4:5-4:20] | <key>Name</key>",
+  "    field string in plist.dict @5:6 [5:5-5:26] | <string>nurt</string>"
+]

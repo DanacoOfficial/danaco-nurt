@@ -28,7 +28,7 @@ use nurt_contracts::value::Value;
 pub(crate) use guard::statement_count;
 pub(crate) use read::read_rows;
 pub(crate) use session::check_file;
-pub(crate) use write::{WriteOutcome, planned_change, write};
+pub(crate) use write::{planned_change, write};
 
 /// One call of `sql`, with arguments already checked.
 #[derive(Debug, Clone)]

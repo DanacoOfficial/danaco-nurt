@@ -1,0 +1,6 @@
+[
+  "constant MAX_SIZE @1:1 [1:1-1:15] exported | MAX_SIZE = 100",
+  "constant DEFAULT_NAME @2:1 [2:1-2:22] exported | DEFAULT_NAME = \"nurt\"",
+  "variable counter @3:1 [3:1-3:12] exported | counter = 0",
+  "variable _cache @4:1 [4:1-4:12] private | _cache = {}"
+]

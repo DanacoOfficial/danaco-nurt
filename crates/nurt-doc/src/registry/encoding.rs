@@ -100,10 +100,10 @@ fn utf8(body: &[u8], base: usize) -> Result<Vec<u8>> {
 
 fn utf16(body: &[u8], unit: fn([u8; 2]) -> u16) -> Result<Vec<u8>> {
     let base = UTF16LE_BOM.len();
-    if body.len() % 2 != 0 {
+    if !body.len().is_multiple_of(2) {
         return Err(invalid(base + body.len() - 1, "UTF-16"));
     }
-    let units = body.chunks_exact(2).map(|pair| unit([pair[0], pair[1]]));
+    let units = body.as_chunks::<2>().0.iter().map(|pair| unit(*pair));
     let mut text = String::with_capacity(body.len() / 2);
     let mut offset = base;
     for decoded in char::decode_utf16(units) {

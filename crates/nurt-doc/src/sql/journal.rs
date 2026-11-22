@@ -69,7 +69,10 @@ impl DatabaseFiles {
 
     /// Current state of every file, in declaration order.
     pub(super) fn snapshot(&self) -> Vec<FileState> {
-        self.paths.iter().map(|path| state(path.as_path())).collect()
+        self.paths
+            .iter()
+            .map(|path| state(path.as_path()))
+            .collect()
     }
 
     /// Declarations of all files as external writes.
@@ -217,6 +220,10 @@ mod tests {
         assert_eq!(specs.len(), 4);
         assert_eq!(specs[0].size_hint, Some(4096));
         assert_eq!(specs[1].size_hint, None);
-        assert!(specs.iter().all(|spec| spec.action == TargetAction::ExternalWrite));
+        assert!(
+            specs
+                .iter()
+                .all(|spec| spec.action == TargetAction::ExternalWrite)
+        );
     }
 }

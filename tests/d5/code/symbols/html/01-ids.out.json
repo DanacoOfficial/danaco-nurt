@@ -1,0 +1,4 @@
+[
+  "field content @4:15 [4:5-6:12] | <main id=\"content\">",
+  "  field title in content @5:15 [5:7-5:32] | <h1 id=\"title\">Title</h1>"
+]

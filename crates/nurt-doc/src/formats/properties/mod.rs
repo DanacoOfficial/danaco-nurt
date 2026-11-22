@@ -5,15 +5,24 @@
 //!
 //! A property file is a flat map: the whole key is one name, so
 //! `server.port` addresses the key `"server.port"`. Separators `=`, `:` and
-//! whitespace, `\` line continuations, `\uXXXX` and the other escapes of
+//! whitespace, `\` line continuations, `\uHHHH` and the other escapes of
 //! `java.util.Properties`, and comments starting with `#` or `!` are read
 //! and kept. A file that is valid UTF-8 is read as UTF-8, any other file as
 //! ISO-8859-1; characters a file's encoding cannot hold are written as
-//! `\uXXXX`. A key written more than once has the value of its last
+//! `\uHHHH`. A key written more than once has the value of its last
 //! occurrence.
 
 mod escape;
+mod format;
 mod parse;
+
+pub use format::PropertiesFormat;
+
+/// Registration function of the format `properties`.
+#[must_use]
+pub fn formats() -> Vec<Box<dyn crate::registry::DocFormat>> {
+    vec![Box::new(PropertiesFormat)]
+}
 
 use nurt_contracts::error::Error;
 use nurt_contracts::keypath::KeyPath;
@@ -90,7 +99,7 @@ impl PropertiesDocument {
     ///
     /// # Errors
     ///
-    /// Fails with `E_DOC_PARSE` for a malformed `\uXXXX` escape.
+    /// Fails with `E_DOC_PARSE` for a malformed `\uHHHH` escape.
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
         match std::str::from_utf8(bytes) {
             Ok(_) => Self::parse_with(bytes, PropertiesEncoding::Utf8),
@@ -103,7 +112,7 @@ impl PropertiesDocument {
     ///
     /// # Errors
     ///
-    /// Fails with `E_DOC_PARSE` for a malformed `\uXXXX` escape.
+    /// Fails with `E_DOC_PARSE` for a malformed `\uHHHH` escape.
     pub fn parse_with(bytes: &[u8], encoding: PropertiesEncoding) -> Result<Self, Error> {
         let (text, encoding, bom) = match (encoding, std::str::from_utf8(bytes)) {
             (PropertiesEncoding::Utf8, Ok(text)) => match text.strip_prefix('\u{feff}') {
@@ -230,7 +239,9 @@ impl PropertiesDocument {
                 }
             }
             Err(error) => match (create, single_name(&flat)) {
-                (true, Some(name)) if error.code() == nurt_contracts::error::ErrorCode::KeyNotFound => {
+                (true, Some(name))
+                    if error.code() == nurt_contracts::error::ErrorCode::KeyNotFound =>
+                {
                     self.plan_new(&mut plan, &name, &text);
                 }
                 _ => return Err(error),
@@ -274,7 +285,8 @@ impl PropertiesDocument {
             })
             .collect();
         plan.splices = removals(ranges);
-        plan.expected.retain(|(name, _)| !names.contains(&name.as_str()));
+        plan.expected
+            .retain(|(name, _)| !names.contains(&name.as_str()));
         plan.count = names.len();
         self.commit(plan)
     }
@@ -325,7 +337,8 @@ impl PropertiesDocument {
         }
         plan.expected[id].1 = value.to_owned();
         let raw = self.continued_value(id, value);
-        plan.splices.push(Splice::new(entry.value_range.clone(), raw));
+        plan.splices
+            .push(Splice::new(entry.value_range.clone(), raw));
     }
 
     /// Raw text of `value` for the entry `id`, broken over lines like the
@@ -343,7 +356,11 @@ impl PropertiesDocument {
             .iter()
             .enumerate()
             .map(|(i, line)| {
-                let from = if i == 0 { entry.value_range.start } else { line.start };
+                let from = if i == 0 {
+                    entry.value_range.start
+                } else {
+                    line.start
+                };
                 let content = &self.text[from.min(line.content_end)..line.content_end];
                 let content = content.trim_start_matches(is_space);
                 if continues(content) {
@@ -355,14 +372,19 @@ impl PropertiesDocument {
             .collect();
         let second = lines[1];
         let second_text = &self.text[second.start..second.content_end];
-        let indent = &second_text[..second_text.len() - second_text.trim_start_matches(is_space).len()];
+        let indent =
+            &second_text[..second_text.len() - second_text.trim_start_matches(is_space).len()];
         let newline = &self.text[lines[0].content_end..lines[0].end];
         let chunks = split_like(value, &parts);
         chunks
             .iter()
             .enumerate()
             .map(|(i, chunk)| {
-                let part = if i == 0 { Part::Value } else { Part::Continuation };
+                let part = if i == 0 {
+                    Part::Value
+                } else {
+                    Part::Continuation
+                };
                 escape(chunk, part, latin1)
             })
             .collect::<Vec<_>>()
@@ -426,7 +448,12 @@ impl PropertiesDocument {
 fn split_like(value: &str, parts: &[&str]) -> Vec<String> {
     let delimiter = parts[..parts.len() - 1]
         .iter()
-        .map(|p| p.trim_end_matches(is_space).chars().last().filter(|c| !c.is_alphanumeric()))
+        .map(|p| {
+            p.trim_end_matches(is_space)
+                .chars()
+                .last()
+                .filter(|c| !c.is_alphanumeric())
+        })
         .reduce(|a, b| if a == b { a } else { None })
         .flatten();
     let mut chunks = Vec::new();
@@ -444,7 +471,12 @@ fn split_like(value: &str, parts: &[&str]) -> Vec<String> {
             }
         }
         None => {
-            let width = parts.iter().map(|p| p.chars().count()).max().unwrap_or(1).max(1);
+            let width = parts
+                .iter()
+                .map(|p| p.chars().count())
+                .max()
+                .unwrap_or(1)
+                .max(1);
             let chars: Vec<char> = value.chars().collect();
             chunks.extend(chars.chunks(width).map(|c| c.iter().collect::<String>()));
             if chunks.is_empty() {
@@ -466,24 +498,30 @@ mod tests {
     #[test]
     fn breaks_a_continued_value_after_the_same_delimiter() {
         let mut doc = PropertiesDocument::parse(b"list = a,\\\n       b\nx=1\n").unwrap();
-        doc.set(&key("list"), &Value::Text("p,q,r".into()), false).unwrap();
+        doc.set(&key("list"), &Value::Text("p,q,r".into()), false)
+            .unwrap();
         assert_eq!(doc.text(), "list = p,\\\n       q,\\\n       r\nx=1\n");
     }
 
     #[test]
     fn breaks_a_continued_value_at_the_old_width() {
         let mut doc = PropertiesDocument::parse(b"t = abc\\\n  de\n").unwrap();
-        doc.set(&key("t"), &Value::Text("12 4567".into()), false).unwrap();
+        doc.set(&key("t"), &Value::Text("12 4567".into()), false)
+            .unwrap();
         assert_eq!(doc.text(), "t = 12 \\\n  456\\\n  7\n");
-        assert_eq!(doc.to_value().get("t"), Some(&Value::Text("12 4567".into())));
+        assert_eq!(
+            doc.to_value().get("t"),
+            Some(&Value::Text("12 4567".into()))
+        );
     }
 
     #[test]
     fn writes_characters_outside_latin1_as_unicode_escapes() {
         let mut doc = PropertiesDocument::parse(b"name=caf\xe9\n").unwrap();
         assert_eq!(doc.encoding(), PropertiesEncoding::Latin1);
-        doc.set(&key("name"), &Value::Text("łódź é".into()), false).unwrap();
-        assert_eq!(doc.bytes(), b"name=\\u0142\xf3d\\u017A \xe9\n");
+        doc.set(&key("name"), &Value::Text("λöd€ é".into()), false)
+            .unwrap();
+        assert_eq!(doc.bytes(), b"name=\\u03BB\xf6d\\u20AC \xe9\n");
     }
 
     #[test]
@@ -497,7 +535,10 @@ mod tests {
     #[test]
     fn removes_every_occurrence_with_its_comment() {
         let mut doc = PropertiesDocument::parse(b"# a\na=1\nb=2\na=3\n").unwrap();
-        assert_eq!(doc.get(&key("a")).unwrap()[0].value, Value::Text("3".into()));
+        assert_eq!(
+            doc.get(&key("a")).unwrap()[0].value,
+            Value::Text("3".into())
+        );
         assert_eq!(doc.remove(&key("a")).unwrap(), 1);
         assert_eq!(doc.text(), "b=2\n");
     }

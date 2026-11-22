@@ -2,7 +2,8 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Conformance and edit runs over the JSON and JSONC corpus in
-//! `tests/d5/corpus`.
+//! `tests/d5/corpus` and the JSON Test Suite in
+//! `tests/d5/third_party/json/jsontestsuite`.
 //!
 //! Every accepted document is edited at up to [`MAX_NODES`] values chosen
 //! with a fixed stride. Each edit must stay inside the span of its target,
@@ -20,14 +21,26 @@ use super::editor::apply;
 use super::syntax::{NodeId, Span};
 use super::{Dialect, JsonDocument, Outcome, Target, reference};
 
+/// Path that adds a value (a new member name or `[+]`) and path that reads
+/// it back (the member name or the new index).
+type AddedPaths = (Vec<KeySegment>, Vec<KeySegment>);
+
 /// Largest number of values edited per document.
 const MAX_NODES: usize = 50;
 
 /// Largest number of failures listed in a test message.
 const MAX_REPORTED: usize = 25;
 
-fn corpus() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/corpus")
+/// Number of parsing cases of the JSON Test Suite.
+const SUITE_CASES: usize = 318;
+
+/// Test data of the formats: `corpus/` and `third_party/`.
+fn data_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5")
+}
+
+fn json_test_suite() -> PathBuf {
+    data_root().join("third_party/json/jsontestsuite")
 }
 
 fn files(dir: &Path) -> Vec<PathBuf> {
@@ -38,7 +51,10 @@ fn files(dir: &Path) -> Vec<PathBuf> {
             let path = entry.unwrap().path();
             if path.is_dir() {
                 pending.push(path);
-            } else if matches!(path.extension().and_then(|e| e.to_str()), Some("json" | "jsonc")) {
+            } else if matches!(
+                path.extension().and_then(|e| e.to_str()),
+                Some("json" | "jsonc")
+            ) {
                 found.push(path);
             }
         }
@@ -49,7 +65,12 @@ fn files(dir: &Path) -> Vec<PathBuf> {
 
 /// Text of a document file: UTF-8 with an optional byte order mark.
 fn decode(bytes: &[u8]) -> Option<&str> {
-    std::str::from_utf8(bytes.strip_prefix(b"\xEF\xBB\xBF".as_slice()).unwrap_or(bytes)).ok()
+    std::str::from_utf8(
+        bytes
+            .strip_prefix(b"\xEF\xBB\xBF".as_slice())
+            .unwrap_or(bytes),
+    )
+    .ok()
 }
 
 fn report(failures: &[String], total: usize) -> String {
@@ -62,8 +83,8 @@ fn report(failures: &[String], total: usize) -> String {
 
 #[test]
 fn reads_every_valid_and_rejects_every_invalid_json_test_suite_case() {
-    let suite = files(&corpus().join("json/jsontestsuite"));
-    assert_eq!(suite.len(), 318);
+    let suite = files(&json_test_suite());
+    assert_eq!(suite.len(), SUITE_CASES);
     let mut failures = Vec::new();
     for path in &suite {
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
@@ -86,15 +107,22 @@ fn reads_every_valid_and_rejects_every_invalid_json_test_suite_case() {
 
 #[test]
 fn edits_every_corpus_document_inside_the_target_span() {
-    let root = corpus();
+    let root = data_root();
     let mut documents: Vec<(PathBuf, Dialect)> = Vec::new();
-    for path in files(&root.join("json")) {
+    for path in files(&root.join("corpus/json"))
+        .into_iter()
+        .chain(files(&json_test_suite()))
+    {
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
         if !name.starts_with("n_") {
             documents.push((path, Dialect::Json));
         }
     }
-    documents.extend(files(&root.join("jsonc")).into_iter().map(|path| (path, Dialect::Jsonc)));
+    documents.extend(
+        files(&root.join("corpus/jsonc"))
+            .into_iter()
+            .map(|path| (path, Dialect::Jsonc)),
+    );
     let mut failures = Vec::new();
     let mut operations = 0;
     let mut edited = 0;
@@ -102,7 +130,11 @@ fn edits_every_corpus_document_inside_the_target_span() {
         let bytes = std::fs::read(path).unwrap();
         let Some(text) = decode(&bytes) else { continue };
         let Ok(document) = JsonDocument::parse(text, *dialect) else {
-            assert!(path.to_string_lossy().contains("/i_"), "{} does not parse", path.display());
+            assert!(
+                path.to_string_lossy().contains("/i_"),
+                "{} does not parse",
+                path.display()
+            );
             continue;
         };
         edited += 1;
@@ -139,7 +171,9 @@ impl Run<'_> {
         let model = self.document.to_value();
         match reference::read(self.document.text(), self.document.dialect()) {
             Ok(expected) if reference::same_data(&model, &expected) => {}
-            _ => self.failures.push(format!("{}: value differs from serde_json", self.name)),
+            _ => self
+                .failures
+                .push(format!("{}: value differs from serde_json", self.name)),
         }
         let mut paths = Vec::new();
         collect_paths(&model, &mut Vec::new(), &mut paths);
@@ -164,11 +198,20 @@ impl Run<'_> {
         *self.operations += 1;
         match self.document.plan_set(key, current, false) {
             Ok(outcome) if outcome.changes.is_empty() => {}
-            other => self.failures.push(format!("{} {key}: same value changed text: {other:?}", self.name)),
+            other => self.failures.push(format!(
+                "{} {key}: same value changed text: {other:?}",
+                self.name
+            )),
         }
     }
 
-    fn check(&mut self, model: &Value, segments: &[KeySegment], key: &KeyPath, operation: &Operation) {
+    fn check(
+        &mut self,
+        model: &Value,
+        segments: &[KeySegment],
+        key: &KeyPath,
+        operation: &Operation,
+    ) {
         *self.operations += 1;
         let document = self.document;
         let (planned, expected, bounds, added_key) = match operation {
@@ -185,10 +228,15 @@ impl Run<'_> {
                 None,
             ),
             Operation::Add(value) => {
-                let (extended, expected) = add_below(model, segments, value);
-                let Some(extended) = extended else { return };
-                let target = KeyPath::new(None, extended.clone()).unwrap();
-                (document.plan_set(&target, value, false), expected, self.target_span(key, false), Some(target))
+                let (paths, expected) = add_below(model, segments, value);
+                let Some((added, reread)) = paths else { return };
+                let target = KeyPath::new(None, added).unwrap();
+                (
+                    document.plan_set(&target, value, true),
+                    expected,
+                    self.target_span(key, false),
+                    Some(KeyPath::new(None, reread).unwrap()),
+                )
             }
         };
         let label = format!("{} {key}", self.name);
@@ -209,7 +257,9 @@ impl Run<'_> {
             let again = JsonDocument::parse(text, document.dialect()).unwrap();
             match again.plan_set(reread_key, value, false) {
                 Ok(repeat) if repeat.changes.is_empty() => {}
-                other => self.failures.push(format!("{label}: repeated set changed text: {other:?}")),
+                other => self
+                    .failures
+                    .push(format!("{label}: repeated set changed text: {other:?}")),
             }
         }
     }
@@ -221,7 +271,11 @@ impl Run<'_> {
         let Ok(Target::Node { id, .. }) = self.document.locate(key) else {
             return Span::new(0, self.document.text().len());
         };
-        let chosen: NodeId = if container { tree.nodes[id].parent.unwrap_or(id) } else { id };
+        let chosen: NodeId = if container {
+            tree.nodes[id].parent.unwrap_or(id)
+        } else {
+            id
+        };
         tree.nodes[chosen].span
     }
 
@@ -232,9 +286,10 @@ impl Run<'_> {
                 return Err(format!("change {:?} outside {bounds:?}", change.span));
             }
         }
-        let text = apply(document.text(), &outcome.changes).map_err(|error| error.message.clone())?;
-        let reparsed =
-            JsonDocument::parse(text.clone(), document.dialect()).map_err(|error| format!("{}\n{text}", error.message))?;
+        let text =
+            apply(document.text(), &outcome.changes).map_err(|error| error.message.clone())?;
+        let reparsed = JsonDocument::parse(text.clone(), document.dialect())
+            .map_err(|error| format!("{}\n{text}", error.message))?;
         if !reference::same_data(&reparsed.to_value(), expected) {
             return Err(format!("unexpected value\n{text}"));
         }
@@ -244,8 +299,11 @@ impl Run<'_> {
         }
         let original = document.text();
         let lf_only = !original.contains('\r');
-        let crlf_only = original.contains('\n') && original.matches('\n').count() == original.matches("\r\n").count();
-        if (lf_only && text.contains('\r')) || (crlf_only && text.matches('\n').count() != text.matches("\r\n").count()) {
+        let crlf_only = original.contains('\n')
+            && original.matches('\n').count() == original.matches("\r\n").count();
+        if (lf_only && text.contains('\r'))
+            || (crlf_only && text.matches('\n').count() != text.matches("\r\n").count())
+        {
             return Err(format!("line ending style changed\n{text:?}"));
         }
         Ok(())
@@ -253,7 +311,11 @@ impl Run<'_> {
 }
 
 /// Paths of all values in pre-order with their current values.
-fn collect_paths(value: &Value, prefix: &mut Vec<KeySegment>, out: &mut Vec<(Vec<KeySegment>, Value)>) {
+fn collect_paths(
+    value: &Value,
+    prefix: &mut Vec<KeySegment>,
+    out: &mut Vec<(Vec<KeySegment>, Value)>,
+) {
     out.push((prefix.clone(), value.clone()));
     match value {
         Value::Map(fields) => {
@@ -279,7 +341,10 @@ fn replacement_of_other_kind(current: &Value) -> Value {
         Value::Map(_) | Value::List(_) => Value::Int(-12),
         _ => Value::Map(IndexMap::from([
             ("kind".to_owned(), Value::Text("changed".to_owned())),
-            ("values".to_owned(), Value::List(vec![Value::Bool(true), Value::Null])),
+            (
+                "values".to_owned(),
+                Value::List(vec![Value::Bool(true), Value::Null]),
+            ),
         ])),
     }
 }
@@ -287,7 +352,9 @@ fn replacement_of_other_kind(current: &Value) -> Value {
 fn child_mut<'v>(value: &'v mut Value, segment: &KeySegment) -> &'v mut Value {
     match (value, segment) {
         (Value::Map(fields), KeySegment::Key(name)) => fields.get_mut(name).unwrap(),
-        (Value::List(items), KeySegment::Index(index)) => &mut items[usize::try_from(*index).unwrap()],
+        (Value::List(items), KeySegment::Index(index)) => {
+            &mut items[usize::try_from(*index).unwrap()]
+        }
         _ => unreachable!("collected paths follow the value"),
     }
 }
@@ -323,24 +390,30 @@ fn remove_at(model: &Value, segments: &[KeySegment]) -> Value {
 
 /// Path of a new member or element inside the container at `segments`,
 /// and the model after adding `value` there; `None` for scalars.
-fn add_below(model: &Value, segments: &[KeySegment], value: &Value) -> (Option<Vec<KeySegment>>, Value) {
+fn add_below(model: &Value, segments: &[KeySegment], value: &Value) -> (Option<AddedPaths>, Value) {
     let mut result = model.clone();
     let mut slot = &mut result;
     for segment in segments {
         slot = child_mut(slot, segment);
     }
-    let mut extended = segments.to_vec();
+    let mut added = segments.to_vec();
+    let mut reread = segments.to_vec();
     match slot {
         Value::Map(fields) => {
-            let name = (0..).map(|n| format!("nurt_added_{n}")).find(|name| !fields.contains_key(name)).unwrap();
+            let name = (0..)
+                .map(|n| format!("nurt_added_{n}"))
+                .find(|name| !fields.contains_key(name))
+                .unwrap();
             fields.insert(name.clone(), value.clone());
-            extended.push(KeySegment::Key(name));
+            added.push(KeySegment::Key(name.clone()));
+            reread.push(KeySegment::Key(name));
         }
         Value::List(items) => {
+            reread.push(KeySegment::Index(i64::try_from(items.len()).unwrap()));
             items.push(value.clone());
-            extended.push(KeySegment::Append);
+            added.push(KeySegment::Append);
         }
         _ => return (None, result),
     }
-    (Some(extended), result)
+    (Some((added, reread)), result)
 }

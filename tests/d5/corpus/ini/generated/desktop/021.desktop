@@ -1,0 +1,7 @@
+# Desktop entry
+[Desktop Entry]
+Type=Application
+Name=App 21
+Categories=Utility;TextEditor;
+Name[fr]=Éditeur 21
+Comment=Edit text files

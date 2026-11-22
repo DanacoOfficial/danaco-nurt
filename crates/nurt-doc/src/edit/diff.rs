@@ -16,9 +16,12 @@ type Run = (usize, usize, usize);
 ///
 /// Used by formats whose library rewrites the text instead of reporting
 /// edits: the edits are then checked by the scope guard like any other.
-/// Lines are aligned first (Myers' algorithm), and every changed group of
-/// lines is narrowed to the bytes that differ, so a change of two separate
-/// values gives two small edits.
+/// The common start and end of the texts are cut at line boundaries, lines
+/// are aligned (Myers' algorithm), and every changed group of lines is
+/// narrowed to the bytes that differ, so a change of two separate values
+/// gives two small edits. Cutting at line boundaries keeps whole lines in
+/// the alignment: a common end inside a changed line does not hide equal
+/// lines between two separate changes.
 ///
 /// ```
 /// use nurt_doc::edit::{apply, diff};
@@ -32,13 +35,14 @@ type Run = (usize, usize, usize);
 /// ```
 #[must_use]
 pub fn diff(original: &[u8], new: &[u8]) -> Vec<ByteEdit> {
-    let prefix = common_prefix(original, new);
-    let suffix = common_suffix(&original[prefix..], &new[prefix..]);
-    let old_mid = &original[prefix..original.len() - suffix];
-    let new_mid = &new[prefix..new.len() - suffix];
-    if old_mid.is_empty() && new_mid.is_empty() {
+    if original == new {
         return Vec::new();
     }
+    let prefix = line_prefix(original, common_prefix(original, new));
+    let (old_rest, new_rest) = (&original[prefix..], &new[prefix..]);
+    let suffix = line_suffix(old_rest, new_rest, common_suffix(old_rest, new_rest));
+    let old_mid = &old_rest[..old_rest.len() - suffix];
+    let new_mid = &new_rest[..new_rest.len() - suffix];
     let old_starts = line_starts(old_mid);
     let new_starts = line_starts(new_mid);
     let old_lines = split(old_mid, &old_starts);
@@ -74,6 +78,31 @@ fn common_suffix(left: &[u8], right: &[u8]) -> usize {
         .zip(right.iter().rev())
         .take_while(|(a, b)| a == b)
         .count()
+}
+
+/// Common prefix of length `prefix` shortened to the start of its last
+/// line.
+fn line_prefix(text: &[u8], prefix: usize) -> usize {
+    text[..prefix]
+        .iter()
+        .rposition(|byte| *byte == b'\n')
+        .map_or(0, |at| at + 1)
+}
+
+/// Common suffix of length `suffix` shortened so that it starts at a line
+/// start in both texts.
+fn line_suffix(old: &[u8], new: &[u8], suffix: usize) -> usize {
+    let starts_line = |text: &[u8]| {
+        let at = text.len() - suffix;
+        at == 0 || text[at - 1] == b'\n'
+    };
+    if starts_line(old) && starts_line(new) {
+        return suffix;
+    }
+    old[old.len() - suffix..]
+        .iter()
+        .position(|byte| *byte == b'\n')
+        .map_or(0, |at| suffix - at - 1)
 }
 
 /// Start offsets of the lines of a non-empty `text`.
@@ -136,8 +165,7 @@ fn signed(value: usize) -> isize {
 /// `k + 1` (an inserted line) rather than `k - 1` (a deleted line).
 fn from_above(previous: &[usize], k: isize, d: usize) -> bool {
     let d_signed = signed(d);
-    k == -d_signed
-        || (k != d_signed && previous[slot(k - 1, d - 1)] < previous[slot(k + 1, d - 1)])
+    k == -d_signed || (k != d_signed && previous[slot(k - 1, d - 1)] < previous[slot(k + 1, d - 1)])
 }
 
 /// Runs of equal lines on a shortest edit path (Myers), `None` when more
@@ -162,7 +190,11 @@ fn align(old: &[&[u8]], new: &[&[u8]]) -> Option<Vec<Run>> {
                 Some(previous) => previous[slot(k - 1, d - 1)] + 1,
             };
             let y = usize::try_from(signed(x) - k).unwrap_or(usize::MAX);
-            let (x, y) = if x <= n && y <= m { follow(x, y) } else { (x, y) };
+            let (x, y) = if x <= n && y <= m {
+                follow(x, y)
+            } else {
+                (x, y)
+            };
             row[slot(k, d)] = x;
             if x == n && y == m {
                 trace.push(row);

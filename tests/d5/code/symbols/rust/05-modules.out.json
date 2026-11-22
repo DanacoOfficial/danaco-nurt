@@ -1,0 +1,7 @@
+[
+  "module geometry @1:9 [1:1-9:2] exported | pub mod geometry",
+  "  module shapes in geometry @2:13 [2:5-6:6] exported | pub mod shapes",
+  "    function unit in geometry.shapes @3:16 [3:9-5:10] exported | pub fn unit() -> f64",
+  "  function hidden in geometry @8:8 [8:5-8:19] private | fn hidden()",
+  "module private @11:5 [11:1-11:15] private | mod private"
+]

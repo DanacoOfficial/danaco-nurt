@@ -179,9 +179,10 @@ fn step_key<'a>(
     out: &mut Vec<Hit<'a>>,
 ) -> Result<(), Error> {
     match hit.node {
-        Node::Map(map) => match map.get(name) {
-            Some(node) => {
-                out.push(child(hit, KeySegment::Key(name.to_owned()), node));
+        Node::Map(map) => match map.position(name) {
+            Some(position) => {
+                let (member, node) = &map.members[position];
+                out.push(child(hit, KeySegment::Key(member.clone()), node));
                 Ok(())
             }
             None if concrete => Err(key_not_found(
@@ -327,7 +328,12 @@ fn closest(map: &Map, name: &str, path: &[KeySegment]) -> Vec<String> {
     let mut ranked: Vec<(usize, &str)> = map
         .members
         .iter()
-        .map(|(member, _)| (distance(&member.to_lowercase(), &name.to_lowercase()), member.as_str()))
+        .map(|(member, _)| {
+            (
+                distance(&member.to_lowercase(), &name.to_lowercase()),
+                member.as_str(),
+            )
+        })
         .collect();
     ranked.sort();
     ranked
@@ -364,8 +370,9 @@ fn holds(expr: &FilterExpr, value: &Value) -> bool {
                 _ => false,
             }
         }
-        other => operand(other, value)
-            .is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false))),
+        other => {
+            operand(other, value).is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)))
+        }
     }
 }
 
@@ -416,12 +423,14 @@ mod tests {
     fn sample() -> Node {
         let mut section = Map::new(false);
         section.members.push(("a".into(), Node::Leaf(0)));
-        section
-            .members
-            .push(("dup".into(), Node::Repeated(vec![Node::Leaf(1), Node::Leaf(2)])));
-        section
-            .members
-            .push(("list".into(), Node::List(vec![Node::Leaf(3), Node::Leaf(4)])));
+        section.members.push((
+            "dup".into(),
+            Node::Repeated(vec![Node::Leaf(1), Node::Leaf(2)]),
+        ));
+        section.members.push((
+            "list".into(),
+            Node::List(vec![Node::Leaf(3), Node::Leaf(4)]),
+        ));
         let mut root = Map::new(true);
         root.members.push(("Sec".into(), Node::Map(section)));
         Node::Map(root)
@@ -460,25 +469,34 @@ mod tests {
 
     #[test]
     fn wildcards_and_recursion_expand_every_member() {
-        assert_eq!(keys("Sec.*").unwrap().len(), 5);
-        assert_eq!(keys("Sec.**").unwrap().len(), 8);
+        assert_eq!(keys("Sec.*").unwrap().len(), 4);
+        assert_eq!(keys("Sec.**").unwrap().len(), 7);
         assert!(keys("Sec.a.*").unwrap().is_empty());
     }
 
     #[test]
     fn filters_select_by_value() {
         assert_eq!(keys("Sec.list[?@ == \"v4\"]").unwrap(), ["Sec.list[1]"]);
-        assert_eq!(keys("Sec.list[?@ != \"v4\" and !(@ == 1)]").unwrap().len(), 1);
+        assert_eq!(
+            keys("Sec.list[?@ != \"v4\" and !(@ == 1)]").unwrap().len(),
+            1
+        );
         assert_eq!(keys("Sec.list[?@ > \"v3\" or @ == null]").unwrap().len(), 1);
     }
 
     #[test]
     fn missing_and_mismatched_keys_fail_with_candidates() {
         let missing = keys("Sec.aa").unwrap_err();
-        assert_eq!(missing.code(), nurt_contracts::error::ErrorCode::KeyNotFound);
+        assert_eq!(
+            missing.code(),
+            nurt_contracts::error::ErrorCode::KeyNotFound
+        );
         assert_eq!(missing.sample.first().map(String::as_str), Some("Sec.a"));
         let through = keys("Sec.a.b").unwrap_err();
-        assert_eq!(through.code(), nurt_contracts::error::ErrorCode::KeyConflict);
+        assert_eq!(
+            through.code(),
+            nurt_contracts::error::ErrorCode::KeyConflict
+        );
         assert!(keys("Sec[0]").is_err());
         assert!(keys("Sec.list[5]").is_err());
         assert!(keys("Sec.list[+]").is_err());

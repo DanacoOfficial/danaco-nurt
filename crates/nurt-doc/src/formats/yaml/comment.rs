@@ -6,8 +6,8 @@
 //! A comment belongs to the node it describes:
 //!
 //! - a block of comment lines directly above the first line of an entry or
-//!   sequence item, with no blank line in between, is the *leading* comment
-//!   of that entry;
+//!   sequence item, with no blank line in between and indented no deeper
+//!   than the entry, is the *leading* comment of that entry;
 //! - a comment after the content on the line of an entry is its *inline*
 //!   comment;
 //! - comment lines after the last item of a block collection, indented at
@@ -69,22 +69,25 @@ impl<'a> Comments<'a> {
     /// comment-only lines directly above its line, top to bottom.
     ///
     /// Empty when the node is not the first token of its line (a key after
-    /// `- ` belongs to the sequence item, which takes the comment).
+    /// `- ` belongs to the sequence item, which takes the comment). A comment
+    /// line indented deeper than the node ends the block: it is the trailing
+    /// comment of the collection above.
     pub fn leading(&self, start: usize) -> Vec<Range<usize>> {
         let line = self.model.line_start(start);
         if !self.source[line..start].trim().is_empty() {
             return Vec::new();
         }
+        let column = start - line;
         let mut block = Vec::new();
         let mut cursor = line;
         while cursor > 0 {
             let previous = self.model.line_start(cursor - 1);
             match self.comment_line(previous) {
-                Some(span) => {
+                Some(span) if span.start - previous <= column => {
                     block.push(span);
                     cursor = previous;
                 }
-                None => break,
+                _ => break,
             }
         }
         block.reverse();
@@ -118,7 +121,10 @@ impl<'a> Comments<'a> {
         self.spans
             .iter()
             .filter(|span| span.start >= start && span.end <= bound)
-            .filter(|span| self.comment_line(self.model.line_start(span.start)).is_some())
+            .filter(|span| {
+                self.comment_line(self.model.line_start(span.start))
+                    .is_some()
+            })
             .cloned()
             .collect()
     }
@@ -147,11 +153,16 @@ impl<'a> Comments<'a> {
     /// last line, and to the leading comment. With `trailing_column`, the
     /// trailing comment of the collection held by the entry, indented by at
     /// least that many bytes, is removed as well.
-    pub fn removal_span(&self, entry: Range<usize>, trailing_column: Option<usize>) -> Range<usize> {
+    pub fn removal_span(
+        &self,
+        entry: Range<usize>,
+        trailing_column: Option<usize>,
+    ) -> Range<usize> {
         let leading = self.leading(entry.start);
-        let start = leading
-            .first()
-            .map_or_else(|| self.model.line_start(entry.start), |span| self.model.line_start(span.start));
+        let start = leading.first().map_or_else(
+            || self.model.line_start(entry.start),
+            |span| self.model.line_start(span.start),
+        );
         let last = entry.end.saturating_sub(1).max(entry.start);
         let mut end = self.model.next_line_start(last);
         if let Some(column) = trailing_column
@@ -169,7 +180,10 @@ impl<'a> Comments<'a> {
         let text = self.source.get(line..end)?;
         let indent = text.len() - text.trim_start().len();
         let start = line + indent;
-        let index = self.spans.binary_search_by_key(&start, |span| span.start).ok()?;
+        let index = self
+            .spans
+            .binary_search_by_key(&start, |span| span.start)
+            .ok()?;
         Some(self.spans[index].clone())
     }
 }

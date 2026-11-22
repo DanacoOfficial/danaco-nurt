@@ -1,0 +1,5 @@
+[
+  "class Model @3:16 [3:1-7:2] exported | abstract class Model",
+  "  method table in Model @4:33 [4:5-4:49] private | abstract protected function table(): string;",
+  "  method save in Model @6:21 [6:5-6:30] exported | public function save()"
+]

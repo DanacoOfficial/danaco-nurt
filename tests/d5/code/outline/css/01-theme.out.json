@@ -1,0 +1,14 @@
+{
+  "depth_0": [
+    "class .card @1:1 [1:1-3:2] | .card",
+    "module @media print @5:1 [5:1-9:2] | @media print"
+  ],
+  "outline": [
+    "class .card @1:1 [1:1-3:2] | .card",
+    "module @media print @5:1 [5:1-9:2] | @media print",
+    "  class .card in @media print @6:3 [6:3-8:4] | .card"
+  ],
+  "lookups": [
+    "@media print..card -> 1"
+  ]
+}

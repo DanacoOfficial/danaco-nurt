@@ -170,6 +170,7 @@ fn after_state(content: Option<&Vec<u8>>) -> AfterState {
         size: content.map(|bytes| u64::try_from(bytes.len()).unwrap_or(u64::MAX)),
         hash: None,
         mode: None,
+        meta: None,
     }
 }
 
@@ -190,12 +191,14 @@ impl MemoryTx {
     fn check(spec: &TargetSpec, existing: Option<&Vec<u8>>, path: &Path) -> Result<()> {
         let shown = path.display();
         match (&spec.action, &spec.expect, existing) {
-            (TargetAction::Create, _, Some(_)) | (_, Expect::Absent, Some(_)) => Err(Error::new(
-                ErrorCode::Exists,
-                format!("{shown} exists"),
-            )),
+            (TargetAction::Create, _, Some(_)) | (_, Expect::Absent, Some(_)) => {
+                Err(Error::new(ErrorCode::Exists, format!("{shown} exists")))
+            }
             (TargetAction::Modify | TargetAction::Create, _, _) | (_, _, Some(_)) => Ok(()),
-            (_, _, None) => Err(Error::new(ErrorCode::NotFound, format!("{shown} does not exist"))),
+            (_, _, None) => Err(Error::new(
+                ErrorCode::NotFound,
+                format!("{shown} does not exist"),
+            )),
         }
     }
 }
@@ -224,7 +227,11 @@ impl MutationTx for MemoryTx {
             preserved.push(Preserved {
                 index,
                 volume: None,
-                mode: if existing.is_some() { PreserveMode::Copy } else { PreserveMode::Created },
+                mode: if existing.is_some() {
+                    PreserveMode::Copy
+                } else {
+                    PreserveMode::Created
+                },
                 bytes_held: existing
                     .as_ref()
                     .map_or(0, |bytes| u64::try_from(bytes.len()).unwrap_or(u64::MAX)),
@@ -253,7 +260,11 @@ impl MutationTx for MemoryTx {
         ))
     }
 
-    fn apply(&mut self, target: TargetIndex, mutation: nurt_contracts::journal::Mutation) -> Result<Applied> {
+    fn apply(
+        &mut self,
+        target: TargetIndex,
+        mutation: nurt_contracts::journal::Mutation,
+    ) -> Result<Applied> {
         use nurt_contracts::journal::Mutation;
         let index = self.index(target)?;
         let path = self.targets[index].0.clone();
@@ -262,7 +273,9 @@ impl MutationTx for MemoryTx {
             Mutation::WriteBytes(bytes) => {
                 state.files.insert(path.clone(), bytes);
             }
-            Mutation::AppendBytes(bytes) => state.files.entry(path.clone()).or_default().extend(bytes),
+            Mutation::AppendBytes(bytes) => {
+                state.files.entry(path.clone()).or_default().extend(bytes)
+            }
             Mutation::Remove => {
                 state.files.remove(&path);
             }
@@ -276,7 +289,10 @@ impl MutationTx for MemoryTx {
         let after = after_state(state.files.get(&path));
         drop(state);
         self.changed[index] = true;
-        Ok(Applied { index: target, after })
+        Ok(Applied {
+            index: target,
+            after,
+        })
     }
 
     fn observe_external(&mut self, changes: &[ExternalChange]) -> Result<Vec<Applied>> {
@@ -305,7 +321,9 @@ impl MutationTx for MemoryTx {
         let mut state = this.state.lock().unwrap_or_else(PoisonError::into_inner);
         let mut outcomes = Vec::new();
         let mut before = Vec::new();
-        for (position, ((path, spec), previous)) in this.targets.iter().zip(&this.before).enumerate() {
+        for (position, ((path, spec), previous)) in
+            this.targets.iter().zip(&this.before).enumerate()
+        {
             if !this.changed[position] {
                 continue;
             }
@@ -314,7 +332,11 @@ impl MutationTx for MemoryTx {
                 index: TargetIndex(u32::try_from(position).unwrap_or(u32::MAX)),
                 path: spec.path.clone(),
                 action: spec.action.clone(),
-                mode: if previous.is_some() { PreserveMode::Copy } else { PreserveMode::Created },
+                mode: if previous.is_some() {
+                    PreserveMode::Copy
+                } else {
+                    PreserveMode::Created
+                },
                 bytes_held: previous
                     .as_ref()
                     .map_or(0, |bytes| u64::try_from(bytes.len()).unwrap_or(u64::MAX)),
@@ -351,7 +373,9 @@ impl MutationTx for MemoryTx {
         let this = *self;
         let mut state = this.state.lock().unwrap_or_else(PoisonError::into_inner);
         let mut restored = Vec::new();
-        for (position, ((path, spec), previous)) in this.targets.iter().zip(&this.before).enumerate().rev() {
+        for (position, ((path, spec), previous)) in
+            this.targets.iter().zip(&this.before).enumerate().rev()
+        {
             if !this.changed[position] {
                 continue;
             }

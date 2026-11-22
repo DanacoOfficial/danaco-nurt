@@ -1,0 +1,6 @@
+[
+  "field quote @2:4 [2:3-2:18] | \"quote\\\"key\": 1",
+  "field key @2:11 [2:3-2:18] | \"quote\\\"key\": 1",
+  "field line @3:4 [3:3-3:19] | \"line\\nbreak\": 2",
+  "field break @3:10 [3:3-3:19] | \"line\\nbreak\": 2"
+]

@@ -189,8 +189,10 @@ impl ParsedSource<'_> {
         let line_start = byte.saturating_sub(point.column);
         TextPosition {
             line: to_u32(point.row).saturating_add(1),
-            column: to_u32(scalar_count(self.source.get(line_start..byte).unwrap_or_default()))
-                .saturating_add(1),
+            column: to_u32(scalar_count(
+                self.source.get(line_start..byte).unwrap_or_default(),
+            ))
+            .saturating_add(1),
         }
     }
 
@@ -259,15 +261,15 @@ impl Registry {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
-    pub fn builtin() -> Arc<Registry> {
-        static BUILTIN: OnceLock<Arc<Registry>> = OnceLock::new();
-        Arc::clone(BUILTIN.get_or_init(|| {
+    pub fn builtin() -> &'static Registry {
+        static BUILTIN: OnceLock<Registry> = OnceLock::new();
+        BUILTIN.get_or_init(|| {
             let mut registry = Registry::empty();
             let provider: Arc<dyn GrammarProvider> = Arc::new(BuiltinGrammars);
             let specs = provider.languages();
             registry.push_specs(specs, &provider);
-            Arc::new(registry)
-        }))
+            registry
+        })
     }
 
     /// Registry of the built-in grammars and the grammars of `provider`.
@@ -352,7 +354,7 @@ impl Registry {
     pub fn resolve_name(&self, name: &str) -> Option<LanguageId> {
         let wanted = name.trim().to_ascii_lowercase();
         self.specs()
-            .find(|spec| spec.id.as_str() == wanted || spec.aliases.iter().any(|a| *a == wanted))
+            .find(|spec| spec.id.as_str() == wanted || spec.aliases.contains(&wanted))
             .map(|spec| spec.id.clone())
     }
 
@@ -478,7 +480,7 @@ mod tests {
 
     impl GrammarProvider for Extra {
         fn languages(&self) -> Vec<LanguageSpec> {
-            let id = LanguageId::new("extra").unwrap_or_else(|_| unreachable!());
+            let id = LanguageId::new("extra").unwrap();
             vec![LanguageSpec {
                 id,
                 name: "Extra".to_owned(),
@@ -541,7 +543,7 @@ mod tests {
     #[test]
     fn positions_count_unicode_scalar_values() {
         let registry = Registry::builtin();
-        let source = "x = \"żółw\"; y = 1\n".as_bytes();
+        let source = "x = \"éüλw\"; y = 1\n".as_bytes();
         let parsed = registry
             .parse(&LanguageId::new("python").unwrap(), source)
             .unwrap();
@@ -555,6 +557,6 @@ mod tests {
         );
         assert_eq!(position.line, 1);
         assert_eq!(position.column, 13);
-        assert_eq!(parsed.line_text(3), "x = \"żółw\"; y = 1");
+        assert_eq!(parsed.line_text(3), "x = \"éüλw\"; y = 1");
     }
 }

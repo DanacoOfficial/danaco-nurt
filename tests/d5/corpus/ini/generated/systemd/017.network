@@ -1,0 +1,15 @@
+[Unit]
+Description=Unit 17
+After=network.target
+
+[Network]
+Address=192.168.1.17/24
+Gateway=192.168.1.1
+DNS=1.1.1.1
+DNS=8.8.8.8
+
+# Comment line
+; Semicolon comment
+[Install]
+WantedBy=timers.target
+Also=helper.socket

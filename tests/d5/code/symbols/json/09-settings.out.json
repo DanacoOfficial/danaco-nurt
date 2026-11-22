@@ -1,0 +1,4 @@
+[
+  "field editor.tabSize @3:4 [3:3-3:22] | \"editor.tabSize\": 2",
+  "field editor.formatOnSave @5:4 [5:3-5:30] | \"editor.formatOnSave\": true"
+]

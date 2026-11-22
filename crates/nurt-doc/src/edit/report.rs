@@ -49,7 +49,11 @@ impl EditReport {
     pub fn absorb(&mut self, other: Self) {
         self.replacements += other.replacements;
         for entry in other.notable {
-            if !self.notable.iter().any(|existing| existing.code == entry.code) {
+            if !self
+                .notable
+                .iter()
+                .any(|existing| existing.code == entry.code)
+            {
                 self.notable.push(entry);
             }
         }

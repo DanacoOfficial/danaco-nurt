@@ -1,0 +1,6 @@
+[
+  "class Box @1:7 [1:1-11:2] private | class Box",
+  "  field #value in Box @2:3 [2:3-2:13] private | #value = 0",
+  "  method value in Box @4:7 [4:3-6:4] exported | get value()",
+  "  method value in Box @8:7 [8:3-10:4] exported | set value(next)"
+]

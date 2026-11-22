@@ -1,0 +1,4 @@
+[
+  "class UserTest @3:7 [3:1-5:2] exported | class UserTest extends TestCase",
+  "  method testName in UserTest @4:21 [4:5-4:34] exported | public function testName()"
+]

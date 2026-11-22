@@ -1,0 +1,5 @@
+[
+  "constant ITEMS @1:12 [1:1-1:23] | declare -a ITEMS=(a b)",
+  "constant CONSTANT @2:12 [2:1-2:22] | declare -r CONSTANT=1",
+  "variable other @3:9 [3:1-3:16] | typeset other=2"
+]

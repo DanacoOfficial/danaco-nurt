@@ -1,0 +1,7 @@
+# Desktop entry
+[Desktop Entry]
+Type=Application
+Name=App 9
+Name[de]=Bearbeiter
+Icon=app
+MimeType=text/plain;text/markdown;

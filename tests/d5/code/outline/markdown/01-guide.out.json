@@ -1,0 +1,18 @@
+{
+  "depth_0": [
+    "module Guide @1:3 [1:1-10:1] | # Guide"
+  ],
+  "outline": [
+    "module Guide @1:3 [1:1-10:1] | # Guide",
+    "  module Install in Guide @3:4 [3:1-9:1] | ## Install",
+    "    module Linux in Guide.Install @5:5 [5:1-7:1] | ### Linux",
+    "    module Windows in Guide.Install @7:5 [7:1-9:1] | ### Windows",
+    "  module Use in Guide @9:4 [9:1-10:1] | ## Use"
+  ],
+  "lookups": [
+    "Guide.Install -> 1",
+    "Guide.Install.Linux -> 1",
+    "Guide.Install.Windows -> 1",
+    "Guide.Use -> 1"
+  ]
+}

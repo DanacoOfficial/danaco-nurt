@@ -1,0 +1,13 @@
+# Every date kind and number form.
+offset = 1979-05-27T07:32:00-08:00
+offset_space = 1979-05-27 07:32:00Z
+local_datetime = 1979-05-27T07:32:00.999999
+local_date = 1979-05-27
+local_time = 07:32:00
+hex = 0xDEAD_BEEF
+octal = 0o755
+binary = 0b1101
+grouped = 1_000_000
+float = 6.626e-34
+positive_infinity = inf
+not_a_number = nan

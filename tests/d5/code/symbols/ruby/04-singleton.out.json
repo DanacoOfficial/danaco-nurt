@@ -1,0 +1,5 @@
+[
+  "class Config @1:7 [1:1-9:4] | class Config",
+  "  method load in Config @2:12 [2:3-4:6] | def self.load(path)",
+  "  method reset in Config @7:9 [7:5-7:19] | def reset; end"
+]

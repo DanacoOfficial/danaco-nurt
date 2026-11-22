@@ -1,0 +1,5 @@
+[
+  "module a::b @1:11 [1:1-5:2] exported | namespace a::b",
+  "  class Inner in a::b @2:7 [2:1-4:2] exported | class Inner",
+  "    method run in a::b.Inner @3:10 [3:5-3:16] exported | void run();"
+]

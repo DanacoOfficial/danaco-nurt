@@ -1,0 +1,14 @@
+{
+  "depth_0": [
+    "field top @2:15 [2:3-4:12] | <header id=\"top\">",
+    "field content @5:13 [5:3-5:29] | <main id=\"content\"></main>"
+  ],
+  "outline": [
+    "field top @2:15 [2:3-4:12] | <header id=\"top\">",
+    "  field menu in top @3:14 [3:5-3:26] | <nav id=\"menu\"></nav>",
+    "field content @5:13 [5:3-5:29] | <main id=\"content\"></main>"
+  ],
+  "lookups": [
+    "top.menu -> 1"
+  ]
+}

@@ -1,0 +1,6 @@
+[
+  "type Theme @1:6 [1:1-1:31] private | type Theme = \"light\" | \"dark\";",
+  "enum Size @3:13 [3:8-6:2] exported | enum Size",
+  "  constant Small in Size @4:3 [4:3-4:8] exported | Small",
+  "  constant Large in Size @5:3 [5:3-5:8] exported | Large"
+]

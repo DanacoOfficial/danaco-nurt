@@ -1,0 +1,4 @@
+[
+  "module @supports (display: grid) @1:1 [1:1-5:2] | @supports (display: grid)",
+  "  class .layout in @supports (display: grid) @2:3 [2:3-4:4] | .layout"
+]

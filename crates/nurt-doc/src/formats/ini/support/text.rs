@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn reports_positions_in_characters() {
-        let text = "zł = 1\nb";
+        let text = "λé = 1\nb";
         let index = LineIndex::new(text);
         let position = index.position(text, text.find('=').unwrap());
         assert_eq!((position.line, position.column), (1, 4));
