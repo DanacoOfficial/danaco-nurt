@@ -98,6 +98,45 @@ pub fn start(args: &[String], source: &dyn EngineSource) -> Result<ExitCode, Cli
 
 /// Serves the engine to one client; the only function that touches the
 /// server crate.
+#[cfg(feature = "mcp")]
+fn connect(engine: &Arc<Engine>, arguments: &Arguments) -> Result<ExitCode, CliError> {
+    match &arguments.transport {
+        Transport::Stdio => {
+            nurt_mcp::serve_stdio(Arc::clone(engine), nurt_mcp::McpOptions::new())
+                .map_err(|error| CliError::Failure(format!("the mcp server stopped: {error}")))?;
+            Ok(ExitCode::SUCCESS)
+        }
+        Transport::Http(address) => serve_http(engine, address, &arguments.transport),
+    }
+}
+
+#[cfg(feature = "mcp-http")]
+fn serve_http(
+    engine: &Arc<Engine>,
+    address: &str,
+    _transport: &Transport,
+) -> Result<ExitCode, CliError> {
+    let address: std::net::SocketAddr = address.parse().map_err(|_| {
+        CliError::Usage(format!(
+            "`{address}` is not a socket address; use `<ip>:<port>`"
+        ))
+    })?;
+    let options = nurt_mcp::McpHttpOptions::new(0).with_address(address);
+    nurt_mcp::serve_http(Arc::clone(engine), options)
+        .map_err(|error| CliError::Failure(format!("the mcp server stopped: {error}")))?;
+    Ok(ExitCode::SUCCESS)
+}
+
+#[cfg(all(feature = "mcp", not(feature = "mcp-http")))]
+fn serve_http(
+    _engine: &Arc<Engine>,
+    _address: &str,
+    transport: &Transport,
+) -> Result<ExitCode, CliError> {
+    Err(super::unavailable(transport.form()))
+}
+
+#[cfg(not(feature = "mcp"))]
 fn connect(_engine: &Arc<Engine>, arguments: &Arguments) -> Result<ExitCode, CliError> {
     Err(super::unavailable(arguments.transport.form()))
 }

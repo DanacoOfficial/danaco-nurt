@@ -17,13 +17,13 @@ publish.workspace = true
 workspace = true
 
 [features]
-default = []
+default = ["mcp", "lsp", "migrate", "service"]
 # Components of other command groups. Each feature links the crate that
 # implements one subcommand; without it the subcommand is not available.
 mcp = ["dep:nurt-mcp"]
 mcp-http = ["mcp", "nurt-mcp/http"]
-lsp = ["dep:nurt-langserver"]
-migrate = ["dep:nurt-migrate"]
+lsp = ["dep:nurt-langserver", "dep:nurt-bind", "dep:nurt-catalog", "dep:nurt-help"]
+migrate = ["dep:nurt-migrate", "dep:nurt-bind", "dep:nurt-catalog"]
 service = ["dep:nurt-service"]
 journal = ["dep:nurt-journal"]
 # Answers of the protocol server and of the C interface from recorded cases.
@@ -43,6 +43,10 @@ nurt-langserver = { workspace = true, optional = true }
 nurt-migrate = { workspace = true, optional = true }
 nurt-service = { workspace = true, optional = true }
 nurt-journal = { workspace = true, optional = true }
+nurt-bind = { workspace = true, optional = true }
+nurt-catalog = { workspace = true, optional = true }
+nurt-help = { workspace = true, optional = true }
+nurt-ext = { workspace = true }
 ciborium = { workspace = true }
 comfy-table = { workspace = true }
 ctrlc = { workspace = true }
