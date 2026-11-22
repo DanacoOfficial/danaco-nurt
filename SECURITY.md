@@ -93,6 +93,25 @@ Holding Group Sp. z o.o. issued this certificate itself, so Windows does not
 chain it to a public certification authority and reports the publisher as
 unverified until the certificate is replaced.
 
+### Verifying the history
+
+Every commit of the `main` branch is signed with a separate OpenPGP key that is
+used for commits only. The release key above has certified it.
+
+```text
+Danaco Nurt Commit Signing (Danaco Holding Group Sp. z o.o.) <support@danaco-group.pl>
+62F8 7C0F 4898 35EF 1C94  EF96 0664 7EE7 17FB BC62
+```
+
+The public key is the file `packaging/release/danaco-nurt-commit-signing.asc`.
+The history is verified with:
+
+```sh
+gpg --import danaco-nurt.asc danaco-nurt-commit-signing.asc
+git log --show-signature
+git verify-commit <commit>
+```
+
 ## Supported versions
 
 Version 0.1.0 is the first release. Until the first stable release, security
