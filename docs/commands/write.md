@@ -51,6 +51,14 @@ record as compact JSON. `yaml` and `toml` need the documents group.
 A `registry:` path writes a registry value on Windows, of the type
 `value_type` (`string` by default); `mode` is `create` or `overwrite`.
 
+Text written to a file of a known format is checked after the write: a
+document format of the documents group, otherwise a language of the code
+group. Only syntax errors that the previous content did not have count.
+With `validate: reject` such an error rolls the whole write back with
+`E_ROLLED_BACK`; with `warn` it is reported as a warning and the write is
+kept; `off` skips the check. Bytes, sizes and registry values are not
+checked, and without the documents and code groups nothing is checked.
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
@@ -71,7 +79,7 @@ A `registry:` path writes a registry value on Windows, of the type
 | `size` | `size` | | Truncate or extend the file to this size; the new bytes are zero. |
 | `data` | `bytes` | | Bytes to write. |
 | `offset` | `int` | | Byte offset at which `data` is written in place; needs `mode: overwrite` or `create`. |
-| `validate` | `enum(off\|warn\|reject)` | `reject` | Roll back a write that adds a new syntax error to a known format. |
+| `validate` | `enum(off\|warn\|reject)` | `reject` | Check written text of a known format: `reject` rolls back a write that adds a syntax error, `warn` reports it, `off` skips the check. |
 | `if_match` | `text \| map<text>` | | Expected etag of the file, or a map from path to etag for `files`. |
 
 ## Input and output
@@ -134,7 +142,8 @@ write files: [{path: "/home/user/app/a.txt", text: "a\n"}, {path: "/home/user/ap
 | `E_ENCODING` | a character the encoding of the file cannot represent | `convert` the file to UTF-8 first, or give `encoding` |
 | `E_STALE` | the file changed after its etag was read, or after the plan | read the file again and use the new etag |
 | `E_NOT_FOUND` | a parent directory is missing and `parents` is `false`, or a link names a missing entry | set `parents: true` or create the target |
-| `E_INVALID_VALUE` | the path is a directory, `file_mode` is not octal, `validate` is not `reject`, or `value_type` is given for a file | correct the value |
+| `E_INVALID_VALUE` | the path is a directory, `file_mode` is not octal, or `value_type` is given for a file | correct the value |
+| `E_ROLLED_BACK` | the written text adds a syntax error and `validate` is `reject` | correct the text or pass `validate: warn` |
 | `E_UNSUPPORTED` | `format: yaml` or `toml` without the documents group | load the group or use `format: json` |
 | `E_OS_ONLY` | a `registry:` path outside Windows | write files instead |
 | `E_LIMIT` | a file read for the change is larger than the text limit | write with `data` and `offset`, or `size` |

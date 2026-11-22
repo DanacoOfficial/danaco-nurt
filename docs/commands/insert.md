@@ -34,7 +34,8 @@ insertions at the same place keep the order of the input. The inserted
 lines take the line endings of the file. Text inserted at the end of a file
 without a final line break leaves the file without one unless
 `ensure_newline` is set. A file keeps its encoding and byte order mark.
-Empty input changes nothing and is reported as `nothing_matched`.
+Empty input changes nothing and is reported as `nothing_matched`. A line
+outside the file fails with `E_OUT_OF_RANGE` and changes nothing.
 
 ## Parameters
 
@@ -118,7 +119,7 @@ list "/home/user/app/src" glob: "*.rs" |> insert "// Part of the parser." positi
 
 | Code | Meaning | Typical fix |
 |---|---|---|
-| `E_INVALID_VALUE` | the line lies outside the file | give a line from 1 to the number of lines |
+| `E_OUT_OF_RANGE` | the line lies outside the file | give a line from 1 to the number of lines |
 | `E_MISSING_PARAM` | the source form has no `in` | name the file with `in` |
 | `E_STALE` | the file changed since it was read, or does not have the `if_match` tag | read the file again and repeat the change |
 | `E_BINARY` | the file is binary | insert into text files only |

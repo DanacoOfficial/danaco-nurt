@@ -20,7 +20,8 @@
 //! `expect` counts the matches of all files before `occurrence` applies;
 //! `occurrence` selects one match in every file. Nothing is planned when a
 //! count is outside `expect`, or when nothing matches and `on_missing` is
-//! `error`.
+//! `error`; an occurrence that no file has fails with `E_OUT_OF_RANGE` when
+//! `on_missing` is `error`.
 
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
@@ -1236,7 +1237,7 @@ impl<'o> Run<'o> {
     fn occurrence_missing(&self) -> Error {
         let occurrence = self.options.occurrence.map_or(1, NonZeroUsize::get);
         let mut error = Error::new(
-            ErrorCode::NoMatch,
+            ErrorCode::OutOfRange,
             format!(
                 "occurrence {occurrence} does not exist in any file, the pattern occurs {} times: give a smaller `{OCCURRENCE}`",
                 self.found
@@ -1678,8 +1679,10 @@ mod tests {
             ],
         );
         let error = plan(&test, &beyond, StageInput::none()).unwrap_err();
-        assert_eq!(error.code(), ErrorCode::NoMatch);
+        assert_eq!(error.code(), ErrorCode::OutOfRange);
         assert!(error.message.contains("occurrence 2"));
+        assert_eq!(error.expected, Some(Json::from(2)));
+        assert_eq!(error.actual, Some(Json::from(1)));
     }
 
     #[test]

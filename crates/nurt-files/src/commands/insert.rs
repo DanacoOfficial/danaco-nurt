@@ -14,7 +14,8 @@
 //! the line numbers of the input do not move because of earlier insertions.
 //! The inserted text takes the line endings of the file. Text inserted at
 //! the end of a file without a final line break does not add one unless
-//! `ensure_newline` is set.
+//! `ensure_newline` is set. A line outside the file fails with
+//! `E_OUT_OF_RANGE` before anything is written.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -362,7 +363,8 @@ mod tests {
             StageInput::none(),
         )
         .unwrap_err();
-        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert_eq!(error.code(), ErrorCode::OutOfRange);
+        assert_eq!(error.actual, Some(serde_json::json!(5)));
         assert_eq!(test.fs().read_file(&path).unwrap(), b"one\n");
     }
 

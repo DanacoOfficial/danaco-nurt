@@ -13,6 +13,11 @@
 //! through the transaction, which checks again that no target changed after
 //! the plan.
 //!
+//! Text written to a file of a known format is checked after the write as
+//! `validate` requires: a syntax error that the previous content did not
+//! have rolls the write back under `reject` and is reported as a warning
+//! under `warn`. Bytes, sizes and registry values are not checked.
+//!
 //! | Mode | Missing file | Existing file |
 //! |---|---|---|
 //! | `create` | created | `E_EXISTS` |
@@ -54,6 +59,7 @@ use nurt_text::codec_service::line_ending;
 use nurt_text::eol::{self, Terminator};
 use serde_json::Value as Json;
 
+use crate::commands::validate::{Validate, check_change, validate_param};
 use crate::common::etag::{Observed, check_if_match, observe};
 use crate::common::mutation::{applied_change, fs_target, planned_change};
 use crate::common::notable::{at_path, preserved_text};
@@ -79,14 +85,11 @@ const FILE_MODE: &str = "file_mode";
 const SIZE: &str = "size";
 const DATA: &str = "data";
 const OFFSET: &str = "offset";
-const VALIDATE: &str = "validate";
 
 const CONTENT_PARAMS: [&str; 4] = [TEXT, FROM, SIZE, DATA];
 const ITEM_FIELDS: [&str; 3] = [PATH, TEXT, MODE];
 const MODE_VALUES: [&str; 4] = ["create", "overwrite", "append", "prepend"];
 const FORMAT_VALUES: [&str; 7] = ["auto", "json", "yaml", "toml", "csv", "tsv", "text"];
-const VALIDATE_VALUES: [&str; 3] = ["off", "warn", "reject"];
-const VALIDATE_DEFAULT: &str = "reject";
 const VALUE_TYPES: [&str; 6] = [
     "string",
     "dword",
@@ -150,7 +153,6 @@ impl EffectStage for Write {
         input: StageInput<'a>,
         ctx: &'a ExecCtx,
     ) -> Result<EffectPlan> {
-        check_validate(args)?;
         let settings = Settings::read(args, ctx)?;
         if let Some(raw) = registry_path(args) {
             return plan_registry(args, raw, Planner::new(ctx, settings));
@@ -178,8 +180,23 @@ impl EffectStage for Write {
         tx: &mut dyn MutationTx,
         ctx: &'a ExecCtx,
     ) -> Result<EffectOutcome<'a>> {
-        let ops = take_ops(&mut plan, COMMAND)?;
-        let changes = apply_planned(tx, ops, ctx)?;
+        let planned = plan.take_state::<Planned>().ok_or_else(|| {
+            Error::new(
+                ErrorCode::StageFailed,
+                format!("the plan of `{COMMAND}` holds no planned changes"),
+            )
+        })?;
+        let changes = apply_planned(tx, planned.ops, ctx)?;
+        for check in &planned.checks {
+            check_change(
+                ctx,
+                COMMAND,
+                &check.path,
+                check.before.as_bytes(),
+                check.after.as_bytes(),
+                planned.validate,
+            )?;
+        }
         Ok(EffectOutcome {
             changes,
             ..EffectOutcome::new(StageOutput::none())
@@ -466,19 +483,6 @@ pub(crate) fn type_error(command: &str, name: &str, expected: &str) -> Error {
     )
 }
 
-fn check_validate(args: &BoundArgs) -> Result<()> {
-    match choice(args, VALIDATE, &VALIDATE_VALUES)? {
-        None | Some(VALIDATE_DEFAULT) => Ok(()),
-        Some(other) => Err(Error::new(
-            ErrorCode::InvalidValue,
-            format!(
-                "`validate: {other}` is not available for `write`: leave `validate` at `{VALIDATE_DEFAULT}`"
-            ),
-        )
-        .with_found(other)),
-    }
-}
-
 /// Write mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Mode {
@@ -603,6 +607,7 @@ struct Settings {
     file_mode: Option<u32>,
     new_line: Terminator,
     shrink_ratio: f64,
+    validate: Validate,
 }
 
 impl Settings {
@@ -620,6 +625,7 @@ impl Settings {
             file_mode: args.text(FILE_MODE)?.map(parse_file_mode).transpose()?,
             new_line,
             shrink_ratio: ctx.config().report.notable.shrink_ratio,
+            validate: validate_param(args)?,
         })
     }
 
@@ -1285,12 +1291,30 @@ fn describe_text(
     change.size_after = Some(Size::from_bytes(byte_len(written)));
 }
 
+/// Text of a file before and after a write, checked as `validate` requires
+/// once the write is applied.
+#[derive(Debug)]
+struct TextCheck {
+    path: AbsPath,
+    before: String,
+    after: String,
+}
+
+/// State of a planned `write`: the planned operations and the text checks.
+#[derive(Debug)]
+struct Planned {
+    ops: Vec<PlannedOp>,
+    checks: Vec<TextCheck>,
+    validate: Validate,
+}
+
 /// Collects the planned operations and the notable and irreversible effects
 /// of one `write`.
 struct Planner<'c> {
     ctx: &'c ExecCtx,
     settings: Settings,
     ops: Vec<PlannedOp>,
+    checks: Vec<TextCheck>,
     notable: Vec<NotableEntry>,
     irreversible: Vec<IrreversibleEntry>,
     dirs: BTreeSet<AbsPath>,
@@ -1303,6 +1327,7 @@ impl<'c> Planner<'c> {
             ctx,
             settings,
             ops: Vec::new(),
+            checks: Vec::new(),
             notable: Vec::new(),
             irreversible: Vec::new(),
             dirs: BTreeSet::new(),
@@ -1316,7 +1341,11 @@ impl<'c> Planner<'c> {
         plan.notable = self.notable;
         plan.irreversible = self.irreversible;
         plan.bulk = self.ops.len() > 1;
-        plan.with_state(self.ops)
+        plan.with_state(Planned {
+            ops: self.ops,
+            checks: self.checks,
+            validate: self.settings.validate,
+        })
     }
 
     fn push(&mut self, target: TargetSpec, work: Work, change: Change) {
@@ -1332,6 +1361,17 @@ impl<'c> Planner<'c> {
             detail,
             ..at_path(code, path)
         });
+    }
+
+    /// Keeps the text of a written file for the check of `validate`.
+    fn check(&mut self, path: &AbsPath, before: &str, after: String) {
+        if self.settings.validate != Validate::Off {
+            self.checks.push(TextCheck {
+                path: path.clone(),
+                before: before.to_owned(),
+                after,
+            });
+        }
     }
 
     fn claim(&mut self, path: &AbsPath) -> Result<()> {
@@ -1473,6 +1513,7 @@ impl<'c> Planner<'c> {
         let mut change = planned_change(&target);
         describe_text(&mut change, None, &form.encoding, &bytes);
         self.push(target, new_work(bytes, self.settings.file_mode), change);
+        self.check(path, "", rendered);
         Ok(())
     }
 
@@ -1491,6 +1532,7 @@ impl<'c> Planner<'c> {
         let mut change = planned_change(&target);
         describe_text(&mut change, Some(file), &form.encoding, &bytes);
         self.push(target, Work::Apply(Mutation::WriteBytes(bytes)), change);
+        self.check(&file.path, &file.text, rendered);
         Ok(())
     }
 
@@ -1515,6 +1557,7 @@ impl<'c> Planner<'c> {
         change.bom_after = Some(file.encoding.bom || encoding.bom);
         change.size_after = Some(Size::from_bytes(file.size.saturating_add(byte_len(&bytes))));
         self.push(target, Work::Apply(Mutation::AppendBytes(bytes)), change);
+        self.check(&file.path, &file.text, format!("{}{rendered}", file.text));
         Ok(())
     }
 
@@ -1874,12 +1917,18 @@ fn number_error(text: &str) -> Error {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
     use std::time::Duration;
 
     use nurt_contracts::fs::{ContentHash, Fs};
-    use nurt_contracts::journal::JournalStore;
+    use nurt_contracts::journal::{JournalStore, RollbackReason};
+    use nurt_contracts::keypath::KeyPath;
     use nurt_contracts::record::{ChangeAction, LineEnding as RecordLineEnding};
-    use nurt_contracts::stage::RecordStream;
+    use nurt_contracts::services::{
+        ByteRange, DocFormatInfo, DocItem, DocService, IssueSeverity, Services, SyntaxIssue,
+        TextPosition, TextSpan,
+    };
+    use nurt_contracts::stage::{Event, LogLevel, RecordStream};
     use nurt_contracts::value::{Bytes, RecordKind};
     use nurt_testkit::ctx::TestContext;
     use nurt_testkit::fixtures::begin_request;
@@ -1887,6 +1936,7 @@ mod tests {
     use nurt_testkit::journal::JournalCall;
 
     use super::*;
+    use crate::commands::validate::VALIDATE;
     use crate::common::etag::etag_text;
 
     /// Windows-1250 text with Polish letters and CRLF line endings.
@@ -2636,24 +2686,141 @@ mod tests {
         assert!(test.journal().calls().is_empty());
     }
 
+    /// Document service that knows `.json` files and reports one syntax
+    /// error when the braces are unbalanced.
+    struct BraceChecker;
+
+    impl DocService for BraceChecker {
+        fn formats(&self) -> Vec<DocFormatInfo> {
+            Vec::new()
+        }
+
+        fn detect_format(&self, path: Option<&Path>, _bytes: &[u8]) -> Option<DocFormatId> {
+            path.filter(|path| path.extension().is_some_and(|ext| ext == "json"))
+                .map(|_| DocFormatId::JSON)
+        }
+
+        fn read_keys(
+            &self,
+            _bytes: &[u8],
+            _format: &DocFormatId,
+            _key: &KeyPath,
+            _depth: Option<u32>,
+        ) -> Result<Vec<DocItem>> {
+            Ok(Vec::new())
+        }
+
+        fn check_syntax(&self, bytes: &[u8], _format: &DocFormatId) -> Result<Vec<SyntaxIssue>> {
+            let open = bytes.iter().filter(|byte| **byte == b'{').count();
+            let close = bytes.iter().filter(|byte| **byte == b'}').count();
+            if open == close {
+                return Ok(Vec::new());
+            }
+            let position = TextPosition { line: 1, column: 1 };
+            Ok(vec![SyntaxIssue {
+                severity: IssueSeverity::Error,
+                message: "unbalanced braces".to_owned(),
+                span: TextSpan {
+                    bytes: ByteRange::new(0, 0),
+                    start: position,
+                    end: position,
+                },
+                kind: Some("unbalanced".to_owned()),
+            }])
+        }
+
+        fn serialize_records(
+            &self,
+            _records: &[Record],
+            _format: &DocFormatId,
+            _options: &SerializeOptions,
+        ) -> Result<Vec<u8>> {
+            Ok(Vec::new())
+        }
+    }
+
+    fn checked() -> TestContext {
+        let test =
+            TestContext::new().with_services(Services::new().with_doc(Arc::new(BraceChecker)));
+        test.fs().create_dir_all(&abs("/data")).unwrap();
+        test
+    }
+
+    fn validated(path: &str, mode: &str, text: &str, validate: &str) -> BoundArgs {
+        set(
+            with_text(path, mode, text),
+            VALIDATE,
+            Value::Enum(validate.to_owned()),
+        )
+    }
+
     #[test]
-    fn validate_other_than_reject_is_not_available() {
-        let test = data_dir();
-        let off = set(
-            with_text("/data/a.txt", "create", "x"),
-            VALIDATE,
-            Value::Enum("off".to_owned()),
-        );
+    fn validate_takes_off_warn_and_reject() {
+        let test = checked();
+        let unknown = validated("/data/a.json", "create", "{}", "strict");
         assert_eq!(
-            run(&test, &off).unwrap_err().code(),
-            ErrorCode::InvalidValue
+            run(&test, &unknown).unwrap_err().code(),
+            ErrorCode::UnknownValue
         );
-        let reject = set(
-            with_text("/data/a.txt", "create", "x"),
-            VALIDATE,
-            Value::Enum("reject".to_owned()),
+        assert!(test.journal().calls().is_empty());
+        run(&test, &validated("/data/a.json", "create", "{", "off")).unwrap();
+        assert_eq!(read(&test, "/data/a.json"), b"{");
+        run(&test, &validated("/data/b.json", "create", "{}", "reject")).unwrap();
+        assert_eq!(read(&test, "/data/b.json"), b"{}");
+    }
+
+    #[test]
+    fn a_new_file_with_a_syntax_error_is_rolled_back() {
+        let test = checked();
+        let ctx = test.ctx();
+        let given = with_text("/data/new.json", "create", "{\"a\": 1\n");
+        let plan = Write.plan(&given, StageInput::none(), &ctx).unwrap();
+        let mut tx = test.journal().begin(begin_request(COMMAND));
+        let error = Write.apply(&given, plan, tx.as_mut(), &ctx).unwrap_err();
+        tx.rollback(RollbackReason::ValidateFailed).unwrap();
+        assert_eq!(error.code(), ErrorCode::RolledBack);
+        assert_eq!(error.problem.as_deref(), Some("validate_failed"));
+        assert_every_change_declared(&test);
+        assert!(test.journal().calls().iter().any(|call| matches!(
+            call,
+            JournalCall::Rollback {
+                reason: Some(RollbackReason::ValidateFailed),
+                ..
+            }
+        )));
+    }
+
+    #[test]
+    fn warn_keeps_the_write_and_reports_the_new_error() {
+        let test = checked();
+        test.fs().write_file(&abs("/data/a.json"), b"{}\n").unwrap();
+        run(&test, &validated("/data/a.json", "append", "{\n", "warn")).unwrap();
+        assert_eq!(read(&test, "/data/a.json"), b"{}\n{\n");
+        let events = test.events().take();
+        let warning = events
+            .iter()
+            .find_map(|event| match event {
+                Event::Log(log) => Some(log),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(warning.level, LogLevel::Warn);
+        assert_eq!(warning.source.as_deref(), Some(COMMAND));
+        assert!(warning.message.contains("1 syntax error"));
+    }
+
+    #[test]
+    fn bytes_and_unknown_formats_are_not_validated() {
+        let test = checked();
+        let bytes = set(
+            args("/data/a.json", "create"),
+            DATA,
+            Value::Bytes(Bytes::new(b"{".to_vec())),
         );
-        run(&test, &reject).unwrap();
+        run(&test, &bytes).unwrap();
+        assert_eq!(read(&test, "/data/a.json"), b"{");
+        run(&test, &with_text("/data/a.txt", "create", "{")).unwrap();
+        assert_eq!(read(&test, "/data/a.txt"), b"{");
     }
 
     fn registry_args(value_type: &str, text: &str) -> BoundArgs {
@@ -2688,9 +2855,10 @@ mod tests {
             plan.changes[0].path.as_str(),
             "registry:/HKCU/Software/App/Interval"
         );
-        let ops = take_ops(&mut plan, COMMAND).unwrap();
+        let planned = plan.take_state::<Planned>().unwrap();
+        assert!(planned.checks.is_empty());
         assert!(matches!(
-            &ops[0].work,
+            &planned.ops[0].work,
             Work::Apply(Mutation::ProviderSet(ProviderValue::U32(16)))
         ));
         let lines = Write

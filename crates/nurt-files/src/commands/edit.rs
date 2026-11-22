@@ -688,9 +688,12 @@ fn occurrence_value(name: &str, value: Option<&Value>) -> Result<Option<NonZeroU
 }
 
 /// Error of a change that cannot be planned in `path`.
+///
+/// A line outside the text and an occurrence above the number of matches
+/// are `E_OUT_OF_RANGE`; every other failure keeps the code of the planner.
 #[must_use]
 pub(crate) fn edit_error(error: &EditError, path: &AbsPath) -> Error {
-    let base = Error::new(error.code(), format!("`{path}`: {error}"))
+    let base = Error::new(edit_code(error), format!("`{path}`: {error}"))
         .with_detail("path", Json::from(path.to_language_string()));
     match error {
         EditError::Match { source, .. } => with_match_details(base, source),
@@ -698,18 +701,37 @@ pub(crate) fn edit_error(error: &EditError, path: &AbsPath) -> Error {
         EditError::TotalMismatch { expected, found } => base
             .with_expected(Json::from(expected.to_string()))
             .with_actual(Json::from(*found)),
+        EditError::LineOutOfRange { line, lines, .. } => base
+            .with_detail("lines", Json::from(*lines))
+            .with_actual(Json::from(*line)),
         _ => base,
     }
 }
 
-/// Error of a literal pattern that cannot be matched or selected in `path`.
+/// Error of a literal pattern that cannot be matched or selected in `path`;
+/// an occurrence above the number of matches is `E_OUT_OF_RANGE`.
 #[must_use]
 pub(crate) fn match_error(error: &MatchError, path: &AbsPath) -> Error {
     with_match_details(
-        Error::new(error.code(), format!("`{path}`: {error}"))
+        Error::new(match_code(error), format!("`{path}`: {error}"))
             .with_detail("path", Json::from(path.to_language_string())),
         error,
     )
+}
+
+fn edit_code(error: &EditError) -> ErrorCode {
+    match error {
+        EditError::LineOutOfRange { .. } => ErrorCode::OutOfRange,
+        EditError::Match { source, .. } => match_code(source),
+        other => other.code(),
+    }
+}
+
+fn match_code(error: &MatchError) -> ErrorCode {
+    match error {
+        MatchError::OccurrenceMissing { .. } => ErrorCode::OutOfRange,
+        other => other.code(),
+    }
 }
 
 /// Error of a replacement template that is not valid.
@@ -1046,6 +1068,49 @@ mod tests {
     }
 
     #[test]
+    fn lines_and_occurrences_outside_the_file_are_out_of_range() {
+        let (test, path) = with_file("/data/a.txt", b"one\ntwo\n");
+        let cases = [
+            map(&[(
+                DELETE_LINES,
+                Value::Range(Range::new(Some(2), Some(5)).unwrap()),
+            )]),
+            map(&[(INSERT, text("x")), (LINE, Value::Int(9))]),
+            map(&[
+                (INSERT, text("x")),
+                (LINE, Value::Int(0)),
+                (POSITION, Value::Enum("before".to_owned())),
+            ]),
+            map(&[
+                (REPLACE, text("o")),
+                (WITH, text("0")),
+                (OCCURRENCE, Value::Int(5)),
+                (params::ON_MISSING, Value::Enum("error".to_owned())),
+            ]),
+        ];
+        for change in cases {
+            let error = run(&test, &args(&path, vec![change.clone()])).unwrap_err();
+            assert_eq!(error.code(), ErrorCode::OutOfRange, "{change:?}");
+        }
+        let line = run(
+            &test,
+            &args(
+                &path,
+                vec![map(&[(INSERT, text("x")), (LINE, Value::Int(9))])],
+            ),
+        )
+        .unwrap_err();
+        assert_eq!(line.actual, Some(Json::from(9)));
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"one\ntwo\n");
+        assert!(
+            test.journal()
+                .calls()
+                .iter()
+                .all(|call| !matches!(call, JournalCall::Preserve { .. }))
+        );
+    }
+
+    #[test]
     fn the_expect_of_the_command_applies_to_every_replacement() {
         let (test, path) = with_file("/data/a.txt", b"a a\nb\n");
         let given = args(
@@ -1214,5 +1279,16 @@ mod tests {
         let empty = match_error(&MatchError::EmptyPattern, &path);
         assert_eq!(empty.code(), ErrorCode::InvalidValue);
         assert!(empty.sample.is_empty());
+        let beyond = match_error(
+            &MatchError::OccurrenceMissing {
+                occurrence: NonZeroUsize::new(3).unwrap(),
+                found: 2,
+                candidates: Vec::new(),
+            },
+            &path,
+        );
+        assert_eq!(beyond.code(), ErrorCode::OutOfRange);
+        assert_eq!(beyond.expected, Some(Json::from("3")));
+        assert_eq!(beyond.actual, Some(Json::from(2)));
     }
 }

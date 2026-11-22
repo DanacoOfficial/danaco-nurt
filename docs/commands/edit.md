@@ -111,7 +111,8 @@ edit "/home/user/app/Cargo.toml" changes: [{replace: /version = "(\d+)\.(\d+)\.\
 
 | Code | Meaning | Typical fix |
 |---|---|---|
-| `E_INVALID_VALUE` | a change has no or several kinds, an unknown key, a line outside the file, or overlaps another change | correct the change or merge the overlapping changes |
+| `E_INVALID_VALUE` | a change has no or several kinds, an unknown key, or overlaps another change | correct the change or merge the overlapping changes |
+| `E_OUT_OF_RANGE` | a line lies outside the file, or a replacement with `on_missing: error` names an occurrence above the number of its matches | give a line from 1 to the number of lines, or a smaller `occurrence` |
 | `E_MISSING_PARAM` | a replacement has no `with`, or an insertion before or after a line has no `line` | add the key, or use `position: start` or `end` |
 | `E_ASSERT` | the number of matches of a replacement is outside `expect` | extend the pattern, set `occurrence` or change `expect` |
 | `E_NO_MATCH` | a replacement matches nothing and `on_missing` is `error` | read the current text and give an existing fragment |

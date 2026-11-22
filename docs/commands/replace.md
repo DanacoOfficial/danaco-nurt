@@ -47,7 +47,9 @@ inserts `with` as written.
 is outside `expect` nothing is changed and the error lists the first
 matches. When nothing matches, `on_missing: skip` reports the notable effect
 `nothing_matched` and changes nothing, and `on_missing: error` fails with
-the nearest fragments of the text.
+the nearest fragments of the text. When the pattern matches but no file has
+the occurrence, `on_missing: error` fails with `E_OUT_OF_RANGE` and lists
+the first matches.
 
 `scope` keeps the matches that start in code, comments or string literals,
 as classified by the grammar of the file. `mode: syntax` matches a
@@ -195,7 +197,8 @@ replace "http://" "https://" in: ["/home/user/site"] expect: 3
 | Code | Meaning | Typical fix |
 |---|---|---|
 | `E_ASSERT` | the number of matches is outside `expect` | extend the pattern, set `occurrence` or change `expect` |
-| `E_NO_MATCH` | nothing matches, or no file has the occurrence, and `on_missing` is `error` | read the current text and give an existing fragment |
+| `E_NO_MATCH` | nothing matches and `on_missing` is `error` | read the current text and give an existing fragment |
+| `E_OUT_OF_RANGE` | no file has the occurrence and `on_missing` is `error` | give an `occurrence` from 1 to the number of matches |
 | `E_REGEX` | the regular expression or the template is not valid | correct the pattern or pass `template: false` |
 | `E_INVALID_VALUE` | the pattern is empty, or `occurrence` is below 1 | give the text to replace and an occurrence from 1 |
 | `E_STALE` | a file changed since it was read, or does not have the `if_match` tag | read the file again and repeat the change |

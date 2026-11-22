@@ -308,7 +308,7 @@ fn binary_files_are_rejected() {
 }
 
 #[test]
-fn a_missing_line_number_beyond_the_file_is_an_error() {
+fn a_line_before_the_first_line_is_out_of_range() {
     let (test, path) = with_file("/data/a.txt", "a\n");
     let error = run(
         &test,
@@ -321,6 +321,23 @@ fn a_missing_line_number_beyond_the_file_is_an_error() {
         StageInput::none(),
     )
     .unwrap_err();
-    assert_eq!(error.code(), ErrorCode::InvalidValue);
+    assert_eq!(error.code(), ErrorCode::OutOfRange);
     assert_eq!(content(&test, &path), "a\n");
+    assert_every_change_declared(&test, &[]);
+}
+
+#[test]
+fn a_line_record_after_the_last_line_is_out_of_range() {
+    let (test, path) = with_file("/data/a.txt", "a\nb\n");
+    let records = vec![line_record(&path, 1), line_record(&path, 7)];
+    let error = run(
+        &test,
+        &args(&[("text", text("-"))]),
+        StageInput::records(RecordStream::from_records(records)),
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::OutOfRange);
+    assert!(error.message.contains("line 7"));
+    assert_eq!(content(&test, &path), "a\nb\n");
+    assert_every_change_declared(&test, &[]);
 }

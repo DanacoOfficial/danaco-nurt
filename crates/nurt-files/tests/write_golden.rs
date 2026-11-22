@@ -1,20 +1,27 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Examples of `docs/commands/write.md`, run on the virtual file system.
+//! Examples of `docs/commands/write.md`, run on the virtual file system,
+//! and the validation of written text.
 
 // Test code unwraps results so that a failure aborts the test with the original error.
 #![allow(clippy::unwrap_used)]
 
+use std::path::Path;
 use std::sync::Arc;
 
 use nurt_contracts::error::{ErrorCode, Result};
 use nurt_contracts::fs::{AbsPath, Follow, Fs};
-use nurt_contracts::journal::JournalStore;
+use nurt_contracts::journal::{JournalStore, RollbackReason};
+use nurt_contracts::keypath::KeyPath;
 use nurt_contracts::record::{Change, ChangeAction, LineEnding};
 use nurt_contracts::report::Notable;
+use nurt_contracts::services::{
+    ByteRange, DocFormatId, DocFormatInfo, DocItem, DocService, IssueSeverity, SerializeOptions,
+    Services, SyntaxIssue, TextPosition, TextSpan,
+};
 use nurt_contracts::stage::{ArgValue, BoundArgs, StageImpl, StageInput};
-use nurt_contracts::value::{Fields, Size, Value};
+use nurt_contracts::value::{Fields, Record, Size, Value};
 use nurt_testkit::ctx::TestContext;
 use nurt_testkit::fixtures::begin_request;
 use nurt_testkit::journal::JournalCall;
@@ -220,4 +227,133 @@ fn a_stale_etag_changes_nothing() {
     assert_eq!(error.code(), ErrorCode::Stale);
     assert_eq!(test.fs().read_file(&notes).unwrap(), b"edited elsewhere\n");
     assert!(test.journal().calls().is_empty());
+}
+
+/// Document service that knows `.json` files and reports one syntax error
+/// when the braces are unbalanced.
+struct BraceChecker;
+
+impl DocService for BraceChecker {
+    fn formats(&self) -> Vec<DocFormatInfo> {
+        Vec::new()
+    }
+
+    fn detect_format(&self, path: Option<&Path>, _bytes: &[u8]) -> Option<DocFormatId> {
+        path.filter(|path| path.extension().is_some_and(|ext| ext == "json"))
+            .map(|_| DocFormatId::JSON)
+    }
+
+    fn read_keys(
+        &self,
+        _bytes: &[u8],
+        _format: &DocFormatId,
+        _key: &KeyPath,
+        _depth: Option<u32>,
+    ) -> Result<Vec<DocItem>> {
+        Ok(Vec::new())
+    }
+
+    fn check_syntax(&self, bytes: &[u8], _format: &DocFormatId) -> Result<Vec<SyntaxIssue>> {
+        let open = bytes.iter().filter(|byte| **byte == b'{').count();
+        let close = bytes.iter().filter(|byte| **byte == b'}').count();
+        if open == close {
+            return Ok(Vec::new());
+        }
+        let position = TextPosition { line: 1, column: 1 };
+        Ok(vec![SyntaxIssue {
+            severity: IssueSeverity::Error,
+            message: "unbalanced braces".to_owned(),
+            span: TextSpan {
+                bytes: ByteRange::new(0, 0),
+                start: position,
+                end: position,
+            },
+            kind: Some("unbalanced".to_owned()),
+        }])
+    }
+
+    fn serialize_records(
+        &self,
+        _records: &[Record],
+        _format: &DocFormatId,
+        _options: &SerializeOptions,
+    ) -> Result<Vec<u8>> {
+        Ok(Vec::new())
+    }
+}
+
+/// Context with the brace checker and the directory `/home/user/app`.
+fn checked_app() -> TestContext {
+    let test = TestContext::new().with_services(Services::new().with_doc(Arc::new(BraceChecker)));
+    test.fs().create_dir_all(&abs("/home/user/app")).unwrap();
+    test
+}
+
+/// Plans and applies a call; a failed apply rolls the transaction back.
+fn run_checked(test: &TestContext, args: &BoundArgs) -> Result<Vec<Change>> {
+    let stage = stage();
+    let effect = stage.as_effect().unwrap();
+    let ctx = test.ctx();
+    let plan = effect.plan(args, StageInput::none(), &ctx)?;
+    let mut tx = test.journal().begin(begin_request(COMMAND));
+    match effect.apply(args, plan, tx.as_mut(), &ctx) {
+        Ok(outcome) => {
+            let changes = outcome.changes;
+            tx.commit()?;
+            Ok(changes)
+        }
+        Err(error) => {
+            tx.rollback(RollbackReason::ValidateFailed)?;
+            Err(error)
+        }
+    }
+}
+
+#[test]
+fn a_new_syntax_error_rolls_the_write_back() {
+    let test = checked_app();
+    let config = abs("/home/user/app/config.json");
+    test.fs().write_file(&config, b"{\"port\": 80}\n").unwrap();
+    let error = run_checked(
+        &test,
+        &write_args(
+            "/home/user/app/config.json",
+            "{\"port\": 8080\n",
+            "overwrite",
+        ),
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::RolledBack);
+    assert_eq!(error.problem.as_deref(), Some("validate_failed"));
+    assert_eq!(
+        error.sample,
+        [format!("{config}:1:1 unbalanced braces [json]")]
+    );
+    assert_every_change_declared(&test);
+    assert!(test.journal().calls().iter().any(|call| matches!(
+        call,
+        JournalCall::Rollback {
+            reason: Some(RollbackReason::ValidateFailed),
+            ..
+        }
+    )));
+}
+
+#[test]
+fn an_error_present_before_the_write_does_not_block_it() {
+    let test = checked_app();
+    let config = abs("/home/user/app/config.json");
+    test.fs().write_file(&config, b"{\"port\": 80\n").unwrap();
+    let changes = run_checked(
+        &test,
+        &write_args(
+            "/home/user/app/config.json",
+            "{\"port\": 8080\n",
+            "overwrite",
+        ),
+    )
+    .unwrap();
+    assert_eq!(changes.len(), 1);
+    assert_eq!(test.fs().read_file(&config).unwrap(), b"{\"port\": 8080\n");
+    assert_every_change_declared(&test);
 }
