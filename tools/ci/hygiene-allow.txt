@@ -16,3 +16,6 @@ style CODE_OF_CONDUCT.md
 # The pull request template is copied into the description of every pull
 # request and is kept free of comments.
 producer-header .github/PULL_REQUEST_TEMPLATE.md
+producer-header .editorconfig
+producer-header .gitattributes
+producer-header .gitignore

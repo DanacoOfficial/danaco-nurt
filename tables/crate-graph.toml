@@ -297,7 +297,7 @@ deps = ["nurt-contracts", "nurt-types", "nurt-git", "nurt-git-transport"]
 layer = "component"
 area = "system"
 summary = "Processes, ports, disks, host, environment, accounts, services and packages."
-deps = ["nurt-contracts", "nurt-types", "nurt-syslog"]
+deps = ["nurt-contracts", "nurt-types", "nurt-syslog", "nurt-programs"]
 
 [crate.nurt-net]
 layer = "component"
@@ -314,7 +314,6 @@ deps = ["nurt-contracts", "nurt-types"]
 [crate.nurt-programs]
 layer = "component"
 area = "system"
-reserved = true
 summary = "Installed programs and external program catalogs."
 deps = ["nurt-contracts", "nurt-types"]
 
@@ -413,6 +412,12 @@ layer = "tool"
 area = "integration"
 summary = "Benchmark tasks, oracles and comparison protocol."
 deps = ["nurt-contracts", "nurt-testkit", "nurt-core"]
+
+[crate.nurt-git-difftest]
+layer = "tool"
+area = "git"
+summary = "Differential tests of the Git commands against the git program."
+deps = ["nurt-contracts", "nurt-types", "nurt-testkit", "nurt-git", "nurt-git-ops", "nurt-git-transport"]
 
 [crate.nurt-docgen]
 layer = "tool"

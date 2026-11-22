@@ -32,6 +32,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::stage::{CancelReason, CancelToken};
 
+const NANOS_PER_SEC: i128 = 1_000_000_000;
+
 /// Wall-clock instant: nanoseconds since the Unix epoch, UTC.
 ///
 /// ```
@@ -71,8 +73,8 @@ impl WallTime {
         if delta <= 0 {
             return Duration::ZERO;
         }
-        let secs = delta / 1_000_000_000;
-        let nanos = delta % 1_000_000_000;
+        let secs = delta / NANOS_PER_SEC;
+        let nanos = delta % NANOS_PER_SEC;
         match (u64::try_from(secs), u32::try_from(nanos)) {
             (Ok(secs), Ok(nanos)) => Duration::new(secs, nanos),
             _ => Duration::MAX,
@@ -130,6 +132,8 @@ pub trait Clock: Send + Sync {
     fn stamp(&self) -> ClockStamp;
 
     /// Blocks for `duration` or until `cancel` is cancelled, whichever is first.
+    ///
+    /// # Errors
     ///
     /// Fails with the cancellation reason when the token was cancelled before
     /// or during the wait.

@@ -229,9 +229,11 @@ Each entry is `{reason, path?, count?, detail?}`.
 
 ## 8. Errors
 
-`error` is `{code, message, at?, found?, problem?, fix?, help?, expected?,
-actual?, sample?, candidates?, next_steps?, cause?}`. `at` is `{line, column,
-length, stage}`, where `stage` is the index of the pipeline stage. The list of
+`error` is `{code, message, at?, location?, found?, problem?, fix?, help?,
+expected?, actual?, sample?, candidates?, next_steps?, effect_applied?,
+details?, cause?}`. `at` is `{line?, column?, length?, stage?}`: `stage` is the
+execution stage as text (`"0"` to `"7"`, `"5a"`), and `line`, `column` and
+`length` give the place in the program text when the error has one. The list of
 codes is part of the schema (`$defs/error_code`); every code defined by the
 error contract is listed there, and a test keeps the two in step. The error
 structure itself is specified together with the error codes; the report

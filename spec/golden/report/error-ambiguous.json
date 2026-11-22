@@ -5,8 +5,7 @@
   "error": {
     "code": "E_AMBIGUOUS",
     "message": "the correction touches the target of a change",
-    "stage": "0",
-    "at": { "line": 1, "column": 8, "length": 14 },
+    "at": { "line": 1, "column": 8, "length": 14, "stage": "0" },
     "found": "/srv/app/bild",
     "candidates": [
       {

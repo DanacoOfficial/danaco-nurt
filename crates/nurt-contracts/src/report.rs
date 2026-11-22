@@ -44,6 +44,8 @@ use crate::ast::AST_HASH_PREFIX;
 use crate::error::Error;
 use crate::value::{Record, RecordKind};
 
+pub use crate::record::{Change, ChangeAction, Hunk};
+
 /// Number of hexadecimal digits of a SHA-256 digest.
 const SHA256_HEX_DIGITS: usize = 64;
 
@@ -434,6 +436,21 @@ pub enum Notable {
     StashKept,
     /// A commit or tag was signed.
     Signed,
+    /// The amended commit is reachable from a remote-tracking branch.
+    AmendPublished,
+    /// A commit was created on a detached `HEAD`.
+    CommitDetachedHead,
+    /// A commit was created while a rebase, cherry-pick, revert or bisection
+    /// is in progress.
+    OperationInProgress,
+    /// Files matched by `exclude` were skipped; `count` gives the number.
+    Excluded,
+    /// Files were not reviewed: untracked files over the size limit, binary
+    /// files or files over the count limit.
+    ReviewSkipped,
+    /// A checkpoint was created without the index because the index has
+    /// conflicts.
+    CheckpointWithoutIndex,
 }
 
 impl Notable {
@@ -519,6 +536,12 @@ impl Notable {
         Self::UpstreamSet,
         Self::StashKept,
         Self::Signed,
+        Self::AmendPublished,
+        Self::CommitDetachedHead,
+        Self::OperationInProgress,
+        Self::Excluded,
+        Self::ReviewSkipped,
+        Self::CheckpointWithoutIndex,
     ];
 
     /// Returns the stable code, as written in JSON.
@@ -605,6 +628,12 @@ impl Notable {
             Self::UpstreamSet => "upstream_set",
             Self::StashKept => "stash_kept",
             Self::Signed => "signed",
+            Self::AmendPublished => "amend_published",
+            Self::CommitDetachedHead => "commit_detached_head",
+            Self::OperationInProgress => "operation_in_progress",
+            Self::Excluded => "excluded",
+            Self::ReviewSkipped => "review_skipped",
+            Self::CheckpointWithoutIndex => "checkpoint_without_index",
         }
     }
 
@@ -615,7 +644,12 @@ impl Notable {
     #[must_use]
     pub const fn default_severity(self) -> Severity {
         match self {
-            Self::OutsideProject | Self::SystemPath | Self::ForcePush => Severity::Alert,
+            Self::OutsideProject | Self::SystemPath | Self::ForcePush | Self::AmendPublished => {
+                Severity::Alert
+            }
+            Self::CommitDetachedHead | Self::OperationInProgress => Severity::Warning,
+            Self::ReviewSkipped | Self::CheckpointWithoutIndex => Severity::Notice,
+            Self::Excluded => Severity::Info,
             Self::HomeConfig
             | Self::MassDelete
             | Self::OverwroteExisting
@@ -863,82 +897,6 @@ impl FromStr for Irreversible {
     }
 }
 
-/// Kind of change applied to a target.
-///
-/// # Examples
-///
-/// ```
-/// use nurt_contracts::report::ChangeAction;
-///
-/// assert_eq!(ChangeAction::Modify.as_str(), "modify");
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-#[non_exhaustive]
-pub enum ChangeAction {
-    /// The target was created.
-    Create,
-    /// The content of the target was changed.
-    Modify,
-    /// The target was deleted.
-    Delete,
-    /// The target was renamed or moved; `from` holds the previous path.
-    Rename,
-    /// Mode, ownership or access control of the target was changed.
-    Attributes,
-    /// A link was created or changed.
-    Link,
-    /// The target was truncated.
-    Truncate,
-    /// The state of a target outside the file system (service, schedule,
-    /// package, repository reference) was changed; `before` and `after` hold
-    /// the states.
-    State,
-}
-
-impl ChangeAction {
-    /// Every action, in declaration order.
-    pub const ALL: &'static [Self] = &[
-        Self::Create,
-        Self::Modify,
-        Self::Delete,
-        Self::Rename,
-        Self::Attributes,
-        Self::Link,
-        Self::Truncate,
-        Self::State,
-    ];
-
-    /// Returns the stable code of the action, as written in JSON.
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Create => "create",
-            Self::Modify => "modify",
-            Self::Delete => "delete",
-            Self::Rename => "rename",
-            Self::Attributes => "attributes",
-            Self::Link => "link",
-            Self::Truncate => "truncate",
-            Self::State => "state",
-        }
-    }
-}
-
-impl fmt::Display for ChangeAction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
-impl FromStr for ChangeAction {
-    type Err = UnknownCode;
-
-    fn from_str(code: &str) -> Result<Self, Self::Err> {
-        parse_code(Self::ALL, Self::as_str, "ChangeAction", code)
-    }
-}
-
 /// Certainty class of a correction of the program text.
 ///
 /// # Examples
@@ -1113,113 +1071,6 @@ pub struct Summary {
     /// Bytes freed by deletion.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bytes_freed: Option<u64>,
-}
-
-/// One changed target.
-///
-/// For targets outside the file system, `path` holds an identifier of the
-/// form `<provider>:<name>` (for example `service:nginx`), the action is
-/// [`ChangeAction::State`] and `before` and `after` hold the states.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Change {
-    /// Path of the target in canonical form.
-    pub path: String,
-    /// Kind of change.
-    pub action: ChangeAction,
-    /// Previous path of a renamed target.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub from: Option<String>,
-    /// Size before the change, in bytes.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub size_before: Option<u64>,
-    /// Size after the change, in bytes.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub size_after: Option<u64>,
-    /// Content hash before the change.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hash_before: Option<String>,
-    /// Content hash after the change.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hash_after: Option<String>,
-    /// Replacements made in the target.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub replacements: Option<u64>,
-    /// Lines added.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub added: Option<u64>,
-    /// Lines removed.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub removed: Option<u64>,
-    /// State of a target outside the file system before the change.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub before: Option<String>,
-    /// State of a target outside the file system after the change.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub after: Option<String>,
-    /// Additional markers of the change, for example `crlf` or `keys_created`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub flags: Vec<String>,
-}
-
-impl Change {
-    /// Creates a change of a target with no details.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use nurt_contracts::report::{Change, ChangeAction};
-    ///
-    /// let change = Change::new("/srv/app/a.go", ChangeAction::Modify);
-    /// assert_eq!(change.size_after, None);
-    /// ```
-    #[must_use]
-    pub fn new(path: impl Into<String>, action: ChangeAction) -> Self {
-        Self {
-            path: path.into(),
-            action,
-            from: None,
-            size_before: None,
-            size_after: None,
-            hash_before: None,
-            hash_after: None,
-            replacements: None,
-            added: None,
-            removed: None,
-            before: None,
-            after: None,
-            flags: Vec::new(),
-        }
-    }
-}
-
-/// One hunk of a unified difference.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Hunk {
-    /// Path of the changed file.
-    pub path: String,
-    /// First line of the hunk before the change, from 1.
-    pub old_start: u64,
-    /// Number of lines of the hunk before the change.
-    pub old_len: u64,
-    /// First line of the hunk after the change, from 1.
-    pub new_start: u64,
-    /// Number of lines of the hunk after the change.
-    pub new_len: u64,
-    /// Lines prefixed with `+` (added), `-` (removed) or a space (context).
-    pub lines: Vec<String>,
-    /// Context heading of the hunk, for example the enclosing function.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub header: Option<String>,
-}
-
-impl Hunk {
-    /// Index of the first line without a valid prefix, if any.
-    #[must_use]
-    pub fn first_invalid_line(&self) -> Option<usize> {
-        self.lines.iter().position(|line| {
-            !(line.starts_with('+') || line.starts_with('-') || line.starts_with(' '))
-        })
-    }
 }
 
 /// Number of targets in one directory of a bulk operation.
@@ -1591,13 +1442,13 @@ impl Report {
             .find(|change| change.action == ChangeAction::Rename && change.from.is_none())
         {
             return Err(ReportViolation::RenameWithoutFrom {
-                path: change.path.clone(),
+                path: change.path.to_string(),
             });
         }
         for hunk in &self.diff {
             if let Some(line) = hunk.first_invalid_line() {
                 return Err(ReportViolation::InvalidHunkLine {
-                    path: hunk.path.clone(),
+                    path: hunk.path.to_string(),
                     line,
                 });
             }
