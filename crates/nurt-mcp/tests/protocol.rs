@@ -3,9 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Protocol behavior over a byte stream, against the mock engine.
 
-mod common;
+// Helpers abort the test on a broken expectation, as test code does.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::time::Duration;
+mod common;
 
 use common::{CORE_DESCRIPTION, Client, MockBackend};
 use nurt_mcp::McpOptions;
@@ -373,30 +374,11 @@ async fn cancelled_notification_stops_the_program() {
             "params": {"name": "nurt", "arguments": {"program": "wait"}}
         }))
         .await;
-    let started = backend.clone();
-    assert!(
-        tokio::task::spawn_blocking(move || started.started.wait_for(1))
-            .await
-            .unwrap()
-    );
-    client
-        .send(&json!({
-            "jsonrpc": "2.0", "method": "notifications/cancelled",
-            "params": {"requestId": 7, "reason": "user stopped it"}
-        }))
-        .await;
+    assert!(backend.wait_started(1).await);
+    client.cancel(7).await;
     let (response, _) = client.call(8, "ping", json!({})).await;
     assert_eq!(response["result"], json!({}));
-    for _ in 0..100 {
-        if backend.cancelled.load(std::sync::atomic::Ordering::SeqCst) == 1 {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-    assert_eq!(
-        backend.cancelled.load(std::sync::atomic::Ordering::SeqCst),
-        1
-    );
+    assert!(backend.wait_cancelled(1).await);
     let (result, rest) = client.close().await;
     assert!(result.is_ok());
     assert!(
@@ -440,12 +422,7 @@ async fn exhausted_limit_is_a_protocol_error() {
             "params": {"name": "nurt", "arguments": {"program": "wait"}}
         }))
         .await;
-    let started = backend.clone();
-    assert!(
-        tokio::task::spawn_blocking(move || started.started.wait_for(1))
-            .await
-            .unwrap()
-    );
+    assert!(backend.wait_started(1).await);
     let (response, _) = client.tool(2, "nurt", json!({"program": "ok"})).await;
     assert_eq!(response["error"]["code"], -32000);
     assert_eq!(
@@ -456,6 +433,10 @@ async fn exhausted_limit_is_a_protocol_error() {
         .call(3, "resources/read", json!({"uri": "nurt://describe/core"}))
         .await;
     assert_eq!(response["error"]["code"], -32000);
+    client.cancel(1).await;
+    assert!(backend.wait_cancelled(1).await);
+    let (result, _) = client.close().await;
+    assert!(result.is_ok());
 }
 
 #[tokio::test]

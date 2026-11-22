@@ -21,7 +21,6 @@
 // Helpers abort the test on a broken expectation, as test code does.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
@@ -43,33 +42,33 @@ use tokio::io::{
 use tokio::task::JoinHandle;
 
 /// Version reported by the mock engine.
-pub const ENGINE_VERSION: &str = "1.4.0";
+pub(crate) const ENGINE_VERSION: &str = "1.4.0";
 
 /// Core description returned by the mock engine.
-pub const CORE_DESCRIPTION: &str = "Runs programs of the Nurt language.";
+pub(crate) const CORE_DESCRIPTION: &str = "Runs programs of the Nurt language.";
 
 /// Longest wait of a test for a message or a scripted condition.
-pub const WAIT: Duration = Duration::from_secs(10);
+pub(crate) const WAIT: Duration = Duration::from_secs(10);
 
 /// Counter that tests can wait on.
 #[derive(Default)]
-pub struct Counter {
+pub(crate) struct Counter {
     value: Mutex<usize>,
     changed: Condvar,
 }
 
 impl Counter {
-    pub fn increment(&self) {
+    pub(crate) fn increment(&self) {
         *self.value.lock().unwrap() += 1;
         self.changed.notify_all();
     }
 
-    pub fn get(&self) -> usize {
+    pub(crate) fn get(&self) -> usize {
         *self.value.lock().unwrap()
     }
 
     /// Waits until the counter reaches `target`; `false` on timeout.
-    pub fn wait_for(&self, target: usize) -> bool {
+    pub(crate) fn wait_for(&self, target: usize) -> bool {
         let guard = self.value.lock().unwrap();
         let (guard, _) = self
             .changed
@@ -80,27 +79,44 @@ impl Counter {
 }
 
 /// Scripted engine.
-pub struct MockBackend {
-    pub max_inflight: usize,
-    pub rendezvous: usize,
-    pub started: Counter,
-    pub cancelled: AtomicUsize,
+pub(crate) struct MockBackend {
+    pub(crate) max_inflight: usize,
+    pub(crate) rendezvous: usize,
+    pub(crate) started: Counter,
+    pub(crate) cancelled: Counter,
     arrived: Counter,
 }
 
 impl MockBackend {
-    pub fn new() -> Arc<Self> {
+    pub(crate) fn new() -> Arc<Self> {
         Self::with_limits(8, 2)
     }
 
-    pub fn with_limits(max_inflight: usize, rendezvous: usize) -> Arc<Self> {
+    pub(crate) fn with_limits(max_inflight: usize, rendezvous: usize) -> Arc<Self> {
         Arc::new(Self {
             max_inflight,
             rendezvous,
             started: Counter::default(),
-            cancelled: AtomicUsize::new(0),
+            cancelled: Counter::default(),
             arrived: Counter::default(),
         })
+    }
+
+    /// Waits until `count` calls have started; `false` on timeout.
+    pub(crate) async fn wait_started(self: &Arc<Self>, count: usize) -> bool {
+        let backend = Arc::clone(self);
+        tokio::task::spawn_blocking(move || backend.started.wait_for(count))
+            .await
+            .unwrap()
+    }
+
+    /// Waits until `count` calls have observed their cancellation; `false`
+    /// on timeout.
+    pub(crate) async fn wait_cancelled(self: &Arc<Self>, count: usize) -> bool {
+        let backend = Arc::clone(self);
+        tokio::task::spawn_blocking(move || backend.cancelled.wait_for(count))
+            .await
+            .unwrap()
     }
 }
 
@@ -181,7 +197,7 @@ impl Backend for MockBackend {
             }
             "wait" => match cancel.wait_timeout(WAIT) {
                 Some(reason) => {
-                    self.cancelled.fetch_add(1, Ordering::SeqCst);
+                    self.cancelled.increment();
                     Ok(response(
                         request,
                         failed(reason.error_code(), "the execution was cancelled"),
@@ -255,18 +271,18 @@ impl Backend for MockBackend {
 }
 
 /// Client of a server that runs on an in-memory stream.
-pub struct Client {
+pub(crate) struct Client {
     writer: Option<WriteHalf<DuplexStream>>,
     lines: Lines<BufReader<ReadHalf<DuplexStream>>>,
     server: JoinHandle<Result<(), McpError>>,
 }
 
 impl Client {
-    pub fn start(backend: Arc<MockBackend>) -> Self {
+    pub(crate) fn start(backend: Arc<MockBackend>) -> Self {
         Self::start_with(backend, McpOptions::new())
     }
 
-    pub fn start_with(backend: Arc<MockBackend>, options: McpOptions) -> Self {
+    pub(crate) fn start_with(backend: Arc<MockBackend>, options: McpOptions) -> Self {
         let (client_side, server_side) = tokio::io::duplex(1 << 16);
         let (server_reader, server_writer) = tokio::io::split(server_side);
         let server = tokio::spawn(serve_io(backend, options, server_reader, server_writer));
@@ -278,19 +294,19 @@ impl Client {
         }
     }
 
-    pub async fn send_raw(&mut self, text: &str) {
+    pub(crate) async fn send_raw(&mut self, text: &str) {
         let writer = self.writer.as_mut().unwrap();
         writer.write_all(text.as_bytes()).await.unwrap();
         writer.write_all(b"\n").await.unwrap();
         writer.flush().await.unwrap();
     }
 
-    pub async fn send(&mut self, message: &Value) {
+    pub(crate) async fn send(&mut self, message: &Value) {
         self.send_raw(&message.to_string()).await;
     }
 
     /// Next message of the server; `None` when the server closed the stream.
-    pub async fn next(&mut self) -> Option<Value> {
+    pub(crate) async fn next(&mut self) -> Option<Value> {
         let line = tokio::time::timeout(WAIT, self.lines.next_line())
             .await
             .expect("no message from the server in time")
@@ -298,13 +314,18 @@ impl Client {
         Some(serde_json::from_str(&line).expect("server wrote a line that is not JSON"))
     }
 
-    pub async fn recv(&mut self) -> Value {
+    pub(crate) async fn recv(&mut self) -> Value {
         self.next().await.expect("server closed the stream")
     }
 
     /// Sends a request and returns its response with the notifications
     /// received before it.
-    pub async fn call(&mut self, id: u64, method: &str, params: Value) -> (Value, Vec<Value>) {
+    pub(crate) async fn call(
+        &mut self,
+        id: u64,
+        method: &str,
+        params: Value,
+    ) -> (Value, Vec<Value>) {
         self.send(&json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params}))
             .await;
         let mut notifications = Vec::new();
@@ -317,7 +338,7 @@ impl Client {
         }
     }
 
-    pub async fn initialize(&mut self) -> Value {
+    pub(crate) async fn initialize(&mut self) -> Value {
         let (response, _) = self
             .call(
                 0,
@@ -334,7 +355,12 @@ impl Client {
         response
     }
 
-    pub async fn tool(&mut self, id: u64, name: &str, arguments: Value) -> (Value, Vec<Value>) {
+    pub(crate) async fn tool(
+        &mut self,
+        id: u64,
+        name: &str,
+        arguments: Value,
+    ) -> (Value, Vec<Value>) {
         self.call(
             id,
             "tools/call",
@@ -343,8 +369,17 @@ impl Client {
         .await
     }
 
+    /// Sends `notifications/cancelled` for the request `id`.
+    pub(crate) async fn cancel(&mut self, id: u64) {
+        self.send(&json!({
+            "jsonrpc": "2.0", "method": "notifications/cancelled",
+            "params": {"requestId": id, "reason": "stopped by the client"}
+        }))
+        .await;
+    }
+
     /// Closes the input of the server and returns what the server ended with.
-    pub async fn close(mut self) -> (Result<(), McpError>, Vec<Value>) {
+    pub(crate) async fn close(mut self) -> (Result<(), McpError>, Vec<Value>) {
         if let Some(mut writer) = self.writer.take() {
             writer.shutdown().await.unwrap();
         }

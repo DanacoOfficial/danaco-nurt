@@ -13,6 +13,9 @@
 //! fields that vary between engines and builds. After the last line the
 //! client closes its input and the server must end without further output.
 
+// Helpers abort the test on a broken expectation, as test code does.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod common;
 
 use std::path::{Path, PathBuf};

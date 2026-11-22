@@ -5886,7 +5886,6 @@ dependencies = [
  "hex",
  "jiff 1.0.2",
  "nurt-contracts",
- "regex",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -6323,7 +6322,6 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "nurt-contracts",
- "nurt-core",
  "nurt-tooldef",
  "rmcp",
  "serde",

@@ -4,6 +4,8 @@
 //! Streamable HTTP transport, against the mock engine on an ephemeral port.
 
 #![cfg(feature = "http")]
+// Helpers abort the test on a broken expectation, as test code does.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 mod common;
 
@@ -320,7 +322,7 @@ async fn failed_initialization_opens_no_session() {
         )
         .await;
     assert!(
-        reply.headers.get("mcp-session-id").is_none(),
+        !reply.headers.contains_key("mcp-session-id"),
         "{}",
         reply.body
     );
@@ -357,12 +359,7 @@ async fn cancelled_request_ends_without_a_response() {
                 .await
         })
     };
-    let started = backend.clone();
-    assert!(
-        tokio::task::spawn_blocking(move || started.started.wait_for(1))
-            .await
-            .unwrap()
-    );
+    assert!(backend.wait_started(1).await);
     let reply = server
         .post(
             &[("Mcp-Session-Id", session.as_str())],
