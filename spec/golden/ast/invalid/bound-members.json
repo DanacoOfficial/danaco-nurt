@@ -1,0 +1,19 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "count",
+          "args": []
+        },
+        "stages": []
+      }
+    ]
+  },
+  "bound": "1.0",
+  "catalog_rev": "c",
+  "corr_rev": "c"
+}

@@ -46,8 +46,15 @@ fn codes_are_stable_and_round_trip() {
     check_codes(Severity::ALL, Severity::as_str);
     check_codes(Notable::ALL, Notable::as_str);
     check_codes(Irreversible::ALL, Irreversible::as_str);
-    check_codes(ChangeAction::ALL, ChangeAction::as_str);
     check_codes(CorrectionClass::ALL, CorrectionClass::as_str);
+    for action in ChangeAction::ALL {
+        assert_eq!(action.as_str().parse::<ChangeAction>().unwrap(), *action);
+        assert_eq!(
+            serde_json::to_value(action).unwrap(),
+            serde_json::json!(action.as_str())
+        );
+    }
+    assert!("not-a-code".parse::<ChangeAction>().is_err());
 }
 
 #[test]
@@ -118,7 +125,7 @@ fn reports_enumerations_contain_the_documented_values() {
     ] {
         assert!(reasons.contains(reason), "{reason}");
     }
-    assert_eq!(Notable::ALL.len(), 80);
+    assert_eq!(Notable::ALL.len(), 86);
     assert_eq!(
         Notable::ProjectConfigIgnored.as_str(),
         "project_config_ignored"
@@ -335,17 +342,17 @@ fn change_rules() {
         report.validate(),
         Err(ReportViolation::RenameWithoutFrom { .. })
     ));
-    report.changes[1].from = Some("/srv/app/c.go".to_owned());
+    report.changes[1].from = Some("/srv/app/c.go".into());
     assert!(report.validate().is_ok());
 
     report.diff.push(Hunk {
-        path: "/srv/app/a.go".to_owned(),
+        path: "/srv/app/a.go".into(),
         old_start: 1,
         old_len: 1,
         new_start: 1,
         new_len: 1,
         lines: vec!["-a".to_owned(), "b".to_owned()],
-        header: None,
+        ..Hunk::default()
     });
     assert_eq!(
         report.validate(),

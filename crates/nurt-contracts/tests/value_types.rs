@@ -44,11 +44,15 @@ fn instant_parses_offsets_and_fractions() {
     assert_eq!(Instant::from_str("2026-11-21T05:30:00-04:30").unwrap(), utc);
     assert_eq!(Instant::from_str("2026-11-21t10:00:00z").unwrap(), utc);
     assert_eq!(
-        Instant::from_str("2026-11-21T10:00:00.5Z").unwrap().to_string(),
+        Instant::from_str("2026-11-21T10:00:00.5Z")
+            .unwrap()
+            .to_string(),
         "2026-11-21T10:00:00.500Z"
     );
     assert_eq!(
-        Instant::from_str("2026-11-21T10:00:00.1234Z").unwrap().to_string(),
+        Instant::from_str("2026-11-21T10:00:00.1234Z")
+            .unwrap()
+            .to_string(),
         "2026-11-21T10:00:00.123400Z"
     );
 }
@@ -83,7 +87,10 @@ fn instant_arithmetic_and_system_time() {
     let start = Instant::from_str("2026-11-21T10:00:00Z").unwrap();
     let later = start.checked_add(Duration::from_millis(1500)).unwrap();
     assert_eq!(later.to_string(), "2026-11-21T10:00:01.500Z");
-    assert_eq!(later.duration_since(start), Some(Duration::from_millis(1500)));
+    assert_eq!(
+        later.duration_since(start),
+        Some(Duration::from_millis(1500))
+    );
     assert_eq!(later.checked_sub(Duration::from_millis(1500)), Some(start));
     let system = start.to_system_time().unwrap();
     assert_eq!(Instant::from_system_time(system), Some(start));
@@ -92,14 +99,20 @@ fn instant_arithmetic_and_system_time() {
         Instant::from_system_time(before_epoch.to_system_time().unwrap()),
         Some(before_epoch)
     );
-    assert_eq!(Instant::from_unix_seconds(60).unwrap().to_string(), "1970-01-01T00:01:00Z");
+    assert_eq!(
+        Instant::from_unix_seconds(60).unwrap().to_string(),
+        "1970-01-01T00:01:00Z"
+    );
 }
 
 #[test]
 fn sizes_and_durations_serialize_as_integers() {
     let size = Size::from_bytes(1024);
     assert_eq!(size.bytes(), 1024);
-    assert_eq!(size.checked_add(Size::from_bytes(1)), Some(Size::from_bytes(1025)));
+    assert_eq!(
+        size.checked_add(Size::from_bytes(1)),
+        Some(Size::from_bytes(1025))
+    );
     assert_eq!(Size::ZERO.checked_sub(size), None);
     assert_eq!(serde_json::to_value(size).unwrap(), json!(1024));
     let duration = Duration::from_secs(90).unwrap();
@@ -124,7 +137,10 @@ fn ranges_are_inclusive_and_ordered() {
     assert!(Range::new(Some(5), Some(1)).is_err());
     assert!(Range::from_start(40).contains(41));
     assert!(!Range::up_to(9).contains(10));
-    assert_eq!(serde_json::to_value(Range::from_start(40)).unwrap(), json!({"start": 40}));
+    assert_eq!(
+        serde_json::to_value(Range::from_start(40)).unwrap(),
+        json!({"start": 40})
+    );
     assert_eq!(serde_json::to_value(Range::full()).unwrap(), json!({}));
     let range: Range = serde_json::from_value(json!({"start": 1, "end": 5})).unwrap();
     assert_eq!(range, Range::new(Some(1), Some(5)).unwrap());
@@ -170,7 +186,10 @@ fn base64_matches_rfc_4648_vectors() {
     }
     let all: Vec<u8> = (0..=255).collect();
     let bytes = Bytes::new(all.clone());
-    assert_eq!(Bytes::from_base64(&bytes.to_base64()).unwrap().into_vec(), all);
+    assert_eq!(
+        Bytes::from_base64(&bytes.to_base64()).unwrap().into_vec(),
+        all
+    );
     for invalid in ["Zg=", "Z===", "Zg==Zg==", "Zm9v!", "=Zm9"] {
         assert!(Bytes::from_base64(invalid).is_err(), "{invalid}");
     }
@@ -185,18 +204,39 @@ fn tagged_json_form_of_values() {
         (Value::Null, json!({"t": "null"})),
         (Value::Bool(true), json!({"t": "bool", "v": true})),
         (Value::Int(-3), json!({"t": "int", "v": -3})),
-        (Value::BigInt("18446744073709551616".to_owned()), json!({"t": "big_int", "v": "18446744073709551616"})),
+        (
+            Value::BigInt("18446744073709551616".to_owned()),
+            json!({"t": "big_int", "v": "18446744073709551616"}),
+        ),
         (Value::Number(2.5), json!({"t": "number", "v": 2.5})),
-        (Value::Decimal("1.10".to_owned()), json!({"t": "decimal", "v": "1.10"})),
-        (Value::Size(Size::from_bytes(10)), json!({"t": "size", "v": 10})),
-        (Value::Duration(Duration::from_millis(250)), json!({"t": "duration", "v": 250})),
+        (
+            Value::Decimal("1.10".to_owned()),
+            json!({"t": "decimal", "v": "1.10"}),
+        ),
+        (
+            Value::Size(Size::from_bytes(10)),
+            json!({"t": "size", "v": 10}),
+        ),
+        (
+            Value::Duration(Duration::from_millis(250)),
+            json!({"t": "duration", "v": 250}),
+        ),
         (
             Value::Instant(Instant::from_unix_nanos(0)),
             json!({"t": "instant", "v": "1970-01-01T00:00:00Z"}),
         ),
-        (Value::Path("/tmp".to_owned()), json!({"t": "path", "v": "/tmp"})),
-        (Value::Bytes(Bytes::new(b"foo".to_vec())), json!({"t": "bytes", "v": "Zm9v"})),
-        (Value::Enum("asc".to_owned()), json!({"t": "enum", "v": "asc"})),
+        (
+            Value::Path("/tmp".to_owned()),
+            json!({"t": "path", "v": "/tmp"}),
+        ),
+        (
+            Value::Bytes(Bytes::new(b"foo".to_vec())),
+            json!({"t": "bytes", "v": "Zm9v"}),
+        ),
+        (
+            Value::Enum("asc".to_owned()),
+            json!({"t": "enum", "v": "asc"}),
+        ),
         (
             Value::Map(map),
             json!({"t": "map", "v": {"b": {"t": "int", "v": 1}, "a": {"t": "null"}}}),
@@ -205,7 +245,10 @@ fn tagged_json_form_of_values() {
     for (value, expected) in cases {
         let json = serde_json::to_value(&value).unwrap();
         assert_eq!(json, expected);
-        assert_eq!(serde_json::to_string(&value).unwrap(), serde_json::to_string(&expected).unwrap());
+        assert_eq!(
+            serde_json::to_string(&value).unwrap(),
+            serde_json::to_string(&expected).unwrap()
+        );
         assert_eq!(serde_json::from_value::<Value>(json).unwrap(), value);
     }
     assert!(serde_json::from_value::<Value>(json!({"t": "int", "v": 1, "x": 2})).is_err());
@@ -232,7 +275,10 @@ fn plain_json_form_of_values() {
     );
     let plain = json!({"n": 1, "big": 18_446_744_073_709_551_615_u64, "x": 0.5, "s": "t", "l": [null, true]});
     let value = Value::from_plain_json(plain.clone());
-    assert_eq!(value.get("big"), Some(&Value::BigInt("18446744073709551615".to_owned())));
+    assert_eq!(
+        value.get("big"),
+        Some(&Value::BigInt("18446744073709551615".to_owned()))
+    );
     assert_eq!(value.get("x"), Some(&Value::Number(0.5)));
     assert_eq!(value.get("s").and_then(Value::as_str), Some("t"));
     assert_eq!(value.to_plain_json()["l"], json!([null, true]));
@@ -246,9 +292,15 @@ fn value_accessors_return_payloads() {
     assert_eq!(Value::from(true).as_bool(), Some(true));
     assert_eq!(Value::from("x").as_str(), Some("x"));
     assert!(Value::default().is_null());
-    assert_eq!(Value::from(vec![Value::Null]).as_list().map(<[Value]>::len), Some(1));
+    assert_eq!(
+        Value::from(vec![Value::Null]).as_list().map(<[Value]>::len),
+        Some(1)
+    );
     assert_eq!(Value::from(Path::from("/a")).as_str(), Some("/a"));
-    assert_eq!(Value::Record(Record::new(RecordKind::Map)).type_name(), "record");
+    assert_eq!(
+        Value::Record(Record::new(RecordKind::Map)).type_name(),
+        "record"
+    );
 }
 
 #[test]
@@ -271,14 +323,19 @@ fn record_kinds_round_trip() {
 
 #[test]
 fn record_operations_keep_order() {
-    let mut record = Record::new(RecordKind::Map).with("b", Value::Int(1)).with("a", Value::Int(2));
+    let mut record = Record::new(RecordKind::Map)
+        .with("b", Value::Int(1))
+        .with("a", Value::Int(2));
     assert_eq!(record.set("b", Value::Int(3)), Some(Value::Int(1)));
     assert_eq!(record.field_names().collect::<Vec<_>>(), ["b", "a"]);
     assert_eq!(record.remove("b"), Some(Value::Int(3)));
     assert_eq!(record.len(), 1);
     assert!(!record.is_empty());
     let json = serde_json::to_value(&record).unwrap();
-    assert_eq!(json, json!({"kind": "map", "fields": {"a": {"t": "int", "v": 2}}}));
+    assert_eq!(
+        json,
+        json!({"kind": "map", "fields": {"a": {"t": "int", "v": 2}}})
+    );
 }
 
 fn entry() -> Entry {
@@ -300,11 +357,25 @@ fn typed_records_convert_with_language_types() {
     assert_eq!(record.kind, RecordKind::Entry);
     assert_eq!(
         record.field_names().collect::<Vec<_>>(),
-        ["path", "name", "type", "size", "modified", "acl", "line_ending"]
+        [
+            "path",
+            "name",
+            "type",
+            "size",
+            "modified",
+            "acl",
+            "line_ending"
+        ]
     );
-    assert_eq!(record.get("path"), Some(&Value::Path("/home/user/notes.txt".to_owned())));
+    assert_eq!(
+        record.get("path"),
+        Some(&Value::Path("/home/user/notes.txt".to_owned()))
+    );
     assert_eq!(record.get("type"), Some(&Value::Enum("file".to_owned())));
-    assert_eq!(record.get("line_ending"), Some(&Value::Enum("crlf".to_owned())));
+    assert_eq!(
+        record.get("line_ending"),
+        Some(&Value::Enum("crlf".to_owned()))
+    );
     assert_eq!(Entry::try_from(record).unwrap(), entry());
 }
 
@@ -349,12 +420,16 @@ fn conversion_errors_name_the_field() {
     record.remove("name");
     assert_eq!(
         Entry::try_from(record).unwrap_err(),
-        RecordError::MissingField { field: "name".to_owned() }
+        RecordError::MissingField {
+            field: "name".to_owned()
+        }
     );
     let record = Record::from(entry()).with("colour", Value::Null);
     assert_eq!(
         Entry::try_from(record).unwrap_err(),
-        RecordError::UnknownField { field: "colour".to_owned() }
+        RecordError::UnknownField {
+            field: "colour".to_owned()
+        }
     );
     let mut record = Record::from(entry());
     record.set("acl", Value::List(vec![Value::Int(1)]));
@@ -368,10 +443,14 @@ fn conversion_errors_name_the_field() {
     );
     let mut record = Record::from(entry());
     record.set("type", Value::Enum("socket".to_owned()));
-    assert!(matches!(Entry::try_from(record), Err(RecordError::FieldType { field, .. }) if field == "type"));
+    assert!(
+        matches!(Entry::try_from(record), Err(RecordError::FieldType { field, .. }) if field == "type")
+    );
     assert_eq!(
         TypedRecord::try_from(Record::new(RecordKind::Map)).unwrap_err(),
-        RecordError::Untyped { kind: RecordKind::Map }
+        RecordError::Untyped {
+            kind: RecordKind::Map
+        }
     );
 }
 

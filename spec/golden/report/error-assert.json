@@ -6,8 +6,7 @@
   "error": {
     "code": "E_ASSERT",
     "message": "assert paths: 12 failed; nothing changed",
-    "stage": "3",
-    "at": { "line": 1, "column": 50, "length": 16 },
+    "at": { "line": 1, "column": 50, "length": 16, "stage": "3" },
     "expected": 12,
     "actual": 14,
     "sample": [

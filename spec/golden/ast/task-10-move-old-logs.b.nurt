@@ -1,0 +1,3 @@
+find("/var/log/app", glob: "*.log", depth: 1)
+|> filter(modified < ago(7d))
+|> move(into: "/var/log/app/old")

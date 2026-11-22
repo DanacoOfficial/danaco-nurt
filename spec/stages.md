@@ -1,7 +1,6 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
-
 # Stage interface
 
 This document specifies how a command of the Nurt language is implemented
@@ -106,7 +105,9 @@ context.
 An effect stage (a change, an external action or a launched program) has two
 steps.
 
-**Plan (step 4).** The stage consumes its input, records the entity tag of
+### Plan (step 4)
+
+The stage consumes its input, records the entity tag of
 every target as read, and returns an effect plan: the planned changes with
 differences, notable effects and irreversible effects known in advance,
 records describing an effect without file targets (for example the command
@@ -118,7 +119,9 @@ is used by the apply step, so a preview shows exactly the targets that an
 execution changes. The private state holds what is needed to produce new
 content, not the content itself.
 
-**Apply (step 5).** The executor admits the operation and opens a journal
+### Apply (step 5)
+
+The executor admits the operation and opens a journal
 transaction. The stage receives the plan and the transaction; every change of
 user data goes through the transaction: all targets are declared and their
 previous state is preserved before the first change, then the changes are
@@ -156,23 +159,29 @@ A stage reaches the world only through its execution context:
 | limits | records held in memory, size of text files, threads |
 | state directory | spool, jobs and caches of the engine |
 | evaluator, pipeline runner | per-record expressions and pipeline arguments |
-| services | services of other command groups (documents, source code, programs, file listing); absent when the group is not loaded |
+| services | registry of the services of other command groups (documents, source code, programs, file listing, repository queries, text codecs, file holders, review rules); a service is absent when its group is not loaded |
 | extensions | further shared objects registered by type |
 | frame | index, command and step of the running stage, and the demand of the rest of the pipeline |
 | events | progress and output of launched programs |
 | notes | notable entries of the report |
 
-**Demand.** The context tells a stage what the rest of the pipeline needs:
+### Demand
+
+The context tells a stage what the rest of the pipeline needs:
 the fields used later (expensive fields that are not used may be left out),
 whether records of files must carry `etag` (an effect stage or an entity-tag
 check follows), and how many records are used later (the stage may stop
 early). The output must be correct for any demand.
 
-**Services.** When a service is absent, the stage degrades as its command
+### Services
+
+When a service is absent, the stage degrades as its command
 documentation describes (for example a plain view instead of an outline) and
 records a notable entry; it does not fail.
 
-**Environment.** Stages read environment variables only through the host of
+### Environment
+
+Stages read environment variables only through the host of
 the context, never from the process directly, so that an embedding
 application can give each execution its own environment and tests can
 substitute it.

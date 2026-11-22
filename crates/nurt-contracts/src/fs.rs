@@ -64,6 +64,8 @@ pub struct AbsPath(PathBuf);
 impl AbsPath {
     /// Creates an absolute path after lexical normalisation.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::InvalidPath`] when the path is relative or
     /// when a `..` component would escape the root.
     pub fn new(path: impl Into<PathBuf>) -> FsResult<Self> {
@@ -111,6 +113,8 @@ impl AbsPath {
     }
 
     /// Joins a single file name.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::InvalidPath`] when `name` is empty, is `.`
     /// or `..`, or contains a separator.
@@ -220,15 +224,17 @@ impl ContentHash {
 
     /// Parses the text form.
     ///
+    /// # Errors
+    ///
     /// Fails with [`ContentHashError`] when the prefix is missing, the length
     /// is not 64 digits or a digit is not a lower-case hexadecimal digit.
     pub fn parse(text: &str) -> std::result::Result<Self, ContentHashError> {
         let digits = text.strip_prefix(Self::PREFIX).ok_or(ContentHashError)?;
         let digits = digits.as_bytes();
-        if digits.len() != 64 {
+        let mut out = [0_u8; 32];
+        if digits.len() != 2 * out.len() {
             return Err(ContentHashError);
         }
-        let mut out = [0_u8; 32];
         let (pairs, _) = digits.as_chunks::<2>();
         for (slot, &[high, low]) in out.iter_mut().zip(pairs) {
             let high = hex_value(high).ok_or(ContentHashError)?;
@@ -832,6 +838,8 @@ pub struct RemoveStats {
 pub trait ReadHandle: io::Read + io::Seek + Send + Sync {
     /// Metadata of the open file.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::Io`] when the handle cannot be queried.
     fn meta(&self) -> FsResult<FileMeta>;
 
@@ -852,10 +860,14 @@ pub trait WriteHandle: io::Write + io::Seek + Send + Sync {
 
     /// Flushes to stable storage.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::Io`] or [`FsErrorKind::NoSpace`].
     fn sync(&mut self, durability: Durability) -> FsResult<()>;
 
     /// Sets the file length.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::Io`] or [`FsErrorKind::NoSpace`].
     fn set_length(&mut self, length: u64) -> FsResult<()>;
@@ -863,6 +875,8 @@ pub trait WriteHandle: io::Write + io::Seek + Send + Sync {
     /// Applies metadata through the open handle (`fchown`, `fchmod`,
     /// `fsetxattr`, security descriptor) and reports what could not be
     /// applied.
+    ///
+    /// # Errors
     ///
     /// Fails with an [`FsError`] when the handle itself fails; elements that
     /// are refused individually are listed in the report instead.
@@ -937,6 +951,8 @@ impl TxScope {
 pub trait Fs: Send + Sync {
     /// Metadata of an entry.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::NotFound`], [`FsErrorKind::NotADirectory`],
     /// [`FsErrorKind::PermissionDenied`], [`FsErrorKind::Loop`] (with
     /// [`Follow::Follow`]) or [`FsErrorKind::Io`].
@@ -945,11 +961,15 @@ pub trait Fs: Send + Sync {
     /// Complete metadata for exact restoration (extended attributes, ACL,
     /// flags, alternate streams, link target).
     ///
+    /// # Errors
+    ///
     /// Fails as [`Fs::metadata`]; elements unsupported by the volume are
     /// returned empty, not as errors.
     fn extended_metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<ExtendedMeta>;
 
     /// Opens a file for reading, following symbolic links.
+    ///
+    /// # Errors
     ///
     /// Fails as [`Fs::metadata`], with [`FsErrorKind::IsADirectory`] for a
     /// directory and with [`FsErrorKind::InUse`] for a file locked against
@@ -957,6 +977,8 @@ pub trait Fs: Send + Sync {
     fn open_read(&self, path: &AbsPath) -> FsResult<Box<dyn ReadHandle>>;
 
     /// Opens an alternate data stream for reading.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::Unsupported`] outside Windows or on volumes
     /// without streams, and with [`FsErrorKind::NotFound`] for a missing
@@ -969,6 +991,8 @@ pub trait Fs: Send + Sync {
     /// implementations return entries in byte order of their names. The
     /// entries `.` and `..` are never returned.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::NotFound`], [`FsErrorKind::NotADirectory`]
     /// or [`FsErrorKind::PermissionDenied`]; errors of individual entries are
     /// yielded by the iterator.
@@ -979,6 +1003,8 @@ pub trait Fs: Send + Sync {
 
     /// Target of a symbolic link or junction, as stored in the link.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::NotFound`], and with
     /// [`FsErrorKind::InvalidPath`] when the entry is not a link.
     fn read_link(&self, path: &AbsPath) -> FsResult<PathBuf>;
@@ -986,10 +1012,14 @@ pub trait Fs: Send + Sync {
     /// Real path: links resolved and every component in the spelling stored
     /// by the file system (used to report case aliases and followed links).
     ///
+    /// # Errors
+    ///
     /// Fails as [`Fs::metadata`] with [`Follow::Follow`].
     fn real_path(&self, path: &AbsPath) -> FsResult<AbsPath>;
 
     /// SHA-256 of file content.
+    ///
+    /// # Errors
     ///
     /// Fails as [`Fs::open_read`].
     fn content_hash(&self, path: &AbsPath) -> FsResult<ContentHash>;
@@ -997,11 +1027,15 @@ pub trait Fs: Send + Sync {
     /// Volume that contains `path`. The path itself need not exist; the
     /// nearest existing ancestor decides.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::NotFound`] only when no ancestor exists, and
     /// with [`FsErrorKind::Io`].
     fn volume(&self, path: &AbsPath) -> FsResult<VolumeInfo>;
 
     /// Space figures of a volume.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::NotFound`] for an unknown volume, and with
     /// [`FsErrorKind::Io`].
@@ -1009,10 +1043,14 @@ pub trait Fs: Send + Sync {
 
     /// Identity key of a path on its volume.
     ///
+    /// # Errors
+    ///
     /// Fails as [`Fs::volume`].
     fn path_key(&self, path: &AbsPath) -> FsResult<PathKey>;
 
     /// Processes holding the entry open; empty when unknown.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::NotFound`]; an unsupported query yields an
     /// empty list, not an error.
@@ -1020,10 +1058,14 @@ pub trait Fs: Send + Sync {
 
     /// Whether the account may create entries in `dir`.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::NotFound`] or [`FsErrorKind::NotADirectory`].
     fn can_write_dir(&self, dir: &AbsPath) -> FsResult<bool>;
 
     /// Entity tag of an entry, without content hash.
+    ///
+    /// # Errors
     ///
     /// Fails as [`Fs::metadata`].
     fn etag(&self, path: &AbsPath, follow: Follow) -> FsResult<Etag> {
@@ -1031,6 +1073,8 @@ pub trait Fs: Send + Sync {
     }
 
     /// Whether two paths are on the same volume.
+    ///
+    /// # Errors
     ///
     /// Fails as [`Fs::volume`].
     fn same_volume(&self, a: &AbsPath, b: &AbsPath) -> FsResult<bool> {
@@ -1052,6 +1096,8 @@ pub trait FsWrite: Fs {
     /// Creates a new file with a unique name derived from `name_hint` in `dir`
     /// (`O_EXCL`, `CREATE_NEW`).
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::NotFound`] for a missing directory, with
     /// [`FsErrorKind::PermissionDenied`] or with [`FsErrorKind::NoSpace`].
     fn create_temp_in(
@@ -1064,6 +1110,8 @@ pub trait FsWrite: Fs {
     /// Creates a file at exactly `path`, failing when it exists (used for
     /// lock files whose names other programs expect, such as `index.lock`).
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::Exists`] when the file exists, and as
     /// [`FsWrite::create_temp_in`] otherwise.
     fn create_new(&self, scope: &TxScope, path: &AbsPath) -> FsResult<Box<dyn WriteHandle>>;
@@ -1071,11 +1119,15 @@ pub trait FsWrite: Fs {
     /// Opens an existing file for in-place writing (used when a file has more
     /// than one hard link, so that every name sees the new content).
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::NotFound`], [`FsErrorKind::PermissionDenied`]
     /// or [`FsErrorKind::InUse`].
     fn open_in_place(&self, scope: &TxScope, path: &AbsPath) -> FsResult<Box<dyn WriteHandle>>;
 
     /// Opens an alternate data stream for writing.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::Unsupported`] outside Windows.
     fn open_stream_write(
@@ -1086,6 +1138,8 @@ pub trait FsWrite: Fs {
     ) -> FsResult<Box<dyn WriteHandle>>;
 
     /// Renames within one volume; atomic.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::CrossDevice`] across volumes or overlay
     /// layers, with [`FsErrorKind::Exists`] for [`RenameMode::NoReplace`] and
@@ -1101,12 +1155,16 @@ pub trait FsWrite: Fs {
     /// Atomically exchanges two names (`renameat2(RENAME_EXCHANGE)`,
     /// `renamex_np(RENAME_SWAP)`).
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::Unsupported`] when the volume cannot
     /// exchange names.
     fn exchange(&self, scope: &TxScope, a: &AbsPath, b: &AbsPath) -> FsResult<()>;
 
     /// Replaces `target` by `replacement`, keeping the old file under
     /// `backup` (`ReplaceFileW`); atomic for `target`.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::Unsupported`] outside Windows.
     fn replace_with_backup(
@@ -1119,11 +1177,15 @@ pub trait FsWrite: Fs {
 
     /// Creates a hard link `new` to `existing`.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::Unsupported`], [`FsErrorKind::CrossDevice`]
     /// or [`FsErrorKind::Exists`].
     fn hard_link(&self, scope: &TxScope, existing: &AbsPath, new: &AbsPath) -> FsResult<()>;
 
     /// Clones `src` to the new file `dst`, sharing blocks.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::Unsupported`] when the volume cannot clone,
     /// and with [`FsErrorKind::Exists`] when `dst` exists.
@@ -1132,11 +1194,15 @@ pub trait FsWrite: Fs {
     /// Copies bytes of `src` to the new file `dst`, including alternate data
     /// streams, and returns the number of copied bytes.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::NoSpace`], and with [`FsErrorKind::Exists`]
     /// when `dst` exists.
     fn copy_file(&self, scope: &TxScope, src: &AbsPath, dst: &AbsPath) -> FsResult<u64>;
 
     /// Removes a non-directory entry (a link is removed, not followed).
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::NotFound`], [`FsErrorKind::IsADirectory`] or
     /// [`FsErrorKind::InUse`].
@@ -1144,11 +1210,15 @@ pub trait FsWrite: Fs {
 
     /// Removes an empty directory.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::NotEmpty`] or [`FsErrorKind::NotADirectory`].
     fn remove_dir(&self, scope: &TxScope, path: &AbsPath) -> FsResult<()>;
 
     /// Removes a tree bottom-up with up to `parallelism` workers, never
     /// descending into symbolic links, junctions or other reparse points.
+    ///
+    /// # Errors
     ///
     /// Fails with the first error encountered; entries removed before it stay
     /// removed.
@@ -1161,11 +1231,15 @@ pub trait FsWrite: Fs {
 
     /// Creates a directory with the given permission bits.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::Exists`], and with [`FsErrorKind::NotFound`]
     /// for a missing parent.
     fn create_dir(&self, scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()>;
 
     /// Creates a symbolic link or junction at `link` pointing to `target`.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::Exists`], and with [`FsErrorKind::Privilege`]
     /// on Windows without the symbolic link privilege.
@@ -1179,12 +1253,16 @@ pub trait FsWrite: Fs {
 
     /// Changes metadata of an entry.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::PermissionDenied`], [`FsErrorKind::Privilege`]
     /// or, for elements the volume lacks, [`FsErrorKind::Unsupported`].
     fn set_meta(&self, scope: &TxScope, path: &AbsPath, change: &MetaChange) -> FsResult<()>;
 
     /// Restores complete metadata of an entry and reports what could not be
     /// restored.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::NotFound`]; elements refused individually are
     /// listed in the report instead.
@@ -1197,10 +1275,14 @@ pub trait FsWrite: Fs {
 
     /// Changes the length of a file.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::NotFound`] or [`FsErrorKind::NoSpace`].
     fn truncate(&self, scope: &TxScope, path: &AbsPath, length: u64) -> FsResult<()>;
 
     /// Flushes a directory so that renames and creations in it are durable.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::Io`].
     fn sync_dir(&self, scope: &TxScope, dir: &AbsPath) -> FsResult<()>;
@@ -1208,12 +1290,16 @@ pub trait FsWrite: Fs {
     /// Takes an exclusive advisory lock on `path`, creating the file when
     /// needed, and waits no longer than `timeout`.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::InUse`] when the lock is not obtained in
     /// time.
     fn lock_exclusive(&self, path: &AbsPath, timeout: Duration) -> FsResult<Box<dyn FileLock>>;
 
     /// Sets hidden, system and not-content-indexed attributes on Windows and
     /// equivalent markers elsewhere; used for the journal directory.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::NotFound`].
     fn mark_hidden(&self, scope: &TxScope, path: &AbsPath) -> FsResult<()>;
@@ -1313,15 +1399,21 @@ pub trait Provider: Send + Sync {
 
     /// Reads a value; `None` when it does not exist.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::PermissionDenied`] or [`FsErrorKind::Io`].
     fn get(&self, key: &ProviderKey) -> FsResult<Option<ProviderValue>>;
 
     /// Lists children of a key.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::NotFound`] for a missing key.
     fn list(&self, key: &ProviderKey) -> FsResult<Vec<ProviderChild>>;
 
     /// Takes a snapshot of a key or value for preservation.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::PermissionDenied`] or [`FsErrorKind::Io`]; a
     /// missing key yields a snapshot with `existed: false`, not an error.
@@ -1332,17 +1424,23 @@ pub trait Provider: Send + Sync {
 pub trait ProviderWrite: Provider {
     /// Sets a value, creating missing keys.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::PermissionDenied`] or
     /// [`FsErrorKind::Privilege`].
     fn set(&self, scope: &TxScope, key: &ProviderKey, value: &ProviderValue) -> FsResult<()>;
 
     /// Removes a value, or a key with its subtree.
     ///
+    /// # Errors
+    ///
     /// Fails with [`FsErrorKind::NotFound`] or
     /// [`FsErrorKind::PermissionDenied`].
     fn remove(&self, scope: &TxScope, key: &ProviderKey) -> FsResult<()>;
 
     /// Restores the exact state captured by a snapshot, including absence.
+    ///
+    /// # Errors
     ///
     /// Fails with [`FsErrorKind::PermissionDenied`] or [`FsErrorKind::Io`].
     fn restore(&self, scope: &TxScope, snapshot: &ProviderSnapshot) -> FsResult<()>;

@@ -273,7 +273,9 @@ impl FieldValue for u64 {
 
     fn from_field(value: Option<Value>) -> Result<Self, RecordError> {
         match present(value)? {
-            Value::Int(value) => u64::try_from(value).map_err(|_| mismatch("count", &Value::Int(value))),
+            Value::Int(value) => {
+                u64::try_from(value).map_err(|_| mismatch("count", &Value::Int(value)))
+            }
             Value::BigInt(text) => text
                 .parse()
                 .map_err(|_| mismatch("count", &Value::BigInt(text.clone()))),
@@ -334,7 +336,9 @@ impl FieldValue for Instant {
     fn from_field(value: Option<Value>) -> Result<Self, RecordError> {
         match present(value)? {
             Value::Instant(instant) => Ok(instant),
-            Value::Text(text) => text.parse().map_err(|_| mismatch("instant", &Value::Text(text))),
+            Value::Text(text) => text
+                .parse()
+                .map_err(|_| mismatch("instant", &Value::Text(text))),
             other => Err(mismatch("instant", &other)),
         }
     }
@@ -833,6 +837,28 @@ text_enum! {
 }
 
 text_enum! {
+    /// Subject of a finding of a review.
+    FindingTarget {
+        /// Content of a file.
+        #[default]
+        File = "file",
+        /// Message of a commit.
+        Message = "message",
+    }
+}
+
+text_enum! {
+    /// Unit in which a difference compares content.
+    DiffUnit {
+        /// Lines.
+        #[default]
+        Lines = "lines",
+        /// Words within lines.
+        Words = "words",
+    }
+}
+
+text_enum! {
     /// Action of a change of one file.
     ChangeAction {
         /// Created.
@@ -885,6 +911,12 @@ text_enum! {
         Merge = "merge",
         /// A rebase is in progress.
         Rebase = "rebase",
+        /// A cherry-pick is in progress.
+        CherryPick = "cherry_pick",
+        /// A revert is in progress.
+        Revert = "revert",
+        /// A bisection is in progress.
+        Bisect = "bisect",
     }
 }
 
@@ -1728,6 +1760,22 @@ text_enum! {
 }
 
 object_struct! {
+    /// Block of lines moved within a difference.
+    MovedBlock {
+        /// File the lines were removed from.
+        from_path: Path,
+        /// First removed line, from 1.
+        from_line: u64,
+        /// File the lines were added to.
+        to_path: Path,
+        /// First added line, from 1.
+        to_line: u64,
+        /// Number of lines.
+        lines: u64,
+    }
+}
+
+object_struct! {
     /// Image carried by a content record.
     ContentImage {
         /// Media type, for example `image/png`.
@@ -2105,6 +2153,9 @@ record_struct! {
         decompressed_from: Option<Path>,
         /// View used, for example `outline`.
         view: Option<String>,
+        /// Full identifier of the repository revision the content was read
+        /// from.
+        revision: Option<String>,
     }
 }
 
@@ -2408,6 +2459,37 @@ record_struct! {
         new_mode: Option<String>,
         /// White space was ignored.
         ignore_whitespace: Option<bool>,
+        /// First six hexadecimal digits of the SHA-256 hash of the hunk
+        /// lines; part of the identifier `path#number:fingerprint`.
+        fingerprint: Option<String>,
+        /// The hunk is in the index (staged) rather than in the worktree.
+        staged: Option<bool>,
+        /// The hunk adds an untracked file.
+        untracked: Option<bool>,
+        /// Unit of the difference.
+        unit: Option<DiffUnit>,
+        /// Blocks of lines moved within the difference.
+        moved: Option<Vec<MovedBlock>>,
+    }
+}
+
+impl Hunk {
+    /// Index of the first line without a valid prefix, if any.
+    ///
+    /// ```
+    /// use nurt_contracts::record::Hunk;
+    ///
+    /// let hunk = Hunk {
+    ///     lines: vec!["+new".to_owned(), "old".to_owned()],
+    ///     ..Hunk::default()
+    /// };
+    /// assert_eq!(hunk.first_invalid_line(), Some(1));
+    /// ```
+    #[must_use]
+    pub fn first_invalid_line(&self) -> Option<usize> {
+        self.lines.iter().position(|line| {
+            !(line.starts_with('+') || line.starts_with('-') || line.starts_with(' '))
+        })
     }
 }
 
@@ -2459,10 +2541,38 @@ record_struct! {
         irreversible: Option<Irreversible>,
         /// Difference of the content.
         diff: Option<Vec<Hunk>>,
-        /// State before a change of the action `state`.
-        before: Option<Value>,
+        /// State before a change of the action `state`, for example
+        /// `running`.
+        before: Option<String>,
         /// State after a change of the action `state`.
-        after: Option<Value>,
+        after: Option<String>,
+    }
+}
+
+impl Change {
+    /// Change of a target with no details.
+    ///
+    /// For targets outside the file system, `path` holds an identifier of the
+    /// form `<provider>:<name>` (for example `service:nginx`), the action is
+    /// [`ChangeAction::State`] and `before` and `after` hold the states.
+    ///
+    /// ```
+    /// use nurt_contracts::record::{Change, ChangeAction};
+    ///
+    /// let change = Change::new("/srv/app/a.go", ChangeAction::Modify);
+    /// assert_eq!(change.size_after, None);
+    /// assert_eq!(
+    ///     serde_json::to_value(&change).unwrap(),
+    ///     serde_json::json!({"path": "/srv/app/a.go", "action": "modify"})
+    /// );
+    /// ```
+    #[must_use]
+    pub fn new(path: impl Into<Path>, action: ChangeAction) -> Self {
+        Self {
+            path: path.into(),
+            action,
+            ..Self::default()
+        }
     }
 }
 
@@ -3375,6 +3485,11 @@ record_struct! {
         related: Option<Vec<RelatedLocation>>,
         /// Identifier of the hunk of a review.
         hunk: Option<String>,
+        /// What the finding is about; for a commit message `path` is the
+        /// root of the repository.
+        target: Option<FindingTarget>,
+        /// Number of occurrences aggregated in this finding.
+        count: Option<u64>,
     }
 }
 
@@ -3462,6 +3577,57 @@ record_struct! {
         bytes_received: Option<Size>,
         /// Bytes sent to a remote.
         bytes_sent: Option<Size>,
+        /// Current branch before the operation.
+        branch_before: Option<String>,
+        /// `HEAD` points to a commit, not to a branch.
+        detached: Option<bool>,
+        /// Upstream branch of the current branch.
+        upstream: Option<String>,
+        /// Commits of the current branch not in the upstream.
+        ahead: Option<u64>,
+        /// Commits of the upstream not in the current branch.
+        behind: Option<u64>,
+        /// The configured upstream no longer exists.
+        upstream_gone: Option<bool>,
+        /// Commit being merged while a merge is in progress.
+        merge_head: Option<String>,
+        /// Numbers of changed paths by state.
+        counts: Option<GitCounts>,
+        /// Summary of the index after staging.
+        index: Option<GitIndexSummary>,
+        /// Checkpoint created by the operation.
+        checkpoint: Option<String>,
+        /// Checkpoint saved before a restore or a switch.
+        checkpoint_before: Option<String>,
+        /// Hash of the repository state (`HEAD`, merge state, index tree and
+        /// targets) for the `expect_state` parameter of a later call.
+        state_token: Option<String>,
+    }
+}
+
+object_struct! {
+    /// Numbers of changed paths of a repository by state.
+    GitCounts {
+        /// Paths with changes in the index.
+        staged: u64,
+        /// Paths with changes in the worktree not in the index.
+        unstaged: u64,
+        /// Untracked paths.
+        untracked: u64,
+        /// Paths with conflicts.
+        conflicts: u64,
+    }
+}
+
+object_struct! {
+    /// Summary of the index after staging.
+    GitIndexSummary {
+        /// Files with staged changes.
+        files: u64,
+        /// Lines added.
+        added: u64,
+        /// Lines removed.
+        removed: u64,
     }
 }
 

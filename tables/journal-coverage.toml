@@ -1,23 +1,10 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
-# This file is the source of the journal coverage table. Every command and
-# every catalog action of the categories change and run, and every journal
-# command with an effect, has a row that states how the previous content is
-# preserved or why it is not. The test suite checks the table against the
-# catalog.
-#
-# Row fields:
-#   command      Catalog command name.
-#   action       Optional action, mode or target variant; a row without an
-#                action covers the whole command.
-#   group        Catalog group of the command.
-#   changes      What the operation changes.
-#   preserve     Preservation modes of the journal entry.
-#   coverage     The value full, partial, none or no_effect.
-#   irreversible Reasons reported for this row in addition to the generic ones.
-#   exception    Description of the exception; required for partial and none.
-#   note         Optional clarification.
+# Journal coverage table. Every command and every catalog action of the
+# categories change and run, and every journal command with an effect, has a
+# row that states how the previous content is preserved or why it is not.
+# Fields and rules: spec/journal.md, section 13.
 #
 # The overwrite modes exchange, replace_backup and hardlink keep the old
 # content without copying; when they are not possible the journal falls back
@@ -27,17 +14,19 @@ format = "nurt-journal-coverage/1"
 
 # These reasons may degrade any row: the journal is inactive on the volume,
 # the volume is a network or removable volume, there is no space for the
-# copy, or the operation exceeds the size limits. The operation is then
-# performed and the target is marked irreversible.
+# copy, the operation exceeds the size limits, or the journal fails while
+# recording. The operation is then performed and the target is marked
+# irreversible.
 generic_irreversible = [
   "journal_inactive",
   "network_volume",
   "removable_volume",
   "no_space_for_copy",
   "too_large_for_journal",
+  "journal_error",
 ]
 
-# Core commands.
+# Group core.
 
 [[row]]
 command = "verify"
@@ -220,6 +209,7 @@ group = "core"
 changes = "Record and output files of a finished background job."
 preserve = ["none"]
 coverage = "none"
+irreversible = ["job_output_removed"]
 exception = "Job records and their output files are state of the console, not user data, and are not journaled."
 
 [[row]]
@@ -730,7 +720,7 @@ group = "system"
 changes = "State of a process or job."
 preserve = ["external"]
 coverage = "none"
-irreversible = ["process_stopped"]
+irreversible = ["process_state_changed"]
 exception = "Suspending a process changes process state outside the file system."
 
 [[row]]
@@ -739,6 +729,7 @@ group = "system"
 changes = "State of a process or job."
 preserve = ["external"]
 coverage = "none"
+irreversible = ["process_state_changed"]
 exception = "Resuming a process changes process state outside the file system."
 
 # Group admin.
@@ -927,7 +918,17 @@ group = "journal"
 changes = "Pin marker of journal entries."
 preserve = ["meta"]
 coverage = "full"
-note = "The previous pin state is recorded; pinning does not protect entries from reclaim for space, and entries that expire after a release are not restored."
+note = "The previous pin state is recorded; pinning does not protect entries from reclaim for space."
+
+[[row]]
+command = "journal.pin"
+action = "release"
+group = "journal"
+changes = "Pin marker of journal entries; released entries over a limit expire at once."
+preserve = ["meta"]
+coverage = "partial"
+irreversible = ["journal_entries_expired"]
+exception = "The previous pin state is recorded; entries that expire after a release are not restored."
 
 [[row]]
 command = "journal.limits"
@@ -935,6 +936,7 @@ group = "journal"
 changes = "Retention limits of the session or of the user configuration file."
 preserve = ["meta", "created", "exchange", "replace_backup", "hardlink", "clone", "copy"]
 coverage = "partial"
+irreversible = ["journal_entries_expired"]
 exception = "A changed limit is reversed by setting it again; entries expired by lowered limits are not restored when the limits are raised. With user scope the configuration file is preserved as for an overwrite."
 
 [[row]]

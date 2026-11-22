@@ -31,7 +31,7 @@
   "error": {
     "code": "E_TIMEOUT",
     "message": "the program was stopped after the time limit of 120s",
-    "stage": "5",
+    "at": { "stage": "5" },
     "fix": ["run [\"npm\", \"test\"] timeout: 10m"],
     "effect_applied": true
   }
