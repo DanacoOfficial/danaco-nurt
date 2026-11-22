@@ -141,6 +141,7 @@ impl Frontend for ScriptedFrontend {
             bound: bound_find(),
             corrections: Vec::new(),
             ran: None,
+            ast_hash: None,
         })
     }
 }

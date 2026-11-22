@@ -202,9 +202,13 @@ impl Frontend for Programs {
             bound,
             corrections: Vec::new(),
             ran: None,
+            ast_hash: Some(PROGRAM_HASH.to_owned()),
         })
     }
 }
+
+const PROGRAM_HASH: &str =
+    "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 #[derive(Default)]
 struct Collect(Mutex<Vec<DeliveredEvent>>);
@@ -424,6 +428,7 @@ fn read_only_program_runs_without_journal() {
     response.validate().unwrap();
     assert!(response.report.error.is_none());
     assert!(response.report.records.is_some());
+    assert_eq!(response.report.ast_hash.as_deref(), Some(PROGRAM_HASH));
 }
 
 #[test]
