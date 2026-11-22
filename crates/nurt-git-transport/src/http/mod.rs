@@ -18,7 +18,7 @@ mod testserver;
 pub(crate) mod urlmatch;
 
 pub use backend::{ResponseBody, ResponseHeaders, UreqHttp};
-pub use failure::{NetworkFailure, NetworkProblem, redact_url};
+pub use failure::{NetworkFailure, NetworkProblem, redact_text, redact_url};
 pub use settings::{
     BearerToken, DEFAULT_CONNECT_TIMEOUT, DEFAULT_POST_BUFFER, FollowRedirects, HttpNote,
     HttpSettings, default_user_agent,

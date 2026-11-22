@@ -4,12 +4,13 @@
 //! Journaled changes of repository files.
 //!
 //! A [`FilePlan`] lists the journal targets of a set of file changes and the
-//! mutations that perform them. Files guarded by a `git` lock (`<file>.lock`)
-//! are replaced with the lock protocol of `git`: the lock file is created
-//! exclusively, filled with the new content and renamed over the file, so a
-//! concurrent `git` process sees the lock and stops. Callers combine several
-//! plans into one [`MutationTx::preserve`] call, because a transaction
-//! declares every target before its first change.
+//! mutations that perform them. A file guarded by a `git` lock (`<file>.lock`)
+//! is one `modify` target expecting the content seen at planning time, or its
+//! absence. The lock file is honoured but not created: when it exists the
+//! plan fails with `E_GIT_LOCKED`, at planning time and again before the
+//! first file is replaced. Callers combine several plans into one
+//! [`MutationTx::preserve`] call, because a transaction declares every target
+//! before its first change.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -20,6 +21,8 @@ use nurt_contracts::journal::{
     Expect, Mutation, MutationTx, TargetAction, TargetIndex, TargetPath, TargetSpec,
 };
 
+use super::refs::content_hash;
+
 /// Permission bits of directories created for references and logs, before
 /// the process umask.
 const DIRECTORY_MODE: u32 = 0o777;
@@ -27,8 +30,8 @@ const DIRECTORY_MODE: u32 = 0o777;
 /// Suffix of `git` lock files.
 pub const LOCK_SUFFIX: &str = ".lock";
 
-/// Check run after the locks of a plan are taken and before any file is
-/// replaced.
+/// Check run after the directories of a plan are created and before any file
+/// is replaced.
 pub type LockedCheck = Box<dyn Fn() -> Result<()> + Send + Sync>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,7 +44,6 @@ enum Phase {
 enum Step {
     CreateDir(u32),
     Write(u32, Vec<u8>),
-    Rename(u32),
     Remove(u32),
     Append(u32, Vec<u8>),
 }
@@ -85,20 +87,18 @@ impl FilePlan {
         &self.targets
     }
 
-    /// Paths of the files the plan changes, without lock files and
-    /// directories.
+    /// Paths of the files the plan changes, without directories.
     #[must_use]
     pub fn changed_files(&self) -> Vec<PathBuf> {
         self.targets
             .iter()
             .filter_map(|target| match (&target.path, &target.action) {
-                (_, TargetAction::Rename { to, .. }) => Some(to.as_path().to_path_buf()),
-                (TargetPath::Fs(path), TargetAction::Delete | TargetAction::Append) => {
-                    Some(path.as_path().to_path_buf())
-                }
+                (
+                    TargetPath::Fs(path),
+                    TargetAction::Delete | TargetAction::Append | TargetAction::Modify,
+                ) => Some(path.as_path().to_path_buf()),
                 (TargetPath::Fs(path), TargetAction::Create)
-                    if !path.as_path().to_string_lossy().ends_with(LOCK_SUFFIX)
-                        && !self.planned_dirs.contains(path.as_path()) =>
+                    if !self.planned_dirs.contains(path.as_path()) =>
                 {
                     Some(path.as_path().to_path_buf())
                 }
@@ -107,13 +107,13 @@ impl FilePlan {
             .collect()
     }
 
-    /// Replaces `file` with `bytes` under the lock `<file>.lock`; missing
-    /// directories up to `root` are created.
+    /// Replaces `file` with `bytes`, expecting the content the file has now
+    /// (or its absence); missing directories up to `root` are created.
     ///
     /// # Errors
     ///
-    /// Fails with `E_GIT_LOCKED` when the lock file exists and with `E_IO`
-    /// when a path is not absolute.
+    /// Fails with `E_GIT_LOCKED` when the lock file `<file>.lock` exists and
+    /// with `E_IO` when a path is not absolute or the file cannot be read.
     pub fn replace_locked(&mut self, root: &Path, file: &Path, bytes: Vec<u8>) -> Result<()> {
         let lock = lock_path(file);
         if lock.exists() || self.locked.contains(&lock) {
@@ -122,20 +122,19 @@ impl FilePlan {
         if let Some(parent) = file.parent() {
             self.ensure_dirs(root, parent)?;
         }
-        let lock_target = self.push_target(&lock, TargetAction::Create, Expect::Absent)?;
-        let rename_target = self.push_target(
-            &lock,
-            TargetAction::Rename {
-                to: abs(file)?,
-                replace: true,
-            },
-            Expect::Unchecked,
-        )?;
+        let expect = match std::fs::read(file) {
+            Ok(current) => Expect::Hash(content_hash(&current)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Expect::Absent,
+            Err(error) => {
+                return Err(Error::new(
+                    ErrorCode::Io,
+                    format!("cannot read `{}`: {error}", file.display()),
+                ));
+            }
+        };
+        let target = self.push_target(file, TargetAction::Modify, expect)?;
         self.locked.insert(lock);
-        self.steps
-            .push((Phase::Lock, Step::Write(lock_target, bytes)));
-        self.steps
-            .push((Phase::Commit, Step::Rename(rename_target)));
+        self.steps.push((Phase::Commit, Step::Write(target, bytes)));
         Ok(())
     }
 
@@ -175,20 +174,22 @@ impl FilePlan {
         Ok(())
     }
 
-    /// Adds a check that runs while the locks of the plan are held.
+    /// Adds a check that runs before the files of the plan are replaced.
     pub fn check_when_locked(&mut self, check: LockedCheck) {
         self.checks.push(check);
     }
 
     /// Applies the plan whose first target has index `first`.
     ///
-    /// The lock files are written first, then the checks run, then the files
-    /// are replaced, deleted and appended in plan order.
+    /// Directories are created first, then the checks run and the lock files
+    /// are looked for, then the files are replaced, deleted and appended in
+    /// plan order.
     ///
     /// # Errors
     ///
-    /// Returns the error of a failed mutation or check; the caller rolls the
-    /// transaction back.
+    /// Fails with `E_GIT_LOCKED` when a lock file appeared since planning;
+    /// otherwise returns the error of a failed mutation or check. The caller
+    /// rolls the transaction back.
     pub fn apply(&self, tx: &mut dyn MutationTx, first: TargetIndex) -> Result<()> {
         for phase in [Phase::Lock, Phase::Commit] {
             for (step_phase, step) in &self.steps {
@@ -199,6 +200,9 @@ impl FilePlan {
             if phase == Phase::Lock {
                 for check in &self.checks {
                     check()?;
+                }
+                if let Some(lock) = self.locked.iter().find(|lock| lock.exists()) {
+                    return Err(locked_error(lock));
                 }
             }
         }
@@ -253,8 +257,8 @@ impl FilePlan {
 ///
 /// # Errors
 ///
-/// Fails with the error of the journal or of a plan; `E_EXISTS` for a lock
-/// file is reported as `E_GIT_LOCKED`.
+/// Fails with the error of the journal or of a plan, `E_GIT_LOCKED` when a
+/// lock file exists.
 pub fn preserve_and_apply(tx: &mut dyn MutationTx, plans: &[&FilePlan]) -> Result<()> {
     let targets: Vec<TargetSpec> = plans
         .iter()
@@ -282,7 +286,6 @@ fn apply_step(tx: &mut dyn MutationTx, first: TargetIndex, step: &Step) -> Resul
             },
         ),
         Step::Write(target, bytes) => tx.apply(at(*target), Mutation::WriteBytes(bytes.clone())),
-        Step::Rename(target) => tx.apply(at(*target), Mutation::Rename),
         Step::Remove(target) => tx.apply(at(*target), Mutation::Remove),
         Step::Append(target, bytes) => tx.apply(at(*target), Mutation::AppendBytes(bytes.clone())),
     };
@@ -340,7 +343,7 @@ mod tests {
     use crate::send_pack::testing::RecordingTx;
 
     #[test]
-    fn replaces_a_file_through_its_lock_and_undoes_it() {
+    fn replaces_a_file_in_one_target_and_undoes_it() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().join("repo");
         std::fs::create_dir(&root).unwrap();
@@ -358,6 +361,10 @@ mod tests {
         preserve_and_apply(&mut tx, &[&plan]).unwrap();
         assert_eq!(std::fs::read(&file).unwrap(), b"new\n");
         assert!(!lock_path(&file).exists());
+        assert!(tx.targets().iter().all(|target| {
+            !matches!(target.action, TargetAction::Rename { .. })
+                && !matches!(&target.path, TargetPath::Fs(path) if path.as_path().ends_with("main.lock"))
+        }));
         tx.undo();
         assert!(!root.join("refs").exists());
         assert!(!root.join("logs").exists());
@@ -391,7 +398,7 @@ mod tests {
     }
 
     #[test]
-    fn runs_checks_while_locks_are_held_and_maps_lock_races() {
+    fn runs_checks_before_replacing_and_detects_lock_races() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().to_path_buf();
         let file = root.join("main");
@@ -399,9 +406,9 @@ mod tests {
         let mut plan = FilePlan::new();
         plan.replace_locked(&root, &file, b"new\n".to_vec())
             .unwrap();
-        let lock = lock_path(&file);
+        let watched = file.clone();
         plan.check_when_locked(Box::new(move || {
-            if lock.exists() {
+            if std::fs::read(&watched).is_ok_and(|bytes| bytes == b"old\n") {
                 Err(Error::new(ErrorCode::Stale, "changed"))
             } else {
                 Ok(())
@@ -410,9 +417,7 @@ mod tests {
         let mut tx = RecordingTx::new();
         let error = preserve_and_apply(&mut tx, &[&plan]).unwrap_err();
         assert_eq!(error.code(), ErrorCode::Stale);
-        tx.undo();
         assert_eq!(std::fs::read(&file).unwrap(), b"old\n");
-        assert!(!lock_path(&file).exists());
 
         let mut plan = FilePlan::new();
         plan.replace_locked(&root, &file, b"new\n".to_vec())
@@ -421,6 +426,7 @@ mod tests {
         let mut tx = RecordingTx::new();
         let error = preserve_and_apply(&mut tx, &[&plan]).unwrap_err();
         assert_eq!(error.code(), ErrorCode::GitLocked);
+        assert_eq!(std::fs::read(&file).unwrap(), b"old\n");
     }
 
     #[test]

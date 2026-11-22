@@ -4,6 +4,7 @@
 //! Sending a push request over an established transport.
 
 use std::cell::RefCell;
+use std::io::Read;
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 
@@ -15,10 +16,25 @@ use nurt_contracts::error::Result;
 
 use super::advertisement::Advertisement;
 use super::command::{Negotiated, RefCommand, SendOptions, negotiate, write_commands};
-use super::error::{protocol_error, stream_error, transport_error};
+use super::error::{
+    clean_remote_text, protocol_error, response_too_large, stream_error, transport_error,
+};
 use super::objects::objects_to_send;
 use super::pack::{PackSummary, write_pack};
 use super::report::{PushReport, parse_report};
+
+/// Largest size of the status report, in bytes.
+const MAX_REPORT_BYTES: usize = 1024 * 1024;
+
+/// Largest total size of the messages of the remote (side band 2), in bytes.
+const MAX_REMOTE_MESSAGE_BYTES: usize = 1024 * 1024;
+
+/// Report lines per command: status, plus the `option` lines of
+/// `report-status-v2`.
+const REPORT_LINES_PER_COMMAND: usize = 4;
+
+/// Report lines that do not belong to a command, such as the `unpack` line.
+const REPORT_EXTRA_LINES: usize = 16;
 
 /// Result of one push request.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -86,7 +102,7 @@ pub fn send(
     if !negotiated.report_status {
         return Ok(outcome);
     }
-    let (report, messages) = read_response(reader.as_mut(), &negotiated)?;
+    let (report, messages) = read_response(reader.as_mut(), &negotiated, commands.len())?;
     outcome.report = Some(report);
     outcome.remote_messages = messages;
     Ok(outcome)
@@ -97,14 +113,29 @@ type Reader<'a> = dyn gix_transport::client::blocking_io::ExtendedBufRead<'a> + 
 fn read_response(
     reader: &mut Reader<'_>,
     negotiated: &Negotiated,
+    commands: usize,
 ) -> Result<(PushReport, Vec<String>)> {
     if !negotiated.side_band {
-        let mut lines = Vec::new();
+        let max_lines = commands
+            .saturating_mul(REPORT_LINES_PER_COMMAND)
+            .saturating_add(REPORT_EXTRA_LINES);
+        let mut lines: Vec<Vec<u8>> = Vec::new();
+        let mut total = 0_usize;
         while let Some(line) = reader.readline() {
             let line = line
                 .map_err(|error| stream_error(&error))?
                 .map_err(|error| protocol_error("malformed_report", error.to_string()))?;
             if let Some(data) = line.as_slice() {
+                total = total.saturating_add(data.len());
+                if lines.len() >= max_lines {
+                    return Err(response_too_large("lines of status report", max_lines));
+                }
+                if total > MAX_REPORT_BYTES {
+                    return Err(response_too_large(
+                        "bytes of status report",
+                        MAX_REPORT_BYTES,
+                    ));
+                }
                 lines.push(super::pkt::trim_newline(data).to_vec());
             }
         }
@@ -114,13 +145,30 @@ fn read_response(
     let messages = Rc::new(RefCell::new(RemoteMessages::default()));
     let sink = Rc::clone(&messages);
     reader.set_progress_handler(Some(Box::new(move |is_error: bool, text: &[u8]| {
-        sink.borrow_mut().push(is_error, text);
-        std::ops::ControlFlow::Continue(())
+        let mut sink = sink.borrow_mut();
+        sink.push(is_error, text);
+        if sink.exceeded {
+            std::ops::ControlFlow::Break(())
+        } else {
+            std::ops::ControlFlow::Continue(())
+        }
     })));
     let mut data = Vec::new();
-    let read = reader.read_to_end(&mut data);
+    let read = Read::take(&mut *reader, MAX_REPORT_BYTES as u64 + 1).read_to_end(&mut data);
     reader.set_progress_handler(None);
     let messages = messages.borrow_mut().finish();
+    if messages.exceeded {
+        return Err(response_too_large(
+            "bytes of messages",
+            MAX_REMOTE_MESSAGE_BYTES,
+        ));
+    }
+    if data.len() > MAX_REPORT_BYTES {
+        return Err(response_too_large(
+            "bytes of status report",
+            MAX_REPORT_BYTES,
+        ));
+    }
     if let Some(fatal) = messages.fatal {
         return Err(protocol_error(
             "remote_fatal",
@@ -137,18 +185,25 @@ struct RemoteMessages {
     lines: Vec<String>,
     partial: String,
     fatal: Option<String>,
+    bytes: usize,
+    exceeded: bool,
 }
 
 impl RemoteMessages {
     fn push(&mut self, is_error: bool, text: &[u8]) {
+        self.bytes = self.bytes.saturating_add(text.len());
+        if self.bytes > MAX_REMOTE_MESSAGE_BYTES {
+            self.exceeded = true;
+            return;
+        }
         let text = text.to_str_lossy();
         if is_error {
-            self.fatal = Some(text.trim().to_owned());
+            self.fatal = Some(clean_remote_text(text.trim()));
             return;
         }
         self.partial.push_str(&text);
         while let Some(end) = self.partial.find(['\n', '\r']) {
-            let line = self.partial[..end].trim_end().to_owned();
+            let line = clean_remote_text(self.partial[..end].trim_end());
             self.partial.drain(..=end);
             if !line.is_empty() {
                 self.lines.push(line);
@@ -157,7 +212,7 @@ impl RemoteMessages {
     }
 
     fn finish(&mut self) -> Self {
-        let rest = self.partial.trim().to_owned();
+        let rest = clean_remote_text(self.partial.trim());
         if !rest.is_empty() {
             self.lines.push(rest);
         }
@@ -191,5 +246,15 @@ mod tests {
         let mut fatal = RemoteMessages::default();
         fatal.push(true, b"disk full\n");
         assert_eq!(fatal.finish().fatal.as_deref(), Some("disk full"));
+    }
+
+    #[test]
+    fn strips_control_characters_from_remote_messages() {
+        let mut messages = RemoteMessages::default();
+        messages.push(false, b"remote: \x1b[31mred\x1b[0m\x07 text\n");
+        messages.push(true, b"fatal \x1b]0;title\x07\n");
+        let taken = messages.finish();
+        assert_eq!(taken.lines, ["remote: [31mred[0m text"]);
+        assert_eq!(taken.fatal.as_deref(), Some("fatal ]0;title"));
     }
 }

@@ -5,7 +5,29 @@
 
 use nurt_contracts::error::{Error, ErrorCode};
 
-use crate::http::NetworkFailure;
+use crate::http::{NetworkFailure, redact_text};
+
+/// Removes control characters other than line feed and tab, so that text
+/// received from a remote cannot carry terminal escape sequences.
+pub(crate) fn clean_remote_text(text: &str) -> String {
+    text.chars()
+        .filter(|c| !c.is_control() || matches!(c, '\n' | '\t'))
+        .collect()
+}
+
+/// Text of a library or remote failure that is safe to report: addresses
+/// lose their credentials and control characters are removed.
+fn scrub(text: &str) -> String {
+    clean_remote_text(&redact_text(text))
+}
+
+/// Error `E_GIT_PROTOCOL` for a response that exceeds a size limit.
+pub(crate) fn response_too_large(what: &str, limit: usize) -> Error {
+    protocol_error(
+        "response_too_large",
+        format!("the remote sent more than {limit} {what}"),
+    )
+}
 
 /// Error `E_GIT_PROTOCOL` with the given problem name.
 pub(crate) fn protocol_error(problem: &str, message: impl Into<String>) -> Error {
@@ -21,7 +43,7 @@ pub(crate) fn library_error(context: &str, error: &dyn std::fmt::Display) -> Err
 /// `E_GIT_PROTOCOL`.
 pub(crate) fn transport_error(error: &gix_transport::client::Error) -> Error {
     use gix_transport::client::Error as Transport;
-    let text = error.to_string();
+    let text = scrub(&error.to_string());
     match error {
         Transport::AuthenticationUnsupported | Transport::AuthenticationRefused(_) => Error::new(
             ErrorCode::GitAuth,
@@ -73,7 +95,7 @@ fn io_error(failure: &std::io::Error, text: &str) -> Error {
 /// The packet line reader reports `ERR` lines of the remote as I/O errors
 /// whose text starts with the remote message.
 pub(crate) fn stream_error(error: &std::io::Error) -> Error {
-    let text = error.to_string();
+    let text = scrub(&error.to_string());
     match error.kind() {
         std::io::ErrorKind::Other | std::io::ErrorKind::InvalidData => protocol_error(
             "remote_error",
@@ -86,6 +108,21 @@ pub(crate) fn stream_error(error: &std::io::Error) -> Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn removes_credentials_and_control_characters_from_error_text() {
+        let io = gix_transport::client::Error::Io(std::io::Error::other(
+            "failed https://user:secret@example.com/r.git",
+        ));
+        let error = transport_error(&io);
+        assert!(!error.message.contains("secret"));
+        assert!(error.message.contains("https://example.com/r.git"));
+        let remote = std::io::Error::other("ERR \u{1b}[2Jdenied\u{7}");
+        let error = stream_error(&remote);
+        assert!(!error.message.contains('\u{1b}'));
+        assert!(!error.message.contains('\u{7}'));
+        assert!(error.message.contains("denied"));
+    }
 
     #[test]
     fn maps_stream_errors_by_kind() {
