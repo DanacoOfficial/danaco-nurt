@@ -3,15 +3,12 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Tests of three-way merges of trees and commits.
 
-use std::sync::Arc;
-
 use gix_object::tree::EntryKind;
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::record::GitConflictKind;
 use nurt_contracts::report::Notable;
-use nurt_contracts::services::ProcessHost;
 
-use super::fixture::{DriverHost, Fixture, context};
+use super::fixture::Fixture;
 use super::*;
 
 const BASE: &str = "a\nb\nc\n";
@@ -31,15 +28,7 @@ fn merges_disjoint_changes_cleanly() {
     let base = fx.tree(&[("f", BASE), ("g", "x\n")]);
     let ours = fx.tree(&[("f", OURS), ("g", "x\n")]);
     let theirs = fx.tree(&[("f", BASE), ("g", "y\n"), ("new/h", "h\n")]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &options("topic"),
-        DriverMode::Defer,
-    )
-    .unwrap();
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &options("topic")).unwrap();
     assert!(out.is_clean());
     assert_eq!(fx.read(out.tree, "f").as_deref(), Some(OURS));
     assert_eq!(fx.read(out.tree, "g").as_deref(), Some("y\n"));
@@ -55,15 +44,7 @@ fn writes_conflict_markers_like_git_in_merge_style() {
     let base = fx.tree(&[("f", BASE)]);
     let ours = fx.tree(&[("f", OURS)]);
     let theirs = fx.tree(&[("f", THEIRS)]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &options("topic"),
-        DriverMode::Defer,
-    )
-    .unwrap();
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &options("topic")).unwrap();
     assert_eq!(
         fx.read(out.tree, "f").as_deref(),
         Some("a\n<<<<<<< HEAD\nb2\n=======\nB\n>>>>>>> topic\nc\n")
@@ -95,7 +76,7 @@ fn writes_base_section_in_diff3_and_zdiff3_styles() {
         let mut opts = options("topic");
         opts.conflict_style = style;
         opts.labels.base = Some("9057a25".to_owned());
-        let out = merge_trees(&fx.repo, &base, &ours, &theirs, &opts, DriverMode::Defer).unwrap();
+        let out = merge_trees(&fx.repo, &base, &ours, &theirs, &opts).unwrap();
         assert_eq!(
             fx.read(out.tree, "f").as_deref(),
             Some("a\n<<<<<<< HEAD\nb2\n||||||| 9057a25\nb\n=======\nB\n>>>>>>> topic\nc\n"),
@@ -113,7 +94,7 @@ fn honours_marker_size() {
     let theirs = fx.tree(&[("f", THEIRS)]);
     let mut opts = options("t");
     opts.marker_size = std::num::NonZeroU8::new(3).unwrap();
-    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &opts, DriverMode::Defer).unwrap();
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &opts).unwrap();
     assert_eq!(
         fx.read(out.tree, "f").as_deref(),
         Some("a\n<<< HEAD\nb2\n===\nB\n>>> t\nc\n")
@@ -129,7 +110,7 @@ fn favor_resolves_conflicting_hunks() {
     for (favor, expected) in [(Favor::Ours, OURS), (Favor::Theirs, THEIRS)] {
         let mut opts = options("topic");
         opts.favor = Some(favor);
-        let out = merge_trees(&fx.repo, &base, &ours, &theirs, &opts, DriverMode::Defer).unwrap();
+        let out = merge_trees(&fx.repo, &base, &ours, &theirs, &opts).unwrap();
         assert!(out.is_clean());
         assert_eq!(fx.read(out.tree, "f").as_deref(), Some(expected));
     }
@@ -144,30 +125,14 @@ fn keeps_modified_side_of_modify_delete_conflict() {
     let base = fx.tree(&[("f", BASE), ("keep", "k\n")]);
     let ours = fx.tree(&[("f", OURS), ("keep", "k\n")]);
     let theirs = fx.tree(&[("keep", "k\n")]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &options("topic"),
-        DriverMode::Defer,
-    )
-    .unwrap();
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &options("topic")).unwrap();
     assert_eq!(fx.read(out.tree, "f").as_deref(), Some(OURS));
     assert_eq!(out.conflicts.len(), 1);
     assert_eq!(out.conflicts[0].kind, GitConflictKind::DeletedByThem);
     assert!(!out.conflicts[0].markers);
     assert!(out.conflicts[0].theirs.is_none());
 
-    let reverse = merge_trees(
-        &fx.repo,
-        &base,
-        &theirs,
-        &ours,
-        &options("topic"),
-        DriverMode::Defer,
-    )
-    .unwrap();
+    let reverse = merge_trees(&fx.repo, &base, &theirs, &ours, &options("topic")).unwrap();
     assert_eq!(reverse.conflicts[0].kind, GitConflictKind::DeletedByUs);
     assert_eq!(fx.read(reverse.tree, "f").as_deref(), Some(OURS));
 }
@@ -178,15 +143,7 @@ fn reports_add_add_conflict_with_empty_base() {
     let base = fx.tree(&[("x", "x\n")]);
     let ours = fx.tree(&[("x", "x\n"), ("n", "one\n")]);
     let theirs = fx.tree(&[("x", "x\n"), ("n", "two\n")]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &options("topic"),
-        DriverMode::Defer,
-    )
-    .unwrap();
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &options("topic")).unwrap();
     assert_eq!(out.conflicts.len(), 1);
     assert_eq!(out.conflicts[0].kind, GitConflictKind::BothAdded);
     assert!(out.conflicts[0].markers);
@@ -208,15 +165,7 @@ fn keeps_current_side_of_binary_conflict() {
     let base = fx.tree_with(&[("bin", EntryKind::Blob, &b)]);
     let ours = fx.tree_with(&[("bin", EntryKind::Blob, &o)]);
     let theirs = fx.tree_with(&[("bin", EntryKind::Blob, &t)]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &options("topic"),
-        DriverMode::Defer,
-    )
-    .unwrap();
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &options("topic")).unwrap();
     assert_eq!(out.conflicts.len(), 1);
     assert_eq!(out.conflicts[0].kind, GitConflictKind::Binary);
     assert!(!out.conflicts[0].markers);
@@ -238,15 +187,7 @@ fn merges_executable_bit_from_either_side() {
         ("s", EntryKind::BlobExecutable, b"run\n"),
         ("t", EntryKind::Blob, b"t\n"),
     ]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &options("topic"),
-        DriverMode::Defer,
-    )
-    .unwrap();
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &options("topic")).unwrap();
     assert!(out.is_clean());
     assert_eq!(fx.mode(out.tree, "s"), Some(EntryKind::BlobExecutable));
     assert_eq!(fx.read(out.tree, "t").as_deref(), Some("t2\n"));
@@ -260,30 +201,14 @@ fn follows_rename_on_one_side_with_change_on_the_other() {
     let base = fx.tree(&[("old.txt", text)]);
     let ours = fx.tree(&[("new.txt", text)]);
     let theirs = fx.tree(&[("old.txt", changed)]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &options("topic"),
-        DriverMode::Defer,
-    )
-    .unwrap();
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &options("topic")).unwrap();
     assert!(out.is_clean());
     assert_eq!(fx.read(out.tree, "new.txt").as_deref(), Some(changed));
     assert_eq!(fx.read(out.tree, "old.txt"), None);
 
     let mut no_renames = options("topic");
     no_renames.renames = None;
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &no_renames,
-        DriverMode::Defer,
-    )
-    .unwrap();
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &no_renames).unwrap();
     assert_eq!(out.conflicts.len(), 1);
     assert_eq!(out.conflicts[0].kind, GitConflictKind::DeletedByUs);
 }
@@ -295,15 +220,7 @@ fn reports_rename_rename_conflict() {
     let base = fx.tree(&[("a", text)]);
     let ours = fx.tree(&[("b", text)]);
     let theirs = fx.tree(&[("c", text)]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &options("topic"),
-        DriverMode::Defer,
-    )
-    .unwrap();
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &options("topic")).unwrap();
     assert!(!out.is_clean());
     assert!(
         out.conflicts
@@ -321,7 +238,7 @@ fn merges_commits_with_their_best_common_ancestor() {
     let ours = fx.commit(fx.tree(&[("f", OURS)]), &[root], "ours");
     let theirs = fx.commit(fx.tree(&[("f", BASE), ("g", "g\n")]), &[root], "theirs");
     assert_eq!(merge_bases(&fx.repo, ours, theirs).unwrap(), vec![root]);
-    let out = merge_commits(&fx.repo, ours, theirs, &options("topic"), DriverMode::Defer).unwrap();
+    let out = merge_commits(&fx.repo, ours, theirs, &options("topic")).unwrap();
     assert!(out.is_clean());
     assert_eq!(out.merge_bases, vec![root]);
     assert!(out.virtual_bases.is_empty());
@@ -337,7 +254,7 @@ fn labels_base_with_abbreviated_commit_in_diff3() {
     let theirs = fx.commit(fx.tree(&[("f", THEIRS)]), &[root], "theirs");
     let mut opts = options("topic");
     opts.conflict_style = ConflictStyle::Diff3;
-    let out = merge_commits(&fx.repo, ours, theirs, &opts, DriverMode::Defer).unwrap();
+    let out = merge_commits(&fx.repo, ours, theirs, &opts).unwrap();
     let short = root.to_hex_with_len(7).to_string();
     assert_eq!(
         fx.read(out.tree, "f").unwrap(),
@@ -359,7 +276,7 @@ fn merges_criss_cross_history_through_virtual_base() {
     );
     let bases = merge_bases(&fx.repo, a2, b2).unwrap();
     assert_eq!(bases.len(), 2);
-    let out = merge_commits(&fx.repo, a2, b2, &options("b2"), DriverMode::Defer).unwrap();
+    let out = merge_commits(&fx.repo, a2, b2, &options("b2")).unwrap();
     assert!(out.is_clean());
     assert_eq!(out.virtual_bases.len(), 1);
     assert_eq!(fx.read(out.tree, "h").as_deref(), Some("h\n"));
@@ -372,13 +289,12 @@ fn refuses_unrelated_histories_unless_allowed() {
     let fx = Fixture::new();
     let ours = fx.commit(fx.tree(&[("a", "a\n")]), &[], "a");
     let theirs = fx.commit(fx.tree(&[("b", "b\n")]), &[], "b");
-    let error =
-        merge_commits(&fx.repo, ours, theirs, &options("other"), DriverMode::Defer).unwrap_err();
+    let error = merge_commits(&fx.repo, ours, theirs, &options("other")).unwrap_err();
     assert_eq!(error.code(), ErrorCode::GitNonFastForward);
     assert_eq!(error.data().problem.as_deref(), Some("unrelated_histories"));
     let mut opts = options("other");
     opts.allow_unrelated = true;
-    let out = merge_commits(&fx.repo, ours, theirs, &opts, DriverMode::Defer).unwrap();
+    let out = merge_commits(&fx.repo, ours, theirs, &opts).unwrap();
     assert!(out.is_clean());
     assert_eq!(
         out.base_tree,
@@ -436,13 +352,8 @@ fn rejects_unknown_conflict_style_in_configuration() {
     assert_eq!(error.code(), ErrorCode::Config);
 }
 
-fn driver_fixture() -> (
-    Fixture,
-    gix_hash::ObjectId,
-    gix_hash::ObjectId,
-    gix_hash::ObjectId,
-    MergeOptions,
-) {
+#[test]
+fn reports_configured_driver_programs_as_not_applied() {
     let fx = Fixture::new();
     std::fs::write(fx.workdir().join(".gitattributes"), "*.db merge=custom\n").unwrap();
     let base = fx.tree(&[("data.db", BASE), ("plain", BASE)]);
@@ -453,91 +364,8 @@ fn driver_fixture() -> (
         name: "custom".to_owned(),
         command: "custom-merge %A %O %B %P".to_owned(),
     }];
-    (fx, base, ours, theirs, opts)
-}
-
-#[test]
-fn defers_configured_driver_programs_when_planning() {
-    let (fx, base, ours, theirs, opts) = driver_fixture();
-    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &opts, DriverMode::Defer).unwrap();
-    assert_eq!(out.pending_drivers, vec![bstr::BString::from("data.db")]);
-    assert!(out.drivers_run.is_empty());
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &opts).unwrap();
     assert_eq!(out.conflicts.len(), 2);
-}
-
-#[test]
-fn runs_configured_driver_through_program_service() {
-    let (fx, base, ours, theirs, opts) = driver_fixture();
-    let state = tempfile::tempdir().unwrap();
-    let host = Arc::new(DriverHost::new("resolved\n", 0));
-    let ctx = context(
-        Some(state.path().to_path_buf()),
-        Some(Arc::clone(&host) as Arc<dyn ProcessHost>),
-        &[],
-    );
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &opts,
-        DriverMode::Run(&ctx),
-    )
-    .unwrap();
-    assert_eq!(fx.read(out.tree, "data.db").as_deref(), Some("resolved\n"));
-    assert_eq!(out.conflicts.len(), 1);
-    assert_eq!(out.conflicts[0].path, "plain");
-    assert_eq!(
-        out.drivers_run,
-        vec![("custom".to_owned(), bstr::BString::from("data.db"))]
-    );
-    let commands = host.commands.lock().unwrap().clone();
-    assert_eq!(commands.len(), 1);
-    assert!(commands[0].starts_with("custom-merge '"));
-    assert!(commands[0].ends_with("'data.db'"));
-    assert_eq!(
-        std::fs::read_dir(state.path().join("git-merge-driver"))
-            .unwrap()
-            .count(),
-        0
-    );
-}
-
-#[test]
-fn driver_exit_code_other_than_zero_leaves_conflict() {
-    let (fx, base, ours, theirs, opts) = driver_fixture();
-    let state = tempfile::tempdir().unwrap();
-    let host: Arc<dyn ProcessHost> = Arc::new(DriverHost::new("partial\n", 1));
-    let ctx = context(Some(state.path().to_path_buf()), Some(host), &[]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &opts,
-        DriverMode::Run(&ctx),
-    )
-    .unwrap();
-    assert_eq!(fx.read(out.tree, "data.db").as_deref(), Some("partial\n"));
-    let driven = out.conflicts.iter().find(|c| c.path == "data.db").unwrap();
-    assert_eq!(driven.kind, GitConflictKind::BothModified);
-    assert!(driven.markers);
-}
-
-#[test]
-fn falls_back_to_text_driver_without_program_service() {
-    let (fx, base, ours, theirs, opts) = driver_fixture();
-    let ctx = context(None, None, &[]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &opts,
-        DriverMode::Run(&ctx),
-    )
-    .unwrap();
-    assert!(out.drivers_run.is_empty());
     assert_eq!(out.notes.len(), 1);
     assert_eq!(out.notes[0].code, Notable::FilterNotApplied);
     assert_eq!(out.notes[0].path.as_deref(), Some("data.db"));
@@ -549,51 +377,12 @@ fn falls_back_to_text_driver_without_program_service() {
 }
 
 #[test]
-fn falls_back_to_text_driver_when_shell_cannot_start() {
-    let (fx, base, ours, theirs, opts) = driver_fixture();
-    let state = tempfile::tempdir().unwrap();
-    let mut host = DriverHost::new("x\n", 0);
-    host.fail_to_start = true;
-    let ctx = context(Some(state.path().to_path_buf()), Some(Arc::new(host)), &[]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &opts,
-        DriverMode::Run(&ctx),
-    )
-    .unwrap();
-    assert_eq!(out.notes.len(), 1);
-    assert!(
-        fx.read(out.tree, "data.db")
-            .unwrap()
-            .contains("<<<<<<< HEAD")
-    );
-}
-
-#[test]
-fn driver_mode_formats_for_debugging() {
-    let ctx = context(None, None, &[]);
-    assert_eq!(format!("{:?}", DriverMode::Defer), "Defer");
-    assert_eq!(format!("{:?}", DriverMode::Run(&ctx)), "Run");
-}
-
-#[test]
 fn separates_link_and_regular_file_of_a_type_change_conflict() {
     let fx = Fixture::new();
     let base = fx.tree(&[("f", "1\n2\n3\n")]);
     let ours = fx.tree(&[("f", "1\n2\n3\n4\n")]);
     let theirs = fx.tree_with(&[("f", EntryKind::Link, b"target")]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &options("topic"),
-        DriverMode::Defer,
-    )
-    .unwrap();
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &options("topic")).unwrap();
     let kinds: Vec<_> = out
         .conflicts
         .iter()
@@ -617,18 +406,23 @@ fn records_the_original_blob_for_rename_delete_conflict() {
     let base = fx.tree(&[("a", text), ("z", "z\n")]);
     let ours = fx.tree(&[("z", "z\n")]);
     let theirs = fx.tree(&[("b", text), ("z", "z\n")]);
-    let out = merge_trees(
-        &fx.repo,
-        &base,
-        &ours,
-        &theirs,
-        &options("topic"),
-        DriverMode::Defer,
-    )
-    .unwrap();
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &options("topic")).unwrap();
     assert_eq!(out.conflicts.len(), 1);
     let conflict = &out.conflicts[0];
     assert_eq!(conflict.path, "b");
     assert_eq!(conflict.kind, GitConflictKind::RenameDelete);
     assert!(conflict.base.is_some() && conflict.theirs.is_some() && conflict.ours.is_none());
+}
+
+#[test]
+fn merges_repeated_lines_with_the_histogram_algorithm() {
+    let fx = Fixture::new();
+    let base = fx.tree(&[("f", "b\nb\na\nb\nd\nc\n")]);
+    let ours = fx.tree(&[("f", "b\nb\na\nb\nc\n")]);
+    let theirs = fx.tree(&[("f", "a\nb\nb\nb\nn6\nd\nc\n")]);
+    let out = merge_trees(&fx.repo, &base, &ours, &theirs, &options("topic")).unwrap();
+    assert_eq!(
+        fx.read(out.tree, "f").as_deref(),
+        Some("a\nb\n<<<<<<< HEAD\n=======\nb\nb\nn6\nd\n>>>>>>> topic\nc\n")
+    );
 }

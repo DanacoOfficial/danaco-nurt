@@ -6,7 +6,7 @@
 use std::fmt::Display;
 use std::num::NonZeroU8;
 
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BStr, ByteSlice};
 use gix::prelude::ObjectIdExt;
 use gix_hash::ObjectId;
 use gix_merge::blob::builtin_driver::binary::ResolveWith;
@@ -17,7 +17,7 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::report::NotableEntry;
 
 use super::conflict::{self, MergeConflict};
-use super::driver::{self, DriverMode, ExternalDriver};
+use super::driver::{self, ExternalDriver};
 use super::layout;
 
 /// Marker size of Git when neither the `conflict-marker-size` attribute
@@ -288,12 +288,7 @@ pub struct MergeOutcome {
     /// Commits created to merge several bases into one, the last being the
     /// base used.
     pub virtual_bases: Vec<ObjectId>,
-    /// Paths whose configured merge driver program was not run because the
-    /// merge was computed with [`DriverMode::Defer`].
-    pub pending_drivers: Vec<BString>,
-    /// Merge driver programs that ran, by driver name and path.
-    pub drivers_run: Vec<(String, BString)>,
-    /// Unusual effects, for example a merge driver that could not run.
+    /// Unusual effects, for example a configured merge driver that is not run.
     pub notes: Vec<NotableEntry>,
 }
 
@@ -318,9 +313,8 @@ impl MergeOutcome {
 /// merged with the histogram algorithm, as by `merge-ort`. Merged blobs and
 /// the result tree are written to the object database of `repo`; the
 /// working tree, the index and the references are not touched. Merge
-/// drivers configured as programs run through the program launching service
-/// of the context in [`DriverMode::Run`], and never in
-/// [`DriverMode::Defer`].
+/// drivers configured as programs are not run; their paths are reported as
+/// `filter_not_applied`.
 ///
 /// # Errors
 ///
@@ -332,7 +326,6 @@ pub fn merge_trees(
     ours: &gix_hash::oid,
     theirs: &gix_hash::oid,
     options: &MergeOptions,
-    drivers: DriverMode<'_>,
 ) -> Result<MergeOutcome> {
     let mut diff_cache = repo
         .diff_resource_cache_for_tree_diff()
@@ -364,7 +357,7 @@ pub fn merge_trees(
         commits: Vec::new(),
         virtual_commits: Vec::new(),
     };
-    finish(repo, outcome, bases, options, drivers)
+    finish(repo, outcome, bases, options)
 }
 
 /// Merges the commits `ours` and `theirs` (`git merge` and `ort`).
@@ -386,7 +379,6 @@ pub fn merge_commits(
     ours: ObjectId,
     theirs: ObjectId,
     options: &MergeOptions,
-    drivers: DriverMode<'_>,
 ) -> Result<MergeOutcome> {
     let bases = merge_bases(repo, ours, theirs)?;
     if bases.is_empty() && !options.allow_unrelated {
@@ -431,7 +423,7 @@ pub fn merge_commits(
         commits: outcome.merge_bases.map(Vec::from).unwrap_or_default(),
         virtual_commits: outcome.virtual_merge_bases,
     };
-    finish(repo, outcome.tree_merge, bases, options, drivers)
+    finish(repo, outcome.tree_merge, bases, options)
 }
 
 /// Best common ancestors of `ours` and `theirs`; empty when the histories
@@ -494,9 +486,8 @@ fn finish(
     mut outcome: gix_merge::tree::Outcome<'_>,
     bases: Bases,
     options: &MergeOptions,
-    drivers: DriverMode<'_>,
 ) -> Result<MergeOutcome> {
-    let report = driver::run_external(repo, &mut outcome, options, drivers)?;
+    let notes = driver::unrun_notes(repo, &outcome, options)?;
     let fixes = layout::plan(
         &outcome.conflicts,
         &outcome.tree,
@@ -525,9 +516,7 @@ fn finish(
         base_tree: bases.tree,
         merge_bases: bases.commits,
         virtual_bases: bases.virtual_commits,
-        pending_drivers: report.pending,
-        drivers_run: report.ran,
-        notes: report.notes,
+        notes,
     })
 }
 

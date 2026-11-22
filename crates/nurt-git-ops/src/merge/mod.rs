@@ -36,7 +36,7 @@ pub use command::{
     FastForward, MergeAction, MergePlan, MergeRequest, MergeResult, apply_merge, plan_merge,
 };
 pub use conflict::{MergeConflict, kind_from_stages};
-pub use driver::{DriverMode, ExternalDriver};
+pub use driver::ExternalDriver;
 pub use finish::{MergeCompletion, prepare_completion, unmerged_error, unmerged_paths};
 pub use message::{
     Cleanup, DEFAULT_SUPPRESSED_DESTINATIONS, MergeSource, clean_message, merge_message,

@@ -1014,16 +1014,12 @@ fn stage_apply_rejects_a_plan_of_another_stage() {
         .apply(
             &args,
             EffectPlan::new(),
-            journal_tx().as_mut(),
+            RecordingJournal::new().begin().as_mut(),
             &context(None),
         )
         .map(|_| ())
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::StageFailed);
-}
-
-fn journal_tx() -> Box<dyn MutationTx> {
-    RecordingJournal::new().begin()
 }
 
 #[test]

@@ -14,7 +14,7 @@ use gix_transport::Protocol;
 use gix_transport::client::blocking_io::Transport;
 use nurt_contracts::error::{Error, ErrorCode};
 
-use crate::http::{self, HttpSettings, redact_url};
+use crate::http::{self, HttpSettings, redact_text, redact_url};
 use crate::local::{self, LocalError};
 #[cfg(feature = "git-ssh")]
 use crate::ssh::{self, SshOptions};
@@ -187,8 +187,9 @@ pub fn resolve_url(
         Error::new(
             ErrorCode::InvalidValue,
             format!(
-                "invalid repository address {}: {failure}; use https://, ssh://, user@host:path or a local path",
-                redact_url(&rewritten)
+                "invalid repository address {}: {}; use https://, ssh://, user@host:path or a local path",
+                redact_url(&rewritten),
+                redact_text(&failure.to_string()),
             ),
         )
         .with_problem("invalid_url")

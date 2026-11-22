@@ -7,7 +7,7 @@ use bstr::{BString, ByteSlice};
 use gix::ObjectId;
 use nurt_contracts::error::Result;
 
-use super::error::protocol_error;
+use super::error::{clean_remote_text, protocol_error};
 use super::pkt::{self, Packet};
 
 /// Outcome of one reference as reported by the remote.
@@ -161,7 +161,7 @@ pub fn parse_lines<'a>(lines: impl IntoIterator<Item = &'a [u8]>) -> Result<Push
         .strip_prefix(b"unpack ")
         .ok_or_else(|| malformed(first))?;
     let mut report = PushReport {
-        unpack_error: (unpack != b"ok").then(|| unpack.to_str_lossy().into_owned()),
+        unpack_error: (unpack != b"ok").then(|| clean_remote_text(&unpack.to_str_lossy())),
         refs: Vec::new(),
     };
     for line in lines {
@@ -179,7 +179,7 @@ fn parse_line(line: &[u8], report: &mut PushReport) -> Result<()> {
         let (name, reason) = rest.split_once_str(b" ").unwrap_or((rest, b"failed"));
         report.refs.push(new_report(
             name,
-            RefStatus::Rejected(reason.to_str_lossy().into_owned()),
+            RefStatus::Rejected(clean_remote_text(&reason.to_str_lossy())),
         ));
         return Ok(());
     }
@@ -221,7 +221,7 @@ fn malformed(line: &[u8]) -> nurt_contracts::error::Error {
         "malformed_report",
         format!(
             "the remote sent an unexpected status line `{}`",
-            line.as_bstr()
+            clean_remote_text(&line.to_str_lossy())
         ),
     )
 }

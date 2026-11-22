@@ -8,7 +8,6 @@ use std::path::{Path, PathBuf};
 use bstr::BString;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::MutationTx;
-use nurt_contracts::report::{Irreversible, IrreversibleEntry};
 use nurt_contracts::stage::{
     BoundArgs, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, RecordStream,
     StageDescriptor, StageImpl, StageInput, StageOutput,
@@ -71,11 +70,6 @@ impl EffectStage for MergeCommand {
         let mut effect = EffectPlan::new();
         effect.changes = file_changes(&root, &written, &removed);
         effect.notable.clone_from(&plan.notes);
-        if plan.runs_drivers() {
-            let mut marker = IrreversibleEntry::new(Irreversible::ExternalEffect);
-            marker.detail = Some("a configured merge driver program runs".to_owned());
-            effect.irreversible.push(marker);
-        }
         effect.bulk = effect.changes.len() > 1;
         Ok(effect.with_state(Planned { root, label, plan }))
     }
@@ -92,7 +86,7 @@ impl EffectStage for MergeCommand {
         })?;
         let repo = GitRepo::open(&planned.root, ctx)?;
         let apply_ctx = ApplyContext::open(repo.gix())?;
-        let result = apply_merge(tx, &apply_ctx, planned.plan, Some(ctx))?;
+        let result = apply_merge(tx, &apply_ctx, planned.plan)?;
         if let Some(error) = result.conflict_error(&planned.label) {
             return Err(error);
         }
@@ -119,16 +113,6 @@ fn outcome<'a>(root: &Path, result: &MergeResult) -> EffectOutcome<'a> {
     let mut outcome = EffectOutcome::new(StageOutput::records(RecordStream::from_records(records)));
     outcome.changes = changes;
     outcome.notable.clone_from(&result.notes);
-    outcome.irreversible = result
-        .drivers_run
-        .iter()
-        .map(|(name, path)| {
-            let mut marker = IrreversibleEntry::new(Irreversible::ExternalEffect);
-            marker.path = Some(text(path));
-            marker.detail = Some(format!("merge driver {name}"));
-            marker
-        })
-        .collect();
     outcome
 }
 

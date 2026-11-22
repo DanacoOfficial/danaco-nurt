@@ -27,16 +27,13 @@ use std::time::Duration;
 
 use bstr::ByteSlice;
 use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
-use nurt_contracts::error::{Error, ErrorCode};
-use nurt_contracts::fs::{AbsPath, ContentHash, WriteHandle};
+use nurt_contracts::fs::{AbsPath, WriteHandle};
 use nurt_contracts::journal::{
-    AfterState, Applied, BeforeState, ExemptWrite, Expect, ExternalChange, Mutation, MutationTx,
-    OpHandle, OpId, OpKind, PreserveMode, Preserved, RollbackReason, RollbackReport, TargetAction,
-    TargetIndex, TargetOutcome, TargetPath, TargetSpec,
+    Applied, ExemptWrite, Expect, ExternalChange, Mutation, MutationTx, OpHandle, OpId, Preserved,
+    RollbackReason, RollbackReport, TargetAction, TargetIndex, TargetPath, TargetSpec,
 };
 use nurt_contracts::report::IrreversibleEntry;
 use nurt_contracts::stage::{CancelReason, CancelToken, ExecCtx, StageFrame};
-use sha2::{Digest, Sha256};
 
 use crate::repo::open_options;
 
@@ -629,23 +626,15 @@ fn set_executable(path: &Path, executable: bool) {
 #[cfg(not(unix))]
 fn set_executable(_path: &Path, _executable: bool) {}
 
-#[derive(Debug, Clone)]
-enum Saved {
-    Absent,
-    Entries(BTreeMap<PathBuf, TreeEntry>),
-}
-
 #[derive(Debug)]
-struct Declared {
-    spec: TargetSpec,
-    before: Vec<(PathBuf, Saved)>,
-    applied: bool,
+struct Commit {
+    targets: Vec<PathBuf>,
+    changed: bool,
 }
 
 #[derive(Debug, Default)]
 struct JournalState {
-    next_op: u64,
-    committed: Vec<Vec<Declared>>,
+    commits: Vec<Commit>,
     exempt: Vec<ExemptWrite>,
 }
 
@@ -653,10 +642,13 @@ struct JournalState {
 /// previous content of every declared target, and can be undone after
 /// commit.
 ///
-/// A change of a target that was not declared, or a mutation that does not
-/// match the declared action, panics.
+/// The journal follows the rules of the reference journal through
+/// [`crate::apply::testjournal::RecordingJournal`]: a change of a target that
+/// was not declared, or a mutation that does not match the declared action,
+/// panics.
 #[derive(Debug, Clone, Default)]
 pub struct RecordingJournal {
+    inner: Arc<crate::apply::testjournal::RecordingJournal>,
     state: Arc<Mutex<JournalState>>,
 }
 
@@ -669,12 +661,11 @@ impl RecordingJournal {
 
     /// Opens a transaction.
     #[must_use]
-    pub fn begin(&self) -> Box<dyn MutationTx> {
+    pub fn begin(&self) -> Box<dyn MutationTx + '_> {
         Box::new(RecordingTx {
-            journal: self.clone(),
-            targets: Vec::new(),
-            changed: false,
-            exempt: Vec::new(),
+            journal: self,
+            inner: self.inner.begin(),
+            declared: Vec::new(),
         })
     }
 
@@ -687,7 +678,7 @@ impl RecordingJournal {
     /// Number of committed operations that are not undone.
     #[must_use]
     pub fn committed(&self) -> usize {
-        self.lock().committed.len()
+        self.lock().commits.len()
     }
 
     /// Exempt writes recorded by committed transactions.
@@ -701,9 +692,9 @@ impl RecordingJournal {
     #[must_use]
     pub fn last_targets(&self) -> Vec<PathBuf> {
         self.lock()
-            .committed
+            .commits
             .last()
-            .map(|op| op.iter().map(|target| fs_path(&target.spec.path)).collect())
+            .map(|commit| commit.targets.clone())
             .unwrap_or_default()
     }
 
@@ -715,269 +706,45 @@ impl RecordingJournal {
     /// Panics when there is no committed operation or a target cannot be
     /// restored.
     pub fn undo_last(&self) {
-        let op = self.lock().committed.pop().expect("a committed operation");
-        restore(&op);
-    }
-}
-
-struct RecordingTx {
-    journal: RecordingJournal,
-    targets: Vec<Declared>,
-    changed: bool,
-    exempt: Vec<ExemptWrite>,
-}
-
-fn fs_path(path: &TargetPath) -> PathBuf {
-    match path {
-        TargetPath::Fs(path) => path.as_path().to_path_buf(),
-        TargetPath::Provider(_) => panic!("provider targets are not supported by RecordingJournal"),
-    }
-}
-
-fn save(path: &Path) -> Saved {
-    let Ok(meta) = std::fs::symlink_metadata(path) else {
-        return Saved::Absent;
-    };
-    let mut entries = BTreeMap::new();
-    if meta.file_type().is_symlink() {
-        entries.insert(
-            PathBuf::new(),
-            TreeEntry::Link(std::fs::read_link(path).expect("link")),
-        );
-    } else if meta.is_dir() {
-        entries.insert(PathBuf::new(), TreeEntry::Directory);
-        entries.extend(snapshot(path));
-    } else {
-        entries.insert(
-            PathBuf::new(),
-            TreeEntry::File {
-                bytes: std::fs::read(path).expect("readable file"),
-                executable: is_executable(&meta),
-            },
-        );
-    }
-    Saved::Entries(entries)
-}
-
-fn remove_any(path: &Path) {
-    match std::fs::symlink_metadata(path) {
-        Ok(meta) if meta.is_dir() && !meta.file_type().is_symlink() => {
-            std::fs::remove_dir_all(path).expect("directory removed");
-        }
-        Ok(_) => std::fs::remove_file(path).expect("file removed"),
-        Err(_) => {}
-    }
-}
-
-fn restore(op: &[Declared]) {
-    for target in op.iter().rev().filter(|target| target.applied) {
-        for (path, saved) in &target.before {
-            remove_any(path);
-            let Saved::Entries(entries) = saved else {
-                continue;
-            };
-            for (relative, entry) in entries {
-                let full = if relative.as_os_str().is_empty() {
-                    path.clone()
-                } else {
-                    path.join(relative)
-                };
-                write_entry(&full, entry);
-            }
+        let commit = self.lock().commits.pop().expect("a committed operation");
+        if commit.changed {
+            self.inner.undo_last();
         }
     }
 }
 
-fn write_entry(path: &Path, entry: &TreeEntry) {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).expect("parent directory");
-    }
-    match entry {
-        TreeEntry::Directory => std::fs::create_dir_all(path).expect("directory"),
-        TreeEntry::File { bytes, executable } => {
-            std::fs::write(path, bytes).expect("file restored");
-            set_executable(path, *executable);
-        }
-        TreeEntry::Link(target) => make_link(target, path),
-    }
+struct RecordingTx<'j> {
+    journal: &'j RecordingJournal,
+    inner: crate::apply::testjournal::RecordingTx<'j>,
+    declared: Vec<PathBuf>,
 }
 
-#[cfg(unix)]
-fn make_link(target: &Path, path: &Path) {
-    std::os::unix::fs::symlink(target, path).expect("link restored");
-}
-
-#[cfg(not(unix))]
-fn make_link(_target: &Path, _path: &Path) {
-    panic!("symbolic links are restored only on Unix in tests");
-}
-
-fn after_state(path: &Path) -> AfterState {
-    match std::fs::symlink_metadata(path) {
-        Ok(meta) => {
-            let bytes = if meta.is_file() {
-                std::fs::read(path).ok()
-            } else {
-                None
-            };
-            AfterState {
-                exists: true,
-                size: Some(meta.len()),
-                hash: bytes.map(|bytes| ContentHash(Sha256::digest(&bytes).into())),
-                ..AfterState::default()
-            }
-        }
-        Err(_) => AfterState::default(),
-    }
-}
-
-fn check_expect(spec: &TargetSpec, path: &Path) -> Result<(), Error> {
-    let stale = || {
-        Error::new(
-            ErrorCode::Stale,
-            format!("{} changed after it was read", path.display()),
-        )
-    };
-    match &spec.expect {
-        Expect::Unchecked => Ok(()),
-        Expect::Absent => {
-            if std::fs::symlink_metadata(path).is_ok() {
-                Err(stale())
-            } else {
-                Ok(())
-            }
-        }
-        Expect::Hash(expected) => {
-            let bytes = std::fs::read(path).map_err(|_| stale())?;
-            if ContentHash(Sha256::digest(&bytes).into()) == *expected {
-                Ok(())
-            } else {
-                Err(stale())
-            }
-        }
-        Expect::Etag(etag) => {
-            let meta = std::fs::metadata(path).map_err(|_| stale())?;
-            if meta.len() == etag.size {
-                Ok(())
-            } else {
-                Err(stale())
-            }
-        }
-    }
-}
-
-impl RecordingTx {
-    fn target(&mut self, index: TargetIndex) -> &mut Declared {
-        let position = usize::try_from(index.0).expect("index fits");
-        self.targets
-            .get_mut(position)
-            .unwrap_or_else(|| panic!("change of an undeclared target {index:?}"))
-    }
-
-    fn perform(spec: &TargetSpec, path: &Path, mutation: Mutation) -> Result<(), Error> {
-        let io = |error: std::io::Error| crate::repo::error::io(path, &error);
-        match (&spec.action, mutation) {
-            (
-                TargetAction::Create | TargetAction::Modify | TargetAction::Replace,
-                Mutation::WriteBytes(bytes),
-            ) => {
-                if matches!(spec.action, TargetAction::Replace) {
-                    remove_any(path);
-                }
-                std::fs::write(path, bytes).map_err(io)
-            }
-            (TargetAction::Append, Mutation::AppendBytes(bytes)) => {
-                use std::io::Write as _;
-                std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(path)
-                    .and_then(|mut file| file.write_all(&bytes))
-                    .map_err(io)
-            }
-            (TargetAction::Truncate, Mutation::SetLength(length)) => std::fs::OpenOptions::new()
-                .write(true)
-                .open(path)
-                .and_then(|file| file.set_len(length))
-                .map_err(io),
-            (TargetAction::Delete, Mutation::Remove) => {
-                remove_any(path);
-                Ok(())
-            }
-            (TargetAction::Rename { to, replace }, Mutation::Rename) => {
-                if !replace && std::fs::symlink_metadata(to.as_path()).is_ok() {
-                    return Err(Error::new(ErrorCode::Exists, "rename destination exists"));
-                }
-                std::fs::rename(path, to.as_path()).map_err(io)
-            }
-            (TargetAction::Create | TargetAction::CreateTree, Mutation::CreateDir { .. }) => {
-                std::fs::create_dir(path).map_err(io)
-            }
-            (TargetAction::Link | TargetAction::Create, Mutation::CreateLink { target, .. }) => {
-                make_link(&target, path);
-                Ok(())
-            }
-            (action, mutation) => {
-                panic!("mutation {mutation:?} does not match the declared action {action:?}")
-            }
-        }
-    }
-}
-
-impl MutationTx for RecordingTx {
+impl MutationTx for RecordingTx<'_> {
     fn op(&self) -> Option<OpId> {
-        None
+        self.inner.op()
     }
 
     fn preserve(
         &mut self,
         targets: &[TargetSpec],
     ) -> nurt_contracts::error::Result<Vec<Preserved>> {
-        assert!(!self.changed, "preserve after the first change");
-        let mut preserved = Vec::new();
+        let preserved = self.inner.preserve(targets)?;
         for spec in targets {
-            let path = fs_path(&spec.path);
-            let exists = std::fs::symlink_metadata(&path).is_ok();
-            if matches!(spec.action, TargetAction::Create | TargetAction::CreateTree) && exists {
-                return Err(Error::new(
-                    ErrorCode::Exists,
-                    format!("{} exists", path.display()),
-                ));
+            match &spec.path {
+                TargetPath::Fs(path) => self.declared.push(path.as_path().to_path_buf()),
+                TargetPath::Provider(_) => {
+                    panic!("provider targets are not supported by RecordingJournal")
+                }
             }
-            let mut before = vec![(path.clone(), save(&path))];
-            if let TargetAction::Rename { to, .. } = &spec.action {
-                before.push((to.as_path().to_path_buf(), save(to.as_path())));
-            }
-            let index = TargetIndex(u32::try_from(self.targets.len()).expect("index fits"));
-            preserved.push(Preserved {
-                index,
-                volume: None,
-                mode: PreserveMode::Copy,
-                bytes_held: 0,
-                before: BeforeState {
-                    exists,
-                    ..BeforeState::default()
-                },
-                irreversible: None,
-                notable: Vec::new(),
-            });
-            self.targets.push(Declared {
-                spec: spec.clone(),
-                before,
-                applied: false,
-            });
         }
         Ok(preserved)
     }
 
     fn stage(
         &mut self,
-        _target: TargetIndex,
+        target: TargetIndex,
     ) -> nurt_contracts::error::Result<Box<dyn WriteHandle>> {
-        Err(Error::new(
-            ErrorCode::StageFailed,
-            "staged writes are not supported by RecordingJournal; write bytes instead",
-        ))
+        self.inner.stage(target)
     }
 
     fn apply(
@@ -985,105 +752,46 @@ impl MutationTx for RecordingTx {
         index: TargetIndex,
         mutation: Mutation,
     ) -> nurt_contracts::error::Result<Applied> {
-        self.changed = true;
-        let target = self.target(index);
-        let path = fs_path(&target.spec.path);
-        target.applied = true;
-        let spec = target.spec.clone();
-        check_expect(&spec, &path)?;
-        Self::perform(&spec, &path, mutation)?;
-        let observed = match &spec.action {
-            TargetAction::Rename { to, .. } => to.as_path().to_path_buf(),
-            _ => path,
-        };
-        Ok(Applied {
-            index,
-            after: after_state(&observed),
-        })
+        self.inner.apply(index, mutation)
     }
 
     fn observe_external(
         &mut self,
         changes: &[ExternalChange],
     ) -> nurt_contracts::error::Result<Vec<Applied>> {
-        self.changed = true;
-        let mut applied = Vec::new();
-        for change in changes {
-            let index = change.declared.unwrap_or_else(|| {
-                panic!(
-                    "undeclared external change of {}",
-                    change.path.as_path().display()
-                )
-            });
-            let target = self.target(index);
-            assert!(
-                matches!(target.spec.action, TargetAction::ExternalWrite),
-                "external change of a target not declared as an external write"
-            );
-            target.applied = true;
-            applied.push(Applied {
-                index,
-                after: after_state(change.path.as_path()),
-            });
-        }
-        Ok(applied)
+        self.inner.observe_external(changes)
     }
 
-    fn mark_irreversible(&mut self, _marker: IrreversibleEntry) {}
+    fn mark_irreversible(&mut self, marker: IrreversibleEntry) {
+        self.inner.mark_irreversible(marker);
+    }
 
     fn record_exempt(&mut self, write: ExemptWrite) {
-        self.exempt.push(write);
+        self.inner.record_exempt(write);
     }
 
     fn commit(self: Box<Self>) -> nurt_contracts::error::Result<OpHandle> {
-        let mut state = self.journal.lock();
-        state.next_op += 1;
-        let op = OpId(state.next_op);
-        state.exempt.extend(self.exempt.iter().cloned());
-        let outcomes = self
-            .targets
-            .iter()
-            .enumerate()
-            .filter(|(_, target)| target.applied)
-            .map(|(position, target)| TargetOutcome {
-                index: TargetIndex(u32::try_from(position).expect("index fits")),
-                path: target.spec.path.clone(),
-                action: target.spec.action.clone(),
-                mode: PreserveMode::Copy,
-                bytes_held: 0,
-                before: BeforeState::default(),
-                after: None,
-                irreversible: None,
-                notable: Vec::new(),
-            })
-            .collect();
-        state.committed.push(self.targets);
-        Ok(OpHandle {
-            op: Some(op),
-            kind: OpKind::command("test"),
-            bulk: false,
-            targets: outcomes,
-            irreversible: Vec::new(),
-            notable: Vec::new(),
-            exempt: self.exempt,
-        })
+        let Self {
+            journal,
+            inner,
+            declared,
+        } = *self;
+        let before = journal.inner.len();
+        let handle = Box::new(inner).commit()?;
+        let mut state = journal.lock();
+        state.exempt.extend(handle.exempt.iter().cloned());
+        state.commits.push(Commit {
+            targets: declared,
+            changed: journal.inner.len() > before,
+        });
+        Ok(handle)
     }
 
     fn rollback(
         self: Box<Self>,
-        _reason: RollbackReason,
+        reason: RollbackReason,
     ) -> nurt_contracts::error::Result<RollbackReport> {
-        restore(&self.targets);
-        Ok(RollbackReport {
-            op: None,
-            restored: self
-                .targets
-                .iter()
-                .filter(|target| target.applied)
-                .map(|target| target.spec.path.clone())
-                .collect(),
-            failed: Vec::new(),
-        })
+        Box::new(self.inner).rollback(reason)
     }
 }
 
@@ -1104,6 +812,8 @@ pub fn target(path: &Path, action: TargetAction) -> TargetSpec {
 
 #[cfg(test)]
 mod tests {
+    use nurt_contracts::error::ErrorCode;
+
     use super::*;
 
     #[test]
@@ -1178,39 +888,7 @@ mod tests {
     }
 
     #[test]
-    fn rename_with_replace_is_undone() {
-        let fixture = RepoBuilder::new()
-            .file("a.txt", "1\n")
-            .commit("one")
-            .build();
-        let before = fixture.snapshot();
-        let journal = RecordingJournal::new();
-        let mut tx = journal.begin();
-        let lock = fixture.path().join("a.txt.lock");
-        let file = fixture.path().join("a.txt");
-        tx.preserve(&[
-            target(&lock, TargetAction::Create),
-            target(
-                &lock,
-                TargetAction::Rename {
-                    to: AbsPath::new(&file).unwrap(),
-                    replace: true,
-                },
-            ),
-        ])
-        .unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"new\n".to_vec()))
-            .unwrap();
-        tx.apply(TargetIndex(1), Mutation::Rename).unwrap();
-        tx.commit().unwrap();
-        assert_eq!(std::fs::read(&file).unwrap(), b"new\n");
-        assert!(!lock.exists());
-        journal.undo_last();
-        assert_eq!(fixture.snapshot(), before);
-    }
-
-    #[test]
-    #[should_panic(expected = "undeclared target")]
+    #[should_panic(expected = "was not declared")]
     fn change_of_an_undeclared_target_panics() {
         let journal = RecordingJournal::new();
         let mut tx = journal.begin();

@@ -181,9 +181,55 @@ pub fn redact_url(url: &str) -> String {
     }
 }
 
+/// Removes the user name and password from every address in `text`.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_git_transport::http::redact_text;
+///
+/// assert_eq!(
+///     redact_text("cannot reach https://user:token@example.com/r.git: timed out"),
+///     "cannot reach https://example.com/r.git: timed out"
+/// );
+/// ```
+#[must_use]
+pub fn redact_text(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(found) = rest.find("://") {
+        let authority_start = found + "://".len();
+        out.push_str(&rest[..authority_start]);
+        rest = &rest[authority_start..];
+        let authority_end = rest
+            .find(|c: char| {
+                c.is_whitespace() || matches!(c, '/' | '?' | '#' | '"' | '\'' | '`' | '<' | '>')
+            })
+            .unwrap_or(rest.len());
+        let authority = &rest[..authority_end];
+        out.push_str(
+            authority
+                .rfind('@')
+                .map_or(authority, |at| &authority[at + 1..]),
+        );
+        rest = &rest[authority_end..];
+    }
+    out.push_str(rest);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn redacts_every_address_in_a_text() {
+        assert_eq!(
+            redact_text("a https://u:p@h/x and ssh://k@h:22/y; plain http://h/z"),
+            "a https://h/x and ssh://h:22/y; plain http://h/z"
+        );
+        assert_eq!(redact_text("no address here"), "no address here");
+    }
 
     #[test]
     fn redacts_user_and_password_only_in_the_authority() {

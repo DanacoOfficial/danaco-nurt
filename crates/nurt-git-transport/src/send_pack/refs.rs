@@ -4,10 +4,11 @@
 //! Reference updates with reflog entries, planned as journaled file changes.
 //!
 //! Loose reference files, `packed-refs` and the files under `logs/` are
-//! written in the formats of `git`. An update writes a loose reference under
-//! its lock; a deletion removes the loose file, rewrites `packed-refs`
-//! without the reference and removes its reflog. The value read when the
-//! plan is made is checked again while the locks are held.
+//! written in the formats of `git`. An update replaces the loose reference
+//! file, which must not be locked by another `git` process; a deletion removes
+//! the loose file, rewrites `packed-refs` without the reference and removes its
+//! reflog. The value read when the plan is made is checked again before the
+//! files are replaced.
 
 use std::path::{Path, PathBuf};
 
@@ -146,7 +147,8 @@ pub fn read_ref(git_dir: &Path, name: &[u8]) -> Result<Option<ObjectId>> {
     }
 }
 
-/// Adds the changes of `edits` to `plan`.
+/// Adds the changes of `edits` to `plan`; references, `packed-refs` and logs
+/// are in `git_dir`.
 ///
 /// # Errors
 ///
@@ -159,7 +161,28 @@ pub fn plan_ref_edits(
     policy: LogPolicy,
     plan: &mut FilePlan,
 ) -> Result<()> {
+    plan_ref_edits_in(git_dir, git_dir, edits, identity, policy, plan)
+}
+
+/// Adds the changes of `edits` to `plan` for a repository whose working tree
+/// has its own directory: references, `packed-refs` and their logs are in
+/// `common_dir`, while `HEAD` and its log are in `git_dir`. The two are equal
+/// except in a linked working tree.
+///
+/// # Errors
+///
+/// As [`plan_ref_edits`].
+pub fn plan_ref_edits_in(
+    common_dir: &Path,
+    git_dir: &Path,
+    edits: &[RefEdit],
+    identity: &Identity,
+    policy: LogPolicy,
+    plan: &mut FilePlan,
+) -> Result<()> {
     let head_target = symbolic_head(git_dir);
+    let head_dir = git_dir;
+    let git_dir = common_dir;
     let mut packed_removals = Vec::new();
     for edit in edits {
         let path = ref_path(git_dir, &edit.name)?;
@@ -171,7 +194,7 @@ pub fn plan_ref_edits(
                 let line = identity.reflog_line(edit.old.unwrap_or(zero), new, &edit.message);
                 append_log(git_dir, &edit.name, &line, policy, plan)?;
                 if head_target.as_ref() == Some(&edit.name) {
-                    append_log(git_dir, b"HEAD", &line, policy, plan)?;
+                    append_log(head_dir, b"HEAD", &line, policy, plan)?;
                 }
             }
             None => {

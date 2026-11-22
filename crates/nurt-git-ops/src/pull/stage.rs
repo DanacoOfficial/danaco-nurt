@@ -385,8 +385,7 @@ impl GitPull {
 }
 
 fn outcome<'a>(plan: &PullPlan, fetched: FetchOutcome, local: LocalOutcome) -> EffectOutcome<'a> {
-    let mut irreversible = vec![plan.transfer_marker(Some(fetched.ref_updates.len() as u64))];
-    irreversible.extend(local.irreversible);
+    let irreversible = vec![plan.transfer_marker(Some(fetched.ref_updates.len() as u64))];
     let mut notable = fetched.notable;
     notable.extend(local.notable);
     let mut git = local.effect;

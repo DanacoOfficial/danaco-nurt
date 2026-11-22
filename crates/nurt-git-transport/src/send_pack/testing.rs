@@ -388,9 +388,6 @@ impl MutationTx for RecordingTx {
                 panic!("provider targets are not used")
             };
             let path = path.as_path();
-            let created_earlier = self.targets.iter().any(|known| {
-                known.path == target.path && matches!(known.action, TargetAction::Create)
-            });
             match &target.action {
                 TargetAction::Create if path.exists() => {
                     return Err(Error::new(
@@ -404,7 +401,7 @@ impl MutationTx for RecordingTx {
                         format!("{} is missing", path.display()),
                     ));
                 }
-                TargetAction::Rename { .. } if !path.exists() && !created_earlier => {
+                TargetAction::Rename { .. } if !path.exists() => {
                     return Err(Error::new(
                         ErrorCode::NotFound,
                         format!("{} is missing", path.display()),

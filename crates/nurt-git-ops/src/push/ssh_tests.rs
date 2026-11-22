@@ -382,6 +382,7 @@ impl Environment {
             network: NetworkOptions {
                 env: BTreeMap::new(),
                 ssh: Some(ssh),
+                git_env: None,
             },
         }
     }

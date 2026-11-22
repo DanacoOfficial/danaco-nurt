@@ -32,6 +32,7 @@ pub use file_plan::{FilePlan, LOCK_SUFFIX, LockedCheck, lock_path, preserve_and_
 pub use objects::{MISSING_OBJECT, objects_to_send};
 pub use pack::{DELTA_NOTICE_BYTES, PackSummary, write_pack};
 pub use refs::{
-    Identity, LogPolicy, RefEdit, content_hash, plan_ref_edits, read_ref, ref_path, validate_name,
+    Identity, LogPolicy, RefEdit, content_hash, plan_ref_edits, plan_ref_edits_in, read_ref,
+    ref_path, validate_name,
 };
 pub use report::{PushReport, RefReport, RefStatus, RejectReason, parse_lines, parse_report};

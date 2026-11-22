@@ -1,0 +1,32 @@
+id = "merge/conflict-repeated-lines"
+description = "Repeated lines are matched as by the default histogram algorithm of the merge."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "b\nb\na\nb\nd\nc\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "f.txt", content = "a\nb\nb\nb\nn6\nd\nc\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "topic"],
+  ["switch", "-q", "main"],
+  { write = "f.txt", content = "b\nb\na\nb\nc\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["merge", "--no-edit", "topic"]
+expect_exit = 1
+
+[nurt]
+command = "git.merge"
+params = { branch = "topic" }
+expect = "error:E_GIT_CONFLICT"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

@@ -3,15 +3,16 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Execution of a plan through one mutation transaction.
 //!
-//! Every target is declared and preserved before the first change. The
-//! index is guarded by `index.lock` for the whole execution, as `git` does:
-//! the lock file is created first, the index file is then checked against
-//! the state seen by the plan, the working tree is changed, the new index is
-//! written into the lock file and the lock file is renamed over the index.
-//! References use the same protocol with `<name>.lock`, and their logs are
-//! appended to.
+//! Every target is declared and preserved before the first change. The index
+//! and each reference file are single `modify` targets that expect the state
+//! seen by the plan. Their lock files (`<file>.lock`) are honoured but not
+//! created: when one exists the execution fails with `E_GIT_LOCKED`, when the
+//! targets are declared and again before the file is written. Reference logs
+//! are appended to. The executable bit of a new file is set on the staged file
+//! before it is switched in; for an existing file it is an `attributes` target.
 
 use std::collections::BTreeSet;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
 use bstr::{BStr, ByteSlice};
@@ -50,11 +51,13 @@ pub fn apply_plan(
     ctx: &ApplyContext<'_>,
     plan: ApplyPlan,
 ) -> Result<ApplyReport> {
+    let caps = ctx
+        .repo
+        .filesystem_options()
+        .map_err(|err| repo_error(err, "read the core settings"))?;
     let mut targets = Targets::default();
-    let declared = Declared::new(ctx, &plan, &mut targets)?;
-    let preserved = tx
-        .preserve(&targets.specs)
-        .map_err(|err| lock_error(err, &targets))?;
+    let declared = Declared::new(ctx, &plan, &caps, &mut targets)?;
+    let preserved = tx.preserve(&targets.specs)?;
     let index_of: Vec<TargetIndex> = preserved.iter().map(|item| item.index).collect();
     let mut run = Run {
         tx,
@@ -66,25 +69,18 @@ pub fn apply_plan(
             plan.index.as_ref().map_or(&ctx.index, |index| &index.state),
             Direction::ToWorktree,
         )?,
-        caps: ctx
-            .repo
-            .filesystem_options()
-            .map_err(|err| repo_error(err, "read the core settings"))?,
+        caps,
         buf: Vec::new(),
     };
     run.report.notable.extend(plan.notable.iter().cloned());
-    if let Some(lock) = declared.index_lock {
-        run.mutate(lock, Mutation::WriteBytes(Vec::new()))?;
-        if let Some(index) = &plan.index {
-            verify_expect(&ctx.index_path, &index.expect)?;
-        }
+    if let Some(index) = &plan.index {
+        ensure_unlocked(&ctx.index_path)?;
+        verify_expect(&ctx.index_path, &index.expect)?;
     }
-    for (entry, position) in plan.entries.iter().zip(&declared.entries) {
-        run.entry(entry, *position)?;
+    for (entry, targets) in plan.entries.iter().zip(&declared.entries) {
+        run.entry(entry, targets)?;
     }
-    if let (Some(index), Some(lock), Some(rename)) =
-        (plan.index, declared.index_lock, declared.index_rename)
-    {
+    if let (Some(index), Some(file)) = (plan.index, declared.index) {
         let mut state = index.state;
         run.refresh_stats(&plan.entries, &mut state)?;
         let resolved = if index.record_resolve_undo {
@@ -97,8 +93,8 @@ pub fn apply_plan(
             .write_to(&mut bytes, gix_index::write::Options::default())
             .map_err(|err| repo_error(err, "serialize the index"))?;
         super::resolve_undo::append(&mut bytes, &resolved, ctx.repo.object_hash());
-        run.mutate(lock, Mutation::WriteBytes(bytes))?;
-        run.mutate(rename, Mutation::Rename)?;
+        ensure_unlocked(&ctx.index_path)?;
+        run.mutate(file, Mutation::WriteBytes(bytes))?;
         run.report.index_written = true;
     }
     for (reference, targets) in plan.refs.iter().zip(&declared.refs) {
@@ -124,7 +120,6 @@ fn abs(path: &Path) -> Result<AbsPath> {
 #[derive(Default)]
 struct Targets {
     specs: Vec<TargetSpec>,
-    locks: Vec<PathBuf>,
     dirs: BTreeSet<PathBuf>,
 }
 
@@ -139,20 +134,11 @@ impl Targets {
         Ok(self.specs.len() - 1)
     }
 
-    /// Declares the protocol `<file>.lock` then rename over `<file>`.
-    fn lock_and_rename(&mut self, file: &Path) -> Result<(usize, usize)> {
-        let lock = lock_path(file);
-        self.locks.push(lock.clone());
-        let created = self.push(&lock, TargetAction::Create, Expect::Absent)?;
-        let renamed = self.push(
-            &lock,
-            TargetAction::Rename {
-                to: abs(file)?,
-                replace: true,
-            },
-            Expect::Unchecked,
-        )?;
-        Ok((created, renamed))
+    /// Declares `file` as one `modify` target expecting `expect`; fails when
+    /// its lock file exists.
+    fn guarded(&mut self, file: &Path, expect: Expect) -> Result<usize> {
+        ensure_unlocked(file)?;
+        self.push(file, TargetAction::Modify, expect)
     }
 
     /// Declares the creation of the missing directories between `base` and
@@ -179,21 +165,29 @@ impl Targets {
     }
 }
 
-fn lock_error(err: Error, targets: &Targets) -> Error {
-    if err.code() != ErrorCode::Exists {
-        return err;
+/// Fails with `E_GIT_LOCKED` when the lock file of `file` exists.
+fn ensure_unlocked(file: &Path) -> Result<()> {
+    let lock = lock_path(file);
+    if lock.exists() {
+        return Err(locked(&lock));
     }
-    targets
-        .locks
-        .iter()
-        .find(|lock| lock.exists())
-        .map_or(err, |lock| locked(lock))
+    Ok(())
+}
+
+/// Targets of one plan entry.
+struct EntryTargets {
+    main: usize,
+    /// `attributes` target and the permission bits to set after the write of
+    /// an existing file.
+    mode: Option<(usize, u32)>,
+    /// The entry is created as a new file, so its mode is set on the staged
+    /// file.
+    fresh: bool,
 }
 
 struct RefTargets {
     dirs: Vec<usize>,
-    lock: usize,
-    rename: usize,
+    file: usize,
     path: PathBuf,
     log_dirs: Vec<usize>,
     log: Option<(usize, bool)>,
@@ -205,26 +199,48 @@ struct StateTargets {
 }
 
 struct Declared {
-    index_lock: Option<usize>,
-    index_rename: Option<usize>,
-    entries: Vec<usize>,
+    index: Option<usize>,
+    entries: Vec<EntryTargets>,
     refs: Vec<RefTargets>,
     states: Vec<StateTargets>,
 }
 
 impl Declared {
-    fn new(ctx: &ApplyContext<'_>, plan: &ApplyPlan, targets: &mut Targets) -> Result<Self> {
-        let (index_lock, index_rename) = match &plan.index {
-            Some(_) => {
-                let (lock, rename) = targets.lock_and_rename(&ctx.index_path)?;
-                (Some(lock), Some(rename))
-            }
-            None => (None, None),
+    fn new(
+        ctx: &ApplyContext<'_>,
+        plan: &ApplyPlan,
+        caps: &gix::fs::Capabilities,
+        targets: &mut Targets,
+    ) -> Result<Self> {
+        let index = match &plan.index {
+            Some(index) => Some(targets.guarded(&ctx.index_path, index.expect.clone())?),
+            None => None,
         };
         let mut entries = Vec::with_capacity(plan.entries.len());
         for entry in &plan.entries {
             let path = native_path(&ctx.root, entry.path.as_bstr())?;
-            entries.push(targets.push(&path, target_action(entry.action), entry.expect.clone())?);
+            let main = targets.push(
+                &path,
+                target_action(entry.action, caps),
+                entry.expect.clone(),
+            )?;
+            let existing = matches!(entry.action, EntryAction::Modify)
+                && std::fs::symlink_metadata(&path).is_ok();
+            let fresh = match entry.action {
+                EntryAction::Create | EntryAction::TypeChange => true,
+                EntryAction::Modify => !existing,
+                _ => false,
+            };
+            let mut mode = None;
+            if existing && matches!(entry.kind, Some(EntryKind::File | EntryKind::Executable)) {
+                let executable = entry.kind == Some(EntryKind::Executable);
+                if let Some(wanted) = mode_change(&path, executable, caps)? {
+                    let position =
+                        targets.push(&path, TargetAction::Attributes, Expect::Unchecked)?;
+                    mode = Some((position, wanted));
+                }
+            }
+            entries.push(EntryTargets { main, mode, fresh });
         }
         let refs = plan
             .refs
@@ -237,8 +253,7 @@ impl Declared {
             .map(|state| declare_state(ctx.repo, state, targets))
             .collect::<Result<Vec<_>>>()?;
         Ok(Self {
-            index_lock,
-            index_rename,
+            index,
             entries,
             refs,
             states,
@@ -246,12 +261,13 @@ impl Declared {
     }
 }
 
-fn target_action(action: EntryAction) -> TargetAction {
+fn target_action(action: EntryAction, caps: &gix::fs::Capabilities) -> TargetAction {
     match action {
         EntryAction::Create | EntryAction::Mkdir => TargetAction::Create,
         EntryAction::Modify => TargetAction::Modify,
         EntryAction::Delete | EntryAction::Rmdir => TargetAction::Delete,
-        EntryAction::Symlink => TargetAction::Link,
+        EntryAction::Symlink if caps.symlink => TargetAction::Link,
+        EntryAction::Symlink => TargetAction::Create,
         EntryAction::Chmod => TargetAction::Attributes,
         EntryAction::TypeChange => TargetAction::Replace,
     }
@@ -269,7 +285,7 @@ fn declare_ref(
         repo.common_dir()
     };
     let dirs = targets.missing_dirs(base, &path)?;
-    let (lock, rename) = targets.lock_and_rename(&path)?;
+    let file = targets.guarded(&path, reference.expect.clone())?;
     let (log_dirs, log) = match &reference.reflog {
         Some(_) => {
             let log = log_path(repo, &reference.name)?;
@@ -291,8 +307,7 @@ fn declare_ref(
     };
     Ok(RefTargets {
         dirs,
-        lock,
-        rename,
+        file,
         path,
         log_dirs,
         log,
@@ -337,18 +352,32 @@ struct Run<'t, 'c, 'r> {
 }
 
 impl Run<'_, '_, '_> {
-    fn mutate(&mut self, position: usize, mutation: Mutation) -> Result<()> {
-        let index = self.index_of.get(position).copied().ok_or_else(|| {
+    fn index_at(&self, position: usize) -> Result<TargetIndex> {
+        self.index_of.get(position).copied().ok_or_else(|| {
             Error::new(
                 ErrorCode::StageFailed,
                 "the journal returned fewer targets than declared",
             )
-        })?;
+        })
+    }
+
+    fn mutate(&mut self, position: usize, mutation: Mutation) -> Result<()> {
+        let index = self.index_at(position)?;
         self.tx.apply(index, mutation).map(|_| ())
     }
 
-    fn entry(&mut self, entry: &PlanEntry, position: usize) -> Result<()> {
+    fn entry(&mut self, entry: &PlanEntry, targets: &EntryTargets) -> Result<()> {
+        let position = targets.main;
         let path = native_path(&self.ctx.root, entry.path.as_bstr())?;
+        self.ctx
+            .guards
+            .verify(&self.ctx.root, entry.path.as_bstr())?;
+        if matches!(
+            entry.action,
+            EntryAction::Mkdir | EntryAction::Rmdir | EntryAction::Delete | EntryAction::TypeChange
+        ) {
+            self.ctx.guards.forget(&path);
+        }
         match entry.action {
             EntryAction::Delete => {
                 self.mutate(position, Mutation::Remove)?;
@@ -370,21 +399,25 @@ impl Run<'_, '_, '_> {
                 self.report.created_dirs.push(entry.path.clone());
             }
             EntryAction::Chmod => {
-                self.set_executable(position, &path, entry.kind == Some(EntryKind::Executable))?;
+                let executable = entry.kind == Some(EntryKind::Executable);
+                if let Some(wanted) = mode_change(&path, executable, &self.caps)? {
+                    self.set_mode(position, wanted)?;
+                }
                 self.report.written.push(entry.path.clone());
             }
             EntryAction::TypeChange => {
                 self.mutate(position, Mutation::Remove)?;
-                self.create(entry, position, &path)?;
+                self.create(entry, targets)?;
             }
             EntryAction::Create | EntryAction::Modify | EntryAction::Symlink => {
-                self.create(entry, position, &path)?;
+                self.create(entry, targets)?;
             }
         }
         Ok(())
     }
 
-    fn create(&mut self, entry: &PlanEntry, position: usize, path: &Path) -> Result<()> {
+    fn create(&mut self, entry: &PlanEntry, targets: &EntryTargets) -> Result<()> {
+        let position = targets.main;
         let kind = entry.kind.unwrap_or(EntryKind::File);
         if kind == EntryKind::Directory {
             self.mutate(
@@ -417,9 +450,13 @@ impl Run<'_, '_, '_> {
                     kind: LinkKind::SymlinkFile,
                 },
             )?;
+        } else if targets.fresh {
+            self.write_new(position, bytes, kind == EntryKind::Executable)?;
         } else {
             self.mutate(position, Mutation::WriteBytes(bytes))?;
-            self.set_executable(position, path, kind == EntryKind::Executable)?;
+            if let Some((mode_position, wanted)) = targets.mode {
+                self.set_mode(mode_position, wanted)?;
+            }
         }
         self.report.written.push(entry.path.clone());
         Ok(())
@@ -448,37 +485,42 @@ impl Run<'_, '_, '_> {
         }
     }
 
+    fn set_mode(&mut self, position: usize, mode: u32) -> Result<()> {
+        self.mutate(
+            position,
+            Mutation::SetMeta(nurt_contracts::fs::MetaChange {
+                mode: Some(mode),
+                ..nurt_contracts::fs::MetaChange::default()
+            }),
+        )
+    }
+
+    /// Writes the content of a file that does not exist yet. An executable
+    /// file is written through a staged file whose mode is set before it is
+    /// switched in, because a mutation of the declared `create` or `modify`
+    /// target cannot change metadata.
     #[cfg(unix)]
-    fn set_executable(&mut self, position: usize, path: &Path, executable: bool) -> Result<()> {
-        use std::os::unix::fs::PermissionsExt;
-        const EXECUTE_BITS: u32 = 0o111;
-        const READ_TO_EXECUTE_SHIFT: u32 = 2;
-        if !self.caps.executable_bit {
-            return Ok(());
+    fn write_new(&mut self, position: usize, bytes: Vec<u8>, executable: bool) -> Result<()> {
+        if !(executable && self.caps.executable_bit) {
+            return self.mutate(position, Mutation::WriteBytes(bytes));
         }
-        let meta =
-            std::fs::symlink_metadata(path).map_err(|err| super::error::io_error(&err, path))?;
-        let mode = meta.permissions().mode() & 0o7777;
-        let wanted = if executable {
-            mode | ((mode & 0o444) >> READ_TO_EXECUTE_SHIFT)
-        } else {
-            mode & !EXECUTE_BITS
-        };
-        if wanted != mode {
-            self.mutate(
-                position,
-                Mutation::SetMeta(nurt_contracts::fs::MetaChange {
-                    mode: Some(wanted),
-                    ..nurt_contracts::fs::MetaChange::default()
-                }),
-            )?;
-        }
-        Ok(())
+        let index = self.index_at(position)?;
+        let mut handle = self.tx.stage(index)?;
+        let staged = handle.path().as_path().to_path_buf();
+        handle
+            .write_all(&bytes)
+            .map_err(|err| super::error::io_error(&err, &staged))?;
+        let meta = std::fs::symlink_metadata(&staged)
+            .map_err(|err| super::error::io_error(&err, &staged))?;
+        let wanted = mode::with_executable(mode::bits(&meta), true);
+        handle.apply_meta(&mode::extended(&meta, wanted))?;
+        drop(handle);
+        self.tx.apply(index, Mutation::CommitStaged).map(|_| ())
     }
 
     #[cfg(not(unix))]
-    fn set_executable(&mut self, _position: usize, _path: &Path, _executable: bool) -> Result<()> {
-        Ok(())
+    fn write_new(&mut self, position: usize, bytes: Vec<u8>, _executable: bool) -> Result<()> {
+        self.mutate(position, Mutation::WriteBytes(bytes))
     }
 
     /// Takes the statistics of written files into their index entries, so
@@ -510,12 +552,11 @@ impl Run<'_, '_, '_> {
                 },
             )?;
         }
+        ensure_unlocked(&targets.path)?;
         self.mutate(
-            targets.lock,
+            targets.file,
             Mutation::WriteBytes(ref_content(&reference.target)),
         )?;
-        verify_expect(&targets.path, &reference.expect)?;
-        self.mutate(targets.rename, Mutation::Rename)?;
         if let (Some(line), Some((log, exists))) = (&reference.reflog, targets.log) {
             for dir in &targets.log_dirs {
                 self.mutate(
@@ -560,4 +601,91 @@ impl Run<'_, '_, '_> {
 /// Whether `path` is a directory without entries.
 pub(crate) fn is_empty_dir(path: &Path) -> bool {
     std::fs::read_dir(path).is_ok_and(|mut reader| reader.next().is_none())
+}
+
+/// Permission bits `path` needs to get the executable state `executable`;
+/// `None` when it has them or the file system has no executable bit.
+#[cfg(unix)]
+fn mode_change(path: &Path, executable: bool, caps: &gix::fs::Capabilities) -> Result<Option<u32>> {
+    if !caps.executable_bit {
+        return Ok(None);
+    }
+    let meta = std::fs::symlink_metadata(path).map_err(|err| super::error::io_error(&err, path))?;
+    let current = mode::bits(&meta);
+    let wanted = mode::with_executable(current, executable);
+    Ok((wanted != current).then_some(wanted))
+}
+
+#[cfg(not(unix))]
+fn mode_change(
+    _path: &Path,
+    _executable: bool,
+    _caps: &gix::fs::Capabilities,
+) -> Result<Option<u32>> {
+    Ok(None)
+}
+
+#[cfg(unix)]
+mod mode {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    use nurt_contracts::fs::{ExtendedMeta, FileId, FileKind, FileMeta};
+
+    const PERMISSION_BITS: u32 = 0o7777;
+    const EXECUTE_BITS: u32 = 0o111;
+    const READ_BITS: u32 = 0o444;
+    const READ_TO_EXECUTE_SHIFT: u32 = 2;
+    const NANOS_PER_SECOND: i64 = 1_000_000_000;
+
+    /// Permission bits of `meta`.
+    pub(super) fn bits(meta: &std::fs::Metadata) -> u32 {
+        meta.permissions().mode() & PERMISSION_BITS
+    }
+
+    /// `mode` with the execute bits set where the read bits are set, or
+    /// cleared.
+    pub(super) fn with_executable(mode: u32, executable: bool) -> u32 {
+        if executable {
+            mode | ((mode & READ_BITS) >> READ_TO_EXECUTE_SHIFT)
+        } else {
+            mode & !EXECUTE_BITS
+        }
+    }
+
+    fn nanos(seconds: i64, nanoseconds: i64) -> i64 {
+        seconds
+            .saturating_mul(NANOS_PER_SECOND)
+            .saturating_add(nanoseconds)
+    }
+
+    /// Metadata of the regular file `meta` with the permission bits `mode`,
+    /// in the form accepted by `WriteHandle::apply_meta`.
+    pub(super) fn extended(meta: &std::fs::Metadata, mode: u32) -> ExtendedMeta {
+        ExtendedMeta {
+            basic: FileMeta {
+                kind: FileKind::File,
+                size: meta.len(),
+                mode,
+                uid: Some(meta.uid()),
+                gid: Some(meta.gid()),
+                links: meta.nlink(),
+                modified_ns: nanos(meta.mtime(), meta.mtime_nsec()),
+                accessed_ns: Some(nanos(meta.atime(), meta.atime_nsec())),
+                created_ns: None,
+                changed_ns: Some(nanos(meta.ctime(), meta.ctime_nsec())),
+                file_id: FileId {
+                    volume: meta.dev(),
+                    low: meta.ino(),
+                    high: 0,
+                },
+                windows_attributes: 0,
+            },
+            xattrs: Vec::new(),
+            acl: None,
+            account_sid: None,
+            flags: None,
+            streams: Vec::new(),
+            link_target: None,
+        }
+    }
 }

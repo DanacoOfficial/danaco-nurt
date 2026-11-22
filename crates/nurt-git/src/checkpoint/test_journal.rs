@@ -282,17 +282,7 @@ impl MutationTx for CheckedTx<'_> {
             }
         }
         drop(declared);
-        let forwarded: Vec<TargetSpec> = targets
-            .iter()
-            .map(|spec| {
-                let mut spec = spec.clone();
-                if matches!(spec.action, TargetAction::CreateTree) {
-                    spec.action = TargetAction::Create;
-                }
-                spec
-            })
-            .collect();
-        self.inner.preserve(&forwarded)
+        self.inner.preserve(targets)
     }
 
     fn stage(&mut self, target: TargetIndex) -> Result<Box<dyn WriteHandle>> {

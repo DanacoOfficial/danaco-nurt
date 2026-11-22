@@ -188,7 +188,6 @@ impl PullRebase for PlanRebase {
             effect: result.summary.effect(repo.root()),
             changes: file_changes(repo.root(), &written, &removed),
             notable: result.summary.notes,
-            ..LocalOutcome::default()
         })
     }
 }

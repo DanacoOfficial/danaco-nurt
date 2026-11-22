@@ -9,11 +9,17 @@ use gix_transport::client::blocking_io::{ReadlineBufRead, Transport};
 use gix_transport::{Protocol, Service};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 
-use super::error::{protocol_error, transport_error};
+use super::error::{protocol_error, response_too_large, transport_error};
 
 /// Name of the placeholder line advertised by a repository without
 /// references.
 const EMPTY_PLACEHOLDER: &[u8] = b"capabilities^{}";
+
+/// Largest number of reference and `.have` lines accepted in an advertisement.
+const MAX_ADVERTISED_REFS: usize = 1_000_000;
+
+/// Largest total size of the advertisement lines, in bytes.
+const MAX_ADVERTISEMENT_BYTES: usize = 128 * 1024 * 1024;
 
 /// A reference advertised by the remote.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,6 +123,9 @@ impl Advertisement {
             return Ok(());
         }
         let id = ObjectId::from_hex(id).map_err(|_| malformed(line))?;
+        if self.refs.len() + self.extra_haves.len() >= MAX_ADVERTISED_REFS {
+            return Err(response_too_large("references", MAX_ADVERTISED_REFS));
+        }
         if name == EMPTY_PLACEHOLDER {
             return Ok(());
         }
@@ -174,6 +183,7 @@ pub fn discover(transport: &mut dyn Transport) -> Result<Advertisement> {
 
 fn read_ref_lines(refs: &mut dyn ReadlineBufRead, advertisement: &mut Advertisement) -> Result<()> {
     let mut line = String::new();
+    let mut total = 0_usize;
     loop {
         line.clear();
         let read = refs.readline_str(&mut line).map_err(|error| {
@@ -185,6 +195,13 @@ fn read_ref_lines(refs: &mut dyn ReadlineBufRead, advertisement: &mut Advertisem
         if read == 0 {
             return Ok(());
         }
+        total = total.saturating_add(read);
+        if total > MAX_ADVERTISEMENT_BYTES {
+            return Err(response_too_large(
+                "bytes of reference advertisement",
+                MAX_ADVERTISEMENT_BYTES,
+            ));
+        }
         advertisement.push_line(line.as_bytes())?;
     }
 }
@@ -194,7 +211,7 @@ fn malformed(line: &[u8]) -> Error {
         "malformed_advertisement",
         format!(
             "the remote sent a malformed reference line `{}`",
-            line.as_bstr()
+            super::error::clean_remote_text(&line.to_str_lossy())
         ),
     )
 }

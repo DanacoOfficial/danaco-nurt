@@ -33,6 +33,7 @@ pub(crate) fn finish(
     layout.directories(worktree, &changes)?;
     layout.writes(worktree, &changes)?;
     layout.empty_directories(worktree)?;
+    layout.record_guards(ctx, worktree)?;
     let index = if write_index {
         Some(IndexPlan {
             state: build_index(&ctx.index, &changes)?,
@@ -78,7 +79,9 @@ impl Layout {
 
     fn removals(&mut self, worktree: &Worktree<'_>, changes: &Changes) -> Result<()> {
         for path in &changes.removals {
-            if changes.writes.contains_key(path) {
+            if changes.writes.contains_key(path)
+                || has_symlink_leading_path(worktree, path.as_bstr())?
+            {
                 continue;
             }
             let observation = worktree.observe(path.as_bstr())?;
@@ -200,6 +203,30 @@ impl Layout {
         Ok(true)
     }
 
+    /// Records the existing parent directories of every planned entry, so
+    /// that the execution detects a parent replaced after planning.
+    fn record_guards(&self, ctx: &ApplyContext<'_>, worktree: &Worktree<'_>) -> Result<()> {
+        let planned = self
+            .deletes
+            .values()
+            .chain(&self.rmdirs)
+            .chain(self.dirs.values())
+            .chain(self.files.values());
+        for planned in planned {
+            for dir in ancestors(planned.path.as_bstr()) {
+                if self.fresh.contains(dir) {
+                    break;
+                }
+                let observation = worktree.observe(dir)?;
+                if observation.node != Node::Dir {
+                    break;
+                }
+                ctx.guards.record(worktree.path(dir)?, &observation);
+            }
+        }
+        Ok(())
+    }
+
     fn into_entries(self) -> Vec<PlanEntry> {
         let mut entries: Vec<PlanEntry> = self.deletes.into_values().collect();
         entries.extend(self.rmdirs);
@@ -207,6 +234,19 @@ impl Layout {
         entries.extend(self.files.into_values());
         entries
     }
+}
+
+/// Whether a leading directory of `path` is a symbolic link or another
+/// entry that is not a directory; nothing is removed through such a path.
+fn has_symlink_leading_path(worktree: &Worktree<'_>, path: &BStr) -> Result<bool> {
+    for dir in ancestors(path) {
+        match worktree.observe(dir)?.node {
+            Node::Dir => {}
+            Node::Missing => return Ok(false),
+            _ => return Ok(true),
+        }
+    }
+    Ok(false)
 }
 
 fn write_action(worktree: &Worktree<'_>, write: &Write, node: Node) -> Option<EntryAction> {
