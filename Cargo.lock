@@ -5048,6 +5048,7 @@ dependencies = [
  "lopdf 0.47.0",
  "memmap2",
  "mime_guess",
+ "nurt-archive",
  "nurt-contracts",
  "nurt-testkit",
  "nurt-text",
