@@ -4,7 +4,12 @@
 //! Policy helpers on whole trees: program kind, effecting commands, and the
 //! invariant check on every expression form.
 
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "a failed assertion is the failure of the test"
+)]
 
 use nurt_contracts::ast::AstDocument;
 use nurt_contracts::bound::BoundDocument;

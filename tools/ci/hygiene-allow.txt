@@ -32,3 +32,118 @@ user-path crates/nurt-report/tests/rules_paths.rs
 # The proptest constant strategy is a function whose name is a promotional
 # word; the test uses it as an identifier.
 promotional-word crates/nurt-types/tests/order.rs
+
+# Entries below were derived from the findings of the check on the first release.
+
+# Corpora of third parties kept verbatim.
+boilerplate tests/d5/third_party/*
+
+# Test input and corpora of third parties that contain the characters as data.
+emoji crates/nurt-lspclient/tests/*
+emoji crates/nurt-net/src/html/dom.rs
+emoji crates/nurt-verify/tests/*
+emoji tests/d5/corpus/*
+emoji tests/d5/data/*
+emoji tests/d5/differential/*
+emoji tests/d5/third_party/*
+
+# Polish text that is product content (the Polish help) or test input for Unicode handling.
+polish-text bindings/java/nurt/src/test/java/pl/danacogroup/nurt/internal/JsonTest.java
+polish-text crates/nurt-correct/src/bash/lex.rs
+polish-text crates/nurt-correct/src/distance.rs
+polish-text crates/nurt-doc/src/sql/convert.rs
+polish-text crates/nurt-doc/tests/*
+polish-text crates/nurt-help/*
+polish-text crates/nurt-syntax/tests/*
+polish-text tests/d5/corpus/*
+polish-text tests/d5/data/*
+polish-text tests/d5/differential/*
+
+# Addresses of private networks used as test input and in documentation examples.
+private-address crates/nurt-net/src/check.rs
+private-address crates/nurt-net/tests/*
+private-address crates/nurt-sys/src/ports/tests.rs
+private-address docs/commands/network.ping.md
+private-address tests/d5/corpus/*
+private-address tests/d5/differential/*
+private-address tests/d5/third_party/*
+
+# Test inputs, generated scenario recipes and ignore files are consumed byte for byte and carry no header.
+producer-header *.gitattributes
+producer-header *.gitignore
+producer-header conformance/correction/generated/*
+producer-header crates/nurt-git-difftest/scenarios/*
+producer-header crates/nurt-syslog/fuzz/*
+producer-header tests/d1/migrate/*
+producer-header tests/d5/.gitattributes
+producer-header tests/d5/code/*
+
+# Identifiers and data of third parties that coincide with the words of the check.
+promotional-word crates/nurt-code/src/profile/manifests.rs
+promotional-word crates/nurt-code/tests/*
+promotional-word crates/nurt-correct/tests/*
+promotional-word crates/nurt-doc/tests/*
+promotional-word crates/nurt-fs/src/archive.rs
+promotional-word crates/nurt-fs/src/linux/table.rs
+promotional-word crates/nurt-fs/src/linux/volume.rs
+promotional-word crates/nurt-journal/src/store/tests.rs
+promotional-word crates/nurt-programs/src/help.rs
+promotional-word crates/nurt-programs/src/sources/rpm/header.rs
+promotional-word crates/nurt-programs/src/sources/rpm/ndb.rs
+promotional-word crates/nurt-programs/tests/*
+promotional-word crates/nurt-service/src/ipc/windows.rs
+promotional-word crates/nurt-syntax/tests/*
+promotional-word crates/nurt-sys/src/host/versions/elf.rs
+promotional-word crates/nurt-syslog/src/filter.rs
+promotional-word tests/d2/property/*
+promotional-word tests/d5/corpus/*
+promotional-word tests/d5/differential/*
+promotional-word tests/d5/third_party/*
+
+# Corpora of third parties kept verbatim.
+reader-address tests/d5/third_party/*
+
+# The documentation and the examples of the integrations name the frameworks and protocols that the product connects to.
+tool-mention bench/data/DATASHEET.md
+tool-mention crates/nurt-bench/src/model/anthropic.rs
+tool-mention crates/nurt-bench/src/model/openai.rs
+tool-mention docs/integrators/README.md
+tool-mention integrations/examples/*
+
+# Home directories of other accounts used as input of path handling, and examples in the documentation.
+user-path crates/nurt-code/tests/*
+user-path crates/nurt-correct/src/lexical/paths.rs
+user-path crates/nurt-correct/tests/*
+user-path crates/nurt-doc/src/formats/ini/profile.rs
+user-path crates/nurt-doc/tests/*
+user-path crates/nurt-journal/src/volumes/anchor.rs
+user-path crates/nurt-journal/src/volumes/registry.rs
+user-path crates/nurt-lspclient/tests/*
+user-path crates/nurt-programs/src/sources/brew.rs
+user-path crates/nurt-programs/tests/*
+user-path crates/nurt-syntax/tests/*
+user-path crates/nurt-verify/src/stage/test/support.rs
+user-path docs/commands/package.list.md
+user-path docs/guides/windows.md
+user-path tests/d1/correction/*
+user-path tests/d1/migrate/*
+user-path tests/d5/corpus/*
+user-path tests/d5/differential/*
+user-path tests/d5/third_party/*
+
+# Test input that contains the words of the check as data.
+work-marker conformance/correction/bash.cases.toml
+work-marker conformance/correction/generated/*
+work-marker conformance/correction/names.cases.toml
+work-marker conformance/correction/powershell.cases.toml
+work-marker conformance/correction/syntax.cases.toml
+work-marker conformance/parity/files/*
+work-marker conformance/tools/generate_correction.py
+work-marker conformance/tools/parity_files.py
+work-marker crates/nurt-help/*
+work-marker crates/nurt-verify/src/test/tests.rs
+work-marker crates/nurt-verify/tests/*
+work-marker tests/d1/correction/*
+
+# Test input: Rust source text that contains the attribute as data.
+allow-attribute crates/nurt-sys/tests/d7_static.rs

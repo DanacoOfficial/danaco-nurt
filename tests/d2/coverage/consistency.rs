@@ -29,7 +29,7 @@ const ROWS_NONE: usize = 21;
 const ROWS_NO_EFFECT: usize = 86;
 /// Distinct row sets exercised by the cases: one per source row of the
 /// table, and one per parameter common to every command.
-const SOURCE_ROWS: usize = 231;
+const SOURCE_ROWS: usize = 232;
 const COMMON_PARAMETERS: usize = 5;
 /// Coverage cases, one per test function.
 const CASE_COUNT: usize = 278;
