@@ -31,6 +31,29 @@ pub struct AcceptedKinds {
     pub source: bool,
 }
 
+/// Returns `true` when two descriptors of one command cannot be told apart by
+/// the registry: both are sources, or they accept a common input record kind.
+///
+/// Descriptors of different commands never overlap.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_catalog::descriptors_overlap;
+/// use nurt_contracts::stage::{InputKinds, StageDescriptor};
+///
+/// let source = StageDescriptor {
+///     command: "find".to_owned(),
+///     source: true,
+///     input: InputKinds::None,
+/// };
+/// assert!(descriptors_overlap(&source, &source.clone()));
+/// ```
+#[must_use]
+pub fn descriptors_overlap(left: &StageDescriptor, right: &StageDescriptor) -> bool {
+    left.command == right.command && overlaps(left, right)
+}
+
 fn overlaps(left: &StageDescriptor, right: &StageDescriptor) -> bool {
     if left.source && right.source {
         return true;

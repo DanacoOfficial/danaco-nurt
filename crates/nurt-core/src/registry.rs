@@ -11,10 +11,10 @@
 
 use std::sync::Arc;
 
-use nurt_catalog::Registry;
+use nurt_catalog::{Registry, descriptors_overlap};
 use nurt_code::semantic::SemanticProvider;
-use nurt_contracts::error::Error;
-use nurt_contracts::stage::StageImpl;
+use nurt_contracts::error::{Error, Result};
+use nurt_contracts::stage::{StageDescriptor, StageImpl, StageRegistrar};
 use nurt_ext::locations::ExtLocations;
 
 /// Builds the registry of this build: the embedded command catalog and the
@@ -43,7 +43,9 @@ pub fn standard_registry() -> Result<Registry, Error> {
     standard_registry_with(&[])
 }
 
-/// Builds the registry of this build with further stage implementations.
+/// Builds the registry of this build with further stage implementations. A
+/// further implementation replaces the compiled-in one that accepts the same
+/// input.
 ///
 /// # Errors
 ///
@@ -63,9 +65,34 @@ pub(crate) struct ProcessComponents {
     pub(crate) semantic: Option<Arc<dyn SemanticProvider>>,
 }
 
+/// Registrar that adds the compiled-in stages to a registry and leaves out
+/// the ones that an injected implementation replaces.
+struct Precedence<'a> {
+    registry: &'a mut Registry,
+    injected: Vec<StageDescriptor>,
+}
+
+impl StageRegistrar for Precedence<'_> {
+    fn register(&mut self, stage: Arc<dyn StageImpl>) -> Result<()> {
+        let descriptor = stage.descriptor();
+        if self
+            .injected
+            .iter()
+            .any(|injected| descriptors_overlap(injected, &descriptor))
+        {
+            return Ok(());
+        }
+        self.registry.register_impl(stage)
+    }
+}
+
 /// Builds the registry of this build with the components of the process: the
 /// code stages use the semantic provider, and the commands of the installed
 /// extensions are added.
+///
+/// An injected implementation takes the place of a compiled-in implementation
+/// of the same command that accepts the same input. Two injected
+/// implementations that accept the same input are rejected.
 ///
 /// An extension that cannot be loaded or registered is left out, so that the
 /// other commands stay available.
@@ -74,20 +101,24 @@ pub(crate) fn registry_with(
     components: ProcessComponents,
 ) -> Result<Registry, Error> {
     let mut registry = Registry::load_embedded()?;
-    nurt_exec::stages::register(&mut registry)?;
-    nurt_journal::register(&mut registry)?;
-    nurt_files::register(&mut registry)?;
-    nurt_doc::register(&mut registry)?;
-    nurt_code::register_with(&mut registry, components.semantic)?;
-    nurt_proc::register(&mut registry)?;
-    nurt_verify::register(&mut registry)?;
-    nurt_syslog::register(&mut registry)?;
-    nurt_git::register(&mut registry)?;
-    nurt_git_ops::register(&mut registry)?;
-    nurt_sys::register(&mut registry)?;
-    nurt_net::register(&mut registry)?;
-    nurt_sched::register(&mut registry)?;
-    nurt_programs::register(&mut registry)?;
+    let mut compiled = Precedence {
+        registry: &mut registry,
+        injected: extra.iter().map(|stage| stage.descriptor()).collect(),
+    };
+    nurt_exec::stages::register(&mut compiled)?;
+    nurt_journal::register(&mut compiled)?;
+    nurt_files::register(&mut compiled)?;
+    nurt_doc::register(&mut compiled)?;
+    nurt_code::register_with(&mut compiled, components.semantic)?;
+    nurt_proc::register(&mut compiled)?;
+    nurt_verify::register(&mut compiled)?;
+    nurt_syslog::register(&mut compiled)?;
+    nurt_git::register(&mut compiled)?;
+    nurt_git_ops::register(&mut compiled)?;
+    nurt_sys::register(&mut compiled)?;
+    nurt_net::register(&mut compiled)?;
+    nurt_sched::register(&mut compiled)?;
+    nurt_programs::register(&mut compiled)?;
     for stage in extra {
         registry.register_impl(Arc::clone(stage))?;
     }

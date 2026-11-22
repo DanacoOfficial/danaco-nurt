@@ -41,4 +41,4 @@ pub use load::embedded_sources;
 pub use output::{CATALOG_RESULT_FORMAT, CatalogQuery};
 pub use registry::{Group, GroupOrigin, NameEntry, NameKind, Registry};
 pub use spec_ext::StageSpecExt;
-pub use stages::AcceptedKinds;
+pub use stages::{AcceptedKinds, descriptors_overlap};
