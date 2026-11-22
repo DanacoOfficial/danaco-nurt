@@ -25,8 +25,9 @@ use nurt_contracts::envelope::{OutputFormat, Request};
 use nurt_core::{DeliveredEvent, Engine, EventListener, ExecHandle};
 use reedline::{
     Color, ColumnarMenu, CompletionResult, CursorConfig, DefaultPrompt, DefaultPromptSegment,
-    Emacs, FileBackedHistory, Highlighter, KeyCode, KeyModifiers, MenuBuilder, Reedline,
-    ReedlineEvent, ReedlineMenu, Signal, Span, StyledText, Suggestion, default_emacs_keybindings,
+    Emacs, FileBackedHistory, Highlighter, KeyCode, KeyModifiers, MenuBuilder, Prompt,
+    PromptEditMode, PromptHistorySearch, Reedline, ReedlineEvent, ReedlineMenu, Signal, Span,
+    StyledText, Suggestion, default_emacs_keybindings,
 };
 
 use crate::EngineSource;
@@ -35,6 +36,7 @@ use crate::complete::{TokenKind, Vocabulary};
 use crate::exit;
 use crate::output::{self, Style as Palette};
 use crate::text;
+use crate::theme::Theme;
 
 /// Number of lines kept in the history file.
 const HISTORY_LINES: usize = 1000;
@@ -147,16 +149,16 @@ impl reedline::Completer for Suggestions {
     }
 }
 
-struct Coloured(Vocabulary);
+struct Coloured(Vocabulary, Theme);
 
 impl Highlighter for Coloured {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         let mut styled = StyledText::new();
         for (kind, part) in self.0.tokens(line) {
             let style = match kind {
-                TokenKind::Command => Color::Green.bold(),
-                TokenKind::Text => Color::Yellow.normal(),
-                TokenKind::Pipe => Color::Cyan.normal(),
+                TokenKind::Command => self.1.gold().bold(),
+                TokenKind::Text => self.1.cyan().normal(),
+                TokenKind::Pipe => self.1.silver().bold(),
                 TokenKind::Space | TokenKind::Word => Default::default(),
             };
             styled.push((style, part));
@@ -168,7 +170,7 @@ impl Highlighter for Coloured {
 /// Lines read with the line editor.
 pub struct EditorLines {
     editor: Reedline,
-    prompt: DefaultPrompt,
+    prompt: BrandPrompt,
 }
 
 impl EditorLines {
@@ -192,6 +194,15 @@ impl EditorLines {
         Self::build(vocabulary, None)
     }
 
+    /// Turns the colours of the prompt and of the highlighting on or off.
+    #[must_use]
+    pub fn with_colour(self, enabled: bool) -> Self {
+        Self {
+            editor: self.editor.with_ansi_colors(enabled),
+            prompt: self.prompt,
+        }
+    }
+
     fn build(vocabulary: &Vocabulary, history: Option<Box<FileBackedHistory>>) -> Self {
         let mut keybindings = default_emacs_keybindings();
         keybindings.add_binding(
@@ -202,9 +213,10 @@ impl EditorLines {
                 ReedlineEvent::MenuNext,
             ]),
         );
+        let theme = Theme::detect();
         let mut editor = Reedline::create()
             .with_completer(Box::new(Suggestions(vocabulary.clone())))
-            .with_highlighter(Box::new(Coloured(vocabulary.clone())))
+            .with_highlighter(Box::new(Coloured(vocabulary.clone(), theme)))
             .with_menu(ReedlineMenu::EngineCompleter(Box::new(
                 ColumnarMenu::default().with_name(MENU_NAME),
             )))
@@ -220,10 +232,13 @@ impl EditorLines {
         }
         Self {
             editor,
-            prompt: DefaultPrompt::new(
-                DefaultPromptSegment::Basic(PROMPT.to_owned()),
-                DefaultPromptSegment::Empty,
-            ),
+            prompt: BrandPrompt {
+                inner: DefaultPrompt::new(
+                    DefaultPromptSegment::Basic(PROMPT.to_owned()),
+                    DefaultPromptSegment::Empty,
+                ),
+                theme,
+            },
         }
     }
 }
@@ -457,6 +472,78 @@ impl<'a> Session<'a> {
     }
 }
 
+/// Number of columns of the banner art that are painted in silver.
+const SILVER_COLUMNS: usize = 14;
+
+/// Paints the drawing of the banner with the colours of the mark: the first
+/// two letters in silver, the last two in gold. Without colour the banner is
+/// returned unchanged.
+#[must_use]
+pub fn coloured_banner(banner: &str, enabled: bool, theme: Theme) -> String {
+    if !enabled {
+        return banner.to_owned();
+    }
+    let art_rows = nurt_contracts::product::BANNER_ART.len();
+    let (silver, gold) = (theme.silver_escape(), theme.gold_escape());
+    banner
+        .lines()
+        .enumerate()
+        .map(|(index, line)| {
+            if index >= art_rows {
+                return line.to_owned();
+            }
+            let split = line
+                .char_indices()
+                .nth(SILVER_COLUMNS)
+                .map_or(line.len(), |(at, _)| at);
+            let (left, right) = line.split_at(split);
+            format!("{silver}{left}{gold}{right}\x1b[0m")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The prompt of the session: the default prompt with the colours of the
+/// identity, the name in gold and the indicator in silver.
+struct BrandPrompt {
+    inner: DefaultPrompt,
+    theme: Theme,
+}
+
+impl Prompt for BrandPrompt {
+    fn render_prompt_left(&self) -> std::borrow::Cow<'_, str> {
+        self.inner.render_prompt_left()
+    }
+
+    fn render_prompt_right(&self) -> std::borrow::Cow<'_, str> {
+        self.inner.render_prompt_right()
+    }
+
+    fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> std::borrow::Cow<'_, str> {
+        self.inner.render_prompt_indicator(edit_mode)
+    }
+
+    fn render_prompt_multiline_indicator(&self) -> std::borrow::Cow<'_, str> {
+        self.inner.render_prompt_multiline_indicator()
+    }
+
+    fn render_prompt_history_search_indicator(
+        &self,
+        history_search: PromptHistorySearch,
+    ) -> std::borrow::Cow<'_, str> {
+        self.inner
+            .render_prompt_history_search_indicator(history_search)
+    }
+
+    fn get_prompt_color(&self) -> Color {
+        self.theme.gold()
+    }
+
+    fn get_indicator_color(&self) -> Color {
+        self.theme.silver()
+    }
+}
+
 /// The banner of the session; scripts, pipes and protocol servers receive
 /// none, because the banner exists only on an interactive terminal.
 #[must_use]
@@ -485,12 +572,16 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resul
     let mut session =
         Session::new(&context.engine, context.out_style).with_interrupt(interrupt.clone());
     if let Some(banner) = banner_for(*terminal) {
-        writeln!(out, "{banner}")?;
+        writeln!(
+            out,
+            "{}",
+            coloured_banner(&banner, context.out_style.is_enabled(), Theme::detect())
+        )?;
         if let Err(problem) = interrupt.install_handler() {
             let _ = writeln!(err, "nurt: Ctrl-C does not cancel programs: {problem}");
         }
         let vocabulary = Vocabulary::from_engine(&context.engine);
-        let mut editor = match context.engine.state_dir() {
+        let editor = match context.engine.state_dir() {
             Some(state) => EditorLines::new(&vocabulary, state.root().join(HISTORY_FILE))
                 .unwrap_or_else(|problem| {
                     // The session continues; the history is lost on exit.
@@ -499,6 +590,7 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resul
                 }),
             None => EditorLines::without_history(&vocabulary),
         };
+        let mut editor = editor.with_colour(context.out_style.is_enabled());
         session.run(&mut editor, *out, *err)?;
     } else {
         session.run(&mut PlainLines::new(*input), *out, *err)?;
@@ -517,6 +609,37 @@ mod tests {
             "format": "nurt-catalog-result/1",
             "commands": [{"name": "find", "params": [{"name": "path"}]}]
         })])
+    }
+
+    #[test]
+    fn banner_art_is_painted_in_two_colours_and_the_text_is_not() {
+        let banner = nurt_contracts::product::banner("1.2.3");
+        let painted = coloured_banner(&banner, true, Theme::new(false));
+        let lines: Vec<&str> = painted.lines().collect();
+        assert!(
+            lines[0].starts_with("\x1b[38;5;250m _   _  _   _ \x1b[38;5;179m"),
+            "{}",
+            lines[0]
+        );
+        assert!(lines[0].ends_with("\x1b[0m"));
+        assert_eq!(lines[6], "Danaco Nurt 1.2.3");
+    }
+
+    #[test]
+    fn banner_art_has_the_exact_colours_of_the_mark_on_a_truecolor_terminal() {
+        let banner = nurt_contracts::product::banner("1.2.3");
+        let painted = coloured_banner(&banner, true, Theme::new(true));
+        let first = painted.lines().next().unwrap();
+        assert!(
+            first.starts_with("\x1b[38;2;195;200;206m _   _  _   _ \x1b[38;2;212;174;110m"),
+            "{first}"
+        );
+    }
+
+    #[test]
+    fn banner_is_unchanged_without_colour() {
+        let banner = nurt_contracts::product::banner("1.2.3");
+        assert_eq!(coloured_banner(&banner, false, Theme::new(true)), banner);
     }
 
     #[test]
@@ -558,7 +681,7 @@ mod tests {
 
     #[test]
     fn highlighter_styles_every_part_of_the_line() {
-        let highlighter = Coloured(vocabulary());
+        let highlighter = Coloured(vocabulary(), Theme::new(true));
         let styled = highlighter.highlight("find path: \"/srv\" | find", 0);
         assert_eq!(styled.raw_string(), "find path: \"/srv\" | find");
         assert!(styled.buffer.len() > 4);

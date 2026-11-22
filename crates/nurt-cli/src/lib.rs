@@ -27,6 +27,7 @@ pub mod repl;
 pub mod serve;
 pub mod system;
 pub mod text;
+pub mod theme;
 
 pub use app::{CliError, Context, EngineSource, Io, SystemEngine, Terminal, run};
 

@@ -37,6 +37,12 @@ impl Style {
         Self { enabled: false }
     }
 
+    /// Whether the styles add colour to the text.
+    #[must_use]
+    pub fn is_enabled(self) -> bool {
+        self.enabled
+    }
+
     fn paint(self, code: &str, text: &str) -> String {
         if self.enabled {
             format!("{code}{text}{RESET}")
