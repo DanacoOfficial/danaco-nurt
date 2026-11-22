@@ -13,9 +13,6 @@
 
 mod common;
 
-use std::collections::BTreeSet;
-use std::process::Command;
-
 #[test]
 fn symbol_list_matches_the_header() {
     let header = common::header_functions();
@@ -35,6 +32,9 @@ fn status_table_of_the_header_names_declared_functions() {
 #[cfg(target_os = "linux")]
 #[test]
 fn shared_library_exports_exactly_the_listed_symbols() {
+    use std::collections::BTreeSet;
+    use std::process::Command;
+
     let Some(nm) = common::find_program("nm") else {
         return;
     };

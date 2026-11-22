@@ -51,8 +51,21 @@ errors) are not call failures. The call returns `NURT_OK` and the response
 carries `report.error` with a stable `E_*` code. A request envelope that is
 not JSON or does not match the schema `nurt-request/1` is `NURT_E_ARG`; an
 envelope that matches the schema but breaks a rule of the envelope (no input,
-two inputs, `variant` without `program`, a `limit` out of range, a relative
-`base`) returns `NURT_OK` and a response with the language error `E_ARG`.
+two inputs, `variant` without `program`, a `limit` out of range) returns
+`NURT_OK` and a response with the language error `E_ARG`; a relative path
+option (`base`, `save_to`) gives `E_PATH_RELATIVE`.
+
+### Language errors in other results
+
+| Result | Form of a language error |
+|---|---|
+| Response (`nurt_run_json`, `nurt_exec_wait`, `nurt_page`) | `report.error` of the response. |
+| One JSON document (`nurt_correct`, `nurt_catalog`, `nurt_history`, `nurt_space`) | The document is `{"error": {...}}`. |
+| Two JSON documents (`nurt_parse`, `nurt_check`) | The first document is `null`; the diagnostics are `{"diagnostics": [], "error": {...}}`. |
+| Text (`nurt_print`, `nurt_describe`, `nurt_help`) and no result (`nurt_session_end`, `nurt_ext_load`) | The call fails with the status of the error code when the function may return it (`E_ARG`, `E_UNSUPPORTED`, `E_UNKNOWN_NAME`: `NURT_E_ARG`; `E_IO`: `NURT_E_IO` for `nurt_session_end` and `nurt_ext_load`), otherwise with `NURT_E_INTERNAL`. `nurt_last_error` holds the error object under `detail.error`. |
+
+The error object has the members of the effect report: `code`, `message`,
+`stage`, `found`, `fix`, `details`.
 
 A caller treats any unknown non-zero status as a failure; a later minor
 version may add codes.
@@ -103,7 +116,7 @@ every marked status.
 | `status` | integer | Value of the status code. |
 | `code` | string | Name of the status code. |
 | `message` | string | What failed and how to correct it. |
-| `detail` | object | `function`: the exported function that failed; further members depend on the failure (`argument`, `path`, `expected`). |
+| `detail` | object | `function`: the exported function that failed; further members depend on the failure (`argument`, `path`, `expected`, `error`). |
 
 The record is kept per thread, like `errno`, and is replaced only by the next
 failing call of the same thread; `NURT_OK`, `NURT_E_TIMEOUT` and
@@ -123,6 +136,52 @@ failed `nurt_engine_open`. Without a recorded failure the buffer is empty.
 | Release | `nurt_buf_free` sets the buffer to zero; it accepts `NULL` and zero buffers, so releasing twice is safe. |
 | Handles | An engine is released with `nurt_engine_close`, an execution with `nurt_exec_free`; both accept `NULL`. An execution keeps the engine data it needs, so it may be released after its engine. |
 
+## Engine
+
+`nurt_engine_open` opens the engine with the clock and the host of the
+process. The configuration is assembled from the built-in defaults, the
+system and user files, the project file, the file named by `NURT_CONFIG`,
+the `NURT_*` variables and run-time settings; `config_json` is applied at the
+level of the `NURT_CONFIG` file, after that file. The state directory is
+`state.dir` or the directory of the platform.
+
+| Failure | Status |
+|---|---|
+| `config_json` is not JSON or not an object `nurt-config/1` | `NURT_E_ARG` |
+| A value does not match its key, for example a relative `state.dir` | `NURT_E_ARG`; `detail.error.code` is `E_CONFIG` or `E_PATH_RELATIVE` |
+| A configuration file or the state directory cannot be read or created | `NURT_E_IO` |
+
+| Function | Result |
+|---|---|
+| `nurt_engine_config_get` | The effective configuration `nurt-config/1`. |
+| `nurt_parse` | The syntax tree and `{"diagnostics": []}`. |
+| `nurt_correct` | `{"program": text, "ast": tree, "corrections": [...]}`; `program` is the corrected text, or the given text when nothing was corrected. |
+| `nurt_check` | The bound tree with the targets, network addresses, external programs and the class of the effect, and `{"diagnostics": []}`. |
+| `nurt_page` | The response of the page; `limit` 0 keeps the limit of the original request. |
+| `nurt_describe` | Text of the subject `name`, else `layer`, else `core`, in `language` or the configured language. Members other than `layer`, `name` and `language` are `NURT_E_ARG`. |
+| `nurt_help` | Text of the topic; `NULL` asks for the index of topics (the empty topic). |
+| `nurt_history` | `{"operations": [...]}`; `query_json` holds the parameters of the command `history` (`id`, `limit`, `state`, `before`, `since`, `path`, `deleted_only`); an unknown member is `NURT_E_ARG`. |
+| `nurt_space` | `{"volumes": [...]}`; a relative `volume` is the language error `E_PATH_RELATIVE`. |
+| `nurt_session_end` | Removes the run-time settings of the session. An identifier that is empty, longer than the limit or with control characters is `NURT_E_ARG`. |
+| `nurt_ext_list` | `{"extensions": [...]}`. |
+| `nurt_ext_load` | `E_UNSUPPORTED` (`NURT_E_ARG`) when the library has no extension host. |
+| `nurt_catalog` | The command catalog, or `{"error": ...}` with `E_UNSUPPORTED` while the engine has no catalog. `what_json` is checked to be an object; the selection is not applied. |
+
+## Information
+
+`nurt_info` needs no engine and returns:
+
+| Member | Meaning |
+|---|---|
+| `version` | Version of the library. |
+| `abi` | `major`, `minor` and `version` of the interface. |
+| `formats` | Versions of the formats `ast`, `bound`, `report`, `request`, `response`. |
+| `schemas` | Names accepted by `nurt_schema`. |
+| `catalog_rev` | Revision of the command catalog built into the library: `sha256:` and the digest of its canonical JSON; `null` when the catalog cannot be loaded. |
+| `features` | Cargo features compiled into the library, for example `stub`. |
+| `target` | `arch`, `os`, `family`, `pointer_width`, `endian`. |
+| `build` | `profile`: `debug` or `release`. |
+
 ## Panics
 
 Every exported function runs inside a panic boundary. A panic is caught,
@@ -137,7 +196,7 @@ The boundary relies on unwinding: the library is built with
 |---|---|
 | Engine | One engine may be used from several threads at once. Several engines may exist in one process. |
 | Synchronous calls | `nurt_run_json` and the other functions with a result run on the calling thread. |
-| Execution | `nurt_exec_start` runs the request on a thread of the library and returns at once. |
+| Execution | `nurt_exec_start` runs the request on a thread of the engine and returns at once. |
 | Events | Each execution has one delivery thread. The event callback is called from that thread only, one event at a time. Events are buffered, so a slow callback does not slow the execution. |
 | Log receiver | `nurt_set_log_callback` sets one receiver for the whole process; it may be called from any thread. Passing `NULL` stops logging. |
 | Last error | Kept per thread. |
@@ -148,16 +207,18 @@ Each event is one JSON object passed to the callback as `event_json`, valid
 only during the call:
 
 ```json
-{"seq": 1, "t": "exec.started"}
-{"seq": 2, "t": "progress", "command": "find", "phase": "scan", "done": 64, "total": 148, "bytes": null, "message": null}
-{"seq": 3, "t": "exec.finished", "status": 0}
+{"seq": 1, "time": 1795392000000000000, "request_id": "r1", "t": "exec.started"}
+{"seq": 2, "time": 1795392000004000000, "request_id": "r1", "t": "progress", "command": "find", "phase": "scan", "done": 64, "total": 148, "bytes": null, "message": null}
+{"seq": 3, "time": 1795392000009000000, "request_id": "r1", "t": "exec.finished", "status": "ok"}
 ```
 
 | Member | Meaning |
 |---|---|
 | `seq` | Sequence number, from 1, increasing by 1 within the execution. |
+| `time` | Wall time of the event in the form of the clock of the engine (nanoseconds since the Unix epoch). |
+| `request_id` | Identifier of the request, the same for every event of the execution. |
 | `t` | Event type: `exec.started`, `progress`, `job.started`, `job.output`, `job.progress`, `job.finished`, `log`, `exec.finished`. |
-| `status` | `exec.finished` only: the status that `nurt_exec_wait` returns for the execution. |
+| `status` | `exec.finished` only: the status of the report (`ok`, `failed` and the other values of `report.status`). An execution that ends without a response has `failed`. |
 
 The first event is `exec.started` and the last is `exec.finished`. No callback
 follows `exec.finished`, and none follows `nurt_exec_free`. The callback may
@@ -181,11 +242,15 @@ own execution with a timeout other than 0.
 
 An execution is complete once `exec.finished` has been delivered, so after
 `nurt_exec_wait` returns a result no event callback runs for the execution.
+`nurt_exec_wait` returns `NURT_E_CANCELLED` exactly when the response reports
+`E_CANCELLED`; an execution that ended before the cancellation point keeps its
+response and `NURT_OK`.
 
 ## Test engine
 
 With the cargo feature `stub` the engine is replaced by a test double that
-answers from recorded cases. The feature is never enabled in a release
+answers from recorded cases; its events have the same members as the events
+of the engine. The feature is never enabled in a release
 build. Each case is a JSON file in the directory named by `NURT_STUB_DIR`
 (by default `crates/nurt-ffi/tests/fixtures/stub`); a call is answered by
 the case whose key equals the SHA-256 digest of the canonical JSON form
