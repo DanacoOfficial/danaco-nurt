@@ -1,0 +1,254 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Source cases that are not scenarios. Owners:
+#   host          behaviour of the embedding application (protection, consent, write scope, character limit, delivery)
+#   crate-unit    covered by unit tests of the implementing crate
+#   differential  covered by a differential test against a reference program
+
+[[host_only]]
+name = "plik dłuższy niż limit zaczyna się nagłówkiem z next_offset i zarysem"
+source = "tests/read.test.ts"
+owner = "host"
+reason = "Truncation to the character budget of the caller context."
+
+[[host_only]]
+name = "max_chars podnosi limit jednego wywołania"
+source = "tests/read.test.ts"
+owner = "host"
+reason = "Character budget of the caller context."
+
+[[host_only]]
+name = "targets z plikiem domyślnym i podział limitu z plikiem pełnej treści"
+source = "tests/read.test.ts"
+owner = "host"
+reason = "Character budget of the caller context and delivery of the full result."
+
+[[host_only]]
+name = "odczyt trafia do trwałego stanu sesji"
+source = "tests/read.test.ts"
+owner = "host"
+reason = "Session state file of the caller; the engine keeps a read cache instead."
+
+[[host_only]]
+name = "obraz ponad limit Operatora zwraca sam opis"
+source = "tests/read.test.ts"
+owner = "host"
+reason = "Operator limit of the caller."
+
+[[host_only]]
+name = "schemat odrzuca nieznane pole i parametr oczekiwania"
+source = "tests/read.test.ts"
+owner = "host"
+reason = "Argument schema of the caller adapter."
+
+[[host_only]]
+name = "limit przeglądanych wpisów przerywa przejście z komunikatem"
+source = "tests/searchfile.test.ts"
+owner = "host"
+reason = "Operator limit of the caller."
+
+[[host_only]]
+name = "lista ponad limit znaków zaczyna się licznikami katalogów, pełna lista w pliku wyniku"
+source = "tests/searchfile.test.ts"
+owner = "host"
+reason = "Character budget of the caller context."
+
+[[host_only]]
+name = "wiele trafień: liczniki i pierwsze trafienia przed treścią, pełna treść w pliku wyniku"
+source = "tests/searchcontent.test.ts"
+owner = "host"
+reason = "Character budget of the caller context."
+
+[[host_only]]
+name = "units.test.ts"
+source = "tests/units.test.ts"
+owner = "crate-unit"
+cases = 22
+reason = "Helper unit tests: line and outline helpers, media dimensions, read state, search helpers and core checks."
+
+[[host_only]]
+name = "reguły ścieżek i nazw oraz sam wzorzec przywracający"
+source = "tests/fixes.test.ts"
+owner = "crate-unit"
+reason = "Exclusion matcher of the walker."
+
+[[host_only]]
+name = "limit Operatora przerywa proces wyszukiwania, a pierwszy wiersz podaje, że liczniki są częściowe"
+source = "tests/fixes.test.ts"
+owner = "host"
+reason = "Operator limit of the caller."
+
+[[host_only]]
+name = "wynik poniżej limitu nie jest przerywany i nie ma noty"
+source = "tests/fixes.test.ts"
+owner = "host"
+reason = "Operator limit of the caller."
+
+[[host_only]]
+name = "wymiary WebP w wariantach VP8, VP8L i VP8X"
+source = "tests/fixes.test.ts"
+owner = "crate-unit"
+reason = "Image dimension reader."
+
+[[host_only]]
+name = "plik ponad limit odczytu z selektorem jest odrzucany przed wczytaniem"
+source = "tests/fixes.test.ts"
+owner = "host"
+reason = "Operator limit of the caller."
+
+[[host_only]]
+name = "duża różnica: wynik ucięty przez rdzeń zachowuje wiersz rozstrzygający i wskazuje plik sesji"
+source = "write/tests/edit.test.ts"
+owner = "host"
+reason = "Character budget of the caller context and delivery of the full result."
+
+[[host_only]]
+name = "Operator wyłącza wymóg odczytu ustawieniem, agent nie ma takiego parametru"
+source = "write/tests/edit.test.ts"
+owner = "host"
+reason = "Operator setting of the caller."
+
+[[host_only]]
+name = "zapis poza korzeniami zapisu wymaga zgody; odmowa zostawia plik bez zmian"
+source = "write/tests/edit.test.ts"
+owner = "host"
+reason = "Consent and write scope of the caller."
+
+[[host_only]]
+name = "narzędzia zapisu: wspólny kod odmowy zgody"
+source = "write/tests/defects.test.ts"
+owner = "host"
+reason = "Consent of the caller."
+
+[[host_only]]
+name = "odmowa zgody zostawia plik bez zmian"
+source = "write/tests/write.test.ts"
+owner = "host"
+reason = "Consent of the caller."
+
+[[host_only]]
+name = "duży zakres zgłasza postęp, a wynik podglądu mieści wiersz rozstrzygający w limicie"
+source = "write/tests/plan.test.ts"
+owner = "host"
+reason = "Character budget of the caller context."
+
+[[host_only]]
+name = "zgoda jest pobierana przy wykonaniu, a odmowa zostawia pliki bez zmian"
+source = "write/tests/plan.test.ts"
+owner = "host"
+reason = "Consent of the caller."
+
+[[host_only]]
+name = "export zapisuje skrypt w katalogu sesji i zwraca jego ścieżkę w pierwszym wierszu"
+source = "write/tests/notebook.test.ts"
+owner = "host"
+reason = "Session directory of the caller; the export action has no counterpart in the catalog."
+
+[[host_only]]
+name = "eksport nie wychodzi poza katalog sesji, także przez dowiązanie"
+source = "write/tests/notebook.test.ts"
+owner = "host"
+reason = "Session directory of the caller."
+
+[[host_only]]
+name = "Operator wyłącza wymóg odczytu ustawieniem, agent nie ma takiego parametru"
+source = "write/tests/freshness.test.ts"
+owner = "host"
+reason = "Operator setting of the caller."
+
+[[host_only]]
+name = "SCOPE_MODE=deny odrzuca zapis poza korzeniami bez pytania o zgodę; zapis w korzeniu przechodzi"
+source = "write/tests/freshness.test.ts"
+owner = "host"
+reason = "Write scope of the caller."
+
+[[host_only]]
+name = "nazwy narzędzi, parametrów i opisy przechodzą kontrolę nazw rdzenia"
+source = "write/tests/checks.test.ts"
+owner = "host"
+reason = "Naming check of the caller."
+
+[[host_only]]
+name = "każdy plik kodu katalogu zaczyna się nagłówkiem"
+source = "write/tests/checks.test.ts"
+owner = "host"
+reason = "Source layout of the previous tool."
+
+[[host_only]]
+name = "plik LICENSE wymienia narzędzia katalogu i powtarza licencję główną"
+source = "write/tests/checks.test.ts"
+owner = "host"
+reason = "Source layout of the previous tool."
+
+[[host_only]]
+name = "manifest PROGRAM.md wymienia każde narzędzie i plik licencji"
+source = "write/tests/checks.test.ts"
+owner = "host"
+reason = "Source layout of the previous tool."
+
+[[host_only]]
+name = "żadne narzędzie nie ma parametru oczekiwania ani zapisu wyniku poza sesją"
+source = "write/tests/checks.test.ts"
+owner = "host"
+reason = "Argument schema of the caller adapter."
+
+[[host_only]]
+name = "kolejne zmiany korzystają z jednego procesu, a błąd składni jest odrzucany z miejscem"
+source = "write/tests/pycheck.test.ts"
+owner = "differential"
+reason = "Python syntax check; compared with the reference interpreter in a differential test."
+
+[[host_only]]
+name = "plik .py: błąd składni wycofuje zapis także przez proces usługowy"
+source = "write/tests/pycheck.test.ts"
+owner = "differential"
+reason = "Python syntax check; compared with the reference interpreter in a differential test."
+
+[[host_only]]
+name = "Operator wyłącza proces usługowy; kontrola działa wtedy przez pojedyncze uruchomienie"
+source = "write/tests/pycheck.test.ts"
+owner = "differential"
+reason = "Python syntax check; compared with the reference interpreter in a differential test."
+
+[[host_only]]
+name = "zatrzymanie procesu usługowego nie psuje kontroli: następna zmiana uruchamia go ponownie albo sprawdza bezpośrednio"
+source = "write/tests/pycheck.test.ts"
+owner = "differential"
+reason = "Python syntax check; compared with the reference interpreter in a differential test."
+
+[[host_only]]
+name = "usunięte pozycje leżą wyłącznie w katalogu sesji"
+source = "delete/tests/delete.test.ts"
+owner = "host"
+reason = "Session directory of the caller; the engine keeps its own journal."
+
+[[host_only]]
+name = "ścieżki chronione i niedozwolone są odrzucane"
+source = "delete/tests/delete.test.ts"
+owner = "host"
+reason = "Path protection of the caller."
+
+[[host_only]]
+name = "limity Operatora: liczba plików, rozmiar i katalogi dozwolone"
+source = "delete/tests/delete.test.ts"
+owner = "host"
+reason = "Operator limits and allowed roots of the caller."
+
+[[host_only]]
+name = "brak zgody zatrzymuje usunięcie i przywrócenie"
+source = "delete/tests/delete.test.ts"
+owner = "host"
+reason = "Consent of the caller."
+
+[[host_only]]
+name = "wynik domyślny mieści się w limicie 1000 znaków, a pełny trafia do pliku sesji"
+source = "delete/tests/delete.test.ts"
+owner = "host"
+reason = "Character budget of the caller context and delivery of the full result."
+
+[[host_only]]
+name = "limit pozycji kontroli obejmuje także pliki z wnętrza katalogu i jest podany w podglądzie"
+source = "delete/tests/sidecontent.test.ts"
+owner = "host"
+reason = "Operator limit of the caller."

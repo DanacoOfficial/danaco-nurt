@@ -1,0 +1,372 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+source = "write/tests/sidecontent.test.ts"
+cases = 25
+
+[[scenario]]
+name = "old_string obejmujący dwie funkcje: alarm przed zapisem, plik znak w znak, brak operacji"
+case = "label: alarm przed zapisem, plik znak w znak, brak operacji"
+class = "notable"
+parity_rows = ["ED-32", "ED-02"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", old_string: "  return 1;\n}\n\nexport function beta(): number {\n  return 2;", new_string: "  return 9;" }'
+nurt_program = 'replace "  return 1;\n}\n\nexport function beta(): number {\n  return 2;" with: "  return 9;" in: ["{root}/kod.ts"]'
+expect = { fs_after = [{ path = "kod.ts", contains = "return 9;" }], fields = [{ field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "regex dopasowany przez granicę funkcji: alarm przed zapisem, plik znak w znak, brak operacji"
+case = "label: alarm przed zapisem, plik znak w znak, brak operacji"
+class = "notable"
+parity_rows = ["ED-32", "ED-14"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", regex: true, old_string: "return 1;[\\s\\S]*?return 2;", new_string: "return 9;" }'
+nurt_program = 'replace /return 1;[\s\S]*?return 2;/ with: "return 9;" in: ["{root}/kod.ts"]'
+expect = { fs_after = [{ path = "kod.ts", contains = "return 9;" }], fields = [{ field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "line_range wychodzący poza funkcję: alarm przed zapisem, plik znak w znak, brak operacji"
+case = "label: alarm przed zapisem, plik znak w znak, brak operacji"
+class = "notable"
+parity_rows = ["ED-32", "ED-09"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", line_range: [4, 8], new_string: "  return 5;" }'
+nurt_program = 'edit "{root}/kod.ts" changes: [{ delete_lines: 4..8 }, { insert: "  return 5;", line: 4 }]'
+expect = { fs_after = [{ path = "kod.ts", contains = "return 5;" }], fields = [{ field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "insert_after zamykający cudzą funkcję: alarm przed zapisem, plik znak w znak, brak operacji"
+case = "label: alarm przed zapisem, plik znak w znak, brak operacji"
+class = "notable"
+parity_rows = ["ED-32", "ED-10"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", insert_after: "  return 1;", new_string: "}" }'
+nurt_program = 'search "  return 1;" "{root}/kod.ts" |> insert "}" position: after'
+expect = { fs_after = [{ path = "kod.ts", contains = "  return 1;\n}" }], fields = [{ field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "insert_before z at_line otwierający blok, który połyka sąsiada: alarm przed zapisem, plik znak w znak, brak operacji"
+case = "label: alarm przed zapisem, plik znak w znak, brak operacji"
+class = "notable"
+parity_rows = ["ED-32", "ED-11", "ED-12"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", insert_before: "}", at_line: 9, new_string: "  if (base > 0) {" }'
+nurt_program = 'insert "  if (base > 0) {" in: "{root}/kod.ts" line: 9 position: before'
+expect = { fs_after = [{ path = "kod.ts", contains = "if (base > 0) {" }], fields = [{ field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "cel strukturalny z treścią połykającą sąsiada: alarm przed zapisem, plik znak w znak, brak operacji"
+case = "label: alarm przed zapisem, plik znak w znak, brak operacji"
+class = "notable"
+parity_rows = ["ED-32", "ED-15"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", target: { symbol: "beta" }, new_string: "export function beta(): number {\n  return 2;\n" }'
+nurt_program = 'read "{root}/kod.ts" symbol: "beta" |> replace_all "export function beta(): number {\n  return 2;\n"'
+expect = { fs_after = [{ path = "kod.ts", contains = "export function beta(): number {\n  return 2;\n" }], fields = [{ field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "seria edits, w której druga zmiana wychodzi poza cel: alarm przed zapisem, plik znak w znak, brak operacji"
+case = "label: alarm przed zapisem, plik znak w znak, brak operacji"
+class = "notable"
+parity_rows = ["ED-32", "ED-19"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", edits: [{ target: { symbol: "alpha" }, old_string: "return 1;", new_string: "return 10;" }, { line_range: [8, 12], new_string: "  return 0;" }] }'
+nurt_program = 'edit "{root}/kod.ts" changes: [{ replace: "return 1;", with: "return 10;" }, { delete_lines: 8..12 }, { insert: "  return 0;", line: 8 }]'
+expect = { fs_after = [{ path = "kod.ts", contains = "return 10;" }], fields = [{ field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "occurrence z fragmentem sięgającym sąsiada: alarm przed zapisem, plik znak w znak, brak operacji"
+case = "label: alarm przed zapisem, plik znak w znak, brak operacji"
+class = "notable"
+parity_rows = ["ED-32", "ED-06"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", old_string: "number {\n  return 2;\n}\n\nexport function gamma(): number {", new_string: "number {", occurrence: 1 }'
+nurt_program = 'replace "number {\n  return 2;\n}\n\nexport function gamma(): number {" with: "number {" in: ["{root}/kod.ts"] occurrence: 1'
+expect = { fs_after = [{ path = "kod.ts", contains = "number {\n  return 3;" }], fields = [{ field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "old_string obejmujący dwie funkcje: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+case = "label: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+class = "notable"
+parity_rows = ["ED-32", "ED-22"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", dry_run: true, old_string: "  return 1;\n}\n\nexport function beta(): number {\n  return 2;", new_string: "  return 9;" }'
+nurt_program = 'replace "  return 1;\n}\n\nexport function beta(): number {\n  return 2;" with: "  return 9;" in: ["{root}/kod.ts"] preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }, { field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "regex dopasowany przez granicę funkcji: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+case = "label: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+class = "notable"
+parity_rows = ["ED-32", "ED-22"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", dry_run: true, regex: true, old_string: "return 1;[\\s\\S]*?return 2;", new_string: "return 9;" }'
+nurt_program = 'replace /return 1;[\s\S]*?return 2;/ with: "return 9;" in: ["{root}/kod.ts"] preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }, { field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "line_range wychodzący poza funkcję: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+case = "label: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+class = "notable"
+parity_rows = ["ED-32", "ED-22"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", dry_run: true, line_range: [4, 8], new_string: "  return 5;" }'
+nurt_program = 'edit "{root}/kod.ts" changes: [{ delete_lines: 4..8 }] preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }, { field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "insert_after zamykający cudzą funkcję: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+case = "label: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+class = "notable"
+parity_rows = ["ED-32", "ED-22"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", dry_run: true, insert_after: "  return 1;", new_string: "}" }'
+nurt_program = 'search "  return 1;" "{root}/kod.ts" |> insert "}" position: after preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }, { field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "insert_before z at_line otwierający blok, który połyka sąsiada: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+case = "label: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+class = "notable"
+parity_rows = ["ED-32", "ED-22"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", dry_run: true, insert_before: "}", at_line: 9, new_string: "  if (base > 0) {" }'
+nurt_program = 'insert "  if (base > 0) {" in: "{root}/kod.ts" line: 9 position: before preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }, { field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "cel strukturalny z treścią połykającą sąsiada: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+case = "label: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+class = "notable"
+parity_rows = ["ED-32", "ED-22"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", dry_run: true, target: { symbol: "beta" }, new_string: "export function beta(): number {\n  return 2;\n" }'
+nurt_program = 'read "{root}/kod.ts" symbol: "beta" |> replace_all "export function beta(): number {\n  return 2;\n" preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }, { field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "seria edits, w której druga zmiana wychodzi poza cel: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+case = "label: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+class = "notable"
+parity_rows = ["ED-32", "ED-22"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", dry_run: true, edits: [{ target: { symbol: "alpha" }, ... }, { line_range: [8, 12], ... }] }'
+nurt_program = 'edit "{root}/kod.ts" changes: [{ replace: "return 1;", with: "return 10;" }, { delete_lines: 8..12 }] preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }, { field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "occurrence z fragmentem sięgającym sąsiada: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+case = "label: dry_run także zaczyna się alarmem i niczego nie zapisuje"
+class = "notable"
+parity_rows = ["ED-32", "ED-22"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", dry_run: true, old_string: "number {\n  return 2;\n}\n\nexport function gamma(): number {", new_string: "number {", occurrence: 1 }'
+nurt_program = 'replace "number {\n  return 2;\n}\n\nexport function gamma(): number {" with: "number {" in: ["{root}/kod.ts"] occurrence: 1 preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }, { field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "replace_all z celem zmienia wyłącznie cel; sąsiednie funkcje znak w znak"
+class = "direct"
+parity_rows = ["ED-05", "ED-15"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", target: { symbol: "beta" }, old_string: "number", new_string: "bigint", replace_all: true }'
+nurt_program = 'read "{root}/kod.ts" symbol: "beta" |> replace "number" "bigint"'
+expect = { fs_after = [{ path = "kod.ts", replace_in = "three_functions", from = "beta(): number", to = "beta(): bigint" }] }
+
+[[scenario]]
+name = "in_lines ogranicza zamianę do zakresu; identyczny fragment poza zakresem pozostaje"
+class = "direct"
+parity_rows = ["ED-08"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", old_string: "(): number", new_string: "(): bigint", in_lines: [11, 13] }'
+nurt_program = 'lines "{root}/kod.ts" 11..13 |> replace "(): number" "(): bigint"'
+expect = { fs_after = [{ path = "kod.ts", replace_in = "three_functions", from = "gamma(): number", to = "gamma(): bigint" }] }
+
+[[scenario]]
+name = "wstawienie psujące składnię po potwierdzeniu alarmu jest wycofane, plik znak w znak"
+class = "direct"
+parity_rows = ["ED-37", "ED-32"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", insert_after: "  return 1;", new_string: "}", intended: ["(poza elementami)"] }'
+nurt_program = 'search "  return 1;" "{root}/kod.ts" |> insert "}" position: after validate: reject'
+expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }] }
+
+[[scenario]]
+name = "pusty old_string nie nadpisuje istniejącego pliku"
+class = "direct"
+parity_rows = ["ED-04", "WR-31"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", old_string: "", new_string: "x" }'
+nurt_program = 'write "{root}/kod.ts" "x" mode: create'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_EXISTS" }] }
+
+[[scenario]]
+name = "undo operacji po późniejszej zmianie pliku jest odmową i nie gubi późniejszej treści"
+class = "direct"
+parity_rows = ["UN-04", "DL-25"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Edit { file_path: "kod.ts", target: { symbol: "alpha" }, ... } then Edit { target: { symbol: "gamma" }, ... } then Edit { undo: "op-1" }'
+nurt_program = 'replace "return 1;" with: "return 10;" in: ["{root}/kod.ts"]; replace "return 3;" with: "return 30;" in: ["{root}/kod.ts"]; undo 1'
+expect = { fs_after = [{ path = "kod.ts", contains = "return 30;" }], fields = [{ field = "error.code", value = "E_JOURNAL_CONFLICT" }] }
+
+[[scenario]]
+name = "plan wielu plików: zmiana psująca sąsiada w jednym pliku wstrzymuje cały plan, żaden plik nie jest zapisany"
+class = "preview"
+parity_rows = ["ED-32", "ED-19", "ED-43"]
+fs_before = [{ fixture = "three_functions" }, { path = "drugi.ts", content = "export const limit = 1;\n" }]
+native_call = 'Edit { action: "plan", edits: [{ file_path: "drugi.ts", ... }, { file_path: "kod.ts", line_range: [4, 8], new_string: "  return 5;" }] }'
+nurt_program = 'edit "{root}/drugi.ts" changes: [{ replace: "limit = 1", with: "limit = 2" }]; edit "{root}/kod.ts" changes: [{ delete_lines: 4..8 }]'
+expect = { fs_after = [{ path = "drugi.ts", content = "export const limit = 1;\n" }], fields = [{ field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "kontrola kompletności w podglądzie planu i w wyniku wykonania po zmianie nazwy"
+class = "notable"
+parity_rows = ["ED-34", "ED-28"]
+fs_before = [{ path = "package.json", content = "{}\n" }, { fixture = "three_functions" }, { path = "uzycie.ts", content = "import { alpha } from \"./kod.ts\";\nexport const wynik = alpha();\n" }]
+native_call = 'Edit { action: "plan", file_path: "kod.ts", old_string: "alpha", new_string: "pierwsza", replace_all: true } then apply'
+nurt_program = 'replace "alpha" with: "pierwsza" in: ["{root}/kod.ts"] check_references: true'
+expect = { fs_after = [{ path = "uzycie.ts", contains = "alpha()" }], fields = [{ field = "notable", value = "references_left" }] }
+
+[[scenario]]
+name = "content_from gubiący funkcje wstrzymuje zapis alarmem"
+class = "notable"
+parity_rows = ["WR-03", "WR-18"]
+fs_before = [{ fixture = "three_functions" }, { path = "dawca.ts", content = "export function alpha(): number {\n  return 7;\n}\n" }]
+native_call = 'Write { file_path: "kod.ts", content_from: "dawca.ts" }'
+nurt_program = 'write "{root}/kod.ts" from: "{root}/dawca.ts" mode: overwrite'
+expect = { fs_after = [{ path = "kod.ts", content = "export function alpha(): number {\n  return 7;\n}\n" }], fields = [{ field = "notable", value = "elements_removed" }] }
+
+[[scenario]]
+name = "dry_run nadpisania gubiącego funkcje także zaczyna się alarmem"
+class = "notable"
+parity_rows = ["WR-14", "WR-18"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Write { file_path: "kod.ts", content: "export function alpha(): number {\n  return 7;\n}\n", dry_run: true }'
+nurt_program = 'write "{root}/kod.ts" "export function alpha(): number {\n  return 7;\n}\n" mode: overwrite preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }, { field = "notable", value = "elements_removed" }] }
+
+[[scenario]]
+name = "wsad files: plik gubiący funkcje wstrzymuje cały wsad, poprawny plik wsadu też nie jest zapisany"
+class = "preview"
+parity_rows = ["WR-10", "WR-18"]
+fs_before = [{ fixture = "three_functions" }, { path = "dobry.ts", content = "export const a = 1;\n" }]
+native_call = 'Write { files: [{ file_path: "dobry.ts", content: "export const a = 2;\n" }, { file_path: "kod.ts", content: "export const base = 1;\n" }] }'
+nurt_program = 'write files: [{ path: "{root}/dobry.ts", text: "export const a = 2;\n" }, { path: "{root}/kod.ts", text: "export const base = 1;\n" }] mode: overwrite preview: true'
+expect = { fs_unchanged = true, fields = [{ field = "notable", value = "elements_removed" }] }
+
+[[scenario]]
+name = "append psujący składnię jest wycofany; prepend i append nie zmieniają istniejącej treści"
+class = "direct"
+parity_rows = ["WR-04", "WR-28"]
+fs_before = [{ path = "conf.json", content = "{\"a\": 1}\n" }]
+native_call = 'Write { file_path: "conf.json", content: "}", mode: "append" }'
+nurt_program = 'write "{root}/conf.json" "}" mode: append validate: reject'
+expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }] }
+
+[[scenario]]
+name = "mode=create nie nadpisuje istniejącego pliku"
+class = "direct"
+parity_rows = ["WR-31"]
+fs_before = [{ fixture = "three_functions" }]
+native_call = 'Write { file_path: "kod.ts", content: "x", mode: "create" }'
+nurt_program = 'write "{root}/kod.ts" "x" mode: create'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_EXISTS" }] }
+
+[[scenario]]
+name = "zapis strukturalny target: sąsiednie klucze i komentarze znak w znak"
+class = "direct"
+parity_rows = ["WR-09"]
+fs_before = [{ path = "conf.toml", content = "# nagłówek\na = 1 # jeden\nb = 2\n" }]
+native_call = 'Write { file_path: "conf.toml", target: { key: "b" }, content: "3" }'
+nurt_program = 'set "{root}/conf.toml" key: "b" value: 3'
+expect = { fs_after = [{ path = "conf.toml", content = "# nagłówek\na = 1 # jeden\nb = 3\n" }] }
+
+[[scenario]]
+name = "wartość klucza TOML i YAML: komentarz kończący wiersz zostaje, znak # w napisie nie jest komentarzem"
+class = "direct"
+parity_rows = ["WR-09"]
+fs_before = [{ path = "conf.toml", content = "a = \"x # y\" # komentarz\n" }]
+native_call = 'Write { file_path: "conf.toml", target: { key: "a" }, content: "\"z # w\"" }'
+nurt_program = 'set "{root}/conf.toml" key: "a" value: "z # w"'
+expect = { fs_after = [{ path = "conf.toml", content = "a = \"z # w\" # komentarz\n" }] }
+
+[[scenario]]
+name = "replace: pozostałe komórki znak w znak; usunięta definicja używana w innej komórce jest wymieniona w wyniku"
+class = "notable"
+parity_rows = ["NB-13", "NB-15", "NB-29"]
+fs_before = [{ fixture = "notebook_four_cells" }]
+native_call = 'NotebookEdit { action: "replace", file_path: "n.ipynb", cell_id: "load", source: "total = 0" }'
+nurt_program = 'notebook.replace "{root}/n.ipynb" id: "load" source: "total = 0"'
+expect = { fs_after = [{ path = "n.ipynb", contains = "total = 0" }], fields = [{ field = "notable", value = "references_left" }] }
+
+[[scenario]]
+name = "replace z find w jednej komórce nie dotyka identycznej nazwy w innych komórkach"
+class = "direct"
+parity_rows = ["NB-16", "NB-04"]
+fs_before = [{ fixture = "notebook_four_cells" }]
+native_call = 'NotebookEdit { action: "replace", file_path: "n.ipynb", find: "load", source: "fetch", index: 1 }'
+nurt_program = 'notebook.replace "{root}/n.ipynb" index: 1 find: "load" with: "fetch"'
+expect = { fs_after = [{ path = "n.ipynb", contains = "rows = load()" }] }
+
+[[scenario]]
+name = "clear_outputs jednej komórki zostawia wyjścia pozostałych"
+class = "direct"
+parity_rows = ["NB-17", "NB-29"]
+fs_before = [{ fixture = "notebook_four_cells" }]
+native_call = 'NotebookEdit { action: "clear_outputs", file_path: "n.ipynb", cell_id: "use" }'
+nurt_program = 'notebook.clear_outputs "{root}/n.ipynb" id: "use"'
+expect = { fs_after = [{ path = "n.ipynb", contains = "wczytano" }] }
+
+[[scenario]]
+name = "insert, copy i move nie zmieniają treści żadnej istniejącej komórki"
+class = "direct"
+parity_rows = ["NB-23", "NB-24", "NB-27", "NB-29"]
+fs_before = [{ fixture = "notebook_four_cells" }]
+native_call = 'NotebookEdit { action: "insert", file_path: "n.ipynb", cell_id: "intro", cell_type: "markdown", source: "Nowa" }'
+nurt_program = 'notebook.insert "{root}/n.ipynb" after_id: "intro" cell_type: markdown source: "Nowa"'
+expect = { fs_after = [{ path = "n.ipynb", contains = "Nowa" }, { path = "n.ipynb", contains = "def load():" }] }
+
+[[scenario]]
+name = "rozbieżne cell_id i index: alarm przed zapisem, plik znak w znak, brak operacji"
+class = "notable"
+parity_rows = ["NB-13", "ED-32"]
+fs_before = [{ fixture = "notebook_four_cells" }]
+native_call = 'NotebookEdit { action: "replace", file_path: "n.ipynb", cell_id: "load", index: 2, source: "x = 1" }'
+nurt_program = 'notebook.replace "{root}/n.ipynb" id: "load" index: 2 source: "x = 1"'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_ARGUMENT" }] }
+
+[[scenario]]
+name = "delete: podgląd i wynik wymieniają pozostałe użycia; usunięta zostaje wyłącznie wskazana komórka"
+class = "preview"
+parity_rows = ["NB-22", "NB-29"]
+fs_before = [{ fixture = "notebook_four_cells" }]
+native_call = 'NotebookEdit { action: "delete", file_path: "n.ipynb", cell_id: "load" } then apply'
+nurt_program = 'notebook.delete "{root}/n.ipynb" id: "load" preview: true; the same program with if_match from the preview'
+expect = { fs_after = [{ path = "n.ipynb", excludes = "def load():" }, { path = "n.ipynb", contains = "rows = load()" }] }
+
+[[scenario]]
+name = "ops: błędna pozycja listy nie zapisuje żadnej operacji z listy"
+class = "direct"
+parity_rows = ["NB-13", "NB-15"]
+fs_before = [{ fixture = "notebook_four_cells" }]
+native_call = 'NotebookEdit { action: "ops", file_path: "n.ipynb", ops: [{ action: "replace", index: 0, source: "x" }, { action: "move", index: 0 }] }'
+nurt_program = 'notebook.replace "{root}/n.ipynb" index: 0 source: "x"; notebook.move "{root}/n.ipynb" index: 0'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_ARGUMENT" }] }
+
+[[scenario]]
+name = "ops i zamiana find w wielu komórkach: podgląd niczego nie zapisuje, wykonanie zmienia wyłącznie komórki z podglądu"
+class = "preview"
+parity_rows = ["NB-16", "NB-22"]
+fs_before = [{ fixture = "notebook_four_cells" }]
+native_call = 'NotebookEdit { action: "replace", file_path: "n.ipynb", find: "load", source: "fetch" } then apply'
+nurt_program = 'notebook.replace "{root}/n.ipynb" find: "load" with: "fetch" preview: true; the same program with if_match from the preview'
+expect = { fs_after = [{ path = "n.ipynb", contains = "def fetch():" }] }
+
+[[scenario]]
+name = "normalize nie zmienia źródeł ani wyjść komórek"
+class = "direct"
+parity_rows = ["NB-32", "NB-29"]
+fs_before = [{ fixture = "notebook_four_cells" }]
+native_call = 'NotebookEdit { action: "normalize", file_path: "n.ipynb" }'
+nurt_program = 'notebook.normalize "{root}/n.ipynb"'
+expect = { fs_after = [{ path = "n.ipynb", contains = "wczytano" }, { path = "n.ipynb", contains = "def load():" }] }

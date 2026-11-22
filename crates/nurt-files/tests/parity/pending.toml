@@ -1,0 +1,87 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Rows of the parity table that have no scenario yet.
+# Each row is either behaviour with no case in the previous test suite, or behaviour
+# verified outside the scenarios. Scenarios for the first group are added with the
+# command that implements the row.
+
+[[pending]]
+id = "W-08"
+reason = "Result file handling has no source case; configuration of the caller."
+
+[[pending]]
+id = "W-10"
+reason = "Relative path resolution has no source case; needs the base parameter of the command."
+
+[[pending]]
+id = "W-12"
+reason = "Configuration keys have no source case."
+
+[[pending]]
+id = "RD-30"
+reason = "Read cache is observable only through the unchanged-since behaviour of the command."
+
+[[pending]]
+id = "RD-45"
+reason = "Time limit of external programs has no source case; the engine runs no external program."
+
+[[pending]]
+id = "SF-24"
+reason = "Walk limits are configuration keys with no source case."
+
+[[pending]]
+id = "SC-28"
+reason = "Row limit has no source case outside the host-only truncation cases."
+
+[[pending]]
+id = "SC-29"
+reason = "Structure size limit is a configuration key with no source case."
+
+[[pending]]
+id = "ED-41"
+reason = "Threshold of the target count notable code has no source case."
+
+[[pending]]
+id = "NB-10"
+reason = "Source length limit is covered by the shared max_chars handling; no source case."
+
+[[pending]]
+id = "NB-11"
+reason = "Unchanged-since on notebook cells depends on the open item for etags; no scenario until it closes."
+
+[[pending]]
+id = "NB-19"
+reason = "If-match on notebook commands has no source case."
+
+[[pending]]
+id = "NB-28"
+reason = "Verbosity of notebook commands has no source case."
+
+[[pending]]
+id = "WR-16"
+reason = "Verbosity of write has no source case."
+
+[[pending]]
+id = "WR-24"
+reason = "Python syntax check is verified by the differential test against the reference interpreter."
+
+[[pending]]
+id = "DL-14"
+reason = "Journal expiry has no source case; covered by journal tests."
+
+[[pending]]
+id = "DL-20"
+reason = "Protected path notable codes belong to the host and the removal command; no source case outside host-only cases."
+
+[[pending]]
+id = "DL-22"
+reason = "Mass deletion thresholds have no source case outside host-only cases."
+
+[[pending]]
+id = "DL-30"
+reason = "Character limit of the removal report belongs to the host."
+
+[[pending]]
+id = "UN-02"
+reason = "Preview of undo has no source case."

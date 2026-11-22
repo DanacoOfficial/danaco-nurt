@@ -1,0 +1,230 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+source = "write/tests/defects.test.ts"
+cases = 26
+
+[[scenario]]
+name = "zamiennik metody bez wcięcia dostaje wcięcie elementu w każdym wierszu"
+class = "direct"
+parity_rows = ["ED-15", "ED-38"]
+fs_before = [{ fixture = "ts_box" }]
+native_call = 'Edit { file_path: "a.ts", target: { symbol: "Box.size" }, new_string: "size(): number {\n  return 2;\n}" }'
+nurt_program = 'read "{root}/a.ts" symbol: "Box.size" |> replace_all "size(): number {\n  return 2;\n}"'
+expect = { fs_after = [{ path = "a.ts", replace_in = "ts_box", from = "return 1;", to = "return 2;" }] }
+
+[[scenario]]
+name = "zamiennik z wcięciem pliku w kolejnych wierszach dostaje wcięcie wyłącznie w pierwszym wierszu"
+class = "direct"
+parity_rows = ["ED-15", "ED-38"]
+fs_before = [{ fixture = "ts_box" }]
+native_call = 'Edit { file_path: "a.ts", target: { symbol: "Box.size" }, new_string: "size(): number {\n    return 2;\n  }" }'
+nurt_program = 'read "{root}/a.ts" symbol: "Box.size" |> replace_all "size(): number {\n    return 2;\n  }"'
+expect = { fs_after = [{ path = "a.ts", replace_in = "ts_box", from = "return 1;", to = "return 2;" }] }
+
+[[scenario]]
+name = "zamiennik z pełnym wcięciem pliku pozostaje bez zmian"
+class = "direct"
+parity_rows = ["ED-15", "ED-38"]
+fs_before = [{ fixture = "ts_box" }]
+native_call = 'Edit { file_path: "a.ts", target: { symbol: "Box.size" }, new_string: "  size(): number {\n    return 2;\n  }\n" }'
+nurt_program = 'read "{root}/a.ts" symbol: "Box.size" |> replace_all "  size(): number {\n    return 2;\n  }\n"'
+expect = { fs_after = [{ path = "a.ts", replace_in = "ts_box", from = "return 1;", to = "return 2;" }] }
+
+[[scenario]]
+name = "metoda Pythona bez wcięcia nie wywołuje alarmu i zachowuje sąsiednią metodę"
+class = "direct"
+parity_rows = ["ED-15", "ED-32"]
+fs_before = [{ path = "a.py", content = "class Box:\n    def size(self):\n        return 1\n\n    def name(self):\n        return \"a\"\n" }]
+native_call = 'Edit { file_path: "a.py", target: { symbol: "Box.size" }, new_string: "def size(self):\n    return 2" }'
+nurt_program = 'read "{root}/a.py" symbol: "Box.size" |> replace_all "def size(self):\n    return 2"'
+expect = { fs_after = [{ path = "a.py", content = "class Box:\n    def size(self):\n        return 2\n\n    def name(self):\n        return \"a\"\n" }] }
+
+[[scenario]]
+name = "wcięcie spacjami przechodzi w tabulatory pliku, także w narzędziu Write"
+class = "direct"
+parity_rows = ["ED-38", "WR-17"]
+fs_before = [{ path = "a.go", content = "package main\n\nfunc alpha() int {\n\tif true {\n\t\treturn 1\n\t}\n\treturn 2\n}\n" }]
+native_call = 'Edit { file_path: "a.go", target: { symbol: "alpha" }, new_string: "func alpha() int {\n    if true {\n        return 9\n    }\n    return 2\n}" }'
+nurt_program = 'read "{root}/a.go" symbol: "alpha" |> replace_all "func alpha() int {\n    if true {\n        return 9\n    }\n    return 2\n}"'
+expect = { fs_after = [{ path = "a.go", content = "package main\n\nfunc alpha() int {\n\tif true {\n\t\treturn 9\n\t}\n\treturn 2\n}\n" }] }
+
+[[scenario]]
+name = "plik CRLF zachowuje końce wierszy i wcięcie"
+class = "direct"
+parity_rows = ["ED-38", "WR-17"]
+fs_before = [{ path = "a.ts", content = "class Box {\r\n  size(): number {\r\n    return 1;\r\n  }\r\n}\r\n" }]
+native_call = 'Edit { file_path: "a.ts", target: { symbol: "Box.size" }, new_string: "size(): number {\n  return 2;\n}" }'
+nurt_program = 'read "{root}/a.ts" symbol: "Box.size" |> replace_all "size(): number {\n  return 2;\n}"'
+expect = { fs_after = [{ path = "a.ts", content = "class Box {\r\n  size(): number {\r\n    return 2;\r\n  }\r\n}\r\n" }] }
+
+[[scenario]]
+name = "komentarz wiodący zostaje, gdy zamiennik nie zaczyna się komentarzem, a zamiennik z komentarzem go zastępuje"
+class = "direct"
+parity_rows = ["ED-15"]
+fs_before = [{ fixture = "ts_box" }]
+native_call = 'Edit { file_path: "a.ts", target: { symbol: "alpha" }, new_string: "// nowy opis\nfunction alpha(id: number) {\n  return id;\n}" }'
+nurt_program = 'read "{root}/a.ts" symbol: "alpha" |> replace_all "// nowy opis\nfunction alpha(id: number) {\n  return id;\n}"'
+expect = { fs_after = [{ path = "a.ts", replace_in = "ts_box", from = "// opis alpha", to = "// nowy opis" }] }
+
+[[scenario]]
+name = "sekcja Markdown zachowuje pusty wiersz przed następnym nagłówkiem"
+class = "direct"
+parity_rows = ["ED-15", "ED-38"]
+fs_before = [{ path = "a.md", content = "# T\r\n\r\nwstęp\r\n\r\n## A\r\n\r\ntreść a\r\n\r\n## B\r\n\r\ntreść b\r\n" }]
+native_call = 'Edit { file_path: "a.md", target: { section: "A" }, new_string: "## A\n\nnowa" }'
+nurt_program = 'read "{root}/a.md" section: "A" |> replace_all "## A\n\nnowa"'
+expect = { fs_after = [{ path = "a.md", content = "# T\r\n\r\nwstęp\r\n\r\n## A\r\n\r\nnowa\r\n\r\n## B\r\n\r\ntreść b\r\n" }] }
+
+[[scenario]]
+name = "ostatni element pliku bez końcowego znaku nowego wiersza pozostaje bez niego"
+class = "direct"
+parity_rows = ["ED-39", "ED-38"]
+fs_before = [{ path = "a.go", content = "package main\n\nfunc alpha() int {\n\treturn 2\n}" }]
+native_call = 'Edit { file_path: "a.go", target: { symbol: "alpha" }, new_string: "func alpha() int {\n\treturn 7\n}\n" }'
+nurt_program = 'read "{root}/a.go" symbol: "alpha" |> replace_all "func alpha() int {\n\treturn 7\n}\n"'
+expect = { fs_after = [{ path = "a.go", content = "package main\n\nfunc alpha() int {\n\treturn 7\n}" }] }
+
+[[scenario]]
+name = "wielowierszowa wartość klucza JSON dostaje wcięcie wiersza klucza"
+class = "direct"
+parity_rows = ["ED-15", "ED-38"]
+fs_before = [{ path = "b.json", content = "{\n  \"a\": {\n    \"b\": [1, 2]\n  },\n  \"c\": 1.0\n}\n" }]
+native_call = 'Edit { file_path: "b.json", target: { key: "a.b" }, new_string: "[\n      3\n    ]" }'
+nurt_program = 'set "{root}/b.json" key: "a.b" value: [3]'
+expect = { fs_after = [{ path = "b.json", content = "{\n  \"a\": {\n    \"b\": [\n      3\n    ]\n  },\n  \"c\": 1.0\n}\n" }] }
+
+[[scenario]]
+name = "wartość klucza YAML z komentarzem końcowym zachowuje komentarz i końce wierszy"
+class = "direct"
+parity_rows = ["ED-15", "ED-38"]
+fs_before = [{ path = "a.yaml", content = "server:\r\n  port: 80 # port\r\nname: x\r\n" }]
+native_call = 'Edit { file_path: "a.yaml", target: { key: "server.port" }, new_string: "8080" }'
+nurt_program = 'set "{root}/a.yaml" key: "server.port" value: 8080'
+expect = { fs_after = [{ path = "a.yaml", content = "server:\r\n  port: 8080 # port\r\nname: x\r\n" }] }
+
+[[scenario]]
+name = "wiersz wstawiony przed komentarzem wiodącym funkcji nie wywołuje alarmu"
+class = "direct"
+parity_rows = ["ED-11", "ED-32"]
+fs_before = [{ fixture = "ts_box" }]
+native_call = 'Edit { file_path: "a.ts", insert_before: "// opis alpha", new_string: "// pierwszy" }'
+nurt_program = 'search "// opis alpha" "{root}/a.ts" |> insert "// pierwszy" position: before'
+expect = { fs_after = [{ path = "a.ts", contains = "// pierwszy\n// opis alpha" }] }
+
+[[scenario]]
+name = "wstawienie w innym elemencie niż wskazany cel nadal wstrzymuje zapis alarmem"
+class = "notable"
+parity_rows = ["ED-32"]
+fs_before = [{ fixture = "ts_box" }]
+native_call = 'Edit { file_path: "a.ts", target: { symbol: "alpha" }, insert_before: "    return 1;", new_string: "    log();" }'
+nurt_program = 'read "{root}/a.ts" symbol: "alpha" |> insert "    log();" position: before line: 8'
+expect = { fs_after = [{ path = "a.ts", contains = "log();" }], fields = [{ field = "notable", value = "scope_exceeded" }] }
+
+[[scenario]]
+name = "wstawienie na końcu pliku bez końcowego znaku nowego wiersza nie dopisuje go"
+class = "direct"
+parity_rows = ["ED-39", "ED-10"]
+fs_before = [{ path = "a.txt", content = "a\nb" }]
+native_call = 'Edit { file_path: "a.txt", insert_after: "b", new_string: "c" }'
+nurt_program = 'search "b" "{root}/a.txt" |> insert "c" position: after ensure_newline: false'
+expect = { fs_after = [{ path = "a.txt", content = "a\nb\nc" }] }
+
+[[scenario]]
+name = "znacznik BOM i końce CRLF pozostają po zamianie, zakresie wierszy, wyrażeniu regularnym i dopisaniu"
+class = "direct"
+parity_rows = ["WR-17", "ED-38", "WR-32"]
+fs_before = [{ path = "d.txt", content = "\uFEFFa\r\nb" }]
+native_call = 'Write { file_path: "d.txt", mode: "append", content: "c\nd\n" }'
+nurt_program = 'write "{root}/d.txt" "c\nd\n" mode: append'
+expect = { fs_after = [{ path = "d.txt", content = "\uFEFFa\r\nb\r\nc\r\nd\r\n" }] }
+
+[[scenario]]
+name = "cofnięcie zmiany przywraca plik ze znacznikiem BOM i końcami CRLF bajt w bajt"
+class = "direct"
+parity_rows = ["ED-26", "UN-05", "WR-17"]
+fs_before = [{ path = "a.ts", content = "\uFEFFclass Box {\r\n  size(): number {\r\n    return 1;\r\n  }\r\n}\r\n" }]
+native_call = 'Edit { file_path: "a.ts", target: { symbol: "Box.size" }, new_string: "..." } then Edit { file_path: "a.ts", undo: "last" }'
+nurt_program = 'read "{root}/a.ts" symbol: "Box.size" |> replace "1" "2"; undo'
+expect = { fs_after = [{ path = "a.ts", content = "\uFEFFclass Box {\r\n  size(): number {\r\n    return 1;\r\n  }\r\n}\r\n" }] }
+
+[[scenario]]
+name = "plik o mieszanych końcach wierszy zachowuje końce wierszy nietkniętych"
+class = "direct"
+parity_rows = ["ED-38", "WR-17"]
+fs_before = [{ path = "a.txt", content = "a\r\nb\nc\r\nd\r\n" }]
+native_call = 'Edit { file_path: "a.txt", old_string: "b", new_string: "B" }'
+nurt_program = 'replace "b" with: "B" in: ["{root}/a.txt"]'
+expect = { fs_after = [{ path = "a.txt", content = "a\r\nB\nc\r\nd\r\n" }] }
+
+[[scenario]]
+name = "zamiana na początku pliku z BOM, wstawienie wierszy, zamiana wszystkich i dopisanie na początku zachowują BOM i CRLF"
+class = "direct"
+parity_rows = ["WR-17", "ED-38", "WR-04"]
+fs_before = [{ path = "d.txt", content = "\uFEFFa\r\n" }]
+native_call = 'Write { file_path: "d.txt", mode: "prepend", content: "z\n" }'
+nurt_program = 'write "{root}/d.txt" "z\n" mode: prepend'
+expect = { fs_after = [{ path = "d.txt", content = "\uFEFFz\r\na\r\n" }] }
+
+[[scenario]]
+name = "plik w kodowaniu innym niż UTF-8 jest odrzucany bez zmiany bajtów"
+class = "direct"
+parity_rows = ["RD-31", "WR-32"]
+fs_before = [{ path = "l.txt", content = "zó\n", encoding = "latin-1" }]
+native_call = 'Edit { file_path: "l.txt", old_string: "z", new_string: "y" }'
+nurt_program = 'replace "z" with: "y" in: ["{root}/l.txt"]'
+expect = { fs_after = [{ path = "l.txt", content = "yó\n", encoding = "latin-1" }], fields = [{ field = "effect.encoding", value = "iso-8859-2" }] }
+
+[[scenario]]
+name = "clear_outputs komórki zapisanej w jednym wierszu nie wywołuje alarmu i zmienia wyłącznie pola wyjść"
+class = "direct"
+parity_rows = ["NB-29", "NB-17"]
+fs_before = [{ path = "n.ipynb", generate = "notebook:flat" }]
+native_call = 'NotebookEdit { file_path: "n.ipynb", action: "clear_outputs", cell_id: "one" }'
+nurt_program = 'notebook.clear_outputs "{root}/n.ipynb" id: "one"'
+expect = { fs_after = [{ path = "n.ipynb", replace_in = "notebook:flat", from = "\"execution_count\": 1", to = "\"execution_count\": null" }] }
+
+[[scenario]]
+name = "replace komórki zapisanej w jednym wierszu zmieniają wyłącznie źródło"
+class = "direct"
+parity_rows = ["NB-13", "NB-15", "NB-29"]
+fs_before = [{ path = "n.ipynb", generate = "notebook:flat" }]
+native_call = 'NotebookEdit { file_path: "n.ipynb", action: "replace", cell_id: "one", source: "c = 2\n" }'
+nurt_program = 'notebook.replace "{root}/n.ipynb" id: "one" source: "c = 2\n"'
+expect = { fs_after = [{ path = "n.ipynb", replace_in = "notebook:flat", from = "[\"a = 1.0\\n\", \"b\"]", to = "[\"c = 2\\n\"]" }] }
+
+[[scenario]]
+name = "zmiana typu komórki jednowierszowej zapisuje ją w jednym wierszu, a pozostałe komórki znak w znak"
+class = "direct"
+parity_rows = ["NB-14", "NB-29"]
+fs_before = [{ path = "n.ipynb", generate = "notebook:flat" }]
+native_call = 'NotebookEdit { file_path: "n.ipynb", action: "replace", cell_id: "two", source: "y", cell_type: "code" }'
+nurt_program = 'notebook.replace "{root}/n.ipynb" id: "two" source: "y" cell_type: code'
+expect = { fs_after = [{ path = "n.ipynb", contains = "\"cell_type\": \"code\", \"id\": \"two\"" }] }
+
+[[scenario]]
+name = "komórka w układzie standardowym zachowuje pola nietknięte znak w znak, końce CRLF i znacznik BOM"
+class = "direct"
+parity_rows = ["NB-29", "NB-15"]
+fs_before = [{ path = "n.ipynb", generate = "notebook:standard_crlf_bom" }]
+native_call = 'NotebookEdit { file_path: "n.ipynb", action: "replace", cell_id: "one", source: "print(2)\nprint(3)" }'
+nurt_program = 'notebook.replace "{root}/n.ipynb" id: "one" source: "print(2)\nprint(3)"'
+expect = { fs_after = [{ path = "n.ipynb", contains = "\"print(2)\\n\",\r\n    \"print(3)\"" }] }
+
+[[scenario]]
+name = "nowa komórka i kopia w notebooku o komórkach jednowierszowych zachowują układ i separatory pliku"
+class = "direct"
+parity_rows = ["NB-23", "NB-25", "NB-26", "NB-29"]
+fs_before = [{ path = "n.ipynb", generate = "notebook:flat" }]
+native_call = 'NotebookEdit { file_path: "n.ipynb", action: "insert", cell_id: "one", source: "q", cell_type: "markdown" }'
+nurt_program = 'notebook.insert "{root}/n.ipynb" after_id: "one" cell_type: markdown source: "q"'
+expect = { fs_after = [{ path = "n.ipynb", contains = "\"source\": [\"q\"]}," }] }
+
+[[scenario]]
+name = "zamiana źródła wieloelementowego w komórce jednowierszowej stosuje separatory pliku"
+class = "direct"
+parity_rows = ["NB-15", "NB-29"]
+fs_before = [{ path = "n.ipynb", generate = "notebook:flat" }]
+native_call = 'NotebookEdit { file_path: "n.ipynb", action: "replace", cell_id: "one", source: "c = 2\nd = 3" }'
+nurt_program = 'notebook.replace "{root}/n.ipynb" id: "one" source: "c = 2\nd = 3"'
+expect = { fs_after = [{ path = "n.ipynb", replace_in = "notebook:flat", from = "[\"a = 1.0\\n\", \"b\"]", to = "[\"c = 2\\n\", \"d = 3\"]" }] }

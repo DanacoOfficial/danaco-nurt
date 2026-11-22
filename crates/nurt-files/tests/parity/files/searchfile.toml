@@ -1,0 +1,149 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+source = "tests/searchfile.test.ts"
+cases = 18
+
+[[scenario]]
+name = "wspólny katalog raz, ścieżki względne od najnowszych"
+class = "direct"
+parity_rows = ["SF-01", "SF-05", "SF-23"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { pattern: "**/*.ts" }'
+nurt_program = 'find "{root}" glob: "**/*.ts" sort: modified order: desc'
+expect = { fs_unchanged = true, fields = [{ field = "total", value = 3 }, { field = "entries[*].path", value = ["src/app.ts", "src/big.ts", "tests/app.test.ts"] }] }
+
+[[scenario]]
+name = "wzorzec bez ** obejmuje katalog startowy i podpowiada podkatalogi"
+class = "direct"
+parity_rows = ["SF-01", "SF-04"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { pattern: "*.toml" }'
+nurt_program = 'find "{root}" glob: "*.toml" depth: 1'
+expect = { fs_unchanged = true, fields = [{ field = "entries[*].path", value = ["config.toml"] }] }
+
+[[scenario]]
+name = "wzorzec z katalogiem stałym, bezwzględny i dosłowny"
+class = "direct"
+parity_rows = ["SF-01", "SF-04"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { pattern: "src/*.py" }'
+nurt_program = 'find "{root}" glob: "src/*.py"'
+expect = { fs_unchanged = true, fields = [{ field = "entries[*].path", value = ["src/util.py"] }] }
+
+[[scenario]]
+name = "sortowanie name i size z kierunkiem"
+class = "direct"
+parity_rows = ["SF-05", "SF-06"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { pattern: "**/*.ts", sort: "size", order: "asc" }'
+nurt_program = 'find "{root}" glob: "**/*.ts" sort: size order: asc'
+expect = { fs_unchanged = true, fields = [{ field = "entries[2].path", value = "src/big.ts" }] }
+
+[[scenario]]
+name = "stronicowanie limit, offset i cursor"
+class = "direct"
+parity_rows = ["SF-07", "SF-22", "W-06"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { pattern: "**/*", sort: "name", limit: 3 }'
+nurt_program = 'find "{root}" glob: "**/*" sort: path limit: 3'
+expect = { fs_unchanged = true, fields = [{ field = "total", value = 12 }, { field = "shown", value = 3 }, { field = "next_cursor", value = "3" }] }
+
+[[scenario]]
+name = "typ katalogu i dowiązania oraz max_depth"
+class = "direct"
+parity_rows = ["SF-08", "SF-09"]
+fs_before = [{ fixture = "standard" }, { path = "link.txt", symlink_to = "notes.txt" }]
+native_call = 'SearchFile { pattern: "*", type: "l" }'
+nurt_program = 'find "{root}" type: link depth: 1'
+expect = { fs_unchanged = true, fields = [{ field = "entries[*].path", value = ["link.txt"] }] }
+
+[[scenario]]
+name = "wpisy ukryte wymagają include_hidden albo kropki we wzorcu; chronione są liczone"
+class = "direct"
+parity_rows = ["SF-11", "SF-26"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { pattern: "**/*", include_hidden: true, sort: "name" }'
+nurt_program = 'find "{root}" glob: "**/*" hidden: true'
+expect = { fs_unchanged = true, fields = [{ field = "entries[*].path", contains = ".hidden/inner.txt" }] }
+
+[[scenario]]
+name = "exclude i exclude_preset"
+class = "direct"
+parity_rows = ["SF-13", "SF-14"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { pattern: "**/*", exclude: ["*.ts", "docs/", "node_modules/dep"], sort: "name" }'
+nurt_program = 'find "{root}" glob: "**/*" exclude: ["*.ts", "docs/", "node_modules/dep"]'
+expect = { fs_unchanged = true, fields = [{ field = "entries[*].path", excludes = "src/app.ts" }] }
+
+[[scenario]]
+name = "newer_than i older_than: data, czas względny i plik wzorcowy"
+class = "direct"
+parity_rows = ["SF-10"]
+fs_before = [{ fixture = "standard", modified = { "docs/guide.md" = "2020-01-01T00:00:00Z" } }]
+native_call = 'SearchFile { pattern: "**/*", older_than: "2021-01-01" }'
+nurt_program = 'find "{root}" glob: "**/*" |> filter modified < 2021-01-01'
+expect = { fs_unchanged = true, fields = [{ field = "entries[*].path", value = ["docs/guide.md"] }] }
+
+[[scenario]]
+name = "kolumny po ścieżce rozdzielone tabulatorem"
+class = "direct"
+parity_rows = ["SF-18"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { pattern: "src/*.ts", columns: ["size", "lines", "mode", "type", "mtime"], sort: "name" }'
+nurt_program = 'find "{root}" glob: "src/*.ts" |> select path size modified mode type lines'
+expect = { fs_unchanged = true, fields = [{ field = "entries[0].size", value = 445 }, { field = "entries[0].lines", value = 25 }] }
+
+[[scenario]]
+name = "count_only, group_by, tree i sizes"
+class = "direct"
+parity_rows = ["SF-15", "SF-16", "SF-20"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { pattern: "**/*.ts", count_only: true }'
+nurt_program = 'find "{root}" glob: "**/*.ts" |> count'
+expect = { fs_unchanged = true, fields = [{ field = "count", value = 3 }] }
+
+[[scenario]]
+name = "patterns grupuje wynik według wzorca"
+class = "direct"
+parity_rows = ["SF-02"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { patterns: ["**/*.ts", "**/*.md", "**/*.xyz"], sort: "name", limit: 2 }'
+nurt_program = 'find "{root}" glob: ["**/*.ts", "**/*.md", "**/*.xyz"] sort: path'
+expect = { fs_unchanged = true, fields = [{ field = "total", value = 4 }] }
+
+[[scenario]]
+name = "query porządkuje według trafności nazwy"
+class = "direct"
+parity_rows = ["SF-03"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { query: "app" }'
+nurt_program = 'find "{root}" fuzzy: "app" sort: rank'
+expect = { fs_unchanged = true, fields = [{ field = "entries[0].path", value = "src/app.ts" }, { field = "entries[1].path", value = "tests/app.test.ts" }] }
+
+[[scenario]]
+name = "etag, unchanged_since i format json"
+class = "direct"
+parity_rows = ["SF-22", "ST-22"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { pattern: "**/*.py", format: "json", fields: ["total", "next_cursor"] }'
+nurt_program = 'find "{root}" glob: "**/*.py" format: json fields: [total, next_cursor]'
+expect = { fs_unchanged = true, fields = [{ field = "total", value = 1 }, { field = "next_cursor", value = "" }] }
+
+[[scenario]]
+name = "katalog startowy musi istnieć i być katalogiem"
+class = "direct"
+parity_rows = ["SF-04", "W-11"]
+fs_before = [{ fixture = "standard" }]
+native_call = 'SearchFile { pattern: "*", path: "brak" }'
+nurt_program = 'find "{root}/brak" glob: "*"'
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_NOT_FOUND" }] }
+
+[[scenario]]
+name = "pliki ignorowane przez git są pomijane, respect_gitignore=false je przywraca"
+class = "direct"
+parity_rows = ["SF-12", "SF-26"]
+fs_before = [{ fixture = "standard" }, { path = ".gitignore", content = "node_modules/\n*.log\n" }, { path = "build.log", content = "log\n" }, { path = ".git/HEAD", content = "ref: refs/heads/main\n" }]
+native_call = 'SearchFile { pattern: "**/*", sort: "name" }'
+nurt_program = 'find "{root}" glob: "**/*" gitignore: true'
+expect = { fs_unchanged = true, fields = [{ field = "entries[*].path", excludes = "build.log" }, { field = "entries[*].path", excludes = "node_modules/dep/index.js" }] }

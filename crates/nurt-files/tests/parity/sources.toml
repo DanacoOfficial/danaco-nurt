@@ -1,0 +1,87 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Test files of the previous implementation and the number of cases in each.
+# Every case is either a scenario of the named file or an entry of host-only.toml.
+
+[[source]]
+path = "tests/read.test.ts"
+cases = 33
+scenarios = "read.toml"
+
+[[source]]
+path = "tests/searchfile.test.ts"
+cases = 18
+scenarios = "searchfile.toml"
+
+[[source]]
+path = "tests/searchcontent.test.ts"
+cases = 17
+scenarios = "searchcontent.toml"
+
+[[source]]
+path = "tests/stat.test.ts"
+cases = 7
+scenarios = "stat.toml"
+
+[[source]]
+path = "tests/units.test.ts"
+cases = 22
+
+[[source]]
+path = "tests/fixes.test.ts"
+cases = 8
+scenarios = "fixes.toml"
+
+[[source]]
+path = "write/tests/edit.test.ts"
+cases = 39
+scenarios = "edit.toml"
+
+[[source]]
+path = "write/tests/defects.test.ts"
+cases = 26
+scenarios = "defects.toml"
+
+[[source]]
+path = "write/tests/sidecontent.test.ts"
+cases = 25
+scenarios = "write-sidecontent.toml"
+
+[[source]]
+path = "write/tests/write.test.ts"
+cases = 22
+scenarios = "write-write.toml"
+
+[[source]]
+path = "write/tests/notebook.test.ts"
+cases = 21
+scenarios = "write-notebook.toml"
+
+[[source]]
+path = "write/tests/plan.test.ts"
+cases = 14
+scenarios = "write-plan.toml"
+
+[[source]]
+path = "write/tests/freshness.test.ts"
+cases = 10
+scenarios = "write-freshness.toml"
+
+[[source]]
+path = "write/tests/checks.test.ts"
+cases = 5
+
+[[source]]
+path = "write/tests/pycheck.test.ts"
+cases = 4
+
+[[source]]
+path = "delete/tests/delete.test.ts"
+cases = 17
+scenarios = "delete-delete.toml"
+
+[[source]]
+path = "delete/tests/sidecontent.test.ts"
+cases = 5
+scenarios = "delete-sidecontent.toml"
