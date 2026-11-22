@@ -10,3 +10,7 @@
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+pub mod edit_plan;
+pub mod fuzzy_match;
+pub mod template;
