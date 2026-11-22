@@ -38,13 +38,20 @@ use crate::spans::LineIndex;
 /// Kind of declaration of a node kind; `None` for other nodes.
 fn declaration_kind(kind: &str) -> Option<SymbolKind> {
     let symbol = match kind {
-        "function_definition" | "function_declaration" | "function_item"
-        | "generator_function_declaration" | "function_signature_item" | "local_function_statement"
+        "function_definition"
+        | "function_declaration"
+        | "function_item"
+        | "generator_function_declaration"
+        | "function_signature_item"
+        | "local_function_statement"
         | "preproc_function_def" => SymbolKind::Function,
-        "method_definition" | "method_declaration" | "method" | "singleton_method"
-        | "constructor_declaration" | "secondary_constructor" | "init_declaration" => {
-            SymbolKind::Method
-        }
+        "method_definition"
+        | "method_declaration"
+        | "method"
+        | "singleton_method"
+        | "constructor_declaration"
+        | "secondary_constructor"
+        | "init_declaration" => SymbolKind::Method,
         "class_definition" | "class_declaration" | "class" | "class_specifier"
         | "object_declaration" | "record_declaration" | "singleton_class" => SymbolKind::Class,
         "struct_item" | "struct_specifier" | "struct_declaration" | "union_item"
@@ -53,9 +60,16 @@ fn declaration_kind(kind: &str) -> Option<SymbolKind> {
             SymbolKind::Interface
         }
         "enum_item" | "enum_declaration" | "enum_specifier" => SymbolKind::Enum,
-        "mod_item" | "module" | "namespace_definition" | "namespace_declaration"
+        "mod_item"
+        | "module"
+        | "namespace_definition"
+        | "namespace_declaration"
         | "file_scoped_namespace_declaration" => SymbolKind::Module,
-        "type_item" | "type_alias_declaration" | "type_spec" | "type_alias" | "impl_item"
+        "type_item"
+        | "type_alias_declaration"
+        | "type_spec"
+        | "type_alias"
+        | "impl_item"
         | "typealias_declaration" => SymbolKind::Type,
         "macro_definition" => SymbolKind::Macro,
         _ => return None,
@@ -73,10 +87,9 @@ fn declaration_name<'t>(node: Node<'t>, source: &[u8]) -> Option<(String, Node<'
         .find_map(|field| node.child_by_field_name(field))
         .or_else(|| {
             let mut cursor = node.walk();
-            let found = node
-                .named_children(&mut cursor)
-                .find(|child| is_name_kind(child.kind()));
-            found
+
+            node.named_children(&mut cursor)
+                .find(|child| is_name_kind(child.kind()))
         })?;
     let name = innermost_name(named);
     let text = name.utf8_text(source).ok()?.trim().to_owned();
@@ -98,10 +111,9 @@ fn innermost_name(node: Node<'_>) -> Node<'_> {
         .or_else(|| node.child_by_field_name("type"))
         .or_else(|| {
             let mut cursor = node.walk();
-            let found = node
-                .named_children(&mut cursor)
-                .find(|child| is_name_kind(child.kind()));
-            found
+
+            node.named_children(&mut cursor)
+                .find(|child| is_name_kind(child.kind()))
         });
     inner.map_or(node, innermost_name)
 }
@@ -138,9 +150,7 @@ fn ancestors<'t>(node: Node<'t>, source: &[u8]) -> Vec<Declaration<'t>> {
 /// implementation is reported as a method.
 #[must_use]
 pub fn enclosing(tree: &Tree, source: &[u8], offset: usize) -> Option<SymbolInfo> {
-    let node = tree
-        .root_node()
-        .descendant_for_byte_range(offset, offset)?;
+    let node = tree.root_node().descendant_for_byte_range(offset, offset)?;
     let chain = ancestors(node, source);
     let (inner, outer) = chain.split_first()?;
     let outer: Vec<&Declaration<'_>> = outer.iter().rev().collect();
@@ -279,8 +289,14 @@ mod tests {
 
     #[test]
     fn declaration_kinds_cover_common_grammars() {
-        assert_eq!(declaration_kind("function_item"), Some(SymbolKind::Function));
-        assert_eq!(declaration_kind("method_declaration"), Some(SymbolKind::Method));
+        assert_eq!(
+            declaration_kind("function_item"),
+            Some(SymbolKind::Function)
+        );
+        assert_eq!(
+            declaration_kind("method_declaration"),
+            Some(SymbolKind::Method)
+        );
         assert_eq!(declaration_kind("class_specifier"), Some(SymbolKind::Class));
         assert_eq!(declaration_kind("trait_item"), Some(SymbolKind::Interface));
         assert_eq!(declaration_kind("call_expression"), None);

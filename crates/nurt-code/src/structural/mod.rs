@@ -202,10 +202,19 @@ pub fn render_template(found: &SyntaxMatch, template: &str) -> String {
 /// Matches nested in an earlier match are left out, so the replacements do
 /// not overlap and can be applied together.
 #[must_use]
-pub fn replacement_edits(source: &[u8], matches: &[SyntaxMatch], template: &str) -> Vec<Replacement> {
+pub fn replacement_edits(
+    source: &[u8],
+    matches: &[SyntaxMatch],
+    template: &str,
+) -> Vec<Replacement> {
     let lines = LineIndex::new(source);
     let mut sorted: Vec<&SyntaxMatch> = matches.iter().collect();
-    sorted.sort_by_key(|found| (found.span.bytes.start, std::cmp::Reverse(found.span.bytes.end)));
+    sorted.sort_by_key(|found| {
+        (
+            found.span.bytes.start,
+            std::cmp::Reverse(found.span.bytes.end),
+        )
+    });
     let mut edits: Vec<Replacement> = Vec::new();
     for found in sorted {
         if edits
@@ -268,7 +277,12 @@ struct Target<'a> {
     match_indent: &'a mut Option<String>,
 }
 
-fn insert_capture(out: &mut String, capture: &SyntaxCapture, target: Target<'_>, indents: &dyn Indents) {
+fn insert_capture(
+    out: &mut String,
+    capture: &SyntaxCapture,
+    target: Target<'_>,
+    indents: &dyn Indents,
+) {
     let mut lines = capture.text.split('\n');
     if let Some(first) = lines.next() {
         out.push_str(first);
@@ -287,7 +301,9 @@ fn insert_capture(out: &mut String, capture: &SyntaxCapture, target: Target<'_>,
                 out.push_str(line);
             }
             Some(capture_indent) => {
-                let base = target.match_indent.get_or_insert_with(|| indents.of_match());
+                let base = target
+                    .match_indent
+                    .get_or_insert_with(|| indents.of_match());
                 out.push_str(base);
                 out.push_str(target.template_indent);
                 out.push_str(strip_indent(line, capture_indent));

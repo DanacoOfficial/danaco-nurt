@@ -163,10 +163,9 @@ fn is_boolean_operation(node: Node<'_>) -> bool {
         return BOOLEAN_OPERATORS.contains(&operator.kind());
     }
     let mut cursor = node.walk();
-    let found = node
-        .children(&mut cursor)
-        .any(|child| !child.is_named() && BOOLEAN_OPERATORS.contains(&child.kind()));
-    found
+
+    node.children(&mut cursor)
+        .any(|child| !child.is_named() && BOOLEAN_OPERATORS.contains(&child.kind()))
 }
 
 /// Number of parameters of a declaration: named nodes of its parameter

@@ -459,15 +459,16 @@ fn setup_cfg(ctx: &mut Ctx<'_, '_>) {
             continue;
         }
         let continuation = line.starts_with(char::is_whitespace);
-        if section == "options.entry_points" && continuation {
-            if let Some((name, target)) = trimmed.split_once('=') {
-                let origin = ctx.origin(&line_no.to_string());
-                ctx.out.entry_points.push(
-                    Entry::new(Section::EntryPoints, name.trim())
-                        .command(target.trim())
-                        .origin(origin),
-                );
-            }
+        if section == "options.entry_points"
+            && continuation
+            && let Some((name, target)) = trimmed.split_once('=')
+        {
+            let origin = ctx.origin(&line_no.to_string());
+            ctx.out.entry_points.push(
+                Entry::new(Section::EntryPoints, name.trim())
+                    .command(target.trim())
+                    .origin(origin),
+            );
         }
     }
 }
@@ -613,9 +614,9 @@ fn dotnet(ctx: &mut Ctx<'_, '_>) {
     if tests {
         ctx.command("test", format!("dotnet test {project}"), "");
     }
-    let executable = lines
-        .iter()
-        .find(|(_, line)| element_text(line, "OutputType").is_some_and(|t| t.eq_ignore_ascii_case("exe")));
+    let executable = lines.iter().find(|(_, line)| {
+        element_text(line, "OutputType").is_some_and(|t| t.eq_ignore_ascii_case("exe"))
+    });
     if let Some((line_no, _)) = executable {
         let name = project.trim_end_matches(".csproj").to_owned();
         let origin = ctx.origin(&line_no.to_string());
@@ -647,8 +648,12 @@ fn bundler(ctx: &mut Ctx<'_, '_>) {
     }
     let spec = ctx.sibling("spec");
     if ctx.source.has_under(&spec) {
-        ctx.out
-            .command(ctx.dir, "test", "bundle exec rspec".to_owned(), format!("{spec}/"));
+        ctx.out.command(
+            ctx.dir,
+            "test",
+            "bundle exec rspec".to_owned(),
+            format!("{spec}/"),
+        );
     }
 }
 
