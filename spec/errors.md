@@ -101,6 +101,7 @@ Functions of the C interface that return a response document (`nurt_run_json`, `
 | `E_RENAME_CONFLICT` | 4, 5 | `NURT_OK` | A new name collides with an existing symbol in its scope. |
 | `E_NO_MATCH` | 4 | `NURT_OK` | A replacement or an edit found no match while the call required one. |
 | `E_PATCH_REJECTED` | 4 | `NURT_OK` | A hunk of a patch does not apply. |
+| `E_OUT_OF_RANGE` | 2, 4 | `NURT_OK` | A line number, a page or a position lies outside the content, for example a line after the end of the file. |
 | `E_STALE` | 5 | `NURT_OK` | A file changed after it was read; the whole operation was rolled back. |
 | `E_ENCODING` | 5 | `NURT_OK` | A character cannot be represented in the encoding of the file. |
 | `E_IO` | 2, 5 | `NURT_E_IO` | Input or output error of the file system. |
@@ -151,4 +152,5 @@ Functions of the C interface that return a response document (`nurt_run_json`, `
 | `E_GIT_HUNK` | 4, 5 | `NURT_OK` | A hunk identifier is malformed or unknown, the hunk changed since it was listed, or the selected lines cannot be applied. |
 | `E_GIT_CHECKPOINT` | 4, 6 | `NURT_OK` | A checkpoint has no saved index, or its content does not match after a restore; the paths are listed. |
 | `E_GIT_WORKTREE` | 4 | `NURT_OK` | A worktree is unknown, is the main worktree, is locked or contains the working directory. |
+| `E_GIT_CONFIG` | 2, 4, 5 | `NURT_OK` | The configuration of the repository is not valid: a value cannot be parsed or a required key is missing. |
 | `E_INTERNAL` | 0, 1, 2, 3, 4, 5, 5a, 6, 7 | `NURT_E_INTERNAL` | An internal error; the report is complete up to this point. |

@@ -1600,6 +1600,7 @@ impl Fs for VirtualFs {
             total,
             available: total.saturating_sub(found.used()),
             quota_remaining: None,
+            quota_limit: None,
             purgeable_system: None,
         })
     }

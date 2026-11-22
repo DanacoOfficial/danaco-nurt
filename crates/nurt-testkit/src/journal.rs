@@ -639,8 +639,8 @@ impl JournalStore for NoopJournal {
     fn pin(&self, request: &PinRequest) -> Result<PinOutcome> {
         self.record(JournalCall::Store { method: "pin" });
         Ok(PinOutcome {
-            changed: Vec::new(),
             not_available: request.ids.clone(),
+            ..PinOutcome::default()
         })
     }
 
