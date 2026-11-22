@@ -53,8 +53,9 @@ First release.
 
 - The journal is active on volumes that keep a journal; changes on volumes held
   in memory, such as `tmpfs`, are reported as irreversible.
-- The Windows and macOS builds are compiled and checked but were not run before
-  this release; the registry provider is available only on Windows.
+- Only the Linux archive of the glibc target is built for this release. The
+  code for Windows and macOS exists, but it was neither built nor run; the
+  registry provider is available only on Windows.
 - Native extensions are not available; extensions are WebAssembly modules.
 - The subcommand `journal` offers only `salvage`; the other journal operations
   are commands of the language.
@@ -63,7 +64,6 @@ First release.
 - The commands `help`, `describe` and `evaluate` are bound and checked, but a
   program that runs them ends with `E_INTERNAL`; the subcommand `help` shows the
   help text.
-- The Linux archive is built for the glibc target only.
 - The release is not signed.
 
 [Unreleased]: https://github.com/DanacoOfficial/nurt/compare/v0.1.0...main
