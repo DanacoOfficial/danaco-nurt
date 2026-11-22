@@ -6,7 +6,7 @@
 Name:           nurt
 Version:        @RPM_VERSION@
 Release:        @RPM_RELEASE@%{?dist}
-Summary:        Command shell and language where every change can be undone
+Summary:        @DESCRIPTION@
 License:        Apache-2.0
 URL:            https://nurt.danaco-group.pl
 Source0:        %{release_url}/nurt-@VERSION@-%{target_triple}.tar.gz
@@ -78,7 +78,7 @@ sed -e 's|^prefix=.*|prefix=%{_prefix}|' \
     nurt.pc > %{buildroot}%{_libdir}/pkgconfig/nurt.pc
 
 %check
-./nurt version | head -n 1 | grep -q '^Danaco Nurt'
+./nurt version | head -n 1 | grep -q '^nurt [0-9]'
 
 %ldconfig_scriptlets -n libnurt
 

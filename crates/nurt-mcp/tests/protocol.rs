@@ -105,7 +105,7 @@ async fn tools_list_carries_the_mcp_tool_definition() {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect();
-    assert_eq!(names, ["nurt", "nurt_help"]);
+    assert_eq!(names, ["nurt", "nurt_help", "nurt_check"]);
 
     let expected =
         nurt_tooldef::definition(ToolFormat::Mcp, &RenderOptions::new(CORE_DESCRIPTION)).unwrap();
@@ -172,7 +172,56 @@ async fn unknown_tool_is_a_protocol_error() {
     assert_eq!(response["error"]["code"], -32602);
     assert_eq!(
         response["error"]["message"],
-        "unknown tool `bash`; available tools: nurt, nurt_help"
+        "unknown tool `bash`; available tools: nurt, nurt_help, nurt_check"
+    );
+}
+
+#[tokio::test]
+async fn check_tool_returns_the_check_document() {
+    let mut client = Client::start(MockBackend::new());
+    client.initialize().await;
+    let (response, _) = client.tool(1, "nurt_check", json!({"program": "ok"})).await;
+    let result = &response["result"];
+    assert_eq!(result["isError"], false);
+    assert_eq!(result["structuredContent"]["format"], "nurt-check/1");
+    assert_eq!(result["structuredContent"]["program"], "ok");
+    let rendered: Value = serde_json::from_str(text(&response)).unwrap();
+    assert_eq!(rendered, result["structuredContent"]);
+}
+
+#[tokio::test]
+async fn check_tool_reports_a_rejected_program_as_an_error_result() {
+    let mut client = Client::start(MockBackend::new());
+    client.initialize().await;
+    let (response, _) = client
+        .tool(1, "nurt_check", json!({"program": "fail"}))
+        .await;
+    assert_eq!(response["result"]["isError"], true);
+    assert_eq!(text(&response), "error E_SYNTAX: unexpected token");
+    assert_eq!(
+        response["result"]["structuredContent"]["error"]["code"],
+        "E_SYNTAX"
+    );
+}
+
+#[tokio::test]
+async fn check_tool_reports_call_and_argument_errors_as_text() {
+    let mut client = Client::start(MockBackend::new());
+    client.initialize().await;
+    let (failed, _) = client
+        .tool(1, "nurt_check", json!({"program": "call-error"}))
+        .await;
+    assert_eq!(failed["result"]["isError"], true);
+    assert_eq!(
+        text(&failed),
+        "call failed: NURT_E_IO: journal is not writable"
+    );
+    let (invalid, _) = client.tool(2, "nurt_check", json!({})).await;
+    assert_eq!(invalid["result"]["isError"], true);
+    assert!(
+        text(&invalid).contains("exactly one of"),
+        "{}",
+        text(&invalid)
     );
 }
 

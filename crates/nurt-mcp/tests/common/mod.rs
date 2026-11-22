@@ -33,8 +33,8 @@ use nurt_contracts::stage::{
     Progress,
 };
 use nurt_mcp::{
-    Backend, BackendInfo, CallError, DescribeSubject, HelpQuery, McpError, McpOptions, SchemaName,
-    serve_io,
+    Backend, BackendInfo, CallError, CheckOutcome, DescribeSubject, HelpQuery, McpError,
+    McpOptions, SchemaName, serve_io,
 };
 use serde_json::{Value, json};
 use tokio::io::{
@@ -275,6 +275,25 @@ impl Backend for MockBackend {
                 format!("unknown group `{name}`"),
             )),
             _ => Err(CallError::new(AbiStatus::Arg, "unknown layer")),
+        }
+    }
+
+    fn check(&self, request: &Request) -> Result<CheckOutcome, CallError> {
+        match request.program.as_deref().or(request.accept.as_deref()) {
+            Some("fail") => Ok(CheckOutcome::Failed(Error::new(
+                ErrorCode::Syntax,
+                "unexpected token",
+            ))),
+            Some("call-error") => Err(CallError::new(AbiStatus::Io, "journal is not writable")),
+            Some(program) => Ok(CheckOutcome::Report(json!({
+                "format": "nurt-check/1",
+                "effect": "read",
+                "reversibility": "read",
+                "operations": 1,
+                "program": program,
+                "session": request.options.session,
+            }))),
+            None => Err(CallError::new(AbiStatus::Arg, "nothing to check")),
         }
     }
 

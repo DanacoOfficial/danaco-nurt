@@ -70,6 +70,10 @@ class DebBuildTest(unittest.TestCase):
         self.assertEqual(self.field(nurt, "Maintainer"), "Danaco Official <support@danaco-group.pl>")
         self.assertEqual(self.field(nurt, "Section"), "utils")
 
+    def test_command_package_description_is_the_product_tagline(self):
+        nurt = next(p for p in self.build() if p.name.startswith("nurt_"))
+        self.assertEqual(self.field(nurt, "Description").splitlines()[0], support.product_tagline())
+
     def test_command_package_contents(self):
         nurt = next(p for p in self.build() if p.name.startswith("nurt_"))
         listing = self.contents(nurt)

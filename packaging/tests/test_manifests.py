@@ -122,7 +122,7 @@ class RenderedManifestsTest(unittest.TestCase):
         text = self.read("homebrew/nurt.rb")
         self.assertEqual(len(re.findall(r'sha256 "[0-9a-f]{64}"', text)), 4)
         self.assertEqual(len(re.findall(r'url "https://github\.com/DanacoOfficial/nurt/releases/download/', text)), 4)
-        self.assertIn('assert_match(/\\ADanaco Nurt/, shell_output("#{bin}/nurt version"))', text)
+        self.assertIn('assert_match(/\\Anurt \\d/, shell_output("#{bin}/nurt version"))', text)
 
     def test_homebrew_core_formula_builds_from_source_archive(self):
         text = self.read("homebrew/core/nurt.rb")
@@ -141,9 +141,9 @@ class RenderedManifestsTest(unittest.TestCase):
 
 
 # Product description required in every package manifest and package manager
-# listing. The value comes from the product text decision; no other literal of it
-# exists in this suite.
-PRODUCT_DESCRIPTION = "Command shell and language where every change can be undone"
+# listing: the constant TAGLINE of nurt_contracts::product. The suite holds no
+# literal of it.
+PRODUCT_DESCRIPTION = support.product_tagline()
 
 
 class ProductDescriptionTest(unittest.TestCase):
@@ -173,7 +173,8 @@ class ProductDescriptionTest(unittest.TestCase):
         self.assertFalse(PRODUCT_DESCRIPTION.endswith("."))
 
     def test_deb_summary_uses_product_description(self):
-        self.assertIn(f'summary="{PRODUCT_DESCRIPTION}"\n', self.deb_script)
+        self.assertIn("summary=$(read_tagline)\n", self.deb_script)
+        self.assertNotIn(PRODUCT_DESCRIPTION, self.deb_script)
         self.assertIn('"Description: $summary" \\\n', self.deb_script)
 
     def test_rpm_summary_uses_product_description(self):

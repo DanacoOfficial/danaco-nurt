@@ -61,20 +61,20 @@ class VersionTest(unittest.TestCase):
             render.parse_version("1.0")
 
     def test_derives_package_versions_of_a_pre_release(self):
-        values = render.release_values("1.2.3-rc.1", None)
+        values = render.release_values("1.2.3-rc.1", None, "description")
         self.assertEqual(values["DEB_VERSION"], "1.2.3~rc.1")
         self.assertEqual(values["RPM_VERSION"], "1.2.3")
         self.assertEqual(values["RPM_RELEASE"], "0.rc.1")
         self.assertEqual(values["CHOCO_VERSION"], "1.2.3-rc1")
 
     def test_derives_package_versions_of_a_release(self):
-        values = render.release_values("1.2.3", None)
+        values = render.release_values("1.2.3", None, "description")
         self.assertEqual(values["DEB_VERSION"], "1.2.3")
         self.assertEqual(values["RPM_RELEASE"], "1")
         self.assertEqual(values["CHOCO_VERSION"], "1.2.3")
 
     def test_formats_dates_from_the_epoch(self):
-        values = render.release_values("1.2.3", 1798000000)
+        values = render.release_values("1.2.3", 1798000000, "description")
         self.assertEqual(values["DATE"], "2026-12-23")
         self.assertEqual(values["RPM_DATE"], "Wed Dec 23 2026")
 
@@ -82,7 +82,7 @@ class VersionTest(unittest.TestCase):
 class RenderTextTest(unittest.TestCase):
     def setUp(self):
         self.digests = render.parse_checksums(checksums_text("1.0.0"))
-        self.values = render.release_values("1.0.0", None)
+        self.values = render.release_values("1.0.0", None, "description")
 
     def render(self, text):
         return render.render_text(text, self.values, self.digests, "1.0.0", "template")
@@ -90,6 +90,19 @@ class RenderTextTest(unittest.TestCase):
     def test_substitutes_version_and_digest(self):
         out = self.render("v@VERSION@ @SHA256:x86_64-pc-windows-msvc@")
         self.assertEqual(out, f"v1.0.0 {DIGEST}")
+
+    def test_expands_description_placeholder(self):
+        text = render.render_text("@DESCRIPTION@", {"DESCRIPTION": "text"}, {}, "1.0.0", "t")
+        self.assertEqual(text, "text")
+
+    def test_reads_tagline_constant_from_a_source_file(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "product.rs"
+            source.write_text('pub const TAGLINE: &str =\n    "Example text";\n', encoding="utf-8")
+            self.assertEqual(render.read_tagline(source), "Example text")
+            source.write_text("pub const OTHER: &str = \"x\";\n", encoding="utf-8")
+            with self.assertRaises(render.RenderError):
+                render.read_tagline(source)
 
     def test_rejects_unknown_placeholder(self):
         with self.assertRaises(render.RenderError):

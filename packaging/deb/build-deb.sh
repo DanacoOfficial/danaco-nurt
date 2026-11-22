@@ -19,7 +19,13 @@ here=$(cd "$(dirname "$0")" && pwd)
 
 maintainer="Danaco Official <support@danaco-group.pl>"
 homepage="https://nurt.danaco-group.pl"
-summary="Command shell and language where every change can be undone"
+product_source=${NURT_PRODUCT_SOURCE:-$here/../../crates/nurt-contracts/src/product.rs}
+
+read_tagline() {
+    [ -f "$product_source" ] || fail "product texts not found: $product_source"
+    tr '\n' ' ' <"$product_source" |
+        sed -n 's/.*pub const TAGLINE: &str =[[:space:]]*"\([^"]*\)".*/\1/p'
+}
 
 usage() {
     echo "usage: build-deb.sh --artifact PATH --version VERSION --arch amd64|arm64 --output DIR" >&2
@@ -30,6 +36,9 @@ fail() {
     echo "build-deb.sh: $*" >&2
     exit 1
 }
+
+summary=$(read_tagline)
+[ -n "$summary" ] || fail "TAGLINE not found in $product_source"
 
 artifact=
 version=

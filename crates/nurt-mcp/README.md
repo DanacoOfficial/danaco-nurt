@@ -26,8 +26,9 @@ The server negotiates the protocol versions `2024-11-05`, `2025-03-26`, `2025-06
 |---|---|---|
 | `nurt` | the request `nurt-request/1`: one of `program`, `ast`, `cursor`, `accept`, and the call options (`preview`, `format`, `limit`, `session`, ...) at the top level | `content[0]`: the report rendered in `format` (default `text`); `structuredContent`: the report `nurt-report/1` |
 | `nurt_help` | `topic`, `kind`, `examples`, `language` | built-in help as text |
+| `nurt_check` | one of `program` and `accept`; optional `session` | `content[0]` and `structuredContent`: the document `nurt-check/1` with the member `bound`; `isError: true` with `structuredContent.error` when the program is rejected |
 
-The definition of `nurt` is the `mcp` format of `nurt schema tool`. A result has `isError: true` only when the report carries an error or the call itself failed. The tool `nurt` is annotated `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: true`; `nurt_help` is read-only.
+The definition of `nurt` is the `mcp` format of `nurt schema tool`. A result has `isError: true` only when the report carries an error or the call itself failed. The tool `nurt` is annotated `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: true`; `nurt_help` and `nurt_check` are read-only; `nurt_check` binds and plans the program and does not run it.
 
 ## Resources
 

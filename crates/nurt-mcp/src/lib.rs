@@ -62,7 +62,7 @@ use rmcp::service::ServerInitializeError;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 pub use crate::backend::{
-    Backend, BackendInfo, CallError, DescribeSubject, HelpKind, HelpQuery, SchemaName,
+    Backend, BackendInfo, CallError, CheckOutcome, DescribeSubject, HelpKind, HelpQuery, SchemaName,
 };
 pub use crate::error::McpError;
 #[cfg(feature = "http")]

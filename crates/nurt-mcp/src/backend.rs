@@ -11,7 +11,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use nurt_contracts::envelope::{Language, Request, Response};
-use nurt_contracts::error::AbiStatus;
+use nurt_contracts::error::{AbiStatus, Error};
 use nurt_contracts::stage::{CancelToken, EventSink};
 use serde::{Deserialize, Serialize};
 
@@ -61,6 +61,25 @@ pub trait Backend: Send + Sync + 'static {
     ///
     /// Returns a [`CallError`] when the schema cannot be produced.
     fn schema(&self, name: SchemaName) -> Result<String, CallError>;
+
+    /// Binds and plans a request and reports what running it would touch,
+    /// without running it.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`CallError`] when the request cannot be handled at all; a
+    /// language error of the program is the [`CheckOutcome::Failed`] value.
+    fn check(&self, request: &Request) -> Result<CheckOutcome, CallError>;
+}
+
+/// Result of a check without effect.
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub enum CheckOutcome {
+    /// The check document `nurt-check/1` with the member `bound`.
+    Report(serde_json::Value),
+    /// The program was rejected before the check completed.
+    Failed(Error),
 }
 
 /// Version and limits of the engine.

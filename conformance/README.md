@@ -413,8 +413,8 @@ and the expected states of conformance cases, benchmark tasks and examples of
 the documentation. Schema:
 the published schema `nurt-fs-snapshot/1` of the specification
 (`spec/schemas/nurt-fs-snapshot-1.schema.json`). The suite validates snapshots
-against it, after taking out the member `exhaustive`, which only the suite
-defines, and adding `format` to a snapshot embedded in a case.
+against it, adding `format` to a snapshot embedded in a case. The member
+`exhaustive` is part of the published schema.
 
 ```json
 {

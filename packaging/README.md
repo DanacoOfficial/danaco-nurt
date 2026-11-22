@@ -18,7 +18,7 @@ Danaco Nurt is a command shell and language where every change can be undone. Th
 | Linux, macOS | `curl -fsSL https://nurt.danaco-group.pl/install.sh \| sh` |
 | Windows | `irm https://nurt.danaco-group.pl/install.ps1 \| iex` |
 
-The installed program is checked with `nurt version`; the first output line is `Danaco Nurt`.
+The installed program is checked with `nurt version`; the first output line has the form `nurt <version>`.
 
 ### apt repository
 

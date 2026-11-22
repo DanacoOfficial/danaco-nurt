@@ -1,5 +1,5 @@
 class Nurt < Formula
-  desc "Command shell and language where every change can be undone"
+  desc "@DESCRIPTION@"
   homepage "https://nurt.danaco-group.pl"
   version "@VERSION@"
   license "Apache-2.0"
@@ -35,6 +35,6 @@ class Nurt < Formula
   end
 
   test do
-    assert_match(/\ADanaco Nurt/, shell_output("#{bin}/nurt version"))
+    assert_match(/\Anurt \d/, shell_output("#{bin}/nurt version"))
   end
 end

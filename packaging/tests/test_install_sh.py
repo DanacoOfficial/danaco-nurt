@@ -48,7 +48,7 @@ class InstallScriptTest(unittest.TestCase):
     def test_installs_latest_release_and_runs(self):
         result = self.install()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue(self.installed_version_line().startswith("Danaco Nurt"))
+        self.assertTrue(self.installed_version_line().startswith("nurt 0.1.0"))
         self.assertIn(f"installed nurt {support.VERSION}", result.stderr)
 
     def test_installs_requested_version(self):
@@ -113,7 +113,7 @@ class InstallScriptTest(unittest.TestCase):
         (self.bin_dir / "nurt").write_text("old", encoding="utf-8")
         result = self.install()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue(self.installed_version_line().startswith("Danaco Nurt"))
+        self.assertTrue(self.installed_version_line().startswith("nurt 0.1.0"))
 
     def test_requires_valid_signature_when_public_key_is_given(self):
         if shutil.which("gpg") is None:
