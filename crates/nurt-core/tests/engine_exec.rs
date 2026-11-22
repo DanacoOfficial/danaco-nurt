@@ -394,25 +394,44 @@ fn preview_plans_the_changes_without_applying_them() {
     assert!(world.journal.committed().is_empty());
 }
 
-#[test]
-fn execution_without_journal_is_unsupported() {
+fn engine_without_journal() -> Engine {
     let clock = Arc::new(VirtualClock::new());
     let vfs = Arc::new(VirtualFs::new(clock.clone()));
-    let frontend = Programs::default().with("find /data", program(find_stage(), Vec::new()));
-    let engine = Engine::open(
+    vfs.create_dir_all(&test_path("/data").unwrap()).unwrap();
+    vfs.write_file(&test_path("/data/a.log").unwrap(), b"x")
+        .unwrap();
+    let frontend = Programs::default()
+        .with("find /data", program(find_stage(), Vec::new()))
+        .with(
+            "find /data |> remove",
+            program(find_stage(), vec![remove_stage()]),
+        );
+    Engine::open(
         EngineConfig::new(clock, Arc::new(TestHost::linux()))
             .with_sources(ConfigSources::isolated())
             .without_state_dir()
             .with_fs(vfs)
             .with_frontend(Arc::new(frontend))
-            .with_stage(Arc::new(Find)),
+            .with_stage(Arc::new(Find))
+            .with_stage(Arc::new(Remove)),
     )
-    .unwrap();
-    let response = engine.run(&Request::program("find /data"));
+    .unwrap()
+}
+
+#[test]
+fn read_only_program_runs_without_journal() {
+    let response = engine_without_journal().run(&Request::program("find /data"));
+    response.validate().unwrap();
+    assert!(response.report.error.is_none());
+    assert!(response.report.records.is_some());
+}
+
+#[test]
+fn program_with_effects_fails_without_journal() {
+    let response = engine_without_journal().run(&Request::program("find /data |> remove"));
     response.validate().unwrap();
     let error = response.report.error.as_ref().unwrap();
-    assert_eq!(error.code, ErrorCode::Unsupported);
-    assert!(error.message.contains("journal"));
+    assert_eq!(error.code, ErrorCode::StageFailed);
 }
 
 #[test]

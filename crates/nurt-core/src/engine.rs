@@ -17,8 +17,10 @@
 //! `cursor` reads a kept page and runs nothing. The reports of executed
 //! programs and of programs that fail before execution are assembled by the
 //! report rules, and every response carries the rendered result for the
-//! requested format. Executing a program needs a file system and a journal in
-//! the [`EngineConfig`]; without them the request fails with `E_UNSUPPORTED`.
+//! requested format. Executing a program needs a file system in the
+//! [`EngineConfig`]; without it the request fails with `E_UNSUPPORTED`. A
+//! program with effects also needs a journal, and fails at its apply step
+//! without one; a program that only reads runs without a journal.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -85,8 +87,10 @@ const FIXTURES_FEATURE: &str = "fixtures";
 /// The clock and the host are always given; the file system, the journal,
 /// the language front end and the services of other command groups are
 /// optional. Without a front end every program fails with `E_UNSUPPORTED`;
-/// without a file system or a journal a program fails the same way when it is
-/// executed, and without a journal `history` and `space` fail too.
+/// without a file system a program fails the same way when it is executed.
+/// Without a journal programs that only read still run, programs with effects
+/// fail at their apply step, and `history` and `space` fail with
+/// `E_UNSUPPORTED`.
 ///
 /// # Examples
 ///
@@ -880,23 +884,20 @@ impl Engine {
             .fs
             .clone()
             .ok_or_else(|| unavailable("file system"))?;
-        let journal = self
-            .inner
-            .journal
-            .clone()
-            .ok_or_else(|| unavailable("journal"))?;
-        let mut env = ExecEnv::new(
-            Arc::clone(&self.inner.registry),
-            fs,
-            journal,
-            Arc::clone(&self.inner.clock),
-            Arc::clone(&self.inner.host),
-        )
-        .with_config(Arc::new(prepared.config.config().clone()))
-        .with_options(Arc::new(prepared.options.clone()))
-        .with_services(Arc::clone(&self.inner.services))
-        .with_cancel(cancel.clone())
-        .with_timeout(prepared.timeout);
+        let registry = Arc::clone(&self.inner.registry);
+        let clock = Arc::clone(&self.inner.clock);
+        let host = Arc::clone(&self.inner.host);
+        let base = match self.inner.journal.clone() {
+            Some(journal) => ExecEnv::new(registry, fs, journal, clock, host),
+            None => ExecEnv::read_only(registry, fs, clock, host),
+        };
+        let mut env = base
+            .with_extension(Arc::clone(&self.inner.read_cache))
+            .with_config(Arc::new(prepared.config.config().clone()))
+            .with_options(Arc::new(prepared.options.clone()))
+            .with_services(Arc::clone(&self.inner.services))
+            .with_cancel(cancel.clone())
+            .with_timeout(prepared.timeout);
         if let Some(events) = events {
             env = env.with_events(events);
         }
