@@ -26,6 +26,7 @@ mod commands {
     pub(crate) mod find;
     pub(crate) mod hash;
     pub(crate) mod list;
+    pub(crate) mod read;
 }
 
 /// Stage implementations of the commands of this crate.
@@ -42,6 +43,7 @@ pub fn stages() -> Vec<Arc<dyn StageImpl>> {
         commands::find::stages(),
         commands::hash::stages(),
         commands::list::stages(),
+        commands::read::stages(),
     ]
     .into_iter()
     .flatten()
