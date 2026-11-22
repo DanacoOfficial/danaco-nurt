@@ -809,6 +809,19 @@ The record shows no expiry time and nothing from which one could be derived.
 | `manifest_sha256` | text | yes | Hash of the manifest of the entry. |
 | `chain` | text | no | Hash of the manifest of the previous entry of the account; absent for the first entry. |
 | `pinned` | bool | yes | Protected from expiry by steps, age and size, but not from the need for space. |
+| `items` | list<object [`OperationItem`](#operationitem)> | no | Items of the entry; present only when details are requested, and empty for an expired entry. |
+
+#### OperationItem
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `path` | path | yes | Target of the item. |
+| `action` | text | yes | Action on the target, the name of the journal target action, for example `create`, `modify` or `rename`. |
+| `mode` | text | yes | Preserve mode of the previous content, for example `clone` or `none`. |
+| `before_hash` | text | no | Hash of the content before the operation; absent when there was none. |
+| `after_hash` | text | no | Hash of the content after the operation; absent when there is none. |
+| `undone` | bool | yes | The item has been undone. |
+| `released` | bool | yes | The preserved previous content of the item has been released. |
 
 ### response
 
