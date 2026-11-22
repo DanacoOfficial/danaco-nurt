@@ -151,7 +151,7 @@ fn mass_delete_by_bytes_at_default_threshold() {
     let found = derive(&ctx, &[deleted_file("/srv/data/image.iso", GIB)]);
     let entry = single(&found, Notable::MassDelete).unwrap();
     assert_eq!(entry.path.as_deref(), Some("/srv/data/image.iso"));
-    assert_eq!(entry.detail.as_deref(), Some("1 file, 1gib"));
+    assert_eq!(entry.detail.as_deref(), Some("1 file, 1.0gib"));
 }
 
 #[test]
@@ -296,7 +296,7 @@ fn size_shrunk_at_default_ratio() {
     let found = derive(&ctx, &[resized("/srv/app/log.txt", 4096, 1024)]);
     let entry = single(&found, Notable::SizeShrunk).unwrap();
     assert_eq!(entry.severity, Severity::Warning);
-    assert_eq!(entry.detail.as_deref(), Some("from 4kib to 1kib"));
+    assert_eq!(entry.detail.as_deref(), Some("from 4.0kib to 1.0kib"));
 }
 
 #[test]

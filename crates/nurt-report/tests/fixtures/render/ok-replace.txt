@@ -1,8 +1,8 @@
 op 18  replace  ok
-targets 3 files · replacements 7 · lines +7 −7 · 42.2kb → 42.3kb
-  /srv/app/src/a.go    3 repl  1.1kb → 1.1kb    1a2b3c4d → 9f8e7d6c
-  /srv/app/src/b.go    2 repl  8.2kb → 8.2kb    5e5e5e5e → 77aa77aa
-  /srv/app/src/c/d.go  2 repl  32.9kb → 33.0kb  0badc0de → c0ffee00
+targets 3 files · replacements 7 · lines +7 −7 · 41.2kib → 41.3kib
+  /srv/app/src/a.go    3 repl  1.1kib → 1.1kib    1a2b3c4d → 9f8e7d6c
+  /srv/app/src/b.go    2 repl  8.0kib → 8.0kib    5e5e5e5e → 77aa77aa
+  /srv/app/src/c/d.go  2 repl  32.1kib → 32.2kib  0badc0de → c0ffee00
 diff (3 hunks)
   /srv/app/src/a.go:12
     - func oldName(x int) {

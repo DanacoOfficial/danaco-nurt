@@ -90,17 +90,19 @@ fn formats_sizes_with_the_largest_exact_unit() {
 
 #[test]
 fn displays_sizes_in_the_short_report_form() {
-    let cases: [(u64, &str); 10] = [
+    let cases: [(u64, &str); 12] = [
         (0, "0b"),
         (12, "12b"),
-        (999, "999b"),
-        (1_000, "1.0kb"),
-        (8_000, "8.0kb"),
-        (41_230, "41.2kb"),
-        (999_949, "999.9kb"),
-        (999_950, "1.0mb"),
-        (3_400_000_000, "3.4gb"),
-        (u64::MAX, "18446744.1tb"),
+        (1_023, "1023b"),
+        (1_024, "1.0kib"),
+        (8_192, "8.0kib"),
+        (42_189, "41.2kib"),
+        (1_048_524, "1023.9kib"),
+        (1_048_525, "1.0mib"),
+        (3_650_722_201, "3.4gib"),
+        (1 << 40, "1.0tib"),
+        (1 << 60, "1.0eib"),
+        (u64::MAX, "16.0eib"),
     ];
     for (bytes, text) in cases {
         assert_eq!(display_size(Size::from_bytes(bytes)), text, "{bytes}");
@@ -287,7 +289,7 @@ fn short_form_covers_every_kind_of_value() {
             Value::BigInt("9223372036854775808".to_owned()),
             "9223372036854775808",
         ),
-        (Value::Size(Size::from_bytes(41_230)), "41.2kb"),
+        (Value::Size(Size::from_bytes(42_189)), "41.2kib"),
         (Value::Duration(Duration::from_millis(1_240)), "1.2s"),
         (Value::Instant(instant), "2026-11-21T10:00:00Z"),
         (Value::Path("/srv/app".to_owned()), "/srv/app"),
@@ -337,9 +339,9 @@ proptest! {
     }
 
     #[test]
-    fn short_size_has_no_more_than_three_integer_digits_below_a_petabyte(bytes in 0_u64..1_000_000_000_000_000) {
+    fn short_size_has_no_more_than_four_integer_digits_below_a_pebibyte(bytes in 0_u64..(1_u64 << 50)) {
         let text = display_size(Size::from_bytes(bytes));
         let integer_digits = text.chars().take_while(char::is_ascii_digit).count();
-        prop_assert!(integer_digits <= 3, "{}", text);
+        prop_assert!(integer_digits <= 4, "{}", text);
     }
 }

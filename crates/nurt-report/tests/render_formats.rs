@@ -232,8 +232,8 @@ fn entries_with_a_depth_are_drawn_as_a_tree_in_text() {
         "tree  matched 5 \u{b7} shown 5",
         "app/",
         "|-- src/",
-        "|   |-- a.go  1.1kb",
-        "|   `-- b.go  8.2kb",
+        "|   |-- a.go  1.1kib",
+        "|   `-- b.go  8.0kib",
         "`-- README  12b",
     ]
     .join("\n");
@@ -259,8 +259,8 @@ fn the_fields_option_keeps_the_named_fields_in_the_given_order() {
     let expected = [
         "find  matched 148 \u{b7} shown 2 \u{b7} next cursor c_91fe",
         "name  size",
-        "a.go  1.1kb",
-        "b.go  8.2kb",
+        "a.go  1.1kib",
+        "b.go  8.0kib",
     ]
     .join("\n");
     assert_eq!(render(&golden_report("ok-read"), &options), expected);
@@ -291,8 +291,8 @@ fn the_max_chars_option_shortens_text_fields_and_marks_the_record() {
 fn compact_output_has_one_record_per_line_without_headings() {
     let expected = [
         "report kind=find status=ok",
-        "entry path=/srv/app/src/a.go name=a.go type=file size=1.1kb modified=2026-11-21T09:12:00Z",
-        "entry path=/srv/app/src/b.go name=b.go type=file size=8.2kb modified=2026-11-20T17:40:12Z",
+        "entry path=/srv/app/src/a.go name=a.go type=file size=1.1kib modified=2026-11-21T09:12:00Z",
+        "entry path=/srv/app/src/b.go name=b.go type=file size=8.0kib modified=2026-11-20T17:40:12Z",
         "next cursor=c_91fe",
     ]
     .join("\n");
@@ -332,8 +332,8 @@ fn markdown_output_writes_a_heading_and_a_table_for_a_read() {
         "",
         "| path | name | type | size | modified |",
         "|---|---|---|---|---|",
-        "| /srv/app/src/a.go | a.go | file | 1.1kb | 2026-11-21T09:12:00Z |",
-        "| /srv/app/src/b.go | b.go | file | 8.2kb | 2026-11-20T17:40:12Z |",
+        "| /srv/app/src/a.go | a.go | file | 1.1kib | 2026-11-21T09:12:00Z |",
+        "| /srv/app/src/b.go | b.go | file | 8.0kib | 2026-11-20T17:40:12Z |",
         "",
         "next cursor `c_91fe`",
     ]

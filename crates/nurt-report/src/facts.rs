@@ -530,7 +530,7 @@ mod tests {
 
     #[test]
     fn writes_typed_values_in_notation() {
-        assert_eq!(value_text(&Value::Size(Size::from_bytes(1127))), "1.1kb");
+        assert_eq!(value_text(&Value::Size(Size::from_bytes(1127))), "1.1kib");
         assert_eq!(
             value_text(&Value::Duration(Duration::from_millis(12_400))),
             "12.4s"
@@ -556,7 +556,7 @@ mod tests {
         change.hash_after = Some("sha256:9f8e7d6c".to_owned());
         let cells = change_cells(&change);
         assert_eq!(cells.detail, "3 repl");
-        assert_eq!(cells.sizes, "1.1kb \u{2192} 1.1kb");
+        assert_eq!(cells.sizes, "1.1kib \u{2192} 1.1kib");
         assert_eq!(cells.hashes, "1a2b3c4d \u{2192} 9f8e7d6c");
     }
 
@@ -564,7 +564,7 @@ mod tests {
     fn describes_creation_and_deletion_sizes() {
         let mut created = Change::new("/a", ChangeAction::Create);
         created.size_after = Some(Size::from_bytes(2150));
-        assert_eq!(change_cells(&created).sizes, "0 \u{2192} 2.2kb");
+        assert_eq!(change_cells(&created).sizes, "0 \u{2192} 2.1kib");
         let mut deleted = Change::new("/b", ChangeAction::Delete);
         deleted.size_before = Some(Size::from_bytes(12));
         let cells = change_cells(&deleted);
