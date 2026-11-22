@@ -139,7 +139,7 @@ coverage_cases! {
     remove_overlay_exdev_is_undone_and_redone => Table(&[("remove", None)]), LowerOverlayLayer, procedure::round_trip;
     remove_content_is_undone_and_redone => Table(&[("remove", Some("records"))]), Plain, procedure::round_trip;
     remove_item_is_undone_and_redone => Table(&[("remove", Some("item"))]), Plain, procedure::round_trip;
-    remove_job_is_marked_irreversible => Table(&[("remove", Some("job"))]), Plain, procedure::round_trip;
+    remove_job_changes_nothing => Table(&[("remove", Some("job"))]), Plain, procedure::round_trip;
     #[cfg(target_os = "windows")]
     remove_registry_is_undone_and_redone => Table(&[("remove", Some("registry"))]), Plain, procedure::round_trip;
     rename_is_undone_and_redone => Table(&[("rename", None)]), Plain, procedure::round_trip;
@@ -241,6 +241,7 @@ coverage_cases! {
     git_branch_rename_is_undone_and_redone => Table(&[("git.branch", Some("rename"))]), Plain, procedure::round_trip;
     git_branch_delete_is_undone_and_redone => Table(&[("git.branch", Some("delete"))]), Plain, procedure::round_trip;
     git_branch_delete_packed_is_undone_and_redone => Table(&[("git.branch", Some("delete"))]), Plain, procedure::round_trip;
+    git_branch_purge_is_undone_and_redone => Table(&[("git.branch", Some("purge"))]), Plain, procedure::round_trip;
     git_branch_changes_nothing => Table(&[("git.branch", None)]), Plain, procedure::round_trip;
     git_stage_add_is_undone_and_redone => Table(&[("git.stage", Some("add"))]), Plain, procedure::round_trip;
     git_stage_hunks_is_undone_and_redone => Table(&[("git.stage", Some("add"))]), Plain, procedure::round_trip;
@@ -262,7 +263,7 @@ coverage_cases! {
     git_commit_signed_is_undone_and_redone => Table(&[("git.commit", None)]), Plain, procedure::round_trip;
     git_commit_amend_is_undone_and_redone => Table(&[("git.commit", Some("amend"))]), Plain, procedure::round_trip;
     git_commit_hooks_is_undone_or_marked_irreversible => Table(&[("git.commit", Some("hooks"))]), Plain, procedure::round_trip;
-    git_tag_create_is_undone_and_redone => Table(&[("git.tag", Some("create"))]), Plain, procedure::round_trip;
+    git_tag_create_is_undone_and_redone => Table(&[("git.tag", Some("name"))]), Plain, procedure::round_trip;
     git_tag_delete_is_undone_and_redone => Table(&[("git.tag", Some("delete"))]), Plain, procedure::round_trip;
     git_tag_changes_nothing => Table(&[("git.tag", None)]), Plain, procedure::round_trip;
     git_fetch_is_undone_and_redone => Table(&[("git.fetch", None)]), Plain, procedure::round_trip;

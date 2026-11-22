@@ -21,18 +21,18 @@ const READ_ONLY_COMMANDS: usize = 75;
 /// Rows of the table. A source row that lists several catalog actions is
 /// split into one row per action (`http.request` with the methods `post`,
 /// `put`, `patch`, `delete` and `options`).
-const ROWS: usize = 235;
+const ROWS: usize = 236;
 /// Rows per coverage value.
-const ROWS_FULL: usize = 111;
+const ROWS_FULL: usize = 112;
 const ROWS_PARTIAL: usize = 17;
-const ROWS_NONE: usize = 22;
-const ROWS_NO_EFFECT: usize = 85;
+const ROWS_NONE: usize = 21;
+const ROWS_NO_EFFECT: usize = 86;
 /// Distinct row sets exercised by the cases: one per source row of the
 /// table, and one per parameter common to every command.
 const SOURCE_ROWS: usize = 231;
 const COMMON_PARAMETERS: usize = 5;
 /// Coverage cases, one per test function.
-const CASE_COUNT: usize = 277;
+const CASE_COUNT: usize = 278;
 
 fn rows_by_command(table: &CoverageTable) -> BTreeMap<&str, Vec<&table::Row>> {
     let mut by_command: BTreeMap<&str, Vec<&table::Row>> = BTreeMap::new();
