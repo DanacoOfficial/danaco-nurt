@@ -1,0 +1,9 @@
+{
+  "description": "Canonical text of a one-stage tree in the word notation.",
+  "function": "print",
+  "input": {
+    "ast": {"nurt": "1.0", "pipelines": [{"stages": [{"command": "find", "args": ["/srv/app"]}]}]},
+    "variant": "a"
+  },
+  "output": ["find \"/srv/app\""]
+}

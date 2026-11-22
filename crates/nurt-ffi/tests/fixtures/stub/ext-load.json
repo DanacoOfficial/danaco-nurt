@@ -1,0 +1,6 @@
+{
+  "description": "Extension loaded from its manifest.",
+  "function": "ext_load",
+  "input": "/opt/nurt/ext/sample/nurt-ext.toml",
+  "output": []
+}

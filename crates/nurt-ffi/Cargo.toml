@@ -1,7 +1,6 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
-
 [package]
 name = "nurt-ffi"
 description = "C ABI of the Danaco Nurt library."
@@ -20,7 +19,19 @@ workspace = true
 [lib]
 crate-type = ["rlib", "cdylib", "staticlib"]
 
+[features]
+# Test double of the engine that answers from a directory of recorded cases.
+# Used by the interface tests of embedding applications; never enabled in a
+# release build.
+stub = ["dep:serde_json_canonicalizer", "dep:sha2"]
+
 [dependencies]
 nurt-contracts = { workspace = true }
 nurt-core = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
+serde_json_canonicalizer = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
