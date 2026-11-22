@@ -42,6 +42,9 @@ defaults:
   run:
     shell: bash
 
+# The build cache of every job is keyed by the job, the operating system, the
+# compiler version (RUSTC_VERSION, set by the toolchain step) and Cargo.lock.
+
 jobs:
   fmt:
     name: Format
@@ -69,10 +72,20 @@ jobs:
         with:
           persist-credentials: false
       - name: Install toolchain
-        run: rustup toolchain install && rustup show active-toolchain
-      - uses: Swatinem/rust-cache@v2
+        run: |
+          rustup toolchain install && rustup show active-toolchain
+          echo "RUSTC_VERSION=$(rustc --version | cut -d ' ' -f 2)" >> "$GITHUB_ENV"
+      - name: Cache dependencies and build output
+        uses: actions/cache@v4
         with:
-          key: clippy
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: clippy-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            clippy-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
@@ -89,10 +102,20 @@ jobs:
         with:
           persist-credentials: false
       - name: Install toolchain
-        run: rustup toolchain install && rustup show active-toolchain
-      - uses: Swatinem/rust-cache@v2
+        run: |
+          rustup toolchain install && rustup show active-toolchain
+          echo "RUSTC_VERSION=$(rustc --version | cut -d ' ' -f 2)" >> "$GITHUB_ENV"
+      - name: Cache dependencies and build output
+        uses: actions/cache@v4
         with:
-          key: test
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: test-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            test-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
         continue-on-error: true
@@ -122,9 +145,18 @@ jobs:
         run: |
           rustup toolchain install
           rustup component add llvm-tools-preview
-      - uses: Swatinem/rust-cache@v2
+          echo "RUSTC_VERSION=$(rustc --version | cut -d ' ' -f 2)" >> "$GITHUB_ENV"
+      - name: Cache dependencies and build output
+        uses: actions/cache@v4
         with:
-          key: coverage
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: coverage-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            coverage-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-
       - name: Install cargo-llvm-cov and cargo-nextest
         uses: taiki-e/install-action@v2
         with:
@@ -159,10 +191,20 @@ jobs:
         with:
           persist-credentials: false
       - name: Install toolchain
-        run: rustup toolchain install && rustup show active-toolchain
-      - uses: Swatinem/rust-cache@v2
+        run: |
+          rustup toolchain install && rustup show active-toolchain
+          echo "RUSTC_VERSION=$(rustc --version | cut -d ' ' -f 2)" >> "$GITHUB_ENV"
+      - name: Cache dependencies and build output
+        uses: actions/cache@v4
         with:
-          key: docs
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: docs-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            docs-${{ runner.os }}-rustc-${{ env.RUSTC_VERSION }}-
       - name: Build documentation
         run: cargo doc --workspace --no-deps --locked
 
@@ -205,8 +247,17 @@ jobs:
         run: |
           rustup toolchain install
           rustup target add "${{ matrix.target }}"
-      - uses: Swatinem/rust-cache@v2
+          echo "RUSTC_VERSION=$(rustc --version | cut -d ' ' -f 2)" >> "$GITHUB_ENV"
+      - name: Cache dependencies and build output
+        uses: actions/cache@v4
         with:
-          key: cross-${{ matrix.target }}
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cross-${{ matrix.target }}-rustc-${{ env.RUSTC_VERSION }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cross-${{ matrix.target }}-rustc-${{ env.RUSTC_VERSION }}-
       - name: Check the contract crate
         run: cargo check -p nurt-contracts --all-targets --locked --target "${{ matrix.target }}"

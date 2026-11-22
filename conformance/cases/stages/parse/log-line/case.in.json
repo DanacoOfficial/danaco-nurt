@@ -1,0 +1,8 @@
+{"program": "lines \"/home/user/app.log\" |> parse /(?<level>[A-Z]+) (?<message>.*)/",
+ "command": "parse",
+ "args": {"pattern": {"kind": "value", "value": {"t": "regex", "v": {"pattern": "(?<level>[A-Z]+) (?<message>.*)"}}}},
+ "input": [
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/app.log"}, "no": {"t": "int", "v": 1}, "text": {"t": "text", "v": "INFO started"}}},
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/app.log"}, "no": {"t": "int", "v": 2}, "text": {"t": "text", "v": "--"}}},
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/app.log"}, "no": {"t": "int", "v": 3}, "text": {"t": "text", "v": "ERROR disk full"}}}
+ ]}

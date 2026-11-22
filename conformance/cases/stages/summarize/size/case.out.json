@@ -1,0 +1,3 @@
+{"records": [
+  {"kind": "summary", "fields": {"field": {"t": "text", "v": "size"}, "count": {"t": "int", "v": 3}, "sum": {"t": "size", "v": 8400}, "min": {"t": "size", "v": 900}, "max": {"t": "size", "v": 5100}, "average": {"t": "size", "v": 2800}}}
+]}

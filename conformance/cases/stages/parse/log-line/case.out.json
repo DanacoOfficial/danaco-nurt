@@ -1,0 +1,4 @@
+{"records": [
+  {"kind": "row", "fields": {"path": {"t": "path", "v": "/home/user/app.log"}, "no": {"t": "int", "v": 1}, "cells": {"t": "map", "v": {"level": {"t": "text", "v": "INFO"}, "message": {"t": "text", "v": "started"}}}}},
+  {"kind": "row", "fields": {"path": {"t": "path", "v": "/home/user/app.log"}, "no": {"t": "int", "v": 3}, "cells": {"t": "map", "v": {"level": {"t": "text", "v": "ERROR"}, "message": {"t": "text", "v": "disk full"}}}}}
+]}

@@ -1,0 +1,186 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+name: dotnet-binding
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bindings/dotnet/**"
+      - "crates/nurt-ffi/**"
+      - "conformance/bindings/**"
+      - "spec/schemas/**"
+  pull_request:
+    paths:
+      - "bindings/dotnet/**"
+      - "crates/nurt-ffi/**"
+      - "conformance/bindings/**"
+      - "spec/schemas/**"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag whose native artifacts are packed, for example v0.1.0
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+defaults:
+  run:
+    shell: bash
+    working-directory: bindings/dotnet
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package version matches the workspace version
+        run: |
+          workspace=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' ../../Cargo.toml)
+          package=$(sed -n 's:.*<Version Condition="[^"]*">\(.*\)</Version>.*:\1:p' Directory.Build.props)
+          test -n "$workspace" && test "$workspace" = "$package"
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: bindings/dotnet/global.json
+      - name: Build
+        run: dotnet build Binding.sln -c Release
+      - name: Test
+        run: dotnet test Binding.sln -c Release --no-build --collect "XPlat Code Coverage" --results-directory TestResults
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: dotnet-coverage
+          path: bindings/dotnet/TestResults/**/coverage.cobertura.xml
+
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: bindings/dotnet/global.json
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - name: Build the libnurt stub and nurt-conformance
+        working-directory: .
+        run: |
+          cargo build --locked --release -p nurt-ffi --features stub
+          cargo build --locked --release -p nurt-conformance
+      - name: Test the library backend and the binding cases on both backends
+        env:
+          NURT_TEST_LIBRARY: ${{ github.workspace }}/target/release/libnurt.so
+          NURT_TEST_SERVE: ${{ github.workspace }}/target/release/nurt-conformance
+          NURT_TEST_SERVE_ARGS: fake-serve --cases ${{ github.workspace }}/conformance/bindings
+        run: dotnet test Binding.sln -c Release --logger "console;verbosity=normal"
+
+  pack:
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: bindings/dotnet/global.json
+      - name: Download and verify the release artifacts
+        if: env.TAG != ''
+        run: |
+          mkdir -p "$RUNNER_TEMP/downloads"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/downloads" \
+            --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern 'SHA256SUMS'
+          (cd "$RUNNER_TEMP/downloads" && sha256sum --check --ignore-missing --strict SHA256SUMS)
+      - name: Arrange the native assets by runtime identifier
+        if: env.TAG != ''
+        run: |
+          version="${TAG#v}"
+          declare -A rids=(
+            [x86_64-unknown-linux-gnu]=linux-x64
+            [aarch64-unknown-linux-gnu]=linux-arm64
+            [x86_64-unknown-linux-musl]=linux-musl-x64
+            [x86_64-apple-darwin]=osx-x64
+            [aarch64-apple-darwin]=osx-arm64
+            [x86_64-pc-windows-msvc]=win-x64
+            [aarch64-pc-windows-msvc]=win-arm64
+          )
+          copy_first() {
+            local from="$1" to="$2"
+            shift 2
+            local name found
+            for name in "$@"; do
+              found=$(find "$from" -type f -name "$name" | head -n 1)
+              if [ -n "$found" ]; then
+                cp "$found" "$to"
+                return 0
+              fi
+            done
+            echo "none of $* found in $from" >&2
+            return 1
+          }
+          for target in "${!rids[@]}"; do
+            rid="${rids[$target]}"
+            archive=""
+            for candidate in "$RUNNER_TEMP/downloads/nurt-$version-$target.tar.gz" "$RUNNER_TEMP/downloads/nurt-$version-$target.zip"; do
+              if [ -f "$candidate" ]; then archive="$candidate"; fi
+            done
+            if [ -z "$archive" ]; then
+              echo "release $TAG has no archive for $target" >&2
+              exit 1
+            fi
+            unpacked="$RUNNER_TEMP/unpacked/$target"
+            mkdir -p "$unpacked" "artifacts/native/$rid"
+            case "$archive" in
+              *.zip) unzip -q "$archive" -d "$unpacked" ;;
+              *) tar -xzf "$archive" -C "$unpacked" ;;
+            esac
+            case "$rid" in
+              win-*)
+                copy_first "$unpacked" "artifacts/native/$rid/nurt.exe" nurt.exe
+                copy_first "$unpacked" "artifacts/native/$rid/nurt.dll" nurt.dll
+                ;;
+              osx-*)
+                copy_first "$unpacked" "artifacts/native/$rid/nurt" nurt
+                copy_first "$unpacked" "artifacts/native/$rid/libnurt.dylib" libnurt.dylib libnurt.1.dylib
+                ;;
+              *)
+                copy_first "$unpacked" "artifacts/native/$rid/nurt" nurt
+                copy_first "$unpacked" "artifacts/native/$rid/libnurt.so" libnurt.so libnurt.so.1
+                ;;
+            esac
+          done
+      - name: Version matches the release
+        if: env.TAG != ''
+        run: |
+          package=$(sed -n 's:.*<Version Condition="[^"]*">\(.*\)</Version>.*:\1:p' Directory.Build.props)
+          test "v$package" = "$TAG"
+      - name: Pack
+        run: |
+          if [ -n "$TAG" ]; then
+            dotnet pack src/Danaco.Nurt/Danaco.Nurt.csproj -c Release -o "$RUNNER_TEMP/packages" -p:NurtRequireNative=true
+          else
+            dotnet pack src/Danaco.Nurt/Danaco.Nurt.csproj -c Release -o "$RUNNER_TEMP/packages"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-packages
+          path: ${{ runner.temp }}/packages/*

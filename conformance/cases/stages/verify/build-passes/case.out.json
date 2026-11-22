@@ -1,0 +1,3 @@
+{"records": [
+  {"kind": "effect", "fields": {"status": {"t": "enum", "v": "ok"}, "changed": {"t": "int", "v": 2}}}
+]}

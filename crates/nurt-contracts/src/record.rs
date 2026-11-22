@@ -833,6 +833,8 @@ text_enum! {
         Renamed = "renamed",
         /// Binary file changed.
         Binary = "binary",
+        /// File copied from another file.
+        Copied = "copied",
     }
 }
 
@@ -1501,6 +1503,8 @@ text_enum! {
         Go = "go",
         /// Cargo tests.
         Cargo = "cargo",
+        /// Tests run by the `test` script of `package.json` through npm.
+        Npm = "npm",
         /// A command given by the user.
         Custom = "custom",
     }

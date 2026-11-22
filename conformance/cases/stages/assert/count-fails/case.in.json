@@ -1,0 +1,7 @@
+{"program": "find \"/home/user/project\" glob: \"*.md\" |> assert count: 2",
+ "command": "assert",
+ "step": "3",
+ "args": {"count": {"kind": "value", "value": {"t": "range", "v": {"start": 2, "end": 2}}}},
+ "input": [
+  {"kind": "entry", "fields": {"path": {"t": "path", "v": "/home/user/project/README.md"}, "extension": {"t": "text", "v": "md"}, "size": {"t": "size", "v": 900}}}
+ ]}

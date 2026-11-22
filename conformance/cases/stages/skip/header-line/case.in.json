@@ -1,0 +1,8 @@
+{"program": "lines \"/home/user/data.csv\" |> skip 1",
+ "command": "skip",
+ "args": {"count": {"kind": "value", "value": {"t": "int", "v": 1}}},
+ "input": [
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/data.csv"}, "no": {"t": "int", "v": 1}, "text": {"t": "text", "v": "id,name"}}},
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/data.csv"}, "no": {"t": "int", "v": 2}, "text": {"t": "text", "v": "7,ada"}}},
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/data.csv"}, "no": {"t": "int", "v": 3}, "text": {"t": "text", "v": "8,alan"}}}
+ ]}

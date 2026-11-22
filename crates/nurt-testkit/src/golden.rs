@@ -16,6 +16,13 @@
 //! values (key order and formatting do not matter). Differences are listed
 //! by JSON pointer. When the environment variable [`BLESS_VAR`] is `1`, the
 //! runner writes the actual result to the expected file instead of failing.
+//! A [`case::Normalizer`] set with [`GoldenRunner::normalizer`] replaces
+//! volatile values on both sides before the comparison.
+//!
+//! Case directories with one directory per case (`case.toml`, program
+//! variants, expected trees and reports) are run by [`case::CaseRunner`].
+
+pub mod case;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -176,18 +183,28 @@ pub struct GoldenReport {
 pub struct GoldenRunner {
     dir: PathBuf,
     bless: bool,
+    normalizer: case::Normalizer,
 }
 
 impl GoldenRunner {
-    /// Runner over `dir`; writing expected files is enabled when
-    /// [`BLESS_VAR`] is `1`.
+    /// Runner over `dir` without normalization; writing expected files is
+    /// enabled when [`BLESS_VAR`] is `1`.
     #[must_use]
     pub fn new(dir: impl Into<PathBuf>) -> Self {
         let bless = std::env::var_os(BLESS_VAR).is_some_and(|value| value == "1");
         Self {
             dir: dir.into(),
             bless,
+            normalizer: case::Normalizer::none(),
         }
+    }
+
+    /// Normalizes expected and actual values with `normalizer` before they
+    /// are compared; written expected files are not normalized.
+    #[must_use]
+    pub fn normalizer(mut self, normalizer: case::Normalizer) -> Self {
+        self.normalizer = normalizer;
+        self
     }
 
     /// Enables or disables writing expected files, overriding [`BLESS_VAR`].
@@ -270,7 +287,10 @@ impl GoldenRunner {
                 }
                 Err(error) => return Err(io_error(&case.expected_path, &error)),
             };
-            let differences = diff(&expected, &actual);
+            let differences = diff(
+                &self.normalizer.normalize(&expected),
+                &self.normalizer.normalize(&actual),
+            );
             if differences.is_empty() {
                 report.passed.push(case.name);
             } else {

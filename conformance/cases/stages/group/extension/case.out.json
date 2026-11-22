@@ -1,0 +1,4 @@
+{"records": [
+  {"kind": "group", "fields": {"key": {"t": "text", "v": "md"}, "count": {"t": "int", "v": 1}}},
+  {"kind": "group", "fields": {"key": {"t": "text", "v": "rs"}, "count": {"t": "int", "v": 2}}}
+]}
