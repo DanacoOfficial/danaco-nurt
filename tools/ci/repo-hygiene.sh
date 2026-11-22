@@ -533,14 +533,18 @@ check_placeholder_macro() {
 
 # Source files in formats with comments start with the producer header, in the
 # comment syntax of the format; its copyright line is required within the first
-# lines. Files without comments (for example JSON) are not checked.
+# lines (after the front matter of a Markdown page, when there is one). Files
+# without comments (for example JSON) are not checked.
 check_producer_header() {
   select_files producer-header
   drop_test_data
   # shellcheck disable=SC2086
   keep_files $CODE_FILES '*.md' .gitignore '*/.gitignore' .gitattributes '*/.gitattributes' .editorconfig
   while IFS= read -r path; do
-    if ! sed -n '1,15p' "$path" |
+    if ! awk 'NR == 1 && $0 == "---" { front = 1; next }
+      front && $0 == "---" { front = 0; next }
+      front { next }
+      ++seen <= 15' "$path" |
       grep -qE 'Copyright \(c\) [0-9]{4} Danaco Official \| Danaco Holding Group Sp\. z o\.o\. All rights reserved\.'; then
       report producer-header "$path" 1 "missing producer header"
     fi

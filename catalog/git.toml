@@ -241,6 +241,18 @@ type = "list<glob>"
 default = "[]"
 summary = "Paths to leave out, also from the pickaxe and diff_regex filters."
 
+[[command.param]]
+name = "find_renames"
+type = "bool"
+default = "false"
+summary = "Detect renamed files when limiting the log to paths."
+
+[[command.param]]
+name = "find_copies"
+type = "bool"
+default = "false"
+summary = "Detect copied files when limiting the log to paths."
+
 [[command]]
 name = "git.show"
 category = "source"
@@ -335,6 +347,18 @@ name = "revision"
 type = "text"
 default = "\"HEAD\""
 summary = "Revision to annotate."
+
+[[command.param]]
+name = "find_moves"
+type = "bool"
+default = "false"
+summary = "Follow lines moved within the file."
+
+[[command.param]]
+name = "find_copies"
+type = "bool"
+default = "false"
+summary = "Follow lines copied from other files."
 
 [[command]]
 name = "git.branch"
@@ -1011,6 +1035,23 @@ name = "guess"
 type = "bool"
 default = "false"
 summary = "Create a local branch from a remote branch of the same name when no local branch exists."
+
+[[command.param]]
+name = "start_point"
+type = "text"
+summary = "Revision the new branch starts from; applies with create."
+
+[[command.param]]
+name = "detach"
+type = "bool"
+default = "false"
+summary = "Detach HEAD at the revision instead of switching to a branch."
+
+[[command.param]]
+name = "discard_changes"
+type = "bool"
+default = "false"
+summary = "Discard local changes of the working tree while switching."
 
 [[command]]
 name = "git.restore"
