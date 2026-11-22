@@ -291,7 +291,7 @@ fn yaml_text_is_quoted_when_any_version_would_type_it() {
     for text in quoted {
         assert!(needs_quotes(text, QuoteRules::Yaml), "{text:?}");
     }
-    for text in ["plain text", "a:b", "a#b", "version-2", "zażółć"] {
+    for text in ["plain text", "a:b", "a#b", "version-2", "größe"] {
         assert!(!needs_quotes(text, QuoteRules::Yaml), "{text:?}");
     }
 }

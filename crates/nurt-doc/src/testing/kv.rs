@@ -261,11 +261,27 @@ impl KeyValueDocument {
         Expectation::new(vec![value], &FlatSemantics)
     }
 
-    fn accept(&mut self, plan: EditPlan, expectation: &Expectation<'_>) -> Result<EditReport> {
-        let committed = commit(&self.text, plan, expectation, &KeyValueReference)?;
-        self.tree = parse(&self.id, &committed.bytes)?;
-        self.text = committed.bytes;
-        Ok(committed.report)
+    /// Commits the plan and rebuilds the tree from the new text.
+    ///
+    /// The expectation and the old tree are released before the new tree
+    /// is built, so that a change of a large document does not hold two
+    /// trees at once; when the new text does not parse, the tree of the old
+    /// text is rebuilt.
+    fn accept(&mut self, plan: EditPlan, expectation: Expectation<'_>) -> Result<EditReport> {
+        let committed = commit(&self.text, plan, &expectation, &KeyValueReference)?;
+        drop(expectation);
+        self.tree = DocTree::default();
+        match parse(&self.id, &committed.bytes) {
+            Ok(tree) => {
+                self.tree = tree;
+                self.text = committed.bytes;
+                Ok(committed.report)
+            }
+            Err(error) => {
+                self.tree = parse(&self.id, &self.text)?;
+                Err(error)
+            }
+        }
     }
 
     fn line_with_break(&self, span: Span) -> Span {
@@ -347,7 +363,7 @@ impl DocHandle for KeyValueDocument {
             plan.report.replacements += 1;
             expectation = expectation.set(resolved.key.clone(), value.clone());
         }
-        self.accept(plan, &expectation)
+        self.accept(plan, expectation)
     }
 
     fn remove(&mut self, key: &KeyPath) -> Result<EditReport> {
@@ -375,6 +391,6 @@ impl DocHandle for KeyValueDocument {
             plan.report.replacements += 1;
             expectation = expectation.remove(resolved.key.clone());
         }
-        self.accept(plan, &expectation)
+        self.accept(plan, expectation)
     }
 }

@@ -8,6 +8,7 @@
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::keypath::KeyPath;
+use nurt_contracts::report::Notable;
 use nurt_contracts::value::Value;
 use nurt_doc::constructs::{DOC_OUT_OF_SCOPE_CHANGE, DOC_ROUND_TRIP_LOSS, DOC_SEMANTIC_MISMATCH};
 use nurt_doc::edit::guard::{
@@ -15,8 +16,34 @@ use nurt_doc::edit::guard::{
     check_round_trip, check_scope, commit,
 };
 use nurt_doc::edit::{ByteEdit, EditReport, apply, check_overlaps, diff};
-use nurt_doc::model::{MapSemantics, Span};
+use nurt_doc::model::{FormatSemantics, MapSemantics, Repeated, Span};
 use serde_json::json;
+
+/// Semantics of a format whose text has no types: every scalar compares as
+/// its text.
+struct Untyped;
+
+impl FormatSemantics for Untyped {
+    fn repeated(&self) -> Repeated {
+        Repeated::LastWins
+    }
+
+    fn canonical(&self, value: Value) -> Value {
+        match value {
+            Value::Map(fields) => Value::Map(
+                fields
+                    .into_iter()
+                    .map(|(name, value)| (name, self.canonical(value)))
+                    .collect(),
+            ),
+            Value::List(items) => {
+                Value::List(items.into_iter().map(|item| self.canonical(item)).collect())
+            }
+            Value::Int(number) => Value::Text(number.to_string()),
+            other => other,
+        }
+    }
+}
 
 /// Splitting step of the deterministic diff cases.
 const LCG_MULTIPLIER: u64 = 6_364_136_223_846_793_005;
@@ -171,6 +198,23 @@ fn diff_handles_inserted_removed_and_crlf_lines() {
             "{old:?} -> {new:?}"
         );
     }
+}
+
+#[test]
+fn diff_keeps_separate_changes_apart_when_the_common_end_splits_a_line() {
+    let old = b"# a\nA=1\nB=2\nA=3\n";
+    let new = b"B=2\n";
+    let edits = diff(old, new);
+    assert_eq!(
+        edits,
+        [
+            ByteEdit::delete(Span::new(0, 8)),
+            ByteEdit::delete(Span::new(12, 16))
+        ]
+    );
+    assert_eq!(apply(old, &edits).expect("diff applies").bytes, new);
+    let tail = diff(b"x = 1\ny = 2", b"x = 1\ny = 2\nz = 3");
+    assert_eq!(tail, [ByteEdit::insert(11, "\nz = 3")]);
 }
 
 #[test]
@@ -404,6 +448,30 @@ fn check_meaning_compares_all_documents() {
 }
 
 #[test]
+fn meaning_guard_compares_canonical_forms_of_the_format() {
+    let original = b"a=1\n";
+    let plan = || {
+        let mut plan = EditPlan::new();
+        plan.target(Span::new(2, 3))
+            .edit(ByteEdit::replace(Span::new(2, 3), "2"));
+        plan
+    };
+    let typed =
+        Expectation::new(before(original), &MapSemantics::LAST_WINS).set(key("a"), Value::Int(2));
+    let error = commit(original, plan(), &typed, &Lines).expect_err("text is not an integer");
+    assert_eq!(error.found.as_deref(), Some(DOC_SEMANTIC_MISMATCH));
+    let untyped = Expectation::new(before(original), &Untyped).set(key("a"), Value::Int(2));
+    let committed = commit(original, plan(), &untyped, &Lines).expect("integer reads as text");
+    assert_eq!(committed.bytes, b"a=2\n");
+    let other = Expectation::new(before(original), &Untyped).set(key("a"), Value::Int(3));
+    assert!(commit(original, plan(), &other, &Lines).is_err());
+    assert_eq!(
+        MapSemantics::CONFLICT.canonical(Value::Int(2)),
+        Value::Int(2)
+    );
+}
+
+#[test]
 fn plan_from_rewrite_uses_differences() {
     let original = b"a=1\nb=2\n";
     let plan = EditPlan::from_rewrite(original, b"a=1\nb=3\n", vec![Span::new(6, 7)]);
@@ -452,4 +520,19 @@ fn report_merges_flags_and_replacements() {
     assert_eq!(report.flags, ["keys_created", "duplicate_key"]);
     assert_eq!(report.replacements, 2);
     assert!(report.is_unchanged());
+}
+
+#[test]
+fn report_keeps_one_notable_effect_per_code() {
+    let mut report = EditReport::default();
+    report.note(Notable::KeysCreated, Some("a.b".to_owned()));
+    report.note(Notable::KeysCreated, None);
+    let mut other = EditReport::default();
+    other.note(Notable::DuplicateKey, None);
+    other.note(Notable::KeysCreated, Some("c".to_owned()));
+    report.absorb(other);
+    let codes: Vec<Notable> = report.notable.iter().map(|entry| entry.code).collect();
+    assert_eq!(codes, [Notable::KeysCreated, Notable::DuplicateKey]);
+    assert_eq!(report.notable[0].detail.as_deref(), Some("a.b"));
+    assert_eq!(report.notable[1].detail, None);
 }

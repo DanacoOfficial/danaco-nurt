@@ -153,6 +153,25 @@ pub trait DocFormat: Send + Sync {
     /// format.
     fn open(&self, content: Vec<u8>, options: &DocOptions) -> Result<Box<dyn DocHandle>>;
 
+    /// Opens a document of the file at `path`.
+    ///
+    /// A format whose dialect follows from the file name (INI profiles of
+    /// `.service` units, `.gitconfig` or `php.ini`) overrides it, so that the
+    /// dialect does not depend on the content and stays the same after a
+    /// change. The default ignores the path and calls [`DocFormat::open`].
+    ///
+    /// # Errors
+    ///
+    /// Fails as described for [`DocFormat::open`].
+    fn open_at(
+        &self,
+        _path: Option<&Path>,
+        content: Vec<u8>,
+        options: &DocOptions,
+    ) -> Result<Box<dyn DocHandle>> {
+        self.open(content, options)
+    }
+
     /// Syntax problems of `content`; an empty list when it parses.
     ///
     /// The default opens the document and reports the error of a failed
@@ -404,6 +423,23 @@ impl Registry {
         bytes: &[u8],
         options: &DocOptions,
     ) -> Result<OpenDocument> {
+        self.open_at(id, None, bytes, options)
+    }
+
+    /// Opens a document of the format `id` from the bytes of the file at
+    /// `path`, as [`Registry::open`] does, and passes the path to
+    /// [`DocFormat::open_at`].
+    ///
+    /// # Errors
+    ///
+    /// Fails as described for [`Registry::open`].
+    pub fn open_at(
+        &self,
+        id: &DocFormatId,
+        path: Option<&Path>,
+        bytes: &[u8],
+        options: &DocOptions,
+    ) -> Result<OpenDocument> {
         let format = self.get(id).ok_or_else(|| {
             Error::new(
                 ErrorCode::UnknownValue,
@@ -411,7 +447,7 @@ impl Registry {
             )
             .with_found(id.as_str())
         })?;
-        open_with(format, bytes, options)
+        open_with_path(format, path, bytes, options)
     }
 }
 
@@ -422,6 +458,21 @@ impl Registry {
 /// Fails as described for [`Registry::open`].
 pub fn open_with(
     format: &dyn DocFormat,
+    bytes: &[u8],
+    options: &DocOptions,
+) -> Result<OpenDocument> {
+    open_with_path(format, None, bytes, options)
+}
+
+/// Opens a document of the file at `path` with `format`, as
+/// [`Registry::open_at`] does.
+///
+/// # Errors
+///
+/// Fails as described for [`Registry::open`].
+pub fn open_with_path(
+    format: &dyn DocFormat,
+    path: Option<&Path>,
     bytes: &[u8],
     options: &DocOptions,
 ) -> Result<OpenDocument> {
@@ -440,8 +491,11 @@ pub fn open_with(
         InputKind::Utf8Text => TextEncoding::decode(bytes)?,
         InputKind::Bytes => (TextEncoding::Utf8, bytes.to_vec()),
     };
-    let handle = format.open(text.clone(), options)?;
-    check_round_trip(&text, handle.text())?;
+    // For UTF-8 without a byte order mark and for formats that read bytes
+    // the text equals the file, so no copy is kept for the identity check.
+    let decoded = (encoding != TextEncoding::Utf8).then(|| text.clone());
+    let handle = format.open_at(path, text, options)?;
+    check_round_trip(decoded.as_deref().unwrap_or(bytes), handle.text())?;
     Ok(OpenDocument { handle, encoding })
 }
 

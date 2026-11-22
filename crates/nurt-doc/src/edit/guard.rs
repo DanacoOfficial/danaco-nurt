@@ -418,6 +418,9 @@ fn reaches(original: &[u8], targets: &[Span], surroundings: Surroundings) -> Vec
 
 /// Meaning guard: the new bytes read back as the expected value.
 ///
+/// Both values are compared in the form given by
+/// [`FormatSemantics::canonical`] of the semantics of the expectation.
+///
 /// # Errors
 ///
 /// Fails with `E_UNSUPPORTED_CONSTRUCT` naming `doc.semantic_mismatch`,
@@ -440,9 +443,16 @@ pub fn check_meaning(
         )
         .with_cause(error)
     })?;
-    let expected = Value::List(expected);
-    let actual = Value::List(actual);
-    match first_difference(&expected, &actual) {
+    let semantics = expectation.semantics;
+    let canonical = |documents: Vec<Value>| {
+        Value::List(
+            documents
+                .into_iter()
+                .map(|document| semantics.canonical(document))
+                .collect(),
+        )
+    };
+    match first_difference(&canonical(expected), &canonical(actual)) {
         None => Ok(()),
         Some(path) => Err(mismatch(expectation, &path)),
     }

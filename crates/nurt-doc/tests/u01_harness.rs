@@ -7,7 +7,9 @@
 // Helpers outside `#[test]` functions fail the test on invalid fixtures.
 #![allow(clippy::expect_used)]
 
-use nurt_contracts::error::{ErrorCode, Result};
+use std::path::Path;
+
+use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::AbsPath;
 use nurt_contracts::journal::{
     Expect, Mutation, OpKind, RollbackReason, TargetAction, TargetIndex, TargetPath, TargetSpec,
@@ -17,11 +19,11 @@ use nurt_contracts::services::DocFormatId;
 use nurt_contracts::value::Value;
 use nurt_doc::edit::EditReport;
 use nurt_doc::edit::guard::ReferenceParser;
-use nurt_doc::model::{DocHandle, DocTree, FormatSemantics, SetOptions};
-use nurt_doc::registry::{Confidence, DocFormat, DocOptions, open_with};
+use nurt_doc::model::{DocHandle, DocTree, FormatSemantics, Repeated, SetOptions, Span};
+use nurt_doc::registry::{Confidence, DocFormat, DocOptions, Registry, open_with};
 use nurt_doc::testing::{
     FileFilter, Guard, HarnessOperation, HarnessOptions, KeyValueFormat, KeyValueReference,
-    MemoryJournal, Summary, run_corpus, run_document,
+    MemoryJournal, Summary, first_change_outside, run_corpus, run_document,
 };
 use serde_json::json;
 
@@ -213,6 +215,71 @@ fn harness_is_deterministic_and_limits_nodes() {
 }
 
 #[test]
+fn harness_skips_members_shadowed_by_a_later_member() {
+    let options = HarnessOptions {
+        operations: vec![HarnessOperation::SetSame, HarnessOperation::ReplaceScalar],
+        ..HarnessOptions::default()
+    };
+    let summary = run_document("dup.kv", b"a = 1\na = 2\n", &format(), &options);
+    assert!(summary.violations.is_empty(), "{:?}", summary.violations);
+    assert_eq!(summary.operations, 3);
+    assert_eq!(summary.accepted, 2);
+}
+
+#[test]
+fn change_check_accepts_separator_removed_past_a_comment() {
+    let original = b"[1, // one\n 2\n]";
+    let region = Span::new(11, 14);
+    assert_eq!(
+        first_change_outside(original, b"[1 // one\n]", region),
+        None
+    );
+    assert_eq!(
+        first_change_outside(original, b"[1 // one\n]\n", region),
+        Some(14)
+    );
+    assert_eq!(
+        first_change_outside(original, b"[0, // one\n]", region),
+        Some(1)
+    );
+    assert_eq!(
+        first_change_outside(original, b"[1; // one\n]", region),
+        Some(2)
+    );
+}
+
+#[test]
+fn change_check_accepts_separator_added_before_the_region() {
+    let original = b"[1 // one\n]";
+    let at_end = Span::at(10);
+    assert_eq!(
+        first_change_outside(original, b"[1, // one\n 2\n]", at_end),
+        None
+    );
+    assert_eq!(
+        first_change_outside(original, b"[1 /* one\n 2\n]", at_end),
+        Some(4)
+    );
+}
+
+#[test]
+fn change_check_locates_removal_among_equal_lines() {
+    let original = b"k = 1\nk = 1\nend = 0\n";
+    assert_eq!(
+        first_change_outside(original, b"k = 1\nend = 0\n", Span::new(0, 6)),
+        None
+    );
+    assert_eq!(
+        first_change_outside(original, b"k = 1\nk = 1\n", Span::new(0, 6)),
+        Some(18)
+    );
+    assert_eq!(
+        first_change_outside(original, original, Span::new(40, 50)),
+        None
+    );
+}
+
+#[test]
 fn harness_reports_documents_that_do_not_open() {
     let summary = run_document(
         "bad.kv",
@@ -278,6 +345,38 @@ enum Defect {
     Prefix,
     /// Every change writes another value than the requested one.
     Wrong,
+    /// As [`Defect::Wrong`], under semantics whose canonical form of every
+    /// scalar is `null`.
+    Blind,
+}
+
+/// Semantics of the test format under which every scalar compares as
+/// `null`, so that writing another scalar keeps the canonical value.
+struct ScalarBlind;
+
+impl FormatSemantics for ScalarBlind {
+    fn repeated(&self) -> Repeated {
+        Repeated::LastWins
+    }
+
+    fn flat_keys(&self) -> bool {
+        true
+    }
+
+    fn canonical(&self, value: Value) -> Value {
+        match value {
+            Value::Map(fields) => Value::Map(
+                fields
+                    .into_iter()
+                    .map(|(name, value)| (name, self.canonical(value)))
+                    .collect(),
+            ),
+            Value::List(items) => {
+                Value::List(items.into_iter().map(|item| self.canonical(item)).collect())
+            }
+            _ => Value::Null,
+        }
+    }
 }
 
 struct Faulty {
@@ -307,7 +406,7 @@ impl DocFormat for Faulty {
                     .unwrap_or_default()
                     .to_vec(),
             ),
-            Defect::Prefix | Defect::Wrong => None,
+            Defect::Prefix | Defect::Wrong | Defect::Blind => None,
         };
         Ok(Box::new(FaultyDocument {
             defect: self.defect,
@@ -337,12 +436,15 @@ impl DocHandle for FaultyDocument {
     }
 
     fn semantics(&self) -> &dyn FormatSemantics {
-        self.inner.semantics()
+        match self.defect {
+            Defect::Blind => &ScalarBlind,
+            Defect::Lossy | Defect::Prefix | Defect::Wrong => self.inner.semantics(),
+        }
     }
 
     fn set(&mut self, key: &KeyPath, value: &Value, options: &SetOptions) -> Result<EditReport> {
         match self.defect {
-            Defect::Wrong => self.inner.set(key, &text("wrong"), options),
+            Defect::Wrong | Defect::Blind => self.inner.set(key, &text("wrong"), options),
             Defect::Lossy | Defect::Prefix => {
                 let report = self.inner.set(key, value, options)?;
                 self.text = Some([b"# x\n".as_slice(), self.inner.text()].concat());
@@ -424,6 +526,80 @@ fn harness_detects_changes_with_another_meaning() {
     );
     assert_eq!(guards(&summary), [Guard::Meaning]);
     assert_eq!(summary.violations.len(), 2);
+}
+
+#[test]
+fn harness_compares_canonical_forms_of_the_format() {
+    let options = HarnessOptions {
+        operations: vec![HarnessOperation::ReplaceScalar],
+        ..HarnessOptions::default()
+    };
+    let summary = run_document(
+        "a.kv",
+        SAMPLE,
+        &Faulty {
+            defect: Defect::Blind,
+        },
+        &options,
+    );
+    assert!(summary.violations.is_empty(), "{:?}", summary.violations);
+    assert_eq!(summary.accepted, 2);
+}
+
+/// Format that opens documents only when the file path is known, as a
+/// format whose dialect follows from the file name does.
+struct NeedsPath;
+
+impl DocFormat for NeedsPath {
+    fn id(&self) -> DocFormatId {
+        format().id()
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["kv"]
+    }
+
+    fn sniff(&self, content: &[u8]) -> Confidence {
+        format().sniff(content)
+    }
+
+    fn open(&self, _content: Vec<u8>, _options: &DocOptions) -> Result<Box<dyn DocHandle>> {
+        Err(Error::new(ErrorCode::DocParse, "the file path is unknown"))
+    }
+
+    fn open_at(
+        &self,
+        path: Option<&Path>,
+        content: Vec<u8>,
+        options: &DocOptions,
+    ) -> Result<Box<dyn DocHandle>> {
+        match path {
+            Some(_) => format().open(content, options),
+            None => self.open(content, options),
+        }
+    }
+}
+
+#[test]
+fn harness_and_registry_pass_the_file_path_to_the_format() {
+    let summary = run_document("a.kv", SAMPLE, &NeedsPath, &HarnessOptions::default());
+    assert!(summary.not_opened.is_empty(), "{:?}", summary.not_opened);
+    assert!(summary.violations.is_empty(), "{:?}", summary.violations);
+    assert_eq!(summary.accepted, 7);
+    let options = DocOptions::default();
+    assert!(open_with(&NeedsPath, SAMPLE, &options).is_err());
+    let registry = Registry::with([Box::new(NeedsPath) as Box<dyn DocFormat>]);
+    let id = format().id();
+    assert!(registry.open(&id, SAMPLE, &options).is_err());
+    let opened = registry
+        .open_at(&id, Some(Path::new("a.kv")), SAMPLE, &options)
+        .expect("opens with the path");
+    assert_eq!(opened.bytes(), SAMPLE);
+    assert!(
+        format()
+            .open_at(Some(Path::new("a.kv")), SAMPLE.to_vec(), &options)
+            .is_ok()
+    );
 }
 
 fn target(path: &AbsPath, action: TargetAction) -> TargetSpec {

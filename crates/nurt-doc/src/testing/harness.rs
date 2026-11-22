@@ -11,7 +11,7 @@ use nurt_contracts::value::{Fields, Value};
 
 use crate::edit::guard::{Expectation, Surroundings};
 use crate::model::{DocTree, FormatSemantics, NodeId, NodeKind, SetOptions, Span};
-use crate::registry::{DocFormat, DocOptions, OpenDocument, matches_file, open_with};
+use crate::registry::{DocFormat, DocOptions, OpenDocument, matches_file, open_with_path};
 use crate::value::first_difference;
 
 /// Increment of the SplitMix64 generator.
@@ -227,7 +227,7 @@ pub fn run_document(
         files: 1,
         ..Summary::default()
     };
-    let document = match open_with(format, bytes, &options.documents) {
+    let document = match open_with_path(format, Some(path), bytes, &options.documents) {
         Ok(document) => document,
         Err(error) => {
             if error.code == ErrorCode::UnsupportedConstruct {
@@ -356,7 +356,12 @@ impl Run<'_> {
         let Some(change) = change_for(tree, node, &key, operation, semantics) else {
             return;
         };
-        let Ok(mut document) = open_with(self.format, self.bytes, &self.options.documents) else {
+        let Ok(mut document) = open_with_path(
+            self.format,
+            Some(self.path),
+            self.bytes,
+            &self.options.documents,
+        ) else {
             return;
         };
         summary.operations += 1;
@@ -433,20 +438,32 @@ impl Run<'_> {
             Ok(expected) => expected,
             Err(error) => return Some((Guard::Meaning, error.message.clone())),
         };
-        let reopened = match open_with(self.format, after, &self.options.documents) {
-            Ok(reopened) => reopened,
-            Err(error) => {
-                return Some((
-                    Guard::Meaning,
-                    format!("the changed document does not open: {}", error.message),
-                ));
-            }
-        };
+        let reopened =
+            match open_with_path(self.format, Some(self.path), after, &self.options.documents) {
+                Ok(reopened) => reopened,
+                Err(error) => {
+                    return Some((
+                        Guard::Meaning,
+                        format!("the changed document does not open: {}", error.message),
+                    ));
+                }
+            };
         let reopened_tree = reopened.handle.tree();
+        let reopened_semantics = reopened.handle.semantics();
         let actual: Vec<Value> = reopened_tree
             .roots()
             .iter()
-            .map(|root| reopened_tree.value_of(*root, reopened.handle.semantics(), None))
+            .map(|root| {
+                reopened_semantics.canonical(reopened_tree.value_of(
+                    *root,
+                    reopened_semantics,
+                    None,
+                ))
+            })
+            .collect();
+        let expected: Vec<Value> = expected
+            .into_iter()
+            .map(|document| semantics.canonical(document))
             .collect();
         first_difference(&Value::List(expected), &Value::List(actual)).map(|path| {
             (
