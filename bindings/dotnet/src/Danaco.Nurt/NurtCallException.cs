@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Globalization;
 
@@ -10,20 +14,20 @@ namespace Danaco.Nurt;
 /// </summary>
 /// <remarks>
 /// Errors of the language are not exceptions; they are reported by
-/// <see cref="Response.Error"/>, or by <see cref="LanguageException"/> when
+/// <see cref="NurtResponse.Error"/>, or by <see cref="NurtLanguageException"/> when
 /// <see cref="RunOptions.ThrowOnLanguageError"/> is set.
 /// </remarks>
-public class CallException : Exception
+public class NurtCallException : Exception
 {
     /// <summary>Initializes an exception with the status <see cref="CallStatus.Internal"/>.</summary>
-    public CallException()
+    public NurtCallException()
         : this(CallStatus.Internal, "call failed")
     {
     }
 
     /// <summary>Initializes an exception with the status <see cref="CallStatus.Internal"/> and a message.</summary>
     /// <param name="message">Description of the failure.</param>
-    public CallException(string message)
+    public NurtCallException(string message)
         : this(CallStatus.Internal, message)
     {
     }
@@ -31,7 +35,7 @@ public class CallException : Exception
     /// <summary>Initializes an exception with the status <see cref="CallStatus.Internal"/>, a message and a cause.</summary>
     /// <param name="message">Description of the failure.</param>
     /// <param name="innerException">Exception that caused the failure.</param>
-    public CallException(string message, Exception innerException)
+    public NurtCallException(string message, Exception innerException)
         : this(CallStatus.Internal, message, innerException)
     {
     }
@@ -39,7 +43,7 @@ public class CallException : Exception
     /// <summary>Initializes an exception with a status and a message.</summary>
     /// <param name="status">Status of the failed call.</param>
     /// <param name="message">Description of the failure.</param>
-    public CallException(CallStatus status, string message)
+    public NurtCallException(CallStatus status, string message)
         : base(message)
     {
         Status = status;
@@ -49,7 +53,7 @@ public class CallException : Exception
     /// <param name="status">Status of the failed call.</param>
     /// <param name="message">Description of the failure.</param>
     /// <param name="innerException">Exception that caused the failure.</param>
-    public CallException(CallStatus status, string message, Exception? innerException)
+    public NurtCallException(CallStatus status, string message, Exception? innerException)
         : base(message, innerException)
     {
         Status = status;

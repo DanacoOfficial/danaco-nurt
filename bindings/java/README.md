@@ -22,29 +22,29 @@ Add `pl.danaco-group:nurt-ffm` with the same version to use the library backend.
 ## Usage
 
 ```java
-import pl.danacogroup.nurt.Client;
+import pl.danacogroup.nurt.NurtClient;
 import pl.danacogroup.nurt.Request;
-import pl.danacogroup.nurt.Response;
+import pl.danacogroup.nurt.NurtResponse;
 
-try (Client nurt = Client.create()) {
-    Response response = nurt.run(Request.program("find \"/home/user/src\" glob: \"*.go\""));
+try (NurtClient nurt = NurtClient.create()) {
+    NurtResponse response = nurt.run(Request.program("find \"/home/user/src\" glob: \"*.go\""));
     response.error().ifPresentOrElse(
             error -> System.err.println(error + " fix: " + error.fix()),
             () -> System.out.println(response.text().orElse("")));
 }
 ```
 
-A language error is part of a successful `Response`; `Response.orThrow()` turns it into a `LanguageException`. A failure of the call itself is a `CallException` whose `status()` is the status code of the C interface.
+A language error is part of a successful `NurtResponse`; `NurtResponse.orThrow()` turns it into a `NurtLanguageException`. A failure of the call itself is a `NurtCallException` whose `status()` is the status code of the C interface.
 
-`Client.start(Request)` returns an `Execution` with a `Flow.Publisher<Event>` of its events, a `CompletableFuture<Response>` and cancellation. `Client` is thread-safe and `AutoCloseable`.
+`NurtClient.start(Request)` returns an `Execution` with a `Flow.Publisher<NurtEvent>` of its events, a `CompletableFuture<NurtResponse>` and cancellation. `NurtClient` is thread-safe and `AutoCloseable`.
 
 ## Backends
 
 | `BackendKind` | Mechanism | Lookup |
 |---|---|---|
 | `AUTO` (default) | `LIBRARY` when `nurt-ffm` is present and the library is compatible, otherwise `PROCESS` | |
-| `PROCESS` | `nurt serve --stdio`, protocol `nurt-rpc/1` | `ClientOptions.executable`, `NURT_EXECUTABLE`, bundled executable, `PATH` |
-| `LIBRARY` | `libnurt`, interface version 1.0 or a later minor version | `ClientOptions.library`, `NURT_LIBRARY`, bundled library |
+| `PROCESS` | `nurt serve --stdio`, protocol `nurt-rpc/1` | `NurtClientOptions.executable`, `NURT_EXECUTABLE`, bundled executable, `PATH` |
+| `LIBRARY` | `libnurt`, interface version 1.0 or a later minor version | `NurtClientOptions.library`, `NURT_LIBRARY`, bundled library |
 
 On the module path, the library backend needs `--enable-native-access=pl.danacogroup.nurt.ffm`. On the class path, the manifest of `nurt-ffm` enables native access for the unnamed module of executable JAR files; other launchers pass `--enable-native-access=ALL-UNNAMED`.
 

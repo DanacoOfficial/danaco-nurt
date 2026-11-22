@@ -23,7 +23,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
-import pl.danacogroup.nurt.CallException;
+import pl.danacogroup.nurt.NurtCallException;
 import pl.danacogroup.nurt.CallStatus;
 import pl.danacogroup.nurt.internal.Json;
 import pl.danacogroup.nurt.internal.JsonException;
@@ -84,7 +84,7 @@ final class LibraryBackend implements Backend {
      * @param settings the settings; {@code config} is passed to
      *     {@code nurt_engine_open}
      * @return the backend
-     * @throws CallException when the engine cannot be opened
+     * @throws NurtCallException when the engine cannot be opened
      */
     static LibraryBackend open(Library library, BackendSettings settings) {
         try (Arena arena = Arena.ofConfined()) {
@@ -152,7 +152,7 @@ final class LibraryBackend implements Backend {
         for (Started execution : List.copyOf(executions)) {
             try {
                 execution.cancel();
-            } catch (CallException e) {
+            } catch (NurtCallException e) {
                 continue;
             }
         }
@@ -178,7 +178,7 @@ final class LibraryBackend implements Backend {
 
     private synchronized void enter() {
         if (closed) {
-            throw new CallException(CallException.Kind.DISCONNECTED, "client is closed");
+            throw new NurtCallException(NurtCallException.Kind.DISCONNECTED, "client is closed");
         }
         active++;
     }
@@ -196,17 +196,17 @@ final class LibraryBackend implements Backend {
             return started.result().get(timeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
             started.cancel();
-            throw new CallException(CallException.Kind.TIMEOUT,
+            throw new NurtCallException(NurtCallException.Kind.TIMEOUT,
                     "no response to `run` within " + timeout.toMillis() + " ms; raise the request timeout", e);
         } catch (ExecutionException e) {
-            if (e.getCause() instanceof CallException call) {
+            if (e.getCause() instanceof NurtCallException call) {
                 throw call;
             }
-            throw new CallException(CallException.Kind.INTERNAL, "request failed: " + e.getCause(), e);
+            throw new NurtCallException(NurtCallException.Kind.INTERNAL, "request failed: " + e.getCause(), e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             started.cancel();
-            throw new CallException(CallException.Kind.CANCELLED, "waiting for `run` was interrupted", e);
+            throw new NurtCallException(NurtCallException.Kind.CANCELLED, "waiting for `run` was interrupted", e);
         }
     }
 
@@ -234,9 +234,9 @@ final class LibraryBackend implements Backend {
             case "schema" -> json(callWithoutEngine(arena, library.schema, "nurt_schema",
                     text(arena, params, "which")), "nurt_schema");
             case "info" -> json(callWithoutEngine(arena, library.info, "nurt_info"), "nurt_info");
-            case "cancel" -> throw new CallException(CallException.Kind.INVALID_ARGUMENT,
+            case "cancel" -> throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT,
                     "the library backend cannot cancel background jobs; use the process backend");
-            default -> throw new CallException(CallException.Kind.INVALID_ARGUMENT,
+            default -> throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT,
                     "unknown method `" + method + "`");
         };
     }
@@ -328,10 +328,10 @@ final class LibraryBackend implements Backend {
             } finally {
                 release(buffer);
             }
-        } catch (CallException e) {
+        } catch (NurtCallException e) {
             failure = e;
         } catch (RuntimeException e) {
-            failure = new CallException(CallException.Kind.INTERNAL, "waiting for the execution failed: " + e, e);
+            failure = new NurtCallException(NurtCallException.Kind.INTERNAL, "waiting for the execution failed: " + e, e);
         } finally {
             try {
                 execution.free();
@@ -398,7 +398,7 @@ final class LibraryBackend implements Backend {
     private static Object required(Map<String, Object> params, String name) {
         Object value = params.get(name);
         if (value == null) {
-            throw new CallException(CallException.Kind.INVALID_ARGUMENT, "parameter `" + name + "` is required");
+            throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT, "parameter `" + name + "` is required");
         }
         return value;
     }
@@ -407,7 +407,7 @@ final class LibraryBackend implements Backend {
         if (required(params, name) instanceof String value) {
             return arena.allocateFrom(value);
         }
-        throw new CallException(CallException.Kind.INVALID_ARGUMENT, "parameter `" + name + "` must be a string");
+        throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT, "parameter `" + name + "` must be a string");
     }
 
     private static MemorySegment optionalText(Arena arena, Map<String, Object> params, String name) {
@@ -418,7 +418,7 @@ final class LibraryBackend implements Backend {
         Object value = params.get("variant");
         int index = value == null ? 0 : VARIANTS.indexOf(value);
         if (index < 0) {
-            throw new CallException(CallException.Kind.INVALID_ARGUMENT,
+            throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT,
                     "parameter `variant` must be one of a, b, c; got `" + value + "`");
         }
         return index + 1;
@@ -432,18 +432,18 @@ final class LibraryBackend implements Backend {
         if (value instanceof Number number && number.longValue() > 0 && number.longValue() <= Integer.MAX_VALUE) {
             return number.intValue();
         }
-        throw new CallException(CallException.Kind.INVALID_ARGUMENT,
+        throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT,
                 "parameter `limit` must be a positive integer; got `" + value + "`");
     }
 
     private static Object json(String text, String function) {
         if (text.isEmpty()) {
-            throw new CallException(CallException.Kind.PROTOCOL, function + " returned an empty result");
+            throw new NurtCallException(NurtCallException.Kind.PROTOCOL, function + " returned an empty result");
         }
         try {
             return Json.parse(text);
         } catch (JsonException e) {
-            throw new CallException(CallException.Kind.PROTOCOL,
+            throw new NurtCallException(NurtCallException.Kind.PROTOCOL,
                     function + " returned text that is not valid JSON: " + e.getMessage(), e);
         }
     }

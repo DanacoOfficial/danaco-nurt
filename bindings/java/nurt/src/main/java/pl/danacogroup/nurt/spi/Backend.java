@@ -16,7 +16,7 @@ import java.util.function.Consumer;
  * {@code info} and {@code cancel}; parameters and results are parsed JSON
  * values. Language errors are part of the results. Every method is
  * thread-safe. Failures of the call are reported as
- * {@link pl.danacogroup.nurt.CallException}.
+ * {@link pl.danacogroup.nurt.NurtCallException}.
  */
 public interface Backend extends AutoCloseable {
     /**

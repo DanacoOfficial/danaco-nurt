@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Linq;
 using System.Text;
@@ -14,7 +18,7 @@ public sealed class WireFormatTests
     [TestMethod]
     public void ProgramEnvelopeHasVersionAndVariantAndOnlyTheOptionsThatAreSet()
     {
-        JsonElement envelope = Envelope(Request.FromProgram("find \"/home/user\"", NotationVariant.B), null, new ClientOptions());
+        JsonElement envelope = Envelope(Request.FromProgram("find \"/home/user\"", NotationVariant.B), null, new NurtClientOptions());
 
         Assert.AreEqual("1.0", envelope.GetProperty("nurt").GetString());
         Assert.AreEqual("find \"/home/user\"", envelope.GetProperty("program").GetString());
@@ -26,7 +30,7 @@ public sealed class WireFormatTests
     [TestMethod]
     public void ClientLanguageAndSessionApplyWhenTheCallSetsNone()
     {
-        var client = new ClientOptions { Language = "pl", Session = "client" };
+        var client = new NurtClientOptions { Language = "pl", Session = "client" };
 
         JsonElement inherited = Envelope(Request.FromProgram("x"), null, client).GetProperty("options");
         JsonElement overridden = Envelope(Request.FromProgram("x"), new RunOptions { Language = "en" }, client).GetProperty("options");
@@ -57,7 +61,7 @@ public sealed class WireFormatTests
             Script = true,
         };
 
-        JsonElement sent = Envelope(Request.FromProgram("x"), options, new ClientOptions { Session = "client" }).GetProperty("options");
+        JsonElement sent = Envelope(Request.FromProgram("x"), options, new NurtClientOptions { Session = "client" }).GetProperty("options");
 
         Assert.IsTrue(sent.GetProperty("preview").GetBoolean());
         Assert.AreEqual("/home/user", sent.GetProperty("base").GetString());
@@ -81,9 +85,9 @@ public sealed class WireFormatTests
     {
         JsonElement ast = TestSupport.Json("""{"nurt": "1.0", "program": []}""");
 
-        JsonElement fromAst = Envelope(Request.FromAst(ast), null, new ClientOptions());
-        JsonElement fromCursor = Envelope(Request.FromCursor("c1"), null, new ClientOptions());
-        JsonElement fromAccept = Envelope(Request.FromAccept("k1"), null, new ClientOptions());
+        JsonElement fromAst = Envelope(Request.FromAst(ast), null, new NurtClientOptions());
+        JsonElement fromCursor = Envelope(Request.FromCursor("c1"), null, new NurtClientOptions());
+        JsonElement fromAccept = Envelope(Request.FromAccept("k1"), null, new NurtClientOptions());
 
         Assert.IsFalse(fromAst.TryGetProperty("program", out _));
         Assert.AreEqual("1.0", fromAst.GetProperty("ast").GetProperty("nurt").GetString());
@@ -150,7 +154,7 @@ public sealed class WireFormatTests
         Assert.AreEqual(CallStatus.Internal, RpcErrors.ToStatus(RpcErrors.InternalError));
         Assert.AreEqual(CallStatus.Internal, RpcErrors.ToStatus(-31000));
         Assert.AreEqual((CallStatus)42, RpcErrors.ToStatus(-32042));
-        Assert.AreEqual("42", CallException.GetStatusName((CallStatus)42));
+        Assert.AreEqual("42", NurtCallException.GetStatusName((CallStatus)42));
     }
 
     private static string Quote(string argument)
@@ -160,6 +164,6 @@ public sealed class WireFormatTests
         return line.ToString();
     }
 
-    private static JsonElement Envelope(Request request, RunOptions? options, ClientOptions client) =>
+    private static JsonElement Envelope(Request request, RunOptions? options, NurtClientOptions client) =>
         TestSupport.Json(Encoding.UTF8.GetString(WireFormat.Envelope(request, options, client)));
 }

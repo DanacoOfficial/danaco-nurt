@@ -16,13 +16,13 @@ import pl.danacogroup.nurt.internal.JsonException;
  *
  * <p>A language error is part of a response, not an exception:
  * {@link #ok()} is {@code false} and {@link #error()} returns the error.
- * {@link #orThrow()} turns it into a {@link LanguageException}.
+ * {@link #orThrow()} turns it into a {@link NurtLanguageException}.
  */
-public final class Response {
+public final class NurtResponse {
     private final Map<String, Object> value;
     private final Map<String, Object> report;
 
-    private Response(Map<String, Object> value, Map<String, Object> report) {
+    private NurtResponse(Map<String, Object> value, Map<String, Object> report) {
         this.value = Collections.unmodifiableMap(value);
         this.report = Collections.unmodifiableMap(report);
     }
@@ -32,16 +32,16 @@ public final class Response {
      *
      * @param value the value
      * @return the response
-     * @throws CallException of kind {@link CallException.Kind#PROTOCOL} when
+     * @throws NurtCallException of kind {@link NurtCallException.Kind#PROTOCOL} when
      *     the value is not an object with an object {@code report}
      */
-    public static Response of(Object value) {
+    public static NurtResponse of(Object value) {
         Map<String, Object> object = Json.object(value);
         Map<String, Object> report = Json.object(Json.member(object, "report"));
         if (object == null || report == null) {
-            throw new CallException(CallException.Kind.PROTOCOL, "response has no `report` object");
+            throw new NurtCallException(NurtCallException.Kind.PROTOCOL, "response has no `report` object");
         }
-        return new Response(object, report);
+        return new NurtResponse(object, report);
     }
 
     /**
@@ -49,15 +49,15 @@ public final class Response {
      *
      * @param json the text
      * @return the response
-     * @throws CallException of kind {@link CallException.Kind#PROTOCOL} when
+     * @throws NurtCallException of kind {@link NurtCallException.Kind#PROTOCOL} when
      *     the text is not JSON or not a response
      */
-    public static Response parse(String json) {
+    public static NurtResponse parse(String json) {
         try {
             return of(Json.parse(json));
         } catch (JsonException e) {
-            throw new CallException(
-                    CallException.Kind.PROTOCOL, "response is not valid JSON: " + e.getMessage(), e);
+            throw new NurtCallException(
+                    NurtCallException.Kind.PROTOCOL, "response is not valid JSON: " + e.getMessage(), e);
         }
     }
 
@@ -120,12 +120,12 @@ public final class Response {
      * The response, or its language error as an exception.
      *
      * @return this response when it has no language error
-     * @throws LanguageException when the report carries a language error
+     * @throws NurtLanguageException when the report carries a language error
      */
-    public Response orThrow() {
+    public NurtResponse orThrow() {
         Optional<LanguageError> error = error();
         if (error.isPresent()) {
-            throw new LanguageException(error.get());
+            throw new NurtLanguageException(error.get());
         }
         return this;
     }
@@ -150,7 +150,7 @@ public final class Response {
 
     @Override
     public boolean equals(Object other) {
-        return other instanceof Response response && value.equals(response.value);
+        return other instanceof NurtResponse response && value.equals(response.value);
     }
 
     @Override

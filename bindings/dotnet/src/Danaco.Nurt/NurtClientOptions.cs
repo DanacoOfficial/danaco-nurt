@@ -1,11 +1,15 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
 
 namespace Danaco.Nurt;
 
-/// <summary>Settings of a <see cref="Client"/>.</summary>
-public sealed class ClientOptions
+/// <summary>Settings of a <see cref="NurtClient"/>.</summary>
+public sealed class NurtClientOptions
 {
     internal static readonly IReadOnlyList<string> DefaultServeArguments = new[] { "serve", "--stdio" };
 

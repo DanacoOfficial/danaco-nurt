@@ -9,7 +9,7 @@ import java.util.concurrent.CompletableFuture;
 public interface StartedCall {
     /**
      * Result of the request: the response {@code nurt-response/1} as parsed
-     * JSON, or a {@link pl.danacogroup.nurt.CallException}.
+     * JSON, or a {@link pl.danacogroup.nurt.NurtCallException}.
      *
      * @return the future result
      */

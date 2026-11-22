@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -28,7 +32,7 @@ namespace Danaco.Nurt.TestServer;
 /// Every response to <c>run</c> and <c>page</c> also carries the received parameters in the
 /// member <c>request</c>.
 /// </summary>
-internal sealed class ScriptedServer
+internal sealed class ScriptedServer : IDisposable
 {
     private const int CrashExitCode = 3;
     private const int StatusErrorBase = -32000;
@@ -71,6 +75,12 @@ internal sealed class ScriptedServer
 
         await Task.WhenAll(running).ConfigureAwait(false);
         return 0;
+    }
+
+    public void Dispose()
+    {
+        _input.Dispose();
+        _writeLock.Dispose();
     }
 
     private static JsonObject Report(string status, string kind) => new()

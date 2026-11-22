@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Danaco.Nurt.Tests;
@@ -8,7 +12,7 @@ public sealed class ResponseTests
     [TestMethod]
     public void ReportFieldsAndRenderedTextAreRead()
     {
-        Response response = Response.Parse("""
+        NurtResponse response = NurtResponse.Parse("""
             {"nurt": "1.0",
              "report": {"nurt": "1.0", "status": "rolled_back", "kind": "replace", "op": 12, "next_cursor": "c9"},
              "rendered": {"format": "text", "text": "rolled back"}}
@@ -27,7 +31,7 @@ public sealed class ResponseTests
     [TestMethod]
     public void StatusOfALaterVersionIsUnknown()
     {
-        Response response = Response.Parse("""{"nurt": "1.1", "report": {"nurt": "1.1", "status": "deferred", "kind": "run"}}""");
+        NurtResponse response = NurtResponse.Parse("""{"nurt": "1.1", "report": {"nurt": "1.1", "status": "deferred", "kind": "run"}}""");
 
         Assert.AreEqual(ReportStatus.Unknown, response.Report.Status);
         Assert.AreEqual("deferred", response.Report.StatusText);
@@ -37,7 +41,7 @@ public sealed class ResponseTests
     [TestMethod]
     public void ResponseWithoutReportIsCallFailure()
     {
-        CallException exception = Assert.ThrowsException<CallException>(() => Response.Parse("""{"nurt": "1.0"}"""));
+        NurtCallException exception = Assert.ThrowsException<NurtCallException>(() => NurtResponse.Parse("""{"nurt": "1.0"}"""));
 
         Assert.AreEqual(CallStatus.Internal, exception.Status);
     }
@@ -45,7 +49,7 @@ public sealed class ResponseTests
     [TestMethod]
     public void TextThatIsNotJsonIsCallFailure()
     {
-        CallException exception = Assert.ThrowsException<CallException>(() => Response.Parse("{"));
+        NurtCallException exception = Assert.ThrowsException<NurtCallException>(() => NurtResponse.Parse("{"));
 
         Assert.AreEqual(CallStatus.Internal, exception.Status);
     }
@@ -53,9 +57,9 @@ public sealed class ResponseTests
     [TestMethod]
     public void LanguageExceptionCarriesTheResponse()
     {
-        Response response = Response.Parse("""{"nurt": "1.0", "report": {"nurt": "1.0", "status": "failed", "kind": "find", "error": {"code": "E_PATH_RELATIVE", "message": "path is relative"}}}""");
+        NurtResponse response = NurtResponse.Parse("""{"nurt": "1.0", "report": {"nurt": "1.0", "status": "failed", "kind": "find", "error": {"code": "E_PATH_RELATIVE", "message": "path is relative"}}}""");
 
-        var exception = new LanguageException(response);
+        var exception = new NurtLanguageException(response);
 
         Assert.AreSame(response, exception.Response);
         Assert.AreEqual("E_PATH_RELATIVE", exception.Error!.Code);

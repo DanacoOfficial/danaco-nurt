@@ -8,9 +8,9 @@ package pl.danacogroup.nurt;
  * process ended, the protocol was broken or an argument was rejected.
  *
  * <p>Errors of the language are not call errors; they are part of a
- * successful {@link Response}.
+ * successful {@link NurtResponse}.
  */
-public class CallException extends RuntimeException {
+public class NurtCallException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     /** Kind of a call error. */
@@ -75,7 +75,7 @@ public class CallException extends RuntimeException {
      * @param kind kind of the error
      * @param message what failed and how to correct it
      */
-    public CallException(Kind kind, String message) {
+    public NurtCallException(Kind kind, String message) {
         super(message);
         this.kind = kind;
     }
@@ -87,7 +87,7 @@ public class CallException extends RuntimeException {
      * @param message what failed and how to correct it
      * @param cause the underlying failure
      */
-    public CallException(Kind kind, String message, Throwable cause) {
+    public NurtCallException(Kind kind, String message, Throwable cause) {
         super(message, cause);
         this.kind = kind;
     }

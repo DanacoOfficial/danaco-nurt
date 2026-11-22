@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System.Text.Json;
 
 namespace Danaco.Nurt;
@@ -25,12 +29,12 @@ internal static class RpcErrors
         _ => CallStatus.Internal,
     };
 
-    public static CallException ToException(JsonElement error, string method)
+    public static NurtCallException ToException(JsonElement error, string method)
     {
         int code = JsonRead.Int32(error, "code") ?? InternalError;
         string message = JsonRead.String(error, "message") ?? "request failed";
         JsonElement? data = JsonRead.Property(error, "data");
-        return new CallException(ToStatus(code), method + ": " + message)
+        return new NurtCallException(ToStatus(code), method + ": " + message)
         {
             RpcErrorCode = code,
             Detail = data?.GetRawText(),

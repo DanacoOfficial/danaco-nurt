@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Globalization;
 using System.IO;
@@ -18,7 +22,7 @@ internal static class WireFormat
         typeof(WireFormat).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
         ?? "0.0.0";
 
-    public static byte[] Envelope(Request request, RunOptions? options, ClientOptions client)
+    public static byte[] Envelope(Request request, RunOptions? options, NurtClientOptions client)
     {
         var envelope = new RequestEnvelope
         {
@@ -71,7 +75,7 @@ internal static class WireFormat
         return ((long)value.TotalMilliseconds).ToString(CultureInfo.InvariantCulture) + "ms";
     }
 
-    private static EnvelopeOptions Options(RunOptions? options, ClientOptions client) => new()
+    private static EnvelopeOptions Options(RunOptions? options, NurtClientOptions client) => new()
     {
         Preview = options?.Preview,
         Base = options?.Base,

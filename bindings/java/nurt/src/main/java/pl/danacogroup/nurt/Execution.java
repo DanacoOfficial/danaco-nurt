@@ -14,7 +14,7 @@ import pl.danacogroup.nurt.internal.EventStream;
 import pl.danacogroup.nurt.spi.StartedCall;
 
 /**
- * Request started with {@link Client#start(Request)}.
+ * Request started with {@link NurtClient#start(Request)}.
  *
  * <p>{@link #events()} publishes every event of the execution, also to
  * subscribers that subscribe after the start, and completes when the
@@ -23,13 +23,13 @@ import pl.danacogroup.nurt.spi.StartedCall;
  */
 public final class Execution implements AutoCloseable {
     private final StartedCall call;
-    private final EventStream<Event> events;
-    private final CompletableFuture<Response> response;
+    private final EventStream<NurtEvent> events;
+    private final CompletableFuture<NurtResponse> response;
 
-    Execution(StartedCall call, EventStream<Event> events) {
+    Execution(StartedCall call, EventStream<NurtEvent> events) {
         this.call = call;
         this.events = events;
-        this.response = call.result().thenApply(Response::of);
+        this.response = call.result().thenApply(NurtResponse::of);
         this.response.whenComplete((value, error) -> events.complete(unwrap(error)));
     }
 
@@ -38,16 +38,16 @@ public final class Execution implements AutoCloseable {
      *
      * @return the publisher
      */
-    public Flow.Publisher<Event> events() {
+    public Flow.Publisher<NurtEvent> events() {
         return events;
     }
 
     /**
      * The response, when it arrives.
      *
-     * @return the future response; it fails with a {@link CallException}
+     * @return the future response; it fails with a {@link NurtCallException}
      */
-    public CompletableFuture<Response> response() {
+    public CompletableFuture<NurtResponse> response() {
         return response;
     }
 
@@ -64,16 +64,16 @@ public final class Execution implements AutoCloseable {
      * Waits for the response.
      *
      * @return the response
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
-    public Response await() {
+    public NurtResponse await() {
         try {
             return response.get();
         } catch (ExecutionException e) {
             throw callException(e.getCause());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new CallException(CallException.Kind.CANCELLED, "waiting for the execution was interrupted", e);
+            throw new NurtCallException(NurtCallException.Kind.CANCELLED, "waiting for the execution was interrupted", e);
         }
     }
 
@@ -82,21 +82,21 @@ public final class Execution implements AutoCloseable {
      *
      * @param timeout the limit
      * @return the response
-     * @throws CallException of kind {@link CallException.Kind#TIMEOUT} when the
+     * @throws NurtCallException of kind {@link NurtCallException.Kind#TIMEOUT} when the
      *     execution is still running; the execution continues and can be
      *     awaited again
      */
-    public Response await(Duration timeout) {
+    public NurtResponse await(Duration timeout) {
         try {
             return response.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            throw new CallException(CallException.Kind.TIMEOUT,
+            throw new NurtCallException(NurtCallException.Kind.TIMEOUT,
                     "execution still running after " + timeout.toMillis() + " ms", e);
         } catch (ExecutionException e) {
             throw callException(e.getCause());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new CallException(CallException.Kind.CANCELLED, "waiting for the execution was interrupted", e);
+            throw new NurtCallException(NurtCallException.Kind.CANCELLED, "waiting for the execution was interrupted", e);
         }
     }
 
@@ -120,11 +120,11 @@ public final class Execution implements AutoCloseable {
         return error instanceof CompletionException && error.getCause() != null ? error.getCause() : error;
     }
 
-    private static CallException callException(Throwable cause) {
+    private static NurtCallException callException(Throwable cause) {
         Throwable error = unwrap(cause);
-        if (error instanceof CallException call) {
+        if (error instanceof NurtCallException call) {
             return call;
         }
-        return new CallException(CallException.Kind.INTERNAL, "execution failed: " + error, error);
+        return new NurtCallException(NurtCallException.Kind.INTERNAL, "execution failed: " + error, error);
     }
 }

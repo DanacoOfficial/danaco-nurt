@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -145,7 +149,7 @@ public sealed class SchemaConformanceTests
     [TestMethod]
     public void ErrorWrittenAsTheSchemaDescribesIsReadCompletely()
     {
-        Response response = Response.FromElement(TestSupport.Json("""
+        NurtResponse response = NurtResponse.FromElement(TestSupport.Json("""
             {
               "nurt": "1.0",
               "report": {
@@ -215,7 +219,7 @@ public sealed class SchemaConformanceTests
     }
 
     private static JsonElement EnvelopeOf(Request request, RunOptions? options) =>
-        TestSupport.Json(Encoding.UTF8.GetString(WireFormat.Envelope(request, options, new ClientOptions())));
+        TestSupport.Json(Encoding.UTF8.GetString(WireFormat.Envelope(request, options, new NurtClientOptions())));
 
     private static string SentOption(RunOptions options, string name) =>
         EnvelopeOf(Request.FromProgram("count"), options).GetProperty("options").GetProperty(name).GetString()!;

@@ -305,3 +305,207 @@ lines "/home/user/app/main.go" |> count
 ```bash
 wc -l /home/user/app/main.go
 ```
+
+## List a directory by modification time
+
+List the entries of a directory, the most recently modified first.
+
+```nurt example
+list "/home/user/app" sort: modified order: desc
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/main.go","type":"file","content_utf8":"package main\n"},{"path":"/home/user/app/go.mod","type":"file","content_utf8":"module app\n"}]}
+```
+
+```text expected
+/home/user/app/main.go
+```
+
+```bash
+ls -lt /home/user/app
+```
+
+## Find only directories
+
+Find the directories of a project whose name contains `test`.
+
+```nurt example
+find "/home/user/app" type: directory glob: "**/*test*"
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/tests","type":"dir"},{"path":"/home/user/app/src","type":"dir"}]}
+```
+
+```text expected
+/home/user/app/tests
+```
+
+```bash
+find /home/user/app -type d -name '*test*'
+```
+
+## Find files without dependency and build directories
+
+Find JavaScript files and skip dependency and build directories.
+
+```nurt example
+find "/home/user/app" glob: "**/*.js" exclude_preset: [deps, build]
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/index.js","type":"file","content_utf8":""},{"path":"/home/user/app/node_modules/x/index.js","type":"file","content_utf8":""}]}
+```
+
+```text expected
+/home/user/app/index.js
+```
+
+## Search for a whole word
+
+Find the word `id` and skip longer words that contain it.
+
+```nurt example
+search "id" "/home/user/app/src" whole_word: true
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/src/a.go","type":"file","content_utf8":"x := id\ny := width\n"}]}
+```
+
+```text expected
+x := id
+```
+
+```bash
+grep -rnw 'id' /home/user/app/src
+```
+
+## Count the matches per file
+
+Count the lines that contain a pattern in every file.
+
+```nurt example
+search /deprecated/ "/home/user/app/src" output: counts
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/src/a.go","type":"file","content_utf8":"// deprecated a\n// deprecated b\n"}]}
+```
+
+```text expected
+/home/user/app/src/a.go
+```
+
+```bash
+grep -rc 'deprecated' /home/user/app/src
+```
+
+## List the files without a pattern
+
+List the files that do not contain a license notice.
+
+```nurt example
+search /Copyright/ "/home/user/app/src" glob: "**/*.go" output: unmatched
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/src/a.go","type":"file","content_utf8":"// Copyright 2026\n"},{"path":"/home/user/app/src/b.go","type":"file","content_utf8":"package b\n"}]}
+```
+
+```text expected
+/home/user/app/src/b.go
+```
+
+```bash
+grep -rL 'Copyright' --include='*.go' /home/user/app/src
+```
+
+## Extract only the matching text
+
+Extract the version numbers from a file without the rest of the line.
+
+```nurt example
+search /v\d+\.\d+\.\d+/ "/home/user/app/CHANGELOG.md" only_matching: true
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/CHANGELOG.md","type":"file","content_utf8":"## v1.2.3\n"}]}
+```
+
+```text expected
+v1.2.3
+```
+
+```bash
+grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' /home/user/app/CHANGELOG.md
+```
+
+## Search a pattern that spans lines
+
+Find a function that starts with an empty body.
+
+```nurt example
+search /func main\(\) \{\n\}/ "/home/user/app/main.go" multiline: true
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/main.go","type":"file","content_utf8":"func main() {\n}\n"}]}
+```
+
+```text expected
+func main
+```
+
+## Read one function
+
+Read the definition of a function by its name.
+
+```nurt example
+read "/home/user/app/main.go" symbol: "main"
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/main.go","type":"file","content_utf8":"package main\n\nfunc main() {}\n"}]}
+```
+
+```text expected
+func main
+```
+
+## Read the outline of a file
+
+Read the declarations of a file without their bodies.
+
+```nurt example
+read "/home/user/app/main.go" view: outline
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/main.go","type":"file","content_utf8":"package main\n\nfunc main() {}\n"}]}
+```
+
+```text expected
+main
+```
+
+## Show the metadata of several files
+
+Show the metadata of two files in one call.
+
+```nurt example
+info ["/home/user/app/main.go", "/home/user/app/go.mod"]
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/main.go","type":"file","content_utf8":"package main\n"},{"path":"/home/user/app/go.mod","type":"file","content_utf8":"module app\n"}]}
+```
+
+```text expected
+/home/user/app/go.mod
+```
+
+```bash
+stat /home/user/app/main.go /home/user/app/go.mod
+```

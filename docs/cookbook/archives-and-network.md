@@ -190,3 +190,175 @@ network.interfaces
 ```text expected
 interface
 ```
+
+## Extract an archive without its top directory
+
+Extract a source archive and drop the first path component of every entry.
+
+```nurt example
+archive.extract "/home/user/dl/src.tar.gz" into: "/home/user/src" strip_components: 1
+```
+
+```text expected
+/home/user/src
+```
+
+```bash
+tar -xzf /home/user/dl/src.tar.gz -C /home/user/src --strip-components=1
+```
+
+## Extract without overwriting files
+
+Extract an archive and keep the files that already exist.
+
+```nurt example
+archive.extract "/home/user/dl/data.zip" into: "/home/user/data" on_conflict: skip
+```
+
+```text expected
+/home/user/data
+```
+
+## List the entries that match a pattern
+
+List only the JSON entries of an archive.
+
+```nurt example
+archive.list "/home/user/dl/data.zip" glob: "**/*.json"
+```
+
+```text expected
+json
+```
+
+```bash
+unzip -l /home/user/dl/data.zip '*.json'
+```
+
+## Create a Zstandard tar archive
+
+Pack a source directory into a tar archive compressed with Zstandard.
+
+```nurt example
+find "/home/user/app/src" |> archive.create "/home/user/out/src.tar.zst" format: tar_zst base: "/home/user/app"
+```
+
+```text expected
+/home/user/out/src.tar.zst
+```
+
+```bash
+tar --zstd -cf /home/user/out/src.tar.zst -C /home/user/app src
+```
+
+## Compress a file with a chosen algorithm
+
+Compress a log with Zstandard at level 9 and remove the original.
+
+```nurt example
+compress "/home/user/app/app.log" algorithm: zstd level: 9 keep: false
+```
+
+```text expected
+app.log
+```
+
+```bash
+zstd -9 --rm /home/user/app/app.log
+```
+
+## Compress the old logs
+
+Compress the log files that are older than seven days.
+
+```nurt example
+find "/home/user/logs" glob: "*.log" depth: 1 |> filter modified < ago(7d) |> compress
+```
+
+```text expected
+nothing_matched
+```
+
+## Request only the headers
+
+Send a HEAD request to read the headers of a resource.
+
+```nurt example
+http.request "https://example.com/a.tar.gz" method: head
+```
+
+```text expected
+200
+```
+
+```bash
+curl -fsSI https://example.com/a.tar.gz
+```
+
+## Save a response to a file
+
+Save the body of a response to a file.
+
+```nurt example
+http.request "https://example.com/data.json" save: "/home/user/dl/data.json"
+```
+
+```text expected
+/home/user/dl/data.json
+```
+
+## List the links of a page
+
+List the links of a page that lead to the same host.
+
+```nurt example
+http.request "https://example.com/docs" extract: links same_host: true
+```
+
+```text expected
+example.com
+```
+
+## Limit the time and retry a request
+
+Fail a request after five seconds and retry it up to three times.
+
+```nurt example
+http.request "https://example.com/health" timeout: 5s retries: 3
+```
+
+```text expected
+200
+```
+
+```bash
+curl -fsS --max-time 5 --retry 3 https://example.com/health
+```
+
+## Resolve a mail exchanger
+
+Resolve the mail exchangers of a domain through a chosen DNS server.
+
+```nurt example
+network.resolve "example.com" type: mx server: "9.9.9.9"
+```
+
+```text expected
+example.com
+```
+
+```bash
+dig @9.9.9.9 example.com MX
+```
+
+## Ping with a short timeout
+
+Send one echo request and wait at most one second.
+
+```nurt example
+network.ping "example.com" count: 1 timeout: 1s
+```
+
+```text expected
+example.com
+```

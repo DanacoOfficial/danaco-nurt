@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,7 +23,7 @@ internal sealed class ProcessExecution : IExecutionHandle
         Completion = ConvertAsync(call.Source.Task);
     }
 
-    public Task<Response> Completion { get; }
+    public Task<NurtResponse> Completion { get; }
 
     public Task CancelAsync(CancellationToken cancellationToken) =>
         _connection.CancelRequestAsync(_call.Id, cancellationToken);
@@ -35,6 +39,6 @@ internal sealed class ProcessExecution : IExecutionHandle
         _events.Complete();
     }
 
-    private static async Task<Response> ConvertAsync(Task<JsonElement> result) =>
-        Response.FromElement(await result.ConfigureAwait(false));
+    private static async Task<NurtResponse> ConvertAsync(Task<JsonElement> result) =>
+        NurtResponse.FromElement(await result.ConfigureAwait(false));
 }

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System.Text.Json;
 
 namespace Danaco.Nurt;
@@ -50,7 +54,7 @@ public sealed class Request
     public static Request FromAst(JsonElement ast) => new(null, null, ast.Clone(), null, null);
 
     /// <summary>Creates a request for a further page of an earlier result.</summary>
-    /// <param name="cursor">Cursor from <see cref="Response.NextCursor"/>.</param>
+    /// <param name="cursor">Cursor from <see cref="NurtResponse.NextCursor"/>.</param>
     /// <returns>The request.</returns>
     /// <exception cref="System.ArgumentNullException"><paramref name="cursor"/> is <see langword="null"/>.</exception>
     public static Request FromCursor(string cursor)

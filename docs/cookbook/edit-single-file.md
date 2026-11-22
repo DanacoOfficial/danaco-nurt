@@ -241,3 +241,243 @@ registry:/HKCU/Software/Example/Mode
 ```powershell
 Set-ItemProperty HKCU:\Software\Example -Name Mode -Value 3 -Type DWord
 ```
+
+## Append a line to a log file
+
+Append a line to the end of a file and keep its content.
+
+```nurt example
+write "/home/user/app/notes.txt" "done\n" mode: append ensure_newline: true
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/notes.txt","type":"file","content_utf8":"start"}]}
+```
+
+```text expected
+/home/user/app/notes.txt
+```
+
+```bash
+printf '\ndone\n' >> /home/user/app/notes.txt
+```
+
+## Create a file with Windows line endings
+
+Create a batch file with CRLF line endings.
+
+```nurt example
+write "/home/user/app/run.cmd" "@echo off\necho run\n" mode: create line_ending: crlf
+```
+
+```text expected
+/home/user/app/run.cmd
+```
+
+## Create a file in a missing directory
+
+Create a file together with the directories of its path.
+
+```nurt example
+write "/home/user/app/out/logs/today.txt" "start\n" mode: create parents: true
+```
+
+```text expected
+/home/user/app/out/logs/today.txt
+```
+
+```bash
+mkdir -p /home/user/app/out/logs && printf 'start\n' > /home/user/app/out/logs/today.txt
+```
+
+## Write a JSON file
+
+Write a JSON file; a document that is not valid JSON is rejected.
+
+```nurt example
+write "/home/user/app/settings.json" r#"{"debug": false}"# mode: create format: json
+```
+
+```text expected
+/home/user/app/settings.json
+```
+
+## Replace a text in one file
+
+Replace one text in one file.
+
+```nurt example
+replace "localhost" "db.internal" in: ["/home/user/app/app.conf"]
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/app.conf","type":"file","content_utf8":"host = localhost\n"}]}
+```
+
+```text expected
+/home/user/app/app.conf
+```
+
+```bash
+sed -i 's/localhost/db.internal/g' /home/user/app/app.conf
+```
+
+## Insert a line after the last line
+
+Insert a line at the end of a file.
+
+```nurt example
+insert "exit 0" in: "/home/user/app/run.sh" position: end
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/run.sh","type":"file","content_utf8":"echo run\n"}]}
+```
+
+```text expected
+/home/user/app/run.sh
+```
+
+## Delete a range of lines
+
+Delete lines 10 to 12 of a file.
+
+```nurt example
+edit "/home/user/app/main.go" changes: [{delete_lines: 10..12}]
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/main.go","type":"file","content_utf8":"a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl\nm\n"}]}
+```
+
+```text expected
+/home/user/app/main.go
+```
+
+```bash
+sed -i '10,12d' /home/user/app/main.go
+```
+
+## Edit a file only when the content matches
+
+Apply a change only when the file still has the content that was read earlier.
+
+```nurt example
+edit "/home/user/app/main.go" changes: [{replace: "oldName(", with: "newName("}] if_match: "1a2b3c4d"
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/main.go","type":"file","content_utf8":"oldName(1)\n"}]}
+```
+
+```text expected
+E_STALE
+```
+
+## Remove a key of a configuration file
+
+Remove one key of a JSON file.
+
+```nurt example
+set "/home/user/app/package.json" key: "scripts.lint" value: null
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/package.json","type":"file","content_utf8":"{\"scripts\":{\"lint\":\"eslint .\",\"test\":\"jest\"}}"}]}
+```
+
+```text expected
+/home/user/app/package.json
+```
+
+## Set a value in an INI file
+
+Set a value in an INI file and keep the other lines.
+
+```nurt example
+set "/home/user/app/app.ini" key: "database.host" value: "db.internal" format: ini
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/app.ini","type":"file","content_utf8":"[database]\nhost = localhost\n"}]}
+```
+
+```text expected
+/home/user/app/app.ini
+```
+
+## Set a variable of an environment file
+
+Change a variable of a dotenv file.
+
+```nurt example
+set "/home/user/app/.env" key: "LOG_LEVEL" value: "debug" format: env
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/.env","type":"file","content_utf8":"LOG_LEVEL=info\n"}]}
+```
+
+```text expected
+/home/user/app/.env
+```
+
+## Read a key of a YAML file
+
+Read one nested value of a YAML file.
+
+```nurt example
+read "/home/user/app/config.yaml" key: "server.port"
+```
+
+```json fs-before
+{"format":"nurt-fs-snapshot/1","entries":[{"path":"/home/user/app/config.yaml","type":"file","content_utf8":"server:\n  port: 8080\n"}]}
+```
+
+```text expected
+8080
+```
+
+## Read lines of a file
+
+Read lines 5 to 15 of a file with their numbers.
+
+```nurt example
+read "/home/user/app/main.go" lines: 5..15 line_numbers: true
+```
+
+```text expected
+main.go
+```
+
+```bash
+sed -n '5,15p' /home/user/app/main.go | cat -n
+```
+
+## Read the last lines of a file
+
+Read the last twenty lines of a log.
+
+```nurt example
+read "/home/user/app/app.log" last: 20
+```
+
+```text expected
+app.log
+```
+
+```bash
+tail -n 20 /home/user/app/app.log
+```
+
+## Write to a SQLite database
+
+Insert a row into a SQLite database.
+
+```nurt example
+sql "/home/user/app/app.db" "insert into users (name, active) values (?, ?)" params: ["ann", 1] write: true
+```
+
+```text expected
+/home/user/app/app.db
+```

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -38,7 +42,7 @@ internal static class LibraryLoader
             {
                 if (!string.Equals(s_path, full, StringComparison.Ordinal))
                 {
-                    throw new CallException(
+                    throw new NurtCallException(
                         CallStatus.InvalidArgument,
                         "libnurt is already loaded from " + s_path + "; a process uses one library file");
                 }
@@ -54,11 +58,11 @@ internal static class LibraryLoader
             }
             catch (DllNotFoundException exception)
             {
-                throw new CallException(CallStatus.Io, "cannot load libnurt from " + full + ": " + exception.Message, exception);
+                throw new NurtCallException(CallStatus.Io, "cannot load libnurt from " + full + ": " + exception.Message, exception);
             }
             catch (BadImageFormatException exception)
             {
-                throw new CallException(CallStatus.Io, "libnurt at " + full + " is built for another platform", exception);
+                throw new NurtCallException(CallStatus.Io, "libnurt at " + full + " is built for another platform", exception);
             }
 
             Volatile.Write(ref s_handle, handle);
@@ -67,7 +71,7 @@ internal static class LibraryLoader
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
                 && NativeMethods.LoadLibraryEx(full, IntPtr.Zero, NativeMethods.LoadWithAlteredSearchPath) == IntPtr.Zero)
             {
-                throw new CallException(
+                throw new NurtCallException(
                     CallStatus.Io,
                     "cannot load libnurt from " + full + ": system error " + Marshal.GetLastWin32Error().ToString(System.Globalization.CultureInfo.InvariantCulture));
             }

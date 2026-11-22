@@ -3,8 +3,8 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 package pl.danacogroup.nurt;
 
-/** Language error of a response, raised by {@link Response#orThrow()}. */
-public final class LanguageException extends RuntimeException {
+/** Language error of a response, raised by {@link NurtResponse#orThrow()}. */
+public final class NurtLanguageException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     private final transient LanguageError error;
@@ -14,7 +14,7 @@ public final class LanguageException extends RuntimeException {
      *
      * @param error the language error
      */
-    public LanguageException(LanguageError error) {
+    public NurtLanguageException(LanguageError error) {
         super(error.toString());
         this.error = error;
     }

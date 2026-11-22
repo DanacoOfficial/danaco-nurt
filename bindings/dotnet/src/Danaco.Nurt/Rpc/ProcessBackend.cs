@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.IO;
 using System.Text.Json;
@@ -14,12 +18,12 @@ namespace Danaco.Nurt;
 internal sealed class ProcessBackend : IBackend
 {
     private readonly string _executable;
-    private readonly ClientOptions _options;
+    private readonly NurtClientOptions _options;
     private readonly SemaphoreSlim _connectLock = new(1, 1);
     private RpcConnection? _connection;
     private int _disposed;
 
-    public ProcessBackend(string executable, ClientOptions options)
+    public ProcessBackend(string executable, NurtClientOptions options)
     {
         _executable = executable;
         _options = options;
@@ -30,8 +34,8 @@ internal sealed class ProcessBackend : IBackend
     /// <summary>Identifier of the running child process; <see langword="null"/> before the first call.</summary>
     internal int? ProcessId => Volatile.Read(ref _connection) is { IsAlive: true } connection ? connection.ProcessId : null;
 
-    public async Task<Response> RunAsync(byte[] envelope, CancellationToken cancellationToken) =>
-        Response.FromElement(await CallAsync("run", envelope, cancellationToken).ConfigureAwait(false));
+    public async Task<NurtResponse> RunAsync(byte[] envelope, CancellationToken cancellationToken) =>
+        NurtResponse.FromElement(await CallAsync("run", envelope, cancellationToken).ConfigureAwait(false));
 
     public async Task<IExecutionHandle> StartAsync(byte[] envelope, EventQueue events, CancellationToken cancellationToken)
     {
@@ -65,10 +69,10 @@ internal sealed class ProcessBackend : IBackend
         return new CorrectResult(await CallAsync("correct", Serialize(parameters), cancellationToken).ConfigureAwait(false));
     }
 
-    public async Task<Response> PageAsync(string cursor, int? limit, CancellationToken cancellationToken)
+    public async Task<NurtResponse> PageAsync(string cursor, int? limit, CancellationToken cancellationToken)
     {
         byte[] parameters = JsonSerializer.SerializeToUtf8Bytes(new PageParams { Cursor = cursor, Limit = limit }, WireJsonContext.Default.PageParams);
-        return Response.FromElement(await CallAsync("page", parameters, cancellationToken).ConfigureAwait(false));
+        return NurtResponse.FromElement(await CallAsync("page", parameters, cancellationToken).ConfigureAwait(false));
     }
 
     public async Task<string> DescribeAsync(DescribeParams selector, CancellationToken cancellationToken)
@@ -137,7 +141,7 @@ internal sealed class ProcessBackend : IBackend
     /// <summary>Reads a text result, given either as a JSON string or as an object with the member <c>text</c>.</summary>
     private static string Text(JsonElement result, string method) => result.ValueKind == JsonValueKind.String
         ? result.GetString()!
-        : JsonRead.String(result, "text") ?? throw new CallException(CallStatus.Internal, method + ": result carries no text");
+        : JsonRead.String(result, "text") ?? throw new NurtCallException(CallStatus.Internal, method + ": result carries no text");
 
     private async Task<JsonElement> CallAsync(string method, byte[]? parameters, CancellationToken cancellationToken)
     {

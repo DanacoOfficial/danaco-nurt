@@ -7,7 +7,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import pl.danacogroup.nurt.BackendKind;
-import pl.danacogroup.nurt.CallException;
+import pl.danacogroup.nurt.NurtCallException;
 import pl.danacogroup.nurt.internal.Artifacts;
 import pl.danacogroup.nurt.spi.Backend;
 import pl.danacogroup.nurt.spi.BackendProvider;
@@ -31,7 +31,7 @@ public final class LibraryBackendProvider implements BackendProvider {
         try {
             library(settings).checkAbi();
             return true;
-        } catch (CallException e) {
+        } catch (NurtCallException e) {
             return false;
         }
     }

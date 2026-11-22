@@ -22,27 +22,27 @@ import pl.danacogroup.nurt.spi.BackendSettings;
  * Client of Danaco Nurt.
  *
  * <p>The client is thread-safe: requests of several threads are in flight at
- * the same time. A language error is part of a successful {@link Response};
- * a failure of the call itself is a {@link CallException} with the status
+ * the same time. A language error is part of a successful {@link NurtResponse};
+ * a failure of the call itself is a {@link NurtCallException} with the status
  * code of the C interface.
  *
  * <pre>{@code
- * try (Client nurt = Client.create()) {
- *     Response response = nurt.run(Request.program("find \"/home/user/src\" glob: \"*.go\""));
+ * try (NurtClient nurt = NurtClient.create()) {
+ *     NurtResponse response = nurt.run(Request.program("find \"/home/user/src\" glob: \"*.go\""));
  *     response.error().ifPresentOrElse(
  *             error -> System.err.println(error + " fix: " + error.fix()),
  *             () -> System.out.println(response.text().orElse("")));
  * }
  * }</pre>
  */
-public final class Client implements AutoCloseable {
+public final class NurtClient implements AutoCloseable {
     private static final String LIBRARY_PROVIDER = "pl.danacogroup.nurt.ffm.LibraryBackendProvider";
 
     private final Backend backend;
     private final BackendKind kind;
-    private final SubmissionPublisher<Event> events;
+    private final SubmissionPublisher<NurtEvent> events;
 
-    private Client(Backend backend, BackendKind kind, SubmissionPublisher<Event> events) {
+    private NurtClient(Backend backend, BackendKind kind, SubmissionPublisher<NurtEvent> events) {
         this.backend = backend;
         this.kind = kind;
         this.events = events;
@@ -52,10 +52,10 @@ public final class Client implements AutoCloseable {
      * Client with the default options.
      *
      * @return the client
-     * @throws CallException when no backend can be opened
+     * @throws NurtCallException when no backend can be opened
      */
-    public static Client create() {
-        return create(new ClientOptions());
+    public static NurtClient create() {
+        return create(new NurtClientOptions());
     }
 
     /**
@@ -63,12 +63,12 @@ public final class Client implements AutoCloseable {
      *
      * @param options the options
      * @return the client
-     * @throws CallException when the requested backend cannot be opened, for
-     *     example {@link CallException.Kind#NOT_FOUND} with the checked
+     * @throws NurtCallException when the requested backend cannot be opened, for
+     *     example {@link NurtCallException.Kind#NOT_FOUND} with the checked
      *     locations of the executable
      */
-    public static Client create(ClientOptions options) {
-        SubmissionPublisher<Event> events = new SubmissionPublisher<>();
+    public static NurtClient create(NurtClientOptions options) {
+        SubmissionPublisher<NurtEvent> events = new SubmissionPublisher<>();
         BackendSettings settings = new BackendSettings(
                 options.executable(),
                 options.command(),
@@ -78,20 +78,20 @@ public final class Client implements AutoCloseable {
                 options.session(),
                 options.language() == null ? null : options.language().wire(),
                 options.requestTimeout(),
-                value -> events.offer(new Event(value), null));
+                value -> events.offer(new NurtEvent(value), null));
         try {
             return switch (options.backend()) {
-                case PROCESS -> new Client(ProcessBackend.open(settings), BackendKind.PROCESS, events);
-                case LIBRARY -> new Client(libraryProvider()
-                        .orElseThrow(() -> new CallException(CallException.Kind.NOT_FOUND,
+                case PROCESS -> new NurtClient(ProcessBackend.open(settings), BackendKind.PROCESS, events);
+                case LIBRARY -> new NurtClient(libraryProvider()
+                        .orElseThrow(() -> new NurtCallException(NurtCallException.Kind.NOT_FOUND,
                                 "library backend needs the artifact pl.danaco-group:nurt-ffm and Java 22 or later"))
                         .open(settings), BackendKind.LIBRARY, events);
                 case AUTO -> {
                     Optional<BackendProvider> library = libraryProvider()
                             .filter(provider -> provider.isAvailable(settings));
                     yield library.isPresent()
-                            ? new Client(library.get().open(settings), BackendKind.LIBRARY, events)
-                            : new Client(ProcessBackend.open(settings), BackendKind.PROCESS, events);
+                            ? new NurtClient(library.get().open(settings), BackendKind.LIBRARY, events)
+                            : new NurtClient(ProcessBackend.open(settings), BackendKind.PROCESS, events);
                 }
             };
         } catch (RuntimeException e) {
@@ -105,13 +105,13 @@ public final class Client implements AutoCloseable {
      * path the provider class of the artifact {@code nurt-ffm}.
      */
     private static Optional<BackendProvider> libraryProvider() {
-        for (BackendProvider provider : ServiceLoader.load(BackendProvider.class, Client.class.getClassLoader())) {
+        for (BackendProvider provider : ServiceLoader.load(BackendProvider.class, NurtClient.class.getClassLoader())) {
             if (provider.kind() == BackendKind.LIBRARY) {
                 return Optional.of(provider);
             }
         }
         try {
-            Class<?> type = Class.forName(LIBRARY_PROVIDER, true, Client.class.getClassLoader());
+            Class<?> type = Class.forName(LIBRARY_PROVIDER, true, NurtClient.class.getClassLoader());
             Object provider = type.getConstructor().newInstance();
             return provider instanceof BackendProvider library ? Optional.of(library) : Optional.empty();
         } catch (ReflectiveOperationException | LinkageError e) {
@@ -132,23 +132,23 @@ public final class Client implements AutoCloseable {
      * Runs a request and waits for its response.
      *
      * @param request the request
-     * @return the response; a language error is read with {@link Response#error()}
-     * @throws CallException when the call fails
+     * @return the response; a language error is read with {@link NurtResponse#error()}
+     * @throws NurtCallException when the call fails
      */
-    public Response run(Request request) {
-        return Response.of(backend.call("run", request.toMap()));
+    public NurtResponse run(Request request) {
+        return NurtResponse.of(backend.call("run", request.toMap()));
     }
 
     /**
      * Runs a request without blocking.
      *
      * @param request the request
-     * @return the future response; it fails with a {@link CallException}
+     * @return the future response; it fails with a {@link NurtCallException}
      */
-    public CompletableFuture<Response> runAsync(Request request) {
+    public CompletableFuture<NurtResponse> runAsync(Request request) {
         try {
-            return backend.start(request.toMap(), value -> { }).result().thenApply(Response::of);
-        } catch (CallException e) {
+            return backend.start(request.toMap(), value -> { }).result().thenApply(NurtResponse::of);
+        } catch (NurtCallException e) {
             return CompletableFuture.failedFuture(e);
         }
     }
@@ -158,11 +158,11 @@ public final class Client implements AutoCloseable {
      *
      * @param request the request
      * @return the execution with its events and response
-     * @throws CallException when the request cannot be sent
+     * @throws NurtCallException when the request cannot be sent
      */
     public Execution start(Request request) {
-        EventStream<Event> stream = new EventStream<>(ForkJoinPool.commonPool());
-        return new Execution(backend.start(request.toMap(), value -> stream.publish(new Event(value))), stream);
+        EventStream<NurtEvent> stream = new EventStream<>(ForkJoinPool.commonPool());
+        return new Execution(backend.start(request.toMap(), value -> stream.publish(new NurtEvent(value))), stream);
     }
 
     /**
@@ -171,7 +171,7 @@ public final class Client implements AutoCloseable {
      *
      * @param request the request
      * @return the classification
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public Map<String, Object> check(Request request) {
         return object("check", backend.call("check", request.toMap()));
@@ -183,7 +183,7 @@ public final class Client implements AutoCloseable {
      * @param program the program
      * @param variant its notation variant
      * @return the tree and the diagnostics
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public Map<String, Object> parse(String program, Request.Variant variant) {
         return object("parse", backend.call("parse", params("program", program, "variant", variant.wire())));
@@ -195,7 +195,7 @@ public final class Client implements AutoCloseable {
      * @param ast the tree {@code nurt-ast/1}
      * @param variant the notation variant
      * @return the program text
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public String print(Map<String, Object> ast, Request.Variant variant) {
         return text("print", backend.call("print", params("ast", ast, "variant", variant.wire())));
@@ -207,7 +207,7 @@ public final class Client implements AutoCloseable {
      * @param program the program
      * @param variant its notation variant
      * @return the corrected program and the corrections
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public Map<String, Object> correct(String program, Request.Variant variant) {
         return object("correct", backend.call("correct", params("program", program, "variant", variant.wire())));
@@ -218,10 +218,10 @@ public final class Client implements AutoCloseable {
      *
      * @param cursor the cursor
      * @return the page
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
-    public Response page(String cursor) {
-        return Response.of(backend.call("page", params("cursor", cursor)));
+    public NurtResponse page(String cursor) {
+        return NurtResponse.of(backend.call("page", params("cursor", cursor)));
     }
 
     /**
@@ -230,17 +230,17 @@ public final class Client implements AutoCloseable {
      * @param cursor the cursor
      * @param limit records per page
      * @return the page
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
-    public Response page(String cursor, int limit) {
-        return Response.of(backend.call("page", params("cursor", cursor, "limit", (long) limit)));
+    public NurtResponse page(String cursor, int limit) {
+        return NurtResponse.of(backend.call("page", params("cursor", cursor, "limit", (long) limit)));
     }
 
     /**
      * Core description of the language for tool integrations.
      *
      * @return the description
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public String describe() {
         return text("describe", backend.call("describe", params("layer", "core")));
@@ -252,7 +252,7 @@ public final class Client implements AutoCloseable {
      * @param group the group, for example {@code documents}
      * @param language language of the description, or {@code null} for the default
      * @return the description
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public String describe(String group, Request.Language language) {
         Map<String, Object> params = params("layer", "group", "name", group);
@@ -266,7 +266,7 @@ public final class Client implements AutoCloseable {
      * Index of help topics.
      *
      * @return the index
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public String help() {
         return text("help", backend.call("help", params()));
@@ -277,7 +277,7 @@ public final class Client implements AutoCloseable {
      *
      * @param topic the topic
      * @return the help text
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public String help(String topic) {
         return text("help", backend.call("help", params("topic", topic)));
@@ -287,7 +287,7 @@ public final class Client implements AutoCloseable {
      * Whole command catalog {@code nurt-catalog/1}.
      *
      * @return the catalog
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public Map<String, Object> catalog() {
         return object("catalog", backend.call("catalog", params()));
@@ -298,7 +298,7 @@ public final class Client implements AutoCloseable {
      *
      * @param what selection of a group or a command
      * @return the selected part
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public Map<String, Object> catalog(Map<String, Object> what) {
         return object("catalog", backend.call("catalog", new LinkedHashMap<>(what)));
@@ -309,8 +309,8 @@ public final class Client implements AutoCloseable {
      *
      * @param which the name
      * @return the schema
-     * @throws CallException when the call fails; an unknown name is
-     *     {@link CallException.Kind#INVALID_ARGUMENT}
+     * @throws NurtCallException when the call fails; an unknown name is
+     *     {@link NurtCallException.Kind#INVALID_ARGUMENT}
      */
     public Map<String, Object> schema(String which) {
         return object("schema", backend.call("schema", params("which", which)));
@@ -320,7 +320,7 @@ public final class Client implements AutoCloseable {
      * Journal history.
      *
      * @return the history
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public Map<String, Object> history() {
         return object("history", backend.call("history", params()));
@@ -331,7 +331,7 @@ public final class Client implements AutoCloseable {
      *
      * @param query the parameters
      * @return the history
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public Map<String, Object> history(Map<String, Object> query) {
         return object("history", backend.call("history", new LinkedHashMap<>(query)));
@@ -341,7 +341,7 @@ public final class Client implements AutoCloseable {
      * Free space and journal usage of every volume.
      *
      * @return the state of the volumes
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public Map<String, Object> space() {
         return object("space", backend.call("space", params()));
@@ -352,7 +352,7 @@ public final class Client implements AutoCloseable {
      *
      * @param volume a path on the volume
      * @return the state of the volume
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public Map<String, Object> space(String volume) {
         return object("space", backend.call("space", params("volume", volume)));
@@ -362,7 +362,7 @@ public final class Client implements AutoCloseable {
      * Version, interface and format versions, catalog revision and features.
      *
      * @return the information
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public Map<String, Object> info() {
         return object("info", backend.call("info", params()));
@@ -372,7 +372,7 @@ public final class Client implements AutoCloseable {
      * Cancels a background job.
      *
      * @param jobId identifier of the job
-     * @throws CallException when the call fails
+     * @throws NurtCallException when the call fails
      */
     public void cancelJob(String jobId) {
         backend.call("cancel", params("job_id", jobId));
@@ -386,7 +386,7 @@ public final class Client implements AutoCloseable {
      *
      * @return the publisher
      */
-    public Flow.Publisher<Event> events() {
+    public Flow.Publisher<NurtEvent> events() {
         return events;
     }
 
@@ -411,7 +411,7 @@ public final class Client implements AutoCloseable {
     private static Map<String, Object> object(String method, Object result) {
         Map<String, Object> object = Json.object(result);
         if (object == null) {
-            throw new CallException(CallException.Kind.PROTOCOL, "result of `" + method + "` is not an object");
+            throw new NurtCallException(NurtCallException.Kind.PROTOCOL, "result of `" + method + "` is not an object");
         }
         return object;
     }
@@ -420,6 +420,6 @@ public final class Client implements AutoCloseable {
         if (result instanceof String text) {
             return text;
         }
-        throw new CallException(CallException.Kind.PROTOCOL, "result of `" + method + "` is not a string");
+        throw new NurtCallException(NurtCallException.Kind.PROTOCOL, "result of `" + method + "` is not a string");
     }
 }

@@ -9,9 +9,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Danaco.Nurt", "src\Danaco.N
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{9D4F2A6C-1B3E-4E77-8C21-5A0B6D9E3C03}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Danaco.Nurt.Tests", "tests\Danaco.Nurt.Tests\Tests.csproj", "{C8B2E5D1-4A6F-4B09-9E3C-7F1A2D8B5E04}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Danaco.Nurt.Tests", "tests\Danaco.Nurt.Tests\Danaco.Nurt.Tests.csproj", "{C8B2E5D1-4A6F-4B09-9E3C-7F1A2D8B5E04}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Danaco.Nurt.TestServer", "tests\Danaco.Nurt.TestServer\TestServer.csproj", "{5F7D1C3A-8E2B-4D66-A0B4-9C3E6F2A7D05}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Danaco.Nurt.TestServer", "tests\Danaco.Nurt.TestServer\Danaco.Nurt.TestServer.csproj", "{5F7D1C3A-8E2B-4D66-A0B4-9C3E6F2A7D05}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

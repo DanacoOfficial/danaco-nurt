@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -13,14 +17,14 @@ using System.Threading.Tasks;
 namespace Danaco.Nurt.Tests;
 
 /// <summary>
-/// Runs binding cases <c>nurt-binding-cases/1</c> against a backend of <see cref="Client"/>.
+/// Runs binding cases <c>nurt-binding-cases/1</c> against a backend of <see cref="NurtClient"/>.
 /// Every case gets a new client and a new temporary directory; the calls of the cases are
-/// mapped to the methods of <see cref="Client"/> and <see cref="Execution"/>, and the results
+/// mapped to the methods of <see cref="NurtClient"/> and <see cref="Execution"/>, and the results
 /// to the result views defined by the format.
 /// </summary>
 /// <remarks>
 /// Two invalid calls are reported by the platform exceptions of .NET instead of
-/// <see cref="CallException"/>: a missing argument raises <see cref="ArgumentException"/> and a
+/// <see cref="NurtCallException"/>: a missing argument raises <see cref="ArgumentException"/> and a
 /// call on a disposed client raises <see cref="ObjectDisposedException"/>. Both correspond to
 /// <c>NURT_E_ARG</c> (a null or invalid argument) and are reported as call errors with that status.
 /// </remarks>
@@ -77,13 +81,13 @@ internal sealed partial class BindingCaseRunner
     private static readonly HashSet<string> Outcomes = Names(OutcomeOk, OutcomeLanguageError, OutcomeCallError);
 
     private readonly BackendKind _backend;
-    private readonly Func<ClientOptions> _options;
+    private readonly Func<NurtClientOptions> _options;
     private HashSet<string>? _features;
 
     /// <summary>Creates a runner for one backend.</summary>
     /// <param name="backend"><see cref="BackendKind.Process"/> or <see cref="BackendKind.Library"/>.</param>
     /// <param name="options">Creates the options of the client of each case.</param>
-    public BindingCaseRunner(BackendKind backend, Func<ClientOptions> options)
+    public BindingCaseRunner(BackendKind backend, Func<NurtClientOptions> options)
     {
         _backend = backend;
         _options = options;
@@ -218,7 +222,7 @@ internal sealed partial class BindingCaseRunner
         {
             return CaseResult.Fail(id, mandatory, "the case did not finish in time");
         }
-        catch (CallException exception)
+        catch (NurtCallException exception)
         {
             return CaseResult.Fail(id, mandatory, exception.StatusName + ": " + exception.Message);
         }
@@ -300,11 +304,11 @@ internal sealed partial class BindingCaseRunner
         {
             return await DispatchAsync(state, call, arguments, execution, number);
         }
-        catch (LanguageException exception)
+        catch (NurtLanguageException exception)
         {
             return StepResult.Language(exception.Error?.Code, exception.Response is { } response ? ResponseView(response) : new JsonObject());
         }
-        catch (CallException exception)
+        catch (NurtCallException exception)
         {
             return StepResult.CallFailure(exception.StatusName, exception.Message);
         }
@@ -320,7 +324,7 @@ internal sealed partial class BindingCaseRunner
 
     private static async Task<StepResult> DispatchAsync(CaseState state, string call, JsonObject arguments, int? execution, int number)
     {
-        Client client = state.Client;
+        NurtClient client = state.Client;
         switch (call)
         {
             case "run":
@@ -330,7 +334,7 @@ internal sealed partial class BindingCaseRunner
                 return StepResult.Success(new JsonObject());
             case "wait":
                 Execution waited = state.ExecutionOf(execution);
-                Response response = Integer(arguments, "timeout_ms") is { } milliseconds
+                NurtResponse response = Integer(arguments, "timeout_ms") is { } milliseconds
                     ? await waited.WaitAsync(TimeSpan.FromMilliseconds(milliseconds))
                     : await waited.WaitAsync();
                 return FromResponse(response);
@@ -495,7 +499,7 @@ internal sealed partial class BindingCaseRunner
     {
         using var limit = new CancellationTokenSource(EventLimit);
         var events = new JsonArray();
-        await foreach (ExecutionEvent item in execution.ReadEventsAsync(limit.Token))
+        await foreach (NurtExecutionEvent item in execution.ReadEventsAsync(limit.Token))
         {
             events.Add(Node(item.Element));
         }
@@ -503,7 +507,7 @@ internal sealed partial class BindingCaseRunner
         return events;
     }
 
-    private static JsonObject ResponseView(Response response)
+    private static JsonObject ResponseView(NurtResponse response)
     {
         var view = new JsonObject
         {
@@ -528,7 +532,7 @@ internal sealed partial class BindingCaseRunner
         return view;
     }
 
-    private static StepResult FromResponse(Response response) => response.Error is { } error
+    private static StepResult FromResponse(NurtResponse response) => response.Error is { } error
         ? StepResult.Language(error.Code, ResponseView(response))
         : StepResult.Success(ResponseView(response));
 
@@ -828,7 +832,7 @@ internal sealed partial class BindingCaseRunner
 
     private async Task<string?> RunStepsAsync(JsonElement testCase, string basePath)
     {
-        var state = new CaseState(new Client(_options()), basePath);
+        var state = new CaseState(new NurtClient(_options()), basePath);
         try
         {
             int number = 0;
@@ -914,7 +918,7 @@ internal sealed partial class BindingCaseRunner
         if (_features is null)
         {
             var features = Names();
-            var client = new Client(_options());
+            var client = new NurtClient(_options());
             try
             {
                 JsonElement info = await client.InfoAsync();
@@ -1002,13 +1006,13 @@ internal sealed partial class BindingCaseRunner
     /// <summary>Client, temporary directory, result views and executions of a running case.</summary>
     private sealed class CaseState
     {
-        public CaseState(Client client, string basePath)
+        public CaseState(NurtClient client, string basePath)
         {
             Client = client;
             Base = basePath;
         }
 
-        public Client Client { get; }
+        public NurtClient Client { get; }
 
         /// <summary>Temporary directory of the case with <c>/</c> as separator; the value of <c>${base}</c>.</summary>
         public string Base { get; }

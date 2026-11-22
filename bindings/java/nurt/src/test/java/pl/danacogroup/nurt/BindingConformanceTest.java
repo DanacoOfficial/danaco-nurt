@@ -73,7 +73,7 @@ class BindingConformanceTest {
         }
         Path base = Files.createTempDirectory("nurt-binding-");
         createFiles(base, testCase.get("fs"));
-        ClientOptions options = new ClientOptions()
+        NurtClientOptions options = new NurtClientOptions()
                 .backend(BackendKind.PROCESS)
                 .command(List.of(executable, "fake-serve"))
                 .environment(Map.of(
@@ -82,7 +82,7 @@ class BindingConformanceTest {
                 .requestTimeout(WAIT);
         List<Object> views = new ArrayList<>();
         Map<Integer, Execution> executions = new LinkedHashMap<>();
-        Client client = Client.create(options);
+        NurtClient client = NurtClient.create(options);
         try {
             int number = 0;
             for (Object item : (List<?>) testCase.get("steps")) {
@@ -99,7 +99,7 @@ class BindingConformanceTest {
         }
     }
 
-    private static Object perform(Client client, Map<Integer, Execution> executions, int number,
+    private static Object perform(NurtClient client, Map<Integer, Execution> executions, int number,
             Map<String, Object> step, Map<String, Object> args, Map<String, Object> expect) throws Exception {
         String call = Json.string(step, "call");
         String label = "step " + number + " (" + call + ")";
@@ -109,7 +109,7 @@ class BindingConformanceTest {
         String status = null;
         try {
             Object result = invoke(client, executions, number, call, args, step);
-            if (result instanceof Response response) {
+            if (result instanceof NurtResponse response) {
                 if (Boolean.TRUE.equals(args.get("raise_on_error"))) {
                     response.orThrow();
                 }
@@ -126,11 +126,11 @@ class BindingConformanceTest {
                 }
                 outcome = "ok";
             }
-        } catch (LanguageException e) {
+        } catch (NurtLanguageException e) {
             outcome = "language_error";
             errorCode = e.error().code();
             view.put("error", e.error().value());
-        } catch (CallException e) {
+        } catch (NurtCallException e) {
             outcome = "call_error";
             status = e.status().cName();
             view.put("status", status);
@@ -157,7 +157,7 @@ class BindingConformanceTest {
         return view;
     }
 
-    private static Object invoke(Client client, Map<Integer, Execution> executions, int number, String call,
+    private static Object invoke(NurtClient client, Map<Integer, Execution> executions, int number, String call,
             Map<String, Object> args, Map<String, Object> step) throws Exception {
         return switch (call) {
             case "run" -> client.run(request(args));
@@ -204,14 +204,14 @@ class BindingConformanceTest {
     private static List<Object> events(Execution execution) throws Exception {
         List<Object> events = new CopyOnWriteArrayList<>();
         CompletableFuture<Void> done = new CompletableFuture<>();
-        execution.events().subscribe(new Flow.Subscriber<Event>() {
+        execution.events().subscribe(new Flow.Subscriber<NurtEvent>() {
             @Override
             public void onSubscribe(Flow.Subscription subscription) {
                 subscription.request(Long.MAX_VALUE);
             }
 
             @Override
-            public void onNext(Event event) {
+            public void onNext(NurtEvent event) {
                 events.add(event.value());
             }
 

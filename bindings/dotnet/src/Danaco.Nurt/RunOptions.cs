@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 
@@ -42,17 +46,17 @@ public sealed class RunOptions
     /// <summary>Time limit of the whole program (<c>timeout</c>); sent in whole milliseconds.</summary>
     public TimeSpan? Timeout { get; init; }
 
-    /// <summary>Session identifier recorded in the journal (<c>session</c>); overrides <see cref="ClientOptions.Session"/>.</summary>
+    /// <summary>Session identifier recorded in the journal (<c>session</c>); overrides <see cref="NurtClientOptions.Session"/>.</summary>
     public string? Session { get; init; }
 
-    /// <summary>Language of messages and help, <c>en</c> or <c>pl</c> (<c>language</c>); overrides <see cref="ClientOptions.Language"/>.</summary>
+    /// <summary>Language of messages and help, <c>en</c> or <c>pl</c> (<c>language</c>); overrides <see cref="NurtClientOptions.Language"/>.</summary>
     public string? Language { get; init; }
 
     /// <summary>Script mode: several pipelines, each its own operation (<c>script</c>).</summary>
     public bool? Script { get; init; }
 
     /// <summary>
-    /// Raises <see cref="LanguageException"/> when the response carries an error of the
+    /// Raises <see cref="NurtLanguageException"/> when the response carries an error of the
     /// language, instead of returning the response. Not sent to Danaco Nurt.
     /// </summary>
     public bool ThrowOnLanguageError { get; init; }

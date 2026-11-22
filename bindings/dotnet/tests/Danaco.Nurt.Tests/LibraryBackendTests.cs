@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,7 +42,7 @@ public sealed class LibraryBackendTests
     [TestMethod]
     public async Task InfoNamesTheVersion()
     {
-        await using Client client = LibraryClient();
+        await using NurtClient client = LibraryClient();
 
         JsonElement info = await client.InfoAsync();
 
@@ -49,7 +53,7 @@ public sealed class LibraryBackendTests
     [TestMethod]
     public async Task AutoBackendUsesACompatibleLibrary()
     {
-        await using var client = new Client(new ClientOptions { Backend = BackendKind.Auto, LibraryPath = LibraryPath() });
+        await using var client = new NurtClient(new NurtClientOptions { Backend = BackendKind.Auto, LibraryPath = LibraryPath() });
 
         Assert.AreEqual(BackendKind.Library, client.Backend);
     }
@@ -57,13 +61,13 @@ public sealed class LibraryBackendTests
     [TestMethod]
     public async Task FinishedExecutionsReleaseTheirHandles()
     {
-        await using Client client = LibraryClient();
+        await using NurtClient client = LibraryClient();
         int before = ExecHandle.LiveCount;
 
         for (int index = 0; index < ExecutionCount; index++)
         {
             await using Execution execution = await client.StartAsync(ShortProgram);
-            Response response = await execution.WaitAsync(Limit);
+            NurtResponse response = await execution.WaitAsync(Limit);
             Assert.IsNotNull(response.Report);
         }
 
@@ -73,7 +77,7 @@ public sealed class LibraryBackendTests
     [TestMethod]
     public async Task DisposingARunningExecutionReleasesItsHandle()
     {
-        await using Client client = LibraryClient();
+        await using NurtClient client = LibraryClient();
         int before = ExecHandle.LiveCount;
 
         Execution execution = await client.StartAsync(LongProgram);
@@ -87,7 +91,7 @@ public sealed class LibraryBackendTests
     public async Task DisposingTheClientReleasesOpenExecutions()
     {
         int before = ExecHandle.LiveCount;
-        Client client = LibraryClient();
+        NurtClient client = LibraryClient();
         var executions = new List<Execution>();
         try
         {
@@ -112,7 +116,7 @@ public sealed class LibraryBackendTests
     [TestMethod]
     public async Task CancellationTokenCancelsARun()
     {
-        await using Client client = LibraryClient();
+        await using NurtClient client = LibraryClient();
         int before = ExecHandle.LiveCount;
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
 
@@ -124,12 +128,12 @@ public sealed class LibraryBackendTests
     [TestMethod]
     public async Task WaitTimeoutLeavesTheExecutionRunningUntilCancelled()
     {
-        await using Client client = LibraryClient();
+        await using NurtClient client = LibraryClient();
         await using Execution execution = await client.StartAsync(LongProgram);
 
-        CallException timeout = await TestSupport.ThrowsAsync<CallException>(() => execution.WaitAsync(TimeSpan.FromMilliseconds(50)));
+        NurtCallException timeout = await TestSupport.ThrowsAsync<NurtCallException>(() => execution.WaitAsync(TimeSpan.FromMilliseconds(50)));
         await execution.CancelAsync();
-        Response response = await execution.WaitAsync(Limit);
+        NurtResponse response = await execution.WaitAsync(Limit);
 
         Assert.AreEqual(CallStatus.Timeout, timeout.Status);
         Assert.AreEqual("E_CANCELLED", response.Error?.Code);
@@ -138,10 +142,10 @@ public sealed class LibraryBackendTests
     [TestMethod]
     public async Task ParallelRunsFromManyThreadsComplete()
     {
-        await using Client client = LibraryClient();
+        await using NurtClient client = LibraryClient();
         int before = ExecHandle.LiveCount;
 
-        Response[] responses = await Task.WhenAll(Enumerable.Range(0, ThreadCount).Select(_ => Task.Run(() => client.RunAsync(ShortProgram))));
+        NurtResponse[] responses = await Task.WhenAll(Enumerable.Range(0, ThreadCount).Select(_ => Task.Run(() => client.RunAsync(ShortProgram))));
 
         Assert.AreEqual(ThreadCount, responses.Length);
         Assert.IsTrue(responses.All(response => response.Report.Element.ValueKind == JsonValueKind.Object));
@@ -152,6 +156,6 @@ public sealed class LibraryBackendTests
         TestSupport.Variable(TestSupport.LibraryVariable)
         ?? throw new AssertInconclusiveException(TestSupport.LibraryVariable + " does not name a build of libnurt");
 
-    private static Client LibraryClient() =>
-        new(new ClientOptions { Backend = BackendKind.Library, LibraryPath = LibraryPath() });
+    private static NurtClient LibraryClient() =>
+        new(new NurtClientOptions { Backend = BackendKind.Library, LibraryPath = LibraryPath() });
 }

@@ -1,4 +1,10 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System.Runtime.InteropServices;
+
+[assembly: DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
 
 namespace Danaco.Nurt;
 
@@ -9,7 +15,6 @@ namespace Danaco.Nurt;
 /// The declarations are generated with <c>LibraryImport</c> on .NET 8 and use
 /// <c>DllImport</c> on .NET Standard 2.0.
 /// </summary>
-[DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
 internal static unsafe partial class NativeMethods
 {
     public const string LibraryName = "nurt";

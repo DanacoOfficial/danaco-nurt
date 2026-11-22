@@ -1,8 +1,13 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -17,6 +22,10 @@ namespace Danaco.Nurt;
 /// standard streams: one message per line (NDJSON), requests matched to responses by
 /// identifier, notifications <c>nurt/event</c> routed to executions by <c>request_id</c>.
 /// </summary>
+[SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "The session ends with Close(TimeSpan), which waits for the process with the shutdown timeout of the owner before it releases the lock.")]
 internal sealed class RpcConnection
 {
     public const string EventMethod = "nurt/event";
@@ -35,7 +44,7 @@ internal sealed class RpcConnection
     private readonly Task _readLoop;
     private readonly Task _stderrLoop;
     private SemaphoreSlim? _slots;
-    private CallException? _failure;
+    private NurtCallException? _failure;
     private long _lastId;
 
     private RpcConnection(Process process)
@@ -51,7 +60,7 @@ internal sealed class RpcConnection
 
     public int ProcessId => _process.Id;
 
-    public static async Task<RpcConnection> OpenAsync(string executable, ClientOptions options, CancellationToken cancellationToken)
+    public static async Task<RpcConnection> OpenAsync(string executable, NurtClientOptions options, CancellationToken cancellationToken)
     {
         var connection = new RpcConnection(Start(executable, options.ServeArguments));
         try
@@ -121,8 +130,8 @@ internal sealed class RpcConnection
         catch (IOException exception)
         {
             Abandon(call.Id);
-            CallException failure = Fail(new CallException(CallStatus.Internal, "cannot write to nurt serve: " + exception.Message, exception));
-            throw new CallException(failure.Status, failure.Message, failure);
+            NurtCallException failure = Fail(new NurtCallException(CallStatus.Internal, "cannot write to nurt serve: " + exception.Message, exception));
+            throw new NurtCallException(failure.Status, failure.Message, failure);
         }
         catch
         {
@@ -161,7 +170,7 @@ internal sealed class RpcConnection
     /// </summary>
     public void Close(TimeSpan timeout)
     {
-        Fail(new CallException(CallStatus.Internal, "connection to nurt serve is closed"));
+        Fail(new NurtCallException(CallStatus.Internal, "connection to nurt serve is closed"));
         try
         {
             _input.Dispose();
@@ -206,7 +215,7 @@ internal sealed class RpcConnection
         catch (Win32Exception exception)
         {
             process.Dispose();
-            throw new CallException(CallStatus.Io, "cannot start " + executable + ": " + exception.Message, exception);
+            throw new NurtCallException(CallStatus.Io, "cannot start " + executable + ": " + exception.Message, exception);
         }
 
         return process;
@@ -275,14 +284,14 @@ internal sealed class RpcConnection
         string? protocol = JsonRead.String(result, "protocol");
         if (protocol is not null && protocol != WireFormat.Protocol)
         {
-            throw new CallException(CallStatus.AbiMismatch, "nurt serve uses protocol " + protocol + "; this client requires " + WireFormat.Protocol);
+            throw new NurtCallException(CallStatus.AbiMismatch, "nurt serve uses protocol " + protocol + "; this client requires " + WireFormat.Protocol);
         }
 
         if (JsonRead.Property(result, "abi") is { ValueKind: JsonValueKind.Object } abi
             && JsonRead.Int32(abi, "major") is { } major
             && major != NativeMethods.AbiMajor)
         {
-            throw new CallException(
+            throw new NurtCallException(
                 CallStatus.AbiMismatch,
                 string.Format(CultureInfo.InvariantCulture, "nurt serve implements interface {0}.x; this client requires {1}.x", major, NativeMethods.AbiMajor));
         }
@@ -335,7 +344,7 @@ internal sealed class RpcConnection
         {
         }
 
-        Fail(new CallException(CallStatus.Internal, DescribeExit(reason)));
+        Fail(new NurtCallException(CallStatus.Internal, DescribeExit(reason)));
     }
 
     private bool Dispatch(string line)
@@ -399,7 +408,7 @@ internal sealed class RpcConnection
             return;
         }
 
-        ExecutionEvent item = ExecutionEvent.FromElement(parameters);
+        NurtExecutionEvent item = NurtExecutionEvent.FromElement(parameters);
         events.Add(item);
         if (item.IsFinished)
         {
@@ -463,19 +472,19 @@ internal sealed class RpcConnection
     {
         if (Volatile.Read(ref _failure) is { } failure)
         {
-            throw new CallException(failure.Status, failure.Message, failure);
+            throw new NurtCallException(failure.Status, failure.Message, failure);
         }
     }
 
-    private CallException Fail(CallException failure)
+    private NurtCallException Fail(NurtCallException failure)
     {
-        CallException effective = Interlocked.CompareExchange(ref _failure, failure, null) ?? failure;
+        NurtCallException effective = Interlocked.CompareExchange(ref _failure, failure, null) ?? failure;
         foreach (long id in _pending.Keys)
         {
             if (_pending.TryRemove(id, out PendingCall? call))
             {
                 call.ReleaseSlot();
-                call.Source.TrySetException(new CallException(effective.Status, effective.Message, effective));
+                call.Source.TrySetException(new NurtCallException(effective.Status, effective.Message, effective));
             }
         }
 

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -18,9 +22,9 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task RunReturnsReportAndRenderedText()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
 
-        Response response = await client.RunAsync("echo hello");
+        NurtResponse response = await client.RunAsync("echo hello");
 
         Assert.AreEqual(BackendKind.Process, client.Backend);
         Assert.IsTrue(response.Ok);
@@ -33,7 +37,7 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task EnvelopeCarriesOptionsAndClientDefaults()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
         var options = new RunOptions
         {
             Preview = true,
@@ -42,7 +46,7 @@ public sealed class ProcessBackendTests
             Format = OutputFormat.Markdown,
         };
 
-        Response response = await client.RunAsync(Request.FromProgram("echo x", NotationVariant.A), options);
+        NurtResponse response = await client.RunAsync(Request.FromProgram("echo x", NotationVariant.A), options);
 
         JsonElement request = response.Element.GetProperty("request");
         Assert.AreEqual("1.0", request.GetProperty("nurt").GetString());
@@ -60,9 +64,9 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task LanguageErrorIsReturnedWithoutException()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
 
-        Response response = await client.RunAsync("error");
+        NurtResponse response = await client.RunAsync("error");
 
         Assert.IsFalse(response.Ok);
         Assert.AreEqual(ReportStatus.Failed, response.Report.Status);
@@ -82,9 +86,9 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task ThrowOnLanguageErrorRaisesLanguageException()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
 
-        LanguageException exception = await TestSupport.ThrowsAsync<LanguageException>(
+        NurtLanguageException exception = await TestSupport.ThrowsAsync<NurtLanguageException>(
             () => client.RunAsync("error", new RunOptions { ThrowOnLanguageError = true }));
 
         Assert.AreEqual("E_SYNTAX", exception.Error!.Code);
@@ -94,9 +98,9 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task ProtocolErrorBecomesCallExceptionWithHeaderStatus()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
 
-        CallException exception = await TestSupport.ThrowsAsync<CallException>(() => client.RunAsync("fail 3"));
+        NurtCallException exception = await TestSupport.ThrowsAsync<NurtCallException>(() => client.RunAsync("fail 3"));
 
         Assert.AreEqual(CallStatus.InvalidArgument, exception.Status);
         Assert.AreEqual("NURT_E_ARG", exception.StatusName);
@@ -107,9 +111,9 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task UnknownSchemaIsInvalidArgument()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
 
-        CallException exception = await TestSupport.ThrowsAsync<CallException>(() => client.SchemaAsync("unknown"));
+        NurtCallException exception = await TestSupport.ThrowsAsync<NurtCallException>(() => client.SchemaAsync("unknown"));
 
         Assert.AreEqual(CallStatus.InvalidArgument, exception.Status);
     }
@@ -117,11 +121,11 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task CrashFailsTheCallAndTheNextCallStartsANewProcess()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
         int first = await TestSupport.ServerProcessIdAsync(client);
 
-        CallException exception = await TestSupport.ThrowsAsync<CallException>(() => client.RunAsync("crash"));
-        Response again = await client.RunAsync("echo again");
+        NurtCallException exception = await TestSupport.ThrowsAsync<NurtCallException>(() => client.RunAsync("crash"));
+        NurtResponse again = await client.RunAsync("echo again");
         int second = await TestSupport.ServerProcessIdAsync(client);
 
         Assert.AreEqual(CallStatus.Internal, exception.Status);
@@ -134,10 +138,10 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task LineThatIsNotJsonEndsTheSession()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
 
-        CallException exception = await TestSupport.ThrowsAsync<CallException>(() => client.RunAsync("garbage"));
-        Response again = await client.RunAsync("echo again");
+        NurtCallException exception = await TestSupport.ThrowsAsync<NurtCallException>(() => client.RunAsync("garbage"));
+        NurtResponse again = await client.RunAsync("echo again");
 
         Assert.AreEqual(CallStatus.Internal, exception.Status);
         StringAssert.Contains(exception.Message, "not a JSON-RPC 2.0 message");
@@ -147,7 +151,7 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task CancellationTokenCancelsTheRequestInTheServer()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
 
         await TestSupport.ThrowsAsync<OperationCanceledException>(() => client.RunAsync("sleep", null, cancellation.Token));
@@ -158,15 +162,15 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task WaitTimeoutLeavesTheExecutionRunningUntilCancelled()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
         await using Execution execution = await client.StartAsync("sleep");
 
-        CallException timeout = await TestSupport.ThrowsAsync<CallException>(() => execution.WaitAsync(TimeSpan.FromMilliseconds(100)));
+        NurtCallException timeout = await TestSupport.ThrowsAsync<NurtCallException>(() => execution.WaitAsync(TimeSpan.FromMilliseconds(100)));
         Assert.AreEqual(CallStatus.Timeout, timeout.Status);
         Assert.IsFalse(execution.IsCompleted);
 
         await execution.CancelAsync();
-        Response response = await execution.WaitAsync(BackgroundLimit);
+        NurtResponse response = await execution.WaitAsync(BackgroundLimit);
 
         Assert.AreEqual("E_CANCELLED", response.Error!.Code);
         await execution.CancelAsync();
@@ -175,19 +179,19 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task EventsArriveInOrderAndEndWithFinished()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
         await using Execution execution = await client.StartAsync("events 3");
         var kinds = new List<string>();
         long last = 0;
 
-        await foreach (ExecutionEvent item in execution.ReadEventsAsync())
+        await foreach (NurtExecutionEvent item in execution.ReadEventsAsync())
         {
             Assert.IsTrue(item.Sequence > last);
             last = item.Sequence;
             kinds.Add(item.Kind);
         }
 
-        Response response = await execution.WaitAsync();
+        NurtResponse response = await execution.WaitAsync();
         CollectionAssert.AreEqual(EventKinds, kinds);
         Assert.IsTrue(response.Ok);
     }
@@ -195,16 +199,16 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task EventsCanBeReadOnlyOnce()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
         await using Execution execution = await client.StartAsync("events 1");
-        await foreach (ExecutionEvent item in execution.ReadEventsAsync())
+        await foreach (NurtExecutionEvent item in execution.ReadEventsAsync())
         {
             Assert.IsNotNull(item.Kind);
         }
 
         await TestSupport.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await foreach (ExecutionEvent item in execution.ReadEventsAsync())
+            await foreach (NurtExecutionEvent item in execution.ReadEventsAsync())
             {
                 Assert.Fail("unexpected event " + item.Kind);
             }
@@ -215,14 +219,14 @@ public sealed class ProcessBackendTests
     public async Task ParallelCallsFromManyThreadsReceiveTheirOwnResponses()
     {
         const int Count = 64;
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
         string[] programs = Enumerable.Range(0, Count)
             .Select(index => index % 2 == 0
                 ? "echo " + index.ToString(CultureInfo.InvariantCulture)
                 : "delay " + (index % 7 * 10).ToString(CultureInfo.InvariantCulture))
             .ToArray();
 
-        Response[] responses = await Task.WhenAll(programs.Select(program => Task.Run(() => client.RunAsync(program))));
+        NurtResponse[] responses = await Task.WhenAll(programs.Select(program => Task.Run(() => client.RunAsync(program))));
 
         for (int index = 0; index < Count; index++)
         {
@@ -234,7 +238,7 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task MaxInflightLimitsRequestsInProgress()
     {
-        await using Client client = TestSupport.ProcessClient("--max-inflight", "2");
+        await using NurtClient client = TestSupport.ProcessClient("--max-inflight", "2");
 
         await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => client.RunAsync("delay 100")));
         JsonElement info = await client.InfoAsync();
@@ -246,7 +250,7 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task DisposeEndsTheChildProcess()
     {
-        Client client = TestSupport.ProcessClient();
+        NurtClient client = TestSupport.ProcessClient();
         int processId = await TestSupport.ServerProcessIdAsync(client);
 
         await client.DisposeAsync();
@@ -258,7 +262,7 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task DisposingARunningExecutionCancelsIt()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
         Execution execution = await client.StartAsync("sleep");
 
         execution.Dispose();
@@ -269,9 +273,9 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task OtherProtocolIsAbiMismatch()
     {
-        await using Client client = TestSupport.ProcessClient("--protocol", "nurt-rpc/2");
+        await using NurtClient client = TestSupport.ProcessClient("--protocol", "nurt-rpc/2");
 
-        CallException exception = await TestSupport.ThrowsAsync<CallException>(() => client.InfoAsync());
+        NurtCallException exception = await TestSupport.ThrowsAsync<NurtCallException>(() => client.InfoAsync());
 
         Assert.AreEqual(CallStatus.AbiMismatch, exception.Status);
     }
@@ -279,12 +283,12 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task PagesFollowTheCursor()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
 
-        Response first = await client.RunAsync("page");
-        Response second = await client.PageAsync(first.NextCursor!, 10);
-        Response byRequest = await client.RunAsync(Request.FromCursor("c1"));
-        Response expired = await client.PageAsync("old");
+        NurtResponse first = await client.RunAsync("page");
+        NurtResponse second = await client.PageAsync(first.NextCursor!, 10);
+        NurtResponse byRequest = await client.RunAsync(Request.FromCursor("c1"));
+        NurtResponse expired = await client.PageAsync("old");
 
         Assert.AreEqual("c1", first.NextCursor);
         Assert.AreEqual("page 2", second.Text);
@@ -296,7 +300,7 @@ public sealed class ProcessBackendTests
     [TestMethod]
     public async Task ReadingMethodsReturnTheirResults()
     {
-        await using Client client = TestSupport.ProcessClient();
+        await using NurtClient client = TestSupport.ProcessClient();
         JsonElement selector = TestSupport.Json("""{"group": "documents"}""");
 
         Assert.AreEqual("description core pl", await client.DescribeAsync("core", null, "pl"));

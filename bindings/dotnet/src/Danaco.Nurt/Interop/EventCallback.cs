@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -36,10 +40,10 @@ internal static unsafe class EventCallback
         {
             if (GCHandle.FromIntPtr(user).Target is EventQueue queue)
             {
-                queue.Add(ExecutionEvent.Parse(Utf8.FromNative(eventJson)));
+                queue.Add(NurtExecutionEvent.Parse(Utf8.FromNative(eventJson)));
             }
         }
-        catch (CallException)
+        catch (NurtCallException)
         {
             return;
         }

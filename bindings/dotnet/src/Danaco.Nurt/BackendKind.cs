@@ -1,6 +1,10 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 namespace Danaco.Nurt;
 
-/// <summary>Mechanism through which a <see cref="Client"/> reaches Danaco Nurt.</summary>
+/// <summary>Mechanism through which a <see cref="NurtClient"/> reaches Danaco Nurt.</summary>
 public enum BackendKind
 {
     /// <summary>

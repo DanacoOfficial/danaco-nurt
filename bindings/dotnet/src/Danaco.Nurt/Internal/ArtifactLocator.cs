@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -49,7 +53,7 @@ internal sealed class ArtifactLocator
     public string? TryFindLibrary(string? explicitPath, List<string> checkedPaths) =>
         Find(explicitPath, LibraryVariable, _platform.LibraryNames, searchPath: false, checkedPaths);
 
-    internal static CallException NotFound(string what, List<string> checkedPaths) =>
+    internal static NurtCallException NotFound(string what, List<string> checkedPaths) =>
         new(CallStatus.Io, what + " not found; checked: " + (checkedPaths.Count == 0 ? "no location" : string.Join(", ", checkedPaths)));
 
     private string? Find(string? explicitPath, string variable, IReadOnlyList<string> names, bool searchPath, List<string> checkedPaths)

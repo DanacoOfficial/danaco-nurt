@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -169,7 +173,7 @@ public sealed class ConformanceCaseTests
     [TestMethod]
     public async Task RunnerMapsEveryCallOnTheScriptedServer()
     {
-        ClientOptions options = TestSupport.ProcessOptions(BackendKind.Process);
+        NurtClientOptions options = TestSupport.ProcessOptions(BackendKind.Process);
         var runner = new BindingCaseRunner(BackendKind.Process, () => options);
 
         List<BindingCaseRunner.CaseResult> results = await RunAllAsync(runner, BindingCaseRunner.CasesOf(TestSupport.Json(ScriptedCases)));
@@ -182,7 +186,7 @@ public sealed class ConformanceCaseTests
     [TestMethod]
     public async Task RunnerReportsAnExpectationThatDoesNotHold()
     {
-        ClientOptions options = TestSupport.ProcessOptions(BackendKind.Process);
+        NurtClientOptions options = TestSupport.ProcessOptions(BackendKind.Process);
         var runner = new BindingCaseRunner(BackendKind.Process, () => options);
 
         BindingCaseRunner.CaseResult result = await runner.RunAsync(TestSupport.Json(MismatchCase));
@@ -200,8 +204,8 @@ public sealed class ConformanceCaseTests
             ?? Inconclusive<string>(TestSupport.ServeVariable + " does not name an executable that implements nurt serve --stdio");
         IReadOnlyList<string> arguments = TestSupport.Variable(TestSupport.ServeArgumentsVariable) is { } line
             ? line.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            : ClientOptions.DefaultServeArguments;
-        var options = new ClientOptions { Backend = BackendKind.Process, ExecutablePath = executable, ServeArguments = arguments };
+            : NurtClientOptions.DefaultServeArguments;
+        var options = new NurtClientOptions { Backend = BackendKind.Process, ExecutablePath = executable, ServeArguments = arguments };
 
         await RunRepositoryCasesAsync(new BindingCaseRunner(BackendKind.Process, () => options));
     }
@@ -211,7 +215,7 @@ public sealed class ConformanceCaseTests
     {
         string library = TestSupport.Variable(TestSupport.LibraryVariable)
             ?? Inconclusive<string>(TestSupport.LibraryVariable + " does not name a build of libnurt");
-        var options = new ClientOptions { Backend = BackendKind.Library, LibraryPath = library };
+        var options = new NurtClientOptions { Backend = BackendKind.Library, LibraryPath = library };
 
         await RunRepositoryCasesAsync(new BindingCaseRunner(BackendKind.Library, () => options));
     }

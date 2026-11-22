@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Text.Json;
 using System.Threading;
@@ -12,8 +16,8 @@ namespace Danaco.Nurt;
 /// <remarks>
 /// <para>
 /// A client is safe for use from several threads; calls may run in parallel. Errors of the
-/// language are returned in <see cref="Response.Error"/>; failures of the call raise
-/// <see cref="CallException"/>.
+/// language are returned in <see cref="NurtResponse.Error"/>; failures of the call raise
+/// <see cref="NurtCallException"/>.
 /// </para>
 /// <para>
 /// With the process backend a child process that exits is started again by the next call;
@@ -22,37 +26,37 @@ namespace Danaco.Nurt;
 /// </remarks>
 /// <example>
 /// <code>
-/// await using var nurt = new Client();
-/// Response response = await nurt.RunAsync("find \"/home/user/project\" glob: \"**/*.md\"");
+/// await using var nurt = new NurtClient();
+/// NurtResponse response = await nurt.RunAsync("find \"/home/user/project\" glob: \"**/*.md\"");
 /// Console.WriteLine(response.Ok ? response.Text : response.Error!.Message);
 /// </code>
 /// </example>
-public sealed class Client : IDisposable, IAsyncDisposable
+public sealed class NurtClient : IDisposable, IAsyncDisposable
 {
     private readonly IBackend _backend;
-    private readonly ClientOptions _options;
+    private readonly NurtClientOptions _options;
     private int _disposed;
 
     /// <summary>Creates a client with the default options.</summary>
-    /// <exception cref="CallException">No usable library or executable was found, or the library failed to open.</exception>
-    public Client()
-        : this(new ClientOptions())
+    /// <exception cref="NurtCallException">No usable library or executable was found, or the library failed to open.</exception>
+    public NurtClient()
+        : this(new NurtClientOptions())
     {
     }
 
     /// <summary>Creates a client.</summary>
     /// <param name="options">Settings of the client.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
-    /// <exception cref="CallException">
+    /// <exception cref="NurtCallException">
     /// The requested artifact was not found (<see cref="CallStatus.Io"/>), the library implements an
     /// incompatible interface version (<see cref="CallStatus.AbiMismatch"/>) or the library failed to open.
     /// </exception>
-    public Client(ClientOptions options)
+    public NurtClient(NurtClientOptions options)
         : this(options, new ArtifactLocator())
     {
     }
 
-    internal Client(ClientOptions options, ArtifactLocator locator)
+    internal NurtClient(NurtClientOptions options, ArtifactLocator locator)
     {
         Guard.NotNull(options, nameof(options));
         _options = options;
@@ -66,27 +70,27 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <param name="program">Program text in any notation variant.</param>
     /// <param name="options">Call options; <see langword="null"/> for the defaults.</param>
     /// <param name="cancellationToken">Cancels the execution.</param>
-    /// <returns>The response; an error of the language is in <see cref="Response.Error"/>.</returns>
-    /// <exception cref="CallException">The call failed.</exception>
-    /// <exception cref="LanguageException">The response carries an error and <see cref="RunOptions.ThrowOnLanguageError"/> is set.</exception>
+    /// <returns>The response; an error of the language is in <see cref="NurtResponse.Error"/>.</returns>
+    /// <exception cref="NurtCallException">The call failed.</exception>
+    /// <exception cref="NurtLanguageException">The response carries an error and <see cref="RunOptions.ThrowOnLanguageError"/> is set.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled; cancellation was requested from Danaco Nurt.</exception>
-    public Task<Response> RunAsync(string program, RunOptions? options = null, CancellationToken cancellationToken = default) =>
+    public Task<NurtResponse> RunAsync(string program, RunOptions? options = null, CancellationToken cancellationToken = default) =>
         RunAsync(Request.FromProgram(program), options, cancellationToken);
 
     /// <summary>Runs a request and waits for the response.</summary>
     /// <param name="request">Program text, syntax tree, cursor or accepted candidate.</param>
     /// <param name="options">Call options; <see langword="null"/> for the defaults.</param>
     /// <param name="cancellationToken">Cancels the execution.</param>
-    /// <returns>The response; an error of the language is in <see cref="Response.Error"/>.</returns>
+    /// <returns>The response; an error of the language is in <see cref="NurtResponse.Error"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
-    /// <exception cref="CallException">The call failed.</exception>
-    /// <exception cref="LanguageException">The response carries an error and <see cref="RunOptions.ThrowOnLanguageError"/> is set.</exception>
+    /// <exception cref="NurtCallException">The call failed.</exception>
+    /// <exception cref="NurtLanguageException">The response carries an error and <see cref="RunOptions.ThrowOnLanguageError"/> is set.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled; cancellation was requested from Danaco Nurt.</exception>
-    public async Task<Response> RunAsync(Request request, RunOptions? options = null, CancellationToken cancellationToken = default)
+    public async Task<NurtResponse> RunAsync(Request request, RunOptions? options = null, CancellationToken cancellationToken = default)
     {
         Guard.NotNull(request, nameof(request));
         IBackend backend = ActiveBackend();
-        Response response = await backend.RunAsync(WireFormat.Envelope(request, options, _options), cancellationToken).ConfigureAwait(false);
+        NurtResponse response = await backend.RunAsync(WireFormat.Envelope(request, options, _options), cancellationToken).ConfigureAwait(false);
         return response.ThrowIfRequested(options);
     }
 
@@ -95,7 +99,7 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <param name="options">Call options; <see langword="null"/> for the defaults.</param>
     /// <param name="cancellationToken">Cancels starting the execution.</param>
     /// <returns>The running execution; dispose it after use.</returns>
-    /// <exception cref="CallException">The execution could not be started.</exception>
+    /// <exception cref="NurtCallException">The execution could not be started.</exception>
     public Task<Execution> StartAsync(string program, RunOptions? options = null, CancellationToken cancellationToken = default) =>
         StartAsync(Request.FromProgram(program), options, cancellationToken);
 
@@ -105,7 +109,7 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <param name="cancellationToken">Cancels starting the execution.</param>
     /// <returns>The running execution; dispose it after use.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
-    /// <exception cref="CallException">The execution could not be started.</exception>
+    /// <exception cref="NurtCallException">The execution could not be started.</exception>
     public async Task<Execution> StartAsync(Request request, RunOptions? options = null, CancellationToken cancellationToken = default)
     {
         Guard.NotNull(request, nameof(request));
@@ -121,7 +125,7 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <param name="cancellationToken">Cancels waiting for the result.</param>
     /// <returns>Bound tree, targets, paths, external programs, network addresses and notable effects.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
-    /// <exception cref="CallException">The call failed.</exception>
+    /// <exception cref="NurtCallException">The call failed.</exception>
     public Task<CheckResult> CheckAsync(Request request, RunOptions? options = null, CancellationToken cancellationToken = default)
     {
         Guard.NotNull(request, nameof(request));
@@ -134,7 +138,7 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <param name="cancellationToken">Cancels waiting for the result.</param>
     /// <returns>The syntax tree and diagnostics.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="program"/> is <see langword="null"/>.</exception>
-    /// <exception cref="CallException">The call failed.</exception>
+    /// <exception cref="NurtCallException">The call failed.</exception>
     public Task<ParseResult> ParseAsync(string program, NotationVariant variant = NotationVariant.A, CancellationToken cancellationToken = default)
     {
         Guard.NotNull(program, nameof(program));
@@ -146,7 +150,7 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <param name="variant">Notation variant of the text.</param>
     /// <param name="cancellationToken">Cancels waiting for the result.</param>
     /// <returns>The program text.</returns>
-    /// <exception cref="CallException">The call failed, for example the tree is not valid (<see cref="CallStatus.InvalidArgument"/>).</exception>
+    /// <exception cref="NurtCallException">The call failed, for example the tree is not valid (<see cref="CallStatus.InvalidArgument"/>).</exception>
     public Task<string> PrintAsync(JsonElement ast, NotationVariant variant = NotationVariant.A, CancellationToken cancellationToken = default) =>
         ActiveBackend().PrintAsync(ast, variant, cancellationToken);
 
@@ -156,7 +160,7 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <param name="cancellationToken">Cancels waiting for the result.</param>
     /// <returns>The corrected program and the list of corrections.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="program"/> is <see langword="null"/>.</exception>
-    /// <exception cref="CallException">The call failed.</exception>
+    /// <exception cref="NurtCallException">The call failed.</exception>
     public Task<CorrectResult> CorrectAsync(string program, NotationVariant variant = NotationVariant.A, CancellationToken cancellationToken = default)
     {
         Guard.NotNull(program, nameof(program));
@@ -164,14 +168,14 @@ public sealed class Client : IDisposable, IAsyncDisposable
     }
 
     /// <summary>Returns the next page of a paged result.</summary>
-    /// <param name="cursor">Cursor from <see cref="Response.NextCursor"/>.</param>
+    /// <param name="cursor">Cursor from <see cref="NurtResponse.NextCursor"/>.</param>
     /// <param name="limit">Records per page; <see langword="null"/> for the limit of the original request.</param>
     /// <param name="cancellationToken">Cancels waiting for the result.</param>
     /// <returns>The page; an expired cursor is an error of the language.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="cursor"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="limit"/> is less than 1.</exception>
-    /// <exception cref="CallException">The call failed.</exception>
-    public Task<Response> PageAsync(string cursor, int? limit = null, CancellationToken cancellationToken = default)
+    /// <exception cref="NurtCallException">The call failed.</exception>
+    public Task<NurtResponse> PageAsync(string cursor, int? limit = null, CancellationToken cancellationToken = default)
     {
         Guard.NotNull(cursor, nameof(cursor));
         if (limit < 1)
@@ -185,11 +189,11 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <summary>Returns the description of the language for tool integrations, as text.</summary>
     /// <param name="layer">Layer of the description, for example <c>core</c> or <c>group</c>.</param>
     /// <param name="name">Name of the group or command; <see langword="null"/> for the whole layer.</param>
-    /// <param name="language">Language of the text; <see langword="null"/> for <see cref="ClientOptions.Language"/>.</param>
+    /// <param name="language">Language of the text; <see langword="null"/> for <see cref="NurtClientOptions.Language"/>.</param>
     /// <param name="cancellationToken">Cancels waiting for the result.</param>
     /// <returns>The description.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="layer"/> is <see langword="null"/>.</exception>
-    /// <exception cref="CallException">The call failed.</exception>
+    /// <exception cref="NurtCallException">The call failed.</exception>
     public Task<string> DescribeAsync(string layer = "core", string? name = null, string? language = null, CancellationToken cancellationToken = default)
     {
         Guard.NotNull(layer, nameof(layer));
@@ -201,7 +205,7 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <param name="topic">Topic; <see langword="null"/> for the index of topics.</param>
     /// <param name="cancellationToken">Cancels waiting for the result.</param>
     /// <returns>The help text.</returns>
-    /// <exception cref="CallException">The call failed.</exception>
+    /// <exception cref="NurtCallException">The call failed.</exception>
     public Task<string> HelpAsync(string? topic = null, CancellationToken cancellationToken = default) =>
         ActiveBackend().HelpAsync(topic, cancellationToken);
 
@@ -209,7 +213,7 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <param name="what">Object selecting a group or a command; <see langword="null"/> for the whole catalog.</param>
     /// <param name="cancellationToken">Cancels waiting for the result.</param>
     /// <returns>The catalog <c>nurt-catalog/1</c>.</returns>
-    /// <exception cref="CallException">The call failed.</exception>
+    /// <exception cref="NurtCallException">The call failed.</exception>
     public Task<JsonElement> CatalogAsync(JsonElement? what = null, CancellationToken cancellationToken = default) =>
         ActiveBackend().CatalogAsync(what, cancellationToken);
 
@@ -218,7 +222,7 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <param name="cancellationToken">Cancels waiting for the result.</param>
     /// <returns>The schema.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="which"/> is <see langword="null"/>.</exception>
-    /// <exception cref="CallException">The name is unknown (<see cref="CallStatus.InvalidArgument"/>) or the call failed.</exception>
+    /// <exception cref="NurtCallException">The name is unknown (<see cref="CallStatus.InvalidArgument"/>) or the call failed.</exception>
     public Task<JsonElement> SchemaAsync(string which, CancellationToken cancellationToken = default)
     {
         Guard.NotNull(which, nameof(which));
@@ -229,7 +233,7 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <param name="query">Object with the parameters of the command <c>history</c>; <see langword="null"/> for the defaults.</param>
     /// <param name="cancellationToken">Cancels waiting for the result.</param>
     /// <returns>The history.</returns>
-    /// <exception cref="CallException">The call failed.</exception>
+    /// <exception cref="NurtCallException">The call failed.</exception>
     public Task<JsonElement> HistoryAsync(JsonElement? query = null, CancellationToken cancellationToken = default) =>
         ActiveBackend().HistoryAsync(query, cancellationToken);
 
@@ -237,7 +241,7 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// <param name="volume">A path on the volume; <see langword="null"/> for all volumes.</param>
     /// <param name="cancellationToken">Cancels waiting for the result.</param>
     /// <returns>The state of the volumes.</returns>
-    /// <exception cref="CallException">The call failed.</exception>
+    /// <exception cref="NurtCallException">The call failed.</exception>
     public Task<JsonElement> SpaceAsync(string? volume = null, CancellationToken cancellationToken = default) =>
         ActiveBackend().SpaceAsync(volume, cancellationToken);
 
@@ -247,14 +251,14 @@ public sealed class Client : IDisposable, IAsyncDisposable
     /// </summary>
     /// <param name="cancellationToken">Cancels waiting for the result.</param>
     /// <returns>The information.</returns>
-    /// <exception cref="CallException">The call failed.</exception>
+    /// <exception cref="NurtCallException">The call failed.</exception>
     public Task<JsonElement> InfoAsync(CancellationToken cancellationToken = default) =>
         ActiveBackend().InfoAsync(cancellationToken);
 
     /// <summary>
     /// Closes the client. The library engine is closed after its running executions are
     /// cancelled; the child process receives the end of its input and is terminated when it
-    /// does not exit within <see cref="ClientOptions.ShutdownTimeout"/>.
+    /// does not exit within <see cref="NurtClientOptions.ShutdownTimeout"/>.
     /// </summary>
     public void Dispose()
     {

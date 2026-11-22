@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -6,7 +10,7 @@ using System.Threading.Tasks;
 namespace Danaco.Nurt;
 
 /// <summary>
-/// Asynchronous execution started by <see cref="Client.StartAsync(Request, RunOptions?, CancellationToken)"/>.
+/// Asynchronous execution started by <see cref="NurtClient.StartAsync(Request, RunOptions?, CancellationToken)"/>.
 /// </summary>
 /// <remarks>
 /// Disposing an execution that is still running cancels it. Changes already committed stay
@@ -32,20 +36,20 @@ public sealed class Execution : IDisposable, IAsyncDisposable
     /// <summary>Waits for the response of the execution.</summary>
     /// <param name="cancellationToken">Stops waiting; the execution continues.</param>
     /// <returns>The response; after <see cref="CancelAsync"/> the response of the cancelled execution.</returns>
-    /// <exception cref="CallException">The execution failed as a call.</exception>
-    /// <exception cref="LanguageException">The response carries an error and <see cref="RunOptions.ThrowOnLanguageError"/> is set.</exception>
+    /// <exception cref="NurtCallException">The execution failed as a call.</exception>
+    /// <exception cref="NurtLanguageException">The response carries an error and <see cref="RunOptions.ThrowOnLanguageError"/> is set.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
-    public Task<Response> WaitAsync(CancellationToken cancellationToken = default) =>
+    public Task<NurtResponse> WaitAsync(CancellationToken cancellationToken = default) =>
         WaitCoreAsync(null, cancellationToken);
 
     /// <summary>Waits for the response of the execution for at most the given time.</summary>
     /// <param name="timeout">Longest time to wait; <see cref="TimeSpan.Zero"/> checks without waiting.</param>
     /// <param name="cancellationToken">Stops waiting; the execution continues.</param>
     /// <returns>The response; after <see cref="CancelAsync"/> the response of the cancelled execution.</returns>
-    /// <exception cref="CallException">The execution is still running after <paramref name="timeout"/> (status <see cref="CallStatus.Timeout"/>), or it failed as a call.</exception>
-    /// <exception cref="LanguageException">The response carries an error and <see cref="RunOptions.ThrowOnLanguageError"/> is set.</exception>
+    /// <exception cref="NurtCallException">The execution is still running after <paramref name="timeout"/> (status <see cref="CallStatus.Timeout"/>), or it failed as a call.</exception>
+    /// <exception cref="NurtLanguageException">The response carries an error and <see cref="RunOptions.ThrowOnLanguageError"/> is set.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
-    public Task<Response> WaitAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+    public Task<NurtResponse> WaitAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
         WaitCoreAsync(timeout, cancellationToken);
 
     /// <summary>
@@ -54,7 +58,7 @@ public sealed class Execution : IDisposable, IAsyncDisposable
     /// </summary>
     /// <param name="cancellationToken">Cancels sending the request.</param>
     /// <returns>A task that completes when the request has been delivered.</returns>
-    /// <exception cref="CallException">The request could not be delivered.</exception>
+    /// <exception cref="NurtCallException">The request could not be delivered.</exception>
     public Task CancelAsync(CancellationToken cancellationToken = default)
     {
         Guard.NotDisposed(Volatile.Read(ref _disposed) != 0, this);
@@ -68,7 +72,7 @@ public sealed class Execution : IDisposable, IAsyncDisposable
     /// <param name="cancellationToken">Stops reading.</param>
     /// <returns>The events of the execution.</returns>
     /// <exception cref="InvalidOperationException">The events are already being read.</exception>
-    public IAsyncEnumerable<ExecutionEvent> ReadEventsAsync(CancellationToken cancellationToken = default) =>
+    public IAsyncEnumerable<NurtExecutionEvent> ReadEventsAsync(CancellationToken cancellationToken = default) =>
         _events.ReadAllAsync(cancellationToken);
 
     /// <summary>Cancels the execution when it is still running and releases it.</summary>
@@ -91,15 +95,15 @@ public sealed class Execution : IDisposable, IAsyncDisposable
         return default;
     }
 
-    private async Task<Response> WaitCoreAsync(TimeSpan? timeout, CancellationToken cancellationToken)
+    private async Task<NurtResponse> WaitCoreAsync(TimeSpan? timeout, CancellationToken cancellationToken)
     {
-        Task<Response> completion = _handle.Completion;
+        Task<NurtResponse> completion = _handle.Completion;
         if (!await TaskWait.WaitAsync(completion, timeout, cancellationToken).ConfigureAwait(false))
         {
-            throw new CallException(CallStatus.Timeout, "execution is still running after the timeout; wait again or cancel it");
+            throw new NurtCallException(CallStatus.Timeout, "execution is still running after the timeout; wait again or cancel it");
         }
 
-        Response response = await completion.ConfigureAwait(false);
+        NurtResponse response = await completion.ConfigureAwait(false);
         return response.ThrowIfRequested(_options);
     }
 }

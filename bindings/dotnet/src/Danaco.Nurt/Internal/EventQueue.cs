@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -14,12 +18,12 @@ namespace Danaco.Nurt;
 internal sealed class EventQueue
 {
     private readonly object _gate = new();
-    private readonly Queue<ExecutionEvent> _items = new();
+    private readonly Queue<NurtExecutionEvent> _items = new();
     private TaskCompletionSource<bool>? _waiter;
     private bool _completed;
     private int _readerStarted;
 
-    public void Add(ExecutionEvent item)
+    public void Add(NurtExecutionEvent item)
     {
         TaskCompletionSource<bool>? waiter;
         lock (_gate)
@@ -51,7 +55,7 @@ internal sealed class EventQueue
         waiter?.TrySetResult(true);
     }
 
-    public async IAsyncEnumerable<ExecutionEvent> ReadAllAsync([EnumeratorCancellation] CancellationToken cancellationToken)
+    public async IAsyncEnumerable<NurtExecutionEvent> ReadAllAsync([EnumeratorCancellation] CancellationToken cancellationToken)
     {
         if (Interlocked.Exchange(ref _readerStarted, 1) != 0)
         {
@@ -60,7 +64,7 @@ internal sealed class EventQueue
 
         while (true)
         {
-            ExecutionEvent? item = null;
+            NurtExecutionEvent? item = null;
             Task? wait = null;
             lock (_gate)
             {

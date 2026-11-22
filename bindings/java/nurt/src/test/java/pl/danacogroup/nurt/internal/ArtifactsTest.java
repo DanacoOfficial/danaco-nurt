@@ -17,7 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import pl.danacogroup.nurt.CallException;
+import pl.danacogroup.nurt.NurtCallException;
 
 class ArtifactsTest {
     private static final byte[] CONTENT = "artifact".getBytes(StandardCharsets.UTF_8);
@@ -73,15 +73,15 @@ class ArtifactsTest {
     @Test
     void missingExplicitPathFailsWithoutFallback() throws IOException {
         file("nurt");
-        CallException error = assertThrows(CallException.class, () -> Artifacts.locate(
+        NurtCallException error = assertThrows(NurtCallException.class, () -> Artifacts.locate(
                 temp.resolve("missing"), null, temp.toString(), emptyLoader(), "nurt", true));
-        assertEquals(CallException.Kind.NOT_FOUND, error.kind());
+        assertEquals(NurtCallException.Kind.NOT_FOUND, error.kind());
         assertTrue(error.getMessage().contains("the configured path"));
     }
 
     @Test
     void missingVariablePathNamesTheVariable() {
-        CallException error = assertThrows(CallException.class, () -> Artifacts.locate(
+        NurtCallException error = assertThrows(NurtCallException.class, () -> Artifacts.locate(
                 null, temp.resolve("missing").toString(), null, emptyLoader(), "nurt", true));
         assertTrue(error.getMessage().contains(Artifacts.EXECUTABLE_VARIABLE));
     }
@@ -98,9 +98,9 @@ class ArtifactsTest {
 
     @Test
     void notFoundListsEveryCheckedLocation() {
-        CallException error = assertThrows(CallException.class, () -> Artifacts.locate(
+        NurtCallException error = assertThrows(NurtCallException.class, () -> Artifacts.locate(
                 null, null, temp.toString(), emptyLoader(), "nurt", true));
-        assertEquals(CallException.Kind.NOT_FOUND, error.kind());
+        assertEquals(NurtCallException.Kind.NOT_FOUND, error.kind());
         assertTrue(error.getMessage().contains(temp.resolve("nurt").toString()));
         assertTrue(error.getMessage().contains("bundled natives/"));
         assertTrue(error.getMessage().contains(Artifacts.EXECUTABLE_VARIABLE));
@@ -118,18 +118,18 @@ class ArtifactsTest {
     @Test
     void bundledArtifactWithWrongDigestIsRejected() throws IOException {
         ClassLoader loader = loaderWith("nurt-damaged", CONTENT, Artifacts.sha256(new byte[] {1}));
-        CallException error = assertThrows(CallException.class,
+        NurtCallException error = assertThrows(NurtCallException.class,
                 () -> Artifacts.locate(null, null, null, loader, "nurt-damaged", true));
-        assertEquals(CallException.Kind.IO, error.kind());
+        assertEquals(NurtCallException.Kind.IO, error.kind());
         assertTrue(error.getMessage().contains("damaged"));
     }
 
     @Test
     void bundledArtifactWithoutDigestIsRejected() throws IOException {
         ClassLoader loader = loaderWith("nurt-unsigned", CONTENT, null);
-        CallException error = assertThrows(CallException.class,
+        NurtCallException error = assertThrows(NurtCallException.class,
                 () -> Artifacts.locate(null, null, null, loader, "nurt-unsigned", true));
-        assertEquals(CallException.Kind.IO, error.kind());
+        assertEquals(NurtCallException.Kind.IO, error.kind());
     }
 
     @Test
