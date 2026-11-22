@@ -303,7 +303,8 @@ NURT_API nurt_status NURT_CALL nurt_describe(nurt_engine *e, const char *what_js
 NURT_API nurt_status NURT_CALL nurt_help(nurt_engine *e, const char *topic, nurt_buf *out_text);
 
 /* Published JSON schema by name: "ast", "bound", "report", "request",
- * "config", "catalog", "value" or "tool". An unknown name returns
+ * "response", "config", "catalog", "catalog-result", "value", "tool",
+ * "fs-snapshot", "check", "rpc" or "event". An unknown name returns
  * NURT_E_ARG. Needs no engine. */
 NURT_API nurt_status NURT_CALL nurt_schema(const char *which, nurt_buf *out_json);
 

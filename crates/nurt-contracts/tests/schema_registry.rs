@@ -403,6 +403,31 @@ fn rpc_check_result_is_a_check_summary_with_diagnostics() {
 }
 
 #[test]
+fn rpc_selector_params_accept_published_shapes() {
+    let validator = validator("rpc");
+    let accepted = [
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "describe", "params": { "layer": "group", "name": "documents", "language": "en" } }),
+        json!({ "jsonrpc": "2.0", "id": 2, "method": "describe", "params": { "subject": "core" } }),
+        json!({ "jsonrpc": "2.0", "id": 3, "method": "catalog", "params": { "what": { "group": "documents" } } }),
+        json!({ "jsonrpc": "2.0", "id": 4, "method": "catalog" }),
+        json!({ "jsonrpc": "2.0", "id": 5, "method": "history", "params": { "query": { "count": 5 } } }),
+        json!({ "jsonrpc": "2.0", "id": 9, "method": "testkit.clock.advance", "params": { "seconds": 5 } }),
+    ];
+    for document in &accepted {
+        assert!(validator.is_valid(document), "rejected {document}");
+    }
+    let rejected = [
+        json!({ "jsonrpc": "2.0", "id": 6, "method": "catalog", "params": { "what": 3 } }),
+        json!({ "jsonrpc": "2.0", "id": 7, "method": "history", "params": { "query": 4 } }),
+        json!({ "jsonrpc": "2.0", "id": 10, "method": "testkit", "params": {} }),
+        json!({ "jsonrpc": "2.0", "id": 8, "method": "describe", "params": { "name": 3 } }),
+    ];
+    for document in &rejected {
+        assert!(!validator.is_valid(document), "accepted {document}");
+    }
+}
+
+#[test]
 fn rpc_schema_names_every_published_schema() {
     let rpc = parse(schema::RPC);
     let named: BTreeSet<&str> = rpc["$defs"]["schema_params"]["properties"]["name"]["enum"]
