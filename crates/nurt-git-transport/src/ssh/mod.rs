@@ -246,19 +246,34 @@ pub enum SshNotice {
 }
 
 impl SshNotice {
-    /// Entry for the effect report, for notices that have a report code.
+    /// Entry of the effect report.
     #[must_use]
-    pub fn notable(&self) -> Option<NotableEntry> {
-        match self {
-            Self::SshCommandIgnored { source } => {
-                let mut entry = NotableEntry::new(Notable::SshCommandIgnored);
-                entry.detail = Some(format!(
-                    "{source} is not run; the built-in SSH client is used"
-                ));
-                Some(entry)
-            }
-            Self::MatchExecIgnored { .. } | Self::HostKeyUnverified { .. } => None,
-        }
+    pub fn notable(&self) -> NotableEntry {
+        let (code, path, detail) = match self {
+            Self::SshCommandIgnored { source } => (
+                Notable::SshCommandIgnored,
+                None,
+                format!("{source} is not run; the built-in SSH client is used"),
+            ),
+            Self::MatchExecIgnored { file, line } => (
+                Notable::MatchExecIgnored,
+                Some(file.display().to_string()),
+                format!(
+                    "line {line}: the program of `Match exec` is not run; the block does not apply"
+                ),
+            ),
+            Self::HostKeyUnverified { host, fingerprint } => (
+                Notable::HostKeyUnverified,
+                None,
+                format!(
+                    "host key {fingerprint} of {host} accepted without verification by StrictHostKeyChecking no"
+                ),
+            ),
+        };
+        let mut entry = NotableEntry::new(code);
+        entry.path = path;
+        entry.detail = Some(detail);
+        entry
     }
 }
 
@@ -377,22 +392,33 @@ mod options_tests {
     }
 
     #[test]
-    fn only_ssh_command_notice_has_a_report_code() {
-        let notice = SshNotice::SshCommandIgnored {
+    fn every_notice_has_its_report_code() {
+        let entry = SshNotice::SshCommandIgnored {
             source: "GIT_SSH".into(),
-        };
-        assert!(
-            notice
-                .notable()
-                .unwrap()
-                .detail
-                .unwrap()
-                .contains("GIT_SSH")
-        );
-        let notice = SshNotice::HostKeyUnverified {
-            host: "h".into(),
+        }
+        .notable();
+        assert_eq!(entry.code, Notable::SshCommandIgnored);
+        assert!(entry.detail.unwrap().contains("GIT_SSH"));
+
+        let entry = SshNotice::MatchExecIgnored {
+            file: PathBuf::from("/home/user/.ssh/config"),
+            line: 4,
+        }
+        .notable();
+        assert_eq!(entry.code, Notable::MatchExecIgnored);
+        assert_eq!(entry.path.as_deref(), Some("/home/user/.ssh/config"));
+        assert!(entry.detail.unwrap().starts_with("line 4:"));
+
+        let entry = SshNotice::HostKeyUnverified {
+            host: "git.example.com".into(),
             fingerprint: "SHA256:x".into(),
-        };
-        assert!(notice.notable().is_none());
+        }
+        .notable();
+        assert_eq!(entry.code, Notable::HostKeyUnverified);
+        assert_eq!(
+            entry.severity,
+            Notable::HostKeyUnverified.default_severity()
+        );
+        assert!(entry.detail.unwrap().contains("SHA256:x"));
     }
 }

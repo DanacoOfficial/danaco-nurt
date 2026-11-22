@@ -5,6 +5,8 @@
 
 use nurt_contracts::error::{Error, ErrorCode};
 
+use crate::http::NetworkFailure;
+
 /// Error `E_GIT_PROTOCOL` with the given problem name.
 pub(crate) fn protocol_error(problem: &str, message: impl Into<String>) -> Error {
     Error::new(ErrorCode::GitProtocol, message).with_problem(problem)
@@ -26,13 +28,43 @@ pub(crate) fn transport_error(error: &gix_transport::client::Error) -> Error {
             format!("the remote refused the credentials: {text}"),
         )
         .with_problem("rejected"),
-        Transport::Io(_) => {
-            Error::new(ErrorCode::Network, format!("the connection failed: {text}"))
-        }
+        Transport::Io(failure) => io_error(failure, &text),
         _ => protocol_error(
             "transport",
             format!("the remote broke the protocol: {text}"),
         ),
+    }
+}
+
+/// Problem of the error raised when the remote asks for credentials.
+const AUTHENTICATION_REQUIRED: &str = "authentication_required";
+
+/// HTTP status of a request the credentials do not allow.
+const HTTP_FORBIDDEN: u16 = 403;
+
+/// Maps an I/O failure of the transport. The HTTP backend reports a `401`
+/// response as `PermissionDenied` and other failed requests with a
+/// [`NetworkFailure`] inside the I/O error.
+fn io_error(failure: &std::io::Error, text: &str) -> Error {
+    if failure.kind() == std::io::ErrorKind::PermissionDenied {
+        return Error::new(
+            ErrorCode::GitAuth,
+            format!("the remote requires credentials: {text}"),
+        )
+        .with_problem(AUTHENTICATION_REQUIRED);
+    }
+    match failure
+        .get_ref()
+        .and_then(|inner| NetworkFailure::find(inner))
+    {
+        Some(network) if network.http_status() == Some(HTTP_FORBIDDEN) => Error::new(
+            ErrorCode::GitAuth,
+            format!("the remote refused access: {text}"),
+        )
+        .with_problem("forbidden"),
+        Some(network) => Error::new(ErrorCode::Network, format!("the connection failed: {text}"))
+            .with_problem(network.problem().as_str()),
+        None => Error::new(ErrorCode::Network, format!("the connection failed: {text}")),
     }
 }
 
@@ -72,5 +104,28 @@ mod tests {
         let io = gix_transport::client::Error::Io(std::io::Error::other("reset"));
         assert_eq!(transport_error(&io).code(), ErrorCode::Network);
         assert_eq!(library_error("pack", &"broken").code(), ErrorCode::Internal);
+    }
+
+    #[test]
+    fn maps_refused_http_requests_to_authentication_errors() {
+        let unauthorized = gix_transport::client::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "401",
+        ));
+        let error = transport_error(&unauthorized);
+        assert_eq!(error.code(), ErrorCode::GitAuth);
+        assert_eq!(error.problem.as_deref(), Some(AUTHENTICATION_REQUIRED));
+        let forbidden = gix_transport::client::Error::Io(
+            NetworkFailure::status("https://example.com/r.git", HTTP_FORBIDDEN).into_io(),
+        );
+        let error = transport_error(&forbidden);
+        assert_eq!(error.code(), ErrorCode::GitAuth);
+        assert_eq!(error.problem.as_deref(), Some("forbidden"));
+        let missing = gix_transport::client::Error::Io(
+            NetworkFailure::status("https://example.com/r.git", 404).into_io(),
+        );
+        let error = transport_error(&missing);
+        assert_eq!(error.code(), ErrorCode::Network);
+        assert_eq!(error.problem.as_deref(), Some("http_status"));
     }
 }

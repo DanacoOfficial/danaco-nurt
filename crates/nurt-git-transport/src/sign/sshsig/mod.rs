@@ -24,7 +24,6 @@ use std::path::{Path, PathBuf};
 use nurt_contracts::error::{Error, Result};
 use ssh_key::{HashAlg, LineEnding, PrivateKey, PublicKey, SshSig};
 
-use super::config::expand_home;
 use super::error::{
     AGENT_UNAVAILABLE, NO_KEY, UNSUPPORTED_FORMAT, is_problem, key_locked, no_key, sign_error,
     with_path,
@@ -53,10 +52,7 @@ pub(crate) fn sign(payload: &[u8], config: &SigningConfig) -> Result<Signature> 
         })?;
         return sign_with_agent(&public, payload, config);
     }
-    let path = config
-        .home
-        .as_deref()
-        .map_or_else(|| PathBuf::from(spec), |home| expand_home(spec, home));
+    let path = config.key_path(spec);
     let text = std::fs::read_to_string(&path).map_err(|source| {
         with_path(
             no_key(format!(

@@ -7,8 +7,10 @@
 use std::path::{Path, PathBuf};
 
 use bstr::ByteSlice;
+use nurt_contracts::config::OpenPgpSource as ConfiguredSource;
 use nurt_contracts::env::Os;
 use nurt_contracts::error::Result;
+use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::stage::ExecCtx;
 
 use super::error::{UNSUPPORTED_FORMAT, sign_error};
@@ -59,6 +61,7 @@ impl SigningConfig {
             agent_socket_dir: None,
             ssh_auth_sock: None,
             home: None,
+            work_dir: None,
             created,
             ignored_settings: Vec::new(),
         }
@@ -97,6 +100,7 @@ impl SigningConfig {
             .key_file
             .as_deref()
             .map(|path| expand_home(path, &env.home));
+        config.openpgp_sources = openpgp_sources(ctx.config().git.signing.openpgp_source);
         config.passphrase_file = env.path(ENV_GPG_PASSPHRASE_FILE);
         config.ssh_passphrase_file = env.path(ENV_SSH_PASSPHRASE_FILE);
         config.gnupg_home = Some(env.gnupg_home());
@@ -110,7 +114,57 @@ impl SigningConfig {
     }
 }
 
+impl SigningConfig {
+    /// Resolves relative key paths against `dir`, the root of the working
+    /// tree.
+    #[must_use]
+    pub fn in_work_dir(mut self, dir: &Path) -> Self {
+        self.work_dir = Some(dir.to_path_buf());
+        self
+    }
+
+    /// Path of the key named by `user.signingKey`: `~/` expanded, a relative
+    /// path taken from the working tree root.
+    pub(crate) fn key_path(&self, spec: &str) -> PathBuf {
+        let expanded = self
+            .home
+            .as_deref()
+            .map_or_else(|| PathBuf::from(spec), |home| expand_home(spec, home));
+        match &self.work_dir {
+            Some(dir) => dir.join(expanded),
+            None => expanded,
+        }
+    }
+
+    /// Notable entry `signing_program_ignored` when the configuration names
+    /// signing programs, which Nurt does not run; `None` otherwise.
+    #[must_use]
+    pub fn ignored_programs_note(&self) -> Option<NotableEntry> {
+        if self.ignored_settings.is_empty() {
+            return None;
+        }
+        let mut entry = NotableEntry::new(Notable::SigningProgramIgnored);
+        entry.count = u64::try_from(self.ignored_settings.len()).ok();
+        entry.detail = Some(format!(
+            "signing is built in; ignored {}",
+            self.ignored_settings.join(", ")
+        ));
+        Some(entry)
+    }
+}
+
 impl VerifyConfig {
+    /// Resolves relative file paths against `dir`, the root of the working
+    /// tree.
+    #[must_use]
+    pub fn in_work_dir(mut self, dir: &Path) -> Self {
+        let absolute = |path: PathBuf| dir.join(path);
+        self.allowed_signers_file = self.allowed_signers_file.map(absolute);
+        self.revocation_file = self.revocation_file.map(absolute);
+        self.public_key_files = self.public_key_files.into_iter().map(absolute).collect();
+        self
+    }
+
     /// Settings for verifying objects of the repository whose configuration
     /// is `git`.
     ///
@@ -143,6 +197,14 @@ impl VerifyConfig {
             signed_at: None,
             utc_offset: utc_offset(&ctx.host().info().timezone, now_seconds(ctx)),
         }
+    }
+}
+
+fn openpgp_sources(configured: Option<ConfiguredSource>) -> Vec<OpenPgpSource> {
+    match configured {
+        Some(ConfiguredSource::GpgAgent) => vec![OpenPgpSource::Agent],
+        Some(ConfiguredSource::KeyFile) => vec![OpenPgpSource::KeyFile],
+        _ => vec![OpenPgpSource::Agent, OpenPgpSource::KeyFile],
     }
 }
 
