@@ -12,3 +12,6 @@
 #![forbid(unsafe_code)]
 
 pub mod codec;
+pub mod compress;
+pub mod decompress;
+pub mod sevenz;
