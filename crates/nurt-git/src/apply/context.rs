@@ -10,6 +10,7 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::Expect;
 
 use super::error::{locked, repo_error};
+use super::guard::DirGuards;
 use super::sparse::Sparse;
 use super::worktree::{Node, expect_of, observe_native};
 
@@ -26,6 +27,7 @@ pub struct ApplyContext<'r> {
     pub(crate) index_expect: Expect,
     pub(crate) index_exists: bool,
     pub(crate) sparse: Sparse,
+    pub(crate) guards: DirGuards,
 }
 
 impl<'r> ApplyContext<'r> {
@@ -81,6 +83,7 @@ impl<'r> ApplyContext<'r> {
             index_expect,
             index_exists,
             sparse,
+            guards: DirGuards::default(),
         })
     }
 

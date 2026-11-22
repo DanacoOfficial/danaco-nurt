@@ -30,6 +30,7 @@ mod context;
 mod error;
 mod exec;
 mod filter;
+mod guard;
 mod layout;
 mod oneway;
 mod paths;

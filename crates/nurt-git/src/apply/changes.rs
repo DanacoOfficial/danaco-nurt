@@ -5,12 +5,13 @@
 //! entry and to each working tree file, before the decisions are laid out
 //! as journal targets.
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 use bstr::{BStr, BString, ByteSlice};
 use gix::ObjectId;
 use gix_index::entry::{Flags, Mode, Stat};
-use nurt_contracts::error::Result;
+use nurt_contracts::error::{Error, Result};
 
 use super::context::ApplyContext;
 use super::error::{Rejections, repo_error, unsafe_path};
@@ -53,7 +54,64 @@ pub(crate) fn flatten_tree(repo: &gix::Repository, tree: Option<&gix::oid>) -> R
         .map(|entry| (entry.path(state).to_owned(), Blob::of(entry)))
         .collect();
     reject_file_directory_clash(&map)?;
+    reject_name_collisions(repo, &map)?;
     Ok(map)
+}
+
+/// Refuses two paths that name the same file on a file system that ignores
+/// case or the Unicode normalization form: two entries with equal folded
+/// names, or an entry whose folded name equals a leading directory of another
+/// path (a link `A` and a file `a/x` would write through the link).
+fn reject_name_collisions(repo: &gix::Repository, map: &TreeMap) -> Result<()> {
+    let caps = repo
+        .filesystem_options()
+        .map_err(|err| repo_error(err, "read the core settings"))?;
+    if !caps.ignore_case && !caps.precompose_unicode {
+        return Ok(());
+    }
+    let mut files: BTreeMap<Vec<u8>, &BString> = BTreeMap::new();
+    for path in map.keys() {
+        if let Some(other) = files.insert(fold_name(path, caps.ignore_case), path) {
+            return Err(name_collision(path, other));
+        }
+    }
+    for path in map.keys() {
+        for (position, byte) in path.iter().enumerate() {
+            if *byte != b'/' {
+                continue;
+            }
+            if let Some(other) = files.get(&fold_name(&path[..position], caps.ignore_case)) {
+                return Err(name_collision(path, other));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Name as a file system that ignores case and normalization form sees it.
+fn fold_name(name: &[u8], ignore_case: bool) -> Vec<u8> {
+    match std::str::from_utf8(name) {
+        Ok(text) => {
+            let composed = gix::utils::str::precompose(Cow::Borrowed(text));
+            if ignore_case {
+                composed.to_lowercase().into_bytes()
+            } else {
+                composed.into_owned().into_bytes()
+            }
+        }
+        Err(_) if ignore_case => name.to_ascii_lowercase(),
+        Err(_) => name.to_vec(),
+    }
+}
+
+fn name_collision(path: &[u8], other: &[u8]) -> Error {
+    unsafe_path(
+        path,
+        &format!(
+            "it names the same file as '{}' on a file system that ignores case or Unicode normalization",
+            other.as_bstr()
+        ),
+    )
 }
 
 fn reject_file_directory_clash(map: &TreeMap) -> Result<()> {

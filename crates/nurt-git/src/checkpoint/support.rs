@@ -527,13 +527,6 @@ enum Step {
     CreateDir,
     ReplaceDir,
     Remove,
-    Rename,
-}
-
-/// Content a file must have when its lock has been taken.
-struct LockCheck {
-    file: PathBuf,
-    expected: Option<Vec<u8>>,
 }
 
 /// Changes of one operation, declared in full before the first change and
@@ -542,7 +535,7 @@ struct LockCheck {
 pub(crate) struct TxPlan {
     specs: Vec<TargetSpec>,
     steps: Vec<Step>,
-    checks: HashMap<usize, LockCheck>,
+    guarded: HashMap<usize, PathBuf>,
     created_dirs: BTreeSet<PathBuf>,
     removed: BTreeSet<PathBuf>,
     next: usize,
@@ -647,9 +640,10 @@ impl TxPlan {
         self.push(path, TargetAction::Delete, expect, Step::Remove)
     }
 
-    /// Declares a write of `file` by the lock protocol of `git`: the lock
-    /// file is created, filled and renamed over `file`. `expected` is the
-    /// content `file` must have once the lock is held; `None` means absent.
+    /// Declares a write of `file` that honours the lock protocol of `git`:
+    /// the target is `file` itself, expecting `expected` (`None` means
+    /// absent), and the lock file `<file>.lock` is checked when the target is
+    /// declared and again before the write.
     pub(crate) fn write_locked(
         &mut self,
         file: &Path,
@@ -660,27 +654,11 @@ impl TxPlan {
         if let Some(parent) = file.parent() {
             self.create_dirs(parent)?;
         }
-        let lock = lock_path(file);
-        let created = self.push(
-            &lock,
-            TargetAction::Create,
-            Expect::Absent,
-            Step::Write(content),
-        )?;
-        self.checks.insert(
-            created,
-            LockCheck {
-                file: file.to_path_buf(),
-                expected,
-            },
-        );
-        let to = abs(file)?;
-        self.push(
-            &lock,
-            TargetAction::Rename { to, replace: true },
-            Expect::Unchecked,
-            Step::Rename,
-        )?;
+        let expect = expected
+            .as_deref()
+            .map_or(Expect::Absent, |old| Expect::Hash(content_hash(old)));
+        let index = self.push(file, TargetAction::Modify, expect, Step::Write(content))?;
+        self.guarded.insert(index, file.to_path_buf());
         Ok(())
     }
 
@@ -696,17 +674,7 @@ impl TxPlan {
         if self.specs.is_empty() {
             return Ok(());
         }
-        tx.preserve(&self.specs).map(|_| ()).map_err(|err| {
-            if err.code() == ErrorCode::Exists
-                && let Some(check) = self
-                    .checks
-                    .values()
-                    .find(|check| lock_path(&check.file).exists())
-            {
-                return ensure_unlocked(&check.file).err().unwrap_or(err);
-            }
-            err
-        })
+        tx.preserve(&self.specs).map(|_| ())
     }
 
     /// Applies declared changes up to, but excluding, target `end`.
@@ -724,12 +692,11 @@ impl TxPlan {
                 Step::Write(bytes) => Mutation::WriteBytes(std::mem::take(bytes)),
                 Step::CreateDir | Step::ReplaceDir => Mutation::CreateDir { mode: DIR_MODE },
                 Step::Remove => Mutation::Remove,
-                Step::Rename => Mutation::Rename,
             };
-            tx.apply(target, mutation)?;
-            if let Some(check) = self.checks.get(&index) {
-                verify_locked(check)?;
+            if let Some(file) = self.guarded.get(&index) {
+                ensure_unlocked(file)?;
             }
+            tx.apply(target, mutation)?;
         }
         Ok(())
     }
@@ -738,25 +705,6 @@ impl TxPlan {
     pub(crate) fn apply_rest(&mut self, tx: &mut dyn MutationTx) -> Result<()> {
         self.apply_until(tx, self.steps.len())
     }
-}
-
-fn verify_locked(check: &LockCheck) -> Result<()> {
-    let current = match std::fs::read(&check.file) {
-        Ok(bytes) => Some(bytes),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
-        Err(err) => return Err(repo_error(&format!("read `{}`", check.file.display()), err)),
-    };
-    if current == check.expected {
-        return Ok(());
-    }
-    Err(problem(
-        ErrorCode::Stale,
-        "git_state_changed",
-        format!(
-            "`{}` changed while the operation was planned; run the command again",
-            check.file.display()
-        ),
-    ))
 }
 
 /// Location of a reference file in the common directory of the repository.

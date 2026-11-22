@@ -6,7 +6,10 @@
 //! [`RecordingJournal`] follows the protocol of the journal contract and
 //! checks its use strictly: preserving after a change, applying to an
 //! undeclared target and a mutation that does not fit the declared action
-//! panic. The previous state of every declared target is kept in memory, so
+//! panic. The rules follow the reference journal of `nurt-testkit`: a mutation
+//! fits the declared action by the same table (`SetMeta` only for
+//! `attributes`), a rename needs an existing source and staged writes are
+//! switched in by `CommitStaged`. The previous state of every declared target is kept in memory, so
 //! [`RecordingJournal::undo_last`] restores it byte for byte. Together with
 //! [`tree_state`] and [`assert_declared`] a test proves that every change of
 //! a directory went through a transaction.
@@ -17,12 +20,15 @@
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;
-use std::io::Write as _;
+use std::io::{self, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::WriteHandle;
+use nurt_contracts::fs::{
+    AbsPath, Durability, ExtendedMeta, FsError, FsErrorKind, FsResult, MetaTransferReport,
+    WriteHandle,
+};
 use nurt_contracts::journal::Expect;
 use nurt_contracts::journal::{
     AfterState, Applied, BeforeState, ExemptWrite, ExternalChange, Mutation, MutationTx, OpHandle,
@@ -272,6 +278,53 @@ struct Declared {
     saved: Vec<(PathBuf, Snapshot)>,
     checked: bool,
     mutations: usize,
+    staged: Option<PathBuf>,
+}
+
+struct StagedFile {
+    file: std::fs::File,
+    path: AbsPath,
+}
+
+impl Write for StagedFile {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.file.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.file.flush()
+    }
+}
+
+impl Seek for StagedFile {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        self.file.seek(pos)
+    }
+}
+
+impl WriteHandle for StagedFile {
+    fn path(&self) -> &AbsPath {
+        &self.path
+    }
+
+    fn sync(&mut self, _durability: Durability) -> FsResult<()> {
+        self.file
+            .sync_all()
+            .map_err(|_| FsError::new(FsErrorKind::Io, "sync", Some(self.path.as_path())))
+    }
+
+    fn set_length(&mut self, length: u64) -> FsResult<()> {
+        self.file
+            .set_len(length)
+            .map_err(|_| FsError::new(FsErrorKind::Io, "set_length", Some(self.path.as_path())))
+    }
+
+    fn apply_meta(&mut self, meta: &ExtendedMeta) -> FsResult<MetaTransferReport> {
+        set_mode(self.path.as_path(), meta.basic.mode);
+        Ok(MetaTransferReport {
+            not_transferred: Vec::new(),
+        })
+    }
 }
 
 /// Transaction of a [`RecordingJournal`].
@@ -291,14 +344,14 @@ impl RecordingTx<'_> {
     fn validate(spec: &TargetSpec, path: &Path) -> Result<()> {
         let exists = std::fs::symlink_metadata(path).is_ok();
         match &spec.action {
-            TargetAction::Create | TargetAction::Link if exists => Err(Error::new(
-                ErrorCode::Exists,
-                format!("{} exists", path.display()),
-            )),
+            TargetAction::Create | TargetAction::CreateTree | TargetAction::Link if exists => Err(
+                Error::new(ErrorCode::Exists, format!("{} exists", path.display())),
+            ),
             TargetAction::Delete
             | TargetAction::Replace
+            | TargetAction::Rename { .. }
             | TargetAction::Attributes
-            | TargetAction::Append
+            | TargetAction::Truncate
                 if !exists =>
             {
                 Err(Error::new(
@@ -330,39 +383,65 @@ impl RecordingTx<'_> {
         }
     }
 
-    fn fits(action: &TargetAction, mutation: &Mutation, count: usize) -> bool {
-        let creating = matches!(
+    /// Whether `mutation` is allowed for a target declared with `action`, by
+    /// the table of the reference journal.
+    fn fits(action: &TargetAction, mutation: &Mutation) -> bool {
+        let writes_content = matches!(
             mutation,
-            Mutation::WriteBytes(_) | Mutation::CreateDir { .. } | Mutation::CreateLink { .. }
+            Mutation::WriteBytes(_) | Mutation::CommitStaged | Mutation::CopyFrom { .. }
+        );
+        let creates_entry = matches!(
+            mutation,
+            Mutation::CreateDir { .. }
+                | Mutation::CreateLink { .. }
+                | Mutation::CreateHardLink { .. }
         );
         match action {
-            TargetAction::Create => {
-                matches!(
-                    mutation,
-                    Mutation::WriteBytes(_) | Mutation::CreateDir { .. }
-                ) || matches!(mutation, Mutation::SetMeta(_)) && count > 0
-            }
-            TargetAction::Link => matches!(mutation, Mutation::CreateLink { .. }),
+            TargetAction::Create => writes_content || creates_entry,
+            TargetAction::CreateTree => matches!(mutation, Mutation::CreateDir { .. }),
             TargetAction::Modify => {
-                matches!(mutation, Mutation::WriteBytes(_) | Mutation::SetMeta(_))
+                writes_content
+                    || matches!(
+                        mutation,
+                        Mutation::WriteAt { .. }
+                            | Mutation::SetLength(_)
+                            | Mutation::ProviderSet(_)
+                    )
             }
-            TargetAction::Delete => matches!(mutation, Mutation::Remove),
-            TargetAction::Replace => {
-                if count == 0 {
-                    matches!(mutation, Mutation::Remove)
-                } else {
-                    creating || matches!(mutation, Mutation::SetMeta(_))
-                }
-            }
-            TargetAction::Attributes => matches!(mutation, Mutation::SetMeta(_)),
             TargetAction::Append => matches!(mutation, Mutation::AppendBytes(_)),
+            TargetAction::Delete => {
+                matches!(mutation, Mutation::Remove | Mutation::ProviderRemove)
+            }
+            TargetAction::Replace => {
+                writes_content || creates_entry || matches!(mutation, Mutation::Remove)
+            }
             TargetAction::Rename { .. } => matches!(mutation, Mutation::Rename),
+            TargetAction::Attributes => matches!(mutation, Mutation::SetMeta(_)),
+            TargetAction::Link => matches!(
+                mutation,
+                Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. }
+            ),
+            TargetAction::Truncate => matches!(mutation, Mutation::SetLength(_)),
             _ => false,
         }
     }
 
-    fn perform(path: &Path, action: &TargetAction, mutation: Mutation) -> Result<()> {
+    fn perform(
+        path: &Path,
+        action: &TargetAction,
+        staged: &mut Option<PathBuf>,
+        mutation: Mutation,
+    ) -> Result<()> {
         match mutation {
+            Mutation::CommitStaged => {
+                let staged = staged.take().expect("commit_staged without a staged file");
+                if let Ok(meta) = std::fs::symlink_metadata(path)
+                    && meta.is_file()
+                {
+                    set_mode(&staged, mode_of(&meta));
+                }
+                std::fs::rename(&staged, path).map_err(|err| io(&err, path))
+            }
             Mutation::WriteBytes(bytes) => {
                 let staged = path.with_extension("nurt-staged");
                 std::fs::write(&staged, bytes).map_err(|err| io(&err, &staged))?;
@@ -375,6 +454,7 @@ impl RecordingTx<'_> {
             }
             Mutation::AppendBytes(bytes) => std::fs::OpenOptions::new()
                 .append(true)
+                .create(true)
                 .open(path)
                 .and_then(|mut file| file.write_all(&bytes))
                 .map_err(|err| io(&err, path)),
@@ -452,16 +532,38 @@ impl MutationTx for RecordingTx<'_> {
                 saved,
                 checked: false,
                 mutations: 0,
+                staged: None,
             });
         }
         Ok(out)
     }
 
-    fn stage(&mut self, _target: TargetIndex) -> Result<Box<dyn WriteHandle>> {
-        Err(Error::new(
-            ErrorCode::Io,
-            "staged writes are not supported by the test journal",
-        ))
+    fn stage(&mut self, target: TargetIndex) -> Result<Box<dyn WriteHandle>> {
+        let position = usize::try_from(target.0).expect("target index");
+        let declared = self
+            .declared
+            .get_mut(position)
+            .unwrap_or_else(|| panic!("target {position} was not declared"));
+        assert!(
+            matches!(
+                declared.spec.action,
+                TargetAction::Create | TargetAction::Modify | TargetAction::Replace
+            ),
+            "stage for the action {:?} of {}",
+            declared.spec.action,
+            declared.path.display()
+        );
+        let name = declared
+            .path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let staged = declared.path.with_file_name(format!("{name}.nurt-stage"));
+        let file = std::fs::File::create(&staged).map_err(|err| io(&err, &staged))?;
+        let path = AbsPath::new(&staged)
+            .map_err(|_| Error::new(ErrorCode::Io, "staged path is not absolute"))?;
+        declared.staged = Some(staged);
+        Ok(Box::new(StagedFile { file, path }))
     }
 
     fn apply(&mut self, target: TargetIndex, mutation: Mutation) -> Result<Applied> {
@@ -477,7 +579,7 @@ impl MutationTx for RecordingTx<'_> {
             .get_mut(position)
             .unwrap_or_else(|| panic!("target {position} was not declared"));
         assert!(
-            Self::fits(&declared.spec.action, &mutation, declared.mutations),
+            Self::fits(&declared.spec.action, &mutation),
             "mutation {mutation:?} does not fit the action {:?} of {}",
             declared.spec.action,
             declared.path.display()
@@ -489,7 +591,14 @@ impl MutationTx for RecordingTx<'_> {
             declared.checked = true;
             Self::check_expect(&declared.path, &declared.spec.expect)
         }
-        .and_then(|()| Self::perform(&declared.path, &declared.spec.action, mutation));
+        .and_then(|()| {
+            Self::perform(
+                &declared.path,
+                &declared.spec.action,
+                &mut declared.staged,
+                mutation,
+            )
+        });
         declared.mutations += 1;
         if let Err(err) = result {
             self.failed = true;
@@ -517,6 +626,13 @@ impl MutationTx for RecordingTx<'_> {
     fn commit(self: Box<Self>) -> Result<OpHandle> {
         assert!(!self.failed, "commit after a failed mutation");
         let changed = self.changed;
+        for staged in self
+            .declared
+            .iter()
+            .filter_map(|declared| declared.staged.as_ref())
+        {
+            let _ = std::fs::remove_file(staged);
+        }
         if changed {
             let saved = self
                 .declared
@@ -543,6 +659,9 @@ impl MutationTx for RecordingTx<'_> {
     fn rollback(self: Box<Self>, _reason: RollbackReason) -> Result<RollbackReport> {
         let mut restored = Vec::new();
         for declared in self.declared.iter().rev() {
+            if let Some(staged) = &declared.staged {
+                let _ = std::fs::remove_file(staged);
+            }
             if declared.mutations > 0 {
                 for (path, before) in declared.saved.iter().rev() {
                     before.restore(path);
