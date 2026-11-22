@@ -50,7 +50,7 @@ pub(crate) fn transport_error(error: &gix_transport::client::Error) -> Error {
             format!("the remote refused the credentials: {text}"),
         )
         .with_problem("rejected"),
-        Transport::Io(failure) => io_error(failure, &text),
+        Transport::Io(failure) => io_error(failure, &scrub(&failure.to_string())),
         _ => protocol_error(
             "transport",
             format!("the remote broke the protocol: {text}"),

@@ -387,7 +387,8 @@ impl RecordingTx<'_> {
             .destination
             .as_ref()
             .map(|(to, _)| to.clone());
-        let mode = self.targets[position].before.mode;
+        let before = &self.targets[position].before;
+        let mode = before.mode.filter(|_| before.kind == Some(FileKind::File));
         perform_mutation(
             &path,
             mutation,

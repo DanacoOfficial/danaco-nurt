@@ -13,7 +13,10 @@
 use std::path::{Path, PathBuf};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::WriteHandle;
+use nurt_contracts::fs::{
+    AbsPath, Durability, ExtendedMeta, FsError, FsErrorKind, FsResult, MetaTransferReport,
+    WriteHandle,
+};
 use nurt_contracts::journal::{
     AfterState, Applied, BeforeState, ExemptWrite, ExternalChange, Mutation, MutationTx, OpHandle,
     OpId, OpKind, PreserveMode, Preserved, RollbackReason, RollbackReport, TargetAction,
@@ -114,11 +117,11 @@ impl MutationTx for DirectTx {
         Ok(preserved)
     }
 
-    fn stage(&mut self, _target: TargetIndex) -> Result<Box<dyn WriteHandle>> {
-        Err(Error::new(
-            ErrorCode::StageFailed,
-            "staged writes are not available inside a new directory",
-        ))
+    fn stage(&mut self, target: TargetIndex) -> Result<Box<dyn WriteHandle>> {
+        let path = self.target(target)?.path.clone();
+        let file = std::fs::File::create(&path).map_err(|failure| io(&path, &failure))?;
+        let handle = DirectWriter::new(path, file)?;
+        Ok(Box::new(handle))
     }
 
     fn apply(&mut self, index: TargetIndex, mutation: Mutation) -> Result<Applied> {
@@ -136,6 +139,7 @@ impl MutationTx for DirectTx {
                     .and_then(|mut file| file.write_all(&bytes))
                     .map_err(failed)?;
             }
+            Mutation::CommitStaged => {}
             Mutation::Remove => remove(path).map_err(failed)?,
             Mutation::Rename => match &target.action {
                 TargetAction::Rename { to, .. } => {
@@ -196,6 +200,75 @@ impl MutationTx for DirectTx {
             restored: Vec::new(),
             failed: Vec::new(),
         })
+    }
+}
+
+/// Open file below the new directory, written in place.
+///
+/// The file is not journaled, so a staged write needs no switch-in step and
+/// [`Mutation::CommitStaged`] leaves it as it is.
+struct DirectWriter {
+    path: AbsPath,
+    file: std::fs::File,
+}
+
+impl DirectWriter {
+    fn new(path: PathBuf, file: std::fs::File) -> Result<Self> {
+        let path = AbsPath::new(path).map_err(|failure| {
+            Error::new(ErrorCode::StageFailed, format!("invalid path: {failure}"))
+        })?;
+        Ok(Self { path, file })
+    }
+
+    fn failure(&self, operation: &str, error: &std::io::Error) -> FsError {
+        let kind = match error.kind() {
+            std::io::ErrorKind::NotFound => FsErrorKind::NotFound,
+            std::io::ErrorKind::StorageFull => FsErrorKind::NoSpace,
+            _ => FsErrorKind::Io,
+        };
+        FsError::new(kind, operation, Some(self.path.as_path()))
+    }
+}
+
+impl std::io::Write for DirectWriter {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.file.write(bytes)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.file.flush()
+    }
+}
+
+impl std::io::Seek for DirectWriter {
+    fn seek(&mut self, position: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.file.seek(position)
+    }
+}
+
+impl WriteHandle for DirectWriter {
+    fn path(&self) -> &AbsPath {
+        &self.path
+    }
+
+    fn sync(&mut self, durability: Durability) -> FsResult<()> {
+        let synced = match durability {
+            Durability::Data => self.file.sync_data(),
+            Durability::Full => self.file.sync_all(),
+        };
+        synced.map_err(|error| self.failure("sync", &error))
+    }
+
+    fn set_length(&mut self, length: u64) -> FsResult<()> {
+        self.file
+            .set_len(length)
+            .map_err(|error| self.failure("set_length", &error))
+    }
+
+    fn apply_meta(&mut self, meta: &ExtendedMeta) -> FsResult<MetaTransferReport> {
+        set_mode(self.path.as_path(), meta.basic.mode)
+            .map_err(|error| self.failure("apply_meta", &error))?;
+        Ok(MetaTransferReport::default())
     }
 }
 
