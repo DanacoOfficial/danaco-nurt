@@ -629,6 +629,9 @@ impl<'r> Parser<'_, 'r> {
                             .map_err(|_| self.literal_error(value, "the number is too large"))?,
                         span: Some(span),
                     },
+                    (_, None, _) if number.exponent > 0 => {
+                        return Err(self.literal_error(value, "the number is too large"));
+                    }
                     (_, _, Some(int)) if int >= 0 => Expr::Int {
                         v: int,
                         span: Some(span),

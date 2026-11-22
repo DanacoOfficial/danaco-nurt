@@ -44,7 +44,7 @@ words = [
   "Get-NetTCPConnection", "Test-Connection", "Resolve-DnsName", "Get-NetIPAddress",
   "Get-CimInstance", "gcim", "Get-WmiObject", "gwmi",
   "Get-Volume", "Get-Disk",
-  "Register-ScheduledTask", "schtasks",
+  "Register-ScheduledTask", "Get-ScheduledTask", "Start-ScheduledTask", "schtasks",
   "Invoke-Expression", "iex", "Invoke-Command", "icm",
 ]
 

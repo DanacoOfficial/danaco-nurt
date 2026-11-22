@@ -26,7 +26,10 @@ type Loaded<T> = Result<T, Box<dyn std::error::Error>>;
 const RULES: std::ops::RangeInclusive<u8> = 1..=42;
 
 /// Smallest number of cases of every rule.
-const MIN_CASES_PER_RULE: usize = 1;
+const MIN_CASES_PER_RULE: usize = 3;
+
+/// Smallest number of adversarial cases.
+const MIN_ADVERSARIAL_CASES: usize = 40;
 
 /// Largest number of candidates, fixes, next steps and alternatives.
 const MAX_LISTED: usize = 3;
@@ -337,7 +340,20 @@ fn every_rule_has_cases() {
         .filter(|rule| per_rule.get(rule).copied().unwrap_or_default() < MIN_CASES_PER_RULE)
         .map(|rule| format!("P{rule:02}"))
         .collect();
-    assert!(missing.is_empty(), "rules without cases: {missing:?}");
+    assert!(missing.is_empty(), "rules with too few cases: {missing:?}");
+}
+
+#[test]
+fn adversarial_corpus_has_enough_cases() {
+    let adversarial = all_cases()
+        .unwrap()
+        .iter()
+        .filter(|case| case.corpus.as_deref() == Some("adversarial"))
+        .count();
+    assert!(
+        adversarial >= MIN_ADVERSARIAL_CASES,
+        "{adversarial} adversarial cases, at least {MIN_ADVERSARIAL_CASES} required"
+    );
 }
 
 /// Command names and parameter names of the catalog.
@@ -451,4 +467,65 @@ fn translation_follows_the_table_data() {
     assert!(PowerShellTable::parse(TABLE_TEXT, &without_alias).is_ok());
     let broken = TABLE_TEXT.replace("stages = [\"remove\"]", "stages = \"remove\"");
     assert!(PowerShellTable::parse(&broken, HABITS_TEXT).is_err());
+}
+
+/// Variants of a corpus input that reach the error and option paths of the
+/// translation.
+fn variants(input: &str) -> Vec<String> {
+    let mut out = vec![
+        format!("{input} -Bogus"),
+        format!("{input} -Bogus 1"),
+        format!("{input} -WhatIf -Confirm:$false"),
+        format!("{input} -ErrorAction SilentlyContinue"),
+        format!("{input} -ErrorAction Stop"),
+        format!("{input} -Force"),
+        format!("{input} -Path"),
+        format!("{input} > out.txt"),
+        format!("{input} >> out.txt"),
+        format!("{input} | Out-File out.txt"),
+        format!("{input} | Out-File out.txt -Append"),
+        format!("{input} | ConvertTo-Json"),
+        format!("{input} | Select-Object -First 3"),
+        format!("{input} | Sort-Object Length -Descending"),
+        format!("{input} | Measure-Object"),
+        format!("{input} | Where-Object Length -gt 1"),
+        format!("{input} | 5"),
+        format!("{input}; {input}"),
+        format!("{input} |"),
+        format!("$x = {input}"),
+        format!("$x = {input}; $x"),
+        format!("$env:A = {input}"),
+        format!("$a.b = {input}"),
+        format!("({input})"),
+        format!("{input} {{ }}"),
+        format!("{input} 'a' \"b\" $c $env:D"),
+        format!("{input} -Path C:\\a -LiteralPath C:\\b"),
+        format!("& {input}"),
+        format!("{input} 1KB 2.5 -3"),
+    ];
+    if let Some((head, _)) = input.rsplit_once(' ') {
+        out.push(head.to_owned());
+    }
+    out
+}
+
+#[test]
+fn mutated_corpus_inputs_give_a_reaction_without_panicking() {
+    let cases = all_cases().unwrap();
+    let mut translated = 0_usize;
+    for case in &cases {
+        for text in variants(&case.input) {
+            for base in [None, Some("C:/work")] {
+                let context = TranslateContext {
+                    base,
+                    ..TranslateContext::default()
+                };
+                if let Some(Ok(translation)) = translate_with(&text, &context) {
+                    assert!(!translation.text().is_empty(), "empty program for {text:?}");
+                    translated += 1;
+                }
+            }
+        }
+    }
+    assert!(translated > 0, "no variant was translated");
 }

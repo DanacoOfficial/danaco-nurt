@@ -1232,6 +1232,11 @@ name = "Last"
 type = "int"
 emit = "last"
 
+[[entry.param]]
+name = "ExpandProperty"
+type = "fields"
+emit = "select"
+
 [[entry.variant]]
 rule = "P16"
 error = "E_UNCORRECTABLE"
@@ -2361,6 +2366,43 @@ error = "E_UNCORRECTABLE"
 problem = "system_task"
 message = "tasks of the system scheduler are not created; schedule a console program with schedule.create"
 help = "help schedule.create"
+
+[[entry]]
+rule = "P41"
+class = "C"
+kind = "cmdlet"
+from = ["Get-ScheduledTask"]
+
+[[entry.param]]
+name = "TaskName"
+position = 0
+type = "cim_equals"
+arg = "where"
+
+[[entry.variant]]
+rule = "P41"
+class = "C"
+stages = ["windows.cim"]
+set = [{ stage = "windows.cim", text = "MSFT_ScheduledTask" }, { arg = "namespace", text = "Root/Microsoft/Windows/TaskScheduler" }]
+
+[[entry]]
+rule = "P41"
+error = "E_UNCORRECTABLE"
+kind = "cmdlet"
+from = ["Start-ScheduledTask"]
+
+[[entry.param]]
+name = "TaskName"
+position = 0
+type = "text"
+
+[[entry.variant]]
+rule = "P41"
+error = "E_UNCORRECTABLE"
+problem = "system_task"
+message = "tasks of the system scheduler are started by the schtasks program; run it with run"
+fix = ["run [\"schtasks.exe\", \"/run\", \"/tn\", {TaskName:text}]"]
+help = "help run"
 
 [[entry]]
 rule = "P42"

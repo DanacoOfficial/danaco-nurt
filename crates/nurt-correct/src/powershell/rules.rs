@@ -21,6 +21,7 @@ use nurt_contracts::report::TextPosition;
 use nurt_syntax::parse::Variant as SyntaxVariant;
 use nurt_syntax::print::{print, print_expr};
 
+use super::LetBinding;
 use super::convert::{self, PathProblem};
 use super::lex::{Positions, StrPart};
 use super::script_block;
@@ -492,6 +493,34 @@ impl<'a> Session<'a> {
             .rev()
             .find(|(known, _)| known == name)
             .map(|(_, record)| record.clone())
+    }
+
+    /// Adds `let` names whose record type is known from earlier calls; a
+    /// later binding of a name replaces an earlier one.
+    pub(crate) fn know_lets(&mut self, known: &[LetBinding]) {
+        self.lets.extend(
+            known
+                .iter()
+                .map(|binding| (binding.name.clone(), binding.record.clone())),
+        );
+    }
+
+    /// Number of `let` names known so far.
+    pub(crate) fn let_count(&self) -> usize {
+        self.lets.len()
+    }
+
+    /// The `let` names bound after the first `start` known names.
+    pub(crate) fn lets_since(&self, start: usize) -> Vec<LetBinding> {
+        self.lets
+            .get(start..)
+            .unwrap_or_default()
+            .iter()
+            .map(|(name, record)| LetBinding {
+                name: name.clone(),
+                record: record.clone(),
+            })
+            .collect()
     }
 
     fn known_let(&self, written: &str) -> Option<String> {
@@ -1356,8 +1385,9 @@ impl<'a> Session<'a> {
         error
     }
 
-    /// Fills `{Param}` placeholders with the Nurt path of bound values;
-    /// `None` when a placeholder has no path value.
+    /// Fills `{Param}` placeholders with the Nurt path of bound values and
+    /// `{Param:text}` placeholders with the value as written; `None` when a
+    /// placeholder has no usable value.
     fn fill_template(&self, template: &str, bound: &Bound<'_>) -> Option<String> {
         let mut out = String::new();
         let mut rest = template;
@@ -1365,10 +1395,20 @@ impl<'a> Session<'a> {
             out.push_str(rest.get(..open)?);
             let after = rest.get(open + 1..)?;
             let close = after.find('}')?;
-            let value = bound.text_of(after.get(..close)?)?;
-            let path = convert::path(&value, &self.table.registry, self.context.base).ok()?;
+            let (name, verbatim) = match after.get(..close)?.strip_suffix(":text") {
+                Some(name) => (name, true),
+                None => (after.get(..close)?, false),
+            };
+            let value = bound.text_of(name)?;
+            let text = if verbatim {
+                value
+            } else {
+                convert::path(&value, &self.table.registry, self.context.base)
+                    .ok()?
+                    .text
+            };
             out.push_str(&expr_text(&Expr::Text {
-                v: path.text,
+                v: text,
                 span: None,
             }));
             rest = after.get(close + 1..)?;
@@ -1856,6 +1896,16 @@ impl<'a> Session<'a> {
                     .collect::<Result<_, _>>()?,
                 span: Some(span),
             },
+            ValueType::CimEquals => {
+                let written = self.plain(value)?;
+                if convert::has_wildcard(&written) || written.contains(['\'', '\\']) {
+                    return Err(self.value_error(
+                        item,
+                        "a name with wildcards, quotation marks or backslashes has no filter form; write the filter with windows.cim where:",
+                    ));
+                }
+                text(format!("{} = '{written}'", param.name), span)
+            }
             ValueType::LineText => {
                 let lines: Vec<String> = list_items(value)
                     .into_iter()

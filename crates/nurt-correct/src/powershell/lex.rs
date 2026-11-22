@@ -210,6 +210,8 @@ pub enum LexErrorKind {
     UnterminatedVariable,
     /// `$(` inside a string has no closing parenthesis.
     UnterminatedSubExpression,
+    /// A character that neither starts a token nor belongs to a word.
+    UnexpectedCharacter,
 }
 
 impl fmt::Display for LexError {
@@ -219,6 +221,7 @@ impl fmt::Display for LexError {
             LexErrorKind::UnterminatedComment => "block comment without closing #>",
             LexErrorKind::UnterminatedVariable => "variable name without closing brace",
             LexErrorKind::UnterminatedSubExpression => "subexpression without closing parenthesis",
+            LexErrorKind::UnexpectedCharacter => "character that starts no token",
         };
         write!(f, "{what} at {}:{}", self.span.line, self.span.column)
     }
@@ -319,7 +322,7 @@ impl<'a> Lexer<'a> {
                     self.bump();
                     self.push(TokenKind::Newline, start);
                 }
-                ' ' | '\t' | '\r' | '\u{00A0}' | '\u{FEFF}' => {
+                c if c.is_whitespace() || c == '\u{FEFF}' => {
                     self.bump();
                 }
                 '`' if self
@@ -355,11 +358,11 @@ impl<'a> Lexer<'a> {
             '$' => self.dollar(start)?,
             '>' => self.redirect(None, start),
             '0'..='9' | '*' if self.peek_at(1) == Some('>') => self.redirect(Some(c), start),
-            '[' => self.type_name(start),
+            '[' => self.type_name(start)?,
             _ if SINGLE_QUOTES.contains(&c) => self.literal(start)?,
             _ if DOUBLE_QUOTES.contains(&c) => self.expandable(start)?,
-            _ if DASHES.contains(&c) => self.dash(start),
-            _ => self.bare(start),
+            _ if DASHES.contains(&c) => self.dash(start)?,
+            _ => self.bare(start)?,
         }
         Ok(())
     }
@@ -457,7 +460,7 @@ impl<'a> Lexer<'a> {
             Some(q) if SINGLE_QUOTES.contains(&q) || DOUBLE_QUOTES.contains(&q) => {
                 return self.here_string(start, DOUBLE_QUOTES.contains(&q));
             }
-            _ => self.bare(start),
+            _ => self.bare(start)?,
         }
         Ok(())
     }
@@ -490,7 +493,7 @@ impl<'a> Lexer<'a> {
         self.push(TokenKind::Redirect(redirect), start);
     }
 
-    fn type_name(&mut self, start: usize) {
+    fn type_name(&mut self, start: usize) -> Result<(), LexError> {
         let rest = self.input.get(self.pos + 1..).unwrap_or_default();
         let close = rest.find(']');
         let name = close.and_then(|end| rest.get(..end)).filter(|name| {
@@ -505,28 +508,29 @@ impl<'a> Lexer<'a> {
                 self.pos += 1 + name.len() + 1;
                 self.push(TokenKind::TypeName(name), start);
                 self.members();
+                Ok(())
             }
             None => self.bare(start),
         }
     }
 
-    fn dash(&mut self, start: usize) {
+    fn dash(&mut self, start: usize) -> Result<(), LexError> {
         let next = self.peek_at(1);
         if next.is_some_and(|c| c.is_ascii_digit()) {
-            self.bare(start);
-            return;
+            return self.bare(start);
         }
         if !next.is_some_and(|c| c.is_alphabetic() || c == '_' || c == '?') {
             let long_option = next.is_some_and(|c| DASHES.contains(&c))
                 && self.peek_at(2).is_some_and(char::is_alphanumeric);
             if long_option {
-                self.bare(start);
-            } else if next.is_some_and(|c| DASHES.contains(&c) || c == '=') {
+                return self.bare(start);
+            }
+            if next.is_some_and(|c| DASHES.contains(&c) || c == '=') {
                 self.operator(start, 2);
             } else {
                 self.operator(start, 1);
             }
-            return;
+            return Ok(());
         }
         self.bump();
         let name_start = self.pos;
@@ -546,9 +550,12 @@ impl<'a> Lexer<'a> {
             self.bump();
         }
         self.push(TokenKind::Parameter { name, colon }, start);
+        Ok(())
     }
 
-    fn bare(&mut self, start: usize) {
+    /// Reads a bare word; a character that ends a word without starting a
+    /// token of its own is an error, so that every token consumes input.
+    fn bare(&mut self, start: usize) -> Result<(), LexError> {
         let mut text = String::new();
         while let Some(c) = self.peek() {
             if ends_bare_word(c) || (c == '>' && !text.is_empty()) {
@@ -564,12 +571,16 @@ impl<'a> Lexer<'a> {
             text.push(c);
             self.bump();
         }
+        if self.pos == start {
+            return Err(self.error(LexErrorKind::UnexpectedCharacter, start));
+        }
         let kind = match text.as_str() {
             "=" => TokenKind::Assign,
             "+" | "+=" | "::" | ".." => TokenKind::Operator(text),
             _ => parse_number(&text).map_or(TokenKind::Word(text), TokenKind::Number),
         };
         self.push(kind, start);
+        Ok(())
     }
 
     fn literal(&mut self, start: usize) -> Result<(), LexError> {
@@ -725,7 +736,7 @@ impl<'a> Lexer<'a> {
                 self.push(TokenKind::Variable(var), start);
                 self.members();
             }
-            _ => self.bare(start),
+            _ => return self.bare(start),
         }
         Ok(())
     }

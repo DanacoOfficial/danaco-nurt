@@ -20,7 +20,7 @@
 //! | `name`, `aliases` | parameter name and aliases; unique prefixes are accepted as in PowerShell |
 //! | `position` | position of an unnamed argument, from 0 |
 //! | `switch` | the parameter takes no value |
-//! | `type` | conversion of the value: `path`, `text`, `texts`, `line_text`, `int`, `depth`, `upto`, `seconds`, `milliseconds`, `fields`, `field`, `enum`, `enum_text`, `name`, `name_glob`, `regex`, `map`, `value`, `program`, `arguments`, `type_check`, `context`, `new_name`, `content_path`, `output` |
+//! | `type` | conversion of the value: `path`, `text`, `texts`, `line_text`, `int`, `depth`, `upto`, `seconds`, `milliseconds`, `fields`, `field`, `enum`, `enum_text`, `name`, `name_glob`, `regex`, `map`, `value`, `program`, `arguments`, `type_check`, `context`, `new_name`, `content_path`, `output`, `cim_equals` (a CIM filter that compares the property named as the parameter with the value) |
 //! | `arg`, `positional` | the Nurt argument the value becomes |
 //! | `stage`, `emit` | the Nurt stage that receives the argument; `emit` appends a stage of its own |
 //! | `set` | value of the argument given by a switch |
@@ -737,10 +737,11 @@ pub(crate) enum ValueType {
     NewName,
     ContentPath,
     Output,
+    CimEquals,
 }
 
 impl ValueType {
-    const NAMES: [(&'static str, Self); 25] = [
+    const NAMES: [(&'static str, Self); 26] = [
         ("path", Self::Path),
         ("text", Self::Text),
         ("texts", Self::Texts),
@@ -766,6 +767,7 @@ impl ValueType {
         ("new_name", Self::NewName),
         ("content_path", Self::ContentPath),
         ("output", Self::Output),
+        ("cim_equals", Self::CimEquals),
     ];
 }
 
