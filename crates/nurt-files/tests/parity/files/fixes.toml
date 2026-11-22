@@ -5,7 +5,7 @@ source = "tests/fixes.test.ts"
 cases = 8
 
 [[scenario]]
-name = "wzorzec z ! przywraca wpis wykluczony wcześniejszym wzorcem; rozstrzyga ostatni pasujący"
+name = "pattern with ! restores an entry excluded by an earlier pattern; the last matching pattern decides"
 class = "direct"
 parity_rows = ["SF-13"]
 fs_before = [{ path = "logs/a.log", content = "a\n" }, { path = "logs/keep.log", content = "k\n" }, { path = "logs/b.txt", content = "b\n" }]
@@ -14,7 +14,7 @@ nurt_program = 'find "{root}" glob: "logs/*" exclude: ["*.log", "!keep.log"]'
 expect = { fs_unchanged = true, fields = [{ field = "entries[*].path", value = ["logs/b.txt", "logs/keep.log"] }] }
 
 [[scenario]]
-name = "liczniki na wzorzec: flaga (?i) jest liczona, składnia bez odpowiednika dostaje znak zapytania"
+name = "per-pattern counters: the (?i) flag is counted, syntax without an equivalent gets a question mark"
 class = "direct"
 parity_rows = ["SC-02"]
 fs_before = [{ path = "p/a.txt", content = "Alfa alfa\nbeta\n" }]
@@ -23,7 +23,7 @@ nurt_program = 'search [/(?i)alfa/, "beta"] "{root}/p" output: matches'
 expect = { fs_unchanged = true, fields = [{ field = "per_pattern", value = [2, 1] }] }
 
 [[scenario]]
-name = "odczyt obrazu WebP podaje wymiary w wierszu opisu"
+name = "reading a WebP image reports the dimensions in the description line"
 class = "direct"
 parity_rows = ["RD-33"]
 fs_before = [{ path = "obraz.webp", generate = "webp:VP8X,320x240" }]

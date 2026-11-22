@@ -13,14 +13,14 @@ name = "standard"
 
 [[fixture.file]]
 path = "src/app.ts"
-content = '''// Moduł przykładowy.
+content = """// Modu\u0142 przyk\u0142adowy.
 import { helper } from "./util";
 
 
 
 const LIMIT = 10;
 
-/** Liczy sumę. */
+/** Liczy sum\u0119. */
 export function total(values: number[]): number {
   // total w komentarzu
   const label = "total w napisie";
@@ -38,7 +38,7 @@ export class Basket {
     return total(this.items);
   }
 }
-'''
+"""
 
 [[fixture.file]]
 path = "src/util.py"
@@ -61,19 +61,19 @@ generate = "big_source:80"
 
 [[fixture.file]]
 path = "docs/guide.md"
-content = '''# Przewodnik
+content = """# Przewodnik
 
-Wstęp do przewodnika.
+Wst\u0119p do przewodnika.
 
 ## Instalacja
 
 Krok pierwszy.
 Krok drugi.
 
-## Użycie
+## U\u017Cycie
 
-Wywołaj total.
-'''
+Wywo\u0142aj total.
+"""
 
 [[fixture.file]]
 path = "config.yaml"

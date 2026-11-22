@@ -7,55 +7,55 @@
 #   differential  covered by a differential test against a reference program
 
 [[host_only]]
-name = "plik dłuższy niż limit zaczyna się nagłówkiem z next_offset i zarysem"
+name = "file longer than the limit starts with a header with next_offset and an outline"
 source = "tests/read.test.ts"
 owner = "host"
 reason = "Truncation to the character budget of the caller context."
 
 [[host_only]]
-name = "max_chars podnosi limit jednego wywołania"
+name = "max_chars raises the limit of a single call"
 source = "tests/read.test.ts"
 owner = "host"
 reason = "Character budget of the caller context."
 
 [[host_only]]
-name = "targets z plikiem domyślnym i podział limitu z plikiem pełnej treści"
+name = "targets with a default file and limit split with a full-content file"
 source = "tests/read.test.ts"
 owner = "host"
 reason = "Character budget of the caller context and delivery of the full result."
 
 [[host_only]]
-name = "odczyt trafia do trwałego stanu sesji"
+name = "read is stored in the persistent session state"
 source = "tests/read.test.ts"
 owner = "host"
 reason = "Session state file of the caller; the engine keeps a read cache instead."
 
 [[host_only]]
-name = "obraz ponad limit Operatora zwraca sam opis"
+name = "image over the Operator limit returns the description only"
 source = "tests/read.test.ts"
 owner = "host"
 reason = "Operator limit of the caller."
 
 [[host_only]]
-name = "schemat odrzuca nieznane pole i parametr oczekiwania"
+name = "schema rejects an unknown field and an expectation parameter"
 source = "tests/read.test.ts"
 owner = "host"
 reason = "Argument schema of the caller adapter."
 
 [[host_only]]
-name = "limit przeglądanych wpisów przerywa przejście z komunikatem"
+name = "limit of scanned entries interrupts the walk with a message"
 source = "tests/searchfile.test.ts"
 owner = "host"
 reason = "Operator limit of the caller."
 
 [[host_only]]
-name = "lista ponad limit znaków zaczyna się licznikami katalogów, pełna lista w pliku wyniku"
+name = "list over the character limit starts with directory counters, full list in the result file"
 source = "tests/searchfile.test.ts"
 owner = "host"
 reason = "Character budget of the caller context."
 
 [[host_only]]
-name = "wiele trafień: liczniki i pierwsze trafienia przed treścią, pełna treść w pliku wyniku"
+name = "many matches: counters and first matches before the content, full content in the result file"
 source = "tests/searchcontent.test.ts"
 owner = "host"
 reason = "Character budget of the caller context."
@@ -68,187 +68,187 @@ cases = 22
 reason = "Helper unit tests: line and outline helpers, media dimensions, read state, search helpers and core checks."
 
 [[host_only]]
-name = "reguły ścieżek i nazw oraz sam wzorzec przywracający"
+name = "path and name rules and the restoring pattern itself"
 source = "tests/fixes.test.ts"
 owner = "crate-unit"
 reason = "Exclusion matcher of the walker."
 
 [[host_only]]
-name = "limit Operatora przerywa proces wyszukiwania, a pierwszy wiersz podaje, że liczniki są częściowe"
+name = "Operator limit interrupts the search process, and the first line states that the counters are partial"
 source = "tests/fixes.test.ts"
 owner = "host"
 reason = "Operator limit of the caller."
 
 [[host_only]]
-name = "wynik poniżej limitu nie jest przerywany i nie ma noty"
+name = "result below the limit is not interrupted and has no note"
 source = "tests/fixes.test.ts"
 owner = "host"
 reason = "Operator limit of the caller."
 
 [[host_only]]
-name = "wymiary WebP w wariantach VP8, VP8L i VP8X"
+name = "WebP dimensions in the VP8, VP8L and VP8X variants"
 source = "tests/fixes.test.ts"
 owner = "crate-unit"
 reason = "Image dimension reader."
 
 [[host_only]]
-name = "plik ponad limit odczytu z selektorem jest odrzucany przed wczytaniem"
+name = "file over the read limit with a selector is rejected before loading"
 source = "tests/fixes.test.ts"
 owner = "host"
 reason = "Operator limit of the caller."
 
 [[host_only]]
-name = "duża różnica: wynik ucięty przez rdzeń zachowuje wiersz rozstrzygający i wskazuje plik sesji"
+name = "large diff: result truncated by the core keeps the decisive line and points to the session file"
 source = "write/tests/edit.test.ts"
 owner = "host"
 reason = "Character budget of the caller context and delivery of the full result."
 
 [[host_only]]
-name = "Operator wyłącza wymóg odczytu ustawieniem, agent nie ma takiego parametru"
+name = "Operator disables the read requirement by a setting, the caller has no such parameter"
 source = "write/tests/edit.test.ts"
 owner = "host"
 reason = "Operator setting of the caller."
 
 [[host_only]]
-name = "zapis poza korzeniami zapisu wymaga zgody; odmowa zostawia plik bez zmian"
+name = "write outside the write roots requires consent; refusal leaves the file unchanged"
 source = "write/tests/edit.test.ts"
 owner = "host"
 reason = "Consent and write scope of the caller."
 
 [[host_only]]
-name = "narzędzia zapisu: wspólny kod odmowy zgody"
+name = "write tools: common consent refusal code"
 source = "write/tests/defects.test.ts"
 owner = "host"
 reason = "Consent of the caller."
 
 [[host_only]]
-name = "odmowa zgody zostawia plik bez zmian"
+name = "consent refusal leaves the file unchanged"
 source = "write/tests/write.test.ts"
 owner = "host"
 reason = "Consent of the caller."
 
 [[host_only]]
-name = "duży zakres zgłasza postęp, a wynik podglądu mieści wiersz rozstrzygający w limicie"
+name = "large range reports progress, and the preview result fits the decisive line within the limit"
 source = "write/tests/plan.test.ts"
 owner = "host"
 reason = "Character budget of the caller context."
 
 [[host_only]]
-name = "zgoda jest pobierana przy wykonaniu, a odmowa zostawia pliki bez zmian"
+name = "consent is requested at apply, and refusal leaves the files unchanged"
 source = "write/tests/plan.test.ts"
 owner = "host"
 reason = "Consent of the caller."
 
 [[host_only]]
-name = "export zapisuje skrypt w katalogu sesji i zwraca jego ścieżkę w pierwszym wierszu"
+name = "export writes the script in the session directory and returns its path in the first line"
 source = "write/tests/notebook.test.ts"
 owner = "host"
 reason = "Session directory of the caller; the export action has no counterpart in the catalog."
 
 [[host_only]]
-name = "eksport nie wychodzi poza katalog sesji, także przez dowiązanie"
+name = "export does not leave the session directory, also through a symlink"
 source = "write/tests/notebook.test.ts"
 owner = "host"
 reason = "Session directory of the caller."
 
 [[host_only]]
-name = "Operator wyłącza wymóg odczytu ustawieniem, agent nie ma takiego parametru"
+name = "Operator disables the read requirement by a setting, the caller has no such parameter"
 source = "write/tests/freshness.test.ts"
 owner = "host"
 reason = "Operator setting of the caller."
 
 [[host_only]]
-name = "SCOPE_MODE=deny odrzuca zapis poza korzeniami bez pytania o zgodę; zapis w korzeniu przechodzi"
+name = "SCOPE_MODE=deny rejects a write outside the roots without asking for consent; a write inside a root passes"
 source = "write/tests/freshness.test.ts"
 owner = "host"
 reason = "Write scope of the caller."
 
 [[host_only]]
-name = "nazwy narzędzi, parametrów i opisy przechodzą kontrolę nazw rdzenia"
+name = "tool names, parameter names and descriptions pass the core name check"
 source = "write/tests/checks.test.ts"
 owner = "host"
 reason = "Naming check of the caller."
 
 [[host_only]]
-name = "każdy plik kodu katalogu zaczyna się nagłówkiem"
+name = "every code file of the catalog starts with a header"
 source = "write/tests/checks.test.ts"
 owner = "host"
 reason = "Source layout of the previous tool."
 
 [[host_only]]
-name = "plik LICENSE wymienia narzędzia katalogu i powtarza licencję główną"
+name = "LICENSE file lists the catalog tools and repeats the main license"
 source = "write/tests/checks.test.ts"
 owner = "host"
 reason = "Source layout of the previous tool."
 
 [[host_only]]
-name = "manifest PROGRAM.md wymienia każde narzędzie i plik licencji"
+name = "PROGRAM.md manifest lists every tool and license file"
 source = "write/tests/checks.test.ts"
 owner = "host"
 reason = "Source layout of the previous tool."
 
 [[host_only]]
-name = "żadne narzędzie nie ma parametru oczekiwania ani zapisu wyniku poza sesją"
+name = "no tool has an expectation parameter or writes a result outside the session"
 source = "write/tests/checks.test.ts"
 owner = "host"
 reason = "Argument schema of the caller adapter."
 
 [[host_only]]
-name = "kolejne zmiany korzystają z jednego procesu, a błąd składni jest odrzucany z miejscem"
+name = "consecutive changes share one process, and a syntax error is rejected with its location"
 source = "write/tests/pycheck.test.ts"
 owner = "differential"
 reason = "Python syntax check; compared with the reference interpreter in a differential test."
 
 [[host_only]]
-name = "plik .py: błąd składni wycofuje zapis także przez proces usługowy"
+name = ".py file: a syntax error rolls the write back also through the service process"
 source = "write/tests/pycheck.test.ts"
 owner = "differential"
 reason = "Python syntax check; compared with the reference interpreter in a differential test."
 
 [[host_only]]
-name = "Operator wyłącza proces usługowy; kontrola działa wtedy przez pojedyncze uruchomienie"
+name = "Operator disables the service process; the check then runs through a single invocation"
 source = "write/tests/pycheck.test.ts"
 owner = "differential"
 reason = "Python syntax check; compared with the reference interpreter in a differential test."
 
 [[host_only]]
-name = "zatrzymanie procesu usługowego nie psuje kontroli: następna zmiana uruchamia go ponownie albo sprawdza bezpośrednio"
+name = "stopping the service process does not break the check: the next change restarts it or checks directly"
 source = "write/tests/pycheck.test.ts"
 owner = "differential"
 reason = "Python syntax check; compared with the reference interpreter in a differential test."
 
 [[host_only]]
-name = "usunięte pozycje leżą wyłącznie w katalogu sesji"
+name = "deleted entries lie only in the session directory"
 source = "delete/tests/delete.test.ts"
 owner = "host"
 reason = "Session directory of the caller; the engine keeps its own journal."
 
 [[host_only]]
-name = "ścieżki chronione i niedozwolone są odrzucane"
+name = "protected and disallowed paths are rejected"
 source = "delete/tests/delete.test.ts"
 owner = "host"
 reason = "Path protection of the caller."
 
 [[host_only]]
-name = "limity Operatora: liczba plików, rozmiar i katalogi dozwolone"
+name = "Operator limits: file count, size and allowed directories"
 source = "delete/tests/delete.test.ts"
 owner = "host"
 reason = "Operator limits and allowed roots of the caller."
 
 [[host_only]]
-name = "brak zgody zatrzymuje usunięcie i przywrócenie"
+name = "missing consent stops the deletion and the restore"
 source = "delete/tests/delete.test.ts"
 owner = "host"
 reason = "Consent of the caller."
 
 [[host_only]]
-name = "wynik domyślny mieści się w limicie 1000 znaków, a pełny trafia do pliku sesji"
+name = "default result fits the 1000 character limit, and the full result goes to the session file"
 source = "delete/tests/delete.test.ts"
 owner = "host"
 reason = "Character budget of the caller context and delivery of the full result."
 
 [[host_only]]
-name = "limit pozycji kontroli obejmuje także pliki z wnętrza katalogu i jest podany w podglądzie"
+name = "check entry limit also covers files inside a directory and is stated in the preview"
 source = "delete/tests/sidecontent.test.ts"
 owner = "host"
 reason = "Operator limit of the caller."

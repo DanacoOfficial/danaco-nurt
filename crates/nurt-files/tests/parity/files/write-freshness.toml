@@ -5,7 +5,7 @@ source = "write/tests/freshness.test.ts"
 cases = 10
 
 [[scenario]]
-name = "plan bez odczytu plików jest odrzucony jednym błędem z wykazem plików i nie powstaje"
+name = "plan without reading the files is rejected with a single error listing the files and no plan is created"
 class = "freshness"
 parity_rows = ["WR-20", "ED-43"]
 fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\nexport const other = 2;\n" }, { path = "src/b.ts", content = "import { limit } from \"./a.ts\";\nexport const twice = limit * 2;\n" }]
@@ -14,7 +14,7 @@ nurt_program = 'replace "limit" with: "quota" in: ["{root}/src/a.ts", "{root}/sr
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }
 
 [[scenario]]
-name = "odczyt części plików nie wystarcza; błąd wymienia wyłącznie plik nieodczytany"
+name = "reading some of the files is not enough; the error names only the unread file"
 class = "freshness"
 parity_rows = ["WR-20"]
 fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\nexport const other = 2;\n" }, { path = "src/b.ts", content = "import { limit } from \"./a.ts\";\nexport const twice = limit * 2;\n" }]
@@ -23,7 +23,7 @@ nurt_program = 'read "{root}/src/a.ts"; replace "limit" with: "quota" in: ["{roo
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }, { field = "error.at", value = "src/b.ts" }] }
 
 [[scenario]]
-name = "plik zakresu bez dopasowania nie wymaga odczytu"
+name = "scope file without a match does not require a read"
 class = "freshness"
 parity_rows = ["WR-20"]
 fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\n" }, { path = "src/c.ts", content = "export const none = 0;\n" }]
@@ -32,7 +32,7 @@ nurt_program = 'replace "limit" with: "quota" in: ["{root}/src/a.ts", "{root}/sr
 expect = { fs_unchanged = true, fields = [{ field = "targets", value = 1 }] }
 
 [[scenario]]
-name = "po odczycie plan powstaje, a wykonanie zapisuje i odnotowuje nową treść w rejestrze odczytów"
+name = "after the read the plan is created, and the apply writes and records the new content in the read ledger"
 class = "freshness"
 parity_rows = ["WR-20", "ED-28"]
 fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\nexport const other = 2;\n" }]
@@ -41,7 +41,7 @@ nurt_program = 'read "{root}/src/a.ts"; replace "limit" with: "quota" in: ["{roo
 expect = { fs_after = [{ path = "src/a.ts", content = "export const quota = 1;\nexport const other = 2;\n" }] }
 
 [[scenario]]
-name = "plik zmieniony po odczycie daje stale w planie"
+name = "file changed after the read yields stale in the plan"
 class = "freshness"
 parity_rows = ["WR-20", "ED-43"]
 fs_before = [{ path = "src/b.ts", content = "import { limit } from \"./a.ts\";\n// dopisek\n" }]
@@ -50,7 +50,7 @@ nurt_program = 'read "{root}/src/b.ts"; replace "limit" with: "quota" in: ["{roo
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }
 
 [[scenario]]
-name = "known i expect_sha256 zastępują odczyt; niezgodna suma odrzuca plan"
+name = "known and expect_sha256 replace a read; a mismatched hash rejects the plan"
 class = "freshness"
 parity_rows = ["WR-08", "ED-23"]
 open_gap = "LP-19"
@@ -60,16 +60,16 @@ nurt_program = 'replace "other" with: "second" in: ["{root}/src/a.ts"] if_match:
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }
 
 [[scenario]]
-name = "wykonanie sprawdza sumy z podglądu: zmiana pliku po podglądzie odrzuca apply, pliki bez zmian"
+name = "apply checks the hashes from the preview: a file change after the preview rejects apply, files unchanged"
 class = "freshness"
 parity_rows = ["ED-43", "WR-20"]
-fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\n" }, { path = "src/b.ts", content = "import { limit } from \"./a.ts\";\n// zmiana po podglądzie\n" }]
+fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\n" }, { path = "src/b.ts", content = "import { limit } from \"./a.ts\";\n// zmiana po podgl\u0105dzie\n" }]
 native_call = 'Edit { action: "apply", plan_id } after an external change of src/b.ts'
 nurt_program = 'replace "limit" with: "quota" in: ["{root}/src/a.ts", "{root}/src/b.ts"] if_match: "<etag of the preview>"'
 expect = { fs_after = [{ path = "src/a.ts", content = "export const limit = 1;\n" }], fields = [{ field = "error.code", value = "E_STALE" }] }
 
 [[scenario]]
-name = "zatrzymanie zadania przerywa wyliczanie przed zapisem i nie tworzy planu"
+name = "stopping the task interrupts the computation before writing and creates no plan"
 class = "direct"
 parity_rows = ["ED-42"]
 fs_before = [{ path = "many/f0.ts", content = "export const limit = 0;\n" }]

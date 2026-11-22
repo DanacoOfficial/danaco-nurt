@@ -5,7 +5,7 @@ source = "write/tests/plan.test.ts"
 cases = 14
 
 [[scenario]]
-name = "podgląd podaje plan, pliki, liczbę zmian, próbkę różnic i pozostawione odwołania; niczego nie zapisuje"
+name = "preview reports the plan, files, change count, difference sample and remaining references; writes nothing"
 class = "preview"
 parity_rows = ["ED-28", "ED-30", "ED-34", "WR-14"]
 fs_before = [{ fixture = "rename_tree" }]
@@ -14,7 +14,7 @@ nurt_program = 'replace "user" with: "account" in: [] glob: "{root}/src/**/*.ts"
 expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }, { field = "targets", value = 3 }, { field = "notable", value = "references_left" }] }
 
 [[scenario]]
-name = "wykonanie z planem stosuje dokładnie zmiany z podglądu jedną operacją, którą cofa undo"
+name = "apply with a plan applies exactly the changes from the preview in one operation that undo reverts"
 class = "preview"
 parity_rows = ["ED-28", "ED-43", "ED-26", "UN-05"]
 fs_before = [{ fixture = "rename_tree" }]
@@ -23,7 +23,7 @@ nurt_program = 'replace "user" with: "account" glob: "{root}/src/**/*.ts" whole_
 expect = { fs_after = [{ path = "src/a.ts", same_as = "rename_tree" }, { path = "src/b.ts", same_as = "rename_tree" }, { path = "src/c.ts", same_as = "rename_tree" }], fields = [{ field = "effect.status", value = "reverted" }] }
 
 [[scenario]]
-name = "wykonanie bez planu jest odrzucone, a plan traci ważność po zmianie pliku"
+name = "apply without a plan is rejected, and the plan becomes stale after a file change"
 class = "preview"
 parity_rows = ["ED-43"]
 fs_before = [{ fixture = "rename_tree" }]
@@ -32,7 +32,7 @@ nurt_program = 'replace "user" with: "account" in: ["{root}/src/a.ts", "{root}/s
 expect = { fs_after = [{ path = "src/a.ts", same_as = "rename_tree" }], fields = [{ field = "error.code", value = "E_STALE" }] }
 
 [[scenario]]
-name = "wszystko albo nic: błąd wykryty w trzecim pliku przywraca dwa pierwsze"
+name = "all or nothing: an error detected in the third file restores the first two"
 class = "preview"
 parity_rows = ["ED-37", "WR-25"]
 fs_before = [{ fixture = "rename_tree" }]
@@ -41,7 +41,7 @@ nurt_program = 'replace "user" with: "account" glob: "{root}/src/*.ts" validate:
 expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }] }
 
 [[scenario]]
-name = "plan wprowadzający błąd składni nie powstaje"
+name = "plan introducing a syntax error is not created"
 class = "preview"
 parity_rows = ["ED-37", "ED-14"]
 fs_before = [{ fixture = "rename_tree" }]
@@ -50,7 +50,7 @@ nurt_program = 'replace /return (\w+) \+ 1;/ with: "return $1 + ;" glob: "{root}
 expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }] }
 
 [[scenario]]
-name = "brak dopasowań, niezgodna liczba zmian, brak zakresu i limit plików Operatora"
+name = "no matches, mismatched change count, missing scope and Operator file limit"
 class = "direct"
 parity_rows = ["ED-07", "ED-30", "ED-44"]
 fs_before = [{ fixture = "rename_tree" }]
@@ -59,7 +59,7 @@ nurt_program = 'replace "user" with: "account" glob: "{root}/src/*.ts" expect: 9
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_EXPECT" }] }
 
 [[scenario]]
-name = "pliki binarne w zakresie wzorca są pomijane z notą"
+name = "binary files within the pattern scope are skipped with a note"
 class = "direct"
 parity_rows = ["ED-28", "SC-26"]
 fs_before = [{ fixture = "rename_tree" }, { path = "src/blob.ts", content = "user\u0000" }]
@@ -68,7 +68,7 @@ nurt_program = 'replace "user" with: "account" glob: "{root}/src/*.ts" preview: 
 expect = { fs_unchanged = true, fields = [{ field = "skipped.binary", value = 1 }] }
 
 [[scenario]]
-name = "zmiany z własnym file_path są jedną transakcją"
+name = "changes with their own file_path form a single transaction"
 class = "preview"
 parity_rows = ["ED-19", "ED-30"]
 fs_before = [{ fixture = "rename_tree" }]
@@ -77,7 +77,7 @@ nurt_program = 'edit "{root}/src/a.ts" changes: [{ replace: "return user + 1;", 
 expect = { fs_after = [{ path = "src/a.ts", contains = "return user + 2;" }, { path = "src/c.ts", contains = "limit = 20" }, { path = "src/b.ts", same_as = "rename_tree" }] }
 
 [[scenario]]
-name = "zmiana wychodząca poza cel wstrzymuje plan alarmem; plan powstaje po potwierdzeniu"
+name = "change reaching beyond the target holds the plan with an alert; the plan is created after confirmation"
 class = "notable"
 parity_rows = ["ED-32", "ED-09"]
 fs_before = [{ fixture = "rename_tree" }]
@@ -86,7 +86,7 @@ nurt_program = 'edit "{root}/src/a.ts" changes: [{ delete_lines: 2..6 }, { inser
 expect = { fs_after = [{ path = "src/a.ts", contains = "return \"u\";" }], fields = [{ field = "notable", value = "scope_exceeded" }] }
 
 [[scenario]]
-name = "usunięcie funkcji: podgląd i wynik wymieniają pozostawiony import, sąsiednia funkcja pozostaje nietknięta"
+name = "function removal: preview and result list the remaining import, the adjacent function stays untouched"
 class = "notable"
 parity_rows = ["ED-33", "ED-34"]
 fs_before = [{ fixture = "rename_tree" }]
@@ -95,7 +95,7 @@ nurt_program = 'read "{root}/src/a.ts" symbol: "total" |> remove'
 expect = { fs_after = [{ path = "src/a.ts", content = "export function label() {\n  return \"user\"; // user\n}\n" }], fields = [{ field = "notable", value = "references_left" }] }
 
 [[scenario]]
-name = "usunięcie klucza JSON zachowuje poprawną składnię dla klucza środkowego i ostatniego"
+name = "JSON key removal keeps valid syntax for a middle and a last key"
 class = "direct"
 parity_rows = ["ED-15", "ED-33"]
 fs_before = [{ path = "conf.json", content = "{\n  \"a\": 1,\n  \"b\": 2,\n  \"c\": 3\n}\n" }]
@@ -104,7 +104,7 @@ nurt_program = 'read "{root}/conf.json" key: "b" |> remove'
 expect = { fs_after = [{ path = "conf.json", content = "{\n  \"a\": 1,\n  \"c\": 3\n}\n" }] }
 
 [[scenario]]
-name = "brak pliku wskazanego w zmianie i nadmiar pozycji edits"
+name = "file named in a change is missing and excess edits entries"
 class = "direct"
 parity_rows = ["ED-19", "ED-44"]
 fs_before = [{ fixture = "rename_tree" }]

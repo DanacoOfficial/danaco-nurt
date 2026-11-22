@@ -5,7 +5,7 @@ source = "write/tests/notebook.test.ts"
 cases = 21
 
 [[scenario]]
-name = "domyślny zarys: jeden wiersz na komórkę z numerem, typem, identyfikatorem, liczbą wierszy i znacznikiem wyjść"
+name = "default outline: one line per cell with number, type, identifier, line count and output marker"
 class = "direct"
 parity_rows = ["NB-01", "NB-07", "NB-33"]
 fs_before = [{ fixture = "notebook_four_cells" }]
@@ -14,7 +14,7 @@ nurt_program = 'notebook.cells "{root}/n.ipynb"'
 expect = { fs_unchanged = true, fields = [{ field = "cells[*].index", value = [0, 1, 2, 3] }, { field = "cells[1].cell_type", value = "code" }] }
 
 [[scenario]]
-name = "wskazana komórka daje pełne źródło i wyjścia w wybranym trybie"
+name = "named cell gives the full source and outputs in the selected mode"
 class = "direct"
 parity_rows = ["NB-03", "NB-07", "NB-08"]
 open_gap = "LP-25"
@@ -24,7 +24,7 @@ nurt_program = 'notebook.cells "{root}/n.ipynb" index: 1..1 view: full outputs: 
 expect = { fs_unchanged = true, fields = [{ field = "cells[0].outputs[0].text", value = "wczytano\n" }] }
 
 [[scenario]]
-name = "find w źródłach i w wyjściach, zakres, lista identyfikatorów, json i unchanged_since"
+name = "find in sources and in outputs, range, identifier list, json and unchanged_since"
 class = "direct"
 parity_rows = ["NB-04", "NB-05", "NB-09", "NB-12"]
 open_gap = "LP-25"
@@ -34,7 +34,7 @@ nurt_program = 'notebook.cells "{root}/n.ipynb" find: "wczytano" scope: outputs'
 expect = { fs_unchanged = true, fields = [{ field = "cells[*].index", value = [1] }] }
 
 [[scenario]]
-name = "plik inny niż notebook, brak pliku i niepoprawny notebook"
+name = "file other than a notebook, missing file and invalid notebook"
 class = "direct"
 parity_rows = ["NB-01"]
 fs_before = [{ path = "zly.ipynb", content = "{" }]
@@ -43,7 +43,7 @@ nurt_program = 'notebook.cells "{root}/zly.ipynb"'
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_SYNTAX" }] }
 
 [[scenario]]
-name = "replace zmienia wyłącznie wskazaną komórkę, wyjścia zostają, reszta pliku znak w znak"
+name = "replace changes only the named cell, outputs stay, the rest of the file character for character"
 class = "direct"
 parity_rows = ["NB-13", "NB-15", "NB-29"]
 fs_before = [{ fixture = "notebook_four_cells" }]
@@ -52,7 +52,7 @@ nurt_program = 'notebook.replace "{root}/n.ipynb" id: "use" source: "rows = load
 expect = { fs_after = [{ path = "n.ipynb", contains = "rows = load(4)" }, { path = "n.ipynb", contains = "\"version\": 1.0" }] }
 
 [[scenario]]
-name = "reset_outputs czyści wyjścia zmienianej komórki, cell_type zmienia typ"
+name = "reset_outputs clears the outputs of the changed cell, cell_type changes the type"
 class = "direct"
 parity_rows = ["NB-17", "NB-14"]
 fs_before = [{ fixture = "notebook_four_cells" }]
@@ -61,7 +61,7 @@ nurt_program = 'notebook.replace "{root}/n.ipynb" index: 1 source: "def load(id)
 expect = { fs_after = [{ path = "n.ipynb", excludes = "wczytano 3" }] }
 
 [[scenario]]
-name = "rozbieżność cell_id i index wstrzymuje zapis alarmem; potwierdzenie zmienia komórkę o podanym identyfikatorze"
+name = "cell_id and index mismatch holds the write with an alert; confirmation changes the cell with the given identifier"
 class = "notable"
 parity_rows = ["NB-13"]
 fs_before = [{ fixture = "notebook_four_cells" }]
@@ -70,7 +70,7 @@ nurt_program = 'notebook.replace "{root}/n.ipynb" id: "load" index: 2 source: "d
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_ARGUMENT" }] }
 
 [[scenario]]
-name = "błąd składni Pythona w zmienionej komórce odrzuca zmianę; magie IPython nie są błędem"
+name = "Python syntax error in a changed cell rejects the change; IPython percent commands are not an error"
 class = "direct"
 parity_rows = ["NB-15"]
 open_gap = "LP-26"
@@ -80,7 +80,7 @@ nurt_program = 'notebook.replace "{root}/n.ipynb" index: 1 source: "def load(id:
 expect = { fs_unchanged = true, fields = [{ field = "effect.status", value = "rolled_back" }] }
 
 [[scenario]]
-name = "insert, move i copy nadają unikalne identyfikatory i nie zmieniają treści pozostałych komórek"
+name = "insert, move and copy assign unique identifiers and do not change the content of the other cells"
 class = "direct"
 parity_rows = ["NB-23", "NB-24", "NB-25", "NB-26", "NB-27"]
 fs_before = [{ fixture = "notebook_four_cells" }]
@@ -89,16 +89,16 @@ nurt_program = 'notebook.move "{root}/n.ipynb" id: "tail" to: 0'
 expect = { fs_after = [{ path = "n.ipynb", contains = "\"id\": \"tail\"" }], fields = [{ field = "effect.status", value = "applied" }] }
 
 [[scenario]]
-name = "dry_run pokazuje różnicę bez zapisu, a treść bez zmian nie tworzy operacji"
+name = "dry_run shows the difference without writing, and unchanged content creates no operation"
 class = "direct"
 parity_rows = ["NB-22", "WR-15"]
 fs_before = [{ fixture = "notebook_four_cells" }]
-native_call = 'NotebookEdit { action: "replace", file_path: "n.ipynb", index: 0, source: "# Inny tytuł", dry_run: true }'
-nurt_program = 'notebook.replace "{root}/n.ipynb" index: 0 source: "# Inny tytuł" preview: true'
+native_call = "NotebookEdit { action: \"replace\", file_path: \"n.ipynb\", index: 0, source: \"# Inny tytu\u0142\", dry_run: true }"
+nurt_program = "notebook.replace \"{root}/n.ipynb\" index: 0 source: \"# Inny tytu\u0142\" preview: true"
 expect = { fs_unchanged = true, fields = [{ field = "preview", value = true }] }
 
 [[scenario]]
-name = "normalize nadaje brakujące i powtórzone identyfikatory oraz pola nbformat"
+name = "normalize assigns missing and repeated identifiers and nbformat fields"
 class = "direct"
 parity_rows = ["NB-32"]
 fs_before = [{ path = "m.ipynb", generate = "notebook:missing_ids" }]
@@ -107,7 +107,7 @@ nurt_program = 'notebook.normalize "{root}/m.ipynb"'
 expect = { fs_after = [{ path = "m.ipynb", contains = "\"nbformat\": 4" }], fields = [{ field = "effect.status", value = "applied" }] }
 
 [[scenario]]
-name = "notebook bez komórek i w zapisie zwartym przyjmuje nową komórkę"
+name = "notebook without cells and in compact form accepts a new cell"
 class = "direct"
 parity_rows = ["NB-24", "NB-25", "NB-26", "NB-29"]
 fs_before = [{ path = "e.ipynb", generate = "notebook:empty" }]
@@ -116,7 +116,7 @@ nurt_program = 'notebook.insert "{root}/e.ipynb" cell_type: code source: "x = 1"
 expect = { fs_after = [{ path = "e.ipynb", contains = "x = 1" }] }
 
 [[scenario]]
-name = "delete zwraca plan z wykazem komórek i pozostałymi użyciami nazw; apply usuwa dokładnie te komórki"
+name = "delete returns a plan with the list of cells and remaining name usages; apply deletes exactly those cells"
 class = "preview"
 parity_rows = ["NB-22", "NB-13"]
 open_gap = "LP-26"
@@ -126,7 +126,7 @@ nurt_program = 'notebook.delete "{root}/n.ipynb" id: "load" preview: true; the s
 expect = { fs_after = [{ path = "n.ipynb", excludes = "def load():" }] }
 
 [[scenario]]
-name = "delete wielu komórek zakresem i listą; plan traci ważność po zmianie pliku"
+name = "delete of many cells by range and list; plan becomes stale after a file change"
 class = "preview"
 parity_rows = ["NB-03", "NB-05", "NB-13"]
 fs_before = [{ fixture = "notebook_four_cells" }]
@@ -135,7 +135,7 @@ nurt_program = 'notebook.delete "{root}/n.ipynb" index: 2..3 preview: true; the 
 expect = { fs_unchanged = false, fields = [{ field = "error.code", value = "E_STALE" }] }
 
 [[scenario]]
-name = "usunięcie wszystkich komórek zostawia poprawny notebook"
+name = "deleting all cells leaves a valid notebook"
 class = "preview"
 parity_rows = ["NB-05"]
 fs_before = [{ fixture = "notebook_four_cells" }]
@@ -144,7 +144,7 @@ nurt_program = 'notebook.delete "{root}/n.ipynb" index: 0..3'
 expect = { fs_after = [{ path = "n.ipynb", contains = "\"cells\": []" }] }
 
 [[scenario]]
-name = "clear_outputs jednej komórki działa od razu, wszystkich komórek wymaga planu"
+name = "clear_outputs of one cell works at once, of all cells requires a plan"
 class = "preview"
 parity_rows = ["NB-17", "NB-22"]
 fs_before = [{ fixture = "notebook_four_cells" }]
@@ -153,7 +153,7 @@ nurt_program = 'notebook.clear_outputs "{root}/n.ipynb" id: "use"'
 expect = { fs_after = [{ path = "n.ipynb", contains = "wczytano" }] }
 
 [[scenario]]
-name = "ops wykonuje listę operacji jednym zapisem po podglądzie i wskazuje błędną pozycję"
+name = "ops runs a list of operations in one write after the preview and names the invalid position"
 class = "preview"
 parity_rows = ["NB-13", "NB-15", "NB-22"]
 fs_before = [{ fixture = "notebook_four_cells" }]
@@ -162,7 +162,7 @@ nurt_program = 'notebook.replace "{root}/n.ipynb" index: 0 source: "# Raport"; n
 expect = { fs_after = [{ path = "n.ipynb", contains = "# Raport" }, { path = "n.ipynb", contains = "surowa" }, { path = "n.ipynb", excludes = "total = 1.0" }] }
 
 [[scenario]]
-name = "zamiana find w źródłach wielu komórek jest świadoma składni i wymaga planu"
+name = "find replacement in the sources of many cells is syntax-aware and requires a plan"
 class = "preview"
 parity_rows = ["NB-16", "NB-22"]
 open_gap = "LP-26"
@@ -172,10 +172,10 @@ nurt_program = 'notebook.replace "{root}/n.ipynb" find: "id" with: "key" preview
 expect = { fs_after = [{ path = "n.ipynb", contains = "def load(key):" }] }
 
 [[scenario]]
-name = "odczyt rejestruje plik w rejestrze odczytów, bez odczytu zmiana jest odrzucona"
+name = "read registers the file in the read ledger, without a read the change is rejected"
 class = "freshness"
 parity_rows = ["NB-34", "WR-20"]
 fs_before = [{ fixture = "notebook_four_cells" }]
-native_call = 'NotebookEdit { action: "replace", file_path: "n.ipynb", index: 0, source: "# Tytuł" } with the read ledger attached and no earlier read'
-nurt_program = 'notebook.replace "{root}/n.ipynb" index: 0 source: "# Tytuł" if_match: "sha256:00000000"'
+native_call = "NotebookEdit { action: \"replace\", file_path: \"n.ipynb\", index: 0, source: \"# Tytu\u0142\" } with the read ledger attached and no earlier read"
+nurt_program = "notebook.replace \"{root}/n.ipynb\" index: 0 source: \"# Tytu\u0142\" if_match: \"sha256:00000000\""
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }
