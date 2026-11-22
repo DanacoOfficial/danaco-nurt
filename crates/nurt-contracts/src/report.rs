@@ -451,6 +451,26 @@ pub enum Notable {
     /// A checkpoint was created without the index because the index has
     /// conflicts.
     CheckpointWithoutIndex,
+    /// A symbolic link that leads back to one of its parent directories was
+    /// not followed while walking a directory tree.
+    LinkLoopSkipped,
+    /// Verification of TLS certificates is disabled by the repository
+    /// configuration.
+    TlsVerificationDisabled,
+    /// An HTTP setting of the repository configuration is not supported and
+    /// was ignored.
+    HttpOptionIgnored,
+    /// A push sent objects without new delta compression.
+    PackWithoutDeltas,
+    /// The remote did not report the outcome of a reference update.
+    PushStatusUnknown,
+    /// The host key of a remote was accepted without verification.
+    HostKeyUnverified,
+    /// A `Match exec` condition of the SSH configuration was not run.
+    MatchExecIgnored,
+    /// A signing program named by the repository configuration was not run;
+    /// the signature was created without it.
+    SigningProgramIgnored,
 }
 
 impl Notable {
@@ -542,6 +562,14 @@ impl Notable {
         Self::Excluded,
         Self::ReviewSkipped,
         Self::CheckpointWithoutIndex,
+        Self::LinkLoopSkipped,
+        Self::TlsVerificationDisabled,
+        Self::HttpOptionIgnored,
+        Self::PackWithoutDeltas,
+        Self::PushStatusUnknown,
+        Self::HostKeyUnverified,
+        Self::MatchExecIgnored,
+        Self::SigningProgramIgnored,
     ];
 
     /// Returns the stable code, as written in JSON.
@@ -634,6 +662,14 @@ impl Notable {
             Self::Excluded => "excluded",
             Self::ReviewSkipped => "review_skipped",
             Self::CheckpointWithoutIndex => "checkpoint_without_index",
+            Self::LinkLoopSkipped => "link_loop_skipped",
+            Self::TlsVerificationDisabled => "tls_verification_disabled",
+            Self::HttpOptionIgnored => "http_option_ignored",
+            Self::PackWithoutDeltas => "pack_without_deltas",
+            Self::PushStatusUnknown => "push_status_unknown",
+            Self::HostKeyUnverified => "host_key_unverified",
+            Self::MatchExecIgnored => "match_exec_ignored",
+            Self::SigningProgramIgnored => "signing_program_ignored",
         }
     }
 
@@ -674,7 +710,10 @@ impl Notable {
             | Self::BranchDeletedUnmerged
             | Self::Conflicts
             | Self::UntrackedRemoved
-            | Self::FilterNotApplied => Severity::Warning,
+            | Self::FilterNotApplied
+            | Self::TlsVerificationDisabled
+            | Self::PushStatusUnknown
+            | Self::HostKeyUnverified => Severity::Warning,
             Self::DeleteTree
             | Self::ManyPerFile
             | Self::TargetCountHigh
@@ -709,7 +748,11 @@ impl Notable {
             | Self::SshCommandIgnored
             | Self::FsmonitorIgnored
             | Self::SubmodulesNotUpdated
-            | Self::StashKept => Severity::Notice,
+            | Self::StashKept
+            | Self::LinkLoopSkipped
+            | Self::HttpOptionIgnored
+            | Self::MatchExecIgnored
+            | Self::SigningProgramIgnored => Severity::Notice,
             Self::Unchanged
             | Self::HardlinkSetPreserved
             | Self::EncodingPreserved
@@ -726,7 +769,8 @@ impl Notable {
             | Self::ShallowRepository
             | Self::LineEndingsConverted
             | Self::UpstreamSet
-            | Self::Signed => Severity::Info,
+            | Self::Signed
+            | Self::PackWithoutDeltas => Severity::Info,
         }
     }
 

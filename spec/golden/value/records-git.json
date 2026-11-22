@@ -172,5 +172,16 @@
       "ours": "3f786850e387550fdab836ed7e6dc881de23001b",
       "theirs": "89e6c98d92887913cadf06b2adb97f26cde4849b"
     }
+  },
+  {
+    "kind": "git_trash_entry",
+    "record": {
+      "name": "feature",
+      "kind": "branch",
+      "ref": "refs/nurt/trash/feature",
+      "commit": "3f786850e387550fdab836ed7e6dc881de23001b",
+      "time": "2026-11-21T11:10:00Z",
+      "subject": "feat: add the parser"
+    }
   }
 ]

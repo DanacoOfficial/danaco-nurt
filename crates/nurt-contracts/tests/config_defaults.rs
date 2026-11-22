@@ -297,3 +297,15 @@ fn published_schema_constant_is_the_approved_file() {
         "https://json-schema.org/draft/2020-12/schema"
     );
 }
+
+#[test]
+fn volume_settings_and_signing_source_are_read() {
+    let text = "[journal.volume.\"/mnt/data\"]\nmax_size = \"10%\"\n\n[git.signing]\nopenpgp_source = \"key_file\"\n";
+    let config: Config = toml::from_str(text).unwrap();
+    let volume = &config.journal.volume["/mnt/data"];
+    assert_eq!(volume.max_size, Some("10%".parse().unwrap()));
+    assert_eq!(
+        config.git.signing.openpgp_source,
+        Some(nurt_contracts::config::OpenPgpSource::KeyFile)
+    );
+}
