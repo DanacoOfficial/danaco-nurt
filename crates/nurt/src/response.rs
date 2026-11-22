@@ -258,10 +258,15 @@ impl Event {
         self.raw.get("seq").and_then(Value::as_u64)
     }
 
-    /// Identifier of the background job the event belongs to.
+    /// Identifier of the background job the event belongs to; `None` for
+    /// events that are not job events.
     #[must_use]
     pub fn job_id(&self) -> Option<&str> {
-        self.raw.get("job_id").and_then(Value::as_str)
+        if self.kind().starts_with("job.") {
+            self.raw.get("id").and_then(Value::as_str)
+        } else {
+            None
+        }
     }
 
     /// The whole event as JSON.
@@ -382,11 +387,13 @@ mod tests {
     #[test]
     fn event_exposes_type_sequence_and_job() {
         let event = Event::from_value(json!({
-            "t": "job.progress", "seq": 4, "job_id": "j-2", "done": 3, "total": 9
+            "t": "job.progress", "seq": 4, "id": "j-2", "done": 3, "total": 9
         }));
         assert_eq!(event.kind(), "job.progress");
         assert_eq!(event.seq(), Some(4));
         assert_eq!(event.job_id(), Some("j-2"));
+        let other = Event::from_value(json!({"t": "progress", "id": "x"}));
+        assert_eq!(other.job_id(), None);
         assert_eq!(event.raw()["total"], 9);
         assert_eq!(event.into_raw()["done"], 3);
     }

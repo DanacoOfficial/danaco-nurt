@@ -5,10 +5,12 @@
 //! Execution of a suite and the conformance report.
 //!
 //! Every case runs in a new server process with its own working, state and
-//! configuration directories; cases run in parallel.
+//! configuration directories, and with the fixtures it requires; cases run
+//! in parallel.
 
 use std::collections::BTreeSet;
 use std::ffi::OsString;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -17,12 +19,15 @@ use std::time::{Duration, Instant};
 use serde_json::Value;
 
 use crate::Error;
-use crate::case::{Case, Class, Kind, Suite, major};
+use crate::case::{Case, Class, Condition, Kind, Suite, major};
 use crate::client::{CommandLine, Connection, ProcessConnection};
 use crate::compare::sha256;
-use crate::execute::{self, Context};
-use crate::fake::CASE_ENV;
-use crate::normalize::VolatilePaths;
+use crate::execute::{self, Context, Outcome, Workspace};
+use crate::fake::{CASE_ENV, HTTP_BASE_ENV, SECOND_VOLUME_ENV};
+use crate::fixture::{self, Fixture, HttpFixture};
+use crate::normalize::{
+    BASE_PLACEHOLDER, SECOND_VOLUME_PLACEHOLDER, VolatilePaths, WORK_MOUNT_PLACEHOLDER,
+};
 use crate::protocol::{self, member, method};
 use crate::report::{
     CaseResult, ConformanceReport, FORMAT, Failure, Implementation, Status, SuiteInfo, Summary,
@@ -57,6 +62,11 @@ pub struct RunOptions {
     pub startup_timeout: Duration,
     /// Time limit of one case, counted from the answer to `initialize`.
     pub timeout: Duration,
+    /// Directory on another file system than the temporary directory, in
+    /// which the cases that require `fixture:second-volume` get their
+    /// second directory. Without it these cases are skipped. [`run`] does
+    /// not check the volume; [`fixture::check_second_volume`] does.
+    pub second_volume: Option<PathBuf>,
 }
 
 /// Description of the implementation obtained before the cases run.
@@ -83,11 +93,17 @@ pub fn run(options: &RunOptions) -> Result<ConformanceReport, Error> {
     let selected = suite.select(&options.filters, &options.kinds);
     let probe = probe(&command, options.startup_timeout, options.timeout)?;
     let volatile = Context::response_volatile_paths(&schemas);
+    let mut fixtures = vec![Fixture::Http];
+    if options.second_volume.is_some() {
+        fixtures.push(Fixture::SecondVolume);
+    }
     let shared = Shared {
         command: &command,
         schemas: &schemas,
         volatile: &volatile,
         probe: &probe,
+        fixtures: &fixtures,
+        second_volume: options.second_volume.as_deref(),
         startup_timeout: options.startup_timeout,
         timeout: options.timeout,
     };
@@ -130,15 +146,21 @@ fn millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
 
-/// Directories of one server process.
+/// Directories and fixtures of one server process.
 struct Sandbox {
     _root: tempfile::TempDir,
+    _second_root: Option<tempfile::TempDir>,
+    http: Option<HttpFixture>,
     work: PathBuf,
+    second_volume: Option<PathBuf>,
     env: Vec<(String, OsString)>,
 }
 
 impl Sandbox {
-    fn new(case: Option<&Case>) -> Result<Self, String> {
+    /// Creates the directories of a case, or of the probe without a case,
+    /// and starts the fixtures the case requires. `second_volume` is the
+    /// directory of the run on the second volume.
+    fn new(case: Option<&Case>, second_volume: Option<&Path>) -> Result<Self, String> {
         let root = tempfile::tempdir().map_err(|e| format!("cannot create a directory: {e}"))?;
         let work = root.path().join("work");
         let state = root.path().join("state");
@@ -147,10 +169,35 @@ impl Sandbox {
         for dir in [&work, &state, &config_dir] {
             std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         }
-        let content = case.and_then(|c| c.config.as_deref()).unwrap_or_default();
+        let requires = |fixture: Fixture| {
+            case.is_some_and(|c| c.requires.contains(&Condition::Fixture(fixture)))
+        };
+        let second_root = match second_volume.filter(|_| requires(Fixture::SecondVolume)) {
+            Some(dir) => Some(
+                tempfile::tempdir_in(dir)
+                    .map_err(|e| format!("cannot create a directory in {}: {e}", dir.display()))?,
+            ),
+            None => None,
+        };
+        let second = second_root.as_ref().map(|dir| dir.path().to_path_buf());
+        let http = if requires(Fixture::Http) {
+            let files = case.and_then(|c| c.http_files.as_ref());
+            Some(HttpFixture::start(files).map_err(|e| e.to_string())?)
+        } else {
+            None
+        };
+        let content = match case.and_then(|c| c.config.as_deref()) {
+            Some(text) => expand_config(text, &work, second.as_deref())?,
+            None => String::new(),
+        };
         std::fs::write(&config, content).map_err(|e| format!("{}: {e}", config.display()))?;
         if let Some(snapshot) = case.and_then(|c| c.fs_before.as_ref()) {
             snapshot.materialize(&work).map_err(|e| e.to_string())?;
+        }
+        if let (Some(snapshot), Some(dir)) =
+            (case.and_then(|c| c.second_volume_before.as_ref()), &second)
+        {
+            snapshot.materialize(dir).map_err(|e| e.to_string())?;
         }
         let mut env = vec![
             (STATE_ENV.to_owned(), state.into_os_string()),
@@ -159,23 +206,87 @@ impl Sandbox {
         if let Some(case) = case {
             env.push((CASE_ENV.to_owned(), OsString::from(&case.id)));
         }
+        if let Some(http) = &http {
+            env.push((HTTP_BASE_ENV.to_owned(), OsString::from(http.base())));
+        }
+        if let Some(dir) = &second {
+            env.push((SECOND_VOLUME_ENV.to_owned(), dir.clone().into_os_string()));
+        }
         Ok(Self {
             _root: root,
+            _second_root: second_root,
+            http,
             work,
+            second_volume: second,
             env,
         })
     }
+
+    fn workspace(&self) -> Workspace<'_> {
+        Workspace {
+            work: &self.work,
+            second_volume: self.second_volume.as_deref(),
+            http_base: self.http.as_ref().map(HttpFixture::base),
+        }
+    }
+}
+
+/// Replaces the placeholders `${base}`, `${second_volume}` and
+/// `${work_mount}` in the text of a configuration. The values are written
+/// with `/` separators and escaped for a TOML basic string.
+fn expand_config(text: &str, work: &Path, second: Option<&Path>) -> Result<String, String> {
+    let slashes = |path: &Path| path.to_string_lossy().replace('\\', "/");
+    let mut expanded = text.replace(BASE_PLACEHOLDER, &toml_escape(&slashes(work)));
+    if expanded.contains(SECOND_VOLUME_PLACEHOLDER) {
+        let second = second.ok_or_else(|| {
+            format!(
+                "{SECOND_VOLUME_PLACEHOLDER} of the configuration requires fixture:second-volume"
+            )
+        })?;
+        expanded = expanded.replace(SECOND_VOLUME_PLACEHOLDER, &toml_escape(&slashes(second)));
+    }
+    if expanded.contains(WORK_MOUNT_PLACEHOLDER) {
+        let mount = fixture::mount_point(work).map_err(|e| e.to_string())?;
+        expanded = expanded.replace(WORK_MOUNT_PLACEHOLDER, &toml_escape(&mount));
+    }
+    Ok(expanded)
+}
+
+/// Escapes a text for a TOML basic string (TOML 1.0, "String").
+fn toml_escape(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            c if c.is_control() => {
+                let _ = write!(out, "\\u{:04X}", u32::from(c));
+            }
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 fn initialize(connection: &mut ProcessConnection) -> Result<Value, String> {
     let params = protocol::initialize_params(CLIENT, env!("CARGO_PKG_VERSION"), true);
-    connection
+    let result = connection
         .call(method::INITIALIZE, &params)
-        .map_err(|error| format!("initialize: {error}"))
+        .map_err(|error| format!("initialize: {error}"))?;
+    let schemas = SchemaSet::shared().map_err(|error| error.to_string())?;
+    schemas
+        .validate_result(method::INITIALIZE, &result)
+        .map_err(|errors| {
+            format!(
+                "initialize: the result does not follow nurt-rpc/1: {}",
+                errors.join("; ")
+            )
+        })?;
+    Ok(result)
 }
 
 fn probe(command: &CommandLine, startup: Duration, timeout: Duration) -> Result<Probe, Error> {
-    let sandbox = Sandbox::new(None).map_err(Error::Invalid)?;
+    let sandbox = Sandbox::new(None, None).map_err(Error::Invalid)?;
     let mut connection = ProcessConnection::spawn(command, &sandbox.env, Instant::now() + startup)
         .map_err(|e| Error::Invalid(format!("the implementation does not start: {e}")))?;
     let initialized = initialize(&mut connection)
@@ -213,6 +324,8 @@ struct Shared<'a> {
     schemas: &'a SchemaSet,
     volatile: &'a VolatilePaths,
     probe: &'a Probe,
+    fixtures: &'a [Fixture],
+    second_volume: Option<&'a Path>,
     startup_timeout: Duration,
     timeout: Duration,
 }
@@ -244,15 +357,20 @@ fn run_parallel(cases: &[&Case], shared: &Shared<'_>, jobs: usize) -> Vec<CaseRe
         .collect()
 }
 
-/// Returns why a case does not run against the probed implementation.
-fn skip_reason(case: &Case, probe: &Probe) -> Option<String> {
+/// Returns why a case does not run against the probed implementation with
+/// the fixtures of the run.
+fn skip_reason(case: &Case, probe: &Probe, fixtures: &[Fixture]) -> Option<String> {
     if case.language_major() != major(&probe.language) {
         return Some(format!(
             "language {} differs from {} of the implementation",
             case.language, probe.language
         ));
     }
-    if let Some(condition) = case.requires.iter().find(|c| !c.holds(&probe.features)) {
+    if let Some(condition) = case
+        .requires
+        .iter()
+        .find(|c| !c.holds(&probe.features, fixtures))
+    {
         return Some(format!("requires {}", condition.name()));
     }
     match &case.class {
@@ -274,68 +392,89 @@ fn run_case(case: &Case, shared: &Shared<'_>) -> CaseResult {
         duration_ms: 0,
         failures: Vec::new(),
     };
-    if let Some(reason) = skip_reason(case, shared.probe) {
+    if let Some(reason) = skip_reason(case, shared.probe, shared.fixtures) {
         result.status = Status::Skip;
         result.reason = Some(reason);
         return result;
     }
-    result.failures = execute_case(case, shared);
-    if !result.failures.is_empty() {
+    let outcome = execute_case(case, shared);
+    if let Some(reason) = outcome.skipped {
+        result.status = Status::Skip;
+        result.reason = Some(reason);
+    } else if !outcome.failures.is_empty() {
         result.status = Status::Fail;
+        result.failures = outcome.failures;
     }
     result.duration_ms = millis(clock.elapsed());
     result
 }
 
-fn execute_case(case: &Case, shared: &Shared<'_>) -> Vec<Failure> {
-    let sandbox = match Sandbox::new(Some(case)) {
+fn execute_case(case: &Case, shared: &Shared<'_>) -> Outcome {
+    let failed = |message: String| Outcome {
+        failures: vec![Failure::new(message)],
+        skipped: None,
+    };
+    let sandbox = match Sandbox::new(Some(case), shared.second_volume) {
         Ok(sandbox) => sandbox,
-        Err(message) => return vec![Failure::new(message)],
+        Err(message) => return failed(message),
     };
     let startup = Instant::now() + shared.startup_timeout;
     let mut connection = match ProcessConnection::spawn(shared.command, &sandbox.env, startup) {
         Ok(connection) => connection,
-        Err(error) => return vec![Failure::new(error.to_string())],
+        Err(error) => return failed(error.to_string()),
     };
     if let Err(message) = initialize(&mut connection) {
-        return vec![Failure::new(message)];
+        return failed(message);
     }
     connection.set_deadline(Instant::now() + shared.timeout);
     let context = Context {
         schemas: shared.schemas,
         response_volatile: shared.volatile,
     };
-    let failures = execute::execute(case, &mut connection, &sandbox.work, &context);
+    let outcome = execute::execute(case, &mut connection, &sandbox.workspace(), &context);
     connection.shutdown();
-    failures
+    outcome
 }
 
-/// Parses a duration such as `30s`, `500ms` or `2m`.
+/// Parses a duration such as `30s`, `500ms`, `2m`, `2h` or `1d`.
 ///
 /// # Errors
 ///
 /// Returns an error for a missing number or an unknown unit.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_conformance::runner::parse_duration;
+/// use std::time::Duration;
+///
+/// assert_eq!(parse_duration("2h")?, Duration::from_secs(7200));
+/// # Ok::<(), nurt_conformance::Error>(())
+/// ```
 pub fn parse_duration(text: &str) -> Result<Duration, Error> {
     let digits = text
         .find(|c: char| !c.is_ascii_digit())
         .unwrap_or(text.len());
     let invalid = || {
         Error::Invalid(format!(
-            "{text:?} is not a duration such as 30s, 500ms or 2m"
+            "{text:?} is not a duration such as 30s, 500ms, 2m, 2h or 1d"
         ))
     };
     let value: u64 = text[..digits].parse().map_err(|_| invalid())?;
+    let seconds = |unit: u64| Duration::from_secs(value.saturating_mul(unit));
     match &text[digits..] {
         "ms" => Ok(Duration::from_millis(value)),
-        "s" | "" => Ok(Duration::from_secs(value)),
-        "m" => Ok(Duration::from_secs(
-            value.saturating_mul(SECONDS_PER_MINUTE),
-        )),
+        "s" | "" => Ok(seconds(1)),
+        "m" => Ok(seconds(SECONDS_PER_MINUTE)),
+        "h" => Ok(seconds(SECONDS_PER_HOUR)),
+        "d" => Ok(seconds(SECONDS_PER_DAY)),
         _ => Err(invalid()),
     }
 }
 
 const SECONDS_PER_MINUTE: u64 = 60;
+const SECONDS_PER_HOUR: u64 = 60 * SECONDS_PER_MINUTE;
+const SECONDS_PER_DAY: u64 = 24 * SECONDS_PER_HOUR;
 
 /// Returns the default number of parallel cases: the number of processors.
 #[must_use]
@@ -358,7 +497,9 @@ pub fn write_report(report: &ConformanceReport, path: &Path) -> Result<(), Error
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::case::{Condition, Plan};
+    use crate::case::Plan;
+    use crate::snapshot::Snapshot;
+    use serde_json::json;
 
     fn case(class: Class, requires: Vec<Condition>, language: &str) -> Case {
         Case {
@@ -373,6 +514,8 @@ mod tests {
             volatile: Vec::new(),
             config: Some("[output]\n".to_owned()),
             fs_before: None,
+            second_volume_before: None,
+            http_files: None,
             plan: Plan::Steps(Vec::new()),
             source: "case.toml".into(),
         }
@@ -385,31 +528,51 @@ mod tests {
             language: "1.2".to_owned(),
             ..Probe::default()
         };
+        let http = [Fixture::Http];
         assert_eq!(
-            skip_reason(&case(Class::Mandatory, Vec::new(), "1.0"), &probe),
+            skip_reason(&case(Class::Mandatory, Vec::new(), "1.0"), &probe, &http),
             None
         );
         assert!(
-            skip_reason(&case(Class::Mandatory, Vec::new(), "2.0"), &probe)
+            skip_reason(&case(Class::Mandatory, Vec::new(), "2.0"), &probe, &http)
                 .unwrap()
                 .contains("language")
         );
         let feature = Condition::Feature("testkit".to_owned());
         assert!(
-            skip_reason(&case(Class::Mandatory, vec![feature], "1.0"), &probe)
+            skip_reason(&case(Class::Mandatory, vec![feature], "1.0"), &probe, &http)
                 .unwrap()
                 .contains("requires")
         );
         let optional = Class::Optional("testkit".to_owned());
         assert!(
-            skip_reason(&case(optional, Vec::new(), "1.0"), &probe)
+            skip_reason(&case(optional, Vec::new(), "1.0"), &probe, &http)
                 .unwrap()
                 .contains("not listed")
         );
         assert_eq!(
             skip_reason(
                 &case(Class::Optional("events".to_owned()), Vec::new(), "1.0"),
-                &probe
+                &probe,
+                &http
+            ),
+            None
+        );
+        let volume = vec![Condition::Fixture(Fixture::SecondVolume)];
+        assert_eq!(
+            skip_reason(
+                &case(Class::Mandatory, volume.clone(), "1.0"),
+                &probe,
+                &http
+            )
+            .as_deref(),
+            Some("requires fixture:second-volume")
+        );
+        assert_eq!(
+            skip_reason(
+                &case(Class::Mandatory, volume, "1.0"),
+                &probe,
+                &Fixture::ALL
             ),
             None
         );
@@ -418,12 +581,88 @@ mod tests {
     #[test]
     fn sandboxes_hold_the_configuration_and_the_environment() {
         let case = case(Class::Mandatory, Vec::new(), "1.0");
-        let sandbox = Sandbox::new(Some(&case)).unwrap();
+        let sandbox = Sandbox::new(Some(&case), None).unwrap();
         assert!(sandbox.work.is_dir());
         let names: Vec<&str> = sandbox.env.iter().map(|(name, _)| name.as_str()).collect();
         assert_eq!(names, [STATE_ENV, CONFIG_ENV, CASE_ENV]);
         let config = std::fs::read_to_string(&sandbox.env[1].1).unwrap();
         assert_eq!(config, "[output]\n");
+        assert!(sandbox.workspace().http_base.is_none());
+    }
+
+    #[test]
+    fn sandboxes_start_the_required_fixtures() {
+        let volume = tempfile::tempdir().unwrap();
+        let mut case = case(
+            Class::Mandatory,
+            vec![
+                Condition::Fixture(Fixture::Http),
+                Condition::Fixture(Fixture::SecondVolume),
+            ],
+            "1.0",
+        );
+        case.config = Some(
+            "[journal.volume.\"${work_mount}\"]\nmax_size = \"1mib\"\n[a]\nbase = \"${base}\"\nsecond = \"${second_volume}\"\n"
+                .to_owned(),
+        );
+        case.second_volume_before = Some(
+            Snapshot::from_json(
+                &json!({"entries": [{"path": "b.txt", "type": "file", "content_utf8": "b"}]}),
+            )
+            .unwrap(),
+        );
+        case.http_files = Some(Snapshot::from_json(&json!({"entries": []})).unwrap());
+        let sandbox = Sandbox::new(Some(&case), Some(volume.path())).unwrap();
+        let workspace = sandbox.workspace();
+        let second = workspace.second_volume.unwrap();
+        assert!(second.starts_with(volume.path()));
+        assert_eq!(std::fs::read_to_string(second.join("b.txt")).unwrap(), "b");
+        let http = workspace.http_base.unwrap();
+        assert!(http.starts_with("http://127.0.0.1:"));
+        let names: Vec<&str> = sandbox.env.iter().map(|(name, _)| name.as_str()).collect();
+        assert_eq!(
+            names,
+            [
+                STATE_ENV,
+                CONFIG_ENV,
+                CASE_ENV,
+                HTTP_BASE_ENV,
+                SECOND_VOLUME_ENV
+            ]
+        );
+        let config = std::fs::read_to_string(&sandbox.env[1].1).unwrap();
+        let parsed: toml::Value = toml::from_str(&config).unwrap();
+        let mount = fixture::mount_point(&sandbox.work).unwrap();
+        assert_eq!(
+            parsed["journal"]["volume"][mount.as_str()]["max_size"].as_str(),
+            Some("1mib")
+        );
+        let slashes = |path: &Path| path.to_string_lossy().replace('\\', "/");
+        assert_eq!(
+            parsed["a"]["base"].as_str(),
+            Some(slashes(&sandbox.work).as_str())
+        );
+        assert_eq!(
+            parsed["a"]["second"].as_str(),
+            Some(slashes(second).as_str())
+        );
+
+        let without_volume = Sandbox::new(Some(&case), None).err().unwrap();
+        assert!(
+            without_volume.contains("fixture:second-volume"),
+            "{without_volume}"
+        );
+    }
+
+    #[test]
+    fn configuration_values_are_escaped_for_toml() {
+        assert_eq!(
+            toml_escape("C:/a \"b\"\\c\u{1}"),
+            "C:/a \\\"b\\\"\\\\c\\u0001"
+        );
+        let expanded = expand_config("x = \"${base}\"", Path::new("/w \"q\""), None).unwrap();
+        assert_eq!(expanded, "x = \"/w \\\"q\\\"\"");
+        assert!(expand_config("x = \"${work_mount}\"", Path::new("/no/such/dir"), None).is_err());
     }
 
     #[test]
@@ -431,9 +670,10 @@ mod tests {
         assert_eq!(parse_duration("30s").unwrap(), Duration::from_secs(30));
         assert_eq!(parse_duration("500ms").unwrap(), Duration::from_millis(500));
         assert_eq!(parse_duration("2m").unwrap(), Duration::from_secs(120));
+        assert_eq!(parse_duration("1d").unwrap(), Duration::from_secs(86_400));
         assert_eq!(parse_duration("7").unwrap(), Duration::from_secs(7));
         assert!(parse_duration("s").is_err());
-        assert!(parse_duration("5h").is_err());
+        assert!(parse_duration("5w").is_err());
         assert!(default_jobs() >= 1);
         assert_eq!(millis(Duration::from_millis(3)), 3);
     }
@@ -448,6 +688,7 @@ mod tests {
             jobs: 1,
             startup_timeout: Duration::from_secs(5),
             timeout: Duration::from_secs(5),
+            second_volume: None,
         };
         assert!(
             run(&options)

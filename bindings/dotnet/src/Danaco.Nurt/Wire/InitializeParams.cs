@@ -16,7 +16,7 @@ internal sealed class InitializeParams
     public ClientIdentity Client { get; set; } = new();
 
     [JsonPropertyName("abi")]
-    public AbiVersion Abi { get; set; } = new();
+    public int Abi { get; set; } = (int)NativeMethods.AbiHeaderVersion;
 
     [JsonPropertyName("language")]
     public string? Language { get; set; }

@@ -13,7 +13,9 @@ use std::time::Duration;
 use serde_json::{Map, Value, json};
 
 use crate::error::{Error, ErrorKind};
-use crate::process::{self, Call, Connection, Listener, PROTOCOL, Reply, Supervisor, Transport};
+use crate::process::{
+    self, ABI_REQUIRED, Call, Connection, Listener, PROTOCOL, Reply, Supervisor, Transport,
+};
 use crate::request::{Language, Request, Variant};
 use crate::response::{Event, Response};
 
@@ -131,7 +133,7 @@ impl Nurt {
         let result = self
             .supervisor
             .call("print", json!({"ast": ast, "variant": variant.as_str()}))?;
-        text_result("print", result)
+        text_field("print", "text", &result)
     }
 
     /// Corrects the written form of a program without running it.
@@ -173,21 +175,23 @@ impl Nurt {
         target: Describe<'_>,
         language: Option<Language>,
     ) -> Result<String, Error> {
+        let subject = match target {
+            Describe::Core => "core",
+            Describe::Group(name) => name,
+        };
         let mut params = Map::new();
-        match target {
-            Describe::Core => {
-                params.insert("layer".to_owned(), Value::from("core"));
-            }
-            Describe::Group(name) => {
-                params.insert("layer".to_owned(), Value::from("group"));
-                params.insert("name".to_owned(), Value::from(name));
-            }
-        }
+        params.insert("subject".to_owned(), Value::from(subject));
         if let Some(language) = language {
             params.insert("language".to_owned(), Value::from(language.as_str()));
         }
         let result = self.supervisor.call("describe", Value::Object(params))?;
-        text_result("describe", result)
+        let description = result
+            .get("description")
+            .ok_or_else(|| missing_field("describe", "description"))?;
+        Ok(match description {
+            Value::String(text) => text.clone(),
+            other => other.to_string(),
+        })
     }
 
     /// Built-in help on a topic, as text; `None` returns the index of
@@ -200,7 +204,7 @@ impl Nurt {
     pub fn help(&self, topic: Option<&str>) -> Result<String, Error> {
         let params = topic.map_or_else(|| json!({}), |topic| json!({"topic": topic}));
         let result = self.supervisor.call("help", params)?;
-        text_result("help", result)
+        text_field("help", "text", &result)
     }
 
     /// Command catalog `nurt-catalog/1`; `what` selects a group or a
@@ -220,8 +224,8 @@ impl Nurt {
     ///
     /// Returns a call error when the request cannot be sent or answered;
     /// an unknown name is [`ErrorKind::InvalidArgument`].
-    pub fn schema(&self, which: &str) -> Result<Value, Error> {
-        self.supervisor.call("schema", json!({ "which": which }))
+    pub fn schema(&self, name: &str) -> Result<Value, Error> {
+        self.supervisor.call("schema", json!({ "name": name }))
     }
 
     /// Journal history; `query` holds the parameters of the command
@@ -290,14 +294,24 @@ impl fmt::Debug for Nurt {
     }
 }
 
-fn text_result(method: &str, result: Value) -> Result<String, Error> {
-    match result {
-        Value::String(text) => Ok(text),
-        _ => Err(Error::new(
-            ErrorKind::Protocol,
-            format!("result of `{method}` is not a string"),
-        )),
-    }
+fn text_field(method: &str, field: &str, result: &Value) -> Result<String, Error> {
+    result
+        .get(field)
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::Protocol,
+                format!("result of `{method}` has no text field `{field}`"),
+            )
+        })
+}
+
+fn missing_field(method: &str, field: &str) -> Error {
+    Error::new(
+        ErrorKind::Protocol,
+        format!("result of `{method}` has no field `{field}`"),
+    )
 }
 
 /// Layer of the language description returned by [`Nurt::describe`].
@@ -367,7 +381,9 @@ impl Builder {
     }
 
     /// Configuration `nurt-config/1` applied over the configuration files
-    /// of the server.
+    /// of the server. The protocol carries only an empty object; any other
+    /// value makes [`Builder::spawn`] and [`Builder::connect_with`] fail with
+    /// [`ErrorKind::InvalidArgument`].
     #[must_use]
     pub fn config(mut self, config: Value) -> Self {
         self.config = Some(config);
@@ -424,6 +440,15 @@ impl Builder {
     where
         F: Fn() -> io::Result<Transport> + Send + Sync + 'static,
     {
+        if let Some(config) = &self.config
+            && !config.as_object().is_some_and(Map::is_empty)
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidArgument,
+                "configuration overrides other than an empty object are not supported; \
+                 use the configuration files of the server",
+            ));
+        }
         let initialize = self.initialize_params();
         let supervisor = Supervisor::start(
             Box::new(connect),
@@ -441,6 +466,7 @@ impl Builder {
             "client".to_owned(),
             json!({"name": env!("CARGO_PKG_NAME"), "version": env!("CARGO_PKG_VERSION")}),
         );
+        params.insert("abi".to_owned(), Value::from(ABI_REQUIRED));
         params.insert("capabilities".to_owned(), json!({"events": true}));
         if let Some(language) = self.language {
             params.insert("language".to_owned(), Value::from(language.as_str()));
@@ -592,17 +618,18 @@ mod tests {
         let params = Nurt::builder()
             .language(Language::Pl)
             .session("s-9")
-            .config(json!({"journal": {"enabled": true}}))
+            .config(json!({}))
             .initialize_params();
         assert_eq!(
             params,
             json!({
                 "protocol": "nurt-rpc/1",
+                "abi": 1 << 16,
                 "client": {"name": "nurt", "version": env!("CARGO_PKG_VERSION")},
                 "capabilities": {"events": true},
                 "language": "pl",
                 "session": "s-9",
-                "config_overrides": {"journal": {"enabled": true}}
+                "config_overrides": {}
             })
         );
     }
@@ -614,9 +641,14 @@ mod tests {
     }
 
     #[test]
-    fn text_result_rejects_other_values() {
-        assert_eq!(text_result("help", json!("topics")).unwrap(), "topics");
-        let error = text_result("help", json!({"text": "topics"})).unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::Protocol);
+    fn text_field_rejects_other_values() {
+        assert_eq!(
+            text_field("help", "text", &json!({"text": "topics"})).unwrap(),
+            "topics"
+        );
+        for result in [json!("topics"), json!({"text": 1}), json!({})] {
+            let error = text_field("help", "text", &result).unwrap_err();
+            assert_eq!(error.kind(), ErrorKind::Protocol);
+        }
     }
 }

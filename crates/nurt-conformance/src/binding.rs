@@ -13,6 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use nurt_contracts::error::AbiStatus;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
@@ -225,17 +226,42 @@ impl BindingStep {
             "parse" => (method::PARSE, with_default(args, member::VARIANT, "a")),
             "correct" => (method::CORRECT, with_default(args, member::VARIANT, "a")),
             "print" => (method::PRINT, with_default(args, member::VARIANT, "a")),
-            "describe" => ("describe", with_default(args, "layer", "core")),
+            "describe" => ("describe", self.describe()),
             "page" => (method::PAGE, plain(args)),
             "help" => ("help", plain(args)),
             "catalog" => ("catalog", plain(args)),
-            "schema" => (method::SCHEMA, plain(args)),
+            "schema" => (method::SCHEMA, self.schema()),
             "history" => ("history", plain(args)),
             "space" => ("space", plain(args)),
             "info" => (method::INFO, plain(args)),
             _ => return None,
         };
         Some(call)
+    }
+
+    /// Parameters of `describe`: the interface argument `layer`, or `name`
+    /// when given, is the `subject` of the protocol.
+    fn describe(&self) -> Value {
+        let mut params = plain(&self.args);
+        if let Some(members) = params.as_object_mut() {
+            let layer = members.remove("layer");
+            let name = members.remove("name");
+            let subject = name.or(layer).unwrap_or_else(|| json!("core"));
+            members.insert(member::SUBJECT.to_owned(), subject);
+        }
+        params
+    }
+
+    /// Parameters of `schema`: the interface argument `which` is the `name`
+    /// of the protocol.
+    fn schema(&self) -> Value {
+        let mut params = plain(&self.args);
+        if let Some(members) = params.as_object_mut()
+            && let Some(which) = members.remove("which")
+        {
+            members.insert(member::NAME.to_owned(), which);
+        }
+        params
     }
 
     fn request(&self) -> Value {
@@ -287,13 +313,21 @@ pub enum Answer {
 
 impl BindingExpect {
     /// Builds the answer of `nurt-rpc/1` whose result view meets this
-    /// expectation, for a call with the given view.
+    /// expectation, for the given call and its view.
     #[must_use]
-    pub fn answer(&self, view: View) -> Answer {
+    pub fn answer(&self, call: &str, view: View) -> Answer {
         if self.outcome == Outcome::CallError {
             let status = self.status.as_deref().and_then(protocol::status_by_name);
-            let code = status.map_or(protocol::code::INTERNAL_ERROR, protocol::status_code);
-            return Answer::Error(code, json!({"status": self.status}));
+            return match status {
+                Some(status) => Answer::Error(
+                    protocol::status_code(status),
+                    json!({member::STATUS: status.name()}),
+                ),
+                None => Answer::Error(
+                    protocol::code::INTERNAL_ERROR,
+                    json!({member::STATUS: AbiStatus::Internal.name()}),
+                ),
+            };
         }
         let mut raw = match view {
             View::Response => self.response(),
@@ -314,6 +348,11 @@ impl BindingExpect {
         if view == View::Text && raw.get(member::TEXT).is_none() {
             raw[member::TEXT] = json!("");
         }
+        if let Some(members) = raw.as_object_mut() {
+            for (name, default) in required_members(call) {
+                members.entry(name).or_insert(default);
+            }
+        }
         if view == View::Object && self.outcome == Outcome::LanguageError {
             pointer::insert(
                 &mut raw,
@@ -331,6 +370,18 @@ impl BindingExpect {
             report["error"] = json!({"code": self.code, "message": "error"});
         }
         json!({"nurt": "1.0", "report": report})
+    }
+}
+
+/// Members that `nurt-rpc/1` requires in the result of the method of a call
+/// and that an expectation need not name, with neutral values.
+fn required_members(call: &str) -> Vec<(&'static str, Value)> {
+    match call {
+        "parse" | "check" => vec![(member::DIAGNOSTICS, json!([]))],
+        "describe" => vec![("description", json!(""))],
+        "history" => vec![("operations", json!([]))],
+        "space" => vec![("volumes", json!([]))],
+        _ => Vec::new(),
     }
 }
 
@@ -381,16 +432,22 @@ mod tests {
             json!({"program": "count", "variant": "a"})
         );
         let describe = step("describe", json!({}), json!({"outcome": "ok"}));
-        assert_eq!(describe.rpc().unwrap().1, json!({"layer": "core"}));
+        assert_eq!(describe.rpc().unwrap().1, json!({"subject": "core"}));
+        let named = step(
+            "describe",
+            json!({"layer": "core", "name": "find", "language": "en"}),
+            json!({"outcome": "ok"}),
+        );
+        assert_eq!(
+            named.rpc().unwrap().1,
+            json!({"subject": "find", "language": "en"})
+        );
         let schema = step(
             "schema",
             json!({"which": "report"}),
             json!({"outcome": "ok"}),
         );
-        assert_eq!(
-            schema.rpc().unwrap(),
-            ("schema", json!({"which": "report"}))
-        );
+        assert_eq!(schema.rpc().unwrap(), ("schema", json!({"name": "report"})));
         for call in [
             "check", "start", "correct", "print", "page", "help", "catalog", "history", "space",
             "info",
@@ -429,7 +486,7 @@ mod tests {
             "present": ["/next_cursor", "/report/status"]
         }))
         .unwrap();
-        let Answer::Result(raw) = expect.answer(View::Response) else {
+        let Answer::Result(raw) = expect.answer("run", View::Response) else {
             panic!("result expected")
         };
         assert_eq!(raw["report"]["error"]["code"], "E_SYNTAX");
@@ -442,12 +499,12 @@ mod tests {
             serde_json::from_value(json!({"outcome": "ok", "fields": {"/value": "count\n"}}))
                 .unwrap();
         assert_eq!(
-            text.answer(View::Text),
+            text.answer("print", View::Text),
             Answer::Result(json!({"text": "count\n"}))
         );
         let empty: BindingExpect = serde_json::from_value(json!({"outcome": "ok"})).unwrap();
         assert_eq!(
-            empty.answer(View::Text),
+            empty.answer("print", View::Text),
             Answer::Result(json!({"text": ""}))
         );
 
@@ -455,27 +512,27 @@ mod tests {
             "outcome": "language_error", "code": "E_SYNTAX", "fields": {"/value/ast": null}
         }))
         .unwrap();
-        let Answer::Result(raw) = object.answer(View::Object) else {
+        let Answer::Result(raw) = object.answer("parse", View::Object) else {
             panic!("result expected")
         };
         assert_eq!(
             raw,
-            json!({"ast": null, "error": {"code": "E_SYNTAX", "message": "error"}})
+            json!({"ast": null, "diagnostics": [], "error": {"code": "E_SYNTAX", "message": "error"}})
         );
 
         let call: BindingExpect =
             serde_json::from_value(json!({"outcome": "call_error", "status": "NURT_E_ARG"}))
                 .unwrap();
         assert_eq!(
-            call.answer(View::Object),
+            call.answer("catalog", View::Object),
             Answer::Error(-32003, json!({"status": "NURT_E_ARG"}))
         );
         let unknown: BindingExpect =
             serde_json::from_value(json!({"outcome": "call_error", "status": "NURT_X"})).unwrap();
-        assert!(matches!(
-            unknown.answer(View::Object),
-            Answer::Error(-32603, _)
-        ));
+        assert_eq!(
+            unknown.answer("catalog", View::Object),
+            Answer::Error(-32603, json!({"status": "NURT_E_INTERNAL"}))
+        );
     }
 
     #[test]

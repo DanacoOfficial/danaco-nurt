@@ -43,6 +43,12 @@ pub mod method {
     pub const SHUTDOWN: &str = "shutdown";
     /// Notification carrying an event.
     pub const EVENT: &str = "nurt/event";
+    /// Moves the clock of an implementation with the feature `testkit`.
+    pub const CLOCK_ADVANCE: &str = "testkit.clock.advance";
+    /// Prefix of the methods of the feature `testkit`. An implementation
+    /// may offer only some of them; a case whose call of such a method is
+    /// answered with [`super::code::METHOD_NOT_FOUND`] is skipped.
+    pub const TESTKIT_PREFIX: &str = "testkit.";
 }
 
 /// Members of parameters and results.
@@ -71,10 +77,24 @@ pub mod member {
     pub const FEATURES: &str = "features";
     /// Language version in the result of `initialize`.
     pub const LANGUAGE: &str = "language";
+    /// Diagnostics in the results of `parse` and `check`.
+    pub const DIAGNOSTICS: &str = "diagnostics";
     /// Name of the schema in the parameters of `schema`.
-    pub const WHICH: &str = "which";
+    pub const NAME: &str = "name";
+    /// Subject in the parameters of `describe`.
+    pub const SUBJECT: &str = "subject";
     /// Request identifier in the parameters of `cancel`.
     pub const REQUEST_ID: &str = "request_id";
+    /// Whether a request was cancelled, in the result of `cancel`.
+    pub const CANCELLED: &str = "cancelled";
+    /// Identifier of the request as text, in an event.
+    pub const REQUEST: &str = "request";
+    /// Name of the call status in the data of an error.
+    pub const STATUS: &str = "status";
+    /// Duration in the parameters of `testkit.clock.advance`.
+    pub const BY: &str = "by";
+    /// Time of the clock in the result of `testkit.clock.advance`.
+    pub const NOW: &str = "now";
 }
 
 /// JSON-RPC error codes.
@@ -89,8 +109,8 @@ pub mod code {
     pub const INVALID_PARAMS: i64 = -32602;
     /// Internal error of the server.
     pub const INTERNAL_ERROR: i64 = -32603;
-    /// Base of the codes of call statuses: the code is this value minus the
-    /// status number.
+    /// Base of the codes of the call statuses `NURT_E_*`: the code is this
+    /// value minus the status number, between `-32001` and `-32099`.
     pub const STATUS_BASE: i64 = -32000;
 }
 
@@ -103,19 +123,32 @@ pub const VARIANT_C: &str = "c";
 /// Default syntax variant.
 pub const DEFAULT_VARIANT: &str = "a";
 
-/// Returns the JSON-RPC error code of a call status.
+/// Returns the JSON-RPC error code of a call status other than `NURT_OK`,
+/// which is never reported as an error.
 #[must_use]
 pub fn status_code(status: AbiStatus) -> i64 {
     code::STATUS_BASE - i64::from(status.code())
 }
 
-/// Returns the call status with the given name of `nurt.h`.
+/// Returns the call status of `nurt.h` with the given name; `NURT_OK` is not
+/// an error status and is not returned.
 #[must_use]
 pub fn status_by_name(name: &str) -> Option<AbiStatus> {
     AbiStatus::ALL
         .iter()
         .copied()
-        .find(|status| status.name() == name)
+        .find(|status| *status != AbiStatus::Ok && status.name() == name)
+}
+
+/// Returns the identifier of a request as the text that an event carries in
+/// `request`: a string as it is, a number in decimal, `null` for no
+/// identifier.
+#[must_use]
+pub fn request_text(id: &Value) -> Value {
+    match id {
+        Value::String(_) | Value::Null => id.clone(),
+        other => Value::String(other.to_string()),
+    }
 }
 
 /// Returns the parameters of `initialize`.
@@ -165,7 +198,8 @@ pub fn takes_request(method: &str) -> bool {
     method == method::RUN || method == method::CHECK
 }
 
-/// Sets `options.base` of a request unless the options name it already.
+/// Sets `options.base` of a request unless the options name it already. A
+/// `null` base marks a request that is sent without one and is removed.
 pub fn set_base(request: &mut Value, base: &str) {
     let Some(members) = request.as_object_mut() else {
         return;
@@ -174,9 +208,13 @@ pub fn set_base(request: &mut Value, base: &str) {
         .entry(member::OPTIONS)
         .or_insert_with(|| Value::Object(Map::new()));
     if let Some(options) = options.as_object_mut() {
-        options
-            .entry(member::BASE)
-            .or_insert_with(|| Value::String(base.to_owned()));
+        if options.get(member::BASE).is_some_and(Value::is_null) {
+            options.remove(member::BASE);
+        } else {
+            options
+                .entry(member::BASE)
+                .or_insert_with(|| Value::String(base.to_owned()));
+        }
     }
 }
 
@@ -192,11 +230,12 @@ pub fn response(id: &Value, result: Value) -> Value {
     json!({"jsonrpc": JSONRPC, "id": id, "result": result})
 }
 
-/// Builds a JSON-RPC error response.
+/// Builds a JSON-RPC error response. `data` is left out when it is `null`,
+/// because the protocol defines it as an object.
 #[must_use]
 pub fn error_response(id: &Value, code: i64, message: &str, data: Option<Value>) -> Value {
     let mut error = json!({"code": code, "message": message});
-    if let Some(data) = data {
+    if let Some(data) = data.filter(|data| !data.is_null()) {
         error["data"] = data;
     }
     json!({"jsonrpc": JSONRPC, "id": id, "error": error})
@@ -211,12 +250,70 @@ pub fn notification(method: &str, params: Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::schemas::SchemaSet;
 
     #[test]
     fn status_codes_follow_the_status_numbers() {
         assert_eq!(status_code(AbiStatus::Arg), -32003);
         assert_eq!(status_by_name("NURT_E_IO"), Some(AbiStatus::Io));
         assert_eq!(status_by_name("NURT_E_NONE"), None);
+        assert_eq!(status_by_name("NURT_OK"), None);
+    }
+
+    #[test]
+    fn status_errors_are_valid_replies_of_the_protocol_schema() {
+        let schemas = SchemaSet::shared().unwrap();
+        for status in AbiStatus::ALL
+            .iter()
+            .copied()
+            .filter(|s| *s != AbiStatus::Ok)
+        {
+            let code = status_code(status);
+            assert!((-32099..=-32001).contains(&code), "{status:?}");
+            let reply =
+                error_response(&json!(1), code, "m", Some(json!({"status": status.name()})));
+            assert_eq!(schemas.validate_message(&reply), Ok(()), "{status:?}");
+        }
+        let unknown = error_response(&json!(1), -32003, "m", Some(json!({"status": "NURT_X"})));
+        assert!(schemas.validate_message(&unknown).is_err());
+        let no_data = error_response(&json!(1), code::INTERNAL_ERROR, "m", Some(Value::Null));
+        assert_eq!(schemas.validate_message(&no_data), Ok(()));
+    }
+
+    #[test]
+    fn requests_of_every_method_follow_the_protocol_schema() {
+        let schemas = SchemaSet::shared().unwrap();
+        let program = program_request("count", "a", None);
+        let tree: Value = serde_json::from_str(include_str!(
+            "../../../spec/golden/ast/example-01-largest-go-files.json"
+        ))
+        .unwrap();
+        let calls = [
+            (method::INITIALIZE, initialize_params("c", "1", true)),
+            (method::RUN, program.clone()),
+            (method::CHECK, program),
+            (method::PARSE, text_params("count", "b")),
+            (method::CORRECT, text_params("count", "c")),
+            (method::PRINT, print_params(&tree, "a")),
+            (method::PAGE, json!({"cursor": "c", "limit": 5})),
+            (method::SCHEMA, json!({member::NAME: "report"})),
+            (method::CANCEL, json!({member::REQUEST_ID: 2})),
+            (method::INFO, json!({})),
+            (method::SHUTDOWN, json!({})),
+        ];
+        for (name, params) in calls {
+            let message = request(7, name, &params);
+            assert_eq!(schemas.validate_message(&message), Ok(()), "{name}");
+        }
+        let unknown = request(7, "nurt.unknown", &json!({}));
+        assert!(schemas.validate_message(&unknown).is_err());
+    }
+
+    #[test]
+    fn request_identifiers_become_event_text() {
+        assert_eq!(request_text(&json!(5)), json!("5"));
+        assert_eq!(request_text(&json!("r")), json!("r"));
+        assert_eq!(request_text(&Value::Null), Value::Null);
     }
 
     #[test]
@@ -235,6 +332,9 @@ mod tests {
         let mut bare = json!({"nurt": "1.0", "cursor": "c"});
         set_base(&mut bare, "/w");
         assert_eq!(bare["options"]["base"], "/w");
+        let mut unset = json!({"nurt": "1.0", "program": "x", "options": {"base": null}});
+        set_base(&mut unset, "/w");
+        assert_eq!(unset["options"], json!({}));
         let mut scalar = json!(1);
         set_base(&mut scalar, "/w");
         assert_eq!(scalar, json!(1));

@@ -2,10 +2,12 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import type { Channel, ChannelEvents } from "./channel.js";
 import { NurtError, type StatusName } from "./errors.js";
 import { encodeMessage, MessageDecoder, ProtocolError } from "./framing.js";
 import { isObject, type JsonObject } from "./json.js";
 import { toResponse } from "./response.js";
+import type { NurtEvent } from "./types.js";
 
 /** Largest message accepted from the server, in bytes. */
 const MAX_INCOMING_MESSAGE_BYTES = 256 * 1024 * 1024;
@@ -52,7 +54,7 @@ export function errorOfRpc(value: unknown): NurtError {
 }
 
 /** Options of a {@link Connection}. */
-export interface ConnectionOptions {
+export interface ConnectionOptions extends ChannelEvents {
   /** Path of the executable. */
   readonly executable: string;
   /** Arguments of the executable. */
@@ -61,10 +63,6 @@ export interface ConnectionOptions {
   readonly env: NodeJS.ProcessEnv;
   /** Working directory of the server. */
   readonly cwd: string | undefined;
-  /** Receives every notification of the server. */
-  readonly onNotification: (method: string, params: unknown) => void;
-  /** Called once when the connection ends, with the error given to the calls in progress. */
-  readonly onClose: (error: NurtError) => void;
 }
 
 /** Options of {@link Connection.call}. */
@@ -73,6 +71,11 @@ export interface CallHooks {
   readonly signal?: AbortSignal | undefined;
   /** Called with the request identifier before the request is written. */
   readonly onSent?: ((id: number) => void) | undefined;
+  /**
+   * Receives the events of a `run` call. Only channels that do not carry the
+   * request identifier of the events in notifications use it.
+   */
+  readonly onEvent?: ((event: NurtEvent) => void) | undefined;
 }
 
 /** Limits announced by the server in the result of `initialize`. */
@@ -103,7 +106,7 @@ interface Call {
  * beyond the `max_inflight` limit of the server wait in a queue. The process
  * and its pipes hold the event loop open only while requests are in progress.
  */
-export class Connection {
+export class Connection implements Channel {
   readonly #options: ConnectionOptions;
   readonly #child: ChildProcessWithoutNullStreams;
   readonly #decoder = new MessageDecoder(MAX_INCOMING_MESSAGE_BYTES);

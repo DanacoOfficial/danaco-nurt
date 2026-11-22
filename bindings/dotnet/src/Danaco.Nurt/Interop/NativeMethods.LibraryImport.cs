@@ -14,6 +14,26 @@ internal static unsafe partial class NativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial uint AbiVersion();
 
+    [LibraryImport(LibraryName, EntryPoint = "nurt_abi_check")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial CallStatus AbiCheck(uint headerVersion);
+
+    [LibraryImport(LibraryName, EntryPoint = "nurt_engine_config_get")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial CallStatus EngineConfigGet(EngineHandle engine, NativeBuffer* outJson);
+
+    [LibraryImport(LibraryName, EntryPoint = "nurt_session_end")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial CallStatus SessionEnd(EngineHandle engine, byte* session);
+
+    [LibraryImport(LibraryName, EntryPoint = "nurt_ext_load")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial CallStatus ExtLoad(EngineHandle engine, byte* manifestPath);
+
+    [LibraryImport(LibraryName, EntryPoint = "nurt_ext_list")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial CallStatus ExtList(EngineHandle engine, NativeBuffer* outJson);
+
     [LibraryImport(LibraryName, EntryPoint = "nurt_info")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial CallStatus Info(NativeBuffer* outJson);

@@ -1797,7 +1797,16 @@
                 "content_utf8": "alpha\nbeta\n"
               }
             ]
-          }
+          },
+          "absent": [
+            "/report/irreversible",
+            "/report/expires",
+            "/report/expires_at",
+            "/report/expiry",
+            "/report/undoable",
+            "/report/reversible",
+            "/report/journal"
+          ]
         }
       ]
     },
@@ -1851,7 +1860,16 @@
                 "content_utf8": "bravo\n"
               }
             ]
-          }
+          },
+          "absent": [
+            "/report/irreversible",
+            "/report/expires",
+            "/report/expires_at",
+            "/report/expiry",
+            "/report/undoable",
+            "/report/reversible",
+            "/report/journal"
+          ]
         }
       ]
     },
@@ -1890,7 +1908,14 @@
             "status": "ok"
           },
           "expect_at": "/report",
-          "validate": "report"
+          "validate": "report",
+          "absent": [
+            "/report/records/rows/*/fields/expires",
+            "/report/records/rows/*/fields/expires_at",
+            "/report/records/rows/*/fields/expiry",
+            "/report/records/rows/*/fields/ttl",
+            "/report/records/rows/*/fields/remaining"
+          ]
         }
       ]
     },
@@ -2137,6 +2162,159 @@
                 "matched": 1
               }
             }
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/expiry-age-within-limit",
+      "kind": "journal",
+      "class": "optional:testkit",
+      "requires": [
+        "feature:journal"
+      ],
+      "summary": "An entry younger than the age limit can still be undone on the test clock.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "journal.limits age: 1h",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "journal.limits"
+            }
+          }
+        },
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "method": "testkit.clock.advance",
+          "params": {
+            "by": "30m"
+          }
+        },
+        {
+          "program": "undo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/expiry-age-pinned",
+      "kind": "journal",
+      "class": "optional:testkit",
+      "requires": [
+        "feature:journal"
+      ],
+      "summary": "A pinned entry survives the age limit and can be undone after the clock advanced.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "journal.limits age: 1h",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "journal.limits"
+            }
+          }
+        },
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "journal.pin [${step2/report/op}]",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "journal.pin"
+            }
+          }
+        },
+        {
+          "method": "testkit.clock.advance",
+          "params": {
+            "by": "2h"
+          }
+        },
+        {
+          "program": "undo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
           }
         }
       ]
@@ -2486,6 +2664,117 @@
                 "path": "a.txt",
                 "type": "file",
                 "content_utf8": "alpha\nbeta\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/volume-max-size-skip",
+      "kind": "journal",
+      "config": "../exec/config/volume-max-size.toml",
+      "class": "optional:journal",
+      "summary": "An operation larger than the size budget of the volume holding the work directory is made without a copy.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "big.txt",
+            "type": "file",
+            "content_utf8": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove \"big.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "remove",
+              "irreversible": [
+                {
+                  "reason": "too_large_for_journal"
+                }
+              ]
+            }
+          },
+          "fs_after": {
+            "entries": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/semantics/volume-max-size-expiry",
+      "kind": "journal",
+      "config": "../exec/config/volume-max-size.toml",
+      "class": "optional:journal",
+      "summary": "The size budget of a volume expires the oldest entry of that volume.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "x.txt",
+            "type": "file",
+            "content_utf8": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n"
+          },
+          {
+            "path": "y.txt",
+            "type": "file",
+            "content_utf8": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"x.txt\" \"new\\n\" mode: overwrite",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "write \"y.txt\" \"new\\n\" mode: overwrite",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "write"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_EXPIRED"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        },
+        {
+          "program": "undo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "x.txt",
+                "type": "file",
+                "content_utf8": "new\n"
+              },
+              {
+                "path": "y.txt",
+                "type": "file",
+                "content_utf8": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n"
               }
             ]
           }

@@ -12,14 +12,14 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{BufRead, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value, json};
 
 use crate::binding::{self, Answer as BindingAnswer, BindingCase, BindingFile, View};
 use crate::case::{Case, Class, Condition, FsExpectation, Golden, Plan, Step, Suite};
 use crate::compare::ast_hash;
-use crate::normalize::BASE_PLACEHOLDER;
+use crate::normalize::{BASE_PLACEHOLDER, HTTP_BASE_PLACEHOLDER, SECOND_VOLUME_PLACEHOLDER};
 use crate::pointer::{self, Bindings};
 use crate::protocol::{self, code, member, method};
 use crate::schemas::SchemaSet;
@@ -27,6 +27,15 @@ use crate::snapshot::Snapshot;
 
 /// Environment variable naming the case a server process is started for.
 pub const CASE_ENV: &str = "NURT_CONFORMANCE_CASE";
+
+/// Environment variable with the address of the local HTTP server of the
+/// case, set by the runner for cases that require `fixture:http`.
+pub const HTTP_BASE_ENV: &str = "NURT_CONFORMANCE_CASE_HTTP_BASE";
+
+/// Environment variable with the directory of the case on the second
+/// volume, set by the runner for cases that require
+/// `fixture:second-volume`.
+pub const SECOND_VOLUME_ENV: &str = "NURT_CONFORMANCE_CASE_SECOND_VOLUME";
 
 /// Environment variable naming the directory of cases of `serve --stdio`.
 pub const CASES_ENV: &str = "NURT_CONFORMANCE_CASES";
@@ -69,11 +78,19 @@ pub enum Break {
     Crash,
     /// The server stops answering after `initialize`.
     Hang,
+    /// The last expected event of every call is not sent.
+    Events,
+    /// Results carry the members that the cases require to be absent.
+    Absent,
+    /// `testkit.clock.advance` is answered as an unknown method, as by an
+    /// implementation without a test clock; the cases that call it are
+    /// skipped, not failed.
+    NoClock,
 }
 
 impl Break {
     /// Every deviation.
-    pub const ALL: [Break; 10] = [
+    pub const ALL: [Break; 13] = [
         Self::Tree,
         Self::Bound,
         Self::Hash,
@@ -84,6 +101,9 @@ impl Break {
         Self::Protocol,
         Self::Crash,
         Self::Hang,
+        Self::Events,
+        Self::Absent,
+        Self::NoClock,
     ];
 
     /// Name of the deviation in `--break`.
@@ -100,6 +120,9 @@ impl Break {
             Self::Protocol => "protocol",
             Self::Crash => "crash",
             Self::Hang => "hang",
+            Self::Events => "events",
+            Self::Absent => "absent",
+            Self::NoClock => "no-clock",
         }
     }
 
@@ -115,6 +138,9 @@ impl Break {
 struct Answer {
     result: Result<Value, (i64, Value)>,
     effect: Option<Snapshot>,
+    second_effect: Option<Snapshot>,
+    events: Vec<Value>,
+    absent: Vec<String>,
     start: bool,
     hold: bool,
 }
@@ -124,6 +150,9 @@ impl Answer {
         Self {
             result: Ok(value),
             effect: None,
+            second_effect: None,
+            events: Vec::new(),
+            absent: Vec::new(),
             start: false,
             hold: false,
         }
@@ -141,6 +170,9 @@ pub struct FakeServer {
     hanging: bool,
     held: Vec<(Value, Value)>,
     seq: u64,
+    clock: jiff::Timestamp,
+    http_base: Option<String>,
+    second_volume: Option<PathBuf>,
 }
 
 /// Messages to send after a request and whether the server ends.
@@ -226,6 +258,9 @@ impl FakeServer {
             hanging: false,
             held: Vec::new(),
             seq: 0,
+            clock: jiff::Timestamp::from_second(CLOCK_START).unwrap_or_default(),
+            http_base: None,
+            second_volume: None,
         };
         for case in suite
             .cases
@@ -239,6 +274,21 @@ impl FakeServer {
             server.add_binding_case(case);
         }
         server
+    }
+
+    /// Sets the address of the local HTTP server and the directory on the
+    /// second volume of the case. Both are rewritten to their placeholders
+    /// in requests before the requests are matched, and the expected state
+    /// of the second volume is created in the directory.
+    #[must_use]
+    pub fn with_fixtures(
+        mut self,
+        http_base: Option<String>,
+        second_volume: Option<PathBuf>,
+    ) -> Self {
+        self.http_base = http_base;
+        self.second_volume = second_volume;
+        self
     }
 
     /// Number of prepared answers.
@@ -294,7 +344,11 @@ impl FakeServer {
                 .bound_hash
                 .clone()
                 .unwrap_or_else(|| ast_hash(bound).unwrap_or_default());
-            Answer::result(json!({member::BOUND: bound, member::AST_HASH: hash}))
+            Answer::result(json!({
+                member::BOUND: bound,
+                member::AST_HASH: hash,
+                member::DIAGNOSTICS: [],
+            }))
         });
         let mut texts: BTreeMap<String, String> = golden.texts.iter().cloned().collect();
         if texts.is_empty() {
@@ -308,7 +362,7 @@ impl FakeServer {
             self.add(
                 method::PARSE,
                 &protocol::text_params(text, variant),
-                Answer::result(json!({member::AST: tree})),
+                Answer::result(json!({member::AST: tree, member::DIAGNOSTICS: []})),
             );
             self.add(
                 method::PRINT,
@@ -345,14 +399,17 @@ impl FakeServer {
                     .find(|s| s.call == call && s.execution == Some(number))
             };
             let answer = if step.call == "start" {
-                let expect = on_execution("wait").map(|wait| wait.expect.answer(View::Response));
+                let expect =
+                    on_execution("wait").map(|wait| wait.expect.answer("wait", View::Response));
                 Answer {
                     start: true,
                     hold: on_execution("cancel").is_some(),
-                    ..binding_answer(expect.unwrap_or_else(|| default_response(View::Response)))
+                    ..binding_answer(
+                        expect.unwrap_or_else(|| default_response("wait", View::Response)),
+                    )
                 }
             } else {
-                binding_answer(step.expect.answer(binding::view(&step.call)))
+                binding_answer(step.expect.answer(&step.call, binding::view(&step.call)))
             };
             self.add(method_name, &params, answer);
         }
@@ -390,12 +447,42 @@ impl FakeServer {
             method::INFO => self.reply(vec![protocol::response(&id, self.info())]),
             method::SHUTDOWN => Reply {
                 exit: true,
-                ..self.reply(vec![protocol::response(&id, json!({}))])
+                ..self.reply(vec![protocol::response(&id, Value::Null)])
             },
             method::SCHEMA => self.schema(&id, &params),
             method::CANCEL => self.cancel(&id, &params),
+            method::CLOCK_ADVANCE => self.advance_clock(&id, &params),
             _ => self.answer(&id, method_name, &params),
         }
+    }
+
+    fn advance_clock(&mut self, id: &Value, params: &Value) -> Reply {
+        if self.deviation == Some(Break::NoClock) {
+            let error =
+                protocol::error_response(id, code::METHOD_NOT_FOUND, "unknown method", None);
+            return self.reply(vec![error]);
+        }
+        let by = params
+            .get(member::BY)
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let advanced = crate::runner::parse_duration(by)
+            .ok()
+            .and_then(|duration| jiff::SignedDuration::try_from(duration).ok())
+            .and_then(|duration| self.clock.checked_add(duration).ok());
+        let message = match advanced {
+            Some(now) => {
+                self.clock = now;
+                protocol::response(id, json!({member::NOW: now.to_string()}))
+            }
+            None => protocol::error_response(
+                id,
+                code::INVALID_PARAMS,
+                &format!("{by:?} is not a duration such as 2h"),
+                None,
+            ),
+        };
+        self.reply(vec![message])
     }
 
     fn reply(&self, mut messages: Vec<Value>) -> Reply {
@@ -429,10 +516,13 @@ impl FakeServer {
         let result = json!({
             "protocol": protocol::PROTOCOL,
             "version": env!("CARGO_PKG_VERSION"),
+            "abi": null,
             "language": LANGUAGE,
             "ast": LANGUAGE,
             "report": LANGUAGE,
+            "catalog_rev": null,
             "features": self.features,
+            "groups": [],
             "limits": {"max_inflight": 1, "max_message_bytes": MAX_MESSAGE_BYTES},
         });
         let mut reply = self.reply(vec![protocol::response(id, result)]);
@@ -449,7 +539,7 @@ impl FakeServer {
             return self.reply(vec![protocol::response(id, json!({"type": 12}))]);
         }
         let which = params
-            .get(member::WHICH)
+            .get(member::NAME)
             .and_then(Value::as_str)
             .unwrap_or_default();
         let message = match self.schemas.document(which) {
@@ -469,11 +559,16 @@ impl FakeServer {
             .get(member::REQUEST_ID)
             .cloned()
             .unwrap_or(Value::Null);
-        let mut messages = vec![protocol::response(id, json!({}))];
-        if let Some(index) = self.held.iter().position(|(held, _)| *held == target) {
-            let (_, response) = self.held.remove(index);
-            messages.push(response);
-        }
+        let held = self
+            .held
+            .iter()
+            .position(|(held, _)| *held == target)
+            .map(|index| self.held.remove(index).1);
+        let mut messages = vec![protocol::response(
+            id,
+            json!({member::CANCELLED: held.is_some()}),
+        )];
+        messages.extend(held);
         self.reply(messages)
     }
 
@@ -484,7 +579,14 @@ impl FakeServer {
             .map(str::to_owned);
         let mut normalized = params.clone();
         if let Some(base) = &base {
-            replace_base(&mut normalized, base);
+            replace_base(&mut normalized, base, BASE_PLACEHOLDER);
+        }
+        if let Some(second) = &self.second_volume {
+            let second = second.to_string_lossy();
+            replace_base(&mut normalized, &second, SECOND_VOLUME_PLACEHOLDER);
+        }
+        if let Some(http_base) = &self.http_base {
+            replace_base(&mut normalized, http_base, HTTP_BASE_PLACEHOLDER);
         }
         let Some(answer) = self.answers.get(&key(method_name, &normalized)).cloned() else {
             let error = protocol::error_response(
@@ -498,14 +600,32 @@ impl FakeServer {
         if let Some(base) = &base {
             self.apply_effects(method_name, &answer, Path::new(base));
         }
+        if let (Some(snapshot), Some(dir)) = (&answer.second_effect, &self.second_volume) {
+            apply_snapshot(snapshot, dir);
+        }
+        let mut events = if answer.start {
+            vec![json!({"t": "exec.started"}), json!({"t": "exec.finished"})]
+        } else {
+            answer.events.clone()
+        };
+        if self.deviation == Some(Break::Events) {
+            events.pop();
+        }
         let message = match answer.result {
-            Ok(result) => protocol::response(id, self.deviate(method_name, result)),
+            Ok(mut result) => {
+                if self.deviation == Some(Break::Absent) {
+                    insert_absent(&mut result, &answer.absent);
+                }
+                protocol::response(id, self.deviate(method_name, result))
+            }
             Err((code, data)) => protocol::error_response(id, code, "call error", Some(data)),
         };
         let mut messages = Vec::new();
-        if answer.start && self.events {
-            messages.push(self.event(id, "exec.started"));
-            messages.push(self.event(id, "exec.finished"));
+        self.seq = 0;
+        if self.events {
+            for event in events {
+                messages.push(self.event(id, event));
+            }
         }
         if answer.hold {
             self.held.push((id.clone(), message));
@@ -515,24 +635,31 @@ impl FakeServer {
         self.reply(messages)
     }
 
-    fn event(&mut self, request_id: &Value, kind: &str) -> Value {
+    /// Completes an event with its sequence number within the request, the
+    /// time of the clock, the identifier of the request as text and, for
+    /// `exec.finished`, the status `ok` unless the event names one.
+    fn event(&mut self, request_id: &Value, mut event: Value) -> Value {
         self.seq += 1;
-        protocol::notification(
-            method::EVENT,
-            json!({"t": kind, "seq": self.seq, "time": EVENT_TIME, "request_id": request_id}),
-        )
+        if let Value::Object(members) = &mut event {
+            members.insert("seq".to_owned(), json!(self.seq));
+            members.insert("time".to_owned(), json!(self.clock.to_string()));
+            members
+                .entry(member::REQUEST)
+                .or_insert_with(|| protocol::request_text(request_id));
+            if members.get("t") == Some(&json!("exec.finished")) {
+                members.entry(member::STATUS).or_insert_with(|| json!("ok"));
+            }
+        }
+        protocol::notification(method::EVENT, event)
     }
 
     fn apply_effects(&self, method_name: &str, answer: &Answer, base: &Path) {
-        // Failures to create the effect make the case fail in the runner,
-        // which is the purpose of these effects.
         if let Some(snapshot) = &answer.effect {
-            if snapshot.exhaustive {
-                let _ = clear_directory(base);
-            }
-            let _ = snapshot.materialize(base);
+            apply_snapshot(snapshot, base);
         }
         if self.deviation == Some(Break::Effect) && protocol::takes_request(method_name) {
+            // A failure to create the file makes the case pass, which the
+            // tests of the deviation detect.
             let _ = std::fs::write(base.join(EFFECT_FILE), "");
         }
     }
@@ -604,15 +731,22 @@ const HASH_DIGITS: usize = 64;
 /// Largest message accepted, as announced in `initialize`.
 const MAX_MESSAGE_BYTES: u64 = 16 * 1024 * 1024;
 
-/// Time of the events of the fake server.
-const EVENT_TIME: &str = "2026-01-01T00:00:00Z";
+/// Start of the clock of the fake server, 2026-01-01T00:00:00Z, in seconds
+/// since the Unix epoch. The clock moves only with `testkit.clock.advance`.
+const CLOCK_START: i64 = 1_767_225_600;
+
+/// Placeholder of the environment with the given name; the fake server
+/// matches requests after rewriting the actual values to placeholders.
+fn placeholder(name: &str) -> String {
+    format!("${{{name}}}")
+}
 
 /// Results of the earlier steps of a case, for placeholders.
 struct Recorded(Vec<Value>);
 
 impl Bindings for Recorded {
-    fn base(&self) -> Option<&str> {
-        Some(BASE_PLACEHOLDER)
+    fn variable(&self, name: &str) -> Option<String> {
+        Some(placeholder(name))
     }
 
     fn step(&self, number: usize, pointer: &str) -> Option<Value> {
@@ -627,8 +761,8 @@ impl Bindings for Recorded {
 struct BindingFields<'a>(&'a BindingCase);
 
 impl Bindings for BindingFields<'_> {
-    fn base(&self) -> Option<&str> {
-        Some(BASE_PLACEHOLDER)
+    fn variable(&self, name: &str) -> Option<String> {
+        Some(placeholder(name))
     }
 
     fn step(&self, number: usize, pointer: &str) -> Option<Value> {
@@ -653,16 +787,25 @@ fn key(method_name: &str, params: &Value) -> String {
 }
 
 fn step_answer(step: &Step) -> Answer {
-    let effect = match &step.fs_after {
+    let snapshot_of = |expectation: Option<&FsExpectation>| match expectation {
         Some(FsExpectation::Snapshot(snapshot)) => Some(snapshot.clone()),
         _ => None,
+    };
+    let answer = Answer {
+        effect: snapshot_of(step.fs_after.as_ref()),
+        second_effect: snapshot_of(step.second_volume_after.as_ref()),
+        events: step
+            .events
+            .as_ref()
+            .map(|expected| expected.events.clone())
+            .unwrap_or_default(),
+        absent: step.absent.clone(),
+        ..Answer::result(Value::Null)
     };
     if let Some(error) = step.expect_error {
         return Answer {
             result: Err((error, Value::Null)),
-            effect,
-            start: false,
-            hold: false,
+            ..answer
         };
     }
     let mut result = json!({});
@@ -672,10 +815,34 @@ fn step_answer(step: &Step) -> Answer {
     if step.method == method::RUN || step.method == method::PAGE {
         complete_response(&mut result, &step.params);
     }
-    Answer {
-        effect,
-        ..Answer::result(result)
+    for pattern in &step.absent {
+        pointer::remove_matches(&mut result, &pointer::segments(pattern));
     }
+    Answer {
+        result: Ok(result),
+        ..answer
+    }
+}
+
+/// Stores `true` at every pointer without `*` of `absent`.
+fn insert_absent(result: &mut Value, absent: &[String]) {
+    for pattern in absent {
+        let segments = pointer::segments(pattern);
+        if !segments.iter().any(|segment| segment == pointer::WILDCARD) {
+            pointer::insert(result, pattern, json!(true));
+        }
+    }
+}
+
+/// Creates the entries of a snapshot in `dir`; an exhaustive snapshot
+/// replaces the content of the directory.
+fn apply_snapshot(snapshot: &Snapshot, dir: &Path) {
+    // Failures to create the effect make the case fail in the runner, which
+    // compares the directory with the same snapshot.
+    if snapshot.exhaustive {
+        let _ = clear_directory(dir);
+    }
+    let _ = snapshot.materialize(dir);
 }
 
 fn complete_response(result: &mut Value, params: &Value) {
@@ -702,7 +869,7 @@ fn binding_answer(answer: BindingAnswer) -> Answer {
     }
 }
 
-fn default_response(view: View) -> BindingAnswer {
+fn default_response(call: &str, view: View) -> BindingAnswer {
     let expect = binding::BindingExpect {
         outcome: binding::Outcome::Ok,
         status: None,
@@ -711,7 +878,7 @@ fn default_response(view: View) -> BindingAnswer {
         present: Vec::new(),
         absent: Vec::new(),
     };
-    expect.answer(view)
+    expect.answer(call, view)
 }
 
 fn clear_directory(dir: &Path) -> std::io::Result<()> {
@@ -751,8 +918,8 @@ fn rename_first_stage(tree: &mut Value) {
 }
 
 /// Replaces every occurrence of `base`, in its native form and with `/`
-/// separators, by [`BASE_PLACEHOLDER`] in every text of `value`.
-fn replace_base(value: &mut Value, base: &str) {
+/// separators, by `placeholder` in every text of `value`.
+fn replace_base(value: &mut Value, base: &str, placeholder: &str) {
     let trimmed = base.trim_end_matches(['/', '\\']);
     if trimmed.is_empty() {
         return;
@@ -762,14 +929,16 @@ fn replace_base(value: &mut Value, base: &str) {
         Value::String(text) => {
             for form in &forms {
                 if text.contains(form.as_str()) {
-                    *text = text.replace(form.as_str(), BASE_PLACEHOLDER);
+                    *text = text.replace(form.as_str(), placeholder);
                 }
             }
         }
-        Value::Array(items) => items.iter_mut().for_each(|item| replace_base(item, base)),
+        Value::Array(items) => items
+            .iter_mut()
+            .for_each(|item| replace_base(item, base, placeholder)),
         Value::Object(members) => members
             .values_mut()
-            .for_each(|member| replace_base(member, base)),
+            .for_each(|member| replace_base(member, base, placeholder)),
         _ => {}
     }
 }
@@ -832,6 +1001,8 @@ mod tests {
             volatile: Vec::new(),
             config: None,
             fs_before: None,
+            second_volume_before: None,
+            http_files: None,
             plan,
             source: "case.toml".into(),
         }
@@ -849,10 +1020,151 @@ mod tests {
                     matching: Match::Subset,
                 })
                 .collect(),
-            expect_error: None,
-            validate: None,
-            fs_after: None,
+            ..Step::default()
         }
+    }
+
+    #[test]
+    fn the_clock_moves_only_when_advanced() {
+        let run = Step {
+            events: Some(crate::case::EventExpectation {
+                events: vec![json!({"t": "exec.started"})],
+                order: crate::case::EventOrder::Ordered,
+            }),
+            ..step("run", json!({"nurt": "1.0", "program": "count"}), None)
+        };
+        let mut fake = server(vec![case("journal/clock", Plan::Steps(vec![run]))], None);
+        fake.handle(&request(
+            1,
+            "initialize",
+            protocol::initialize_params("t", "1", true),
+        ));
+        let advanced = fake.handle(&request(2, "testkit.clock.advance", json!({"by": "2h"})));
+        assert_eq!(result_of(&advanced)["now"], "2026-01-01T02:00:00Z");
+        let again = fake.handle(&request(3, "testkit.clock.advance", json!({"by": "30m"})));
+        assert_eq!(result_of(&again)["now"], "2026-01-01T02:30:00Z");
+        let invalid = fake.handle(&request(4, "testkit.clock.advance", json!({"by": "soon"})));
+        assert_eq!(invalid.messages[0]["error"]["code"], code::INVALID_PARAMS);
+        let ran = fake.handle(&request(
+            5,
+            "run",
+            json!({"nurt": "1.0", "program": "count"}),
+        ));
+        assert_eq!(ran.messages[0]["params"]["time"], "2026-01-01T02:30:00Z");
+        assert_eq!(ran.messages[0]["params"]["request"], "5");
+
+        let mut fake = server(Vec::new(), Some(Break::NoClock));
+        let missing = fake.handle(&request(1, "testkit.clock.advance", json!({"by": "2h"})));
+        assert_eq!(missing.messages[0]["error"]["code"], code::METHOD_NOT_FOUND);
+    }
+
+    #[test]
+    fn expected_events_are_sent_before_the_response() {
+        let started = json!({"t": "exec.started", "request": "r"});
+        let finished = json!({"t": "exec.finished", "status": "ok"});
+        let run = Step {
+            events: Some(crate::case::EventExpectation {
+                events: vec![started, finished],
+                order: crate::case::EventOrder::Exact,
+            }),
+            ..step("run", json!({"nurt": "1.0", "program": "count"}), None)
+        };
+        let cases = vec![case("exec/events", Plan::Steps(vec![run]))];
+        let call = request(2, "run", json!({"nurt": "1.0", "program": "count"}));
+        let mut fake = server(cases.clone(), None);
+        fake.handle(&request(
+            1,
+            "initialize",
+            protocol::initialize_params("t", "1", true),
+        ));
+        let reply = fake.handle(&call);
+        let schemas = SchemaSet::shared().unwrap();
+        for message in &reply.messages {
+            assert_eq!(schemas.validate_message(message), Ok(()), "{message}");
+        }
+        let methods: Vec<&Value> = reply.messages.iter().map(|m| &m["method"]).collect();
+        assert_eq!(
+            methods,
+            [&json!("nurt/event"), &json!("nurt/event"), &Value::Null]
+        );
+        assert_eq!(reply.messages[0]["params"]["request"], "r");
+        assert_eq!(reply.messages[1]["params"]["seq"], 2);
+        assert_eq!(reply.messages[1]["params"]["status"], "ok");
+
+        let mut silent = server(cases.clone(), None);
+        silent.handle(&request(
+            1,
+            "initialize",
+            protocol::initialize_params("t", "1", false),
+        ));
+        assert_eq!(silent.handle(&call).messages.len(), 1);
+
+        let mut broken = server(cases, Some(Break::Events));
+        broken.handle(&request(
+            1,
+            "initialize",
+            protocol::initialize_params("t", "1", true),
+        ));
+        let reply = broken.handle(&call);
+        assert_eq!(reply.messages.len(), 2);
+        assert_eq!(reply.messages[0]["params"]["t"], "exec.started");
+    }
+
+    #[test]
+    fn absent_members_are_left_out_of_the_answers() {
+        let run = Step {
+            absent: vec![
+                "/report/kind".to_owned(),
+                "/report/changes/*/rows_changed".to_owned(),
+            ],
+            ..step(
+                "run",
+                json!({"nurt": "1.0", "program": "count"}),
+                Some(json!({"report": {"changes": [{"path": "a", "rows_changed": 1}]}})),
+            )
+        };
+        let cases = vec![case("exec/absent", Plan::Steps(vec![run]))];
+        let call = request(2, "run", json!({"nurt": "1.0", "program": "count"}));
+        let mut fake = server(cases.clone(), None);
+        let report = result_of(&fake.handle(&call))["report"].clone();
+        assert_eq!(report.get("kind"), None);
+        assert_eq!(report["changes"], json!([{"path": "a"}]));
+        let mut broken = server(cases, Some(Break::Absent));
+        let report = result_of(&broken.handle(&call))["report"].clone();
+        assert_eq!(report["kind"], true);
+        assert_eq!(report["changes"], json!([{"path": "a"}]));
+    }
+
+    #[test]
+    fn fixture_addresses_are_matched_and_the_second_volume_receives_effects() {
+        let mut run = step(
+            "run",
+            json!({"nurt": "1.0", "program": "copy \"${http_base}/files/a\" \"${second_volume}/a\""}),
+            Some(json!({"report": {"target": "${second_volume}/a"}})),
+        );
+        run.second_volume_after = Some(FsExpectation::Snapshot(
+            Snapshot::from_json(
+                &json!({"entries": [{"path": "a", "type": "file", "content_utf8": "a"}]}),
+            )
+            .unwrap(),
+        ));
+        let volume = tempfile::tempdir().unwrap();
+        std::fs::write(volume.path().join("old"), "o").unwrap();
+        let http = "http://127.0.0.1:4555";
+        let mut fake = server(vec![case("exec/copy", Plan::Steps(vec![run]))], None)
+            .with_fixtures(Some(http.to_owned()), Some(volume.path().to_path_buf()));
+        let volume_text = volume.path().to_string_lossy().into_owned();
+        let reply = fake.handle(&request(
+            2,
+            "run",
+            json!({"nurt": "1.0", "program": format!("copy \"{http}/files/a\" \"{volume_text}/a\"")}),
+        ));
+        assert_eq!(result_of(&reply)["report"]["target"], "${second_volume}/a");
+        assert_eq!(
+            std::fs::read_to_string(volume.path().join("a")).unwrap(),
+            "a"
+        );
+        assert!(!volume.path().join("old").exists());
     }
 
     fn suite(cases: Vec<Case>) -> Suite {
@@ -885,6 +1197,30 @@ mod tests {
     }
 
     #[test]
+    fn native_answers_follow_the_protocol_schema() {
+        let schemas = SchemaSet::shared().unwrap();
+        let mut fake = server(Vec::new(), None);
+        let calls = [
+            ("initialize", protocol::initialize_params("t", "1", true)),
+            ("info", json!({})),
+            ("schema", json!({"name": "rpc"})),
+            ("cancel", json!({"request_id": 9})),
+            ("shutdown", json!({})),
+        ];
+        for (id, (name, params)) in calls.into_iter().enumerate() {
+            let reply = fake.handle(&request(id as u64 + 1, name, params));
+            for message in &reply.messages {
+                assert_eq!(schemas.validate_message(message), Ok(()), "{name}");
+            }
+            assert_eq!(
+                schemas.validate_result(name, result_of(&reply)),
+                Ok(()),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
     fn native_methods_answer_without_cases() {
         let mut fake = server(Vec::new(), None);
         assert!(fake.is_empty());
@@ -898,9 +1234,9 @@ mod tests {
             result_of(&fake.handle(&request(2, "info", json!({}))))["name"],
             SERVER_NAME
         );
-        let schema = fake.handle(&request(3, "schema", json!({"which": "report"})));
+        let schema = fake.handle(&request(3, "schema", json!({"name": "report"})));
         assert_eq!(result_of(&schema)["title"], "nurt-report/1");
-        let unknown = fake.handle(&request(4, "schema", json!({"which": "none"})));
+        let unknown = fake.handle(&request(4, "schema", json!({"name": "none"})));
         assert_eq!(unknown.messages[0]["error"]["code"], code::INVALID_PARAMS);
         let unmatched = fake.handle(&request(5, "run", json!({"nurt": "1.0", "program": "x"})));
         assert_eq!(
@@ -1030,7 +1366,7 @@ mod tests {
         assert_eq!(result_of(&fake.handle(&run))["report"]["status"], "failed");
         let mut fake = server(cases.clone(), Some(Break::Schema));
         assert_eq!(
-            result_of(&fake.handle(&request(5, "schema", json!({"which": "ast"})))),
+            result_of(&fake.handle(&request(5, "schema", json!({"name": "ast"})))),
             &json!({"type": 12})
         );
         let mut fake = server(cases.clone(), Some(Break::Protocol));

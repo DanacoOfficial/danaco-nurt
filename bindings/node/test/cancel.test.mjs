@@ -30,6 +30,9 @@ describe("cancellation", () => {
 
   it("sends cancel for the request when the signal is aborted", async () => {
     await withClient(fakeServe(), async (client) => {
+      // Connect first: an abort that arrives while the server is starting
+      // happens before the request is sent, so no cancel is sent either.
+      await client.info();
       const controller = new AbortController();
       const call = client.run(`delay ${LONG_MS} x`, { signal: controller.signal });
       await delay(SETTLE_MS);
@@ -37,12 +40,14 @@ describe("cancellation", () => {
       await assert.rejects(call, isCancelled);
       await delay(SETTLE_MS);
       const info = await client.info();
+      assert.equal(info.max_observed_inflight, 1);
       assert.equal(info.cancel_requests, 1);
     });
   });
 
   it("cancels an execution and reports NURT_E_CANCELLED from wait", async () => {
     await withClient(fakeServe(), async (client) => {
+      await client.info();
       const execution = client.start(`delay ${LONG_MS} x`);
       await delay(SETTLE_MS);
       execution.cancel();
@@ -54,6 +59,7 @@ describe("cancellation", () => {
 
   it("cancels an execution through the signal of start", async () => {
     await withClient(fakeServe(), async (client) => {
+      await client.info();
       const controller = new AbortController();
       const execution = client.start(`delay ${LONG_MS} x`, { signal: controller.signal });
       await delay(SETTLE_MS);

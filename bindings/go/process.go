@@ -45,15 +45,17 @@ const (
 	appErrorLast  = -32099
 )
 
-type abiVersion struct {
-	Major int `json:"major"`
-	Minor int `json:"minor"`
-}
+// Interface version as carried by nurt-rpc/1: (major << 16) | minor.
+const (
+	abiMajorShift = 16
+	abiMinorMask  = 1<<abiMajorShift - 1
+	abiRequired   = ABIMajor<<abiMajorShift | ABIMinor
+)
 
 type initializeParams struct {
 	Protocol        string          `json:"protocol"`
 	Client          clientInfo      `json:"client"`
-	ABI             abiVersion      `json:"abi"`
+	ABI             uint32          `json:"abi"`
 	Language        string          `json:"language,omitempty"`
 	Session         string          `json:"session,omitempty"`
 	ConfigOverrides json.RawMessage `json:"config_overrides,omitempty"`
@@ -71,7 +73,7 @@ type capabilities struct {
 
 type initializeResult struct {
 	Protocol string       `json:"protocol"`
-	ABI      *abiVersion  `json:"abi"`
+	ABI      *uint32      `json:"abi"`
 	Limits   serverLimits `json:"limits"`
 }
 
@@ -104,7 +106,16 @@ type helpParams struct {
 }
 
 type schemaParams struct {
-	Which string `json:"which"`
+	Name string `json:"name"`
+}
+
+type describeParams struct {
+	Subject  string `json:"subject,omitempty"`
+	Language string `json:"language,omitempty"`
+}
+
+type describeResult struct {
+	Description json.RawMessage `json:"description"`
 }
 
 type spaceParams struct {
@@ -154,7 +165,7 @@ func newProcessBackend(ctx context.Context, opts ClientOptions, h host) (*proces
 		init: initializeParams{
 			Protocol:        protocolName,
 			Client:          clientInfo{Name: clientName, Version: Version},
-			ABI:             abiVersion{Major: ABIMajor, Minor: ABIMinor},
+			ABI:             abiRequired,
 			Language:        opts.Language,
 			Session:         opts.Session,
 			ConfigOverrides: opts.Config,
@@ -225,9 +236,9 @@ func (b *processBackend) spawn(ctx context.Context) (*serverProcess, error) {
 		p.kill()
 		return nil, newError(StatusABI, "nurt serve speaks protocol "+strconv.Quote(res.Protocol)+"; this module needs "+protocolName, nil)
 	}
-	if res.ABI != nil && (res.ABI.Major != ABIMajor || res.ABI.Minor < ABIMinor) {
+	if res.ABI != nil && (*res.ABI>>abiMajorShift != ABIMajor || *res.ABI&abiMinorMask < ABIMinor) {
 		p.kill()
-		return nil, newError(StatusABI, "nurt implements interface "+strconv.Itoa(res.ABI.Major)+"."+strconv.Itoa(res.ABI.Minor)+
+		return nil, newError(StatusABI, "nurt implements interface "+strconv.Itoa(int(*res.ABI>>abiMajorShift))+"."+strconv.Itoa(int(*res.ABI&abiMinorMask))+
 			"; this module needs "+strconv.Itoa(ABIMajor)+"."+strconv.Itoa(ABIMinor)+" or a later "+strconv.Itoa(ABIMajor)+".x", nil)
 	}
 	if res.Limits.MaxMessageBytes > 0 {
@@ -368,7 +379,19 @@ func (b *processBackend) page(ctx context.Context, cursor string, limit int) (js
 }
 
 func (b *processBackend) describe(ctx context.Context, q DescribeQuery) (string, error) {
-	return b.callText(ctx, "describe", q)
+	subject := q.Name
+	if subject == "" {
+		subject = q.Layer
+	}
+	var res describeResult
+	if err := b.callInto(ctx, "describe", describeParams{Subject: subject, Language: q.Language}, &res); err != nil {
+		return "", err
+	}
+	var text string
+	if json.Unmarshal(res.Description, &text) == nil {
+		return text, nil
+	}
+	return string(res.Description), nil
 }
 
 func (b *processBackend) help(ctx context.Context, topic string) (string, error) {
@@ -380,7 +403,7 @@ func (b *processBackend) catalog(ctx context.Context, what json.RawMessage) (jso
 }
 
 func (b *processBackend) schema(ctx context.Context, which string) (json.RawMessage, error) {
-	return b.call(ctx, "schema", schemaParams{Which: which})
+	return b.call(ctx, "schema", schemaParams{Name: which})
 }
 
 func (b *processBackend) history(ctx context.Context, query json.RawMessage) (json.RawMessage, error) {
@@ -495,7 +518,7 @@ func (p *serverProcess) dispatch(method string, params json.RawMessage) {
 		return
 	}
 	var head struct {
-		RequestID json.RawMessage `json:"request_id"`
+		RequestID json.RawMessage `json:"request"`
 	}
 	if err := json.Unmarshal(params, &head); err != nil {
 		return
@@ -515,8 +538,8 @@ func (p *serverProcess) dispatch(method string, params json.RawMessage) {
 	}
 }
 
-// Request identifiers are sent as numbers; a server may echo them as
-// numbers or as decimal strings.
+// Request identifiers are sent as numbers; events carry them as decimal
+// text, and a number is accepted as well.
 func parseRequestID(raw json.RawMessage) (int64, bool) {
 	if len(raw) == 0 {
 		return 0, false

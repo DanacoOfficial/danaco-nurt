@@ -32,7 +32,8 @@ public sealed class NurtClientOptions
 
     /// <summary>
     /// Configuration in the format <c>nurt-config/1</c>, applied on top of the
-    /// configuration files; <see langword="null"/> for none.
+    /// configuration files; <see langword="null"/> for none. Only the <c>library</c> backend
+    /// applies it: <c>nurt serve</c> accepts no configuration overrides in <c>initialize</c>.
     /// </summary>
     public JsonElement? Config { get; init; }
 

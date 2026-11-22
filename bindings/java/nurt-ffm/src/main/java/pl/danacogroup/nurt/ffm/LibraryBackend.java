@@ -49,6 +49,9 @@ final class LibraryBackend implements Backend {
     /** Notation variants in the order of {@code nurt_variant}, starting at 1. */
     private static final List<String> VARIANTS = List.of("a", "b", "c");
 
+    /** Subject of {@code describe} that selects the core description. */
+    private static final String CORE_SUBJECT = "core";
+
     private static final MethodHandle DELIVER;
 
     static {
@@ -232,7 +235,7 @@ final class LibraryBackend implements Backend {
             case "space" -> json(callWithBuffer(arena, library.space, "nurt_space",
                     optionalText(arena, params, "volume")), "nurt_space");
             case "schema" -> json(callWithoutEngine(arena, library.schema, "nurt_schema",
-                    text(arena, params, "which")), "nurt_schema");
+                    text(arena, params, "name")), "nurt_schema");
             case "info" -> json(callWithoutEngine(arena, library.info, "nurt_info"), "nurt_info");
             case "cancel" -> throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT,
                     "the library backend cannot cancel background jobs; use the process backend");
@@ -384,7 +387,17 @@ final class LibraryBackend implements Backend {
     }
 
     private Map<String, Object> describeSelection(Map<String, Object> params) {
-        Map<String, Object> selection = new LinkedHashMap<>(params);
+        Map<String, Object> selection = new LinkedHashMap<>();
+        Object subject = params.getOrDefault("subject", CORE_SUBJECT);
+        if (CORE_SUBJECT.equals(subject)) {
+            selection.put("layer", CORE_SUBJECT);
+        } else {
+            selection.put("layer", "group");
+            selection.put("name", subject);
+        }
+        if (params.get("language") != null) {
+            selection.put("language", params.get("language"));
+        }
         if (language != null) {
             selection.putIfAbsent("language", language);
         }

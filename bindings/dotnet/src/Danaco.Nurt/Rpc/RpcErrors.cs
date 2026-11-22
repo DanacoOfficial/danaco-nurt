@@ -29,12 +29,26 @@ internal static class RpcErrors
         _ => CallStatus.Internal,
     };
 
+    private static CallStatus? StatusByName(string? name) => name switch
+    {
+        "NURT_E_TIMEOUT" => CallStatus.Timeout,
+        "NURT_E_CANCELLED" => CallStatus.Cancelled,
+        "NURT_E_ARG" => CallStatus.InvalidArgument,
+        "NURT_E_ABI" => CallStatus.AbiMismatch,
+        "NURT_E_IO" => CallStatus.Io,
+        "NURT_E_INTERNAL" => CallStatus.Internal,
+        _ => null,
+    };
+
     public static NurtCallException ToException(JsonElement error, string method)
     {
         int code = JsonRead.Int32(error, "code") ?? InternalError;
         string message = JsonRead.String(error, "message") ?? "request failed";
         JsonElement? data = JsonRead.Property(error, "data");
-        return new NurtCallException(ToStatus(code), method + ": " + message)
+        CallStatus status = JsonRead.Property(error, "data") is { } detail && StatusByName(JsonRead.String(detail, "status")) is { } named
+            ? named
+            : ToStatus(code);
+        return new NurtCallException(status, method + ": " + message)
         {
             RpcErrorCode = code,
             Detail = data?.GetRawText(),

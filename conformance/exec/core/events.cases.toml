@@ -1,0 +1,48 @@
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "exec/core/find/events-read"
+kind = "exec"
+summary = "A read program reports exec.started with the effect read and exec.finished with the status ok, and no other event."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+program = 'find "."'
+events = [{ t = "exec.started", effect = "read" }, { t = "exec.finished", status = "ok" }]
+events_match = "exact"
+fs_after = "unchanged"
+
+[[case]]
+id = "exec/core/write/events-local"
+kind = "exec"
+summary = "A program that changes files reports exec.started with the effect local before exec.finished."
+fs_before = { entries = [] }
+program = 'write "n.txt" "new\n" mode: create'
+events = [{ t = "exec.started", effect = "local" }, { t = "exec.finished", status = "ok" }]
+fs_after = { entries = [{ path = "n.txt", type = "file", content_utf8 = "new\n" }] }
+
+[[case]]
+id = "exec/core/read/events-failed"
+kind = "exec"
+summary = "A failed program reports exec.finished with the status failed and the code of the error."
+fs_before = { entries = [] }
+program = 'read "missing.txt"'
+events = [{ t = "exec.started" }, { t = "exec.finished", status = "failed", error = "E_NOT_FOUND" }]
+fs_after = "unchanged"
+
+[[case]]
+id = "exec/core/remove/events-preview"
+kind = "exec"
+summary = "A preview reports exec.finished with the status planned and changes nothing."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+program = 'remove "a.txt"'
+options = { preview = true }
+events = [{ t = "exec.started", effect = "local" }, { t = "exec.finished", status = "planned" }]
+fs_after = "unchanged"
+
+[[case]]
+id = "exec/core/run/events-process"
+kind = "exec"
+requires = ["os:unix"]
+summary = "A program that launches another program reports exec.started with the effect process."
+fs_before = { entries = [] }
+program = 'run ["sh", "-c", "true"] cwd: "${base}"'
+events = [{ t = "exec.started", effect = "process" }, { t = "exec.finished", status = "ok" }]

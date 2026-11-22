@@ -166,7 +166,7 @@ _HunkOptional = TypedDict(
         "id": str,
         "header": str,
         "old_path": str,
-        "status": Literal["modified", "added", "deleted", "renamed", "binary"],
+        "status": Literal["modified", "added", "deleted", "renamed", "binary", "copied"],
         "binary": bool,
         "old_mode": str,
         "new_mode": str,
@@ -204,6 +204,7 @@ _ChangeOptional = TypedDict(
         "added": int,
         "removed": int,
         "replacements": int,
+        "rows_changed": int,
         "flags": List[str],
         "encoding_before": str,
         "encoding_after": str,
@@ -411,6 +412,18 @@ NotableCode = Literal[
     "excluded",
     "review_skipped",
     "checkpoint_without_index",
+    "link_loop_skipped",
+    "tls_verification_disabled",
+    "http_option_ignored",
+    "pack_without_deltas",
+    "push_status_unknown",
+    "host_key_unverified",
+    "match_exec_ignored",
+    "signing_program_ignored",
+    "credentials_in_url",
+    "limit_reached",
+    "interactive_program",
+    "opaque_script",
 ]
 
 
@@ -509,6 +522,7 @@ ErrorCode = Literal[
     "E_RENAME_CONFLICT",
     "E_NO_MATCH",
     "E_PATCH_REJECTED",
+    "E_OUT_OF_RANGE",
     "E_STALE",
     "E_ENCODING",
     "E_IO",
@@ -560,6 +574,7 @@ ErrorCode = Literal[
     "E_GIT_HUNK",
     "E_GIT_CHECKPOINT",
     "E_GIT_WORKTREE",
+    "E_GIT_CONFIG",
     "E_INTERNAL",
 ]
 

@@ -25,6 +25,9 @@ internal static unsafe partial class NativeMethods
     /// <summary>Lowest minor interface version this binding needs (<c>NURT_ABI_MINOR</c>).</summary>
     public const int AbiMinor = 0;
 
+    /// <summary>Version of the header in the form returned by <c>nurt_abi_version()</c> (<c>NURT_ABI_VERSION</c>).</summary>
+    public const uint AbiHeaderVersion = (AbiMajor << AbiMajorShift) | AbiMinor;
+
     /// <summary>Timeout of <c>nurt_exec_wait</c> that waits without limit (<c>NURT_WAIT_FOREVER</c>).</summary>
     public const uint WaitForever = uint.MaxValue;
 

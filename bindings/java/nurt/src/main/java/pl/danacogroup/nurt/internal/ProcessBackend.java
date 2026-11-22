@@ -44,6 +44,9 @@ public final class ProcessBackend implements Backend {
     /** Largest message accepted from the server, in characters. */
     static final int MAX_MESSAGE_CHARS = 64 * 1024 * 1024;
 
+    /** Interface version {@code (major << 16) | minor} announced in {@code initialize}. */
+    static final int ABI_VERSION = 1 << 16;
+
     /** Application error codes are {@code APPLICATION_ERROR_BASE - status}. */
     static final long APPLICATION_ERROR_BASE = -32000;
 
@@ -102,6 +105,7 @@ public final class ProcessBackend implements Backend {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("protocol", PROTOCOL);
         params.put("client", new LinkedHashMap<>(Map.of("name", CLIENT_NAME, "version", CLIENT_VERSION)));
+        params.put("abi", (long) ABI_VERSION);
         params.put("capabilities", new LinkedHashMap<>(Map.of("events", Boolean.TRUE)));
         if (settings.language() != null) {
             params.put("language", settings.language());
@@ -109,7 +113,7 @@ public final class ProcessBackend implements Backend {
         if (settings.session() != null) {
             params.put("session", settings.session());
         }
-        if (settings.config() != null) {
+        if (settings.config() != null && !settings.config().isEmpty()) {
             params.put("config_overrides", settings.config());
         }
         return params;
@@ -487,7 +491,7 @@ public final class ProcessBackend implements Backend {
                 if (params == null) {
                     return;
                 }
-                Long id = requestId(params.get("request_id"));
+                Long id = requestId(params.get("request"));
                 Pending target = id == null ? null : pending.get(id);
                 if (target != null && target.events != null) {
                     target.events.accept(params);

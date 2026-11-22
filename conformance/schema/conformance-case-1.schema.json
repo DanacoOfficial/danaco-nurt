@@ -25,7 +25,7 @@
     },
     "condition": {
       "type": "string",
-      "pattern": "^(os:(linux|macos|windows|unix)|feature:[a-z0-9][a-z0-9_.-]*)$"
+      "pattern": "^(os:(linux|macos|windows|unix)|feature:[a-z0-9][a-z0-9_.-]*|fixture:(http|second-volume))$"
     },
     "variant": { "enum": ["a", "b", "c"] },
     "data": {
@@ -46,11 +46,38 @@
         "volatile": { "type": "array", "items": { "type": "string", "pattern": "^(/([^~]|~[01])*)*$" } },
         "config": { "type": "string", "minLength": 1 },
         "fs_before": { "$ref": "#/$defs/data" },
+        "second_volume_before": {
+          "description": "Initial state of the directory of the case on the second volume; requires fixture:second-volume.",
+          "$ref": "#/$defs/data"
+        },
+        "http_files": {
+          "description": "Snapshot whose files the local HTTP server serves below /files/; requires fixture:http.",
+          "$ref": "#/$defs/data"
+        },
         "step": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/step" } }
       },
       "required": ["id", "kind", "summary"],
-      "if": { "properties": { "kind": { "const": "error" } }, "required": ["kind"] },
-      "then": { "required": ["code"] }
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "error" } }, "required": ["kind"] },
+          "then": { "required": ["code"] }
+        },
+        {
+          "if": { "required": ["second_volume_before"] },
+          "then": { "$ref": "#/$defs/needsSecondVolume" }
+        },
+        {
+          "if": { "required": ["http_files"] },
+          "then": {
+            "required": ["requires"],
+            "properties": { "requires": { "contains": { "const": "fixture:http" } } }
+          }
+        }
+      ]
+    },
+    "needsSecondVolume": {
+      "required": ["requires"],
+      "properties": { "requires": { "contains": { "const": "fixture:second-volume" } } }
     },
     "stepMembers": {
       "properties": {
@@ -67,8 +94,24 @@
         "validate": {
           "enum": ["ast", "bound", "report", "request", "config", "catalog", "value", "tool", "metaschema"]
         },
-        "fs_after": { "$ref": "#/$defs/data" }
-      }
+        "fs_after": { "$ref": "#/$defs/data" },
+        "absent": {
+          "description": "Pointer patterns into the result at which no value may exist; * matches any member or index.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^(/([^~]|~[01])*)+$" }
+        },
+        "events": {
+          "description": "Expected events nurt/event of the call; each is compared with a received event as a subset.",
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "events_match": { "enum": ["ordered", "exact"], "default": "ordered" },
+        "second_volume_after": {
+          "description": "Expected state of the directory of the case on the second volume after the call.",
+          "$ref": "#/$defs/data"
+        }
+      },
+      "dependentRequired": { "events_match": ["events"] }
     },
     "step": {
       "type": "object",
@@ -92,7 +135,10 @@
               { "required": ["params"] },
               { "required": ["expect"] },
               { "required": ["expect_error"] },
-              { "required": ["fs_after"] }
+              { "required": ["fs_after"] },
+              { "required": ["absent"] },
+              { "required": ["events"] },
+              { "required": ["second_volume_after"] }
             ]
           }
         }

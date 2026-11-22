@@ -108,6 +108,38 @@ jobs:
           NURT_CONFORMANCE_EXECUTABLE: ${{ github.workspace }}/target/debug/nurt-conformance
         run: node --test test/conformance.test.mjs
 
+  addon:
+    name: addon (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the Rust toolchain of rust-toolchain.toml
+        working-directory: .
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Build the addon
+        working-directory: .
+        run: cargo build --locked --release -p nurt-node
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund --ignore-scripts
+      - run: npm run build
+      - name: Test the library backend with the built addon
+        env:
+          ADDON_DIRECTORY: ${{ github.workspace }}/target/release
+        run: |
+          case "$RUNNER_OS" in
+            Windows) built="$ADDON_DIRECTORY/nurt_node.dll" ;;
+            macOS) built="$ADDON_DIRECTORY/libnurt_node.dylib" ;;
+            *) built="$ADDON_DIRECTORY/libnurt_node.so" ;;
+          esac
+          cp "$built" "$RUNNER_TEMP/nurt.node"
+          NURT_LIBRARY="$RUNNER_TEMP/nurt.node" node test/addon-smoke.mjs
+
   pack:
     needs: [test, runtimes]
     runs-on: ubuntu-latest

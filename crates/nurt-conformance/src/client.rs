@@ -16,6 +16,7 @@ use serde_json::Value;
 
 use crate::Error;
 use crate::protocol::{self, method};
+use crate::schemas::SchemaSet;
 
 /// Error of a call.
 #[derive(Debug, Clone, PartialEq)]
@@ -59,6 +60,13 @@ pub trait Connection {
     /// Returns the JSON-RPC error of the server or a failure of the
     /// connection.
     fn call(&mut self, method: &str, params: &Value) -> Result<Value, CallError>;
+
+    /// Returns the parameters of the notifications `nurt/event` received
+    /// since the previous call of this method, in the order of arrival, and
+    /// forgets them. A connection without events returns none.
+    fn take_events(&mut self) -> Vec<Value> {
+        Vec::new()
+    }
 }
 
 /// Command line that starts a server.
@@ -276,6 +284,15 @@ impl ProcessConnection {
                     ));
                 }
             };
+            SchemaSet::shared()
+                .map_err(|error| CallError::Protocol(error.to_string()))?
+                .validate_message(&message)
+                .map_err(|errors| {
+                    CallError::Protocol(format!(
+                        "message does not follow nurt-rpc/1: {}: {message}",
+                        errors.join("; ")
+                    ))
+                })?;
             if message.get("method").and_then(Value::as_str) == Some(method::EVENT) {
                 self.events
                     .push(message.get("params").cloned().unwrap_or(Value::Null));
@@ -330,6 +347,10 @@ impl Connection for ProcessConnection {
             .and_then(|()| stdin.flush())
             .map_err(|error| CallError::Transport(format!("cannot write a request: {error}")))?;
         self.receive(id)
+    }
+
+    fn take_events(&mut self) -> Vec<Value> {
+        std::mem::take(&mut self.events)
     }
 }
 

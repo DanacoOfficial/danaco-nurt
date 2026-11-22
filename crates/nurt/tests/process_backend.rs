@@ -65,6 +65,9 @@ impl Peer {
     }
 }
 
+/// Interface version `(major << 16) | minor` the server reports.
+const ABI: u64 = 1 << 16;
+
 type Handler = Arc<dyn Fn(&Value, &Peer) + Send + Sync>;
 
 /// Server answering `initialize` with `protocol` and every other request
@@ -72,6 +75,7 @@ type Handler = Arc<dyn Fn(&Value, &Peer) + Send + Sync>;
 struct Server {
     handler: Handler,
     protocol: &'static str,
+    abi: Option<u64>,
     received: Arc<Mutex<Vec<Value>>>,
     connections: Arc<AtomicUsize>,
 }
@@ -81,6 +85,7 @@ impl Server {
         Self {
             handler: Arc::new(handler),
             protocol: "nurt-rpc/1",
+            abi: Some(ABI),
             received: Arc::default(),
             connections: Arc::default(),
         }
@@ -88,6 +93,11 @@ impl Server {
 
     fn with_protocol(mut self, protocol: &'static str) -> Self {
         self.protocol = protocol;
+        self
+    }
+
+    fn with_abi(mut self, abi: Option<u64>) -> Self {
+        self.abi = abi;
         self
     }
 
@@ -112,6 +122,7 @@ impl Server {
         let handler = Arc::clone(&self.handler);
         let received = Arc::clone(&self.received);
         let protocol = self.protocol;
+        let abi = self.abi;
         self.connections.fetch_add(1, Ordering::SeqCst);
         thread::spawn(move || {
             for line in BufReader::new(server_reader).lines() {
@@ -121,7 +132,12 @@ impl Server {
                 match request["method"].as_str() {
                     Some("initialize") => peer.reply(
                         &request,
-                        json!({"protocol": protocol, "version": "0.1.0", "features": []}),
+                        json!({
+                            "protocol": protocol,
+                            "version": "0.1.0",
+                            "abi": abi,
+                            "features": []
+                        }),
                     ),
                     Some("shutdown") => {
                         peer.reply(&request, json!({}));
@@ -183,19 +199,17 @@ fn initialize_negotiates_protocol_and_settings() {
             Nurt::builder()
                 .language(Language::En)
                 .session("s-7")
-                .config(json!({"limits": {"limit": 10}})),
+                .config(json!({})),
         )
         .unwrap();
     let initialize = received.lock().unwrap()[0].clone();
     assert_eq!(initialize["method"], "initialize");
     assert_eq!(initialize["params"]["protocol"], "nurt-rpc/1");
+    assert_eq!(initialize["params"]["abi"], ABI);
     assert_eq!(initialize["params"]["capabilities"]["events"], true);
     assert_eq!(initialize["params"]["language"], "en");
     assert_eq!(initialize["params"]["session"], "s-7");
-    assert_eq!(
-        initialize["params"]["config_overrides"]["limits"]["limit"],
-        10
-    );
+    assert_eq!(initialize["params"]["config_overrides"], json!({}));
     drop(nurt);
 }
 
@@ -212,6 +226,26 @@ fn other_major_version_of_the_protocol_is_rejected() {
     assert_eq!(error.kind(), ErrorKind::Incompatible);
     assert_eq!(error.status(), Status::Abi);
     assert!(error.message().contains("nurt-rpc/2"));
+}
+
+#[test]
+fn other_major_version_of_the_interface_is_rejected() {
+    let server = Server::new(|_, _| {}).with_abi(Some(2 << 16));
+    let error = server.connect(Nurt::builder()).unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Incompatible);
+    let server = Server::new(|_, _| {}).with_abi(None);
+    assert!(server.connect(Nurt::builder()).is_ok());
+}
+
+#[test]
+fn configuration_other_than_an_empty_object_is_rejected() {
+    let server = Server::new(|_, _| {});
+    let received = server.received();
+    let error = server
+        .connect(Nurt::builder().config(json!({"limits": {"limit": 10}})))
+        .unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::InvalidArgument);
+    assert!(received.lock().unwrap().is_empty());
 }
 
 #[test]
@@ -297,11 +331,11 @@ fn concurrent_requests_are_matched_by_id() {
 fn events_reach_their_execution_in_order_and_others_reach_the_listener() {
     let server = Server::new(|request, peer| {
         let id = request["id"].clone();
-        peer.event(json!({"t": "job.output", "seq": 0, "job_id": "j-1"}));
+        peer.event(json!({"t": "job.output", "seq": 1, "request": null, "id": "j-1"}));
         for seq in 1..=3 {
-            peer.event(json!({"t": "exec.progress", "seq": seq, "request_id": id}));
+            peer.event(json!({"t": "progress", "seq": seq, "request": id.to_string()}));
         }
-        peer.event(json!({"t": "exec.finished", "seq": 4, "request_id": id.to_string()}));
+        peer.event(json!({"t": "exec.finished", "seq": 4, "request": id.to_string()}));
         peer.reply(request, envelope(report("ok")));
     });
     let (sender, outside) = mpsc::channel();
@@ -319,9 +353,9 @@ fn events_reach_their_execution_in_order_and_others_reach_the_listener() {
     assert_eq!(
         seen,
         [
-            ("exec.progress".to_owned(), Some(1)),
-            ("exec.progress".to_owned(), Some(2)),
-            ("exec.progress".to_owned(), Some(3)),
+            ("progress".to_owned(), Some(1)),
+            ("progress".to_owned(), Some(2)),
+            ("progress".to_owned(), Some(3)),
             ("exec.finished".to_owned(), Some(4)),
         ]
     );
@@ -470,14 +504,15 @@ fn close_shuts_the_server_down() {
     assert_eq!(methods(&received), ["initialize", "shutdown"]);
 }
 
-/// Client of a server that answers text methods with `method:params`,
-/// `page` with an empty report and other methods with their name and
-/// parameters.
+/// Client of a server that answers `print` and `help` with `{text}`,
+/// `describe` with `{description}` (`method:params`), `page` with an empty
+/// report and other methods with their name and parameters.
 fn echo_server() -> (Nurt, Arc<Mutex<Vec<Value>>>) {
     let server = Server::new(|request, peer| {
         let method = request["method"].as_str().unwrap_or_default();
         let result = match method {
-            "print" | "describe" | "help" => json!(format!("{method}:{}", request["params"])),
+            "print" | "help" => json!({"text": format!("{method}:{}", request["params"])}),
+            "describe" => json!({"description": format!("{method}:{}", request["params"])}),
             "page" => envelope(report("ok")),
             _ => json!({"method": method, "params": request["params"]}),
         };
@@ -521,15 +556,15 @@ fn language_methods_send_program_tree_and_variant() -> Result<(), Error> {
 }
 
 #[test]
-fn text_methods_send_layer_topic_and_language() -> Result<(), Error> {
+fn text_methods_send_subject_topic_and_language() -> Result<(), Error> {
     let (nurt, _) = echo_server();
     assert_eq!(
         nurt.describe(Describe::Core, None)?,
-        r#"describe:{"layer":"core"}"#
+        r#"describe:{"subject":"core"}"#
     );
     assert_eq!(
         nurt.describe(Describe::Group("git"), Some(Language::Pl))?,
-        r#"describe:{"layer":"group","name":"git","language":"pl"}"#
+        r#"describe:{"subject":"git","language":"pl"}"#
     );
     assert_eq!(nurt.help(None)?, "help:{}");
     assert_eq!(nurt.help(Some("lists"))?, r#"help:{"topic":"lists"}"#);
@@ -544,7 +579,7 @@ fn data_methods_send_their_selection() -> Result<(), Error> {
         nurt.catalog(Some(&json!({"group": "git"})))?["params"],
         json!({"group": "git"})
     );
-    assert_eq!(nurt.schema("report")?["params"], json!({"which": "report"}));
+    assert_eq!(nurt.schema("report")?["params"], json!({"name": "report"}));
     assert_eq!(nurt.history(None)?["params"], json!({}));
     assert_eq!(
         nurt.history(Some(&json!({"limit": 3})))?["params"],
@@ -577,10 +612,26 @@ fn page_and_job_cancellation_send_cursor_limit_and_job() -> Result<(), Error> {
 }
 
 #[test]
+fn describe_returns_structured_descriptions_as_json_text() {
+    let server = Server::new(|request, peer| {
+        peer.reply(request, json!({"description": {"rules": ["r1"]}}));
+    });
+    let nurt = server.connect(Nurt::builder()).unwrap();
+    assert_eq!(
+        nurt.describe(Describe::Core, None).unwrap(),
+        r#"{"rules":["r1"]}"#
+    );
+}
+
+#[test]
 fn text_method_with_non_text_result_is_a_protocol_error() {
-    let server = Server::new(|request, peer| peer.reply(request, json!({"text": "help"})));
+    let server = Server::new(|request, peer| peer.reply(request, json!("help")));
     let nurt = server.connect(Nurt::builder()).unwrap();
     assert_eq!(nurt.help(None).unwrap_err().kind(), ErrorKind::Protocol);
+    assert_eq!(
+        nurt.describe(Describe::Core, None).unwrap_err().kind(),
+        ErrorKind::Protocol
+    );
 }
 
 #[test]

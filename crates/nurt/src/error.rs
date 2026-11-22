@@ -124,6 +124,9 @@ pub enum ErrorKind {
     Disconnected,
     /// The server sent a message that breaks the protocol.
     Protocol,
+    /// A call that returns no report failed with a language error; the
+    /// stable `E_*` code is available from [`Error::code`].
+    Language,
 }
 
 impl ErrorKind {
@@ -131,7 +134,8 @@ impl ErrorKind {
     ///
     /// Kinds without their own status map to the nearest one: a missing
     /// executable and a closed connection to [`Status::Io`], a broken
-    /// protocol to [`Status::Internal`].
+    /// protocol to [`Status::Internal`] and a language error to
+    /// [`Status::InvalidArgument`].
     #[must_use]
     pub const fn status(self) -> Status {
         match self {
@@ -141,6 +145,7 @@ impl ErrorKind {
             Self::Incompatible => Status::Abi,
             Self::Io | Self::NotFound | Self::Disconnected => Status::Io,
             Self::Internal | Self::Protocol => Status::Internal,
+            Self::Language => Status::InvalidArgument,
         }
     }
 
@@ -173,6 +178,7 @@ impl ErrorKind {
 pub struct Error {
     kind: ErrorKind,
     message: String,
+    code: Option<String>,
 }
 
 impl Error {
@@ -182,6 +188,18 @@ impl Error {
         Self {
             kind,
             message: message.into(),
+            code: None,
+        }
+    }
+
+    /// Error of kind [`ErrorKind::Language`] with the stable code of the
+    /// language error, for example `E_SYNTAX`.
+    #[must_use]
+    pub fn language(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            kind: ErrorKind::Language,
+            message: message.into(),
+            code: Some(code.into()),
         }
     }
 
@@ -201,6 +219,12 @@ impl Error {
     #[must_use]
     pub fn message(&self) -> &str {
         &self.message
+    }
+
+    /// Stable `E_*` code of the language error; `None` for other kinds.
+    #[must_use]
+    pub fn code(&self) -> Option<&str> {
+        self.code.as_deref()
     }
 }
 
@@ -256,6 +280,16 @@ mod tests {
         assert_eq!(ErrorKind::NotFound.status(), Status::Io);
         assert_eq!(ErrorKind::Disconnected.status(), Status::Io);
         assert_eq!(ErrorKind::Protocol.status(), Status::Internal);
+        assert_eq!(ErrorKind::Language.status(), Status::InvalidArgument);
+    }
+
+    #[test]
+    fn language_error_keeps_its_code() {
+        let error = Error::language("E_SYNTAX", "unclosed list");
+        assert_eq!(error.kind(), ErrorKind::Language);
+        assert_eq!(error.code(), Some("E_SYNTAX"));
+        assert_eq!(error.to_string(), "unclosed list");
+        assert_eq!(Error::new(ErrorKind::Io, "m").code(), None);
     }
 
     #[test]

@@ -7,10 +7,15 @@
 where every change can be undone. This package is the Node.js client and
 command-line launcher.
 
-The package runs `nurt serve --stdio` as a child process and speaks the
-`nurt-rpc/1` protocol with it. It has no run-time dependencies and works in
-Node.js 18 or later, Bun and Deno (through `npm:` specifiers). The `nurt`
-executable comes from a platform package installed as an optional dependency.
+The package has two backends. The `library` backend loads the Node-API addon
+`nurt.node` into the process and calls the engine directly. The `process`
+backend runs `nurt serve --stdio` as a child process and speaks the `nurt-rpc/1`
+protocol with it. By default (`auto`) the library is used when an addon is
+found and loads, and the process otherwise. The package has no run-time
+dependencies and works in Node.js 18 or later, Bun and Deno (through `npm:`
+specifiers; the library backend needs a runtime that supports Node-API). The
+`nurt` executable and the addon come from a platform package installed as an
+optional dependency.
 
 ## Installation
 
@@ -20,7 +25,7 @@ npm install nurt
 
 Supported platforms: Linux x64 and arm64 (glibc and musl), macOS x64 and
 arm64, Windows x64 and arm64. On other platforms, set `NURT_EXECUTABLE` to the
-path of a `nurt` executable.
+path of a `nurt` executable, or `NURT_LIBRARY` to the path of an addon.
 
 ## Usage
 
@@ -63,16 +68,21 @@ thrown as `NurtError` with `status` set to a name from `nurt.h`
 
 | Option | Type | Default |
 |---|---|---|
-| `backend` | `"auto" \| "process"` | `"auto"` (the process backend) |
+| `backend` | `"auto" \| "library" \| "process"` | `"auto"` |
+| `library` | `string` | `NURT_LIBRARY`, then the platform package (`bin/nurt.node`) |
 | `executable` | `string` | `NURT_EXECUTABLE`, then the platform package, then `PATH` |
 | `args` | `string[]` | `["serve", "--stdio"]` |
-| `config` | `Config` (`nurt-config/1`) | none |
+| `config` | `Config` (`nurt-config/1`); not supported by the `library` backend | none |
 | `session` | `string` | none |
 | `language` | `"en" \| "pl"` | `"en"` |
 | `env` | `Record<string, string>` | added to the environment of the server |
 | `cwd` | `string` | current directory |
 
-When the server exits unexpectedly, the calls in progress fail with
+With the `library` backend `cwd` and `args` do not apply, `env` supplies only
+`NURT_LIBRARY`, and the calls run on the worker threads of the addon. `close()`
+cancels the calls in progress.
+
+When the server process exits unexpectedly, the calls in progress fail with
 `NURT_E_INTERNAL`, the client emits `exit`, and the next call starts a new
 server.
 

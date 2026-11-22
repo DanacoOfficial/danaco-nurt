@@ -8,6 +8,6 @@ namespace Danaco.Nurt;
 
 internal sealed class SchemaParams
 {
-    [JsonPropertyName("which")]
+    [JsonPropertyName("name")]
     public string Which { get; set; } = string.Empty;
 }

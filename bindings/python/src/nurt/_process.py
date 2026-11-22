@@ -227,8 +227,9 @@ class _Connection:
         params = message.get("params")
         if not isinstance(params, dict):
             return
+        request = params.get("request")
         with self._lock:
-            pending = self._pending.get(params.get("request_id"))  # type: ignore[arg-type]
+            pending = self._pending.get(int(request)) if isinstance(request, str) and request.isdigit() else None
         if pending is not None and pending.execution is not None:
             pending.execution.deliver(params)
 
@@ -467,7 +468,14 @@ class ProcessBackend(Backend):
         return self._object("page", params)
 
     def describe(self, what: Mapping[str, Any]) -> str:
-        return self._text("describe", what)
+        params: Dict[str, Any] = {"subject": what.get("name") or what.get("layer") or "core"}
+        if "language" in what:
+            params["language"] = what["language"]
+        result = self._object("describe", params)
+        text = result.get("description")
+        if not isinstance(text, str):
+            raise NurtError("NURT_E_INTERNAL", "invalid result of describe")
+        return text
 
     def help(self, topic: Optional[str]) -> str:
         return self._text("help", {} if topic is None else {"topic": topic})
@@ -476,7 +484,7 @@ class ProcessBackend(Backend):
         return self._object("catalog", {} if what is None else {"what": dict(what)})
 
     def schema(self, which: str) -> Json:
-        return self._object("schema", {"which": which})
+        return self._object("schema", {"name": which})
 
     def history(self, query: Any) -> Json:
         return self._object("history", {} if query is None else {"query": query})

@@ -5,8 +5,8 @@
 
 Danaco Nurt is a command shell and language where every change can be undone. The crate is the Rust interface.
 
-The crate runs programs of the Nurt command language through a `nurt serve`
-process and returns their effect reports.
+The crate runs programs of the Nurt command language and returns their effect
+reports.
 
 ## Installation
 
@@ -15,7 +15,13 @@ process and returns their effect reports.
 nurt = "0.1"
 ```
 
-The client starts the `nurt` executable named by `Builder::executable`, by the
+Two backends are available as Cargo features. `embedded` (default) runs the
+engine inside the calling process through `Embedded`. `process` (default)
+talks to a `nurt serve` process through `Nurt` and depends only on
+`serde_json`; an application that needs only that client uses
+`default-features = false, features = ["process"]`.
+
+The process client starts the `nurt` executable named by `Builder::executable`, by the
 `NURT_EXECUTABLE` environment variable or found in `PATH`.
 
 ## Usage

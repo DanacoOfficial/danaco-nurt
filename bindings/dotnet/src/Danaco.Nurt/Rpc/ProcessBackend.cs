@@ -3,7 +3,6 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 
 using System;
-using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -77,7 +76,12 @@ internal sealed class ProcessBackend : IBackend
 
     public async Task<string> DescribeAsync(DescribeParams selector, CancellationToken cancellationToken)
     {
-        byte[] parameters = JsonSerializer.SerializeToUtf8Bytes(selector, WireJsonContext.Default.DescribeParams);
+        var subject = new DescribeSubjectParams
+        {
+            Subject = selector.Layer == "core" ? "core" : selector.Name ?? "core",
+            Language = selector.Language,
+        };
+        byte[] parameters = JsonSerializer.SerializeToUtf8Bytes(subject, WireJsonContext.Default.DescribeSubjectParams);
         return Text(await CallAsync("describe", parameters, cancellationToken).ConfigureAwait(false), "describe");
     }
 
@@ -88,13 +92,13 @@ internal sealed class ProcessBackend : IBackend
     }
 
     public Task<JsonElement> CatalogAsync(JsonElement? what, CancellationToken cancellationToken) =>
-        CallAsync("catalog", Named("what", what), cancellationToken);
+        CallAsync("catalog", Members(what), cancellationToken);
 
     public Task<JsonElement> SchemaAsync(string which, CancellationToken cancellationToken) =>
         CallAsync("schema", JsonSerializer.SerializeToUtf8Bytes(new SchemaParams { Which = which }, WireJsonContext.Default.SchemaParams), cancellationToken);
 
     public Task<JsonElement> HistoryAsync(JsonElement? query, CancellationToken cancellationToken) =>
-        CallAsync("history", Named("query", query), cancellationToken);
+        CallAsync("history", Members(query), cancellationToken);
 
     public Task<JsonElement> SpaceAsync(string? volume, CancellationToken cancellationToken) =>
         CallAsync("space", JsonSerializer.SerializeToUtf8Bytes(new SpaceParams { Volume = volume }, WireJsonContext.Default.SpaceParams), cancellationToken);
@@ -118,30 +122,14 @@ internal sealed class ProcessBackend : IBackend
     private static byte[] Serialize(SyntaxParams parameters) =>
         JsonSerializer.SerializeToUtf8Bytes(parameters, WireJsonContext.Default.SyntaxParams);
 
-    /// <summary>Writes the parameters <c>{"name": value}</c>; no parameters when the value is absent.</summary>
-    private static byte[]? Named(string name, JsonElement? value)
-    {
-        if (value is not { } present)
-        {
-            return null;
-        }
+    /// <summary>Uses the selector object as the parameters; no parameters when it is absent.</summary>
+    private static byte[]? Members(JsonElement? value) =>
+        value is { } present ? WireFormat.Compact(present) : null;
 
-        using var stream = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream))
-        {
-            writer.WriteStartObject();
-            writer.WritePropertyName(name);
-            present.WriteTo(writer);
-            writer.WriteEndObject();
-        }
-
-        return stream.ToArray();
-    }
-
-    /// <summary>Reads a text result, given either as a JSON string or as an object with the member <c>text</c>.</summary>
+    /// <summary>Reads a text result: an object with the member <c>text</c> or <c>description</c>, or a JSON string.</summary>
     private static string Text(JsonElement result, string method) => result.ValueKind == JsonValueKind.String
         ? result.GetString()!
-        : JsonRead.String(result, "text") ?? throw new NurtCallException(CallStatus.Internal, method + ": result carries no text");
+        : JsonRead.String(result, "text") ?? JsonRead.String(result, "description") ?? throw new NurtCallException(CallStatus.Internal, method + ": result carries no text");
 
     private async Task<JsonElement> CallAsync(string method, byte[]? parameters, CancellationToken cancellationToken)
     {

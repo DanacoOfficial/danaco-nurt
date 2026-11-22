@@ -57,7 +57,7 @@ internal sealed class LibraryBackend : IBackend
 
         int major = (int)(version >> NativeMethods.AbiMajorShift);
         int minor = (int)(version & NativeMethods.AbiMinorMask);
-        if (major != NativeMethods.AbiMajor || minor < NativeMethods.AbiMinor)
+        if (NativeMethods.AbiCheck(NativeMethods.AbiHeaderVersion) != CallStatus.Ok)
         {
             throw new NurtCallException(
                 CallStatus.AbiMismatch,

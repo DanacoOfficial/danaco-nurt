@@ -39,8 +39,8 @@ pub const FORMAT: &str = "nurt-fs-snapshot/1";
 /// Separator of path segments in snapshots.
 const SEPARATOR: char = '/';
 
-/// Length of a mode in octal without and with the special bits.
-const MODE_DIGITS: [usize; 2] = [4, 5];
+/// Number of octal digits of a mode.
+const MODE_DIGITS: usize = 4;
 
 /// Permission bits that a mode may hold.
 const MODE_MASK: u32 = 0o7777;
@@ -178,7 +178,7 @@ impl Entry {
         let Some(mode) = &self.mode else {
             return Ok(None);
         };
-        let valid = MODE_DIGITS.contains(&mode.len()) && mode.starts_with('0');
+        let valid = mode.len() == MODE_DIGITS && mode.bytes().all(|b| (b'0'..=b'7').contains(&b));
         match u32::from_str_radix(mode, 8) {
             Ok(bits) if valid && bits <= MODE_MASK => Ok(Some(bits)),
             _ => Err(self.invalid(format!(
@@ -559,7 +559,7 @@ impl Actual {
             EntryType::Symlink => Entry::symlink(path, self.target.unwrap_or_default()),
         };
         if modes && self.kind != EntryType::Symlink {
-            entry.mode = self.mode.map(|mode| format!("0{mode:o}"));
+            entry.mode = self.mode.map(|mode| format!("{mode:04o}"));
         }
         if mtimes && self.kind == EntryType::File {
             entry.mtime = self.mtime.map(|mtime| mtime.to_string());

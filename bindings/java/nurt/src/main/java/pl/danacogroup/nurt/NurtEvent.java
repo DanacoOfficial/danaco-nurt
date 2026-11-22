@@ -44,12 +44,12 @@ public final class NurtEvent {
     }
 
     /**
-     * Identifier of the background job the event belongs to.
+     * Identifier of the background job a {@code job.*} event belongs to.
      *
      * @return the identifier
      */
     public Optional<String> jobId() {
-        return Optional.ofNullable(Json.string(value, "job_id"));
+        return Optional.ofNullable(kind().startsWith("job.") ? Json.string(value, "id") : null);
     }
 
     /**

@@ -30,6 +30,7 @@ BELOW_RESERVE = "../exec/config/below-reserve.toml"
 OP_SIZE_LIMIT = "../exec/config/op-size-limit.toml"
 SIZE_BUDGET = "../exec/config/size-budget.toml"
 SIZE_BUDGET_KEEP = "../exec/config/size-budget-keep.toml"
+VOLUME_MAX_SIZE = "../exec/config/volume-max-size.toml"
 BIG = "x" * 4095 + "\n"
 """File content above the size limits of 1 KiB set by the configurations of the size cases."""
 HALF_BUDGET = "y" * 699 + "\n"
@@ -41,17 +42,7 @@ NEW_TIME = "2026-01-01T00:00:00Z"
 
 PENDING_ROWS = {
     "write-data": "the language has no literal of type bytes, so a program cannot state the bytes of the parameter data",
-    "move-cross-volume": "the runner provides a single volume for the work directory",
-    "create-temporary": "the temporary directory of the system lies outside the work directory and is often "
-                        "memory-backed, where the journal is inactive",
     "analyze.format-in-place": "the in-place mode is chosen by the formatter, not by the program",
-    "http.request-save": "the runner provides no HTTP fixture",
-    "http.request-post": "the runner provides no HTTP fixture",
-    "http.request-put": "the runner provides no HTTP fixture",
-    "http.request-patch": "the runner provides no HTTP fixture",
-    "http.request-delete": "the runner provides no HTTP fixture",
-    "http.request-options": "the runner provides no HTTP fixture",
-    "http.download": "the runner provides no HTTP fixture",
 }
 """Coverage rows without a case, with the precondition the suite cannot yet establish."""
 
@@ -123,10 +114,18 @@ def irreversible(kind: str, *reasons: str) -> dict:
 
 UNDONE = ok("undo")
 
+NO_JOURNAL_MEMBERS = [f"/report/{name}" for name in (
+    "irreversible", "expires", "expires_at", "expiry", "undoable", "reversible", "journal")]
+"""Members the report of a change or an undo never has: it states nothing about the journal."""
+NO_EXPIRY_FIELDS = [f"/report/records/rows/*/fields/{name}" for name in (
+    "expires", "expires_at", "expiry", "ttl", "remaining")]
+"""Fields the records of `history` never have: the journal state is shown by `state` alone."""
+
 
 def call(program: str | None = None, *, report: dict | None = None, after: object = None,
          method: str | None = None, params: dict | None = None, options: dict | None = None,
-         expect_at: str | None = None, validate: str | None = None, expect: dict | None = None) -> dict:
+         expect_at: str | None = None, validate: str | None = None, expect: dict | None = None,
+         absent: list[str] | None = None, second_after: object = None) -> dict:
     """Returns one step of a case."""
     out: dict = {}
     if method is not None:
@@ -147,6 +146,10 @@ def call(program: str | None = None, *, report: dict | None = None, after: objec
         out["validate"] = validate
     if after is not None:
         out["fs_after"] = after
+    if second_after is not None:
+        out["second_volume_after"] = second_after
+    if absent is not None:
+        out["absent"] = absent
     return out
 
 
@@ -194,9 +197,11 @@ class Coverage:
                    steps=[call(program, report=ok(kind), after=after), undo(1, before)])
 
     def steps(self, key: str, summary: str, before: dict, steps: list[dict],
-              requires: tuple[str, ...] = (), config: str | None = None, feature: str = JOURNAL) -> None:
-        """Adds a case with explicit steps."""
-        self.c.add(key, summary, before, feature=feature, requires=requires, config=config, steps=steps)
+              requires: tuple[str, ...] = (), config: str | None = None, feature: str = JOURNAL,
+              extra: dict | None = None) -> None:
+        """Adds a case with explicit steps; `extra` holds further members of the case header."""
+        self.c.add(key, summary, before, feature=feature, requires=requires, config=config, steps=steps,
+                   extra=extra)
 
     def marked(self, key: str, summary: str, program: str, kind: str, reason: str,
                requires: tuple[str, ...] = ()) -> None:
@@ -291,6 +296,15 @@ def core_rows(b: Coverage) -> None:
         call(f'jobs "{job(1)}" wait: 10s'),
         call(f'jobs "{job(1)}" |> remove', report=irreversible("remove", "job_output_removed")),
     ], requires=unix)
+    b.steps("move-cross-volume", "Undo of a move to another volume restores the file on both volumes.", text, [
+        call('move "a.txt" to: "${second_volume}/a.txt"', report=ok("move"), after=changed(TEXT, a_dot_txt=REMOVED),
+             second_after=tree({"a.txt": TEXT["a.txt"]})),
+        call(f"undo {op(1)}", report=UNDONE, after=text, second_after=tree({})),
+    ], requires=("fixture:second-volume",), extra={"second_volume_before": tree({})})
+    b.steps("create-temporary", "Undo of a created temporary file removes it.", text, [
+        call('create "${base}" temporary: true type: file', report=ok("create")),
+        undo(1, text),
+    ])
     b.reversible("rename", "Undo of a rename restores the old name.", text, 'rename path: "b.txt" to: "r.txt"', "rename",
                  changed(TEXT, b_dot_txt=REMOVED, r_dot_txt="bravo\n"))
     b.reversible("create-file", "Undo of a created file removes it.", text, 'create "n.txt" type: file', "create",
@@ -437,6 +451,30 @@ def group_rows(b: Coverage) -> None:
                  command, "package_changed", requires=("feature:packages",))
 
 
+def network_rows(b: Coverage) -> None:
+    """Rows of the group network, served by the local HTTP server of the runner."""
+    http = ("fixture:http",)
+    served = {"http_files": tree({"a.txt": "served\n"})}
+    text = tree(TEXT)
+    b.steps("http.request-save", "Undo of a saved response removes the saved file.", text, [
+        call('http.request "${http_base}/files/a.txt" save: "out.txt"', report=ok("http.request"),
+             after=changed(TEXT, out_dot_txt="served\n")),
+        undo(1, text),
+    ], requires=http, extra=served)
+    b.steps("http.download", "Undo of a download removes the downloaded file.", text, [
+        call('http.download "${http_base}/files/a.txt" "d.txt"', report=ok("http.download"),
+             after=changed(TEXT, d_dot_txt="served\n")),
+        undo(1, text),
+    ], requires=http, extra=served)
+    for method, body in (("post", ' json: {name: "a"}'), ("put", ' json: {name: "a"}'),
+                         ("patch", ' json: {name: "a"}'), ("delete", ""), ("options", "")):
+        b.steps(f"http.request-{method}", f"A {method} request is reported as irreversible and changes no file.",
+                text, [
+                    call(f'http.request "${{http_base}}/echo/item" method: {method}{body}',
+                         report=irreversible("http.request", "network"), after=UNCHANGED),
+                ], requires=http)
+
+
 def schedule_and_tool_rows(b: Coverage) -> None:
     """Rows of the groups schedule, journal and verify."""
     empty = tree({})
@@ -531,6 +569,7 @@ def coverage() -> Collection:
     b = Coverage()
     core_rows(b)
     group_rows(b)
+    network_rows(b)
     schedule_and_tool_rows(b)
     return b.c
 
@@ -713,18 +752,18 @@ def history_semantics(c: Collection) -> None:
     c.add("no-expiry-in-change-report", "The report of a change has the operation number and no expiry member.",
           text, feature=JOURNAL, steps=[
               call('remove "b.txt"', expect={"status": "ok", "op": "<volatile>"}, expect_at="/report",
-                   validate="report", after=changed(TEXT, b_dot_txt=REMOVED)),
+                   validate="report", after=changed(TEXT, b_dot_txt=REMOVED), absent=NO_JOURNAL_MEMBERS),
           ])
     c.add("no-expiry-in-undo-report", "The report of an undo has no expiry member.", text, feature=JOURNAL, steps=[
         call('remove "b.txt"', report=ok("remove")),
         call(f"undo {op(1)}", expect={"status": "ok", "kind": "undo"}, expect_at="/report", validate="report",
-             after=text),
+             after=text, absent=NO_JOURNAL_MEMBERS),
     ])
     c.add("no-expiry-in-history-report", "The report of a history query has no expiry member.", text,
           feature=JOURNAL, steps=[
               call('remove "b.txt"', report=ok("remove")),
               call(f"history {op(1)} details: true", expect={"status": "ok"}, expect_at="/report",
-                   validate="report"),
+                   validate="report", absent=NO_EXPIRY_FIELDS),
           ])
 
 
@@ -755,6 +794,21 @@ def expiry_semantics(c: Collection) -> None:
               call(method="testkit.clock.advance", params={"by": "2h"}),
               call(f"undo {op(2)}", report=failed("E_JOURNAL_EXPIRED"), after=UNCHANGED),
               call(f"history {op(2)}", report={"status": "ok", "records": operation(state=enum("expired"))}),
+          ])
+    c.add("expiry-age-within-limit", "An entry younger than the age limit can still be undone on the test clock.",
+          text, feature="testkit", requires=("feature:journal",), steps=[
+              call("journal.limits age: 1h", report=ok("journal.limits")),
+              call('write "x.txt" "x\\n" mode: create', report=ok("write")),
+              call(method="testkit.clock.advance", params={"by": "30m"}),
+              undo(2, text),
+          ])
+    c.add("expiry-age-pinned", "A pinned entry survives the age limit and can be undone after the clock advanced.",
+          text, feature="testkit", requires=("feature:journal",), steps=[
+              call("journal.limits age: 1h", report=ok("journal.limits")),
+              call('write "x.txt" "x\\n" mode: create', report=ok("write")),
+              call(f"journal.pin [{op(2)}]", report=ok("journal.pin")),
+              call(method="testkit.clock.advance", params={"by": "2h"}),
+              undo(2, text),
           ])
     halves = {"x.txt": HALF_BUDGET, "y.txt": HALF_BUDGET}
     c.add("expiry-size", "The oldest entry expires when the kept content exceeds the size limit.", tree(halves),
@@ -792,6 +846,17 @@ def expiry_semantics(c: Collection) -> None:
                    after=changed(TEXT, b_dot_txt=REMOVED)),
           ])
     big = {"big.txt": BIG}
+    c.add("volume-max-size-skip", "An operation larger than the size budget of the volume holding the work "
+          "directory is made without a copy.", tree(big), feature=JOURNAL, config=VOLUME_MAX_SIZE, steps=[
+              call('remove "big.txt"', report=irreversible("remove", "too_large_for_journal"), after=tree({})),
+          ])
+    c.add("volume-max-size-expiry", "The size budget of a volume expires the oldest entry of that volume.",
+          tree(halves), feature=JOURNAL, config=VOLUME_MAX_SIZE, steps=[
+              call('write "x.txt" "new\\n" mode: overwrite', report=ok("write")),
+              call('write "y.txt" "new\\n" mode: overwrite', report=ok("write")),
+              call(f"undo {op(1)}", report=failed("E_JOURNAL_EXPIRED"), after=UNCHANGED),
+              undo(2, tree({"x.txt": "new\n", "y.txt": HALF_BUDGET})),
+          ])
     c.add("journal-op-too-large", "An operation larger than the limit of one entry is made without a copy and "
           "reported as too_large_for_journal.", tree(big), feature=JOURNAL, config=OP_SIZE_LIMIT, steps=[
               call('remove "big.txt"', report=irreversible("remove", "too_large_for_journal"), after=tree({})),

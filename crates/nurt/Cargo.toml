@@ -20,11 +20,15 @@ categories = ["command-line-utilities", "api-bindings"]
 workspace = true
 
 [features]
-default = ["process"]
+default = ["embedded", "process"]
+embedded = ["dep:nurt-core", "dep:nurt-contracts", "dep:serde"]
 process = []
 
 [dependencies]
 serde_json = { workspace = true }
+nurt-core = { workspace = true, optional = true }
+nurt-contracts = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 nurt-contracts = { workspace = true }
@@ -33,6 +37,10 @@ tempfile = { workspace = true }
 [[test]]
 name = "process_backend"
 required-features = ["process"]
+
+[[test]]
+name = "embedded_engine"
+required-features = ["embedded"]
 
 [package.metadata.docs.rs]
 all-features = true

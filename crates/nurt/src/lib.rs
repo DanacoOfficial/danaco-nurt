@@ -5,7 +5,8 @@
 //! change can be undone.
 //!
 //! A [`Nurt`] client runs programs of the Nurt command language through a
-//! `nurt serve` process and returns their effect reports. Requests are
+//! `nurt serve` process; an [`Embedded`] engine runs them inside the calling
+//! process. Both return effect reports. Requests are
 //! [`Request`] envelopes (`nurt-request/1`); responses are [`Response`]
 //! envelopes (`nurt-response/1`) holding the report and the rendered text.
 //!
@@ -18,8 +19,11 @@
 //!
 //! # Features
 //!
+//! - `embedded` (default): the [`Embedded`] engine, built on `nurt-core`.
 //! - `process` (default): the client of `nurt serve --stdio` and of
 //!   connections given by the application. It depends only on `serde_json`.
+//!   An application that needs only this client disables the default
+//!   features and enables `process`.
 //!
 //! # Examples
 //!
@@ -64,6 +68,8 @@
 
 #[cfg(feature = "process")]
 mod client;
+#[cfg(feature = "embedded")]
+mod embedded;
 mod error;
 #[cfg(feature = "process")]
 mod process;
@@ -72,6 +78,8 @@ mod response;
 
 #[cfg(feature = "process")]
 pub use crate::client::{Builder, Describe, Execution, Nurt};
+#[cfg(feature = "embedded")]
+pub use crate::embedded::{Embedded, EmbeddedBuilder, EmbeddedExecution};
 pub use crate::error::{Error, ErrorKind, Status};
 #[cfg(feature = "process")]
 pub use crate::process::Transport;

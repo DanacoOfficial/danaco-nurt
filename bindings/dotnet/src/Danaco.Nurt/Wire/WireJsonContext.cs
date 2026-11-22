@@ -11,6 +11,7 @@ namespace Danaco.Nurt;
 [JsonSerializable(typeof(SyntaxParams))]
 [JsonSerializable(typeof(PageParams))]
 [JsonSerializable(typeof(DescribeParams))]
+[JsonSerializable(typeof(DescribeSubjectParams))]
 [JsonSerializable(typeof(HelpParams))]
 [JsonSerializable(typeof(SchemaParams))]
 [JsonSerializable(typeof(SpaceParams))]
