@@ -106,7 +106,7 @@ id = "toml-float-rounding"
 format = "toml"
 class = "yq"
 rule = "float-rounding"
-reason = "yq writes some floats with a rounding error in the last significant digit"
+reason = "a float read from the record may differ from the value of Nurt in the last significant digit, depending on the float parsing of the JSON reader"
 
 [[difference]]
 id = "toml-dotted-keys-in-inline-table"
