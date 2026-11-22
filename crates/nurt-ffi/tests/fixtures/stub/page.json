@@ -1,0 +1,6 @@
+{
+  "description": "Last page of the result of run-read.",
+  "function": "page",
+  "input": {"cursor": "c_91fe", "limit": 0},
+  "output": [{"nurt": "1.0", "report": {"nurt": "1.0", "status": "ok", "kind": "find"}}]
+}

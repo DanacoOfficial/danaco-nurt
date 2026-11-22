@@ -23,3 +23,9 @@ nurt-types = { workspace = true }
 nurt-plan = { workspace = true }
 rayon = { workspace = true }
 crossbeam-channel = { workspace = true }
+regex = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+nurt-catalog = { workspace = true }
+nurt-testkit = { workspace = true }

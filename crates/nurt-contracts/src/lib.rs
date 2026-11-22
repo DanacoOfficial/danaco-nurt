@@ -28,6 +28,7 @@
 //! | [`keypath`] | key paths into structured documents |
 //! | [`services`] | services shared between command crates (documents, code, processes, file listing) |
 //! | [`schema`] | published JSON schemas |
+//! | [`product`] | product name, canonical description and version, help and banner texts |
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
@@ -42,6 +43,7 @@ pub mod fs;
 pub mod journal;
 pub mod keypath;
 pub mod kinds;
+pub mod product;
 pub mod record;
 pub mod report;
 pub mod schema;

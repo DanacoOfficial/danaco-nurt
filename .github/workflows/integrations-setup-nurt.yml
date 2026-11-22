@@ -1,0 +1,92 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+name: setup-nurt
+
+on:
+  pull_request:
+    paths:
+      - integrations/setup-nurt/**
+  push:
+    branches: [main]
+    paths:
+      - integrations/setup-nurt/**
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version requested from the action in the install job.
+        required: false
+        default: latest
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Run ShellCheck
+        run: shellcheck --shell=bash integrations/setup-nurt/scripts/*.sh integrations/setup-nurt/tests/*.sh
+
+  test:
+    name: Unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-13
+          - windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Run tests
+        run: bash integrations/setup-nurt/tests/run.sh
+
+  install:
+    name: Install (${{ matrix.os }})
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-13
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Set up Danaco Nurt
+        id: setup
+        uses: ./integrations/setup-nurt
+        with:
+          version: ${{ inputs.version }}
+      - name: Check the installed version
+        shell: bash
+        env:
+          EXPECTED: ${{ steps.setup.outputs.version }}
+        run: |
+          nurt version | grep -F "$EXPECTED"
+          test -x "${{ steps.setup.outputs.path }}"
+      - name: Install again from the tool cache
+        uses: ./integrations/setup-nurt
+        with:
+          version: ${{ steps.setup.outputs.version }}

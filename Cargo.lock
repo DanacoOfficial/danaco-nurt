@@ -5892,9 +5892,14 @@ dependencies = [
 name = "nurt-catalog"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "nurt-contracts",
  "nurt-types",
  "serde",
+ "serde_json",
+ "serde_json_canonicalizer",
+ "sha2 0.11.1",
+ "tempfile",
  "toml",
 ]
 
@@ -5956,41 +5961,14 @@ dependencies = [
 name = "nurt-core"
 version = "0.1.0"
 dependencies = [
- "nurt-archive",
- "nurt-bind",
- "nurt-catalog",
- "nurt-code",
  "nurt-contracts",
- "nurt-correct",
- "nurt-doc",
- "nurt-exec",
- "nurt-ext",
- "nurt-files",
- "nurt-fs",
- "nurt-git",
- "nurt-git-ops",
- "nurt-help",
- "nurt-journal",
- "nurt-lspclient",
- "nurt-net",
- "nurt-notebook",
- "nurt-plan",
- "nurt-proc",
- "nurt-report",
- "nurt-sched",
- "nurt-space",
- "nurt-syntax",
- "nurt-sys",
- "nurt-syslog",
  "nurt-testkit",
- "nurt-text",
- "nurt-types",
- "nurt-verify",
+ "schemars",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "tempfile",
  "toml",
- "tracing",
 ]
 
 [[package]]
@@ -6043,10 +6021,14 @@ name = "nurt-exec"
 version = "0.1.0"
 dependencies = [
  "crossbeam-channel",
+ "nurt-catalog",
  "nurt-contracts",
  "nurt-plan",
+ "nurt-testkit",
  "nurt-types",
  "rayon",
+ "regex",
+ "serde_json",
 ]
 
 [[package]]
@@ -6055,6 +6037,9 @@ version = "0.1.0"
 dependencies = [
  "libloading 0.9.1",
  "nurt-contracts",
+ "semver",
+ "serde",
+ "toml",
  "wasmtime",
 ]
 
@@ -6064,7 +6049,11 @@ version = "0.1.0"
 dependencies = [
  "nurt-contracts",
  "nurt-core",
+ "serde",
  "serde_json",
+ "serde_json_canonicalizer",
+ "sha2 0.11.1",
+ "tempfile",
 ]
 
 [[package]]
@@ -6357,9 +6346,13 @@ dependencies = [
 name = "nurt-plan"
 version = "0.1.0"
 dependencies = [
+ "indexmap",
+ "jsonschema",
  "nurt-catalog",
  "nurt-contracts",
- "nurt-types",
+ "schemars",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -6389,11 +6382,15 @@ dependencies = [
 name = "nurt-report"
 version = "0.1.0"
 dependencies = [
+ "ciborium",
+ "jsonschema",
  "nurt-contracts",
+ "nurt-testkit",
  "nurt-types",
  "schemars",
  "serde",
  "serde_json",
+ "unicode-width 0.2.3",
 ]
 
 [[package]]
@@ -6482,10 +6479,14 @@ dependencies = [
 name = "nurt-testkit"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
+ "jiff 1.0.2",
  "nurt-contracts",
  "serde",
  "serde_json",
  "tempfile",
+ "toml",
+ "unicode-normalization",
 ]
 
 [[package]]
@@ -6521,10 +6522,15 @@ name = "nurt-types"
 version = "0.1.0"
 dependencies = [
  "camino",
+ "fastrand",
  "jiff 1.0.2",
  "nurt-contracts",
  "proptest",
+ "regex",
  "serde",
+ "serde_json",
+ "url",
+ "uuid",
 ]
 
 [[package]]

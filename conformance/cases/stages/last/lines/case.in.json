@@ -1,0 +1,8 @@
+{"program": "lines \"/home/user/app.log\" |> last 2",
+ "command": "last",
+ "args": {"count": {"kind": "value", "value": {"t": "int", "v": 2}}},
+ "input": [
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/app.log"}, "no": {"t": "int", "v": 1}, "text": {"t": "text", "v": "start"}}},
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/app.log"}, "no": {"t": "int", "v": 2}, "text": {"t": "text", "v": "run"}}},
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/app.log"}, "no": {"t": "int", "v": 3}, "text": {"t": "text", "v": "stop"}}}
+ ]}

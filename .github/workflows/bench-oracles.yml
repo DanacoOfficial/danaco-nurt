@@ -1,0 +1,81 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+name: bench-oracles
+
+on:
+  push:
+    paths:
+      - "bench/tasks/**"
+      - "bench/oracles/**"
+      - "bench/fixtures/**"
+  pull_request:
+    paths:
+      - "bench/tasks/**"
+      - "bench/oracles/**"
+      - "bench/fixtures/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: bench/oracles
+
+jobs:
+  unit:
+    name: unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate the task set
+        run: python -m nurt_bench_oracle validate
+      - name: Run the unit tests
+        run: python -m unittest discover -s tests -t . -v
+
+  references-bash:
+    name: reference solutions (bash, Linux)
+    runs-on: ubuntu-latest
+    needs: unit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install archive and encoding tools
+        run: sudo apt-get install -y --no-install-recommends zip unzip xz-utils
+      - name: Run the reference and defective solutions
+        run: python -m nurt_bench_oracle verify --shell bash --jobs 4 --report verify-bash.json
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-bash
+          path: bench/oracles/verify-bash.json
+
+  references-pwsh:
+    name: reference solutions (PowerShell, Windows)
+    runs-on: windows-latest
+    needs: unit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run the reference and defective solutions
+        shell: pwsh
+        run: python -m nurt_bench_oracle verify --shell pwsh --jobs 2 --timeout 60 --report verify-pwsh.json
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-pwsh
+          path: bench/oracles/verify-pwsh.json
