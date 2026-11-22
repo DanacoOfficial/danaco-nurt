@@ -36,7 +36,11 @@ impl GitEnv {
         let info = host.info();
         let var = |name: &str| host.env_var(name).filter(|value| !value.is_empty());
         let home = var("HOME")
-            .or_else(|| (info.os == Os::Windows).then(|| var("USERPROFILE")).flatten())
+            .or_else(|| {
+                (info.os == Os::Windows)
+                    .then(|| var("USERPROFILE"))
+                    .flatten()
+            })
             .map(PathBuf::from)
             .or_else(|| (!info.home.as_os_str().is_empty()).then(|| info.home.clone()));
         Self {
@@ -136,9 +140,7 @@ impl GitEnv {
         if value == "~" {
             return Some(home.clone());
         }
-        value
-            .strip_prefix("~/")
-            .map(|rest| home.join(rest))
+        value.strip_prefix("~/").map(|rest| home.join(rest))
     }
 }
 
@@ -172,7 +174,9 @@ fn config_pairs(host: &dyn Host) -> Vec<(String, String)> {
     (0..count)
         .filter_map(|n| {
             let key = host.env_var(&format!("GIT_CONFIG_KEY_{n}"))?;
-            let value = host.env_var(&format!("GIT_CONFIG_VALUE_{n}")).unwrap_or_default();
+            let value = host
+                .env_var(&format!("GIT_CONFIG_VALUE_{n}"))
+                .unwrap_or_default();
             Some((
                 key.to_string_lossy().into_owned(),
                 value.to_string_lossy().into_owned(),
@@ -198,31 +202,36 @@ mod tests {
 
     #[test]
     fn global_files_follow_xdg_then_home() {
-        let host = TestHost::new("/home/ada")
-            .with_var("XDG_CONFIG_HOME", "/xdg");
+        let host = TestHost::new("/home/user").with_var("XDG_CONFIG_HOME", "/xdg");
         let env = GitEnv::from_host(&host);
         assert_eq!(
             env.global_config_files(),
-            vec![PathBuf::from("/xdg/git/config"), PathBuf::from("/home/ada/.gitconfig")]
+            vec![
+                PathBuf::from("/xdg/git/config"),
+                PathBuf::from("/home/user/.gitconfig")
+            ]
         );
     }
 
     #[test]
     fn git_config_global_replaces_default_files() {
-        let host = TestHost::new("/home/ada").with_var("GIT_CONFIG_GLOBAL", "/etc/custom");
+        let host = TestHost::new("/home/user").with_var("GIT_CONFIG_GLOBAL", "/etc/custom");
         let env = GitEnv::from_host(&host);
-        assert_eq!(env.global_config_files(), vec![PathBuf::from("/etc/custom")]);
+        assert_eq!(
+            env.global_config_files(),
+            vec![PathBuf::from("/etc/custom")]
+        );
     }
 
     #[test]
     fn empty_git_config_global_disables_global_configuration() {
-        let host = TestHost::new("/home/ada").with_var("GIT_CONFIG_GLOBAL", "");
+        let host = TestHost::new("/home/user").with_var("GIT_CONFIG_GLOBAL", "");
         assert!(GitEnv::from_host(&host).global_config_files().is_empty());
     }
 
     #[test]
     fn nosystem_disables_system_configuration() {
-        let host = TestHost::new("/home/ada")
+        let host = TestHost::new("/home/user")
             .with_var("GIT_CONFIG_NOSYSTEM", "1")
             .with_var("GIT_CONFIG_SYSTEM", "/etc/other");
         assert_eq!(GitEnv::from_host(&host).system_config_file(), None);
@@ -230,7 +239,9 @@ mod tests {
 
     #[test]
     fn git_config_system_names_the_system_file() {
-        let host = TestHost::new("/home/ada").with_var("GIT_CONFIG_SYSTEM", "/opt/gitconfig");
+        let host = TestHost::new("/home/user")
+            .with_var("GIT_CONFIG_NOSYSTEM", "0")
+            .with_var("GIT_CONFIG_SYSTEM", "/opt/gitconfig");
         assert_eq!(
             GitEnv::from_host(&host).system_config_file(),
             Some(PathBuf::from("/opt/gitconfig"))
@@ -239,7 +250,7 @@ mod tests {
 
     #[test]
     fn config_pairs_are_read_in_order_up_to_the_count() {
-        let host = TestHost::new("/home/ada")
+        let host = TestHost::new("/home/user")
             .with_var("GIT_CONFIG_COUNT", "2")
             .with_var("GIT_CONFIG_KEY_0", "core.abbrev")
             .with_var("GIT_CONFIG_VALUE_0", "12")
@@ -258,15 +269,18 @@ mod tests {
 
     #[test]
     fn home_expansion_handles_tilde_forms() {
-        let env = GitEnv::from_host(&TestHost::new("/home/ada"));
-        assert_eq!(env.expand_home("~"), Some(PathBuf::from("/home/ada")));
-        assert_eq!(env.expand_home("~/x/y"), Some(PathBuf::from("/home/ada/x/y")));
+        let env = GitEnv::from_host(&TestHost::new("/home/user"));
+        assert_eq!(env.expand_home("~"), Some(PathBuf::from("/home/user")));
+        assert_eq!(
+            env.expand_home("~/x/y"),
+            Some(PathBuf::from("/home/user/x/y"))
+        );
         assert_eq!(env.expand_home("/abs"), None);
     }
 
     #[test]
     fn ceiling_directories_are_split_by_the_platform_separator() {
-        let host = TestHost::new("/home/ada").with_var("GIT_CEILING_DIRECTORIES", "/a::/b");
+        let host = TestHost::new("/home/user").with_var("GIT_CEILING_DIRECTORIES", "/a::/b");
         assert_eq!(
             GitEnv::from_host(&host).ceiling_dirs(),
             &[PathBuf::from("/a"), PathBuf::from("/b")]

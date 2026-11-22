@@ -13,8 +13,8 @@
 use bstr::ByteSlice;
 use nurt_contracts::error::Error;
 
-use super::error::{self, MAX_CANDIDATES, RevisionProblem};
 use super::GitRepo;
+use super::error::{self, MAX_CANDIDATES, RevisionProblem};
 
 impl GitRepo {
     /// Resolves `spec` to an object identifier.
@@ -51,16 +51,18 @@ impl GitRepo {
             .gix()
             .find_object(id)
             .map_err(|source| error::from_gix("read an object", &source))?;
-        let commit = object.peel_to_kind(gix::object::Kind::Commit).map_err(|_| {
-            error::revision(
-                RevisionProblem::InvalidSyntax,
-                spec,
-                self.root(),
-                &[],
-                "the revision does not name a commit",
-            )
-            .with_problem("not_a_commit")
-        })?;
+        let commit = object
+            .peel_to_kind(gix::object::Kind::Commit)
+            .map_err(|_| {
+                error::revision(
+                    RevisionProblem::InvalidSyntax,
+                    spec,
+                    self.root(),
+                    &[],
+                    "the revision does not name a commit",
+                )
+                .with_problem("not_a_commit")
+            })?;
         Ok(commit.id)
     }
 
@@ -94,7 +96,13 @@ impl GitRepo {
             .into_iter()
             .map(|name| (name, "reference with a similar name".to_owned()))
             .collect();
-        error::revision(RevisionProblem::NotFound, spec, self.root(), &candidates, "")
+        error::revision(
+            RevisionProblem::NotFound,
+            spec,
+            self.root(),
+            &candidates,
+            "",
+        )
     }
 
     /// Short names of all branches, remote-tracking branches and tags.
@@ -143,18 +151,27 @@ pub fn nearest_names(spec: &str, names: &[String]) -> Vec<String> {
         .collect()
 }
 
-/// Levenshtein distance between two texts, counted in characters.
+/// Edit distance between two texts, counted in characters: insertions,
+/// deletions, substitutions and transpositions of adjacent characters each
+/// count as one edit, so the typing error `mian` is one edit from `main`.
 #[must_use]
 pub fn edit_distance(a: &str, b: &str) -> usize {
+    let a: Vec<char> = a.chars().collect();
     let b: Vec<char> = b.chars().collect();
+    let mut before: Vec<usize> = vec![0; b.len() + 1];
     let mut previous: Vec<usize> = (0..=b.len()).collect();
     let mut current = vec![0; b.len() + 1];
-    for (i, ca) in a.chars().enumerate() {
+    for i in 0..a.len() {
         current[0] = i + 1;
-        for (j, cb) in b.iter().enumerate() {
-            let substitution = previous[j] + usize::from(ca != *cb);
-            current[j + 1] = substitution.min(previous[j + 1] + 1).min(current[j] + 1);
+        for j in 0..b.len() {
+            let substitution = previous[j] + usize::from(a[i] != b[j]);
+            let mut best = substitution.min(previous[j + 1] + 1).min(current[j] + 1);
+            if i > 0 && j > 0 && a[i] == b[j - 1] && a[i - 1] == b[j] {
+                best = best.min(before[j - 1] + 1);
+            }
+            current[j + 1] = best;
         }
+        std::mem::swap(&mut before, &mut previous);
         std::mem::swap(&mut previous, &mut current);
     }
     previous[b.len()]
@@ -194,7 +211,10 @@ mod tests {
     fn message_search_finds_the_newest_matching_commit() {
         let fixture = history();
         let repo = GitRepo::open(fixture.path(), &test_ctx()).unwrap();
-        assert_eq!(repo.resolve_rev(":/two").unwrap(), repo.resolve_rev("feature").unwrap());
+        assert_eq!(
+            repo.resolve_rev(":/two").unwrap(),
+            repo.resolve_rev("feature").unwrap()
+        );
     }
 
     #[test]
@@ -235,7 +255,8 @@ mod tests {
     #[test]
     fn edit_distance_counts_insertions_deletions_and_substitutions() {
         assert_eq!(edit_distance("main", "main"), 0);
-        assert_eq!(edit_distance("mian", "main"), 2);
+        assert_eq!(edit_distance("mian", "main"), 1);
+        assert_eq!(edit_distance("ab", "ba"), 1);
         assert_eq!(edit_distance("mai", "main"), 1);
         assert_eq!(edit_distance("", "abc"), 3);
     }

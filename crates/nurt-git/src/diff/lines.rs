@@ -106,7 +106,10 @@ pub(crate) fn is_blank(line: &[u8]) -> bool {
 pub(crate) fn changes(old: &[&[u8]], new: &[&[u8]], options: &LineOptions) -> Vec<Change> {
     if options.ignore_whitespace {
         let strip = |line: &&[u8]| -> Vec<u8> {
-            line.iter().copied().filter(|&byte| !is_space(byte)).collect()
+            line.iter()
+                .copied()
+                .filter(|&byte| !is_space(byte))
+                .collect()
         };
         let old_keys: Vec<Vec<u8>> = old.iter().map(strip).collect();
         let new_keys: Vec<Vec<u8>> = new.iter().map(strip).collect();
@@ -149,13 +152,25 @@ mod tests {
     #[test]
     fn reports_replaced_line() {
         let found = run("a\nb\nc\n", "a\nB\nc\n", &LineOptions::default());
-        assert_eq!(found, vec![Change { old: 1..2, new: 1..2 }]);
+        assert_eq!(
+            found,
+            vec![Change {
+                old: 1..2,
+                new: 1..2
+            }]
+        );
     }
 
     #[test]
     fn missing_final_line_feed_is_a_change() {
         let found = run("a\nb", "a\nb\n", &LineOptions::default());
-        assert_eq!(found, vec![Change { old: 1..2, new: 1..2 }]);
+        assert_eq!(
+            found,
+            vec![Change {
+                old: 1..2,
+                new: 1..2
+            }]
+        );
     }
 
     #[test]
@@ -173,15 +188,33 @@ mod tests {
         let old = "fn a() {\n    x\n}\n\nfn c() {\n    z\n}\n";
         let new = "fn a() {\n    x\n}\n\nfn b() {\n    y\n}\n\nfn c() {\n    z\n}\n";
         let found = run(old, new, &LineOptions::default());
-        assert_eq!(found, vec![Change { old: 4..4, new: 4..8 }]);
+        assert_eq!(
+            found,
+            vec![Change {
+                old: 4..4,
+                new: 4..8
+            }]
+        );
     }
 
     #[test]
     fn parses_configured_algorithms() {
-        assert_eq!(Algorithm::from_config("Histogram"), Some((Algorithm::Histogram, false)));
-        assert_eq!(Algorithm::from_config("patience"), Some((Algorithm::Histogram, true)));
-        assert_eq!(Algorithm::from_config("minimal"), Some((Algorithm::Minimal, false)));
-        assert_eq!(Algorithm::from_config("default"), Some((Algorithm::Myers, false)));
+        assert_eq!(
+            Algorithm::from_config("Histogram"),
+            Some((Algorithm::Histogram, false))
+        );
+        assert_eq!(
+            Algorithm::from_config("patience"),
+            Some((Algorithm::Histogram, true))
+        );
+        assert_eq!(
+            Algorithm::from_config("minimal"),
+            Some((Algorithm::Minimal, false))
+        );
+        assert_eq!(
+            Algorithm::from_config("default"),
+            Some((Algorithm::Myers, false))
+        );
         assert_eq!(Algorithm::from_config("other"), None);
     }
 

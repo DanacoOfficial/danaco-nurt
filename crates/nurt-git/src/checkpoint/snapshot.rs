@@ -15,7 +15,7 @@ use gix::index::entry::{Flags, Mode, Stage};
 use gix::objs::tree::EntryKind;
 use nurt_contracts::error::Result;
 
-use super::support::{Filters, TreeEntry, repo_error};
+use super::support::{Filters, TreeEntry, repo_error, worktree_path};
 
 /// Where blobs of working tree files go.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,7 +52,11 @@ pub(crate) fn snapshot_worktree(
         .boolean("core.filemode")
         .unwrap_or(cfg!(unix));
     let mut snapshot = Snapshot::default();
-    let mut hasher = BlobHasher { repo, blobs, written: 0 };
+    let mut hasher = BlobHasher {
+        repo,
+        blobs,
+        written: 0,
+    };
     let stat_options = gix::index::entry::stat::Options::default();
     let mut previous: Option<BString> = None;
     for entry in index.entries() {
@@ -80,8 +84,16 @@ pub(crate) fn snapshot_worktree(
         }
     }
     for path in untracked_files(repo, index)? {
-        let file = root.join(gix::path::from_bstr(path.as_bstr()));
-        if let Some(recorded) = hash_file(&file, path.as_bstr(), index, filters, &mut hasher, None, filemode)? {
+        let file = worktree_path(&root, path.as_bstr())?;
+        if let Some(recorded) = hash_file(
+            &file,
+            path.as_bstr(),
+            index,
+            filters,
+            &mut hasher,
+            None,
+            filemode,
+        )? {
             snapshot.files.insert(path.clone(), recorded);
             snapshot.untracked.insert(path);
         }
@@ -106,9 +118,12 @@ fn record_tracked(
     options: TrackedOptions,
 ) -> Result<Option<TreeEntry>> {
     if entry.flags.contains(Flags::SKIP_WORKTREE) || entry.mode == Mode::COMMIT {
-        return Ok(entry.mode.to_tree_entry_mode().map(|mode| (mode.kind(), entry.id)));
+        return Ok(entry
+            .mode
+            .to_tree_entry_mode()
+            .map(|mode| (mode.kind(), entry.id)));
     }
-    let file = root.join(gix::path::from_bstr(path));
+    let file = worktree_path(root, path)?;
     let unchanged = entry.stage() == Stage::Unconflicted
         && !entry.flags.contains(Flags::INTENT_TO_ADD)
         && gix::index::fs::Metadata::from_path_no_follow(&file)
@@ -119,10 +134,21 @@ fn record_tracked(
                     && !entry.stat.is_racy(index.timestamp(), options.stat)
             });
     if unchanged {
-        return Ok(entry.mode.to_tree_entry_mode().map(|mode| (mode.kind(), entry.id)));
+        return Ok(entry
+            .mode
+            .to_tree_entry_mode()
+            .map(|mode| (mode.kind(), entry.id)));
     }
     let index_kind = entry.mode.to_tree_entry_mode().map(|mode| mode.kind());
-    hash_file(&file, path, index, filters, hasher, index_kind, options.filemode)
+    hash_file(
+        &file,
+        path,
+        index,
+        filters,
+        hasher,
+        index_kind,
+        options.filemode,
+    )
 }
 
 fn hash_file(
@@ -142,16 +168,17 @@ fn hash_file(
     if metadata.file_type().is_symlink() {
         let target = std::fs::read_link(file)
             .map_err(|err| repo_error(&format!("read `{}`", file.display()), err))?;
-        let bytes = gix::path::into_bstr(target);
-        let id = hasher.blob(&bytes)?;
+        let bytes = gix::path::into_bstr(target)
+            .map_err(|err| repo_error(&format!("read `{}`", file.display()), err))?;
+        let id = hasher.blob(bytes.as_ref())?;
         return Ok(Some((EntryKind::Link, id)));
     }
     if !metadata.is_file() {
         return Ok(None);
     }
-    let content =
-        std::fs::read(file).map_err(|err| repo_error(&format!("read `{}`", file.display()), err))?;
-    let content = filters.to_git(path, &content, index)?;
+    let content = std::fs::read(file)
+        .map_err(|err| repo_error(&format!("read `{}`", file.display()), err))?;
+    let content = filters.convert_to_git(path, &content, index)?;
     let id = hasher.blob(&content)?;
     let executable = if filemode {
         is_executable(&metadata)
@@ -195,12 +222,10 @@ impl BlobHasher<'_> {
                 self.written += 1;
                 Ok(id.detach())
             }
-            Blobs::HashOnly => gix::objs::compute_hash(
-                self.repo.object_hash(),
-                gix::object::Kind::Blob,
-                content,
-            )
-            .map_err(|err| repo_error("hash a blob", err)),
+            Blobs::HashOnly => {
+                gix::objs::compute_hash(self.repo.object_hash(), gix::object::Kind::Blob, content)
+                    .map_err(|err| repo_error("hash a blob", err))
+            }
         }
     }
 }

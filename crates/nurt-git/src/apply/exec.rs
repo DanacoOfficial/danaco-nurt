@@ -14,10 +14,10 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BStr, ByteSlice};
 use gix_index::entry::{Flags, Stage};
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::{AbsPath, LinkKind, MetaChange};
+use nurt_contracts::fs::{AbsPath, LinkKind};
 use nurt_contracts::journal::{
     Expect, Mutation, MutationTx, TargetAction, TargetIndex, TargetPath, TargetSpec,
 };
@@ -26,8 +26,7 @@ use super::context::{ApplyContext, lock_path};
 use super::error::{locked, object_error, repo_error};
 use super::filter::{Direction, Filters};
 use super::plan::{
-    ApplyPlan, ApplyReport, Content, EntryAction, EntryKind, Notable, PlanEntry, RefPlan,
-    StateFilePlan,
+    ApplyPlan, ApplyReport, Content, EntryAction, EntryKind, PlanEntry, RefPlan, StateFilePlan,
 };
 use super::refs::{log_path, ref_content, ref_path, reflog_bytes};
 use super::worktree::{Node, native_path, observe_native, stat_of, verify_expect};
@@ -218,7 +217,7 @@ impl Declared {
         };
         let mut entries = Vec::with_capacity(plan.entries.len());
         for entry in &plan.entries {
-            let path = native_path(&ctx.root, entry.path.as_bstr());
+            let path = native_path(&ctx.root, entry.path.as_bstr())?;
             entries.push(targets.push(&path, target_action(entry.action), entry.expect.clone())?);
         }
         let refs = plan
@@ -327,7 +326,7 @@ struct Run<'t, 'c, 'r> {
     index_of: Vec<TargetIndex>,
     report: ApplyReport,
     filters: Filters<'r>,
-    caps: gix_fs::Capabilities,
+    caps: gix::fs::Capabilities,
     buf: Vec<u8>,
 }
 
@@ -343,7 +342,7 @@ impl Run<'_, '_, '_> {
     }
 
     fn entry(&mut self, entry: &PlanEntry, position: usize) -> Result<()> {
-        let path = native_path(&self.ctx.root, entry.path.as_bstr());
+        let path = native_path(&self.ctx.root, entry.path.as_bstr())?;
         match entry.action {
             EntryAction::Delete => {
                 self.mutate(position, Mutation::Remove)?;
@@ -393,9 +392,18 @@ impl Run<'_, '_, '_> {
         }
         let bytes = self.content(entry, kind)?;
         if kind == EntryKind::Symlink && self.caps.symlink {
-            let target = gix_path::from_bstr(bytes.as_bstr()).into_owned();
-            let target =
-                gix_path::to_native_path_on_windows(gix_path::into_bstr(target)).into_owned();
+            let target = gix_path::to_native_path_on_windows(bytes.as_bstr())
+                .map_err(|err| {
+                    Error::new(
+                        ErrorCode::Io,
+                        format!(
+                            "the link target of '{}' cannot be represented on this system: {err}",
+                            entry.path
+                        ),
+                    )
+                    .with_found(entry.path.to_string())
+                })?
+                .into_owned();
             self.mutate(
                 position,
                 Mutation::CreateLink {
@@ -423,7 +431,7 @@ impl Run<'_, '_, '_> {
                 if kind == EntryKind::Symlink {
                     return Ok(data);
                 }
-                let (bytes, notable) = self.filters.to_worktree(entry.path.as_bstr(), &data)?;
+                let (bytes, notable) = self.filters.smudge(entry.path.as_bstr(), &data)?;
                 self.report.notable.extend(notable);
                 Ok(bytes)
             }
@@ -453,9 +461,9 @@ impl Run<'_, '_, '_> {
         if wanted != mode {
             self.mutate(
                 position,
-                Mutation::SetMeta(MetaChange {
+                Mutation::SetMeta(nurt_contracts::fs::MetaChange {
                     mode: Some(wanted),
-                    ..MetaChange::default()
+                    ..nurt_contracts::fs::MetaChange::default()
                 }),
             )?;
         }
@@ -475,7 +483,7 @@ impl Run<'_, '_, '_> {
                 continue;
             };
             let path: &BStr = entry.path.as_bstr();
-            let native = native_path(&self.ctx.root, path);
+            let native = native_path(&self.ctx.root, path)?;
             if let Some(index_entry) = state.entry_mut_by_path_and_stage(path, Stage::Unconflicted)
                 && index_entry.id == *id
                 && !index_entry.flags.contains(Flags::SKIP_WORKTREE)
@@ -543,6 +551,7 @@ impl Run<'_, '_, '_> {
     }
 }
 
-fn is_empty_dir(path: &Path) -> bool {
+/// Whether `path` is a directory without entries.
+pub(crate) fn is_empty_dir(path: &Path) -> bool {
     std::fs::read_dir(path).is_ok_and(|mut reader| reader.next().is_none())
 }

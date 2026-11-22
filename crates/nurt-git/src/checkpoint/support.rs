@@ -65,15 +65,19 @@ pub(crate) fn open_repo(path: &Path) -> Result<gix::Repository> {
     if !path.exists() {
         return Err(Error::new(
             ErrorCode::NotFound,
-            format!("`{}` does not exist; pass an existing directory", path.display()),
+            format!(
+                "`{}` does not exist; pass an existing directory",
+                path.display()
+            ),
         ));
     }
     let mut current = Some(path);
     while let Some(dir) = current {
         if dir.join(".git").exists() {
             let options = gix::open::Options::isolated();
-            return gix::open_opts(dir, options)
-                .map_err(|err| repo_error(&format!("open the repository at `{}`", dir.display()), err));
+            return gix::open_opts(dir, options).map_err(|err| {
+                repo_error(&format!("open the repository at `{}`", dir.display()), err)
+            });
         }
         current = dir.parent();
     }
@@ -105,14 +109,36 @@ pub(crate) fn abs(path: &Path) -> Result<AbsPath> {
     AbsPath::new(path).map_err(|err| {
         Error::new(
             ErrorCode::Io,
-            format!("`{}` is not a usable absolute path: {err:?}", path.display()),
+            format!(
+                "`{}` is not a usable absolute path: {err:?}",
+                path.display()
+            ),
         )
     })
 }
 
 /// Text of a path for records and messages, with `/` separators.
 pub(crate) fn display_path(path: &Path) -> String {
-    gix::path::to_unix_separators_on_windows(gix::path::into_bstr(path)).to_string()
+    let text = path.to_string_lossy();
+    if cfg!(windows) {
+        text.replace('\\', "/")
+    } else {
+        text.into_owned()
+    }
+}
+
+/// Native location of the repository path `rela` below `root`.
+pub(crate) fn worktree_path(root: &Path, rela: &BStr) -> Result<PathBuf> {
+    gix::path::from_bstr(rela)
+        .map(|path| root.join(path))
+        .map_err(|err| repo_error(&format!("convert the path `{rela}`"), err))
+}
+
+/// Repository form of a native relative path, with `/` separators.
+pub(crate) fn repo_path(rela: &Path) -> Result<BString> {
+    gix::path::into_bstr(rela)
+        .map(|bytes| gix::path::to_unix_separators_on_windows(bytes).into_owned())
+        .map_err(|err| repo_error(&format!("convert the path `{}`", rela.display()), err))
 }
 
 /// Converts a path given by the user into a path relative to the root of the
@@ -143,7 +169,9 @@ pub(crate) fn repo_relative(root: &Path, input: &str) -> Result<BString> {
                     return Err(problem(
                         ErrorCode::Arg,
                         "git_directory",
-                        format!("`{input}` names the repository directory; pass a path in the working tree"),
+                        format!(
+                            "`{input}` names the repository directory; pass a path in the working tree"
+                        ),
                     ));
                 }
                 parts.push(name);
@@ -171,8 +199,7 @@ pub(crate) fn in_scope(path: &BStr, scopes: &[BString]) -> bool {
         || scopes.iter().any(|scope| {
             scope.is_empty()
                 || path == scope.as_bstr()
-                || (path.starts_with(scope.as_slice())
-                    && path.get(scope.len()) == Some(&b'/'))
+                || (path.starts_with(scope.as_slice()) && path.get(scope.len()) == Some(&b'/'))
         })
 }
 
@@ -182,7 +209,7 @@ pub(crate) fn in_scope(path: &BStr, scopes: &[BString]) -> bool {
 /// `GIT_COMMITTER_EMAIL` and `GIT_COMMITTER_DATE` of the execution context,
 /// then from `user.name` and `user.email` of the repository and of the
 /// configuration file in the home directory. The time comes from the clock of
-/// the context, in the time zone of the host.
+/// the context, with the UTC offset of the host.
 pub(crate) fn committer(repo: &gix::Repository, ctx: &ExecCtx) -> gix::actor::Signature {
     let global = global_config(ctx);
     let lookup = |env: &str, key: &str, fallback: &str| -> BString {
@@ -191,7 +218,6 @@ pub(crate) fn committer(repo: &gix::Repository, ctx: &ExecCtx) -> gix::actor::Si
         }
         repo.config_snapshot()
             .string(key)
-            .map(|value| value.into_owned())
             .or_else(|| global.as_ref().and_then(|file| file.string(key)))
             .unwrap_or_else(|| BString::from(fallback))
     };
@@ -202,7 +228,7 @@ pub(crate) fn committer(repo: &gix::Repository, ctx: &ExecCtx) -> gix::actor::Si
     }
 }
 
-fn global_config(ctx: &ExecCtx) -> Option<gix::config::File<'static>> {
+fn global_config(ctx: &ExecCtx) -> Option<gix::config::File> {
     let path = ctx.host().info().home.join(".gitconfig");
     if !path.is_file() {
         return None;
@@ -219,7 +245,8 @@ fn commit_time(ctx: &ExecCtx) -> gix::date::Time {
         return parsed;
     }
     const NANOSECONDS_PER_SECOND: i128 = 1_000_000_000;
-    let seconds = i64::try_from(ctx.clock().now().unix_nanos() / NANOSECONDS_PER_SECOND).unwrap_or(0);
+    let seconds =
+        i64::try_from(ctx.clock().now().unix_nanos() / NANOSECONDS_PER_SECOND).unwrap_or(0);
     let offset = jiff::tz::TimeZone::get(&ctx.host().info().timezone)
         .ok()
         .zip(jiff::Timestamp::from_second(seconds).ok())
@@ -280,6 +307,20 @@ impl<'repo> Filters<'repo> {
     /// Prepares the filters for `repo` with attributes from the working tree
     /// and from `index`.
     pub(crate) fn new(repo: &'repo gix::Repository, index: &gix::index::State) -> Result<Self> {
+        Self::with_source(
+            repo,
+            index,
+            gix::worktree::stack::state::attributes::Source::WorktreeThenIdMapping,
+        )
+    }
+
+    /// Prepares the filters for `repo` with attributes read from `source`;
+    /// a checkout into an empty directory reads them from `index` only.
+    pub(crate) fn with_source(
+        repo: &'repo gix::Repository,
+        index: &gix::index::State,
+        source: gix::worktree::stack::state::attributes::Source,
+    ) -> Result<Self> {
         let mut options = gix::filter::Pipeline::options(repo)
             .map_err(|err| repo_error("read the filter configuration", err))?;
         let drivers_skipped = !options.drivers.is_empty();
@@ -290,10 +331,7 @@ impl<'repo> Filters<'repo> {
             options,
         );
         let attributes = repo
-            .attributes_only(
-                index,
-                gix::worktree::stack::state::attributes::Source::WorktreeThenIdMapping,
-            )
+            .attributes_only(index, source)
             .map_err(|err| repo_error("read the attributes", err))?;
         Ok(Self {
             repo,
@@ -310,14 +348,16 @@ impl<'repo> Filters<'repo> {
 
     /// Converts working tree content of `rela_path` to its form in the object
     /// database.
-    pub(crate) fn to_git(
+    pub(crate) fn convert_to_git(
         &mut self,
         rela_path: &BStr,
         content: &[u8],
         index: &gix::index::State,
     ) -> Result<Vec<u8>> {
         use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
-        let path = gix::path::from_bstr(rela_path).into_owned();
+        let path = gix::path::from_bstr(rela_path)
+            .map_err(|err| repo_error(&format!("convert the path `{rela_path}`"), err))?
+            .into_owned();
         let platform = self
             .attributes
             .at_entry(rela_path, None)
@@ -354,7 +394,11 @@ impl<'repo> Filters<'repo> {
 
     /// Converts content of `rela_path` from the object database to its form
     /// in the working tree.
-    pub(crate) fn to_worktree(&mut self, rela_path: &BStr, content: &[u8]) -> Result<Vec<u8>> {
+    pub(crate) fn convert_to_worktree(
+        &mut self,
+        rela_path: &BStr,
+        content: &[u8],
+    ) -> Result<Vec<u8>> {
         use gix::filter::plumbing::pipeline::convert::{ToWorktreeOutcome, to_worktree};
         let platform = self
             .attributes
@@ -499,16 +543,18 @@ pub(crate) struct TxPlan {
     steps: Vec<Step>,
     checks: HashMap<usize, LockCheck>,
     created_dirs: BTreeSet<PathBuf>,
+    removed: BTreeSet<PathBuf>,
     next: usize,
 }
 
 impl TxPlan {
-    /// Number of declared targets.
-    pub(crate) fn len(&self) -> usize {
-        self.specs.len()
-    }
-
-    fn push(&mut self, path: &Path, action: TargetAction, expect: Expect, step: Step) -> Result<usize> {
+    fn push(
+        &mut self,
+        path: &Path,
+        action: TargetAction,
+        expect: Expect,
+        step: Step,
+    ) -> Result<usize> {
         self.specs.push(TargetSpec {
             path: TargetPath::Fs(abs(path)?),
             action,
@@ -520,11 +566,13 @@ impl TxPlan {
     }
 
     /// Declares the creation of every missing directory from `dir` upwards.
+    /// Entries removed earlier in the same plan count as missing.
     pub(crate) fn create_dirs(&mut self, dir: &Path) -> Result<()> {
         let mut missing = Vec::new();
         let mut current = Some(dir);
         while let Some(path) = current {
-            if path.exists() || self.created_dirs.contains(path) {
+            let gone = self.removed.iter().any(|removed| path.starts_with(removed));
+            if (path.exists() && !gone) || self.created_dirs.contains(path) {
                 break;
             }
             missing.push(path.to_path_buf());
@@ -542,7 +590,12 @@ impl TxPlan {
         if let Some(parent) = dir.parent() {
             self.create_dirs(parent)?;
         }
-        let index = self.push(dir, TargetAction::CreateTree, Expect::Absent, Step::CreateDir)?;
+        let index = self.push(
+            dir,
+            TargetAction::CreateTree,
+            Expect::Absent,
+            Step::CreateDir,
+        )?;
         self.created_dirs.insert(dir.to_path_buf());
         Ok(index)
     }
@@ -552,11 +605,21 @@ impl TxPlan {
         if let Some(parent) = path.parent() {
             self.create_dirs(parent)?;
         }
-        self.push(path, TargetAction::Create, Expect::Absent, Step::Write(content))
+        self.push(
+            path,
+            TargetAction::Create,
+            Expect::Absent,
+            Step::Write(content),
+        )
     }
 
     /// Declares a new content of an existing or new file of the working tree.
-    pub(crate) fn write_file(&mut self, path: &Path, content: Vec<u8>, expect: Expect) -> Result<usize> {
+    pub(crate) fn write_file(
+        &mut self,
+        path: &Path,
+        content: Vec<u8>,
+        expect: Expect,
+    ) -> Result<usize> {
         if let Some(parent) = path.parent() {
             self.create_dirs(parent)?;
         }
@@ -565,7 +628,20 @@ impl TxPlan {
 
     /// Declares the deletion of a file or a directory tree.
     pub(crate) fn delete(&mut self, path: &Path, expect: Expect) -> Result<usize> {
+        self.removed.insert(path.to_path_buf());
         self.push(path, TargetAction::Delete, expect, Step::Remove)
+    }
+
+    /// Declares the replacement of a directory or link by a file with
+    /// `content`; the previous entry is preserved as a whole.
+    pub(crate) fn replace_with_file(&mut self, path: &Path, content: Vec<u8>) -> Result<usize> {
+        self.removed.insert(path.to_path_buf());
+        self.push(
+            path,
+            TargetAction::Replace,
+            Expect::Unchecked,
+            Step::Write(content),
+        )
     }
 
     /// Declares a write of `file` by the lock protocol of `git`: the lock
@@ -582,7 +658,12 @@ impl TxPlan {
             self.create_dirs(parent)?;
         }
         let lock = lock_path(file);
-        let created = self.push(&lock, TargetAction::Create, Expect::Absent, Step::Write(content))?;
+        let created = self.push(
+            &lock,
+            TargetAction::Create,
+            Expect::Absent,
+            Step::Write(content),
+        )?;
         self.checks.insert(
             created,
             LockCheck {
@@ -607,21 +688,19 @@ impl TxPlan {
         }
     }
 
-    /// Declared targets, in order.
-    pub(crate) fn specs(&self) -> &[TargetSpec] {
-        &self.specs
-    }
-
     /// Preserves the previous state of every declared target.
     pub(crate) fn preserve(&self, tx: &mut dyn MutationTx) -> Result<()> {
         if self.specs.is_empty() {
             return Ok(());
         }
         tx.preserve(&self.specs).map(|_| ()).map_err(|err| {
-            if err.code() == ErrorCode::Exists {
-                if let Some(check) = self.checks.values().find(|check| lock_path(&check.file).exists()) {
-                    return ensure_unlocked(&check.file).err().unwrap_or(err);
-                }
+            if err.code() == ErrorCode::Exists
+                && let Some(check) = self
+                    .checks
+                    .values()
+                    .find(|check| lock_path(&check.file).exists())
+            {
+                return ensure_unlocked(&check.file).err().unwrap_or(err);
             }
             err
         })
@@ -697,7 +776,10 @@ pub(crate) fn packed_ref_line(repo: &gix::Repository, name: &str) -> Result<Opti
     Ok(content
         .lines()
         .map(|line| line.to_str_lossy().into_owned())
-        .find(|line| line.split_once(' ').is_some_and(|(_, refname)| refname == name)))
+        .find(|line| {
+            line.split_once(' ')
+                .is_some_and(|(_, refname)| refname == name)
+        }))
 }
 
 /// Declares the deletion of reference `name`: its loose file, its line in
@@ -744,6 +826,58 @@ fn remove_packed(content: &[u8], name: &str) -> Vec<u8> {
     out
 }
 
+/// Path without `.` and `..` components, resolved lexically.
+pub(crate) fn lexical(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other),
+        }
+    }
+    out
+}
+
+/// Length in bytes of a state token before hex encoding.
+const STATE_TOKEN_BYTES: usize = 16;
+
+/// Adds `bytes` to `hasher` followed by a separator, so that adjacent fields
+/// cannot run together.
+pub(crate) fn feed(hasher: &mut Sha256, bytes: &[u8]) {
+    hasher.update(bytes);
+    hasher.update([0]);
+}
+
+/// Hex text of a finished state token hash.
+pub(crate) fn finish_token(hasher: Sha256) -> String {
+    let digest = hasher.finalize();
+    hex::encode(&digest[..STATE_TOKEN_BYTES])
+}
+
+/// Fails with `E_STALE` when `expected` is given and differs from `actual`.
+pub(crate) fn check_expected_state(
+    expected: Option<&str>,
+    actual: &str,
+    repo: &Path,
+) -> Result<()> {
+    let Some(expected) = expected else {
+        return Ok(());
+    };
+    if expected.trim() == actual {
+        return Ok(());
+    }
+    Err(problem(
+        ErrorCode::Stale,
+        "state_changed",
+        "the repository changed since the state token was read; read the state again and repeat the call",
+    )
+    .with_found(expected.to_owned())
+    .with_next_step(format!("git.status {}", quote(&display_path(repo)))))
+}
+
 /// Serializes an index state in the format read by `git`.
 pub(crate) fn serialize_index(state: gix::index::State, path: &Path) -> Result<Vec<u8>> {
     let mut state = state;
@@ -783,7 +917,10 @@ mod tests {
             repo_relative(root, "/etc/hosts").unwrap_err().code(),
             ErrorCode::GitNotRepository
         );
-        assert_eq!(repo_relative(root, ".GIT/config").unwrap_err().code(), ErrorCode::Arg);
+        assert_eq!(
+            repo_relative(root, ".GIT/config").unwrap_err().code(),
+            ErrorCode::Arg
+        );
     }
 
     #[test]

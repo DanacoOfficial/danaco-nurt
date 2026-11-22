@@ -77,7 +77,11 @@ pub(crate) struct Walk<'r> {
 
 impl<'r> Walk<'r> {
     /// Starts a traversal of `tips`.
-    pub(crate) fn new(repo: &'r OpenRepo, tips: &Tips, options: WalkOptions) -> Result<Self, Error> {
+    pub(crate) fn new(
+        repo: &'r OpenRepo,
+        tips: &Tips,
+        options: WalkOptions,
+    ) -> Result<Self, Error> {
         let mut walk = Self {
             repo,
             options,
@@ -99,12 +103,6 @@ impl<'r> Walk<'r> {
             walk.separate()?;
         }
         Ok(walk)
-    }
-
-    /// Parents of `id` as followed by the traversal: one parent when a merge
-    /// was simplified, all of them otherwise.
-    pub(crate) fn followed_parents(&self, id: ObjectId) -> Option<&[ObjectId]> {
-        self.parents.get(&id).map(SmallVec::as_slice)
     }
 
     fn info(&self, id: ObjectId) -> Result<CommitInfo, Error> {
@@ -174,14 +172,19 @@ impl<'r> Walk<'r> {
     }
 
     /// Decides whether `id` changes the paths and which parents to follow.
-    fn simplify(&mut self, id: ObjectId, info: &CommitInfo) -> Result<SmallVec<[ObjectId; 2]>, Error> {
+    fn simplify(
+        &mut self,
+        id: ObjectId,
+        info: &CommitInfo,
+    ) -> Result<SmallVec<[ObjectId; 2]>, Error> {
         let Some(filter) = self.options.simplify.clone() else {
             return Ok(info.parents.clone());
         };
         let same = |old: Option<ObjectId>| {
-            filter
-                .same_in(self.repo, old, info.tree)
-                .map_err(|err| self.repo.read_error(format_args!("the tree of commit {id}"), err))
+            filter.same_in(self.repo, old, info.tree).map_err(|err| {
+                self.repo
+                    .read_error(format_args!("the tree of commit {id}"), err)
+            })
         };
         if info.parents.is_empty() {
             if same(None)? {
@@ -209,7 +212,11 @@ impl<'r> Walk<'r> {
                 other_changed = true;
             }
         }
-        let changed = if relevant > 0 { relevant_changed } else { other_changed };
+        let changed = if relevant > 0 {
+            relevant_changed
+        } else {
+            other_changed
+        };
         if !changed {
             *self.flags.entry(id).or_insert(0) |= TREESAME;
         }
@@ -267,7 +274,11 @@ impl<'r> Walk<'r> {
         if date <= newest.time {
             return SLOP;
         }
-        if self.queue.iter().any(|queued| self.flag(queued.id) & UNINTERESTING == 0) {
+        if self
+            .queue
+            .iter()
+            .any(|queued| self.flag(queued.id) & UNINTERESTING == 0)
+        {
             return SLOP;
         }
         slop - 1
@@ -328,19 +339,24 @@ mod tests {
     fn walk(fixture: &Fixture, revision: &str, options: WalkOptions) -> Vec<String> {
         let repo = fixture.open();
         let tips = spec::resolve(&repo, revision).unwrap();
-        let ids: Vec<ObjectId> = Walk::new(&repo, &tips, options).unwrap().map(Result::unwrap).collect();
+        let ids: Vec<ObjectId> = Walk::new(&repo, &tips, options)
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
         ids.iter().map(|id| fixture.message_of(*id)).collect()
     }
 
     fn paths(list: &[&str]) -> WalkOptions {
         WalkOptions {
-            simplify: Some(PathFilter::new(list.iter().map(|path| BString::from(*path)).collect())),
+            simplify: Some(PathFilter::new(
+                list.iter().map(|path| BString::from(*path)).collect(),
+            )),
             ..WalkOptions::default()
         }
     }
 
-    /// base ── main ──┐
-    ///   └─── topic ──┴─ merge
+    /// History in which `main other` and `topic f` both follow `base` and
+    /// `merge` joins them, taking `f` from `topic f`.
     fn merged() -> Fixture {
         let mut fixture = Fixture::new();
         let base = fixture.commit("base", &[("f", Some("base\n")), ("other", Some("o\n"))]);
@@ -355,7 +371,10 @@ mod tests {
     #[test]
     fn lists_newest_first_with_ties_in_reach_order() {
         let fixture = merged();
-        assert_eq!(walk(&fixture, "HEAD", WalkOptions::default()), ["merge", "main other", "topic f", "base"]);
+        assert_eq!(
+            walk(&fixture, "HEAD", WalkOptions::default()),
+            ["merge", "main other", "topic f", "base"]
+        );
         let mut same_time = Fixture::new();
         same_time.freeze_clock();
         let base = same_time.commit("base", &[("a", Some("a\n"))]);
@@ -363,15 +382,24 @@ mod tests {
         let right = same_time.commit_on(&[base], "right", &[("c", Some("c\n"))]);
         let merge = same_time.commit_on(&[left, right], "merge", &[]);
         same_time.branch("main", merge);
-        assert_eq!(walk(&same_time, "HEAD", WalkOptions::default()), ["merge", "left", "right", "base"]);
+        assert_eq!(
+            walk(&same_time, "HEAD", WalkOptions::default()),
+            ["merge", "left", "right", "base"]
+        );
     }
 
     #[test]
     fn excluded_revisions_hide_their_ancestors() {
         let fixture = merged();
         assert!(walk(&fixture, "main..topic", WalkOptions::default()).is_empty());
-        assert_eq!(walk(&fixture, "topic..main", WalkOptions::default()), ["merge", "main other"]);
-        assert_eq!(walk(&fixture, "topic...main", WalkOptions::default()), ["merge", "main other"]);
+        assert_eq!(
+            walk(&fixture, "topic..main", WalkOptions::default()),
+            ["merge", "main other"]
+        );
+        assert_eq!(
+            walk(&fixture, "topic...main", WalkOptions::default()),
+            ["merge", "main other"]
+        );
         assert_eq!(walk(&fixture, "main^!", WalkOptions::default()), ["merge"]);
     }
 
@@ -379,9 +407,18 @@ mod tests {
     fn paths_hide_commits_that_do_not_change_them() {
         let fixture = merged();
         assert_eq!(walk(&fixture, "HEAD", paths(&["f"])), ["topic f", "base"]);
-        assert_eq!(walk(&fixture, "HEAD", paths(&["other"])), ["main other", "base"]);
-        assert_eq!(walk(&fixture, "HEAD", paths(&["missing"])), Vec::<String>::new());
-        assert_eq!(walk(&fixture, "topic..main", paths(&["other"])), ["main other"]);
+        assert_eq!(
+            walk(&fixture, "HEAD", paths(&["other"])),
+            ["main other", "base"]
+        );
+        assert_eq!(
+            walk(&fixture, "HEAD", paths(&["missing"])),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            walk(&fixture, "topic..main", paths(&["other"])),
+            ["main other"]
+        );
     }
 
     #[test]
@@ -393,7 +430,10 @@ mod tests {
         let evil = fixture.commit_on(&[main, topic], "evil merge", &[("f", Some("resolved\n"))]);
         fixture.branch("main", evil);
         assert_ne!(head, evil);
-        assert_eq!(walk(&fixture, "HEAD", paths(&["f"])), ["evil merge", "topic f", "base"]);
+        assert_eq!(
+            walk(&fixture, "HEAD", paths(&["f"])),
+            ["evil merge", "topic f", "base"]
+        );
     }
 
     #[test]
@@ -405,25 +445,19 @@ mod tests {
             since: Some(fixture.time_of(topic)),
             ..WalkOptions::default()
         };
-        assert_eq!(walk(&fixture, "HEAD", since.clone()), ["merge", "main other", "topic f"]);
-        assert_eq!(walk(&fixture, "topic..HEAD", since), ["merge", "main other"]);
+        assert_eq!(
+            walk(&fixture, "HEAD", since.clone()),
+            ["merge", "main other", "topic f"]
+        );
+        assert_eq!(
+            walk(&fixture, "topic..HEAD", since),
+            ["merge", "main other"]
+        );
         let until = WalkOptions {
             until: Some(fixture.time_of(main_other) - 1),
             ..WalkOptions::default()
         };
         assert_eq!(walk(&fixture, "HEAD", until.clone()), ["topic f", "base"]);
         assert_eq!(walk(&fixture, "HEAD ^topic", until), Vec::<String>::new());
-    }
-
-    #[test]
-    fn records_followed_parents_of_simplified_merges() {
-        let fixture = merged();
-        let repo = fixture.open();
-        let tips = spec::resolve(&repo, "HEAD").unwrap();
-        let mut walker = Walk::new(&repo, &tips, paths(&["f"])).unwrap();
-        let first = walker.next().unwrap().unwrap();
-        let merge = fixture.head();
-        assert_eq!(walker.followed_parents(merge), Some(&[fixture.resolve("topic")][..]));
-        assert_eq!(fixture.message_of(first), "topic f");
     }
 }

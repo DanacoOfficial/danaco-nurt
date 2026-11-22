@@ -6,12 +6,17 @@
 
 use std::fmt::Display;
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
 
 use bstr::{BStr, BString, ByteSlice};
 use gix::ObjectId;
+use gix::prelude::ObjectIdExt as _;
 use nurt_contracts::error::{Error, ErrorCode};
+use nurt_contracts::stage::ExecCtx;
+use nurt_git_transport::sign::{BuiltinSigner, Signer, VerifyConfig};
 
 use super::graph::CommitCache;
+use crate::repo::GitRepo;
 
 /// Bytes of decoded objects kept in memory while a command runs.
 const OBJECT_CACHE_BYTES: usize = 32 * 1024 * 1024;
@@ -22,6 +27,10 @@ pub(crate) struct OpenRepo {
     pub(crate) repo: gix::Repository,
     /// Parents, times and trees of the commits read so far.
     pub(crate) commits: CommitCache,
+    /// Signer that verifies signatures of commits and tags.
+    pub(crate) signer: Arc<dyn Signer>,
+    /// Settings of signature verification for this repository.
+    pub(crate) verify: VerifyConfig,
     workdir: Option<PathBuf>,
     label: String,
 }
@@ -30,23 +39,12 @@ impl OpenRepo {
     /// Opens the repository that contains `path`, a directory or a file that
     /// may no longer exist.
     ///
-    /// Configuration of the installation, of the user and of the environment
-    /// is not read, and no program is started.
-    pub(crate) fn discover(path: &str) -> Result<Self, Error> {
-        let given = Path::new(path);
-        let start = existing_directory(given).ok_or_else(|| not_repository(path))?;
-        let mapping = gix::sec::trust::Mapping {
-            full: gix::open::Options::isolated(),
-            reduced: gix::open::Options::isolated(),
-        };
-        let repo = gix::ThreadSafeRepository::discover_opts(
-            &start,
-            gix::discover::upwards::Options::default(),
-            mapping,
-        )
-        .map_err(|_| not_repository(path))?
-        .to_thread_local();
-        let mut repo = repo;
+    /// The search starts at the deepest existing directory of `path`; the
+    /// configuration and environment are read as [`GitRepo::discover`] reads
+    /// them, and no program is started.
+    pub(crate) fn discover(path: &str, ctx: &ExecCtx) -> Result<Self, Error> {
+        let start = existing_directory(Path::new(path)).ok_or_else(|| not_repository(path))?;
+        let mut repo = GitRepo::discover(&start, ctx)?.gix().clone();
         repo.object_cache_size_if_unset(OBJECT_CACHE_BYTES);
         let workdir = repo
             .workdir()
@@ -55,9 +53,19 @@ impl OpenRepo {
             .as_deref()
             .map_or_else(|| display_path(repo.git_dir()), display_path);
         let commits = CommitCache::new(&repo);
+        let mut verify = VerifyConfig::resolve(repo.config_snapshot().plumbing(), ctx);
+        if let Some(dir) = workdir.as_deref() {
+            verify = verify.in_work_dir(dir);
+        }
+        let signer: Arc<dyn Signer> = ctx
+            .extensions()
+            .get::<dyn Signer>()
+            .unwrap_or_else(|| Arc::new(BuiltinSigner));
         Ok(Self {
             repo,
             commits,
+            signer,
+            verify,
             workdir,
             label,
         })
@@ -80,7 +88,10 @@ impl OpenRepo {
         let workdir = self.workdir.as_deref().ok_or_else(|| {
             Error::new(
                 ErrorCode::GitUnsupported,
-                format!("the repository `{}` has no working tree, so `{path}` cannot be resolved", self.label),
+                format!(
+                    "the repository `{}` has no working tree, so `{path}` cannot be resolved",
+                    self.label
+                ),
             )
             .with_problem("bare_repository")
             .with_next_step(format!("git.log {}", quote(&self.label)))
@@ -100,7 +111,13 @@ impl OpenRepo {
                 if !out.is_empty() {
                     out.push(b'/');
                 }
-                out.extend_from_slice(gix::path::into_bstr(Path::new(name)).as_ref());
+                let bytes = gix::path::into_bstr(Path::new(name)).map_err(|_| {
+                    Error::new(
+                        ErrorCode::Encoding,
+                        format!("`{path}` is not valid Unicode, give a path in Unicode"),
+                    )
+                })?;
+                out.extend_from_slice(bytes.as_ref());
             }
         }
         Ok(out)
@@ -109,7 +126,10 @@ impl OpenRepo {
     /// Absolute path of a repository-relative path, in the canonical form of
     /// the language.
     pub(crate) fn absolute(&self, relative: &BStr) -> String {
-        let root = self.workdir.as_deref().unwrap_or_else(|| self.repo.git_dir());
+        let root = self
+            .workdir
+            .as_deref()
+            .unwrap_or_else(|| self.repo.git_dir());
         let mut text = display_path(root);
         if !relative.is_empty() {
             if !text.ends_with('/') {
@@ -122,15 +142,20 @@ impl OpenRepo {
 
     /// Error for an object or reference that cannot be read.
     pub(crate) fn read_error(&self, what: impl Display, err: impl Display) -> Error {
-        Error::new(ErrorCode::Io, format!("cannot read {what} in `{}`: {err}", self.label))
-            .with_next_step(format!("git.status {}", quote(&self.label)))
+        Error::new(
+            ErrorCode::Io,
+            format!("cannot read {what} in `{}`: {err}", self.label),
+        )
+        .with_next_step(format!("git.status {}", quote(&self.label)))
     }
 
     /// Error for a revision that does not name a commit.
     pub(crate) fn revision_error(&self, spec: &str, problem: RevisionProblem) -> Error {
         let message = match problem {
             RevisionProblem::NotFound => format!("unknown revision `{spec}`"),
-            RevisionProblem::Ambiguous => format!("the revision `{spec}` is ambiguous, give more characters of the identifier"),
+            RevisionProblem::Ambiguous => format!(
+                "the revision `{spec}` is ambiguous, give more characters of the identifier"
+            ),
             RevisionProblem::InvalidSyntax => format!("`{spec}` is not a valid revision"),
             RevisionProblem::NotACommit => format!("`{spec}` does not name a commit"),
             RevisionProblem::Range => format!("`{spec}` is a range, give a single revision"),
@@ -168,14 +193,17 @@ impl OpenRepo {
 
     /// The tree of a commit.
     pub(crate) fn tree_of(&self, commit: ObjectId) -> Result<ObjectId, Error> {
-        self.commits.info(&self.repo, commit).map(|info| info.tree).map_err(|err| self.read_error(format_args!("commit {commit}"), err))
+        self.commits
+            .info(&self.repo, commit)
+            .map(|info| info.tree)
+            .map_err(|err| self.read_error(format_args!("commit {commit}"), err))
     }
 
     /// Content of a blob.
     pub(crate) fn blob(&self, id: ObjectId) -> Result<Vec<u8>, Error> {
         self.repo
             .find_object(id)
-            .map(|mut object| object.take_data())
+            .map(|object| object.detach().data)
             .map_err(|err| self.read_error(format_args!("object {id}"), err))
     }
 
@@ -205,7 +233,10 @@ impl RevisionProblem {
         let lower = message.to_ascii_lowercase();
         if lower.contains("ambiguous") {
             Self::Ambiguous
-        } else if lower.contains("unconsumed") || lower.contains("syntax") || lower.contains("parse") {
+        } else if lower.contains("unconsumed")
+            || lower.contains("syntax")
+            || lower.contains("parse")
+        {
             Self::InvalidSyntax
         } else {
             Self::NotFound
@@ -228,9 +259,12 @@ pub(crate) fn not_repository(path: &str) -> Error {
     let dir = Path::new(path)
         .parent()
         .map_or_else(|| path.to_owned(), display_path);
-    Error::new(ErrorCode::GitNotRepository, format!("`{path}` is not inside a git repository"))
-        .with_problem("not_a_repository")
-        .with_next_step(format!("list {}", quote(&dir)))
+    Error::new(
+        ErrorCode::GitNotRepository,
+        format!("`{path}` is not inside a git repository"),
+    )
+    .with_problem("not_a_repository")
+    .with_next_step(format!("list {}", quote(&dir)))
 }
 
 /// Text in double quotes, as written in a program of the language.
@@ -250,7 +284,8 @@ pub(crate) fn quote(text: &str) -> String {
 /// Path text with `/` separators and without the Windows verbatim prefix.
 pub(crate) fn display_path(path: &Path) -> String {
     let text = path.to_string_lossy().replace('\\', "/");
-    text.strip_prefix("//?/").map_or(text.clone(), str::to_owned)
+    text.strip_prefix("//?/")
+        .map_or(text.clone(), str::to_owned)
 }
 
 fn existing_directory(path: &Path) -> Option<PathBuf> {
@@ -290,7 +325,7 @@ fn lenient_canonical(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::revwalk::fixture::Fixture;
+    use crate::revwalk::fixture::{Fixture, exec_ctx};
 
     #[test]
     fn quote_escapes_quotes_and_backslashes() {
@@ -300,21 +335,33 @@ mod tests {
     #[test]
     fn display_path_uses_forward_slashes_without_verbatim_prefix() {
         assert_eq!(display_path(Path::new(r"\\?\C:\repo")), "C:/repo");
-        assert_eq!(display_path(Path::new("/home/user/repo")), "/home/user/repo");
+        assert_eq!(
+            display_path(Path::new("/home/user/repo")),
+            "/home/user/repo"
+        );
     }
 
     #[test]
     fn classifies_revision_failures() {
-        assert_eq!(RevisionProblem::classify("The short hash 12 is ambiguous"), RevisionProblem::Ambiguous);
-        assert_eq!(RevisionProblem::classify("unconsumed input: ~x"), RevisionProblem::InvalidSyntax);
-        assert_eq!(RevisionProblem::classify("reference not found"), RevisionProblem::NotFound);
+        assert_eq!(
+            RevisionProblem::classify("The short hash 12 is ambiguous"),
+            RevisionProblem::Ambiguous
+        );
+        assert_eq!(
+            RevisionProblem::classify("unconsumed input: ~x"),
+            RevisionProblem::InvalidSyntax
+        );
+        assert_eq!(
+            RevisionProblem::classify("reference not found"),
+            RevisionProblem::NotFound
+        );
     }
 
     #[test]
     fn rejects_directory_without_repository() {
         let dir = tempfile::tempdir().unwrap();
         let path = display_path(dir.path());
-        let error = OpenRepo::discover(&path).err().unwrap();
+        let error = OpenRepo::discover(&path, &exec_ctx(None)).err().unwrap();
         assert_eq!(error.code(), ErrorCode::GitNotRepository);
     }
 
@@ -324,7 +371,10 @@ mod tests {
         let repo = fixture.open();
         let root = fixture.root();
         assert_eq!(repo.relative(&root).unwrap(), "");
-        assert_eq!(repo.relative(&format!("{root}/src/gone/file.rs")).unwrap(), "src/gone/file.rs");
+        assert_eq!(
+            repo.relative(&format!("{root}/src/gone/file.rs")).unwrap(),
+            "src/gone/file.rs"
+        );
         assert_eq!(repo.absolute("src/a.rs".into()), format!("{root}/src/a.rs"));
         let outside = repo.relative("/").err().unwrap();
         assert_eq!(outside.code(), ErrorCode::GitNotRepository);

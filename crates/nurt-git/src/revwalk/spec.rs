@@ -151,9 +151,18 @@ mod tests {
     fn rejects_unknown_and_empty_revisions() {
         let (fixture, _) = branchy();
         let repo = fixture.open();
-        assert_eq!(resolve(&repo, "nothing").unwrap_err().code(), ErrorCode::GitRevision);
-        assert_eq!(resolve(&repo, "  ").unwrap_err().code(), ErrorCode::GitRevision);
-        assert_eq!(resolve(&repo, "HEAD^{tree}").unwrap_err().code(), ErrorCode::GitRevision);
+        assert_eq!(
+            resolve(&repo, "nothing").unwrap_err().code(),
+            ErrorCode::GitRevision
+        );
+        assert_eq!(
+            resolve(&repo, "  ").unwrap_err().code(),
+            ErrorCode::GitRevision
+        );
+        assert_eq!(
+            resolve(&repo, "HEAD^{tree}").unwrap_err().code(),
+            ErrorCode::GitRevision
+        );
         assert_eq!(classify("prefix is ambiguous"), RevisionProblem::Ambiguous);
     }
 }

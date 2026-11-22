@@ -147,7 +147,7 @@ fn select(
         }
     }
     if let Some(position) = matched.iter().position(|hit| !hit) {
-        return Err(no_match(&pathspec[position]));
+        return Err(no_match(pathspec[position].as_bstr()));
     }
     Ok(selected)
 }

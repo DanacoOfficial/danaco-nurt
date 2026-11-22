@@ -8,14 +8,17 @@
 //! [`PreparedRefTx::apply`] performs the plan through a
 //! [`MutationTx`], so that every change is journaled and undoable.
 //!
-//! The file protocol is the protocol of the files back end of Git:
+//! The file layout is the layout of the files back end of Git:
 //!
-//! * a loose reference `R` is written by creating `R.lock` exclusively, filling
-//!   it and renaming it over `R`; an existing lock fails with `E_GIT_LOCKED`;
-//! * the expected previous value is verified again while the locks are held,
-//!   and a change made in the meantime fails with `E_STALE`;
-//! * `packed-refs` is rewritten under `packed-refs.lock` only when a packed
-//!   reference is deleted;
+//! * every written file (a loose reference, `HEAD`, `packed-refs`) is one
+//!   `modify` target whose expected previous content is checked by the
+//!   journal atomically with the switch, so a change made after
+//!   [`RefTx::prepare`] fails with `E_STALE`; a deleted loose reference is
+//!   one `delete` target with the same check;
+//! * the lock file `<file>.lock` of a running Git process fails the
+//!   transaction with `E_GIT_LOCKED`; locks are checked when planning, when
+//!   declaring and immediately before the first switch;
+//! * `packed-refs` is rewritten only when a packed reference is deleted;
 //! * reflog entries `<old> <new> <name> <<email>> <seconds> <+hhmm>\t<message>`
 //!   are appended according to `core.logAllRefUpdates`; an update of the
 //!   branch `HEAD` points to is also logged in the reflog of `HEAD`;

@@ -12,6 +12,13 @@
 //! real file system, panics on any change of an undeclared target, and
 //! undoes committed operations byte for byte.
 
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "fixtures and the test journal fail the test that uses them instead of returning errors"
+)]
+
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -19,21 +26,34 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use bstr::ByteSlice;
-use nurt_contracts::env::{
-    BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime,
-};
+use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::fs::{AbsPath, ContentHash, WriteHandle};
 use nurt_contracts::journal::{
-    AfterState, Applied, BeforeState, ExemptWrite, Expect, ExternalChange, MutationTx, OpHandle,
-    OpId, OpKind, Preserved, PreserveMode, RollbackReason, RollbackReport, TargetAction,
-    TargetIndex, TargetOutcome, TargetPath, TargetSpec, Mutation,
+    AfterState, Applied, BeforeState, ExemptWrite, Expect, ExternalChange, Mutation, MutationTx,
+    OpHandle, OpId, OpKind, PreserveMode, Preserved, RollbackReason, RollbackReport, TargetAction,
+    TargetIndex, TargetOutcome, TargetPath, TargetSpec,
 };
 use nurt_contracts::report::IrreversibleEntry;
 use nurt_contracts::stage::{CancelReason, CancelToken, ExecCtx, StageFrame};
 use sha2::{Digest, Sha256};
 
 use crate::repo::open_options;
+
+/// Options of the console with the fixture identity, which reference
+/// updates of the repository library record in the reflog.
+fn fixture_options() -> gix::open::Options {
+    let identity = [
+        format!("user.name={}", RepoBuilder::AUTHOR_NAME),
+        format!("user.email={}", RepoBuilder::AUTHOR_EMAIL),
+    ];
+    open_options().config_overrides(
+        crate::repo::config::OPEN_OVERRIDES
+            .iter()
+            .map(|value| (*value).to_owned())
+            .chain(identity),
+    )
+}
 
 /// Clock that always reads the same wall time.
 #[derive(Debug, Clone, Copy)]
@@ -186,7 +206,11 @@ impl Fixture {
     #[must_use]
     pub fn git_dir(&self) -> PathBuf {
         let dot_git = self.path.join(".git");
-        if dot_git.is_dir() { dot_git } else { self.path.clone() }
+        if dot_git.is_dir() {
+            dot_git
+        } else {
+            self.path.clone()
+        }
     }
 
     /// Opens the repository with the options of the console.
@@ -196,7 +220,7 @@ impl Fixture {
     /// Panics when the repository cannot be opened.
     #[must_use]
     pub fn open(&self) -> gix::Repository {
-        gix::open_opts(&self.path, open_options()).expect("fixture repository opens")
+        gix::open_opts(&self.path, fixture_options()).expect("fixture repository opens")
     }
 
     /// Content of every entry below the temporary directory, for byte-level
@@ -238,7 +262,10 @@ pub fn snapshot(root: &Path) -> BTreeMap<PathBuf, TreeEntry> {
             let relative = path.strip_prefix(root).expect("below root").to_path_buf();
             let meta = std::fs::symlink_metadata(&path).expect("readable metadata");
             if meta.file_type().is_symlink() {
-                entries.insert(relative, TreeEntry::Link(std::fs::read_link(&path).expect("link")));
+                entries.insert(
+                    relative,
+                    TreeEntry::Link(std::fs::read_link(&path).expect("link")),
+                );
             } else if meta.is_dir() {
                 entries.insert(relative, TreeEntry::Directory);
                 pending.push(path);
@@ -320,14 +347,19 @@ impl RepoBuilder {
     /// Writes `content` to `path` for the next commit.
     #[must_use]
     pub fn file(mut self, path: &str, content: impl AsRef<[u8]>) -> Self {
-        self.steps.push(Step::File(path.to_owned(), content.as_ref().to_vec(), false));
+        self.steps.push(Step::File(
+            path.to_owned(),
+            content.as_ref().to_vec(),
+            false,
+        ));
         self
     }
 
     /// Writes an executable file for the next commit.
     #[must_use]
     pub fn executable(mut self, path: &str, content: impl AsRef<[u8]>) -> Self {
-        self.steps.push(Step::File(path.to_owned(), content.as_ref().to_vec(), true));
+        self.steps
+            .push(Step::File(path.to_owned(), content.as_ref().to_vec(), true));
         self
     }
 
@@ -335,7 +367,10 @@ impl RepoBuilder {
     /// earlier step.
     #[must_use]
     pub fn worktree_file(mut self, path: &str, content: impl AsRef<[u8]>) -> Self {
-        self.steps.push(Step::WorktreeOnly(path.to_owned(), content.as_ref().to_vec()));
+        self.steps.push(Step::WorktreeOnly(
+            path.to_owned(),
+            content.as_ref().to_vec(),
+        ));
         self
     }
 
@@ -356,7 +391,8 @@ impl RepoBuilder {
     /// Creates or moves the reference `name` to the object `revision` names.
     #[must_use]
     pub fn reference(mut self, name: &str, revision: &str) -> Self {
-        self.steps.push(Step::Reference(name.to_owned(), revision.to_owned()));
+        self.steps
+            .push(Step::Reference(name.to_owned(), revision.to_owned()));
         self
     }
 
@@ -364,22 +400,27 @@ impl RepoBuilder {
     /// `refs/heads/feature`.
     #[must_use]
     pub fn head(mut self, name: &str) -> Self {
-        self.steps.push(Step::Symbolic("HEAD".to_owned(), name.to_owned()));
+        self.steps
+            .push(Step::Symbolic("HEAD".to_owned(), name.to_owned()));
         self
     }
 
     /// Creates the annotated tag `name` on `revision` with `message`.
     #[must_use]
     pub fn annotated_tag(mut self, name: &str, revision: &str, message: &str) -> Self {
-        self.steps
-            .push(Step::Tag(name.to_owned(), revision.to_owned(), message.to_owned()));
+        self.steps.push(Step::Tag(
+            name.to_owned(),
+            revision.to_owned(),
+            message.to_owned(),
+        ));
         self
     }
 
     /// Adds `key = value` to the repository configuration.
     #[must_use]
     pub fn config(mut self, key: &str, value: &str) -> Self {
-        self.steps.push(Step::Config(key.to_owned(), value.to_owned()));
+        self.steps
+            .push(Step::Config(key.to_owned(), value.to_owned()));
         self
     }
 
@@ -397,7 +438,8 @@ impl RepoBuilder {
         } else {
             gix::create::Kind::WithWorktree
         };
-        gix::create::into(&path, kind, gix::create::Options::default()).expect("repository created");
+        gix::create::into(&path, kind, gix::create::Options::default())
+            .expect("repository created");
         let mut state = BuildState::new(&path, self.bare);
         for step in self.steps {
             state.run(step);
@@ -424,7 +466,7 @@ impl BuildState {
     }
 
     fn repo(&self) -> gix::Repository {
-        gix::open_opts(&self.root, open_options()).expect("fixture repository opens")
+        gix::open_opts(&self.root, fixture_options()).expect("fixture repository opens")
     }
 
     fn run(&mut self, step: Step) {
@@ -443,7 +485,10 @@ impl BuildState {
             Step::Commit(message) => self.commit(&message),
             Step::Reference(name, revision) => {
                 let repo = self.repo();
-                let id = repo.rev_parse_single(revision.as_str()).expect("revision").detach();
+                let id = repo
+                    .rev_parse_single(revision.as_str())
+                    .expect("revision")
+                    .detach();
                 repo.reference(
                     name.as_str(),
                     id,
@@ -462,7 +507,11 @@ impl BuildState {
     }
 
     fn git_dir(&self) -> PathBuf {
-        if self.bare { self.root.clone() } else { self.root.join(".git") }
+        if self.bare {
+            self.root.clone()
+        } else {
+            self.root.join(".git")
+        }
     }
 
     fn write_worktree(&self, path: &str, bytes: &[u8], executable: bool) {
@@ -478,7 +527,10 @@ impl BuildState {
     }
 
     fn time(&self) -> String {
-        format!("{} +0000", RepoBuilder::EPOCH + self.commits * RepoBuilder::STEP_SECONDS)
+        format!(
+            "{} +0000",
+            RepoBuilder::EPOCH + self.commits * RepoBuilder::STEP_SECONDS
+        )
     }
 
     #[allow(
@@ -495,7 +547,9 @@ impl BuildState {
             } else {
                 gix::object::tree::EntryKind::Blob
             };
-            editor.upsert(path.as_str(), kind, blob).expect("tree entry");
+            editor
+                .upsert(path.as_str(), kind, blob)
+                .expect("tree entry");
         }
         let tree = editor.write().expect("tree written").detach();
         let time = self.time();
@@ -504,14 +558,21 @@ impl BuildState {
             email: RepoBuilder::AUTHOR_EMAIL.as_bytes().as_bstr(),
             time: &time,
         };
-        let parents: Vec<gix::ObjectId> = repo.head_id().ok().map(gix::Id::detach).into_iter().collect();
+        let parents: Vec<gix::ObjectId> = repo
+            .head_id()
+            .ok()
+            .map(gix::Id::detach)
+            .into_iter()
+            .collect();
         repo.commit_as(signature, signature, "HEAD", message, tree, parents)
             .expect("commit written");
         self.commits += 1;
         if !self.bare {
             let index = repo.index_from_tree(&tree).expect("index from tree");
             let mut index = index;
-            index.write(gix::index::write::Options::default()).expect("index written");
+            index
+                .write(gix::index::write::Options::default())
+                .expect("index written");
         }
     }
 
@@ -538,11 +599,9 @@ impl BuildState {
 
     fn config(&self, key: &str, value: &str) {
         let path = self.git_dir().join("config");
-        let mut file = gix::config::File::from_path_no_includes(
-            path.clone(),
-            gix::config::Source::Local,
-        )
-        .expect("configuration read");
+        let mut file =
+            gix::config::File::from_path_no_includes(path.clone(), gix::config::Source::Local)
+                .expect("configuration read");
         let (section_key, name) = key.rsplit_once('.').expect("key with a section");
         let (section, subsection) = match section_key.split_once('.') {
             Some((section, subsection)) => (section, Some(subsection.as_bytes().as_bstr())),
@@ -551,7 +610,9 @@ impl BuildState {
         let mut section = file
             .section_mut_or_create_new(section, subsection)
             .expect("configuration section");
-        section.push(gix::config::parse::section::ValueName::try_from(name).expect("value name"), Some(value.as_bytes().as_bstr()));
+        section
+            .push(name, Some(value.as_bytes().as_bstr()))
+            .expect("valid value name");
         let mut out = Vec::new();
         file.write_to(&mut out).expect("configuration serialized");
         std::fs::write(path, out).expect("configuration written");
@@ -618,7 +679,9 @@ impl RecordingJournal {
     }
 
     fn lock(&self) -> MutexGuard<'_, JournalState> {
-        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// Number of committed operations that are not undone.
@@ -677,7 +740,10 @@ fn save(path: &Path) -> Saved {
     };
     let mut entries = BTreeMap::new();
     if meta.file_type().is_symlink() {
-        entries.insert(PathBuf::new(), TreeEntry::Link(std::fs::read_link(path).expect("link")));
+        entries.insert(
+            PathBuf::new(),
+            TreeEntry::Link(std::fs::read_link(path).expect("link")),
+        );
     } else if meta.is_dir() {
         entries.insert(PathBuf::new(), TreeEntry::Directory);
         entries.extend(snapshot(path));
@@ -749,13 +815,16 @@ fn make_link(_target: &Path, _path: &Path) {
 fn after_state(path: &Path) -> AfterState {
     match std::fs::symlink_metadata(path) {
         Ok(meta) => {
-            let bytes = if meta.is_file() { std::fs::read(path).ok() } else { None };
+            let bytes = if meta.is_file() {
+                std::fs::read(path).ok()
+            } else {
+                None
+            };
             AfterState {
                 exists: true,
-                kind: None,
                 size: Some(meta.len()),
                 hash: bytes.map(|bytes| ContentHash(Sha256::digest(&bytes).into())),
-                mode: None,
+                ..AfterState::default()
             }
         }
         Err(_) => AfterState::default(),
@@ -763,7 +832,12 @@ fn after_state(path: &Path) -> AfterState {
 }
 
 fn check_expect(spec: &TargetSpec, path: &Path) -> Result<(), Error> {
-    let stale = || Error::new(ErrorCode::Stale, format!("{} changed after it was read", path.display()));
+    let stale = || {
+        Error::new(
+            ErrorCode::Stale,
+            format!("{} changed after it was read", path.display()),
+        )
+    };
     match &spec.expect {
         Expect::Unchecked => Ok(()),
         Expect::Absent => {
@@ -783,7 +857,11 @@ fn check_expect(spec: &TargetSpec, path: &Path) -> Result<(), Error> {
         }
         Expect::Etag(etag) => {
             let meta = std::fs::metadata(path).map_err(|_| stale())?;
-            if meta.len() == etag.size { Ok(()) } else { Err(stale()) }
+            if meta.len() == etag.size {
+                Ok(())
+            } else {
+                Err(stale())
+            }
         }
     }
 }
@@ -851,14 +929,20 @@ impl MutationTx for RecordingTx {
         None
     }
 
-    fn preserve(&mut self, targets: &[TargetSpec]) -> nurt_contracts::error::Result<Vec<Preserved>> {
+    fn preserve(
+        &mut self,
+        targets: &[TargetSpec],
+    ) -> nurt_contracts::error::Result<Vec<Preserved>> {
         assert!(!self.changed, "preserve after the first change");
         let mut preserved = Vec::new();
         for spec in targets {
             let path = fs_path(&spec.path);
             let exists = std::fs::symlink_metadata(&path).is_ok();
             if matches!(spec.action, TargetAction::Create | TargetAction::CreateTree) && exists {
-                return Err(Error::new(ErrorCode::Exists, format!("{} exists", path.display())));
+                return Err(Error::new(
+                    ErrorCode::Exists,
+                    format!("{} exists", path.display()),
+                ));
             }
             let mut before = vec![(path.clone(), save(&path))];
             if let TargetAction::Rename { to, .. } = &spec.action {
@@ -886,14 +970,21 @@ impl MutationTx for RecordingTx {
         Ok(preserved)
     }
 
-    fn stage(&mut self, _target: TargetIndex) -> nurt_contracts::error::Result<Box<dyn WriteHandle>> {
+    fn stage(
+        &mut self,
+        _target: TargetIndex,
+    ) -> nurt_contracts::error::Result<Box<dyn WriteHandle>> {
         Err(Error::new(
             ErrorCode::StageFailed,
             "staged writes are not supported by RecordingJournal; write bytes instead",
         ))
     }
 
-    fn apply(&mut self, index: TargetIndex, mutation: Mutation) -> nurt_contracts::error::Result<Applied> {
+    fn apply(
+        &mut self,
+        index: TargetIndex,
+        mutation: Mutation,
+    ) -> nurt_contracts::error::Result<Applied> {
         self.changed = true;
         let target = self.target(index);
         let path = fs_path(&target.spec.path);
@@ -911,13 +1002,19 @@ impl MutationTx for RecordingTx {
         })
     }
 
-    fn observe_external(&mut self, changes: &[ExternalChange]) -> nurt_contracts::error::Result<Vec<Applied>> {
+    fn observe_external(
+        &mut self,
+        changes: &[ExternalChange],
+    ) -> nurt_contracts::error::Result<Vec<Applied>> {
         self.changed = true;
         let mut applied = Vec::new();
         for change in changes {
-            let index = change
-                .declared
-                .unwrap_or_else(|| panic!("undeclared external change of {}", change.path.as_path().display()));
+            let index = change.declared.unwrap_or_else(|| {
+                panic!(
+                    "undeclared external change of {}",
+                    change.path.as_path().display()
+                )
+            });
             let target = self.target(index);
             assert!(
                 matches!(target.spec.action, TargetAction::ExternalWrite),
@@ -972,7 +1069,10 @@ impl MutationTx for RecordingTx {
         })
     }
 
-    fn rollback(self: Box<Self>, _reason: RollbackReason) -> nurt_contracts::error::Result<RollbackReport> {
+    fn rollback(
+        self: Box<Self>,
+        _reason: RollbackReason,
+    ) -> nurt_contracts::error::Result<RollbackReport> {
         restore(&self.targets);
         Ok(RollbackReport {
             op: None,
@@ -1016,7 +1116,10 @@ mod tests {
             .build();
         let repo = fixture.open();
         let head = repo.head_commit().unwrap();
-        assert_eq!(head.time().unwrap().seconds, RepoBuilder::EPOCH + RepoBuilder::STEP_SECONDS);
+        assert_eq!(
+            head.time().unwrap().seconds,
+            RepoBuilder::EPOCH + RepoBuilder::STEP_SECONDS
+        );
         assert_eq!(head.parent_ids().count(), 1);
         assert!(fixture.path().join("b/c.txt").is_file());
         let index = repo.open_index().unwrap();
@@ -1025,7 +1128,12 @@ mod tests {
 
     #[test]
     fn identical_builders_produce_identical_commits() {
-        let build = || RepoBuilder::new().file("a.txt", "x\n").commit("same").build();
+        let build = || {
+            RepoBuilder::new()
+                .file("a.txt", "x\n")
+                .commit("same")
+                .build()
+        };
         let (first, second) = (build(), build());
         assert_eq!(
             first.open().head_id().unwrap().detach(),
@@ -1035,14 +1143,20 @@ mod tests {
 
     #[test]
     fn bare_builder_has_no_working_tree() {
-        let fixture = RepoBuilder::bare().file("a.txt", "1\n").commit("one").build();
+        let fixture = RepoBuilder::bare()
+            .file("a.txt", "1\n")
+            .commit("one")
+            .build();
         assert!(fixture.open().workdir().is_none());
         assert_eq!(fixture.git_dir(), fixture.path());
     }
 
     #[test]
     fn recording_journal_undoes_writes_byte_for_byte() {
-        let fixture = RepoBuilder::new().file("a.txt", "1\n").commit("one").build();
+        let fixture = RepoBuilder::new()
+            .file("a.txt", "1\n")
+            .commit("one")
+            .build();
         let before = fixture.snapshot();
         let journal = RecordingJournal::new();
         let mut tx = journal.begin();
@@ -1053,8 +1167,10 @@ mod tests {
             target(&created, TargetAction::Create),
         ])
         .unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"2\n".to_vec())).unwrap();
-        tx.apply(TargetIndex(1), Mutation::WriteBytes(b"n\n".to_vec())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"2\n".to_vec()))
+            .unwrap();
+        tx.apply(TargetIndex(1), Mutation::WriteBytes(b"n\n".to_vec()))
+            .unwrap();
         tx.commit().unwrap();
         assert_eq!(std::fs::read(&file).unwrap(), b"2\n");
         journal.undo_last();
@@ -1063,7 +1179,10 @@ mod tests {
 
     #[test]
     fn rename_with_replace_is_undone() {
-        let fixture = RepoBuilder::new().file("a.txt", "1\n").commit("one").build();
+        let fixture = RepoBuilder::new()
+            .file("a.txt", "1\n")
+            .commit("one")
+            .build();
         let before = fixture.snapshot();
         let journal = RecordingJournal::new();
         let mut tx = journal.begin();
@@ -1080,7 +1199,8 @@ mod tests {
             ),
         ])
         .unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"new\n".to_vec())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"new\n".to_vec()))
+            .unwrap();
         tx.apply(TargetIndex(1), Mutation::Rename).unwrap();
         tx.commit().unwrap();
         assert_eq!(std::fs::read(&file).unwrap(), b"new\n");
@@ -1099,7 +1219,10 @@ mod tests {
 
     #[test]
     fn create_of_an_existing_target_fails_with_exists() {
-        let fixture = RepoBuilder::new().file("a.txt", "1\n").commit("one").build();
+        let fixture = RepoBuilder::new()
+            .file("a.txt", "1\n")
+            .commit("one")
+            .build();
         let journal = RecordingJournal::new();
         let mut tx = journal.begin();
         let error = tx
@@ -1110,9 +1233,9 @@ mod tests {
 
     #[test]
     fn test_host_reports_variables_and_home() {
-        let host = TestHost::new("/home/t").with_var("X", "1");
+        let host = TestHost::new("/home/user").with_var("X", "1");
         assert_eq!(host.env_var("X"), Some("1".into()));
-        assert_eq!(host.env_var("HOME"), Some("/home/t".into()));
-        assert_eq!(host.info().home, PathBuf::from("/home/t"));
+        assert_eq!(host.env_var("HOME"), Some("/home/user".into()));
+        assert_eq!(host.info().home, PathBuf::from("/home/user"));
     }
 }

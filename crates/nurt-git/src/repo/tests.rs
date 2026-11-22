@@ -7,7 +7,10 @@ use nurt_contracts::error::ErrorCode;
 
 #[test]
 fn discover_finds_the_root_from_a_subdirectory() {
-    let fixture = RepoBuilder::new().file("src/deep/a.txt", "1\n").commit("one").build();
+    let fixture = RepoBuilder::new()
+        .file("src/deep/a.txt", "1\n")
+        .commit("one")
+        .build();
     let repo = GitRepo::discover(&fixture.path().join("src/deep"), &test_ctx()).unwrap();
     assert_eq!(repo.root(), fixture.path());
     assert_eq!(repo.workdir(), Some(fixture.path()));
@@ -16,7 +19,10 @@ fn discover_finds_the_root_from_a_subdirectory() {
 
 #[test]
 fn open_accepts_the_root_and_the_git_directory() {
-    let fixture = RepoBuilder::new().file("a.txt", "1\n").commit("one").build();
+    let fixture = RepoBuilder::new()
+        .file("a.txt", "1\n")
+        .commit("one")
+        .build();
     let ctx = test_ctx();
     let by_root = GitRepo::open(fixture.path(), &ctx).unwrap();
     let by_git_dir = GitRepo::open(&fixture.path().join(".git"), &ctx).unwrap();
@@ -26,7 +32,10 @@ fn open_accepts_the_root_and_the_git_directory() {
 
 #[test]
 fn bare_repository_has_its_directory_as_root() {
-    let fixture = RepoBuilder::bare().file("a.txt", "1\n").commit("one").build();
+    let fixture = RepoBuilder::bare()
+        .file("a.txt", "1\n")
+        .commit("one")
+        .build();
     let repo = GitRepo::open(fixture.path(), &test_ctx()).unwrap();
     assert!(repo.is_bare());
     assert_eq!(repo.root(), fixture.path());
@@ -35,7 +44,10 @@ fn bare_repository_has_its_directory_as_root() {
 
 #[test]
 fn separate_git_directory_is_followed_through_the_git_file() {
-    let fixture = RepoBuilder::new().file("a.txt", "1\n").commit("one").build();
+    let fixture = RepoBuilder::new()
+        .file("a.txt", "1\n")
+        .commit("one")
+        .build();
     let moved = fixture.temp_dir().join("store.git");
     std::fs::rename(fixture.path().join(".git"), &moved).unwrap();
     std::fs::write(
@@ -44,7 +56,10 @@ fn separate_git_directory_is_followed_through_the_git_file() {
     )
     .unwrap();
     let mut config = std::fs::read_to_string(moved.join("config")).unwrap();
-    config.push_str(&format!("[core]\n\tworktree = {}\n", fixture.path().display()));
+    config.push_str(&format!(
+        "[core]\n\tworktree = {}\n",
+        fixture.path().display()
+    ));
     std::fs::write(moved.join("config"), config).unwrap();
     let repo = GitRepo::discover(fixture.path(), &test_ctx()).unwrap();
     assert_eq!(repo.git_dir(), moved.as_path());
@@ -57,7 +72,9 @@ fn unborn_branch_has_no_head_commit() {
     let repo = GitRepo::open(fixture.path(), &test_ctx()).unwrap();
     assert_eq!(repo.head_id().unwrap(), None);
     assert_eq!(
-        repo.head_ref().unwrap().map(|name| name.as_bstr().to_string()),
+        repo.head_ref()
+            .unwrap()
+            .map(|name| name.as_bstr().to_string()),
         Some("refs/heads/main".to_owned())
     );
     assert!(repo.index_file().unwrap().entries().is_empty());
@@ -77,7 +94,8 @@ fn directory_outside_a_repository_lists_nearby_repositories() {
 
 #[test]
 fn missing_path_is_reported_as_path_not_found() {
-    let error = GitRepo::discover(Path::new("/nonexistent/path/for/test"), &test_ctx()).unwrap_err();
+    let error =
+        GitRepo::discover(Path::new("/nonexistent/path/for/test"), &test_ctx()).unwrap_err();
     assert_eq!(error.code, ErrorCode::GitNotRepository);
     assert_eq!(error.problem.as_deref(), Some("path_not_found"));
 }
@@ -119,11 +137,19 @@ fn home_with_gitconfig(text: &str) -> tempfile::TempDir {
 #[test]
 fn global_configuration_comes_from_the_context_home() {
     let home = home_with_gitconfig("[user]\n\tname = Global Name\n\temail = g@example.com\n");
-    let fixture = RepoBuilder::new().config("user.email", "local@example.com").build();
+    let fixture = RepoBuilder::new()
+        .config("user.email", "local@example.com")
+        .build();
     let ctx = test_ctx_with(TestHost::new(home.path()));
     let repo = GitRepo::open(fixture.path(), &ctx).unwrap();
-    assert_eq!(repo.config_string("user.name").as_deref(), Some("Global Name"));
-    assert_eq!(repo.config_string("user.email").as_deref(), Some("local@example.com"));
+    assert_eq!(
+        repo.config_string("user.name").as_deref(),
+        Some("Global Name")
+    );
+    assert_eq!(
+        repo.config_string("user.email").as_deref(),
+        Some("local@example.com")
+    );
 }
 
 #[test]
@@ -131,8 +157,15 @@ fn xdg_configuration_has_lower_precedence_than_gitconfig() {
     let home = home_with_gitconfig("[core]\n\tabbrev = 9\n");
     let xdg = home.path().join("xdg");
     std::fs::create_dir_all(xdg.join("git")).unwrap();
-    std::fs::write(xdg.join("git/config"), "[core]\n\tabbrev = 12\n[pull]\n\trebase = true\n").unwrap();
-    let fixture = RepoBuilder::new().file("a.txt", "1\n").commit("one").build();
+    std::fs::write(
+        xdg.join("git/config"),
+        "[core]\n\tabbrev = 12\n[pull]\n\trebase = true\n",
+    )
+    .unwrap();
+    let fixture = RepoBuilder::new()
+        .file("a.txt", "1\n")
+        .commit("one")
+        .build();
     let host = TestHost::new(home.path()).with_var("XDG_CONFIG_HOME", xdg.as_os_str());
     let repo = GitRepo::open(fixture.path(), &test_ctx_with(host)).unwrap();
     assert_eq!(repo.config_string("core.abbrev").as_deref(), Some("9"));
@@ -155,10 +188,17 @@ fn environment_pairs_override_the_repository_configuration() {
 #[test]
 fn global_includes_are_resolved_with_the_context_home() {
     let home = home_with_gitconfig("[include]\n\tpath = ~/extra.inc\n");
-    std::fs::write(home.path().join("extra.inc"), "[merge]\n\tconflictStyle = zdiff3\n").unwrap();
+    std::fs::write(
+        home.path().join("extra.inc"),
+        "[merge]\n\tconflictStyle = zdiff3\n",
+    )
+    .unwrap();
     let fixture = RepoBuilder::new().build();
     let repo = GitRepo::open(fixture.path(), &test_ctx_with(TestHost::new(home.path()))).unwrap();
-    assert_eq!(repo.config_string("merge.conflictStyle").as_deref(), Some("zdiff3"));
+    assert_eq!(
+        repo.config_string("merge.conflictStyle").as_deref(),
+        Some("zdiff3")
+    );
 }
 
 #[test]
@@ -182,20 +222,32 @@ fn system_configuration_is_read_from_git_config_system() {
         .with_var("GIT_CONFIG_NOSYSTEM", "0")
         .with_var("GIT_CONFIG_SYSTEM", system.as_os_str());
     let repo = GitRepo::open(fixture.path(), &test_ctx_with(host)).unwrap();
-    assert_eq!(repo.config_string("core.autocrlf").as_deref(), Some("input"));
+    assert_eq!(
+        repo.config_string("core.autocrlf").as_deref(),
+        Some("input")
+    );
 }
 
 #[test]
 fn transports_that_start_programs_are_disabled() {
     let fixture = RepoBuilder::new().build();
     let repo = GitRepo::open(fixture.path(), &test_ctx()).unwrap();
-    assert_eq!(repo.config_string("protocol.file.allow").as_deref(), Some("never"));
-    assert_eq!(repo.config_string("protocol.ssh.allow").as_deref(), Some("never"));
+    assert_eq!(
+        repo.config_string("protocol.file.allow").as_deref(),
+        Some("never")
+    );
+    assert_eq!(
+        repo.config_string("protocol.ssh.allow").as_deref(),
+        Some("never")
+    );
 }
 
 #[test]
 fn ceiling_directories_stop_discovery() {
-    let fixture = RepoBuilder::new().file("sub/a.txt", "1\n").commit("one").build();
+    let fixture = RepoBuilder::new()
+        .file("sub/a.txt", "1\n")
+        .commit("one")
+        .build();
     let host = TestHost::new("/nonexistent-home")
         .with_var("GIT_CEILING_DIRECTORIES", fixture.path().as_os_str());
     let error = GitRepo::discover(&fixture.path().join("sub"), &test_ctx_with(host)).unwrap_err();

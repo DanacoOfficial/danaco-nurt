@@ -13,8 +13,8 @@ use std::path::Path;
 
 use gix::bstr::{BString, ByteSlice};
 use gix::hash::ObjectId;
-use gix::imara::{Algorithm, Diff, InternedInput};
 use gix::objs::tree::EntryKind;
+use gix_imara_diff::{Algorithm, Diff, InternedInput};
 use nurt_contracts::error::{ErrorCode, Result};
 use nurt_contracts::record::{Change, ChangeAction, Hunk, HunkStatus};
 use nurt_contracts::value::Path as RecordPath;
@@ -102,7 +102,13 @@ pub fn compare(repo_path: &Path, request: &CompareRequest) -> Result<Comparison>
     }
     let mut out = Vec::new();
     for path in changed {
-        out.extend(hunks_of(&repo, &path, old.get(&path), new.get(&path), request.context)?);
+        out.extend(hunks_of(
+            &repo,
+            &path,
+            old.get(&path),
+            new.get(&path),
+            request.context,
+        )?);
     }
     Ok(Comparison::Hunks(out))
 }
@@ -254,7 +260,7 @@ fn hunks_of(
     }
     let old_lines: Vec<&[u8]> = sides.old.lines_with_terminator().collect();
     let new_lines: Vec<&[u8]> = sides.new.lines_with_terminator().collect();
-    let groups = group_changes(&changes, context, old_lines.len());
+    let groups = group_changes(&changes, context);
     let mut out = Vec::new();
     for (number, group) in groups.iter().enumerate() {
         let lines = render_group(group, &changes, &old_lines, &new_lines, context);
@@ -281,11 +287,7 @@ fn header_start(start: usize, len: usize) -> u64 {
 }
 
 /// Groups changes whose context overlaps or touches, as unified diffs do.
-fn group_changes(
-    changes: &[(Range<u32>, Range<u32>)],
-    context: u32,
-    old_len: usize,
-) -> Vec<Range<usize>> {
+fn group_changes(changes: &[(Range<u32>, Range<u32>)], context: u32) -> Vec<Range<usize>> {
     let mut groups: Vec<Range<usize>> = Vec::new();
     for (index, (before, _)) in changes.iter().enumerate() {
         if let Some(last) = groups.last_mut() {
@@ -297,7 +299,6 @@ fn group_changes(
         }
         groups.push(index..index + 1);
     }
-    let _ = old_len;
     groups
 }
 
@@ -352,7 +353,11 @@ fn render_group(
 fn push_line(out: &mut Vec<String>, prefix: char, line: &[u8]) {
     let content = line.strip_suffix(b"\n").unwrap_or(line);
     let content = content.strip_suffix(b"\r").map_or(content, |trimmed| {
-        if line.ends_with(b"\r\n") { trimmed } else { content }
+        if line.ends_with(b"\r\n") {
+            trimmed
+        } else {
+            content
+        }
     });
     let mut text = String::with_capacity(content.len() + 1);
     text.push(prefix);
@@ -406,15 +411,23 @@ mod tests {
         let journal = RecordingJournal::default();
         checkpoint(&fixture, &journal);
         fixture.write("src/a.ts", "export const a = 3;\nexport const b = 1;\n");
-        let Comparison::Hunks(hunks) = compare(&fixture.root, &request(None, false, &[])).unwrap() else {
+        let Comparison::Hunks(hunks) = compare(&fixture.root, &request(None, false, &[])).unwrap()
+        else {
             panic!("expected hunks");
         };
         assert_eq!(hunks.len(), 1);
         let hunk = &hunks[0];
-        assert_eq!((hunk.old_start, hunk.old_len, hunk.new_start, hunk.new_len), (1, 2, 1, 2));
+        assert_eq!(
+            (hunk.old_start, hunk.old_len, hunk.new_start, hunk.new_len),
+            (1, 2, 1, 2)
+        );
         assert_eq!(
             hunk.lines,
-            ["-export const a = 2;", "+export const a = 3;", " export const b = 1;"]
+            [
+                "-export const a = 2;",
+                "+export const a = 3;",
+                " export const b = 1;"
+            ]
         );
         assert_eq!(hunk.id.as_deref(), Some("src/a.ts#1"));
         assert_eq!(hunk.status, Some(HunkStatus::Modified));
@@ -426,39 +439,74 @@ mod tests {
         let fixture = Fixture::new(&[("long.txt", original.as_str())]);
         let journal = RecordingJournal::default();
         checkpoint(&fixture, &journal);
-        fixture.write("long.txt", &numbered(30, &[(2, "two"), (29, "twenty-nine")]));
-        let Comparison::Hunks(hunks) = compare(&fixture.root, &request(None, false, &[])).unwrap() else {
+        fixture.write(
+            "long.txt",
+            &numbered(30, &[(2, "two"), (29, "twenty-nine")]),
+        );
+        let Comparison::Hunks(hunks) = compare(&fixture.root, &request(None, false, &[])).unwrap()
+        else {
             panic!("expected hunks");
         };
         assert_eq!(hunks.len(), 2);
         assert_eq!((hunks[0].old_start, hunks[0].old_len), (1, 5));
-        assert_eq!((hunks[1].old_start, hunks[1].old_len, hunks[1].new_start), (26, 5, 26));
+        assert_eq!(
+            (hunks[1].old_start, hunks[1].old_len, hunks[1].new_start),
+            (26, 5, 26)
+        );
         assert_eq!(hunks[1].id.as_deref(), Some("long.txt#2"));
         assert_eq!(hunks[1].lines[3], "-line 29");
     }
 
     #[test]
     fn stat_lists_created_deleted_and_modified_files_within_paths() {
-        let fixture = Fixture::new(&[("src/a.txt", "one\n"), ("src/b.txt", "gone\n"), ("c.txt", "c\n")]);
+        let fixture = Fixture::new(&[
+            ("src/a.txt", "one\n"),
+            ("src/b.txt", "gone\n"),
+            ("c.txt", "c\n"),
+        ]);
         let journal = RecordingJournal::default();
         checkpoint(&fixture, &journal);
         fixture.write("src/a.txt", "one\ntwo\n");
         fixture.remove("src/b.txt");
         fixture.write("src/new.txt", "new\n");
         fixture.write("c.txt", "changed\n");
-        let Comparison::Changes(changes) = compare(&fixture.root, &request(None, true, &["src"])).unwrap() else {
+        let Comparison::Changes(changes) =
+            compare(&fixture.root, &request(None, true, &["src"])).unwrap()
+        else {
             panic!("expected changes");
         };
         let summary: Vec<(String, ChangeAction, Option<u64>, Option<u64>)> = changes
             .into_iter()
-            .map(|change| (change.path.as_str().to_owned(), change.action, change.added, change.removed))
+            .map(|change| {
+                (
+                    change.path.as_str().to_owned(),
+                    change.action,
+                    change.added,
+                    change.removed,
+                )
+            })
             .collect();
         assert_eq!(
             summary,
             [
-                ("src/a.txt".to_owned(), ChangeAction::Modify, Some(1), Some(0)),
-                ("src/b.txt".to_owned(), ChangeAction::Delete, Some(0), Some(1)),
-                ("src/new.txt".to_owned(), ChangeAction::Create, Some(1), Some(0)),
+                (
+                    "src/a.txt".to_owned(),
+                    ChangeAction::Modify,
+                    Some(1),
+                    Some(0)
+                ),
+                (
+                    "src/b.txt".to_owned(),
+                    ChangeAction::Delete,
+                    Some(0),
+                    Some(1)
+                ),
+                (
+                    "src/new.txt".to_owned(),
+                    ChangeAction::Create,
+                    Some(1),
+                    Some(0)
+                ),
             ]
         );
     }
@@ -470,11 +518,15 @@ mod tests {
         checkpoint(&fixture, &journal);
         fixture.write("a.txt", "two\n");
         checkpoint(&fixture, &journal);
-        let Comparison::Changes(changes) = compare(&fixture.root, &request(Some("cp-2"), true, &[])).unwrap() else {
+        let Comparison::Changes(changes) =
+            compare(&fixture.root, &request(Some("cp-2"), true, &[])).unwrap()
+        else {
             panic!("expected changes");
         };
         assert_eq!(changes.len(), 1);
-        let Comparison::Hunks(hunks) = compare(&fixture.root, &request(Some("HEAD"), false, &[])).unwrap() else {
+        let Comparison::Hunks(hunks) =
+            compare(&fixture.root, &request(Some("HEAD"), false, &[])).unwrap()
+        else {
             panic!("expected hunks");
         };
         assert!(hunks.is_empty());
@@ -491,12 +543,19 @@ mod tests {
         checkpoint(&fixture, &journal);
         fixture.write("t.txt", "a\nc");
         fixture.write_bytes("bin.dat", b"\0\x01");
-        let Comparison::Hunks(hunks) = compare(&fixture.root, &request(None, false, &[])).unwrap() else {
+        let Comparison::Hunks(hunks) = compare(&fixture.root, &request(None, false, &[])).unwrap()
+        else {
             panic!("expected hunks");
         };
-        let binary = hunks.iter().find(|hunk| hunk.path.as_str() == "bin.dat").unwrap();
+        let binary = hunks
+            .iter()
+            .find(|hunk| hunk.path.as_str() == "bin.dat")
+            .unwrap();
         assert_eq!(binary.binary, Some(true));
-        let text = hunks.iter().find(|hunk| hunk.path.as_str() == "t.txt").unwrap();
+        let text = hunks
+            .iter()
+            .find(|hunk| hunk.path.as_str() == "t.txt")
+            .unwrap();
         assert_eq!(text.lines, [" a", "-b", NO_NEWLINE, "+c", NO_NEWLINE]);
     }
 

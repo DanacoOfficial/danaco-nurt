@@ -8,8 +8,8 @@
 //! resolve-undo extension (`REUC`). [`write_index`] therefore removes the
 //! cached tree before every write, serializes the entries with the library,
 //! appends the resolve-undo records kept by [`IndexFile`], recomputes the
-//! trailing checksum and replaces `index` through `index.lock` in the
-//! transaction. The untracked cache (`UNTR`) and the file system monitor
+//! trailing checksum and replaces `index` in the transaction, refusing to
+//! write while `index.lock` exists. The untracked cache (`UNTR`) and the file system monitor
 //! data (`FSMN`) are not written; `git` rebuilds them when it needs them.
 
 use std::path::{Path, PathBuf};
@@ -125,9 +125,6 @@ pub fn serialize(
             },
         )
         .map_err(|failure| io_error("serialize the index", &failure))?;
-    let hash_len = hash.len_in_bytes();
-    let body_len = out.len().saturating_sub(hash_len);
-    out.truncate(body_len);
     let extensions_start = entries_end(&out).ok_or_else(|| {
         Error::new(ErrorCode::Io, "the serialized index has an invalid layout")
             .with_problem("corrupt_index")
@@ -140,7 +137,11 @@ pub fn serialize(
         push_extension(&mut rebuilt, signature, data);
     }
     if !resolve_undo.is_empty() {
-        push_extension(&mut rebuilt, RESOLVE_UNDO, &encode_resolve_undo(resolve_undo));
+        push_extension(
+            &mut rebuilt,
+            RESOLVE_UNDO,
+            &encode_resolve_undo(resolve_undo),
+        );
     }
     let checksum = checksum(hash, &rebuilt);
     rebuilt.extend_from_slice(&checksum);
@@ -177,7 +178,7 @@ pub fn locked_write(file: &mut IndexFile) -> Result<LockedWrite, Error> {
 }
 
 /// Replaces the index with `file` in a transaction with no other targets:
-/// `index.lock` is created exclusively, written and renamed over `index`.
+/// the index is one target that expects its previous content.
 ///
 /// # Errors
 ///
@@ -186,7 +187,9 @@ pub fn locked_write(file: &mut IndexFile) -> Result<LockedWrite, Error> {
 pub fn write_index(tx: &mut dyn MutationTx, file: &mut IndexFile) -> Result<Applied, Error> {
     let write = locked_write(file)?;
     let mut applied = LockedWrites::new(vec![write]).run(tx)?;
-    applied.pop().ok_or_else(|| Error::new(ErrorCode::Internal, "index write applied nothing"))
+    applied
+        .pop()
+        .ok_or_else(|| Error::new(ErrorCode::Internal, "index write applied nothing"))
 }
 
 /// Offset of the first extension of a serialized index without its
@@ -212,7 +215,7 @@ fn hash_len_from_size(data: &[u8], version: u32, count: u32) -> Option<usize> {
     }
     [gix::hash::Kind::Sha1, gix::hash::Kind::Sha256]
         .into_iter()
-        .map(gix::hash::Kind::len_in_bytes)
+        .map(|kind| kind.len_in_bytes())
         .find(|hash_len| {
             let mut offset = HEADER_LEN;
             for _ in 0..count {
@@ -247,7 +250,11 @@ fn extensions_valid(mut data: &[u8]) -> bool {
 
 fn entry_end(data: &[u8], start: usize, version: u32, hash_len: usize) -> Option<usize> {
     let flags_at = start + ENTRY_STAT_LEN + hash_len;
-    let flags = u16::from_be_bytes(data.get(flags_at..flags_at + ENTRY_FLAGS_LEN)?.try_into().ok()?);
+    let flags = u16::from_be_bytes(
+        data.get(flags_at..flags_at + ENTRY_FLAGS_LEN)?
+            .try_into()
+            .ok()?,
+    );
     let mut path_at = flags_at + ENTRY_FLAGS_LEN;
     if flags & ENTRY_EXTENDED != 0 {
         path_at += ENTRY_FLAGS_LEN;
@@ -395,12 +402,19 @@ pub fn index_to_tree(repo: &GitRepo, state: &gix::index::State) -> Result<gix::O
     let write_error = |failure: gix::Error| error::from_gix("write a tree", &failure);
     let mut editor = repo.gix().empty_tree().edit().map_err(write_error)?;
     for entry in state.entries() {
-        if entry.flags.contains(gix::index::entry::Flags::INTENT_TO_ADD) {
+        if entry
+            .flags
+            .contains(gix::index::entry::Flags::INTENT_TO_ADD)
+        {
             continue;
         }
         let kind = tree_kind(entry.mode);
         editor
-            .upsert(entry.path(state), kind, entry.id)
+            .upsert(
+                entry.path(state).trim_end_with(|ch| ch == '/').as_bstr(),
+                kind,
+                entry.id,
+            )
             .map_err(write_error)?;
     }
     editor.write().map(gix::Id::detach).map_err(write_error)
@@ -445,7 +459,10 @@ pub fn unmerged_paths(state: &gix::index::State) -> Vec<BString> {
 /// # Errors
 ///
 /// Fails with `E_IO` when a tree cannot be read.
-pub fn expand_sparse(repo: &GitRepo, state: &gix::index::State) -> Result<gix::index::State, Error> {
+pub fn expand_sparse(
+    repo: &GitRepo,
+    state: &gix::index::State,
+) -> Result<gix::index::State, Error> {
     let has_directories = state
         .entries()
         .iter()
@@ -475,7 +492,7 @@ fn push_tree(
 ) -> Result<(), Error> {
     let read_error = |failure: gix::Error| error::from_gix("read a tree", &failure);
     let object = repo.gix().find_tree(tree).map_err(read_error)?;
-    let decoded = object.decode().map_err(|failure| read_error(failure.into()))?;
+    let decoded = object.decode().map_err(read_error)?;
     for item in &decoded.entries {
         let mut path = BString::from(prefix.to_vec());
         path.push(b'/');
@@ -547,14 +564,21 @@ mod tests {
 
     #[test]
     fn index_to_tree_refuses_conflicts() {
-        let fixture = RepoBuilder::new().file("a.txt", "1\n").commit("one").build();
+        let fixture = RepoBuilder::new()
+            .file("a.txt", "1\n")
+            .commit("one")
+            .build();
         let repo = open(&fixture);
         let mut index = repo.read_index().unwrap();
         let entry = index.state.entries()[0].clone();
         let flags = gix::index::entry::Flags::from_stage(gix::index::entry::Stage::Ours);
-        index
-            .state
-            .dangerously_push_entry(entry.stat, entry.id, flags, entry.mode, b"a.txt".as_bstr());
+        index.state.dangerously_push_entry(
+            entry.stat,
+            entry.id,
+            flags,
+            entry.mode,
+            b"a.txt".as_bstr(),
+        );
         index.state.sort_entries();
         let failure = index_to_tree(&repo, &index.state).unwrap_err();
         assert_eq!(failure.code, ErrorCode::GitInProgress);
@@ -572,7 +596,9 @@ mod tests {
         let repo = open(&fixture);
         let mut index = repo.read_index().unwrap();
         let removed: Vec<usize> = vec![0];
-        index.state.remove_entries(|position, _, _| removed.contains(&position));
+        index
+            .state
+            .remove_entries(|position, _, _| removed.contains(&position));
         let journal = RecordingJournal::new();
         let mut tx = journal.begin();
         write_index(tx.as_mut(), &mut index).unwrap();
@@ -587,7 +613,10 @@ mod tests {
 
     #[test]
     fn resolve_undo_records_survive_a_write() {
-        let fixture = RepoBuilder::new().file("a.txt", "1\n").commit("one").build();
+        let fixture = RepoBuilder::new()
+            .file("a.txt", "1\n")
+            .commit("one")
+            .build();
         let repo = open(&fixture);
         let mut index = repo.read_index().unwrap();
         let blob = index.state.entries()[0].id;
@@ -606,19 +635,29 @@ mod tests {
 
     #[test]
     fn written_index_has_a_valid_checksum_and_no_cached_tree() {
-        let fixture = RepoBuilder::new().file("a.txt", "1\n").commit("one").build();
+        let fixture = RepoBuilder::new()
+            .file("a.txt", "1\n")
+            .commit("one")
+            .build();
         let repo = open(&fixture);
         let mut index = repo.read_index().unwrap();
         let bytes = serialize(&mut index.state, &[]).unwrap();
         let (body, sum) = bytes.split_at(bytes.len() - 20);
         assert_eq!(sha1::Sha1::digest(body).as_slice(), sum);
         let start = entries_end(body).unwrap();
-        assert!(extensions(&body[start..]).iter().all(|(signature, _)| signature != b"TREE"));
+        assert!(
+            extensions(&body[start..])
+                .iter()
+                .all(|(signature, _)| signature != b"TREE")
+        );
     }
 
     #[test]
     fn existing_index_lock_fails_with_git_locked() {
-        let fixture = RepoBuilder::new().file("a.txt", "1\n").commit("one").build();
+        let fixture = RepoBuilder::new()
+            .file("a.txt", "1\n")
+            .commit("one")
+            .build();
         std::fs::write(fixture.git_dir().join("index.lock"), b"").unwrap();
         let repo = open(&fixture);
         let mut index = repo.read_index().unwrap();
@@ -642,7 +681,10 @@ mod tests {
             },
         ];
         let data = encode_resolve_undo(&records);
-        assert_eq!(decode_resolve_undo(&data, gix::hash::Kind::Sha1), Some(records));
+        assert_eq!(
+            decode_resolve_undo(&data, gix::hash::Kind::Sha1),
+            Some(records)
+        );
     }
 
     #[test]
@@ -657,7 +699,13 @@ mod tests {
         let tree = repo.resolve_rev("HEAD:out").unwrap();
         let keep = repo.read_index().unwrap().state.entries()[0].clone();
         let mut sparse = gix::index::State::new(gix::hash::Kind::Sha1);
-        sparse.dangerously_push_entry(keep.stat, keep.id, keep.flags, keep.mode, b"keep.txt".as_bstr());
+        sparse.dangerously_push_entry(
+            keep.stat,
+            keep.id,
+            keep.flags,
+            keep.mode,
+            b"keep.txt".as_bstr(),
+        );
         sparse.dangerously_push_entry(
             gix::index::entry::Stat::default(),
             tree,
@@ -672,7 +720,11 @@ mod tests {
             .map(|entry| entry.path(&expanded).to_string())
             .collect();
         assert_eq!(paths, vec!["keep.txt", "out/a.txt", "out/deep/b.txt"]);
-        assert!(expanded.entries()[1].flags.contains(gix::index::entry::Flags::SKIP_WORKTREE));
+        assert!(
+            expanded.entries()[1]
+                .flags
+                .contains(gix::index::entry::Flags::SKIP_WORKTREE)
+        );
         assert_eq!(
             index_to_tree(&repo, &sparse).unwrap(),
             repo.resolve_rev("HEAD^{tree}").unwrap()

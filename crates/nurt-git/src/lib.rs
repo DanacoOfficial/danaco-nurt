@@ -35,3 +35,7 @@ pub mod tag;
 #[cfg(any(test, feature = "testutil"))]
 pub mod testutil;
 pub mod worktree;
+
+mod registry;
+
+pub use registry::register;

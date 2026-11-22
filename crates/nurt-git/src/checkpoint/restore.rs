@@ -21,9 +21,10 @@ use nurt_contracts::report::{Change, ChangeAction, Notable, NotableEntry};
 use super::snapshot::{Blobs, snapshot_worktree};
 use super::support::{
     Filters, TreeEntry, TxPlan, display_path, expect_current, flatten_tree, in_scope, open_repo,
-    problem, quote, repo_error, repo_relative, serialize_index, workdir,
+    problem, quote, repo_error, repo_path, repo_relative, serialize_index, workdir, worktree_path,
 };
-use super::{read_commit, resolve};
+use super::{CreatePlan, read_commit, resolve};
+use crate::repo::pathspec::PathFilter;
 
 /// Parameters of a restore.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -56,6 +57,7 @@ struct Write {
 struct IndexPlan {
     tree: ObjectId,
     scopes: Vec<BString>,
+    excluded: PathFilter,
     expected: Option<Vec<u8>>,
 }
 
@@ -70,9 +72,22 @@ pub struct RestorePlan {
     writes: BTreeMap<PathBuf, Write>,
     index: Option<IndexPlan>,
     untracked_removed: u64,
+    saved: Option<CreatePlan>,
 }
 
 impl RestorePlan {
+    /// Records the current state as a checkpoint that [`apply_restore`] makes
+    /// reachable in the same transaction as the restore.
+    pub fn save_current(&mut self, plan: CreatePlan) {
+        self.saved = Some(plan);
+    }
+
+    /// Checkpoint of the state before the restore, when one is planned.
+    #[must_use]
+    pub fn saved(&self) -> Option<&nurt_contracts::record::GitCheckpoint> {
+        self.saved.as_ref().map(CreatePlan::checkpoint)
+    }
+
     /// Whether the working tree and index already match the checkpoint.
     #[must_use]
     pub fn is_empty(&self) -> bool {
@@ -96,7 +111,16 @@ impl RestorePlan {
             Change::new(display_path(path), action)
         }));
         if self.index.is_some() {
-            out.push(Change::new(display_path(&self.index_path), ChangeAction::Modify));
+            out.push(Change::new(
+                display_path(&self.index_path),
+                ChangeAction::Modify,
+            ));
+        }
+        if let Some(saved) = &self.saved {
+            out.push(Change::new(
+                display_path(&saved.reference_file()),
+                ChangeAction::Create,
+            ));
         }
         out
     }
@@ -123,7 +147,7 @@ impl RestorePlan {
 /// # Errors
 ///
 /// Fails with `E_GIT_REF` and problem `not_found` for an unknown checkpoint.
-/// Fails with `E_ARG` and problem `no_index` when the index is requested
+/// Fails with `E_GIT_CHECKPOINT` and problem `no_index` when the index is requested
 /// from a checkpoint that did not record it. Fails with
 /// `E_GIT_NOT_REPOSITORY` and problem `path_outside_repo` for a path outside
 /// the working tree. Fails with `E_IO` when the repository cannot be read.
@@ -133,6 +157,7 @@ pub fn plan_restore(repo_path: &Path, request: &RestoreRequest) -> Result<Restor
     let shown = display_path(repo_path);
     let found = resolve(&repo, &request.checkpoint, &shown)?;
     let checkpoint = read_commit(&repo, &found)?;
+    let excluded = PathFilter::new(&root, &[], &checkpoint.excludes)?;
     let scopes = request
         .paths
         .iter()
@@ -141,7 +166,7 @@ pub fn plan_restore(repo_path: &Path, request: &RestoreRequest) -> Result<Restor
     let index_tree = match (request.index, checkpoint.index_tree) {
         (true, None) => {
             return Err(problem(
-                ErrorCode::Arg,
+                ErrorCode::GitCheckpoint,
                 "no_index",
                 format!(
                     "checkpoint `{}` has no recorded index; restore without `index`",
@@ -164,16 +189,19 @@ pub fn plan_restore(repo_path: &Path, request: &RestoreRequest) -> Result<Restor
     let current = snapshot_worktree(&repo, &index, &mut filters, Blobs::HashOnly)?;
     let target: BTreeMap<BString, TreeEntry> = flatten_tree(&repo, checkpoint.tree)?
         .into_iter()
-        .filter(|(path, _)| in_scope(path.as_bstr(), &scopes))
+        .filter(|(path, _)| in_scope(path.as_bstr(), &scopes) && !excluded.excluded(path.as_bstr()))
         .collect();
     let mut removals = BTreeMap::new();
     let mut deleted = BTreeSet::new();
     let mut untracked_removed = 0;
     for path in current.files.keys() {
-        if !in_scope(path.as_bstr(), &scopes) || target.contains_key(path) {
+        if !in_scope(path.as_bstr(), &scopes)
+            || excluded.excluded(path.as_bstr())
+            || target.contains_key(path)
+        {
             continue;
         }
-        let file = root.join(gix::path::from_bstr(path.as_bstr()));
+        let file = worktree_path(&root, path.as_bstr())?;
         untracked_removed += u64::from(current.untracked.contains(path));
         deleted.insert(path.clone());
         removals.insert(
@@ -188,7 +216,7 @@ pub fn plan_restore(repo_path: &Path, request: &RestoreRequest) -> Result<Restor
         if current.files.get(path) == Some(entry) {
             continue;
         }
-        let file = root.join(gix::path::from_bstr(path.as_bstr()));
+        let file = worktree_path(&root, path.as_bstr())?;
         let metadata = std::fs::symlink_metadata(&file).ok();
         let replaces_directory = metadata.as_ref().is_some_and(std::fs::Metadata::is_dir);
         let expect = if replaces_directory {
@@ -214,6 +242,7 @@ pub fn plan_restore(repo_path: &Path, request: &RestoreRequest) -> Result<Restor
     let index = index_tree.map(|tree| IndexPlan {
         tree,
         scopes,
+        excluded,
         expected: std::fs::read(repo.index_path()).ok(),
     });
     Ok(RestorePlan {
@@ -224,6 +253,7 @@ pub fn plan_restore(repo_path: &Path, request: &RestoreRequest) -> Result<Restor
         writes,
         index,
         untracked_removed,
+        saved: None,
     })
 }
 
@@ -252,7 +282,7 @@ fn collapse_directories(
         if target.keys().any(|path| is_inside(path, &dir)) {
             continue;
         }
-        let absolute = root.join(gix::path::from_bstr(dir.as_bstr()));
+        let absolute = worktree_path(root, dir.as_bstr())?;
         if writes.contains_key(&absolute) {
             continue;
         }
@@ -261,7 +291,7 @@ fn collapse_directories(
         }
     }
     for dir in chosen {
-        let absolute = root.join(gix::path::from_bstr(dir.as_bstr()));
+        let absolute = worktree_path(root, dir.as_bstr())?;
         removals.retain(|path, _| !path.starts_with(&absolute));
         removals.insert(absolute, Removal::Directory);
     }
@@ -278,7 +308,7 @@ fn only_deleted_files(dir: &Path, rela: &BString, deleted: &BTreeSet<BString>) -
         let entry = entry.map_err(read_error)?;
         let mut child = rela.clone();
         child.push(b'/');
-        child.extend_from_slice(gix::path::into_bstr(PathBuf::from(entry.file_name())).as_ref());
+        child.extend_from_slice(&repo_path(Path::new(&entry.file_name()))?);
         let kind = entry.file_type().map_err(read_error)?;
         let removed = if kind.is_dir() {
             only_deleted_files(&entry.path(), &child, deleted)?
@@ -310,6 +340,9 @@ pub fn apply_restore(plan: &RestorePlan, tx: &mut dyn MutationTx) -> Result<()> 
         .map_err(|err| repo_error("read the index", err))?;
     let mut filters = Filters::new(&repo, &index)?;
     let mut changes = TxPlan::default();
+    if let Some(saved) = &plan.saved {
+        saved.declare(&mut changes, tx)?;
+    }
     for (path, removal) in &plan.removals {
         let expect = match removal {
             Removal::File { expect } => expect.clone(),
@@ -331,11 +364,11 @@ pub fn apply_restore(plan: &RestorePlan, tx: &mut dyn MutationTx) -> Result<()> 
         let blob = repo
             .find_blob(write.id)
             .map_err(|err| repo_error(&format!("read the content of `{}`", path.display()), err))?;
-        let rela = path
-            .strip_prefix(&plan.root)
-            .map(|rela| gix::path::to_unix_separators_on_windows(gix::path::into_bstr(rela)).into_owned())
-            .unwrap_or_default();
-        let content = filters.to_worktree(rela.as_bstr(), &blob.data)?;
+        let rela = match path.strip_prefix(&plan.root) {
+            Ok(rela) => repo_path(rela)?,
+            Err(_) => BString::default(),
+        };
+        let content = filters.convert_to_worktree(rela.as_bstr(), &blob.data)?;
         if write.replaces_directory {
             changes.replace_with_file(path, content)?;
         } else {
@@ -358,12 +391,12 @@ fn restored_index(
     let mut state = gix::index::State::new(repo.object_hash());
     for entry in current.entries() {
         let path = entry.path(current);
-        if !in_scope(path, &plan.scopes) {
+        if !in_scope(path, &plan.scopes) || plan.excluded.excluded(path) {
             state.dangerously_push_entry(entry.stat, entry.id, entry.flags, entry.mode, path);
         }
     }
     for (path, (kind, id)) in flatten_tree(repo, plan.tree)? {
-        if in_scope(path.as_bstr(), &plan.scopes) {
+        if in_scope(path.as_bstr(), &plan.scopes) && !plan.excluded.excluded(path.as_bstr()) {
             state.dangerously_push_entry(
                 gix::index::entry::Stat::default(),
                 id,
@@ -394,7 +427,16 @@ mod tests {
     use super::*;
 
     fn checkpoint(fixture: &Fixture, journal: &RecordingJournal, index: bool) {
-        let plan = plan_create(&fixture.root, &CreateRequest { label: None, index }, &test_ctx()).unwrap();
+        let plan = plan_create(
+            &fixture.root,
+            &CreateRequest {
+                label: None,
+                index,
+                exclude: Vec::new(),
+            },
+            &test_ctx(),
+        )
+        .unwrap();
         let mut tx = journal.begin(fixture.base());
         apply_create(&plan, tx.as_mut()).unwrap();
         journal.commit(tx);
@@ -421,7 +463,11 @@ mod tests {
 
     #[test]
     fn restore_rewrites_recreates_and_removes_files_and_undo_returns_the_later_state() {
-        let fixture = Fixture::new(&[("a.txt", "a = 2\n"), ("keep.txt", "keep\n"), (".gitignore", ".env\n")]);
+        let fixture = Fixture::new(&[
+            ("a.txt", "a = 2\n"),
+            ("keep.txt", "keep\n"),
+            (".gitignore", ".env\n"),
+        ]);
         let journal = RecordingJournal::default();
         checkpoint(&fixture, &journal, false);
         fixture.write("a.txt", "a = 99\n");
@@ -431,16 +477,20 @@ mod tests {
         fixture.remove("keep.txt");
         let changed = fixture.state();
         let plan = plan_restore(&fixture.root, &request(&[], false)).unwrap();
-        let actions: Vec<(String, ChangeAction)> = plan
+        let mut actions: Vec<(String, ChangeAction)> = plan
             .changes()
             .into_iter()
-            .map(|change| (last_name(&change.path), change.action))
+            .map(|change| (last_name(change.path.as_str()), change.action))
             .collect();
-        assert!(actions.contains(&("a.txt".into(), ChangeAction::Modify)));
-        assert!(actions.contains(&("keep.txt".into(), ChangeAction::Create)));
-        assert!(actions.contains(&("extra.txt".into(), ChangeAction::Delete)));
-        assert!(actions.contains(&("tmp".into(), ChangeAction::Delete)));
-        assert_eq!(actions.len(), 4);
+        actions.sort_by(|a, b| a.0.cmp(&b.0));
+        let expected = [
+            ("a.txt", ChangeAction::Modify),
+            ("extra.txt", ChangeAction::Delete),
+            ("keep.txt", ChangeAction::Create),
+            ("tmp", ChangeAction::Delete),
+        ]
+        .map(|(name, action)| (name.to_owned(), action));
+        assert_eq!(actions, expected);
         assert_eq!(plan.notable()[0].code, Notable::UntrackedRemoved);
         assert_eq!(plan.notable()[0].count, Some(2));
         let mut tx = journal.begin(fixture.base());
@@ -500,7 +550,10 @@ mod tests {
         assert_eq!(outside.code(), ErrorCode::GitNotRepository);
         let mut unknown = request(&[], false);
         unknown.checkpoint = "cp-7".into();
-        assert_eq!(plan_restore(&fixture.root, &unknown).unwrap_err().code(), ErrorCode::GitRef);
+        assert_eq!(
+            plan_restore(&fixture.root, &unknown).unwrap_err().code(),
+            ErrorCode::GitRef
+        );
     }
 
     #[test]

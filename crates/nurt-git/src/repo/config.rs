@@ -119,12 +119,28 @@ pub fn merge_overrides(
         let header = section.header();
         let name = header.name();
         let subsection = header.subsection_name();
+        let mut seen = std::collections::HashSet::new();
         for value_name in section.body().value_names() {
-            if local.raw_value_by(&*name.to_str_lossy(), subsection, value_name.as_str()).is_ok() {
+            if !seen.insert(value_name.to_ascii_lowercase()) {
+                continue;
+            }
+            if local
+                .raw_value_by(&*name.to_str_lossy(), subsection, value_name.as_str())
+                .is_ok()
+            {
+                continue;
+            }
+            if section.body().value_implicit(&value_name) == Some(None) {
+                outer_values.push(override_text(name, subsection, &value_name, None));
                 continue;
             }
             for value in section.body().values(&value_name) {
-                outer_values.push(override_text(name, subsection, &value_name, Some(value.as_bstr())));
+                outer_values.push(override_text(
+                    name,
+                    subsection,
+                    &value_name,
+                    Some(value.as_bstr()),
+                ));
             }
         }
     }
@@ -365,11 +381,14 @@ mod tests {
     fn outer_values_defined_locally_are_skipped() {
         let local = parse("[user]\n\tname = Local\n");
         let outer = parse("[user]\n\tname = Global\n\temail = g@example.com\n[core]\n\tautocrlf\n");
-        let env = GitEnv::from_host(&TestHost::new("/home/a"));
+        let env = GitEnv::from_host(&TestHost::new("/home/user"));
         let plan = merge_overrides(&local, &outer, &env);
         assert_eq!(
             plan.outer,
-            vec![BString::from("user.email=g@example.com"), BString::from("core.autocrlf")]
+            vec![
+                BString::from("user.email=g@example.com"),
+                BString::from("core.autocrlf")
+            ]
         );
     }
 
@@ -377,22 +396,28 @@ mod tests {
     fn subsections_are_kept_in_override_keys() {
         let local = parse("");
         let outer = parse("[url \"https://example.com/\"]\n\tinsteadOf = ex:\n");
-        let env = GitEnv::from_host(&TestHost::new("/home/a"));
+        let env = GitEnv::from_host(&TestHost::new("/home/user"));
         let plan = merge_overrides(&local, &outer, &env);
-        assert_eq!(plan.outer, vec![BString::from("url.https://example.com/.insteadOf=ex:")]);
+        assert_eq!(
+            plan.outer,
+            vec![BString::from("url.https://example.com/.insteadOf=ex:")]
+        );
     }
 
     #[test]
     fn tilde_in_path_values_is_expanded_with_the_context_home() {
         let local = parse("[core]\n\texcludesFile = ~/.ignore\n");
-        let env = GitEnv::from_host(&TestHost::new("/home/a"));
+        let env = GitEnv::from_host(&TestHost::new("/home/user"));
         let plan = merge_overrides(&local, &parse(""), &env);
-        assert_eq!(plan.paths, vec![BString::from("core.excludesFile=/home/a/.ignore")]);
+        assert_eq!(
+            plan.paths,
+            vec![BString::from("core.excludesFile=/home/user/.ignore")]
+        );
     }
 
     #[test]
     fn environment_pairs_follow_the_files() {
-        let host = TestHost::new("/home/a")
+        let host = TestHost::new("/home/user")
             .with_var("GIT_CONFIG_COUNT", "1")
             .with_var("GIT_CONFIG_KEY_0", "core.abbrev")
             .with_var("GIT_CONFIG_VALUE_0", "10");
@@ -405,12 +430,17 @@ mod tests {
         let config = parse("[extensions]\n\trefStorage = reftable\n");
         let error = check_extensions(&config).expect_err("reftable is unsupported");
         assert_eq!(error.code, nurt_contracts::error::ErrorCode::GitUnsupported);
-        assert_eq!(error.found.as_deref(), Some("extensions.refStorage=reftable"));
+        assert_eq!(
+            error.found.as_deref(),
+            Some("extensions.refStorage=reftable")
+        );
     }
 
     #[test]
     fn known_extensions_are_accepted_and_unknown_rejected() {
-        let ok = parse("[extensions]\n\tobjectFormat = sha256\n\tworktreeConfig = true\n\trefStorage = files\n");
+        let ok = parse(
+            "[extensions]\n\tobjectFormat = sha256\n\tworktreeConfig = true\n\trefStorage = files\n",
+        );
         assert!(check_extensions(&ok).is_ok());
         let unknown = parse("[extensions]\n\tsomethingNew = 1\n");
         assert!(check_extensions(&unknown).is_err());
@@ -419,19 +449,35 @@ mod tests {
     #[test]
     fn fsmonitor_detection_ignores_false_values() {
         assert!(!fsmonitor_configured(&parse("")));
-        assert!(!fsmonitor_configured(&parse("[core]\n\tfsmonitor = false\n")));
+        assert!(!fsmonitor_configured(&parse(
+            "[core]\n\tfsmonitor = false\n"
+        )));
         assert!(fsmonitor_configured(&parse("[core]\n\tfsmonitor = true\n")));
-        assert!(fsmonitor_configured(&parse("[core]\n\tfsmonitor = .git/hooks/query\n")));
+        assert!(fsmonitor_configured(&parse(
+            "[core]\n\tfsmonitor = .git/hooks/query\n"
+        )));
     }
 
     #[test]
     fn safe_directory_follows_git_rules() {
-        let env = GitEnv::from_host(&TestHost::new("/home/a"));
+        let env = GitEnv::from_host(&TestHost::new("/home/user"));
         let repo = Path::new("/srv/repos/app");
         assert!(!is_safe_directory(&parse(""), &env, repo));
-        assert!(is_safe_directory(&parse("[safe]\n\tdirectory = /srv/repos/app/\n"), &env, repo));
-        assert!(is_safe_directory(&parse("[safe]\n\tdirectory = /srv/*\n"), &env, repo));
-        assert!(is_safe_directory(&parse("[safe]\n\tdirectory = *\n"), &env, repo));
+        assert!(is_safe_directory(
+            &parse("[safe]\n\tdirectory = /srv/repos/app/\n"),
+            &env,
+            repo
+        ));
+        assert!(is_safe_directory(
+            &parse("[safe]\n\tdirectory = /srv/*\n"),
+            &env,
+            repo
+        ));
+        assert!(is_safe_directory(
+            &parse("[safe]\n\tdirectory = *\n"),
+            &env,
+            repo
+        ));
         assert!(!is_safe_directory(
             &parse("[safe]\n\tdirectory = *\n\tdirectory =\n"),
             &env,

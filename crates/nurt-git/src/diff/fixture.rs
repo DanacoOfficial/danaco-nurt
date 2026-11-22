@@ -27,9 +27,12 @@ impl Fixture {
         self.dir.path()
     }
 
-    /// The repository opened for reading.
+    /// The repository opened without the configuration of the system and
+    /// the account, with a fixed identity for reference logs.
     pub(crate) fn repo(&self) -> gix::Repository {
-        super::source::open_repository(self.root()).expect("open").repo
+        let options = gix::open::Options::isolated()
+            .config_overrides(["user.name=Tester", "user.email=tester@example.com"]);
+        gix::open_opts(self.root(), options).expect("open")
     }
 
     /// Writes a worktree file, creating its directories.
@@ -59,7 +62,12 @@ impl Fixture {
         repo.head_tree_id_or_empty().expect("head tree").detach()
     }
 
-    fn tree_with(&self, repo: &gix::Repository, base: ObjectId, files: &[(&str, &str)]) -> ObjectId {
+    fn tree_with(
+        &self,
+        repo: &gix::Repository,
+        base: ObjectId,
+        files: &[(&str, &str)],
+    ) -> ObjectId {
         let mut editor = repo.edit_tree(base).expect("editor");
         for (path, content) in files {
             let blob = repo.write_blob(content.as_bytes()).expect("blob").detach();
@@ -70,7 +78,16 @@ impl Fixture {
 
     fn write_index(&self, repo: &gix::Repository, tree: ObjectId) {
         let mut index = repo.index_from_tree(&tree).expect("index");
-        index.write(gix::index::write::Options::default()).expect("write index");
+        self.save_index(&mut index);
+    }
+
+    /// Writes `index` to its file.
+    // Test repositories are prepared outside a journal transaction.
+    #[allow(clippy::disallowed_methods)]
+    pub(crate) fn save_index(&self, index: &mut gix::index::File) {
+        index
+            .write(gix::index::write::Options::default())
+            .expect("write index");
     }
 
     /// Commits `files` on top of `HEAD`, writes them to the working tree and
@@ -94,10 +111,10 @@ impl Fixture {
             extra_headers: Vec::new(),
         };
         let id = repo.write_object(&commit).expect("commit").detach();
-        let head = repo
-            .head_name()
-            .expect("head")
-            .map_or_else(|| "refs/heads/main".to_owned(), |name| name.as_bstr().to_string());
+        let head = repo.head_name().expect("head").map_or_else(
+            || "refs/heads/main".to_owned(),
+            |name| name.as_bstr().to_string(),
+        );
         repo.reference(
             head.as_str(),
             id,

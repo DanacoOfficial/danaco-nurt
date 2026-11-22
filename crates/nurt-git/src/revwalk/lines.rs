@@ -63,12 +63,14 @@ pub(crate) fn edits(old: &[u8], new: &[u8]) -> Vec<Edit> {
 
 /// Lines added and removed from `old` to `new`.
 pub(crate) fn line_counts(old: &[u8], new: &[u8]) -> (u64, u64) {
-    edits(old, new).iter().fold((0, 0), |(added, removed), edit| {
-        (
-            added + u64::from(edit.after.end - edit.after.start),
-            removed + u64::from(edit.before.end - edit.before.start),
-        )
-    })
+    edits(old, new)
+        .iter()
+        .fold((0, 0), |(added, removed), edit| {
+            (
+                added + u64::from(edit.after.end - edit.after.start),
+                removed + u64::from(edit.before.end - edit.before.start),
+            )
+        })
 }
 
 /// One hunk of a unified difference.
@@ -102,10 +104,17 @@ pub(crate) fn unified(old: &[u8], new: &[u8], context: u32) -> Vec<UnifiedHunk> 
     let mut start = 0;
     while start < all.len() {
         let mut end = start + 1;
-        while end < all.len() && all[end].before.start - all[end - 1].before.end <= context.saturating_mul(2) {
+        while end < all.len()
+            && all[end].before.start - all[end - 1].before.end <= context.saturating_mul(2)
+        {
             end += 1;
         }
-        hunks.push(build_hunk(&old_lines, &new_lines, &all[start..end], context));
+        hunks.push(build_hunk(
+            &old_lines,
+            &new_lines,
+            &all[start..end],
+            context,
+        ));
         start = end;
     }
     hunks
@@ -149,7 +158,11 @@ fn build_hunk(old: &[&[u8]], new: &[&[u8]], group: &[Edit], context: u32) -> Uni
 }
 
 fn header_start(begin: u32, end: u32) -> u64 {
-    if end > begin { u64::from(begin) + 1 } else { u64::from(begin) }
+    if end > begin {
+        u64::from(begin) + 1
+    } else {
+        u64::from(begin)
+    }
 }
 
 fn push_context(out: &mut Vec<String>, lines: &[&[u8]], range: Range<u32>) {
@@ -211,17 +224,26 @@ fn map_line(edits: &[Edit], line: u32, start: bool) -> u32 {
     let mut shift: i64 = 0;
     for edit in edits {
         if edit.after.start <= line && line < edit.after.end {
-            return if start { edit.before.start } else { edit.before.end };
+            return if start {
+                edit.before.start
+            } else {
+                edit.before.end
+            };
         }
         if edit.after.end <= line {
-            shift += i64::from(edit.before.end - edit.before.start) - i64::from(edit.after.end - edit.after.start);
+            shift += i64::from(edit.before.end - edit.before.start)
+                - i64::from(edit.after.end - edit.after.start);
         } else {
             break;
         }
     }
     let mapped = (i64::from(line) + shift).max(0);
     let mapped = u32::try_from(mapped).unwrap_or(u32::MAX);
-    if start { mapped } else { mapped.saturating_add(1) }
+    if start {
+        mapped
+    } else {
+        mapped.saturating_add(1)
+    }
 }
 
 fn len32(len: usize) -> u32 {
@@ -263,17 +285,27 @@ mod tests {
         let hunks = unified(old, new, 3);
         assert_eq!(hunks.len(), 1);
         let hunk = &hunks[0];
-        assert_eq!((hunk.old_start, hunk.old_len, hunk.new_start, hunk.new_len), (3, 7, 3, 7));
-        assert_eq!(hunk.lines, ["   2", "   3", "   4", "-  5", "+  X", "   6", "   7", " }"]);
+        assert_eq!(
+            (hunk.old_start, hunk.old_len, hunk.new_start, hunk.new_len),
+            (3, 7, 3, 7)
+        );
+        assert_eq!(
+            hunk.lines,
+            ["   2", "   3", "   4", "-  5", "+  X", "   6", "   7", " }"]
+        );
         assert_eq!(hunk.header.as_deref(), Some("fn one() {"));
     }
 
     #[test]
     fn separates_distant_changes_and_joins_close_ones() {
-        let old: Vec<u8> = (1..=20).flat_map(|n| format!("{n}\n").into_bytes()).collect();
+        let old: Vec<u8> = (1..=20)
+            .flat_map(|n| format!("{n}\n").into_bytes())
+            .collect();
         let mut new = old.clone();
         new[0] = b'X';
-        let changed = String::from_utf8(new.clone()).unwrap().replace("\n19\n", "\nY\n");
+        let changed = String::from_utf8(new.clone())
+            .unwrap()
+            .replace("\n19\n", "\nY\n");
         assert_eq!(unified(&old, changed.as_bytes(), 3).len(), 2);
         assert_eq!(unified(&old, changed.as_bytes(), 10).len(), 1);
         let zero = unified(&old, changed.as_bytes(), 0);
@@ -283,7 +315,10 @@ mod tests {
     #[test]
     fn marks_missing_final_line_break_and_new_files() {
         let hunks = unified(b"", b"a\nb", 3);
-        assert_eq!((hunks[0].old_start, hunks[0].old_len, hunks[0].new_start), (0, 0, 1));
+        assert_eq!(
+            (hunks[0].old_start, hunks[0].old_len, hunks[0].new_start),
+            (0, 0, 1)
+        );
         assert_eq!(hunks[0].lines, ["+a", "+b", NO_NEWLINE]);
         assert_eq!(hunks[0].header, None);
         let removed = unified(b"a\nb\n", b"", 3);

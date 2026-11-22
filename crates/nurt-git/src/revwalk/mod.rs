@@ -10,7 +10,9 @@
 //! that equals one of its parents within the paths is followed through that
 //! parent only.
 
+pub(crate) mod args;
 pub(crate) mod changes;
+pub(crate) mod combined;
 pub(crate) mod graph;
 pub(crate) mod lines;
 pub(crate) mod paths;
@@ -19,7 +21,5 @@ pub(crate) mod repo;
 pub(crate) mod spec;
 pub(crate) mod walk;
 
-#[cfg(test)]
-mod difftest;
 #[cfg(test)]
 pub(crate) mod fixture;

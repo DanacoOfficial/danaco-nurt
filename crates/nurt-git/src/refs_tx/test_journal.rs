@@ -152,10 +152,16 @@ impl RecordingTx {
         let exists = std::fs::symlink_metadata(&path).is_ok();
         match spec.action {
             TargetAction::Create if exists => Err(error(ErrorCode::Exists, &path)),
-            TargetAction::Delete | TargetAction::Append if !exists => {
+            TargetAction::Delete
+            | TargetAction::Append
+            | TargetAction::Rename { .. }
+            | TargetAction::Replace
+            | TargetAction::Truncate
+                if !exists =>
+            {
                 Err(error(ErrorCode::NotFound, &path))
             }
-            _ => Ok(()),
+            _ => Self::check_expect(spec),
         }
     }
 

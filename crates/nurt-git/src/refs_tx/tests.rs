@@ -164,8 +164,18 @@ fn restore_state(
     }
     for (path, content) in state {
         match content {
-            None => std::fs::create_dir_all(path).unwrap(),
-            Some(bytes) => std::fs::write(path, bytes).unwrap(),
+            None => {
+                if path.is_file() {
+                    std::fs::remove_file(path).unwrap();
+                }
+                std::fs::create_dir_all(path).unwrap();
+            }
+            Some(bytes) => {
+                if path.is_dir() {
+                    std::fs::remove_dir_all(path).unwrap();
+                }
+                std::fs::write(path, bytes).unwrap();
+            }
         }
     }
 }
@@ -787,6 +797,54 @@ fn layout_is_read_from_repository_configuration() {
         RefLayout::from_repo(&repo).unwrap().log_all(),
         LogAllRefUpdates::Never
     );
+}
+
+#[test]
+fn every_file_is_one_target_checked_against_its_previous_content() {
+    let fx = Fixture::new();
+    fx.write("packed-refs", &format!("{B} refs/tags/v1\n"));
+    let mut refs = fx.refs();
+    refs.push(set("refs/heads/main", obj(B), PreviousValue::Any, "m"));
+    refs.push(set("refs/heads/topic", obj(B), PreviousValue::Any, "m"));
+    refs.push(RefEdit::delete(
+        name("refs/tags/v1"),
+        PreviousValue::Any,
+        "",
+    ));
+    let targets = refs.prepare().unwrap().targets();
+    let paths: Vec<PathBuf> = targets
+        .iter()
+        .map(|target| match &target.path {
+            nurt_contracts::journal::TargetPath::Fs(path) => path.as_path().to_path_buf(),
+            nurt_contracts::journal::TargetPath::Provider(_) => unreachable!(),
+        })
+        .collect();
+    let unique: std::collections::BTreeSet<&PathBuf> = paths.iter().collect();
+    assert_eq!(unique.len(), paths.len(), "a path is declared twice");
+    assert!(
+        paths
+            .iter()
+            .all(|path| path.extension().is_none_or(|ext| ext != "lock"))
+    );
+    let main = targets
+        .iter()
+        .find(|target| {
+            target.path == nurt_contracts::journal::TargetPath::Fs(abs(&fx.path("refs/heads/main")))
+        })
+        .unwrap();
+    assert_eq!(main.action, nurt_contracts::journal::TargetAction::Modify);
+    assert!(matches!(
+        main.expect,
+        nurt_contracts::journal::Expect::Hash(_)
+    ));
+    let topic = targets
+        .iter()
+        .find(|target| {
+            target.path
+                == nurt_contracts::journal::TargetPath::Fs(abs(&fx.path("refs/heads/topic")))
+        })
+        .unwrap();
+    assert_eq!(topic.expect, nurt_contracts::journal::Expect::Absent);
 }
 
 #[test]

@@ -177,7 +177,9 @@ impl Trailer {
         let token = text[..position].trim_end();
         let value = text[position + 1..].trim_matches(is_git_space);
         if token.is_empty() || !token.bytes().all(is_token_byte) {
-            return Err(invalid("the token may contain only letters, digits and `-`"));
+            return Err(invalid(
+                "the token may contain only letters, digits and `-`",
+            ));
         }
         if value.is_empty() {
             return Err(invalid("the trailer has no value"));
@@ -189,7 +191,8 @@ impl Trailer {
     }
 
     fn same_as(&self, other: &Self) -> bool {
-        self.token.eq_ignore_ascii_case(&other.token) && self.value.eq_ignore_ascii_case(&other.value)
+        self.token.eq_ignore_ascii_case(&other.token)
+            && self.value.eq_ignore_ascii_case(&other.value)
     }
 }
 
@@ -259,7 +262,9 @@ fn find_block(lines: &[&str]) -> Option<Block> {
             trailer_lines += 1;
             continue;
         }
-        recognized |= RECOGNIZED_PREFIXES.iter().any(|prefix| line.starts_with(prefix));
+        recognized |= RECOGNIZED_PREFIXES
+            .iter()
+            .any(|prefix| line.starts_with(prefix));
         match trailer_of_line(line) {
             Some(trailer) => {
                 trailer_lines += 1;
@@ -289,7 +294,10 @@ fn content_lines(message: &str) -> Vec<&str> {
 pub fn trailers(message: &str) -> IndexMap<String, String> {
     let lines = content_lines(message);
     let mut found: IndexMap<String, String> = IndexMap::new();
-    for trailer in find_block(&lines).map(|block| block.trailers).unwrap_or_default() {
+    for trailer in find_block(&lines)
+        .map(|block| block.trailers)
+        .unwrap_or_default()
+    {
         found
             .entry(trailer.token)
             .and_modify(|value| {
@@ -321,7 +329,10 @@ pub fn append_trailers(message: &str, trailers: &[Trailer]) -> String {
     let mut last = block.and_then(|block| block.trailers.last().cloned());
     let mut separated = last.is_some() || lines.is_empty();
     for trailer in trailers {
-        if last.as_ref().is_some_and(|neighbour| neighbour.same_as(trailer)) {
+        if last
+            .as_ref()
+            .is_some_and(|neighbour| neighbour.same_as(trailer))
+        {
             continue;
         }
         if !separated {
@@ -377,16 +388,26 @@ mod tests {
 
     #[test]
     fn whitespace_cleanup_keeps_leading_spaces_and_comments() {
-        let cleaned = cleanup("  first   \n\n  body line  \n\n\n", Cleanup::Whitespace, '#');
+        let cleaned = cleanup(
+            "  first   \n\n  body line  \n\n\n",
+            Cleanup::Whitespace,
+            '#',
+        );
         assert_eq!(cleaned, "  first\n\n  body line\n");
         assert_eq!(cleanup("a\n# c\n", Cleanup::Whitespace, '#'), "a\n# c\n");
         assert_eq!(cleanup(" \n\t\n", Cleanup::Whitespace, '#'), "");
-        assert_eq!(cleanup("\n\ntitle\n\n\n\nbody\t\n", Cleanup::Whitespace, '#'), "title\n\nbody\n");
+        assert_eq!(
+            cleanup("\n\ntitle\n\n\n\nbody\t\n", Cleanup::Whitespace, '#'),
+            "title\n\nbody\n"
+        );
     }
 
     #[test]
     fn strip_cleanup_removes_lines_with_the_comment_character() {
-        assert_eq!(cleanup("a\n; c\n\n; d\nb\n", Cleanup::Strip, ';'), "a\n\nb\n");
+        assert_eq!(
+            cleanup("a\n; c\n\n; d\nb\n", Cleanup::Strip, ';'),
+            "a\n\nb\n"
+        );
     }
 
     #[test]
@@ -398,14 +419,23 @@ mod tests {
     fn cleanup_mode_rejects_unknown_values_with_the_accepted_list() {
         let error = Cleanup::from_config(Some("Tidy")).unwrap_err();
         assert!(error.to_string().contains("strip, whitespace"));
-        assert_eq!(Cleanup::from_config(Some("VERBATIM")), Ok(Cleanup::Verbatim));
-        assert_eq!(Cleanup::from_config(Some("scissors")), Ok(Cleanup::Whitespace));
+        assert_eq!(
+            Cleanup::from_config(Some("VERBATIM")),
+            Ok(Cleanup::Verbatim)
+        );
+        assert_eq!(
+            Cleanup::from_config(Some("scissors")),
+            Ok(Cleanup::Whitespace)
+        );
         assert_eq!(Cleanup::from_config(None), Ok(Cleanup::Whitespace));
     }
 
     #[test]
     fn title_paragraph_is_never_a_trailer_block() {
-        assert_eq!(append_trailers("fix: subj\n", &[trailer("Refs:2")]), "fix: subj\n\nRefs: 2\n");
+        assert_eq!(
+            append_trailers("fix: subj\n", &[trailer("Refs:2")]),
+            "fix: subj\n\nRefs: 2\n"
+        );
     }
 
     #[test]
@@ -416,13 +446,19 @@ mod tests {
 
     #[test]
     fn trailer_joins_an_existing_block_without_a_blank_line() {
-        let out = append_trailers("docs: note\n\nRefs: 1\n", &[trailer("Co-Authored-By: A <a@x>")]);
+        let out = append_trailers(
+            "docs: note\n\nRefs: 1\n",
+            &[trailer("Co-Authored-By: A <a@x>")],
+        );
         assert_eq!(out, "docs: note\n\nRefs: 1\nCo-Authored-By: A <a@x>\n");
     }
 
     #[test]
     fn duplicate_of_the_last_trailer_is_skipped_but_not_of_an_earlier_one() {
-        assert_eq!(append_trailers("s\n\nRefs: 3\n", &[trailer("refs: 3")]), "s\n\nRefs: 3\n");
+        assert_eq!(
+            append_trailers("s\n\nRefs: 3\n", &[trailer("refs: 3")]),
+            "s\n\nRefs: 3\n"
+        );
         let out = append_trailers("s\n\nRefs: 3\nOther: x\n", &[trailer("Refs: 3")]);
         assert_eq!(out, "s\n\nRefs: 3\nOther: x\nRefs: 3\n");
     }
@@ -451,7 +487,10 @@ mod tests {
     #[test]
     fn continuation_lines_belong_to_the_block() {
         let message = "subj\n\nRefs: 5\n  continued\n";
-        assert_eq!(append_trailers(message, &[trailer("X: y")]), format!("{message}X: y\n"));
+        assert_eq!(
+            append_trailers(message, &[trailer("X: y")]),
+            format!("{message}X: y\n")
+        );
     }
 
     #[test]
@@ -460,7 +499,10 @@ mod tests {
         let message = "x\n\nSigned-off-by: Tester <t@example.com>\n";
         assert_eq!(sign_off(message, ada), message);
         let other = "y\n\nSigned-off-by: Other <o@x>\n";
-        assert_eq!(sign_off(other, ada), format!("{other}Signed-off-by: {ada}\n"));
+        assert_eq!(
+            sign_off(other, ada),
+            format!("{other}Signed-off-by: {ada}\n")
+        );
         assert_eq!(sign_off("s\n", ada), format!("s\n\nSigned-off-by: {ada}\n"));
     }
 
@@ -482,7 +524,10 @@ mod tests {
         assert!(Trailer::parse("A: b\nC: d").is_err());
         let error = Trailer::parse("plain").unwrap_err();
         assert!(error.to_string().starts_with("invalid trailer `plain`"));
-        assert_eq!(trailer("Co-Authored-By=Ada").to_string(), "Co-Authored-By: Ada");
+        assert_eq!(
+            trailer("Co-Authored-By=Ada").to_string(),
+            "Co-Authored-By: Ada"
+        );
     }
 
     #[test]

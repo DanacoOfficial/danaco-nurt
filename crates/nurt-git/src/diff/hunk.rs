@@ -14,8 +14,8 @@
 use std::ops::Range;
 
 use bstr::{BString, ByteSlice};
-use nurt_contracts::record::{Hunk as HunkRecord, HunkStatus};
-use nurt_contracts::value::{Path, Record, Value};
+use nurt_contracts::record::{Hunk as HunkRecord, HunkStatus, MovedBlock as MovedRecord};
+use nurt_contracts::value::{Path, Record};
 use sha2::{Digest, Sha256};
 
 use super::funcname::FuncMatcher;
@@ -216,7 +216,14 @@ impl Hunk {
     /// which are valid only for the canonical difference.
     #[must_use]
     pub fn to_record(&self, with_id: bool) -> Record {
-        let record = HunkRecord {
+        Record::from(self.to_hunk_record(with_id))
+    }
+
+    /// The typed `hunk` record; `with_id` adds the identifier and the
+    /// fingerprint.
+    #[must_use]
+    pub fn to_hunk_record(&self, with_id: bool) -> HunkRecord {
+        HunkRecord {
             path: Path::from(self.path.to_str_lossy().into_owned()),
             old_start: u64::from(self.old_start),
             old_len: u64::from(self.old_len),
@@ -241,32 +248,23 @@ impl Hunk {
             old_mode: self.old_mode.clone(),
             new_mode: self.new_mode.clone(),
             ignore_whitespace: None,
-        };
-        let mut record = Record::from(record);
-        if with_id {
-            record.set("fingerprint", Value::from(self.fingerprint()));
+            fingerprint: with_id.then(|| self.fingerprint()),
+            staged: None,
+            untracked: None,
+            unit: None,
+            moved: (!self.moved.is_empty()).then(|| self.moved.iter().map(moved_record).collect()),
         }
-        if !self.moved.is_empty() {
-            record.set("moved", moved_value(&self.moved));
-        }
-        record
     }
 }
 
-fn moved_value(blocks: &[MovedBlock]) -> Value {
-    let list = blocks
-        .iter()
-        .map(|block| {
-            let mut entry = Record::new(nurt_contracts::value::RecordKind::Map);
-            entry.set("from_path", Value::from(block.from_path.to_str_lossy().into_owned()));
-            entry.set("from_line", Value::from(i64::from(block.from_line)));
-            entry.set("to_path", Value::from(block.to_path.to_str_lossy().into_owned()));
-            entry.set("to_line", Value::from(i64::from(block.to_line)));
-            entry.set("lines", Value::from(i64::from(block.lines)));
-            Value::Record(entry)
-        })
-        .collect();
-    Value::List(list)
+fn moved_record(block: &MovedBlock) -> MovedRecord {
+    MovedRecord {
+        from_path: Path::from(block.from_path.to_str_lossy().into_owned()),
+        from_line: u64::from(block.from_line),
+        to_path: Path::from(block.to_path.to_str_lossy().into_owned()),
+        to_line: u64::from(block.to_line),
+        lines: u64::from(block.lines),
+    }
 }
 
 fn range_text(start: u32, len: u32) -> String {
@@ -322,12 +320,14 @@ impl<'a> TextDiff<'a> {
     /// Number of added and removed lines.
     #[must_use]
     pub fn counts(&self) -> (u64, u64) {
-        self.changes.iter().fold((0, 0), |(added, removed), change| {
-            (
-                added + change.new.len() as u64,
-                removed + change.old.len() as u64,
-            )
-        })
+        self.changes
+            .iter()
+            .fold((0, 0), |(added, removed), change| {
+                (
+                    added + change.new.len() as u64,
+                    removed + change.old.len() as u64,
+                )
+            })
     }
 
     /// Keeps only the changes that touch `lines` of the new text (0-based,
@@ -383,13 +383,12 @@ impl<'a> TextDiff<'a> {
         let head = &self.changes[first];
         let mut old_start = head.old.start.saturating_sub(context);
         let mut new_start = head.new.start.saturating_sub(context);
-        if layout.function_context {
-            if let Some(start) = self.function_start(head, funcs) {
-                if start < old_start {
-                    new_start = new_start.saturating_sub(old_start - start);
-                    old_start = start;
-                }
-            }
+        if layout.function_context
+            && let Some(start) = self.function_start(head, funcs)
+            && start < old_start
+        {
+            new_start = new_start.saturating_sub(old_start - start);
+            old_start = start;
         }
         let (old_end, new_end, last) = self.group_end(last, layout, funcs);
         Group {
@@ -399,7 +398,12 @@ impl<'a> TextDiff<'a> {
         }
     }
 
-    fn group_end(&self, mut last: usize, layout: &Layout, funcs: &FuncMatcher) -> (usize, usize, usize) {
+    fn group_end(
+        &self,
+        mut last: usize,
+        layout: &Layout,
+        funcs: &FuncMatcher,
+    ) -> (usize, usize, usize) {
         let context = layout.context as usize;
         loop {
             let tail = &self.changes[last];
@@ -441,7 +445,8 @@ impl<'a> TextDiff<'a> {
             probe = self.old.len().checked_sub(1)?;
         }
         let mut start = funcs.find_backward(&self.old, probe).unwrap_or(0);
-        while start > 0 && !is_blank(self.old[start - 1]) && !funcs.is_function(self.old[start - 1]) {
+        while start > 0 && !is_blank(self.old[start - 1]) && !funcs.is_function(self.old[start - 1])
+        {
             start -= 1;
         }
         Some(start)
@@ -520,7 +525,11 @@ fn to_u32(value: usize) -> u32 {
 /// Git writes an empty range as the line before it and a non-empty range
 /// from its first line, counting from 1.
 fn header_start(start: usize, len: usize) -> u32 {
-    if len == 0 { to_u32(start) } else { to_u32(start + 1) }
+    if len == 0 {
+        to_u32(start)
+    } else {
+        to_u32(start + 1)
+    }
 }
 
 fn push_line(lines: &mut Vec<HunkLine>, kind: LineKind, line: &[u8]) {
@@ -535,10 +544,4 @@ fn push_line(lines: &mut Vec<HunkLine>, kind: LineKind, line: &[u8]) {
             text: BString::default(),
         });
     }
-}
-
-/// Number of lines of a text, counting a last line without line feed.
-pub(crate) fn line_count(data: &[u8]) -> u64 {
-    let feeds = data.find_iter(b"\n").count() as u64;
-    if data.is_empty() || data.ends_with(b"\n") { feeds } else { feeds + 1 }
 }

@@ -620,6 +620,84 @@ fn eol_attribute_converts_on_write_and_file_stays_clean() {
     );
 }
 
+fn enable_sparse_cone(dir: &Path, patterns: &str) -> gix::Repository {
+    let git = dir.join(".git");
+    std::fs::create_dir_all(git.join("info")).expect("info");
+    std::fs::write(git.join("info/sparse-checkout"), patterns).expect("patterns");
+    let mut config = std::fs::read_to_string(git.join("config")).expect("config");
+    config.push_str("[core]\n\tsparseCheckout = true\n\tsparseCheckoutCone = true\n");
+    std::fs::write(git.join("config"), config).expect("config");
+    gix::open_opts(dir, gix::open::Options::isolated()).expect("reopen")
+}
+
+fn has_skip_worktree(repo: &gix::Repository, path: &str) -> bool {
+    let index = repo.open_index().expect("index");
+    index
+        .entry_by_path(path.as_bytes().as_bstr())
+        .expect("entry")
+        .flags
+        .contains(gix_index::entry::Flags::SKIP_WORKTREE)
+}
+
+#[test]
+fn two_way_marks_new_path_outside_sparse_cone_skip_worktree() {
+    let (dir, repo) = init();
+    let journal = RecordingJournal::new();
+    let old = tree(
+        &repo,
+        &[("keep/k.txt", F, "k\n"), ("other/o.txt", F, "o\n")],
+    );
+    let new = tree(
+        &repo,
+        &[
+            ("keep/k.txt", F, "k\n"),
+            ("other/o.txt", F, "o\n"),
+            ("other/new.txt", F, "n\n"),
+            ("root.txt", F, "r\n"),
+        ],
+    );
+    checkout(&repo, &journal, old);
+    let repo = enable_sparse_cone(dir.path(), "/*\n!/*/\n/keep/\n");
+    switch(&repo, &journal, old, new);
+    assert!(!exists(&repo, "other/new.txt"));
+    assert_eq!(read(&repo, "root.txt"), "r\n");
+    assert!(has_skip_worktree(&repo, "other/new.txt"));
+    assert!(!has_skip_worktree(&repo, "root.txt"));
+}
+
+#[test]
+fn two_way_keeps_skip_worktree_of_changed_entry_without_writing_it() {
+    let (dir, repo) = init();
+    let journal = RecordingJournal::new();
+    let old = tree(
+        &repo,
+        &[("keep/k.txt", F, "k\n"), ("other/o.txt", F, "o\n")],
+    );
+    let new = tree(
+        &repo,
+        &[("keep/k.txt", F, "k\n"), ("other/o.txt", F, "o2\n")],
+    );
+    checkout(&repo, &journal, old);
+    let repo = enable_sparse_cone(dir.path(), "/*\n!/*/\n/keep/\n");
+    let mut index = repo.open_index().expect("index");
+    let position = index
+        .entry_index_by_path(b"other/o.txt".as_bstr())
+        .expect("entry");
+    index.entries_mut()[position].flags |=
+        gix_index::entry::Flags::SKIP_WORKTREE | gix_index::entry::Flags::EXTENDED;
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "test fixtures prepare the index directly, outside a transaction"
+    )]
+    index
+        .write(gix_index::write::Options::default())
+        .expect("write index");
+    std::fs::remove_dir_all(dir.path().join("other")).expect("remove");
+    switch(&repo, &journal, old, new);
+    assert!(!exists(&repo, "other"));
+    assert!(has_skip_worktree(&repo, "other/o.txt"));
+}
+
 #[test]
 fn snapshot_restores_directories_files_and_links() {
     let dir = tempfile::tempdir().expect("temporary directory");
@@ -658,4 +736,299 @@ fn transaction_rollback_restores_changed_targets() {
         .rollback(nurt_contracts::journal::RollbackReason::Cancelled)
         .expect("rollback");
     assert_eq!(std::fs::read(&file).expect("read"), b"before");
+}
+
+fn reopen_with_config(dir: &Path, config: &str) -> gix::Repository {
+    let path = dir.join(".git/config");
+    let mut text = std::fs::read_to_string(&path).expect("config");
+    text.push_str(config);
+    std::fs::write(&path, text).expect("config");
+    gix::open_opts(dir, gix::open::Options::isolated()).expect("reopen")
+}
+
+fn make_unmerged(repo: &gix::Repository, path: &str) {
+    use gix_index::entry::{Flags, Mode, Stage, Stat};
+    let mut index = repo.open_index().expect("index");
+    let id = repo.write_blob(b"stage\n").expect("blob").detach();
+    let name = path.as_bytes().as_bstr();
+    index.remove_entries(|_, entry_path, _| entry_path == name);
+    for stage in [Stage::Base, Stage::Ours, Stage::Theirs] {
+        index.dangerously_push_entry(
+            Stat::default(),
+            id,
+            Flags::from_stage(stage),
+            Mode::FILE,
+            name,
+        );
+    }
+    index.sort_entries();
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "test fixtures prepare the index directly, outside a transaction"
+    )]
+    index
+        .write(gix_index::write::Options::default())
+        .expect("write index");
+}
+
+#[test]
+fn two_way_refuses_index_with_conflict_stages() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    let old = tree(&repo, &[("f.txt", F, "1\n"), ("g.txt", F, "g\n")]);
+    let new = tree(&repo, &[("f.txt", F, "2\n"), ("g.txt", F, "g\n")]);
+    checkout(&repo, &journal, old);
+    make_unmerged(&repo, "f.txt");
+    let ctx = ApplyContext::open(&repo).expect("context");
+    assert_eq!(ctx.unmerged_paths(), [BString::from("f.txt")]);
+    let error = plan_two_way(&ctx, Some(&old), &new).expect_err("unmerged");
+    assert_eq!(error.code(), ErrorCode::GitDirty);
+    assert_eq!(error.data().problem.as_deref(), Some("unmerged"));
+}
+
+#[test]
+fn paths_refuse_unmerged_worktree_restore_and_staged_restore_resolves_it() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    let base = tree(&repo, &[("f.txt", F, "1\n")]);
+    checkout(&repo, &journal, base);
+    make_unmerged(&repo, "f.txt");
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let request = |source, to_index, to_worktree| PathsRequest {
+        source,
+        pathspec: vec!["f.txt".into()],
+        to_index,
+        to_worktree,
+    };
+    let error = plan_paths(&ctx, &request(PathSource::Index, false, true)).expect_err("unmerged");
+    assert_eq!(error.data().problem.as_deref(), Some("unmerged"));
+    let plan = plan_paths(&ctx, &request(PathSource::Tree(base), true, false)).expect("plan");
+    run(&repo, &journal, plan);
+    let index = repo.open_index().expect("index");
+    assert_eq!(index.entries().len(), 1);
+    assert_eq!(index.entries()[0].stage_raw(), 0);
+}
+
+#[test]
+fn open_refuses_bare_repository() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let repo = gix::ThreadSafeRepository::init_opts(
+        dir.path(),
+        gix::create::Kind::Bare,
+        gix::create::Options::default(),
+        gix::open::Options::isolated(),
+    )
+    .expect("init")
+    .to_thread_local();
+    let error = ApplyContext::open(&repo).err().expect("bare");
+    assert_eq!(error.code(), ErrorCode::GitUnsupported);
+    assert_eq!(error.data().problem.as_deref(), Some("bare_repository"));
+}
+
+#[test]
+fn gitlink_is_checked_out_as_empty_directory_and_removed_with_it() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    let stand_in = repo
+        .write_blob(b"submodule commit\n")
+        .expect("blob")
+        .detach();
+    let without = tree(&repo, &[("a.txt", F, "a\n")]);
+    let mut editor = repo.edit_tree(without).expect("editor");
+    editor
+        .upsert("sub", TreeKind::Commit, stand_in)
+        .expect("upsert");
+    let with = editor.write().expect("tree").detach();
+    checkout(&repo, &journal, without);
+    switch(&repo, &journal, without, with);
+    let sub = repo.workdir().expect("workdir").join("sub");
+    assert!(sub.is_dir());
+    assert_eq!(std::fs::read_dir(&sub).expect("read").count(), 0);
+    assert!(index_paths(&repo).contains(&"sub".to_owned()));
+    switch(&repo, &journal, with, without);
+    assert!(!exists(&repo, "sub"));
+}
+
+#[test]
+fn symlinks_disabled_write_link_text_as_file() {
+    let (dir, repo) = init();
+    let repo_off = reopen_with_config(dir.path(), "[core]\n\tsymlinks = false\n");
+    let journal = RecordingJournal::new();
+    let target = tree(
+        &repo,
+        &[
+            ("target.txt", F, "t\n"),
+            ("link", TreeKind::Link, "target.txt"),
+        ],
+    );
+    checkout(&repo_off, &journal, target);
+    let meta = std::fs::symlink_metadata(dir.path().join("link")).expect("meta");
+    assert!(meta.is_file());
+    assert_eq!(read(&repo_off, "link"), "target.txt");
+    let ctx = ApplyContext::open(&repo_off).expect("context");
+    let again = plan_two_way(&ctx, Some(&target), &target).expect("plan");
+    assert!(again.carried.is_empty(), "{:?}", again.carried);
+}
+
+#[cfg(unix)]
+#[test]
+fn two_way_replaces_symbolic_link_by_file_and_back() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    let link = tree(
+        &repo,
+        &[("t.txt", F, "t\n"), ("p", TreeKind::Link, "t.txt")],
+    );
+    let file = tree(&repo, &[("t.txt", F, "t\n"), ("p", F, "regular\n")]);
+    checkout(&repo, &journal, link);
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let plan = plan_two_way(&ctx, Some(&link), &file).expect("plan");
+    assert_eq!(plan.entries[0].action, EntryAction::TypeChange);
+    run(&repo, &journal, plan);
+    assert_eq!(read(&repo, "p"), "regular\n");
+    switch(&repo, &journal, file, link);
+    let root = repo.workdir().expect("workdir");
+    assert_eq!(
+        std::fs::read_link(root.join("p")).expect("link"),
+        Path::new("t.txt")
+    );
+}
+
+#[test]
+fn unborn_head_refuses_untracked_file_in_the_way() {
+    let (_dir, repo) = init();
+    let target = tree(&repo, &[("a.txt", F, "a\n")]);
+    write(&repo, "a.txt", "local\n");
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let error = plan_two_way(&ctx, None, &target).expect_err("refused");
+    assert_eq!(detail(&error, "untracked_overwritten"), ["a.txt"]);
+}
+
+#[test]
+fn configured_filter_driver_is_reported_as_not_applied() {
+    let (dir, _repo) = init();
+    let repo = reopen_with_config(dir.path(), "[filter \"lfs\"]\n\tsmudge = lfs-smudge\n");
+    let journal = RecordingJournal::new();
+    let target = tree(
+        &repo,
+        &[
+            (".gitattributes", F, "*.bin filter=lfs\n"),
+            ("a.bin", F, "payload\n"),
+        ],
+    );
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let plan = plan_new_tree(&ctx, &target).expect("plan");
+    let report = run(&repo, &journal, plan);
+    assert!(
+        report
+            .notable
+            .contains(&Notable::at("filter_not_applied", "a.bin")),
+        "{:?}",
+        report.notable
+    );
+    assert_eq!(read(&repo, "a.bin"), "payload\n");
+}
+
+#[test]
+fn rejection_message_quotes_five_paths_and_details_list_all() {
+    let mut rejections = Rejections::default();
+    for number in 0..7 {
+        rejections
+            .local_changes
+            .insert(BString::from(format!("f{number}.txt")));
+    }
+    rejections.untracked_removed.insert(BString::from("u.txt"));
+    assert!(!rejections.is_empty());
+    let error = rejections.into_error("switch", &["git.stash \".\" action: push".to_owned()]);
+    assert_eq!(error.code(), ErrorCode::GitDirty);
+    assert!(
+        error.data().message.contains("and 2 more"),
+        "{}",
+        error.data().message
+    );
+    assert_eq!(detail(&error, "local_changes").len(), 7);
+    assert_eq!(detail(&error, "untracked_removed"), ["u.txt"]);
+    assert_eq!(error.data().problem.as_deref(), Some("local_changes"));
+    assert_eq!(error.data().fix.len(), 1);
+}
+
+#[test]
+fn reference_names_are_validated_and_logs_follow_the_configuration() {
+    let (dir, repo) = init();
+    let error = ref_path(&repo, "refs/heads/bad..name").expect_err("invalid");
+    assert_eq!(error.code(), ErrorCode::GitRef);
+    assert!(ref_path(&repo, "HEAD").expect("path").ends_with("HEAD"));
+    assert!(
+        log_path(&repo, "refs/heads/main")
+            .expect("path")
+            .ends_with(Path::new("logs").join("refs").join("heads").join("main"))
+    );
+    assert!(keeps_log(&repo, "refs/heads/topic").expect("default"));
+    assert!(keeps_log(&repo, "HEAD").expect("default"));
+    assert!(!keeps_log(&repo, "refs/tags/v1").expect("default"));
+    let always = reopen_with_config(dir.path(), "[core]\n\tlogAllRefUpdates = always\n");
+    assert!(keeps_log(&always, "refs/tags/v1").expect("always"));
+    let never = reopen_with_config(dir.path(), "[core]\n\tlogAllRefUpdates = false\n");
+    assert!(!keeps_log(&never, "refs/heads/topic").expect("false"));
+}
+
+#[test]
+fn state_file_plan_removes_existing_file_and_undo_restores_it() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    let target = tree(&repo, &[("a.txt", F, "a\n")]);
+    checkout(&repo, &journal, target);
+    std::fs::write(repo.git_dir().join("ORIG_HEAD"), b"previous\n").expect("state file");
+    let root = repo.workdir().expect("workdir").to_path_buf();
+    let before = tree_state(&root);
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let mut plan = plan_two_way(&ctx, Some(&target), &target).expect("plan");
+    plan.state_files.push(StateFilePlan {
+        path: "ORIG_HEAD".into(),
+        content: None,
+        expect: nurt_contracts::journal::Expect::Unchecked,
+    });
+    run(&repo, &journal, plan);
+    assert!(!repo.git_dir().join("ORIG_HEAD").exists());
+    journal.undo_last();
+    assert_eq!(tree_state(&root), before);
+}
+
+#[test]
+fn plan_without_changes_is_empty_and_actions_have_stable_names() {
+    let plan = ApplyPlan {
+        entries: Vec::new(),
+        index: None,
+        refs: Vec::new(),
+        state_files: Vec::new(),
+        carried: Vec::new(),
+        notable: Vec::new(),
+    };
+    assert!(plan.is_empty());
+    let names: Vec<&str> = [
+        EntryAction::Create,
+        EntryAction::Modify,
+        EntryAction::Delete,
+        EntryAction::Mkdir,
+        EntryAction::Rmdir,
+        EntryAction::Symlink,
+        EntryAction::Chmod,
+        EntryAction::TypeChange,
+    ]
+    .into_iter()
+    .map(EntryAction::as_str)
+    .collect();
+    assert_eq!(
+        names,
+        [
+            "create",
+            "modify",
+            "delete",
+            "mkdir",
+            "rmdir",
+            "symlink",
+            "chmod",
+            "type_change"
+        ]
+    );
 }

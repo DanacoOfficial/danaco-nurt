@@ -20,14 +20,16 @@
 //! Paths where `H` equals `M` keep their index entry and file, so local
 //! changes are carried over. A missing working tree file counts as up to
 //! date; an entry with `skip-worktree` is never compared with the working
-//! tree and never written to it.
+//! tree and never written to it, and a new entry outside the sparse checkout
+//! selection gets `skip-worktree` instead of a file.
 
 use bstr::{BStr, BString, ByteSlice};
 use gix_index::entry::Flags;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 
 use super::changes::{
-    Blob, Changes, TreeMap, Untracked, flatten_tree, kept_flags, local_changes, same, verify_absent,
+    Blob, Changes, TreeMap, Untracked, flatten_tree, kept_flags, local_changes, same,
+    skip_worktree_flags, verify_absent,
 };
 use super::context::ApplyContext;
 use super::plan::ApplyPlan;
@@ -82,11 +84,12 @@ pub fn plan_two_way(
                     }
                 }
             }
-            Decision::WriteNew(blob) => {
+            Decision::WriteNew(blob) if ctx.sparse.includes(path) => {
                 changes.set_index(path, blob, Flags::empty());
                 changes.write_blob(path, blob);
                 pending_absent.push((path.to_owned(), Untracked::Overwritten));
             }
+            Decision::WriteNew(blob) => changes.set_index(path, blob, skip_worktree_flags()),
             Decision::Remove { skip_worktree } => {
                 changes.remove(path);
                 if skip_worktree {

@@ -6,7 +6,7 @@
 
 use bstr::{BStr, BString, ByteSlice};
 use gix::ObjectId;
-use gix::object::tree::EntryMode;
+use gix::objs::tree::{EntryKind, EntryMode};
 
 use super::repo::OpenRepo;
 
@@ -25,16 +25,14 @@ impl PathFilter {
         paths.dedup();
         let mut kept: Vec<BString> = Vec::with_capacity(paths.len());
         for path in paths {
-            if !kept.iter().any(|outer| covers(outer.as_ref(), path.as_ref())) {
+            if !kept
+                .iter()
+                .any(|outer| covers(outer.as_ref(), path.as_ref()))
+            {
                 kept.push(path);
             }
         }
         Self { paths: kept }
-    }
-
-    /// The paths of the filter.
-    pub(crate) fn paths(&self) -> &[BString] {
-        &self.paths
     }
 
     /// Whether the file at `path` is within the filter.
@@ -44,7 +42,12 @@ impl PathFilter {
 
     /// Whether two trees hold the same entries at every path of the filter;
     /// a missing tree is the empty tree.
-    pub(crate) fn same_in(&self, repo: &OpenRepo, old: Option<ObjectId>, new: ObjectId) -> Result<bool, String> {
+    pub(crate) fn same_in(
+        &self,
+        repo: &OpenRepo,
+        old: Option<ObjectId>,
+        new: ObjectId,
+    ) -> Result<bool, String> {
         for path in &self.paths {
             let before = match old {
                 Some(tree) => entry_at(repo, tree, path.as_ref())?,
@@ -58,28 +61,53 @@ impl PathFilter {
     }
 }
 
+/// Whether a path matches one of the glob patterns; a pattern without `/`
+/// matches the file name at any depth, as in `.gitignore`.
+pub(crate) fn excluded(patterns: &[BString], path: &BStr) -> bool {
+    let name = path
+        .rfind_byte(b'/')
+        .map_or(path, |slash| &path[slash + 1..]);
+    patterns.iter().any(|pattern| {
+        let target = if pattern.contains(&b'/') { path } else { name };
+        gix::glob::wildmatch(
+            pattern.as_bstr(),
+            target,
+            gix::glob::wildmatch::Mode::NO_MATCH_SLASH_LITERAL,
+        )
+    })
+}
+
 fn covers(outer: &BStr, path: &BStr) -> bool {
     outer.is_empty()
         || path == outer
-        || (path.len() > outer.len() && path.starts_with(outer.as_bytes()) && path[outer.len()] == b'/')
+        || (path.len() > outer.len()
+            && path.starts_with(outer.as_bytes())
+            && path[outer.len()] == b'/')
 }
 
 /// Mode and object of the entry at `path` in `tree`; the empty path is the
 /// tree itself.
-pub(crate) fn entry_at(repo: &OpenRepo, tree: ObjectId, path: &BStr) -> Result<Option<(EntryMode, ObjectId)>, String> {
+pub(crate) fn entry_at(
+    repo: &OpenRepo,
+    tree: ObjectId,
+    path: &BStr,
+) -> Result<Option<(EntryMode, ObjectId)>, String> {
     if path.is_empty() {
-        return Ok(Some((EntryMode::from(gix::object::tree::EntryKind::Tree), tree)));
+        return Ok(Some((EntryMode::from(EntryKind::Tree), tree)));
     }
     let mut current = tree;
     let mut found = None;
     for name in path.split_str("/") {
-        if let Some((mode, _)) = found {
-            if !EntryMode::is_tree(&mode) {
-                return Ok(None);
-            }
+        if let Some((mode, _)) = found
+            && !EntryMode::is_tree(&mode)
+        {
+            return Ok(None);
         }
-        let object = repo.repo.find_tree(current).map_err(|err| err.to_string())?;
-        let Some(entry) = object.find_entry(name.as_bstr()) else {
+        let object = repo
+            .repo
+            .find_tree(current)
+            .map_err(|err| err.to_string())?;
+        let Some(entry) = object.find_entry(name) else {
             return Ok(None);
         };
         let id = entry.object_id();
@@ -101,7 +129,10 @@ mod tests {
     #[test]
     fn directory_paths_cover_their_contents_only() {
         let limit = filter(&["src", "src/lib.rs", "doc/a.md"]);
-        assert_eq!(limit.paths(), &[BString::from("doc/a.md"), BString::from("src")]);
+        let kept = PathFilter {
+            paths: vec![BString::from("doc/a.md"), BString::from("src")],
+        };
+        assert_eq!(limit, kept);
         assert!(limit.matches("src/lib.rs".into()));
         assert!(limit.matches("src".into()));
         assert!(!limit.matches("src2/lib.rs".into()));
@@ -112,16 +143,43 @@ mod tests {
     #[test]
     fn compares_trees_within_the_paths() {
         let mut fixture = Fixture::new();
-        let first = fixture.commit("first", &[("src/a.rs", Some("a\n")), ("b.txt", Some("b\n"))]);
+        let first = fixture.commit(
+            "first",
+            &[("src/a.rs", Some("a\n")), ("b.txt", Some("b\n"))],
+        );
         let second = fixture.commit("second", &[("b.txt", Some("changed\n"))]);
         let repo = fixture.open();
         let first_tree = repo.tree_of(first).unwrap();
         let second_tree = repo.tree_of(second).unwrap();
-        assert!(filter(&["src"]).same_in(&repo, Some(first_tree), second_tree).unwrap());
-        assert!(!filter(&["b.txt"]).same_in(&repo, Some(first_tree), second_tree).unwrap());
-        assert!(!filter(&["src/a.rs"]).same_in(&repo, None, second_tree).unwrap());
-        assert!(filter(&["missing"]).same_in(&repo, None, second_tree).unwrap());
-        assert!(filter(&["b.txt/below"]).same_in(&repo, None, second_tree).unwrap());
-        assert!(!filter(&[""]).same_in(&repo, Some(first_tree), second_tree).unwrap());
+        assert!(
+            filter(&["src"])
+                .same_in(&repo, Some(first_tree), second_tree)
+                .unwrap()
+        );
+        assert!(
+            !filter(&["b.txt"])
+                .same_in(&repo, Some(first_tree), second_tree)
+                .unwrap()
+        );
+        assert!(
+            !filter(&["src/a.rs"])
+                .same_in(&repo, None, second_tree)
+                .unwrap()
+        );
+        assert!(
+            filter(&["missing"])
+                .same_in(&repo, None, second_tree)
+                .unwrap()
+        );
+        assert!(
+            filter(&["b.txt/below"])
+                .same_in(&repo, None, second_tree)
+                .unwrap()
+        );
+        assert!(
+            !filter(&[""])
+                .same_in(&repo, Some(first_tree), second_tree)
+                .unwrap()
+        );
     }
 }

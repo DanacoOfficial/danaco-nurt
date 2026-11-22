@@ -42,7 +42,7 @@ impl CommitCache {
         if let Some(info) = self.known.borrow().get(&id) {
             return Ok(info.clone());
         }
-        let info = match self.from_graph(id) {
+        let info = match self.read_graph(id) {
             Some(info) => info,
             None => from_object(repo, id)?,
         };
@@ -50,7 +50,7 @@ impl CommitCache {
         Ok(info)
     }
 
-    fn from_graph(&self, id: ObjectId) -> Option<CommitInfo> {
+    fn read_graph(&self, id: ObjectId) -> Option<CommitInfo> {
         let graph = self.graph.as_ref()?;
         let commit = graph.commit_by_id(id)?;
         let mut parents = SmallVec::new();
@@ -70,7 +70,8 @@ fn from_object(repo: &gix::Repository, id: ObjectId) -> Result<CommitInfo, Strin
     if object.kind != gix::object::Kind::Commit {
         return Err(format!("{id} is a {}, not a commit", object.kind));
     }
-    let commit = gix::objs::CommitRef::from_bytes(&object.data, repo.object_hash()).map_err(|err| err.to_string())?;
+    let commit = gix::objs::CommitRef::from_bytes(&object.data, repo.object_hash())
+        .map_err(|err| err.to_string())?;
     let time = commit.committer().map_err(|err| err.to_string())?.seconds();
     Ok(CommitInfo {
         parents: commit.parents().collect(),
@@ -81,7 +82,6 @@ fn from_object(repo: &gix::Repository, id: ObjectId) -> Result<CommitInfo, Strin
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::revwalk::fixture::Fixture;
 
     #[test]

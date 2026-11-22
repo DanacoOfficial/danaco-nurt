@@ -1,24 +1,29 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Writes of repository files under the lock protocol of `git`.
+//! Writes of repository files that respect the lock files of `git`.
 //!
-//! A file such as `.git/index` or `.git/refs/heads/main` is replaced the way
-//! `git` replaces it: the lock file `<file>.lock` is created exclusively,
-//! the new content is written to it, and it is renamed over the file. Both
-//! steps are targets of the transaction, so the previous content is kept by
-//! the journal and an existing lock, held by a running `git` process or left
-//! by a crash, fails the operation with `E_GIT_LOCKED` before anything
-//! changes.
+//! A file such as `.git/index` or `.git/ORIG_HEAD` is replaced by one
+//! target of the transaction: `modify`, expecting the content read when the
+//! target is declared, or the absence of the file. The journal keeps the
+//! previous content, and a change of the file by another program between
+//! the declaration and the write fails the operation with `E_STALE`.
+//!
+//! The lock file `<file>.lock` of `git` is honoured but not created: when it
+//! exists, a running `git` process is changing the file or a previous run
+//! ended without removing it, and the operation fails with `E_GIT_LOCKED`.
+//! The lock is checked when the targets are declared and again before each
+//! file is written.
 
 use std::path::{Path, PathBuf};
 
 use nurt_contracts::error::{Error, ErrorCode};
-use nurt_contracts::fs::AbsPath;
+use nurt_contracts::fs::{AbsPath, ContentHash};
 use nurt_contracts::journal::{
     Applied, ExemptWrite, Expect, Mutation, MutationTx, TargetAction, TargetIndex, TargetPath,
     TargetSpec,
 };
+use sha2::{Digest, Sha256};
 
 use super::{GitRepo, error};
 
@@ -26,7 +31,7 @@ use super::{GitRepo, error};
 pub const LOCK_SUFFIX: &str = ".lock";
 
 /// Number of transaction targets declared for one [`LockedWrite`].
-pub const TARGETS_PER_WRITE: u32 = 2;
+pub const TARGETS_PER_WRITE: u32 = 1;
 
 /// Path of the lock file of `file`.
 #[must_use]
@@ -36,7 +41,26 @@ pub fn lock_path(file: &Path) -> PathBuf {
     PathBuf::from(name)
 }
 
-/// Replacement of one repository file through its lock file.
+/// Hash of `bytes` in the form the journal compares.
+#[must_use]
+pub fn content_hash(bytes: &[u8]) -> ContentHash {
+    ContentHash(Sha256::digest(bytes).into())
+}
+
+/// Checks that no `git` process holds the lock of `file`.
+///
+/// # Errors
+///
+/// Fails with `E_GIT_LOCKED` when `<file>.lock` exists.
+pub fn ensure_unlocked(file: &Path) -> Result<(), Error> {
+    let lock = lock_path(file);
+    if std::fs::symlink_metadata(&lock).is_ok() {
+        return Err(error::locked(&lock));
+    }
+    Ok(())
+}
+
+/// Replacement of one repository file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LockedWrite {
     file: PathBuf,
@@ -59,7 +83,7 @@ impl LockedWrite {
         &self.file
     }
 
-    /// The lock file.
+    /// The lock file of `git` for the file.
     #[must_use]
     pub fn lock(&self) -> PathBuf {
         lock_path(&self.file)
@@ -71,33 +95,25 @@ impl LockedWrite {
         &self.bytes
     }
 
-    /// The two targets of the write, in the order they are applied: the
-    /// lock file created exclusively, then its rename over the file.
+    /// The target of the write: `modify` of the file, expecting its current
+    /// content, or its absence when it does not exist.
     ///
     /// # Errors
     ///
-    /// Fails with `E_IO` when the path is not absolute.
-    pub fn targets(&self) -> Result<[TargetSpec; 2], Error> {
-        let lock = abs(&self.lock())?;
-        let file = abs(&self.file)?;
-        let size = u64::try_from(self.bytes.len()).ok();
-        Ok([
-            TargetSpec {
-                path: TargetPath::Fs(lock.clone()),
-                action: TargetAction::Create,
-                expect: Expect::Absent,
-                size_hint: Some(0),
-            },
-            TargetSpec {
-                path: TargetPath::Fs(lock),
-                action: TargetAction::Rename {
-                    to: file,
-                    replace: true,
-                },
-                expect: Expect::Unchecked,
-                size_hint: size,
-            },
-        ])
+    /// Fails with `E_IO` when the path is not absolute or the file exists
+    /// but cannot be read.
+    pub fn target(&self) -> Result<TargetSpec, Error> {
+        let expect = match std::fs::read(&self.file) {
+            Ok(previous) => Expect::Hash(content_hash(&previous)),
+            Err(failure) if failure.kind() == std::io::ErrorKind::NotFound => Expect::Absent,
+            Err(failure) => return Err(error::io(&self.file, &failure)),
+        };
+        Ok(TargetSpec {
+            path: TargetPath::Fs(abs(&self.file)?),
+            action: TargetAction::Modify,
+            expect,
+            size_hint: u64::try_from(self.bytes.len()).ok(),
+        })
     }
 }
 
@@ -123,51 +139,61 @@ impl LockedWrites {
         Self { writes }
     }
 
-    /// All targets of the group, two per write, for one call of
+    /// The writes of the group.
+    #[must_use]
+    pub fn writes(&self) -> &[LockedWrite] {
+        &self.writes
+    }
+
+    /// All targets of the group, one per write, for one call of
     /// [`MutationTx::preserve`] together with other targets.
     ///
     /// # Errors
     ///
-    /// Fails with `E_IO` when a path is not absolute.
+    /// Fails with `E_GIT_LOCKED` when a lock file exists and with the
+    /// errors of [`LockedWrite::target`].
     pub fn targets(&self) -> Result<Vec<TargetSpec>, Error> {
-        let mut targets = Vec::with_capacity(self.writes.len() * 2);
-        for write in &self.writes {
-            targets.extend(write.targets()?);
-        }
-        Ok(targets)
+        self.ensure_unlocked()?;
+        self.writes.iter().map(LockedWrite::target).collect()
     }
 
-    /// Declares the targets of the group in `tx`, the first one at the next
-    /// index of the transaction, and maps an existing lock file to
-    /// `E_GIT_LOCKED`.
+    /// Declares the targets of the group in `tx` and returns the index of
+    /// the first one.
     ///
     /// # Errors
     ///
-    /// Fails with `E_GIT_LOCKED` when a lock file exists, and with the
-    /// errors of [`MutationTx::preserve`].
+    /// As [`LockedWrites::targets`], and with the errors of
+    /// [`MutationTx::preserve`].
     pub fn declare(&self, tx: &mut dyn MutationTx) -> Result<TargetIndex, Error> {
         let targets = self.targets()?;
-        let preserved = tx.preserve(&targets).map_err(|failure| self.lock_error(failure))?;
+        let preserved = tx.preserve(&targets)?;
         Ok(preserved
             .first()
             .map_or(TargetIndex(0), |first| first.index))
     }
 
-    /// Writes the content of every lock file and renames it over its file;
-    /// `first` is the index returned by [`LockedWrites::declare`] or the
-    /// position of the first target of [`LockedWrites::targets`] in a
-    /// combined declaration.
+    /// Writes the content of every file; `first` is the index returned by
+    /// [`LockedWrites::declare`] or the position of the first target of
+    /// [`LockedWrites::targets`] in a combined declaration.
     ///
     /// # Errors
     ///
-    /// Fails with the errors of [`MutationTx::apply`]; the transaction is
-    /// then rolled back.
-    pub fn apply(&self, tx: &mut dyn MutationTx, first: TargetIndex) -> Result<Vec<Applied>, Error> {
+    /// Fails with `E_GIT_LOCKED` when a lock file appeared after the
+    /// declaration, `E_STALE` when a file changed after it, and with the
+    /// other errors of [`MutationTx::apply`].
+    pub fn apply(
+        &self,
+        tx: &mut dyn MutationTx,
+        first: TargetIndex,
+    ) -> Result<Vec<Applied>, Error> {
         let mut applied = Vec::with_capacity(self.writes.len());
         let mut index = first.0;
         for write in &self.writes {
-            tx.apply(TargetIndex(index), Mutation::WriteBytes(write.bytes.clone()))?;
-            applied.push(tx.apply(TargetIndex(index + 1), Mutation::Rename)?);
+            ensure_unlocked(&write.file)?;
+            applied.push(tx.apply(
+                TargetIndex(index),
+                Mutation::WriteBytes(write.bytes.clone()),
+            )?);
             index += TARGETS_PER_WRITE;
         }
         Ok(applied)
@@ -184,15 +210,10 @@ impl LockedWrites {
         self.apply(tx, first)
     }
 
-    fn lock_error(&self, failure: Error) -> Error {
-        if failure.code != ErrorCode::Exists {
-            return failure;
-        }
+    fn ensure_unlocked(&self) -> Result<(), Error> {
         self.writes
             .iter()
-            .map(LockedWrite::lock)
-            .find(|lock| lock.exists())
-            .map_or(failure, |lock| error::locked(&lock))
+            .try_for_each(|write| ensure_unlocked(&write.file))
     }
 }
 
@@ -208,16 +229,18 @@ mod tests {
     use super::*;
     use crate::testutil::{RecordingJournal, RepoBuilder};
 
+    fn single(file: &Path, bytes: &[u8]) -> LockedWrites {
+        LockedWrites::new(vec![LockedWrite::new(file, bytes.to_vec())])
+    }
+
     #[test]
-    fn locked_write_replaces_the_file_and_leaves_no_lock() {
+    fn locked_write_replaces_the_file_and_undo_restores_it() {
         let fixture = RepoBuilder::new().build();
         let before = fixture.snapshot();
         let file = fixture.git_dir().join("description");
         let journal = RecordingJournal::new();
         let mut tx = journal.begin();
-        LockedWrites::new(vec![LockedWrite::new(&file, b"new\n".to_vec())])
-            .run(tx.as_mut())
-            .unwrap();
+        single(&file, b"new\n").run(tx.as_mut()).unwrap();
         tx.commit().unwrap();
         assert_eq!(std::fs::read(&file).unwrap(), b"new\n");
         assert!(!lock_path(&file).exists());
@@ -230,11 +253,11 @@ mod tests {
         let fixture = RepoBuilder::new().build();
         let before = fixture.snapshot();
         let file = fixture.git_dir().join("ORIG_HEAD");
+        let writes = single(&file, b"x\n");
+        assert_eq!(writes.targets().unwrap()[0].expect, Expect::Absent);
         let journal = RecordingJournal::new();
         let mut tx = journal.begin();
-        LockedWrites::new(vec![LockedWrite::new(&file, b"x\n".to_vec())])
-            .run(tx.as_mut())
-            .unwrap();
+        writes.run(tx.as_mut()).unwrap();
         tx.commit().unwrap();
         assert!(file.exists());
         journal.undo_last();
@@ -249,11 +272,35 @@ mod tests {
         let before = fixture.snapshot();
         let journal = RecordingJournal::new();
         let mut tx = journal.begin();
-        let error = LockedWrites::new(vec![LockedWrite::new(&file, b"new\n".to_vec())])
-            .run(tx.as_mut())
-            .unwrap_err();
-        assert_eq!(error.code, ErrorCode::GitLocked);
+        let failure = single(&file, b"new\n").run(tx.as_mut()).unwrap_err();
+        assert_eq!(failure.code, ErrorCode::GitLocked);
         assert_eq!(fixture.snapshot(), before);
+    }
+
+    #[test]
+    fn lock_taken_after_the_declaration_fails_the_write() {
+        let fixture = RepoBuilder::new().build();
+        let file = fixture.git_dir().join("description");
+        let writes = single(&file, b"new\n");
+        let journal = RecordingJournal::new();
+        let mut tx = journal.begin();
+        let first = writes.declare(tx.as_mut()).unwrap();
+        std::fs::write(lock_path(&file), b"").unwrap();
+        let failure = writes.apply(tx.as_mut(), first).unwrap_err();
+        assert_eq!(failure.code, ErrorCode::GitLocked);
+    }
+
+    #[test]
+    fn change_after_the_declaration_is_stale() {
+        let fixture = RepoBuilder::new().build();
+        let file = fixture.git_dir().join("description");
+        let writes = single(&file, b"new\n");
+        let journal = RecordingJournal::new();
+        let mut tx = journal.begin();
+        let first = writes.declare(tx.as_mut()).unwrap();
+        std::fs::write(&file, b"changed by another program\n").unwrap();
+        let failure = writes.apply(tx.as_mut(), first).unwrap_err();
+        assert_eq!(failure.code, ErrorCode::Stale);
     }
 
     #[test]
@@ -265,17 +312,28 @@ mod tests {
             LockedWrite::new(&first, b"1".to_vec()),
             LockedWrite::new(&second, b"2".to_vec()),
         ]);
-        assert_eq!(writes.targets().unwrap().len(), 4);
+        assert_eq!(writes.targets().unwrap().len(), 2);
         let journal = RecordingJournal::new();
         let mut tx = journal.begin();
         writes.run(tx.as_mut()).unwrap();
         tx.commit().unwrap();
         assert_eq!(std::fs::read(&second).unwrap(), b"2");
-        assert_eq!(journal.last_targets().len(), 4);
+        assert_eq!(journal.last_targets(), vec![first, second]);
     }
 
     #[test]
     fn lock_path_appends_the_suffix() {
-        assert_eq!(lock_path(Path::new("/r/.git/index")), PathBuf::from("/r/.git/index.lock"));
+        assert_eq!(
+            lock_path(Path::new("/r/.git/index")),
+            PathBuf::from("/r/.git/index.lock")
+        );
+    }
+
+    #[test]
+    fn content_hash_is_sha256() {
+        assert_eq!(
+            content_hash(b"").to_string(),
+            "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
     }
 }
