@@ -131,7 +131,7 @@ internal sealed class ScriptedServer : IDisposable
                 {
                     ["protocol"] = _options.Protocol,
                     ["version"] = "0.0.0-test",
-                    ["abi"] = new JsonObject { ["major"] = 1, ["minor"] = 0 },
+                    ["abi"] = 1 << 16,
                     ["features"] = new JsonArray(),
                 };
                 if (_options.MaxInflight > 0)
@@ -175,13 +175,13 @@ internal sealed class ScriptedServer : IDisposable
                 await ResultAsync(id, new JsonObject { ["program"] = "echo corrected", ["corrections"] = new JsonArray() }).ConfigureAwait(false);
                 break;
             case "describe":
-                await ResultAsync(id, new JsonObject { ["text"] = "description " + parameters!["layer"]!.GetValue<string>() + " " + parameters["language"]?.GetValue<string>() }).ConfigureAwait(false);
+                await ResultAsync(id, new JsonObject { ["text"] = "description " + parameters!["subject"]!.GetValue<string>() + " " + parameters["language"]?.GetValue<string>() }).ConfigureAwait(false);
                 break;
             case "help":
                 await ResultAsync(id, JsonValue.Create("help " + (parameters?["topic"]?.GetValue<string>() ?? "index"))).ConfigureAwait(false);
                 break;
             case "schema":
-                string which = parameters!["which"]!.GetValue<string>();
+                string which = parameters!["name"]!.GetValue<string>();
                 if (which == "unknown")
                 {
                     await ErrorAsync(id, StatusErrorBase - 3, "unknown schema").ConfigureAwait(false);
@@ -193,10 +193,10 @@ internal sealed class ScriptedServer : IDisposable
 
                 break;
             case "catalog":
-                await ResultAsync(id, new JsonObject { ["groups"] = new JsonArray(), ["what"] = parameters?["what"]?.DeepClone() }).ConfigureAwait(false);
+                await ResultAsync(id, new JsonObject { ["groups"] = new JsonArray(), ["what"] = parameters?.DeepClone() }).ConfigureAwait(false);
                 break;
             case "history":
-                await ResultAsync(id, new JsonObject { ["entries"] = new JsonArray(), ["query"] = parameters?["query"]?.DeepClone() }).ConfigureAwait(false);
+                await ResultAsync(id, new JsonObject { ["entries"] = new JsonArray(), ["query"] = parameters?.DeepClone() }).ConfigureAwait(false);
                 break;
             case "space":
                 await ResultAsync(id, new JsonObject { ["volumes"] = new JsonArray(), ["volume"] = parameters?["volume"]?.DeepClone() }).ConfigureAwait(false);

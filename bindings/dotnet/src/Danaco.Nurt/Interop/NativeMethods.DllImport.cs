@@ -15,6 +15,21 @@ internal static unsafe partial class NativeMethods
     [DllImport(LibraryName, EntryPoint = "nurt_abi_version", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern uint AbiVersion();
 
+    [DllImport(LibraryName, EntryPoint = "nurt_abi_check", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern CallStatus AbiCheck(uint headerVersion);
+
+    [DllImport(LibraryName, EntryPoint = "nurt_engine_config_get", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern CallStatus EngineConfigGet(EngineHandle engine, NativeBuffer* outJson);
+
+    [DllImport(LibraryName, EntryPoint = "nurt_session_end", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern CallStatus SessionEnd(EngineHandle engine, byte* session);
+
+    [DllImport(LibraryName, EntryPoint = "nurt_ext_load", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern CallStatus ExtLoad(EngineHandle engine, byte* manifestPath);
+
+    [DllImport(LibraryName, EntryPoint = "nurt_ext_list", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern CallStatus ExtList(EngineHandle engine, NativeBuffer* outJson);
+
     [DllImport(LibraryName, EntryPoint = "nurt_info", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern CallStatus Info(NativeBuffer* outJson);
 

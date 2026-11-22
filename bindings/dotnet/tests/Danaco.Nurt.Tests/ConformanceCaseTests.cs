@@ -123,7 +123,7 @@ public sealed class ConformanceCaseTests
                 { "call": "help", "args": { "topic": "find" }, "expect": { "outcome": "ok", "fields": { "/value": "help find" } } },
                 { "call": "catalog", "args": { "what": { "group": "documents" } }, "expect": { "outcome": "ok", "fields": { "/value/what/group": "documents" } } },
                 { "call": "schema", "args": { "which": "report" }, "expect": { "outcome": "ok", "fields": { "/value/title": "report" } } },
-                { "call": "history", "args": { "query": "last 5" }, "expect": { "outcome": "ok", "fields": { "/value/query": "last 5" } } },
+                { "call": "history", "args": { "query": { "last": "5" } }, "expect": { "outcome": "ok", "fields": { "/value/query/last": "5" } } },
                 { "call": "space", "args": { "volume": "/home/user" }, "expect": { "outcome": "ok", "fields": { "/value/volume": "/home/user" } } },
                 { "call": "info", "expect": { "outcome": "ok", "present": ["/value/version"] } }
               ]

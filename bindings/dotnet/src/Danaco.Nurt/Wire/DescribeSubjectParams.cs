@@ -6,11 +6,12 @@ using System.Text.Json.Serialization;
 
 namespace Danaco.Nurt;
 
-internal sealed class AbiVersion
+/// <summary>Parameters of the <c>describe</c> method of <c>nurt serve</c>.</summary>
+internal sealed class DescribeSubjectParams
 {
-    [JsonPropertyName("major")]
-    public int Major { get; set; } = NativeMethods.AbiMajor;
+    [JsonPropertyName("subject")]
+    public string Subject { get; set; } = "core";
 
-    [JsonPropertyName("minor")]
-    public int Minor { get; set; } = NativeMethods.AbiMinor;
+    [JsonPropertyName("language")]
+    public string? Language { get; set; }
 }

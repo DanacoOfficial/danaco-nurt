@@ -69,7 +69,6 @@ internal sealed class RpcConnection
             {
                 Language = options.Language,
                 Session = options.Session,
-                ConfigOverrides = options.Config,
             };
             JsonElement result = await connection.CallAsync(
                 "initialize",
@@ -287,8 +286,8 @@ internal sealed class RpcConnection
             throw new NurtCallException(CallStatus.AbiMismatch, "nurt serve uses protocol " + protocol + "; this client requires " + WireFormat.Protocol);
         }
 
-        if (JsonRead.Property(result, "abi") is { ValueKind: JsonValueKind.Object } abi
-            && JsonRead.Int32(abi, "major") is { } major
+        if (JsonRead.Int32(result, "abi") is { } version
+            && version >> NativeMethods.AbiMajorShift is var major
             && major != NativeMethods.AbiMajor)
         {
             throw new NurtCallException(
