@@ -145,9 +145,9 @@ summary = "SQL statements."
 
 [[command.param]]
 name = "params"
-type = "list<any>"
+type = "list<any> | map<any>"
 default = "[]"
-summary = "Values bound to the placeholders of the statements."
+summary = "Values bound to the placeholders of the statements: a list for positional placeholders, a map from names to values for named placeholders."
 
 [[command.param]]
 name = "write"

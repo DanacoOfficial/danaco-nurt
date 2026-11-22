@@ -422,6 +422,18 @@
             }
           ],
           "default": null
+        },
+        "max_size": {
+          "description": "Size budget on this volume.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SizeLimit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       }
     },
@@ -1301,7 +1313,8 @@
           "description": "Keys `git.signing.*`.",
           "$ref": "#/$defs/GitSigningConfig",
           "default": {
-            "key_file": null
+            "key_file": null,
+            "openpgp_source": null
           }
         },
         "checkpoint": {
@@ -1383,8 +1396,35 @@
             "null"
           ],
           "default": null
+        },
+        "openpgp_source": {
+          "description": "Key `git.signing.openpgp_source`: the only holder of the secret key\nused for OpenPGP signatures (`gpg_agent` or `key_file`). Default none:\ngpg-agent first, then the key file.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OpenPgpSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       }
+    },
+    "OpenPgpSource": {
+      "description": "Holder of the secret key for OpenPGP signatures.",
+      "oneOf": [
+        {
+          "description": "A running gpg-agent.",
+          "type": "string",
+          "const": "gpg_agent"
+        },
+        {
+          "description": "The key file named by `git.signing.key_file`.",
+          "type": "string",
+          "const": "key_file"
+        }
+      ]
     },
     "GitCheckpointConfig": {
       "description": "Section `[git.checkpoint]`.",
@@ -1844,7 +1884,8 @@
           "identity_files": []
         },
         "signing": {
-          "key_file": null
+          "key_file": null,
+          "openpgp_source": null
         },
         "checkpoint": {
           "keep": 50

@@ -1243,12 +1243,16 @@ pub struct PinRequest {
 }
 
 /// Result of `journal.pin`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct PinOutcome {
     /// Entries pinned or released.
     pub changed: Vec<OpId>,
     /// Entries that were not available.
     pub not_available: Vec<OpId>,
+    /// Entries that expired at once because a release brought them over the
+    /// limits; the report marks them `journal_entries_expired`.
+    #[serde(default)]
+    pub expired: Vec<OpId>,
 }
 
 /// Selection of `journal.purge`.
@@ -1316,6 +1320,30 @@ impl InactiveReason {
             Self::NoAnchor => "no_anchor",
             Self::Disabled => "disabled",
             Self::NotDurable => "not_durable",
+        }
+    }
+
+    /// Reason reported as irreversible for a change on a volume where the
+    /// journal holds no data for this reason.
+    ///
+    /// ```
+    /// use nurt_contracts::journal::InactiveReason;
+    /// use nurt_contracts::report::Irreversible;
+    ///
+    /// assert_eq!(InactiveReason::BelowReserve.irreversible(), Irreversible::NoSpaceForCopy);
+    /// assert_eq!(InactiveReason::Disabled.irreversible(), Irreversible::JournalInactive);
+    /// ```
+    #[must_use]
+    pub const fn irreversible(self) -> Irreversible {
+        match self {
+            Self::NetworkVolume => Irreversible::NetworkVolume,
+            Self::RemovableVolume => Irreversible::RemovableVolume,
+            Self::BelowReserve => Irreversible::NoSpaceForCopy,
+            Self::ServiceDown
+            | Self::MemoryVolume
+            | Self::NoAnchor
+            | Self::Disabled
+            | Self::NotDurable => Irreversible::JournalInactive,
         }
     }
 }
@@ -1481,6 +1509,18 @@ pub struct RecoveryReport {
     pub expired: Vec<OpId>,
     /// Wall time spent, milliseconds.
     pub elapsed_ms: u64,
+    /// Entries left unchanged because their item list cannot be read; they
+    /// are repaired by `journal salvage`.
+    #[serde(default)]
+    pub needs_salvage: Vec<OpId>,
+    /// Entries left unchanged because another live process holds their lock.
+    #[serde(default)]
+    pub skipped_live: Vec<OpId>,
+    /// Entries left unchanged because their state cannot be decided, for
+    /// example a prepared entry without its marker or an unreadable part of
+    /// an entry stored in several parts.
+    #[serde(default)]
+    pub unresolved: Vec<OpId>,
 }
 
 /// Entry expired by a sweep.

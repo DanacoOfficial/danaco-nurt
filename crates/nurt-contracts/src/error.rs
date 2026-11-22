@@ -478,6 +478,9 @@ error_codes! {
     NoMatch = "E_NO_MATCH", [Plan], Ok;
     /// A hunk of a patch does not apply.
     PatchRejected = "E_PATCH_REJECTED", [Plan], Ok;
+    /// A line number, a page or a position lies outside the content, for
+    /// example a line after the end of the file.
+    OutOfRange = "E_OUT_OF_RANGE", [Read, Plan], Ok;
     /// A file changed after it was read; the whole operation was rolled
     /// back.
     Stale = "E_STALE", [Apply], Ok;
@@ -592,6 +595,9 @@ error_codes! {
     /// A worktree is unknown, is the main worktree, is locked or contains
     /// the working directory.
     GitWorktree = "E_GIT_WORKTREE", [Plan], Ok;
+    /// The configuration of the repository is not valid: a value cannot be
+    /// parsed or a required key is missing.
+    GitConfig = "E_GIT_CONFIG", [Read, Plan, Apply], Ok;
     /// An internal error; the report is complete up to this point.
     Internal = "E_INTERNAL", [Parse, Bind, Read, Check, Plan, Apply, After, Verify, Report], Internal;
 }
