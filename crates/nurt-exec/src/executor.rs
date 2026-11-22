@@ -20,6 +20,7 @@ use nurt_plan::{OperationPlan, PipelinePlan, Plan, PlanStatement, PlannedStage};
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use serde_json::json;
 
+use crate::context::limit_context;
 use crate::effect::{AppliedEffect, ProgramSource, apply_effect, change_facts, target_text};
 use crate::env::ExecEnv;
 use crate::eval::ExprBinding;
@@ -414,11 +415,12 @@ impl<'e> Execution<'e> {
             self.chain(stages, &state, 0..effect_index, input)
                 .and_then(|input| self.plan_effect(stages, &state, effect_index, input))
         });
-        let (effect, plan) = match planned {
+        let (effect, mut plan) = match planned {
             Ok(planned) => planned,
             Err(error) => return outcome.fail(error),
         };
         let effect_stage = &stages[effect_index];
+        limit_context(&mut plan.changes, self.ctx.options().diff_context());
         let mut report = EffectReport::planned(effect_stage.command(), &plan);
         if self.preview {
             outcome.status = ReportStatus::Planned;
@@ -442,6 +444,7 @@ impl<'e> Execution<'e> {
             applied.handle.clone(),
             &applied,
             planned_changes,
+            self.ctx.options().diff_context(),
         );
         self.after_effect(
             stages,
@@ -656,12 +659,14 @@ fn record_applied(
     handle: nurt_contracts::journal::OpHandle,
     applied: &AppliedEffect,
     planned: Vec<nurt_contracts::record::Change>,
+    diff_context: u32,
 ) {
-    let changes = if applied.changes.is_empty() {
+    let mut changes = if applied.changes.is_empty() {
         planned
     } else {
         applied.changes.clone()
     };
+    limit_context(&mut changes, diff_context);
     report.applied = true;
     report.changes = change_facts(changes, Some(&handle));
     report.notable.extend(applied.notable.iter().cloned());
