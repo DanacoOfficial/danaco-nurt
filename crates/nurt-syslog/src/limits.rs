@@ -150,9 +150,9 @@ impl LogLimits {
 /// ```
 /// use nurt_syslog::limits::truncate_text;
 ///
-/// let mut text = String::from("zażółć");
-/// assert!(truncate_text(&mut text, 5));
-/// assert_eq!(text, "zaż");
+/// let mut text = String::from("a\u{20ac}b");
+/// assert!(truncate_text(&mut text, 3));
+/// assert_eq!(text, "a");
 /// ```
 pub fn truncate_text(text: &mut String, max: usize) -> bool {
     if text.len() <= max {
@@ -209,9 +209,9 @@ mod tests {
 
     #[test]
     fn truncates_at_character_boundary() {
-        let mut text = String::from("ąąą");
+        let mut text = String::from("\u{e9}\u{e9}\u{e9}");
         assert!(truncate_text(&mut text, 3));
-        assert_eq!(text, "ą");
+        assert_eq!(text, "\u{e9}");
         let mut short = String::from("abc");
         assert!(!truncate_text(&mut short, 3));
         assert_eq!(short, "abc");
