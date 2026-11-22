@@ -8,6 +8,8 @@
 
 mod u09_support;
 
+use std::path::PathBuf;
+
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::record::{Content, Entry, EntryType, Hunk, Item};
 use nurt_contracts::value::{Path, Record, Value};
@@ -222,4 +224,14 @@ fn large_integers_keep_their_digits() {
         found[0].value,
         Value::BigInt("12345678901234567890".to_owned())
     );
+}
+
+#[test]
+fn documents_are_opened_with_the_path_of_their_file() {
+    let fixture = Fixture::new();
+    fixture.file("/data/app.kvp", b"name = web\n");
+    let found = query_file(&fixture, "/data/app.kvp", ".name").unwrap();
+    assert_eq!(keys(&found), ["name"]);
+    let opened = fixture.opened.lock().unwrap();
+    assert_eq!(opened.as_slice(), [Some(PathBuf::from("/data/app.kvp"))]);
 }

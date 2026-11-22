@@ -10,8 +10,8 @@ use nurt_contracts::value::Value;
 use rusqlite::ErrorCode as SqliteCode;
 use serde_json::json;
 
-use super::SqlRequest;
 use super::guard::Denial;
+use super::{SqlParams, SqlRequest};
 
 /// Part of the call a failure belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -168,25 +168,25 @@ pub(super) fn read_only(request: &SqlRequest, site: Site) -> Error {
     }
 }
 
-/// A statement refused by the lexical checks.
+/// A statement refused by the authorizer.
 pub(super) fn denied(denial: &Denial, number: usize) -> Error {
     let (problem, message) = match denial {
         Denial::Attach(keyword) => (
             "attach",
             format!(
-                "statement {number} uses {keyword}; `sql` works on one database file, so run the statements on each file separately"
-            ),
-        ),
-        Denial::VacuumInto => (
-            "vacuum_into",
-            format!(
-                "statement {number} uses VACUUM INTO, which writes another file; copy the database file instead"
+                "statement {number} uses {keyword}, which attaches or detaches a database; `sql` works on one database file, so run the statements on each file separately"
             ),
         ),
         Denial::Pragma(name) => (
             "pragma",
             format!(
                 "statement {number} sets `{name}`, which points SQLite to files outside the database; remove the pragma"
+            ),
+        ),
+        Denial::Extension => (
+            "extension",
+            format!(
+                "statement {number} calls load_extension, which loads code into the process; remove the call"
             ),
         ),
         Denial::Transaction(keyword) => (
@@ -201,14 +201,41 @@ pub(super) fn denied(denial: &Denial, number: usize) -> Error {
         .with_detail("statement", json!(number))
 }
 
-/// The text of a prepared statement cannot be read back for the checks.
-pub(super) fn unreadable(number: usize) -> Error {
+/// A positional placeholder meets a `params` map.
+pub(super) fn positional_with_map(number: usize, placeholder: &str) -> Error {
     Error::new(
         ErrorCode::Sql,
-        format!("statement {number} is too long to be checked; split it into shorter statements"),
+        format!(
+            "statement {number} has the positional parameter `{placeholder}` while `params` is a map; use named parameters such as `:name` or pass a list"
+        ),
     )
-    .with_problem("statement_length")
+    .with_problem("parameter_name")
     .with_detail("statement", json!(number))
+}
+
+/// A named placeholder has no entry in the `params` map.
+pub(super) fn missing_name(number: usize, name: &str) -> Error {
+    Error::new(
+        ErrorCode::Sql,
+        format!(
+            "statement {number} uses the parameter `{name}`, which `params` does not hold; add the entry to the map"
+        ),
+    )
+    .with_problem("parameter_name")
+    .with_detail("statement", json!(number))
+}
+
+/// Entries of the `params` map that no placeholder uses.
+pub(super) fn unused_names(names: &[&str]) -> Error {
+    Error::new(
+        ErrorCode::Sql,
+        format!(
+            "`params` holds entries that no statement uses: {}; remove them",
+            names.join(", ")
+        ),
+    )
+    .with_problem("parameter_name")
+    .with_actual(json!(names))
 }
 
 /// `params` holds fewer values than the parameters of the statements.
@@ -240,13 +267,19 @@ pub(super) fn extra_params(used: usize, given: usize) -> Error {
 /// parameter value has a literal form.
 fn write_fix(request: &SqlRequest) -> Option<String> {
     let mut program = format!("sql {} {}", quote(&request.display), quote(&request.query));
-    if !request.params.is_empty() {
-        let values = request
-            .params
-            .iter()
-            .map(literal)
-            .collect::<Option<Vec<_>>>()?;
-        program.push_str(&format!(" params: [{}]", values.join(", ")));
+    match &request.params {
+        SqlParams::List(values) if !values.is_empty() => {
+            let literals = values.iter().map(literal).collect::<Option<Vec<_>>>()?;
+            program.push_str(&format!(" params: [{}]", literals.join(", ")));
+        }
+        SqlParams::Map(fields) if !fields.is_empty() => {
+            let entries = fields
+                .iter()
+                .map(|(name, value)| Some(format!("{}: {}", quote(name), literal(value)?)))
+                .collect::<Option<Vec<_>>>()?;
+            program.push_str(&format!(" params: {{{}}}", entries.join(", ")));
+        }
+        _ => {}
     }
     program.push_str(" write: true");
     Some(program)
@@ -297,9 +330,10 @@ fn lower_first(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nurt_contracts::value::Fields;
     use std::time::Duration;
 
-    fn request(params: Vec<Value>) -> SqlRequest {
+    fn request(params: SqlParams) -> SqlRequest {
         SqlRequest {
             path: "/home/user/app.db".into(),
             display: "/home/user/app.db".to_owned(),
@@ -312,13 +346,13 @@ mod tests {
 
     #[test]
     fn fix_repeats_the_call_with_write() {
-        let fix = write_fix(&request(vec![
+        let fix = write_fix(&request(SqlParams::List(vec![
             Value::Int(1),
             Value::Text("a\"b\u{1}".to_owned()),
             Value::Null,
             Value::Bool(true),
             Value::Number(1.5),
-        ]));
+        ])));
         assert_eq!(
             fix.as_deref(),
             Some(
@@ -329,15 +363,51 @@ mod tests {
     }
 
     #[test]
+    fn fix_writes_a_map_of_parameters() {
+        let mut fields = Fields::new();
+        fields.insert("id".to_owned(), Value::Int(7));
+        fields.insert("a\"b".to_owned(), Value::Text("x".to_owned()));
+        let fix = write_fix(&request(SqlParams::Map(fields)));
+        assert_eq!(
+            fix.as_deref(),
+            Some(
+                "sql \"/home/user/app.db\" \"insert into t values (?)\\n\" \
+                 params: {\"id\": 7, \"a\\\"b\": \"x\"} write: true"
+            )
+        );
+    }
+
+    #[test]
+    fn describes_parameter_and_authorizer_failures() {
+        let cases = [
+            (positional_with_map(2, "?"), "parameter_name"),
+            (missing_name(1, ":a"), "parameter_name"),
+            (unused_names(&["b", "c"]), "parameter_name"),
+            (denied(&Denial::Extension, 1), "extension"),
+            (denied(&Denial::Attach("ATTACH"), 1), "attach"),
+            (denied(&Denial::Pragma("p".to_owned()), 1), "pragma"),
+            (denied(&Denial::Transaction("BEGIN"), 1), "transaction"),
+            (missing_params(1, 0), "parameter_count"),
+            (extra_params(1, 2), "parameter_count"),
+        ];
+        for (error, problem) in cases {
+            assert_eq!(error.problem.as_deref(), Some(problem));
+        }
+    }
+
+    #[test]
     fn fix_is_absent_for_values_without_literal() {
-        let error = read_only(&request(vec![Value::List(Vec::new())]), Site::Statement(1));
+        let error = read_only(
+            &request(SqlParams::List(vec![Value::List(Vec::new())])),
+            Site::Statement(1),
+        );
         assert!(error.fix.is_empty());
         assert_eq!(error.problem.as_deref(), Some("write_required"));
     }
 
     #[test]
     fn maps_io_errors_by_kind() {
-        let request = request(Vec::new());
+        let request = request(SqlParams::List(Vec::new()));
         let denied = io::Error::from(io::ErrorKind::PermissionDenied);
         assert_eq!(file_error(&denied, &request).code(), ErrorCode::Permission);
         let other = io::Error::other("Broken");
@@ -348,7 +418,7 @@ mod tests {
 
     #[test]
     fn maps_sqlite_codes() {
-        let mut writing = request(Vec::new());
+        let mut writing = request(SqlParams::List(Vec::new()));
         writing.write = true;
         let cases = [
             (SqliteCode::DiskFull, ErrorCode::NoSpace),

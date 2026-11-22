@@ -506,7 +506,7 @@ impl YamlModel {
         end
     }
 
-    /// Byte offset just after the line break that ends the line containing
+    /// Byte offset immediately after the line break that ends the line containing
     /// `offset`, or the length of the source on the last line.
     #[must_use]
     pub fn next_line_start(&self, offset: usize) -> usize {

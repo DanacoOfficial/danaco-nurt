@@ -32,9 +32,9 @@ Local variables declared inside functions are not part of an outline.
 
 ## Parameters
 
-| Name | Type | Default | Description |
+| Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` (1) | `path` | required | Source file. |
+| `path` | `path` | required | Source file. |
 | `depth` | `int` | unlimited | Deepest nesting level listed, from 0 for top-level symbols. |
 
 ## Input and output
@@ -84,13 +84,14 @@ code.outline "src/Cart.java" |> where container == "Cart" and kind == "method"
 
 ## Errors
 
-| Code | Cause |
-|---|---|
-| `E_UNSUPPORTED_LANGUAGE` | The file has no built-in grammar and no language server is available. |
-| `E_INVALID_VALUE` | `depth` is negative. |
-| `E_LIMIT` | The file is larger than `code.file_bytes_max`. |
-| `E_NOT_FOUND` | The file does not exist. |
-| `E_EXTERNAL_FAILED`, `E_TIMEOUT` | The language server of a language without a grammar failed or did not answer. |
+| Code | Meaning | Typical fix |
+|---|---|---|
+| `E_MISSING_PARAM` | `path` was not given. | Give `path`. |
+| `E_UNSUPPORTED_LANGUAGE` | The file has no built-in grammar and no language server is available. | Install the server for the language. |
+| `E_INVALID_VALUE` | `depth` is negative. | Give a depth of 0 or more. |
+| `E_LIMIT` | The file is larger than `code.file_bytes_max`. | Raise the limit. |
+| `E_NOT_FOUND` | The file does not exist. | Check the path. |
+| `E_EXTERNAL_FAILED`, `E_TIMEOUT` | The language server of a language without a grammar failed or did not answer. | See the message of the server, or raise `code.timeout`. |
 
 ## Related
 

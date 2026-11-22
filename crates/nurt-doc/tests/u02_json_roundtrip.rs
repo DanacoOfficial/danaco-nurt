@@ -117,10 +117,10 @@ fn keeps_outside(original: &[u8], changed: &[u8], region: Span) -> bool {
     head.len() + tail.len() <= changed.len() && changed.starts_with(head) && changed.ends_with(tail)
 }
 
-/// The harness locates a change with a byte diff, which can place the
-/// removal of one of several similar entries at another of them and then
-/// reports bytes outside the node. The removal is repeated and its scope
-/// checked without a diff.
+/// Removing the only member or element of a container collapses its lines
+/// (`{` and `}` on separate lines become `{}`), which the harness reports
+/// as bytes outside the lines of the node. The removal is repeated and
+/// its scope checked over the blanks, line breaks and commas around the node.
 fn removal_in_scope(violation: &Violation, format: &dyn DocFormat) -> bool {
     if violation.guard != Guard::Scope || violation.operation != Some(HarnessOperation::Remove) {
         return false;
@@ -147,48 +147,6 @@ fn removal_in_scope(violation: &Violation, format: &dyn DocFormat) -> bool {
     }
     let changed = document.handle.text();
     keeps_outside(&original, changed, region)
-        || previous_comma(&original, region.start).is_some_and(|comma| {
-            let mut without = original.clone();
-            without.remove(comma);
-            keeps_outside(
-                &without,
-                changed,
-                Span::new(region.start - 1, region.end - 1),
-            )
-        })
-}
-
-/// Offset of the comma that separates the entry starting the region at
-/// `start` from its previous sibling, when only blanks and comments lie
-/// between them. Removing the last entry also removes that comma, which a
-/// comment on its line keeps out of the lines of the node.
-fn previous_comma(text: &[u8], start: usize) -> Option<usize> {
-    let before = std::str::from_utf8(&text[..start]).ok()?;
-    let mut line_end = before.len();
-    loop {
-        let line_start = before[..line_end].rfind('\n').map_or(0, |at| at + 1);
-        let line = &before[line_start..line_end];
-        let trimmed = line.trim();
-        let comment_only = trimmed.is_empty()
-            || trimmed.starts_with("//")
-            || (trimmed.starts_with("/*") && trimmed.ends_with("*/"));
-        if !comment_only {
-            let is_separator = |at: &usize| {
-                let rest = line[at + 1..].trim();
-                rest.is_empty() || rest.starts_with("//") || rest.starts_with("/*")
-            };
-            let comma = line
-                .match_indices(',')
-                .map(|(at, _)| at)
-                .rev()
-                .find(is_separator)?;
-            return Some(line_start + comma);
-        }
-        if line_start == 0 {
-            return None;
-        }
-        line_end = line_start - 1;
-    }
 }
 
 fn assert_clean(summary: &Summary, format: &dyn DocFormat) {

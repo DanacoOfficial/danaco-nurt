@@ -15,9 +15,10 @@ use std::time::Duration;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::stage::{ExecCtx, RecordStream};
 use nurt_contracts::value::Record;
-use rusqlite::{Connection, InterruptHandle};
+use rusqlite::InterruptHandle;
 
-use super::{SqlRequest, session};
+use super::SqlRequest;
+use super::session::{self, Database};
 
 /// Rows produced ahead of the consumer.
 const ROW_BUFFER: usize = 256;
@@ -32,13 +33,13 @@ const POLL_INTERVAL: Duration = Duration::from_millis(20);
 /// number of parameters are reported before the first row.
 pub(crate) fn read_rows(request: SqlRequest, ctx: &ExecCtx) -> Result<RecordStream<'_>> {
     session::check_file(&request)?;
-    let connection = session::open(&request)?;
-    session::validate(&connection, &request)?;
-    let interrupt = connection.get_interrupt_handle();
+    let database = Database::open(&request)?;
+    database.validate(&request)?;
+    let interrupt = database.connection().get_interrupt_handle();
     let (sender, receiver) = mpsc::sync_channel(ROW_BUFFER);
     thread::Builder::new()
         .name("nurt-sql".to_owned())
-        .spawn(move || produce(&connection, &request, &sender))
+        .spawn(move || produce(&database, &request, &sender))
         .map_err(|e| {
             Error::new(
                 ErrorCode::Limit,
@@ -55,13 +56,13 @@ pub(crate) fn read_rows(request: SqlRequest, ctx: &ExecCtx) -> Result<RecordStre
     }))
 }
 
-fn produce(connection: &Connection, request: &SqlRequest, sender: &SyncSender<Result<Record>>) {
+fn produce(database: &Database, request: &SqlRequest, sender: &SyncSender<Result<Record>>) {
     let mut sink = |record: Record| {
         sender
             .send(Ok(record))
             .map_err(|_| Error::new(ErrorCode::Cancelled, "the rows are no longer read"))
     };
-    if let Err(error) = session::run(connection, request, &mut sink) {
+    if let Err(error) = database.run(request, &mut sink) {
         // The consumer may already be gone; the error then has no reader.
         let _ = sender.send(Err(error));
     }

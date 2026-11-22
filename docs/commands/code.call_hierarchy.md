@@ -101,6 +101,7 @@ code.call_hierarchy "/srv/app/src/main.go" line: 30 source: syntax
 | `E_UNSUPPORTED_LANGUAGE` | Syntax analysis is needed and no grammar is available for the file. | Give `language`. |
 | `E_EXTERNAL_MISSING` | `source: lsp` and no server is available for the language. | Install the server named by `fix`. |
 | `E_EXTERNAL_FAILED` | `source: lsp` and the server failed. | See the message of the server. |
+| `E_TIMEOUT` | `source: lsp` and the server gave no answer within `code.timeout`. | Raise `code.timeout`, or use `source: auto`. |
 
 ## Related
 

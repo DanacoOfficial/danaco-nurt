@@ -19,6 +19,7 @@
 
 use std::collections::VecDeque;
 use std::io::Read;
+use std::sync::Arc;
 
 use nurt_contracts::error::{Error, ErrorCode, Location, Result, Stage};
 use nurt_contracts::fs::AbsPath;
@@ -32,6 +33,7 @@ use nurt_contracts::stage::{
 use nurt_contracts::value::{Path, Record, RecordKind, Value};
 
 use crate::jq::{PathStep, Query, QueryOutput, value_type};
+use crate::registry::{DocOptions, Registry};
 
 /// Name of the command in the catalog.
 pub const COMMAND: &str = "query";
@@ -45,18 +47,35 @@ const JSON_MEDIA_TYPE: &str = "json";
 
 /// Implementation of the `query` command.
 ///
+/// A stage built with [`QueryStage::new`] detects and opens documents through
+/// the format registry, so that the path of the file takes part in the choice
+/// of the format. A stage without a registry reads documents through the
+/// document service of the context, and as JSON when the context has none.
+///
 /// # Examples
 ///
 /// ```
 /// use nurt_contracts::stage::StageImpl;
 /// use nurt_doc::commands::query::QueryStage;
 ///
-/// let descriptor = QueryStage.descriptor();
+/// let descriptor = QueryStage::default().descriptor();
 /// assert_eq!(descriptor.command, "query");
 /// assert!(descriptor.source);
 /// ```
-#[derive(Debug, Clone, Copy, Default)]
-pub struct QueryStage;
+#[derive(Debug, Clone, Default)]
+pub struct QueryStage {
+    registry: Option<Arc<Registry>>,
+}
+
+impl QueryStage {
+    /// Stage that opens documents with the formats of `registry`.
+    #[must_use]
+    pub const fn new(registry: Arc<Registry>) -> Self {
+        Self {
+            registry: Some(registry),
+        }
+    }
+}
 
 impl StageImpl for QueryStage {
     fn descriptor(&self) -> StageDescriptor {
@@ -116,6 +135,7 @@ impl ReadStage for QueryStage {
         let outputs = Outputs {
             args,
             ctx,
+            registry: self.registry.as_deref(),
             subjects,
             pending: VecDeque::new(),
             query: None,
@@ -160,6 +180,7 @@ pub(crate) struct FileContent {
 struct Outputs<'a> {
     args: &'a BoundArgs,
     ctx: &'a ExecCtx,
+    registry: Option<&'a Registry>,
     subjects: Subjects<'a>,
     pending: VecDeque<Result<Record>>,
     query: Option<Query>,
@@ -204,8 +225,8 @@ impl Outputs<'_> {
         };
         self.prepare_query(record)?;
         let roots = match subject {
-            Subject::Record(record) => record_roots(self.ctx, &record)?,
-            Subject::File(path) => file_roots(self.ctx, &path)?,
+            Subject::Record(record) => record_roots(self.ctx, self.registry, &record)?,
+            Subject::File(path) => file_roots(self.ctx, self.registry, &path)?,
         };
         let Some(query) = self.query.as_ref() else {
             return Ok(());
@@ -298,9 +319,9 @@ fn text_field<'r>(record: &'r Record, name: &str) -> Option<&'r str> {
     record.get(name).and_then(Value::as_str)
 }
 
-fn record_roots(ctx: &ExecCtx, record: &Record) -> Result<Vec<Root>> {
+fn record_roots(ctx: &ExecCtx, registry: Option<&Registry>, record: &Record) -> Result<Vec<Root>> {
     match record.kind {
-        RecordKind::Content => content_roots(ctx, record),
+        RecordKind::Content => content_roots(ctx, registry, record),
         RecordKind::Entry => {
             let kind = text_field(record, "type").unwrap_or("file");
             let path = text_field(record, PATH).unwrap_or_default();
@@ -313,10 +334,10 @@ fn record_roots(ctx: &ExecCtx, record: &Record) -> Result<Vec<Root>> {
                 )
                 .with_stage(Stage::Read));
             }
-            file_roots(ctx, path)
+            file_roots(ctx, registry, path)
         }
         RecordKind::Item => Ok(vec![item_root(record)]),
-        RecordKind::Response => response_roots(ctx, record),
+        RecordKind::Response => response_roots(ctx, registry, record),
         other => Err(Error::new(
             ErrorCode::Type,
             format!(
@@ -338,7 +359,7 @@ fn item_root(record: &Record) -> Root {
     }
 }
 
-fn content_roots(ctx: &ExecCtx, record: &Record) -> Result<Vec<Root>> {
+fn content_roots(ctx: &ExecCtx, registry: Option<&Registry>, record: &Record) -> Result<Vec<Root>> {
     let path = text_field(record, PATH).unwrap_or_default();
     if record.get("binary") == Some(&Value::Bool(true)) {
         return Err(Error::new(
@@ -349,22 +370,26 @@ fn content_roots(ctx: &ExecCtx, record: &Record) -> Result<Vec<Root>> {
     }
     let text = text_field(record, "text").unwrap_or_default();
     let etag = text_field(record, "etag").unwrap_or_default();
-    document_roots(ctx, path, text.as_bytes(), None, etag)
+    document_roots(ctx, registry, path, text.as_bytes(), None, etag)
 }
 
-fn response_roots(ctx: &ExecCtx, record: &Record) -> Result<Vec<Root>> {
+fn response_roots(
+    ctx: &ExecCtx,
+    registry: Option<&Registry>,
+    record: &Record,
+) -> Result<Vec<Root>> {
     let url = text_field(record, "url").unwrap_or_default();
     let body = text_field(record, "body").unwrap_or_default();
     let etag = text_field(record, "etag").unwrap_or_default();
     let hint = text_field(record, "content_type")
         .filter(|media| media.contains(JSON_MEDIA_TYPE))
         .map(|_| DocFormatId::JSON);
-    document_roots(ctx, url, body.as_bytes(), hint, etag)
+    document_roots(ctx, registry, url, body.as_bytes(), hint, etag)
 }
 
-fn file_roots(ctx: &ExecCtx, path: &str) -> Result<Vec<Root>> {
+fn file_roots(ctx: &ExecCtx, registry: Option<&Registry>, path: &str) -> Result<Vec<Root>> {
     let content = read_file(ctx, path)?;
-    document_roots(ctx, path, &content.bytes, None, &content.etag)
+    document_roots(ctx, registry, path, &content.bytes, None, &content.etag)
 }
 
 /// Reads a file through the file system of the context.
@@ -409,15 +434,17 @@ pub(crate) fn read_file(ctx: &ExecCtx, path: &str) -> Result<FileContent> {
 /// Values of a document: one root per document of a multi-document stream.
 fn document_roots(
     ctx: &ExecCtx,
+    registry: Option<&Registry>,
     path: &str,
     bytes: &[u8],
     hint: Option<DocFormatId>,
     etag: &str,
 ) -> Result<Vec<Root>> {
     let service = ctx.doc();
-    let format = hint.or_else(|| {
-        let file = (!path.is_empty()).then(|| std::path::Path::new(path));
-        service.and_then(|service| service.detect_format(file, bytes))
+    let file = (!path.is_empty()).then(|| std::path::Path::new(path));
+    let format = hint.or_else(|| match registry {
+        Some(registry) => registry.detect(file, bytes),
+        None => service.and_then(|service| service.detect_format(file, bytes)),
     });
     let root = |key: Option<KeyPath>, format: &str, value: Value| Root {
         path: path.to_owned(),
@@ -426,8 +453,8 @@ fn document_roots(
         key,
         value,
     };
-    let (Some(service), Some(format)) = (service, format.clone()) else {
-        let value = parse_json(path, bytes, format.as_ref())?;
+    let Some(format) = format.filter(|_| registry.is_some() || service.is_some()) else {
+        let value = parse_json(path, bytes)?;
         return Ok(vec![root(
             Some(KeyPath::root()),
             DocFormatId::JSON.as_str(),
@@ -439,37 +466,69 @@ fn document_roots(
     } else {
         KeyPath::root()
     };
-    let items = service
-        .read_keys(bytes, &format, &selector, None)
-        .map_err(|error| error.with_stage(Stage::Read))?;
+    let items = match (registry, service) {
+        (Some(registry), _) => read_with_registry(ctx, registry, &format, file, bytes, &selector),
+        (None, Some(service)) => service
+            .read_keys(bytes, &format, &selector, None)
+            .map(|items| {
+                items
+                    .into_iter()
+                    .map(|item| (item.key, item.value))
+                    .collect()
+            }),
+        (None, None) => Ok(Vec::new()),
+    }
+    .map_err(|error| error.with_stage(Stage::Read))?;
     Ok(items
         .into_iter()
-        .map(|item| root(Some(item.key), format.as_str(), item.value))
+        .map(|(key, value)| root(Some(key), format.as_str(), value))
         .collect())
 }
 
-fn parse_json(path: &str, bytes: &[u8], format: Option<&DocFormatId>) -> Result<Value> {
-    match jaq_json::read::parse_single(bytes) {
-        Ok(val) => Ok(crate::jq::value_of(&val)),
-        Err(error) => {
-            let message = match format {
-                Some(format) if *format != DocFormatId::JSON => format!(
-                    "{path} is not JSON and no reader for {format} documents is available: {error}"
-                ),
-                _ => format!("{path} is not a document of a known format nor JSON: {error}"),
-            };
-            Err(Error::new(ErrorCode::DocParse, message)
-                .with_stage(Stage::Read)
-                .with_location(Location {
-                    path: path.to_owned(),
-                    line: None,
-                    column: None,
-                    end_line: None,
-                    end_column: None,
-                    byte: None,
-                }))
-        }
-    }
+/// Opens the document with the path of its file as context and returns the
+/// values at `selector` with their keys.
+fn read_with_registry(
+    ctx: &ExecCtx,
+    registry: &Registry,
+    format: &DocFormatId,
+    file: Option<&std::path::Path>,
+    bytes: &[u8],
+    selector: &KeyPath,
+) -> Result<Vec<(KeyPath, Value)>> {
+    let options = DocOptions::from_config(&ctx.config().documents);
+    let document = registry.open_at(format, file, bytes, &options)?;
+    let handle = &document.handle;
+    let tree = handle.tree();
+    Ok(handle
+        .get(selector)?
+        .into_iter()
+        .map(|resolved| {
+            let value = tree.value_of(resolved.node, handle.semantics(), None);
+            (resolved.key, value)
+        })
+        .collect())
+}
+
+/// Value of a document read as JSON. Only a document without a recognised
+/// format or without a document service gets here: a recognised format is
+/// read by the service.
+fn parse_json(path: &str, bytes: &[u8]) -> Result<Value> {
+    let parsed = jaq_json::read::parse_single(bytes).map_err(|error| {
+        Error::new(
+            ErrorCode::DocParse,
+            format!("{path} is not a document of a known format nor JSON: {error}"),
+        )
+        .with_stage(Stage::Read)
+        .with_location(Location {
+            path: path.to_owned(),
+            line: None,
+            column: None,
+            end_line: None,
+            end_column: None,
+            byte: None,
+        })
+    })?;
+    Ok(crate::jq::value_of(&parsed))
 }
 
 #[cfg(test)]

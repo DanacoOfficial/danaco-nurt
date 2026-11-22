@@ -1035,6 +1035,9 @@ fn severity(severity: Option<LspSeverity>) -> DiagnosticSeverity {
 }
 
 /// Kind of the code group for a protocol `SymbolKind` number.
+///
+/// The numbers are the values of the `SymbolKind` enumeration of the
+/// Language Server Protocol 3.17 specification.
 #[must_use]
 pub fn symbol_kind(kind: u64) -> SymbolKind {
     match kind {

@@ -21,12 +21,12 @@ use nurt_contracts::journal::MutationTx;
 use nurt_contracts::report::{Change, ChangeAction, IrreversibleEntry};
 use nurt_contracts::stage::ExecCtx;
 use nurt_contracts::value::{Record, Size};
-use rusqlite::{Connection, InterruptHandle};
+use rusqlite::InterruptHandle;
 
 use super::SqlRequest;
 use super::error::{self, Site};
 use super::journal::DatabaseFiles;
-use super::session::{self, Summary};
+use super::session::{self, Database, Summary};
 
 /// Longest wait of the cancellation watcher before it checks the deadline.
 const WATCH_INTERVAL: Duration = Duration::from_millis(20);
@@ -36,7 +36,7 @@ const WATCH_INTERVAL: Duration = Duration::from_millis(20);
 pub(crate) struct WriteOutcome {
     /// Rows returned by the statements, for example by `RETURNING`.
     pub(crate) rows: Vec<Record>,
-    /// Change of the database file; `replacements` holds the number of rows
+    /// Change of the database file; `rows_changed` holds the number of rows
     /// inserted, updated or deleted.
     pub(crate) change: Change,
     /// Files whose previous content the journal did not keep.
@@ -73,7 +73,7 @@ pub(crate) fn write(
     let mut change = Change::new(request.display.clone(), ChangeAction::Modify);
     change.size_before = before.first().map(|state| Size::from_bytes(state.len()));
     change.size_after = after.first().map(|state| Size::from_bytes(state.len()));
-    change.replacements = Some(summary.changes);
+    change.rows_changed = Some(summary.changes);
     Ok(WriteOutcome {
         rows,
         change,
@@ -82,19 +82,17 @@ pub(crate) fn write(
 }
 
 fn execute(request: &SqlRequest, ctx: &ExecCtx, rows: &mut Vec<Record>) -> Result<Summary> {
-    let connection = session::open(request)?;
-    let interrupt = connection.get_interrupt_handle();
+    let database = Database::open(request)?;
+    let interrupt = database.connection().get_interrupt_handle();
     let finished = AtomicBool::new(false);
     let result = thread::scope(|scope| {
         scope.spawn(|| watch(ctx, &interrupt, &finished));
-        let result = transaction(&connection, request, ctx, rows);
+        let result = transaction(&database, request, ctx, rows);
         finished.store(true, Ordering::Release);
         result
     });
     let summary = result.map_err(|error| ctx.checkpoint().err().unwrap_or(error))?;
-    connection
-        .close()
-        .map_err(|(_, e)| error::from_sqlite(&e, request, Site::Transaction))?;
+    database.close(request)?;
     Ok(summary)
 }
 
@@ -111,12 +109,13 @@ fn watch(ctx: &ExecCtx, interrupt: &InterruptHandle, finished: &AtomicBool) {
 }
 
 fn transaction(
-    connection: &Connection,
+    database: &Database,
     request: &SqlRequest,
     ctx: &ExecCtx,
     rows: &mut Vec<Record>,
 ) -> Result<Summary> {
     let site = Site::Transaction;
+    let connection = database.connection();
     connection
         .execute_batch("BEGIN IMMEDIATE")
         .map_err(|e| error::from_sqlite(&e, request, site))?;
@@ -133,7 +132,7 @@ fn transaction(
         rows.push(record);
         Ok(())
     };
-    let summary = match session::run(connection, request, &mut sink) {
+    let summary = match database.run(request, &mut sink) {
         Ok(summary) => summary,
         Err(error) => {
             // A failed ROLLBACK leaves the files to the journal, which

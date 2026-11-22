@@ -152,6 +152,12 @@ pub(crate) mod shared {
     /// Longest documentation sentence kept by the short form, in characters.
     pub(crate) const SENTENCE_MAX: usize = 200;
 
+    /// Marker appended to text shortened by [`clip`].
+    const ELLIPSIS: &str = "...";
+
+    /// Most definitions listed as samples of an ambiguity error.
+    const AMBIGUITY_SAMPLES: usize = 8;
+
     static TEST_PATH: LazyLock<Option<Regex>> = LazyLock::new(|| {
         Regex::new(
             r"(?:^|/)(?:tests?|__tests__|spec|specs)/|[._-](?:test|spec)\.[^/]+$|(?:^|/)test_[^/]+$|_test\.[^/]+$",
@@ -515,8 +521,11 @@ pub(crate) mod shared {
         if text.chars().count() <= max {
             return text.to_owned();
         }
-        let mut clipped: String = text.chars().take(max.saturating_sub(3)).collect();
-        clipped.push_str("...");
+        let mut clipped: String = text
+            .chars()
+            .take(max.saturating_sub(ELLIPSIS.len()))
+            .collect();
+        clipped.push_str(ELLIPSIS);
         clipped
     }
 
@@ -735,7 +744,7 @@ pub(crate) mod shared {
                         path.display()
                     ),
                 );
-                for info in several.iter().take(8) {
+                for info in several.iter().take(AMBIGUITY_SAMPLES) {
                     error = error.with_sample(describe(info));
                 }
                 Err(error)

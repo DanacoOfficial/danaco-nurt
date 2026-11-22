@@ -45,7 +45,7 @@ The plan is checked before anything is written:
 - server edits that do more than replace the old name are listed in the
   `alarms` field of the plan summary.
 
-`preview` shows one `rename_edit` record per edit and a `map` record with the
+The request option `preview` shows one `rename_edit` record per edit and a `map` record with the
 plan summary: `plan` (identifier), `from`, `to`, `source`, `server`,
 `confidence` (`semantic` for server edits, `identifier` for syntax
 analysis), `root`, `files`, `total`, `alarms` and `leftovers`.
@@ -130,7 +130,7 @@ code.symbols "loadConfig" path: ["/srv/app/src"] kind: method match: exact |> co
 | `E_INVALID_VALUE` | `to` is not an identifier or equals the current name. | Give another name. |
 | `E_MISSING_PARAM` | Neither `symbol` nor `line` was given. | Give `symbol`, or `line` and `column`. |
 | `E_SYMBOL_NOT_FOUND` | No identifier at the position, no definition of `symbol`, or the server found nothing to rename. | Check the position or the name. |
-| `E_SYMBOL_AMBIGUOUS` | `symbol` has several definitions in the file, or syntax analysis found several definitions of the name; `candidates` lists ready programs. | Give `line` and `column`, narrow `paths`, or use `source: lsp`. |
+| `E_SYMBOL_AMBIGUOUS` | `symbol` has several definitions in the file, or syntax analysis found several definitions of the name; `candidates` lists one call for each definition. | Give `line` and `column`, narrow `paths`, or use `source: lsp`. |
 | `E_RENAME_CONFLICT` | The new name is already used in a changed file. | Choose another name. |
 | `E_UNSUPPORTED_LANGUAGE` | No grammar for the file and no server. | Give `language` or install the server. |
 | `E_EXTERNAL_MISSING` | `source: lsp` and no server for the language. | Install the server or use `source: syntax`. |

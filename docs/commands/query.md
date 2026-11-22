@@ -161,6 +161,7 @@ query "[.[] | objects] | length" path: "/home/user/app/config.toml"
 | `E_QUERY` | the filter does not compile (`problem`: `syntax`, `undefined`, `module`), fails while it runs (`runtime`), or ends with `halt_error` (`halt`) | correct the filter; `details` holds the line and column of a compile error |
 | `E_DOC_PARSE` | the document is not valid in its format, or a text without a recognised format is not JSON | correct the document or read it with the right format |
 | `E_NOT_FOUND` | the file does not exist | check the path |
+| `E_IO` | the file cannot be read | see the message |
 | `E_BINARY` | the content record holds binary data | query text documents only |
 | `E_TYPE` | an input record is of another kind, or an entry is not a file | pass `content`, `entry`, `item` or `response` records |
 | `E_MISSING_PARAM` | the source form has no `path` | add `path:` |

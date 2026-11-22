@@ -33,6 +33,10 @@ use nurt_contracts::services::{ByteRange, SyntaxCapture, SyntaxMatch};
 
 use crate::spans::LineIndex;
 
+/// Number of sigils of a metavariable that matches a sequence of nodes
+/// (`$$$NAME`).
+const SEQUENCE_SIGILS: usize = 3;
+
 /// Replacement of one byte range of a document.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Replacement {
@@ -69,7 +73,11 @@ fn parse_template(template: &str) -> Vec<Piece<'_>> {
             index = name_start;
             continue;
         }
-        let sigils = if dollars >= 3 { 3 } else { 1 };
+        let sigils = if dollars >= SEQUENCE_SIGILS {
+            SEQUENCE_SIGILS
+        } else {
+            1
+        };
         let var_start = name_start - sigils;
         pieces.push(Piece::Text(&template[literal_start..var_start]));
         pieces.push(Piece::Var(&template[name_start..name_start + name_len]));

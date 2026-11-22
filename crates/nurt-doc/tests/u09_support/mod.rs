@@ -15,7 +15,7 @@
 // Each test file includes this module and uses a part of it.
 #![allow(dead_code)]
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
@@ -108,11 +108,63 @@ impl DocFormat for CheckedKeyValue {
     }
 }
 
+/// Identifier of the flat test format that records the paths it is opened with.
+pub(crate) const PROBED_KV: &str = "kvp";
+
+/// Paths given to [`DocFormat::open_at`], in order of the calls.
+pub(crate) type OpenedPaths = Arc<Mutex<Vec<Option<PathBuf>>>>;
+
+/// The `kv` format that records the path of every document it opens.
+struct ProbedKeyValue {
+    inner: KeyValueFormat,
+    opened: OpenedPaths,
+}
+
+impl DocFormat for ProbedKeyValue {
+    fn id(&self) -> DocFormatId {
+        self.inner.id()
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &[PROBED_KV]
+    }
+
+    fn sniff(&self, _content: &[u8]) -> Confidence {
+        Confidence::None
+    }
+
+    fn open(&self, content: Vec<u8>, options: &DocOptions) -> Result<Box<dyn DocHandle>> {
+        self.inner.open(content, options)
+    }
+
+    fn open_at(
+        &self,
+        path: Option<&Path>,
+        content: Vec<u8>,
+        options: &DocOptions,
+    ) -> Result<Box<dyn DocHandle>> {
+        self.opened
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(path.map(Path::to_path_buf));
+        self.inner.open(content, options)
+    }
+}
+
 /// Built-in formats of the crate with `kv` and `kvc` added.
 pub(crate) fn registry() -> Registry {
+    registry_probing(OpenedPaths::default())
+}
+
+/// [`registry`] with the `kvp` format that records its paths in `opened`.
+pub(crate) fn registry_probing(opened: OpenedPaths) -> Registry {
     let mut registry = Registry::builtin();
     registry.register(Box::new(KeyValueFormat::new(DocFormatId::new(KV).unwrap())));
     registry.register(Box::new(CheckedKeyValue::new()));
+    registry.register(Box::new(ProbedKeyValue {
+        inner: KeyValueFormat::new(DocFormatId::new(PROBED_KV).unwrap()),
+        opened,
+    }));
     registry
 }
 
@@ -124,16 +176,20 @@ pub(crate) struct Fixture {
     pub(crate) journal: MemoryJournal,
     /// Registry given to the stages.
     pub(crate) registry: Arc<Registry>,
+    /// Paths with which the registry of the fixture opened `kvp` documents.
+    pub(crate) opened: OpenedPaths,
     max_records: Option<u64>,
 }
 
 impl Fixture {
     /// Doubles without files.
     pub(crate) fn new() -> Self {
+        let opened = OpenedPaths::default();
         Self {
             test: TestContext::new(),
             journal: MemoryJournal::new(),
-            registry: Arc::new(registry()),
+            registry: Arc::new(registry_probing(Arc::clone(&opened))),
+            opened,
             max_records: None,
         }
     }
@@ -244,7 +300,7 @@ pub(crate) fn query_all(
     input: Option<Vec<Record>>,
 ) -> Vec<Result<Record>> {
     let ctx = fixture.ctx();
-    let stage = QueryStage;
+    let stage = QueryStage::new(Arc::clone(&fixture.registry));
     let output = match stage
         .as_read()
         .unwrap()
