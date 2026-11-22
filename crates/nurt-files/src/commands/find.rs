@@ -7,14 +7,14 @@
 //! The walk, the records and the orders are those of the listing in
 //! [`super::list`]. `find` adds name patterns (`glob`, `case_sensitive`),
 //! exclusions (`exclude`, `exclude_preset`, `gitignore`), links
-//! (`follow_links`), file types (`file_type`) and fuzzy ranking (`fuzzy`).
+//! (`follow_links`), file types (`file_type`, the table of
+//! [`super::file_types`] shared with `search`) and fuzzy ranking (`fuzzy`).
 //! The root itself is a candidate at depth 0, so `find "/a" depth: 0 type:
 //! any` yields exactly one record for an existing path and fails with
 //! `E_NOT_FOUND` otherwise.
 
 use std::sync::Arc;
 
-use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::stage::{
     BoundArgs, CheckCtx, ExecCtx, InputKinds, ReadStage, StageDescriptor, StageImpl, StageInput,
@@ -22,13 +22,14 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::Value;
 
+use super::file_types::TypeFilter;
 use super::list::{
-    Listing, NameFilter, Root, SORT, Selection, SortKey, SortSpec, View, actual_root, choice,
-    depth_param, descending, kind_param, root_param, static_info, type_error, unknown_value,
+    Listing, Root, SORT, Selection, SortKey, SortSpec, View, actual_root, choice, depth_param,
+    descending, kind_param, root_param, static_info, type_error,
 };
 use crate::common::params::{WalkFilters, walk_filters};
 use crate::fuzzy::FuzzyQuery;
-use crate::walk::{KindFilter, WalkOptions};
+use crate::walk::{KindFilter, WalkOptions, compile_globs};
 
 const COMMAND: &str = "find";
 const GLOB: &str = "glob";
@@ -44,66 +45,6 @@ const MATCH_ALL: &str = "**";
 
 /// Shallowest depth of `find`: the root itself.
 const MIN_DEPTH: u32 = 0;
-
-/// File type of `file_type`: extensions and whole file names.
-struct FileType {
-    name: &'static str,
-    extensions: &'static [&'static str],
-    names: &'static [&'static str],
-}
-
-const fn file_type(
-    name: &'static str,
-    extensions: &'static [&'static str],
-    names: &'static [&'static str],
-) -> FileType {
-    FileType {
-        name,
-        extensions,
-        names,
-    }
-}
-
-/// File types of `file_type`, sorted by name.
-const FILE_TYPES: &[FileType] = &[
-    file_type("c", &["c", "h"], &[]),
-    file_type(
-        "cpp",
-        &["cc", "cpp", "cxx", "c++", "h", "hh", "hpp", "hxx", "inl"],
-        &[],
-    ),
-    file_type("cs", &["cs", "csx"], &[]),
-    file_type("css", &["css", "scss", "sass", "less"], &[]),
-    file_type("csv", &["csv", "tsv"], &[]),
-    file_type("docker", &["dockerfile"], &["Dockerfile"]),
-    file_type("go", &["go"], &[]),
-    file_type("html", &["htm", "html", "xhtml"], &[]),
-    file_type("java", &["java"], &[]),
-    file_type("js", &["js", "jsx", "mjs", "cjs"], &[]),
-    file_type("json", &["json", "jsonc", "jsonl", "ndjson"], &[]),
-    file_type("kotlin", &["kt", "kts"], &[]),
-    file_type("lua", &["lua"], &[]),
-    file_type(
-        "make",
-        &["mk", "mak"],
-        &["Makefile", "makefile", "GNUmakefile"],
-    ),
-    file_type("md", &["md", "markdown", "mdx"], &[]),
-    file_type("php", &["php"], &[]),
-    file_type("ps", &["ps1", "psm1", "psd1"], &[]),
-    file_type("py", &["py", "pyi", "pyw"], &[]),
-    file_type("rb", &["rb", "rake", "gemspec"], &["Gemfile", "Rakefile"]),
-    file_type("rust", &["rs"], &[]),
-    file_type("sh", &["sh", "bash", "zsh"], &[]),
-    file_type("sql", &["sql"], &[]),
-    file_type("swift", &["swift"], &[]),
-    file_type("tex", &["tex", "sty", "cls", "bib"], &[]),
-    file_type("toml", &["toml"], &["Cargo.lock"]),
-    file_type("ts", &["ts", "tsx", "mts", "cts"], &[]),
-    file_type("txt", &["txt"], &[]),
-    file_type("xml", &["xml", "xsd", "xsl", "xslt", "svg"], &[]),
-    file_type("yaml", &["yaml", "yml"], &[]),
-];
 
 /// Implementation of `find`.
 pub(crate) struct Find;
@@ -154,7 +95,7 @@ struct FindParams {
     depth: Option<u32>,
     follow_links: bool,
     filters: WalkFilters,
-    names: Option<NameFilter>,
+    types: Option<TypeFilter>,
     fuzzy: Option<String>,
     case_sensitive: bool,
     sort: SortSpec,
@@ -190,7 +131,7 @@ impl FindParams {
             depth: depth_param(args, MIN_DEPTH)?,
             follow_links: args.bool(FOLLOW_LINKS)?.unwrap_or(false),
             filters: walk_filters(args)?,
-            names: file_types(args)?,
+            types: file_types(args)?,
             fuzzy,
             case_sensitive: args.bool(CASE_SENSITIVE)?.unwrap_or(true),
             sort: SortSpec {
@@ -231,7 +172,7 @@ impl FindParams {
             max_depth: self.depth,
             kind: self.kind,
             globs,
-            names: self.names.clone(),
+            names: self.types.clone(),
             fuzzy,
         };
         Ok((options, selection))
@@ -261,52 +202,18 @@ fn text_list(args: &BoundArgs, name: &str, expected: &str) -> Result<Vec<String>
     }
 }
 
-/// File names selected by `file_type`; `None` for an empty list.
-fn file_types(args: &BoundArgs) -> Result<Option<NameFilter>> {
+/// Files selected by `file_type`; `None` for an empty list.
+///
+/// # Errors
+///
+/// Fails with `E_TYPE` for a value that is not a text or a list of texts and
+/// with `E_UNKNOWN_VALUE` for a name of no known type.
+fn file_types(args: &BoundArgs) -> Result<Option<TypeFilter>> {
     let wanted = text_list(args, FILE_TYPE, "a list of file types")?;
     if wanted.is_empty() {
         return Ok(None);
     }
-    let mut extensions = Vec::new();
-    let mut names = Vec::new();
-    for name in &wanted {
-        let Some(found) = FILE_TYPES.iter().find(|known| known.name == name.as_str()) else {
-            let known: Vec<&str> = FILE_TYPES.iter().map(|known| known.name).collect();
-            return Err(unknown_value(FILE_TYPE, name, &known));
-        };
-        extensions.extend_from_slice(found.extensions);
-        names.extend_from_slice(found.names);
-    }
-    Ok(Some(NameFilter::new(extensions, names)))
-}
-
-/// Globs compiled as the walker compiles them: `*` and `?` do not match
-/// `/`, `\` escapes, letter case as `case_sensitive`.
-fn compile_globs(patterns: &[String], case_sensitive: bool) -> Result<Option<GlobSet>> {
-    if patterns.is_empty() {
-        return Ok(None);
-    }
-    let invalid = |pattern: &str, reason: String| {
-        Error::new(
-            ErrorCode::InvalidValue,
-            format!("glob `{pattern}` is not valid: {reason}"),
-        )
-        .with_found(pattern)
-    };
-    let mut builder = GlobSetBuilder::new();
-    for pattern in patterns {
-        let glob = GlobBuilder::new(pattern)
-            .literal_separator(true)
-            .backslash_escape(true)
-            .case_insensitive(!case_sensitive)
-            .build()
-            .map_err(|error| invalid(pattern, error.kind().to_string()))?;
-        builder.add(glob);
-    }
-    builder
-        .build()
-        .map(Some)
-        .map_err(|error| invalid(&patterns.join(", "), error.to_string()))
+    TypeFilter::new(&wanted, &[], FILE_TYPE, FILE_TYPE).map(Some)
 }
 
 #[cfg(test)]
@@ -457,6 +364,46 @@ mod tests {
     }
 
     #[test]
+    fn globs_and_exclusions_match_decomposed_names_in_composed_form() {
+        let test = TestContext::new();
+        for path in [
+            "/docs/cafe\u{301}.txt",
+            "/docs/re\u{301}sume\u{301}/cv.txt",
+            "/docs/plain.txt",
+        ] {
+            test.fs().write_file(&abs(path), b"\n").unwrap();
+        }
+        let composed = run(&test, &args("/docs", &[(GLOB, glob("caf\u{e9}.*"))])).unwrap();
+        assert_eq!(relatives(&composed), ["caf\u{e9}.txt"]);
+        assert!(composed.entries[0].raw_name.is_some());
+        let nested = run(&test, &args("/docs", &[(GLOB, glob("r\u{e9}sum\u{e9}/*"))])).unwrap();
+        assert_eq!(relatives(&nested), ["r\u{e9}sum\u{e9}/cv.txt"]);
+        let decomposed = run(&test, &args("/docs", &[(GLOB, glob("cafe\u{301}.txt"))])).unwrap();
+        assert_eq!(relatives(&decomposed), ["caf\u{e9}.txt"]);
+        let sizes = run(
+            &test,
+            &args(
+                "/docs",
+                &[(GLOB, glob("caf\u{e9}.*")), ("view", choice_value("sizes"))],
+            ),
+        )
+        .unwrap();
+        assert_eq!(relatives(&sizes), ["caf\u{e9}.txt"]);
+        let excluded = run(
+            &test,
+            &args(
+                "/docs",
+                &[(
+                    "exclude",
+                    Value::List(vec![glob("caf\u{e9}.txt"), glob("r\u{e9}sum\u{e9}/")]),
+                )],
+            ),
+        )
+        .unwrap();
+        assert_eq!(relatives(&excluded), ["plain.txt"]);
+    }
+
+    #[test]
     fn depth_zero_yields_the_root_alone() {
         let test = project();
         let given = args(
@@ -539,6 +486,48 @@ mod tests {
         .unwrap();
         assert_eq!(unknown.code(), ErrorCode::UnknownValue);
         assert_eq!(unknown.found.as_deref(), Some("cobol"));
+        assert!(unknown.message.contains("`file_type`"));
+        let wrong = run(&test, &args("/proj", &[(FILE_TYPE, Value::Int(1))]))
+            .err()
+            .unwrap();
+        assert_eq!(wrong.code(), ErrorCode::Type);
+    }
+
+    #[test]
+    fn file_types_follow_the_shared_table() {
+        let test = TestContext::new();
+        for path in [
+            "/t/Rakefile",
+            "/t/tasks.rake",
+            "/t/feed.ndjson",
+            "/t/log.jsonl",
+            "/t/icon.svg",
+            "/t/upper.SVG",
+            "/t/data.tsv",
+            "/t/style.less",
+            "/t/tool.pyw",
+        ] {
+            test.fs().write_file(&abs(path), b"\n").unwrap();
+        }
+        let typed = |names: &[&str]| {
+            let list = names
+                .iter()
+                .map(|name| Value::Text((*name).to_owned()))
+                .collect();
+            relatives(&run(&test, &args("/t", &[(FILE_TYPE, Value::List(list))])).unwrap())
+        };
+        assert_eq!(typed(&["ruby"]), ["Rakefile", "tasks.rake"]);
+        assert_eq!(typed(&["jsonl"]), ["feed.ndjson", "log.jsonl"]);
+        assert_eq!(typed(&["svg", "tsv"]), ["data.tsv", "icon.svg"]);
+        assert_eq!(typed(&["less"]), ["style.less"]);
+        assert_eq!(typed(&["py"]), ["tool.pyw"]);
+        let renamed = run(
+            &test,
+            &args("/t", &[(FILE_TYPE, Value::Text("rb".to_owned()))]),
+        )
+        .err()
+        .unwrap();
+        assert_eq!(renamed.code(), ErrorCode::UnknownValue);
     }
 
     #[test]
@@ -680,7 +669,15 @@ mod tests {
             .err()
             .unwrap();
         assert_eq!(error.code(), ErrorCode::InvalidValue);
-        let sizes = compile_globs(&["[z-".to_owned()], true).err().unwrap();
+        let sizes = run(
+            &test,
+            &args(
+                "/proj",
+                &[(GLOB, glob("[z-")), ("view", choice_value("sizes"))],
+            ),
+        )
+        .err()
+        .unwrap();
         assert_eq!(sizes.code(), ErrorCode::InvalidValue);
         assert_eq!(sizes.found.as_deref(), Some("[z-"));
         let wrong = run(&test, &args("/proj", &[(GLOB, Value::Int(3))]))
@@ -694,20 +691,6 @@ mod tests {
         let test = project();
         let found = run(&test, &args("/proj", &[("hidden", Value::Bool(false))])).unwrap();
         assert!(!relatives(&found).iter().any(|path| path.starts_with('.')));
-    }
-
-    #[test]
-    fn file_type_table_is_sorted_and_unique() {
-        let names: Vec<&str> = FILE_TYPES.iter().map(|known| known.name).collect();
-        let mut sorted = names.clone();
-        sorted.sort_unstable();
-        sorted.dedup();
-        assert_eq!(names, sorted);
-        assert!(
-            FILE_TYPES
-                .iter()
-                .all(|known| !known.extensions.is_empty() || !known.names.is_empty())
-        );
     }
 
     #[test]

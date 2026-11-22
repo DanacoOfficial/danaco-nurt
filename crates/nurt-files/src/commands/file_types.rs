@@ -1,15 +1,16 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! File types of the `file_type` and `exclude_file_type` parameters of
-//! `search`.
+//! File types of the `file_type` parameter of `find` and `search` and of the
+//! `exclude_file_type` parameter of `search`.
 //!
 //! A type is a name and a list of file name patterns. The names and patterns
 //! follow the built-in types of ripgrep (`rg --type-list`) for common
 //! languages and formats, so a type such as `make` or `docker` also selects
-//! files without an extension. A pattern is matched against the whole file
-//! name; `*` stands for any sequence of characters, and letter case is
-//! significant.
+//! files without an extension. A few patterns extend those types (`*.csx`,
+//! `*.jsonc`, `*.ndjson`, `*.pyw`, `*.rake`), and `tsv` is a type of its own.
+//! A pattern is matched against the whole file name; `*` stands for any
+//! sequence of characters, and letter case is significant.
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 
@@ -47,7 +48,7 @@ file_types! {
     "cmake" => ["*.cmake", "CMakeLists.txt"],
     "config" => ["*.cfg", "*.conf", "*.config", "*.ini"],
     "cpp" => ["*.C", "*.H", "*.cc", "*.cpp", "*.cxx", "*.c++", "*.h", "*.hh", "*.hpp", "*.hxx", "*.h++", "*.inl"],
-    "cs" => ["*.cs"],
+    "cs" => ["*.cs", "*.csx"],
     "css" => ["*.css", "*.scss"],
     "csv" => ["*.csv"],
     "dart" => ["*.dart"],
@@ -61,10 +62,11 @@ file_types! {
     "html" => ["*.htm", "*.html", "*.ejs"],
     "java" => ["*.java", "*.jsp", "*.jspx", "*.properties"],
     "js" => ["*.js", "*.jsx", "*.vue", "*.cjs", "*.mjs"],
-    "json" => ["*.json", "composer.lock", "*.sarif"],
-    "jsonl" => ["*.jsonl"],
+    "json" => ["*.json", "*.jsonc", "composer.lock", "*.sarif"],
+    "jsonl" => ["*.jsonl", "*.ndjson"],
     "julia" => ["*.jl"],
     "kotlin" => ["*.kt", "*.kts"],
+    "less" => ["*.less"],
     "lua" => ["*.lua"],
     "make" => [
         "GNUmakefile", "Gnumakefile", "gnumakefile", "Makefile", "makefile",
@@ -78,11 +80,12 @@ file_types! {
     "php" => ["*.php", "*.php3", "*.php4", "*.php5", "*.php7", "*.php8", "*.pht", "*.phtml"],
     "protobuf" => ["*.proto"],
     "ps" => ["*.cdxml", "*.ps1", "*.ps1xml", "*.psd1", "*.psm1"],
-    "py" => ["*.py", "*.pyi"],
+    "py" => ["*.py", "*.pyi", "*.pyw"],
     "r" => ["*.R", "*.r", "*.Rmd", "*.Rnw"],
     "rst" => ["*.rst"],
-    "ruby" => ["Gemfile", "*.gemspec", ".irbrc", "Rakefile", "*.rb", "config.ru"],
+    "ruby" => ["Gemfile", "*.gemspec", ".irbrc", "Rakefile", "*.rake", "*.rb", "config.ru"],
     "rust" => ["*.rs"],
+    "sass" => ["*.sass", "*.scss"],
     "scala" => ["*.scala", "*.sbt"],
     "sh" => [
         "*.bash", ".bashrc", ".bash_profile", ".bash_login", ".bash_logout", "*.sh",
@@ -90,11 +93,13 @@ file_types! {
     ],
     "sql" => ["*.sql", "*.psql"],
     "svelte" => ["*.svelte"],
+    "svg" => ["*.svg"],
     "swift" => ["*.swift"],
     "tex" => ["*.tex", "*.ltx", "*.cls", "*.sty", "*.bib", "*.dtx", "*.ins"],
     "tf" => ["*.tf", "*.tfvars", "*.tf.json"],
     "toml" => ["*.toml", "Cargo.lock"],
     "ts" => ["*.ts", "*.tsx", "*.cts", "*.mts"],
+    "tsv" => ["*.tsv"],
     "txt" => ["*.txt"],
     "vue" => ["*.vue"],
     "xml" => ["*.xml", "*.xml.dist", "*.dtd", "*.xsl", "*.xslt", "*.xsd", "*.xjb", "*.rng", "*.sch", "*.xhtml"],
@@ -242,6 +247,27 @@ mod tests {
         assert!(docker.matches("Dockerfile.dev"));
         let cmake = lookup("cmake").unwrap();
         assert!(cmake.matches("CMakeLists.txt"));
+    }
+
+    #[test]
+    fn extensions_beyond_ripgrep_belong_to_their_types() {
+        for (name, file) in [
+            ("cs", "build.csx"),
+            ("json", "settings.jsonc"),
+            ("jsonl", "events.ndjson"),
+            ("py", "gui.pyw"),
+            ("ruby", "deploy.rake"),
+            ("tsv", "table.tsv"),
+            ("svg", "logo.svg"),
+            ("sass", "theme.sass"),
+            ("less", "theme.less"),
+        ] {
+            let kind = lookup(name).unwrap();
+            assert!(kind.matches(file), "{name} does not match {file}");
+        }
+        assert!(lookup("rb").is_none());
+        assert!(!lookup("csv").unwrap().matches("table.tsv"));
+        assert!(!lookup("xml").unwrap().matches("logo.svg"));
     }
 
     #[test]

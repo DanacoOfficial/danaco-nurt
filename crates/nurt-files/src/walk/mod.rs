@@ -27,6 +27,10 @@
 //! remaining entries are delivered; they never prevent descending into a
 //! directory.
 //!
+//! `exclude` and `globs` compare the patterns and the relative paths in
+//! Unicode normalization form C, so a name stored decomposed, as on macOS
+//! volumes, matches a pattern written composed, and the reverse.
+//!
 //! A directory below a root that cannot be read, and an entry whose metadata
 //! cannot be read, is reported as [`WalkItem::Unreadable`] and the walk
 //! continues. [`WalkSummary`] counts such entries; entries refused for lack
@@ -48,6 +52,7 @@ use nurt_contracts::fs::{AbsPath, FileKind, FileMeta, Fs, FsError};
 use nurt_contracts::services::ExcludePreset;
 
 pub use filter::{BUILD_DIRS, CACHE_DIRS, DEPS_DIRS, VCS_DIRS, preset_names};
+pub(crate) use filter::{compile_globs, glob_matches};
 pub use service::FileList;
 
 /// Highest number of worker threads used when [`WalkOptions::threads`] is
@@ -106,13 +111,14 @@ pub struct WalkOptions {
     /// Global exclude file of git (`core.excludesFile`); used only with
     /// `gitignore`.
     pub global_ignore_file: Option<AbsPath>,
-    /// Exclusion patterns in gitignore syntax relative to the root.
+    /// Exclusion patterns in gitignore syntax relative to the root, matched
+    /// in NFC.
     pub exclude: Vec<String>,
     /// Named groups of excluded directories.
     pub exclude_presets: Vec<ExcludePreset>,
     /// Glob patterns matched against the path relative to the root with `/`
-    /// separators; an entry matching any of them is delivered. An empty list
-    /// matches every entry. A root is matched by its own name.
+    /// separators, in NFC; an entry matching any of them is delivered. An
+    /// empty list matches every entry. A root is matched by its own name.
     pub globs: Vec<String>,
     /// Match `globs` and `exclude` case-sensitively.
     pub case_sensitive: bool,

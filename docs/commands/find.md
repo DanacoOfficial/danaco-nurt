@@ -29,6 +29,10 @@ matches any number of directories, so `*.rs` matches the top level only and
 entry matching any pattern of the list is selected. Patterns are case
 sensitive unless `case_sensitive: false`.
 
+`glob` and `exclude` compare patterns and paths in Unicode normalization
+form C (NFC). A name stored decomposed, as on macOS volumes, matches a
+pattern written composed, and a decomposed pattern matches a composed name.
+
 Entries are excluded before they are matched, and an excluded directory is
 not entered, so `!pattern` cannot restore an entry below an excluded
 directory. The rules apply in this order: `hidden: false`, `exclude_preset`,
@@ -49,41 +53,71 @@ and `.gitignore`, `.git/info/exclude` and the global exclude file apply in a
 git repository; the files of the ancestors of `path` apply as well, and a
 deeper file takes precedence.
 
-`file_type` selects files by type:
+`file_type` selects the files whose name matches a pattern of one of the
+types. The types are those of `search` and carry the names of
+`rg --type-list`. A pattern matches the whole name, `*` stands for any
+sequence of characters, and letter case is significant: `*.c` does not match
+`main.C`. Directories and links that are not followed are never selected by
+`file_type`.
 
-| Type | Files |
+| Type | Name patterns |
 |---|---|
-| `c` | `.c`, `.h` |
-| `cpp` | `.cc`, `.cpp`, `.cxx`, `.c++`, `.h`, `.hh`, `.hpp`, `.hxx`, `.inl` |
-| `cs` | `.cs`, `.csx` |
-| `css` | `.css`, `.scss`, `.sass`, `.less` |
-| `csv` | `.csv`, `.tsv` |
-| `docker` | `Dockerfile`, `.dockerfile` |
-| `go` | `.go` |
-| `html` | `.htm`, `.html`, `.xhtml` |
-| `java` | `.java` |
-| `js` | `.js`, `.jsx`, `.mjs`, `.cjs` |
-| `json` | `.json`, `.jsonc`, `.jsonl`, `.ndjson` |
-| `kotlin` | `.kt`, `.kts` |
-| `lua` | `.lua` |
-| `make` | `Makefile`, `makefile`, `GNUmakefile`, `.mk`, `.mak` |
-| `md` | `.md`, `.markdown`, `.mdx` |
-| `php` | `.php` |
-| `ps` | `.ps1`, `.psm1`, `.psd1` |
-| `py` | `.py`, `.pyi`, `.pyw` |
-| `rb` | `.rb`, `.rake`, `.gemspec`, `Gemfile`, `Rakefile` |
-| `rust` | `.rs` |
-| `sh` | `.sh`, `.bash`, `.zsh` |
-| `sql` | `.sql` |
-| `swift` | `.swift` |
-| `tex` | `.tex`, `.sty`, `.cls`, `.bib` |
-| `toml` | `.toml`, `Cargo.lock` |
-| `ts` | `.ts`, `.tsx`, `.mts`, `.cts` |
-| `txt` | `.txt` |
-| `xml` | `.xml`, `.xsd`, `.xsl`, `.xslt`, `.svg` |
-| `yaml` | `.yaml`, `.yml` |
-
-Extensions are compared without regard to letter case.
+| `asm` | `*.asm`, `*.s`, `*.S` |
+| `c` | `*.c`, `*.h`, `*.H`, `*.c.in`, `*.h.in`, `*.cats` |
+| `clojure` | `*.clj`, `*.cljc`, `*.cljs`, `*.cljx`, `*.edn` |
+| `cmake` | `*.cmake`, `CMakeLists.txt` |
+| `config` | `*.cfg`, `*.conf`, `*.config`, `*.ini` |
+| `cpp` | `*.C`, `*.H`, `*.cc`, `*.cpp`, `*.cxx`, `*.c++`, `*.h`, `*.hh`, `*.hpp`, `*.hxx`, `*.h++`, `*.inl` |
+| `cs` | `*.cs`, `*.csx` |
+| `css` | `*.css`, `*.scss` |
+| `csv` | `*.csv` |
+| `dart` | `*.dart` |
+| `docker` | `*Dockerfile*`, `*dockerfile*` |
+| `elixir` | `*.ex`, `*.eex`, `*.exs`, `*.heex`, `*.leex`, `*.livemd` |
+| `erlang` | `*.erl`, `*.hrl` |
+| `go` | `*.go` |
+| `gradle` | `*.gradle`, `*.gradle.kts` |
+| `groovy` | `*.groovy`, `*.gradle` |
+| `haskell` | `*.hs`, `*.lhs`, `*.cpphs`, `*.c2hs`, `*.hsc` |
+| `html` | `*.htm`, `*.html`, `*.ejs` |
+| `java` | `*.java`, `*.jsp`, `*.jspx`, `*.properties` |
+| `js` | `*.js`, `*.jsx`, `*.vue`, `*.cjs`, `*.mjs` |
+| `json` | `*.json`, `*.jsonc`, `composer.lock`, `*.sarif` |
+| `jsonl` | `*.jsonl`, `*.ndjson` |
+| `julia` | `*.jl` |
+| `kotlin` | `*.kt`, `*.kts` |
+| `less` | `*.less` |
+| `lua` | `*.lua` |
+| `make` | `GNUmakefile`, `Gnumakefile`, `gnumakefile`, `Makefile`, `makefile`, `Makefile.am`, `makefile.am`, `Makefile.in`, `makefile.in`, `*.mk`, `*.mak` |
+| `markdown`, `md` | `*.markdown`, `*.md`, `*.mdown`, `*.mdwn`, `*.mkd`, `*.mkdn`, `*.mdx` |
+| `nix` | `*.nix` |
+| `ocaml` | `*.ml`, `*.mli`, `*.mll`, `*.mly` |
+| `perl` | `*.perl`, `*.pl`, `*.PL`, `*.plh`, `*.plx`, `*.pm`, `*.t` |
+| `php` | `*.php`, `*.php3`, `*.php4`, `*.php5`, `*.php7`, `*.php8`, `*.pht`, `*.phtml` |
+| `protobuf` | `*.proto` |
+| `ps` | `*.cdxml`, `*.ps1`, `*.ps1xml`, `*.psd1`, `*.psm1` |
+| `py` | `*.py`, `*.pyi`, `*.pyw` |
+| `r` | `*.R`, `*.r`, `*.Rmd`, `*.Rnw` |
+| `rst` | `*.rst` |
+| `ruby` | `Gemfile`, `*.gemspec`, `.irbrc`, `Rakefile`, `*.rake`, `*.rb`, `config.ru` |
+| `rust` | `*.rs` |
+| `sass` | `*.sass`, `*.scss` |
+| `scala` | `*.scala`, `*.sbt` |
+| `sh` | `*.bash`, `.bashrc`, `.bash_profile`, `.bash_login`, `.bash_logout`, `*.sh`, `.profile`, `*.zsh`, `.zshrc`, `.zshenv`, `.zprofile`, `*.ksh`, `*.csh`, `*.tcsh` |
+| `sql` | `*.sql`, `*.psql` |
+| `svelte` | `*.svelte` |
+| `svg` | `*.svg` |
+| `swift` | `*.swift` |
+| `tex` | `*.tex`, `*.ltx`, `*.cls`, `*.sty`, `*.bib`, `*.dtx`, `*.ins` |
+| `tf` | `*.tf`, `*.tfvars`, `*.tf.json` |
+| `toml` | `*.toml`, `Cargo.lock` |
+| `ts` | `*.ts`, `*.tsx`, `*.cts`, `*.mts` |
+| `tsv` | `*.tsv` |
+| `txt` | `*.txt` |
+| `vue` | `*.vue` |
+| `xml` | `*.xml`, `*.xml.dist`, `*.dtd`, `*.xsl`, `*.xslt`, `*.xsd`, `*.xjb`, `*.rng`, `*.sch`, `*.xhtml` |
+| `yaml` | `*.yaml`, `*.yml` |
+| `zig` | `*.zig` |
 
 `fuzzy` keeps the entries whose name contains the characters of the text in
 the same order and sets `rank`; a higher rank denotes a closer match.
@@ -179,6 +213,21 @@ Produce the record of one path, as the source of a changing command:
 
 ```nurt example
 find "/home/user/app/Cargo.toml" depth: 0 type: any
+```
+
+Find a file by its composed name on a volume that stores the name
+decomposed; the record carries the NFC `name` and the stored bytes in
+`raw_name`:
+
+```nurt example
+find "/home/user/notes" glob: "**/café.md"
+```
+
+```json fs-before
+{ "format": "nurt-fs-snapshot/1", "entries": [
+  { "path": "/home/user/notes/2026/cafe\u0301.md", "type": "file", "content_utf8": "\n" },
+  { "path": "/home/user/notes/2026/cafe.md", "type": "file", "content_utf8": "\n" }
+] }
 ```
 
 ## Errors
