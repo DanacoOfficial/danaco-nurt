@@ -26,7 +26,7 @@ expect = { fs_unchanged = true, fields = [{ field = "per_pattern", value = [2, 1
 name = "reading a WebP image reports the dimensions in the description line"
 class = "direct"
 parity_rows = ["RD-33"]
-fs_before = [{ path = "obraz.webp", generate = "webp:VP8X,320x240" }]
+fs_before = [{ path = "obraz.webp", generate = "webp_image:320x240" }]
 native_call = 'Read { file_path: "obraz.webp" }'
 nurt_program = 'read "{root}/obraz.webp"'
 expect = { fs_unchanged = true, fields = [{ field = "content.image.width", value = 320 }, { field = "content.image.height", value = 240 }] }

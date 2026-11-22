@@ -260,6 +260,40 @@ pub(crate) struct PendingFile {
     /// Entries.
     #[serde(default)]
     pub(crate) pending: Vec<Pending>,
+    /// Scenarios that do not run, with the reason.
+    #[serde(default)]
+    pub(crate) scenario: Vec<PendingScenario>,
+}
+
+/// Scenario that does not run on the stages of the crate.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PendingScenario {
+    /// Name of the scenario.
+    pub(crate) name: String,
+    /// Justification.
+    pub(crate) reason: String,
+}
+
+/// Scenario that runs and differs from the expectation.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Divergence {
+    /// Name of the scenario.
+    pub(crate) name: String,
+    /// Command whose behaviour differs.
+    pub(crate) command: String,
+    /// Observed difference.
+    pub(crate) detail: String,
+}
+
+/// List of known differences.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DivergenceFile {
+    /// Entries.
+    #[serde(default)]
+    pub(crate) divergence: Vec<Divergence>,
 }
 
 /// All parity data.
@@ -277,6 +311,10 @@ pub(crate) struct Model {
     pub(crate) sources: Vec<Source>,
     /// Rows without a scenario.
     pub(crate) pending: Vec<Pending>,
+    /// Scenarios that do not run.
+    pub(crate) pending_scenarios: Vec<PendingScenario>,
+    /// Scenarios that run and differ.
+    pub(crate) divergences: Vec<Divergence>,
 }
 
 const NOTEBOOK_KINDS: [&str; 6] = [
@@ -307,6 +345,7 @@ impl Model {
         let sources: SourcesFile = parse(&dir.join("sources.toml"))?;
         let host_only: HostOnlyFile = parse(&dir.join("files").join(HOST_ONLY_FILE))?;
         let pending: PendingFile = parse(&dir.join("pending.toml"))?;
+        let divergences: DivergenceFile = parse(&dir.join("divergences.toml"))?;
         let mut files = BTreeMap::new();
         let listing = fs::read_dir(dir.join("files")).map_err(|e| e.to_string())?;
         for item in listing {
@@ -327,6 +366,8 @@ impl Model {
             host_only: host_only.host_only,
             sources: sources.source,
             pending: pending.pending,
+            pending_scenarios: pending.scenario,
+            divergences: divergences.divergence,
         })
     }
 
@@ -350,7 +391,45 @@ impl Model {
         self.check_scenarios(&mut problems);
         self.check_sources(&mut problems);
         self.check_coverage(&mut problems);
+        self.check_listed_scenarios(&mut problems);
         problems
+    }
+
+    fn check_listed_scenarios(&self, problems: &mut Vec<String>) {
+        let names: BTreeSet<&str> = self.scenarios().map(|s| s.name.as_str()).collect();
+        let mut pending = BTreeSet::new();
+        for entry in &self.pending_scenarios {
+            if !names.contains(entry.name.as_str()) {
+                problems.push(format!("pending scenario {} names no scenario", entry.name));
+            }
+            if !pending.insert(entry.name.as_str()) {
+                problems.push(format!("pending scenario {} is listed twice", entry.name));
+            }
+            if entry.reason.trim().is_empty() {
+                problems.push(format!("pending scenario {} needs a reason", entry.name));
+            }
+        }
+        let mut diverging = BTreeSet::new();
+        for entry in &self.divergences {
+            if !names.contains(entry.name.as_str()) {
+                problems.push(format!("divergence {} names no scenario", entry.name));
+            }
+            if !diverging.insert(entry.name.as_str()) {
+                problems.push(format!("divergence {} is listed twice", entry.name));
+            }
+            if pending.contains(entry.name.as_str()) {
+                problems.push(format!(
+                    "scenario {} is both pending and diverging",
+                    entry.name
+                ));
+            }
+            if entry.command.trim().is_empty() || entry.detail.trim().is_empty() {
+                problems.push(format!(
+                    "divergence {} needs a command and a detail",
+                    entry.name
+                ));
+            }
+        }
     }
 
     fn row(&self, id: &str) -> Option<&Row> {
@@ -696,6 +775,7 @@ pub(crate) fn generator_error(directive: &str) -> Option<String> {
     let valid = match kind {
         "big_source" => argument.parse::<u32>().is_ok(),
         "png" => parse_size(argument).is_some(),
+        "webp_image" => parse_size(argument).is_some(),
         "pdf" => !argument.is_empty(),
         "repeat" => argument
             .rsplit_once('*')

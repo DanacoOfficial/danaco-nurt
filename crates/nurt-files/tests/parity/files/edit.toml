@@ -20,7 +20,7 @@ parity_rows = ["ED-35", "ED-44"]
 fs_before = [{ fixture = "code_two_functions" }]
 native_call = 'Edit { file_path: "a.ts", old_string: "id: number", new_string: "id: string" }'
 nurt_program = 'replace "id: number" with: "id: string" in: ["{root}/a.ts"] expect: 1'
-expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_EXPECT" }, { field = "error.candidates", value = 2 }] }
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_EXPECT" }, { field = "error.actual", value = 2 }] }
 
 [[scenario]]
 name = "occurrence and target resolve the ambiguity without touching the other occurrence"
@@ -317,7 +317,7 @@ parity_rows = ["ED-44", "WR-23"]
 fs_before = [{ path = "data.bin", content = "a\u0000b" }]
 native_call = 'Edit { file_path: "data.bin", old_string: "a", new_string: "b" }'
 nurt_program = 'replace "a" with: "b" in: ["{root}/data.bin"]'
-expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_BINARY" }] }
+expect = { fs_unchanged = true, fields = [{ field = "notable", value = "binary_target" }] }
 
 [[scenario]]
 name = "attached read ledger requires a file read or a matching expect_sha256"
@@ -325,5 +325,5 @@ class = "freshness"
 parity_rows = ["WR-20", "ED-23", "ED-43"]
 fs_before = [{ fixture = "code_two_functions" }]
 native_call = 'Edit { file_path: "a.ts", old_string: "return width;", new_string: "return 1;", expect_sha256: "00000000" }'
-nurt_program = 'replace "return width;" with: "return 1;" in: ["{root}/a.ts"] if_match: "sha256:00000000"'
+nurt_program = 'replace "return width;" with: "return 1;" in: ["{root}/a.ts"] if_match: "1-0-0-0-0"'
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }

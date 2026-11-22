@@ -68,6 +68,7 @@ use crate::common::params::{
 };
 use crate::common::path::{path_arg, resolve};
 use crate::common::text::{TextFile, read_text, record_line_ending, text_codec};
+use crate::details::content::count_lines;
 
 const COMMAND: &str = "write";
 
@@ -317,6 +318,8 @@ fn merge_change(applied: Change, planned: Change) -> Change {
         bom_after: planned.bom_after,
         link_target: planned.link_target,
         irreversible: planned.irreversible.or(applied.irreversible),
+        added: planned.added,
+        removed: planned.removed,
         ..applied
     }
 }
@@ -1512,6 +1515,7 @@ impl<'c> Planner<'c> {
         let target = fs_target(path, TargetAction::Create, Expect::Absent);
         let mut change = planned_change(&target);
         describe_text(&mut change, None, &form.encoding, &bytes);
+        change.added = Some(count_lines(&rendered));
         self.push(target, new_work(bytes, self.settings.file_mode), change);
         self.check(path, "", rendered);
         Ok(())
@@ -1556,6 +1560,7 @@ impl<'c> Planner<'c> {
         change.line_ending_after = Some(record_line_ending(combined(file.line_ending, added)));
         change.bom_after = Some(file.encoding.bom || encoding.bom);
         change.size_after = Some(Size::from_bytes(file.size.saturating_add(byte_len(&bytes))));
+        change.added = Some(count_lines(&rendered));
         self.push(target, Work::Apply(Mutation::AppendBytes(bytes)), change);
         self.check(&file.path, &file.text, format!("{}{rendered}", file.text));
         Ok(())

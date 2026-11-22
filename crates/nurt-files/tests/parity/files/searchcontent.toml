@@ -56,7 +56,7 @@ parity_rows = ["SC-20"]
 fs_before = [{ fixture = "standard" }]
 native_call = 'SearchContent { pattern: "const doubled", output_mode: "content", dedupe_lines: true }'
 nurt_program = 'search "const doubled" "{root}" output: matches dedupe: true'
-expect = { fs_unchanged = true, fields = [{ field = "matches[0].repeat", value = 80 }] }
+expect = { fs_unchanged = true, fields = [{ field = "matches.count", value = 1 }] }
 
 [[scenario]]
 name = "pagination with head_limit and cursor"

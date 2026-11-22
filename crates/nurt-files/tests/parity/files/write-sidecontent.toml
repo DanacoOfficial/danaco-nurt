@@ -306,7 +306,7 @@ parity_rows = ["NB-16", "NB-04"]
 fs_before = [{ fixture = "notebook_four_cells" }]
 native_call = 'NotebookEdit { action: "replace", file_path: "n.ipynb", find: "load", source: "fetch", index: 1 }'
 nurt_program = 'notebook.replace "{root}/n.ipynb" index: 1 find: "load" with: "fetch"'
-expect = { fs_after = [{ path = "n.ipynb", contains = "rows = load()" }] }
+expect = { fs_after = [{ path = "n.ipynb", contains = "data = fetch()" }, { path = "n.ipynb", excludes = "data = load()" }, { path = "n.ipynb", contains = "\"id\": \"load\"" }] }
 
 [[scenario]]
 name = "clear_outputs of one cell leaves the outputs of the others"
@@ -324,7 +324,7 @@ parity_rows = ["NB-23", "NB-24", "NB-27", "NB-29"]
 fs_before = [{ fixture = "notebook_four_cells" }]
 native_call = 'NotebookEdit { action: "insert", file_path: "n.ipynb", cell_id: "intro", cell_type: "markdown", source: "Nowa" }'
 nurt_program = 'notebook.insert "{root}/n.ipynb" after_id: "intro" cell_type: markdown source: "Nowa"'
-expect = { fs_after = [{ path = "n.ipynb", contains = "Nowa" }, { path = "n.ipynb", contains = "def load():" }] }
+expect = { fs_after = [{ path = "n.ipynb", contains = "Nowa" }, { path = "n.ipynb", contains = "data = load()" }] }
 
 [[scenario]]
 name = "mismatched cell_id and index: alert before writing, file character for character, no operation"
@@ -369,4 +369,4 @@ parity_rows = ["NB-32", "NB-29"]
 fs_before = [{ fixture = "notebook_four_cells" }]
 native_call = 'NotebookEdit { action: "normalize", file_path: "n.ipynb" }'
 nurt_program = 'notebook.normalize "{root}/n.ipynb"'
-expect = { fs_after = [{ path = "n.ipynb", contains = "wczytano" }, { path = "n.ipynb", contains = "def load():" }] }
+expect = { fs_after = [{ path = "n.ipynb", contains = "wczytano" }, { path = "n.ipynb", contains = "data = load()" }] }

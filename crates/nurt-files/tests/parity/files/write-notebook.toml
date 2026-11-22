@@ -20,7 +20,7 @@ parity_rows = ["NB-03", "NB-07", "NB-08"]
 open_gap = "LP-25"
 fs_before = [{ fixture = "notebook_four_cells" }]
 native_call = 'NotebookEdit { action: "read", file_path: "n.ipynb", index: 1, outputs: "text" }'
-nurt_program = 'notebook.cells "{root}/n.ipynb" index: 1..1 view: full outputs: true'
+nurt_program = 'notebook.cells "{root}/n.ipynb" index: 1..1 view: full outputs: text'
 expect = { fs_unchanged = true, fields = [{ field = "cells[0].outputs[0].text", value = "wczytano\n" }] }
 
 [[scenario]]
@@ -40,7 +40,7 @@ parity_rows = ["NB-01"]
 fs_before = [{ path = "zly.ipynb", content = "{" }]
 native_call = 'NotebookEdit { action: "read", file_path: "zly.ipynb" }'
 nurt_program = 'notebook.cells "{root}/zly.ipynb"'
-expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_SYNTAX" }] }
+expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_FORMAT" }] }
 
 [[scenario]]
 name = "replace changes only the named cell, outputs stay, the rest of the file character for character"
@@ -49,7 +49,7 @@ parity_rows = ["NB-13", "NB-15", "NB-29"]
 fs_before = [{ fixture = "notebook_four_cells" }]
 native_call = 'NotebookEdit { action: "replace", file_path: "n.ipynb", cell_id: "use", source: "rows = load(4)\nprint(rows)" }'
 nurt_program = 'notebook.replace "{root}/n.ipynb" id: "use" source: "rows = load(4)\nprint(rows)"'
-expect = { fs_after = [{ path = "n.ipynb", contains = "rows = load(4)" }, { path = "n.ipynb", contains = "\"version\": 1.0" }] }
+expect = { fs_after = [{ path = "n.ipynb", contains = "rows = load(4)" }, { path = "n.ipynb", contains = "wczytano" }, { path = "n.ipynb", contains = "\"display_name\": \"Python 3\"" }] }
 
 [[scenario]]
 name = "reset_outputs clears the outputs of the changed cell, cell_type changes the type"

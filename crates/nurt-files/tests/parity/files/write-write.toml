@@ -136,7 +136,7 @@ class = "freshness"
 parity_rows = ["WR-20", "WR-08"]
 fs_before = [{ path = "a.txt", content = "x\n" }]
 native_call = 'Write { file_path: "a.txt", content: "y\n" } with the read ledger attached and no earlier read'
-nurt_program = 'write "{root}/a.txt" "y\n" mode: overwrite if_match: "sha256:00000000"'
+nurt_program = 'write "{root}/a.txt" "y\n" mode: overwrite if_match: "1-0-0-0-0"'
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }
 
 [[scenario]]
@@ -190,5 +190,5 @@ class = "freshness"
 parity_rows = ["WR-20", "WR-10"]
 fs_before = [{ path = "a.txt", content = "x\n" }]
 native_call = 'Write { files: [{ file_path: "a.txt", content: "y\n" }, { file_path: "b.txt", content: "b\n" }] } with the read ledger attached and no earlier read'
-nurt_program = 'write files: [{ path: "{root}/a.txt", text: "y\n" }, { path: "{root}/b.txt", text: "b\n" }] mode: overwrite if_match: "sha256:00000000"'
+nurt_program = 'write files: [{ path: "{root}/a.txt", text: "y\n" }, { path: "{root}/b.txt", text: "b\n" }] mode: overwrite if_match: "1-0-0-0-0"'
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }

@@ -10,7 +10,7 @@ class = "freshness"
 parity_rows = ["WR-20", "ED-43"]
 fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\nexport const other = 2;\n" }, { path = "src/b.ts", content = "import { limit } from \"./a.ts\";\nexport const twice = limit * 2;\n" }]
 native_call = 'Edit { action: "plan", files: ["src/a.ts", "src/b.ts"], old_string: "limit", new_string: "quota" } with the read ledger attached and no earlier read'
-nurt_program = 'replace "limit" with: "quota" in: ["{root}/src/a.ts", "{root}/src/b.ts"] if_match: "sha256:00000000"'
+nurt_program = 'replace "limit" with: "quota" in: ["{root}/src/a.ts", "{root}/src/b.ts"] if_match: "1-0-0-0-0"'
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }
 
 [[scenario]]
@@ -56,7 +56,7 @@ parity_rows = ["WR-08", "ED-23"]
 open_gap = "LP-19"
 fs_before = [{ path = "src/a.ts", content = "export const limit = 1;\nexport const other = 2;\n" }]
 native_call = 'Edit { action: "plan", file_path: "src/a.ts", old_string: "other", new_string: "second", expect_sha256: "00000000" }'
-nurt_program = 'replace "other" with: "second" in: ["{root}/src/a.ts"] if_match: "sha256:00000000"'
+nurt_program = 'replace "other" with: "second" in: ["{root}/src/a.ts"] if_match: "1-0-0-0-0"'
 expect = { fs_unchanged = true, fields = [{ field = "error.code", value = "E_STALE" }] }
 
 [[scenario]]
