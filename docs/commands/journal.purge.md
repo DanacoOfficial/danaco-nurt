@@ -29,10 +29,10 @@ several volumes is released on all of them, so that no entry is left
 partially undoable.
 
 A released entry becomes `expired` with the reason `purge`; a tombstone with
-its metrics remains for `history`. The release is recorded in the operation
-index; it creates no journal entry and consumes no step. Entries that are not
-available (already expired, undone partially by space reclaim, or corrupt) are
-not changed.
+its metrics remains for `history`. Committed, partial and undone entries are
+released; entries that are already expired, being reclaimed or corrupt are not
+changed. The release is recorded in the audit log of the account; it creates
+no journal entry and consumes no step.
 
 ## Parameters
 
@@ -48,8 +48,10 @@ not changed.
 |---|---|
 | none | `effect` |
 
-The result lists the numbers of the released entries and their logical size
-in bytes.
+The `effect` record of kind `journal.purge` lists the numbers of the released
+entries in `after.released` and their logical size in `after.bytes`;
+`summary.released` counts them, and `irreversible` carries `purged` when at
+least one entry was released.
 
 ## Effect
 
@@ -85,6 +87,7 @@ journal.purge id: [131, 134]
 | Code | Meaning | Typical fix |
 |---|---|---|
 | `E_NOT_FOUND` | no journal volume contains `volume` | omit `volume` or name a path on a volume with a journal |
+| `E_INVALID_VALUE` | both `up_to` and `id` are given, or `id` lists no entry | give one of them |
 | `E_IO` | a journal directory cannot be changed | check the permissions of the journal directory |
 
 ## Related

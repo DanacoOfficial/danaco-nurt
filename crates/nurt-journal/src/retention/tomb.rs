@@ -127,22 +127,6 @@ pub(crate) fn list(store: &dyn RetentionStore, volume: &AbsPath) -> Result<Vec<O
     Ok(ops)
 }
 
-/// Tombstones on `volume`, newest first, as listed by `history`.
-///
-/// # Errors
-///
-/// Returns `E_IO` when the directory or a file cannot be read and
-/// `E_JOURNAL_CORRUPT` for an invalid tombstone.
-pub(crate) fn history(store: &dyn RetentionStore, volume: &AbsPath) -> Result<Vec<Tombstone>> {
-    let mut tombstones = Vec::new();
-    for op in list(store, volume)?.into_iter().rev() {
-        if let Some(tombstone) = read(store, volume, op)? {
-            tombstones.push(tombstone);
-        }
-    }
-    Ok(tombstones)
-}
-
 /// Removes the oldest tombstones of `volume` so that at most `keep` remain;
 /// returns the number removed.
 ///
@@ -243,25 +227,5 @@ mod tests {
         assert_eq!(left.first(), Some(&OpId(6)));
         assert_eq!(left.last(), Some(&OpId(1005)));
         assert_eq!(prune(&store, &volume, 1000).unwrap(), 0);
-    }
-
-    #[test]
-    fn history_lists_tombstones_newest_first() {
-        let store = MemStore::new();
-        let volume = mount("/home");
-        for op in [4, 2, 9] {
-            write(
-                &store,
-                &volume,
-                &Tombstone::of(&entry(op, "/home"), ExpiryReason::Purge),
-            )
-            .unwrap();
-        }
-        let ops: Vec<OpId> = history(&store, &volume)
-            .unwrap()
-            .iter()
-            .map(|tombstone| tombstone.op)
-            .collect();
-        assert_eq!(ops, [OpId(9), OpId(4), OpId(2)]);
     }
 }

@@ -20,12 +20,33 @@ use nurt_contracts::fs::{
 const HIDDEN_ATTRIBUTE: u32 = 0x2;
 /// Account id reported for every entry.
 const TEST_UID: u32 = 1000;
+/// Device of the root volume, which holds every path outside the attached
+/// volumes.
+const ROOT_DEV: u64 = 0;
+/// Space figures of the root volume; no test measures it.
+const ROOT_SPACE: SpaceInfo = SpaceInfo {
+    total: 0,
+    available: 0,
+    quota_remaining: None,
+    quota_limit: None,
+    purgeable_system: None,
+};
 
 #[derive(Debug, Clone)]
 enum Node {
-    Dir { mode: u32, hidden: bool, lower: bool },
-    File { data: Vec<u8>, mode: u32, hidden: bool },
-    Symlink { target: PathBuf },
+    Dir {
+        mode: u32,
+        hidden: bool,
+        lower: bool,
+    },
+    File {
+        data: Vec<u8>,
+        mode: u32,
+        hidden: bool,
+    },
+    Symlink {
+        target: PathBuf,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -111,7 +132,9 @@ impl State {
 }
 
 /// In-memory file system. Volumes are attached at root directories; a path
-/// belongs to the volume with the longest matching root.
+/// belongs to the volume with the longest matching root, and among volumes
+/// attached at the same root to the one attached last. As on a real system,
+/// a root volume at `/` holds every path outside the attached volumes.
 #[derive(Clone)]
 pub(crate) struct TestFs {
     state: Arc<Mutex<State>>,
@@ -146,10 +169,16 @@ pub(crate) fn abs(path: &str) -> AbsPath {
 
 impl TestFs {
     pub(crate) fn new() -> Self {
-        Self {
+        let fs = Self {
             state: Arc::new(Mutex::new(State::default())),
             released: Arc::new(Condvar::new()),
-        }
+        };
+        fs.add_volume(
+            "/",
+            volume_info(ROOT_DEV, "/", "rootfs", VolumeKind::Fixed),
+            ROOT_SPACE,
+        );
+        fs
     }
 
     fn state(&self) -> MutexGuard<'_, State> {
@@ -395,7 +424,10 @@ impl WriteHandle for TestWriter {
     }
 
     fn sync(&mut self, _durability: Durability) -> FsResult<()> {
-        self.state.lock().unwrap().check("sync", self.path.as_path())
+        self.state
+            .lock()
+            .unwrap()
+            .check("sync", self.path.as_path())
     }
 
     fn set_length(&mut self, length: u64) -> FsResult<()> {
@@ -425,11 +457,7 @@ impl FileLock for TestLock {
 
 impl Drop for TestLock {
     fn drop(&mut self) {
-        self.state
-            .lock()
-            .unwrap()
-            .locks
-            .remove(self.path.as_path());
+        self.state.lock().unwrap().locks.remove(self.path.as_path());
         self.released.notify_all();
     }
 }
@@ -484,7 +512,19 @@ impl nurt_contracts::fs::Fs for TestFs {
     }
 
     fn read_link(&self, path: &AbsPath) -> FsResult<PathBuf> {
-        unsupported("read_link", path)
+        match self.state().nodes.get(path.as_path()) {
+            Some((_, Node::Symlink { target })) => Ok(target.clone()),
+            Some(_) => Err(FsError::new(
+                FsErrorKind::InvalidPath,
+                "read_link",
+                Some(path.as_path()),
+            )),
+            None => Err(FsError::new(
+                FsErrorKind::NotFound,
+                "read_link",
+                Some(path.as_path()),
+            )),
+        }
     }
 
     fn real_path(&self, path: &AbsPath) -> FsResult<AbsPath> {
@@ -752,15 +792,15 @@ impl FsWrite for TestFs {
         _parallelism: usize,
     ) -> FsResult<RemoveStats> {
         let mut state = self.state();
-        let mut stats = RemoveStats::default();
+        let mut removed = RemoveStats::default();
         for key in state.subtree(path.as_path()) {
             match state.nodes.remove(&key) {
-                Some((_, Node::Dir { .. })) => stats.directories += 1,
-                Some(_) => stats.files += 1,
+                Some((_, Node::Dir { .. })) => removed.directories += 1,
+                Some(_) => removed.files += 1,
                 None => {}
             }
         }
-        Ok(stats)
+        Ok(removed)
     }
 
     fn create_dir(&self, _scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {

@@ -236,6 +236,7 @@ mod tests {
         total: 1 << 30,
         available: 1 << 29,
         quota_remaining: None,
+        quota_limit: None,
         purgeable_system: None,
     };
 

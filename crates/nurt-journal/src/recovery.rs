@@ -32,11 +32,6 @@
 //! hash whenever both sides have one. Current content replaced by recovery is
 //! moved into the entry, never deleted.
 
-#![cfg_attr(
-    not(test),
-    expect(dead_code, reason = "entry points are called by the journal store")
-)]
-
 use std::io::{Read, Seek, SeekFrom};
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -55,6 +50,7 @@ use nurt_contracts::journal::{
 use nurt_fs::failpoint::FailPoint;
 use sha2::{Digest, Sha256};
 
+use crate::blob;
 use crate::integrity::{self, ManifestVerdict};
 use crate::layout::{self, EntryLayout, JournalLayout};
 use crate::manifest::{
@@ -62,6 +58,7 @@ use crate::manifest::{
     TargetRecord,
 };
 use crate::store::{self, Fault, JournalCtx};
+use crate::undo;
 
 /// Facts about a file system entry, recorded before the change or observed
 /// during recovery. Unknown facts are `None`.
@@ -114,28 +111,39 @@ fn likeness(before: &Facts, now: &Facts, identity: Identity) -> Likeness {
     let sizes_differ =
         !is_directory && matches!((before.size, now.size), (Some(a), Some(b)) if a != b);
     match identity {
-        Identity::Original => match (before.file_id, now.file_id) {
-            (Some(recorded), Some(observed)) if recorded != observed => Likeness::Different,
-            (Some(_), Some(_)) if is_directory => Likeness::Same,
-            (Some(_), Some(_)) => {
-                let times_differ = matches!(
-                    (before.modified_ns, now.modified_ns),
-                    (Some(a), Some(b)) if a != b
-                );
-                if sizes_differ || times_differ {
-                    Likeness::Different
-                } else {
-                    Likeness::Same
-                }
-            }
-            _ if sizes_differ => Likeness::Different,
-            _ if before.hash.is_some() => Likeness::Undecided,
-            _ => Likeness::Different,
-        },
+        Identity::Original => original_likeness(before, now, is_directory, sizes_differ),
         Identity::Copy if sizes_differ => Likeness::Different,
         Identity::Copy if is_directory || before.size.is_some() => Likeness::Same,
         Identity::Copy if before.hash.is_some() => Likeness::Undecided,
         Identity::Copy => Likeness::Different,
+    }
+}
+
+/// Likeness of a holder expected to be the original file: the file identity
+/// decides first, then the size and the modification time.
+fn original_likeness(
+    before: &Facts,
+    now: &Facts,
+    is_directory: bool,
+    sizes_differ: bool,
+) -> Likeness {
+    match (before.file_id, now.file_id) {
+        (Some(recorded), Some(observed)) if recorded != observed => Likeness::Different,
+        (Some(_), Some(_)) if is_directory => Likeness::Same,
+        (Some(_), Some(_)) => {
+            let times_differ = matches!(
+                (before.modified_ns, now.modified_ns),
+                (Some(a), Some(b)) if a != b
+            );
+            if sizes_differ || times_differ {
+                Likeness::Different
+            } else {
+                Likeness::Same
+            }
+        }
+        _ if sizes_differ => Likeness::Different,
+        _ if before.hash.is_some() => Likeness::Undecided,
+        _ => Likeness::Different,
     }
 }
 
@@ -225,6 +233,15 @@ pub(crate) fn decide_content(mode: PreserveMode, scene: &TargetScene) -> Content
     if target == Some(Likeness::Same) {
         return ContentAction::Keep;
     }
+    // A target that may still hold the previous content is decided by its
+    // hash first: restoring a holder would displace an untouched target.
+    if target == Some(Likeness::Undecided)
+        && scene
+            .target
+            .is_some_and(|facts| facts.kind == Some(FileKind::File) && facts.hash.is_none())
+    {
+        return ContentAction::NeedHashes;
+    }
     let candidates = [
         (Holder::Blob, scene.blob, block_identity),
         (Holder::Staged, scene.staged, Identity::Original),
@@ -259,6 +276,8 @@ const MAX_WORKERS: usize = 8;
 const REMOVE_WORKERS: usize = 1;
 /// Permission bits of the directory of displaced content.
 const DISPLACED_MODE: u32 = 0o700;
+/// Permission bits of a journal directory created again by recovery.
+const JOURNAL_DIR_MODE: u32 = 0o700;
 /// Buffer size for hashing the kept prefix of an appended file.
 const HASH_BUFFER: usize = 64 * 1024;
 /// Commands whose entries restore items of other entries.
@@ -479,6 +498,12 @@ pub(crate) fn recover_detailed(ctx: &JournalCtx) -> Result<RecoveryOutcome> {
         return Err(fault_error(fault));
     }
     outcome.sort();
+    outcome
+        .report
+        .needs_salvage
+        .clone_from(&outcome.items_damaged);
+    outcome.report.skipped_live.clone_from(&outcome.live);
+    outcome.report.unresolved.clone_from(&outcome.unresolved);
     let elapsed = ctx.clock.monotonic().saturating_sub(started);
     outcome.report.elapsed_ms = u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX);
     Ok(outcome)
@@ -535,18 +560,17 @@ fn recover_volume(
         return Ok(outcome);
     }
     let states_read = AtomicU64::new(0);
-    let (ops, marked) = match layout::pending_entries(reader(ctx), journal) {
-        Ok(ops) => (ops, true),
-        Err(_) => {
-            let started = ctx.clock.monotonic();
-            let ops = scan_candidates(ctx, journal, &states_read)?;
-            outcome.full_scans.push(FullScan {
-                journal: journal.root().clone(),
-                entries: states_read.load(Ordering::Relaxed),
-                elapsed: ctx.clock.monotonic().saturating_sub(started),
-            });
-            (ops, false)
-        }
+    let (ops, marked) = if let Ok(ops) = layout::pending_entries(reader(ctx), journal) {
+        (ops, true)
+    } else {
+        let started = ctx.clock.monotonic();
+        let ops = scan_candidates(ctx, journal, &states_read)?;
+        outcome.full_scans.push(FullScan {
+            journal: journal.root().clone(),
+            entries: states_read.load(Ordering::Relaxed),
+            elapsed: ctx.clock.monotonic().saturating_sub(started),
+        });
+        (ops, false)
     };
     let results = parallel_map(&ops, |&op| {
         let result = recover_entry(ctx, journal, op, marked, &states_read);
@@ -585,8 +609,13 @@ fn scan_candidates(
 ) -> std::result::Result<Vec<OpId>, Fault> {
     let fs = reader(ctx);
     let ops_dir = journal.ops_dir()?;
+    let listing = match fs.read_dir(&ops_dir) {
+        Ok(listing) => listing,
+        Err(error) if error.kind == FsErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.into()),
+    };
     let mut unfinished = Vec::new();
-    for entry in fs.read_dir(&ops_dir)? {
+    for entry in listing {
         let name = entry?.name;
         let stem = name
             .to_str()
@@ -625,10 +654,9 @@ fn recover_entry(
     states_read: &AtomicU64,
 ) -> std::result::Result<EntryResult, Fault> {
     let lock_path = journal.entry_lock(op)?;
-    let lock: Box<dyn FileLock> = match ctx.fs.lock_exclusive(&lock_path, LIVE_LOCK_WAIT) {
-        Ok(lock) => lock,
-        Err(error) if error.kind == FsErrorKind::InUse => return Ok(EntryResult::Live),
-        Err(error) => return Err(error.into()),
+    let scope = store::scope(op, ScopePurpose::Recovery);
+    let Some(lock) = lock_entry(ctx, journal, &scope, &lock_path)? else {
+        return Ok(EntryResult::Live);
     };
     let entry = Entry {
         ctx,
@@ -636,7 +664,7 @@ fn recover_entry(
         op,
         marked,
         layout: journal.entry(op)?,
-        scope: store::scope(op, ScopePurpose::Recovery),
+        scope,
     };
     let result = entry.recover(states_read);
     drop(lock);
@@ -650,9 +678,42 @@ fn recover_entry(
             | EntryResult::Settled { .. }
             | EntryResult::MarkerOnly)
     ) {
+        // A lock file left behind is harmless: the next transaction or
+        // recovery pass locks it again.
         let _ = ctx.fs.remove_file(&entry.scope, &lock_path);
     }
     result
+}
+
+/// Takes the lock of an entry; `None` when a live transaction holds it.
+///
+/// A crash can leave a journal whose lock directory never became durable
+/// while its marker did; the directory is then created again, so that the
+/// entry is decided instead of being retried forever.
+fn lock_entry(
+    ctx: &JournalCtx,
+    journal: &JournalLayout,
+    scope: &TxScope,
+    lock_path: &AbsPath,
+) -> std::result::Result<Option<Box<dyn FileLock>>, Fault> {
+    let lock = |ctx: &JournalCtx| match ctx.fs.lock_exclusive(lock_path, LIVE_LOCK_WAIT) {
+        Ok(lock) => Ok(Some(lock)),
+        Err(error) if error.kind == FsErrorKind::InUse => Ok(None),
+        Err(error) => Err(error),
+    };
+    match lock(ctx) {
+        Err(error) if error.kind == FsErrorKind::NotFound => {}
+        other => return Ok(other?),
+    }
+    match ctx
+        .fs
+        .create_dir(scope, &journal.lock_dir()?, JOURNAL_DIR_MODE)
+    {
+        Ok(()) => ctx.fs.sync_dir(scope, journal.root())?,
+        Err(error) if error.kind == FsErrorKind::Exists => {}
+        Err(error) => return Err(error.into()),
+    }
+    Ok(lock(ctx)?)
 }
 
 /// One entry being recovered, with its lock held.
@@ -775,7 +836,7 @@ impl Entry<'_> {
             return self.mark_corrupt();
         };
         if manifest.parts.len() > 1 {
-            match self.part_decision(&manifest)? {
+            match self.part_decision(&manifest) {
                 PartDecision::Forward => return self.roll_forward(&manifest),
                 PartDecision::Unknown => return Ok(EntryResult::Unresolved),
                 PartDecision::Back => {}
@@ -797,6 +858,7 @@ impl Entry<'_> {
         for record in manifest.targets.iter().rev() {
             match self.plan_target(record)? {
                 Some(steps) => plan.extend(steps),
+                None if Self::superseded(manifest, record) => {}
                 None => return self.mark_corrupt(),
             }
         }
@@ -818,6 +880,18 @@ impl Entry<'_> {
         } else {
             EntryResult::RolledBack
         })
+    }
+
+    /// Whether `record` repeats the path of an earlier target. The facts it
+    /// recorded describe the content before the earlier target changed the
+    /// path, so they cannot locate its previous content once the earlier
+    /// target applied; the earlier target restores that content.
+    fn superseded(manifest: &Manifest, record: &TargetRecord) -> bool {
+        matches!(record.path, TargetPath::Fs(_))
+            && manifest
+                .targets
+                .iter()
+                .any(|other| other.index < record.index && other.path == record.path)
     }
 
     fn plan_target(&self, record: &TargetRecord) -> Step<Option<Vec<Action>>> {
@@ -886,6 +960,7 @@ impl Entry<'_> {
                 let meta = if copies {
                     self.blob_path(before.meta.as_deref())
                         .and_then(|path| manifest::read_meta(fs, &path).ok())
+                        .map(Box::new)
                 } else {
                     None
                 };
@@ -1032,12 +1107,14 @@ impl Entry<'_> {
                 }
                 if let Some(meta) = meta {
                     fs.restore_meta(&self.scope, target, meta)?;
+                    blob::sync_entry(fs, &self.scope, target)?;
                 }
-                sync_parent(fs, &self.scope, target)
+                Ok(())
             }
             Action::Displace { index, target } => self.displace(*index, target),
             Action::RestoreMeta { target, meta } => {
                 fs.restore_meta(&self.scope, target, meta)?;
+                blob::sync_entry(fs, &self.scope, target)?;
                 Ok(())
             }
             Action::Truncate {
@@ -1047,6 +1124,7 @@ impl Entry<'_> {
             } => {
                 self.displace_copy(*index, target)?;
                 fs.truncate(&self.scope, target, *length)?;
+                blob::sync_entry(fs, &self.scope, target)?;
                 Ok(())
             }
             Action::Provider(snapshot) => {
@@ -1063,7 +1141,7 @@ impl Entry<'_> {
     fn displaced_name(&self, index: TargetIndex) -> Step<AbsPath> {
         let dir = self.layout.displaced_dir()?;
         match self.fs().create_dir(&self.scope, &dir, DISPLACED_MODE) {
-            Ok(()) => {}
+            Ok(()) => self.fs().sync_dir(&self.scope, self.layout.dir())?,
             Err(error) if error.kind == FsErrorKind::Exists => {}
             Err(error) => return Err(error.into()),
         }
@@ -1086,8 +1164,7 @@ impl Entry<'_> {
         let destination = self.displaced_name(index)?;
         self.fs()
             .rename(&self.scope, target, &destination, RenameMode::NoReplace)?;
-        self.fs()
-            .sync_dir(&self.scope, &self.layout.displaced_dir()?)?;
+        blob::sync_parents(self.fs(), &self.scope, &[target, &destination])?;
         Ok(())
     }
 
@@ -1096,8 +1173,8 @@ impl Entry<'_> {
     fn displace_copy(&self, index: TargetIndex, target: &AbsPath) -> Step<()> {
         let destination = self.displaced_name(index)?;
         self.fs().copy_file(&self.scope, target, &destination)?;
-        self.fs()
-            .sync_dir(&self.scope, &self.layout.displaced_dir()?)?;
+        blob::sync_entry(self.fs(), &self.scope, &destination)?;
+        blob::sync_parents(self.fs(), &self.scope, &[&destination])?;
         Ok(())
     }
 
@@ -1161,23 +1238,23 @@ impl Entry<'_> {
 
     /// Decision for a part of a multi-volume entry from the states of the
     /// other parts.
-    fn part_decision(&self, manifest: &Manifest) -> Step<PartDecision> {
+    fn part_decision(&self, manifest: &Manifest) -> PartDecision {
         let mut unknown = false;
         for part in &manifest.parts {
             if &part.dir == self.journal.root() {
                 continue;
             }
             match part_state(self.read(), &JournalLayout::new(part.dir.clone()), self.op) {
-                PartState::Committed => return Ok(PartDecision::Forward),
+                PartState::Committed => return PartDecision::Forward,
                 PartState::Unknown => unknown = true,
                 PartState::NotCommitted => {}
             }
         }
-        Ok(if unknown {
+        if unknown {
             PartDecision::Unknown
         } else {
             PartDecision::Back
-        })
+        }
     }
 
     /// Completes a part whose operation is committed on another volume.
@@ -1200,7 +1277,9 @@ impl Entry<'_> {
             return self.mark_corrupt();
         };
         let items_damaged = !self.reconcile_items(&manifest, state)?;
-        if is_undo_entry(&manifest) {
+        // The source update is idempotent; when it fails the marker stays and
+        // the next pass repeats it.
+        if is_undo_entry(&manifest) && undo::apply_source_updates(self.ctx, &manifest).is_err() {
             return Ok(EntryResult::SourcesPending);
         }
         let appended = self.ensure_index_row(&manifest)?;
@@ -1325,7 +1404,7 @@ enum Action {
         target: AbsPath,
         displace: bool,
         in_place: bool,
-        meta: Option<ExtendedMeta>,
+        meta: Option<Box<ExtendedMeta>>,
     },
     /// Moves a target created by the operation into the entry.
     Displace { index: TargetIndex, target: AbsPath },
@@ -1570,7 +1649,8 @@ fn prefix_hash(
 }
 
 /// Moves preserved content back; content preserved across layers or volumes
-/// is copied.
+/// is copied. The result is durable when the function returns: a rename
+/// changes the directories of both names, and both are flushed.
 fn move_back(
     fs: &dyn FsWrite,
     scope: &TxScope,
@@ -1578,13 +1658,15 @@ fn move_back(
     to: &AbsPath,
 ) -> std::result::Result<(), Fault> {
     match fs.rename(scope, from, to, RenameMode::NoReplace) {
-        Ok(()) => Ok(()),
+        Ok(()) => blob::sync_parents(fs, scope, &[from, to])?,
         Err(error) if error.kind == FsErrorKind::CrossDevice => {
             fs.copy_file(scope, from, to)?;
-            Ok(())
+            blob::sync_entry(fs, scope, to)?;
+            blob::sync_parents(fs, scope, &[to])?;
         }
-        Err(error) => Err(error.into()),
+        Err(error) => return Err(error.into()),
     }
+    Ok(())
 }
 
 /// Writes the content of `from` into the existing file `target`, so that
@@ -1909,6 +1991,46 @@ mod tests {
     }
 
     #[test]
+    fn untouched_target_without_identity_is_hashed_before_a_copy_block_is_used() {
+        let hash = ContentHash([7; 32]);
+        let before = Facts {
+            kind: Some(FileKind::File),
+            size: Some(10),
+            hash: Some(hash),
+            ..Facts::default()
+        };
+        let same_size = Facts {
+            kind: Some(FileKind::File),
+            size: Some(10),
+            modified_ns: Some(1_000),
+            file_id: Some(OLD_ID),
+            hash: None,
+        };
+        let mut scene = TargetScene {
+            existed: true,
+            before,
+            target: Some(same_size),
+            blob: Some(Facts {
+                file_id: Some(COPY_ID),
+                ..same_size
+            }),
+            staged: None,
+        };
+        assert_eq!(
+            decide_content(PreserveMode::Copy, &scene),
+            ContentAction::NeedHashes
+        );
+        scene.target = Some(Facts {
+            hash: Some(hash),
+            ..same_size
+        });
+        assert_eq!(
+            decide_content(PreserveMode::Copy, &scene),
+            ContentAction::Keep
+        );
+    }
+
+    #[test]
     fn directory_identity_ignores_modification_time() {
         let before = Facts {
             kind: Some(FileKind::Directory),
@@ -1997,7 +2119,6 @@ mod pass_tests {
     use nurt_fs::mem::{MemFault, MemFs, VolumeSpec};
 
     use super::{ensure_recovered, recover, recover_detailed};
-    use crate::integrity::{self, LinkStatus, RecordedLink};
     use crate::layout::{BlobId, BlobRole, JournalLayout, StateLayout};
     use crate::manifest::{
         self, AfterRecord, BeforeRecord, FORMAT_VERSION, IndexPart, IndexRow, Integrity, ItemState,
@@ -2234,6 +2355,26 @@ mod pass_tests {
         }
     }
 
+    /// State before the change of an entry that did not exist, with the
+    /// planned preserve mode `store` and no preserved data.
+    fn absent(store: PreserveMode) -> BeforeRecord {
+        BeforeRecord {
+            exists: false,
+            kind: None,
+            size: None,
+            mode: None,
+            uid: None,
+            gid: None,
+            modified_ns: None,
+            hash: None,
+            links: None,
+            file_id: None,
+            store,
+            blob: None,
+            meta: None,
+        }
+    }
+
     fn target(index: u32, path: &str, action: TargetAction, before: BeforeRecord) -> TargetRecord {
         TargetRecord {
             index: TargetIndex(index),
@@ -2376,6 +2517,33 @@ mod pass_tests {
         recover(&world.ctx).unwrap();
         assert_rolled_back(&world);
         assert_eq!(world.displaced(1, 0).as_deref(), Some(NEW));
+    }
+
+    #[test]
+    fn repeated_target_is_restored_by_the_first_one() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/f"), OLD).unwrap();
+        let first = world.before("/a/f", PreserveMode::Exchange, 0);
+        let second = world.before("/a/f", PreserveMode::Exchange, 1);
+        let entry = entry_of(
+            1,
+            vec![
+                target(0, "/a/f", TargetAction::Modify, first),
+                target(1, "/a/f", TargetAction::Modify, second),
+            ],
+            vec![world.part(0)],
+        );
+        world.write_entry(0, entry, prepared(), true);
+        let scope = World::scope(1);
+        let staged = World::staged("/a/f", 1, 0);
+        world.fs.seed_file(&staged, NEW).unwrap();
+        world.fs.exchange(&scope, &abs("/a/f"), &staged).unwrap();
+        world
+            .fs
+            .rename(&scope, &staged, &world.blob(0, 1, 0), RenameMode::NoReplace)
+            .unwrap();
+        recover(&world.ctx).unwrap();
+        assert_rolled_back(&world);
     }
 
     #[test]
@@ -2724,10 +2892,7 @@ mod pass_tests {
         let mut undo = entry_of(2, Vec::new(), vec![world.part(0)]);
         undo.kind = OpKind::undo();
         undo.undo_of = vec![OpId(1)];
-        let created = BeforeRecord {
-            store: PreserveMode::Created,
-            ..BeforeRecord::default()
-        };
+        let created = absent(PreserveMode::Created);
         undo.targets = vec![target(0, "/a/f0", TargetAction::Create, created)];
         world.write_entry(0, undo, prepared(), true);
         let report = recover(&world.ctx).unwrap();
@@ -2763,9 +2928,10 @@ mod pass_tests {
         };
         let maintenance = store::scope(OpId(1), ScopePurpose::Maintenance);
         manifest::append_index_row(&*world.fs, &maintenance, &index, &row(1, first)).unwrap();
-        let mut late = entry_of(2, Vec::new(), vec![part.clone()]);
-        late.integrity.chain = Some(first);
-        let late_digest = world.write_entry(0, late, StateRecord::new(EntryState::Committed), true);
+        let mut unindexed = entry_of(2, Vec::new(), vec![part.clone()]);
+        unindexed.integrity.chain = Some(first);
+        let unindexed_digest =
+            world.write_entry(0, unindexed, StateRecord::new(EntryState::Committed), true);
         let mut later = entry_of(3, Vec::new(), vec![part.clone()]);
         later.integrity.chain = Some(first);
         let later_digest =
@@ -2786,27 +2952,7 @@ mod pass_tests {
             rows.iter().map(|row| row.op.0).collect::<Vec<_>>(),
             vec![1, 3, 2]
         );
-        let chain: Vec<integrity::ChainEntry> = rows
-            .iter()
-            .map(|row| integrity::ChainEntry {
-                op: row.op,
-                digest: row.digest().unwrap(),
-                link: if row.op.0 == 1 {
-                    RecordedLink::First
-                } else {
-                    RecordedLink::After(first)
-                },
-            })
-            .collect();
-        let report = integrity::verify_chain(&chain);
-        assert_eq!(
-            report.links[2].1,
-            LinkStatus::Forked {
-                predecessor: OpId(1)
-            }
-        );
-        assert_eq!(report.forks.len(), 1);
-        assert_eq!(rows[2].digest(), Some(late_digest));
+        assert_eq!(rows[2].digest(), Some(unindexed_digest));
     }
 
     fn tamper_manifest(world: &World, op: u64) {
@@ -3270,16 +3416,12 @@ mod pass_tests {
             "/a/unused",
             TargetAction::Modify,
             BeforeRecord {
-                store: PreserveMode::Value,
                 blob: Some(blob_id.content_name()),
-                ..BeforeRecord::default()
+                ..absent(PreserveMode::Value)
             },
         );
         value.path = TargetPath::Provider(key.clone());
-        let created = BeforeRecord {
-            store: PreserveMode::Created,
-            ..BeforeRecord::default()
-        };
+        let created = absent(PreserveMode::Created);
         let targets = vec![value, target(1, "/a/new", TargetAction::Create, created)];
         world.write_entry(
             0,

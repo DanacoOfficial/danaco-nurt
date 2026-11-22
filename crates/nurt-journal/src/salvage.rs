@@ -15,6 +15,10 @@
 //! transaction supplied by the caller, which commits it. Neither function
 //! changes user data in place or removes data of the journal; a repaired
 //! entry is released with `journal.purge`.
+//!
+//! [`verify_chain`] checks the hash chain of the account index. The chain is
+//! evidence for repair, not a validity condition of single entries: a broken
+//! or forked link never marks an entry corrupt.
 
 use std::collections::BTreeSet;
 
@@ -30,9 +34,10 @@ use nurt_contracts::journal::{
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::integrity::{self, ManifestStatus};
-use crate::layout::{self, BlobId, EntryLayout, JournalLayout};
-use crate::manifest;
+use crate::integrity::{self, ChainEntry, ManifestStatus, RecordedLink};
+pub use crate::integrity::{ChainFork, ChainReport, LinkStatus};
+use crate::layout::{self, EntryLayout, JournalLayout, StateLayout};
+use crate::manifest::{self, Manifest};
 
 /// Name of the description written into the extraction directory.
 pub const DESCRIPTION_FILE: &str = "salvage.json";
@@ -171,8 +176,61 @@ pub fn list(fs: &dyn Fs, journal_dir: &AbsPath) -> Result<Vec<DamagedEntry>> {
     Ok(damaged)
 }
 
+/// Verifies the hash chain of the account index in `state_dir`.
+///
+/// Every row of the index is linked to the manifest digest of the row that
+/// precedes it, as recorded in the manifest of its entry. A link that cannot
+/// be read because the entry no longer exists or its manifest fails
+/// verification is reported as unverifiable; a fork left by a crash between
+/// a commit and the append of its index row is reported without marking an
+/// entry corrupt. Nothing is changed.
+///
+/// # Errors
+///
+/// Fails with the file system error (`E_IO`, `E_PERMISSION`) when the index
+/// or a manifest cannot be read, and with `E_JOURNAL_CORRUPT` when a complete
+/// line of the index is malformed.
+pub fn verify_chain(fs: &dyn Fs, state_dir: &AbsPath) -> Result<ChainReport> {
+    let index = StateLayout::new(state_dir.clone()).index()?;
+    let mut entries = Vec::new();
+    for row in manifest::read_index(fs, &index)? {
+        let (Some(digest), Some(part)) = (row.digest(), row.parts.first()) else {
+            continue;
+        };
+        entries.push(ChainEntry {
+            op: row.op,
+            digest,
+            link: recorded_link(fs, &part.dir, row.op)?,
+        });
+    }
+    Ok(integrity::verify_chain(&entries))
+}
+
+/// Link recorded by the committed manifest of entry `op`.
+fn recorded_link(fs: &dyn Fs, journal_dir: &AbsPath, op: OpId) -> Result<RecordedLink> {
+    let entry = JournalLayout::new(journal_dir.clone()).entry(op)?;
+    let bytes = match manifest::read_bytes(fs, &entry.manifest()?) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind == FsErrorKind::NotFound => return Ok(RecordedLink::Unavailable),
+        Err(error) => return Err(error.into()),
+    };
+    if !integrity::verify_manifest(&bytes).is_intact() {
+        return Ok(RecordedLink::Unavailable);
+    }
+    Ok(match Manifest::decode(&bytes) {
+        Ok(manifest) => manifest
+            .integrity
+            .chain
+            .map_or(RecordedLink::First, RecordedLink::After),
+        Err(_) => RecordedLink::Unavailable,
+    })
+}
+
 fn inspect(fs: &dyn Fs, entry: &EntryLayout, op: OpId) -> Result<Option<DamagedEntry>> {
     let check = integrity::check_entry(fs, entry)?;
+    if !check.is_corrupt() && check.items_intact {
+        return Ok(None);
+    }
     let mut damage = Vec::new();
     match check.state {
         None => damage.push(Damage::StateUnreadable),
@@ -470,13 +528,13 @@ impl Plan {
         let mut pending = vec![(path.clone(), source.to_owned(), components.to_vec())];
         while let Some((current, source, components)) = pending.pop() {
             let Ok(meta) = fs.metadata(&current, Follow::NoFollow) else {
-                self.report(source, &components, ItemStatus::Unreadable)?;
+                self.report(source, &components, ItemStatus::Unreadable);
                 continue;
             };
             match meta.kind {
                 FileKind::Directory => {
                     let Ok(listing) = fs.read_dir(&current) else {
-                        self.report(source, &components, ItemStatus::Unreadable)?;
+                        self.report(source, &components, ItemStatus::Unreadable);
                         continue;
                     };
                     let place = self.place(&components)?;
@@ -508,7 +566,7 @@ impl Plan {
                 }
                 FileKind::Symlink | FileKind::Junction => {
                     let Ok(target) = fs.read_link(&current) else {
-                        self.report(source, &components, ItemStatus::Unreadable)?;
+                        self.report(source, &components, ItemStatus::Unreadable);
                         continue;
                     };
                     let kind = if meta.kind == FileKind::Junction {
@@ -524,21 +582,20 @@ impl Plan {
                     });
                     self.entries.push((place, Planned::Link(target, kind)));
                 }
-                FileKind::File => self.report(source, &components, ItemStatus::Unreadable)?,
-                _ => self.report(source, &components, ItemStatus::Skipped)?,
+                FileKind::File => self.report(source, &components, ItemStatus::Unreadable),
+                _ => self.report(source, &components, ItemStatus::Skipped),
             }
         }
         Ok(())
     }
 
-    fn report(&mut self, source: String, components: &[String], status: ItemStatus) -> Result<()> {
+    fn report(&mut self, source: String, components: &[String], status: ItemStatus) {
         let path = components.join("/");
         self.items.push(ExtractedItem {
             source,
             path,
             status,
         });
-        Ok(())
     }
 }
 
@@ -590,6 +647,8 @@ mod tests {
     use nurt_contracts::report::IrreversibleEntry;
     use nurt_fs::mem::{MemFs, VolumeSpec};
     use proptest::prelude::*;
+
+    use crate::layout::BlobId;
 
     use super::*;
     use crate::manifest::{Items, StateRecord};
@@ -928,6 +987,99 @@ mod tests {
         )
         .unwrap();
         assert!(list(&*fs, &abs(JOURNAL)).unwrap().is_empty());
+    }
+
+    const STATE_DIR: &str = "/v/state";
+
+    /// Seeds the committed manifest of entry `op` linked to `chain` and its
+    /// index row; returns the digest of the manifest.
+    fn seed_linked_entry(
+        fs: &MemFs,
+        op: u64,
+        chain: Option<nurt_contracts::fs::ContentHash>,
+    ) -> nurt_contracts::fs::ContentHash {
+        let mut linked = manifest::tests::sample();
+        linked.op = OpId(op);
+        linked.integrity.chain = chain;
+        let digest = linked.seal().unwrap();
+        let bytes = linked.encode().unwrap();
+        fs.seed_file(&entry(op).manifest().unwrap(), &bytes)
+            .unwrap();
+        append_row(fs, op, digest);
+        digest
+    }
+
+    fn append_row(fs: &MemFs, op: u64, digest: nurt_contracts::fs::ContentHash) {
+        let row = manifest::IndexRow {
+            op: OpId(op),
+            time: WallTime(1),
+            kind: nurt_contracts::journal::OpKind::command("write"),
+            session: None,
+            bulk: false,
+            counts_as_step: true,
+            parts: vec![manifest::IndexPart {
+                vol: nurt_contracts::fs::VolumeId {
+                    dev: 1,
+                    uuid: None,
+                    subvolume: 0,
+                },
+                dir: abs(JOURNAL),
+                manifest_sha256: digest,
+            }],
+        };
+        let index = StateLayout::new(abs(STATE_DIR)).index().unwrap();
+        let mut content = manifest::read_bytes(fs, &index).unwrap_or_default();
+        content.extend_from_slice(&row.encode().unwrap());
+        let state_dir = abs(STATE_DIR);
+        fs.seed_dir(&state_dir).ok();
+        let scope = store::scope(OpId(0), ScopePurpose::Maintenance);
+        manifest::write_atomic(fs, &scope, &state_dir, &index, &content).unwrap();
+    }
+
+    #[test]
+    fn verifies_the_chain_of_the_account_index() {
+        let fs = mem();
+        let first = seed_linked_entry(&fs, 1, None);
+        let second = seed_linked_entry(&fs, 2, Some(first));
+        seed_linked_entry(&fs, 3, Some(second));
+        let report = verify_chain(&*fs, &abs(STATE_DIR)).unwrap();
+        assert!(report.is_unbroken());
+        assert!(report.forks.is_empty());
+        assert!(
+            report
+                .links
+                .iter()
+                .all(|(_, status)| *status == LinkStatus::Verified)
+        );
+    }
+
+    #[test]
+    fn reports_forks_and_unverifiable_links_without_failing() {
+        let fs = mem();
+        let first = seed_linked_entry(&fs, 1, None);
+        seed_linked_entry(&fs, 2, Some(first));
+        seed_linked_entry(&fs, 3, Some(first));
+        append_row(&fs, 4, manifest::hash_bytes(b"expired"));
+        let report = verify_chain(&*fs, &abs(STATE_DIR)).unwrap();
+        assert_eq!(
+            report.links[2],
+            (
+                OpId(3),
+                LinkStatus::Forked {
+                    predecessor: OpId(1)
+                }
+            )
+        );
+        assert_eq!(report.links[3], (OpId(4), LinkStatus::Unverifiable));
+        assert_eq!(report.forks.len(), 1);
+        assert!(report.is_unbroken());
+    }
+
+    #[test]
+    fn missing_index_yields_an_empty_report() {
+        let fs = mem();
+        let report = verify_chain(&*fs, &abs(STATE_DIR)).unwrap();
+        assert!(report.links.is_empty());
     }
 
     proptest! {

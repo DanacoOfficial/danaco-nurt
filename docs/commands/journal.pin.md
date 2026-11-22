@@ -26,12 +26,13 @@ for the user: free space for the user always has priority.
 
 Without `until` the pin lasts `journal.pin_max_age` (24 hours by default).
 Pinning a pinned entry again replaces its pin. `release: true` removes the
-pins; entries that are over a limit at that moment expire at once.
+pins; released entries that are over a limit at that moment expire at once
+and are listed in `expired`.
 
 The pin is recorded outside the entry, in the journal directory of every
-volume that holds a part of the operation, and in the audit record of the
-journal. Pinning changes neither the entry nor its hash, creates no journal
-entry and consumes no operation number and no step.
+volume that holds a part of the operation. Pinning changes neither the entry
+nor its hash, creates no journal entry and consumes no operation number and
+no step.
 
 Entries that do not exist, expired or were undone are listed in
 `not_available` and left alone. The result does not state when a pin ends;
@@ -47,16 +48,17 @@ Entries that do not exist, expired or were undone are listed in
 
 ## Input and output
 
-Input: `none`. Output: `effect` — the entries pinned or released (`changed`)
-and the entries that were not available (`not_available`).
+Input: `none`. Output: `effect` — the entries pinned or released (`changed`),
+the entries that were not available (`not_available`) and the released
+entries that expired at once (`expired`).
 
 ## Effect
 
 Category `journal`, effect `local`, reversible: a pin is released with
 `release: true`. Pinned entries can still be released when the volume runs
 out of space. Releasing pins is not reversible for entries that expire as a
-result; they are reported with the irreversible marker
-`journal_entries_expired`.
+result; the result then carries the irreversible marker
+`journal_entries_expired`, and `history` lists the entries as `expired`.
 
 ## Examples
 
@@ -82,7 +84,7 @@ journal.pin 18 release: true
 
 | Code | Meaning | Typical fix |
 |---|---|---|
-| `E_IO` | the pin file of a volume cannot be read or written | check the journal directory with `journal.status` |
+| `E_IO` | the pin file of a volume cannot be written, or the journal of a volume of the entry is not available | mount the volume and check its journal with `journal.status` |
 
 ## Related
 

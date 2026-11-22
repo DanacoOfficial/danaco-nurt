@@ -107,7 +107,7 @@ impl MemStore {
         inner.volumes.push(VolumeFacts {
             mount: mount(path),
             capacity,
-            free_with_journal: free,
+            free,
             inactive: None,
         });
         inner.volumes.sort_by(|a, b| a.mount.cmp(&b.mount));

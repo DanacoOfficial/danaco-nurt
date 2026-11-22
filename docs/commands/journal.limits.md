@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-journal.limits [steps: int | unlimited] [age: duration | unlimited] [size: size | percent | unlimited] [scope: session | user] [volume: path] [preview: bool]
+journal.limits [steps: int | unlimited] [age: duration | unlimited] [size: size | percent | unlimited] [scope: session | user] [volume: path]
 ```
 
 ## Description
@@ -50,14 +50,20 @@ at least 10 steps and 5 minutes.
 
 Lowering a limit takes effect at once: the entries over the new limit expire
 during the call, oldest first. Raising a limit never brings back entries that
-already expired. With `preview: true` the command reports which entries would
-expire and changes nothing.
+already expired. With the common parameter `preview: true` the command
+reports the effective limits and the entries that would expire, and changes
+nothing.
 
 `scope: session` keeps the limits until the session of the request ends, or
 until `session.ttl` passes without calls of the session. `scope: user` writes
-the `[journal]` section of the user configuration file, keeping its comments
-and layout; the change is recorded in the journal and does not count as a
-step.
+the `[journal]` section of the user configuration file, or the
+`[journal.volume."<mount>"]` table with `volume`, keeping its comments and
+layout. Missing directories of the file are created. The change is recorded
+as a journal entry of kind `journal.limits` that does not count as a step;
+`undo` of that entry restores the previous content of the file. `scope: user`
+requires the location of the user configuration file to be configured for
+the journal; otherwise a call that sets a limit fails with `E_UNSUPPORTED`,
+and a call without `steps`, `age` and `size` only reports.
 
 ## Parameters
 
@@ -75,9 +81,13 @@ step.
 |---|---|
 | none | `journal_state`, `effect` |
 
-The result lists the effective limits of each selected volume with their
-sources, the numbers of the entries that expire (or would expire with
-`preview`), their logical size in bytes, and whether the change was applied.
+Without `steps`, `age` and `size` the output is one `journal_state` record per
+selected volume, as from `journal.status`. Otherwise the output is one
+`effect` record of kind `journal.limits`: `after.applied` states whether the
+new limits were set, `after.expiring` lists the entries that expire (or would
+expire with `preview`), `after.expiring_bytes` gives their logical size, and
+`after.volumes` lists the effective limits of each selected volume with their
+sources.
 
 ## Effect
 
@@ -120,9 +130,10 @@ journal.limits size: "10%" scope: user volume: "/home/user/project"
 
 | Code | Meaning | Typical fix |
 |---|---|---|
-| `E_INVALID_VALUE` | a value is out of its range, or a size budget of one volume is requested with `scope: user` | use a value within the range, or `scope: session` |
+| `E_INVALID_VALUE` | a value is out of its range, or `scope: session` is used by a request without a session | use a value within the range; set the request option `session` or use `scope: user` |
 | `E_NOT_FOUND` | no journal volume contains `volume` | omit `volume` or name a path on a volume with a journal |
-| `E_CONFIG` | the user configuration file is not valid | correct the file, then repeat the call |
+| `E_CONFIG` | the user configuration file is not valid TOML or UTF-8 | correct the file, then repeat the call |
+| `E_UNSUPPORTED` | `scope: user` and no user configuration file is configured for the journal | configure the location of the user configuration file or use `scope: session` |
 | `E_IO` | a file of the journal or the configuration cannot be written | check the permissions of the state directory |
 
 ## Related

@@ -124,7 +124,14 @@ pub(crate) fn switch(
             .map_err(Switch::Before),
         Exchange::Link => {
             fs.hard_link(scope, target, blob).map_err(Switch::Before)?;
-            if let Err(error) = fs.rename(scope, staged, target, RenameMode::Replace) {
+            // The second name of the previous file is durable before the
+            // target name changes; otherwise a crash can persist the rename
+            // without the link and lose the previous file.
+            let switched = blob
+                .parent()
+                .map_or(Ok(()), |dir| fs.sync_dir(scope, &dir))
+                .and_then(|()| fs.rename(scope, staged, target, RenameMode::Replace));
+            if let Err(error) = switched {
                 let _ = fs.remove_file(scope, blob);
                 return Err(Switch::Before(error));
             }
@@ -160,14 +167,20 @@ pub(crate) fn revert(
 /// metadata of the previous file: account identifier, ACL and alternate
 /// streams, which a replacement call may fail to carry over.
 pub(crate) fn security_kept(before: &ExtendedMeta, after: &ExtendedMeta) -> bool {
-    let streams = |meta: &ExtendedMeta| {
-        let mut names: Vec<&str> = meta.streams.iter().map(|s| s.name.as_str()).collect();
-        names.sort_unstable();
-        names
-    };
     before.account_sid == after.account_sid
         && before.acl == after.acl
-        && streams(before) == streams(after)
+        && stream_names(before) == stream_names(after)
+}
+
+/// Names of the alternate streams of an entry, sorted.
+fn stream_names(meta: &ExtendedMeta) -> Vec<&str> {
+    let mut names: Vec<&str> = meta
+        .streams
+        .iter()
+        .map(|stream| stream.name.as_str())
+        .collect();
+    names.sort_unstable();
+    names
 }
 
 #[cfg(test)]
@@ -190,22 +203,42 @@ mod tests {
 
     #[test]
     fn exchange_strategy_prefers_keeping_the_previous_file() {
-        let plan = plan(OverwriteStrategy::Exchange, &features(true, false, true, true), 1);
+        let plan = plan(
+            OverwriteStrategy::Exchange,
+            &features(true, false, true, true),
+            1,
+        );
         assert_eq!(plan.exchange, vec![Exchange::Names, Exchange::Link]);
         assert_eq!(plan.planned_mode(), PreserveMode::Exchange);
         assert!(!plan.copies_first());
-        let windows = super::plan(OverwriteStrategy::Exchange, &features(false, true, true, false), 1);
+        let windows = super::plan(
+            OverwriteStrategy::Exchange,
+            &features(false, true, true, false),
+            1,
+        );
         assert_eq!(windows.planned_mode(), PreserveMode::ReplaceBackup);
-        let link = super::plan(OverwriteStrategy::Exchange, &features(false, false, true, false), 1);
+        let link = super::plan(
+            OverwriteStrategy::Exchange,
+            &features(false, false, true, false),
+            1,
+        );
         assert_eq!(link.planned_mode(), PreserveMode::Hardlink);
     }
 
     #[test]
     fn several_links_or_clone_or_copy_strategy_copy_first() {
-        let shared = plan(OverwriteStrategy::Exchange, &features(true, true, true, false), 2);
+        let shared = plan(
+            OverwriteStrategy::Exchange,
+            &features(true, true, true, false),
+            2,
+        );
         assert!(shared.in_place && shared.copies_first());
         assert_eq!(shared.planned_mode(), PreserveMode::Copy);
-        let cloning = plan(OverwriteStrategy::CloneOrCopy, &features(true, true, true, true), 1);
+        let cloning = plan(
+            OverwriteStrategy::CloneOrCopy,
+            &features(true, true, true, true),
+            1,
+        );
         assert!(!cloning.in_place && cloning.copies_first());
         assert_eq!(cloning.planned_mode(), PreserveMode::Clone);
         assert_eq!(Exchange::Link.mode(), PreserveMode::Hardlink);
@@ -227,7 +260,10 @@ mod tests {
             switch(fs, &scope, variant, &target, &staged, &blob).unwrap();
             assert_eq!(fixture.read(&target), b"new", "{variant:?}");
             assert_eq!(fixture.read(&blob), b"old");
-            assert_eq!(fs.metadata(&blob, Follow::NoFollow).unwrap().file_id, before);
+            assert_eq!(
+                fs.metadata(&blob, Follow::NoFollow).unwrap().file_id,
+                before
+            );
             if variant != Exchange::Link {
                 revert(fs, &scope, &target, &staged, &blob).unwrap();
                 assert_eq!(fixture.read(&target), b"old");
@@ -235,6 +271,31 @@ mod tests {
             }
             assert_eq!(fs.copied(), 0);
         }
+    }
+
+    #[test]
+    fn hard_link_is_durable_before_the_target_changes() {
+        let fixture = Fixture::new();
+        let fs = &fixture.fs;
+        let scope = scope(OpId(1), ScopePurpose::Operation);
+        let target = fs.path("vol-a/a.txt");
+        let staged = fs.path("vol-a/.nurt-tmp-1-0");
+        let blobs = fs.path("vol-a/blobs");
+        std::fs::create_dir(blobs.as_path()).unwrap();
+        let blob = blobs.join_name("b").unwrap();
+        fixture.write(&target, b"old");
+        fixture.write(&staged, b"new");
+        fs.clear_log();
+        switch(fs, &scope, Exchange::Link, &target, &staged, &blob).unwrap();
+        let log = fs.log();
+        let link = log
+            .iter()
+            .position(|e| e.starts_with("hard_link "))
+            .unwrap();
+        let rename = log.iter().position(|e| e.starts_with("rename ")).unwrap();
+        let flush = format!("sync_dir {blobs}");
+        assert!(log[link..rename].contains(&flush), "{log:#?}");
+        assert_eq!(fixture.read(&blob), b"old");
     }
 
     #[test]
@@ -258,7 +319,9 @@ mod tests {
         assert_eq!(fixture.read(&target), b"old");
         assert!(!fixture.exists(&blob));
         let result = switch(fs, &scope, Exchange::Backup, &target, &staged, &blob);
-        assert!(matches!(result, Err(Switch::Before(error)) if error.kind == FsErrorKind::Unsupported));
+        assert!(
+            matches!(result, Err(Switch::Before(error)) if error.kind == FsErrorKind::Unsupported)
+        );
     }
 
     #[test]
@@ -266,7 +329,10 @@ mod tests {
         let fixture = Fixture::new();
         let path = fixture.fs.path("vol-a/a.txt");
         fixture.write(&path, b"x");
-        let before = fixture.fs.extended_metadata(&path, Follow::NoFollow).unwrap();
+        let before = fixture
+            .fs
+            .extended_metadata(&path, Follow::NoFollow)
+            .unwrap();
         assert!(security_kept(&before, &before));
         let mut other = before.clone();
         other.account_sid = Some("S-1-5-21-1".to_owned());

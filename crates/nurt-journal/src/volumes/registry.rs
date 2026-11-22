@@ -189,7 +189,9 @@ impl Registry {
         let scope = maintenance_scope();
         let file = self.file()?;
         ensure_dir_all(fs, &scope, &self.dir)?;
-        let lock = self.dir.join_name(&format!("{VOLUMES_FILE}{LOCK_SUFFIX}"))?;
+        let lock = self
+            .dir
+            .join_name(&format!("{VOLUMES_FILE}{LOCK_SUFFIX}"))?;
         let _lock = fs.lock_exclusive(&lock, LOCK_TIMEOUT)?;
         let mut volumes = self.load(fs)?;
         volumes.retain(|existing| existing.mount != record.mount);
@@ -229,7 +231,12 @@ fn relocate(journal: &AbsPath, from: &AbsPath, to: &AbsPath) -> Option<AbsPath> 
 fn is_dir(fs: &dyn Fs, path: &AbsPath) -> FsResult<bool> {
     match fs.metadata(path, Follow::NoFollow) {
         Ok(meta) => Ok(meta.kind == FileKind::Directory),
-        Err(error) if matches!(error.kind, FsErrorKind::NotFound | FsErrorKind::NotADirectory) => {
+        Err(error)
+            if matches!(
+                error.kind,
+                FsErrorKind::NotFound | FsErrorKind::NotADirectory
+            ) =>
+        {
             Ok(false)
         }
         Err(error) => Err(error),
@@ -287,7 +294,10 @@ pub fn state_dir(host: &dyn Host, config: &StateConfig) -> FsResult<AbsPath> {
     let info = host.info();
     let home = &info.home;
     let dir = match info.os {
-        Os::Macos => home.join("Library").join("Application Support").join("Nurt"),
+        Os::Macos => home
+            .join("Library")
+            .join("Application Support")
+            .join("Nurt"),
         Os::Windows => absolute_var(host, "LOCALAPPDATA")
             .unwrap_or_else(|| home.join("AppData").join("Local"))
             .join("Nurt"),
@@ -323,6 +333,7 @@ mod tests {
         total: 1 << 30,
         available: 1 << 29,
         quota_remaining: None,
+        quota_limit: None,
         purgeable_system: None,
     };
 

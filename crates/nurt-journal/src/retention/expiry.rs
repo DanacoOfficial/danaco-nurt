@@ -36,10 +36,12 @@ use nurt_contracts::journal::{
 use nurt_fs::failpoint::FailPoint;
 
 use super::age::{AGE_STATE_FILE, AgeEvaluator, AgeState};
+use super::ctx::CtxStore;
 use super::limits::runtime_limits;
 use super::port::{Area, EntryFacts, RetentionStore, StepKind, StepMark, VolumeFacts};
 use super::resolve::{ResolutionInput, RetentionResolver, RuntimeLimits};
 use super::tomb::{self, Tombstone};
+use crate::store::JournalCtx;
 
 /// Whether retention may expire an entry in this state.
 pub(crate) fn expirable(state: EntryState) -> bool {
@@ -272,16 +274,27 @@ impl Snapshot {
     }
 
     /// Effective limits of every volume.
+    ///
+    /// A budget given as a share of free space is computed from the free
+    /// bytes of the volume plus the bytes held by the journal there (`F + J`),
+    /// so that the journal does not shrink its own budget by growing.
     pub(crate) fn limits(&self) -> BTreeMap<AbsPath, EffectiveRetention> {
         let resolver = self.resolver();
         self.volumes
             .iter()
             .map(|volume| {
                 let key = volume.mount.to_language_string();
-                (
-                    volume.mount.clone(),
-                    resolver.resolve(&input_of(volume, &key)),
-                )
+                let held = self
+                    .entries
+                    .iter()
+                    .filter(|part| part.volume == volume.mount && holds_space(part.state))
+                    .fold(0_u64, |sum, part| sum.saturating_add(part.bytes_held));
+                let input = ResolutionInput {
+                    mount: &key,
+                    capacity: volume.capacity,
+                    free_with_journal: volume.free.saturating_add(held),
+                };
+                (volume.mount.clone(), resolver.resolve(&input))
             })
             .collect()
     }
@@ -332,16 +345,6 @@ impl Snapshot {
 pub(crate) fn resolve_config(store: &dyn RetentionStore) -> Result<Resolved> {
     resolve(&store.config_layers(), store.project_trusted())
         .map_err(|error| Error::new(ErrorCode::Config, error.to_string()))
-}
-
-/// Resolution facts of a volume; `key` is its mount point in the language
-/// form, as written in `journal.volume."<mount>"`.
-pub(crate) fn input_of<'a>(volume: &VolumeFacts, key: &'a str) -> ResolutionInput<'a> {
-    ResolutionInput {
-        mount: key,
-        capacity: volume.capacity,
-        free_with_journal: volume.free_with_journal,
-    }
 }
 
 /// Volumes selected by a `volume` parameter: all volumes, or the volume
@@ -522,6 +525,44 @@ pub(crate) fn complete_reap_store(store: &dyn RetentionStore, op: OpId) -> Resul
         })
 }
 
+/// Expires the entries of the journal store over any limit (steps, age,
+/// size); the expiry pass of `JournalStore::sweep` and the step of
+/// `JournalStore::recover` that follows recovery. The recovery before the
+/// first transaction of a process does not run it.
+///
+/// # Errors
+///
+/// Returns `E_CONFIG` for an invalid configuration, `E_IN_USE` or `E_IO`
+/// when an entry lock cannot be taken, and `E_IO` when a journal directory
+/// cannot be read or an entry cannot be reclaimed.
+pub(crate) fn sweep(ctx: &JournalCtx) -> Result<SweepReport> {
+    sweep_store(&CtxStore(ctx))
+}
+
+/// Completes the reclaim of an entry of the journal store moved to
+/// `reap/<N>`, under the lock of the entry; idempotent. Used by recovery and
+/// by reclaim for space.
+///
+/// # Errors
+///
+/// Returns `E_JOURNAL_NOOP` when the entry is neither being reclaimed nor
+/// expired, `E_IN_USE` when another process holds the entry lock and `E_IO`
+/// when the reclaim cannot be completed.
+pub(crate) fn complete_reap(ctx: &JournalCtx, op: OpId) -> Result<ExpiredEntry> {
+    complete_reap_store(&CtxStore(ctx), op)
+}
+
+/// Releases entries of the journal store immediately (`journal.purge`).
+///
+/// # Errors
+///
+/// Returns `E_NOT_FOUND` when no journal volume contains the requested path
+/// and `E_IO` when an entry cannot be reclaimed or the audit record cannot be
+/// written.
+pub(crate) fn purge(ctx: &JournalCtx, request: &PurgeRequest) -> Result<PurgeOutcome> {
+    purge_store(&CtxStore(ctx), request)
+}
+
 /// Decision of the size budget for new journal data on one volume.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum BudgetAdmission {
@@ -611,6 +652,50 @@ pub(crate) fn oversize_note(op_size: u64, limits: &EffectiveRetention) -> Option
             size: op_size,
             limit,
         })
+}
+
+/// Reserves room in the size budget of the volume mounted at `mount` for an
+/// operation that will keep `extra` bytes of previous content, expiring the
+/// oldest removable entries first.
+///
+/// The entries of the volume are read only when a size budget is set and the
+/// operation does not already exceed a limit, so a journal without a budget
+/// pays nothing at admission. Entries are expired in the same way as by
+/// [`sweep`], with the reason `size`.
+///
+/// # Errors
+///
+/// Returns `E_CONFIG` for an invalid configuration, `E_IN_USE` or `E_IO` when
+/// an entry lock cannot be taken, and `E_IO` when the entries cannot be read
+/// or reclaimed.
+pub(crate) fn admit_size(
+    ctx: &JournalCtx,
+    mount: &AbsPath,
+    extra: u64,
+    op_size: u64,
+    limits: &EffectiveRetention,
+) -> Result<BudgetAdmission> {
+    let limits_only = budget_admission(&[], extra, op_size, limits);
+    if limits.max_size_bytes.is_none() || matches!(limits_only, BudgetAdmission::TooLarge { .. }) {
+        return Ok(limits_only);
+    }
+    let store = CtxStore(ctx);
+    let entries = store.entries(mount)?;
+    let admission = budget_admission(&entries, extra, op_size, limits);
+    if let BudgetAdmission::Fits { victims } = &admission
+        && !victims.is_empty()
+    {
+        let plan: Vec<ExpiredEntry> = victims
+            .iter()
+            .map(|op| ExpiredEntry {
+                op: *op,
+                reason: ExpiryReason::Size,
+            })
+            .collect();
+        let history_keep = resolve_config(&store)?.config.journal.history_keep;
+        execute(&store, &entries, &plan, history_keep)?;
+    }
+    Ok(admission)
 }
 
 #[cfg(test)]

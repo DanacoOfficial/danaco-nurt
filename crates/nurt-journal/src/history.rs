@@ -8,28 +8,30 @@
 //! its tombstone. Records built here carry no expiry time and nothing from
 //! which one can be derived; retention state is reported only by
 //! `journal.status`.
-#![cfg_attr(
-    not(test),
-    expect(dead_code, reason = "entry points are called by the journal store")
-)]
 
-use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::Write as _;
 
 use nurt_contracts::env::WallTime;
 use nurt_contracts::error::Result;
-use nurt_contracts::fs::{ContentHash, VolumeId};
+use nurt_contracts::fs::{AbsPath, ContentHash, Follow, FsErrorKind, VolumeId};
 use nurt_contracts::journal::{
-    EntryState, HistoryQuery, ItemDetail, OpId, OpKind, OpState, OperationDetails,
-    OperationRecord, SessionId, TargetAction, TargetIndex, TargetOutcome, TargetPath, UndoScope,
+    EntryState, HistoryQuery, ItemDetail, OpId, OpKind, OpState, OperationDetails, OperationRecord,
+    SessionId, TargetAction, TargetIndex, TargetOutcome, TargetPath, UndoScope,
 };
 use nurt_contracts::report::IrreversibleEntry;
+use nurt_contracts::value::{Instant, Size};
 
 use crate::conflict::{self, ItemKey, TargetProbe};
+use crate::layout::{self, EntryLayout};
 use crate::manifest::{
-    AfterRecord, ItemState, Items, Manifest, StateRecord, TargetRecord, TargetRole,
+    self, AfterRecord, ItemState, Items, Manifest, StateRecord, TargetRecord, TargetRole,
 };
-use crate::pin::PinSet;
+use crate::pin::{self, PinSet};
+use crate::retention::ctx::CtxStore;
+use crate::retention::tomb;
+use crate::store::JournalCtx;
 
 /// Number of entries listed when the query sets no limit.
 pub(crate) const DEFAULT_LIMIT: u32 = 20;
@@ -142,11 +144,6 @@ impl JournalEntry {
         session.is_none_or(|session| self.session.as_ref() == Some(session))
     }
 
-    /// Item with the given target index.
-    pub(crate) fn item(&self, index: TargetIndex) -> Option<&EntryItem> {
-        self.items.iter().find(|item| item.target.index == index)
-    }
-
     fn has_deletion(&self) -> bool {
         self.items
             .iter()
@@ -167,8 +164,11 @@ impl JournalEntry {
         let mut items = Vec::new();
         let mut irreversible: Vec<IrreversibleEntry> = Vec::new();
         for (manifest, _, states) in parts {
-            let states: HashMap<TargetIndex, &ItemState> =
-                states.items.iter().map(|state| (state.index, state)).collect();
+            let states: HashMap<TargetIndex, &ItemState> = states
+                .items
+                .iter()
+                .map(|state| (state.index, state))
+                .collect();
             for marker in &manifest.irreversible {
                 if !irreversible.contains(marker) {
                     irreversible.push(marker.clone());
@@ -281,12 +281,248 @@ pub(crate) trait EntrySource {
     fn now(&self) -> WallTime;
 }
 
+/// One part of an entry as stored in the journal directory of its volume.
+pub(crate) struct StoredPart {
+    /// Journal directory of the volume.
+    pub(crate) root: AbsPath,
+    /// Directory of the entry.
+    pub(crate) entry: EntryLayout,
+    /// Manifest.
+    pub(crate) manifest: Manifest,
+    /// State file.
+    pub(crate) state: StateRecord,
+    /// Item state file.
+    pub(crate) items: Items,
+}
+
+/// Parts of an entry found in the active journals, ordered as the manifest
+/// lists its parts, and whether a part exists whose files cannot be read.
+///
+/// Fails with the file system error when an entry directory cannot be
+/// inspected.
+pub(crate) fn stored_parts(ctx: &JournalCtx, op: OpId) -> Result<(Vec<StoredPart>, bool)> {
+    let fs = ctx.fs.as_ref();
+    let mut parts = Vec::new();
+    let mut damaged = false;
+    for journal in ctx.active_journals() {
+        let entry = journal.entry(op)?;
+        match fs.metadata(entry.dir(), Follow::NoFollow) {
+            Ok(_) => {}
+            Err(error) if error.kind == FsErrorKind::NotFound => continue,
+            Err(error) => return Err(error.into()),
+        }
+        let read = manifest::read_manifest(fs, &entry.manifest()?).and_then(|found| {
+            let state = manifest::read_state(fs, &entry.state()?)?;
+            let items = manifest::read_items(fs, &entry.items()?)?;
+            Ok((found, state, items))
+        });
+        match read {
+            Ok((manifest, state, items)) => parts.push(StoredPart {
+                root: journal.root().clone(),
+                entry,
+                manifest,
+                state,
+                items,
+            }),
+            Err(_) => damaged = true,
+        }
+    }
+    let order: Vec<AbsPath> = parts
+        .first()
+        .map(|part| part.manifest.parts.iter().map(|p| p.dir.clone()).collect())
+        .unwrap_or_default();
+    parts.sort_by_key(|part| order.iter().position(|dir| dir == &part.root));
+    Ok((parts, damaged))
+}
+
+/// Records of the targets of an entry by target index, with the directory
+/// of their part.
+pub(crate) type RecordIndex<'a> = HashMap<TargetIndex, (&'a EntryLayout, &'a TargetRecord)>;
+
+/// Index of the records among the parts of an entry. Of several records of
+/// one target (a rename across volumes) the last one that keeps preserved
+/// data is taken, or the last one when none does.
+pub(crate) fn record_index(parts: &[StoredPart]) -> RecordIndex<'_> {
+    let mut index = RecordIndex::new();
+    for part in parts {
+        for record in &part.manifest.targets {
+            match index.entry(record.index) {
+                Entry::Occupied(mut slot) => {
+                    if record.before.blob.is_some() || slot.get().1.before.blob.is_none() {
+                        slot.insert((&part.entry, record));
+                    }
+                }
+                Entry::Vacant(slot) => {
+                    slot.insert((&part.entry, record));
+                }
+            }
+        }
+    }
+    index
+}
+
+/// Files holding the content preserved for the targets `indexes` of entry
+/// `op`; targets for which the entry keeps no content are left out. The
+/// entry is read once.
+///
+/// Fails when the entry cannot be read or names a file outside its
+/// directory.
+pub(crate) fn preserved_files(
+    ctx: &JournalCtx,
+    op: OpId,
+    indexes: &[TargetIndex],
+) -> Result<Vec<(TargetIndex, AbsPath)>> {
+    let (parts, _) = stored_parts(ctx, op)?;
+    let records = record_index(&parts);
+    let mut files = Vec::with_capacity(indexes.len());
+    for index in indexes {
+        if let Some((entry, record)) = records.get(index)
+            && let Some(name) = &record.before.blob
+        {
+            files.push((*index, entry.resolve(name)?));
+        }
+    }
+    Ok(files)
+}
+
+/// Entries of the journal directories of all active volumes, their
+/// tombstones and their pin files.
+///
+/// An entry whose manifest cannot be read is listed as corrupt from its row
+/// in the account index; a damaged pin file counts as empty.
+impl EntrySource for JournalCtx {
+    fn entry_ids(&self) -> Result<Vec<OpId>> {
+        let fs = self.fs.as_ref();
+        let store = CtxStore(self);
+        let mut ids = BTreeSet::new();
+        for journal in self.active_journals() {
+            ids.extend(layout::entries(fs, &journal)?);
+            let mount = fs.volume(journal.root())?.mount;
+            ids.extend(tomb::list(&store, &mount)?);
+        }
+        Ok(ids.into_iter().rev().collect())
+    }
+
+    fn load(&self, op: OpId) -> Result<Option<JournalEntry>> {
+        let (parts, damaged) = stored_parts(self, op)?;
+        if parts.is_empty() {
+            return if damaged {
+                corrupt_from_index(self, op)
+            } else {
+                tombstone_entry(self, op)
+            };
+        }
+        let joined: Vec<(Manifest, StateRecord, Items)> = parts
+            .into_iter()
+            .map(|part| (part.manifest, part.state, part.items))
+            .collect();
+        Ok(JournalEntry::from_parts(&joined).map(|mut entry| {
+            if damaged {
+                entry.state = EntryState::Corrupt;
+            }
+            entry
+        }))
+    }
+
+    fn pins(&self) -> Result<PinSet> {
+        let mut merged = PinSet::default();
+        for journal in self.active_journals() {
+            merged.merge(&pin::read_pin_file(self, &journal)?);
+        }
+        Ok(merged)
+    }
+
+    fn now(&self) -> WallTime {
+        self.clock.now()
+    }
+}
+
+/// Entry built from the tombstone of an expired entry.
+fn tombstone_entry(ctx: &JournalCtx, op: OpId) -> Result<Option<JournalEntry>> {
+    let store = CtxStore(ctx);
+    for journal in ctx.active_journals() {
+        let mount = ctx.fs.volume(journal.root())?.mount;
+        if let Some(found) = tomb::read(&store, &mount, op)? {
+            return Ok(Some(JournalEntry {
+                op,
+                time: found.time,
+                kind: found.kind,
+                session: None,
+                state: found.state,
+                bulk: found.files > 1,
+                volumes: Vec::new(),
+                items: Vec::new(),
+                files: found.files,
+                bytes: found.bytes,
+                irreversible: found
+                    .irreversible
+                    .into_iter()
+                    .map(IrreversibleEntry::new)
+                    .collect(),
+                undo_of: Vec::new(),
+                redo_of: None,
+                scope: None,
+                ast_hash: UNSEALED,
+                manifest_hash: UNSEALED,
+                chain: None,
+            }));
+        }
+    }
+    Ok(None)
+}
+
+/// Corrupt entry built from its row in the account index; `None` when the
+/// index cannot be read or has no row for the entry.
+fn corrupt_from_index(ctx: &JournalCtx, op: OpId) -> Result<Option<JournalEntry>> {
+    let Ok(rows) = manifest::read_index(ctx.fs.as_ref(), &ctx.state.index()?) else {
+        return Ok(None);
+    };
+    Ok(rows.into_iter().find(|row| row.op == op).map(|row| {
+        let manifest_hash = row.digest().unwrap_or(UNSEALED);
+        JournalEntry {
+            op,
+            time: row.time,
+            kind: row.kind,
+            session: row.session,
+            state: EntryState::Corrupt,
+            bulk: row.bulk,
+            volumes: row.parts.into_iter().map(|part| part.vol).collect(),
+            items: Vec::new(),
+            files: 0,
+            bytes: 0,
+            irreversible: Vec::new(),
+            undo_of: Vec::new(),
+            redo_of: None,
+            scope: None,
+            ast_hash: UNSEALED,
+            manifest_hash,
+            chain: None,
+        }
+    }))
+}
+
+/// Lists the entries of the journal of the account, newest first.
+///
+/// Fails as [`history_with`].
+pub(crate) fn history(ctx: &JournalCtx, query: &HistoryQuery) -> Result<Vec<OperationRecord>> {
+    history_with(ctx, query)
+}
+
+/// Details of one entry of the journal of the account.
+///
+/// Fails as [`details_with`].
+pub(crate) fn details(ctx: &JournalCtx, op: OpId) -> Result<OperationDetails> {
+    details_with(ctx, op)
+}
+
 /// Lists entries, newest first, filtered by the query.
 ///
 /// Entries in transient states are not listed; expiring and corrupt entries
 /// are listed as expired. Without a limit at most [`DEFAULT_LIMIT`] entries
 /// are returned.
-pub(crate) fn history<S>(store: &S, query: &HistoryQuery) -> Result<Vec<OperationRecord>>
+///
+/// Fails with the error of the entry source.
+pub(crate) fn history_with<S>(store: &S, query: &HistoryQuery) -> Result<Vec<OperationRecord>>
 where
     S: EntrySource + TargetProbe + ?Sized,
 {
@@ -327,7 +563,7 @@ where
 /// Fails with `E_JOURNAL_NOOP` for an unknown entry or an entry in a
 /// transient state, and with `E_JOURNAL_CORRUPT` for an entry that failed
 /// its integrity check.
-pub(crate) fn details<S>(store: &S, op: OpId) -> Result<OperationDetails>
+pub(crate) fn details_with<S>(store: &S, op: OpId) -> Result<OperationDetails>
 where
     S: EntrySource + ?Sized,
 {
@@ -350,22 +586,23 @@ where
 /// Record of `history` for an entry in a listed state.
 pub(crate) fn record(entry: &JournalEntry, state: OpState, pinned: bool) -> OperationRecord {
     OperationRecord {
-        id: entry.op,
-        time: entry.time,
-        kind: entry.kind.clone(),
+        id: entry.op.0,
+        time: Instant::saturating_from_wall(entry.time),
+        kind: entry.kind.command.clone(),
+        action: entry.kind.action.clone(),
         summary: summary(entry),
         state,
         files: entry.files,
-        bytes: entry.bytes,
+        bytes: Size::from_bytes(entry.bytes),
         irreversible: entry.irreversible.clone(),
         bulk: entry.bulk,
-        session: entry.session.clone(),
-        undo_of: entry.undo_of.clone(),
-        redo_of: entry.redo_of,
+        session: entry.session.as_ref().map(|session| session.0.clone()),
+        undo_of: entry.undo_of.iter().map(|op| op.0).collect(),
+        redo_of: entry.redo_of.map(|op| op.0),
         undo_scope: entry.scope,
-        ast_hash: entry.ast_hash,
-        manifest_hash: entry.manifest_hash,
-        chain: entry.chain,
+        ast_hash: entry.ast_hash.to_string(),
+        manifest_sha256: entry.manifest_hash.to_string(),
+        chain: entry.chain.map(|chain| chain.to_string()),
         pinned,
     }
 }
@@ -500,8 +737,8 @@ mod tests {
     use nurt_contracts::error::ErrorCode;
     use nurt_contracts::journal::{EntryState, HistoryQuery, OpId, OpState, PinRequest};
 
-    use super::{DEFAULT_LIMIT, details, history};
-    use crate::pin::pin;
+    use super::{DEFAULT_LIMIT, details_with as details, history_with as history};
+    use crate::pin::pin_with as pin;
     use crate::undo::testkit::{TestJournal, abs, fs_path};
 
     fn query() -> HistoryQuery {
@@ -512,31 +749,68 @@ mod tests {
     fn history_lists_newest_first_with_default_limit() {
         let journal = TestJournal::new();
         for n in 0..25 {
-            journal.op(None).create(&format!("/home/user/f{n}"), b"x").commit();
+            journal
+                .op(None)
+                .create(&format!("/home/user/f{n}"), b"x")
+                .commit();
         }
         let records = history(&journal, &query()).unwrap();
         assert_eq!(records.len(), usize::try_from(DEFAULT_LIMIT).unwrap());
-        assert_eq!(records[0].id, OpId(25));
-        assert_eq!(records[19].id, OpId(6));
+        assert_eq!(records[0].id, 25);
+        assert_eq!(records[19].id, 6);
     }
 
     #[test]
     fn history_applies_id_before_since_and_limit() {
         let journal = TestJournal::new();
         for n in 0..6 {
-            journal.op(None).create(&format!("/home/user/f{n}"), b"x").commit();
+            journal
+                .op(None)
+                .create(&format!("/home/user/f{n}"), b"x")
+                .commit();
         }
-        let single = history(&journal, &HistoryQuery { id: Some(OpId(3)), ..query() }).unwrap();
-        assert_eq!(single.iter().map(|r| r.id).collect::<Vec<_>>(), [OpId(3)]);
-        let range = history(
+        let single = history(
             &journal,
-            &HistoryQuery { before: Some(OpId(5)), since: Some(OpId(2)), ..query() },
+            &HistoryQuery {
+                id: Some(OpId(3)),
+                ..query()
+            },
         )
         .unwrap();
-        assert_eq!(range.iter().map(|r| r.id).collect::<Vec<_>>(), [OpId(4), OpId(3)]);
-        let limited = history(&journal, &HistoryQuery { limit: Some(2), ..query() }).unwrap();
+        assert_eq!(
+            single.iter().map(|r| OpId(r.id)).collect::<Vec<_>>(),
+            [OpId(3)]
+        );
+        let range = history(
+            &journal,
+            &HistoryQuery {
+                before: Some(OpId(5)),
+                since: Some(OpId(2)),
+                ..query()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            range.iter().map(|r| OpId(r.id)).collect::<Vec<_>>(),
+            [OpId(4), OpId(3)]
+        );
+        let limited = history(
+            &journal,
+            &HistoryQuery {
+                limit: Some(2),
+                ..query()
+            },
+        )
+        .unwrap();
         assert_eq!(limited.len(), 2);
-        let unknown = history(&journal, &HistoryQuery { id: Some(OpId(99)), ..query() }).unwrap();
+        let unknown = history(
+            &journal,
+            &HistoryQuery {
+                id: Some(OpId(99)),
+                ..query()
+            },
+        )
+        .unwrap();
         assert!(unknown.is_empty());
     }
 
@@ -548,15 +822,42 @@ mod tests {
         journal.op(None).delete("/home/user/a").commit();
         journal.op(None).create("/home/user/b", b"b").commit();
         journal.expire(OpId(1));
-        let expired = history(&journal, &HistoryQuery { state: Some(OpState::Expired), ..query() })
-            .unwrap();
-        assert_eq!(expired.iter().map(|r| r.id).collect::<Vec<_>>(), [OpId(1)]);
-        let by_path =
-            history(&journal, &HistoryQuery { path: Some(abs("/home/user/a")), ..query() })
-                .unwrap();
-        assert_eq!(by_path.iter().map(|r| r.id).collect::<Vec<_>>(), [OpId(2)]);
-        let deleted = history(&journal, &HistoryQuery { deleted_only: true, ..query() }).unwrap();
-        assert_eq!(deleted.iter().map(|r| r.id).collect::<Vec<_>>(), [OpId(2)]);
+        let expired = history(
+            &journal,
+            &HistoryQuery {
+                state: Some(OpState::Expired),
+                ..query()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            expired.iter().map(|r| OpId(r.id)).collect::<Vec<_>>(),
+            [OpId(1)]
+        );
+        let by_path = history(
+            &journal,
+            &HistoryQuery {
+                path: Some(abs("/home/user/a")),
+                ..query()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            by_path.iter().map(|r| OpId(r.id)).collect::<Vec<_>>(),
+            [OpId(2)]
+        );
+        let deleted = history(
+            &journal,
+            &HistoryQuery {
+                deleted_only: true,
+                ..query()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            deleted.iter().map(|r| OpId(r.id)).collect::<Vec<_>>(),
+            [OpId(2)]
+        );
     }
 
     #[test]
@@ -568,14 +869,21 @@ mod tests {
         journal.set_state(OpId(2), EntryState::Prepared);
         journal.set_state(OpId(3), EntryState::Corrupt);
         let records = history(&journal, &query()).unwrap();
-        assert_eq!(records.iter().map(|r| r.id).collect::<Vec<_>>(), [OpId(3), OpId(1)]);
+        assert_eq!(
+            records.iter().map(|r| OpId(r.id)).collect::<Vec<_>>(),
+            [OpId(3), OpId(1)]
+        );
         assert_eq!(records[0].state, OpState::Expired);
     }
 
     #[test]
     fn history_shows_tombstones_as_expired_with_metrics() {
         let journal = TestJournal::new();
-        journal.op(None).create("/home/user/a", b"a").create("/home/user/b", b"b").commit();
+        journal
+            .op(None)
+            .create("/home/user/a", b"a")
+            .create("/home/user/b", b"b")
+            .commit();
         journal.expire(OpId(1));
         let records = history(&journal, &query()).unwrap();
         assert_eq!(records[0].state, OpState::Expired);
@@ -588,11 +896,19 @@ mod tests {
         let journal = TestJournal::new();
         journal.op(None).create("/home/user/a", b"a").commit();
         journal.op(None).create("/home/user/b", b"b").commit();
-        pin(&journal, &PinRequest { ids: vec![OpId(1)], release: false, until: None }).unwrap();
+        pin(
+            &journal,
+            &PinRequest {
+                ids: vec![OpId(1)],
+                release: false,
+                until: None,
+            },
+        )
+        .unwrap();
         let records = history(&journal, &query()).unwrap();
         assert!(!records[0].pinned);
         assert!(records[1].pinned);
-        journal.advance(Duration::from_secs(25 * 3600));
+        journal.advance(Duration::from_hours(25));
         let later = history(&journal, &query()).unwrap();
         assert!(!later[1].pinned);
     }
@@ -616,7 +932,11 @@ mod tests {
     #[test]
     fn details_reports_items_with_undone_and_released_markers() {
         let journal = TestJournal::new();
-        journal.op(None).create("/home/user/a", b"a").create("/home/user/b", b"b").commit();
+        journal
+            .op(None)
+            .create("/home/user/a", b"a")
+            .create("/home/user/b", b"b")
+            .commit();
         journal.mark_undone(OpId(1), 0, OpId(7));
         journal.release_item(OpId(1), 1);
         let found = details(&journal, OpId(1)).unwrap();
@@ -632,10 +952,19 @@ mod tests {
         let journal = TestJournal::new();
         journal.op(None).create("/home/user/a", b"a").commit();
         journal.op(None).create("/home/user/b", b"b").commit();
-        assert_eq!(details(&journal, OpId(9)).unwrap_err().code, ErrorCode::JournalNoop);
+        assert_eq!(
+            details(&journal, OpId(9)).unwrap_err().code,
+            ErrorCode::JournalNoop
+        );
         journal.set_state(OpId(1), EntryState::RollingBack);
-        assert_eq!(details(&journal, OpId(1)).unwrap_err().code, ErrorCode::JournalNoop);
+        assert_eq!(
+            details(&journal, OpId(1)).unwrap_err().code,
+            ErrorCode::JournalNoop
+        );
         journal.set_state(OpId(2), EntryState::Corrupt);
-        assert_eq!(details(&journal, OpId(2)).unwrap_err().code, ErrorCode::JournalCorrupt);
+        assert_eq!(
+            details(&journal, OpId(2)).unwrap_err().code,
+            ErrorCode::JournalCorrupt
+        );
     }
 }

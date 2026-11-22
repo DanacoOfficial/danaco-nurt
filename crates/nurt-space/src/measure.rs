@@ -8,8 +8,10 @@
 //! `volumeAvailableCapacityKey`, `lpFreeBytesAvailableToCaller`). The safety
 //! condition is `F ≥ R`, never `F + J ≥ R`, because installers check free space
 //! before they write. With quota awareness the remaining account quota bounds
-//! `F`. Purgeable space reported by macOS is not counted: the system gives no
-//! public way to make journal data purgeable.
+//! `F` and the size of the quota bounds the capacity `T`, from which the
+//! reserve of a quota-limited account `R_q` is derived. Purgeable space
+//! reported by macOS is not counted: the system gives no public way to make
+//! journal data purgeable.
 
 use std::time::Duration;
 
@@ -32,12 +34,17 @@ pub(crate) struct Measurement {
 
 impl Measurement {
     /// Reading derived from the figures reported by the file system.
+    ///
+    /// Back ends report the remaining quota and the quota size together; a
+    /// back end that reports only one of them still marks the account as
+    /// quota-limited.
     pub(crate) fn from_space(space: &SpaceInfo, quota_aware: bool) -> Self {
-        let quota = space.quota_remaining.filter(|_| quota_aware);
+        let remaining = space.quota_remaining.filter(|_| quota_aware);
+        let limit = space.quota_limit.filter(|_| quota_aware);
         Self {
-            free: quota.map_or(space.available, |remaining| space.available.min(remaining)),
-            total: space.total,
-            quota_limited: quota.is_some(),
+            free: remaining.map_or(space.available, |remaining| space.available.min(remaining)),
+            total: limit.map_or(space.total, |limit| space.total.min(limit)),
+            quota_limited: remaining.is_some() || limit.is_some(),
         }
     }
 }
@@ -210,7 +217,6 @@ pub(crate) mod testing {
     enum NodeKind {
         File,
         Dir,
-        Link,
     }
 
     #[derive(Debug, Clone, Copy)]
@@ -239,6 +245,7 @@ pub(crate) mod testing {
         pub(crate) info: VolumeInfo,
         capacity: u64,
         quota_remaining: Mutex<Option<u64>>,
+        quota_limit: Mutex<Option<u64>>,
         release_delay: Mutex<Duration>,
         per_file: Mutex<Duration>,
         fail_space: AtomicBool,
@@ -284,6 +291,7 @@ pub(crate) mod testing {
                 info: volume_info(false),
                 capacity,
                 quota_remaining: Mutex::new(None),
+                quota_limit: Mutex::new(None),
                 release_delay: Mutex::new(Duration::ZERO),
                 per_file: Mutex::new(Duration::ZERO),
                 fail_space: AtomicBool::new(false),
@@ -298,12 +306,6 @@ pub(crate) mod testing {
         /// Sets the bytes used by other programs.
         pub(crate) fn set_foreign(&self, bytes: u64) {
             self.state().foreign = bytes;
-        }
-
-        /// Adds bytes used by other programs, as a concurrent writer would.
-        pub(crate) fn add_foreign(&self, bytes: u64) {
-            let mut state = self.state();
-            state.foreign = state.foreign.saturating_add(bytes);
         }
 
         /// Writes `bytes` for another program when they fit, as one atomic
@@ -330,6 +332,10 @@ pub(crate) mod testing {
 
         pub(crate) fn set_quota_remaining(&self, remaining: Option<u64>) {
             *self.quota_remaining.lock().expect("quota") = remaining;
+        }
+
+        pub(crate) fn set_quota_limit(&self, limit: Option<u64>) {
+            *self.quota_limit.lock().expect("quota") = limit;
         }
 
         pub(crate) fn set_release_delay(&self, delay: Duration) {
@@ -361,17 +367,6 @@ pub(crate) mod testing {
                 Node {
                     kind: NodeKind::File,
                     size,
-                },
-            );
-        }
-
-        /// Creates a symbolic link whose target is not tracked.
-        pub(crate) fn put_link(&self, at: &AbsPath) {
-            self.state().nodes.insert(
-                at.as_path().to_path_buf(),
-                Node {
-                    kind: NodeKind::Link,
-                    size: 0,
                 },
             );
         }
@@ -526,6 +521,7 @@ pub(crate) mod testing {
                 total: self.capacity,
                 available: self.capacity.saturating_sub(used),
                 quota_remaining: *self.quota_remaining.lock().expect("quota"),
+                quota_limit: *self.quota_limit.lock().expect("quota"),
                 purgeable_system: None,
             })
         }
@@ -709,14 +705,14 @@ pub(crate) mod testing {
             if doomed.is_empty() {
                 return Err(not_found("remove_tree", path.as_path()));
             }
-            let mut stats = RemoveStats::default();
+            let mut removed = RemoveStats::default();
             for key in doomed {
                 if let Some(node) = state.nodes.remove(&key) {
                     match node.kind {
-                        NodeKind::Dir => stats.directories += 1,
-                        NodeKind::File | NodeKind::Link => stats.files += 1,
+                        NodeKind::Dir => removed.directories += 1,
+                        NodeKind::File => removed.files += 1,
                     }
-                    stats.bytes += node.size;
+                    removed.bytes += node.size;
                     self.release(&mut state, node.size);
                 }
             }
@@ -725,10 +721,10 @@ pub(crate) mod testing {
                 .log
                 .push(format!("remove_tree {}", path.as_path().display()));
             drop(state);
-            for _ in 0..stats.files {
+            for _ in 0..removed.files {
                 self.charge_file();
             }
-            Ok(stats)
+            Ok(removed)
         }
 
         fn create_dir(&self, _scope: &TxScope, path: &AbsPath, _mode: u32) -> FsResult<()> {
@@ -782,7 +778,10 @@ pub(crate) mod testing {
             Err(unsupported("truncate"))
         }
 
-        fn sync_dir(&self, _scope: &TxScope, _dir: &AbsPath) -> FsResult<()> {
+        fn sync_dir(&self, _scope: &TxScope, dir: &AbsPath) -> FsResult<()> {
+            self.state()
+                .log
+                .push(format!("sync_dir {}", dir.as_path().display()));
             Ok(())
         }
 
@@ -816,7 +815,15 @@ mod tests {
             total,
             available,
             quota_remaining,
+            quota_limit: None,
             purgeable_system: Some(1_000),
+        }
+    }
+
+    fn quota_space(total: u64, available: u64, remaining: u64, limit: u64) -> SpaceInfo {
+        SpaceInfo {
+            quota_limit: Some(limit),
+            ..space(total, available, Some(remaining))
         }
     }
 
@@ -838,6 +845,32 @@ mod tests {
     }
 
     #[test]
+    fn quota_size_bounds_capacity_when_quota_aware() {
+        let reading = Measurement::from_space(&quota_space(1_000_000, 4_000, 150, 1_000), true);
+        assert_eq!(reading.total, 1_000);
+        assert_eq!(reading.free, 150);
+        assert!(reading.quota_limited);
+        let larger_quota = Measurement::from_space(&quota_space(1_000, 400, 300, 1_000_000), true);
+        assert_eq!(larger_quota.total, 1_000);
+        let unaware = Measurement::from_space(&quota_space(1_000_000, 4_000, 150, 1_000), false);
+        assert_eq!(unaware.total, 1_000_000);
+        assert_eq!(unaware.free, 4_000);
+        assert!(!unaware.quota_limited);
+    }
+
+    #[test]
+    fn quota_size_alone_marks_the_account_quota_limited() {
+        let only_limit = SpaceInfo {
+            quota_limit: Some(500),
+            ..space(1_000, 400, None)
+        };
+        let reading = Measurement::from_space(&only_limit, true);
+        assert_eq!(reading.total, 500);
+        assert_eq!(reading.free, 400);
+        assert!(reading.quota_limited);
+    }
+
+    #[test]
     fn quota_is_ignored_when_not_quota_aware() {
         let reading = Measurement::from_space(&space(1_000, 400, Some(150)), false);
         assert_eq!(reading.free, 400);
@@ -855,8 +888,10 @@ mod tests {
         let volume = TestVolume::new(1_000);
         volume.set_foreign(300);
         volume.set_quota_remaining(Some(500));
+        volume.set_quota_limit(Some(800));
         let reading = measure(&volume, &volume_id(), true).expect("measure");
         assert_eq!(reading.free, 500);
+        assert_eq!(reading.total, 800);
         let reading = measure(&volume, &volume_id(), false).expect("measure");
         assert_eq!(reading.free, 700);
         volume.fail_space(true);
@@ -880,10 +915,7 @@ mod tests {
         let volume = TestVolume::new(1_000);
         volume.set_release_delay(Duration::from_millis(300));
         volume.put_file(&path("vol/a"), 400);
-        let scope = nurt_contracts::fs::TxScope::new_for_journal(
-            nurt_contracts::journal::OpId(1),
-            nurt_contracts::fs::ScopePurpose::Reclaim,
-        );
+        let scope = crate::reclaim::reclaim_scope(nurt_contracts::journal::OpId(1));
         nurt_contracts::fs::FsWrite::remove_file(&volume, &scope, &path("vol/a")).expect("remove");
         assert_eq!(volume.free(), 600);
         let reading = settle(

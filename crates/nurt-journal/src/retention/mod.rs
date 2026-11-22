@@ -11,15 +11,8 @@
 //! `history` ([`tomb`]). [`limits`] serves `journal.limits` and
 //! `journal.status`, the only place where retention state is reported.
 
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "entry points are called by the journal store, which delegates to them once every function exists"
-    )
-)]
-
 pub(crate) mod age;
+pub(crate) mod ctx;
 pub(crate) mod expiry;
 pub(crate) mod limits;
 pub(crate) mod port;

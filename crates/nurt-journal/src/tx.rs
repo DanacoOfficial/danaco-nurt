@@ -31,13 +31,9 @@
 //! targets are changed without preservation and carry the irreversible
 //! reason `journal_error`.
 
-#![cfg_attr(
-    not(test),
-    expect(dead_code, reason = "linked transactions are opened by the undo module")
-)]
-
 use std::io::{Seek, SeekFrom};
 
+use nurt_contracts::config::{AgeLimit, ByteLimit, Oversize, StepLimit};
 use nurt_contracts::env::ClockStamp;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{
@@ -46,12 +42,11 @@ use nurt_contracts::fs::{
     WriteHandle,
 };
 use nurt_contracts::journal::{
-    AdmissionDecision, AdmissionRequest, Applied, BeginRequest, CloneMode, Eligibility, Expect,
-    ExemptWrite, ExternalChange, InactiveReason, JournalNotable, Mutation, MutationTx, OpHandle,
-    OpId, PreserveMode, Preserved, RollbackReason, RollbackReport, ServiceLiveness, TargetAction,
-    TargetIndex, TargetOutcome, TargetPath, TargetSpec, UndoScope, UndoneCause,
+    AdmissionDecision, AdmissionRequest, Applied, BeginRequest, CloneMode, EffectiveRetention,
+    Eligibility, ExemptWrite, Expect, ExternalChange, JournalNotable, Mutation, MutationTx,
+    OpHandle, OpId, PreserveMode, Preserved, RollbackReason, RollbackReport, ServiceLiveness,
+    TargetAction, TargetIndex, TargetOutcome, TargetPath, TargetSpec, UndoScope, UndoneCause,
 };
-use nurt_contracts::config::{AgeLimit, ByteLimit, Oversize, StepLimit};
 use nurt_contracts::report::{Irreversible, IrreversibleEntry};
 use nurt_fs::failpoint::FailPoint;
 use sha2::{Digest, Sha256};
@@ -59,10 +54,11 @@ use sha2::{Digest, Sha256};
 use crate::blob::{self, HeldBytes};
 use crate::layout::{self, BlobId, BlobRole, EntryLayout, JournalLayout};
 use crate::manifest::{
-    self, AfterRecord, BeforeRecord, Expires, Integrity, IndexPart, IndexRow, ItemRef, Manifest,
+    self, AfterRecord, BeforeRecord, Expires, IndexPart, IndexRow, Integrity, ItemRef, Manifest,
     PartRef, StateRecord, TargetRecord, TargetRole,
 };
 use crate::overwrite::{self, Exchange, Plan, Switch};
+use crate::retention::expiry::{self, BudgetAdmission};
 use crate::seq;
 use crate::store::{self, Fault, JournalCtx, JournalLocation};
 
@@ -98,17 +94,6 @@ pub(crate) struct Link {
 
 /// Update of source entries after an undo entry is committed.
 pub(crate) type AfterCommit = Box<dyn FnOnce(&JournalCtx, OpId) -> Result<()> + Send + Sync>;
-
-/// Irreversible reason reported for a volume on which the journal is
-/// inactive.
-pub(crate) fn inactive_reason(reason: InactiveReason) -> Irreversible {
-    match reason {
-        InactiveReason::NetworkVolume => Irreversible::NetworkVolume,
-        InactiveReason::RemovableVolume => Irreversible::RemovableVolume,
-        InactiveReason::BelowReserve => Irreversible::NoSpaceForCopy,
-        _ => Irreversible::JournalInactive,
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Phase {
@@ -179,6 +164,14 @@ impl Target {
             .as_ref()
             .ok_or_else(|| misuse("the mutation needs a file system target"))
     }
+
+    /// Irreversible reason of the target, or else of the existing
+    /// destination it replaces.
+    fn irreversible(&self) -> Option<Irreversible> {
+        self.record
+            .irreversible
+            .or_else(|| self.dest.as_ref().and_then(|dest| dest.record.irreversible))
+    }
 }
 
 /// Content of a write.
@@ -209,6 +202,9 @@ pub(crate) struct Tx<'a> {
     ast: serde_json::Value,
     ast_hash: ContentHash,
     external_since: Option<std::time::Duration>,
+    /// Volumes for which entries were expired to make room for this
+    /// operation.
+    budgeted: Vec<nurt_contracts::fs::VolumeId>,
 }
 
 fn misuse(problem: &str) -> Error {
@@ -231,6 +227,7 @@ fn halted() -> Error {
         ErrorCode::Internal,
         "the transaction stopped at an injected crash",
     )
+    .with_problem("injected_crash")
 }
 
 fn stale(path: &AbsPath) -> Error {
@@ -372,6 +369,7 @@ impl<'a> Tx<'a> {
             uuid: uuid::Uuid::new_v4(),
             stamp: ctx.clock.stamp(),
             external_since: None,
+            budgeted: Vec::new(),
         }
     }
 
@@ -449,14 +447,14 @@ impl<'a> Tx<'a> {
             Err(Located::Skip(reason))
         };
         if let Eligibility::Inactive(reason) = self.ctx.admission.eligibility(volume) {
-            return skip(self, inactive_reason(reason));
+            return skip(self, reason.irreversible());
         }
         if self.ctx.admission.liveness() == ServiceLiveness::Down {
             return skip(self, Irreversible::JournalInactive);
         }
         let dir = match self.ctx.journals.locate(volume) {
             JournalLocation::Active(dir) => dir,
-            JournalLocation::Inactive(reason) => return skip(self, inactive_reason(reason)),
+            JournalLocation::Inactive(reason) => return skip(self, reason.irreversible()),
         };
         let Some(op) = self.op else {
             let reason = self.unavailable.unwrap_or(Irreversible::JournalError);
@@ -483,11 +481,18 @@ impl<'a> Tx<'a> {
         let scope = self.journal_scope();
         let layout = JournalLayout::new(dir);
         check_version(ctx, &scope, &layout)?;
+        let mut created = false;
         for path in layout.structure()? {
             match fs.create_dir(&scope, &path, JOURNAL_DIR_MODE) {
-                Err(error) if error.kind != FsErrorKind::Exists => return Err(error.into()),
-                _ => {}
+                Ok(()) => created = true,
+                Err(error) if error.kind == FsErrorKind::Exists => {}
+                Err(error) => return Err(error.into()),
             }
+        }
+        // The marker directory must be durable before the marker: a marker
+        // in a directory lost by a crash leaves its entry unrecovered.
+        if created {
+            fs.sync_dir(&scope, layout.root())?;
         }
         let lock = fs.lock_exclusive(&layout.entry_lock(op)?, ctx.settings.lock_timeout)?;
         drop(fs.create_new(&scope, &layout.pending(op)?)?);
@@ -571,8 +576,11 @@ impl<'a> Tx<'a> {
                 StepLimit::Unlimited => None,
             },
             after_seconds,
-            deadline: after_seconds
-                .map(|secs| self.stamp.wall.saturating_add(std::time::Duration::from_secs(secs))),
+            deadline: after_seconds.map(|secs| {
+                self.stamp
+                    .wall
+                    .saturating_add(std::time::Duration::from_secs(secs))
+            }),
         }
     }
 
@@ -592,7 +600,7 @@ impl<'a> Tx<'a> {
         let target = &self.parts[part];
         if target.prepared {
             let entry = target.entry.clone();
-            manifest::write_atomic(fs, &scope, &entry.tmp()?, &entry.manifest()?, &bytes)?;
+            manifest::write_atomic(fs, &scope, entry.dir(), &entry.manifest()?, &bytes)?;
             ctx.hit(FailPoint::ManifestSynced, None)?;
             return Ok(());
         }
@@ -626,10 +634,7 @@ impl<'a> Tx<'a> {
 
     /// Writes the prepared manifest of every part touched by the targets in
     /// `range`; a part that cannot be written degrades its new targets.
-    fn prepare_parts(
-        &mut self,
-        range: std::ops::Range<usize>,
-    ) -> std::result::Result<(), Fault> {
+    fn prepare_parts(&mut self, range: std::ops::Range<usize>) -> std::result::Result<(), Fault> {
         let mut touched: Vec<usize> = self.targets[range.clone()]
             .iter()
             .flat_map(|t| [t.part, t.dest.as_ref().and_then(|d| d.part)])
@@ -730,7 +735,13 @@ fn check_version(
         ))),
         Err(error) if error.kind == FsErrorKind::NotFound => {
             let text = format!("{}\n", layout::VERSION_TEXT);
-            manifest::write_atomic(ctx.fs.as_ref(), scope, layout.root(), &path, text.as_bytes())?;
+            manifest::write_atomic(
+                ctx.fs.as_ref(),
+                scope,
+                layout.root(),
+                &path,
+                text.as_bytes(),
+            )?;
             Ok(())
         }
         Err(error) => Err(error.into()),
@@ -938,10 +949,9 @@ impl Tx<'_> {
         let (mode, extra) = match (&action, before.exists) {
             (TargetAction::Attributes, _) => (PreserveMode::Meta, 0),
             (TargetAction::Append, true) => (PreserveMode::Append, 0),
-            (
-                TargetAction::Delete | TargetAction::Replace,
-                _,
-            ) => (PreserveMode::Moved, before.size.unwrap_or(0)),
+            (TargetAction::Delete | TargetAction::Replace, _) => {
+                (PreserveMode::Moved, before.size.unwrap_or(0))
+            }
             (TargetAction::ExternalWrite, true) if before.kind == Some(FileKind::File) => {
                 if self.external_budget_spent() {
                     self.targets[position].degrade(Irreversible::PreviousContentNotKept);
@@ -975,15 +985,27 @@ impl Tx<'_> {
         let id = BlobId::new(index, BlobRole::Previous);
         let record = &mut self.targets[position].record;
         record.before.store = mode;
-        if matches!(mode, PreserveMode::Moved | PreserveMode::Exchange | PreserveMode::ReplaceBackup
-            | PreserveMode::Hardlink | PreserveMode::Clone | PreserveMode::Copy)
-        {
+        if matches!(
+            mode,
+            PreserveMode::Moved
+                | PreserveMode::Exchange
+                | PreserveMode::ReplaceBackup
+                | PreserveMode::Hardlink
+                | PreserveMode::Clone
+                | PreserveMode::Copy
+        ) {
             record.before.blob = Some(id.content_name());
         }
-        if matches!(mode, PreserveMode::Moved | PreserveMode::Meta | PreserveMode::Exchange
-            | PreserveMode::ReplaceBackup | PreserveMode::Hardlink | PreserveMode::Clone
-            | PreserveMode::Copy)
-        {
+        if matches!(
+            mode,
+            PreserveMode::Moved
+                | PreserveMode::Meta
+                | PreserveMode::Exchange
+                | PreserveMode::ReplaceBackup
+                | PreserveMode::Hardlink
+                | PreserveMode::Clone
+                | PreserveMode::Copy
+        ) {
             record.before.meta = Some(id.meta_name());
         }
         if extra > 0 || mode.is_preserved() && record.before.blob.is_some() {
@@ -1016,21 +1038,49 @@ impl Tx<'_> {
             oversize_keep: limits.oversize.value == Oversize::Keep,
             op_size_limit,
         };
-        if let AdmissionDecision::Skip { reason } = self.ctx.admission.admit(&request) {
+        let skipped = match self.ctx.admission.admit(&request) {
+            AdmissionDecision::Skip { reason } => Some(reason),
+            _ => self.admit_size(volume, extra, op_size, &limits),
+        };
+        if let Some(reason) = skipped {
             if reason == Irreversible::TooLargeForJournal {
-                let limit = op_size_limit
-                    .filter(|limit| op_size > *limit)
-                    .or(limits.max_size_bytes)
-                    .unwrap_or(0);
-                let notable = JournalNotable::JournalOversize {
-                    size: op_size,
-                    limit,
-                };
-                if !self.notable.contains(&notable) {
-                    self.notable.push(notable);
-                }
+                self.note_oversize(op_size, &limits);
             }
             self.targets[position].degrade(reason);
+        }
+    }
+
+    /// Checks the operation against the size limits of the volume.
+    ///
+    /// The oldest removable entries are expired for the whole operation once
+    /// per volume and transaction; later targets of the volume only check the
+    /// limits. A failure to expire entries never fails the operation: the
+    /// next expiry pass enforces the budget.
+    fn admit_size(
+        &mut self,
+        volume: &VolumeInfo,
+        extra: u64,
+        op_size: u64,
+        limits: &EffectiveRetention,
+    ) -> Option<Irreversible> {
+        let admission = if self.budgeted.contains(&volume.id) {
+            Ok(expiry::budget_admission(&[], extra, op_size, limits))
+        } else {
+            self.budgeted.push(volume.id.clone());
+            expiry::admit_size(self.ctx, &volume.mount, op_size, op_size, limits)
+        };
+        matches!(admission, Ok(BudgetAdmission::TooLarge { .. }))
+            .then_some(Irreversible::TooLargeForJournal)
+    }
+
+    fn note_oversize(&mut self, op_size: u64, limits: &EffectiveRetention) {
+        let notable =
+            expiry::oversize_note(op_size, limits).unwrap_or(JournalNotable::JournalOversize {
+                size: op_size,
+                limit: limits.max_size_bytes.unwrap_or(0),
+            });
+        if !self.notable.contains(&notable) {
+            self.notable.push(notable);
         }
     }
 
@@ -1068,7 +1118,7 @@ impl Tx<'_> {
         }
         let dest_part = match (&dest_volume, cross) {
             (Some(dest), true) => self.part_for(dest),
-            (_, false) => part.map_err(|_| Located::Skip(Irreversible::JournalError)),
+            (_, false) => part,
             (None, true) => Err(Located::Skip(Irreversible::JournalError)),
         };
         let Some(dest) = self.targets[position].dest.as_mut() else {
@@ -1121,12 +1171,25 @@ impl Tx<'_> {
             let size = self.targets[position].record.before.size.unwrap_or(0);
             self.admit(position, volume, size, op_size);
         }
+        // The prepared manifest names the block of the replaced destination,
+        // so that recovery can put it back after a crash at any later step.
+        if !cross {
+            let replaced = self.targets[position]
+                .dest
+                .as_ref()
+                .filter(|dest| dest.record.before.exists)
+                .map(|dest| dest.record.before.clone());
+            self.targets[position].record.replaced = replaced;
+        }
         Ok(())
     }
 
     /// Preserves the previous content and metadata of the targets in `range`
     /// (step 4); content moved or exchanged is preserved at apply.
-    fn preserve_content(&mut self, range: std::ops::Range<usize>) -> std::result::Result<bool, Fault> {
+    fn preserve_content(
+        &mut self,
+        range: std::ops::Range<usize>,
+    ) -> std::result::Result<bool, Fault> {
         let mut degraded = false;
         for position in range {
             let index = self.targets[position].index();
@@ -1186,7 +1249,13 @@ impl Tx<'_> {
             let dest_entry = self.parts[dest_part].entry.clone();
             let dest_id = BlobId::new(index, BlobRole::Destination);
             let meta = fs.extended_metadata(&dest.path, Follow::NoFollow)?;
-            blob::write_meta(fs, &scope, &dest_entry.tmp()?, &dest_entry.blob_meta(dest_id)?, &meta)?;
+            blob::write_meta(
+                fs,
+                &scope,
+                &dest_entry.tmp()?,
+                &dest_entry.blob_meta(dest_id)?,
+                &meta,
+            )?;
         }
         let copies_first = match (&self.targets[position].plan, mode) {
             (Some(plan), _) => plan.copies_first(),
@@ -1195,13 +1264,19 @@ impl Tx<'_> {
         };
         if copies_first && mode.is_preserved() {
             let allow_clone = mode == PreserveMode::Clone;
-            let used = blob::preserve_copy(fs, &scope, &path, &entry.tmp()?, &entry.blob(id)?, allow_clone)?;
+            let used = blob::preserve_copy(
+                fs,
+                &scope,
+                &path,
+                &entry.tmp()?,
+                &entry.blob(id)?,
+                allow_clone,
+            )?;
             ctx.hit(FailPoint::PreserveMoved, Some(index.0))?;
             let size = self.targets[position].record.before.size.unwrap_or(0);
             let record = &mut self.targets[position].record;
             record.before.store = used;
             record.bytes_held = size;
-            fs.sync_dir(&scope, &entry.blobs()?)?;
         }
         if mode == PreserveMode::Append {
             let before = &self.targets[position].record.before;
@@ -1286,13 +1361,11 @@ impl Tx<'_> {
             .iter()
             .map(|target| Preserved {
                 index: target.index(),
-                volume: target
-                    .part
-                    .map(|part| self.parts[part].volume.id.clone()),
+                volume: target.part.map(|part| self.parts[part].volume.id.clone()),
                 mode: target.mode(),
                 bytes_held: target.record.bytes_held,
                 before: target.record.before.to_state(),
-                irreversible: target.record.irreversible,
+                irreversible: target.irreversible(),
                 notable: target.record.notable.clone(),
             })
             .collect())
@@ -1343,9 +1416,14 @@ impl Tx<'_> {
     fn staged_path(&self, position: usize) -> Result<AbsPath> {
         let target = &self.targets[position];
         let path = target.fs_path()?;
-        let parent = path.parent().ok_or_else(|| misuse("a root cannot be written"))?;
+        let parent = path
+            .parent()
+            .ok_or_else(|| misuse("a root cannot be written"))?;
         parent
-            .join_name(&layout::staged_name(self.op.unwrap_or(OpId(0)), target.index()))
+            .join_name(&layout::staged_name(
+                self.op.unwrap_or(OpId(0)),
+                target.index(),
+            ))
             .map_err(|error| target_error(target.index(), error))
     }
 
@@ -1388,9 +1466,9 @@ impl Tx<'_> {
             Mutation::AppendBytes(bytes) => self.append(position, &bytes),
             Mutation::Remove => self.remove(position),
             Mutation::Rename => self.rename(position),
-            Mutation::CreateDir { mode } => self.create(position, |fs, scope, path| {
-                fs.create_dir(scope, path, mode)
-            }),
+            Mutation::CreateDir { mode } => {
+                self.create(position, |fs, scope, path| fs.create_dir(scope, path, mode))
+            }
             Mutation::CreateLink { target, kind } => self.create(position, |fs, scope, path| {
                 fs.create_link(scope, &target, path, kind)
             }),
@@ -1401,11 +1479,12 @@ impl Tx<'_> {
                 let target = &self.targets[position];
                 self.check_expect(target)?;
                 let path = target.fs_path()?.clone();
-                self.ctx
-                    .fs
-                    .set_meta(&self.scope(), &path, &change)
+                let fs = self.ctx.fs.as_ref();
+                fs.set_meta(&self.scope(), &path, &change)
                     .map_err(|error| target_error(index, error))?;
                 self.targets[position].changed = true;
+                blob::sync_entry(fs, &self.scope(), &path)
+                    .map_err(|error| target_error(index, error))?;
                 self.finish(position, None)
             }
             Mutation::ProviderSet(value) => self.provider(position, Some(value)),
@@ -1427,7 +1506,10 @@ impl Tx<'_> {
         };
         let state = after.to_state();
         self.targets[position].record.after = Some(after);
-        Ok(Applied { index, after: state })
+        Ok(Applied {
+            index,
+            after: state,
+        })
     }
 
     fn provider(
@@ -1456,7 +1538,10 @@ impl Tx<'_> {
         };
         let state = after.to_state();
         self.targets[position].record.after = Some(after);
-        Ok(Applied { index, after: state })
+        Ok(Applied {
+            index,
+            after: state,
+        })
     }
 
     fn create(
@@ -1470,11 +1555,13 @@ impl Tx<'_> {
         if !(target.spec.action == TargetAction::Replace && target.changed) {
             self.check_expect(target)?;
         }
-        make(self.ctx.fs.as_ref(), &self.scope(), &path)
-            .map_err(|error| target_error(index, error))?;
+        let fs = self.ctx.fs.as_ref();
+        make(fs, &self.scope(), &path).map_err(|error| target_error(index, error))?;
         let target = &mut self.targets[position];
         target.created = true;
         target.changed = true;
+        blob::sync_parents(fs, &self.scope(), &[&path])
+            .map_err(|error| target_error(index, error))?;
         self.finish(position, None)
     }
 }
@@ -1552,10 +1639,7 @@ impl Tx<'_> {
         }
         self.step(FailPoint::StageWritten, index)?;
         let complete = match &self.targets[position].old_meta {
-            Some(meta) if existed => handle
-                .apply_meta(meta)
-                .map_err(as_target)?
-                .is_complete(),
+            Some(meta) if existed => handle.apply_meta(meta).map_err(as_target)?.is_complete(),
             _ => true,
         };
         handle.sync(Durability::Full).map_err(as_target)?;
@@ -1633,6 +1717,10 @@ impl Tx<'_> {
                     Ok(()) => {
                         if variant == Exchange::Backup && !self.security_kept(position, path) {
                             if overwrite::revert(fs, &scope, path, staged, blob_path).is_ok() {
+                                // The staged file cannot carry the account, ACL
+                                // or streams of the target, so the new content
+                                // goes into the existing file after the copy.
+                                self.targets[position].record.in_place = true;
                                 break;
                             }
                             self.targets[position].degrade(Irreversible::JournalError);
@@ -1645,9 +1733,12 @@ impl Tx<'_> {
                         record.bytes_held = size;
                         record.in_place = false;
                         self.targets[position].staged = None;
-                        if let Ok(blobs) = self.parts[self.targets[position].part.unwrap_or(0)]
-                            .entry
-                            .blobs()
+                        // `switch` flushes the link of the hard-link variant
+                        // itself, before the target changes.
+                        if variant != Exchange::Link
+                            && let Ok(blobs) = self.parts[self.targets[position].part.unwrap_or(0)]
+                                .entry
+                                .blobs()
                             && fs.sync_dir(&scope, &blobs).is_err()
                         {
                             self.targets[position].record.irreversible =
@@ -1666,8 +1757,13 @@ impl Tx<'_> {
                 }
             }
             if fs.metadata(blob_path, Follow::NoFollow).is_err() {
-                let tmp = self.parts[self.targets[position].part.unwrap_or(0)].entry.tmp();
-                let plan_clone = self.targets[position].plan.as_ref().is_some_and(|p| p.clone);
+                let tmp = self.parts[self.targets[position].part.unwrap_or(0)]
+                    .entry
+                    .tmp();
+                let plan_clone = self.targets[position]
+                    .plan
+                    .as_ref()
+                    .is_some_and(|p| p.clone);
                 let copied = tmp.and_then(|tmp| {
                     blob::preserve_copy(fs, &scope, path, &tmp, blob_path, plan_clone)
                 });
@@ -1678,11 +1774,13 @@ impl Tx<'_> {
                         record.before.store = mode;
                         record.bytes_held = size;
                     }
-                    Err(error) => self.targets[position].degrade(if error.kind == FsErrorKind::NoSpace {
-                        Irreversible::NoSpaceForCopy
-                    } else {
-                        Irreversible::JournalError
-                    }),
+                    Err(error) => {
+                        self.targets[position].degrade(if error.kind == FsErrorKind::NoSpace {
+                            Irreversible::NoSpaceForCopy
+                        } else {
+                            Irreversible::JournalError
+                        })
+                    }
                 }
             }
         }
@@ -1744,6 +1842,9 @@ impl Tx<'_> {
         manifest::write_all(handle.as_mut(), bytes).map_err(as_target)?;
         handle.sync(Durability::Full).map_err(as_target)?;
         drop(handle);
+        if self.targets[position].created {
+            blob::sync_parents(fs, &scope, &[&path]).map_err(as_target)?;
+        }
         self.step(FailPoint::ApplySwitched, index)?;
         let hash = match self.targets[position].prefix.clone() {
             Some(mut prefix) => {
@@ -1791,13 +1892,20 @@ impl Tx<'_> {
                 Ok(()) => {
                     self.targets[position].changed = true;
                     self.account_moved(position);
+                    // The directory of the target is flushed by the caller.
+                    if blob::sync_parents(fs, &self.journal_scope(), &[&blob_path]).is_err() {
+                        self.targets[position].record.irreversible =
+                            Some(Irreversible::JournalError);
+                    }
                     return Ok(());
                 }
                 Err(error) if error.kind == FsErrorKind::CrossDevice => {
                     let copied = entry.tmp().and_then(|tmp| {
                         let temp = tmp.join_name(&format!("{id}.blob"))?;
                         blob::copy_entry(fs, &scope, path, &temp)?;
-                        fs.rename(&scope, &temp, &blob_path, RenameMode::NoReplace)
+                        blob::sync_tree(fs, &scope, &temp)?;
+                        fs.rename(&scope, &temp, &blob_path, RenameMode::NoReplace)?;
+                        blob::sync_parents(fs, &scope, &[&temp, &blob_path])
                     });
                     match copied {
                         Ok(()) => {
@@ -1812,7 +1920,11 @@ impl Tx<'_> {
                         }
                         Err(error) => {
                             let _ = entry.tmp().and_then(|tmp| {
-                                blob::remove_entry(fs, &scope, &tmp.join_name(&format!("{id}.blob"))?)
+                                blob::remove_entry(
+                                    fs,
+                                    &scope,
+                                    &tmp.join_name(&format!("{id}.blob"))?,
+                                )
                             });
                             self.targets[position].degrade(if error.kind == FsErrorKind::NoSpace {
                                 Irreversible::NoSpaceForCopy
@@ -1868,6 +1980,10 @@ impl Tx<'_> {
             blob::copy_entry(fs, &scope, &from, &to).map_err(as_target)?;
             if let Some(dest) = self.targets[position].dest.as_mut() {
                 dest.created = true;
+            }
+            blob::sync_tree(fs, &scope, &to).map_err(as_target)?;
+            if let Some(dest) = self.targets[position].dest.as_mut() {
+                dest.created = true;
                 dest.record.after = Some(AfterRecord {
                     exists: true,
                     ..AfterRecord::default()
@@ -1886,7 +2002,10 @@ impl Tx<'_> {
         let after = after_record(ctx, &to, None).map_err(as_target)?;
         let state = after.to_state();
         self.targets[position].record.after = Some(after);
-        Ok(Applied { index, after: state })
+        Ok(Applied {
+            index,
+            after: state,
+        })
     }
 
     fn displace_destination(&mut self, position: usize) -> Result<()> {
@@ -1909,21 +2028,44 @@ impl Tx<'_> {
                     .blob(BlobId::new(index, BlobRole::Destination))
                     .ok()
             });
+        // A destination that the journal should keep is never removed: when
+        // it cannot be moved into the entry, the operation fails and is
+        // rolled back with the destination in place. Only a destination on a
+        // volume without an active journal is replaced without preservation.
         let moved = match &blob_path {
-            Some(blob_path) => fs.rename(&scope, &path, blob_path, RenameMode::NoReplace).is_ok(),
+            Some(blob_path) => {
+                fs.rename(&scope, &path, blob_path, RenameMode::NoReplace)
+                    .map_err(|error| target_error(index, error))?;
+                true
+            }
             None => false,
         };
-        if !moved {
-            blob::remove_entry(fs, &scope, &path).map_err(|error| target_error(index, error))?;
-        }
+        // Both directories of the move are flushed before the destination
+        // name is reused; otherwise a crash can persist the rename over the
+        // destination without the move and lose the previous destination.
+        let durable = match &blob_path {
+            Some(blob_path) => {
+                blob::sync_parents(fs, &self.journal_scope(), &[&path, blob_path]).is_ok()
+            }
+            None => {
+                blob::remove_entry(fs, &scope, &path)
+                    .map_err(|error| target_error(index, error))?;
+                true
+            }
+        };
         if let Some(dest) = self.targets[position].dest.as_mut() {
             if moved {
                 dest.moved = true;
                 dest.record.bytes_held = dest.record.before.size.unwrap_or(0);
+                if !durable {
+                    dest.record.irreversible = Some(Irreversible::JournalError);
+                }
             } else {
                 dest.record.before.store = PreserveMode::None;
                 dest.record.before.blob = None;
-                dest.record.irreversible.get_or_insert(Irreversible::JournalError);
+                dest.record
+                    .irreversible
+                    .get_or_insert(Irreversible::JournalError);
             }
             if !dest.cross {
                 let mut replaced = dest.record.before.clone();
@@ -1946,12 +2088,12 @@ impl Tx<'_> {
         for part in 0..self.parts.len() {
             if self.parts[part].prepared && !self.parts[part].broken {
                 let entry = self.parts[part].entry.clone();
-                let written = entry.tmp().and_then(|tmp| {
+                let written = entry.state().and_then(|state| {
                     manifest::write_state(
                         fs,
                         &journal_scope,
-                        &tmp,
-                        &entry.state()?,
+                        entry.dir(),
+                        &state,
                         StateRecord::rolling_back(cause),
                     )
                 });
@@ -1971,14 +2113,21 @@ impl Tx<'_> {
             if !target.changed && !dest_changed {
                 continue;
             }
-            match self.restore(position) {
+            // A restored target is durable before the entry becomes undone and
+            // loses its marker; otherwise the rollback stays incomplete and
+            // recovery repeats it.
+            match self
+                .restore(position)
+                .and_then(|()| self.flush_restored(position))
+            {
                 Ok(()) => restored.push(self.targets[position].spec.path.clone()),
                 Err(_) => failed.push(self.targets[position].spec.path.clone()),
             }
             self.targets[position].changed = false;
-            if let Err(Fault::Halt) =
-                ctx.hit(FailPoint::RollbackRestored, Some(self.targets[position].index().0))
-            {
+            if let Err(Fault::Halt) = ctx.hit(
+                FailPoint::RollbackRestored,
+                Some(self.targets[position].index().0),
+            ) {
                 return Err(Fault::Halt);
             }
         }
@@ -2017,8 +2166,8 @@ impl Tx<'_> {
         {
             let entry = target.entry.clone();
             terminal = entry
-                .tmp()
-                .and_then(|tmp| manifest::write_state(fs, &scope, &tmp, &entry.state()?, state))
+                .state()
+                .and_then(|path| manifest::write_state(fs, &scope, entry.dir(), &path, state))
                 .is_ok();
         }
         let layout = target.layout.clone();
@@ -2052,7 +2201,10 @@ impl Tx<'_> {
                 blob::remove_entry(fs, &scope, &dest.path)?;
             }
             if target.changed && !dest.cross {
-                fs.rename(&scope, &dest.path, target.fs_path().map_err(|_| unsupported())?, RenameMode::NoReplace)?;
+                let from = target.fs_path().map_err(|_| unsupported())?;
+                fs.rename(&scope, &dest.path, from, RenameMode::NoReplace)?;
+                // Durable before the destination name receives its block.
+                blob::sync_parents(fs, &scope, &[&dest.path, from])?;
             }
             if dest.moved {
                 let blob = blob_path(BlobRole::Destination, dest.part)?;
@@ -2080,7 +2232,8 @@ impl Tx<'_> {
             }
             PreserveMode::Clone | PreserveMode::Copy if target.copied_on_move => {
                 let blob = blob_path(BlobRole::Previous, target.part)?;
-                blob::copy_entry(fs, &scope, &blob, &path).map(|_| ())
+                blob::copy_entry(fs, &scope, &blob, &path)?;
+                blob::sync_tree(fs, &scope, &path)
             }
             PreserveMode::Clone | PreserveMode::Copy => {
                 let blob = blob_path(BlobRole::Previous, target.part)?;
@@ -2104,7 +2257,8 @@ impl Tx<'_> {
                 let blob = blob_path(BlobRole::Previous, target.part)?;
                 match fs.rename(&scope, &blob, &path, RenameMode::NoReplace) {
                     Err(error) if error.kind == FsErrorKind::CrossDevice => {
-                        blob::copy_entry(fs, &scope, &blob, &path).map(|_| ())
+                        blob::copy_entry(fs, &scope, &blob, &path)?;
+                        blob::sync_tree(fs, &scope, &path)
                     }
                     other => other,
                 }
@@ -2121,6 +2275,65 @@ impl Tx<'_> {
             _ => Err(unsupported()),
         }
     }
+
+    /// Flushes what [`Self::restore`] changed for one target: the directories
+    /// of the target, of its destination and of the blocks moved back, and
+    /// the target itself when its metadata or length was restored.
+    fn flush_restored(&self, position: usize) -> FsResult<()> {
+        let fs = self.ctx.fs.as_ref();
+        let scope = self.scope();
+        let target = &self.targets[position];
+        let Some(path) = &target.path else {
+            return Ok(());
+        };
+        let index = target.index();
+        let mut changed = vec![path.clone()];
+        if let Some(dest) = &target.dest {
+            changed.push(dest.path.clone());
+            if dest.moved
+                && let Some(part) = dest.part
+            {
+                changed.push(
+                    self.parts[part]
+                        .entry
+                        .blob(BlobId::new(index, BlobRole::Destination))?,
+                );
+            }
+        }
+        let mode = target.mode();
+        if blob_holding(mode)
+            && let Some(part) = target.part
+        {
+            changed.push(
+                self.parts[part]
+                    .entry
+                    .blob(BlobId::new(index, BlobRole::Previous))?,
+            );
+        }
+        let refs: Vec<&AbsPath> = changed.iter().collect();
+        blob::sync_parents(fs, &scope, &refs)?;
+        let rewritten = matches!(mode, PreserveMode::Meta | PreserveMode::Append)
+            || (matches!(mode, PreserveMode::Clone | PreserveMode::Copy)
+                && !target.record.in_place
+                && !target.copied_on_move);
+        if rewritten && !target.created {
+            blob::sync_entry(fs, &scope, path)?;
+        }
+        Ok(())
+    }
+}
+
+/// Modes whose previous content lives in a block of the entry.
+fn blob_holding(mode: PreserveMode) -> bool {
+    matches!(
+        mode,
+        PreserveMode::Moved
+            | PreserveMode::Exchange
+            | PreserveMode::ReplaceBackup
+            | PreserveMode::Hardlink
+            | PreserveMode::Clone
+            | PreserveMode::Copy
+    )
 }
 
 /// Commit (step 6).
@@ -2136,9 +2349,15 @@ impl Tx<'_> {
             .map(|(position, _)| position)
             .collect();
         for position in &dropped {
-            if let (Some(part), Some(_)) = (self.targets[*position].part, &self.targets[*position].record.before.blob) {
+            if let (Some(part), Some(_)) = (
+                self.targets[*position].part,
+                &self.targets[*position].record.before.blob,
+            ) {
                 let index = self.targets[*position].index();
-                if let Ok(blob) = self.parts[part].entry.blob(BlobId::new(index, BlobRole::Previous)) {
+                if let Ok(blob) = self.parts[part]
+                    .entry
+                    .blob(BlobId::new(index, BlobRole::Previous))
+                {
                     let _ = blob::remove_entry(fs, &self.journal_scope(), &blob);
                 }
             }
@@ -2217,7 +2436,7 @@ impl Tx<'_> {
                     let bytes = manifest
                         .encode()
                         .map_err(|_| FsError::new(FsErrorKind::Io, "encode", None))?;
-                    manifest::write_atomic(fs, &scope, &entry.tmp()?, &entry.manifest()?, &bytes)?;
+                    manifest::write_atomic(fs, &scope, entry.dir(), &entry.manifest()?, &bytes)?;
                     Ok(digest)
                 });
             match written {
@@ -2256,8 +2475,8 @@ impl Tx<'_> {
             counts_as_step: self.request.counts_as_step,
             parts,
         };
-        let indexed = lock.is_some()
-            && manifest::append_index_row(fs, &scope, &index_path, &row).is_ok();
+        let indexed =
+            lock.is_some() && manifest::append_index_row(fs, &scope, &index_path, &row).is_ok();
         drop(lock);
         let linked = match self.link.after_commit.take() {
             Some(update) if indexed => update(ctx, op).is_ok(),
@@ -2283,7 +2502,9 @@ impl Tx<'_> {
         let scope = self.journal_scope();
         let entry = self.parts[part].entry.clone();
         let state = entry.state()?;
-        let mut handle = fs.create_temp_in(&scope, &entry.tmp()?, ".state")?;
+        // The temporary file lives next to `STATE`: the rename then changes
+        // one directory, and one flush of it makes the state durable.
+        let mut handle = fs.create_temp_in(&scope, entry.dir(), ".state")?;
         let temp = handle.path().clone();
         manifest::write_all(
             handle.as_mut(),
@@ -2334,6 +2555,14 @@ impl Tx<'_> {
                     ..IrreversibleEntry::new(reason)
                 });
             }
+            if let Some(dest) = &target.dest
+                && let Some(reason) = dest.record.irreversible
+            {
+                irreversible.push(IrreversibleEntry {
+                    path: Some(dest.path.to_string()),
+                    ..IrreversibleEntry::new(reason)
+                });
+            }
             notable.extend(record.notable.iter().cloned());
             outcomes.push(TargetOutcome {
                 index: record.index,
@@ -2344,7 +2573,7 @@ impl Tx<'_> {
                     + target.dest.as_ref().map_or(0, |d| d.record.bytes_held),
                 before: record.before.to_state(),
                 after: record.after.as_ref().map(AfterRecord::to_state),
-                irreversible: record.irreversible,
+                irreversible: target.irreversible(),
                 notable: record.notable.clone(),
             });
         }
@@ -2384,7 +2613,9 @@ impl Tx<'_> {
             };
             let position = self.position(index)?;
             if self.targets[position].spec.action != TargetAction::ExternalWrite {
-                return Err(misuse("the change names a target not declared as external write"));
+                return Err(misuse(
+                    "the change names a target not declared as external write",
+                ));
             }
             let hash = match change.kind {
                 nurt_contracts::journal::ExternalChangeKind::Deleted => None,
@@ -2517,12 +2748,12 @@ mod tests {
 
     use nurt_contracts::bound::{BoundDocument, BoundProgram};
     use nurt_contracts::config::{OverwriteStrategy, SizeSetting};
-    use nurt_contracts::fs::{Fs, MetaChange, ProviderScheme, ProviderValue};
-    use nurt_contracts::journal::{EntryState, ExternalChangeKind, OpKind};
-    use nurt_fs::failpoint::{FailAction, FailPlan, FailRule, SeededFailpoints};
+    use nurt_contracts::fs::{Fs, MetaChange, ProviderKey, ProviderScheme, ProviderValue};
+    use nurt_contracts::journal::{EntryState, ExternalChangeKind, InactiveReason, OpKind};
+    use nurt_fs::failpoint::{FailAction, FailPlan, FailRule, NoFailpoints, SeededFailpoints};
 
     use super::*;
-    use crate::store::test_support::Fixture;
+    use crate::store::test_support::{Fixture, unflushed};
 
     fn request(command: &str) -> BeginRequest {
         BeginRequest {
@@ -2643,7 +2874,10 @@ mod tests {
         assert_eq!(std::fs::metadata(blob.as_path()).unwrap().len(), 1 << 30);
         assert_eq!(env.state(0, 1).state, EntryState::Committed);
         let manifest = env.manifest(0, 1);
-        assert!(crate::integrity::verify_manifest(&manifest.encode().unwrap()).is_intact());
+        assert!(matches!(
+            crate::integrity::verify_manifest(&manifest.encode().unwrap()),
+            crate::integrity::ManifestVerdict::Intact { .. }
+        ));
         assert_eq!(manifest.integrity.chain, None);
         assert!(manifest.targets[0].after.as_ref().unwrap().hash.is_some());
         assert!(env.pending(0).is_empty());
@@ -2660,18 +2894,26 @@ mod tests {
         let rows = env.index();
         assert_eq!(rows.len(), 2);
         assert_eq!(env.manifest(0, 2).integrity.chain, rows[0].digest());
-        assert_eq!(rows[1].digest(), env.manifest(0, 2).integrity.manifest_sha256);
+        assert_eq!(
+            rows[1].digest(),
+            env.manifest(0, 2).integrity.manifest_sha256
+        );
     }
 
     #[test]
     fn exchange_unsupported_falls_back_to_a_hard_link() {
         let env = Env::new();
-        env.fixture.fs.configure(0, |volume| volume.features.exchange = false);
+        env.fixture
+            .fs
+            .configure(0, |volume| volume.features.exchange = false);
         let path = env.file("vol-a/a.txt", b"old content");
         let handle = env.overwrite(&path, b"new");
         assert_eq!(handle.targets[0].mode, PreserveMode::Hardlink);
         assert_eq!(handle.targets[0].bytes_held, 11);
-        assert_eq!(env.read(&env.blob(0, 1, 0, BlobRole::Previous)), b"old content");
+        assert_eq!(
+            env.read(&env.blob(0, 1, 0, BlobRole::Previous)),
+            b"old content"
+        );
         assert_eq!(env.fixture.fs.copied(), 0);
     }
 
@@ -2693,17 +2935,28 @@ mod tests {
     fn incomplete_metadata_transfer_skips_the_exchange_and_writes_in_place() {
         for reflink in [false, true] {
             let env = Env::new();
-            env.fixture.fs.configure(0, |volume| volume.features.reflink = reflink);
-            env.fixture.fs.refuse_meta(&["account", "xattr:security.selinux"]);
+            env.fixture
+                .fs
+                .configure(0, |volume| volume.features.reflink = reflink);
+            env.fixture
+                .fs
+                .refuse_meta(&["account", "xattr:security.selinux"]);
             let path = env.file("vol-a/a.txt", b"old");
             let inode = std::fs::metadata(path.as_path()).unwrap();
             let handle = env.overwrite(&path, b"new");
-            let expected = if reflink { PreserveMode::Clone } else { PreserveMode::Copy };
+            let expected = if reflink {
+                PreserveMode::Clone
+            } else {
+                PreserveMode::Copy
+            };
             assert_eq!(handle.targets[0].mode, expected);
             assert_eq!(env.read(&path), b"new");
             assert_eq!(env.read(&env.blob(0, 1, 0, BlobRole::Previous)), b"old");
             use std::os::unix::fs::MetadataExt;
-            assert_eq!(std::fs::metadata(path.as_path()).unwrap().ino(), inode.ino());
+            assert_eq!(
+                std::fs::metadata(path.as_path()).unwrap().ino(),
+                inode.ino()
+            );
             assert!(env.manifest(0, 1).targets[0].in_place);
         }
     }
@@ -2737,7 +2990,9 @@ mod tests {
         for (reflink, mode) in [(true, PreserveMode::Clone), (false, PreserveMode::Copy)] {
             let mut env = Env::new();
             env.ctx.settings.overwrite = OverwriteStrategy::CloneOrCopy;
-            env.fixture.fs.configure(0, |volume| volume.features.reflink = reflink);
+            env.fixture
+                .fs
+                .configure(0, |volume| volume.features.reflink = reflink);
             let path = env.file("vol-a/a.txt", b"old!");
             let handle = env.overwrite(&path, b"new");
             assert_eq!(handle.targets[0].mode, mode);
@@ -2757,10 +3012,15 @@ mod tests {
             volume.features.hardlink = false;
         });
         let path = env.file("vol-a/a.txt", b"old");
-        env.fixture.fs.fail_always("copy_file", "a.txt", FsErrorKind::NoSpace);
+        env.fixture
+            .fs
+            .fail_always("copy_file", "a.txt", FsErrorKind::NoSpace);
         let handle = env.overwrite(&path, b"new");
         assert_eq!(handle.targets[0].mode, PreserveMode::None);
-        assert_eq!(handle.targets[0].irreversible, Some(Irreversible::NoSpaceForCopy));
+        assert_eq!(
+            handle.targets[0].irreversible,
+            Some(Irreversible::NoSpaceForCopy)
+        );
         assert_eq!(handle.irreversible[0].reason, Irreversible::NoSpaceForCopy);
         assert_eq!(env.read(&path), b"new");
     }
@@ -2778,7 +3038,9 @@ mod tests {
             handle.notable.as_slice(),
             [JournalNotable::HardlinkSetPreserved { .. }]
         ));
-        env.fixture.fs.fail_always("copy_file", "a.txt", FsErrorKind::NoSpace);
+        env.fixture
+            .fs
+            .fail_always("copy_file", "a.txt", FsErrorKind::NoSpace);
         let handle = env.overwrite(&path, b"newer");
         assert_eq!(handle.targets[0].mode, PreserveMode::None);
         assert_eq!(env.read(&other), b"newer");
@@ -2799,7 +3061,10 @@ mod tests {
         tx.apply(TargetIndex(0), Mutation::WriteBytes(b"new".to_vec()))
             .unwrap();
         tx.commit().unwrap();
-        assert_eq!(env.read(&env.blob(0, 1, 0, BlobRole::Previous)), b"old+late");
+        assert_eq!(
+            env.read(&env.blob(0, 1, 0, BlobRole::Previous)),
+            b"old+late"
+        );
         assert_eq!(
             env.manifest(0, 1).targets[0].before.hash,
             Some(manifest::hash_bytes(b"old"))
@@ -2821,7 +3086,10 @@ mod tests {
         assert_eq!(applied.after.hash, Some(manifest::hash_bytes(b"abcdef")));
         tx.rollback(RollbackReason::Cancelled).unwrap();
         assert_eq!(env.read(&path), b"abc");
-        assert_eq!(env.state(0, 1), StateRecord::undone(UndoneCause::RolledBack));
+        assert_eq!(
+            env.state(0, 1),
+            StateRecord::undone(UndoneCause::RolledBack)
+        );
     }
 
     #[test]
@@ -2847,8 +3115,11 @@ mod tests {
         }
         env.fixture.fs.clear_log();
         let mut tx = begin(&env.ctx, request("remove"));
-        tx.preserve(&[spec(&file, TargetAction::Delete), spec(&tree, TargetAction::Delete)])
-            .unwrap();
+        tx.preserve(&[
+            spec(&file, TargetAction::Delete),
+            spec(&tree, TargetAction::Delete),
+        ])
+        .unwrap();
         tx.apply(TargetIndex(0), Mutation::Remove).unwrap();
         tx.apply(TargetIndex(1), Mutation::Remove).unwrap();
         let handle = tx.commit().unwrap();
@@ -2865,9 +3136,16 @@ mod tests {
         assert_eq!(tree_renames, 1);
         assert_eq!(env.fixture.fs.copied(), 0);
         let blobs = env.layout(0).entry(OpId(1)).unwrap().blobs().unwrap();
-        assert!(env.fixture.names(&blobs).iter().all(|name| !name.ends_with(".tree")));
+        assert!(
+            env.fixture
+                .names(&blobs)
+                .iter()
+                .all(|name| !name.ends_with(".tree"))
+        );
         assert_eq!(
-            env.fixture.names(&env.blob(0, 1, 1, BlobRole::Previous)).len(),
+            env.fixture
+                .names(&env.blob(0, 1, 1, BlobRole::Previous))
+                .len(),
             10
         );
     }
@@ -2882,7 +3160,10 @@ mod tests {
         tx.apply(TargetIndex(0), Mutation::Remove).unwrap();
         let handle = tx.commit().unwrap();
         assert_eq!(handle.targets[0].bytes_held, 0);
-        assert!(matches!(handle.notable.as_slice(), [JournalNotable::SharedData { .. }]));
+        assert!(matches!(
+            handle.notable.as_slice(),
+            [JournalNotable::SharedData { .. }]
+        ));
     }
 
     #[test]
@@ -2923,8 +3204,10 @@ mod tests {
                 PreserveMode::Exchange
             ]
         );
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"c".to_vec())).unwrap();
-        tx.apply(TargetIndex(1), Mutation::CreateDir { mode: 0o755 }).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"c".to_vec()))
+            .unwrap();
+        tx.apply(TargetIndex(1), Mutation::CreateDir { mode: 0o755 })
+            .unwrap();
         let change = MetaChange {
             mode: Some(0o600),
             ..MetaChange::default()
@@ -2940,7 +3223,10 @@ mod tests {
         assert_eq!(env.read(&truncated), b"12");
         let manifest = env.manifest(0, 1);
         let renamed = manifest.target(TargetIndex(3), TargetRole::Whole).unwrap();
-        assert_eq!(renamed.replaced.as_ref().unwrap().store, PreserveMode::Moved);
+        assert_eq!(
+            renamed.replaced.as_ref().unwrap().store,
+            PreserveMode::Moved
+        );
         let meta_blob = env.layout(0).entry(OpId(1)).unwrap();
         let meta_blob = meta_blob
             .blob_meta(BlobId::new(TargetIndex(2), BlobRole::Previous))
@@ -2953,8 +3239,11 @@ mod tests {
         let env = Env::new();
         let created = env.fixture.fs.path("vol-a/new.txt");
         let meta = env.file("vol-a/meta.txt", b"m");
-        std::fs::set_permissions(meta.as_path(), std::os::unix::fs::PermissionsExt::from_mode(0o644))
-            .unwrap();
+        std::fs::set_permissions(
+            meta.as_path(),
+            std::os::unix::fs::PermissionsExt::from_mode(0o644),
+        )
+        .unwrap();
         let from = env.file("vol-a/from.txt", b"from");
         let to = env.file("vol-a/to.txt", b"to");
         let mut tx = begin(&env.ctx, request("mixed"));
@@ -2970,7 +3259,8 @@ mod tests {
             ),
         ])
         .unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"c".to_vec())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"c".to_vec()))
+            .unwrap();
         let change = MetaChange {
             mode: Some(0o600),
             ..MetaChange::default()
@@ -2982,9 +3272,17 @@ mod tests {
         assert!(!env.fixture.exists(&created));
         assert_eq!(env.read(&from), b"from");
         assert_eq!(env.read(&to), b"to");
-        let mode = env.fixture.fs.metadata(&meta, Follow::NoFollow).unwrap().mode;
+        let mode = env
+            .fixture
+            .fs
+            .metadata(&meta, Follow::NoFollow)
+            .unwrap()
+            .mode;
         assert_eq!(mode, 0o644);
-        assert_eq!(env.state(0, 1), StateRecord::undone(UndoneCause::ValidateFailed));
+        assert_eq!(
+            env.state(0, 1),
+            StateRecord::undone(UndoneCause::ValidateFailed)
+        );
     }
 
     #[test]
@@ -3011,16 +3309,23 @@ mod tests {
             size_hint: None,
         };
         let mut tx = begin(&ctx, request("registry.set"));
-        let preserved = tx.preserve(&[target("registry"), target("gitref")]).unwrap();
+        let preserved = tx
+            .preserve(&[target("registry"), target("gitref")])
+            .unwrap();
         assert_eq!(preserved[0].mode, PreserveMode::Value);
         assert_eq!(preserved[1].mode, PreserveMode::Ref);
         let value = ProviderValue::Text("light".to_owned());
-        tx.apply(TargetIndex(0), Mutation::ProviderSet(value.clone())).unwrap();
-        tx.apply(TargetIndex(1), Mutation::ProviderSet(value.clone())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::ProviderSet(value.clone()))
+            .unwrap();
+        tx.apply(TargetIndex(1), Mutation::ProviderSet(value.clone()))
+            .unwrap();
         assert!(env.fixture.exists(&env.blob(0, 1, 0, BlobRole::Previous)));
         tx.rollback(RollbackReason::Cancelled).unwrap();
         let values = env.fixture.registry.values.lock().unwrap();
-        assert_eq!(values.get(&key("registry")), Some(&ProviderValue::Text("dark".to_owned())));
+        assert_eq!(
+            values.get(&key("registry")),
+            Some(&ProviderValue::Text("dark".to_owned()))
+        );
         assert!(refs.values.lock().unwrap().is_empty());
     }
 
@@ -3056,7 +3361,10 @@ mod tests {
         assert_eq!(applied[0].after.hash, Some(manifest::hash_bytes(b"new db")));
         let handle = tx.commit().unwrap();
         assert_eq!(handle.targets.len(), 1);
-        assert_eq!(handle.irreversible[0].reason, Irreversible::PreviousContentNotKept);
+        assert_eq!(
+            handle.irreversible[0].reason,
+            Irreversible::PreviousContentNotKept
+        );
         assert_eq!(env.read(&env.blob(0, 1, 0, BlobRole::Previous)), b"old db");
         assert!(!env.fixture.exists(&env.blob(0, 1, 1, BlobRole::Previous)));
     }
@@ -3098,10 +3406,15 @@ mod tests {
         let b = env.file("vol-b/b.txt", b"b");
         env.fixture.fs.clear_log();
         let mut tx = begin(&env.ctx, request("replace"));
-        tx.preserve(&[spec(&a, TargetAction::Modify), spec(&b, TargetAction::Modify)])
+        tx.preserve(&[
+            spec(&a, TargetAction::Modify),
+            spec(&b, TargetAction::Modify),
+        ])
+        .unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec()))
             .unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec())).unwrap();
-        tx.apply(TargetIndex(1), Mutation::WriteBytes(b"B".to_vec())).unwrap();
+        tx.apply(TargetIndex(1), Mutation::WriteBytes(b"B".to_vec()))
+            .unwrap();
         let handle = tx.commit().unwrap();
         assert_eq!(handle.op, Some(OpId(1)));
         for volume in 0..2 {
@@ -3137,7 +3450,10 @@ mod tests {
         tx.apply(TargetIndex(0), Mutation::Remove).unwrap();
         let handle = tx.commit().unwrap();
         assert_eq!(handle.targets[0].mode, PreserveMode::Copy);
-        assert!(matches!(handle.notable.as_slice(), [JournalNotable::CrossDeviceCopy { .. }]));
+        assert!(matches!(
+            handle.notable.as_slice(),
+            [JournalNotable::CrossDeviceCopy { .. }]
+        ));
         assert!(!env.fixture.exists(&dir));
         let blob = env.blob(0, 1, 0, BlobRole::Previous);
         assert_eq!(std::fs::read(blob.as_path().join("f")).unwrap(), b"lower");
@@ -3149,7 +3465,10 @@ mod tests {
         tx.preserve(&[spec(&dir, TargetAction::Delete)]).unwrap();
         tx.apply(TargetIndex(0), Mutation::Remove).unwrap();
         let handle = tx.commit().unwrap();
-        assert_eq!(handle.targets[0].irreversible, Some(Irreversible::NoSpaceForCopy));
+        assert_eq!(
+            handle.targets[0].irreversible,
+            Some(Irreversible::NoSpaceForCopy)
+        );
         assert!(!env.fixture.exists(&dir));
     }
 
@@ -3190,8 +3509,10 @@ mod tests {
         let mut tx = begin(&env.ctx, request("write"));
         let mut stale_spec = spec(&b, TargetAction::Modify);
         stale_spec.expect = Expect::Etag(env.fixture.fs.etag(&b, Follow::NoFollow).unwrap());
-        tx.preserve(&[spec(&a, TargetAction::Modify), stale_spec]).unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec())).unwrap();
+        tx.preserve(&[spec(&a, TargetAction::Modify), stale_spec])
+            .unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec()))
+            .unwrap();
         env.fixture.write(&b, b"changed by someone");
         let error = tx
             .apply(TargetIndex(1), Mutation::WriteBytes(b"B".to_vec()))
@@ -3199,7 +3520,10 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::Stale);
         assert_eq!(env.read(&a), b"a");
         assert_eq!(env.read(&b), b"changed by someone");
-        assert_eq!(env.state(0, 1), StateRecord::undone(UndoneCause::RolledBack));
+        assert_eq!(
+            env.state(0, 1),
+            StateRecord::undone(UndoneCause::RolledBack)
+        );
         assert!(env.pending(0).is_empty());
         assert!(env.index().is_empty());
         let next = tx.apply(TargetIndex(0), Mutation::WriteBytes(Vec::new()));
@@ -3221,7 +3545,8 @@ mod tests {
             spec(&b, TargetAction::Modify),
         ])
         .unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec()))
+            .unwrap();
         tx.apply(TargetIndex(1), Mutation::Remove).unwrap();
         env.fixture
             .fs
@@ -3233,7 +3558,10 @@ mod tests {
         assert_eq!(env.read(&a), b"a");
         assert_eq!(env.read(&gone), b"gone");
         assert_eq!(env.read(&b), b"b");
-        assert_eq!(env.state(0, 1), StateRecord::undone(UndoneCause::RolledBack));
+        assert_eq!(
+            env.state(0, 1),
+            StateRecord::undone(UndoneCause::RolledBack)
+        );
     }
 
     #[test]
@@ -3242,7 +3570,8 @@ mod tests {
         let a = env.file("vol-a/a.txt", b"a");
         let mut tx = begin(&env.ctx, request("write"));
         tx.preserve(&[spec(&a, TargetAction::Modify)]).unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec()))
+            .unwrap();
         drop(tx);
         assert_eq!(env.read(&a), b"a");
         assert_eq!(env.state(0, 1).state, EntryState::Undone);
@@ -3255,8 +3584,11 @@ mod tests {
         let gone = env.file("vol-a/gone.txt", b"gone");
         let b = env.file("vol-a/b.txt", b"b");
         let mut tx = begin(&env.ctx, request("remove"));
-        tx.preserve(&[spec(&gone, TargetAction::Delete), spec(&b, TargetAction::Modify)])
-            .unwrap();
+        tx.preserve(&[
+            spec(&gone, TargetAction::Delete),
+            spec(&b, TargetAction::Modify),
+        ])
+        .unwrap();
         tx.apply(TargetIndex(0), Mutation::Remove).unwrap();
         env.fixture
             .fs
@@ -3268,7 +3600,10 @@ mod tests {
             .apply(TargetIndex(1), Mutation::WriteBytes(b"B".to_vec()))
             .unwrap_err();
         assert_eq!(error.code(), ErrorCode::RollbackFailed);
-        assert_eq!(env.state(0, 1), StateRecord::rolling_back(UndoneCause::RolledBack));
+        assert_eq!(
+            env.state(0, 1),
+            StateRecord::rolling_back(UndoneCause::RolledBack)
+        );
         assert_eq!(env.pending(0), vec![OpId(1)]);
         assert_eq!(env.read(&env.blob(0, 1, 0, BlobRole::Previous)), b"gone");
     }
@@ -3279,7 +3614,8 @@ mod tests {
         let a = env.file("vol-a/a.txt", b"a");
         let mut tx = begin(&env.ctx, request("write"));
         tx.preserve(&[spec(&a, TargetAction::Modify)]).unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec()))
+            .unwrap();
         let error = tx.preserve(&[spec(&a, TargetAction::Delete)]).unwrap_err();
         assert_eq!(error.code(), ErrorCode::StageFailed);
         assert_eq!(env.read(&a), b"a");
@@ -3301,7 +3637,9 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::StageFailed);
         let missing = env.fixture.fs.path("vol-a/missing");
         let mut tx = begin(&env.ctx, request("remove"));
-        let error = tx.preserve(&[spec(&missing, TargetAction::Delete)]).unwrap_err();
+        let error = tx
+            .preserve(&[spec(&missing, TargetAction::Delete)])
+            .unwrap_err();
         assert_eq!(error.code(), ErrorCode::NotFound);
         let mut tx = begin(&env.ctx, request("write"));
         let error = tx.preserve(&[spec(&a, TargetAction::Create)]).unwrap_err();
@@ -3347,8 +3685,14 @@ mod tests {
             )
             .unwrap();
         assert_eq!(applied.after.hash, Some(manifest::hash_bytes(b"copied")));
-        tx.apply(TargetIndex(0), Mutation::WriteAt { offset: 0, bytes: Vec::new() })
-            .unwrap_err();
+        tx.apply(
+            TargetIndex(0),
+            Mutation::WriteAt {
+                offset: 0,
+                bytes: Vec::new(),
+            },
+        )
+        .unwrap_err();
     }
 
     #[test]
@@ -3360,17 +3704,30 @@ mod tests {
         let log = env.fixture.fs.log();
         let steps = [
             position(&log, |e| e.starts_with("rename ") && e.ends_with("/seq")),
-            position(&log, |e| e.starts_with("create_new ") && e.ends_with("pending/000000000001")),
-            position(&log, |e| e.starts_with("create_new ") && e.ends_with(".tmp/op.json")),
-            position(&log, |e| e.starts_with("sync_file ") && e.ends_with(".tmp/op.json")),
-            position(&log, |e| e.starts_with("rename ") && e.ends_with("ops/000000000001")),
+            position(&log, |e| {
+                e.starts_with("create_new ") && e.ends_with("pending/000000000001")
+            }),
+            position(&log, |e| {
+                e.starts_with("create_new ") && e.ends_with(".tmp/op.json")
+            }),
+            position(&log, |e| {
+                e.starts_with("sync_file ") && e.ends_with(".tmp/op.json")
+            }),
+            position(&log, |e| {
+                e.starts_with("rename ") && e.ends_with("ops/000000000001")
+            }),
             position(&log, |e| e.starts_with("sync_dir ") && e.ends_with("/ops")),
             position(&log, |e| e.starts_with("exchange ")),
             position(&log, |e| e.starts_with("rename ") && e.ends_with("/STATE")),
             position(&log, |e| e.ends_with("ops.jsonl")),
-            position(&log, |e| e.starts_with("remove_file ") && e.ends_with("pending/000000000001")),
+            position(&log, |e| {
+                e.starts_with("remove_file ") && e.ends_with("pending/000000000001")
+            }),
         ];
-        assert!(steps.windows(2).all(|pair| pair[0] < pair[1]), "{steps:?} {log:#?}");
+        assert!(
+            steps.windows(2).all(|pair| pair[0] < pair[1]),
+            "{steps:?} {log:#?}"
+        );
     }
 
     #[test]
@@ -3386,13 +3743,16 @@ mod tests {
             spec(&created, TargetAction::Create),
         ])
         .unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec()))
+            .unwrap();
         tx.apply(TargetIndex(1), Mutation::Remove).unwrap();
-        tx.apply(TargetIndex(2), Mutation::WriteBytes(b"n".to_vec())).unwrap();
+        tx.apply(TargetIndex(2), Mutation::WriteBytes(b"n".to_vec()))
+            .unwrap();
         tx.commit().unwrap();
         let mut tx = begin(&env.ctx, request("write"));
         tx.preserve(&[spec(&a, TargetAction::Modify)]).unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"B".to_vec())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"B".to_vec()))
+            .unwrap();
         tx.rollback(RollbackReason::TargetFailed).unwrap();
         assert_eq!(env.read(&a), b"A");
     }
@@ -3402,7 +3762,10 @@ mod tests {
         let table = [
             (InactiveReason::ServiceDown, Irreversible::JournalInactive),
             (InactiveReason::NetworkVolume, Irreversible::NetworkVolume),
-            (InactiveReason::RemovableVolume, Irreversible::RemovableVolume),
+            (
+                InactiveReason::RemovableVolume,
+                Irreversible::RemovableVolume,
+            ),
             (InactiveReason::MemoryVolume, Irreversible::JournalInactive),
             (InactiveReason::BelowReserve, Irreversible::NoSpaceForCopy),
             (InactiveReason::NoAnchor, Irreversible::JournalInactive),
@@ -3410,7 +3773,7 @@ mod tests {
             (InactiveReason::NotDurable, Irreversible::JournalInactive),
         ];
         for (reason, expected) in table {
-            assert_eq!(inactive_reason(reason), expected, "{reason:?}");
+            assert_eq!(reason.irreversible(), expected, "{reason:?}");
             let env = Env::new();
             *env.fixture.admission.eligibility.lock().unwrap() = Eligibility::Inactive(reason);
             let a = env.file("vol-a/a.txt", b"a");
@@ -3433,7 +3796,10 @@ mod tests {
             let env = Env::new();
             *env.fixture.admission.decision.lock().unwrap() = AdmissionDecision::Skip { reason };
             let a = env.file("vol-a/a.txt", b"a");
-            assert_eq!(env.overwrite(&a, b"A").targets[0].irreversible, Some(reason));
+            assert_eq!(
+                env.overwrite(&a, b"A").targets[0].irreversible,
+                Some(reason)
+            );
         }
     }
 
@@ -3447,7 +3813,10 @@ mod tests {
         };
         let a = env.file("vol-a/a.txt", b"abc");
         let handle = env.overwrite(&a, b"A");
-        assert_eq!(handle.targets[0].irreversible, Some(Irreversible::TooLargeForJournal));
+        assert_eq!(
+            handle.targets[0].irreversible,
+            Some(Irreversible::TooLargeForJournal)
+        );
         assert_eq!(
             handle.notable,
             vec![JournalNotable::JournalOversize { size: 3, limit: 1 }]
@@ -3465,7 +3834,10 @@ mod tests {
             .fail_always("create_new", "pending", FsErrorKind::NoSpace);
         let a = env.file("vol-a/a.txt", b"a");
         let handle = env.overwrite(&a, b"A");
-        assert_eq!(handle.targets[0].irreversible, Some(Irreversible::JournalError));
+        assert_eq!(
+            handle.targets[0].irreversible,
+            Some(Irreversible::JournalError)
+        );
         assert_eq!(env.read(&a), b"A");
         env.fixture.fs.clear_faults();
 
@@ -3475,7 +3847,10 @@ mod tests {
         let handle = env.overwrite(&a, b"A");
         drop(held);
         assert_eq!(handle.op, None);
-        assert_eq!(handle.targets[0].irreversible, Some(Irreversible::JournalError));
+        assert_eq!(
+            handle.targets[0].irreversible,
+            Some(Irreversible::JournalError)
+        );
         assert_eq!(env.read(&a), b"A");
 
         let env = Env::new();
@@ -3485,7 +3860,10 @@ mod tests {
             .unwrap();
         let a = env.file("vol-a/a.txt", b"a");
         let handle = env.overwrite(&a, b"A");
-        assert_eq!(handle.targets[0].irreversible, Some(Irreversible::JournalError));
+        assert_eq!(
+            handle.targets[0].irreversible,
+            Some(Irreversible::JournalError)
+        );
 
         let env = Env::new();
         let version = env.layout(0).version().unwrap();
@@ -3503,7 +3881,8 @@ mod tests {
         let a = env.file("vol-a/a.txt", b"a");
         let mut tx = begin(&env.ctx, request("write"));
         let preserved = tx.preserve(&[spec(&a, TargetAction::Modify)]).unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec()))
+            .unwrap();
         let handle = tx.commit().unwrap();
         let text = format!(
             "{}{}",
@@ -3526,10 +3905,16 @@ mod tests {
         tx.commit().unwrap();
         assert!(env.pending(0).is_empty());
         let log = env.fixture.fs.log();
-        let marker = position(&log, |e| e.starts_with("create_new ") && e.contains("pending/"));
-        let entry = position(&log, |e| e.starts_with("create_dir ") && e.contains(".tmp"));
+        let marker = position(&log, |e| {
+            e.starts_with("create_new ") && e.contains("pending/")
+        });
+        let entry = position(&log, |e| {
+            e.starts_with("create_dir ") && e.ends_with("ops/000000000001.tmp")
+        });
         assert!(marker < entry);
-        let removed = position(&log, |e| e.starts_with("remove_file ") && e.contains("pending/"));
+        let removed = position(&log, |e| {
+            e.starts_with("remove_file ") && e.contains("pending/")
+        });
         let indexed = position(&log, |e| e.ends_with("ops.jsonl"));
         assert!(indexed < removed);
     }
@@ -3540,7 +3925,10 @@ mod tests {
         env.fixture.write(&a, b"old");
         env.fixture.write(&gone, b"gone");
         let mut tx = begin(&env.ctx, request("write"));
-        tx.preserve(&[spec(&a, TargetAction::Modify), spec(&gone, TargetAction::Delete)])?;
+        tx.preserve(&[
+            spec(&a, TargetAction::Modify),
+            spec(&gone, TargetAction::Delete),
+        ])?;
         tx.apply(TargetIndex(0), Mutation::WriteBytes(b"new".to_vec()))?;
         tx.apply(TargetIndex(1), Mutation::Remove)?;
         tx.commit()
@@ -3625,7 +4013,11 @@ mod tests {
     #[test]
     fn injected_errors_during_rollback_still_restore_targets() {
         let mut env = Env::new();
-        let rules = [FailPoint::StageWritten, FailPoint::RollbackStarted, FailPoint::RollbackRestored];
+        let rules = [
+            FailPoint::StageWritten,
+            FailPoint::RollbackStarted,
+            FailPoint::RollbackRestored,
+        ];
         env.ctx.failpoints = Arc::new(SeededFailpoints::new(FailPlan {
             seed: 0,
             rules: rules
@@ -3660,7 +4052,10 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::Internal);
         assert_eq!(env.state(0, 1).state, EntryState::Prepared);
         assert_eq!(env.pending(0), vec![OpId(1)]);
-        assert!(env.fixture.exists(&env.fixture.fs.path("vol-a/.nurt-tmp-1-0")));
+        assert!(
+            env.fixture
+                .exists(&env.fixture.fs.path("vol-a/.nurt-tmp-1-0"))
+        );
     }
 
     #[test]
@@ -3668,7 +4063,9 @@ mod tests {
         let mut hit = BTreeSet::new();
         for stage_error in [false, true] {
             let mut env = Env::new();
-            env.fixture.fs.configure(0, |volume| volume.features.exchange = !stage_error);
+            env.fixture
+                .fs
+                .configure(0, |volume| volume.features.exchange = !stage_error);
             env.ctx.settings.overwrite = if stage_error {
                 OverwriteStrategy::CloneOrCopy
             } else {
@@ -3721,30 +4118,309 @@ mod tests {
         };
         let mut tx = begin_linked(&env.ctx, request("undo"), link);
         tx.preserve(&[spec(&a, TargetAction::Modify)]).unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"b".to_vec())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"b".to_vec()))
+            .unwrap();
         Box::new(tx).commit().unwrap();
-        assert_eq!(
-            *updated.lock().unwrap(),
-            Some((OpId(1), vec![OpId(1)]))
-        );
+        assert_eq!(*updated.lock().unwrap(), Some((OpId(1), vec![OpId(1)])));
         let manifest = env.manifest(0, 1);
         assert_eq!(manifest.undo_of, vec![OpId(7)]);
         assert_eq!(manifest.scope, Some(UndoScope::Op));
         assert!(env.pending(0).is_empty());
-        let debug = format!("{:?}", begin_linked(&env.ctx, request("redo"), Link::default()));
+        let debug = format!(
+            "{:?}",
+            begin_linked(&env.ctx, request("redo"), Link::default())
+        );
         assert!(debug.starts_with("Tx"));
     }
 
     #[test]
     fn journal_store_begins_transactions() {
+        use nurt_contracts::journal::JournalStore as _;
+
         let fixture = Fixture::new();
         let journal = fixture.journal();
         let a = fixture.fs.path("vol-a/a.txt");
         fixture.write(&a, b"a");
         let mut tx = journal.begin(request("write"));
         tx.preserve(&[spec(&a, TargetAction::Modify)]).unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"A".to_vec()))
+            .unwrap();
         assert_eq!(tx.commit().unwrap().op, Some(OpId(1)));
-        assert_eq!(journal.space(None).unwrap(), Vec::new());
+        assert_eq!(
+            journal.space(None).unwrap_err().code,
+            ErrorCode::ServiceNotRunning
+        );
+    }
+
+    /// Position of the last rename that replaces the state file of an entry.
+    fn last_state_rename(log: &[String]) -> usize {
+        log.iter()
+            .rposition(|entry| entry.starts_with("rename ") && entry.ends_with("/STATE"))
+            .unwrap_or_else(|| panic!("no state rename in {log:#?}"))
+    }
+
+    /// Asserts that every change logged before the last state rename is
+    /// durable when that rename is made, and every change of the log at its
+    /// end.
+    fn assert_durable_before_state(label: &str, log: &[String]) {
+        let early = unflushed(log, last_state_rename(log));
+        assert!(early.is_empty(), "{label}: {early:#?}\n{log:#?}");
+        let late = unflushed(log, log.len());
+        assert!(late.is_empty(), "{label}: {late:#?}\n{log:#?}");
+    }
+
+    fn rename_over(from: &AbsPath, to: &AbsPath) -> TargetSpec {
+        spec(
+            from,
+            TargetAction::Rename {
+                to: to.clone(),
+                replace: true,
+            },
+        )
+    }
+
+    #[test]
+    fn every_change_is_durable_before_the_committed_state() {
+        let overwrites = [
+            ("exchange", OverwriteStrategy::Exchange, true, false),
+            ("hard link", OverwriteStrategy::Exchange, false, false),
+            ("clone", OverwriteStrategy::CloneOrCopy, true, true),
+            ("copy", OverwriteStrategy::CloneOrCopy, true, false),
+        ];
+        for (label, strategy, exchange, reflink) in overwrites {
+            let mut env = Env::new();
+            env.ctx.settings.overwrite = strategy;
+            env.fixture.fs.configure(0, |volume| {
+                volume.features.exchange = exchange;
+                volume.features.reflink = reflink;
+            });
+            let path = env.file("vol-a/a.txt", b"old");
+            let handle = env.overwrite(&path, b"new");
+            assert!(handle.irreversible.is_empty(), "{label}: {handle:?}");
+            assert_durable_before_state(label, &env.fixture.fs.log());
+        }
+        let env = Env::new();
+        let gone = env.file("vol-a/gone.txt", b"gone");
+        let tree = env.fixture.fs.path("vol-a/tree");
+        std::fs::create_dir_all(tree.as_path().join("sub")).unwrap();
+        std::fs::write(tree.as_path().join("sub/x"), b"x").unwrap();
+        let from = env.file("vol-a/from.txt", b"from");
+        let to = env.file("vol-a/to.txt", b"to");
+        let made = env.fixture.fs.path("vol-a/made");
+        let log = env.file("vol-a/log.txt", b"line\n");
+        let meta = env.file("vol-a/meta.txt", b"m");
+        let mut tx = begin(&env.ctx, request("bulk"));
+        tx.preserve(&[
+            spec(&gone, TargetAction::Delete),
+            spec(&tree, TargetAction::Delete),
+            rename_over(&from, &to),
+            spec(&made, TargetAction::Create),
+            spec(&log, TargetAction::Append),
+            spec(&meta, TargetAction::Attributes),
+        ])
+        .unwrap();
+        tx.apply(TargetIndex(0), Mutation::Remove).unwrap();
+        tx.apply(TargetIndex(1), Mutation::Remove).unwrap();
+        tx.apply(TargetIndex(2), Mutation::Rename).unwrap();
+        tx.apply(TargetIndex(3), Mutation::CreateDir { mode: 0o755 })
+            .unwrap();
+        tx.apply(TargetIndex(4), Mutation::AppendBytes(b"more\n".to_vec()))
+            .unwrap();
+        let change = MetaChange {
+            mode: Some(0o600),
+            ..MetaChange::default()
+        };
+        tx.apply(TargetIndex(5), Mutation::SetMeta(change)).unwrap();
+        let handle = tx.commit().unwrap();
+        assert!(handle.irreversible.is_empty(), "{handle:?}");
+        assert_durable_before_state("bulk", &env.fixture.fs.log());
+    }
+
+    #[test]
+    fn overwrite_flushes_by_strategy() {
+        for (strategy, expected) in [
+            (OverwriteStrategy::Exchange, 19),
+            (OverwriteStrategy::CloneOrCopy, 21),
+        ] {
+            let mut env = Env::new();
+            env.ctx.settings.overwrite = strategy;
+            let path = env.file("vol-a/a.txt", b"old");
+            env.overwrite(&path, b"first");
+            env.fixture.fs.clear_log();
+            env.overwrite(&path, b"second");
+            let log = env.fixture.fs.log();
+            let flushes = log
+                .iter()
+                .filter(|entry| entry.starts_with("sync_"))
+                .count();
+            assert_eq!(flushes, expected, "{strategy:?}: {log:#?}");
+        }
+    }
+
+    #[test]
+    fn restored_targets_are_durable_before_the_rollback_ends() {
+        let env = Env::new();
+        let created = env.fixture.fs.path("vol-a/new.txt");
+        let meta = env.file("vol-a/meta.txt", b"m");
+        let gone = env.file("vol-a/gone.txt", b"gone");
+        let changed = env.file("vol-a/a.txt", b"a");
+        let from = env.file("vol-a/from.txt", b"from");
+        let to = env.file("vol-a/to.txt", b"to");
+        let mut tx = begin(&env.ctx, request("mixed"));
+        tx.preserve(&[
+            spec(&created, TargetAction::Create),
+            spec(&meta, TargetAction::Attributes),
+            spec(&gone, TargetAction::Delete),
+            spec(&changed, TargetAction::Modify),
+            rename_over(&from, &to),
+        ])
+        .unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"c".to_vec()))
+            .unwrap();
+        let change = MetaChange {
+            mode: Some(0o600),
+            ..MetaChange::default()
+        };
+        tx.apply(TargetIndex(1), Mutation::SetMeta(change)).unwrap();
+        tx.apply(TargetIndex(2), Mutation::Remove).unwrap();
+        tx.apply(TargetIndex(3), Mutation::WriteBytes(b"A".to_vec()))
+            .unwrap();
+        tx.apply(TargetIndex(4), Mutation::Rename).unwrap();
+        env.fixture.fs.clear_log();
+        let report = tx.rollback(RollbackReason::Cancelled).unwrap();
+        assert!(report.failed.is_empty(), "{report:?}");
+        assert!(!env.fixture.exists(&created));
+        assert_eq!(env.read(&gone), b"gone");
+        assert_eq!(env.read(&changed), b"a");
+        assert_eq!(env.read(&from), b"from");
+        assert_eq!(env.read(&to), b"to");
+        assert_eq!(
+            env.state(0, 1),
+            StateRecord::undone(UndoneCause::RolledBack)
+        );
+        assert_durable_before_state("rollback", &env.fixture.fs.log());
+    }
+
+    #[test]
+    fn recovery_recreates_a_lost_lock_directory() {
+        let env = Env::new();
+        let layout = env.layout(0);
+        let marker = layout.pending(OpId(1)).unwrap();
+        std::fs::create_dir_all(marker.as_path().parent().unwrap()).unwrap();
+        env.fixture.write(&marker, b"");
+        assert!(!env.fixture.exists(&layout.lock_dir().unwrap()));
+        let report = crate::recovery::recover(&env.ctx).unwrap();
+        assert!(report.rolled_back.is_empty(), "{report:?}");
+        assert!(env.pending(0).is_empty());
+        assert!(env.fixture.exists(&layout.lock_dir().unwrap()));
+    }
+
+    #[test]
+    fn recovery_after_a_crash_before_commit_is_durable_and_idempotent() {
+        let mut env = Env::new();
+        env.ctx.failpoints = Arc::new(SeededFailpoints::new(FailPlan::at(
+            0,
+            FailRule {
+                point: FailPoint::ApplyDone,
+                n: None,
+                occurrence: 0,
+                action: FailAction::Crash,
+            },
+        )));
+        let path = env.file("vol-a/a.txt", b"old");
+        let mut tx = begin(&env.ctx, request("write"));
+        tx.preserve(&[spec(&path, TargetAction::Modify)]).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"new".to_vec()))
+            .unwrap();
+        let error = tx.commit().unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Internal);
+        assert_eq!(error.problem.as_deref(), Some("injected_crash"));
+        env.ctx.failpoints = Arc::new(NoFailpoints);
+        env.fixture.fs.clear_log();
+        let report = crate::recovery::recover(&env.ctx).unwrap();
+        assert_eq!(report.rolled_back, vec![OpId(1)]);
+        assert_eq!(env.read(&path), b"old");
+        let log = env.fixture.fs.log();
+        let lacking = unflushed(&log, log.len());
+        assert!(lacking.is_empty(), "{lacking:#?}\n{log:#?}");
+        env.fixture.fs.clear_log();
+        let again = crate::recovery::recover(&env.ctx).unwrap();
+        assert!(again.rolled_back.is_empty(), "{again:?}");
+        assert_eq!(env.read(&path), b"old");
+        let log = env.fixture.fs.log();
+        assert!(
+            log.iter()
+                .all(|entry| !entry.starts_with("rename ") && !entry.starts_with("remove")),
+            "{log:#?}"
+        );
+    }
+
+    #[test]
+    fn crash_after_a_rename_over_a_destination_restores_both_names() {
+        let mut env = Env::new();
+        env.ctx.failpoints = Arc::new(SeededFailpoints::new(FailPlan::at(
+            0,
+            FailRule {
+                point: FailPoint::ApplySwitched,
+                n: None,
+                occurrence: 0,
+                action: FailAction::Crash,
+            },
+        )));
+        let from = env.file("vol-a/from.txt", b"from");
+        let to = env.file("vol-a/to.txt", b"to");
+        let mut tx = begin(&env.ctx, request("move"));
+        tx.preserve(&[rename_over(&from, &to)]).unwrap();
+        let replaced = env.manifest(0, 1).targets[0].replaced.clone();
+        assert!(replaced.is_some_and(|before| before.blob.is_some()));
+        let error = tx.apply(TargetIndex(0), Mutation::Rename).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Internal);
+        drop(tx);
+        env.ctx.failpoints = Arc::new(NoFailpoints);
+        let report = crate::recovery::recover(&env.ctx).unwrap();
+        assert_eq!(report.rolled_back, vec![OpId(1)]);
+        assert_eq!(env.read(&from), b"from");
+        assert_eq!(env.read(&to), b"to");
+    }
+
+    #[test]
+    fn failed_move_of_the_destination_keeps_it_and_rolls_back() {
+        let env = Env::new();
+        let from = env.file("vol-a/from.txt", b"from");
+        let to = env.file("vol-a/to.txt", b"to");
+        env.fixture.fs.fail("rename", ".blob", FsErrorKind::Io);
+        let mut tx = begin(&env.ctx, request("move"));
+        tx.preserve(&[rename_over(&from, &to)]).unwrap();
+        let error = tx.apply(TargetIndex(0), Mutation::Rename).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Io);
+        assert_eq!(env.read(&from), b"from");
+        assert_eq!(env.read(&to), b"to");
+        assert_eq!(
+            env.state(0, 1),
+            StateRecord::undone(UndoneCause::RolledBack)
+        );
+
+        let env = Env::new();
+        *env.fixture.admission.eligibility.lock().unwrap() =
+            Eligibility::Inactive(InactiveReason::NoAnchor);
+        let from = env.file("vol-a/from.txt", b"from");
+        let to = env.file("vol-a/to.txt", b"to");
+        let mut tx = begin(&env.ctx, request("move"));
+        let preserved = tx.preserve(&[rename_over(&from, &to)]).unwrap();
+        assert_eq!(
+            preserved[0].irreversible,
+            Some(Irreversible::JournalInactive)
+        );
+        tx.apply(TargetIndex(0), Mutation::Rename).unwrap();
+        let handle = tx.commit().unwrap();
+        assert_eq!(env.read(&to), b"from");
+        let destination = to.to_string();
+        assert!(
+            handle
+                .irreversible
+                .iter()
+                .any(|entry| entry.path.as_deref() == Some(destination.as_str())),
+            "{handle:?}"
+        );
     }
 }

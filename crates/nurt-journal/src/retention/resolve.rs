@@ -26,7 +26,7 @@ use std::sync::Arc;
 use nurt_contracts::config::{
     AgeLimit, ConfigLayer, ConfigLevel, ConfigNoteKind, JournalConfig, JournalFloor,
     PROJECT_FLOOR_MAX_AGE, PROJECT_FLOOR_MAX_OPS, Percent, Resolved, SettingParseError, SizeLimit,
-    StepLimit, resolve as config_resolve,
+    StepLimit, display_key, resolve as config_resolve,
 };
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{AbsPath, Fs, VolumeInfo};
@@ -203,7 +203,7 @@ impl<'a> RetentionResolver<'a> {
             input.mount,
             "max_size",
             journal.max_size,
-            None,
+            configured.and_then(|volume| volume.max_size),
             [runtime_all.size, runtime_volume.size],
         );
 
@@ -441,22 +441,7 @@ fn reparse<T: std::str::FromStr<Err = SettingParseError>>(text: &str) -> Result<
 /// Dotted key of a setting of one volume, quoted as the configuration
 /// loader records it.
 fn volume_key(mount: &str, field: &str) -> String {
-    format!("journal.volume.{}.{field}", key_segment(mount))
-}
-
-/// Writes one key segment as TOML does: bare when it consists of ASCII
-/// letters, digits, `_` and `-`, otherwise quoted with `\` and `"` escaped.
-fn key_segment(segment: &str) -> String {
-    let bare = !segment.is_empty()
-        && segment
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
-    if bare {
-        segment.to_owned()
-    } else {
-        let escaped = segment.replace('\\', "\\\\").replace('"', "\\\"");
-        format!("\"{escaped}\"")
-    }
+    display_key(&["journal", "volume", mount, field].map(str::to_owned))
 }
 
 /// Effective retention limits for the journal store, resolved from the
@@ -469,6 +454,8 @@ fn key_segment(segment: &str) -> String {
 /// session files are skipped; the expiry pass removes them.
 pub struct ConfiguredLimits {
     resolved: Resolved,
+    layers: Vec<ConfigLayer>,
+    project_trusted: bool,
     fs: Arc<dyn Fs>,
     sessions: AbsPath,
 }
@@ -491,6 +478,8 @@ impl ConfiguredLimits {
         let sessions = state_dir.join_name(SESSION_DIR).map_err(Error::from)?;
         Ok(Self {
             resolved,
+            layers: layers.to_vec(),
+            project_trusted,
             fs,
             sessions,
         })
@@ -531,6 +520,14 @@ impl RetentionLimits for ConfiguredLimits {
             capacity,
             free_with_journal: free,
         })
+    }
+
+    fn layers(&self) -> Vec<ConfigLayer> {
+        self.layers.clone()
+    }
+
+    fn project_trusted(&self) -> bool {
+        self.project_trusted
     }
 }
 
@@ -612,7 +609,7 @@ mod tests {
     /// highest present level decides each of them.
     #[test]
     fn highest_present_level_decides_every_dimension() {
-        for top in 0..SOURCE_LEVELS.len() {
+        for (top, &level) in SOURCE_LEVELS.iter().enumerate() {
             let layers: Vec<ConfigLayer> = (0..=top)
                 .map(|index| {
                     layer(
@@ -627,7 +624,6 @@ mod tests {
                 .collect();
             let resolved = merged(&layers, true);
             let limits = effective(&resolved, None);
-            let level = SOURCE_LEVELS[top];
             let offset = u32::try_from(top).unwrap();
             assert_eq!(limits.max_ops.value, StepLimit::Limited(20 + offset));
             assert_eq!(limits.max_age.value, minutes(10 + u64::from(offset)));
@@ -741,6 +737,49 @@ mod tests {
             ..volume()
         });
         assert_eq!(other.max_ops.value, StepLimit::Limited(50));
+    }
+
+    #[test]
+    fn volume_size_budget_overrides_the_general_budget() {
+        let layers = [
+            layer(
+                ConfigLevel::System,
+                json!({ "journal": { "max_size": "20gib" } }),
+            ),
+            layer(
+                ConfigLevel::User,
+                json!({ "journal": {
+                    "max_size": "8gib",
+                    "volume": { MOUNT: { "max_size": "2%" } },
+                }}),
+            ),
+        ];
+        let resolved = merged(&layers, false);
+        let limits = effective(&resolved, None);
+        assert_eq!(
+            limits.max_size.value,
+            SizeLimit::OfCapacity(Percent::from_percent(2))
+        );
+        assert_eq!(limits.max_size.source, ConfigLevel::User);
+        assert_eq!(limits.max_size_bytes, Some(10 * GIB));
+
+        let other = RetentionResolver::new(&resolved, None).resolve(&ResolutionInput {
+            mount: "/home",
+            ..volume()
+        });
+        assert_eq!(other.max_size_bytes, Some(8 * GIB));
+
+        let mut runtime = RuntimeLimits::default();
+        runtime.set(
+            None,
+            &LimitValues {
+                size: Some(SizeLimit::Unlimited),
+                ..LimitValues::default()
+            },
+        );
+        let session = effective(&resolved, Some(&runtime));
+        assert_eq!(session.max_size_bytes, None);
+        assert_eq!(session.max_size.source, ConfigLevel::Runtime);
     }
 
     #[test]
@@ -923,7 +962,7 @@ mod tests {
             ConfigLevel::System,
             json!({ "journal": { "floor": { "max_ops": 50 } } }),
         );
-        let resolved = merged(&[system.clone()], false);
+        let resolved = merged(std::slice::from_ref(&system), false);
         let limits = effective(&resolved, None);
         assert_eq!(limits.max_ops.value, StepLimit::Limited(50));
         assert!(limits.max_ops.raised_to_floor);

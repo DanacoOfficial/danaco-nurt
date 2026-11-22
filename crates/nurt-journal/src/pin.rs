@@ -14,24 +14,30 @@
 //! T}]}`, where `T` is the end of the pin in nanoseconds since the Unix epoch
 //! and `C` is the CRC-32 (IEEE) of the serialized `pins` array. The end of a
 //! pin is never part of a result.
-#![cfg_attr(
-    not(test),
-    expect(dead_code, reason = "entry points are called by the journal store")
-)]
 
 use std::collections::BTreeMap;
 use std::time::Duration;
 
 use nurt_contracts::env::WallTime;
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::VolumeId;
+use nurt_contracts::fs::{FsErrorKind, ScopePurpose, VolumeId};
 use nurt_contracts::journal::{OpId, PinOutcome, PinRequest};
 use serde::{Deserialize, Serialize};
 
 use crate::history::EntrySource;
+use crate::layout::JournalLayout;
+use crate::manifest;
+use crate::retention;
+use crate::store::{self, JournalCtx};
 
 /// Version of the pin file format.
 pub(crate) const PIN_FILE_VERSION: u32 = 1;
+
+/// Pin duration used when the request sets none (`journal.pin_max_age`).
+pub(crate) const DEFAULT_PIN_MAX_AGE: Duration = Duration::from_hours(24);
+
+/// Number of the scope of pin file writes, which belong to no entry.
+const PIN_SCOPE_OP: OpId = OpId(0);
 
 /// Pins of one volume, or of several volumes merged.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -144,25 +150,92 @@ pub(crate) trait PinBackend: EntrySource {
     /// Replaces the pin file of one volume atomically.
     fn write_pins(&self, volume: &VolumeId, pins: &PinSet) -> Result<()>;
 
-    /// Appends the audit record of a pin or release to the journal index.
-    fn record_pin(&self, op: OpId, release: bool) -> Result<()>;
-
     /// Configured default pin duration (`journal.pin_max_age`).
     fn pin_max_age(&self) -> Duration;
 
     /// Expires every entry over a limit, now that a pin no longer protects
-    /// it.
-    fn expire_over_limits(&self) -> Result<()>;
+    /// it, and returns the entries the pass expired.
+    fn expire_over_limits(&self) -> Result<Vec<OpId>>;
+}
+
+/// Pins of the journal directory of one volume; an absent or damaged pin
+/// file yields the empty set, which the next pin replaces.
+///
+/// Fails with the file system error when the pin file cannot be read.
+pub(crate) fn read_pin_file(ctx: &JournalCtx, journal: &JournalLayout) -> Result<PinSet> {
+    match manifest::read_bytes(ctx.fs.as_ref(), &journal.pins()?) {
+        Ok(bytes) => Ok(PinSet::parse(&bytes).unwrap_or_default()),
+        Err(error) if error.kind == FsErrorKind::NotFound => Ok(PinSet::default()),
+        Err(error) => Err(error.into()),
+    }
+}
+
+/// Active journal of the volume, when there is one.
+fn volume_journal(ctx: &JournalCtx, volume: &VolumeId) -> Result<Option<JournalLayout>> {
+    for journal in ctx.active_journals() {
+        if &ctx.fs.volume(journal.root())?.id == volume {
+            return Ok(Some(journal));
+        }
+    }
+    Ok(None)
+}
+
+/// Pin files in the journal directories of the journal store. The default
+/// pin duration is [`DEFAULT_PIN_MAX_AGE`]; releasing runs an expiry pass.
+impl PinBackend for JournalCtx {
+    fn read_pins(&self, volume: &VolumeId) -> Result<PinSet> {
+        match volume_journal(self, volume)? {
+            Some(journal) => read_pin_file(self, &journal),
+            None => Ok(PinSet::default()),
+        }
+    }
+
+    fn write_pins(&self, volume: &VolumeId, pins: &PinSet) -> Result<()> {
+        let journal = volume_journal(self, volume)?.ok_or_else(|| {
+            Error::new(
+                ErrorCode::Io,
+                "the journal of a volume of the entry is not available; mount the volume and pin again",
+            )
+        })?;
+        let scope = store::scope(PIN_SCOPE_OP, ScopePurpose::Maintenance);
+        manifest::write_atomic(
+            self.fs.as_ref(),
+            &scope,
+            journal.root(),
+            &journal.pins()?,
+            &pins.to_bytes()?,
+        )?;
+        Ok(())
+    }
+
+    fn pin_max_age(&self) -> Duration {
+        DEFAULT_PIN_MAX_AGE
+    }
+
+    fn expire_over_limits(&self) -> Result<Vec<OpId>> {
+        let report = retention::expiry::sweep(self)?;
+        Ok(report.expired.into_iter().map(|entry| entry.op).collect())
+    }
+}
+
+/// Pins or releases entries of the journal of the account.
+///
+/// Fails as [`pin_with`].
+pub(crate) fn pin(ctx: &JournalCtx, request: &PinRequest) -> Result<PinOutcome> {
+    pin_with(ctx, request)
 }
 
 /// Pins or releases entries.
 ///
 /// Entries that are not available (unknown, expired, undone or in a
 /// transient state) are reported in `not_available` and left alone.
-/// Releasing pins expires at once the entries that are over a limit.
+/// Releasing pins expires at once the entries that are over a limit; the
+/// released entries among them are reported in `expired`. Entries the same
+/// pass expires without a released pin are not reported, because the release
+/// did not change their limits.
 ///
 /// Fails with `E_IO` when a pin file cannot be read or written.
-pub(crate) fn pin<S>(store: &S, request: &PinRequest) -> Result<PinOutcome>
+pub(crate) fn pin_with<S>(store: &S, request: &PinRequest) -> Result<PinOutcome>
 where
     S: PinBackend + ?Sized,
 {
@@ -197,15 +270,15 @@ where
         }
         store.write_pins(volume, &pins)?;
     }
-    for &op in &changed {
-        store.record_pin(op, request.release)?;
-    }
+    let mut expired = Vec::new();
     if request.release && !changed.is_empty() {
-        store.expire_over_limits()?;
+        expired = store.expire_over_limits()?;
+        expired.retain(|op| changed.contains(op));
     }
     Ok(PinOutcome {
         changed,
         not_available,
+        expired,
     })
 }
 
@@ -217,7 +290,7 @@ mod tests {
     use nurt_contracts::error::ErrorCode;
     use nurt_contracts::journal::{EntryState, OpId, PinRequest};
 
-    use super::{PinSet, pin};
+    use super::{PinSet, pin_with as pin};
     use crate::undo::testkit::{TestJournal, volume};
 
     fn request(ids: &[u64], release: bool, until: Option<Duration>) -> PinRequest {
@@ -237,7 +310,10 @@ mod tests {
         assert_eq!(PinSet::parse(&bytes).unwrap(), pins);
         let text = String::from_utf8(bytes).unwrap();
         let tampered = text.replace("\"until\":20", "\"until\":21");
-        assert_eq!(PinSet::parse(tampered.as_bytes()).unwrap_err().code, ErrorCode::Io);
+        assert_eq!(
+            PinSet::parse(tampered.as_bytes()).unwrap_err().code,
+            ErrorCode::Io
+        );
         let future = text.replace("\"v\":1", "\"v\":2");
         assert!(PinSet::parse(future.as_bytes()).is_err());
         assert!(PinSet::parse(b"[]").is_err());
@@ -267,8 +343,11 @@ mod tests {
         assert!(outcome.not_available.is_empty());
         assert_eq!(journal.entry(OpId(1)).manifest_hash, manifest);
         assert_eq!(journal.seq(), seq);
-        assert!(journal.pins_of(&volume(1)).is_pinned(OpId(1), journal.now_time()));
-        assert_eq!(journal.audit(), [(OpId(1), false)]);
+        assert!(
+            journal
+                .pins_of(&volume(1))
+                .is_pinned(OpId(1), journal.now_time())
+        );
     }
 
     #[test]
@@ -276,14 +355,22 @@ mod tests {
         let journal = TestJournal::new();
         journal.op(None).create("/home/user/a", b"a").commit();
         journal.op(None).create("/home/user/b", b"b").commit();
-        pin(&journal, &request(&[1], false, Some(Duration::from_secs(60)))).unwrap();
+        pin(
+            &journal,
+            &request(&[1], false, Some(Duration::from_mins(1))),
+        )
+        .unwrap();
         pin(&journal, &request(&[2], false, None)).unwrap();
         journal.advance(Duration::from_secs(61));
         let pins = journal.pins_of(&volume(1));
         assert!(!pins.is_pinned(OpId(1), journal.now_time()));
         assert!(pins.is_pinned(OpId(2), journal.now_time()));
-        journal.advance(Duration::from_secs(24 * 3600));
-        assert!(!journal.pins_of(&volume(1)).is_pinned(OpId(2), journal.now_time()));
+        journal.advance(Duration::from_hours(24));
+        assert!(
+            !journal
+                .pins_of(&volume(1))
+                .is_pinned(OpId(2), journal.now_time())
+        );
     }
 
     #[test]
@@ -292,15 +379,50 @@ mod tests {
         journal.op(None).create("/home/user/a", b"a").commit();
         pin(&journal, &request(&[1], false, None)).unwrap();
         for n in 0..3 {
-            journal.op(None).create(&format!("/home/user/n{n}"), b"n").commit();
+            journal
+                .op(None)
+                .create(&format!("/home/user/n{n}"), b"n")
+                .commit();
         }
         journal.set_step_limit(2);
         journal.sweep();
         assert_eq!(journal.entry(OpId(1)).state, EntryState::Committed);
         let outcome = pin(&journal, &request(&[1], true, None)).unwrap();
         assert_eq!(outcome.changed, [OpId(1)]);
+        assert_eq!(outcome.expired, [OpId(1)]);
         assert_eq!(journal.entry(OpId(1)).state, EntryState::Expired);
-        assert_eq!(journal.audit(), [(OpId(1), false), (OpId(1), true)]);
+    }
+
+    #[test]
+    fn pin_release_reports_only_released_entries_that_expired() {
+        let journal = TestJournal::new();
+        journal.op(None).create("/home/user/a", b"a").commit();
+        journal.op(None).create("/home/user/b", b"b").commit();
+        journal.op(None).create("/home/user/c", b"c").commit();
+        pin(&journal, &request(&[1, 3], false, None)).unwrap();
+        for n in 0..2 {
+            journal
+                .op(None)
+                .create(&format!("/home/user/n{n}"), b"n")
+                .commit();
+        }
+        journal.set_step_limit(3);
+        let outcome = pin(&journal, &request(&[1, 3], true, None)).unwrap();
+        assert_eq!(outcome.changed, [OpId(1), OpId(3)]);
+        assert_eq!(outcome.expired, [OpId(1)]);
+        assert_eq!(journal.entry(OpId(2)).state, EntryState::Expired);
+        assert_eq!(journal.entry(OpId(3)).state, EntryState::Committed);
+    }
+
+    #[test]
+    fn pin_without_release_expires_nothing() {
+        let journal = TestJournal::new();
+        journal.op(None).create("/home/user/a", b"a").commit();
+        journal.op(None).create("/home/user/b", b"b").commit();
+        journal.set_step_limit(1);
+        let outcome = pin(&journal, &request(&[1], false, None)).unwrap();
+        assert!(outcome.expired.is_empty());
+        assert_eq!(journal.entry(OpId(1)).state, EntryState::Committed);
     }
 
     #[test]
@@ -319,7 +441,11 @@ mod tests {
     #[test]
     fn pin_marks_every_volume_of_a_multi_volume_entry() {
         let journal = TestJournal::new();
-        journal.op(None).create("/home/user/a", b"a").on_volumes(&[1, 2]).commit();
+        journal
+            .op(None)
+            .create("/home/user/a", b"a")
+            .on_volumes(&[1, 2])
+            .commit();
         pin(&journal, &request(&[1], false, None)).unwrap();
         let now = journal.now_time();
         assert!(journal.pins_of(&volume(1)).is_pinned(OpId(1), now));
@@ -334,7 +460,13 @@ mod tests {
         journal.op(None).create("/home/user/a", b"a").commit();
         let outcome = pin(&journal, &request(&[1], false, None)).unwrap();
         let json = serde_json::to_value(&outcome).unwrap();
-        let fields: Vec<&str> = json.as_object().unwrap().keys().map(String::as_str).collect();
-        assert_eq!(fields, ["changed", "not_available"]);
+        let mut fields: Vec<&str> = json
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        fields.sort_unstable();
+        assert_eq!(fields, ["changed", "expired", "not_available"]);
     }
 }

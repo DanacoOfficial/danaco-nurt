@@ -31,11 +31,6 @@
 //! predecessor; the index then forks, which [`verify_chain`] reports without
 //! treating either entry as corrupt.
 
-#![cfg_attr(
-    not(test),
-    expect(dead_code, reason = "entry points are called by the journal store")
-)]
-
 use std::collections::HashMap;
 
 use nurt_contracts::fs::{ContentHash, Fs, FsErrorKind, FsResult};
@@ -228,7 +223,8 @@ pub(crate) struct ChainEntry {
 
 /// Verification status of one link.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum LinkStatus {
+#[non_exhaustive]
+pub enum LinkStatus {
     /// The link names the immediately preceding index row, or the entry is
     /// the first of the account and records no predecessor.
     Verified,
@@ -250,26 +246,28 @@ pub(crate) enum LinkStatus {
 
 /// Several entries linked to the same predecessor.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ChainFork {
+#[non_exhaustive]
+pub struct ChainFork {
     /// Common predecessor.
-    pub(crate) predecessor: OpId,
+    pub predecessor: OpId,
     /// Entries linked to it, in index order.
-    pub(crate) successors: Vec<OpId>,
+    pub successors: Vec<OpId>,
 }
 
 /// Result of verifying the chain of an account index.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub(crate) struct ChainReport {
+#[non_exhaustive]
+pub struct ChainReport {
     /// Status of every entry, in index order.
-    pub(crate) links: Vec<(OpId, LinkStatus)>,
+    pub links: Vec<(OpId, LinkStatus)>,
     /// Forks, ordered by the index position of the predecessor.
-    pub(crate) forks: Vec<ChainFork>,
+    pub forks: Vec<ChainFork>,
 }
 
 impl ChainReport {
     /// Whether no link is broken. Forks and unverifiable links are reported
     /// but do not make a chain broken.
-    pub(crate) fn is_unbroken(&self) -> bool {
+    pub fn is_unbroken(&self) -> bool {
         self.links
             .iter()
             .all(|(_, status)| *status != LinkStatus::Broken)

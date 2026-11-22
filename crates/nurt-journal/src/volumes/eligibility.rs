@@ -102,6 +102,7 @@ fn classify(volume: &VolumeInfo) -> VolumeClass {
 ///     Eligibility::Inactive(InactiveReason::MemoryVolume)
 /// );
 /// ```
+#[must_use]
 pub fn evaluate(volume: &VolumeInfo, config: &JournalConfig) -> Eligibility {
     match volume_override(volume, config) {
         Some(false) => return Eligibility::Inactive(InactiveReason::Disabled),
