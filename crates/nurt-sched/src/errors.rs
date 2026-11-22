@@ -12,9 +12,14 @@ pub(crate) fn invalid(message: impl Into<String>) -> Error {
     Error::new(ErrorCode::InvalidValue, message).with_stage(Stage::Bind)
 }
 
-/// Parameters that exclude each other or are missing from a group.
+/// Parameters that exclude each other.
 pub(crate) fn conflict(message: impl Into<String>) -> Error {
-    Error::new(ErrorCode::Arg, message).with_stage(Stage::Bind)
+    Error::new(ErrorCode::ParamConflict, message).with_stage(Stage::Bind)
+}
+
+/// A request to the schedule module that lacks what the operation needs.
+pub(crate) fn bad_request(message: impl Into<String>) -> Error {
+    Error::new(ErrorCode::Arg, message)
 }
 
 /// A run of the schedule is in progress.

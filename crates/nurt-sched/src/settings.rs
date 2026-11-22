@@ -84,7 +84,7 @@ impl ScheduleSettings {
     pub fn from_extensions(extensions: &Extensions) -> Self {
         extensions
             .get::<ScheduleSettings>()
-            .map(|settings| Arc::unwrap_or_clone(settings))
+            .map(Arc::unwrap_or_clone)
             .unwrap_or_default()
     }
 }

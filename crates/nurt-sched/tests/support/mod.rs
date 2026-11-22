@@ -6,7 +6,11 @@
 //! can undo them, a pipeline runner, a run context factory, an event
 //! recorder and a service link to an in-process schedule module.
 
-#![allow(dead_code, reason = "every test file uses a different part of the support code")]
+#![allow(
+    dead_code,
+    unreachable_pub,
+    reason = "every test crate includes this module and uses a different part of it"
+)]
 
 use std::ffi::OsString;
 use std::fs;
@@ -17,11 +21,11 @@ use std::time::Duration;
 use nurt_contracts::bound::{BoundArg, BoundExpr, BoundHead, BoundPipeline, BoundStage, Phase};
 use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
 use nurt_contracts::error::{Error, ErrorCode, Result};
+use nurt_contracts::fs::WriteHandle;
 use nurt_contracts::journal::{
     Applied, BeforeState, ExemptWrite, ExternalChange, Mutation, MutationTx, OpHandle, OpId,
     PreserveMode, Preserved, RollbackReason, RollbackReport, TargetIndex, TargetPath, TargetSpec,
 };
-use nurt_contracts::fs::WriteHandle;
 use nurt_contracts::kinds::EffectKind;
 use nurt_contracts::report::IrreversibleEntry;
 use nurt_contracts::stage::{
@@ -95,7 +99,11 @@ impl Clock for VirtualClock {
         }
     }
 
-    fn sleep(&self, duration: Duration, cancel: &CancelToken) -> std::result::Result<(), CancelReason> {
+    fn sleep(
+        &self,
+        duration: Duration,
+        cancel: &CancelToken,
+    ) -> std::result::Result<(), CancelReason> {
         if let Some(reason) = cancel.reason() {
             return Err(reason);
         }
@@ -160,7 +168,10 @@ pub struct TestTx {
 impl TestTx {
     /// Paths declared by the transaction, in declaration order.
     pub fn paths(&self) -> Vec<PathBuf> {
-        self.targets.iter().map(|(path, _, _)| path.clone()).collect()
+        self.targets
+            .iter()
+            .map(|(path, _, _)| path.clone())
+            .collect()
     }
 
     /// Restores every target, in reverse order.
@@ -198,7 +209,11 @@ impl MutationTx for TestTx {
         for target in targets {
             let path = fs_path(&target.path);
             let existed = path.exists();
-            let before = if path.is_file() { Some(fs::read(&path).unwrap()) } else { None };
+            let before = if path.is_file() {
+                Some(fs::read(&path).unwrap())
+            } else {
+                None
+            };
             self.targets.push((path, before, existed));
         }
         Ok((first..self.targets.len())
@@ -215,7 +230,10 @@ impl MutationTx for TestTx {
     }
 
     fn stage(&mut self, _target: TargetIndex) -> Result<Box<dyn WriteHandle>> {
-        Err(Error::new(ErrorCode::Unsupported, "the test transaction does not stage files"))
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "the test transaction does not stage files",
+        ))
     }
 
     fn apply(&mut self, target: TargetIndex, mutation: Mutation) -> Result<Applied> {
@@ -243,7 +261,10 @@ impl MutationTx for TestTx {
     fn record_exempt(&mut self, _write: ExemptWrite) {}
 
     fn commit(self: Box<Self>) -> Result<OpHandle> {
-        Err(Error::new(ErrorCode::Unsupported, "the test transaction is not committed"))
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "the test transaction is not committed",
+        ))
     }
 
     fn rollback(self: Box<Self>, _reason: RollbackReason) -> Result<RollbackReport> {
@@ -265,7 +286,9 @@ pub struct TestRunner {
 }
 
 impl TestRunner {
-    pub fn new(behaviour: impl Fn(&ExecCtx) -> Result<Vec<Record>> + Send + Sync + 'static) -> Arc<Self> {
+    pub fn new(
+        behaviour: impl Fn(&ExecCtx) -> Result<Vec<Record>> + Send + Sync + 'static,
+    ) -> Arc<Self> {
         Arc::new(Self {
             behaviour: Box::new(behaviour),
             calls: Mutex::new(Vec::new()),
@@ -350,7 +373,11 @@ impl TestEvents {
                 events.iter().filter(|event| event.event == name).count() < count
             })
             .unwrap();
-        guard.iter().filter(|event| event.event == name).cloned().collect()
+        guard
+            .iter()
+            .filter(|event| event.event == name)
+            .cloned()
+            .collect()
     }
 
     pub fn named(&self, name: &str) -> Vec<ModuleEvent> {
@@ -393,7 +420,12 @@ impl TestLink {
     }
 
     pub fn ops(&self) -> Vec<String> {
-        self.requests.lock().unwrap().iter().map(|request| request.op.clone()).collect()
+        self.requests
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|request| request.op.clone())
+            .collect()
     }
 }
 
@@ -423,10 +455,17 @@ pub fn pipeline(program: &str) -> BoundPipeline {
                 BoundArg::given(
                     "command",
                     BoundExpr::List {
-                        items: vec![BoundExpr::Text { v: program.to_owned() }],
+                        items: vec![BoundExpr::Text {
+                            v: program.to_owned(),
+                        }],
                     },
                 ),
-                BoundArg::given("cwd", BoundExpr::Path { v: "/tmp".to_owned() }),
+                BoundArg::given(
+                    "cwd",
+                    BoundExpr::Path {
+                        v: "/tmp".to_owned(),
+                    },
+                ),
             ],
             span: None,
         }),
@@ -520,7 +559,12 @@ pub fn create_args(values: &[(&str, Value)]) -> BoundArgs {
 }
 
 /// Plans and applies an effect stage; returns the output records.
-pub fn apply(stage: &dyn EffectStage, args: &BoundArgs, tx: &mut TestTx, ctx: &ExecCtx) -> Result<Vec<Record>> {
+pub fn apply(
+    stage: &dyn EffectStage,
+    args: &BoundArgs,
+    tx: &mut TestTx,
+    ctx: &ExecCtx,
+) -> Result<Vec<Record>> {
     let plan = stage.plan(args, StageInput::none(), ctx)?;
     let outcome = stage.apply(args, plan, tx, ctx)?;
     records(outcome.output.data)

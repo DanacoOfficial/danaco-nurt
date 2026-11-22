@@ -35,7 +35,9 @@ pub fn add(instant: Instant, duration: Duration) -> Instant {
 /// Time from `earlier` to `later`; zero when `later` is not later.
 #[must_use]
 pub fn since(later: Instant, earlier: Instant) -> Duration {
-    let nanos = later.as_unix_nanos().saturating_sub(earlier.as_unix_nanos());
+    let nanos = later
+        .as_unix_nanos()
+        .saturating_sub(earlier.as_unix_nanos());
     u64::try_from(nanos).map_or(Duration::ZERO, Duration::from_nanos)
 }
 

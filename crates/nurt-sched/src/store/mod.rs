@@ -122,7 +122,9 @@ impl Store {
                 Err(error) => definitions.invalid.push((path, error.message.clone())),
             }
         }
-        definitions.items.sort_by(|a, b| id_order(&a.id).cmp(&id_order(&b.id)));
+        definitions
+            .items
+            .sort_by_key(|definition| id_order(&definition.id));
         Ok(definitions)
     }
 
@@ -286,7 +288,10 @@ fn read_definition(path: &Path) -> Result<Definition, Error> {
     let definition: Definition =
         serde_json::from_slice(&bytes).map_err(|error| format(path, error))?;
     if definition.format != FORMAT {
-        return Err(format(path, format!("unknown format `{}`", definition.format)));
+        return Err(format(
+            path,
+            format!("unknown format `{}`", definition.format),
+        ));
     }
     let expected = path.file_stem().and_then(|stem| stem.to_str());
     if expected != Some(definition.id.as_str()) {

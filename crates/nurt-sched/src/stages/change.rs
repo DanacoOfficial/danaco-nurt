@@ -14,7 +14,9 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::{Record, Value};
 
-use super::{bool_arg, ids_arg, notify_changed, now, running_link, shown_state, store, target, text_arg};
+use super::{
+    bool_arg, ids_arg, notify_changed, now, running_link, shown_state, store, target, text_arg,
+};
 use crate::errors::{conflict, failed, not_found};
 use crate::module::ModuleRequest;
 use crate::store::{Definition, Store, check_id, encode_definition};
@@ -143,7 +145,10 @@ impl EffectStage for ChangeStage {
                 ChangeAction::Modify
             };
             let mut change = Change::new(
-                store.definition_path(&item.definition.id).display().to_string(),
+                store
+                    .definition_path(&item.definition.id)
+                    .display()
+                    .to_string(),
                 action,
             );
             change.before = Some(item.before.as_str().to_owned());
@@ -151,10 +156,7 @@ impl EffectStage for ChangeStage {
             plan.changes.push(change);
         }
         plan.bulk = plan.changes.len() > 1;
-        plan.preview = planned
-            .iter()
-            .map(|item| self.effect(item, &[]))
-            .collect();
+        plan.preview = planned.iter().map(|item| self.effect(item, &[])).collect();
         Ok(plan.with_state(planned))
     }
 
@@ -165,9 +167,12 @@ impl EffectStage for ChangeStage {
         tx: &mut dyn MutationTx,
         ctx: &'a ExecCtx,
     ) -> Result<EffectOutcome<'a>, Error> {
-        let planned: Vec<Planned> = plan
-            .take_state()
-            .ok_or_else(|| failed(format!("the plan of `{}` has no schedules", self.op.command())))?;
+        let planned: Vec<Planned> = plan.take_state().ok_or_else(|| {
+            failed(format!(
+                "the plan of `{}` has no schedules",
+                self.op.command()
+            ))
+        })?;
         let store = store(ctx)?;
         let changed: Vec<&Planned> = planned.iter().filter(|item| item.change).collect();
         let action = if self.op == Op::Remove {
@@ -177,7 +182,13 @@ impl EffectStage for ChangeStage {
         };
         let targets = changed
             .iter()
-            .map(|item| target(&store.definition_path(&item.definition.id), action.clone(), Expect::Unchecked))
+            .map(|item| {
+                target(
+                    &store.definition_path(&item.definition.id),
+                    action.clone(),
+                    Expect::Unchecked,
+                )
+            })
             .collect::<Result<Vec<_>, Error>>()?;
         tx.preserve(&targets)?;
         let now = now(ctx);
@@ -220,7 +231,8 @@ impl EffectStage for ChangeStage {
                 self.effect(item, &stopped)
             })
             .collect();
-        let mut outcome = EffectOutcome::new(StageOutput::records(RecordStream::from_records(records)));
+        let mut outcome =
+            EffectOutcome::new(StageOutput::records(RecordStream::from_records(records)));
         outcome.changes = plan.changes;
         Ok(outcome)
     }
@@ -242,7 +254,14 @@ impl ChangeStage {
             kind: self.op.command().to_owned(),
             targets: Some(1),
             target: Some(format!("schedule:{}", item.definition.id)),
-            action: Some(if item.change { self.op.action() } else { UNCHANGED }.to_owned()),
+            action: Some(
+                if item.change {
+                    self.op.action()
+                } else {
+                    UNCHANGED
+                }
+                .to_owned(),
+            ),
             before: Some(Value::Text(item.before.as_str().to_owned())),
             after: Some(Value::Map(details)),
             ..Effect::default()
@@ -272,7 +291,10 @@ fn select(args: &BoundArgs, store: &Store) -> Result<Vec<Definition>, Error> {
     if !all && ids.is_empty() && origin.is_none() {
         return Err(Error::new(
             ErrorCode::MissingParam,
-            format!("`{}` needs `id`, `all: true` or `origin_session`", args.command()),
+            format!(
+                "`{}` needs `id`, `all: true` or `origin_session`",
+                args.command()
+            ),
         ));
     }
     for id in &ids {

@@ -21,7 +21,7 @@ use super::{
 };
 use crate::action::{ActionRegistry, ActionRun, Outcome, PIPELINE_KIND};
 use crate::engine::{EngineEvent, Launch, Scheduler};
-use crate::errors::{conflict, failed};
+use crate::errors::{bad_request, failed};
 use crate::settings::ScheduleSettings;
 use crate::store::{Fingerprint, Overlap, RunRecord, RunState, RunTrigger, StateFile, Store};
 use crate::trigger::time::{self, instant_from_wall, std_duration};
@@ -101,7 +101,11 @@ impl std::fmt::Debug for Core {
 enum Work {
     Pipeline,
     Local(Arc<dyn crate::action::ScheduleAction>),
-    Remote { token: String, client: String, receiver: Receiver<Ack> },
+    Remote {
+        token: String,
+        client: String,
+        receiver: Receiver<Ack>,
+    },
     Unavailable,
 }
 
@@ -152,9 +156,11 @@ impl ServiceModule for ScheduleModule {
         let clock = Arc::clone(&ctx.clock);
         Shared::open(&self.shared, ctx)?;
         while !stop.is_cancelled() {
-            let wait = Shared::step(&self.shared);
+            // The wake token exists before the step, so a request handled
+            // during the step shortens the following sleep.
             let wake = stop.child();
             *lock(&self.shared.wake) = Some(wake.clone());
+            let wait = Shared::step(&self.shared);
             if clock.sleep(wait, &wake).is_err() && stop.is_cancelled() {
                 break;
             }
@@ -209,7 +215,11 @@ impl ServiceModule for ScheduleModule {
 
 impl ScheduleModule {
     fn changed(&self) -> Result<Json> {
-        let count = self.shared.with_core(|shared, core| shared.reload(core))?;
+        let count = self.shared.with_core(|shared, core| {
+            let count = shared.reload(core)?;
+            shared.publish(core);
+            Ok(count)
+        })?;
         self.shared.wake();
         Ok(json!({ "schedules": count }))
     }
@@ -268,7 +278,7 @@ impl ScheduleModule {
         let client = request
             .client
             .clone()
-            .ok_or_else(|| conflict("`schedule/register_action` needs a client connection"))?;
+            .ok_or_else(|| bad_request("`schedule/register_action` needs a client connection"))?;
         let kind = required_text(&request.body, "kind")?;
         lock(&self.shared.remote).insert(kind.clone(), client);
         Ok(json!({ "kind": kind }))
@@ -278,7 +288,7 @@ impl ScheduleModule {
         let token = required_text(body, "token")?;
         let state_text = body.get("state").and_then(Json::as_str).unwrap_or("ok");
         let state = RunState::parse(state_text).ok_or_else(|| {
-            conflict(format!(
+            bad_request(format!(
                 "unknown run state `{state_text}`; use ok, exit, timeout, stopped or failed"
             ))
         })?;
@@ -290,7 +300,10 @@ impl ScheduleModule {
         })?;
         let ack = Ack {
             state,
-            summary: body.get("summary").and_then(Json::as_str).map(str::to_owned),
+            summary: body
+                .get("summary")
+                .and_then(Json::as_str)
+                .map(str::to_owned),
             exit_code: body.get("exit_code").and_then(Json::as_i64),
         };
         let _ = pending.sender.send(ack);
@@ -346,7 +359,10 @@ impl Shared {
         *lock(&self.health) = ModuleHealth::Stopped;
     }
 
-    fn with_core<T>(self: &Arc<Self>, work: impl FnOnce(&Arc<Self>, &mut Core) -> Result<T>) -> Result<T> {
+    fn with_core<T>(
+        self: &Arc<Self>,
+        work: impl FnOnce(&Arc<Self>, &mut Core) -> Result<T>,
+    ) -> Result<T> {
         let mut guard = lock(&self.core);
         let core = guard
             .as_mut()
@@ -387,7 +403,11 @@ impl Shared {
             .iter()
             .map(|(path, problem)| format!("{}: {problem}", path.display()))
             .collect();
-        problems.extend(broken.iter().map(|id| format!("schedule `{id}` has an invalid trigger")));
+        problems.extend(
+            broken
+                .iter()
+                .map(|id| format!("schedule `{id}` has an invalid trigger")),
+        );
         *lock(&self.health) = if problems.is_empty() {
             ModuleHealth::Running
         } else {
@@ -434,7 +454,11 @@ impl Shared {
         if kind == PIPELINE_KIND {
             return Work::Pipeline;
         }
-        if let Some(action) = core.registry.as_ref().and_then(|registry| registry.get(kind)) {
+        if let Some(action) = core
+            .registry
+            .as_ref()
+            .and_then(|registry| registry.get(kind))
+        {
             return Work::Local(action);
         }
         let Some(client) = lock(&self.remote).get(kind).cloned() else {
@@ -466,21 +490,22 @@ impl Shared {
         let now = core.now();
         let schedule = run.rsplit_once('#').map_or(run, |(id, _)| id).to_owned();
         let queued = core.scheduler.finish(run, outcome, now);
-        if let Some(waiter) = core.waiters.remove(run)
-            && let Some(record) = core
-                .scheduler
+        let reply = core.waiters.remove(run).and_then(|waiter| {
+            core.scheduler
                 .history(&schedule)
                 .iter()
                 .rev()
                 .find(|record| record.id() == run)
-        {
-            let _ = waiter.send((record.clone(), output));
-        }
+                .map(|record| (waiter, record.clone()))
+        });
         if let Some(queued) = queued {
             Self::dispatch(self, core, queued);
         }
         self.publish(core);
         drop(guard);
+        if let Some((waiter, record)) = reply {
+            let _ = waiter.send((record, output));
+        }
         self.wake();
     }
 
@@ -493,7 +518,9 @@ impl Shared {
                     }
                     ("schedule.fired", fired_data(&launch, None))
                 }
-                EngineEvent::Finished(record) => ("schedule.finished", json!({ "schedule_run": record })),
+                EngineEvent::Finished(record) => {
+                    ("schedule.finished", json!({ "schedule_run": record }))
+                }
                 EngineEvent::Skipped(record) => (
                     "schedule.skipped",
                     json!({
@@ -553,7 +580,12 @@ impl Job {
                     run: self.launch.run,
                     label: self.launch.definition.label.clone(),
                 };
-                let args = self.launch.definition.action_args.clone().unwrap_or(Json::Null);
+                let args = self
+                    .launch
+                    .definition
+                    .action_args
+                    .clone()
+                    .unwrap_or(Json::Null);
                 (action.execute(&run, &args, &self.cancel), Vec::new())
             }
             Work::Remote {
@@ -584,7 +616,8 @@ impl Job {
             Ok(ack) => {
                 let mut outcome = Outcome::new(
                     ack.state,
-                    ack.summary.unwrap_or_else(|| "the client ran the action".to_owned()),
+                    ack.summary
+                        .unwrap_or_else(|| "the client ran the action".to_owned()),
                 );
                 outcome.exit_code = ack.exit_code;
                 outcome

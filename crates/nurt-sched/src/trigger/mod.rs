@@ -52,7 +52,12 @@ impl TriggerDef {
     /// Returns `E_INVALID_VALUE` for an invalid expression, an unknown time
     /// zone (with similar names as candidates) or an expression without a run
     /// within five years after `now`.
-    pub fn cron(expression: &str, timezone: &str, host_zone: &str, now: Instant) -> Result<Self, Error> {
+    pub fn cron(
+        expression: &str,
+        timezone: &str,
+        host_zone: &str,
+        now: Instant,
+    ) -> Result<Self, Error> {
         let spec = CronSpec::parse(expression)?;
         let (name, zone) = zone::resolve(timezone, host_zone)?;
         if spec.next_after(&zone, now).is_none() {
@@ -115,8 +120,8 @@ impl TriggerDef {
     pub fn at(at: Instant, timezone: &str, host_zone: &str, now: Instant) -> Result<Self, Error> {
         if at.as_unix_nanos() <= now.as_unix_nanos() {
             return Err(invalid(format!(
-                "`at: {at}` is a time that has already passed; give a later time such as \
-                 `at: from_now(10m)`"
+                "`at: {at}` is a time that has already passed; give a later time, or use \
+                 `every` or `cron` for repeated runs"
             ))
             .with_found(at.to_string()));
         }
@@ -251,7 +256,11 @@ impl Trigger {
 }
 
 fn later(a: Instant, b: Instant) -> Instant {
-    if a.as_unix_nanos() >= b.as_unix_nanos() { a } else { b }
+    if a.as_unix_nanos() >= b.as_unix_nanos() {
+        a
+    } else {
+        b
+    }
 }
 
 /// Text form of a duration in the units `d`, `h`, `m`, `s` and `ms`, for
@@ -289,7 +298,9 @@ fn parse_duration(text: &str) -> Option<Duration> {
         let digits = rest.find(|c: char| !c.is_ascii_digit())?;
         let (number, tail) = rest.split_at(digits);
         let count: u64 = number.parse().ok()?;
-        let unit_end = tail.find(|c: char| c.is_ascii_digit()).unwrap_or(tail.len());
+        let unit_end = tail
+            .find(|c: char| c.is_ascii_digit())
+            .unwrap_or(tail.len());
         let (unit, tail) = tail.split_at(unit_end);
         let part = match unit {
             "d" => Duration::from_secs(count.checked_mul(DAY)?),

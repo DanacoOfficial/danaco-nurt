@@ -44,8 +44,8 @@ use crate::store::{
     Definition, Entry, OnMissed, Overlap, RunRecord, RunState, RunTrigger, SkipReason, StateFile,
     Status, run_id,
 };
-use crate::trigger::time::{self, std_duration, value_duration};
 use crate::trigger::Trigger;
+use crate::trigger::time::{self, std_duration, value_duration};
 
 /// A run to execute.
 #[derive(Debug, Clone)]
@@ -137,8 +137,8 @@ impl Scheduler {
             if trigger.is_none() {
                 broken.push(definition.id.clone());
             }
-            let hash_ok = definition_hash(&definition)
-                .is_ok_and(|hash| hash == definition.ast_hash);
+            let hash_ok =
+                definition_hash(&definition).is_ok_and(|hash| hash == definition.ast_hash);
             self.apply_definition(&definition, trigger.as_ref(), now);
             self.slots.insert(
                 definition.id.clone(),
@@ -152,17 +152,28 @@ impl Scheduler {
         broken
     }
 
-    fn apply_definition(&mut self, definition: &Definition, trigger: Option<&Trigger>, now: Instant) {
+    fn apply_definition(
+        &mut self,
+        definition: &Definition,
+        trigger: Option<&Trigger>,
+        now: Instant,
+    ) {
         match self.state.schedules.get_mut(&definition.id) {
             None => {
                 let next_run = trigger.and_then(|t| t.first_run(definition.created, now));
+                let runs = self
+                    .state
+                    .history
+                    .get(&definition.id)
+                    .and_then(|history| history.last())
+                    .map_or(0, |record| record.run);
                 self.state.schedules.insert(
                     definition.id.clone(),
                     Entry {
                         status: Status::Active,
                         next_run,
                         run_count: 0,
-                        runs: 0,
+                        runs,
                         skipped: 0,
                         last_run: None,
                         last_state: None,
@@ -243,7 +254,11 @@ impl Scheduler {
     ) -> Option<Launch> {
         let definition = &slot.definition;
         let id = definition.id.as_str();
-        let recorded = self.state.schedules.get(id).map(|entry| entry.ast_hash.clone());
+        let recorded = self
+            .state
+            .schedules
+            .get(id)
+            .map(|entry| entry.ast_hash.clone());
         if !slot.hash_ok || recorded.as_deref() != Some(definition.ast_hash.as_str()) {
             self.reject(id, Some(due), kind, now);
             self.advance(id, trigger, due, now, Status::Expired);
@@ -276,6 +291,9 @@ impl Scheduler {
             self.dirty = true;
             return None;
         }
+        if let Some(entry) = self.state.schedules.get_mut(id) {
+            entry.last_refused = None;
+        }
         let launch = self.launch(definition, kind, Some(due), now, true);
         self.advance(id, trigger, due, now, Status::Completed);
         self.complete_if_done(id);
@@ -299,7 +317,11 @@ impl Scheduler {
         if let Some(running) = self.running_of(id) {
             return Err(busy(id, &running));
         }
-        let recorded = self.state.schedules.get(id).map(|entry| entry.ast_hash.clone());
+        let recorded = self
+            .state
+            .schedules
+            .get(id)
+            .map(|entry| entry.ast_hash.clone());
         if !slot.hash_ok || recorded.as_deref() != Some(slot.definition.ast_hash.as_str()) {
             self.reject(id, None, kind, now);
             return Err(failed(format!(
@@ -496,7 +518,11 @@ impl Scheduler {
         if let Some(entry) = self.state.schedules.get_mut(id) {
             entry.next_run = trigger.following(due, now);
             if entry.next_run.is_none() && entry.status == Status::Active {
-                entry.status = if trigger.is_single() { single } else { Status::Expired };
+                entry.status = if trigger.is_single() {
+                    single
+                } else {
+                    Status::Expired
+                };
             }
             self.dirty = true;
         }
@@ -519,7 +545,15 @@ impl Scheduler {
         };
         entry.skipped += 1;
         entry.runs += 1;
-        let record = idle_record(id, entry.runs, RunTrigger::Schedule, scheduled_for, now, RunState::Skipped, reason);
+        let record = idle_record(
+            id,
+            entry.runs,
+            RunTrigger::Schedule,
+            scheduled_for,
+            now,
+            RunState::Skipped,
+            reason,
+        );
         self.push_history(record.clone());
         self.events.push(EngineEvent::Skipped(record));
         self.dirty = true;
@@ -547,7 +581,11 @@ impl Scheduler {
 
     fn push_history(&mut self, record: RunRecord) {
         let keep = usize::try_from(self.settings.history_keep).unwrap_or(usize::MAX);
-        let history = self.state.history.entry(record.schedule.clone()).or_default();
+        let history = self
+            .state
+            .history
+            .entry(record.schedule.clone())
+            .or_default();
         history.push(record);
         if history.len() > keep {
             let excess = history.len() - keep;

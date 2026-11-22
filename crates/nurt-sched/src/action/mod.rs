@@ -105,7 +105,9 @@ impl Outcome {
     /// process identifiers).
     #[must_use]
     pub fn from_output(records: &[Record]) -> Self {
-        let exec = records.iter().find(|record| record.kind == RecordKind::Exec);
+        let exec = records
+            .iter()
+            .find(|record| record.kind == RecordKind::Exec);
         let mut outcome = Self::new(RunState::Ok, "the action ended");
         outcome.operation = records
             .iter()
@@ -115,12 +117,18 @@ impl Outcome {
             RecordKind::Job => text_field(record, "id"),
             _ => text_field(record, "job"),
         });
-        outcome.output_file = records.iter().find_map(|record| text_field(record, "output_file"));
+        outcome.output_file = records
+            .iter()
+            .find_map(|record| text_field(record, "output_file"));
         match exec {
             Some(exec) => {
                 let timed_out = matches!(exec.get("timed_out"), Some(Value::Bool(true)));
                 let code = int_field(exec, "exit_code").map(|code| code.cast_signed());
-                outcome.exit_code = if timed_out { Some(EXIT_TIMED_OUT) } else { code };
+                outcome.exit_code = if timed_out {
+                    Some(EXIT_TIMED_OUT)
+                } else {
+                    code
+                };
                 outcome.state = match (timed_out, code) {
                     (true, _) => RunState::Timeout,
                     (false, Some(EXIT_OK) | None) => RunState::Ok,
@@ -132,7 +140,8 @@ impl Outcome {
                 });
                 let stdout = text_field(exec, "stdout").unwrap_or_default();
                 let stderr = text_field(exec, "stderr").unwrap_or_default();
-                outcome.output_sha256 = Some(sha256_hex(&[stdout.as_bytes(), b"\0", stderr.as_bytes()]));
+                outcome.output_sha256 =
+                    Some(sha256_hex(&[stdout.as_bytes(), b"\0", stderr.as_bytes()]));
             }
             None => {
                 let stable: Vec<serde_json::Value> = records.iter().map(stable_json).collect();
@@ -147,7 +156,10 @@ impl Outcome {
     /// runs to set `changed`.
     #[must_use]
     pub fn digest(&self) -> String {
-        let exit = self.exit_code.map(|code| code.to_string()).unwrap_or_default();
+        let exit = self
+            .exit_code
+            .map(|code| code.to_string())
+            .unwrap_or_default();
         sha256_hex(&[
             self.state.as_str().as_bytes(),
             b"\0",

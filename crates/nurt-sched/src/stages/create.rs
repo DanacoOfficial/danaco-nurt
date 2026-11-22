@@ -8,8 +8,8 @@ use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::journal::{Expect, Mutation, MutationTx, TargetAction, TargetIndex};
 use nurt_contracts::report::{Change, ChangeAction};
 use nurt_contracts::stage::{
-    BoundArgs, CheckCtx, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds,
-    RecordStream, StageDescriptor, StageImpl, StageInput, StageOutput, StaticInfo,
+    BoundArgs, CheckCtx, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, RecordStream,
+    StageDescriptor, StageImpl, StageInput, StageOutput, StaticInfo,
 };
 use nurt_contracts::value::{Instant, Value};
 
@@ -87,7 +87,10 @@ impl EffectStage for Create {
         let open = definitions
             .iter()
             .filter(|definition| {
-                state.schedules.get(&definition.id).is_none_or(|entry| entry.status == Status::Active)
+                state
+                    .schedules
+                    .get(&definition.id)
+                    .is_none_or(|entry| entry.status == Status::Active)
             })
             .count();
         if u32::try_from(open).unwrap_or(u32::MAX) >= settings.max_active {
@@ -105,8 +108,10 @@ impl EffectStage for Create {
         let path = store.definition_path(&definition.id);
         let running = running_link(ctx).is_some();
         let mut plan = EffectPlan::new();
-        plan.changes
-            .push(Change::new(path.display().to_string(), ChangeAction::Create));
+        plan.changes.push(Change::new(
+            path.display().to_string(),
+            ChangeAction::Create,
+        ));
         plan.preview
             .push(schedule_record(&definition, None, running, now));
         Ok(plan.with_state(definition))
@@ -119,9 +124,9 @@ impl EffectStage for Create {
         tx: &mut dyn MutationTx,
         ctx: &'a ExecCtx,
     ) -> Result<EffectOutcome<'a>, Error> {
-        let definition: Definition = plan
-            .take_state()
-            .ok_or_else(|| crate::errors::failed("the plan of `schedule.create` has no definition"))?;
+        let definition: Definition = plan.take_state().ok_or_else(|| {
+            crate::errors::failed("the plan of `schedule.create` has no definition")
+        })?;
         let store = store(ctx)?;
         let path = store.definition_path(&definition.id);
         let dirs = missing_dirs(&path);
@@ -133,7 +138,12 @@ impl EffectStage for Create {
         tx.preserve(&targets)?;
         for index in 0..dirs.len() {
             let index = u32::try_from(index).unwrap_or(u32::MAX);
-            tx.apply(TargetIndex(index), Mutation::CreateDir { mode: DIRECTORY_MODE })?;
+            tx.apply(
+                TargetIndex(index),
+                Mutation::CreateDir {
+                    mode: DIRECTORY_MODE,
+                },
+            )?;
         }
         let file_index = u32::try_from(dirs.len()).unwrap_or(u32::MAX);
         tx.apply(
@@ -165,7 +175,10 @@ fn build(
     now: Instant,
 ) -> Result<Definition, Error> {
     let label = text_arg(args, "label")?.ok_or_else(|| {
-        Error::new(ErrorCode::MissingParam, "`schedule.create` needs a value for `label`")
+        Error::new(
+            ErrorCode::MissingParam,
+            "`schedule.create` needs a value for `label`",
+        )
     })?;
     let trigger = trigger(args, ctx, settings, now)?;
     let action = action(args, ctx)?;
@@ -182,7 +195,9 @@ fn build(
         _ => None,
     };
     if expires.is_some_and(|expires| expires <= now) {
-        return Err(invalid("`expires` is a time that has already passed; give a later time"));
+        return Err(invalid(
+            "`expires` is a time that has already passed; give a later time",
+        ));
     }
     let max_runs = match args.value("max_runs") {
         Some(Value::Int(count)) if *count >= 1 => u64::try_from(*count).ok(),
@@ -213,7 +228,10 @@ fn build(
         paused: !bool_arg(args, "enabled", true)?,
         created: now,
         changed: now,
-        session: options.session.clone().or_else(|| ctx.config().session.id.clone()),
+        session: options
+            .session
+            .clone()
+            .or_else(|| ctx.config().session.id.clone()),
         base: options.base.clone().or_else(|| scope.base.clone()),
         project_roots: scope.project_roots.clone(),
     })
@@ -271,7 +289,10 @@ fn action(args: &BoundArgs, ctx: &ExecCtx) -> Result<Action, Error> {
             if !remote.contains(&kind) {
                 return Err(unknown_kind(&kind, registry.as_deref(), &remote));
             }
-            format!("{kind} {}", action_args.clone().unwrap_or(serde_json::Value::Null))
+            format!(
+                "{kind} {}",
+                action_args.clone().unwrap_or(serde_json::Value::Null)
+            )
         }
     };
     Ok(Action {
@@ -290,13 +311,16 @@ fn remote_kinds(ctx: &ExecCtx) -> Vec<String> {
                 .ok()
         })
         .and_then(|status| {
-            status.get("action_kinds").and_then(serde_json::Value::as_array).map(|kinds| {
-                kinds
-                    .iter()
-                    .filter_map(serde_json::Value::as_str)
-                    .map(str::to_owned)
-                    .collect()
-            })
+            status
+                .get("action_kinds")
+                .and_then(serde_json::Value::as_array)
+                .map(|kinds| {
+                    kinds
+                        .iter()
+                        .filter_map(serde_json::Value::as_str)
+                        .map(str::to_owned)
+                        .collect()
+                })
         })
         .unwrap_or_default()
 }
@@ -327,8 +351,11 @@ fn enum_arg<T>(
     match text_arg(args, name)? {
         None => Ok(default),
         Some(text) => parse(&text).ok_or_else(|| {
-            Error::new(ErrorCode::UnknownValue, format!("unknown value `{text}` of `{name}`"))
-                .with_found(text)
+            Error::new(
+                ErrorCode::UnknownValue,
+                format!("unknown value `{text}` of `{name}`"),
+            )
+            .with_found(text)
         }),
     }
 }

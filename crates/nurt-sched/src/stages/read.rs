@@ -87,7 +87,12 @@ impl ReadStage for List {
                 })
             })
             .map(|definition| {
-                schedule_record(definition, state.schedules.get(&definition.id), running, now)
+                schedule_record(
+                    definition,
+                    state.schedules.get(&definition.id),
+                    running,
+                    now,
+                )
             })
             .collect();
         Ok(StageOutput::records(RecordStream::from_records(records)))
@@ -125,8 +130,7 @@ impl ReadStage for History {
         let state = store.read_state()?;
         if let Some(id) = &id {
             check_id(id)?;
-            let known = state.history.contains_key(id)
-                || store.load_definition(id)?.is_some();
+            let known = state.history.contains_key(id) || store.load_definition(id)?.is_some();
             if !known {
                 return Err(not_found(std::slice::from_ref(id)));
             }
@@ -139,13 +143,15 @@ impl ReadStage for History {
                 .flat_map(|(_, runs)| runs.iter()),
             usize::try_from(limit).unwrap_or(usize::MAX),
         );
-        let records = runs.iter().map(|run| run_record(run)).collect();
-        Ok(StageOutput::records(RecordStream::from_records(records)).with_order(StreamOrder {
-            keys: vec![OrderKey {
-                field: "started".to_owned(),
-                descending: true,
-            }],
-        }))
+        let records = runs.iter().map(run_record).collect();
+        Ok(
+            StageOutput::records(RecordStream::from_records(records)).with_order(StreamOrder {
+                keys: vec![OrderKey {
+                    field: "started".to_owned(),
+                    descending: true,
+                }],
+            }),
+        )
     }
 }
 

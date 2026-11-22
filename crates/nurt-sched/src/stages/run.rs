@@ -88,8 +88,12 @@ impl EffectStage for Run {
 }
 
 fn definition(args: &BoundArgs, ctx: &ExecCtx) -> Result<Definition, Error> {
-    let id = text_arg(args, "id")?
-        .ok_or_else(|| Error::new(ErrorCode::MissingParam, "`schedule.run` needs a value for `id`"))?;
+    let id = text_arg(args, "id")?.ok_or_else(|| {
+        Error::new(
+            ErrorCode::MissingParam,
+            "`schedule.run` needs a value for `id`",
+        )
+    })?;
     check_id(&id)?;
     store(ctx)?
         .load_definition(&id)?
@@ -124,9 +128,7 @@ fn run_here(definition: &Definition, ctx: &ExecCtx) -> Result<Vec<Record>, Error
     let Some(_lock) = store.try_run_lock(&definition.id)? else {
         return Err(busy(&definition.id, &definition.id));
     };
-    let output = ctx
-        .pipelines()?
-        .run(pipeline, StageInput::none(), ctx)?;
+    let output = ctx.pipelines()?.run(pipeline, StageInput::none(), ctx)?;
     match output.data {
         StageData::Records(stream) => stream.collect_bounded(ctx.limits().max_records),
         _ => Ok(Vec::new()),

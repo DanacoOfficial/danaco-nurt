@@ -31,9 +31,10 @@ use crate::errors::invalid;
 const MAX_LENGTH: usize = 200;
 const FIELDS: usize = 5;
 const SEARCH_DAYS: i32 = 5 * 366;
-const MONTH_FIELD: usize = 3;
 const WEEKDAY_FIELD: usize = 4;
 const DAY_FIELD: usize = 2;
+const SUNDAY_SEVEN: u32 = 7;
+const WEEK_MASK: u64 = 0x7f;
 
 const EXAMPLES: &str = "for example `*/10 * * * *` (every ten minutes) or `0 3 * * mon` \
                         (Mondays at 03:00)";
@@ -145,17 +146,18 @@ impl CronSpec {
             .year(Year::Disallowed)
             .sloppy_ranges(true)
             .build()
-            .parse(&fields_text)
+            .parse(&croner_fields(&fields))
             .map_err(|error| invalid(format!("invalid cron expression: {error}; {EXAMPLES}")))?;
         let pattern = &parsed.pattern;
         let starts_with_star = |index: usize| fields.get(index).is_some_and(|f| f.starts_with('*'));
+        let weekdays = bits(&pattern.days_of_week.values());
         Ok(Self {
             expression: trimmed.to_owned(),
             minutes: bits(&pattern.minutes.values()),
             hours: narrow(bits(&pattern.hours.values())),
             days: narrow(bits(&pattern.days.values())),
             months: narrow(bits(&pattern.months.values())),
-            weekdays: narrow(bits(&pattern.days_of_week.values())),
+            weekdays: narrow((weekdays | (weekdays >> SUNDAY_SEVEN)) & WEEK_MASK),
             any_day: starts_with_star(DAY_FIELD) || starts_with_star(WEEKDAY_FIELD),
         })
     }
@@ -170,7 +172,9 @@ impl CronSpec {
     /// expression has no run within five years.
     #[must_use]
     pub fn next_after(&self, zone: &TimeZone, after: Instant) -> Option<Instant> {
-        let start = time::timestamp(after)?.to_zoned_datetime(zone.clone()).date();
+        let start = time::timestamp(after)?
+            .to_zoned_datetime(zone.clone())
+            .date();
         let mut date = start;
         for _ in 0..=SEARCH_DAYS {
             if self.date_matches(date)
@@ -251,6 +255,29 @@ fn expand_shortcut(text: &str) -> Result<String, Error> {
         })
 }
 
+/// Fields in the form read by croner: a step from a single value, `a/n`, is
+/// written as the range `a-<max>/n`, so it runs from `a` to the end of the
+/// range.
+fn croner_fields(fields: &[&str]) -> String {
+    fields
+        .iter()
+        .zip(RULES.iter())
+        .map(|(field, rule)| {
+            field
+                .split(',')
+                .map(|part| match part.split_once('/') {
+                    Some((start, step)) if start != "*" && !start.contains('-') => {
+                        format!("{start}-{}/{step}", rule.max)
+                    }
+                    _ => part.to_owned(),
+                })
+                .collect::<Vec<_>>()
+                .join(",")
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 fn check_field(field: &str, rule: &FieldRule) -> Result<(), Error> {
     for part in field.split(',') {
         let (range, step) = match part.split_once('/') {
@@ -292,15 +319,18 @@ fn value(text: &str, rule: &FieldRule) -> Result<u16, Error> {
     let lower = text.to_ascii_lowercase();
     if let Some(position) = rule.names.iter().position(|name| *name == lower) {
         let offset = u16::from(rule.min == 1);
-        return u16::try_from(position).map(|index| index + offset).map_err(|_| {
-            invalid(format!("the {} `{text}` is not valid", rule.name))
-        });
+        return u16::try_from(position)
+            .map(|index| index + offset)
+            .map_err(|_| invalid(format!("the {} `{text}` is not valid", rule.name)));
     }
     let number: u16 = text.parse().map_err(|_| {
         let names = if rule.names.is_empty() {
             String::new()
         } else {
-            format!(" or a name such as `{}`", rule.names.first().copied().unwrap_or_default())
+            format!(
+                " or a name such as `{}`",
+                rule.names.first().copied().unwrap_or_default()
+            )
         };
         invalid(format!(
             "the {} `{text}` is not valid; use a number from {} to {}{names}",

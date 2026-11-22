@@ -32,8 +32,8 @@ pub use self::run::Run;
 use crate::errors::{conflict, failed, invalid};
 use crate::module::{ModuleRequest, ServiceLink};
 use crate::store::{Definition, Entry, RunRecord, RunState, SkipReason, Status, Store};
-use crate::trigger::time::instant_from_wall;
 use crate::trigger::Trigger as CompiledTrigger;
+use crate::trigger::time::instant_from_wall;
 
 /// Reason given for a schedule that is not active because the service does
 /// not run.
@@ -94,9 +94,7 @@ fn text_arg(args: &BoundArgs, name: &str) -> Result<Option<String>, Error> {
 fn duration_arg(args: &BoundArgs, name: &str) -> Result<Option<std::time::Duration>, Error> {
     match args.value(name) {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::Duration(duration)) if !duration.is_negative() => {
-            Ok(duration.to_std())
-        }
+        Some(Value::Duration(duration)) if !duration.is_negative() => Ok(duration.to_std()),
         Some(Value::Duration(_)) => Err(invalid(format!("`{name}` must not be negative"))),
         Some(other) => Err(type_error(args, name, "duration", other)),
     }
@@ -140,13 +138,19 @@ fn exactly_one(args: &BoundArgs, names: &[&str]) -> Result<String, Error> {
     let given: Vec<&str> = names
         .iter()
         .copied()
-        .filter(|name| args.value(name).is_some_and(|value| !value.is_null()) || args.pipeline(name).is_some())
+        .filter(|name| {
+            args.value(name).is_some_and(|value| !value.is_null()) || args.pipeline(name).is_some()
+        })
         .collect();
     match given.as_slice() {
         [one] => Ok((*one).to_owned()),
         [] => Err(Error::new(
             ErrorCode::MissingParam,
-            format!("`{}` needs exactly one of `{}`", args.command(), names.join("`, `")),
+            format!(
+                "`{}` needs exactly one of `{}`",
+                args.command(),
+                names.join("`, `")
+            ),
         )),
         _ => Err(conflict(format!(
             "`{}` takes only one of `{}`; remove all but one",
@@ -170,7 +174,11 @@ fn missing_dirs(path: &std::path::Path) -> Vec<std::path::PathBuf> {
     missing
 }
 
-fn target(path: &std::path::Path, action: TargetAction, expect: Expect) -> Result<TargetSpec, Error> {
+fn target(
+    path: &std::path::Path,
+    action: TargetAction,
+    expect: Expect,
+) -> Result<TargetSpec, Error> {
     let path = AbsPath::new(path).map_err(|_| {
         failed(format!(
             "the schedule store `{}` is not an absolute path",
@@ -268,7 +276,12 @@ fn run_state(state: RunState, reason: Option<SkipReason>) -> ScheduleRunState {
 }
 
 fn run_record(run: &RunRecord) -> Record {
-    let mut message = format!("#{} {} {}", run.run, run.trigger.as_str(), run.state.as_str());
+    let mut message = format!(
+        "#{} {} {}",
+        run.run,
+        run.trigger.as_str(),
+        run.state.as_str()
+    );
     if let Some(reason) = run.reason {
         message.push_str(&format!(" ({})", reason.as_str()));
     }
