@@ -12,13 +12,12 @@ use nurt_contracts::record::{
     Effect, Service, ServiceManager, ServiceScope, ServiceState, StartType,
 };
 use nurt_contracts::report::{Irreversible, Notable};
-use nurt_contracts::stage::{ArgValue, BoundArgs, CancelToken, ExecCtx};
-use nurt_contracts::value::{Regex, Value};
+use nurt_contracts::stage::{ArgValue, BoundArgs, CancelToken, ExecCtx, StageData};
+use nurt_contracts::value::{Record, Regex, Value};
 
 use super::mock::{MockUnit, Plan, Served, serve};
 use super::{
-    SYSTEMD_RUNTIME_DIR, SystemdBackend, connect, map_active_state, map_unit_file_state,
-    unit_name,
+    SYSTEMD_RUNTIME_DIR, SystemdBackend, connect, map_active_state, map_unit_file_state, unit_name,
 };
 use crate::services::tests::{BackendControl, RecordingTx, VirtualClock, context};
 use crate::services::{
@@ -27,6 +26,13 @@ use crate::services::{
 };
 
 const WAIT: Duration = Duration::from_secs(10);
+
+fn output_records(data: StageData<'_>) -> Vec<Record> {
+    match data {
+        StageData::Records(stream) => stream.collect::<Result<Vec<_>, _>>().unwrap(),
+        _ => panic!("stage output is not a record stream"),
+    }
+}
 
 struct Fixture {
     backend: SystemdBackend,
@@ -65,7 +71,11 @@ impl Fixture {
     }
 
     fn called(&self, call: &str) -> bool {
-        self.calls().lock().unwrap().iter().any(|entry| entry == call)
+        self.calls()
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|entry| entry == call)
     }
 }
 
@@ -80,7 +90,9 @@ fn host_units() -> Vec<MockUnit> {
             .with_file_state(Some("static"))
             .not_loaded(),
         MockUnit::new("getty@tty1", "active", "running").with_file_state(None),
-        MockUnit::new("ghost", "inactive", "dead").with_file_state(None).not_loaded(),
+        MockUnit::new("ghost", "inactive", "dead")
+            .with_file_state(None)
+            .not_loaded(),
     ]
 }
 
@@ -96,7 +108,10 @@ fn listed(backend: &SystemdBackend) -> Vec<Service> {
 fn systemd_list_merges_units_and_unit_files() {
     let fixture = Fixture::new(host_units());
     let services = listed(&fixture.backend);
-    let names: Vec<&str> = services.iter().map(|service| service.name.as_str()).collect();
+    let names: Vec<&str> = services
+        .iter()
+        .map(|service| service.name.as_str())
+        .collect();
     assert_eq!(names, ["backup", "cron", "getty@tty1", "nginx"]);
     let backup = &services[0];
     assert_eq!(backup.state, ServiceState::Stopped);
@@ -155,9 +170,15 @@ fn systemd_get_reads_service_properties() {
     assert_eq!(service.pid, Some(812));
     assert_eq!(service.account.as_deref(), Some("www-data"));
     let os_raw = service.os_raw.unwrap();
-    assert_eq!(os_raw.get("result"), Some(&Value::Text("success".to_owned())));
+    assert_eq!(
+        os_raw.get("result"),
+        Some(&Value::Text("success".to_owned()))
+    );
     assert_eq!(os_raw.get("exec_main_status"), Some(&Value::Int(0)));
-    assert_eq!(os_raw.get("load_state"), Some(&Value::Text("loaded".to_owned())));
+    assert_eq!(
+        os_raw.get("load_state"),
+        Some(&Value::Text("loaded".to_owned()))
+    );
 }
 
 #[test]
@@ -212,8 +233,15 @@ fn start_waits_until_running_virtual_clock() {
     let fixture = Fixture::new(stopped_nginx(Plan::running_after(3)));
     let mut tx = fixture.tx();
     let nginx = fixture.service("nginx");
-    let transition = perform(&fixture.backend, ServiceAction::Start, &nginx, WAIT, &mut tx, &fixture.ctx)
-        .unwrap();
+    let transition = perform(
+        &fixture.backend,
+        ServiceAction::Start,
+        &nginx,
+        WAIT,
+        &mut tx,
+        &fixture.ctx,
+    )
+    .unwrap();
     assert_eq!(transition.before, "stopped");
     assert_eq!(transition.after, "running");
     assert!(transition.changed);
@@ -268,8 +296,15 @@ fn start_failed_unit_service_error_with_logs_hint() {
     let fixture = Fixture::new(stopped_nginx(Plan::failed_after(2)));
     let mut tx = fixture.tx();
     let nginx = fixture.service("nginx");
-    let error = perform(&fixture.backend, ServiceAction::Start, &nginx, WAIT, &mut tx, &fixture.ctx)
-        .unwrap_err();
+    let error = perform(
+        &fixture.backend,
+        ServiceAction::Start,
+        &nginx,
+        WAIT,
+        &mut tx,
+        &fixture.ctx,
+    )
+    .unwrap_err();
     assert_eq!(error.code(), ErrorCode::Service);
     assert_eq!(error.details["result"], "exit-code");
     assert_eq!(error.details["os_code"], "exit-code");
@@ -296,13 +331,7 @@ fn start_already_running_no_call_no_change() {
     assert!(tx.markers.is_empty());
     assert!(outcome.changes.is_empty());
     assert_eq!(outcome.notable[0].code, Notable::Unchanged);
-    let records = outcome
-        .output
-        .data
-        .into_records()
-        .unwrap()
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
+    let records = output_records(outcome.output.data);
     let effect = Effect::try_from(records[0].clone()).unwrap();
     assert_eq!(effect.before, effect.after);
     assert_eq!(effect.notable, Some(vec!["unchanged".to_owned()]));
@@ -326,14 +355,8 @@ fn restart_effect_before_after() {
     .unwrap();
     assert!(fixture.called("RestartUnit nginx.service"));
     assert_eq!(outcome.changes.len(), 1);
-    assert_eq!(outcome.changes[0].path, "service:nginx");
-    let records = outcome
-        .output
-        .data
-        .into_records()
-        .unwrap()
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
+    assert_eq!(outcome.changes[0].path.as_str(), "service:nginx");
+    let records = output_records(outcome.output.data);
     let effect = Effect::try_from(records[0].clone()).unwrap();
     assert_eq!(effect.kind, "restart");
     assert_eq!(effect.target.as_deref(), Some("service:nginx"));
@@ -349,7 +372,10 @@ fn enable_disable_call_reload_and_report_start_type() {
     let backup = fixture.service("backup");
     let control = BackendControl(&fixture.backend);
     let enabled = control.enable(&backup, &mut tx, &fixture.ctx).unwrap();
-    assert_eq!((enabled.before.as_str(), enabled.after.as_str()), ("disabled", "automatic"));
+    assert_eq!(
+        (enabled.before.as_str(), enabled.after.as_str()),
+        ("disabled", "automatic")
+    );
     let disabled = control.disable(&backup, &mut tx, &fixture.ctx).unwrap();
     assert_eq!(disabled.after, "disabled");
     let calls = fixture.calls();
@@ -378,23 +404,42 @@ fn access_denied_maps_to_privilege_root() {
     fixture.served.state.lock().unwrap().deny = true;
     let mut tx = fixture.tx();
     let nginx = fixture.service("nginx");
-    let error = perform(&fixture.backend, ServiceAction::Start, &nginx, WAIT, &mut tx, &fixture.ctx)
-        .unwrap_err();
+    let error = perform(
+        &fixture.backend,
+        ServiceAction::Start,
+        &nginx,
+        WAIT,
+        &mut tx,
+        &fixture.ctx,
+    )
+    .unwrap_err();
     assert_eq!(error.code(), ErrorCode::Privilege);
     assert_eq!(error.details["required"], "root");
-    assert_eq!(error.problem.as_deref(), Some("org.freedesktop.DBus.Error.AccessDenied"));
+    assert_eq!(
+        error.problem.as_deref(),
+        Some("org.freedesktop.DBus.Error.AccessDenied")
+    );
     assert!(!error.effect_applied);
 }
 
 #[test]
 fn no_such_unit_maps_to_not_found() {
     let fixture = Fixture::new(host_units());
-    let error = fixture.backend.get("absent", ServiceScope::System).unwrap_err();
+    let error = fixture
+        .backend
+        .get("absent", ServiceScope::System)
+        .unwrap_err();
     assert_eq!(error.code(), ErrorCode::NotFound);
     assert_eq!(error.details["unit"], "absent");
-    let status = fixture.backend.status("ghost", ServiceScope::System).unwrap();
+    let status = fixture
+        .backend
+        .status("ghost", ServiceScope::System)
+        .unwrap();
     assert_eq!(status.state, ServiceState::Stopped);
-    let start = fixture.backend.start("absent", ServiceScope::System).unwrap_err();
+    let start = fixture
+        .backend
+        .start("absent", ServiceScope::System)
+        .unwrap_err();
     assert_eq!(start.code(), ErrorCode::NotFound);
 }
 
@@ -404,8 +449,15 @@ fn cancel_during_wait_returns_cancelled() {
     fixture.clock.cancel_at_sleep(2, fixture.cancel.clone());
     let mut tx = fixture.tx();
     let nginx = fixture.service("nginx");
-    let error = perform(&fixture.backend, ServiceAction::Start, &nginx, WAIT, &mut tx, &fixture.ctx)
-        .unwrap_err();
+    let error = perform(
+        &fixture.backend,
+        ServiceAction::Start,
+        &nginx,
+        WAIT,
+        &mut tx,
+        &fixture.ctx,
+    )
+    .unwrap_err();
     assert_eq!(error.code(), ErrorCode::Cancelled);
     assert!(error.effect_applied);
     assert_eq!(fixture.clock.elapsed(), Duration::from_millis(100));
@@ -418,7 +470,10 @@ fn service_control_stop_used_by_core_stop() {
     let nginx = fixture.service("nginx");
     let control: &dyn ServiceControl = &BackendControl(&fixture.backend);
     let stopped = control.stop(&nginx, WAIT, &mut tx, &fixture.ctx).unwrap();
-    assert_eq!((stopped.before.as_str(), stopped.after.as_str()), ("running", "stopped"));
+    assert_eq!(
+        (stopped.before.as_str(), stopped.after.as_str()),
+        ("running", "stopped")
+    );
     assert!(fixture.called("StopUnit nginx.service"));
     let again = control.stop(&nginx, WAIT, &mut tx, &fixture.ctx).unwrap();
     assert!(!again.changed);
@@ -444,20 +499,33 @@ fn services_filter_regex_state_scope_user() {
             })),
             false,
         )
-        .with("state", ArgValue::Value(Value::Text("running".to_owned())), false)
-        .with("scope", ArgValue::Value(Value::Enum("user".to_owned())), false);
+        .with(
+            "state",
+            ArgValue::Value(Value::Text("running".to_owned())),
+            false,
+        )
+        .with(
+            "scope",
+            ArgValue::Value(Value::Enum("user".to_owned())),
+            false,
+        );
     let filter = ServiceFilter::from_args(&args).unwrap();
     let records = list_services(&backend, &filter).unwrap();
     assert_eq!(records.len(), 1);
     let service = Service::try_from(records[0].clone()).unwrap();
     assert_eq!(service.name, "syncthing");
     assert_eq!(service.scope, Some(ServiceScope::User));
-    let failed = ServiceFilter::from_args(
-        &args.with("state", ArgValue::Value(Value::Text("FAILED".to_owned())), false),
-    )
+    let failed = ServiceFilter::from_args(&args.with(
+        "state",
+        ArgValue::Value(Value::Text("FAILED".to_owned())),
+        false,
+    ))
     .unwrap();
     let records = list_services(&backend, &failed).unwrap();
-    assert_eq!(Service::try_from(records[0].clone()).unwrap().name, "sync-mail");
+    assert_eq!(
+        Service::try_from(records[0].clone()).unwrap().name,
+        "sync-mail"
+    );
 }
 
 #[test]
@@ -465,11 +533,25 @@ fn mutation_tx_irreversible_service_state_set_before_apply() {
     let fixture = Fixture::new(stopped_nginx(Plan::running_after(1)));
     let mut tx = fixture.tx();
     let nginx = fixture.service("nginx");
-    perform(&fixture.backend, ServiceAction::Start, &nginx, WAIT, &mut tx, &fixture.ctx).unwrap();
+    perform(
+        &fixture.backend,
+        ServiceAction::Start,
+        &nginx,
+        WAIT,
+        &mut tx,
+        &fixture.ctx,
+    )
+    .unwrap();
     let calls = fixture.calls();
     let calls = calls.lock().unwrap();
-    let mark = calls.iter().position(|call| call == "mark service:nginx").unwrap();
-    let start = calls.iter().position(|call| call == "StartUnit nginx.service").unwrap();
+    let mark = calls
+        .iter()
+        .position(|call| call == "mark service:nginx")
+        .unwrap();
+    let start = calls
+        .iter()
+        .position(|call| call == "StartUnit nginx.service")
+        .unwrap();
     assert!(mark < start);
     assert_eq!(tx.markers[0].path.as_deref(), Some("service:nginx"));
     assert_eq!(tx.markers[0].detail.as_deref(), Some("start"));
@@ -535,8 +617,7 @@ fn it_systemd_restart_cron_running_after() {
     }
     let ctx = crate::services::tests::real_context();
     let mut tx = RecordingTx::new(Arc::new(Mutex::new(Vec::new())));
-    let transition =
-        perform(&backend, ServiceAction::Restart, &cron, WAIT, &mut tx, &ctx).unwrap();
+    let transition = perform(&backend, ServiceAction::Restart, &cron, WAIT, &mut tx, &ctx).unwrap();
     assert_eq!(transition.after, "running");
 }
 
@@ -561,9 +642,13 @@ fn it_systemd_enable_disable_test_unit() {
     };
     reload(&backend);
     let enabled = backend.enable(&name, ServiceScope::System);
-    let after_enable = backend.get(&name, ServiceScope::System).map(|service| service.start_type);
+    let after_enable = backend
+        .get(&name, ServiceScope::System)
+        .map(|service| service.start_type);
     let disabled = backend.disable(&name, ServiceScope::System);
-    let after_disable = backend.get(&name, ServiceScope::System).map(|service| service.start_type);
+    let after_disable = backend
+        .get(&name, ServiceScope::System)
+        .map(|service| service.start_type);
     std::fs::remove_file(&file).unwrap();
     reload(&backend);
     enabled.unwrap();

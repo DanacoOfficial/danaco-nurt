@@ -29,11 +29,23 @@ fn descriptors(pid: c_int) -> Option<Vec<libc::proc_fdinfo>> {
     // SAFETY: a null buffer of length zero asks for the required size only.
     let needed = unsafe { libc::proc_pidinfo(pid, libc::PROC_PIDLISTFDS, 0, null_mut(), 0) };
     let count = usize::try_from(needed).ok().filter(|&n| n > 0)? / size_of::<libc::proc_fdinfo>();
-    let mut buffer = vec![libc::proc_fdinfo { proc_fd: 0, proc_fdtype: 0 }; count];
+    let mut buffer = vec![
+        libc::proc_fdinfo {
+            proc_fd: 0,
+            proc_fdtype: 0
+        };
+        count
+    ];
     let size = c_int::try_from(buffer.len() * size_of::<libc::proc_fdinfo>()).ok()?;
     // SAFETY: `buffer` holds `size` writable bytes of `proc_fdinfo` entries.
     let filled = unsafe {
-        libc::proc_pidinfo(pid, libc::PROC_PIDLISTFDS, 0, buffer.as_mut_ptr().cast(), size)
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDLISTFDS,
+            0,
+            buffer.as_mut_ptr().cast(),
+            size,
+        )
     };
     let filled = usize::try_from(filled).ok().filter(|&n| n > 0)? / size_of::<libc::proc_fdinfo>();
     buffer.truncate(filled);
@@ -45,7 +57,13 @@ fn socket_info(pid: c_int, fd: c_int) -> Option<Vec<u8>> {
     let size = c_int::try_from(buffer.len()).ok()?;
     // SAFETY: `buffer` holds `size` writable bytes for one `socket_fdinfo`.
     let written = unsafe {
-        libc::proc_pidfdinfo(pid, fd, PROC_PIDFDSOCKETINFO, buffer.as_mut_ptr().cast(), size)
+        libc::proc_pidfdinfo(
+            pid,
+            fd,
+            PROC_PIDFDSOCKETINFO,
+            buffer.as_mut_ptr().cast(),
+            size,
+        )
     };
     (written == size).then_some(buffer)
 }

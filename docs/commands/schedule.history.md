@@ -46,7 +46,7 @@ Manual runs made without the service are not recorded.
 
 | Form | Input | Output |
 |---|---|---|
-| `schedule.history [<id>] [limit: …]` | none | `schedule_run` records, newest start first |
+| `schedule.history [<id>] [limit: ...]` | none | `schedule_run` records, newest start first |
 
 ## Effect
 

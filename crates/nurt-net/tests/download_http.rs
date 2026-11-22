@@ -19,10 +19,9 @@ mod http_server;
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use http_server::{Reply, Request, TestServer, requested_range};
 use nurt_contracts::error::{ErrorCode, Result};
@@ -47,6 +46,13 @@ const HALF: usize = 80_000;
 const STALL: Duration = Duration::from_secs(5);
 /// Time limit of a download that is interrupted.
 const SHORT_LIMIT_MS: i64 = 1000;
+/// Stall of a response that the client ends by closing the connection; the
+/// server stops waiting as soon as the connection is closed.
+const HOLD: Duration = Duration::from_secs(60);
+/// Longest wait for the partial file to reach `HALF` bytes.
+const PART_WAIT: Duration = Duration::from_secs(30);
+/// Interval at which the size of the partial file is checked.
+const PART_POLL: Duration = Duration::from_millis(5);
 
 /// Content of version `seed` of the served file.
 fn content(seed: u8) -> Vec<u8> {
@@ -59,7 +65,7 @@ fn content(seed: u8) -> Vec<u8> {
 struct Resource {
     body: Mutex<Vec<u8>>,
     etag: Mutex<String>,
-    stall_next: AtomicBool,
+    stall_next: Mutex<Option<Duration>>,
 }
 
 impl Resource {
@@ -67,8 +73,13 @@ impl Resource {
         Arc::new(Self {
             body: Mutex::new(body),
             etag: Mutex::new(etag.to_owned()),
-            stall_next: AtomicBool::new(false),
+            stall_next: Mutex::new(None),
         })
+    }
+
+    /// Makes the next response stop after `HALF` bytes for `stall`.
+    fn stall_next(&self, stall: Duration) {
+        *self.stall_next.lock().unwrap() = Some(stall);
     }
 
     fn replace(&self, body: Vec<u8>, etag: &str) {
@@ -99,10 +110,9 @@ impl Resource {
             _ => Reply::status(200).with_body(body),
         };
         let reply = reply.header("etag", &etag);
-        if self.stall_next.swap(false, Ordering::SeqCst) {
-            reply.stalled(HALF, STALL)
-        } else {
-            reply
+        match self.stall_next.lock().unwrap().take() {
+            Some(stall) => reply.stalled(HALF, stall),
+            None => reply,
         }
     }
 }
@@ -189,7 +199,7 @@ impl Place {
 
     /// Runs a download that the server interrupts after `HALF` bytes.
     fn interrupted(&self, resource: &Resource, url: &str) {
-        resource.stall_next.store(true, Ordering::SeqCst);
+        resource.stall_next(STALL);
         let limit = Value::Duration(ValueDuration::from_millis(SHORT_LIMIT_MS));
         let error = self
             .run(&self.args(url, &[("timeout", limit)]))
@@ -473,11 +483,15 @@ fn download_cancel_leaves_part() {
     let resource = Resource::new(content(0), "\"v1\"");
     let server = serve(&resource);
     let place = Place::new();
-    resource.stall_next.store(true, Ordering::SeqCst);
+    resource.stall_next(HOLD);
     let cancel = CancelToken::new();
     let ctx = place.context.builder().cancel(cancel.clone()).build();
+    let part = place.part();
     let trigger = thread::spawn(move || {
-        thread::sleep(Duration::from_millis(300));
+        let deadline = Instant::now() + PART_WAIT;
+        while part_size(&part) < Some(HALF as u64) && Instant::now() < deadline {
+            thread::sleep(PART_POLL);
+        }
         cancel.cancel(CancelReason::Requested);
     });
 

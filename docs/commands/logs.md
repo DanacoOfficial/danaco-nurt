@@ -47,7 +47,7 @@ that journald appends while the query runs are not returned.
 |---|---|
 | `source` | `SYSLOG_IDENTIFIER`, else `_COMM`, else the file name of `_EXE`, else `_TRANSPORT`; `unknown` when none is set |
 | `unit` | `UNIT` for messages of the service manager, `USER_UNIT` for messages of a user manager, else `_SYSTEMD_USER_UNIT`, else `_SYSTEMD_UNIT`; a literal name without a unit suffix gets `.service`, as in `journalctl -u` |
-| `level` | `PRIORITY` 0–2 is `critical`, 3 `error`, 4 `warning`, 5–6 `info`, 7 `debug`; a missing priority is 6 |
+| `level` | `PRIORITY` 0-2 is `critical`, 3 `error`, 4 `warning`, 5-6 `info`, 7 `debug`; a missing priority is 6 |
 
 A file that is damaged, truncated or written with an unknown incompatible
 feature is skipped with the notice `log_file_skipped`; the events read from it

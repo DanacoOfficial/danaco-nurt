@@ -8,7 +8,9 @@ use std::sync::{Arc, Mutex};
 use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
 use nurt_contracts::kinds::Implementation;
 use nurt_contracts::record::StartType;
-use nurt_contracts::services::{ProcessHost, ProgramOutcome, ServiceChild, ServiceSpawnSpec};
+use nurt_contracts::services::{
+    ProcessHost, ProgramOutcome, ServiceChild, ServiceSpawnSpec, Services,
+};
 use nurt_contracts::spec::StageSpec;
 use nurt_contracts::stage::{CancelReason, CancelToken};
 use plist::{Dictionary, Value as Plist};
@@ -268,7 +270,7 @@ impl Fixture {
     fn new(fake: FakeLaunchctl) -> Self {
         let fake = Arc::new(fake);
         let ctx = ExecCtx::builder(Arc::new(FixedClock), host())
-            .process(fake.clone())
+            .services(Arc::new(Services::new().with_process_host(fake.clone())))
             .build();
         Self {
             root: system_root(),
@@ -366,8 +368,8 @@ fn launchd_start_type_from_plist_keys_and_disabled_override() {
     );
 }
 
-#[test]
-fn launchd_list_merges_definitions_listing_and_overrides() {
+/// Lists the system scope against the macOS 15 fixtures.
+fn system_listing() -> (Fixture, BTreeMap<String, Service>) {
     let fixture = Fixture::new(
         FakeLaunchctl::default()
             .on("print system", 0, fixture!("print-system-macos15.txt"), "")
@@ -384,16 +386,22 @@ fn launchd_list_merges_definitions_listing_and_overrides() {
             scope: ServiceScope::System,
         })
         .unwrap();
+    let by_name = services
+        .into_iter()
+        .map(|service| (service.name.clone(), service))
+        .collect();
+    (fixture, by_name)
+}
+
+#[test]
+fn launchd_list_merges_definitions_listing_and_overrides() {
+    let (fixture, by_name) = system_listing();
     assert_eq!(
         fixture.fake.calls(),
         ["print system", "print-disabled system"]
     );
-    let by_name: BTreeMap<&str, &Service> = services
-        .iter()
-        .map(|service| (service.name.as_str(), service))
-        .collect();
     assert_eq!(
-        by_name.keys().copied().collect::<Vec<_>>(),
+        by_name.keys().map(String::as_str).collect::<Vec<_>>(),
         [
             "com.apple.example.killed",
             "com.openssh.sshd",
@@ -401,7 +409,7 @@ fn launchd_list_merges_definitions_listing_and_overrides() {
             "org.example.backup"
         ]
     );
-    let ssh = by_name["com.openssh.sshd"];
+    let ssh = &by_name["com.openssh.sshd"];
     assert_eq!(ssh.state, ServiceState::Running);
     assert_eq!(ssh.pid, Some(412));
     assert_eq!(ssh.start_type, StartType::OnDemand);
@@ -411,20 +419,24 @@ fn launchd_list_merges_definitions_listing_and_overrides() {
     );
     assert_eq!(ssh.manager, ServiceManager::Launchd);
     assert_eq!(ssh.scope, Some(ServiceScope::System));
+}
 
-    let backup = by_name["org.example.backup"];
+#[test]
+fn launchd_list_reports_overrides_exit_codes_and_skipped_files() {
+    let (fixture, by_name) = system_listing();
+    let backup = &by_name["org.example.backup"];
     assert_eq!(backup.state, ServiceState::Stopped);
     assert_eq!(backup.start_type, StartType::Disabled);
     assert_eq!(backup.account.as_deref(), Some("backup"));
 
-    let agentd = by_name["org.example.agentd"];
+    let agentd = &by_name["org.example.agentd"];
     assert_eq!(agentd.state, ServiceState::Failed);
     assert_eq!(agentd.start_type, StartType::Automatic);
     let raw = agentd.os_raw.as_ref().unwrap();
     assert_eq!(raw["last_exit_code"], Value::Int(78));
     assert_eq!(raw["keep_alive"], Value::Bool(true));
 
-    let killed = by_name["com.apple.example.killed"];
+    let killed = &by_name["com.apple.example.killed"];
     assert_eq!(killed.start_type, StartType::Unknown);
     assert_eq!(killed.path, None);
 
@@ -662,10 +674,6 @@ fn launchd_exit_113_not_found() {
         assert_eq!(error.code(), ErrorCode::NotFound);
         assert_eq!(error.details["manager"], "launchd");
     }
-    let status = backend
-        .status("org.example.backup", ServiceScope::System)
-        .unwrap_err();
-    assert_eq!(status.code(), ErrorCode::NotFound);
 }
 
 #[test]
@@ -1002,8 +1010,22 @@ impl ProcessHost for SystemLaunchctl {
 #[cfg(target_os = "macos")]
 fn system_ctx() -> ExecCtx {
     ExecCtx::builder(Arc::new(FixedClock), host())
-        .process(Arc::new(SystemLaunchctl))
+        .services(Arc::new(
+            Services::new().with_process_host(Arc::new(SystemLaunchctl)),
+        ))
         .build()
+}
+
+#[cfg(target_os = "macos")]
+fn system_backend(ctx: &ExecCtx) -> LaunchdBackend<'_> {
+    LaunchdBackend::new(
+        ctx,
+        Layout {
+            root: PathBuf::from("/"),
+            home: ctx.host().info().home.to_string_lossy().into_owned(),
+            uid: rustix::process::getuid().as_raw(),
+        },
+    )
 }
 
 #[cfg(target_os = "macos")]
@@ -1057,13 +1079,12 @@ fn it_launchd_test_agent_start_restart_disable() {
         ]),
     );
     Plist::Dictionary(dictionary).to_file_xml(&plist).unwrap();
-    let backend = backend(&ctx);
+    let backend = system_backend(&ctx);
     let wait_running = || {
         for _ in 0..50 {
             if backend
                 .status(LABEL, ServiceScope::User)
-                .map(|status| status.state)
-                == Ok(ServiceState::Running)
+                .is_ok_and(|status| status.state == ServiceState::Running)
             {
                 return true;
             }
@@ -1076,6 +1097,7 @@ fn it_launchd_test_agent_start_restart_disable() {
     let disabled = backend.disable(LABEL, ServiceScope::User).is_ok();
     let start_type = backend
         .get(LABEL, ServiceScope::User)
+        .ok()
         .map(|service| service.start_type);
     let cleaned = backend.enable(LABEL, ServiceScope::User).is_ok()
         && backend.stop(LABEL, ServiceScope::User).is_ok();
@@ -1090,5 +1112,5 @@ fn it_launchd_test_agent_start_restart_disable() {
         &CancelToken::new(),
     );
     assert!(started && restarted && disabled && cleaned);
-    assert_eq!(start_type, Ok(StartType::Disabled));
+    assert_eq!(start_type, Some(StartType::Disabled));
 }

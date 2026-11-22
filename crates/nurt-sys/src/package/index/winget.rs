@@ -11,9 +11,10 @@ use std::path::{Path, PathBuf};
 use rusqlite::{Connection, OpenFlags};
 
 use super::{EntrySink, IndexEntry, IndexReport};
-use crate::package::root::HostEnv;
+use crate::package::detect::WINGET_PACKAGE_DIR;
+use crate::package::root::{HostEnv, SysPaths};
 
-const PACKAGE_DIR: &str = "Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/LocalState";
+const STATE_DIR: &str = "LocalState";
 const INDEX_FILE: &str = "index.db";
 const SOURCE: &str = "winget";
 const MAX_DEPTH: usize = 5;
@@ -23,10 +24,10 @@ const QUERY: &str = "SELECT ids.id, names.name, versions.version FROM manifest \
     JOIN versions ON manifest.version = versions.rowid";
 
 pub(super) fn read(env: &HostEnv, sink: EntrySink<'_>, report: &mut IndexReport) {
-    let Some(base) = env.var_nonempty("LOCALAPPDATA") else {
+    let Some(base) = env.var_text("LOCALAPPDATA") else {
         return;
     };
-    let directory = env.root().resolve(&format!("{base}/{PACKAGE_DIR}"));
+    let directory = env.resolve(&format!("{base}\\{WINGET_PACKAGE_DIR}\\{STATE_DIR}"));
     let Some(database) = find_index(&directory, MAX_DEPTH) else {
         return;
     };

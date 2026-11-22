@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-schedule.remove <id>…
+schedule.remove <id>...
 schedule.remove all: true
 ```
 
@@ -44,7 +44,7 @@ visible in `schedule.history`.
 
 | Form | Input | Output |
 |---|---|---|
-| `schedule.remove <id>…` | none | one `effect` record per schedule |
+| `schedule.remove <id>...` | none | one `effect` record per schedule |
 | `schedule.remove all: true` | none | one `effect` record per schedule |
 
 The effect record has `kind: schedule.remove`, `target: schedule:<id>`,

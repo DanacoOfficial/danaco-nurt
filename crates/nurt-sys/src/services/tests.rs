@@ -22,9 +22,7 @@ use nurt_contracts::record::{
     Effect, Service, ServiceManager, ServiceScope, ServiceState, StartType,
 };
 use nurt_contracts::report::{IrreversibleEntry, Notable};
-use nurt_contracts::stage::{
-    ArgValue, BoundArgs, CancelReason, CancelToken, ExecCtx, InputKinds, StageImpl,
-};
+use nurt_contracts::stage::{ArgValue, BoundArgs, CancelReason, CancelToken, ExecCtx, InputKinds};
 use nurt_contracts::value::{Duration as ValueDuration, Record, RecordKind, Regex, Value};
 
 use super::{
@@ -77,7 +75,11 @@ impl Clock for VirtualClock {
         }
     }
 
-    fn sleep(&self, duration: Duration, cancel: &CancelToken) -> std::result::Result<(), CancelReason> {
+    fn sleep(
+        &self,
+        duration: Duration,
+        cancel: &CancelToken,
+    ) -> std::result::Result<(), CancelReason> {
         let count = self.sleeps.fetch_add(1, Ordering::SeqCst) + 1;
         if let Some((at, token)) = self.cancel_at.lock().unwrap().as_ref()
             && *at == count
@@ -197,7 +199,10 @@ impl RecordingTx {
 }
 
 fn not_expected(what: &str) -> Error {
-    Error::new(ErrorCode::StageFailed, format!("{what} is not used by service actions"))
+    Error::new(
+        ErrorCode::StageFailed,
+        format!("{what} is not used by service actions"),
+    )
 }
 
 impl MutationTx for RecordingTx {
@@ -279,7 +284,14 @@ impl ServiceControl for BackendControl<'_> {
         tx: &mut dyn MutationTx,
         ctx: &ExecCtx,
     ) -> Result<ServiceTransition> {
-        perform(self.0, ServiceAction::Enable, service, Duration::ZERO, tx, ctx)
+        perform(
+            self.0,
+            ServiceAction::Enable,
+            service,
+            Duration::ZERO,
+            tx,
+            ctx,
+        )
     }
 
     fn disable(
@@ -288,7 +300,14 @@ impl ServiceControl for BackendControl<'_> {
         tx: &mut dyn MutationTx,
         ctx: &ExecCtx,
     ) -> Result<ServiceTransition> {
-        perform(self.0, ServiceAction::Disable, service, Duration::ZERO, tx, ctx)
+        perform(
+            self.0,
+            ServiceAction::Disable,
+            service,
+            Duration::ZERO,
+            tx,
+            ctx,
+        )
     }
 }
 
@@ -313,9 +332,7 @@ impl MemoryBackend {
             .lock()
             .unwrap()
             .iter()
-            .find(|service| {
-                service.name.eq_ignore_ascii_case(name) && service.scope == Some(scope)
-            })
+            .find(|service| service.name.eq_ignore_ascii_case(name) && service.scope == Some(scope))
             .cloned()
             .ok_or_else(|| super::service_not_found(self.manager, name))
     }
@@ -362,15 +379,21 @@ impl ServiceBackend for MemoryBackend {
     }
 
     fn start(&self, name: &str, _scope: ServiceScope) -> Result<()> {
-        self.update("start", name, |service| service.state = ServiceState::Running)
+        self.update("start", name, |service| {
+            service.state = ServiceState::Running
+        })
     }
 
     fn stop(&self, name: &str, _scope: ServiceScope) -> Result<()> {
-        self.update("stop", name, |service| service.state = ServiceState::Stopped)
+        self.update("stop", name, |service| {
+            service.state = ServiceState::Stopped
+        })
     }
 
     fn restart(&self, name: &str, _scope: ServiceScope) -> Result<()> {
-        self.update("restart", name, |service| service.state = ServiceState::Running)
+        self.update("restart", name, |service| {
+            service.state = ServiceState::Running
+        })
     }
 
     fn enable(&self, name: &str, _scope: ServiceScope) -> Result<()> {
@@ -400,9 +423,24 @@ fn service(name: &str, state: ServiceState, start_type: StartType, raw: &str) ->
 
 fn sample_services() -> Vec<Service> {
     vec![
-        service("Spooler", ServiceState::Running, StartType::Automatic, "RUNNING"),
-        service("W32Time", ServiceState::Stopped, StartType::Manual, "STOPPED"),
-        service("WSearch", ServiceState::Running, StartType::Disabled, "RUNNING"),
+        service(
+            "Spooler",
+            ServiceState::Running,
+            StartType::Automatic,
+            "RUNNING",
+        ),
+        service(
+            "W32Time",
+            ServiceState::Stopped,
+            StartType::Manual,
+            "STOPPED",
+        ),
+        service(
+            "WSearch",
+            ServiceState::Running,
+            StartType::Disabled,
+            "RUNNING",
+        ),
     ]
 }
 
@@ -427,9 +465,11 @@ fn text_arg(command: &str, name: &str, value: &str) -> BoundArgs {
 #[test]
 fn services_exact_name_uses_the_manager_resolution() {
     let backend = MemoryBackend::new(sample_services());
-    let records =
-        list_services(&backend, &filter(&text_arg(SERVICES_COMMAND, PARAM_NAME, "spooler")))
-            .unwrap();
+    let records = list_services(
+        &backend,
+        &filter(&text_arg(SERVICES_COMMAND, PARAM_NAME, "spooler")),
+    )
+    .unwrap();
     assert_eq!(names(&records), ["Spooler"]);
     assert_eq!(records[0].kind, RecordKind::Service);
 }
@@ -437,8 +477,11 @@ fn services_exact_name_uses_the_manager_resolution() {
 #[test]
 fn services_unknown_exact_name_is_not_found() {
     let backend = MemoryBackend::new(sample_services());
-    let error = list_services(&backend, &filter(&text_arg(SERVICES_COMMAND, PARAM_NAME, "nope")))
-        .unwrap_err();
+    let error = list_services(
+        &backend,
+        &filter(&text_arg(SERVICES_COMMAND, PARAM_NAME, "nope")),
+    )
+    .unwrap_err();
     assert_eq!(error.code(), ErrorCode::NotFound);
     assert_eq!(error.fix, [SERVICES_COMMAND]);
 }
@@ -446,11 +489,17 @@ fn services_unknown_exact_name_is_not_found() {
 #[test]
 fn services_state_matches_enumeration_and_raw_state_ignoring_case() {
     let backend = MemoryBackend::new(sample_services());
-    let by_state = list_services(&backend, &filter(&text_arg(SERVICES_COMMAND, PARAM_STATE, "Running")))
-        .unwrap();
+    let by_state = list_services(
+        &backend,
+        &filter(&text_arg(SERVICES_COMMAND, PARAM_STATE, "Running")),
+    )
+    .unwrap();
     assert_eq!(names(&by_state), ["Spooler", "WSearch"]);
-    let by_raw = list_services(&backend, &filter(&text_arg(SERVICES_COMMAND, PARAM_STATE, "stopped")))
-        .unwrap();
+    let by_raw = list_services(
+        &backend,
+        &filter(&text_arg(SERVICES_COMMAND, PARAM_STATE, "stopped")),
+    )
+    .unwrap();
     assert_eq!(names(&by_raw), ["W32Time"]);
 }
 
@@ -483,17 +532,32 @@ fn services_rejects_invalid_arguments() {
     );
     let cases = [
         (invalid_regex, ErrorCode::Regex),
-        (text_arg(SERVICES_COMMAND, PARAM_SCOPE, "machine"), ErrorCode::InvalidValue),
         (
-            BoundArgs::new(SERVICES_COMMAND).with(PARAM_NAME, ArgValue::Value(Value::Int(1)), false),
+            text_arg(SERVICES_COMMAND, PARAM_SCOPE, "machine"),
+            ErrorCode::InvalidValue,
+        ),
+        (
+            BoundArgs::new(SERVICES_COMMAND).with(
+                PARAM_NAME,
+                ArgValue::Value(Value::Int(1)),
+                false,
+            ),
             ErrorCode::Type,
         ),
         (
-            BoundArgs::new(SERVICES_COMMAND).with(PARAM_STATE, ArgValue::Value(Value::Int(1)), false),
+            BoundArgs::new(SERVICES_COMMAND).with(
+                PARAM_STATE,
+                ArgValue::Value(Value::Int(1)),
+                false,
+            ),
             ErrorCode::Type,
         ),
         (
-            BoundArgs::new(SERVICES_COMMAND).with(PARAM_SCOPE, ArgValue::Value(Value::Int(1)), false),
+            BoundArgs::new(SERVICES_COMMAND).with(
+                PARAM_SCOPE,
+                ArgValue::Value(Value::Int(1)),
+                false,
+            ),
             ErrorCode::Type,
         ),
     ];
@@ -532,7 +596,10 @@ fn wait_defaults_and_rejects_negative_values() {
         ServiceCommand::START.wait(&negative).unwrap_err().code(),
         ErrorCode::InvalidValue
     );
-    assert_eq!(ServiceCommand::ENABLE.wait(&negative).unwrap(), Duration::ZERO);
+    assert_eq!(
+        ServiceCommand::ENABLE.wait(&negative).unwrap(),
+        Duration::ZERO
+    );
 }
 
 #[test]
@@ -541,11 +608,15 @@ fn plan_previews_changes_and_marks_unchanged_services() {
     let ctx = context(VirtualClock::new(), CancelToken::new());
     let plan = plan_actions(&backend, ServiceAction::Start, sample_services(), &ctx).unwrap();
     assert_eq!(plan.changes.len(), 1);
-    assert_eq!(plan.changes[0].path, "service:W32Time");
+    assert_eq!(plan.changes[0].path.as_str(), "service:W32Time");
     assert_eq!(plan.changes[0].after.as_deref(), Some("running"));
     assert_eq!(plan.irreversible.len(), 1);
     assert_eq!(plan.notable.len(), 2);
-    assert!(plan.notable.iter().all(|note| note.code == Notable::Unchanged));
+    assert!(
+        plan.notable
+            .iter()
+            .all(|note| note.code == Notable::Unchanged)
+    );
     assert_eq!(plan.preview.len(), 3);
     let preview = Effect::try_from(plan.preview[1].clone()).unwrap();
     assert_eq!(preview.target.as_deref(), Some("service:W32Time"));
@@ -576,11 +647,20 @@ fn service_control_enable_and_disable_report_start_type() {
     let ctx = context(VirtualClock::new(), CancelToken::new());
     let mut tx = RecordingTx::new(backend.log.clone());
     let time = sample_services().remove(1);
-    let enabled = BackendControl(&backend).enable(&time, &mut tx, &ctx).unwrap();
-    assert_eq!((enabled.before.as_str(), enabled.after.as_str()), ("manual", "automatic"));
-    let disabled = BackendControl(&backend).disable(&time, &mut tx, &ctx).unwrap();
+    let enabled = BackendControl(&backend)
+        .enable(&time, &mut tx, &ctx)
+        .unwrap();
+    assert_eq!(
+        (enabled.before.as_str(), enabled.after.as_str()),
+        ("manual", "automatic")
+    );
+    let disabled = BackendControl(&backend)
+        .disable(&time, &mut tx, &ctx)
+        .unwrap();
     assert_eq!(disabled.after, "disabled");
-    let again = BackendControl(&backend).disable(&time, &mut tx, &ctx).unwrap();
+    let again = BackendControl(&backend)
+        .disable(&time, &mut tx, &ctx)
+        .unwrap();
     assert!(!again.changed);
     assert_eq!(
         *backend.log.lock().unwrap(),
@@ -603,20 +683,29 @@ fn transition_converts_to_change_and_effect() {
         changed: true,
     };
     let change = transition.to_change();
-    assert_eq!(change.path, "service:nginx");
+    assert_eq!(change.path.as_str(), "service:nginx");
     assert_eq!(change.before.as_deref(), Some("running"));
     let effect = Effect::try_from(transition.to_effect()).unwrap();
     assert_eq!(effect.kind, "stop");
     assert_eq!(effect.after, Some(Value::Enum("stopped".to_owned())));
-    assert_eq!(effect.irreversible.unwrap()[0].reason.as_str(), "service_changed");
+    assert_eq!(
+        effect.irreversible.unwrap()[0].reason.as_str(),
+        "service_changed"
+    );
     assert_eq!(effect.notable, None);
 }
 
 #[test]
 fn stages_cover_the_catalog_commands() {
     let stages = stages();
-    let commands: Vec<String> = stages.iter().map(|stage| stage.descriptor().command).collect();
-    assert_eq!(commands, ["services", "start", "restart", "enable", "disable"]);
+    let commands: Vec<String> = stages
+        .iter()
+        .map(|stage| stage.descriptor().command)
+        .collect();
+    assert_eq!(
+        commands,
+        ["services", "start", "restart", "enable", "disable"]
+    );
     assert!(stages[0].as_read().is_some());
     for stage in &stages[1..] {
         assert!(stage.as_effect().is_some());
@@ -632,7 +721,12 @@ fn stages_cover_the_catalog_commands() {
 
 /// One parameter of a command as declared in the catalog: name, type,
 /// default and position.
-type Param = (&'static str, &'static str, Option<&'static str>, Option<i64>);
+type Param = (
+    &'static str,
+    &'static str,
+    Option<&'static str>,
+    Option<i64>,
+);
 
 #[test]
 fn catalog_signatures_match_frozen() {
@@ -661,8 +755,14 @@ fn catalog_signatures_match_frozen() {
             .iter()
             .find(|command| command["name"].as_str() == Some(name))
             .unwrap_or_else(|| panic!("`{name}` is missing from the catalog"));
-        assert_eq!(command["input"].as_array().unwrap()[0].as_str(), Some(input));
-        assert_eq!(command["output"].as_array().unwrap()[0].as_str(), Some(output));
+        assert_eq!(
+            command["input"].as_array().unwrap()[0].as_str(),
+            Some(input)
+        );
+        assert_eq!(
+            command["output"].as_array().unwrap()[0].as_str(),
+            Some(output)
+        );
         let declared: Vec<(String, String, Option<String>, Option<i64>)> = command
             .get("param")
             .and_then(toml::Value::as_array)

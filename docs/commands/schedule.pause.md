@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-schedule.pause <id>…
+schedule.pause <id>...
 schedule.pause all: true
 ```
 
@@ -40,7 +40,7 @@ and no file is written for them.
 
 | Form | Input | Output |
 |---|---|---|
-| `schedule.pause <id>…` | none | one `effect` record per schedule |
+| `schedule.pause <id>...` | none | one `effect` record per schedule |
 | `schedule.pause all: true` | none | one `effect` record per schedule |
 
 The effect record has `kind: schedule.pause`, `target: schedule:<id>`,

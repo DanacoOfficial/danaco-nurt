@@ -488,31 +488,19 @@ mod tests {
     fn objects(args: &BoundArgs) -> Result<Vec<nurt_contracts::record::CimObject>> {
         let ctx = ctx();
         let output = WindowsCim.execute(args, StageInput::none(), &ctx)?;
-        output
-            .into_records_for_test()
+        let records = match output.data {
+            nurt_contracts::stage::StageData::Records(stream) => {
+                stream.collect::<Result<Vec<_>>>()?
+            }
+            _ => Vec::new(),
+        };
+        records
             .into_iter()
             .map(|record| {
                 nurt_contracts::record::CimObject::try_from(record)
                     .map_err(|error| Error::new(ErrorCode::Type, format!("{error:?}")))
             })
             .collect()
-    }
-
-    #[cfg(windows)]
-    trait IntoRecords {
-        fn into_records_for_test(self) -> Vec<nurt_contracts::value::Record>;
-    }
-
-    #[cfg(windows)]
-    impl IntoRecords for StageOutput<'_> {
-        fn into_records_for_test(self) -> Vec<nurt_contracts::value::Record> {
-            match self.data {
-                nurt_contracts::stage::StageData::Records(stream) => {
-                    stream.collect::<Result<Vec<_>>>().unwrap()
-                }
-                _ => Vec::new(),
-            }
-        }
     }
 
     #[cfg(windows)]

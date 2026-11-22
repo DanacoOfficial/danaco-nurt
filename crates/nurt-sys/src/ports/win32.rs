@@ -50,17 +50,11 @@ pub(crate) enum TableKind {
 }
 
 impl TableKind {
-    pub(crate) const ALL: [Self; 4] = [Self::Tcp4, Self::Tcp6, Self::Udp4, Self::Udp6];
-
     pub(crate) fn protocol(self) -> Protocol {
         match self {
             Self::Tcp4 | Self::Tcp6 => Protocol::Tcp,
             Self::Udp4 | Self::Udp6 => Protocol::Udp,
         }
-    }
-
-    pub(crate) fn is_ipv6(self) -> bool {
-        matches!(self, Self::Tcp6 | Self::Udp6)
     }
 
     fn row_size(self) -> usize {
@@ -91,11 +85,15 @@ pub(crate) fn tcp_state(value: u32) -> PortState {
 }
 
 fn dword(row: &[u8], offset: usize) -> Option<u32> {
-    Some(u32::from_le_bytes(row.get(offset..offset + 4)?.try_into().ok()?))
+    Some(u32::from_le_bytes(
+        row.get(offset..offset + 4)?.try_into().ok()?,
+    ))
 }
 
 fn port(row: &[u8], offset: usize) -> Option<u16> {
-    Some(u16::from_be_bytes(row.get(offset..offset + 2)?.try_into().ok()?))
+    Some(u16::from_be_bytes(
+        row.get(offset..offset + 2)?.try_into().ok()?,
+    ))
 }
 
 fn ipv4(row: &[u8], offset: usize) -> Option<Ipv4Addr> {

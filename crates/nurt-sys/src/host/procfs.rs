@@ -45,7 +45,10 @@ pub(crate) fn parse_os_release(text: &str) -> OsRelease {
 }
 
 fn unquote(raw: &str) -> String {
-    let quote = raw.chars().next().filter(|first| matches!(first, '"' | '\''));
+    let quote = raw
+        .chars()
+        .next()
+        .filter(|first| matches!(first, '"' | '\''));
     let Some(quote) = quote else {
         return raw.to_owned();
     };
@@ -159,7 +162,10 @@ fn detect_container(root: &SysRoot) -> Option<String> {
         }
     }
     let cgroup = root.read_to_string("/proc/1/cgroup").unwrap_or_default();
-    if let Some((_, name)) = CGROUP_MARKERS.iter().find(|(marker, _)| cgroup.contains(marker)) {
+    if let Some((_, name)) = CGROUP_MARKERS
+        .iter()
+        .find(|(marker, _)| cgroup.contains(marker))
+    {
         return Some((*name).to_owned());
     }
     let release = root

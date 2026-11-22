@@ -33,7 +33,7 @@ mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(any(target_os = "linux", test))]
-mod procfs;
+pub(crate) mod procfs;
 mod service_state;
 mod sysroot;
 #[cfg(test)]
@@ -57,8 +57,8 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::{self, Instant, Size};
 
-pub(crate) use self::sysroot::canonical_path;
 pub use self::sysroot::SysRoot;
+pub(crate) use self::sysroot::{REQUIRED_PRIVILEGE, canonical_path, source_error};
 
 /// Name of the command.
 const COMMAND: &str = "host";
@@ -202,10 +202,10 @@ fn program_names(args: &BoundArgs) -> Result<Vec<String>> {
     let Some(value) = args.value(PROGRAMS) else {
         return Ok(Vec::new());
     };
-    let items = value.as_list().ok_or_else(|| list_error())?;
+    let items = value.as_list().ok_or_else(list_error)?;
     items
         .iter()
-        .map(|item| item.as_str().map(str::to_owned).ok_or_else(|| list_error()))
+        .map(|item| item.as_str().map(str::to_owned).ok_or_else(list_error))
         .collect()
 }
 
@@ -225,7 +225,12 @@ fn locate_programs(names: &[String], versions: bool, ctx: &ExecCtx) -> Vec<Progr
         .collect()
 }
 
-fn locate_program(name: &str, search_path: &OsString, cwd: &Path, versions: bool) -> ProgramLocation {
+fn locate_program(
+    name: &str,
+    search_path: &OsString,
+    cwd: &Path,
+    versions: bool,
+) -> ProgramLocation {
     let matches: Vec<PathBuf> = which::which_in_all(name, Some(search_path), cwd)
         .map(Iterator::collect)
         .unwrap_or_default();

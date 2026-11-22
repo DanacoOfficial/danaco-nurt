@@ -43,16 +43,26 @@ fn environment_regex_filter_and_non_utf8_warning() {
     let pattern = RegexValue::new("^cargo_", "i").unwrap();
     let args = test_support::args(COMMAND, vec![(NAME, Value::Regex(pattern))]);
     let found = variables(test_support::run(&EnvironmentStage::new(), &args, &ctx).unwrap());
-    let names: Vec<&str> = found.iter().map(|variable| variable.name.as_str()).collect();
+    let names: Vec<&str> = found
+        .iter()
+        .map(|variable| variable.name.as_str())
+        .collect();
     assert_eq!(names, ["CARGO_HOME", "CARGO_TARGET_DIR"]);
     assert_eq!(found[1].value, "a\u{FFFD}b");
-    assert!(found.iter().all(|variable| variable.scope == EnvironmentScope::Process));
+    assert!(
+        found
+            .iter()
+            .all(|variable| variable.scope == EnvironmentScope::Process)
+    );
     let notes = ctx.take_notes();
     assert_eq!(notes.len(), 1);
     assert_eq!(notes[0].code, Notable::EncodingChanged);
     assert_eq!(notes[0].path.as_deref(), Some("env:/CARGO_TARGET_DIR"));
 
-    let args = test_support::args(COMMAND, vec![(NAME, Value::Text("SECRET_TOKEN".to_owned()))]);
+    let args = test_support::args(
+        COMMAND,
+        vec![(NAME, Value::Text("SECRET_TOKEN".to_owned()))],
+    );
     let found = variables(test_support::run(&EnvironmentStage::new(), &args, &ctx).unwrap());
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].value, "abc123");
@@ -68,15 +78,30 @@ fn environment_rejects_invalid_pattern() {
     let error = NameFilter::from_args(&args, Os::Linux).unwrap_err();
     assert_eq!(error.code, ErrorCode::Regex);
     let args = test_support::args(COMMAND, vec![(NAME, Value::Int(1))]);
-    assert_eq!(NameFilter::from_args(&args, Os::Linux).unwrap_err().code, ErrorCode::Type);
+    assert_eq!(
+        NameFilter::from_args(&args, Os::Linux).unwrap_err().code,
+        ErrorCode::Type
+    );
 }
 
 #[test]
 fn environment_exact_name_ignores_case_on_windows() {
     let args = test_support::args(COMMAND, vec![(NAME, Value::Text("Path".to_owned()))]);
-    assert!(NameFilter::from_args(&args, Os::Windows).unwrap().matches("PATH"));
-    assert!(!NameFilter::from_args(&args, Os::Linux).unwrap().matches("PATH"));
-    assert!(NameFilter::from_args(&args, Os::Linux).unwrap().matches("Path"));
+    assert!(
+        NameFilter::from_args(&args, Os::Windows)
+            .unwrap()
+            .matches("PATH")
+    );
+    assert!(
+        !NameFilter::from_args(&args, Os::Linux)
+            .unwrap()
+            .matches("PATH")
+    );
+    assert!(
+        NameFilter::from_args(&args, Os::Linux)
+            .unwrap()
+            .matches("Path")
+    );
 }
 
 #[test]
@@ -117,6 +142,14 @@ fn it_environment_windows_user_scope_reads_registry() {
     let ctx = test_support::context(TestHost::new(dir.path()));
     let args = test_support::args(COMMAND, vec![(SCOPE, Value::Enum("user".to_owned()))]);
     let found = variables(test_support::run(&EnvironmentStage::new(), &args, &ctx).unwrap());
-    assert!(found.iter().all(|variable| variable.scope == EnvironmentScope::User));
-    assert!(found.iter().any(|variable| variable.name.eq_ignore_ascii_case("TEMP")));
+    assert!(
+        found
+            .iter()
+            .all(|variable| variable.scope == EnvironmentScope::User)
+    );
+    assert!(
+        found
+            .iter()
+            .any(|variable| variable.name.eq_ignore_ascii_case("TEMP"))
+    );
 }

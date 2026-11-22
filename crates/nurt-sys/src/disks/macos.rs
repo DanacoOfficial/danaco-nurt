@@ -127,7 +127,10 @@ impl VolumeSource for MountList {
         if count == 0 || mounts.is_null() {
             return Err(Error::new(
                 ErrorCode::Io,
-                format!("cannot read the mount table: {}", std::io::Error::last_os_error()),
+                format!(
+                    "cannot read the mount table: {}",
+                    std::io::Error::last_os_error()
+                ),
             ));
         }
         // SAFETY: `getmntinfo` returned `count` initialized structures at `mounts`, valid

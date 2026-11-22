@@ -9,6 +9,7 @@ use nurt_contracts::env::WallTime;
 use nurt_contracts::record::{
     Account, EnvironmentVariable, HostInfo as HostRecord, Process, ServiceAvailability,
 };
+use nurt_contracts::services::Services;
 use nurt_contracts::stage::{ExecCtx, StageImpl};
 use nurt_contracts::value::{Record, Value};
 
@@ -42,19 +43,22 @@ fn host_parses_os_release_quoted_values() {
     let from_file = fixture_root().read_to_string("/etc/os-release").unwrap();
     let release = procfs::parse_os_release(&from_file);
     assert_eq!(release.version_id.as_deref(), Some("13"));
-    assert_eq!(release.pretty_name.as_deref(), Some("Debian GNU/Linux 13 (trixie)"));
+    assert_eq!(
+        release.pretty_name.as_deref(),
+        Some("Debian GNU/Linux 13 (trixie)")
+    );
 }
 
 #[test]
 fn host_meminfo_uptime_from_sysroot() {
     let root = fixture_root();
     let (total, available) = procfs::parse_meminfo(&root.read_to_string("/proc/meminfo").unwrap());
-    assert_eq!(total, Some(16_315_428 * 1024));
-    assert_eq!(available, Some(9_870_112 * 1024));
+    assert_eq!(total, Some(16_000_000 * 1024));
+    assert_eq!(available, Some(8_000_000 * 1024));
     let uptime = procfs::parse_uptime(&root.read_to_string("/proc/uptime").unwrap());
-    assert_eq!(uptime, Some(Duration::from_millis(354_123_500)));
+    assert_eq!(uptime, Some(Duration::from_millis(3_600_500)));
     let boot = procfs::parse_btime(&root.read_to_string("/proc/stat").unwrap());
-    assert_eq!(boot, Some(1_763_000_000));
+    assert_eq!(boot, Some(1_700_000_000));
     assert_eq!(procfs::parse_uptime(""), None);
     assert_eq!(procfs::parse_meminfo("MemTotal: x kB\n"), (None, None));
 }
@@ -68,11 +72,17 @@ fn host_virtualization_detects_container_markers() {
     let dmi = dir.path().join("sys/class/dmi/id");
     std::fs::create_dir_all(&dmi).unwrap();
     std::fs::write(dmi.join("sys_vendor"), "QEMU\n").unwrap();
-    assert_eq!(procfs::detect_virtualization(&root).as_deref(), Some("qemu"));
+    assert_eq!(
+        procfs::detect_virtualization(&root).as_deref(),
+        Some("qemu")
+    );
 
     std::fs::write(dmi.join("sys_vendor"), "Microsoft Corporation\n").unwrap();
     std::fs::write(dmi.join("product_name"), "Virtual Machine\n").unwrap();
-    assert_eq!(procfs::detect_virtualization(&root).as_deref(), Some("hyperv"));
+    assert_eq!(
+        procfs::detect_virtualization(&root).as_deref(),
+        Some("hyperv")
+    );
 
     std::fs::create_dir_all(dir.path().join("proc/1")).unwrap();
     std::fs::write(
@@ -80,14 +90,20 @@ fn host_virtualization_detects_container_markers() {
         "0::/system.slice/docker/4f1c2b.scope\n",
     )
     .unwrap();
-    assert_eq!(procfs::detect_virtualization(&root).as_deref(), Some("docker"));
+    assert_eq!(
+        procfs::detect_virtualization(&root).as_deref(),
+        Some("docker")
+    );
 
     std::fs::create_dir_all(dir.path().join("run/systemd")).unwrap();
     std::fs::write(dir.path().join("run/systemd/container"), "lxc-libvirt\n").unwrap();
     assert_eq!(procfs::detect_virtualization(&root).as_deref(), Some("lxc"));
 
     std::fs::write(dir.path().join(".dockerenv"), "").unwrap();
-    assert_eq!(procfs::detect_virtualization(&root).as_deref(), Some("docker"));
+    assert_eq!(
+        procfs::detect_virtualization(&root).as_deref(),
+        Some("docker")
+    );
 }
 
 fn heartbeat(pid: u32, beat: jiff::Timestamp) -> String {
@@ -116,9 +132,18 @@ fn host_service_heartbeat_age_limits() {
         WallTime::from_unix_nanos(now.as_nanosecond())
     };
     let limit = Duration::from_millis(2000);
-    assert_eq!(service_state::heartbeat_pid_if_fresh(&text, at(1500), limit), Some(42));
-    assert_eq!(service_state::heartbeat_pid_if_fresh(&text, at(2500), limit), None);
-    assert_eq!(service_state::heartbeat_pid_if_fresh("{}", at(0), limit), None);
+    assert_eq!(
+        service_state::heartbeat_pid_if_fresh(&text, at(1500), limit),
+        Some(42)
+    );
+    assert_eq!(
+        service_state::heartbeat_pid_if_fresh(&text, at(2500), limit),
+        None
+    );
+    assert_eq!(
+        service_state::heartbeat_pid_if_fresh("{}", at(0), limit),
+        None
+    );
     assert!(service_state::is_pong(r#"{"v":1,"ok":true}"#));
     assert!(!service_state::is_pong(r#"{"v":2,"ok":true}"#));
     assert_eq!(service_state::ping_request(), r#"{"v":1,"op":"ping"}"#);
@@ -138,7 +163,11 @@ fn host_service_running_fresh_heartbeat_and_ping() {
     let pid = std::process::id();
     std::fs::create_dir_all(dir.path().join(format!("proc/{pid}"))).unwrap();
     let now = jiff::Timestamp::now();
-    std::fs::write(state.join(service_state::HEARTBEAT_FILE), heartbeat(pid, now)).unwrap();
+    std::fs::write(
+        state.join(service_state::HEARTBEAT_FILE),
+        heartbeat(pid, now),
+    )
+    .unwrap();
 
     let listener = UnixListener::bind(state.join(service_state::SOCKET_FILE)).unwrap();
     let server = std::thread::spawn(move || {
@@ -169,8 +198,14 @@ fn host_service_stopped_stale_heartbeat() {
     let pid = std::process::id();
     std::fs::create_dir_all(dir.path().join(format!("proc/{pid}"))).unwrap();
     let now = jiff::Timestamp::now();
-    let stale = now.checked_sub(jiff::SignedDuration::from_secs(30)).unwrap();
-    std::fs::write(state.join(service_state::HEARTBEAT_FILE), heartbeat(pid, stale)).unwrap();
+    let stale = now
+        .checked_sub(jiff::SignedDuration::from_secs(30))
+        .unwrap();
+    std::fs::write(
+        state.join(service_state::HEARTBEAT_FILE),
+        heartbeat(pid, stale),
+    )
+    .unwrap();
     let units = dir.path().join("etc/systemd/system");
     std::fs::create_dir_all(&units).unwrap();
     std::fs::write(units.join(service_state::SYSTEMD_UNIT), "[Service]\n").unwrap();
@@ -201,7 +236,7 @@ fn host_service_not_installed_without_unit() {
 #[test]
 fn host_record_fields_from_context() {
     let dir = tempfile::tempdir().unwrap();
-    let host = TestHost::new(dir.path()).with_var("LANG", "pl_PL.UTF-8");
+    let host = TestHost::new(dir.path()).with_var("LANG", "en_US.UTF-8");
     let ctx = test_support::context(host);
     let stage = HostStage::with_root(fixture_root());
     let args = test_support::args("host", Vec::new());
@@ -210,17 +245,26 @@ fn host_record_fields_from_context() {
     assert_eq!(record.user, "builder");
     assert_eq!(record.architecture, "x86_64");
     assert_eq!(record.cpus, 4);
-    assert_eq!(record.timezone, "Europe/Warsaw");
-    assert_eq!(record.locale.as_deref(), Some("pl_PL.UTF-8"));
+    assert_eq!(record.timezone, "America/New_York");
+    assert_eq!(record.locale.as_deref(), Some("en_US.UTF-8"));
     assert_eq!(record.nurt_version, env!("CARGO_PKG_VERSION"));
     assert!(record.programs.is_none());
     assert!(record.service.is_some());
     assert!(!record.home.as_str().contains('\\'));
     #[cfg(target_os = "linux")]
+    assert_linux_fixture_facts(&record);
+}
+
+/// Facts read from the synthetic tree on Linux.
+#[cfg(target_os = "linux")]
+fn assert_linux_fixture_facts(record: &HostRecord) {
     {
         assert_eq!(record.os_version, "13");
-        assert_eq!(record.memory_total.bytes(), 16_315_428 * 1024);
-        assert_eq!(record.uptime.map(|uptime| uptime.as_millis()), Some(354_123_500));
+        assert_eq!(record.memory_total.bytes(), 16_000_000 * 1024);
+        assert_eq!(
+            record.uptime.map(|uptime| uptime.as_millis()),
+            Some(3_600_500)
+        );
         assert!(record.kernel.is_some());
         assert!(record.uid.is_some());
     }
@@ -232,7 +276,7 @@ fn host_rejects_programs_that_are_not_names() {
     let ctx = test_support::context(TestHost::new(dir.path()));
     let args = test_support::args("host", vec![(super::PROGRAMS, Value::Int(3))]);
     let error = test_support::run(&HostStage::with_root(fixture_root()), &args, &ctx).unwrap_err();
-    assert_eq!(error.code, nurt_contracts::error::ErrorCode::Type);
+    assert_eq!(error.code(), nurt_contracts::error::ErrorCode::Type);
 }
 
 #[test]
@@ -249,8 +293,9 @@ fn host_versions_never_spawns_process() {
     }
     let host = TestHost::new(dir.path()).with_var("PATH", bin.as_os_str());
     let process_host = Arc::new(test_support::CountingProcessHost::default());
+    let services = Services::new().with_process_host(process_host.clone());
     let ctx = ExecCtx::builder(Arc::new(FixedClock::now()), Arc::new(host))
-        .process(process_host.clone())
+        .services(Arc::new(services))
         .build();
     let args = test_support::args(
         "host",
@@ -282,7 +327,10 @@ fn host_normalizes_architecture_and_paths() {
     assert_eq!(super::normalize_architecture("arm64"), "aarch64");
     assert_eq!(super::normalize_architecture("i686"), "x86");
     assert_eq!(super::normalize_architecture("riscv64"), "riscv64");
-    assert_eq!(super::canonical_path(Path::new("/home/user/a")).as_str(), "/home/user/a");
+    assert_eq!(
+        super::canonical_path(Path::new("/home/user/a")).as_str(),
+        "/home/user/a"
+    );
     #[cfg(windows)]
     {
         assert_eq!(
@@ -317,9 +365,15 @@ fn catalog_command(catalog: &toml::Value, name: &str) -> (Signature, Vec<String>
                     (
                         param["name"].as_str().unwrap().to_owned(),
                         param["type"].as_str().unwrap().to_owned(),
-                        param.get("default").and_then(|v| v.as_str()).map(str::to_owned),
+                        param
+                            .get("default")
+                            .and_then(|v| v.as_str())
+                            .map(str::to_owned),
                         param.get("position").and_then(toml::Value::as_integer),
-                        param.get("required").and_then(toml::Value::as_bool).unwrap_or(false),
+                        param
+                            .get("required")
+                            .and_then(toml::Value::as_bool)
+                            .unwrap_or(false),
                     )
                 })
                 .collect()
@@ -334,8 +388,20 @@ fn catalog_command(catalog: &toml::Value, name: &str) -> (Signature, Vec<String>
     (params, output)
 }
 
-fn param(name: &str, ty: &str, default: Option<&str>, position: Option<i64>, required: bool) -> (String, String, Option<String>, Option<i64>, bool) {
-    (name.to_owned(), ty.to_owned(), default.map(str::to_owned), position, required)
+fn param(
+    name: &str,
+    ty: &str,
+    default: Option<&str>,
+    position: Option<i64>,
+    required: bool,
+) -> (String, String, Option<String>, Option<i64>, bool) {
+    (
+        name.to_owned(),
+        ty.to_owned(),
+        default.map(str::to_owned),
+        position,
+        required,
+    )
 }
 
 #[test]
@@ -357,7 +423,13 @@ fn catalog_signatures_match_frozen() {
             environment::COMMAND,
             vec![
                 param(environment::NAME, "text | regex", None, Some(1), false),
-                param(environment::SCOPE, "enum(process|user|machine)", Some("process"), None, false),
+                param(
+                    environment::SCOPE,
+                    "enum(process|user|machine)",
+                    Some("process"),
+                    None,
+                    false,
+                ),
             ],
             EnvironmentVariable::KIND,
         ),
@@ -369,7 +441,13 @@ fn catalog_signatures_match_frozen() {
         (
             accounts::COMMAND,
             vec![
-                param(accounts::KIND, "enum(user|group|all)", Some("all"), None, false),
+                param(
+                    accounts::KIND,
+                    "enum(user|group|all)",
+                    Some("all"),
+                    None,
+                    false,
+                ),
                 param(accounts::NAME, "text", None, None, false),
             ],
             Account::KIND,
@@ -378,7 +456,11 @@ fn catalog_signatures_match_frozen() {
     for (command, params, kind) in expected {
         let (found, output) = catalog_command(&catalog, command);
         assert_eq!(found, params, "parameters of `{command}`");
-        assert_eq!(output, vec![kind.as_str().to_owned()], "output of `{command}`");
+        assert_eq!(
+            output,
+            vec![kind.as_str().to_owned()],
+            "output of `{command}`"
+        );
     }
     let stages: [Box<dyn StageImpl>; 4] = [
         Box::new(HostStage::new()),

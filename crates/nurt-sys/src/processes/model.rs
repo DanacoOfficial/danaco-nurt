@@ -52,9 +52,11 @@ impl ProcessInfo {
     /// The account name falls back to the account identifier when the name
     /// is unknown; an unknown start time is written as the Unix epoch.
     pub(crate) fn into_record(self, cpu: Option<f64>, tree: Option<TreePosition>) -> Process {
-        let os_raw = self
-            .state_raw
-            .map(|state| [("state".to_owned(), Value::Text(state))].into_iter().collect());
+        let os_raw = self.state_raw.map(|state| {
+            [("state".to_owned(), Value::Text(state))]
+                .into_iter()
+                .collect()
+        });
         let (depth, children) = match tree {
             Some(position) => (Some(position.depth), Some(position.children)),
             None => (None, None),

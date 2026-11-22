@@ -4,7 +4,7 @@
 //! Package metadata note of ELF files.
 //!
 //! The note follows the package metadata specification of the freedesktop.org
-//! community: a section `.note.package` with a note of owner `FDO` and type
+//! community: a section `.note.package` with a note named `FDO` of type
 //! `0xcafe1a7e` whose descriptor is a JSON object with the member `version`.
 
 use serde::Deserialize;
@@ -21,8 +21,8 @@ const CLASS_32: u8 = 1;
 const DATA_BIG_ENDIAN: u8 = 2;
 /// Name of the section with the package note.
 const SECTION_NAME: &[u8] = b".note.package";
-/// Owner of the package note.
-const NOTE_OWNER: &[u8] = b"FDO\0";
+/// Name field of the package note.
+const NOTE_NAME: &[u8] = b"FDO\0";
 /// Type of the package note.
 const NOTE_TYPE: u32 = 0xCAFE_1A7E;
 
@@ -106,7 +106,7 @@ fn note_version(section: &[u8], big: bool) -> Option<String> {
         let kind = notes.u32(at + 8)?;
         let name_at = at + 12;
         let desc_at = name_at + align4(name_size);
-        if kind == NOTE_TYPE && notes.slice(name_at, name_size)? == NOTE_OWNER {
+        if kind == NOTE_TYPE && notes.slice(name_at, name_size)? == NOTE_NAME {
             let desc = notes.slice(desc_at, desc_size)?;
             let text = std::str::from_utf8(desc).ok()?.trim_end_matches('\0');
             let metadata: PackageMetadata = serde_json::from_str(text).ok()?;
@@ -125,13 +125,13 @@ const fn align4(size: usize) -> usize {
 mod tests {
     use super::*;
 
-    fn note(owner: &[u8], kind: u32, desc: &[u8]) -> Vec<u8> {
+    fn note(name: &[u8], kind: u32, desc: &[u8]) -> Vec<u8> {
         let mut note = Vec::new();
-        note.extend_from_slice(&u32::try_from(owner.len()).unwrap().to_le_bytes());
+        note.extend_from_slice(&u32::try_from(name.len()).unwrap().to_le_bytes());
         note.extend_from_slice(&u32::try_from(desc.len()).unwrap().to_le_bytes());
         note.extend_from_slice(&kind.to_le_bytes());
-        note.extend_from_slice(owner);
-        note.resize(12 + align4(owner.len()), 0);
+        note.extend_from_slice(name);
+        note.resize(12 + align4(name.len()), 0);
         note.extend_from_slice(desc);
         note.resize(note.len() + align4(desc.len()) - desc.len(), 0);
         note
@@ -151,7 +151,7 @@ mod tests {
         file.extend_from_slice(notes);
         let names_at = file.len();
         file.extend_from_slice(names);
-        while file.len() % 8 != 0 {
+        while !file.len().is_multiple_of(8) {
             file.push(0);
         }
         let headers_at = file.len();
@@ -176,7 +176,7 @@ mod tests {
     fn host_versions_elf_note_package() {
         let metadata = br#"{"type":"deb","name":"curl","version":"8.14.1-2"}"#;
         let mut notes = note(b"GNU\0", 3, &[0; 20]);
-        notes.extend(note(NOTE_OWNER, NOTE_TYPE, metadata));
+        notes.extend(note(NOTE_NAME, NOTE_TYPE, metadata));
         let file = elf_with_notes(&notes);
         assert_eq!(package_version(&file).as_deref(), Some("8.14.1-2"));
 

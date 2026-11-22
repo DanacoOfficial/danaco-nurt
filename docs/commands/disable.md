@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-services … |> disable
+services ... |> disable
 ```
 
 ## Description
@@ -38,7 +38,7 @@ The command has no parameters.
 
 | Form | Input | Output |
 |---|---|---|
-| `services … \|> disable` | `service` | `effect` |
+| `services ... \|> disable` | `service` | `effect` |
 
 Each `effect` record holds `kind: "disable"`, `target` (`service:<name>`),
 `action`, `before` and `after`. A preview shows the same records with

@@ -28,6 +28,14 @@ A request without a reply within `timeout` counts as lost. Replies are
 matched to their requests by sequence number and by a random token in the
 payload, so replies to other programs are ignored.
 
+| System | Mechanism |
+|---|---|
+| Linux | ICMP datagram socket (`SOCK_DGRAM` with `IPPROTO_ICMP` or `IPPROTO_ICMPV6`) |
+| macOS | ICMP datagram socket |
+| Windows | `IcmpSendEcho` for IPv4, `Icmp6SendEcho2` for IPv6 |
+
+Raw sockets are not used.
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
@@ -59,17 +67,10 @@ Progress events of phase `echo` report the requests sent.
 Category `source`, effect `read`, reversibility `read`. The command sends
 echo requests and changes nothing on the host.
 
-## Notes
-
-| System | Mechanism | Privilege |
-|---|---|---|
-| Linux | ICMP datagram socket (`SOCK_DGRAM` with `IPPROTO_ICMP` or `IPPROTO_ICMPV6`) | a group of the account must be in `net.ipv4.ping_group_range` |
-| macOS | ICMP datagram socket | none |
-| Windows | `IcmpSendEcho` for IPv4, `Icmp6SendEcho2` for IPv6 | none |
-
-Raw sockets are not used. When Linux refuses the socket, the error names the
-current value of `net.ipv4.ping_group_range` and offers a fix that allows
-every group.
+On Linux a group of the account must be in `net.ipv4.ping_group_range`; on
+macOS and Windows no privilege is required. When Linux refuses the socket,
+the error names the current value of `net.ipv4.ping_group_range` and offers
+a fix that allows every group.
 
 ## Examples
 

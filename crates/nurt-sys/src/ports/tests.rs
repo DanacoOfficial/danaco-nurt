@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
 use nurt_contracts::error::{ErrorCode, Result};
@@ -14,7 +14,9 @@ use super::libproc::{
     INI_IPV4, INSI_FADDR, INSI_FPORT, INSI_LADDR, INSI_LPORT, INSI_VFLAG, SOCKET_FDINFO_SIZE,
     SOCKINFO_IN, SOCKINFO_TCP, SOI_KIND, SOI_PROTOCOL, TCPSI_STATE,
 };
-use super::win32::{TCP4_ROW_SIZE, TCP6_ROW_SIZE, TableKind, UDP4_ROW_SIZE, decode_table};
+use super::win32::{
+    TCP4_ROW_SIZE, TCP6_ROW_SIZE, TableKind, UDP4_ROW_SIZE, UDP6_ROW_SIZE, decode_table,
+};
 use super::{COMMAND, Ports, ProtocolFilter, SocketEntry, SocketSource, SocketTable, libproc};
 use crate::processes::testing::{SystemClock, VirtualClock, context, run};
 
@@ -51,8 +53,16 @@ fn ctx() -> ExecCtx {
 
 fn call(state: &str, protocol: &str) -> BoundArgs {
     BoundArgs::new(COMMAND)
-        .with("state", ArgValue::Value(Value::Enum(state.to_owned())), false)
-        .with("protocol", ArgValue::Value(Value::Enum(protocol.to_owned())), false)
+        .with(
+            "state",
+            ArgValue::Value(Value::Enum(state.to_owned())),
+            false,
+        )
+        .with(
+            "protocol",
+            ArgValue::Value(Value::Enum(protocol.to_owned())),
+            false,
+        )
 }
 
 fn ports(source: FakeSockets, args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Port>> {
@@ -69,9 +79,19 @@ fn mixed() -> FakeSockets {
     FakeSockets {
         entries: vec![
             socket(Protocol::Tcp, "0.0.0.0:80", None, PortState::Listen),
-            socket(Protocol::Tcp, "10.0.0.2:80", Some("10.0.0.9:51000"), PortState::Established),
+            socket(
+                Protocol::Tcp,
+                "10.0.0.2:80",
+                Some("10.0.0.9:51000"),
+                PortState::Established,
+            ),
             socket(Protocol::Udp, "[::]:53", None, PortState::None),
-            socket(Protocol::Udp, "10.0.0.2:41000", Some("10.0.0.1:53"), PortState::None),
+            socket(
+                Protocol::Udp,
+                "10.0.0.2:41000",
+                Some("10.0.0.1:53"),
+                PortState::None,
+            ),
         ],
         unattributed: 0,
     }
@@ -125,7 +145,14 @@ fn ports_unattributed_sockets_noted_once() {
 
 /// Row of `MIB_TCPROW_OWNER_PID`: state, local address and port, remote
 /// address and port, process.
-fn tcp4_row(state: u32, local: [u8; 4], port: u16, remote: [u8; 4], rport: u16, pid: u32) -> Vec<u8> {
+fn tcp4_row(
+    state: u32,
+    local: [u8; 4],
+    port: u16,
+    remote: [u8; 4],
+    rport: u16,
+    pid: u32,
+) -> Vec<u8> {
     let mut row = state.to_le_bytes().to_vec();
     row.extend_from_slice(&local);
     row.extend_from_slice(&[port.to_be_bytes()[0], port.to_be_bytes()[1], 0, 0]);
@@ -142,13 +169,20 @@ fn ports_decode_win32_tcp_table_buffer() {
     buffer.extend(tcp4_row(2, [127, 0, 0, 1], 8080, [0; 4], 0, 4321));
     buffer.extend(tcp4_row(5, [10, 0, 0, 2], 443, [10, 0, 0, 9], 50123, 99));
     let entries = decode_table(TableKind::Tcp4, &buffer).unwrap();
-    assert_eq!(entries[0].local, "127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    assert_eq!(
+        entries[0].local,
+        "127.0.0.1:8080".parse::<SocketAddr>().unwrap()
+    );
     assert_eq!(entries[0].state, PortState::Listen);
     assert_eq!(entries[0].remote, None);
     assert_eq!(entries[0].pid, Some(4321));
     assert_eq!(entries[1].state, PortState::Established);
     assert_eq!(entries[1].remote, Some("10.0.0.9:50123".parse().unwrap()));
-    assert_eq!(decode_table(TableKind::Tcp4, &buffer[..30]), None, "a cut row is rejected");
+    assert_eq!(
+        decode_table(TableKind::Tcp4, &buffer[..30]),
+        None,
+        "a cut row is rejected"
+    );
 
     let mut v6 = 1_u32.to_le_bytes().to_vec();
     let mut row = Ipv6Addr::LOCALHOST.octets().to_vec();
@@ -162,9 +196,15 @@ fn ports_decode_win32_tcp_table_buffer() {
     assert_eq!(row.len(), TCP6_ROW_SIZE);
     v6.extend(row);
     let entries = decode_table(TableKind::Tcp6, &v6).unwrap();
-    assert_eq!(entries[0].local, "[::1]:8080".parse::<SocketAddr>().unwrap());
+    assert_eq!(
+        entries[0].local,
+        "[::1]:8080".parse::<SocketAddr>().unwrap()
+    );
     assert_eq!(entries[0].pid, Some(7));
+}
 
+#[test]
+fn ports_decode_win32_udp_table_buffers() {
     let mut udp = 1_u32.to_le_bytes().to_vec();
     udp.extend_from_slice(&[0, 0, 0, 0, 0, 53, 0, 0]);
     udp.extend_from_slice(&5_u32.to_le_bytes());
@@ -173,6 +213,20 @@ fn ports_decode_win32_tcp_table_buffer() {
     assert_eq!(entries[0].protocol, Protocol::Udp);
     assert_eq!(entries[0].state, PortState::None);
     assert_eq!(entries[0].local.port(), 53);
+
+    let mut udp6 = 1_u32.to_le_bytes().to_vec();
+    udp6.extend_from_slice(&Ipv6Addr::LOCALHOST.octets());
+    udp6.extend_from_slice(&0_u32.to_le_bytes());
+    udp6.extend_from_slice(&[0x14, 0xE9, 0, 0]);
+    udp6.extend_from_slice(&11_u32.to_le_bytes());
+    assert_eq!(udp6.len(), 4 + UDP6_ROW_SIZE);
+    let entries = decode_table(TableKind::Udp6, &udp6).unwrap();
+    assert_eq!(
+        entries[0].local,
+        "[::1]:5353".parse::<SocketAddr>().unwrap()
+    );
+    assert_eq!(entries[0].state, PortState::None);
+    assert_eq!(entries[0].pid, Some(11));
 }
 
 fn put_int(buffer: &mut [u8], offset: usize, value: i32) {
@@ -194,7 +248,10 @@ fn ports_decode_libproc_socket_info() {
     put_int(&mut tcp, TCPSI_STATE, 1);
     let decoded = libproc::decode(&tcp).unwrap();
     assert_eq!(decoded.protocol, Protocol::Tcp);
-    assert_eq!(decoded.local, "127.0.0.1:5432".parse::<SocketAddr>().unwrap());
+    assert_eq!(
+        decoded.local,
+        "127.0.0.1:5432".parse::<SocketAddr>().unwrap()
+    );
     assert_eq!(decoded.state, PortState::Listen);
     assert_eq!(decoded.remote, None);
 
@@ -212,12 +269,18 @@ fn ports_decode_libproc_socket_info() {
 
     let mut unix = vec![0_u8; SOCKET_FDINFO_SIZE];
     put_int(&mut unix, SOI_KIND, 3);
-    assert_eq!(libproc::decode(&unix), None, "other socket kinds are skipped");
+    assert_eq!(
+        libproc::decode(&unix),
+        None,
+        "other socket kinds are skipped"
+    );
     assert_eq!(libproc::decode(&tcp[..100]), None);
 }
 
 #[cfg(unix)]
 mod procnet_tree {
+    use std::net::{IpAddr, Ipv4Addr};
+
     use super::*;
     use crate::ports::procnet::{ProcNet, parse_endpoint, parse_table, tcp_state};
     use crate::processes::sysroot::SysRoot;
@@ -232,8 +295,10 @@ mod procnet_tree {
             IpAddr::V4(v4) => format!("{:08X}", u32::from_ne_bytes(v4.octets())),
             IpAddr::V6(v6) => v6
                 .octets()
-                .chunks_exact(4)
-                .map(|word| format!("{:08X}", u32::from_ne_bytes(word.try_into().unwrap())))
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|word| format!("{:08X}", u32::from_ne_bytes(*word)))
                 .collect(),
         }
     }
@@ -282,7 +347,11 @@ mod procnet_tree {
             parse_endpoint(&endpoint),
             Some(SocketAddr::new(address.into(), 8080))
         );
-        assert_eq!(parse_endpoint("0000:0050"), None, "an address of 16 bits is malformed");
+        assert_eq!(
+            parse_endpoint("0000:0050"),
+            None,
+            "an address of 16 bits is malformed"
+        );
     }
 
     #[test]
@@ -292,8 +361,16 @@ mod procnet_tree {
         let listener: SocketAddr = "0.0.0.0:8080".parse().unwrap();
         let tcp6: SocketAddr = "[::]:22".parse().unwrap();
         let any6 = SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 0);
-        write(root, "/proc/net/tcp", format!("{HEADER}{}", row(0, listener, any4(), 0x0A, 555)));
-        write(root, "/proc/net/tcp6", format!("{HEADER}{}", row(0, tcp6, any6, 0x0A, 777)));
+        write(
+            root,
+            "/proc/net/tcp",
+            format!("{HEADER}{}", row(0, listener, any4(), 0x0A, 555)),
+        );
+        write(
+            root,
+            "/proc/net/tcp6",
+            format!("{HEADER}{}", row(0, tcp6, any6, 0x0A, 777)),
+        );
         write(root, "/proc/net/udp", HEADER);
         write(root, "/proc/31/comm", "nginx\n");
         write(root, "/proc/31/fd/.keep", "");

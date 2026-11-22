@@ -25,9 +25,9 @@ use nurt_contracts::fs::{
     ProviderWrite, ScopePurpose, TxScope,
 };
 use nurt_contracts::journal::OpId;
-use nurt_contracts::record::{EntryType, RecordKind, RegistryType, RegistryView};
+use nurt_contracts::record::{EntryType, RegistryType, RegistryView};
 use nurt_contracts::report::Irreversible;
-use nurt_contracts::value::{Instant, Value};
+use nurt_contracts::value::{Instant, RecordKind, Value};
 use nurt_sys::registry::api::RegistryApi;
 use nurt_sys::registry::broadcast::SettingChangeNotifier;
 use nurt_sys::registry::mem::MemRegistry;
@@ -724,7 +724,7 @@ fn restore_rejects_corrupt_snapshots() {
         provider.restore(&scope(), &snapshot).unwrap_err().kind,
         FsErrorKind::Io
     );
-    let mut root = provider
+    let root = provider
         .snapshot(&KeyPath::root(Hive::Users).to_provider_key())
         .unwrap();
     assert!(root.existed);

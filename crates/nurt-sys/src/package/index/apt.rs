@@ -10,7 +10,7 @@ use std::io::BufReader;
 use super::{EntrySink, IndexEntry, IndexReport};
 use crate::package::compress::open_decoded;
 use crate::package::control::for_each_stanza;
-use crate::package::root::HostEnv;
+use crate::package::root::{HostEnv, SysPaths};
 
 const LISTS_DIR: &str = "/var/lib/apt/lists";
 const ARCHITECTURES_FILE: &str = "/var/lib/dpkg/arch";
@@ -21,7 +21,7 @@ const EXTENSIONS: [&str; 6] = ["", ".gz", ".xz", ".lz4", ".bz2", ".zst"];
 
 pub(super) fn read(env: &HostEnv, sink: EntrySink<'_>, report: &mut IndexReport) {
     let architectures = architectures(env);
-    for path in env.root().list_dir(LISTS_DIR) {
+    for path in env.list_dir(LISTS_DIR) {
         let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
@@ -69,7 +69,7 @@ pub(super) fn read(env: &HostEnv, sink: EntrySink<'_>, report: &mut IndexReport)
 }
 
 fn architectures(env: &HostEnv) -> Option<BTreeSet<String>> {
-    let text = fs::read_to_string(env.root().resolve(ARCHITECTURES_FILE)).ok()?;
+    let text = fs::read_to_string(env.resolve(ARCHITECTURES_FILE)).ok()?;
     let mut set: BTreeSet<String> = text
         .lines()
         .map(str::trim)
@@ -92,7 +92,11 @@ fn list_source(file_name: &str) -> Option<String> {
     let location = stem.rsplit_once("_binary-").map_or(stem, |(head, _)| head);
     Some(match location.split_once("_dists_") {
         Some((mirror, distribution)) => {
-            format!("{} {}", mirror.replace('_', "/"), distribution.replace('_', "/"))
+            format!(
+                "{} {}",
+                mirror.replace('_', "/"),
+                distribution.replace('_', "/")
+            )
         }
         None => location.to_owned(),
     })
@@ -105,8 +109,10 @@ mod tests {
     #[test]
     fn list_source_names_mirror_suite_and_component() {
         assert_eq!(
-            list_source("archive.ubuntu.com_ubuntu_dists_noble-updates_main_binary-amd64_Packages.lz4")
-                .as_deref(),
+            list_source(
+                "archive.ubuntu.com_ubuntu_dists_noble-updates_main_binary-amd64_Packages.lz4"
+            )
+            .as_deref(),
             Some("archive.ubuntu.com/ubuntu noble-updates/main")
         );
         assert_eq!(list_source("x_dists_s_main_i18n_Translation-en"), None);

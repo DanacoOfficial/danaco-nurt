@@ -46,7 +46,7 @@ impl CimQuery {
     ///
     /// # Errors
     ///
-    /// `E_INVALID_VALUE` with `expected` when the class, a property or a
+    /// Returns `E_INVALID_VALUE` with `expected` when the class, a property or a
     /// namespace segment is not an identifier, or when the condition holds a
     /// control character, an unterminated string literal or an association
     /// query keyword.
@@ -84,6 +84,7 @@ impl CimQuery {
     }
 
     /// The WQL statement: `SELECT <properties|*> FROM <class> [WHERE <condition>]`.
+    #[cfg(any(windows, test))]
     pub(crate) fn wql(&self) -> String {
         let columns = if self.properties.is_empty() {
             "*".to_owned()
@@ -99,6 +100,7 @@ impl CimQuery {
     }
 
     /// The namespace in the form expected by WMI, with `\` separators.
+    #[cfg(any(windows, test))]
     pub(crate) fn wmi_namespace(&self) -> String {
         wmi_namespace(&self.namespace)
     }
@@ -106,6 +108,7 @@ impl CimQuery {
 
 /// Converts a namespace written with `/` separators to the form expected by
 /// WMI; `\` separators are kept.
+#[cfg(any(windows, test))]
 pub(crate) fn wmi_namespace(namespace: &str) -> String {
     namespace.replace(NAMESPACE_SEPARATOR, &WMI_NAMESPACE_SEPARATOR.to_string())
 }
@@ -231,6 +234,10 @@ fn check_condition(condition: &str) -> Result<()> {
 mod tests {
     use super::*;
 
+    /// Class, condition, namespace, properties and the parameter reported
+    /// in the error.
+    type InvalidCase<'a> = (&'a str, Option<&'a str>, &'a str, &'a [&'a str], &'a str);
+
     fn query(
         class: &str,
         condition: Option<&str>,
@@ -271,7 +278,7 @@ mod tests {
 
     #[test]
     fn cim_wql_rejects_invalid_identifiers_and_control_chars() {
-        let cases: [(&str, Option<&str>, &str, &[&str], &str); 9] = [
+        let cases: [InvalidCase<'_>; 9] = [
             ("Win32_Service; DROP", None, "root/cimv2", &[], "class"),
             ("1Class", None, "root/cimv2", &[], "class"),
             ("", None, "root/cimv2", &[], "class"),

@@ -18,7 +18,7 @@ package.upgrade [<names>...] [manager: <enum>]
 
 ## Description
 
-`package.upgrade` upgrades the named packages, or all installed packages when no name is given through the program of the package manager. The mark [P] in the catalog identifies this use of an external program. The program is started without a shell, with the arguments as a list, and with the variables of `run.env_defaults` followed by the variables of the manager that keep it non-interactive. No program is started during a preview.
+`package.upgrade` upgrades the named packages, or all installed packages when no name is given, through the program of the package manager. The mark [P] in the catalog identifies this use of an external program. The program is started without a shell, with the arguments as a list, and with the variables of `run.env_defaults` followed by the variables of the manager that keep it non-interactive. No program is started during a preview.
 
 The records list the packages that the local indexes show as outdated when no name is given. pacman upgrades named packages without the rest of the system, which is a partial upgrade; the command reports a warning in that case. With no name pacman runs a full system upgrade.
 

@@ -89,7 +89,7 @@ fn supplementary_gids() -> Vec<u32> {
     // SAFETY: the buffer holds `count` elements, the size passed to the call.
     let written = unsafe { libc::getgroups(count, gids.as_mut_ptr()) };
     gids.truncate(usize::try_from(written).unwrap_or(0));
-    gids.into_iter().map(u32::from).collect()
+    gids
 }
 
 fn system_users() -> Vec<PasswdEntry> {
@@ -161,6 +161,33 @@ fn members(mut list: *mut *mut c_char) -> Vec<String> {
         }
     }
     names
+}
+
+/// Login name of the user `uid` from the user database of the system.
+#[cfg(target_os = "macos")]
+pub(crate) fn user_name(uid: u32) -> Option<String> {
+    /// Size of the buffer for the strings of one entry.
+    const ENTRY_BUFFER: usize = 4096;
+    let mut entry = std::mem::MaybeUninit::<libc::passwd>::zeroed();
+    let mut buffer: Vec<c_char> = vec![0; ENTRY_BUFFER];
+    let mut found: *mut libc::passwd = std::ptr::null_mut();
+    // SAFETY: `entry` and `buffer` are writable for their full sizes and
+    // `found` receives either null or a pointer to `entry`.
+    let status = unsafe {
+        libc::getpwuid_r(
+            uid,
+            entry.as_mut_ptr(),
+            buffer.as_mut_ptr(),
+            buffer.len(),
+            &mut found,
+        )
+    };
+    if status != 0 || found.is_null() {
+        return None;
+    }
+    // SAFETY: `found` points to `entry`, filled by the call, whose strings
+    // live in `buffer`, which is still alive.
+    Some(text(unsafe { (*found).pw_name }))
 }
 
 fn text(pointer: *const c_char) -> String {

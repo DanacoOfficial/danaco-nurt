@@ -222,11 +222,11 @@ fn process_exists(_root: &SysRoot, pid: u32) -> bool {
     let Ok(pid) = i32::try_from(pid) else {
         return false;
     };
-    rustix::process::Pid::from_raw(pid).is_some_and(|pid| {
-        match rustix::process::test_kill_process(pid) {
-            Ok(()) => true,
-            Err(error) => error == rustix::io::Errno::PERM,
-        }
+    rustix::process::Pid::from_raw(pid).is_some_and(|pid| match rustix::process::test_kill_process(
+        pid,
+    ) {
+        Ok(()) => true,
+        Err(error) => error == rustix::io::Errno::PERM,
     })
 }
 

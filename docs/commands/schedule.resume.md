@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-schedule.resume <id>…
+schedule.resume <id>...
 schedule.resume all: true
 ```
 
@@ -41,7 +41,7 @@ and no file is written for them.
 
 | Form | Input | Output |
 |---|---|---|
-| `schedule.resume <id>…` | none | one `effect` record per schedule |
+| `schedule.resume <id>...` | none | one `effect` record per schedule |
 | `schedule.resume all: true` | none | one `effect` record per schedule |
 
 The effect record has `kind: schedule.resume`, `target: schedule:<id>`,

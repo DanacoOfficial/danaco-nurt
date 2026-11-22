@@ -6,8 +6,7 @@
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::record::EnvironmentScope;
 use windows_sys::Win32::Foundation::{
-    ERROR_ACCESS_DENIED, ERROR_FILE_NOT_FOUND, ERROR_MORE_DATA, ERROR_NO_MORE_ITEMS,
-    ERROR_SUCCESS,
+    ERROR_ACCESS_DENIED, ERROR_FILE_NOT_FOUND, ERROR_MORE_DATA, ERROR_NO_MORE_ITEMS, ERROR_SUCCESS,
 };
 use windows_sys::Win32::System::Registry::{
     HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, REG_EXPAND_SZ, REG_SZ, RegCloseKey,
@@ -90,7 +89,10 @@ fn enumerate(key: &Key, scope: EnvironmentScope) -> Result<Vec<(String, String)>
             ERROR_SUCCESS => {}
             ERROR_NO_MORE_ITEMS => return Ok(variables),
             ERROR_MORE_DATA => {
-                data.resize(usize::try_from(data_len).unwrap_or(0).max(data.len() * 2), 0);
+                data.resize(
+                    usize::try_from(data_len).unwrap_or(0).max(data.len() * 2),
+                    0,
+                );
                 continue;
             }
             other => return Err(registry_error(other, scope)),
@@ -113,7 +115,10 @@ fn utf16_value(bytes: &[u8]) -> String {
         .chunks_exact(2)
         .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
         .collect();
-    let end = units.iter().position(|unit| *unit == 0).unwrap_or(units.len());
+    let end = units
+        .iter()
+        .position(|unit| *unit == 0)
+        .unwrap_or(units.len());
     String::from_utf16_lossy(&units[..end])
 }
 

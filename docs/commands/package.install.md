@@ -20,7 +20,9 @@ package.install <names>... [version: <text>] [manager: <enum>]
 
 `package.install` installs the named packages through the program of the package manager. The mark [P] in the catalog identifies this use of an external program. The program is started without a shell, with the arguments as a list, and with the variables of `run.env_defaults` followed by the variables of the manager that keep it non-interactive. No program is started during a preview.
 
-With \`version\` every named package is installed in that version: \`name=version\` for apt and zypper, \`name-version\` for dnf, \`name@version\` for Homebrew and Scoop, and \`--version\` for Chocolatey and winget. pacman installs the version of the repository only and rejects \`version\`. An installed package is kept by pacman (\`--needed\`).
+With `version` every named package is installed in that version: `name=version` for apt and zypper, `name-version` for dnf, `name@version` for Homebrew and Scoop, and `--version` for Chocolatey and winget. pacman installs the version of the repository only and rejects `version` with `E_UNSUPPORTED`. An installed package is kept by pacman (`--needed`).
+
+`before` comes from the package database read before the run, `after` from the database read again after it. The journal marks the operation as irreversible with the reason `package_changed`; `undo` does not restore the previous packages.
 
 The command needs the privilege of the manager. apt, dnf, pacman and zypper need the superuser and fail with `E_PRIVILEGE` otherwise; the command never calls `sudo`. Homebrew refuses to run as the superuser and fails with `E_PRIVILEGE` in that case. When the lock of the package database is held, the command fails with `E_IN_USE` and lists the holding processes.
 

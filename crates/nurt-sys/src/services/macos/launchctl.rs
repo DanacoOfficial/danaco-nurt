@@ -385,7 +385,10 @@ mod tests {
             map_state(stopped.state_raw.as_deref().unwrap(), &stopped.last_exit),
             ServiceState::Stopped
         );
+    }
 
+    #[test]
+    fn launchd_map_state_pending_and_unknown_states() {
         assert_eq!(
             map_state("spawn scheduled", &LastExit::Never),
             ServiceState::Starting

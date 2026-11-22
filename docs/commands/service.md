@@ -1,6 +1,6 @@
 ---
 command: service
-group: cli
+group: schedule
 summary: Run, install, remove and inspect the background service.
 since: 0.1.0
 ---
@@ -21,10 +21,11 @@ nurt service status
 
 ## Description
 
-The background service hosts the free space module of the journal and the
-schedule module. The journal keeps the previous content of changed files
-only while the service runs, and schedules fire only while the service runs;
-without it a schedule reports `active: false` with `reason:
+`service` is a subcommand of the `nurt` program, not a command of the
+pipeline language. The background service hosts the free space module of the
+journal and the schedule module. The journal keeps the previous content of
+changed files only while the service runs, and schedules fire only while the
+service runs; without it a schedule reports `active: false` with `reason:
 service_not_running`.
 
 `run` starts the service in the foreground. It takes the instance lock
@@ -94,10 +95,10 @@ Every message is one JSON object on one line of at most 65536 bytes.
 
 | Message | Form |
 |---|---|
-| request | `{"v":1,"id":<id>,"op":<op>,"body":{…}}`; `id` and `body` are optional |
-| success | `{"v":1,"id":<id>,"ok":true,"result":{…}}` |
-| failure | `{"v":1,"id":<id>,"ok":false,"error":{"code":…,"message":…}}` |
-| event | `{"v":1,"event":<name>,"data":{…}}` |
+| request | `{"v":1,"id":<id>,"op":<op>,"body":{...}}`; `id` and `body` are optional |
+| success | `{"v":1,"id":<id>,"ok":true,"result":{...}}` |
+| failure | `{"v":1,"id":<id>,"ok":false,"error":{"code":...,"message":...}}` |
+| event | `{"v":1,"event":<name>,"data":{...}}` |
 
 | Operation | Result |
 |---|---|
@@ -123,20 +124,24 @@ Configuration keys read by `run`: `service.mode`, `space.heartbeat_ms`
 (default `500`), `space.heartbeat_max_age_ms` (default `2000`), `state.dir`.
 Keys `service.*` in the `.nurt.toml` file of a project are ignored.
 
-## Output
+## Input and output
 
-`install`: `{mode, mode_reason, backend, files, started, linger, notes}`.
-`mode_reason` is `requested`, `no_privilege`, `server` or `desktop`;
+The subcommand reads no records. `run` prints nothing while the service
+runs. The other forms print one object.
+
+| Form | Output |
+|---|---|
+| `install` | `{mode, mode_reason, backend, files, started, linger, notes}` |
+| `uninstall` | `{mode, backend, removed, notes}` |
+| `status` | `{installed, mode, running, reason, pid, started, version, linger, heartbeat_age_ms, modules}` |
+
+`mode_reason` is `requested`, `no_privilege`, `server` or `desktop`.
 `backend` is `systemd_user`, `systemd_system`, `launch_agent`,
-`launch_daemon`, `task_scheduler` or `windows_service`.
-
-`uninstall`: `{mode, backend, removed, notes}`.
-
-`status`: `{installed, mode, running, reason, pid, started, version,
-linger, heartbeat_age_ms, modules}`. `reason` is `no_heartbeat`,
-`stale_heartbeat`, `process_gone` or `no_response` when the service does not
-run; `modules` maps `space` and `schedule` to `starting`, `running`,
-`degraded`, `restarting`, `failed` or `stopped`.
+`launch_daemon`, `task_scheduler` or `windows_service`. In `status`,
+`reason` is `no_heartbeat`, `stale_heartbeat`, `process_gone` or
+`no_response` when the service does not run; `modules` maps `space` and
+`schedule` to `starting`, `running`, `degraded`, `restarting`, `failed` or
+`stopped`.
 
 ## Effect
 
@@ -153,40 +158,43 @@ Task Scheduler. On macOS they run the external program `launchctl`
 
 ## Examples
 
-Install the service for the current account and enable lingering.
+Show the state of the service installed in mode `user` on Linux:
+
+```nurt example
+services name: "nurt-service" scope: user
+```
+
+List the active schedules that do not fire because the service does not
+run:
+
+```nurt example
+schedule.list state: active |> where reason == "service_not_running" |> select label, reason
+```
+
+Show the errors logged by the service unit:
+
+```nurt example
+logs unit: "nurt-service" level: error
+```
+
+Install the service for the current account from the command line:
 
 ```sh
 nurt service install --mode user
 ```
 
-```text expected
+```text
 mode: user  mode_reason: requested  backend: systemd_user  started: true  linger: true
 ```
 
-Show whether the service is installed and running.
+Show whether the service is installed and running:
 
 ```sh
 nurt service status
 ```
 
-```text expected
+```text
 installed: true  mode: user  running: true  linger: true  modules: {schedule: running, space: running}
-```
-
-Install the service at boot on a server, as an administrator.
-
-```sh
-sudo nurt service install --mode system
-```
-
-```text expected
-mode: system  mode_reason: requested  backend: systemd_system  started: true
-```
-
-Remove the installed service.
-
-```sh
-nurt service uninstall
 ```
 
 ## Errors
@@ -205,4 +213,4 @@ nurt service uninstall
 
 Configuration keys `service.mode`, `space.heartbeat_ms`,
 `space.heartbeat_max_age_ms` and `state.dir`; the commands of the `schedule`
-group.
+group; `services`, `logs`.

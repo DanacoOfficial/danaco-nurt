@@ -39,9 +39,9 @@ use nurt_contracts::fs::{
     FsError, FsErrorKind, FsResult, Provider, ProviderCaps, ProviderChild, ProviderKey,
     ProviderScheme, ProviderSnapshot, ProviderValue, ProviderWrite, TxScope,
 };
-use nurt_contracts::record::{Entry, EntryType, LinkType, Record, RegistryValue, RegistryView};
+use nurt_contracts::record::{Entry, EntryType, LinkType, RegistryValue, RegistryView};
 use nurt_contracts::report::{Irreversible, IrreversibleEntry};
-use nurt_contracts::value::{Path, Size};
+use nurt_contracts::value::{Path, Record, Size};
 
 use self::api::{KeyInfo, RegistryApi};
 use self::broadcast::{SettingChangeNotifier, affects_environment};
@@ -49,6 +49,9 @@ use self::mem::LINK_VALUE;
 use self::path::{Address, KeyPath, PathError, RegistryPath, SCHEME, names_equal};
 use self::snapshot::{Capture, Captured, SUBTREE_FORMAT, SkipReason, SubtreeDocument};
 use self::value::{RawValue, decode_string};
+
+/// Names of the subkeys and the values of one key.
+type KeyContent = (Vec<String>, Vec<(String, RawValue)>);
 
 /// Key or value returned by the reading operations of the provider.
 #[derive(Debug, Clone, PartialEq)]
@@ -256,7 +259,7 @@ impl RegistryProvider {
         Ok(())
     }
 
-    fn read_content(&self, key: &KeyPath) -> FsResult<(Vec<String>, Vec<(String, RawValue)>)> {
+    fn read_content(&self, key: &KeyPath) -> FsResult<KeyContent> {
         Ok((
             self.api.subkeys(self.view, key)?,
             self.api.values(self.view, key)?,

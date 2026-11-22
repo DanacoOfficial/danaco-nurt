@@ -21,8 +21,8 @@ use nurt_programs::model::{
     AliasKind, CategoryScheme, DetailWant, EntryKey, EntryKind, RawPackage, RawProgram, SourceData,
 };
 use nurt_programs::source::{
-    Deadline, HostEnv, MemoryRegistry, ProgramSource, RegistryHive, RegistryValue, RegistryView,
-    SourceId, WarningCode,
+    Deadline, HostEnv, MemoryRegistry, ProgramSource, RegistryHive, RegistryReader, RegistryValue,
+    RegistryView, SourceId, WarningCode,
 };
 use nurt_programs::sources::brew::{self, BrewSource};
 use nurt_programs::sources::choco::{self, ChocoSource};
@@ -593,6 +593,41 @@ fn app_registry() -> MemoryRegistry {
 }
 
 #[test]
+fn memory_registry_keeps_key_case_and_matches_without_case() {
+    let (hive, view) = (RegistryHive::LocalMachine, RegistryView::Native);
+    let mut registry = MemoryRegistry::new();
+    registry.insert_key(hive, view, &format!("{UNINSTALL}\\{{6F1C}}"));
+    registry.insert_key(hive, view, &format!("{UNINSTALL}\\Viewer32"));
+    registry.insert_value(
+        hive,
+        view,
+        &format!("{}\\viewer32", UNINSTALL.to_ascii_uppercase()),
+        "DisplayName",
+        text("Legacy Viewer"),
+    );
+    let mut names = registry
+        .subkeys(hive, view, &UNINSTALL.to_ascii_lowercase())
+        .unwrap()
+        .unwrap();
+    names.sort_unstable();
+    assert_eq!(names, ["Viewer32", "{6F1C}"]);
+    let values = registry
+        .values(hive, view, &format!("{UNINSTALL}\\VIEWER32"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        values.get("DisplayName").and_then(RegistryValue::as_text),
+        Some("Legacy Viewer")
+    );
+    assert!(
+        registry
+            .subkeys(hive, view, &format!("{UNINSTALL}\\Missing"))
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[test]
 fn winapp_uninstall_both_views() {
     let dir = tempfile::tempdir().unwrap();
     let env = windows_env(dir.path()).with_registry(Arc::new(app_registry()));
@@ -617,12 +652,7 @@ fn winapp_uninstall_both_views() {
         editor.path.as_deref(),
         Some("C:\\Program Files\\Editor\\editor.exe")
     );
-    assert!(
-        editor
-            .app_id
-            .as_deref()
-            .is_some_and(|id| id.eq_ignore_ascii_case("{6F1C}"))
-    );
+    assert_eq!(editor.app_id.as_deref(), Some("{6F1C}"));
     assert_eq!(editor.homepage.as_deref(), Some("https://editor.example"));
     assert_eq!(editor.aliases.len(), 1);
     assert_eq!(editor.aliases[0].name, "exed");
