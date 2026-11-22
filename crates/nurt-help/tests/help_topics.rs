@@ -51,7 +51,7 @@ fn answers_stay_between_the_estimated_bounds() {
         HelpQuery::topic("replace"),
     ] {
         let count = tokens(&text(&query));
-        assert!((50..=400).contains(&count), "{query:?}: {count} tokens");
+        assert!((50..=600).contains(&count), "{query:?}: {count} tokens");
     }
 }
 

@@ -326,11 +326,22 @@ fn assert_page_matches_catalog(catalog: &Catalog, page: &CommandPage) {
             page.command,
             row.name
         );
-        let expected_default = match (&param.default, &param.default_note, param.required) {
-            (Some(value), _, _) => value.as_str().to_owned(),
-            (None, Some(note), _) => note.clone(),
-            (None, None, true) => "required".to_owned(),
-            (None, None, false) => "-".to_owned(),
+        let in_required_group = param
+            .exclusive_group
+            .as_ref()
+            .filter(|group| spec.required_groups.contains(group));
+        let expected_default = if param.required {
+            "required".to_owned()
+        } else if let Some(group) = in_required_group {
+            format!("one of {group}")
+        } else if let Some(value) = &param.default {
+            value.as_str().to_owned()
+        } else if param.unbounded_default {
+            "no limit".to_owned()
+        } else if let Some(note) = &param.default_note {
+            note.clone()
+        } else {
+            "none".to_owned()
         };
         assert_eq!(
             row.default, expected_default,

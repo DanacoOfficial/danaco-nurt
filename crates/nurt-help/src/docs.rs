@@ -428,7 +428,7 @@ fn is_separator_row(cells: &[String]) -> bool {
 }
 
 fn strip_ticks(cell: &str) -> String {
-    cell.trim().trim_matches('`').to_owned()
+    cell.trim().replace('`', "")
 }
 
 fn table_rows(body: &[&str]) -> Vec<Vec<String>> {
@@ -455,7 +455,7 @@ fn parameter_rows(body: &[&str]) -> Vec<ParameterRow> {
 fn error_rows(body: &[&str]) -> Vec<PageError> {
     table_rows(body)
         .into_iter()
-        .filter(|cells| cells.len() >= 3)
+        .filter(|cells| cells.len() >= 3 && cells[0] != "Code")
         .map(|cells| PageError {
             code: strip_ticks(&cells[0]),
             meaning: cells[1].clone(),

@@ -1255,13 +1255,12 @@ fn corpus_counts_agree_with_ast_grep_cli_when_installed() {
     let disagreements: Vec<String> = CORPUS
         .iter()
         .zip(&counts)
-        .filter_map(|(case, &(ours, theirs))| {
-            (theirs > 0 && ours != theirs).then(|| {
-                format!(
-                    "{} `{}`: {ours} here, {theirs} in ast-grep",
-                    case.language, case.pattern
-                )
-            })
+        .filter(|&(_, &(ours, theirs))| theirs > 0 && ours != theirs)
+        .map(|(case, &(ours, theirs))| {
+            format!(
+                "{} `{}`: {ours} here, {theirs} in ast-grep",
+                case.language, case.pattern
+            )
         })
         .collect();
     assert!(disagreements.is_empty(), "{}", disagreements.join("\n"));

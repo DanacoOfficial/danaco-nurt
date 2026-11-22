@@ -610,7 +610,10 @@ mod tests {
                 let CodeActionOrCommand::CodeAction(action) = action else {
                     panic!("expected a code action")
                 };
-                #[allow(clippy::mutable_key_type, reason = "the map type is fixed by the protocol crate")]
+                #[allow(
+                    clippy::mutable_key_type,
+                    reason = "the map type is fixed by the protocol crate"
+                )]
                 let changes = action.edit.unwrap().changes.unwrap();
                 (action.title, changes[&uri()][0].new_text.clone())
             })
