@@ -17,16 +17,102 @@
 //! * limit: `first N` uses `N` records, `skip N` adds `N` to the limit after
 //!   it, `select` keeps it, `assert count:` with an upper bound `H` uses
 //!   `H + 1` records, `assert empty: true` uses one; the page size of the
-//!   request limits the last stage of a pipeline that only reads.
+//!   request limits the last stage of a pipeline that only reads. A stage
+//!   whose static check reports the detail `limit` (an integer) takes at
+//!   most that many input records; the hint replaces the rule of the
+//!   command and is capped by the limit after the stage.
 
 use std::collections::{BTreeSet, HashSet};
+use std::ffi::OsString;
+use std::path::PathBuf;
 
 use nurt_catalog::Registry;
 use nurt_contracts::bound::{BoundExpr, BoundRef, BoundStage, Phase};
+use nurt_contracts::config::Config;
+use nurt_contracts::env::{Host, HostInfo, Os, PathStyle};
 use nurt_contracts::spec::{IoSpec, ParamType, ScalarType, StageSpec};
-use nurt_contracts::stage::{Demand, FieldDemand};
+use nurt_contracts::stage::{CheckCtx, Demand, FieldDemand};
+use nurt_contracts::value::Value;
 
+use crate::check::{implementation_for, static_args};
 use crate::model::{PipelinePlan, PlanOptions, PlanStatement, PlannedStage};
+
+/// Detail of the static check of a stage that bounds its input records.
+const LIMIT_DETAIL: &str = "limit";
+
+/// Host without facts of its own: a limit hint never depends on the host,
+/// so the static check during planning gets neutral values.
+struct PlanningHost(HostInfo);
+
+impl PlanningHost {
+    fn new() -> Self {
+        let (os, path_style) = if cfg!(windows) {
+            (Os::Windows, PathStyle::Windows)
+        } else if cfg!(target_os = "macos") {
+            (Os::Macos, PathStyle::Posix)
+        } else {
+            (Os::Linux, PathStyle::Posix)
+        };
+        Self(HostInfo {
+            os,
+            os_version: String::new(),
+            architecture: String::new(),
+            hostname: String::new(),
+            user: String::new(),
+            home: PathBuf::new(),
+            temp: PathBuf::new(),
+            path_style,
+            timezone: "UTC".to_owned(),
+            locale: None,
+            cpus: 1,
+        })
+    }
+}
+
+impl Host for PlanningHost {
+    fn info(&self) -> &HostInfo {
+        &self.0
+    }
+
+    fn env_var(&self, _name: &str) -> Option<OsString> {
+        None
+    }
+
+    fn env_vars(&self) -> Vec<(OsString, OsString)> {
+        Vec::new()
+    }
+}
+
+/// What the planner needs to ask a stage implementation for a hint.
+struct Hinting<'a> {
+    registry: &'a Registry,
+    host: PlanningHost,
+    config: Config,
+}
+
+impl Hinting<'_> {
+    /// Limit reported by the static check of the implementation of `planned`.
+    /// A rejected check gives no hint: the check of the plan reports the
+    /// error.
+    fn limit(&self, planned: &PlannedStage) -> Option<u64> {
+        let command = planned.command();
+        let spec = self.registry.command(command)?;
+        let implementation = implementation_for(self.registry, command, planned.index == 0)?;
+        let ctx = CheckCtx::new(spec, &self.host, &self.config);
+        let info = implementation
+            .check(&static_args(&planned.stage), &ctx)
+            .ok()?;
+        info.details.get(LIMIT_DETAIL).and_then(detail_limit)
+    }
+}
+
+fn detail_limit(value: &Value) -> Option<u64> {
+    match value {
+        Value::Int(count) => u64::try_from(*count).ok(),
+        Value::BigInt(digits) => digits.parse().ok(),
+        _ => None,
+    }
+}
 
 const SELECT: &str = "select";
 const FIRST: &str = "first";
@@ -44,6 +130,11 @@ pub(crate) fn annotate(
 ) {
     let tagged = lets_used_by_changes(statements);
     let requested = options.field_set();
+    let hinting = Hinting {
+        registry,
+        host: PlanningHost::new(),
+        config: Config::default(),
+    };
     for statement in statements.iter_mut() {
         match statement {
             PlanStatement::Let(binding) => {
@@ -52,7 +143,7 @@ pub(crate) fn annotate(
                     etag: tagged.contains(binding.name.as_str()),
                     limit: None,
                 };
-                annotate_pipeline(&mut binding.pipeline, registry, end);
+                annotate_pipeline(&mut binding.pipeline, &hinting, end);
             }
             PlanStatement::Operation(operation) => {
                 let read_only = operation.pipeline.is_read_only();
@@ -63,17 +154,17 @@ pub(crate) fn annotate(
                     etag: false,
                     limit: if read_only { options.limit } else { None },
                 };
-                annotate_pipeline(&mut operation.pipeline, registry, end);
+                annotate_pipeline(&mut operation.pipeline, &hinting, end);
             }
         }
     }
 }
 
-fn annotate_pipeline(pipeline: &mut PipelinePlan, registry: &Registry, end: Demand) {
+fn annotate_pipeline(pipeline: &mut PipelinePlan, hinting: &Hinting<'_>, end: Demand) {
     let mut demand = end;
     for planned in pipeline.stages.iter_mut().rev() {
         if let Some(check) = planned.check.as_deref_mut() {
-            annotate_pipeline(check, registry, all_fields());
+            annotate_pipeline(check, hinting, all_fields());
         }
         planned.demand = if planned.is_effect() {
             Demand {
@@ -84,10 +175,16 @@ fn annotate_pipeline(pipeline: &mut PipelinePlan, registry: &Registry, end: Dema
         } else {
             demand.clone()
         };
+        let hint = if planned.is_effect() {
+            None
+        } else {
+            hinting.limit(planned)
+        };
         demand = upstream(
             planned,
-            registry.command(planned.command()),
+            hinting.registry.command(planned.command()),
             &planned.demand,
+            hint,
         );
     }
 }
@@ -102,11 +199,16 @@ fn all_fields() -> Demand {
 }
 
 /// Demand on the input of `consumer`, given the demand on its output.
-fn upstream(consumer: &PlannedStage, spec: Option<&StageSpec>, after: &Demand) -> Demand {
+fn upstream(
+    consumer: &PlannedStage,
+    spec: Option<&StageSpec>,
+    after: &Demand,
+    hint: Option<u64>,
+) -> Demand {
     Demand {
         fields: input_fields(consumer, spec, &after.fields),
         etag: input_etag(consumer, after.etag),
-        limit: input_limit(consumer, after.limit),
+        limit: input_limit(consumer, after.limit, hint),
     }
 }
 
@@ -146,9 +248,12 @@ fn input_etag(consumer: &PlannedStage, after: bool) -> bool {
     }
 }
 
-fn input_limit(consumer: &PlannedStage, after: Option<u64>) -> Option<u64> {
+fn input_limit(consumer: &PlannedStage, after: Option<u64>, hint: Option<u64>) -> Option<u64> {
     if consumer.is_effect() {
         return None;
+    }
+    if let Some(hint) = hint {
+        return Some(after.map_or(hint, |after| after.min(hint)));
     }
     match consumer.command() {
         FIRST => match int_arg(&consumer.stage, COUNT_PARAM) {
@@ -356,6 +461,19 @@ mod tests {
             ],
         );
         assert_eq!(assert_limit(&any), None);
+    }
+
+    #[test]
+    fn limit_detail_accepts_only_non_negative_integers() {
+        assert_eq!(detail_limit(&Value::Int(7)), Some(7));
+        assert_eq!(detail_limit(&Value::Int(0)), Some(0));
+        assert_eq!(detail_limit(&Value::Int(-1)), None);
+        assert_eq!(
+            detail_limit(&Value::BigInt(u64::MAX.to_string())),
+            Some(u64::MAX)
+        );
+        assert_eq!(detail_limit(&Value::BigInt("-9".to_owned())), None);
+        assert_eq!(detail_limit(&Value::Text("7".to_owned())), None);
     }
 
     #[test]

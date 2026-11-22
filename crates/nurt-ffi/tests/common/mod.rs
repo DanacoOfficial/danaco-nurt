@@ -66,6 +66,15 @@ pub(crate) fn run(command: &mut Command) -> Output {
     output
 }
 
+/// Runs `command` with an empty environment whose `HOME` is a new directory
+/// under `work`, so that the engine finds no configuration of the account
+/// and keeps its state there.
+pub(crate) fn run_isolated(command: &mut Command, work: &Path) -> Output {
+    let home = work.join("home");
+    fs::create_dir_all(&home).expect("home directory of the test");
+    run(command.env_clear().env("HOME", &home))
+}
+
 /// Compiles a C program with `clang` against the header and links it with
 /// the shared library.
 pub(crate) fn compile_c(clang: &Path, sources: &[PathBuf], output: &Path, extra: &[&str]) {

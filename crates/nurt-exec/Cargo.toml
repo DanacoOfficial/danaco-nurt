@@ -21,11 +21,11 @@ workspace = true
 nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
 nurt-plan = { workspace = true }
+nurt-catalog = { workspace = true }
 rayon = { workspace = true }
 crossbeam-channel = { workspace = true }
 regex = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-nurt-catalog = { workspace = true }
 nurt-testkit = { workspace = true }
