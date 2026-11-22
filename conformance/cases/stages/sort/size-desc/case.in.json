@@ -1,0 +1,8 @@
+{"program": "find \"/home/user/project\" |> sort size order: desc",
+ "command": "sort",
+ "args": {"by": {"kind": "expr", "value": {"t": "list", "items": [{"t": "field", "name": "size"}]}}, "order": {"kind": "value", "value": {"t": "enum", "v": "desc"}}},
+ "input": [
+  {"kind": "entry", "fields": {"path": {"t": "path", "v": "/home/user/project/src/main.rs"}, "extension": {"t": "text", "v": "rs"}, "size": {"t": "size", "v": 2400}}},
+  {"kind": "entry", "fields": {"path": {"t": "path", "v": "/home/user/project/README.md"}, "extension": {"t": "text", "v": "md"}, "size": {"t": "size", "v": 900}}},
+  {"kind": "entry", "fields": {"path": {"t": "path", "v": "/home/user/project/src/lib.rs"}, "extension": {"t": "text", "v": "rs"}, "size": {"t": "size", "v": 5100}}}
+ ]}

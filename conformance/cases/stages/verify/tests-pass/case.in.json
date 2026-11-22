@@ -1,0 +1,10 @@
+{"program": "write \"/home/user/project/VERSION\" text: \"1.4.0\" mode: overwrite |> verify (run [\"make\", \"test\"] cwd: \"/home/user/project\" |> assert exit_code: 0)",
+ "command": "verify",
+ "step": "6",
+ "args": {"check": {"kind": "pipeline", "value": {
+   "head": {"t": "stage", "name": "run", "effect": "process", "phase": "run", "args": [{"name": "command", "value": {"t": "list", "items": [{"t": "text", "v": "make"}, {"t": "text", "v": "test"}]}}]},
+   "stages": [{"t": "stage", "name": "assert", "effect": "read", "phase": "after", "args": [{"name": "exit_code", "value": {"t": "range", "lo": 0, "hi": 0}}]}]}}},
+ "check": {"records": []},
+ "input": [
+  {"kind": "effect", "fields": {"status": {"t": "enum", "v": "ok"}, "changed": {"t": "int", "v": 1}}}
+ ]}

@@ -1,0 +1,7 @@
+{"program": "run [\"go\", \"vet\", \"./...\"] cwd: \"/home/user/project\" |> filter exit_code != 0",
+ "command": "filter",
+ "step": "5a",
+ "args": {"condition": {"kind": "expr", "value": {"t": "bin", "op": "!=", "l": {"t": "field", "name": "exit_code"}, "r": {"t": "int", "v": 0}}}},
+ "input": [
+  {"kind": "exec", "fields": {"command": {"t": "list", "v": [{"t": "text", "v": "go"}, {"t": "text", "v": "vet"}, {"t": "text", "v": "./..."}]}, "exit_code": {"t": "int", "v": 1}}}
+ ]}

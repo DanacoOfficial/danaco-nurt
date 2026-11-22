@@ -1,7 +1,6 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
-
 [package]
 name = "nurt-core"
 description = "Engine facade of Danaco Nurt: configuration, sessions, cursors and request handling."
@@ -17,40 +16,18 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Language front end answering from `nurt-bound/1` files, for tests of the
+# interfaces built on the engine.
+fixtures = []
+
 [dependencies]
 nurt-contracts = { workspace = true }
-nurt-types = { workspace = true }
-nurt-catalog = { workspace = true }
-nurt-syntax = { workspace = true }
-nurt-correct = { workspace = true }
-nurt-bind = { workspace = true }
-nurt-help = { workspace = true }
-nurt-plan = { workspace = true }
-nurt-exec = { workspace = true }
-nurt-report = { workspace = true }
-nurt-fs = { workspace = true }
-nurt-journal = { workspace = true }
-nurt-space = { workspace = true }
-nurt-files = { workspace = true }
-nurt-text = { workspace = true }
-nurt-archive = { workspace = true }
-nurt-notebook = { workspace = true }
-nurt-doc = { workspace = true }
-nurt-code = { workspace = true }
-nurt-lspclient = { workspace = true }
-nurt-git = { workspace = true }
-nurt-git-ops = { workspace = true }
-nurt-proc = { workspace = true }
-nurt-verify = { workspace = true }
-nurt-sys = { workspace = true }
-nurt-syslog = { workspace = true }
-nurt-net = { workspace = true }
-nurt-sched = { workspace = true }
-nurt-ext = { workspace = true }
+schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 toml = { workspace = true }
-tracing = { workspace = true }
 
 [dev-dependencies]
 nurt-testkit = { workspace = true }

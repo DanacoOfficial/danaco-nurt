@@ -1,0 +1,8 @@
+{"program": "lines \"/home/user/data.txt\" |> sort text",
+ "command": "sort",
+ "args": {"by": {"kind": "expr", "value": {"t": "list", "items": [{"t": "field", "name": "text"}]}}},
+ "input": [
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/data.txt"}, "no": {"t": "int", "v": 1}, "text": {"t": "text", "v": "pear"}}},
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/data.txt"}, "no": {"t": "int", "v": 2}, "text": {"t": "text", "v": "apple"}}},
+  {"kind": "line", "fields": {"path": {"t": "path", "v": "/home/user/data.txt"}, "no": {"t": "int", "v": 3}, "text": {"t": "text", "v": "fig"}}}
+ ]}

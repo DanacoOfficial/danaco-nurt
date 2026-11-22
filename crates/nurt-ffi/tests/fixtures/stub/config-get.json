@@ -1,0 +1,6 @@
+{
+  "description": "Effective configuration of the stub engine.",
+  "function": "engine_config_get",
+  "input": null,
+  "output": [{}]
+}

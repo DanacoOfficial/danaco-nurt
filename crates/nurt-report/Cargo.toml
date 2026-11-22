@@ -1,7 +1,6 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
-
 [package]
 name = "nurt-report"
 description = "Effect report model and renderers of Danaco Nurt."
@@ -23,3 +22,9 @@ nurt-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 schemars = { workspace = true }
+unicode-width = { workspace = true }
+
+[dev-dependencies]
+ciborium = { workspace = true }
+jsonschema = { workspace = true }
+nurt-testkit = { workspace = true }

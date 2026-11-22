@@ -1,0 +1,233 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+name: Publish packages
+
+# Publishes the packages of a release whose archives are attached to the
+# GitHub release v<version>. The workflow signs the checksums and the apt
+# repository, updates the package managers and installs the published
+# packages on clean systems.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version, for example 1.0.0
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Render and sign
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Take the build time from the release tag
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct "v${{ inputs.version }}")" >> "$GITHUB_ENV"
+      - name: Download the release archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir archives
+          gh release download "v${{ inputs.version }}" --repo "$GITHUB_REPOSITORY" --dir archives \
+            --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern checksums.txt
+          (cd archives && sha256sum --check --strict checksums.txt)
+      - name: Import the signing key
+        env:
+          SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -m 700 "$GNUPGHOME"
+          printf '%s' "$SIGNING_KEY" | gpg --batch --quiet --import
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+          echo "SIGNING_KEY_ID=$(gpg --batch --list-secret-keys --with-colons | awk -F: '/^fpr:/ { print $10; exit }')" >> "$GITHUB_ENV"
+      - name: Sign the checksums
+        run: |
+          gpg --batch --yes --local-user "$SIGNING_KEY_ID" --armor --detach-sign \
+            --output archives/checksums.txt.asc archives/checksums.txt
+      - name: Build the Debian packages
+        run: |
+          sh packaging/deb/build-deb.sh --artifact "archives/nurt-${{ inputs.version }}-x86_64-unknown-linux-gnu.tar.gz" \
+            --version "${{ inputs.version }}" --arch amd64 --output debs
+          sh packaging/deb/build-deb.sh --artifact "archives/nurt-${{ inputs.version }}-aarch64-unknown-linux-gnu.tar.gz" \
+            --version "${{ inputs.version }}" --arch arm64 --output debs
+      - name: Generate the signed apt repository
+        run: |
+          python3 -I packaging/apt-repo/mkrepo.py --packages debs --output apt --suite stable \
+            --sign-key "$SIGNING_KEY_ID"
+      - name: Render the manifests
+        run: |
+          python3 -I packaging/release/render.py --checksums archives/checksums.txt \
+            --output rendered --version "${{ inputs.version }}"
+      - name: Attach the signature and the packages to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "v${{ inputs.version }}" --repo "$GITHUB_REPOSITORY" --clobber \
+            archives/checksums.txt.asc debs/*.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: publication
+          path: |
+            apt
+            rendered
+          retention-days: 14
+
+  apt:
+    name: apt repository
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: publication
+          path: publication
+      - name: Upload the repository
+        env:
+          DEPLOY_KEY: ${{ secrets.APT_DEPLOY_KEY }}
+          DEPLOY_TARGET: ${{ secrets.APT_DEPLOY_TARGET }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.APT_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          rsync -rt --delete-after -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            publication/apt/ "$DEPLOY_TARGET"
+
+  homebrew:
+    name: Homebrew tap
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: publication
+          path: publication
+      - name: Update the formula in the tap
+        env:
+          GH_TOKEN: ${{ secrets.TAP_PUSH_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/DanacoOfficial/homebrew-tap.git" tap
+          install -D publication/rendered/homebrew/nurt.rb tap/Formula/nurt.rb
+          cd tap
+          git config user.name "Danaco Official"
+          git config user.email "support@danaco-group.pl"
+          git add Formula/nurt.rb
+          git commit -m "nurt ${{ inputs.version }}"
+          git push origin HEAD:main
+
+  scoop:
+    name: Scoop bucket
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: publication
+          path: publication
+      - name: Update the manifest in the bucket
+        env:
+          GH_TOKEN: ${{ secrets.TAP_PUSH_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/DanacoOfficial/scoop-bucket.git" bucket
+          install -D publication/rendered/scoop/nurt.json bucket/bucket/nurt.json
+          cd bucket
+          git config user.name "Danaco Official"
+          git config user.email "support@danaco-group.pl"
+          git add bucket/nurt.json
+          git commit -m "nurt ${{ inputs.version }}"
+          git push origin HEAD:main
+
+  winget:
+    name: winget
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 15
+    environment: release
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: publication
+          path: publication
+      - name: Submit the manifests
+        shell: pwsh
+        env:
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_PUBLISH_TOKEN }}
+        run: |
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          ./wingetcreate.exe submit --no-open "publication/rendered/winget/manifests/d/Danaco/Nurt/${{ inputs.version }}"
+
+  chocolatey:
+    name: Chocolatey
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 15
+    environment: release
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: publication
+          path: publication
+      - name: Pack and push
+        shell: pwsh
+        env:
+          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          Push-Location publication/rendered/chocolatey
+          choco pack nurt.nuspec
+          choco push (Get-ChildItem nurt.*.nupkg).FullName --source https://push.chocolatey.org/ --api-key $env:CHOCOLATEY_API_KEY
+          Pop-Location
+
+  verify:
+    name: Verify ${{ matrix.name }}
+    needs: [apt, homebrew, scoop]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: install.sh
+            runner: ubuntu-latest
+            run: |
+              curl -fsSL https://nurt.danaco-group.pl/install.sh | NURT_INSTALL_DIR="$RUNNER_TEMP/bin" sh
+              "$RUNNER_TEMP/bin/nurt" version | head -n 1 | grep -q '^Danaco Nurt'
+          - name: Homebrew
+            runner: macos-latest
+            run: |
+              brew install DanacoOfficial/tap/nurt
+              brew test nurt
+          - name: apt on Debian
+            runner: ubuntu-latest
+            run: |
+              docker run --rm debian:stable sh -c '
+                set -eu
+                apt-get update -qq
+                apt-get install -y -qq ca-certificates curl
+                install -d /etc/apt/keyrings
+                curl -fsSL https://nurt.danaco-group.pl/danaco-nurt.asc -o /etc/apt/keyrings/danaco-nurt.asc
+                curl -fsSL https://raw.githubusercontent.com/DanacoOfficial/nurt/v${{ inputs.version }}/packaging/apt-repo/nurt.sources \
+                  -o /etc/apt/sources.list.d/nurt.sources
+                apt-get update -qq
+                apt-get install -y -qq nurt
+                nurt version | head -n 1 | grep -q "^Danaco Nurt"
+              '
+    steps:
+      - name: Install and run
+        run: ${{ matrix.run }}

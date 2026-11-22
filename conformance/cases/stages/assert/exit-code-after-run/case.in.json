@@ -1,0 +1,7 @@
+{"program": "run [\"go\", \"test\", \"./...\"] cwd: \"/home/user/project\" |> assert exit_code: 0",
+ "command": "assert",
+ "step": "5a",
+ "args": {"exit_code": {"kind": "value", "value": {"t": "range", "v": {"start": 0, "end": 0}}}},
+ "input": [
+  {"kind": "exec", "fields": {"command": {"t": "list", "v": [{"t": "text", "v": "go"}, {"t": "text", "v": "test"}, {"t": "text", "v": "./..."}]}, "exit_code": {"t": "int", "v": 1}}}
+ ]}

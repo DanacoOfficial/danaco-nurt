@@ -138,7 +138,7 @@ command that observed the condition.
 | `size_shrunk` | warning | report | size shrank by `shrink_ratio` (50%, files from 1 KiB) or more |
 | `many_per_file` | notice | report | `per_file_repl` (100) or more replacements in one file |
 | `target_count_high` | notice | report | `targets_high` (500) or more targets |
-| `nothing_matched` | notice | command | a changing stage received no targets |
+| `nothing_matched` | notice | report | a changing stage received no targets |
 | `unchanged` | info | command | a write produced identical content |
 | `binary_target` | warning | command | a binary file was changed |
 | `binary_skipped` | notice | command | binary files were skipped (`count`) |
@@ -213,6 +213,10 @@ command that observed the condition.
 | `push_status_unknown` | warning | command | the remote did not report the outcome of a reference update |
 | `host_key_unverified` | warning | command | the host key of a remote was accepted without verification |
 | `match_exec_ignored` | notice | command | a `Match exec` condition of the SSH configuration was not run |
+| `credentials_in_url` | warning | command | credentials written in the URL of a remote were used |
+| `limit_reached` | info | command | the output stopped at the number of entries given by `limit` (`count` holds the number of entries left out) |
+| `interactive_program` | notice | command | a program classified as interactive was run (editor, pager, terminal monitor, interpreter without a script); it can wait for terminal input |
+| `opaque_script` | notice | command | a program ran a script given in its arguments (`bash -c`, `python -c`); the effects of the script are not classified |
 
 ## 7. Irreversible effects (`irreversible`)
 

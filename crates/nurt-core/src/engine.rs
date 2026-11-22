@@ -1,0 +1,1210 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//! The engine: one configured instance serving requests.
+//!
+//! [`Engine::open`] assembles the configuration, the state directory, the
+//! stores of sessions, cursors and candidates and the read cache from an
+//! [`EngineConfig`]. [`Engine::run`] handles one request envelope and always
+//! returns a response: an invalid request or a failed program is reported in
+//! the effect report. [`Engine::start`] runs a request on its own thread and
+//! delivers its events; the returned [`ExecHandle`] waits for or cancels it.
+//!
+//! A request passes these steps: envelope rules and defaults, session,
+//! language front end (correction and binding, or `accept` of a candidate),
+//! planning, execution, report assembly, rendering and paging. A request
+//! with `cursor` reads a kept page and runs nothing. Planning, execution,
+//! report assembly and rendering are connected when the engine is assembled
+//! with all components; until then a program that reaches planning fails
+//! with `E_UNSUPPORTED`.
+
+use std::collections::HashMap;
+use std::fmt;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
+use std::time::Duration;
+
+use nurt_contracts::ast::{AST_VERSION, AstDocument};
+use nurt_contracts::bound::{BOUND_VERSION, BoundDocument, BoundHead, BoundStatement};
+use nurt_contracts::config::{CONFIG_FORMAT, Config, DurationSetting, Language as ConfigLanguage};
+use nurt_contracts::env::{Clock, Host, Os, WallTime};
+use nurt_contracts::envelope::{
+    DEFAULT_TIMEOUT, ENVELOPE_VERSION, Language, Request, RequestInput, RequestOptions, Response,
+    Verbosity,
+};
+use nurt_contracts::error::{Error, ErrorCode};
+use nurt_contracts::fs::{AbsPath, Fs};
+use nurt_contracts::journal::{HistoryQuery, JournalStore, OperationRecord, VolumeSpace};
+use nurt_contracts::kinds::SyntaxVariant;
+use nurt_contracts::report::{Correction, REPORT_VERSION, Report, ReportStatus, Timing};
+use nurt_contracts::schema;
+use nurt_contracts::services::Services;
+use nurt_contracts::stage::{CancelReason, CancelToken, ExecCtx, Extensions, Limits};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value as Json, json};
+
+use crate::candidates::CandidateStore;
+use crate::config::{ConfigLoader, ConfigSources, LoadedConfig};
+use crate::cursor::{CursorStore, ProgramRef};
+use crate::error::{EngineError, envelope_error, unavailable};
+use crate::events::{EventListener, Lifecycle, Sequencer};
+use crate::frontend::{Compiled, Corrected, Frontend, UnavailableFrontend};
+use crate::readcache::ReadCache;
+use crate::session::{SessionId, Sessions};
+use crate::state::{StateArea, StateDir, write_atomic};
+
+/// Report kind of a failed request whose program is not known.
+const PROGRAM_KIND: &str = "program";
+/// Report kind of a failed page request.
+const PAGE_KIND: &str = "page";
+/// Report kind of a failed `accept` request.
+const ACCEPT_KIND: &str = "accept";
+/// File of the correction candidates in the state directory.
+const CANDIDATES_FILE: &str = "candidates.json";
+/// Name of the threads started by [`Engine::start`].
+const EXEC_THREAD_NAME: &str = "nurt-exec";
+/// Cargo feature compiled into this build, listed by [`Engine::info`].
+const FIXTURES_FEATURE: &str = "fixtures";
+
+/// Everything an engine is built from.
+///
+/// The clock and the host are always given; the file system, the journal,
+/// the language front end and the services of other command groups are
+/// optional. Without a front end every program fails with `E_UNSUPPORTED`;
+/// without a journal `history` and `space` fail the same way.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+/// use nurt_core::config::ConfigSources;
+/// use nurt_core::{Engine, EngineConfig};
+/// use nurt_testkit::clock::VirtualClock;
+/// use nurt_testkit::host::TestHost;
+///
+/// let config = EngineConfig::new(Arc::new(VirtualClock::new()), Arc::new(TestHost::linux()))
+///     .with_sources(ConfigSources::isolated())
+///     .without_state_dir();
+/// let engine = Engine::open(config).unwrap();
+/// assert_eq!(engine.config().journal.max_ops.to_string(), "30");
+/// ```
+pub struct EngineConfig {
+    clock: Arc<dyn Clock>,
+    host: Arc<dyn Host>,
+    fs: Option<Arc<dyn Fs>>,
+    journal: Option<Arc<dyn JournalStore>>,
+    frontend: Arc<dyn Frontend>,
+    services: Services,
+    sources: ConfigSources,
+    session: Option<String>,
+    state_dir: Option<PathBuf>,
+    use_state_dir: bool,
+}
+
+impl fmt::Debug for EngineConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EngineConfig")
+            .field("sources", &self.sources)
+            .field("session", &self.session)
+            .field("state_dir", &self.state_dir)
+            .field("services", &self.services)
+            .finish_non_exhaustive()
+    }
+}
+
+impl EngineConfig {
+    /// Configuration with the given clock and host, the platform
+    /// configuration sources and no optional component.
+    #[must_use]
+    pub fn new(clock: Arc<dyn Clock>, host: Arc<dyn Host>) -> Self {
+        Self {
+            clock,
+            host,
+            fs: None,
+            journal: None,
+            frontend: Arc::new(UnavailableFrontend),
+            services: Services::new(),
+            sources: ConfigSources::new(),
+            session: None,
+            state_dir: None,
+            use_state_dir: true,
+        }
+    }
+
+    /// Read-only file system given to stages.
+    #[must_use]
+    pub fn with_fs(mut self, fs: Arc<dyn Fs>) -> Self {
+        self.fs = Some(fs);
+        self
+    }
+
+    /// Journal of changes.
+    #[must_use]
+    pub fn with_journal(mut self, journal: Arc<dyn JournalStore>) -> Self {
+        self.journal = Some(journal);
+        self
+    }
+
+    /// Language front end.
+    #[must_use]
+    pub fn with_frontend(mut self, frontend: Arc<dyn Frontend>) -> Self {
+        self.frontend = frontend;
+        self
+    }
+
+    /// Services of other command groups, given to every stage.
+    #[must_use]
+    pub fn with_services(mut self, services: Services) -> Self {
+        self.services = services;
+        self
+    }
+
+    /// Sources of the configuration.
+    #[must_use]
+    pub fn with_sources(mut self, sources: ConfigSources) -> Self {
+        self.sources = sources;
+        self
+    }
+
+    /// Session of requests that do not name one, for example the session
+    /// given to `initialize` of the protocol server.
+    #[must_use]
+    pub fn with_session(mut self, session: impl Into<String>) -> Self {
+        self.session = Some(session.into());
+        self
+    }
+
+    /// State directory, instead of `state.dir` and the platform default.
+    #[must_use]
+    pub fn with_state_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.state_dir = Some(dir.into());
+        self.use_state_dir = true;
+        self
+    }
+
+    /// No state directory: cursors and candidates are kept in memory only.
+    #[must_use]
+    pub fn without_state_dir(mut self) -> Self {
+        self.state_dir = None;
+        self.use_state_dir = false;
+        self
+    }
+}
+
+/// Result of [`Engine::check`]: the bound program and what running it would
+/// touch, without running it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CheckReport {
+    /// The bound program.
+    pub bound: BoundDocument,
+    /// Corrections applied to the program text.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub corrections: Vec<Correction>,
+    /// Targets, network addresses, external programs, waits and the class of
+    /// the effect, as computed by the planner.
+    #[serde(flatten)]
+    pub summary: Map<String, Json>,
+}
+
+/// Versions of the formats spoken by the engine.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct Formats {
+    /// Syntax tree `nurt-ast/1`.
+    pub ast: String,
+    /// Bound tree `nurt-bound/1`.
+    pub bound: String,
+    /// Effect report `nurt-report/1`.
+    pub report: String,
+    /// Request and response envelope.
+    pub envelope: String,
+    /// Configuration.
+    pub config: String,
+}
+
+/// Description of an engine for version negotiation and diagnostics.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct EngineInfo {
+    /// Version of the engine.
+    pub version: String,
+    /// Versions of the formats.
+    pub formats: Formats,
+    /// Optional features compiled into this build.
+    pub features: Vec<String>,
+    /// Operating system of the host.
+    pub os: Os,
+    /// Processor architecture of the host.
+    pub architecture: String,
+    /// Services of other command groups that are available.
+    pub services: Vec<String>,
+    /// State directory, when the engine has one.
+    pub state_dir: Option<String>,
+}
+
+#[derive(Debug, Default)]
+struct Completion {
+    response: Mutex<Option<Response>>,
+    ready: Condvar,
+}
+
+impl Completion {
+    fn complete(&self, response: Response) {
+        *self.response.lock().unwrap_or_else(PoisonError::into_inner) = Some(response);
+        self.ready.notify_all();
+    }
+}
+
+/// Handle of a request started with [`Engine::start`].
+#[derive(Debug, Clone)]
+pub struct ExecHandle {
+    request_id: String,
+    cancel: CancelToken,
+    completion: Arc<Completion>,
+}
+
+impl ExecHandle {
+    /// Identifier of the request, as carried by its events.
+    #[must_use]
+    pub fn request_id(&self) -> &str {
+        &self.request_id
+    }
+
+    /// Requests cancellation; the response then reports `E_CANCELLED`.
+    /// Cancelling a finished or already cancelled request has no effect.
+    pub fn cancel(&self) {
+        self.cancel.cancel(CancelReason::Requested);
+    }
+
+    /// Whether the response is available.
+    #[must_use]
+    pub fn is_finished(&self) -> bool {
+        self.completion
+            .response
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .is_some()
+    }
+
+    /// Waits for the response, at most `timeout` (`None`: without limit);
+    /// returns `None` when the request has not finished in time.
+    #[must_use]
+    pub fn wait(&self, timeout: Option<Duration>) -> Option<Response> {
+        let guard = self
+            .completion
+            .response
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let guard = match timeout {
+            None => self
+                .completion
+                .ready
+                .wait_while(guard, |response| response.is_none())
+                .unwrap_or_else(PoisonError::into_inner),
+            Some(timeout) => {
+                self.completion
+                    .ready
+                    .wait_timeout_while(guard, timeout, |response| response.is_none())
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .0
+            }
+        };
+        guard.clone()
+    }
+}
+
+struct Inner {
+    clock: Arc<dyn Clock>,
+    host: Arc<dyn Host>,
+    fs: Option<Arc<dyn Fs>>,
+    journal: Option<Arc<dyn JournalStore>>,
+    frontend: Arc<dyn Frontend>,
+    services: Arc<Services>,
+    loader: ConfigLoader,
+    default_config: Arc<LoadedConfig>,
+    projects: Mutex<HashMap<Option<PathBuf>, Arc<LoadedConfig>>>,
+    state: Option<StateDir>,
+    sessions: Sessions,
+    candidates: CandidateStore,
+    cursors: CursorStore,
+    read_cache: Arc<ReadCache>,
+    default_session: Option<SessionId>,
+    requests: AtomicU64,
+}
+
+/// Request after the envelope rules, with every option set.
+struct Prepared {
+    config: Arc<LoadedConfig>,
+    options: RequestOptions,
+    session: Option<SessionId>,
+    timeout: Duration,
+}
+
+/// The engine of Danaco Nurt.
+///
+/// Cloning is cheap and clones share all state. The engine is `Send` and
+/// `Sync`; requests may run on many threads at the same time.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+/// use nurt_contracts::envelope::Request;
+/// use nurt_contracts::error::ErrorCode;
+/// use nurt_core::config::ConfigSources;
+/// use nurt_core::{Engine, EngineConfig};
+/// use nurt_testkit::clock::VirtualClock;
+/// use nurt_testkit::host::TestHost;
+///
+/// let engine = Engine::open(
+///     EngineConfig::new(Arc::new(VirtualClock::new()), Arc::new(TestHost::linux()))
+///         .with_sources(ConfigSources::isolated())
+///         .without_state_dir(),
+/// )
+/// .unwrap();
+/// let response = engine.run(&Request::program("find \"/srv\""));
+/// let error = response.report.error.as_ref().unwrap();
+/// assert_eq!(error.code, ErrorCode::Unsupported);
+/// assert!(response.validate().is_ok());
+/// ```
+#[derive(Clone)]
+pub struct Engine {
+    inner: Arc<Inner>,
+}
+
+impl fmt::Debug for Engine {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Engine")
+            .field("state", &self.inner.state)
+            .field("services", &self.inner.services)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Engine {
+    /// Opens an engine.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EngineError`] when the configuration is invalid, the
+    /// session identifier is invalid or the state directory cannot be
+    /// created.
+    pub fn open(config: EngineConfig) -> Result<Self, EngineError> {
+        let loader = ConfigLoader::new(&config.sources, config.host.as_ref())?;
+        let project = loader.project_for(None);
+        let loaded = Arc::new(loader.load(project.as_deref())?);
+        let root = if config.use_state_dir {
+            config
+                .state_dir
+                .clone()
+                .or_else(|| loaded.config().state.dir.clone().map(PathBuf::from))
+                .or_else(|| loader.default_state_dir().map(PathBuf::from))
+        } else {
+            None
+        };
+        let state = root.map(StateDir::open).transpose()?;
+        let default_session = config
+            .session
+            .map(SessionId::new)
+            .transpose()
+            .map_err(|error| EngineError::argument(error.message.clone()))?;
+        let settings = loaded.config();
+        let cursors = CursorStore::new(
+            state.as_ref().map(|state| state.area(StateArea::Results)),
+            settings.output.spool_ttl.as_std(),
+        );
+        cursors.sweep(config.clock.now());
+        let mut read_cache = ReadCache::new(Arc::clone(&config.clock));
+        if let Some(state) = &state {
+            read_cache = read_cache.with_dir(state.area(StateArea::ReadCache));
+        }
+        let inner = Inner {
+            sessions: Sessions::new(settings.session.ttl.as_std()),
+            candidates: CandidateStore::new(
+                settings.correction.candidates_ttl.as_std(),
+                state
+                    .as_ref()
+                    .map(|state| state.root().join(CANDIDATES_FILE)),
+            ),
+            cursors,
+            read_cache: Arc::new(read_cache),
+            projects: Mutex::new(HashMap::from([(project, Arc::clone(&loaded))])),
+            default_config: loaded,
+            clock: config.clock,
+            host: config.host,
+            fs: config.fs,
+            journal: config.journal,
+            frontend: config.frontend,
+            services: Arc::new(config.services),
+            loader,
+            state,
+            default_session,
+            requests: AtomicU64::new(0),
+        };
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
+    }
+
+    /// Configuration in effect for requests without their own base
+    /// directory.
+    #[must_use]
+    pub fn config(&self) -> &Config {
+        self.inner.default_config.config()
+    }
+
+    /// The same configuration with the level of every key, the notes and the
+    /// effective journal limits.
+    #[must_use]
+    pub fn loaded_config(&self) -> &LoadedConfig {
+        &self.inner.default_config
+    }
+
+    /// The state directory, when the engine has one.
+    #[must_use]
+    pub fn state_dir(&self) -> Option<&StateDir> {
+        self.inner.state.as_ref()
+    }
+
+    /// Services of other command groups.
+    #[must_use]
+    pub fn services(&self) -> &Services {
+        &self.inner.services
+    }
+
+    /// The read cache shared by all requests.
+    #[must_use]
+    pub fn read_cache(&self) -> &Arc<ReadCache> {
+        &self.inner.read_cache
+    }
+
+    /// Sessions of the callers.
+    #[must_use]
+    pub fn sessions(&self) -> &Sessions {
+        &self.inner.sessions
+    }
+
+    /// Handles one request and returns its response.
+    ///
+    /// Every failure, including a request that breaks the envelope rules, is
+    /// reported in the effect report of the response.
+    #[must_use]
+    pub fn run(&self, request: &Request) -> Response {
+        self.execute(request, &CancelToken::new())
+    }
+
+    /// Starts a request on its own thread and delivers its events to
+    /// `listener`, from `exec.started` to `exec.finished`.
+    #[must_use]
+    pub fn start(&self, request: &Request, listener: Arc<dyn EventListener>) -> ExecHandle {
+        let request_id = self.next_request_id();
+        let cancel = CancelToken::new();
+        let completion = Arc::new(Completion::default());
+        let handle = ExecHandle {
+            request_id: request_id.clone(),
+            cancel: cancel.clone(),
+            completion: Arc::clone(&completion),
+        };
+        let kind = input_kind(request);
+        let sequencer = Sequencer::new(listener, Arc::clone(&self.inner.clock), request_id);
+        let engine = self.clone();
+        let request = request.clone();
+        let finished = Arc::clone(&completion);
+        let spawned = std::thread::Builder::new()
+            .name(EXEC_THREAD_NAME.to_owned())
+            .spawn(move || {
+                sequencer.lifecycle(Lifecycle::Started);
+                let response = engine.execute(&request, &cancel);
+                sequencer.lifecycle(Lifecycle::Finished {
+                    status: response.report.status,
+                });
+                finished.complete(response);
+            });
+        if let Err(error) = spawned {
+            completion.complete(Response::new(failed_report(
+                kind,
+                Error::new(
+                    ErrorCode::Internal,
+                    format!("cannot start the execution thread: {error}"),
+                ),
+            )));
+        }
+        handle
+    }
+
+    /// Binds a request and computes what running it would touch, without
+    /// running it.
+    ///
+    /// # Errors
+    ///
+    /// Returns the language error of the envelope, the front end or the
+    /// planner; a request with `cursor` is `E_ARG`.
+    pub fn check(&self, request: &Request) -> Result<CheckReport, Error> {
+        let prepared = self.prepare(request)?;
+        let compiled = match request
+            .input()
+            .map_err(|error| envelope_error(&error, request))?
+        {
+            RequestInput::Program { text, variant } => self.compile(text, variant, &prepared),
+            RequestInput::Ast(document) => self.bind(document, &prepared),
+            RequestInput::Accept(reference) => self.accept(reference, &prepared),
+            _ => Err(Error::new(
+                ErrorCode::Arg,
+                "check needs `program`, `ast` or `accept`",
+            )),
+        }?;
+        Err(unavailable("planner").with_detail("command", json!(kind_of(&compiled.bound))))
+    }
+
+    /// Parses program text without correcting it.
+    ///
+    /// # Errors
+    ///
+    /// Returns the lexical or syntax error of the text.
+    pub fn parse(&self, text: &str, variant: Option<SyntaxVariant>) -> Result<AstDocument, Error> {
+        self.inner.frontend.parse(text, variant, self.config())
+    }
+
+    /// Prints a syntax tree as text; without `variant`, in the configured
+    /// notation variant.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the front end for a tree that cannot be printed.
+    pub fn print(
+        &self,
+        ast: &AstDocument,
+        variant: Option<SyntaxVariant>,
+    ) -> Result<String, Error> {
+        self.inner
+            .frontend
+            .print(ast, variant.unwrap_or(self.config().syntax.variant))
+    }
+
+    /// Parses and corrects program text without running it.
+    ///
+    /// # Errors
+    ///
+    /// Returns the syntax error, or `E_AMBIGUOUS` or `E_UNCORRECTABLE` with
+    /// candidates.
+    pub fn correct(&self, text: &str, variant: Option<SyntaxVariant>) -> Result<Corrected, Error> {
+        self.inner.frontend.correct(text, variant, self.config())
+    }
+
+    /// Reads a further page of an earlier result; nothing is run.
+    #[must_use]
+    pub fn page(&self, cursor: &str, options: &RequestOptions) -> Response {
+        self.run(&Request::cursor(cursor).with_options(options.clone()))
+    }
+
+    /// Description of a command, a group or the language (`core`) as JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the front end, for example for an unknown
+    /// subject.
+    pub fn describe(&self, subject: &str, language: Option<Language>) -> Result<Json, Error> {
+        self.inner.frontend.describe(
+            subject,
+            language.unwrap_or_else(|| language_of(self.config())),
+        )
+    }
+
+    /// Help text of a topic.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the front end, for example for an unknown topic.
+    pub fn help(&self, topic: &str, language: Option<Language>) -> Result<String, Error> {
+        self.inner.frontend.help(
+            topic,
+            language.unwrap_or_else(|| language_of(self.config())),
+        )
+    }
+
+    /// The command catalog as JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns `E_UNSUPPORTED` while no command catalog is connected.
+    pub fn catalog(&self) -> Result<Json, Error> {
+        Err(unavailable("command catalog"))
+    }
+
+    /// Published JSON Schema `name`: `ast`, `bound`, `report`, `request`,
+    /// `config`, `catalog` or `value`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `E_UNKNOWN_VALUE` with the known names for another name.
+    pub fn schema(&self, name: &str) -> Result<&'static str, Error> {
+        schema::by_name(name).ok_or_else(|| {
+            let known: Vec<&str> = schema::ALL.iter().map(|(name, _)| *name).collect();
+            Error::new(
+                ErrorCode::UnknownValue,
+                format!("unknown schema `{name}`; known: {}", known.join(", ")),
+            )
+            .with_found(name)
+            .with_detail("accepted", json!(known))
+        })
+    }
+
+    /// Operations recorded in the journal.
+    ///
+    /// # Errors
+    ///
+    /// Returns `E_UNSUPPORTED` without a journal and the error of the
+    /// journal otherwise.
+    pub fn history(&self, query: &HistoryQuery) -> Result<Vec<OperationRecord>, Error> {
+        self.journal()?.history(query)
+    }
+
+    /// Space used by the journal on one volume or on every volume.
+    ///
+    /// # Errors
+    ///
+    /// Returns `E_UNSUPPORTED` without a journal and the error of the
+    /// journal otherwise.
+    pub fn space(&self, volume: Option<&AbsPath>) -> Result<Vec<VolumeSpace>, Error> {
+        self.journal()?.space(volume)
+    }
+
+    /// Description of the engine.
+    #[must_use]
+    pub fn info(&self) -> EngineInfo {
+        let host = self.inner.host.info();
+        EngineInfo {
+            version: env!("CARGO_PKG_VERSION").to_owned(),
+            formats: Formats {
+                ast: AST_VERSION.to_owned(),
+                bound: BOUND_VERSION.to_owned(),
+                report: REPORT_VERSION.to_owned(),
+                envelope: ENVELOPE_VERSION.to_owned(),
+                config: CONFIG_FORMAT.to_owned(),
+            },
+            features: if cfg!(feature = "fixtures") {
+                vec![FIXTURES_FEATURE.to_owned()]
+            } else {
+                Vec::new()
+            },
+            os: host.os,
+            architecture: host.architecture.clone(),
+            services: self
+                .inner
+                .services
+                .available()
+                .iter()
+                .map(|kind| kind.as_str().to_owned())
+                .collect(),
+            state_dir: self
+                .inner
+                .state
+                .as_ref()
+                .map(|state| state.root().to_string_lossy().into_owned()),
+        }
+    }
+
+    /// Execution context that stages of `request` receive: clock, host, file
+    /// system, journal, configuration, effective options, deadline, limits,
+    /// state directory, services and the read cache (in the extensions).
+    ///
+    /// # Errors
+    ///
+    /// Returns the language error of the envelope or of the configuration of
+    /// the base directory.
+    pub fn context(&self, request: &Request) -> Result<ExecCtx, Error> {
+        let prepared = self.prepare(request)?;
+        Ok(self.build_context(&prepared, CancelToken::new()))
+    }
+
+    fn execute(&self, request: &Request, cancel: &CancelToken) -> Response {
+        let started = self.inner.clock.monotonic();
+        let prepared = match self.prepare(request) {
+            Ok(prepared) => prepared,
+            Err(error) => return Response::new(failed_report(input_kind(request), error)),
+        };
+        let compiled = match request.input() {
+            Ok(RequestInput::Cursor(cursor)) => return self.read_page(cursor, &prepared),
+            Ok(RequestInput::Accept(reference)) => self.accept(reference, &prepared),
+            Ok(RequestInput::Program { text, variant }) => self.compile(text, variant, &prepared),
+            Ok(RequestInput::Ast(document)) => self.bind(document, &prepared),
+            Ok(_) => Err(Error::new(ErrorCode::Arg, "unsupported request input")),
+            Err(error) => Err(envelope_error(&error, request)),
+        };
+        let compiled = match compiled {
+            Ok(compiled) => compiled,
+            Err(error) => {
+                let report = failed_report(input_kind(request), error);
+                return self.finish(report, &prepared, None, started);
+            }
+        };
+        let kind = kind_of(&compiled.bound);
+        let program = ProgramRef::of(
+            &compiled.bound.program,
+            compiled.ran.clone().or_else(|| request.program.clone()),
+        );
+        let error = match cancel.check() {
+            Err(error) => error,
+            Ok(()) => unavailable("planner"),
+        };
+        let mut report = failed_report(&kind, error);
+        report.ran = compiled.ran.filter(|_| !compiled.corrections.is_empty());
+        report.corrections = compiled.corrections;
+        self.finish(report, &prepared, Some(&program), started)
+    }
+
+    /// Completes a report: durations, result file and the first page.
+    fn finish(
+        &self,
+        mut report: Report,
+        prepared: &Prepared,
+        program: Option<&ProgramRef>,
+        started: Duration,
+    ) -> Response {
+        if prepared.options.verbosity == Some(Verbosity::Detailed) {
+            let elapsed = self.inner.clock.monotonic().saturating_sub(started);
+            report.timing = Some(Timing {
+                parse_ms: Some(u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX)),
+                ..Timing::default()
+            });
+        }
+        if let Some(path) = prepared.options.save_to.as_deref()
+            && has_items(&report)
+        {
+            match save_result(path, &report) {
+                Ok(()) => {
+                    strip_items(&mut report);
+                    report.result_file = Some(path.to_owned());
+                }
+                Err(error) if report.error.is_none() => report.error = Some(error),
+                Err(_) => {}
+            }
+        }
+        if let Some(program) = program {
+            let limit = prepared.options.limit();
+            report = self
+                .inner
+                .cursors
+                .first_page(report, limit, program, self.now());
+        }
+        Response::new(report)
+    }
+
+    fn read_page(&self, cursor: &str, prepared: &Prepared) -> Response {
+        let report = self
+            .inner
+            .cursors
+            .page(cursor, prepared.options.limit(), self.now())
+            .unwrap_or_else(|error| failed_report(PAGE_KIND, error));
+        Response::new(report)
+    }
+
+    fn compile(
+        &self,
+        text: &str,
+        variant: Option<SyntaxVariant>,
+        prepared: &Prepared,
+    ) -> Result<Compiled, Error> {
+        self.inner
+            .frontend
+            .compile(text, variant, prepared.config.config())
+            .map_err(|mut error| {
+                self.offer(&mut error, prepared);
+                error
+            })
+    }
+
+    fn bind(&self, document: &AstDocument, prepared: &Prepared) -> Result<Compiled, Error> {
+        self.inner
+            .frontend
+            .bind(document, prepared.config.config())
+            .map(|bound| Compiled {
+                bound,
+                corrections: Vec::new(),
+                ran: None,
+            })
+    }
+
+    fn accept(&self, reference: &str, prepared: &Prepared) -> Result<Compiled, Error> {
+        let candidate =
+            self.inner
+                .candidates
+                .accept(prepared.session.as_ref(), reference, self.now())?;
+        self.compile(&candidate.program, None, prepared)
+    }
+
+    /// Keeps the candidates of an ambiguous program for `accept`.
+    fn offer(&self, error: &mut Error, prepared: &Prepared) {
+        if let Err(failure) =
+            self.inner
+                .candidates
+                .register(prepared.session.as_ref(), error, self.now())
+        {
+            error
+                .details
+                .insert("candidates_kept".to_owned(), json!(failure.message));
+        }
+    }
+
+    fn prepare(&self, request: &Request) -> Result<Prepared, Error> {
+        request
+            .validate()
+            .map_err(|error| envelope_error(&error, request))?;
+        let config = self.config_for(request.options.base.as_deref())?;
+        let session = self.session_for(&request.options, config.config())?;
+        let options = effective_options(&request.options, config.config(), session.as_ref());
+        let timeout = options
+            .timeout
+            .as_deref()
+            .unwrap_or(DEFAULT_TIMEOUT)
+            .parse::<DurationSetting>()
+            .map_err(|error| Error::new(ErrorCode::Arg, error.message))?
+            .as_std();
+        if let Some(id) = &session {
+            self.inner.sessions.touch(id, self.now());
+        }
+        Ok(Prepared {
+            config,
+            options,
+            session,
+            timeout,
+        })
+    }
+
+    fn config_for(&self, base: Option<&str>) -> Result<Arc<LoadedConfig>, Error> {
+        let project = self.inner.loader.project_for(base);
+        if let Some(found) = self.projects().get(&project) {
+            return Ok(Arc::clone(found));
+        }
+        let loaded = Arc::new(
+            self.inner
+                .loader
+                .load(project.as_deref())
+                .map_err(|error| error.to_error())?,
+        );
+        self.projects().insert(project, Arc::clone(&loaded));
+        Ok(loaded)
+    }
+
+    fn session_for(
+        &self,
+        options: &RequestOptions,
+        config: &Config,
+    ) -> Result<Option<SessionId>, Error> {
+        if let Some(id) = &options.session {
+            return SessionId::new(id.clone()).map(Some);
+        }
+        if let Some(id) = &self.inner.default_session {
+            return Ok(Some(id.clone()));
+        }
+        config.session.id.clone().map(SessionId::new).transpose()
+    }
+
+    fn build_context(&self, prepared: &Prepared, cancel: CancelToken) -> ExecCtx {
+        let config = prepared.config.config();
+        let mut limits = Limits::default();
+        limits.max_records = config.limits.max_records;
+        limits.max_file_bytes_text = config.limits.max_file_bytes_text.bytes();
+        limits.threads = config.limits.threads.unwrap_or(self.inner.host.info().cpus);
+        let mut extensions = Extensions::new();
+        extensions.insert::<ReadCache>(Arc::clone(&self.inner.read_cache));
+        let mut builder =
+            ExecCtx::builder(Arc::clone(&self.inner.clock), Arc::clone(&self.inner.host))
+                .config(Arc::new(config.clone()))
+                .options(Arc::new(prepared.options.clone()))
+                .cancel(cancel)
+                .timeout(prepared.timeout)
+                .limits(limits)
+                .services(Arc::clone(&self.inner.services))
+                .extensions(extensions);
+        if let Some(fs) = &self.inner.fs {
+            builder = builder.fs(Arc::clone(fs));
+        }
+        if let Some(journal) = &self.inner.journal {
+            builder = builder.journal(Arc::clone(journal));
+        }
+        if let Some(state) = &self.inner.state {
+            builder = builder.state_dir(state.root().to_path_buf());
+        }
+        builder.build()
+    }
+
+    fn journal(&self) -> Result<&dyn JournalStore, Error> {
+        self.inner
+            .journal
+            .as_deref()
+            .ok_or_else(|| unavailable("journal"))
+    }
+
+    fn projects(&self) -> MutexGuard<'_, HashMap<Option<PathBuf>, Arc<LoadedConfig>>> {
+        self.inner
+            .projects
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn now(&self) -> WallTime {
+        self.inner.clock.now()
+    }
+
+    fn next_request_id(&self) -> String {
+        format!(
+            "r{}",
+            self.inner.requests.fetch_add(1, Ordering::Relaxed) + 1
+        )
+    }
+}
+
+/// Options of a request with every default of the envelope and the
+/// configuration applied.
+fn effective_options(
+    options: &RequestOptions,
+    config: &Config,
+    session: Option<&SessionId>,
+) -> RequestOptions {
+    RequestOptions {
+        preview: Some(options.preview()),
+        base: options.base.clone().or_else(|| config.scope.base.clone()),
+        limit: Some(options.limit()),
+        fields: options.fields.clone(),
+        format: Some(options.format()),
+        verbosity: Some(options.verbosity()),
+        diff: Some(options.diff()),
+        diff_context: Some(options.diff_context()),
+        max_chars: Some(options.max_chars()),
+        save_to: options.save_to.clone(),
+        timeout: Some(
+            options
+                .timeout
+                .clone()
+                .unwrap_or_else(|| DEFAULT_TIMEOUT.to_owned()),
+        ),
+        session: session.map(|id| id.as_str().to_owned()),
+        language: Some(options.language.unwrap_or_else(|| language_of(config))),
+        script: Some(options.script()),
+    }
+}
+
+fn language_of(config: &Config) -> Language {
+    match config.output.language {
+        ConfigLanguage::Pl => Language::Pl,
+        _ => Language::En,
+    }
+}
+
+fn input_kind(request: &Request) -> &'static str {
+    if request.cursor.is_some() && request.program.is_none() && request.ast.is_none() {
+        PAGE_KIND
+    } else if request.accept.is_some() && request.program.is_none() && request.ast.is_none() {
+        ACCEPT_KIND
+    } else {
+        PROGRAM_KIND
+    }
+}
+
+/// Kind of the report of a bound program: its last effect command, or the
+/// source command of its first pipeline.
+fn kind_of(bound: &BoundDocument) -> String {
+    let pipelines = bound
+        .program
+        .statements
+        .iter()
+        .filter_map(|statement| match statement {
+            BoundStatement::Pipeline(pipeline) => Some(pipeline),
+            BoundStatement::Let(binding) => Some(&binding.value),
+            _ => None,
+        });
+    let mut source = None;
+    let mut effect = None;
+    for pipeline in pipelines {
+        let head = match &pipeline.head {
+            BoundHead::Stage(stage) => Some(stage),
+            _ => None,
+        };
+        source = source.or_else(|| head.map(|stage| stage.name.clone()));
+        if let Some(stage) = head
+            .into_iter()
+            .chain(&pipeline.stages)
+            .rev()
+            .find(|stage| stage.phase.is_effect())
+        {
+            effect = Some(stage.name.clone());
+        }
+    }
+    effect.or(source).unwrap_or_else(|| PROGRAM_KIND.to_owned())
+}
+
+fn failed_report(kind: &str, error: Error) -> Report {
+    let mut report = Report::new(ReportStatus::Failed, kind);
+    report.error = Some(error);
+    report
+}
+
+fn has_items(report: &Report) -> bool {
+    !report.changes.is_empty()
+        || report
+            .records
+            .as_ref()
+            .is_some_and(|records| !records.rows.is_empty())
+}
+
+fn strip_items(report: &mut Report) {
+    if let Some(records) = report.records.as_mut() {
+        records.rows.clear();
+    }
+    report.changes.clear();
+    report.diff.clear();
+    if let Some(targets) = report.targets.as_mut()
+        && targets.listed.is_some()
+    {
+        targets.listed = Some(0);
+    }
+}
+
+fn save_result(path: &str, report: &Report) -> Result<(), Error> {
+    let mut bytes = serde_json::to_vec_pretty(report)
+        .map_err(|error| Error::new(ErrorCode::Internal, error.to_string()))?;
+    bytes.push(b'\n');
+    write_atomic(std::path::Path::new(path), &bytes).map_err(|error| {
+        Error::new(
+            ErrorCode::Io,
+            format!("cannot write the result to `{path}`: {error}"),
+        )
+        .with_found(path)
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::AtomicUsize;
+
+    use nurt_testkit::clock::VirtualClock;
+    use nurt_testkit::host::TestHost;
+
+    use super::*;
+
+    fn engine(state: &std::path::Path) -> Engine {
+        Engine::open(
+            EngineConfig::new(Arc::new(VirtualClock::new()), Arc::new(TestHost::linux()))
+                .with_sources(ConfigSources::isolated())
+                .with_state_dir(state),
+        )
+        .unwrap()
+    }
+
+    fn removal(count: usize) -> Report {
+        let changes: Vec<_> = (0..count)
+            .map(|index| json!({"path": format!("/srv/build/f{index}.tmp"), "action": "delete"}))
+            .collect();
+        serde_json::from_value(json!({
+            "nurt": "1.0", "status": "ok", "kind": "remove", "op": 3,
+            "targets": {"count": count, "listed": count},
+            "summary": {"files_deleted": count},
+            "changes": changes
+        }))
+        .unwrap()
+    }
+
+    fn prepared(engine: &Engine, options: RequestOptions) -> Prepared {
+        engine
+            .prepare(&Request::program("remove").with_options(options))
+            .unwrap()
+    }
+
+    #[test]
+    fn reading_pages_never_runs_the_program_again() {
+        let temp = tempfile::tempdir().unwrap();
+        let engine = engine(&temp.path().join("state"));
+        let runs = AtomicUsize::new(0);
+        let run_removal = || {
+            runs.fetch_add(1, Ordering::SeqCst);
+            removal(120)
+        };
+        let options = RequestOptions {
+            limit: Some(50),
+            ..RequestOptions::default()
+        };
+        let program = ProgramRef::of(&json!(["remove"]), None);
+        let first = engine.finish(
+            run_removal(),
+            &prepared(&engine, options.clone()),
+            Some(&program),
+            Duration::ZERO,
+        );
+        assert_eq!(first.report.changes.len(), 50);
+        first.validate().unwrap();
+        let cursor = first.report.next_cursor.clone().unwrap();
+        let second = engine.page(&cursor, &options);
+        let again = engine.page(&cursor, &options);
+        assert_eq!(second, again);
+        assert_eq!(second.report.changes.len(), 50);
+        second.validate().unwrap();
+        let third = engine.page(second.report.next_cursor.as_deref().unwrap(), &options);
+        assert_eq!(third.report.changes.len(), 20);
+        assert!(third.report.next_cursor.is_none());
+        assert_eq!(runs.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn saved_results_name_the_result_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let engine = engine(&temp.path().join("state"));
+        let file = temp.path().join("result.json");
+        let options = RequestOptions {
+            save_to: Some(file.to_string_lossy().into_owned()),
+            verbosity: Some(Verbosity::Detailed),
+            ..RequestOptions::default()
+        };
+        let response = engine.finish(
+            removal(3),
+            &prepared(&engine, options),
+            Some(&ProgramRef::of(&json!(["remove"]), None)),
+            Duration::ZERO,
+        );
+        let report = &response.report;
+        assert_eq!(report.result_file.as_deref(), file.to_str());
+        assert!(report.changes.is_empty());
+        assert!(report.timing.is_some());
+        response.validate().unwrap();
+        let saved: Report = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        assert_eq!(saved.changes.len(), 3);
+    }
+
+    #[test]
+    fn unwritable_result_file_is_reported_in_the_report() {
+        let temp = tempfile::tempdir().unwrap();
+        let engine = engine(&temp.path().join("state"));
+        let blocker = temp.path().join("file");
+        std::fs::write(&blocker, b"x").unwrap();
+        let options = RequestOptions {
+            save_to: Some(blocker.join("result.json").to_string_lossy().into_owned()),
+            ..RequestOptions::default()
+        };
+        let response = engine.finish(
+            removal(2),
+            &prepared(&engine, options),
+            None,
+            Duration::ZERO,
+        );
+        assert_eq!(response.report.error.as_ref().unwrap().code, ErrorCode::Io);
+        assert_eq!(response.report.changes.len(), 2);
+    }
+
+    #[test]
+    fn report_kind_is_the_effect_command() {
+        let bound: BoundDocument = serde_json::from_value(json!({
+            "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+            "program": {"statements": [{
+                "t": "pipeline",
+                "head": {"t": "stage", "name": "find", "effect": "read", "phase": "source", "args": []},
+                "stages": [{"t": "stage", "name": "remove", "effect": "local", "phase": "mutate", "args": []}]
+            }]}
+        }))
+        .unwrap();
+        assert_eq!(kind_of(&bound), "remove");
+        assert_eq!(
+            kind_of(&nurt_testkit::fixtures::empty_program()),
+            PROGRAM_KIND
+        );
+    }
+}

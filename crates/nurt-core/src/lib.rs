@@ -1,13 +1,35 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-
 //! Engine facade of Danaco Nurt.
 //!
-//! The engine connects syntax, correction, binding, planning, execution,
-//! journal and reporting behind a single request interface. It owns the
-//! configuration, sessions and result cursors and is shared by the command
-//! line interface, the C ABI, the protocol servers and the language bindings.
+//! [`Engine`] is the single Rust interface of the program: the C interface,
+//! the protocol server, the command line interface and the integrations call
+//! it. The engine owns the configuration assembled from seven levels
+//! ([`config`]), the sessions of callers ([`session`]), kept pages of results
+//! ([`cursor`]), correction candidates ([`candidates`]), the read cache
+//! ([`readcache`]) and the state directory ([`state`]). It reaches the
+//! language through [`Frontend`] and delivers execution events through
+//! [`EventListener`].
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+pub mod candidates;
+pub mod config;
+pub mod cursor;
+pub mod engine;
+pub mod error;
+pub mod events;
+#[cfg(any(test, feature = "fixtures"))]
+pub mod fixtures;
+pub mod frontend;
+pub mod paths;
+pub mod readcache;
+pub mod session;
+pub mod state;
+
+pub use engine::{CheckReport, Engine, EngineConfig, EngineInfo, ExecHandle, Formats};
+pub use error::EngineError;
+pub use events::{DeliveredEvent, EventBody, EventListener, Lifecycle};
+pub use frontend::{Compiled, Corrected, Frontend, UnavailableFrontend};

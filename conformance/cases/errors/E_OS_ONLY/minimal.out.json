@@ -1,0 +1,8 @@
+{
+  "schema_valid": true,
+  "json_round_trip": true,
+  "cbor_round_trip": true,
+  "text": "error E_OS_ONLY  stage 1  conformance case",
+  "markdown": "### replace failed\n\n**error E_OS_ONLY stage 1 conformance case**",
+  "compact": "report kind=replace status=failed\nerror code=E_OS_ONLY stage=1 message=\"conformance case\""
+}

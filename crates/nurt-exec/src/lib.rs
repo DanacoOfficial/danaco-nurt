@@ -12,3 +12,5 @@
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+pub mod stages;
