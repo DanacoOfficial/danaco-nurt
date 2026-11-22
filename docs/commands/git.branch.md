@@ -83,8 +83,6 @@ protocol through the journal; an existing lock fails with `E_GIT_LOCKED`.
 | `check_references` | `bool` | `true` | After `delete` or `rename`, report other references that still name the old branch. |
 | `expect_state` | `text` | none | State token of an earlier effect; nothing changes when the state differs. |
 
-`create`, `rename`, `delete` and `purge` exclude each other.
-
 ## Input and output
 
 | Form | Input | Output |

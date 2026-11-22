@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-parse <pattern>
+line|match|content |> parse <pattern>
 ```
 
 ## Description
@@ -42,12 +42,16 @@ the header of the stream.
 
 | Form | Input | Output |
 |---|---|---|
-| stage | `line`, `match`, `content` | `row` |
+| default | `line`, `match`, `content` | `row` |
 
 ## Effect
 
-Category `transform`, effect `read`, reversibility `read`. The command reads
-no files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

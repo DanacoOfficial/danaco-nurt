@@ -14,7 +14,7 @@ since: 0.1.0
 
 ```text
 lines <path> [<range>]
-<entry | content records> |> lines [<range>]
+entry|content |> lines [<range>]
 ```
 
 ## Description
@@ -43,15 +43,15 @@ out for `content` records that hold a range of lines.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required in the source form | File to read in the source form. |
+| `path` | `path` | required | File to read in the source form. |
 | `range` | `range` | `all` | Line range, such as `10..20`, `40..`, `..9` or a single line number. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `line` |
-| stage | `entry`, `content` | `line` |
+| `source` | `none` | `line` |
+| `stage` | `entry`, `content` | `line` |
 
 `line` fields: `path`, `no`, `text` (without the line ending),
 `line_ending` (`lf`, `crlf`, `cr` or `none`), `etag`, `start`, `end`,
@@ -59,8 +59,12 @@ out for `content` records that hold a range of lines.
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command reads
-files and changes nothing. It starts no external programs.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

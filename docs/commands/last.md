@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-last <count>
+any |> last <count>
 ```
 
 ## Description
@@ -36,12 +36,16 @@ input with fewer records than `count` passes on whole.
 
 | Form | Input | Output |
 |---|---|---|
-| stage | any record kind | at most `count` input records from the end (`same`) |
+| default | `any` | `same` |
 
 ## Effect
 
-Category `transform`, effect `read`, reversibility `read`. The command reads
-no files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

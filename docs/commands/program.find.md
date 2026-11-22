@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-program.find <name>... [versions: <bool>]
+program.find <name>... [name: value]...
 ```
 
 ## Description
@@ -28,16 +28,14 @@ A name that resolves gives `found: true`, the first matching file in `path` and 
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `list<text>` | required, positional 1, repeated | Program names, without a directory. |
+| `name` | `list<text>` | required | Program names, without a directory. |
 | `versions` | `bool` | `false` | Read the version of each located program from the package that installed it. |
-
-With `versions: true` the version comes from the package databases (dpkg, rpm, pacman, Homebrew, winget, Scoop, Chocolatey) through the mapping of the located file to its package, and `version_source` names the origin. A program that belongs to no known package has no version. No program is started to read its version.
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| `program.find <name>...` | none | `program_location` |
+| default | `none` | `program_location` |
 
 Fields of `program_location`: `name`, `found`, `path`, `all_paths`, `version`, `source`, and the additional fields `alias_of` and `version_source` when they apply.
 
@@ -48,7 +46,8 @@ Fields of `program_location`: `name`, `found`, `path`, `all_paths`, `version`, `
 | Category | `source` |
 | Effect | `read` |
 | Reversibility | `read` |
-| Implementation | built in; no program is started |
+| Implementation | `builtin` |
+| External use | `user_program`; used when `versions` is given; Runs a located program once with --version when its file metadata gives no version. |
 
 ## Examples
 
@@ -67,13 +66,13 @@ rg    true   /usr/local/bin/rg
 Report the names that are not installed.
 
 ```nurt example
-program.find "ffmpeg" "gs" "magick" | where found == false | select name
+program.find "ffmpeg" "gs" "magick" |> filter found == false |> select name
 ```
 
 Show the installed version of each program with its source.
 
 ```nurt example
-program.find "python3" "node" versions: true | select name, version, version_source
+program.find "python3" "node" versions: true |> select name, version, version_source
 ```
 
 ## Errors

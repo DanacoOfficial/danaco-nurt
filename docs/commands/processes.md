@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-processes [name: text|regex] [user: text] [pid: int] [cwd: bool] [tree: bool]
+processes [<name>] [name: value]...
 ```
 
 ## Description
@@ -44,29 +44,6 @@ Linux and macOS and the security identifier of the process token on Windows.
 `cwd` is read only with `cwd: true`. Without input conditions the command
 reads the table lazily, so a following limit stops the reading early.
 
-## Parameters
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `name` | `text \| regex` | | Process name or pattern. Positional. |
-| `user` | `text` | | Only processes of this account. |
-| `pid` | `int` | | Only the process with this identifier. |
-| `cwd` | `bool` | `false` | Include the working directory of each process. |
-| `tree` | `bool` | `false` | Return processes as a tree with child lists and depth. |
-
-## Input and output
-
-| Input | Output |
-|---|---|
-| none | `process` |
-
-## Effect
-
-Category `source`, effect `read`, reversibility `read`. The command reads the
-process table of the operating system and changes nothing.
-
-## Notes
-
 | Data | Linux | macOS | Windows |
 |---|---|---|---|
 | process table | `/proc/<pid>/stat`, `status` | `proc_listpids`, `proc_pidinfo` | Toolhelp snapshot |
@@ -81,6 +58,31 @@ Fields of processes of other accounts that the account may not read, such as
 kernel thread has an empty `command` and its name in square brackets, for
 example `[kthreadd]`. A state without a counterpart is `other`, and
 `os_raw.state` holds the code of the system.
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `name` | `text \| regex` | none | Process name or pattern. Positional. |
+| `user` | `text` | none | Only processes of this account. |
+| `pid` | `int` | none | Only the process with this identifier. |
+| `cwd` | `bool` | `false` | Include the working directory of each process. |
+| `tree` | `bool` | `false` | Return processes as a tree with child lists and depth. |
+
+## Input and output
+
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `process` |
+
+## Effect
+
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

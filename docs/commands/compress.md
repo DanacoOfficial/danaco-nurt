@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-compress path... [algorithm: gzip|zstd|xz|bzip2|lz4] [keep: bool] [level: int]
-<entry records> |> compress [algorithm: gzip|zstd|xz|bzip2|lz4] [keep: bool] [level: int]
+compress <path>... [name: value]...
 ```
 
 ## Description
@@ -40,25 +39,25 @@ is compressed once.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | | Files to compress in the source form; position 1, repeated. Relative paths are resolved against the base directory. Not allowed in the stage form. |
+| `path` | `list<path>` | none | Files to compress in the source form; position 1, repeated. Relative paths are resolved against the base directory. Not allowed in the stage form. |
 | `algorithm` | `enum(gzip\|zstd\|xz\|bzip2\|lz4)` | `gzip` | Compression algorithm. |
 | `keep` | `bool` | `true` | Keep the original files. |
-| `level` | `int` | algorithm default | Compression level. Ranges: gzip 0..=9, zstd 1..=22, xz 0..=9, bzip2 1..=9, lz4 0..=0. |
+| `level` | `int` | none | Compression level. Ranges: gzip 0..=9, zstd 1..=22, xz 0..=9, bzip2 1..=9, lz4 0..=0. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `effect` |
-| stage | `entry` | `effect` |
+| default | `none`, `entry` | `effect` |
 
 ## Effect
 
-Category `change`, effect `local`, reversibility `reversible`. Every output
-and every removed source is a target of one journal operation, so `undo`
-removes the outputs and restores the sources. A source changed after the plan
-fails with `E_STALE` and nothing is written. A preview shows the same changes
-as the execution.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 Notable entries: `nothing_matched` for an empty input.
 
@@ -79,7 +78,7 @@ targets 1 file
 Compress two files with zstd at level 19 and remove the originals.
 
 ```nurt example
-compress "/srv/app/a.csv" "/srv/app/b.csv" algorithm: "zstd" level: 19 keep: false
+compress "/srv/app/a.csv" "/srv/app/b.csv" algorithm: zstd level: 19 keep: false
 ```
 
 ```text expected
@@ -94,7 +93,7 @@ targets 2 files
 Compress the old logs of a directory with xz.
 
 ```nurt example
-find "/srv/app/logs" glob: "*.log" type: file |> compress algorithm: "xz"
+find "/srv/app/logs" glob: "*.log" type: file |> compress algorithm: xz
 ```
 
 ```text expected

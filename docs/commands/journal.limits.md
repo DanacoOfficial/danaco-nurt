@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-journal.limits [steps: int | unlimited] [age: duration | unlimited] [size: size | percent | unlimited] [scope: session | user] [volume: path]
+journal.limits [name: value]...
 ```
 
 ## Description
@@ -69,17 +69,17 @@ and a call without `steps`, `age` and `size` only reports.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `steps` | `int \| enum(unlimited)` | | Maximum number of entries kept, `1` to `100000`. |
-| `age` | `duration \| enum(unlimited)` | | Maximum age of entries kept, `10s` to `365d`. |
-| `size` | `size \| percent \| enum(unlimited)` | | Maximum journal size as a size such as `20gib` (at least `1mib`, at most the capacity), a share of the volume such as `"10%"` (`1%` to `90%`) or a share of free space such as `"50%free"` (`1%free` to `100%free`). Shares are clamped to `journal.max_size_min` and `journal.max_size_max`. |
+| `steps` | `int \| enum(unlimited)` | none | Maximum number of entries kept, `1` to `100000`. |
+| `age` | `duration \| enum(unlimited)` | none | Maximum age of entries kept, `10s` to `365d`. |
+| `size` | `size \| percent \| enum(unlimited)` | none | Maximum journal size as a size such as `20gib` (at least `1mib`, at most the capacity), a share of the volume such as `"10%"` (`1%` to `90%`) or a share of free space such as `"50%free"` (`1%free` to `100%free`). Shares are clamped to `journal.max_size_min` and `journal.max_size_max`. |
 | `scope` | `enum(session\|user)` | `session` | Change the limits for this session or persistently for the account. |
-| `volume` | `path` | | Only the journal of the volume that contains this path. |
+| `volume` | `path` | none | Only the journal of the volume that contains this path. |
 
 ## Input and output
 
-| Input | Output |
-|---|---|
-| none | `journal_state`, `effect` |
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `journal_state`, `effect` |
 
 Without `steps`, `age` and `size` the output is one `journal_state` record per
 selected volume, as from `journal.status`. Otherwise the output is one
@@ -91,9 +91,13 @@ sources.
 
 ## Effect
 
-| Category | Effect | Reversibility |
-|---|---|---|
-| journal | local | reversible |
+| Property | Value |
+|---|---|
+| Category | `journal` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | Restoring the previous limits does not bring back entries that expired under the new limits; without parameters the command only reads. |
 
 The limits are reversed by setting them again. Entries that expired under the
 new limits cannot be restored; the result then carries the irreversible
@@ -107,10 +111,10 @@ Show the limits of every volume and the levels that set them:
 journal.limits
 ```
 
-Report which entries would expire if only the last 10 operations were kept:
+Keep the last 10 operations for five minutes in this session:
 
 ```nurt example
-journal.limits steps: 10 preview: true
+journal.limits steps: 10 age: 5m
 ```
 
 Keep the last 100 operations for one day in this session:

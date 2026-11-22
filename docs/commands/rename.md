@@ -13,10 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-rename path: <path> to: <name> [on_conflict: overwrite|skip|error] [check_references: …]
-rename path: <path> <pattern> <with> [on_conflict: …] [check_references: …]
-<entry records> |> rename <pattern> <with> [on_conflict: …] [check_references: …]
-<entry records> |> rename to: <name> [on_conflict: …] [check_references: …]
+rename [<pattern>] [<with>] path: <path> (with: <text> | to: <text>) [name: value]...
+entry |> rename [<pattern>] [<with>] (with: <text> | to: <text>) [name: value]...
 ```
 
 ## Description
@@ -50,14 +48,20 @@ An entry record with `etag` must still have that entity tag; a changed entry
 fails with `E_STALE` before anything changes. When nothing is renamed, the
 result reports `nothing_matched`.
 
+| Notable code | Meaning |
+|---|---|
+| `case_collision` | the new name differs from an existing name only in letter case on a volume that does not distinguish case |
+| `references_left` | other files still name a renamed entry by its old name |
+| `nothing_matched` | nothing was renamed |
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required in the source form | Entry to rename. |
-| `pattern` | `text \| regex` | | Part of the name to replace; used with `with`. |
-| `with` | `text` | | Replacement of the pattern in the name; a template for a regex pattern. |
-| `to` | `text` | | New name. Evaluated per record. |
+| `path` | `path` | required | Entry to rename. |
+| `pattern` | `text \| regex` | none | Part of the name to replace; used with `with`. |
+| `with` | `text` | one of `replacement` | Replacement of the pattern in the name; a template for a regex pattern. |
+| `to` | `text` | one of `replacement` | New name. Evaluated per record. |
 | `on_conflict` | `enum(overwrite\|skip\|error)` | `error` | Behaviour when an entry with the new name exists. |
 | `check_references` | `bool` | `false` | Report references to the old names left after the change. |
 
@@ -65,8 +69,8 @@ result reports `nothing_matched`.
 
 | Form | Input | Output |
 |---|---|---|
-| `rename path: <path> …` | none | `effect` |
-| `… \|> rename …` | `entry` | `effect` |
+| `source` | `none` | `effect` |
+| `stage` | `entry` | `effect` |
 
 The `effect` record has one `change` with action `rename` per renamed entry,
 with `path` set to the old path and `to` to the new path, in the order the
@@ -75,17 +79,12 @@ renames run. Its `summary` counts `renamed`, `overwritten`, `skipped` and
 
 ## Effect
 
-Category `change`, local effect, reversible. Every renamed entry is a target
-of the journal; an overwritten entry is kept by the journal, and undo
-restores the old names and the overwritten entry.
-
-## Notes
-
-| Notable code | Meaning |
+| Property | Value |
 |---|---|
-| `case_collision` | the new name differs from an existing name only in letter case on a volume that does not distinguish case |
-| `references_left` | other files still name a renamed entry by its old name |
-| `nothing_matched` | nothing was renamed |
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -102,7 +101,7 @@ rename: 1 target, renamed 1
 Replace an extension in every listed name:
 
 ```nurt example
-list "/home/user/photos" glob: "*.jpeg" |> rename ".jpeg" ".jpg"
+find "/home/user/photos" glob: "*.jpeg" |> rename ".jpeg" ".jpg"
 ```
 
 Rewrite dates in names with a regex template:

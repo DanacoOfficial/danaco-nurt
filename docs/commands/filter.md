@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-filter <condition>
+any |> filter <condition>
 ```
 
 ## Description
@@ -43,12 +43,16 @@ such as `exec`, `job`, `test_result`, `finding` and `effect`.
 
 | Form | Input | Output |
 |---|---|---|
-| stage | any record kind | the input records that meet the condition (`same`) |
+| default | `any` | `same` |
 
 ## Effect
 
-Category `transform`, effect `read`, reversibility `read`. The command reads
-no files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

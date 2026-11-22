@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-code.definition <path> [line: int] [column: int] [symbol: text] [language: text] [root: path] [source: auto|lsp|syntax]
+code.definition <path> [name: value]...
 ```
 
 ## Description
@@ -43,37 +43,26 @@ file.
 |---|---|---|---|
 | `path` | `path` | required | Source file. |
 | `line` | `int` | none | Line of the symbol, counted from 1; required unless `symbol` is given. |
-| `column` | `int` | first identifier of the line | Column of the symbol, counted from 1 in characters. |
+| `column` | `int` | none | Column of the symbol, counted from 1 in characters. |
 | `symbol` | `text` | none | Symbol name, optionally qualified as `Container.name`, instead of a position. |
 | `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
-| `source` | `enum(auto\|lsp\|syntax)` | `auto` | Language server, syntax analysis, or the server when available. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `symbol` |
-
-| Field | Type | Description |
-|---|---|---|
-| `name` | `text` | Name of the definition. |
-| `kind` | `enum` | Kind of the symbol (`function`, `method`, `class`, ...). |
-| `path` | `path` | File of the definition. |
-| `line`, `column` | `int` | Position of the name, from 1. |
-| `end_line`, `end_column` | `int` | End of the definition and of the name. |
-| `container` | `text` | Qualified name of the enclosing symbol. |
-| `signature` | `text` | Declaration line, up to 240 characters. |
-| `text` | `text` | Source line of the name. |
-| `language` | `text` | Language of the file. |
-| `source` | `enum` | `lsp` or `syntax`. |
-| `etag` | `text` | Entity tag of the file when it was read. |
+| default | `none` | `symbol` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The language server
-of the language is started on first use and stays in the server pool (see
-`code.languages`).
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `language_server` |
+| Fallback | `builtin` |
 
 ## Examples
 
@@ -89,10 +78,10 @@ Find a method by its qualified name.
 code.definition "/srv/app/src/shapes.py" symbol: "Circle.area"
 ```
 
-Require the answer of the language server.
+Find the definition of the symbol at a column of a line.
 
 ```nurt example
-code.definition "/srv/app/src/index.ts" line: 40 column: 15 source: lsp
+code.definition "/srv/app/src/index.ts" line: 40 column: 15
 ```
 
 ## Errors

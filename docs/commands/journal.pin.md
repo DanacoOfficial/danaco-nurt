@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-journal.pin id: list<int>... [release: bool] [until: duration]
+journal.pin <id>... [name: value]...
 ```
 
 ## Description
@@ -42,23 +42,25 @@ Entries that do not exist, expired or were undone are listed in
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `list<int>` | | Entries to pin or release; positional and repeatable. |
+| `id` | `list<int>` | none | Entries to pin or release; positional and repeatable. |
 | `release` | `bool` | `false` | Release the pin instead of setting it. |
 | `until` | `duration` | the configured maximum pin age | Duration of the pin. |
 
 ## Input and output
 
-Input: `none`. Output: `effect` — the entries pinned or released (`changed`),
-the entries that were not available (`not_available`) and the released
-entries that expired at once (`expired`).
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect` |
 
 ## Effect
 
-Category `journal`, effect `local`, reversible: a pin is released with
-`release: true`. Pinned entries can still be released when the volume runs
-out of space. Releasing pins is not reversible for entries that expire as a
-result; the result then carries the irreversible marker
-`journal_entries_expired`, and `history` lists the entries as `expired`.
+| Property | Value |
+|---|---|
+| Category | `journal` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | Pinned entries can still be released when the volume runs out of space. |
 
 ## Examples
 

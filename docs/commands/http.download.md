@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-http.download <url> <to> [resume: <bool>] [hash: <text>] [headers: <map<text>>] [timeout: <duration>]
+http.download <url> <to> [name: value]...
 ```
 
 ## Description
@@ -56,23 +56,13 @@ must exist.
 
 ## Input and output
 
-| Input | Output |
-|---|---|
-| none | `effect` |
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect` |
 
 The `effect` record has `kind` `http.download`, one entry in `changes` for
 the target (`action` `create` or `modify`, `size_before`, `size_after`,
 `hash_after` as `<algorithm>:<hex>`) and the download object in `after`:
-
-| Field | Type | Description |
-|---|---|---|
-| `url` | `text` | Address as requested. |
-| `final_url` | `text` | Address after redirects. |
-| `status` | `int` | Status of the last response. |
-| `bytes` | `size` | Size of the downloaded file. |
-| `resumed_from` | `size` | Bytes taken from an earlier partial download. |
-| `hash_algorithm` | `text` | Algorithm of `hash`; `null` without `hash`. |
-| `hash_verified` | `bool` | The digest matched `hash`. |
 
 Progress events of phase `receive` report the bytes received.
 
@@ -82,8 +72,9 @@ Progress events of phase `receive` report the bytes received.
 |---|---|
 | Category | `change` |
 | Effect | `local` |
-| Reversibility | `reversible`: the journal keeps the previous content of the target, and `undo` restores it or removes a created file |
-| External program | none |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | The written file is reversible; the request itself only reads from the network. |
 
 The request only reads from the network and is not recorded as an
 irreversible effect. The partial file and its description are written outside
@@ -118,7 +109,7 @@ Show the download object, which tells whether an earlier partial download
 was continued:
 
 ```nurt example
-http.download "https://example.org/data.csv" "/home/user/data.csv" | select after
+http.download "https://example.org/data.csv" "/home/user/data.csv" |> select after
 ```
 
 ## Errors

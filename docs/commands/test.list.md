@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-test.list [limit: int]
+test.list [name: value]...
 ```
 
 ## Description
@@ -30,11 +30,20 @@ are removed when a new run is stored.
 
 ## Input and output
 
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `test_run` |
+
 The command takes no input. It produces `test_run` records.
 
 ## Effect
 
-Category `source`, effect `read`, implementation `builtin`. Nothing is changed.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

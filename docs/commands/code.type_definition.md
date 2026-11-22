@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-code.type_definition <path> [line: int] [column: int] [symbol: text] [language: text] [root: path] [source: auto|lsp]
+code.type_definition <path> [name: value]...
 ```
 
 ## Description
@@ -32,24 +32,29 @@ command. `source: syntax` fails with `E_EXTERNAL_MISSING` as well.
 |---|---|---|---|
 | `path` | `path` | required | Source file. |
 | `line` | `int` | none | Line of the symbol, counted from 1; required unless `symbol` is given. |
-| `column` | `int` | first identifier of the line | Column of the symbol, counted from 1. |
+| `column` | `int` | none | Column of the symbol, counted from 1. |
 | `symbol` | `text` | none | Symbol name, optionally qualified as `Container.name`, instead of a position. |
 | `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
-| `source` | `enum(auto\|lsp)` | `auto` | Both values ask the language server. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `symbol` |
+| default | `none` | `symbol` |
 
 The fields of the `symbol` record are described in `code.definition`;
 `source` is always `lsp`.
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `language_server` |
+| Fallback | `builtin` |
 
 ## Examples
 

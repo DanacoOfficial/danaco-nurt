@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-convert path... [encoding: text] [line_ending: lf|crlf|cr|keep] [bom: bool]
-<entry records> |> convert [encoding: text] [line_ending: lf|crlf|cr|keep] [bom: bool]
+convert <path>... [name: value]...
 ```
 
 ## Description
@@ -47,17 +46,16 @@ converted once.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | | Files to convert in the source form; position 1, repeated. Not allowed in the stage form. |
-| `encoding` | `text` | | Target encoding: `utf-8`, `utf-16le`, `utf-16be`, `windows-1250`, `iso-8859-2`, `windows-1252` or `ibm852`, or an alias such as `cp1250`, `latin2` or `cp852`. `auto` and no value keep the encoding of each file. |
+| `path` | `list<path>` | none | Files to convert in the source form; position 1, repeated. Not allowed in the stage form. |
+| `encoding` | `text` | none | Target encoding: `utf-8`, `utf-16le`, `utf-16be`, `windows-1250`, `iso-8859-2`, `windows-1252` or `ibm852`, or an alias such as `cp1250`, `latin2` or `cp852`. `auto` and no value keep the encoding of each file. |
 | `line_ending` | `enum(lf\|crlf\|cr\|keep)` | `keep` | Target line ending, or `keep` to leave line endings unchanged. |
-| `bom` | `bool` | | Add (`true`) or remove (`false`) the byte order mark. |
+| `bom` | `bool` | none | Add (`true`) or remove (`false`) the byte order mark. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `effect` |
-| stage | `entry` | `effect` |
+| default | `none`, `entry` | `effect` |
 
 The `effect` record has one `change` per converted file with
 `encoding_before`, `encoding_after`, `line_ending_before`,
@@ -66,11 +64,12 @@ The `effect` record has one `change` per converted file with
 
 ## Effect
 
-Category `change`, effect `local`, reversibility `reversible`. Every file is
-written through the journal, which keeps the previous content for `undo`.
-The command reads each file again before writing it; a file changed since
-the plan fails with `E_STALE` and nothing is written. A preview shows the
-same changes as the execution.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 Notable entries: `encoding_changed` and `line_ending_changed` with the values
 before and after in `detail`, `bom_changed` with `added` or `removed`,
@@ -82,7 +81,7 @@ before and after in `detail`, `bom_changed` with `added` or `removed`,
 Convert a Windows-1250 file with CRLF line endings to UTF-8 with LF.
 
 ```nurt example
-convert "/srv/legacy/notes.txt" encoding: "utf-8" line_ending: "lf"
+convert "/srv/legacy/notes.txt" encoding: "utf-8" line_ending: lf
 ```
 
 ```text expected
@@ -97,7 +96,7 @@ notable
 Convert the line endings of the listed scripts to CRLF.
 
 ```nurt example
-find "/srv/app/scripts" glob: "*.cmd" type: file |> convert line_ending: "crlf"
+find "/srv/app/scripts" glob: "*.cmd" type: file |> convert line_ending: crlf
 ```
 
 ```text expected

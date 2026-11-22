@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-decompress path... [keep: bool]
-<entry records> |> decompress [keep: bool]
+decompress <path>... [name: value]...
 ```
 
 ## Description
@@ -45,23 +44,23 @@ and other entries that are not regular files are skipped.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | | Files to decompress in the source form; position 1, repeated. Relative paths are resolved against the base directory. Not allowed in the stage form. |
+| `path` | `list<path>` | none | Files to decompress in the source form; position 1, repeated. Relative paths are resolved against the base directory. Not allowed in the stage form. |
 | `keep` | `bool` | `true` | Keep the compressed files. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `effect` |
-| stage | `entry` | `effect` |
+| default | `none`, `entry` | `effect` |
 
 ## Effect
 
-Category `change`, effect `local`, reversibility `reversible`. Every output
-and every removed source is a target of one journal operation, so `undo`
-removes the outputs and restores the sources. A source changed after the plan
-fails with `E_STALE` and nothing is written. A preview shows the same changes
-as the execution.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 Notable entries: `nothing_matched` for an empty input.
 

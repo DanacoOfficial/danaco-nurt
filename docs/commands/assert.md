@@ -13,14 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-assert count: <range>
-assert paths: <range>
-assert exit_code: <range>
-assert all: <expression>
-assert any: <expression>
-assert empty: <bool>
-assert contains: <text>
-assert if_match: <text>
+any |> assert (count: <range> | paths: <range> | exit_code: <range> | all: <expression> | any: <expression> | empty: <bool> | contains: <text> | if_match: <text>)
 ```
 
 ## Description
@@ -50,30 +43,31 @@ A range is written as `5`, `1..5`, `40..` or `..9`; both bounds are included.
 
 ## Parameters
 
-Exactly one parameter is given; all belong to the exclusive group
-`condition`.
-
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `count` | `range` | - | Expected number of records. |
-| `paths` | `range` | - | Expected number of distinct paths. |
-| `exit_code` | `range` | - | Expected exit code of the programs run. |
-| `all` | `expression` | - | Condition that every record meets. |
-| `any` | `expression` | - | Condition that at least one record meets. |
-| `empty` | `bool` | - | Whether there are no records. |
-| `contains` | `text` | - | Text that the records contain. |
-| `if_match` | `text` | - | Expected etag of the input file. |
+| `count` | `range` | one of `condition` | Expected number of records. |
+| `paths` | `range` | one of `condition` | Expected number of distinct paths. |
+| `exit_code` | `range` | one of `condition` | Expected exit code of the programs run. |
+| `all` | `expression` | one of `condition` | Condition that every record meets. |
+| `any` | `expression` | one of `condition` | Condition that at least one record meets. |
+| `empty` | `bool` | one of `condition` | Whether there are no records. |
+| `contains` | `text` | one of `condition` | Text that the records contain. |
+| `if_match` | `text` | one of `condition` | Expected etag of the input file. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| stage | any record kind | the input records (`same`) |
+| default | `any` | `same` |
 
 ## Effect
 
-Category `check`, effect `read`, reversibility `read`. The command reads no
-files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `check` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

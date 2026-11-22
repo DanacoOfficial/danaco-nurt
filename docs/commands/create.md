@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-create <path>… type: file|directory|link|junction [target: …] [hard: …] [parents: …] [on_exists: skip|error|touch]
-create [<directory>…] type: file|directory temporary: true
+create <path>... type: <enum(file|directory|link|junction)> [name: value]...
 ```
 
 ## Description
@@ -41,13 +40,17 @@ file or directory with a unique name that starts with `nurt-` in each; without
 `path`, in the temporary directory of the host. The `change` records of the
 result hold the new paths.
 
+On Windows a symbolic link needs the privilege to create symbolic links or
+developer mode; without it the command fails with `E_PRIVILEGE`, and a
+junction is the alternative for directories.
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `type` | `enum(file\|directory\|link\|junction)` | required | Kind of entry; there is no default. |
-| `path` | `list<path>` | | Paths to create; with `temporary`, the directory of the new entry. |
-| `target` | `text` | | Target of a link or junction. |
+| `path` | `list<path>` | none | Paths to create; with `temporary`, the directory of the new entry. |
+| `target` | `text` | none | Target of a link or junction. |
 | `hard` | `bool` | `false` | Create a hard link instead of a symbolic link. |
 | `temporary` | `bool` | `false` | Create an entry with a unique name in the temporary directory. |
 | `parents` | `bool` | `true` | Create missing parent directories. |
@@ -57,19 +60,16 @@ result hold the new paths.
 
 | Form | Input | Output |
 |---|---|---|
-| `create <path>… type: …` | none | `effect` |
+| default | `none` | `effect` |
 
 ## Effect
 
-Category `change`, local effect, reversible. Every new entry and every
-created parent directory is a target of the journal; undo removes them.
-`touch` records the previous times, and undo restores them.
-
-## Notes
-
-On Windows a symbolic link needs the privilege to create symbolic links or
-developer mode; without it the command fails with `E_PRIVILEGE`, and a
-junction is the alternative for directories.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 ## Examples
 

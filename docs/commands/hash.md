@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-hash path... [algorithm: sha256|sha512|sha1|md5|blake3|crc32]
-<entry records> |> hash [algorithm: sha256|sha512|sha1|md5|blake3|crc32]
+hash <path>... [name: value]...
 ```
 
 ## Description
@@ -44,20 +43,23 @@ parallel; the output keeps the order of the input.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | | Files to hash in the source form; position 1, repeated. Relative paths are resolved against the base directory. Not allowed in the stage form. |
+| `path` | `list<path>` | none | Files to hash in the source form; position 1, repeated. Relative paths are resolved against the base directory. Not allowed in the stage form. |
 | `algorithm` | `enum(sha256\|sha512\|sha1\|md5\|blake3\|crc32)` | `sha256` | Digest algorithm. `sha1`, `md5` and `crc32` serve compatibility with existing checksums and do not protect against deliberate changes. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `entry` with `hash` |
-| stage | `entry` | `entry` with `hash` |
+| default | `none`, `entry` | `entry` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command reads
-files only and starts no external program.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -75,7 +77,7 @@ path                    hash
 Hash two files with MD5.
 
 ```nurt example
-hash "/srv/app/a.txt" "/srv/app/b.txt" algorithm: "md5"
+hash "/srv/app/a.txt" "/srv/app/b.txt" algorithm: md5
 ```
 
 ```text expected
@@ -87,13 +89,13 @@ path              hash
 Hash the files of a listing with BLAKE3 and group files with equal content.
 
 ```nurt example
-find "/srv/app" type: file |> hash algorithm: "blake3" |> group by: hash
+find "/srv/app" type: file |> hash algorithm: blake3 |> group by: hash
 ```
 
 Compute the CRC-32 of a file.
 
 ```nurt example
-hash "/srv/app/check.txt" algorithm: "crc32"
+hash "/srv/app/check.txt" algorithm: crc32
 ```
 
 ```text expected

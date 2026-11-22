@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-patch diff root: path [reverse: bool] [fuzz: int] [strip: int] [validate: off|warn|reject] [if_match: text|map<text>]
-patch from: path root: path [reverse: bool] [fuzz: int] [strip: int] [validate: off|warn|reject] [if_match: text|map<text>]
+patch [<diff>] root: <path> (diff: <text> | from: <path>) [name: value]...
 ```
 
 ## Description
@@ -76,20 +75,20 @@ nothing is checked.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `root` | `path` | | Directory that the paths in the diff are relative to; required. |
-| `diff` | `text` | | Text of the diff; position 1. Exclusive with `from`. |
-| `from` | `path` | | File that contains the diff. Exclusive with `diff`. |
+| `root` | `path` | required | Directory that the paths in the diff are relative to; required. |
+| `diff` | `text` | one of `patch_source` | Text of the diff; position 1. Exclusive with `from`. |
+| `from` | `path` | one of `patch_source` | File that contains the diff. Exclusive with `diff`. |
 | `reverse` | `bool` | `false` | Apply the diff in reverse. |
 | `fuzz` | `int` | `0` | Number of context lines at each end of a hunk that may differ when the hunk is placed. |
 | `strip` | `int` | `0` | Number of leading path components removed from the paths in the diff. |
 | `validate` | `enum(off\|warn\|reject)` | `reject` | Check created and changed text of a known format: `reject` rolls back a patch that adds a syntax error, `warn` reports it, `off` skips the check. |
-| `if_match` | `text \| map<text>` | | Expected etag of the patched file, or a map from path to etag for several files. A file with another etag fails with `E_STALE` and nothing changes. |
+| `if_match` | `text \| map<text>` | none | Expected etag of the patched file, or a map from path to etag for several files. A file with another etag fails with `E_STALE` and nothing changes. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `effect` |
+| default | `none` | `effect` |
 
 The `effect` record has one `change` per target in the order of execution:
 created directories, renames, then the other files in path order. A change
@@ -102,11 +101,12 @@ ignored context lines.
 
 ## Effect
 
-Category `change`, effect `local`, reversibility `reversible`. Every target
-is declared to the journal before the first change, and the journal checks
-atomically that each file still has the etag seen by the plan; a file changed
-in between fails with `E_STALE` and the operation is rolled back. A preview
-shows the same changes as the execution, with their differences.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 Notable entries: `unchanged` for a file the diff leaves as it is,
 `file_emptied` for a file left empty, `encoding_preserved` and

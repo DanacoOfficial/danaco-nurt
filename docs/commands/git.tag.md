@@ -56,8 +56,6 @@ with the message `tag: tagging <id> (<subject>, <date>)` of `git tag`.
 | `sign` | `bool` | the setting tag.gpgSign of the repository configuration | Sign the annotated tag with the signing key of the repository configuration. |
 | `delete` | `text` | none | Tag to delete. |
 
-`name` and `delete` exclude each other.
-
 ## Input and output
 
 | Form | Input | Output |

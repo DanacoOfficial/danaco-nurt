@@ -13,8 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
+content|entry|item|response |> query <expression>
 query <expression> path: <path>
-<content|entry|item|response> |> query <expression>
 ```
 
 ## Description
@@ -57,31 +57,6 @@ with `E_QUERY` and the text written by the filter.
 of the session, and `debug` and `stderr` write log events. `input`,
 `inputs` and modules are not available.
 
-## Parameters
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `expression` | `text` | required | Filter in `jq` syntax. |
-| `path` | `path` | none | Document to query in the source form; required in the source form. |
-
-## Input and output
-
-| Form | Input | Output |
-|---|---|---|
-| source | none | `item` |
-| stage | `content`, `entry`, `item`, `response` | `item` |
-
-Results are produced while the filter runs. A pipeline that uses only the
-first results stops the filter.
-
-## Effect
-
-| Category | Effect | Reversibility |
-|---|---|---|
-| transform | `read` | read |
-
-## Notes
-
 The filter language follows `jq` 1.8. Results of the following kinds differ
 from `jq`:
 
@@ -99,6 +74,32 @@ from `jq`:
 | `repeat(f)` | emits the input, then applies `f` to each output, as the `jq` manual describes | `jq` 1.8.1 applies `f` to the original input |
 | `@base32`, `@base32d` | the filter does not compile | runtime error |
 | `fromstream` | not available | available |
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `expression` | `text` | required | Filter in `jq` syntax. |
+| `path` | `path` | none | Document to query in the source form; required in the source form. |
+
+## Input and output
+
+| Form | Input | Output |
+|---|---|---|
+| `stage` | `content`, `entry`, `item`, `response` | `item` |
+| `source` | `none` | `item` |
+
+Results are produced while the filter runs. A pipeline that uses only the
+first results stops the filter.
+
+## Effect
+
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-host [programs: list<text>] [versions: bool]
+host [name: value]...
 ```
 
 ## Description
@@ -65,14 +65,19 @@ program is started.
 
 ## Input and output
 
-| Input | Output |
-|---|---|
-| none | `host` |
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `host` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command reads
-system information and the metadata of program files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
+| External use | `user_program`; used when `versions` is given; Runs each located program once with --version. |
 
 ## Examples
 
@@ -96,13 +101,13 @@ host programs: ["git", "cargo"]
 Locate a program and read its version from the file metadata:
 
 ```nurt example
-host programs: ["git"] versions: true | select programs
+host programs: ["git"] versions: true |> select programs
 ```
 
 Check whether the background service runs:
 
 ```nurt example
-host | select service
+host |> select service
 ```
 
 ## Errors

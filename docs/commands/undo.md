@@ -13,10 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-undo [id: int] [on_conflict: report|force|include_later|partial|abort]
-undo to: int [all_sessions: bool] [on_conflict: report|force|include_later|partial|abort]
-undo file: path [since: int | instant] [on_conflict: report|force|include_later|partial|abort]
-undo id: int paths: list<path> [on_conflict: report|force|include_later|partial|abort]
+undo [<id>] [name: value]...
 ```
 
 ## Description
@@ -67,42 +64,31 @@ cancels it, and neither is undone; a `redo` of such an undo is undone.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `id` | `int` | the latest operation | Operation to undo; with `paths`, the operation whose items are undone. |
-| `to` | `int` | | Undo every operation newer than this one, latest first, in one transaction. |
-| `file` | `path` | | Undo every change of this file since the given point. |
-| `since` | `int \| instant` | | Operation number, or time, from which changes of `file` are undone; without it every available change of the file is undone. |
-| `paths` | `list<path>` | | Undo only the changes of these paths within the operation. |
+| `to` | `int` | none | Undo every operation newer than this one, latest first, in one transaction. |
+| `file` | `path` | none | Undo every change of this file since the given point. |
+| `since` | `int \| instant` | none | Operation number, or time, from which changes of `file` are undone; without it every available change of the file is undone. |
+| `paths` | `list<path>` | none | Undo only the changes of these paths within the operation. |
 | `all_sessions` | `bool` | `false` | Include operations of other sessions; only with `to`. |
 | `on_conflict` | `enum(report\|force\|include_later\|partial\|abort)` | `report` | Behaviour when later changes touch the same files. |
 
 ## Input and output
 
-Input: `none`. Output: one `effect` record of kind `undo`:
-
-| Field | Meaning |
-|---|---|
-| `op` | number of the new journal entry |
-| `targets` | number of restored items |
-| `changes` | the restored items |
-| `summary` | `operations` undone, `items_restored`, `items_unavailable` |
-| `after.scope` | scope of the new entry: `op`, `to`, `file` or `paths` |
-| `after.sources` | the operations undone, latest first |
-| `after.unavailable` | items that could not be restored because they were released for space |
-| `after.skipped` | operations of other sessions skipped by `to`, with `op` and `session` |
-| `after.forced` | differences overridden by `force`, with `op`, `path`, `difference`, `later`, `expected` and `actual` |
-| `irreversible` | irreversible markers of the new entry; absent when there are none |
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect` |
 
 A preview of `undo id` and `undo id paths:` lists the items the undo would
 restore; the other forms are previewed without items.
 
 ## Effect
 
-Category `journal`, effect `local`, reversible: an undo can be reversed with
-`redo`. The undo is itself an operation with its own number and journal
-entry, and counts as a step (`journal.count_undo_as_op`). The current state
-of every restored item is preserved in that entry before it is changed; when
-the journal cannot keep it (no space, journal inactive), the item is restored
-and the entry carries an irreversible marker. A crash during the undo leaves
-the state before or after the undo, never a mixture.
+| Property | Value |
+|---|---|
+| Category | `journal` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | An undo can be reversed with redo. |
 
 ## Examples
 

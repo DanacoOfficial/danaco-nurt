@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-<entry records> |> archive.create to [format: auto|zip|tar|tar_gz|tar_zst|tar_xz|tar_bz2|seven_zip] [base: path] [level: int] [follow_links: bool]
+entry |> archive.create <to> [name: value]...
 ```
 
 ## Description
@@ -53,23 +53,23 @@ An empty input creates an empty archive.
 | `to` | `path` | required | Archive file to create; position 1. It must not exist. |
 | `format` | `enum(auto\|zip\|tar\|tar_gz\|tar_zst\|tar_xz\|tar_bz2\|seven_zip)` | `auto` | Archive format; `auto` selects it from the file extension. |
 | `base` | `path` | none | Directory that member names are relative to. |
-| `level` | `int` | default of the format | Compression level of the format. |
+| `level` | `int` | none | Compression level of the format. |
 | `follow_links` | `bool` | `false` | Store the targets of symbolic links instead of the links. |
 
 ## Input and output
 
-Input: `entry` records.
-
-Output: one `effect` record. Its summary counts `files`, `directories`,
-`links` and `bytes`.
+| Form | Input | Output |
+|---|---|---|
+| default | `entry` | `effect` |
 
 ## Effect
 
-Category `change`, effect `local`, reversibility `reversible`; no external
-programs. The archive is one new file of a single journal operation, which
-`undo` removes. It is written to a staged file, one input file open at a
-time, and appears under its name only when complete. An input file whose
-size changes while it is stored fails the command with `E_STALE`.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 ## Examples
 

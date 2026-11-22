@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-schedule.pause <id>...
-schedule.pause all: true
+schedule.pause <id>... [name: value]...
 ```
 
 ## Description
@@ -33,15 +32,14 @@ and no file is written for them.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `list<text>` | none, positional 1, repeated | Schedules to pause. |
+| `id` | `list<text>` | none | Schedules to pause. |
 | `all` | `bool` | `false` | Pause all schedules. Excludes `id`. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| `schedule.pause <id>...` | none | one `effect` record per schedule |
-| `schedule.pause all: true` | none | one `effect` record per schedule |
+| default | `none` | `effect` |
 
 The effect record has `kind: schedule.pause`, `target: schedule:<id>`,
 `action` (`pause` or `unchanged`), `before` with the previous state and
@@ -53,9 +51,8 @@ The effect record has `kind: schedule.pause`, `target: schedule:<id>`,
 |---|---|
 | Category | `change` |
 | Effect | `local` |
-| Reversibility | `reversible`: `undo` restores the previous definitions |
-| External programs | none |
-| Files | `<state>/schedules/definitions/<id>.json` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 ## Examples
 

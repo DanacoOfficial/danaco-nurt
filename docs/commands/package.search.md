@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-package.search <query> [manager: <enum>]
+package.search <query> [name: value]...
 ```
 
 ## Description
@@ -28,14 +28,14 @@ Supported indexes: apt lists (plain, gzip, xz, bzip2, lz4 and zstd), dnf and zyp
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `query` | `text` | required, positional 1 | Search terms. |
+| `query` | `text` | required | Search terms. |
 | `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager. `auto` selects the managers found on the system. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| `package.search <query>` | none | `package` |
+| default | `none` | `package` |
 
 ## Effect
 
@@ -44,7 +44,7 @@ Supported indexes: apt lists (plain, gzip, xz, bzip2, lz4 and zstd), dnf and zyp
 | Category | `source` |
 | Effect | `read` |
 | Reversibility | `read` |
-| Implementation | built in; no external program |
+| Implementation | `package_manager` |
 
 ## Examples
 
@@ -57,13 +57,13 @@ package.search "ripgrep"
 Search one manager and keep the packages that are not installed.
 
 ```nurt example
-package.search "editor" manager: apt | where installed == false
+package.search "editor" manager: apt |> filter installed == false
 ```
 
 Show the first ten matches with their repositories.
 
 ```nurt example
-package.search "json" | first 10 | select name, version, source
+package.search "json" |> first 10 |> select name, version, source
 ```
 
 ## Errors

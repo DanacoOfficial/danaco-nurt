@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-network.ping <host> [count: <int>] [timeout: <duration>]
+network.ping <host> [name: value]...
 ```
 
 ## Description
@@ -46,26 +46,20 @@ Raw sockets are not used.
 
 ## Input and output
 
-| Input | Output |
-|---|---|
-| none | `ping_result` |
-
-| Field | Type | Description |
+| Form | Input | Output |
 |---|---|---|
-| `host` | `text` | Host as given. |
-| `address` | `text` | Address the requests were sent to. |
-| `sent` | `int` | Requests sent. |
-| `received` | `int` | Replies received. |
-| `loss` | `number` | Lost requests in percent. |
-| `rtt_min`, `rtt_avg`, `rtt_max` | `number` | Shortest, average and longest round trip in milliseconds; absent without replies. |
-| `rtt_stddev` | `number` | Population standard deviation of the round trips in milliseconds. |
+| default | `none` | `ping_result` |
 
 Progress events of phase `echo` report the requests sent.
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command sends
-echo requests and changes nothing on the host.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 On Linux a group of the account must be in `net.ipv4.ping_group_range`; on
 macOS and Windows no privilege is required. When Linux refuses the socket,
@@ -93,7 +87,7 @@ network.ping "2001:db8::1" count: 10 timeout: 1s
 Report only the loss and the average round trip of a gateway:
 
 ```nurt example
-network.ping "192.168.1.1" count: 20 | select loss, rtt_avg
+network.ping "192.168.1.1" count: 20 |> select loss, rtt_avg
 ```
 
 ## Errors

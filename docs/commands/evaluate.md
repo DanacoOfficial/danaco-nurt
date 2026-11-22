@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-evaluate EXPRESSION*
+evaluate <expression>
 ```
 
 ## Description
@@ -41,11 +41,18 @@ The result is one `value` record with the fields `value` and `type`.
 
 ## Input and output
 
-Input: `none`. Output: `value`.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `value` |
 
 ## Effect
 
-Category `source`. Effect `read`. The command changes nothing.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

@@ -13,9 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-schedule.create <label> cron: <text> action: <pipeline> [options]
-schedule.create <label> every: <duration> action: <pipeline> [options]
-schedule.create <label> at: <instant> action: <pipeline> [options]
+schedule.create <label> action: <pipeline> (cron: <text> | every: <duration> | at: <instant>) [name: value]...
 ```
 
 ## Description
@@ -83,11 +81,11 @@ not completed or expired, paused ones included, is limited by
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `label` | `text` | required, positional 1 | Name of the schedule. |
-| `cron` | `text` | none | Five-field cron expression or a shortcut such as `@daily`; at most 200 characters. Exactly one of `cron`, `every` and `at`. |
-| `every` | `duration` | none | Interval between runs, from `schedule.min_interval` to `schedule.max_interval`. |
-| `at` | `instant` | none | Single run at this time; must lie in the future. |
+| `label` | `text` | required | Name of the schedule. |
 | `action` | `pipeline` | required | Pipeline to run. |
+| `cron` | `text` | one of `trigger` | Five-field cron expression or a shortcut such as `@daily`; at most 200 characters. Exactly one of `cron`, `every` and `at`. |
+| `every` | `duration` | one of `trigger` | Interval between runs, from `schedule.min_interval` to `schedule.max_interval`. |
+| `at` | `instant` | one of `trigger` | Single run at this time; must lie in the future. |
 | `timezone` | `text` | `"local"` | IANA time zone of the cron expression and of the times shown, for example `"Europe/Warsaw"` or `"UTC"`. An unknown name is rejected with similar names as candidates. |
 | `on_missed` | `enum(skip\|run_once)` | `skip` | Behaviour for run times missed by more than `misfire`, for example while the service or the device was not running. |
 | `misfire` | `duration` | `2m` | Largest delay after which a run time still runs. The default comes from `schedule.misfire`. |
@@ -102,7 +100,7 @@ not completed or expired, paused ones included, is limited by
 
 | Form | Input | Output |
 |---|---|---|
-| `schedule.create <label> ...` | none | one `schedule` record |
+| default | `none` | `schedule` |
 
 The record holds `id`, `label`, `trigger` (`kind`, `expression`, `timezone`),
 `next_run`, `state`, `active`, `reason`, `action`, `action_kind`, `runs`,
@@ -115,9 +113,8 @@ The record holds `id`, `label`, `trigger` (`kind`, `expression`, `timezone`),
 |---|---|
 | Category | `change` |
 | Effect | `local` |
-| Reversibility | `reversible`: `undo` removes the definition |
-| External programs | none at creation; the action may run programs at its run times |
-| Files | `<state>/schedules/definitions/<id>.json` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 The definition file is written through the operation journal. The run state
 (`<state>/schedules/state.json`: next run times, counters and history) is

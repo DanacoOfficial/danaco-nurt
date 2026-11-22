@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-test.failed [run_id] [path] [timeout: duration] [wait: duration]
-            [failures: int] [message_lines: int]
+test.failed [<run_id>] [name: value]...
 ```
 
 ## Description
@@ -39,7 +38,7 @@ and no results, and starts nothing.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `run_id` | `text` | the latest run | Earlier test run. |
-| `path` | `path` | the directory of the run | Project directory of the earlier run. |
+| `path` | `path` | none | Project directory of the earlier run. |
 | `timeout` | `duration` | `30m` | Time limit of the run. |
 | `wait` | `duration` | `3s` | Time to wait before the run continues as a job. |
 | `failures` | `int` | `10` | Failed tests reported in detail. |
@@ -47,14 +46,23 @@ and no results, and starts nothing.
 
 ## Input and output
 
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `test_run`, `test_result`, `job` |
+
 The command takes no input. The output is the same as the output of
 `test.run`: a `test_run` header followed by `test_result` records, or a `job`
 record.
 
 ## Effect
 
-Category `run`, effect `process`, implementation `user_program`. The
-journal and reversibility notes of `test.run` apply.
+| Property | Value |
+|---|---|
+| Category | `run` |
+| Effect | `process` |
+| Reversibility | `reversible_if_preserved` |
+| Implementation | `user_program` |
+| Reversibility conditions | Files changed by the test programs are reversible when their previous content was preserved; effects outside the file system are irreversible. |
 
 ## Examples
 

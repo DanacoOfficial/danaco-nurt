@@ -36,23 +36,16 @@ The command has no parameters.
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `language` |
-
-| Field | Type | Description |
-|---|---|---|
-| `language` | `text` | Language identifier, for example `python`. |
-| `extensions` | `list<text>` | File name extensions without the period. |
-| `grammar_version` | `text` | Version of the built-in grammar; absent without a grammar. |
-| `server` | `text` | Server program; absent when none is configured or allowed. |
-| `server_found` | `bool` | The program is installed and allowed. |
-| `server_running` | `bool` | A server process runs; absent without a server pool. |
-| `server_pid` | `int` | Process of the running server. |
-| `server_root` | `path` | Project root of the running server. |
+| default | `none` | `language` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. No external program
-is started.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -65,13 +58,13 @@ code.languages
 List the languages whose server is installed.
 
 ```nurt example
-code.languages |> where server_found
+code.languages |> filter server_found
 ```
 
 Show the running servers with their roots.
 
 ```nurt example
-code.languages |> where server_running |> select language, server, server_pid, server_root
+code.languages |> filter server_running |> select language, server, server_pid, server_root
 ```
 
 ## Errors

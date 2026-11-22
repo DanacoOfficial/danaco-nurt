@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-list path [depth: int] [type: file|directory|link|any] [hidden: bool] [sort: name|modified|size|type] [order: asc|desc] [view: flat|tree|sizes]
+list <path> [name: value]...
 ```
 
 ## Description
@@ -66,14 +66,18 @@ An empty directory produces no records.
 
 ## Input and output
 
-Input: none; `list` starts a pipeline.
-
-Output: `entry` records.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `entry` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`; no external
-programs. `list` changes nothing and writes no journal entry.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 Notable entries: `permission_denied_skipped` for directories that cannot be
 read, `source_unavailable` for entries that cannot be read for another

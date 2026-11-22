@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-summarize <fields>... [by: <field>]
+any |> summarize <fields>... [name: value]...
 ```
 
 ## Description
@@ -38,19 +38,23 @@ gives one record per field with `count` 0.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `fields` | `list<field>` | - | Numeric fields to summarize. |
-| `by` | `field` | - | Field whose value forms the groups. |
+| `fields` | `list<field>` | none | Numeric fields to summarize. |
+| `by` | `field` | none | Field whose value forms the groups. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| stage | any record kind | `summary` |
+| default | `any` | `summary` |
 
 ## Effect
 
-Category `transform`, effect `read`, reversibility `read`. The command reads
-no files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

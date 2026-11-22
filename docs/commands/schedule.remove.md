@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-schedule.remove <id>...
-schedule.remove all: true
+schedule.remove <id>... [name: value]...
 ```
 
 ## Description
@@ -37,15 +36,14 @@ visible in `schedule.history`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `list<text>` | none, positional 1, repeated | Schedules to remove. |
+| `id` | `list<text>` | none | Schedules to remove. |
 | `all` | `bool` | `false` | Remove all schedules. Excludes `id`. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| `schedule.remove <id>...` | none | one `effect` record per schedule |
-| `schedule.remove all: true` | none | one `effect` record per schedule |
+| default | `none` | `effect` |
 
 The effect record has `kind: schedule.remove`, `target: schedule:<id>`,
 `action: remove`, `before` with the state before the removal and `after` with
@@ -57,9 +55,8 @@ The effect record has `kind: schedule.remove`, `target: schedule:<id>`,
 |---|---|
 | Category | `change` |
 | Effect | `local` |
-| Reversibility | `reversible`: `undo` restores the definitions; stopped runs are not resumed (`process_stopped`) |
-| External programs | none |
-| Files | `<state>/schedules/definitions/<id>.json` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 After `undo` the restored schedule counts its next run time from the time of
 the restoration, so run times that passed while it was removed are not made

@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-package.install <names>... [version: <text>] [manager: <enum>]
+package.install <names>... [name: value]...
 ```
 
 ## Description
@@ -32,7 +32,7 @@ A non-zero exit code of the manager ends the command with `E_STAGE_FAILED` and t
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `names` | `list<text>` | required, positional 1.. | Packages to install. |
+| `names` | `list<text>` | required | Packages to install. |
 | `version` | `text` | none | Version to install. |
 | `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager. `auto` selects the managers found on the system. |
 
@@ -40,7 +40,7 @@ A non-zero exit code of the manager ends the command with `E_STAGE_FAILED` and t
 
 | Form | Input | Output |
 |---|---|---|
-| `package.install` | none | `effect` |
+| default | `none` | `effect` |
 
 The record of each package has `target` `package:<name>`, `action`, `before` (installed version, absent when the package was not installed) and `after` (version read from the package database after the run).
 
@@ -50,8 +50,8 @@ The record of each package has `target` `package:<name>`, `action`, `before` (in
 |---|---|
 | Category | `change` |
 | Effect | `external` |
-| Reversibility | `irreversible`: the journal records `package_changed` and cannot undo the change |
-| External program | the manager (`apt-get`, `dnf`, `pacman`, `zypper`, `brew`, `choco`, `scoop`, `winget`) [P] |
+| Reversibility | `irreversible` |
+| Implementation | `package_manager` |
 
 ## Examples
 

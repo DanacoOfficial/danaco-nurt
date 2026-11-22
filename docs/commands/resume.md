@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-… |> resume
+job|process |> resume
 ```
 
 ## Description
@@ -32,13 +32,21 @@ The command has no parameters.
 
 ## Input and output
 
+| Form | Input | Output |
+|---|---|---|
+| default | `job`, `process` | `effect` |
+
 Input `job` or `process` records. Produces one `effect` record per input
 record; its `job` field holds the job record after the change.
 
 ## Effect
 
-Category `run`, effect `external`, reversibility `irreversible`, reason
-`process_state_changed`.
+| Property | Value |
+|---|---|
+| Category | `run` |
+| Effect | `external` |
+| Reversibility | `irreversible` |
+| Implementation | `builtin` |
 
 ## Examples
 

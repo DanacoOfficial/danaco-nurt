@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-services ... |> restart [wait: <duration>]
+service |> restart [name: value]...
 ```
 
 ## Description
@@ -41,7 +41,7 @@ services.
 
 | Form | Input | Output |
 |---|---|---|
-| `services ... \|> restart` | `service` | `effect` |
+| default | `service` | `effect` |
 
 Each `effect` record holds `kind: "restart"`, `target` (`service:<name>`),
 `action`, `before` and `after`. A preview shows the same records with
@@ -53,9 +53,9 @@ Each `effect` record holds `kind: "restart"`, `target` (`service:<name>`),
 |---|---|
 | Category | `run` |
 | Effect | `external` |
-| Reversibility | `irreversible`: the journal keeps no previous state of a service; the report lists `service_changed` |
-| External programs | `launchctl` on macOS only |
-| Waits | yes |
+| Reversibility | `irreversible` |
+| Implementation | `builtin` |
+| External use | `system_program`: `launchctl`; On macOS services are restarted through the launchctl component of the operating system. |
 
 ## Examples
 

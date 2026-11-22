@@ -13,9 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-read <path>… [lines: <range> | <list<range>>] [last: <int>] [around: <text> | <regex>] [context: <int>] [symbol: <text>] [section: <text>] [cell: <int> | <text>] [key: <key>] [depth: <int>] [view: full|outline|outline_first|symbols|header|hex] [pages: <range> | <list<range>>] [mode: text|layout|images] [encoding: <text>] [decompress: auto|none] [unchanged_since: <text>] [since: <text>] [known: <map<text>>] [line_numbers: <bool>] [max_line: <int>]
-read targets: <list<map<any>>> [view: …] [context: <int>] [depth: <int>] [pages: <range> | <list<range>>] [mode: text|layout|images] [encoding: <text>] [decompress: auto|none] [unchanged_since: <text>] [since: <text>] [known: <map<text>>] [line_numbers: <bool>] [max_line: <int>]
-<entry records> |> read [lines: …] [last: …] [around: …] [context: …] [symbol: …] [section: …] [cell: …] [key: …] [depth: …] [view: …] [pages: …] [mode: …] [encoding: …] [decompress: …] [unchanged_since: …] [since: …] [known: …] [line_numbers: …] [max_line: …]
+read <path>... (path: <list<path>> | targets: <list<map<any>>>) [name: value]...
+entry |> read [name: value]...
 ```
 
 ## Description
@@ -174,39 +173,43 @@ Content with more than one control character in twenty characters is binary.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | — | Files to read; positional and repeated. Exclusive with `targets`. |
-| `targets` | `list<map<any>>` | — | Selectors per target, with the keys `path`, `lines`, `around`, `symbol`, `key`, `section` and `cell`; `path` is required. |
-| `lines` | `range \| list<range>` | — | Line ranges to read, such as `5`, `1..5`, `40..` or `..9`. |
-| `last` | `int` | — | Number of last lines to read, at least 1. |
-| `around` | `text \| regex` | — | Read the lines around matches of this pattern. |
+| `path` | `list<path>` | one of `target` | Files to read; positional and repeated. Exclusive with `targets`. |
+| `lines` | `range \| list<range>` | none | Line ranges to read, such as `5`, `1..5`, `40..` or `..9`. |
+| `last` | `int` | none | Number of last lines to read, at least 1. |
+| `around` | `text \| regex` | none | Read the lines around matches of this pattern. |
 | `context` | `int` | `3` | Lines of context around matches of `around`. |
-| `symbol` | `text` | — | Read the definition of this code symbol. |
-| `section` | `text` | — | Read the Markdown section with this heading; nested headings are joined with ` > `. |
-| `cell` | `int \| text` | — | Notebook cell by index or identifier. |
-| `key` | `key` | — | Key path in a structured document; the result is `item` records. |
-| `depth` | `int` | — | Depth of nested values read at `key`, and of the symbols of the outline views. |
+| `symbol` | `text` | none | Read the definition of this code symbol. |
+| `section` | `text` | none | Read the Markdown section with this heading; nested headings are joined with ` > `. |
+| `cell` | `int \| text` | none | Notebook cell by index or identifier. |
+| `targets` | `list<map<any>>` | one of `target` | Selectors per target, with the keys `path`, `lines`, `around`, `symbol`, `key`, `section` and `cell`; `path` is required. |
+| `key` | `key` | none | Key path in a structured document; the result is `item` records. |
+| `depth` | `int` | none | Depth of nested values read at `key`, and of the symbols of the outline views. |
 | `view` | `enum(full\|outline\|outline_first\|symbols\|header\|hex)` | `full` | Full content, outline, symbols, header or hexadecimal dump. |
-| `pages` | `range \| list<range>` | — | PDF pages to read. |
+| `pages` | `range \| list<range>` | none | PDF pages to read. |
 | `mode` | `enum(text\|layout\|images)` | `text` | Extraction mode of PDF pages. |
 | `encoding` | `text` | `"auto"` | Text encoding, such as `utf-8` or `windows-1250`; `auto` detects it. |
 | `decompress` | `enum(auto\|none)` | `auto` | Read compressed files after decompressing them on the fly. |
-| `unchanged_since` | `text` | — | Etag; an unchanged file is returned without text. |
-| `since` | `text` | — | Etag of an earlier read; the result holds the differences since then. |
-| `known` | `map<text>` | — | Map from path to etag; unchanged files are skipped. |
+| `unchanged_since` | `text` | none | Etag; an unchanged file is returned without text. |
+| `since` | `text` | none | Etag of an earlier read; the result holds the differences since then. |
+| `known` | `map<text>` | none | Map from path to etag; unchanged files are skipped. |
 | `line_numbers` | `bool` | `false` | Prefix lines with their numbers, right-aligned and followed by two spaces. |
-| `max_line` | `int` | unbounded | Maximum length of a returned line in characters; longer lines are cut and marked. |
+| `max_line` | `int` | no limit | Maximum length of a returned line in characters; longer lines are cut and marked. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `content`; `item` with `key` |
-| stage | `entry` | `content`; `item` with `key` |
+| `source` | `none` | `content`, `item` |
+| `stage` | `entry` | `content`, `item` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command changes
-nothing and starts no external program.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

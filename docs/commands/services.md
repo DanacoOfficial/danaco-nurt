@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-services [<name>] [state: <text>] [scope: system|user]
+services [<name>] [name: value]...
 ```
 
 ## Description
@@ -44,7 +44,7 @@ manager of the current account on the session bus.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `text \| regex` | none, positional 1 | Service name, or a pattern the name matches. |
+| `name` | `text \| regex` | none | Service name, or a pattern the name matches. |
 | `state` | `text` | none | Only services in this state, raw state or part of the raw state. |
 | `scope` | `enum(system\|user)` | `system` | System services or services of the current account. |
 
@@ -52,7 +52,7 @@ manager of the current account on the session bus.
 
 | Form | Input | Output |
 |---|---|---|
-| `services` | none | `service` |
+| default | `none` | `service` |
 
 The `service` record holds `name`, `state` (`running`, `stopped`, `starting`,
 `stopping`, `failed`, `paused`, `unknown`), `start_type` (`automatic`,
@@ -60,34 +60,15 @@ The `service` record holds `name`, `state` (`running`, `stopped`, `starting`,
 and where the manager reports them `state_raw`, `description`, `pid`, `path`,
 `account` and `os_raw`.
 
-| systemd `ActiveState` | `state` |
-|---|---|
-| `active` | `running`; `stopped` for `active/exited`, a unit that ran to completion |
-| `reloading` | `running` |
-| `inactive` | `stopped` |
-| `activating` | `starting` |
-| `deactivating` | `stopping` |
-| `failed` | `failed` |
-| any other value | `unknown` |
-
-| systemd `UnitFileState` | `start_type` |
-|---|---|
-| `enabled`, `enabled-runtime` | `automatic` |
-| `disabled`, `masked`, `masked-runtime` | `disabled` |
-| `static` | `static` |
-| `indirect` | `on_demand` |
-| no unit file | `manual` |
-| `linked`, `generated`, `transient`, `alias`, `bad` | `unknown` |
-
 ## Effect
 
 | Property | Value |
 |---|---|
 | Category | `source` |
 | Effect | `read` |
-| Reversibility | `read`: nothing is changed, so there is nothing to undo |
-| External programs | `launchctl` on macOS only |
-| Waits | no |
+| Reversibility | `read` |
+| Implementation | `builtin` |
+| External use | `system_program`: `launchctl`; On macOS the state of services is read through the launchctl component of the operating system. |
 
 ## Examples
 

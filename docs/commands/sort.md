@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-sort <by>... [order: asc|desc]
+any |> sort <by>... [name: value]...
 ```
 
 ## Description
@@ -43,12 +43,16 @@ an empty output.
 
 | Form | Input | Output |
 |---|---|---|
-| stage | any record kind | the input records in the new order (`same`) |
+| default | `any` | `same` |
 
 ## Effect
 
-Category `transform`, effect `read`, reversibility `read`. The command reads
-no files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

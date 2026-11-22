@@ -13,8 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-set <path> [key: <key>] [value: <any>] [values: <map<any>>] [create: <bool>] [format: <enum>] [validate: <enum>] [if_match: <text>]
-<item> |> set <value> [create: <bool>] [validate: <enum>] [if_match: <text>]
+set <path> [name: value]...
+item |> set <value> [name: value]...
 ```
 
 ## Description
@@ -85,8 +85,8 @@ current one, writes nothing and reports the notable event `unchanged`.
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `effect` |
-| stage | `item` | `effect` |
+| `source` | `none` | `effect` |
+| `stage` | `item` | `effect` |
 
 The `effect` record lists one change per written file with `action`
 (`modify` or `create`), `size_before`, `size_after`, `hash_before`,
@@ -96,9 +96,12 @@ the formats.
 
 ## Effect
 
-| Category | Effect | Reversibility |
-|---|---|---|
-| change | `local` | reversible |
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 The operation journal preserves every target file before the first write.
 Each file is written with the entity tag read during planning as its

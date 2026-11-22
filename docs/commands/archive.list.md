@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-archive.list path [glob: glob]
+archive.list <path> [name: value]...
 ```
 
 ## Description
@@ -49,14 +49,18 @@ archive produces no records.
 
 ## Input and output
 
-Input: none; `archive.list` starts a pipeline.
-
-Output: `archive_entry` records.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `archive_entry` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`; no external
-programs. `archive.list` changes nothing and writes no journal entry.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

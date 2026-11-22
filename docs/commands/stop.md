@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-… |> stop [signal: terminate|kill|interrupt|hangup] [grace: duration]
+job|process|service |> stop [name: value]...
 ```
 
 ## Description
@@ -40,16 +40,22 @@ console program group; `kill` ends the job object.
 
 ## Input and output
 
+| Form | Input | Output |
+|---|---|---|
+| default | `job`, `process`, `service` | `effect` |
+
 Input `job`, `process` or `service` records. Produces one `effect` record per
 input record; for a job its `job` field holds the final job record with the
 state `stopped`.
 
 ## Effect
 
-Category `run`, effect `external`, reversibility `irreversible`. Every
-stopped job is reported as irreversible with the reason `process_stopped`.
-Changes the stopped program made to watched files are recorded in the
-journal entry of the job.
+| Property | Value |
+|---|---|
+| Category | `run` |
+| Effect | `external` |
+| Reversibility | `irreversible` |
+| Implementation | `builtin` |
 
 ## Examples
 

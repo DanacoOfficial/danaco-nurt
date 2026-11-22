@@ -13,8 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-insert <text> in: <path> [line: …] [position: …] [ensure_newline: …] [validate: …] [if_match: …]
-<line | match | node | entry> |> insert <text> [position: …] [ensure_newline: …] [validate: …] [if_match: …]
+insert <text> in: <path> [name: value]...
+line|match|node|entry |> insert <text> [name: value]...
 ```
 
 ## Description
@@ -56,16 +56,17 @@ outside the file fails with `E_OUT_OF_RANGE` and changes nothing.
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `effect` |
-| stage | `line`, `match`, `node`, `entry` | `effect` |
+| `source` | `none` | `effect` |
+| `stage` | `line`, `match`, `node`, `entry` | `effect` |
 
 ## Effect
 
-Category `change`, effect `local`, reversible. Every changed file is
-declared in the journal before the first write and must still have the
-entity tag it had when it was read; a file changed in between fails with
-`E_STALE`. With `validate: reject` an insertion that adds a syntax error to
-a file of a known format is rolled back.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -108,7 +109,7 @@ insert "export PATH=\"$HOME/bin:$PATH\"" in: "/home/user/.profile" position: end
 Add a header comment to every listed file:
 
 ```nurt example
-list "/home/user/app/src" glob: "*.rs" |> insert "// Part of the parser." position: start
+find "/home/user/app/src" glob: "*.rs" |> insert "// Part of the parser." position: start
 ```
 
 ```json fs-before

@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-logs [source: <text>] [unit: <text>] [level: critical|error|warning|info|debug] [since: <instant>] [until: <instant>] [message: <regex>] [limit: <int>]
+logs [name: value]...
 ```
 
 ## Description
@@ -111,7 +111,7 @@ terminal application.
 
 | Form | Input | Output |
 |---|---|---|
-| `logs` | none | `log_event` |
+| default | `none` | `log_event` |
 
 The `log_event` record holds `time`, `source`, `level` and `message`, and where
 the log provides them `id`, `host`, `unit`, `pid`, `boot_id`, `cursor` and
@@ -123,25 +123,14 @@ A message longer than 65536 bytes and a value of another field longer than
 are dropped; the event is then marked as truncated. A message that is not
 valid UTF-8 is decoded with replacement characters.
 
-| Notice | Meaning |
-|---|---|
-| `log_limit_reached` | More events match than `limit` allows; the message gives the `cursor` of the last event. |
-| `log_unknown_name` | No event has the given `source` or `unit`; `detail` lists similar names. |
-| `log_file_skipped` | A log file was skipped; `detail` is `truncated`, `corrupt`, `unsupported_format` or `io`. |
-| `permission_denied_skipped` | Some log files could not be read for lack of permission; `count` gives their number. |
-| `log_cursor_approximate` | The log file of the cursor no longer exists; paging continues from the time of the cursor. |
-| `log_unformatted` | Messages could not be formatted and hold the raw values; `count` gives their number. |
-| `log_events_lost` | The system reported lost events; `count` gives their number. |
-
 ## Effect
 
 | Property | Value |
 |---|---|
 | Category | `source` |
 | Effect | `read` |
-| Reversibility | `read`: nothing is changed, so there is nothing to undo |
-| External programs | none |
-| Waits | no |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-distinct [<by>...]
+any |> distinct <by>...
 ```
 
 ## Description
@@ -32,18 +32,22 @@ an empty output.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `by` | `list<field>` | - | Fields that make records distinct; all fields when omitted. |
+| `by` | `list<field>` | none | Fields that make records distinct; all fields when omitted. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| stage | any record kind | the first record of each value with `count` (`same`) |
+| default | `any` | `same` |
 
 ## Effect
 
-Category `transform`, effect `read`, reversibility `read`. The command reads
-no files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

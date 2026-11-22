@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-… |> describe
+any |> describe
 ```
 
 ## Description
@@ -44,15 +44,22 @@ the same records in the same order.
 
 ## Parameters
 
-`describe` has no parameters.
+The command has no parameters.
 
 ## Input and output
 
-Input: `any`. Output: `field_info`.
+| Form | Input | Output |
+|---|---|---|
+| default | `any` | `field_info` |
 
 ## Effect
 
-Category `transform`. Effect `read`. The command changes nothing.
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -64,7 +71,7 @@ list "/home/user/app" |> describe
 
 ```json fs-before
 { "format": "nurt-fs-snapshot/1", "entries": [
-  { "path": "/home/user/app", "type": "directory" },
+  { "path": "/home/user/app", "type": "dir" },
   { "path": "/home/user/app/a.go", "type": "file", "content_utf8": "package main\n" }
 ] }
 ```
@@ -81,7 +88,7 @@ find "/home/user/app" glob: "**/*" |> describe |> filter required == false
 
 ```json fs-before
 { "format": "nurt-fs-snapshot/1", "entries": [
-  { "path": "/home/user/app", "type": "directory" },
+  { "path": "/home/user/app", "type": "dir" },
   { "path": "/home/user/app/a.go", "type": "file", "content_utf8": "package main\n" }
 ] }
 ```
@@ -94,7 +101,7 @@ search "main" "/home/user/app" |> describe |> select field type
 
 ```json fs-before
 { "format": "nurt-fs-snapshot/1", "entries": [
-  { "path": "/home/user/app", "type": "directory" },
+  { "path": "/home/user/app", "type": "dir" },
   { "path": "/home/user/app/a.go", "type": "file", "content_utf8": "package main\n" }
 ] }
 ```

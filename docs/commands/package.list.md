@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-package.list [name: <text>] [outdated: <bool>] [manager: <enum>]
+package.list [name: value]...
 ```
 
 ## Description
@@ -46,7 +46,7 @@ When several managers are found and `manager` is `auto`, each package record nam
 
 | Form | Input | Output |
 |---|---|---|
-| `package.list` | none | `package` |
+| default | `none` | `package` |
 
 ## Effect
 
@@ -55,7 +55,7 @@ When several managers are found and `manager` is `auto`, each package record nam
 | Category | `source` |
 | Effect | `read` |
 | Reversibility | `read` |
-| Implementation | built in; no external program |
+| Implementation | `package_manager` |
 
 ## Examples
 
@@ -74,7 +74,7 @@ package.list outdated: true
 List the packages of one manager only.
 
 ```nurt example
-package.list manager: pacman | sort field: name
+package.list manager: pacman |> sort by: name
 ```
 
 ## Errors

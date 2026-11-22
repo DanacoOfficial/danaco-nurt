@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-program.describe <name> [include_guide: <bool>]
+program.describe <name> [name: value]...
 ```
 
 ## Description
@@ -30,14 +30,14 @@ The help text of a program is never read on its own: `program.describe` starts n
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `text` | required, positional 1 | Program, alias, application or guide name, 1 to 120 characters. |
+| `name` | `text` | required | Program, alias, application or guide name, 1 to 120 characters. |
 | `include_guide` | `bool` | `true` | Include the text of the usage guide in the field `guide`. `false` keeps `guide_sections` and `guide_etag`, for a guide already read. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| `program.describe <name>` | none | `program_card` |
+| default | `none` | `program_card` |
 
 The record carries the fields of `program_card` and, when they apply, `kind`, `etag`, `requested`, `alias_kind`, `description`, `when_to_use`, `not_for`, `example`, `pitfalls`, `man`, `guide`, `guide_sections`, `guide_files`, `guide_etag` and `guide_shared_with`.
 
@@ -48,7 +48,8 @@ The record carries the fields of `program_card` and, when they apply, `kind`, `e
 | Category | `source` |
 | Effect | `read` |
 | Reversibility | `read` |
-| Implementation | built in; no program is started |
+| Implementation | `builtin` |
+| External use | `user_program`; Runs the program once with --help, with a time limit, when no other description is available. |
 
 ## Examples
 
@@ -66,13 +67,13 @@ tar   archives  1.35     /usr/bin/tar  An archiving utility.
 Describe a program whose guide was already read in the session.
 
 ```nurt example
-program.describe "ffmpeg" include_guide: false | select name, guide_sections, guide_etag
+program.describe "ffmpeg" include_guide: false |> select name, guide_sections, guide_etag
 ```
 
 Resolve an alias to its main program.
 
 ```nurt example
-program.describe "vi" | select name, requested, alias_kind, path
+program.describe "vi" |> select name, requested, alias_kind, path
 ```
 
 ## Errors

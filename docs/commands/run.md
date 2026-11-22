@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-run <command> [cwd: <path>] [env: <map>] [inherit_env: all|none] [stdin: <text|path>] [timeout: <duration>] [idle_timeout: <duration>] [wait: <duration|forever>] [background: <bool>] [merge_stderr: <bool>] [show: <mode>] [head: <int>] [tail: <int>] [filter: <regex>] [context: <int>] [dedupe: <bool>] [quiet_on_success: <bool>] [output_encoding: <text>] [watch: <list<path>>] [track_changes: <mode>] [max_cpu: <duration>] [max_memory: <size>] [priority: low|normal|high] [label: <text>] [description: <text>] [progress: <regex>] [summary: <list<regex>>]
-<entry|match records> |> run <command> [batch: <int>] [parallel: <int>] [bail: <bool>] [parameters as above]
+run <command> cwd: <path> [name: value]...
 ```
 
 ## Description
@@ -107,12 +106,24 @@ line of the interpreter), the working directory, `launcher`, `env_keys`,
 `stdin`, `timeout`, `wait`, `watch` and `track_changes`, without starting
 anything.
 
+The command line of a batch file cannot hold a line break: the interpreter
+ends the command there. An argument with `\r` or `\n` for a batch file, and an
+argument with a NUL character for any program, fails with `E_ARG`;
+`details.index` gives the position in `command` and `fix` passes the text on
+standard input instead.
+
+Every job of a run, a batch or a `retry` emits `job.started`, then
+`job.output` and `job.progress`, then one `job.finished`, also when the job
+continues in the background. The command emits no `exec.started` or
+`exec.finished`: these events enclose the whole program and come from the
+engine.
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `command` | `list<text>` | required | Program and arguments; the first element is the program. Numbers, truth values and paths are written as text. |
-| `cwd` | `path` | the call parameter `base` | Working directory of the program; one of them is required. A relative `cwd` is taken against `base`. |
+| `cwd` | `path` | required | Working directory of the program; one of them is required. A relative `cwd` is taken against `base`. |
 | `env` | `map<text>` | none | Environment variables to set; `null` removes a variable. |
 | `inherit_env` | `enum(all\|none)` | `all` | Inherit the environment of the console or start with an empty one. |
 | `stdin` | `text \| path` | none | Text or file given on standard input; the input is empty otherwise. |
@@ -129,7 +140,7 @@ anything.
 | `dedupe` | `bool` | `false` | Collapse repeated identical output lines. |
 | `quiet_on_success` | `bool` | `false` | Return no output when the exit code is 0. |
 | `output_encoding` | `text` | `"auto"` | Encoding of the program output; `auto` detects it. |
-| `watch` | `list<path>` | the working directory | Directories in which changes made by the program are detected. |
+| `watch` | `list<path>` | none | Directories in which changes made by the program are detected. |
 | `track_changes` | `enum(auto\|scan\|events\|none)` | `auto` | Method of detecting changes made by the program. |
 | `max_cpu` | `duration` | none | Limit of processor time of the process tree. |
 | `max_memory` | `size` | none | Limit of memory of the process tree. |
@@ -146,13 +157,17 @@ anything.
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `exec`; `job` after `wait` or with `background` |
-| stage | `entry`, `match` | `exec` with `batches` |
+| default | `none`, `entry`, `match` | `exec`, `job` |
 
 ## Effect
 
-Category `run`, effect `process`, reversibility `reversible_if_preserved`,
-implementation `user_program`.
+| Property | Value |
+|---|---|
+| Category | `run` |
+| Effect | `process` |
+| Reversibility | `reversible_if_preserved` |
+| Implementation | `user_program` |
+| Reversibility conditions | Changes of files under watch are reversible when their previous content was kept; effects outside the file system are irreversible. |
 
 Changes of files under `watch` are recorded in the journal and are
 reversible when their previous content was kept; effects outside the file
@@ -164,20 +179,6 @@ wrappers such as `sudo` or `env`) or a pattern of `run.irreversible_patterns`
 lists the matched rules in `exec.external_effect`, and the report marks the
 call `irreversible: external_effect`. The classification describes the
 effect; it never prevents the run.
-
-## Notes
-
-The command line of a batch file cannot hold a line break: the interpreter
-ends the command there. An argument with `\r` or `\n` for a batch file, and an
-argument with a NUL character for any program, fails with `E_ARG`;
-`details.index` gives the position in `command` and `fix` passes the text on
-standard input instead.
-
-Every job of a run, a batch or a `retry` emits `job.started`, then
-`job.output` and `job.progress`, then one `job.finished`, also when the job
-continues in the background. The command emits no `exec.started` or
-`exec.finished`: these events enclose the whole program and come from the
-engine.
 
 ## Examples
 

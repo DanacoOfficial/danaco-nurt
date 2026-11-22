@@ -13,8 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-search <pattern> <path>... [parameters]
-<entry | content | line records> |> search <pattern> [parameters]
+search <pattern> <path>... [name: value]...
+entry|content|line |> search <pattern> [name: value]...
 ```
 
 ## Description
@@ -95,7 +95,7 @@ the order of the result does not depend on the number of threads.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `pattern` | `text \| regex \| list<text \| regex>` | required | Pattern; with a list, counts are given per pattern. |
-| `path` | `list<path>` | required in the source form | Files or directories to search in the source form. |
+| `path` | `list<path>` | required | Files or directories to search in the source form. |
 | `glob` | `glob \| list<glob>` | `"**"` | Name patterns of the files to search, relative to each directory searched. |
 | `mode` | `enum(auto\|literal\|regex\|syntax)` | `auto` | Pattern mode; `auto` treats text as literal and `/…/` as a regular expression. |
 | `case_sensitive` | `bool` | `true` | Match with case sensitivity. |
@@ -111,15 +111,15 @@ the order of the result does not depend on the number of threads.
 | `exclude` | `list<glob>` | `[]` | Patterns to exclude, in gitignore syntax. |
 | `exclude_preset` | `list<enum(vcs\|deps\|build\|cache)>` | `[]` | Predefined exclusions: version control, dependencies, build output, caches. |
 | `context` | `int` | `0` | Lines of context before and after each match. |
-| `before` | `int` | value of `context` | Lines of context before each match. |
-| `after` | `int` | value of `context` | Lines of context after each match. |
+| `before` | `int` | none | Lines of context before each match. |
+| `after` | `int` | none | Lines of context after each match. |
 | `output` | `enum(matches\|files\|counts\|unmatched)` | `matches` | Matches, matching files, counts per file, or files without matches. |
-| `max_per_file` | `int` | no limit | Maximum number of matching lines per file, or of matches with `only_matching`; `0` is no limit. |
+| `max_per_file` | `int` | none | Maximum number of matching lines per file, or of matches with `only_matching`; `0` is no limit. |
 | `binary` | `enum(skip\|text)` | `skip` | Skip binary files or search them as text. |
 | `whitespace` | `enum(exact\|trailing\|indent\|normalize)` | `exact` | Tolerance of whitespace differences for literal patterns: at line ends, at line starts, or in every run of spaces and tabs. |
 | `hidden` | `bool` | `true` | Include hidden files. |
 | `gitignore` | `bool` | `false` | Apply the rules of `.gitignore` files. |
-| `language` | `text` | detected | Programming language of syntax patterns and of `scope` and `enclosing`. |
+| `language` | `text` | none | Programming language of syntax patterns and of `scope` and `enclosing`. |
 | `file_type` | `list<text>` | `[]` | File types, such as `rust`, `py`, `ts`, `md`, `make` or `docker`, with the names of `rg --type-list`; applies in every output mode. |
 | `exclude_file_type` | `list<text>` | `[]` | File types to leave out. |
 | `sort` | `enum(path\|modified\|count\|rank)` | `path` | Sort key of the results; `rank` orders by relevance. |
@@ -129,8 +129,8 @@ the order of the result does not depend on the number of threads.
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `match`; `entry` with `output: files` or `output: unmatched` |
-| stage | `entry`, `content`, `line` | `match`; `entry` with `output: files` or `output: unmatched` |
+| `source` | `none` | `match`, `entry` |
+| `stage` | `entry`, `content`, `line` | `match`, `entry` |
 
 `match` fields: `path`, `no`, `column`, `start`, `end`, `text`, `line`,
 `etag`, and when they apply `groups` (group 0 is the whole match), `named`,
@@ -142,8 +142,12 @@ of one file are counted together.
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command reads
-files and changes nothing. It starts no external programs.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

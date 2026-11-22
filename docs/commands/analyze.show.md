@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-analyze.show [analysis_id: text] [check: text] [file: path] [offset: int]
-             [min_severity: enum] [max_findings: int]
+analyze.show [<analysis_id>] [name: value]...
 ```
 
 ## Description
@@ -29,20 +28,28 @@ severity, then paged with `offset` and `max_findings`.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `analysis_id` | `text` | the latest analysis | Earlier analysis, for example `an-3`. |
-| `check` | `text` | all checks | Only findings of this check. |
-| `file` | `path` | all files | Only findings in this file. |
-| `offset` | `int` | `0` | Number of findings to skip. |
+| `check` | `text` | none | Only findings of this check. |
+| `file` | `path` | none | Only findings in this file. |
+| `offset` | `int` | none | Number of findings to skip. |
 | `min_severity` | `enum(error\|warning\|info)` | `info` | Lowest severity of findings returned. |
 | `max_findings` | `int` | `100` | Maximum number of findings returned. |
 
 ## Input and output
 
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `finding` |
+
 No input. Output: the `analysis` header and `finding` records.
 
 ## Effect
 
-Category `source`, effect `read`, implementation `builtin`. Nothing is
-changed.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -55,7 +62,7 @@ analyze.show
 Show lint errors of one analysis in one file.
 
 ```nurt example
-analyze.show "an-3", check: "lint", file: "src/app.py", min_severity: "error"
+analyze.show "an-3" check: "lint" file: "src/app.py" min_severity: error
 ```
 
 Show the second page of findings.

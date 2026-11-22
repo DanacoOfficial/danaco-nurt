@@ -53,9 +53,6 @@ from the log of `HEAD`.
 | `detach` | `bool` | `false` | Point `HEAD` directly at the commit of `branch` instead of a branch. |
 | `discard_changes` | `bool` | `false` | Overwrite local changes of tracked files; untracked files in the way still refuse the switch. |
 
-`start_point` requires `create: true`; to check out a revision without a
-branch, give it as `branch` with `detach: true`.
-
 ## Input and output
 
 | Form | Input | Output |

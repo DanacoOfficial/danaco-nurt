@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-sql <path> <query> [params: <list<any> | map<any>>] [write: <bool>]
+sql <path> <query> [name: value]...
 ```
 
 ## Description
@@ -82,6 +82,10 @@ placeholder (`?`, `?2`) cannot be bound from a map. A violation fails with
 | `BLOB` | `bytes` |
 | `NULL` | `null` |
 
+A read of a database in write-ahead log mode creates the files `-wal` and
+`-shm` when they are missing and the directory is writable, as every SQLite
+reader does; the database file itself is not changed.
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
@@ -95,25 +99,26 @@ placeholder (`?`, `?2`) cannot be bound from a map. A violation fails with
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `row` |
+| default | `none` | `row` |
 
 Fields of `row`:
-
-| Field | Content |
-|---|---|
-| `path` | the database file |
-| `no` | number of the row within its statement, from 1 |
-| `cells` | values by column name, in column order; a repeated column name gets the suffix `_2`, `_3`, … |
-| `table` | number of the statement, from 1, when `query` holds more than one statement |
 
 Rows are produced while the query runs. A pipeline that uses only the first
 rows, or a cancelled execution, interrupts the running statement.
 
 ## Effect
 
-| Category | Effect | Reversibility |
-|---|---|---|
-| change | `read`; `local` with `write: true` | read; with `write: true` reversible when the previous content is preserved |
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
+| Reversibility conditions | With write set to true the database file is copied before the change; without space for the copy the change is irreversible. |
+
+| Action | Effect | Reversibility | Note |
+|---|---|---|---|
+| `write` | `local` | `reversible_if_preserved` | Applies when write is true. |
 
 With `write: true` the operation journal preserves the database file and the
 files `-wal`, `-shm` and `-journal` next to it before the first statement
@@ -125,12 +130,6 @@ updated or deleted, triggers included, in `rows_changed`.
 
 A lock held by another connection is awaited for `sql.busy_timeout` (5
 seconds by default) and then fails with `E_IN_USE`.
-
-## Notes
-
-A read of a database in write-ahead log mode creates the files `-wal` and
-`-shm` when they are missing and the directory is writable, as every SQLite
-reader does; the database file itself is not changed.
 
 ## Examples
 

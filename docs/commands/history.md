@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-history [id: int] [limit: int] [state: any|available|partial|expired|undone] [before: int] [since: int] [path: path] [deleted: bool] [details: bool]
+history [<id>] [name: value]...
 ```
 
 ## Description
@@ -53,24 +53,20 @@ retention limits and the state of the journal are reported by
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `int` | | Operation to describe. |
+| `id` | `int` | none | Operation to describe. |
 | `limit` | `int` | `20` | Number of operations listed. |
 | `state` | `enum(any\|available\|partial\|expired\|undone)` | `any` | State of the operations to list. |
-| `before` | `int` | | List only operations older than this one. |
-| `since` | `int` | | List only operations newer than this one. |
-| `path` | `path` | | List only operations that touched this file. |
+| `before` | `int` | none | List only operations older than this one. |
+| `since` | `int` | none | List only operations newer than this one. |
+| `path` | `path` | none | List only operations that touched this file. |
 | `deleted` | `bool` | `false` | List only operations that removed files. |
 | `details` | `bool` | `false` | Include the items of each operation in `items`. |
 
 ## Input and output
 
-Input: `none`. Output: `operation` records — number, commit time, kind
-(command and action), one-line summary, state, number of items, bytes
-changed, irreversible markers, bulk flag, session, the operations an undo
-undid (`undo_of`), the undo a redo reversed (`redo_of`), the scope of an undo,
-the program hash, the manifest hash, the hash chain link and whether the
-operation is pinned, and with `details: true` the items. The records are
-ordered by `id`, latest first.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `operation` |
 
 Each item of `items` has the fields `path`, `action` (the action on the target,
 for example `create`, `modify` or `rename`), `mode` (how the previous content
@@ -79,8 +75,12 @@ when there was no content), `undone` and `released`.
 
 ## Effect
 
-Category `journal`, effect `read`. `history` changes nothing and consumes no
-operation number.
+| Property | Value |
+|---|---|
+| Category | `journal` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

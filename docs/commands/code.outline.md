@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-code.outline <path> [depth: <int>]
+code.outline <path> [name: value]...
 ```
 
 ## Description
@@ -35,32 +35,22 @@ Local variables declared inside functions are not part of an outline.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | required | Source file. |
-| `depth` | `int` | unlimited | Deepest nesting level listed, from 0 for top-level symbols. |
+| `depth` | `int` | no limit | Deepest nesting level listed, from 0 for top-level symbols. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `symbol` |
-
-| Field | Type | Description |
-|---|---|---|
-| `name` | `text` | Name as written. |
-| `kind` | `enum` | Kind of the symbol. |
-| `path` | `path` | File. |
-| `line`, `column` | `int` | Position of the name, from 1; columns count characters. |
-| `end_line`, `end_column` | `int` | End of the whole definition. |
-| `language` | `text` | Language of the file. |
-| `source` | `enum` | `syntax`, or `lsp` for a file outlined by its server. |
-| `etag` | `text` | Content digest of the file, `sha256:` followed by 64 hexadecimal digits. |
-| `container` | `text` | Qualified name of the enclosing symbol. |
-| `signature` | `text` | Declaration without the body. |
-| `exported` | `bool` | Visibility by the rules of the language (see `code.symbols`). |
+| default | `none` | `symbol` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. A language server is
-used only for languages without a built-in grammar.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -79,7 +69,7 @@ code.outline "src/lib.rs" depth: 0
 List the methods of one class.
 
 ```nurt example
-code.outline "src/Cart.java" |> where container == "Cart" and kind == "method"
+code.outline "src/Cart.java" |> filter container == "Cart" and kind == "method"
 ```
 
 ## Errors

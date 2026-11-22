@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-analyze.format [path...] [changed_only: bool] [sample_lines: int]
+analyze.format <path>... [name: value]...
 ```
 
 ## Description
@@ -23,9 +23,8 @@ formatters on exactly those files. The formatters are Prettier, Biome, Ruff,
 `gofmt` and `rustfmt`. The set of files is determined before any formatter
 starts: each formatter is first run in its check mode on the requested files.
 
-The preview (`preview: true`) lists the files and shows up to `sample_lines`
-changed lines per file as `-old` and `+new` lines. The formatter runs on a
-copy of the file in a temporary directory, so no project file is written.
+The result lists the files and shows up to `sample_lines` changed lines per
+file as `-old` and `+new` lines.
 
 Files changed outside the determined set are detected as for `run`.
 
@@ -33,27 +32,29 @@ Files changed outside the determined set are detected as for `run`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | the base directory | Files or directories to format. |
+| `path` | `list<path>` | none | Files or directories to format. |
 | `changed_only` | `bool` | `false` | Only files changed in the repository. |
 | `sample_lines` | `int` | `12` | Maximum number of changed lines shown per file, from 1 to 200. |
 
 ## Input and output
 
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect` |
+
 No input. Output: an effect report with one change per formatted file.
 
 ## Effect
 
-Category `change`, effect `process`, implementation `user_program`,
-reversible. The previous content of every file passed to a formatter is kept in
-the journal.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `process` |
+| Reversibility | `reversible` |
+| Implementation | `user_program` |
+| Reversibility conditions | The previous content of every file passed to the formatter is kept in the journal. |
 
 ## Examples
-
-Preview the formatting of the project.
-
-```nurt example
-analyze.format preview: true
-```
 
 Format files changed in the repository.
 
@@ -64,7 +65,13 @@ analyze.format changed_only: true
 Format one directory and show more changed lines.
 
 ```nurt example
-analyze.format "src", sample_lines: 40
+analyze.format "src" sample_lines: 40
+```
+
+Format two directories.
+
+```nurt example
+analyze.format "src" "tests"
 ```
 
 ## Errors

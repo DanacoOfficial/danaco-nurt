@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-redo [id: int]
+redo [<id>]
 ```
 
 ## Description
@@ -45,18 +45,18 @@ like any other operation.
 
 ## Input and output
 
-Input: `none`. Output: one `effect` record of kind `redo` with the fields of
-the `undo` result: `op` (the new journal entry), `targets` and `changes` (the
-restored items), `summary`, `after.sources` (the undo operation reversed) and
-`irreversible` (the irreversible markers of the new entry). A preview of
-`redo id` lists the items the redo would restore.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect` |
 
 ## Effect
 
-Category `journal`, effect `local`, reversible. The redo is an operation with
-its own number and journal entry and counts as a step; the current state of
-every item is preserved in its entry before it is changed. A crash during the
-redo leaves the state before or after it.
+| Property | Value |
+|---|---|
+| Category | `journal` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 ## Examples
 

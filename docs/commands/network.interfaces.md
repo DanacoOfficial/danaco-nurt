@@ -40,24 +40,18 @@ The command has no parameters.
 
 ## Input and output
 
-| Input | Output |
-|---|---|
-| none | `network_interface` |
-
-| Field | Type | Description |
+| Form | Input | Output |
 |---|---|---|
-| `name` | `text` | Name of the interface. |
-| `addresses` | `list<text>` | Addresses with prefix length, for example `192.0.2.10/24` and `2001:db8::10/64`. |
-| `up` | `bool` | The interface is up. |
-| `mac` | `text` | Hardware address `aa:bb:cc:dd:ee:ff`; absent for interfaces without one. |
-| `mtu` | `int` | Maximum transmission unit. |
-| `kind` | `enum` | `ethernet`, `wireless`, `loopback`, `virtual` or `other`. |
-| `gateway` | `text` | Address of the default gateway reached through the interface. |
+| default | `none` | `network_interface` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command reads the
-interface tables of the operating system and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -75,13 +69,13 @@ network_interface  eth0  192.0.2.10/24, 2001:db8::10/64  up  ethernet  gateway 1
 List the interfaces that are up and have a default gateway:
 
 ```nurt example
-network.interfaces | where up and gateway != null
+network.interfaces |> filter up and gateway != null
 ```
 
 Show the hardware addresses of the wireless interfaces:
 
 ```nurt example
-network.interfaces | where kind == "wireless" | select name, mac
+network.interfaces |> filter kind == "wireless" |> select name, mac
 ```
 
 ## Errors

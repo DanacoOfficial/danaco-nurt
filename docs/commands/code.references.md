@@ -13,8 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-code.references <path> [line: int] [column: int] [symbol: text] [include_definition: bool] [scope: project|file] [language: text] [root: path] [source: auto|lsp|syntax]
-<symbol records> |> code.references [include_definition: bool] [scope: project|file] [language: text] [root: path] [source: auto|lsp|syntax]
+code.references <path> [name: value]...
+symbol |> code.references [name: value]...
 ```
 
 ## Description
@@ -45,40 +45,31 @@ number of records of each role is the count of that role.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required in the source form | Source file. |
+| `path` | `path` | required | Source file. |
 | `line` | `int` | none | Line of the symbol, counted from 1; required unless `symbol` is given. |
-| `column` | `int` | first identifier of the line | Column of the symbol, counted from 1. |
+| `column` | `int` | none | Column of the symbol, counted from 1. |
 | `symbol` | `text` | none | Symbol name, optionally qualified as `Container.name`, instead of a position. |
 | `include_definition` | `bool` | `true` | Include the definition among the references. |
 | `scope` | `enum(project\|file)` | `project` | Search the whole project or only the file. |
 | `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
-| `source` | `enum(auto\|lsp\|syntax)` | `auto` | Language server, syntax analysis, or the server when available. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `reference` |
-| stage | `symbol` | `reference` |
-
-| Field | Type | Description |
-|---|---|---|
-| `name` | `text` | Name of the symbol. |
-| `path` | `path` | File of the reference. |
-| `line`, `column` | `int` | Position, from 1. |
-| `end_column` | `int` | Column after the name. |
-| `role` | `enum` | `definition`, `import`, `test` or `reference`. |
-| `container` | `text` | Qualified name of the enclosing function or class. |
-| `text` | `text` | Source line, trimmed. |
-| `source` | `enum` | `lsp` or `syntax`. |
-| `etag` | `text` | Entity tag of the file when it was read. |
+| `source` | `none` | `reference` |
+| `stage` | `symbol` | `reference` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. Before the request
-the client opens in the server up to 60 files of the project that contain
-the name, so that servers which index lazily see every use.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `language_server` |
+| Fallback | `builtin` |
 
 ## Examples
 
@@ -91,7 +82,7 @@ code.references "/srv/app/src/shapes.py" symbol: "scale"
 List the uses of a symbol in test files.
 
 ```nurt example
-code.references "/srv/app/src/shapes.py" symbol: "scale" include_definition: false |> where role == "test"
+code.references "/srv/app/src/shapes.py" symbol: "scale" include_definition: false |> filter role == "test"
 ```
 
 Find the references to every exported class of a directory.

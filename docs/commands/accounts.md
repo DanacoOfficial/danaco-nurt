@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-accounts [kind: user|group|all] [name: text]
+accounts [name: value]...
 ```
 
 ## Description
@@ -52,25 +52,29 @@ case-sensitively on Linux and macOS and regardless of case on Windows.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `kind` | `enum(user\|group\|all)` | `all` | Users, groups or both. |
-| `name` | `text` | | Only the account or group with this name. |
+| `name` | `text` | none | Only the account or group with this name. |
 
 ## Input and output
 
-| Input | Output |
-|---|---|
-| none | `account` |
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `account` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command reads the
-account databases and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
 List the accounts of people:
 
 ```nurt example
-accounts kind: user | where not system
+accounts kind: user |> filter not system
 ```
 
 ```text expected
@@ -81,13 +85,13 @@ system: false
 Show the members of one group:
 
 ```nurt example
-accounts kind: group name: "docker" | select groups
+accounts kind: group name: "docker" |> select groups
 ```
 
 List the disabled accounts:
 
 ```nurt example
-accounts kind: user | where disabled
+accounts kind: user |> filter disabled
 ```
 
 ## Errors

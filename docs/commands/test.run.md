@@ -13,10 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-test.run [path] [framework: auto|bun|vitest|jest|npm|pytest|go|cargo] [targets: list<text>]
-         [filter: text] [bail: bool] [command: list<text>] [coverage: bool]
-         [coverage_file: path] [timeout: duration] [wait: duration]
-         [slowest: int] [failures: int] [message_lines: int]
+test.run [<path>] [name: value]...
 ```
 
 ## Description
@@ -72,7 +69,7 @@ command returns the `job` record. The test run is stored when the job ends.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | the base directory | Project directory. |
+| `path` | `path` | none | Project directory. |
 | `framework` | `enum(auto\|bun\|vitest\|jest\|npm\|pytest\|go\|cargo)` | `auto` | Test framework. |
 | `targets` | `list<text>` | none | Test files, packages or identifiers to run. |
 | `filter` | `text` | none | Only tests whose name matches this filter. |
@@ -88,6 +85,10 @@ command returns the `job` record. The test run is stored when the job ends.
 
 ## Input and output
 
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `test_run`, `test_result`, `job` |
+
 The command takes no input. It produces a `test_run` header followed by
 `test_result` records, or a `job` record when the run continues in the
 background.
@@ -100,9 +101,13 @@ package that does not build are reported as results with the status `error`.
 
 ## Effect
 
-Category `run`, effect `process`, implementation `user_program`. Files that the
-test programs change are recorded in the journal as for `run`; effects outside
-the file system are irreversible.
+| Property | Value |
+|---|---|
+| Category | `run` |
+| Effect | `process` |
+| Reversibility | `reversible_if_preserved` |
+| Implementation | `user_program` |
+| Reversibility conditions | Files changed by the test programs are reversible when their previous content was preserved; effects outside the file system are irreversible. |
 
 ## Examples
 

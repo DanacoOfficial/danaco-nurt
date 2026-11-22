@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-open_files path
+open_files <path>
 ```
 
 ## Description
@@ -53,14 +53,18 @@ The file layer uses the same search to name the holders of a file in the
 
 ## Input and output
 
-| Input | Output |
-|---|---|
-| none | `process` |
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `process` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command reads the
-process table and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -78,7 +82,7 @@ user: app
 Find the processes that keep a mounted volume busy:
 
 ```nurt example
-open_files "/mnt/backup" | select pid, name, user
+open_files "/mnt/backup" |> select pid, name, user
 ```
 
 Find the programs that lock a file on Windows:

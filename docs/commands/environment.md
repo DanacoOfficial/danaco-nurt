@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-environment [name: text|regex] [scope: process|user|machine]
+environment [<name>] [name: value]...
 ```
 
 ## Description
@@ -48,19 +48,23 @@ registry value, which also notifies running programs with
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `text \| regex` | | Variable name or pattern; position 1. |
+| `name` | `text \| regex` | none | Variable name or pattern; position 1. |
 | `scope` | `enum(process\|user\|machine)` | `process` | Variables of this process, or persistent user or machine variables on Windows. |
 
 ## Input and output
 
-| Input | Output |
-|---|---|
-| none | `environment_variable` |
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `environment_variable` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command reads the
-environment of the process or the registry and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -90,7 +94,7 @@ environment scope: user
 Set a persistent variable of the account on Windows:
 
 ```nurt example
-write "registry:/HKCU/Environment/EDITOR" "code" type: string
+write "registry:/HKCU/Environment/EDITOR" "code" mode: overwrite value_type: string
 ```
 
 ## Errors

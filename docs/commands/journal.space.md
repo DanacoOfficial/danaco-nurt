@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-journal.space [volume: path]
+journal.space [name: value]...
 ```
 
 ## Description
@@ -88,21 +88,9 @@ Not guaranteed:
 
 ## Input and output
 
-Input: none. Output: `volume` records with the fields:
-
-| Field | Type | Meaning |
+| Form | Input | Output |
 |---|---|---|
-| `mount` | `path` | mount point or volume root |
-| `filesystem` | `string` | file system type, for example `ext4`, `apfs`, `ntfs` |
-| `total` | `size` | capacity, or the account quota when smaller |
-| `free` | `size` | free space `F` as other programs see it |
-| `free_without_journal` | `size` | free space if the journal held nothing |
-| `reclaimable` | `size` | space the journal could release now |
-| `reserve` | `size` | reserve `R` |
-| `soft` | `size` | soft threshold `S` |
-| `journal_bytes` | `size` | logical size of the data the journal holds |
-| `journal` | `bool` | the journal keeps data on the volume |
-| `journal_reason` | `string` | why the journal keeps no data on the volume: `service_down`, `network_volume`, `removable_volume`, `memory_volume`, `below_reserve`, `no_anchor`, `disabled` or `not_durable`; absent when the journal is on |
+| default | `none` | `volume` |
 
 Sizes are logical: data shared with names outside the journal through hard
 links counts as zero, and on file systems that release blocks lazily `free`
@@ -110,8 +98,12 @@ grows up to a few seconds after the release.
 
 ## Effect
 
-Category `journal`, effect `read`, reversibility `read`. The command changes
-nothing and uses no journal entry number.
+| Property | Value |
+|---|---|
+| Category | `journal` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

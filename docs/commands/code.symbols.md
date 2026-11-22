@@ -13,10 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-code.symbols [name] [path: <list<path>>] [glob: <glob>] [kind: <kind>] [match: <mode>]
-             [language: <text>] [source: auto|lsp|syntax] [with_signature: <bool>]
-             [with_references: <bool>] [exported_only: <bool>] [exclude: <list<glob>>]
-             [exclude_preset: <list<preset>>]
+code.symbols [<name>] [name: value]...
 ```
 
 ## Description
@@ -64,39 +61,24 @@ share the words `get`, `user`, `by`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `text \| regex \| list<text>` | all symbols | Symbol name, pattern or names; a list matches any of them. |
-| `path` | `list<path>` | base directory | Files or directories to search. |
+| `name` | `text \| regex \| list<text>` | none | Symbol name, pattern or names; a list matches any of them. |
+| `path` | `list<path>` | none | Files or directories to search. |
 | `glob` | `glob` | `"**"` | Only files whose path relative to the searched directory matches. |
-| `kind` | `enum` | `any` | `function`, `method`, `class`, `struct`, `interface`, `enum`, `variable`, `constant`, `field`, `module`, `type`, `macro` or `any`. |
-| `match` | `enum` | `fuzzy` | `exact`, `prefix`, `substring`, `fuzzy` or `regex`. |
+| `kind` | `enum(function\|method\|class\|struct\|interface\|enum\|variable\|constant\|field\|module\|type\|macro\|any)` | `any` | `function`, `method`, `class`, `struct`, `interface`, `enum`, `variable`, `constant`, `field`, `module`, `type`, `macro` or `any`. |
+| `match` | `enum(exact\|prefix\|substring\|fuzzy\|regex)` | `fuzzy` | `exact`, `prefix`, `substring`, `fuzzy` or `regex`. |
 | `language` | `text` | `"auto"` | Language identifier or alias (`py`, `ts`, `c#`); `auto` detects it per file. |
-| `source` | `enum` | `auto` | `lsp`, `syntax`, or `auto` for the server when available. |
+| `source` | `enum(auto\|lsp\|syntax)` | `auto` | `lsp`, `syntax`, or `auto` for the server when available. |
 | `with_signature` | `bool` | `false` | Fill `signature`. |
 | `with_references` | `bool` | `false` | Fill `references`. |
 | `exported_only` | `bool` | `false` | Only symbols visible outside their module. |
 | `exclude` | `list<glob>` | `[]` | Paths to skip, in gitignore syntax. |
-| `exclude_preset` | `list<enum>` | `[]` | `vcs`, `deps`, `build`, `cache`, `tests` (test files by the conventions of each language). |
+| `exclude_preset` | `list<enum(vcs\|deps\|build\|cache\|tests)>` | `[]` | `vcs`, `deps`, `build`, `cache`, `tests` (test files by the conventions of each language). |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `symbol` |
-
-| Field | Type | Description |
-|---|---|---|
-| `name` | `text` | Name as written. |
-| `kind` | `enum` | Kind of the symbol. |
-| `path` | `path` | File. |
-| `line`, `column` | `int` | Position of the name, from 1; columns count characters. |
-| `end_line`, `end_column` | `int` | End of the whole definition. |
-| `language` | `text` | Language of the file. |
-| `source` | `enum` | `lsp` or `syntax`. |
-| `etag` | `text` | Content digest of the file, `sha256:` followed by 64 hexadecimal digits. |
-| `container` | `text` | Qualified name of the enclosing symbol (`Outer.Inner`). |
-| `signature` | `text` | Declaration without the body, with `with_signature`. |
-| `exported` | `bool` | Visibility by the rules of the language; absent where the language has none. |
-| `references` | `int` | With `with_references`: references reported by the server, or occurrences of the name in code outside definitions in files of the same language. |
+| default | `none` | `symbol` |
 
 Visibility rules: Python, a name not starting with `_`; Go, a capitalized
 name; Rust, a visibility modifier; JavaScript and TypeScript, an `export` at
@@ -106,9 +88,13 @@ top level; C and C++, not `static`; Java and C#, `public`; Kotlin, not
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. With a language
-server, the server of the project is started when it is not running. The
-symbol index is written to the state directory.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
+| External use | `language_server`; Uses a language server when one is installed and syntax analysis otherwise; source selects the analysis explicitly. |
 
 ## Examples
 

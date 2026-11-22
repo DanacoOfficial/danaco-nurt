@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-code.profile <root> [sections: <list>] [limit: <int>] [days: <int>] [refresh: <bool>]
+code.profile <root> [name: value]...
 ```
 
 ## Description
@@ -53,7 +53,7 @@ again.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `root` | `path` | required | Repository root. |
-| `sections` | `list<enum(commands\|entry_points\|hotspots\|manifests\|languages\|modules\|instructions)>` | all | Sections to return. |
+| `sections` | `list<enum(commands\|entry_points\|hotspots\|manifests\|languages\|modules\|instructions)>` | none | Sections to return. |
 | `limit` | `int` | none | Maximum number of entries per section; at least 1. |
 | `days` | `int` | `90` | Days of history used for change hotspots, from 1 to 3650. |
 | `refresh` | `bool` | `false` | Rebuild the profile instead of using the cached one. |
@@ -62,17 +62,7 @@ again.
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `profile_entry` |
-
-| Field | Type | Description |
-|---|---|---|
-| `section` | `enum` | Section of the entry. |
-| `name` | `text` | Command name, entry point, file, language or directory. |
-| `path` | `path` | File or directory the entry refers to. |
-| `command` | `text` | Command line to run. |
-| `origin` | `text` | Manifest and key or line the entry was read from. |
-| `changes` | `int` | Commits that changed the file in the period (`hotspots`). |
-| `last_change` | `instant` | Time of the last change (`hotspots`). |
+| default | `none` | `profile_entry` |
 
 The header record has the fields `root`, `revision` (commit, or null outside
 a repository), `repository`, `files` (number of files listed), `truncated`
@@ -81,9 +71,12 @@ a repository), `repository`, `files` (number of files listed), `truncated`
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. No external program
-is started. The cache file is written under `code/profile/` in the state
-directory; a failure to write it is not an error.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

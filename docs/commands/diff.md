@@ -13,8 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-diff from to [context: int] [ignore_whitespace: bool]
-<entry or content records> |> diff against [context: int] [ignore_whitespace: bool]
+diff <from> <to> [name: value]...
+entry|content |> diff <against> [name: value]...
 ```
 
 ## Description
@@ -55,9 +55,9 @@ Equal inputs give no records.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `from` | `path` | | Old file or directory in the source form; position 1, required. |
-| `to` | `path` | | New file or directory in the source form; position 2, required. |
-| `against` | `path \| stream<any>` | | File, directory or named result that the input is compared with in the stage form; position 1, required. |
+| `from` | `path` | required | Old file or directory in the source form; position 1, required. |
+| `to` | `path` | required | New file or directory in the source form; position 2, required. |
+| `against` | `path \| stream<any>` | none | File, directory or named result that the input is compared with in the stage form; position 1, required. |
 | `context` | `int` | `3` | Lines of context around each change; changes separated by at most twice this many lines share a hunk. Must be zero or more. |
 | `ignore_whitespace` | `bool` | `false` | Treat lines that differ only in spaces, tabs, vertical tabs, form feeds and carriage returns as equal, as `diff -w`. Context lines are then taken from the old side. |
 
@@ -65,33 +65,22 @@ Equal inputs give no records.
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `hunk` |
-| stage | `entry`, `content` | `hunk` |
+| `source` | `none` | `hunk` |
+| `stage` | `entry`, `content` | `hunk` |
 
 Fields of the `hunk` record:
-
-| Field | Value |
-|---|---|
-| `path` | File after the change; for a deleted file, the deleted file. |
-| `old_path` | File before the change, when it differs from `path`. |
-| `old_start`, `old_len`, `new_start`, `new_len` | Ranges of the hunk, as in `@@ -old_start,old_len +new_start,new_len @@`. |
-| `lines` | Lines with the prefixes ` `, `-` and `+`. A line without a final line feed has no marker line. |
-| `header` | Section heading after `@@`, when present. |
-| `status` | `modified`, `added`, `deleted`, `renamed` or `binary`. |
-| `binary` | `true` for files with binary content. |
-| `id` | `path#number`, the number of the hunk within its file, from 1. |
-| `fingerprint` | First six hexadecimal digits of the SHA-256 hash of `lines`, each followed by a line feed. |
-| `ignore_whitespace` | `true` when white space was ignored. |
 
 An added or deleted empty file and a renamed file give one record without
 lines.
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command reads
-files and does not change them. Notable entries: `encoding_changed` with the
-encodings of the old and new side in `detail`, and `portability` for a
-directory entry whose name is not valid UTF-8, which is skipped.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

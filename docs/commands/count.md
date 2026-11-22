@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-count
+any |> count
 ```
 
 ## Description
@@ -32,12 +32,16 @@ The command has no parameters.
 
 | Form | Input | Output |
 |---|---|---|
-| stage | any record kind | `int` |
+| default | `any` | `int` |
 
 ## Effect
 
-Category `transform`, effect `read`, reversibility `read`. The command reads
-no files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

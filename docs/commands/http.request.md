@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-http.request <url> [method: get|head|post|put|patch|delete|options] [headers: <map>] [body: <text|path>] [json: <any>] [save: <path>] [as: raw|text|markdown] [extract: content|headers|links|headings|meta|tables] [table: <int>] [main_only: <bool>] [links: inline|list|none] [images: drop|alt] [section: <text>] [outline: auto|always|never] [query: <text>] [query_limit: <int>] [find: <regex>] [find_context: <int>] [links_filter: <regex>] [same_host: <bool>] [charset: <text>] [offset: <int>] [cache: bypass|use|revalidate|only] [unchanged_since: <text>] [timeout: <duration>] [follow_redirects: <bool>] [max_redirects: <int>] [verify_tls: <bool>] [retries: <int>]
+http.request <url> [name: value]...
 ```
 
 ## Description
@@ -108,17 +108,11 @@ that controls network access can refuse connections before they are opened.
 | `verify_tls` | `bool` | `true` | Verify the TLS certificate of the server against the certificate store of the system and `http.ca_file`. |
 | `retries` | `int` | `0` | Number of retries after a connection failure or a transient status. |
 
-`section`, `find` and `query` apply with `as: text` or `as: markdown` and
-`extract: content`; `query_limit` applies only with `query`. `table` applies
-only with `extract: tables`, and `links_filter` and `same_host` only with
-`extract: links`. Any other combination is an error before the request is
-sent.
-
 ## Input and output
 
-| Input | Output |
-|---|---|
-| none | `response`; `row` with `extract: tables` |
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `response` |
 
 The `response` record has the fields `url`, `status`, `headers` (names in
 lower case; repeated headers joined with `, `, `set-cookie` as a list),
@@ -131,13 +125,21 @@ number `table`.
 
 ## Effect
 
-Category `change`, effect `read`, reversibility `read` for the methods `get`,
-`head` and `options`. The methods `post`, `put`, `patch` and `delete` change
-the remote side: the effect is `external` and irreversible, and the report
-lists the request among the irreversible changes. A file written by `save` is
-written through the journal and is reversible with `undo`. The response cache
-and the files with the full content of outlined pages are kept in the state
-directory and are not part of the journal.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
+| Reversibility conditions | Methods get, head and options only read; other methods change the remote side and are irreversible; a file written by save is reversible. |
+
+| Action | Effect | Reversibility | Note |
+|---|---|---|---|
+| `post` | `external` | `irreversible` | Applies when method is post. |
+| `put` | `external` | `irreversible` | Applies when method is put. |
+| `patch` | `external` | `irreversible` | Applies when method is patch. |
+| `delete` | `external` | `irreversible` | Applies when method is delete. |
+| `save` | `local` | `reversible` | Applies to the file written when save is given. |
 
 ## Examples
 

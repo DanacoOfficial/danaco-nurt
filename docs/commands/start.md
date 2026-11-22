@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-services ... |> start [wait: <duration>]
+service |> start [name: value]...
 ```
 
 ## Description
@@ -44,7 +44,7 @@ order; an error stops the processing of the remaining services.
 
 | Form | Input | Output |
 |---|---|---|
-| `services ... \|> start` | `service` | `effect` |
+| default | `service` | `effect` |
 
 Each `effect` record holds `kind: "start"`, `target` (`service:<name>`),
 `action`, `before` and `after`. A preview shows the same records with
@@ -56,9 +56,9 @@ Each `effect` record holds `kind: "start"`, `target` (`service:<name>`),
 |---|---|
 | Category | `run` |
 | Effect | `external` |
-| Reversibility | `irreversible`: the journal keeps no previous state of a service; the report lists `service_changed` |
-| External programs | `launchctl` on macOS only |
-| Waits | yes |
+| Reversibility | `irreversible` |
+| Implementation | `builtin` |
+| External use | `system_program`: `launchctl`; On macOS services are started through the launchctl component of the operating system. |
 
 ## Examples
 

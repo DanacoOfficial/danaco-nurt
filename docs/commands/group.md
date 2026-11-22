@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-group <by> [keep_items: <bool>]
+any |> group <by> [name: value]...
 ```
 
 ## Description
@@ -39,12 +39,16 @@ bounded by the record limit of the request. An empty input gives no groups.
 
 | Form | Input | Output |
 |---|---|---|
-| stage | any record kind | `group` |
+| default | `any` | `group` |
 
 ## Effect
 
-Category `transform`, effect `read`, reversibility `read`. The command reads
-no files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

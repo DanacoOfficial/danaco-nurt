@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-network.resolve <name> [type: a|aaaa|mx|txt|ns|cname|any] [server: <text>]
+network.resolve <name> [name: value]...
 ```
 
 ## Description
@@ -25,7 +25,7 @@ no records; a name that does not exist fails with `E_NOT_FOUND`.
 
 Without `server`, the servers of the system configuration are asked in turn
 until one answers: the `nameserver` lines of `/etc/resolv.conf` on Linux and
-macOS (at most three, with `options timeout:` and `attempts:`), and the DNS
+macOS (at most three, with `options timeout:` and `attempts`), and the DNS
 servers of the network adapters on Windows. With `server`, only that server
 is asked.
 
@@ -40,26 +40,22 @@ of type `ANY`.
 |---|---|---|---|
 | `name` | `text` | required | Domain name. Position 1. |
 | `type` | `enum(a\|aaaa\|mx\|txt\|ns\|cname\|any)` | `a` | Record type; case is ignored. |
-| `server` | `text` | system configuration | DNS server: an address with an optional port (`192.0.2.53`, `192.0.2.53:5353`, `[2001:db8::53]:53`) or a host name resolved by the system resolver. |
+| `server` | `text` | none | DNS server: an address with an optional port (`192.0.2.53`, `192.0.2.53:5353`, `[2001:db8::53]:53`) or a host name resolved by the system resolver. |
 
 ## Input and output
 
-| Input | Output |
-|---|---|
-| none | `dns_record` |
-
-| Field | Type | Description |
+| Form | Input | Output |
 |---|---|---|
-| `name` | `text` | Owner name of the record, without the final dot. |
-| `type` | `text` | Record type in upper case, for example `AAAA`. |
-| `value` | `text` | Data: an address, `<preference> <exchange>` for MX, the text for TXT, a host name for NS and CNAME. |
-| `ttl` | `duration` | Time to live. |
-| `server` | `text` | Server that answered; the port is shown when it is not 53. |
+| default | `none` | `dns_record` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command sends
-DNS queries and changes nothing on the host.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -82,7 +78,7 @@ network.resolve "example.org" type: mx server: "192.0.2.53"
 List the records of every supported type, ordered by type:
 
 ```nurt example
-network.resolve "example.org" type: any | sort field: type
+network.resolve "example.org" type: any |> sort by: type
 ```
 
 ## Errors

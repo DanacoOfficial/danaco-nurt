@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-edit <path> changes: <list<map<any>>> [expect: …] [if_match: …] [whitespace: …] [on_missing: …] [validate: …]
+edit <path> changes: <list<map<any>>> [name: value]...
 ```
 
 ## Description
@@ -62,15 +62,16 @@ replaced lines take the line endings of the file.
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `effect` |
+| default | `none` | `effect` |
 
 ## Effect
 
-Category `change`, effect `local`, reversible. The file is declared in the
-journal before it is written and must still have the entity tag it had when
-it was read; a file changed in between fails with `E_STALE`. With
-`validate: reject` an edit that adds a syntax error to a file of a known
-format is rolled back.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 ## Examples
 

@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-disks [type: all|fixed|removable|network]
+disks [name: value]...
 ```
 
 ## Description
@@ -43,25 +43,6 @@ to `total` on file systems that reserve blocks. `inodes_total` and
 `inodes_free` are set on Linux and macOS for file systems that report them.
 `options` holds the mount options on Linux.
 
-## Parameters
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `type` | `enum(all\|fixed\|removable\|network)` | `all` | Kind of volume. |
-
-## Input and output
-
-| Input | Output |
-|---|---|
-| none | `disk` |
-
-## Effect
-
-Category `source`, effect `read`, reversibility `read`. The command reads the
-mount table of the operating system and changes nothing.
-
-## Notes
-
 | System | Volumes | Space | Removable media | Label |
 |---|---|---|---|---|
 | Linux | `/proc/self/mountinfo` | `statvfs` | `removable` attribute of the block device | `/dev/disk/by-label` |
@@ -72,6 +53,27 @@ On Windows `mount` is the drive root in canonical form, for example `C:/`. A
 volume whose space cannot be read, for example an unreachable network share,
 is left out; the report carries one `source_unavailable` note with the number
 of such volumes.
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `type` | `enum(all\|fixed\|removable\|network)` | `all` | Kind of volume. |
+
+## Input and output
+
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `disk` |
+
+## Effect
+
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

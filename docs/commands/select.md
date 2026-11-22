@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-select <fields>...
+any |> select <fields>...
 ```
 
 ## Description
@@ -42,12 +42,16 @@ fields that are no longer present. An empty input gives an empty output.
 
 | Form | Input | Output |
 |---|---|---|
-| stage | any record kind | records of the input kind with the kept fields, or `map` records with computed fields |
+| default | `any` | `any` |
 
 ## Effect
 
-Category `transform`, effect `read`, reversibility `read`. The command reads
-no files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

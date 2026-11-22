@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-analyze.tools [path...] [changed_only: bool]
+analyze.tools <path>... [name: value]...
 ```
 
 ## Description
@@ -29,18 +29,26 @@ search path. Versions are read with `--version`, in parallel.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | the base directory | Files or directories to inspect. |
+| `path` | `list<path>` | none | Files or directories to inspect. |
 | `changed_only` | `bool` | `false` | Only files changed in the repository. |
 
 ## Input and output
+
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `analyze_tool` |
 
 No input. Output: `analyze_tool` records with `tool`, `language`, `check`,
 `found`, `version`, `config` and `command`.
 
 ## Effect
 
-Category `source`, effect `read`, implementation `builtin`. The version
-queries start the tools but change nothing.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

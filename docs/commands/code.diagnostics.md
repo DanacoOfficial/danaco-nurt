@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-code.diagnostics <path>... [changed: bool] [severity: error|warning|info|hint] [source: auto|lsp|syntax] [language: text] [root: path]
+code.diagnostics <path>... [name: value]...
 ```
 
 ## Description
@@ -41,35 +41,28 @@ column. For more than five files the command reports its progress.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | required unless `changed: true` | Files or directories to check. |
+| `path` | `list<path>` | none | Files or directories to check. |
 | `changed` | `bool` | `false` | Only files changed in the repository. |
 | `severity` | `enum(error\|warning\|info\|hint)` | `hint` | Lowest severity reported. |
 | `source` | `enum(auto\|lsp\|syntax)` | `auto` | Language server, syntax analysis, or the server when available. |
 | `language` | `text` | `"auto"` | Programming language; `auto` detects it from file extensions. |
-| `root` | `path` | detected from the location of each file | Project root for the language server. |
+| `root` | `path` | detected from the location of the file | Project root for the language server. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `diagnostic` |
-
-| Field | Type | Description |
-|---|---|---|
-| `path` | `path` | File. |
-| `line`, `column` | `int` | Start of the problem, from 1. |
-| `end_line`, `end_column` | `int` | End of the problem. |
-| `severity` | `enum` | `error`, `warning`, `info` or `hint`. |
-| `message` | `text` | Message. |
-| `source` | `text` | Tool inside the server (for example `pyright`), `lsp` when the server names none, or `syntax`. |
-| `code` | `text` | Code of the diagnostic, when there is one. |
-| `language` | `text` | Language of the file. |
-| `related` | `list<record>` | Related positions with their messages. |
+| default | `none` | `diagnostic` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. Files are read; no
-file is changed.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `language_server` |
+| Fallback | `builtin` |
 
 ## Examples
 
@@ -88,7 +81,7 @@ code.diagnostics "/srv/app/src" severity: error
 Check the files changed in the repository and list the files with errors.
 
 ```nurt example
-code.diagnostics changed: true |> where severity == "error" |> select path, line, message
+code.diagnostics changed: true |> filter severity == "error" |> select path, line, message
 ```
 
 ## Errors

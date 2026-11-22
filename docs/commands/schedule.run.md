@@ -39,13 +39,13 @@ A definition whose action no longer matches its integrity hash is not run.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `text` | required, positional 1 | Schedule to run. |
+| `id` | `text` | required | Schedule to run. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| `schedule.run <id>` | none | the output records of the action, such as `exec` and `job` |
+| default | `none` | `exec`, `job` |
 
 ## Effect
 
@@ -53,8 +53,9 @@ A definition whose action no longer matches its integrity hash is not run.
 |---|---|
 | Category | `run` |
 | Effect | `process` |
-| Reversibility | `reversible_if_preserved`: file changes of the action are reversible as for `run`; effects outside the file system are irreversible |
-| External programs | the programs of the action |
+| Reversibility | `reversible_if_preserved` |
+| Implementation | `builtin` |
+| Reversibility conditions | File changes are reversible as for run; effects outside the file system are irreversible. |
 
 ## Examples
 

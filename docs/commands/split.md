@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-split <delimiter> [names: <list<text>>]
+line |> split <delimiter> [name: value]...
 ```
 
 ## Description
@@ -34,18 +34,22 @@ of the stream.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `delimiter` | `text \| regex` | required | Delimiter text or pattern. |
-| `names` | `list<text>` | - | Names of the columns. |
+| `names` | `list<text>` | none | Names of the columns. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| stage | `line` | `row` |
+| default | `line` | `row` |
 
 ## Effect
 
-Category `transform`, effect `read`, reversibility `read`. The command reads
-no files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

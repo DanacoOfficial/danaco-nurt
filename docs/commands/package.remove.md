@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-package.remove <names>... [manager: <enum>]
+package.remove <names>... [name: value]...
 ```
 
 ## Description
@@ -30,14 +30,14 @@ A non-zero exit code of the manager ends the command with `E_STAGE_FAILED` and t
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `names` | `list<text>` | required, positional 1.. | Packages to remove. |
+| `names` | `list<text>` | required | Packages to remove. |
 | `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager. `auto` selects the managers found on the system. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| `package.remove` | none | `effect` |
+| default | `none` | `effect` |
 
 The record of each package has `target` `package:<name>`, `action`, `before` (installed version, absent when the package was not installed) and `after` (version read from the package database after the run).
 
@@ -47,8 +47,8 @@ The record of each package has `target` `package:<name>`, `action`, `before` (in
 |---|---|
 | Category | `change` |
 | Effect | `external` |
-| Reversibility | `irreversible`: the journal records `package_changed` and cannot undo the change |
-| External program | the manager (`apt-get`, `dnf`, `pacman`, `zypper`, `brew`, `choco`, `scoop`, `winget`) [P] |
+| Reversibility | `irreversible` |
+| Implementation | `package_manager` |
 
 ## Examples
 
@@ -64,10 +64,10 @@ Remove several packages with Homebrew.
 package.remove "wget", "tree" manager: brew
 ```
 
-Preview the removal without running the manager.
+Remove two packages in one call.
 
 ```nurt example
-package.remove "vim" preview: true
+package.remove "vim" "nano"
 ```
 
 ## Errors

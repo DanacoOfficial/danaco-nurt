@@ -13,8 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-attributes <path>... [mode: <text>] [owner: <text>] [group: <text>] [acl: <list<map<any>>>] [readonly: <bool>] [hidden: <bool>] [modified: <instant>] [accessed: <instant>] [created: <instant>] [xattrs: <map<text>>] [recursive: <bool>]
-<entry records> |> attributes [mode: <text>] [owner: <text>] [group: <text>] [acl: <list<map<any>>>] [readonly: <bool>] [hidden: <bool>] [modified: <instant>] [accessed: <instant>] [created: <instant>] [xattrs: <map<text>>] [recursive: <bool>]
+attributes <path>... [name: value]...
+entry |> attributes [name: value]...
 ```
 
 ## Description
@@ -36,40 +36,6 @@ below it are neither followed nor changed.
 
 With an empty input the call changes nothing and reports `nothing_matched`.
 
-## Parameters
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `path` | `list<path>` | | Entries to change in the source form. |
-| `mode` | `text` | | Permissions, such as `"0644"` or `"u+x"`. Octal digits replace the permission bits; symbolic clauses (`u`, `g`, `o`, `a`; `+`, `-`, `=`; `r`, `w`, `x`, `X`, `s`, `t`, separated by commas) change them. A clause without classes applies to all classes. |
-| `owner` | `text` | | Account of the file: a name from the account table, a numeric id, or the form `name (id)` of `info`. |
-| `group` | `text` | | Group of the file: a name from the group table or a numeric id. |
-| `acl` | `list<map<any>>` | | Access control entries: maps with `tag` (`user`, `group`, `mask`, `other`), `perms` (letters `r`, `w`, `x`, `-`) and, for a named account or group, `id`. Entries for the account of the file, its group and others are required; a missing mask is computed. |
-| `readonly` | `bool` | | Read-only attribute. |
-| `hidden` | `bool` | | Hidden attribute. |
-| `modified` | `instant` | | Modification time. |
-| `accessed` | `instant` | | Access time. |
-| `created` | `instant` | | Creation time. |
-| `xattrs` | `map<text>` | | Extended attributes to set; a `null` value removes the attribute. |
-| `recursive` | `bool` | `false` | Apply to the content of directories. |
-
-## Input and output
-
-| Form | Input | Output |
-|---|---|---|
-| source | none | `effect` |
-| stage | `entry` | `effect` |
-
-## Effect
-
-Category `change`, effect `local`, reversibility `reversible`. Every change
-goes through the journal as one operation; the previous metadata of every
-target is kept, and `undo` restores all targets together. The `effect` record
-lists one `change` with action `attributes` per changed target, and an
-`attributes_changed` notable entry per target names the changed elements.
-
-## Notes
-
 | Parameter | Linux | macOS | Windows |
 |---|---|---|---|
 | `mode` | permission bits | permission bits | only the read-only attribute, from the write permission of the account; the change has the flag `acl_unchanged` |
@@ -86,6 +52,39 @@ entry when nothing else changed.
 
 Changing the account of a file needs administrator rights; a call by another
 account fails with `E_PRIVILEGE` before anything is changed.
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `path` | `list<path>` | required | Entries to change in the source form. |
+| `mode` | `text` | none | Permissions, such as `"0644"` or `"u+x"`. Octal digits replace the permission bits; symbolic clauses (`u`, `g`, `o`, `a`; `+`, `-`, `=`; `r`, `w`, `x`, `X`, `s`, `t`, separated by commas) change them. A clause without classes applies to all classes. |
+| `owner` | `text` | none | Account of the file: a name from the account table, a numeric id, or the form `name (id)` of `info`. |
+| `group` | `text` | none | Group of the file: a name from the group table or a numeric id. |
+| `acl` | `list<map<any>>` | none | Access control entries: maps with `tag` (`user`, `group`, `mask`, `other`), `perms` (letters `r`, `w`, `x`, `-`) and, for a named account or group, `id`. Entries for the account of the file, its group and others are required; a missing mask is computed. |
+| `readonly` | `bool` | none | Read-only attribute. |
+| `hidden` | `bool` | none | Hidden attribute. |
+| `modified` | `instant` | none | Modification time. |
+| `accessed` | `instant` | none | Access time. |
+| `created` | `instant` | none | Creation time. |
+| `xattrs` | `map<text>` | none | Extended attributes to set; a `null` value removes the attribute. |
+| `recursive` | `bool` | `false` | Apply to the content of directories. |
+
+## Input and output
+
+| Form | Input | Output |
+|---|---|---|
+| `source` | `none` | `effect` |
+| `stage` | `entry` | `effect` |
+
+## Effect
+
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -121,7 +120,7 @@ attributes "/home/user/site" mode: "go-w" recursive: true
 
 ```json fs-before
 { "format": "nurt-fs-snapshot/1", "entries": [
-  { "path": "/home/user/site", "type": "directory", "mode": "0777" },
+  { "path": "/home/user/site", "type": "dir", "mode": "0777" },
   { "path": "/home/user/site/index.html", "type": "file", "mode": "0777", "content_utf8": "content\n" },
   { "path": "/home/user/site/css/main.css", "type": "file", "content_utf8": "content\n" }
 ] }

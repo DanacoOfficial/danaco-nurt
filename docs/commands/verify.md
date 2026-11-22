@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-verify (<pipeline>)
+effect |> verify <check>
 ```
 
 ## Description
@@ -40,13 +40,17 @@ read the records of the effect.
 
 | Form | Input | Output |
 |---|---|---|
-| stage | `effect` | `effect` |
+| default | `effect` | `effect` |
 
 ## Effect
 
-Category `check`, effect `read`, reversibility `reversible`. A failed check
-rolls back the preceding change from the journal. Programs started by the
-check are not undone.
+| Property | Value |
+|---|---|
+| Category | `check` |
+| Effect | `read` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | A failed check rolls back the preceding change from the journal. |
 
 ## Examples
 

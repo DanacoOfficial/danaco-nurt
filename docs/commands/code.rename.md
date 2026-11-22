@@ -13,8 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-code.rename <to> path: <path> [line: <int>] [column: <int>] [symbol: <text>] [scope: project|file] [paths: <list<path>>] [include_comments: <bool>] [include_strings: <bool>] [source: auto|lsp|syntax] [check_references: <bool>] [language: <text>] [root: <path>]
-<symbol records> |> code.rename <to> [scope: project|file] [paths: <list<path>>] [include_comments: <bool>] [include_strings: <bool>] [source: auto|lsp|syntax] [check_references: <bool>] [language: <text>] [root: <path>]
+symbol |> code.rename <to> [name: value]...
+code.rename <to> path: <path> [name: value]...
 ```
 
 ## Description
@@ -45,7 +45,7 @@ The plan is checked before anything is written:
 - server edits that do more than replace the old name are listed in the
   `alarms` field of the plan summary.
 
-The request option `preview` shows one `rename_edit` record per edit and a `map` record with the
+The result holds one `rename_edit` record per edit and a `map` record with the
 plan summary: `plan` (identifier), `from`, `to`, `source`, `server`,
 `confidence` (`semantic` for server edits, `identifier` for syntax
 analysis), `root`, `files`, `total`, `alarms` and `leftovers`.
@@ -65,9 +65,9 @@ same language family are also reported as `rename_incomplete`.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `to` | `text` | required | New name of the symbol; letters, digits, `_` and `$`, not starting with a digit. |
-| `path` | `path` | required in the source form | Source file of the symbol. |
+| `path` | `path` | none | Source file of the symbol. |
 | `line` | `int` | none | Line of the symbol, counted from 1. |
-| `column` | `int` | first identifier of `line` | Column of the symbol, counted from 1 in characters. |
+| `column` | `int` | none | Column of the symbol, counted from 1 in characters. |
 | `symbol` | `text` | none | Symbol name, optionally qualified as `Container.name`, instead of a position. |
 | `scope` | `enum(project\|file)` | `project` | Rename in the whole project or only in the file. |
 | `paths` | `list<path>` | the project | Files and directories to rename in. |
@@ -76,18 +76,14 @@ same language family are also reported as `rename_incomplete`.
 | `source` | `enum(auto\|lsp\|syntax)` | `auto` | Language server, syntax analysis, or the server when available. |
 | `check_references` | `bool` | `true` | Report references to the old name left after the change. |
 | `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
-| `root` | `path` | detected | Project root: the nearest directory above the file with `.git` or a project manifest. |
-
-The configuration keys `code.timeout`, `code.file_bytes_max` and
-`code.index_max_files` limit the server request, the size of the files read
-and the number of files searched. One rename changes at most 500 files.
+| `root` | `path` | detected from the location of the file | Project root: the nearest directory above the file with `.git` or a project manifest. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `effect` |
-| stage | `symbol` | `effect` |
+| `stage` | `symbol` | `effect` |
+| `source` | `none` | `effect` |
 
 The `effect` record has `kind: "code.rename"`, the changed files in
 `changes`, the counters `files_modified`, `files_created`, `files_deleted`,
@@ -96,18 +92,21 @@ notable effects in `notable`.
 
 ## Effect
 
-Category `change`, effect `local`, reversibility `reversible`. All changed
-files, including created, renamed and deleted files, belong to one journal
-operation; one `undo` restores them together. External program: the
-language server of the language, when one is installed and allowed by
-`code.servers_allow`.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `language_server` |
+| Reversibility conditions | All changed files are restored together by one undo. |
+| Fallback | `builtin` |
 
 ## Examples
 
-Show the plan of renaming the function `total` defined in `math.py`.
+Rename the function `total` defined in `math.py`.
 
 ```nurt example
-code.rename "sum_all" path: "/srv/app/src/math.py" symbol: "total" preview: true
+code.rename "sum_all" path: "/srv/app/src/math.py" symbol: "total"
 ```
 
 Rename the symbol at line 12, column 5, also in comments.

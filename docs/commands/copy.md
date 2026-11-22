@@ -13,10 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-copy <from>… <to> [on_conflict: overwrite|skip|error] [preserve: …] [clone: auto|always|never]
-copy <from>… into: <directory> [on_conflict: …] [preserve: …] [clone: …]
-<entry records> |> copy <to> [on_conflict: …] [preserve: …] [clone: …]
-<entry records> |> copy into: <directory> [on_conflict: …] [preserve: …] [clone: …]
+copy <from>... [<to>] (to: <path> | into: <path>) [name: value]...
+entry |> copy [<to>] (to: <path> | into: <path>) [name: value]...
 ```
 
 ## Description
@@ -55,13 +53,19 @@ An entry record with `etag` must still have that entity tag; a changed entry
 fails with `E_STALE` before anything changes. Empty input copies nothing and
 reports `nothing_matched`.
 
+| Notable code | Meaning |
+|---|---|
+| `to_is_dir` | `to` named an existing directory, which received the copy |
+| `case_collision` | the destination differs from an existing name only in letter case on a volume that does not distinguish case |
+| `nothing_matched` | the input had no entries |
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `from` | `list<path>` | required in the source form | Files and directories to copy. |
-| `to` | `path` | | Target path; an existing directory receives the copy. Evaluated per record. |
-| `into` | `path` | | Target directory, created when missing. |
+| `from` | `list<path>` | required | Files and directories to copy. |
+| `to` | `path` | one of `destination` | Target path; an existing directory receives the copy. Evaluated per record. |
+| `into` | `path` | one of `destination` | Target directory, created when missing. |
 | `on_conflict` | `enum(overwrite\|skip\|error)` | `overwrite` | Behaviour when the target file exists. |
 | `preserve` | `bool` | `true` | Keep times, permissions and attributes. |
 | `clone` | `enum(auto\|always\|never)` | `auto` | Use file system clones when available, always or never. |
@@ -70,8 +74,8 @@ reports `nothing_matched`.
 
 | Form | Input | Output |
 |---|---|---|
-| `copy <from>… <to>` | none | `effect` |
-| `… \|> copy <to>` | `entry` | `effect` |
+| `source` | `none` | `effect` |
+| `stage` | `entry` | `effect` |
 
 The `effect` record has one `change` per created directory, copied file and
 created link, with `from` set to the source. Its `summary` counts `files`,
@@ -79,17 +83,12 @@ created link, with `from` set to the source. Its `summary` counts `files`,
 
 ## Effect
 
-Category `change`, local effect, reversible. Every created entry is a target
-of the journal; an overwritten file or link is kept by the journal, and undo
-restores it. All targets of one call are one operation.
-
-## Notes
-
-| Notable code | Meaning |
+| Property | Value |
 |---|---|
-| `to_is_dir` | `to` named an existing directory, which received the copy |
-| `case_collision` | the destination differs from an existing name only in letter case on a volume that does not distinguish case |
-| `nothing_matched` | the input had no entries |
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 ## Examples
 

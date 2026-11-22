@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-find path [glob] [type: file|directory|link|any] [depth: int] [hidden: bool] [follow_links: bool] [gitignore: bool] [exclude: list<glob>] [exclude_preset: list<vcs|deps|build|cache>] [file_type: list<text>] [fuzzy: text] [case_sensitive: bool] [sort: path|modified|size|rank] [order: asc|desc] [view: flat|tree|sizes]
+find <path> [<glob>] [name: value]...
 ```
 
 ## Description
@@ -150,7 +150,7 @@ for all files below it that pass the exclusions, whether or not they match
 | `path` | `path` | required | Directory to search; position 1. |
 | `glob` | `glob \| list<glob>` | `"**"` | Name patterns relative to the directory; position 2. |
 | `type` | `enum(file\|directory\|link\|any)` | `file` | Kind of entries to find. |
-| `depth` | `int` | unlimited | Maximum number of directory levels to descend; 0 selects the root only. |
+| `depth` | `int` | no limit | Maximum number of directory levels to descend; 0 selects the root only. |
 | `hidden` | `bool` | `true` | Include hidden entries. |
 | `follow_links` | `bool` | `false` | Descend into linked directories. |
 | `gitignore` | `bool` | `false` | Apply the rules of .gitignore files. |
@@ -165,15 +165,18 @@ for all files below it that pass the exclusions, whether or not they match
 
 ## Input and output
 
-Input: none; `find` starts a pipeline.
-
-Output: `entry` records.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `entry` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`; no external
-programs. `find` changes nothing and writes no journal entry. With
-`sort: path` and `view: flat`, a following `first` stops the walk early.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 Notable entries: `permission_denied_skipped`, `source_unavailable`,
 `nfd_name`, `portability` and `case_alias` as in `list`, and

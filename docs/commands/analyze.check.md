@@ -13,9 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-analyze.check [path...] [changed_only: bool] [checks: list] [include_tests: bool]
-              [complexity_max: int] [fail_on: enum] [min_severity: enum]
-              [max_findings: int] [sample_lines: int] [wait: duration]
+analyze.check <path>... [name: value]...
 ```
 
 ## Description
@@ -43,9 +41,9 @@ only; the counts and the verdict cover all findings.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | the base directory | Files or directories to check. |
+| `path` | `list<path>` | none | Files or directories to check. |
 | `changed_only` | `bool` | `false` | Only files changed in the repository. |
-| `checks` | `list<enum(types\|lint\|format\|complexity\|duplication)>` | all available | Checks to run. |
+| `checks` | `list<enum(types\|lint\|format\|complexity\|duplication)>` | none | Checks to run. |
 | `include_tests` | `bool` | `true` | Include test files in the duplication check. |
 | `complexity_max` | `int` | `15` | Highest cyclomatic complexity accepted. |
 | `fail_on` | `enum(error\|warning)` | `error` | Lowest severity that fails the verdict. |
@@ -55,6 +53,10 @@ only; the counts and the verdict cover all findings.
 | `wait` | `duration` | `3s` | Time to wait before the analysis continues as a job. |
 
 ## Input and output
+
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `analysis`, `finding`, `job` |
 
 No input. Output: one `analysis` record, then `finding` records ordered by
 severity, check, file and line. A job record is returned when the analysis
@@ -67,8 +69,13 @@ blocks cover it. The field is empty when the duplication check did not run.
 
 ## Effect
 
-Category `run`, effect `process`, implementation `user_program`. Files that
-analyzers write (caches) are detected as for `run` and kept in the journal.
+| Property | Value |
+|---|---|
+| Category | `run` |
+| Effect | `process` |
+| Reversibility | `reversible_if_preserved` |
+| Implementation | `user_program` |
+| Reversibility conditions | Files changed by the analysis programs are reversible when their previous content was preserved; effects outside the file system are irreversible. |
 
 ## Examples
 
@@ -81,7 +88,7 @@ analyze.check
 Check changed files for errors and warnings.
 
 ```nurt example
-analyze.check changed_only: true, fail_on: "warning"
+analyze.check changed_only: true fail_on: warning
 ```
 
 Run only the complexity check with a lower threshold.

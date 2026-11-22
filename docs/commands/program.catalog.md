@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-program.catalog [<category>] [subcategory: <text>] [query: <text>] [source: <text>]
+program.catalog [<category>] [name: value]...
 ```
 
 ## Description
@@ -30,19 +30,16 @@ With `query` the programs of the category are ranked as by `program.search` and 
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `category` | `text` | none, positional 1 | Category to open, by id or alias; compared after folding. |
+| `category` | `text` | none | Category to open, by id or alias; compared after folding. |
 | `subcategory` | `text` | none | Subcategory to open; needs `category`. |
 | `query` | `text` | none | Keywords, 2 to 200 characters, that rank the programs of the category. |
-| `source` | `text` | all | Only programs from this kind of provider (`path`, `package`, `app`, `catalog`) or this provider id, such as `dpkg` or `catalog:<id>`. |
+| `source` | `text` | none | Only programs from this kind of provider (`path`, `package`, `app`, `catalog`) or this provider id, such as `dpkg` or `catalog:<id>`. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| `program.catalog` | none | `program_category` |
-| `program.catalog <category>` | none | `program_category` (subcategories) or `program_card` |
-| `program.catalog <category> subcategory: <text>` | none | `program_card` |
-| `program.catalog <category> query: <text>` | none | `program_card` with `score` |
+| default | `none` | `program_category`, `program_card` |
 
 Records of `program_category` carry the additional fields `level` (`category` or `subcategory`), `parent`, `summary`, `aliases`, `sources` and `counts_by_source`.
 
@@ -53,7 +50,7 @@ Records of `program_category` carry the additional fields `level` (`category` or
 | Category | `source` |
 | Effect | `read` |
 | Reversibility | `read` |
-| Implementation | built in; no program is started |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -73,13 +70,13 @@ network   57     Network
 Open one category and show its programs.
 
 ```nurt example
-program.catalog "archives" | select name, summary
+program.catalog "archives" |> select name, summary
 ```
 
 Rank the programs of a category from one catalog.
 
 ```nurt example
-program.catalog "video" query: "subtitles" source: "catalog" | first 5
+program.catalog "video" query: "subtitles" source: "catalog" |> first 5
 ```
 
 ## Errors

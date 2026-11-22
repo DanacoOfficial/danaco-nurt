@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-… |> retry [timeout: duration] [wait: duration|forever]
+job |> retry [name: value]...
 ```
 
 ## Description
@@ -37,9 +37,13 @@ the stages after `retry` are skipped (`post_stages_deferred`).
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `timeout` | `duration` | the time limit of the original job | Time limit of the program. |
-| `wait` | `duration \| enum(forever)` | the default wait of `run` (`run.wait`) | Time to wait for the program before it continues as a job. |
+| `wait` | `duration \| enum(forever)` | the default wait of run | Time to wait for the program before it continues as a job. |
 
 ## Input and output
+
+| Form | Input | Output |
+|---|---|---|
+| default | `job` | `exec`, `job` |
 
 Input `job` records. Produces an `exec` record for each program that ended
 within `wait` and a `job` record for each program that continues in the
@@ -47,9 +51,13 @@ background.
 
 ## Effect
 
-Category `run`, effect `process`, reversibility `reversible_if_preserved`, as
-for `run`: changes of watched files are reversible when their previous
-content was kept; other effects are irreversible.
+| Property | Value |
+|---|---|
+| Category | `run` |
+| Effect | `process` |
+| Reversibility | `reversible_if_preserved` |
+| Implementation | `user_program` |
+| Reversibility conditions | As for run: changes of watched files are reversible when kept; other effects are irreversible. |
 
 ## Examples
 

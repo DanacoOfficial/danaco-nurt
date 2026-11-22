@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-windows.cim class: text [where: text] [namespace: text] [properties: list<text>]
+windows.cim <class> [name: value]...
 ```
 
 ## Description
@@ -58,21 +58,26 @@ The rest of the pipeline may limit the number of records, for example with
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `class` | `text` | required, position 1 | CIM class name, for example `Win32_Process`. |
+| `class` | `text` | required | CIM class name, for example `Win32_Process`. |
 | `where` | `text` | none | WQL condition on instance properties. |
 | `namespace` | `text` | `"root/cimv2"` | CIM namespace. |
-| `properties` | `list<text>` | all properties | Properties to return. |
+| `properties` | `list<text>` | none | Properties to return. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `cim_object` records: `class`, `path`, `properties` |
+| default | `none` | `cim_object` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. The command is
-available only on Windows and starts no program; it talks to WMI through COM.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
+| Operating systems | `windows` |
 
 ## Examples
 

@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-journal.status [volume: path]
+journal.status [name: value]...
 ```
 
 ## Description
@@ -52,19 +52,22 @@ minimum applies. `unlimited` is the value of a limit that is off.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `volume` | `path` | | Only the journal of the volume that contains this path. |
+| `volume` | `path` | none | Only the journal of the volume that contains this path. |
 
 ## Input and output
 
-| Input | Output |
-|---|---|
-| none | `journal_state` |
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `journal_state` |
 
 ## Effect
 
-| Category | Effect | Reversibility |
-|---|---|---|
-| journal | read | read |
+| Property | Value |
+|---|---|
+| Category | `journal` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

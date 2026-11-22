@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-ports [state: listen|all] [protocol: tcp|udp|any]
+ports [name: value]...
 ```
 
 ## Description
@@ -29,26 +29,6 @@ square brackets, for example `[::1]:8080`. `remote`, `remote_address` and
 `remote_port` are set only for sockets with a peer. UDP sockets have the
 state `none`. `pid` and `process` identify the process that holds the socket.
 
-## Parameters
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `state` | `enum(listen\|all)` | `listen` | Listening ports only, or all sockets. |
-| `protocol` | `enum(tcp\|udp\|any)` | `any` | Transport protocol. |
-
-## Input and output
-
-| Input | Output |
-|---|---|
-| none | `port` |
-
-## Effect
-
-Category `source`, effect `read`, reversibility `read`. The command reads the
-socket tables of the operating system and changes nothing.
-
-## Notes
-
 | System | Socket tables | Holding process |
 |---|---|---|
 | Linux | `/proc/net/tcp`, `tcp6`, `udp`, `udp6` | descriptor in `/proc/<pid>/fd` that links to the socket inode |
@@ -62,6 +42,28 @@ both cases the report carries one `source_unavailable` note with the number
 of affected sockets or processes. TCP states map to `listen`, `established`,
 `syn_sent`, `syn_received`, `fin_wait`, `close_wait`, `closing`, `last_ack`,
 `time_wait` and `closed`.
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `state` | `enum(listen\|all)` | `listen` | Listening ports only, or all sockets. |
+| `protocol` | `enum(tcp\|udp\|any)` | `any` | Transport protocol. |
+
+## Input and output
+
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `port` |
+
+## Effect
+
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-services ... |> enable
+service |> enable
 ```
 
 ## Description
@@ -39,7 +39,7 @@ The command has no parameters.
 
 | Form | Input | Output |
 |---|---|---|
-| `services ... \|> enable` | `service` | `effect` |
+| default | `service` | `effect` |
 
 Each `effect` record holds `kind: "enable"`, `target` (`service:<name>`),
 `action`, `before` and `after`. A preview shows the same records with
@@ -51,9 +51,9 @@ Each `effect` record holds `kind: "enable"`, `target` (`service:<name>`),
 |---|---|
 | Category | `change` |
 | Effect | `external` |
-| Reversibility | `irreversible`: the journal keeps no previous start type; `disable` reverts the change by hand; the report lists `service_changed` |
-| External programs | `launchctl` on macOS only |
-| Waits | no |
+| Reversibility | `irreversible` |
+| Implementation | `builtin` |
+| External use | `system_program`: `launchctl`; On macOS services are enabled through the launchctl component of the operating system. |
 
 ## Examples
 

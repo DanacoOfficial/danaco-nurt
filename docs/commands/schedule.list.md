@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-schedule.list [state: <state>]
-schedule.list <id>
+schedule.list [<id>] [name: value]...
 ```
 
 ## Description
@@ -41,15 +40,14 @@ The command reads the schedule store and changes nothing.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `text` | none, positional 1 | Schedule to show, for example `s3`. |
+| `id` | `text` | none | Schedule to show, for example `s3`. |
 | `state` | `enum(all\|active\|paused\|completed\|expired)` | `all` | Only schedules in this state. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| `schedule.list [state: ...]` | none | `schedule` records, one per schedule |
-| `schedule.list <id>` | none | one `schedule` record |
+| default | `none` | `schedule` |
 
 ## Effect
 
@@ -57,8 +55,8 @@ The command reads the schedule store and changes nothing.
 |---|---|
 | Category | `source` |
 | Effect | `read` |
-| Reversibility | `read`: nothing is changed, so there is nothing to undo |
-| External programs | none |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -83,7 +81,7 @@ schedule.list "s3"
 List the labels and next run times of active schedules that do not run:
 
 ```nurt example
-schedule.list state: active |> where not active |> select label, next_run, reason
+schedule.list state: active |> filter not active |> select label, next_run, reason
 ```
 
 ## Errors

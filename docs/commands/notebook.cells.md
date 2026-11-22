@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-notebook.cells path [index: range] [id: list<text>] [cell_type: code|markdown|raw] [outputs: none|summary|text|full] [find: text|regex] [scope: source|outputs] [view: outline|full]
+notebook.cells <path> [name: value]...
 ```
 
 ## Description
@@ -48,9 +48,9 @@ A notebook without cells produces no records.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | required | Notebook file; position 1. |
-| `index` | `range` | all cells | Cells to return by index, counted from 0, for example `2` or `1..4`. |
+| `index` | `range` | none | Cells to return by index, counted from 0, for example `2` or `1..4`. |
 | `id` | `list<text>` | none | Cells to return by identifier. |
-| `cell_type` | `enum(code\|markdown\|raw)` | any type | Only cells of this type. |
+| `cell_type` | `enum(code\|markdown\|raw)` | none | Only cells of this type. |
 | `outputs` | `enum(none\|summary\|text\|full)` | `none` | Detail of cell outputs returned. |
 | `find` | `text \| regex` | none | Only cells containing this text or pattern. |
 | `scope` | `enum(source\|outputs)` | `source` | Part of the cell that `find` searches. |
@@ -58,14 +58,18 @@ A notebook without cells produces no records.
 
 ## Input and output
 
-Input: none; `notebook.cells` starts a pipeline.
-
-Output: `cell` records, ordered by `index`.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `cell` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`; no external programs.
-`notebook.cells` changes nothing and writes no journal entry.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

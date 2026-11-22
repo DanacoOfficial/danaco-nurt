@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-code.call_hierarchy <path> [line: int] [column: int] [symbol: text] [direction: incoming|outgoing|both] [language: text] [root: path] [source: auto|lsp|syntax]
+code.call_hierarchy <path> [name: value]...
 ```
 
 ## Description
@@ -39,32 +39,27 @@ name and, for more than one call, the number of calls (`x3`).
 |---|---|---|---|
 | `path` | `path` | required | Source file. |
 | `line` | `int` | none | Line of the function, counted from 1; required unless `symbol` is given. |
-| `column` | `int` | first identifier of the line | Column of the function, counted from 1. |
+| `column` | `int` | none | Column of the function, counted from 1. |
 | `symbol` | `text` | none | Function name, optionally qualified as `Container.name`, instead of a position. |
 | `direction` | `enum(incoming\|outgoing\|both)` | `both` | Callers, callees or both. |
 | `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
-| `source` | `enum(auto\|lsp\|syntax)` | `auto` | Language server, syntax analysis, or the server when available. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `reference` |
-
-| Field | Type | Description |
-|---|---|---|
-| `name` | `text` | Name of the caller or callee. |
-| `path` | `path` | File of its definition. |
-| `line`, `column` | `int` | Position of its name. |
-| `container` | `text` | Qualified name of its container. |
-| `text` | `text` | Direction, kind, qualified name and number of calls, for example `<- method Circle.area x2`. |
-| `role` | `enum` | Always `reference`. |
-| `source` | `enum` | `lsp` or `syntax`. |
+| default | `none` | `reference` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `language_server` |
+| Fallback | `builtin` |
 
 ## Examples
 
@@ -84,10 +79,10 @@ List the functions called by a method.
 code.call_hierarchy "/srv/app/src/cart.ts" symbol: "Cart.checkout" direction: outgoing
 ```
 
-List callers and callees by syntax analysis only.
+List callers and callees of the function at another line.
 
 ```nurt example
-code.call_hierarchy "/srv/app/src/main.go" line: 30 source: syntax
+code.call_hierarchy "/srv/app/src/main.go" line: 42
 ```
 
 ## Errors

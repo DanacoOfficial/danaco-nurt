@@ -13,9 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-remove <path>… [on_missing: skip|error] [check_references: …]
-<entry records> |> remove [on_missing: …] [check_references: …]
-<line or match records> |> remove
+remove <path>... [name: value]...
+entry|line|match|item|node|job |> remove [name: value]...
 ```
 
 ## Description
@@ -50,11 +49,16 @@ A record with `etag` must still have that entity tag; a changed entry or
 file fails with `E_STALE` before anything changes. When nothing is removed,
 the result reports `nothing_matched`.
 
+| Notable code | Meaning |
+|---|---|
+| `references_left` | other files still name a removed entry; `detail` lists the locations |
+| `nothing_matched` | nothing was removed |
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | required in the source form | Paths to remove; directories are removed recursively. |
+| `path` | `list<path>` | required | Paths to remove; directories are removed recursively. |
 | `on_missing` | `enum(skip\|error)` | `skip` | Behaviour when a path does not exist. |
 | `check_references` | `bool` | `false` | Report references to the removed names left after the change. |
 
@@ -62,9 +66,8 @@ the result reports `nothing_matched`.
 
 | Form | Input | Output |
 |---|---|---|
-| `remove <path>…` | none | `effect` |
-| `… \|> remove` | `entry`, `line`, `match` | `effect` |
-| `… \|> remove` | `item`, `node`, `job` | `effect`, from the stages of those records |
+| `source` | `none` | `effect` |
+| `stage` | `entry`, `line`, `match`, `item`, `node`, `job` | `effect` |
 
 The `effect` record has one `change` with action `delete` per removed entry;
 a directory removed with its content has the flag `recursive`. A file edited
@@ -74,17 +77,17 @@ number of removed lines or matches. The `summary` counts `removed`, `files`,
 
 ## Effect
 
-Category `change`, local effect, reversible. Removed files, directories and
-content are kept in the journal, and undo restores them. Removing a job
-deletes its record and output files without a journal copy and is
-irreversible.
-
-## Notes
-
-| Notable code | Meaning |
+| Property | Value |
 |---|---|
-| `references_left` | other files still name a removed entry; `detail` lists the locations |
-| `nothing_matched` | nothing was removed |
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
+| Reversibility conditions | Removed files, directories and content are kept in the journal. |
+
+| Action | Effect | Reversibility | Note |
+|---|---|---|---|
+| `job` | `local` | `irreversible` | Removing a job deletes its record and output files without a journal copy. |
 
 ## Examples
 

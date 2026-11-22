@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-journal.purge [volume: path | all] [up_to: int] [id: list<int>]
+journal.purge [name: value]...
 ```
 
 ## Description
@@ -39,14 +39,14 @@ no journal entry and consumes no step.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `volume` | `path \| enum(all)` | `all` | Volume whose journal is purged, or all volumes. |
-| `up_to` | `int` | | Release all entries up to and including this operation number. |
-| `id` | `list<int>` | | Release only these entries, keeping older ones. |
+| `up_to` | `int` | none | Release all entries up to and including this operation number. |
+| `id` | `list<int>` | none | Release only these entries, keeping older ones. |
 
 ## Input and output
 
-| Input | Output |
-|---|---|
-| none | `effect` |
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect` |
 
 The `effect` record of kind `journal.purge` lists the numbers of the released
 entries in `after.released` and their logical size in `after.bytes`;
@@ -55,9 +55,12 @@ least one entry was released.
 
 ## Effect
 
-| Category | Effect | Reversibility |
-|---|---|---|
-| journal | local | irreversible |
+| Property | Value |
+|---|---|
+| Category | `journal` |
+| Effect | `local` |
+| Reversibility | `irreversible` |
+| Implementation | `builtin` |
 
 Released entries can no longer be undone; the result carries the
 irreversible marker `purged`.

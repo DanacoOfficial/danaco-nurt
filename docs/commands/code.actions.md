@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-code.actions <path> line: int [end_line: int] [column: int] [language: text] [root: path] [source: auto|lsp]
+code.actions <path> line: <int> [name: value]...
 ```
 
 ## Description
@@ -35,30 +35,26 @@ command.
 |---|---|---|---|
 | `path` | `path` | required | Source file. |
 | `line` | `int` | required | First line of the range, counted from 1. |
-| `end_line` | `int` | value of `line` | Last line of the range. |
-| `column` | `int` | start of the line | Column within the first line, counted from 1. |
+| `end_line` | `int` | none | Last line of the range. |
+| `column` | `int` | none | Column within the first line, counted from 1. |
 | `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
-| `source` | `enum(auto\|lsp)` | `auto` | Both values ask the language server. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `code_action` |
-
-| Field | Type | Description |
-|---|---|---|
-| `path` | `path` | File. |
-| `line`, `end_line` | `int` | Range asked for. |
-| `title` | `text` | Title of the action, as offered by the server. |
-| `kind` | `text` | Protocol kind (`quickfix`, `refactor.extract`, `source.organizeImports`, ...), or `command` for an action that only runs a server command. |
-| `source` | `enum` | Always `lsp`. |
+| default | `none` | `code_action` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. No action is
-applied; changes of a file go through `replace` or `code.rename`.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `language_server` |
+| Fallback | `builtin` |
 
 ## Examples
 
@@ -71,13 +67,13 @@ code.actions "/srv/app/src/main.py" line: 14
 List the refactorings offered for a block of lines.
 
 ```nurt example
-code.actions "/srv/app/src/main.ts" line: 20 end_line: 34 |> where kind == "refactor.extract"
+code.actions "/srv/app/src/main.ts" line: 20 end_line: 34 |> filter kind == "refactor.extract"
 ```
 
 List the quick fixes at an error.
 
 ```nurt example
-code.actions "/srv/app/src/lib.rs" line: 52 column: 17 |> where kind == "quickfix" |> select title
+code.actions "/srv/app/src/lib.rs" line: 52 column: 17 |> filter kind == "quickfix" |> select title
 ```
 
 ## Errors

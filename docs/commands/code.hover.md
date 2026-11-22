@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-code.hover <path> [line: int] [column: int] [symbol: text] [language: text] [root: path] [source: auto|lsp|syntax]
+code.hover <path> [name: value]...
 ```
 
 ## Description
@@ -40,29 +40,26 @@ result then carries a `semantic_fallback` note with the cause. Under
 |---|---|---|---|
 | `path` | `path` | required | Source file. |
 | `line` | `int` | none | Line of the symbol, counted from 1; required unless `symbol` is given. |
-| `column` | `int` | first identifier of the line | Column of the symbol, counted from 1. |
+| `column` | `int` | none | Column of the symbol, counted from 1. |
 | `symbol` | `text` | none | Symbol name, optionally qualified as `Container.name`, instead of a position. |
 | `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
-| `source` | `enum(auto\|lsp\|syntax)` | `auto` | Language server, syntax analysis, or the server when available. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `hover` |
-
-| Field | Type | Description |
-|---|---|---|
-| `path` | `path` | File. |
-| `line`, `column` | `int` | Position asked for. |
-| `signature` | `text` | Signature on one line, up to 240 characters; absent when unknown. |
-| `documentation` | `text` | First sentence, up to 200 characters, or the whole answer with `verbosity: detailed`. |
-| `source` | `enum` | `lsp` or `syntax`. |
+| default | `none` | `hover` |
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `language_server` |
+| Fallback | `builtin` |
 
 ## Examples
 
@@ -82,10 +79,10 @@ Show the signature and the documentation of a class.
 code.hover "/srv/app/src/shapes.py" symbol: "Circle" |> select signature, documentation
 ```
 
-Read the documentation from the source without starting a server.
+Read the documentation of a symbol by name.
 
 ```nurt example
-code.hover "/srv/app/src/shapes.py" symbol: "scale" source: syntax
+code.hover "/srv/app/src/shapes.py" symbol: "scale"
 ```
 
 ## Errors

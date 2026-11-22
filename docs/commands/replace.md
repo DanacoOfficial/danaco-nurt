@@ -13,9 +13,9 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-replace <pattern> <with> in: <list<path>> [glob: …] [mode: …] [occurrence: …] [case_sensitive: …] [whole_word: …] [multiline: …] [whitespace: …] [scope: …] [check_references: …] [template: …] [on_missing: …] [expect: …] [if_match: …] [validate: …] [hidden: …] [gitignore: …] [binary: …] [file_type: …]
-<match> |> replace <with> [occurrence: …] [template: …] [check_references: …] [on_missing: …] [expect: …] [if_match: …] [validate: …]
-<line | content> |> replace <pattern> <with> [mode: …] [occurrence: …] [case_sensitive: …] [whole_word: …] [multiline: …] [whitespace: …] [scope: …] [check_references: …] [template: …] [on_missing: …] [expect: …] [if_match: …] [validate: …]
+replace <pattern> <with> in: <list<path>> [name: value]...
+match|node|item |> replace <with> [name: value]...
+line|content |> replace <pattern> <with> [name: value]...
 ```
 
 ## Description
@@ -101,21 +101,21 @@ binary file is read as Windows-1252 text.
 
 | Form | Input | Output |
 |---|---|---|
-| source | none | `effect` |
-| matches | `match`, `node`, `item` | `effect` |
-| lines | `line`, `content` | `effect` |
+| `source` | `none` | `effect` |
+| `matches` | `match`, `node`, `item` | `effect` |
+| `lines` | `line`, `content` | `effect` |
 
 The `effect` record lists one `change` per changed file with the number of
 replacements, the lines added and removed and the difference.
 
 ## Effect
 
-Category `change`, effect `local`, reversible. Every changed file is
-declared in the journal before the first write and must still have the
-entity tag it had when it was read; a file changed in between fails with
-`E_STALE`. A change of several files is one bulk operation, undone as a
-whole. With `validate: reject` a change that adds a syntax error to a file
-of a known format is rolled back.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 ## Examples
 

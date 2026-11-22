@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-skip <count>
+any |> skip <count>
 ```
 
 ## Description
@@ -36,12 +36,16 @@ input with no more than `count` records gives an empty output.
 
 | Form | Input | Output |
 |---|---|---|
-| stage | any record kind | the input records after the first `count` (`same`) |
+| default | `any` | `same` |
 
 ## Effect
 
-Category `transform`, effect `read`, reversibility `read`. The command reads
-no files and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `transform` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

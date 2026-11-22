@@ -13,9 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-jobs [id] [state: any|running|exited|failed|stopped|timed_out] [view: status|output|result]
-     [since: text] [stream: both|stdout|stderr] [head: int] [tail: int]
-     [filter: regex] [context: int] [dedupe: bool] [wait: duration]
+jobs [<id>] [name: value]...
 ```
 
 ## Description
@@ -76,25 +74,33 @@ A removed identifier is not reused, and a later reference to it fails with
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `id` | `text` | none | Job identifier, such as `j7`. |
-| `state` | `enum(any\|running\|exited\|failed\|stopped\|timed_out)` | `any` | State of the jobs to list. |
-| `view` | `enum(status\|output\|result)` | `status` | State, output, or final result of the job. |
-| `since` | `text` | none | Cursor of an earlier read; only newer output is returned. |
-| `stream` | `enum(both\|stdout\|stderr)` | `both` | Output stream to read. |
+| `state` | `enum(any\|running\|suspended\|exited\|failed\|stopped\|timed_out\|stalled\|limit\|lost)` | `any` | State of the jobs to list. |
 | `head` | `int` | none | Number of first output lines returned. |
 | `tail` | `int` | none | Number of last output lines returned. |
+| `stream` | `enum(both\|stdout\|stderr)` | `both` | Output stream to read. |
+| `since` | `text` | none | Cursor of an earlier read; only newer output is returned. |
+| `wait` | `duration` | `0s` | Time to wait for the job to finish. |
+| `view` | `enum(status\|output\|result)` | `status` | State, output, or final result of the job. |
 | `filter` | `regex` | none | Return only output lines that match. |
 | `context` | `int` | `0` | Lines of context around lines matching `filter`. |
 | `dedupe` | `bool` | `false` | Collapse repeated identical output lines. |
-| `wait` | `duration` | `0s` | Time to wait for the job to finish. |
 
 ## Input and output
+
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `job` |
 
 Source only. Produces `job` records.
 
 ## Effect
 
-Category `source`, effect `read`, reversibility `read`. A call with `wait`
-longer than zero is marked as waiting by the static check.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

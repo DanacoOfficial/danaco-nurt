@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-test.show [run_id] [test: text] [status: failed|passed|skipped]
-          [failures: int] [message_lines: int]
+test.show [<run_id>] [name: value]...
 ```
 
 ## Description
@@ -34,18 +33,27 @@ output, and `message_lines` cuts each of those texts to that number of lines.
 |---|---|---|---|
 | `run_id` | `text` | the latest run | Earlier test run. |
 | `test` | `text` | none | Only the test with this identifier or name. |
-| `status` | `enum(failed\|passed\|skipped)` | all statuses | Only tests with this status. |
+| `status` | `enum(failed\|passed\|skipped)` | none | Only tests with this status. |
 | `failures` | `int` | `10` | Failed tests reported in detail. |
 | `message_lines` | `int` | `5` | Message lines per failed test. |
 
 ## Input and output
+
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `test_result` |
 
 The command takes no input. It produces the `test_run` header of the run and
 its `test_result` records in the order of the run.
 
 ## Effect
 
-Category `source`, effect `read`, implementation `builtin`. Nothing is changed.
+| Property | Value |
+|---|---|
+| Category | `source` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 

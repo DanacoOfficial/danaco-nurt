@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-schedule.history [<id>] [limit: <int>]
+schedule.history [<id>] [name: value]...
 ```
 
 ## Description
@@ -39,14 +39,14 @@ Manual runs made without the service are not recorded.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `text` | none, positional 1 | Only runs of this schedule. |
+| `id` | `text` | none | Only runs of this schedule. |
 | `limit` | `int` | `20` | Maximum number of runs, newest first; at least 1. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| `schedule.history [<id>] [limit: ...]` | none | `schedule_run` records, newest start first |
+| default | `none` | `schedule_run` |
 
 ## Effect
 
@@ -54,8 +54,8 @@ Manual runs made without the service are not recorded.
 |---|---|
 | Category | `source` |
 | Effect | `read` |
-| Reversibility | `read`: nothing is changed, so there is nothing to undo |
-| External programs | none |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -74,7 +74,7 @@ schedule.history "s1" limit: 5
 List the runs that did not succeed:
 
 ```nurt example
-schedule.history limit: 100 |> where exit_state != "ok" |> select schedule_id, started, message
+schedule.history limit: 100 |> filter exit_state != "ok" |> select schedule_id, started, message
 ```
 
 ## Errors

@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-notebook.export path to: path format: script|markdown|text
+notebook.export <path> to: <path> format: <enum(script|markdown|text)>
 ```
 
 ## Description
@@ -46,15 +46,18 @@ The `effect` record carries the counters `files_created` and
 
 ## Input and output
 
-Input: none; `notebook.export` starts a pipeline.
-
-Output: one `effect` record.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect` |
 
 ## Effect
 
-Category `change`, effect `local`, reversibility `reversible`; no external
-programs. The only target is the new file `to`, created through the journal;
-the journal checks that it still does not exist. Undo removes the file.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 ## Examples
 

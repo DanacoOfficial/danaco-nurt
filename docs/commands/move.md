@@ -13,10 +13,8 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-move <from>… <to> [on_conflict: overwrite|skip|error]
-move <from>… into: <directory> [on_conflict: …]
-<entry records> |> move <to> [on_conflict: …]
-<entry records> |> move into: <directory> [on_conflict: …]
+move <from>... [<to>] (to: <path> | into: <path>) [name: value]...
+entry |> move [<to>] (to: <path> | into: <path>) [name: value]...
 ```
 
 ## Description
@@ -50,21 +48,28 @@ An entry record with `etag` must still have that entity tag; a changed entry
 fails with `E_STALE` before anything changes. Empty input moves nothing and
 reports `nothing_matched`.
 
+| Notable code | Meaning |
+|---|---|
+| `to_is_dir` | `to` named an existing directory, which received the entry |
+| `cross_device` | the entry moved to another volume as a copy and a removal |
+| `case_collision` | the destination differs from an existing name only in letter case on a volume that does not distinguish case |
+| `nothing_matched` | the input had no entries |
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `from` | `list<path>` | required in the source form | Files and directories to move. |
-| `to` | `path` | | Target path; an existing directory receives the entry. Evaluated per record. |
-| `into` | `path` | | Target directory, created when missing. |
+| `from` | `list<path>` | required | Files and directories to move. |
+| `to` | `path` | one of `destination` | Target path; an existing directory receives the entry. Evaluated per record. |
+| `into` | `path` | one of `destination` | Target directory, created when missing. |
 | `on_conflict` | `enum(overwrite\|skip\|error)` | `overwrite` | Behaviour when the target file exists. |
 
 ## Input and output
 
 | Form | Input | Output |
 |---|---|---|
-| `move <from>… <to>` | none | `effect` |
-| `… \|> move <to>` | `entry` | `effect` |
+| `source` | `none` | `effect` |
+| `stage` | `entry` | `effect` |
 
 The `effect` record has one `change` with action `rename` per moved entry,
 with `path` set to the source and `to` to the destination, and one `change`
@@ -73,18 +78,12 @@ per directory created for `into`. Its `summary` counts `moved`,
 
 ## Effect
 
-Category `change`, local effect, reversible. Every moved entry is a target of
-the journal; an overwritten entry is kept by the journal, and undo moves the
-entries back and restores it. All targets of one call are one operation.
-
-## Notes
-
-| Notable code | Meaning |
+| Property | Value |
 |---|---|
-| `to_is_dir` | `to` named an existing directory, which received the entry |
-| `cross_device` | the entry moved to another volume as a copy and a removal |
-| `case_collision` | the destination differs from an existing name only in letter case on a volume that does not distinguish case |
-| `nothing_matched` | the input had no entries |
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -101,7 +100,7 @@ move: 1 target, moved 1, notable: to_is_dir
 Move two files into a directory that does not exist yet:
 
 ```nurt example
-move "/srv/a.log" "/srv/b.log" into: "/srv/old"
+move "/srv/a.log" into: "/srv/old"
 ```
 
 Move a file to another volume:

@@ -13,8 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-notebook.replace path (index: int | id: text) [source: text] [cell_type: code|markdown|raw] [reset_outputs: bool]
-notebook.replace path [index: int | id: text] find: text|regex with: text [whole_word: bool] [reset_outputs: bool]
+notebook.replace <path> [name: value]...
 ```
 
 ## Description
@@ -59,20 +58,18 @@ The `effect` record carries the counters `cells_changed` and, with `find`,
 
 ## Input and output
 
-Input: none; `notebook.replace` starts a pipeline.
-
-Output: one `effect` record.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect` |
 
 ## Effect
 
-Category `change`, effect `local`, reversibility `reversible`; no external
-programs. The notebook is the only target. The plan reads the file, applies
-the change and keeps the new content; the content is then replaced in one
-write through the journal, which checks that the file still has the entity
-tag it had when it was read (`E_STALE` otherwise). The `change` record
-carries the sizes before and after, the numbers of added and removed lines
-and the difference of the file, which is also what a preview shows. Undo
-restores the previous content.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 Cells and members the change does not touch keep their bytes: key order,
 indentation, number notation, escapes and the layout of the file are

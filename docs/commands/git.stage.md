@@ -62,8 +62,6 @@ file status, as entries written by `git apply --cached`.
 | `exclude` | `list<glob>` | `[]` | Paths left out of `add`; a pattern without `/` matches the file name in any directory. |
 | `intent_to_add` | `bool` | `false` | With `add`: record the paths in the index without their content. |
 
-`add` and `unstage` need `paths` or `hunks`.
-
 ## Input and output
 
 | Form | Input | Output |

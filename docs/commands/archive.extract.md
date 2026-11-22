@@ -13,7 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-archive.extract path into: path [only: glob] [strip_components: int] [on_conflict: overwrite|skip|error] [preserve_permissions: bool] [allow_outside: bool]
+archive.extract <path> into: <path> [name: value]...
 ```
 
 ## Description
@@ -76,22 +76,18 @@ declares more fails before anything is written.
 
 ## Input and output
 
-Input: none; `archive.extract` starts a pipeline.
-
-Output: one `effect` record. Its summary counts `directories`, `files`,
-`links`, `bytes`, `overwritten`, `unchanged`, `skipped`, `rejected` and
-`special`.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `effect` |
 
 ## Effect
 
-Category `change`, effect `local`, reversibility `reversible`; no external
-programs. Every created directory, file and link and every replaced file is
-one target of a single journal operation, which `undo` reverts as a whole.
-Directories are created first, then the files, then hard links and symbolic
-links, so no file is written through a link of the archive. The content of
-each file is streamed from the archive into the operation; the archive is
-read twice, and a change of the archive between the plan and the extraction
-fails with `E_STALE`.
+| Property | Value |
+|---|---|
+| Category | `change` |
+| Effect | `local` |
+| Reversibility | `reversible` |
+| Implementation | `builtin` |
 
 Notable entries: `archive_path_escape` for every rejected or, with
 `allow_outside`, extracted escaping member, with the member as

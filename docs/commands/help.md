@@ -13,10 +13,7 @@ since: 0.1.0
 ## Synopsis
 
 ```text
-help TOPIC kind:command|group|error|skill|syntax|corrections examples:3
-help group:NAME
-help skill:NAME
-help search:WORDS
+help [<topic>] [name: value]...
 ```
 
 ## Description
@@ -60,19 +57,25 @@ runs.
 |---|---|---|---|
 | `topic` | `text` | the list of commands, groups, guides and topics | Command, group, error code, syntax or corrections. |
 | `kind` | `enum(command\|group\|error\|skill\|syntax\|corrections)` | `command` | Kind of the topic. |
-| `group` | `text` | - | Group to describe, the same as kind: group. |
-| `skill` | `text` | - | Guide to show, the same as kind: skill. |
-| `search` | `text` | - | Words to look up in commands, errors and guides. |
+| `group` | `text` | none | Group to describe, the same as kind: group. |
+| `skill` | `text` | none | Guide to show, the same as kind: skill. |
+| `search` | `text` | none | Words to look up in commands, errors and guides. |
 | `examples` | `int` | `3` | Number of examples shown. |
 
 ## Input and output
 
-Input: `none`. Output: `text`.
+| Form | Input | Output |
+|---|---|---|
+| default | `none` | `text` |
 
 ## Effect
 
-Category `help`. Effect `read`. The command reads the catalog and the
-documentation pages and changes nothing.
+| Property | Value |
+|---|---|
+| Category | `help` |
+| Effect | `read` |
+| Reversibility | `read` |
+| Implementation | `builtin` |
 
 ## Examples
 
@@ -89,7 +92,7 @@ command shell and language where every change can be undone
 Show the signature of a command with its first example.
 
 ```nurt example
-help replace examples: 1
+help "replace" examples: 1
 ```
 
 ```text expected
@@ -99,7 +102,7 @@ replace
 Show the description of a group.
 
 ```nurt example
-help group: documents
+help group: "documents"
 ```
 
 ```text expected
