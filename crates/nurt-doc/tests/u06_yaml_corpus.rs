@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Corpus tests of YAML sequences, anchors, merge keys, documents, comments
 //! and tags: identity of unchanged documents, appending to and removing from
 //! every list with a check by the reference parser, the YAML Test Suite cases
