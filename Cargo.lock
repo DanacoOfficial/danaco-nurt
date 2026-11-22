@@ -5859,7 +5859,9 @@ version = "0.1.0"
 dependencies = [
  "jsonschema",
  "nurt-catalog",
+ "nurt-code",
  "nurt-contracts",
+ "nurt-doc",
  "nurt-exec",
  "nurt-plan",
  "nurt-report",
