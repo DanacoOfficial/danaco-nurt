@@ -11,7 +11,7 @@
 use nurt_contracts::ast::Expr;
 use nurt_syntax::lex::{
     LexContext, LexOptions, Lexer, MAX_SAFE_INTEGER, Token, TokenKind, decode_raw, decode_text,
-    duration_ms, size_bytes, tokenize,
+    duration_ms, invalid_escapes, size_bytes, tokenize,
 };
 use proptest::prelude::*;
 
@@ -36,6 +36,9 @@ const FRAGMENTS: &[&str] = &[
     "\"multi\nline\"",
     "r#\"q\"\"#",
     "r\"\\\"",
+    "r",
+    "1r#\"q\"#",
+    "0x1r\"q\"",
     "/old\\(/i",
     "/a\\/b/",
     "//",
@@ -196,6 +199,35 @@ fn tolerant() -> LexOptions {
     }
 }
 
+/// Whether the tolerant tokens of `text` mark no error: no foreign token and
+/// no text with an invalid escape.
+fn is_free_of_errors(text: &str, tokens: &[Token]) -> bool {
+    tokens.iter().all(|token| match token.kind {
+        TokenKind::Foreign(_) => false,
+        TokenKind::Text => invalid_escapes(&text[token.range.clone()]).is_empty(),
+        _ => true,
+    })
+}
+
+fn check_strict_accepts(text: &str, variant_b: bool) -> Result<(), TestCaseError> {
+    let tolerant_options = LexOptions {
+        arguments_by_whitespace: !variant_b,
+        ..tolerant()
+    };
+    let tolerant_tokens = tokenize(text, tolerant_options).unwrap();
+    if is_free_of_errors(text, &tolerant_tokens) {
+        let strict = tokenize(
+            text,
+            LexOptions {
+                tolerant: false,
+                ..tolerant_options
+            },
+        );
+        prop_assert_eq!(strict, Ok(tolerant_tokens), "{:?}", text);
+    }
+    Ok(())
+}
+
 /// Canonical text literal of `value`.
 fn print_text(value: &str) -> String {
     let controls = value
@@ -309,6 +341,16 @@ proptest! {
         if let Ok(strict) = tokenize(&text, LexOptions::default()) {
             prop_assert_eq!(strict, tokens);
         }
+    }
+
+    #[test]
+    fn strict_mode_accepts_generated_programs_that_tolerant_mode_reads_without_errors(text in program(), variant_b in any::<bool>()) {
+        check_strict_accepts(&text, variant_b)?;
+    }
+
+    #[test]
+    fn strict_mode_accepts_arbitrary_text_that_tolerant_mode_reads_without_errors(text in any_text(), variant_b in any::<bool>()) {
+        check_strict_accepts(&text, variant_b)?;
     }
 
     #[test]

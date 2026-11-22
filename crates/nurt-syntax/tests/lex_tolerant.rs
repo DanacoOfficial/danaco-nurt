@@ -184,6 +184,64 @@ fn splits_a_number_from_an_unknown_unit() {
 }
 
 #[test]
+fn splits_a_number_from_letters_that_start_a_raw_text() {
+    let cases: [(&str, &[(TokenKind, &str)]); 4] = [
+        (
+            "1r#\"q\"#",
+            &[
+                (TokenKind::Int, "1"),
+                (foreign(ForeignKind::LooseWord), "r"),
+            ],
+        ),
+        (
+            "1r\"q\"",
+            &[
+                (TokenKind::Int, "1"),
+                (foreign(ForeignKind::LooseWord), "r"),
+                (TokenKind::Text, "\"q\""),
+            ],
+        ),
+        (
+            "0x1r\"q\"",
+            &[
+                (TokenKind::Int, "0x1"),
+                (foreign(ForeignKind::LooseWord), "r"),
+                (TokenKind::Text, "\"q\""),
+            ],
+        ),
+        (
+            "1.5r##\"q\"##",
+            &[
+                (TokenKind::Number, "1.5"),
+                (foreign(ForeignKind::LooseWord), "r"),
+            ],
+        ),
+    ];
+    for (text, expected) in cases {
+        assert_eq!(fragments(text), expected, "{text}");
+        let error = tokenize(text, LexOptions::default()).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Lexical, "{text}");
+    }
+}
+
+#[test]
+fn marks_a_raw_text_glued_to_a_number_in_a_program() {
+    let text = "nottrue/re/i 1r#\"q\"#glob:\"/a\"";
+    assert!(tokenize(text, LexOptions::default()).is_err());
+    assert!(
+        tokens(text)
+            .iter()
+            .any(|token| token.kind == foreign(ForeignKind::LooseWord)),
+        "{:?}",
+        fragments(text)
+    );
+    assert_eq!(
+        fragments("1 r#\"q\"#"),
+        [(TokenKind::Int, "1"), (TokenKind::RawText, "r#\"q\"#")]
+    );
+}
+
+#[test]
 fn keeps_whitespace_of_other_kinds() {
     assert_eq!(
         fragments("a\u{A0}\u{200B}b"),

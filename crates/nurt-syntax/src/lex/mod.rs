@@ -424,7 +424,11 @@ impl<'a> Lexer<'a> {
             b'"' => text::scan_text(self.text, start),
             b'/' => self.scan_slash(start, context, space_before),
             b'0'..=b'9' => number::scan_number(self.text, start),
-            b'r' if text::raw_hashes(self.text, start).is_some() => {
+            // Letters glued to a number belong to the number, so `1r"q"` is a
+            // number with a loose word, as the strict lexer reads it.
+            b'r' if self.glued_word_at != Some(start)
+                && text::raw_hashes(self.text, start).is_some() =>
+            {
                 text::scan_raw(self.text, start)
             }
             b'\'' => foreign::scan_single_quoted(self.text, start),
