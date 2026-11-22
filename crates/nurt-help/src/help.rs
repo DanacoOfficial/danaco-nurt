@@ -415,7 +415,7 @@ fn overview(
         .map(|file| file.group.as_str())
         .filter(|name| *name != CORE_GROUP)
         .collect();
-    let skills: Vec<&str> = catalog
+    let guides: Vec<&str> = catalog
         .docs()
         .guides()
         .map(|guide| guide.name.as_str())
@@ -437,8 +437,8 @@ fn overview(
     lines.push(String::new());
     lines.push(format!("{} {}", labels.commands, commands.join(" ")));
     lines.push(format!("{} {}", labels.groups, groups.join(" ")));
-    if !skills.is_empty() {
-        lines.push(format!("{} {}", labels.skills, skills.join(" ")));
+    if !guides.is_empty() {
+        lines.push(format!("{} {}", labels.guides, guides.join(" ")));
     }
     lines.push(format!("{} {}", labels.topics, labels.topic_names));
     lines.push(String::new());
@@ -448,7 +448,7 @@ fn overview(
         "language": language.as_str(),
         "commands": commands,
         "groups": groups,
-        "skills": skills,
+        "guides": guides,
         "topics": ["syntax", "corrections"],
     });
     Ok((lines.join("\n"), document))
@@ -737,7 +737,7 @@ fn search(catalog: &Catalog, query: &str, labels: &Labels) -> (String, Value) {
             })
             .collect(),
     );
-    let skills = ranked(
+    let guides = ranked(
         catalog
             .docs()
             .guides()
@@ -755,7 +755,7 @@ fn search(catalog: &Catalog, query: &str, labels: &Labels) -> (String, Value) {
     let sections = [
         (labels.commands, &commands),
         (labels.errors, &errors),
-        (labels.skills, &skills),
+        (labels.guides, &guides),
     ];
     for (label, items) in sections {
         if items.is_empty() {
@@ -768,7 +768,7 @@ fn search(catalog: &Catalog, query: &str, labels: &Labels) -> (String, Value) {
                 .map(|(name, text)| format!("  {name} — {text}")),
         );
     }
-    if commands.is_empty() && errors.is_empty() && skills.is_empty() {
+    if commands.is_empty() && errors.is_empty() && guides.is_empty() {
         lines.push(labels.no_matches.to_owned());
     }
     let listing = |items: &[(String, String)]| -> Vec<Value> {
@@ -781,7 +781,7 @@ fn search(catalog: &Catalog, query: &str, labels: &Labels) -> (String, Value) {
         "search": query,
         "commands": listing(&commands),
         "errors": listing(&errors),
-        "skills": listing(&skills),
+        "guides": listing(&guides),
     });
     (lines.join("\n"), document)
 }

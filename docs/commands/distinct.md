@@ -32,7 +32,7 @@ an empty output.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `by` | `list<field>` | all fields | Fields that make records distinct. |
+| `by` | `list<field>` | - | Fields that make records distinct; all fields when omitted. |
 
 ## Input and output
 

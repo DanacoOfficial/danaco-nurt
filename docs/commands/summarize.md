@@ -38,8 +38,8 @@ gives one record per field with `count` 0.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `fields` | `list<field>` | none | Numeric fields to summarize. |
-| `by` | `field` | none | Field whose value forms the groups. |
+| `fields` | `list<field>` | - | Numeric fields to summarize. |
+| `by` | `field` | - | Field whose value forms the groups. |
 
 ## Input and output
 

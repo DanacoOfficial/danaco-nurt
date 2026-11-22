@@ -37,7 +37,7 @@ such as `exec`, `job`, `test_result`, `finding` and `effect`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `condition` | `expression` | required | Condition evaluated on each record; fields of the record are written by name. |
+| `condition` | `expression` | required | Condition evaluated on each record. |
 
 ## Input and output
 

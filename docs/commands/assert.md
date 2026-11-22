@@ -55,14 +55,14 @@ Exactly one parameter is given; all belong to the exclusive group
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `count` | `range` | none | Expected number of records. |
-| `paths` | `range` | none | Expected number of distinct paths. |
-| `exit_code` | `range` | none | Expected exit code of the programs run. |
-| `all` | `expression` | none | Condition that every record meets. |
-| `any` | `expression` | none | Condition that at least one record meets. |
-| `empty` | `bool` | none | Whether there are no records. |
-| `contains` | `text` | none | Text that the records contain. |
-| `if_match` | `text` | none | Expected etag of the input file. |
+| `count` | `range` | - | Expected number of records. |
+| `paths` | `range` | - | Expected number of distinct paths. |
+| `exit_code` | `range` | - | Expected exit code of the programs run. |
+| `all` | `expression` | - | Condition that every record meets. |
+| `any` | `expression` | - | Condition that at least one record meets. |
+| `empty` | `bool` | - | Whether there are no records. |
+| `contains` | `text` | - | Text that the records contain. |
+| `if_match` | `text` | - | Expected etag of the input file. |
 
 ## Input and output
 

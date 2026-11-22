@@ -30,7 +30,7 @@ input with fewer records than `count` passes on whole.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `count` | `int` | required | Number of records to keep; 0 or more. |
+| `count` | `int` | required | Number of records to keep. |
 
 ## Input and output
 

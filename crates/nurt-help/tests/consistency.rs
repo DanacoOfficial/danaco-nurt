@@ -350,7 +350,19 @@ fn pages_agree_with_the_catalog() {
     let catalog = common::catalog();
     let pages: Vec<&CommandPage> = catalog.docs().pages().collect();
     let names: Vec<&str> = pages.iter().map(|page| page.command.as_str()).collect();
-    assert_eq!(names, ["describe", "evaluate", "help"]);
+    let mut sorted = names.clone();
+    sorted.sort_unstable();
+    sorted.dedup();
+    assert_eq!(names, sorted, "pages are unique and ordered by name");
+    for required in ["describe", "evaluate", "help"] {
+        assert!(names.contains(&required), "missing page {required}");
+    }
+    for name in &names {
+        assert!(
+            catalog.command(name).is_some(),
+            "page without command {name}"
+        );
+    }
     for page in pages {
         assert_page_matches_catalog(&catalog, page);
     }
@@ -454,7 +466,7 @@ fn guide_sections_have_a_moderate_length() {
 }
 
 #[test]
-fn catalog_names_for_the_guide_topic_are_skill() {
+fn catalog_keeps_the_names_skill_for_the_guide_topic() {
     let catalog = common::catalog();
     let help = catalog.command("help").unwrap();
     assert!(help.param("skill").is_some());
@@ -465,4 +477,138 @@ fn catalog_names_for_the_guide_topic_are_skill() {
             .iter()
             .any(|value| value == "skill")
     );
+}
+
+/// Spellings of the catalog that name the guide topic: the parameter and the
+/// value of `kind`.
+const GUIDE_TOPIC_SPELLINGS: [&str; 9] = [
+    "kind: skill",
+    "kind:skill",
+    "skill:",
+    "|skill|",
+    "\\|skill\\|",
+    "|skill)",
+    "\\|skill)",
+    "`skill`",
+    "\"skill\"",
+];
+
+fn without_catalog_spellings(text: &str) -> String {
+    let mut text = text.to_lowercase();
+    for spelling in GUIDE_TOPIC_SPELLINGS {
+        text = text.replace(spelling, "");
+    }
+    text
+}
+
+fn documentation_texts() -> Vec<(String, String)> {
+    let mut texts = Vec::new();
+    for directory in ["docs/commands", "docs/guides"] {
+        for (name, text) in common::markdown_files(directory) {
+            texts.push((format!("{directory}/{name}"), text));
+        }
+    }
+    texts
+}
+
+#[test]
+fn texts_use_guides_except_for_catalog_identifiers() {
+    let catalog = common::catalog();
+    let mut texts = generated_texts(&catalog);
+    texts.extend(documentation_texts());
+    for (label, text) in texts {
+        let stripped = without_catalog_spellings(&text);
+        assert!(!stripped.contains("skill"), "{label} uses the word skill");
+    }
+}
+
+const STAGES_AFTER_THE_EFFECT_EN: &str =
+    "assert, filter, select, first, last, skip, count and sort";
+const STAGES_AFTER_THE_EFFECT_PL: &str = "assert, filter, select, first, last, skip, count i sort";
+
+fn core_text(catalog: &Catalog, language: Language, target: u32) -> String {
+    describe::layer(catalog, Layer::Core, "", language, Length::Tokens(target))
+        .unwrap()
+        .text
+}
+
+#[test]
+fn core_layer_allows_stages_after_the_effect_in_every_length() {
+    let catalog = common::catalog();
+    for target in TARGET_LENGTHS {
+        let english = core_text(&catalog, Language::En, target);
+        assert!(
+            english.contains(STAGES_AFTER_THE_EFFECT_EN),
+            "en {target}: stages after the effect"
+        );
+        assert!(
+            english.contains("only verify rolls back"),
+            "en {target}: rollback by verify only"
+        );
+        let polish = core_text(&catalog, Language::Pl, target);
+        assert!(
+            polish.contains(STAGES_AFTER_THE_EFFECT_PL),
+            "pl {target}: stages after the effect"
+        );
+        assert!(
+            polish.contains("wycofuje wyłącznie verify"),
+            "pl {target}: rollback by verify only"
+        );
+    }
+}
+
+#[test]
+fn syntax_topic_states_the_stages_after_the_effect() {
+    let catalog = common::catalog();
+    for (language, stages) in [
+        (Language::En, STAGES_AFTER_THE_EFFECT_EN),
+        (Language::Pl, STAGES_AFTER_THE_EFFECT_PL),
+    ] {
+        let answer = help::render(
+            &HelpQuery::topic("syntax").with_language(language),
+            &catalog,
+        )
+        .unwrap();
+        assert!(answer.body.contains(stages), "{language:?}");
+    }
+}
+
+#[test]
+fn core_layer_describes_partial_undo_and_selected_paths() {
+    let catalog = common::catalog();
+    for target in [2000, 3000, 4000] {
+        for language in [Language::En, Language::Pl] {
+            let text = core_text(&catalog, language, target);
+            for phrase in [
+                "history state: partial",
+                "undo on_conflict: partial",
+                "undo paths:",
+            ] {
+                assert!(
+                    text.contains(phrase),
+                    "{language:?} {target}: missing {phrase}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn texts_do_not_mention_a_window_for_undoing() {
+    let catalog = common::catalog();
+    let mut texts = generated_texts(&catalog);
+    texts.extend(documentation_texts());
+    for (label, text) in texts {
+        let lowered = text.to_lowercase();
+        for phrase in [
+            "undo window",
+            "undo period",
+            "window for undo",
+            "window of undo",
+            "okno cofania",
+            "okno cofnięcia",
+        ] {
+            assert!(!lowered.contains(phrase), "{label} mentions {phrase}");
+        }
+    }
 }

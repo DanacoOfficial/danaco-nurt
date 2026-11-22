@@ -30,7 +30,7 @@ input with no more than `count` records gives an empty output.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `count` | `int` | required | Number of records to drop; 0 or more. |
+| `count` | `int` | required | Number of records to drop. |
 
 ## Input and output
 
