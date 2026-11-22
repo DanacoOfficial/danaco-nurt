@@ -21,7 +21,7 @@ reversibility_note = "Files changed by the test programs are reversible when the
 name = "path"
 type = "path"
 position = 1
-default_note = "the base directory"
+default_from = "base"
 summary = "Project directory."
 
 [[command.param]]
@@ -115,7 +115,7 @@ summary = "Earlier test run."
 [[command.param]]
 name = "path"
 type = "path"
-default_note = "the base directory"
+default_from = "base"
 summary = "Project directory of the earlier run."
 
 [[command.param]]
@@ -215,7 +215,7 @@ name = "path"
 type = "list<path>"
 position = 1
 repeated = true
-default_note = "the base directory"
+default_from = "base"
 summary = "Files or directories to check."
 
 [[command.param]]
@@ -336,7 +336,7 @@ name = "path"
 type = "list<path>"
 position = 1
 repeated = true
-default_note = "the base directory"
+default_from = "base"
 summary = "Files or directories to format."
 
 [[command.param]]
@@ -366,7 +366,7 @@ name = "path"
 type = "list<path>"
 position = 1
 repeated = true
-default_note = "the base directory"
+default_from = "base"
 summary = "Files or directories to inspect."
 
 [[command.param]]

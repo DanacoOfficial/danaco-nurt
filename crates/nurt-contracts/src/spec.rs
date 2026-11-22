@@ -69,6 +69,14 @@ pub const MAX_TYPE_DEPTH: usize = 16;
 /// Smallest number of parameters in an exclusive group.
 const MIN_EXCLUSIVE_GROUP_MEMBERS: usize = 2;
 
+/// Call parameter that `default_from` may name besides the parameters of the
+/// command.
+const BASE_CALL_PARAMETER: &str = "base";
+
+/// Record kind consumed by the stage form that an expanded source form binds
+/// to.
+const ENTRY_RECORD: &str = "entry";
+
 fn is_false(value: &bool) -> bool {
     !*value
 }
@@ -1023,6 +1031,13 @@ pub struct ParamSpec {
     /// The default is "no limit".
     #[serde(default, skip_serializing_if = "is_false")]
     pub unbounded_default: bool,
+    /// Parameter whose value is the default: another parameter of the
+    /// command or the call parameter `base`. The value is converted to the
+    /// type of this parameter, so a path becomes a one-element list. A
+    /// required parameter with this key is missing only when its source has
+    /// no value either.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_from: Option<String>,
     /// Description of a default that is computed rather than literal (for
     /// example "the latest operation").
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1116,6 +1131,12 @@ pub struct FormSpec {
     /// Parameters accepted by the form; empty means every parameter.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<String>,
+    /// Parameter of a source form that names the entries the command works
+    /// on. The binder expands the form to an `info` head whose `path` is the
+    /// value of this parameter, followed by the command bound in its form for
+    /// `entry` input.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expand: Option<String>,
     /// One-sentence description of the form.
     pub summary: String,
 }
@@ -1314,6 +1335,16 @@ impl StageSpec {
         if param.repeated && !param.is_positional() {
             problems.push("a repeated parameter must be positional".to_owned());
         }
+        if let Some(source) = param.default_from.as_deref() {
+            if source == param.name {
+                problems.push("default_from names the parameter itself".to_owned());
+            } else if source != BASE_CALL_PARAMETER && self.param(source).is_none() {
+                problems.push(format!("default_from names unknown parameter {source}"));
+            }
+            if param.default.is_some() || param.unbounded_default {
+                problems.push("default_from and a default are both given".to_owned());
+            }
+        }
         if param
             .default_note
             .as_deref()
@@ -1457,6 +1488,34 @@ impl StageSpec {
             if !known {
                 issues.push(self.issue(format!("{context}: unknown required name {name}")));
             }
+        }
+        if let Some(name) = form.expand.as_deref() {
+            self.check_expansion(form, name, issues);
+        }
+    }
+
+    fn check_expansion(&self, form: &FormSpec, name: &str, issues: &mut Vec<CatalogIssue>) {
+        let context = format!("form {}", form.name);
+        if !form.input.iter().all(IoSpec::is_none) {
+            issues.push(self.issue(format!("{context}: expand requires a source form")));
+        }
+        let entry = IoSpec::Record(ENTRY_RECORD.to_owned());
+        let Some(stage) = self.forms.iter().find(|other| other.input.contains(&entry)) else {
+            issues.push(self.issue(format!("{context}: expand requires a form for entry input")));
+            return;
+        };
+        match self.param(name) {
+            Some(param) if param.ty.contains_scalar(ScalarType::Path) => {}
+            Some(_) => issues.push(self.issue(format!("{context}: expand {name} is not a path"))),
+            None => {
+                issues.push(self.issue(format!("{context}: expand names unknown parameter {name}")))
+            }
+        }
+        if stage.params.is_empty() || stage.params.iter().any(|param| param == name) {
+            issues.push(self.issue(format!(
+                "{context}: expand {name} is also a parameter of form {}",
+                stage.name
+            )));
         }
     }
 

@@ -15,8 +15,7 @@ The error is the member `error` of the effect report. Members other than `code` 
 |---|---|---|
 | `code` | text | Stable code from the table below. |
 | `message` | text | Message in English, one or two sentences. |
-| `stage` | text | Stage in which the error occurred: `0` to `7` or `5a`. |
-| `at` | object | Position in the program: `line`, `column` and `length`, counted in Unicode scalar values from 1. |
+| `at` | object | Position of the error: `stage`, the stage in which the error occurred (`0` to `7` or `5a`), and the place in the program, `line`, `column` and `length`, counted in Unicode scalar values from 1. Errors raised while a stage runs carry `stage` without a place in the program. |
 | `location` | object | Position in a data file: `path`, `line`, `column`, `end_line`, `end_column`, `byte`. |
 | `found` | text | The fragment that was found, for example the name of an unsupported construct. |
 | `problem` | text | Short name of the specific problem, for example `not_merged`. |
@@ -68,6 +67,7 @@ Functions of the C interface that return a response document (`nurt_run_json`, `
 | `E_UNKNOWN_FIELD` | 1, 2 | `NURT_E_ARG` | Unknown field of a record; `expected` lists the fields. |
 | `E_UNKNOWN_VALUE` | 1 | `NURT_E_ARG` | Unknown value of an enumeration; `expected` lists the values. |
 | `E_MISSING_PARAM` | 1 | `NURT_E_ARG` | A required parameter is missing. |
+| `E_PARAM_CONFLICT` | 1 | `NURT_E_ARG` | Parameters that exclude each other were given together; `expected` lists the admissible combinations. |
 | `E_TYPE` | 1, 2 | `NURT_E_ARG` | A value or a record stream has a type the place does not accept; `expected` lists the accepted types. |
 | `E_ARITY` | 1 | `NURT_E_ARG` | Wrong number of arguments. |
 | `E_INVALID_VALUE` | 1 | `NURT_E_ARG` | A value has the right type but is not valid for the place, for example a cron expression, a time zone or a too short interval. |
@@ -148,4 +148,7 @@ Functions of the C interface that return a response document (`nurt_run_json`, `
 | `E_GIT_PUSH_REJECTED` | 5 | `NURT_OK` | The remote rejected an update of at least one reference. |
 | `E_GIT_PROTOCOL` | 5 | `NURT_OK` | The remote broke the protocol or lacks a required capability. |
 | `E_GIT_UNSUPPORTED` | 2, 4 | `NURT_OK` | A feature of the repository is not supported. |
+| `E_GIT_HUNK` | 4, 5 | `NURT_OK` | A hunk identifier is malformed or unknown, the hunk changed since it was listed, or the selected lines cannot be applied. |
+| `E_GIT_CHECKPOINT` | 4, 6 | `NURT_OK` | A checkpoint has no saved index, or its content does not match after a restore; the paths are listed. |
+| `E_GIT_WORKTREE` | 4 | `NURT_OK` | A worktree is unknown, is the main worktree, is locked or contains the working directory. |
 | `E_INTERNAL` | 0, 1, 2, 3, 4, 5, 5a, 6, 7 | `NURT_E_INTERNAL` | An internal error; the report is complete up to this point. |

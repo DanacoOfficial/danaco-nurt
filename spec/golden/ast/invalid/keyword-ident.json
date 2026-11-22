@@ -1,0 +1,23 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "filter",
+          "args": [
+            {
+              "value": {
+                "t": "ident",
+                "v": "and"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

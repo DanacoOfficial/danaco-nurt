@@ -1269,6 +1269,7 @@ name = "source"
 input = ["none"]
 positional = ["from", "to"]
 required = ["from", "destination"]
+expand = "from"
 summary = "Copy the given paths."
 
 [[command.form]]
@@ -1324,6 +1325,7 @@ name = "source"
 input = ["none"]
 positional = ["from", "to"]
 required = ["from", "destination"]
+expand = "from"
 summary = "Move the given paths."
 
 [[command.form]]
@@ -1374,6 +1376,7 @@ name = "source"
 input = ["none"]
 positional = ["path"]
 required = ["path"]
+expand = "path"
 summary = "Remove the given paths."
 
 [[command.form]]
@@ -1437,6 +1440,7 @@ name = "source"
 input = ["none"]
 positional = ["pattern", "with"]
 required = ["path", "replacement"]
+expand = "path"
 summary = "Rename the given entry."
 
 [[command.form]]
@@ -1580,6 +1584,7 @@ name = "source"
 input = ["none"]
 positional = ["path"]
 required = ["path"]
+expand = "path"
 summary = "Change the given entries."
 
 [[command.form]]
@@ -1612,7 +1617,8 @@ summary = "Program and arguments; the first element is the program."
 [[command.param]]
 name = "cwd"
 type = "path"
-default_note = "the call parameter base; one of them is required"
+required = true
+default_from = "base"
 summary = "Working directory of the program."
 
 [[command.param]]
@@ -1715,7 +1721,7 @@ summary = "Encoding of the program output; auto detects it."
 [[command.param]]
 name = "watch"
 type = "list<path>"
-default_note = "the working directory of the program"
+default_from = "cwd"
 summary = "Directories in which changes made by the program are detected."
 
 [[command.param]]

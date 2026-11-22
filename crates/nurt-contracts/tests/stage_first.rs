@@ -5,7 +5,12 @@
 //! A sample implementation of `first` runs on an in-memory record stream with
 //! an execution context composed of test doubles.
 
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests report failures by panicking"
+)]
 
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -15,6 +20,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
+use nurt_contracts::services::{FileListService, ServiceKind, Services, WalkIter, WalkSpec};
 use nurt_contracts::stage::{
     ArgValue, BoundArgs, CancelReason, CancelToken, EffectPlan, EffectStage, Event, EventSink,
     ExecCtx, ExecStep, Extensions, InputKinds, Progress, ReadStage, RecordStream, StageData,
@@ -445,6 +451,34 @@ fn effect_plans_carry_private_state() {
     assert!(stage.as_read().is_none());
     assert!(stage.as_effect().is_none());
     assert!(stage.descriptor().input.accepts(RecordKind::Entry));
+}
+
+/// File listing service that finds no files.
+struct NoFiles;
+
+impl FileListService for NoFiles {
+    fn walk<'a>(&'a self, _spec: &WalkSpec) -> nurt_contracts::error::Result<WalkIter<'a>> {
+        Ok(Box::new(std::iter::empty()))
+    }
+}
+
+#[test]
+fn service_accessors_delegate_to_the_registry() {
+    let test = test_ctx(None);
+    assert!(test.ctx.services().available().is_empty());
+    assert!(test.ctx.files().is_none());
+
+    let services = Services::new().with_file_list(Arc::new(NoFiles));
+    let ctx = ExecCtx::builder(Arc::new(VirtualClock::new()), Arc::new(TestHost::new()))
+        .services(Arc::new(services))
+        .build();
+    assert_eq!(ctx.services().available(), [ServiceKind::FileList]);
+    assert!(ctx.files().is_some());
+    assert!(ctx.doc().is_none());
+    assert!(ctx.code().is_none());
+    assert!(ctx.process().is_none());
+    let stage_ctx = ctx.for_stage(StageFrame::default());
+    assert!(stage_ctx.services().has(ServiceKind::FileList));
 }
 
 #[test]

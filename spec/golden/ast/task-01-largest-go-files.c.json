@@ -1,0 +1,108 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "text",
+                "v": "/srv/app"
+              }
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "text",
+                "v": "**/*.go"
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "args": [
+              {
+                "name": "condition",
+                "value": {
+                  "t": "bin",
+                  "op": "and",
+                  "l": {
+                    "t": "bin",
+                    "op": ">",
+                    "l": {
+                      "t": "ident",
+                      "v": "size"
+                    },
+                    "r": {
+                      "t": "size",
+                      "v": 1000000
+                    }
+                  },
+                  "r": {
+                    "t": "bin",
+                    "op": ">",
+                    "l": {
+                      "t": "ident",
+                      "v": "modified"
+                    },
+                    "r": {
+                      "t": "call",
+                      "fn": "ago",
+                      "args": [
+                        {
+                          "t": "dur",
+                          "v": 86400000
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "sort",
+            "args": [
+              {
+                "name": "by",
+                "value": {
+                  "t": "ident",
+                  "v": "size"
+                }
+              },
+              {
+                "name": "order",
+                "value": {
+                  "t": "ident",
+                  "v": "desc"
+                }
+              }
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "first",
+            "args": [
+              {
+                "name": "count",
+                "value": {
+                  "t": "int",
+                  "v": 20
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

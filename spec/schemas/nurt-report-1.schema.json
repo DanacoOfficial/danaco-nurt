@@ -107,18 +107,30 @@
         "path": { "type": "string", "description": "Canonical path, or <provider>:<name> for targets outside the file system." },
         "action": { "enum": ["create", "modify", "delete", "rename", "attributes", "link", "truncate", "state"] },
         "from": { "type": "string" },
+        "to": { "type": "string", "description": "New path of a move or a copy." },
         "size_before": { "type": "integer", "minimum": 0 },
         "size_after": { "type": "integer", "minimum": 0 },
         "hash_before": { "type": "string" },
         "hash_after": { "type": "string" },
-        "replacements": { "type": "integer", "minimum": 0 },
         "added": { "type": "integer", "minimum": 0 },
         "removed": { "type": "integer", "minimum": 0 },
+        "replacements": { "type": "integer", "minimum": 0 },
+        "flags": { "type": "array", "items": { "type": "string" } },
+        "encoding_before": { "type": "string" },
+        "encoding_after": { "type": "string" },
+        "line_ending_before": { "$ref": "#/$defs/line_ending" },
+        "line_ending_after": { "$ref": "#/$defs/line_ending" },
+        "bom_before": { "type": "boolean" },
+        "bom_after": { "type": "boolean" },
+        "link_target": { "type": "string" },
+        "store": { "type": "string", "description": "How the previous content was kept." },
+        "irreversible": { "$ref": "#/$defs/irreversible_reason" },
+        "diff": { "type": "array", "items": { "$ref": "#/$defs/hunk" } },
         "before": { "type": "string", "description": "State of a target outside the file system before the change." },
-        "after": { "type": "string", "description": "State of a target outside the file system after the change." },
-        "flags": { "type": "array", "items": { "type": "string" } }
+        "after": { "type": "string", "description": "State of a target outside the file system after the change." }
       }
     },
+    "line_ending": { "enum": ["lf", "crlf", "cr", "mixed", "none"] },
     "hunk": {
       "type": "object",
       "required": ["path", "old_start", "old_len", "new_start", "new_len", "lines"],
@@ -130,7 +142,33 @@
         "new_start": { "type": "integer", "minimum": 0 },
         "new_len": { "type": "integer", "minimum": 0 },
         "lines": { "type": "array", "items": { "type": "string", "pattern": "^[-+ ]" }, "description": "Lines prefixed with '+', '-' or ' '." },
-        "header": { "type": "string" }
+        "id": { "type": "string", "description": "Stable identifier, path#number[:fingerprint][@lines]." },
+        "header": { "type": "string" },
+        "old_path": { "type": "string" },
+        "status": { "enum": ["modified", "added", "deleted", "renamed", "binary"] },
+        "binary": { "type": "boolean" },
+        "old_mode": { "type": "string" },
+        "new_mode": { "type": "string" },
+        "ignore_whitespace": { "type": "boolean" },
+        "fingerprint": { "type": "string", "pattern": "^[0-9a-f]{6}$" },
+        "staged": { "type": "boolean" },
+        "untracked": { "type": "boolean" },
+        "unit": { "enum": ["lines", "words"] },
+        "moved": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from_path", "from_line", "to_path", "to_line", "lines"],
+            "additionalProperties": false,
+            "properties": {
+              "from_path": { "type": "string" },
+              "from_line": { "type": "integer", "minimum": 1 },
+              "to_path": { "type": "string" },
+              "to_line": { "type": "integer", "minimum": 1 },
+              "lines": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
       }
     },
     "bulk": {
@@ -220,7 +258,9 @@
         "fast_forward", "conflicts", "untracked_removed", "local_changes_carried",
         "filter_not_applied", "credential_helper_ignored", "ssh_command_ignored",
         "fsmonitor_ignored", "submodules_not_updated", "sparse_checkout", "shallow_repository",
-        "line_endings_converted", "upstream_set", "stash_kept", "signed"
+        "line_endings_converted", "upstream_set", "stash_kept", "signed",
+        "amend_published", "commit_detached_head", "operation_in_progress", "excluded",
+        "review_skipped", "checkpoint_without_index"
       ]
     },
     "irreversible": {
@@ -248,7 +288,7 @@
         "E_LEXICAL", "E_ESCAPE", "E_SYNTAX", "E_AMBIGUOUS", "E_UNCORRECTABLE",
         "E_INTERNAL_CORRECTION", "E_EXPIRED_CANDIDATE", "E_AST_VERSION", "E_AST_SCHEMA",
         "E_UNKNOWN_COMMAND", "E_UNKNOWN_PARAM", "E_UNKNOWN_NAME", "E_UNKNOWN_FIELD", "E_UNKNOWN_VALUE",
-        "E_MISSING_PARAM", "E_TYPE", "E_ARITY", "E_INVALID_VALUE", "E_PATH_RELATIVE", "E_PATH_FOREIGN",
+        "E_MISSING_PARAM", "E_PARAM_CONFLICT", "E_TYPE", "E_ARITY", "E_INVALID_VALUE", "E_PATH_RELATIVE", "E_PATH_FOREIGN",
         "E_ONE_EFFECT", "E_OS_ONLY", "E_UNSUPPORTED", "E_REGEX", "E_KEY_SYNTAX", "E_PATTERN_SYNTAX",
         "E_QUERY", "E_SQL", "E_ARG", "E_EXTERNAL_MISSING", "E_EXTERNAL_FAILED", "E_PROGRAM_NOT_FOUND",
         "E_SPAWN", "E_ASSERT", "E_BINARY", "E_DOC_PARSE", "E_FORMAT", "E_ENCRYPTED",
@@ -263,7 +303,8 @@
         "E_SERVICE_NOT_RUNNING", "E_CATALOG", "E_CONFIG", "E_GIT_NOT_REPOSITORY", "E_GIT_REVISION", "E_GIT_REF",
         "E_GIT_DIRTY", "E_GIT_CONFLICT", "E_GIT_IN_PROGRESS", "E_GIT_LOCKED", "E_GIT_NON_FAST_FORWARD",
         "E_GIT_NOTHING_TO_COMMIT", "E_GIT_HOOK", "E_GIT_SIGN", "E_GIT_AUTH", "E_GIT_HOST_KEY",
-        "E_GIT_PUSH_REJECTED", "E_GIT_PROTOCOL", "E_GIT_UNSUPPORTED", "E_INTERNAL"
+        "E_GIT_PUSH_REJECTED", "E_GIT_PROTOCOL", "E_GIT_UNSUPPORTED", "E_GIT_HUNK",
+        "E_GIT_CHECKPOINT", "E_GIT_WORKTREE", "E_INTERNAL"
       ]
     },
     "error_stage": {
@@ -278,16 +319,17 @@
       "properties": {
         "code": { "$ref": "#/$defs/error_code" },
         "message": { "type": "string" },
-        "stage": { "$ref": "#/$defs/error_stage" },
         "at": {
           "type": "object",
-          "required": ["line", "column"],
           "additionalProperties": false,
+          "description": "Position of the error: the execution stage and the place in the program text.",
           "properties": {
             "line": { "type": "integer", "minimum": 1 },
             "column": { "type": "integer", "minimum": 1 },
-            "length": { "type": "integer", "minimum": 0 }
-          }
+            "length": { "type": "integer", "minimum": 0 },
+            "stage": { "$ref": "#/$defs/error_stage" }
+          },
+          "dependentRequired": { "line": ["column"], "column": ["line"], "length": ["line"] }
         },
         "location": {
           "type": "object",

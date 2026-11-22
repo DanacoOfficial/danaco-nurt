@@ -1,0 +1,5 @@
+file	code	layer	reason
+after-without-effect.json	E_AST_SCHEMA	rules	stage of the phase after without a preceding effect stage
+effect-in-let.json	E_AST_SCHEMA	rules	pipeline of a let with a mutate stage
+missing-phase.json	E_AST_SCHEMA	types	bound stage without phase
+relative-path.json	E_AST_SCHEMA	schema	relative path
