@@ -1,0 +1,13 @@
+{
+  "nurt": "1.0",
+  "status": "ok",
+  "kind": "restart",
+  "op": 27,
+  "targets": { "count": 1, "listed": 1 },
+  "changes": [
+    { "path": "service:nginx", "action": "state", "before": "running", "after": "running" }
+  ],
+  "irreversible": [
+    { "reason": "service_changed", "path": "service:nginx", "detail": "restart" }
+  ]
+}

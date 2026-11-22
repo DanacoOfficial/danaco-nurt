@@ -1,0 +1,235 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "schedule"
+summary = "Schedules of pipelines."
+
+[[command]]
+name = "schedule.create"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["schedule"]
+summary = "Create a schedule that runs a pipeline by cron expression, interval or time."
+required_groups = ["trigger"]
+
+[[command.param]]
+name = "label"
+type = "text"
+position = 1
+required = true
+summary = "Name of the schedule."
+
+[[command.param]]
+name = "cron"
+type = "text"
+summary = "Five-field cron expression or a shortcut such as @daily."
+exclusive_group = "trigger"
+
+[[command.param]]
+name = "every"
+type = "duration"
+summary = "Interval between runs; at least the configured minimum."
+exclusive_group = "trigger"
+
+[[command.param]]
+name = "at"
+type = "instant"
+summary = "Single run at this time."
+exclusive_group = "trigger"
+
+[[command.param]]
+name = "action"
+type = "pipeline"
+required = true
+summary = "Pipeline to run."
+
+[[command.param]]
+name = "timezone"
+type = "text"
+default = "\"local\""
+summary = "Time zone of the cron expression and times."
+
+[[command.param]]
+name = "on_missed"
+type = "enum(skip|run_once)"
+default = "skip"
+values = ["skip", "run_once"]
+summary = "Behaviour for runs missed while the service was not running."
+
+[[command.param]]
+name = "misfire"
+type = "duration"
+default = "2m"
+summary = "Maximum delay after which a missed run is not made up."
+
+[[command.param]]
+name = "overlap"
+type = "enum(skip|queue|parallel)"
+default = "skip"
+values = ["skip", "queue", "parallel"]
+summary = "Behaviour when a run is due while the previous one is still running."
+
+[[command.param]]
+name = "timeout"
+type = "duration"
+default = "1h"
+summary = "Time limit of each run."
+
+[[command.param]]
+name = "max_runs"
+type = "int"
+summary = "Number of runs after which the schedule completes."
+
+[[command.param]]
+name = "expires"
+type = "instant | duration"
+summary = "Time, or time from now, after which the schedule expires."
+
+[[command.param]]
+name = "run_now"
+type = "bool"
+default = "false"
+summary = "Also run once immediately."
+
+[[command.param]]
+name = "enabled"
+type = "bool"
+default = "true"
+summary = "Create the schedule active rather than paused."
+
+[[command]]
+name = "schedule.list"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["schedule"]
+summary = "List schedules with their next run and state."
+
+[[command.param]]
+name = "id"
+type = "text"
+position = 1
+summary = "Schedule to show with its last five runs."
+
+[[command.param]]
+name = "state"
+type = "enum(all|active|paused|completed|expired)"
+default = "all"
+values = ["all", "active", "paused", "completed", "expired"]
+summary = "Only schedules in this state."
+
+[[command]]
+name = "schedule.remove"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Remove schedules."
+
+[[command.param]]
+name = "id"
+type = "list<text>"
+position = 1
+repeated = true
+summary = "Schedules to remove."
+
+[[command.param]]
+name = "all"
+type = "bool"
+default = "false"
+summary = "Remove all schedules."
+
+[[command]]
+name = "schedule.pause"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Pause schedules without removing them."
+
+[[command.param]]
+name = "id"
+type = "list<text>"
+position = 1
+repeated = true
+summary = "Schedules to pause."
+
+[[command.param]]
+name = "all"
+type = "bool"
+default = "false"
+summary = "Pause all schedules."
+
+[[command]]
+name = "schedule.resume"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Resume paused schedules."
+
+[[command.param]]
+name = "id"
+type = "list<text>"
+position = 1
+repeated = true
+summary = "Schedules to resume."
+
+[[command.param]]
+name = "all"
+type = "bool"
+default = "false"
+summary = "Resume all paused schedules."
+
+[[command]]
+name = "schedule.run"
+category = "run"
+reversibility = "reversible_if_preserved"
+effect = "process"
+implementation = "builtin"
+input = ["none"]
+output = ["exec", "job"]
+summary = "Run the action of a schedule now, outside its times and run limit."
+reversibility_note = "File changes are reversible as for run; effects outside the file system are irreversible."
+
+[[command.param]]
+name = "id"
+type = "text"
+position = 1
+required = true
+summary = "Schedule to run."
+
+[[command]]
+name = "schedule.history"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["schedule_run"]
+summary = "List past runs of schedules with their result and journal operation."
+
+[[command.param]]
+name = "id"
+type = "text"
+position = 1
+summary = "Only runs of this schedule."
+
+[[command.param]]
+name = "limit"
+type = "int"
+default = "20"
+summary = "Maximum number of runs, newest first."

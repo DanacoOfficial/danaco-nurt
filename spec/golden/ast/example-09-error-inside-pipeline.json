@@ -1,0 +1,90 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "read",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/data/missing.csv",
+                "span": [
+                  1,
+                  6,
+                  1,
+                  29
+                ]
+              },
+              "span": [
+                1,
+                6,
+                1,
+                29
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            29
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "search",
+            "args": [
+              {
+                "value": {
+                  "t": "regex",
+                  "v": "foo",
+                  "flags": "",
+                  "span": [
+                    1,
+                    40,
+                    1,
+                    45
+                  ]
+                },
+                "span": [
+                  1,
+                  40,
+                  1,
+                  45
+                ]
+              }
+            ],
+            "span": [
+              1,
+              33,
+              1,
+              45
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "count",
+            "args": [],
+            "span": [
+              1,
+              49,
+              1,
+              54
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          54
+        ]
+      }
+    ]
+  }
+}

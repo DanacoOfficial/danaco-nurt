@@ -1,0 +1,16 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "read",
+  "error": {
+    "code": "E_NOT_FOUND",
+    "message": "the file does not exist",
+    "stage": "2",
+    "at": { "line": 1, "column": 6, "length": 22 },
+    "found": "/srv/app/src/missing.go",
+    "location": { "path": "/srv/app/src/missing.go" },
+    "candidates": [
+      { "rank": 1, "program": "read \"/srv/app/src/main.go\"", "why": "closest existing name" }
+    ]
+  }
+}

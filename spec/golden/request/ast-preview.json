@@ -1,0 +1,35 @@
+{
+  "nurt": "1.0",
+  "ast": {
+    "nurt": "1.0",
+    "program": {
+      "statements": [
+        {
+          "t": "pipeline",
+          "head": {
+            "t": "stage",
+            "name": "search",
+            "args": [
+              { "value": { "t": "regex", "v": "oldName\\(", "flags": "" } },
+              { "value": { "t": "text", "v": "/srv/app/src" } },
+              { "name": "glob", "value": { "t": "text", "v": "**/*.go" } }
+            ]
+          },
+          "stages": [
+            {
+              "t": "stage",
+              "name": "assert",
+              "args": [{ "name": "paths", "value": { "t": "int", "v": 12 } }]
+            },
+            {
+              "t": "stage",
+              "name": "replace",
+              "args": [{ "value": { "t": "text", "v": "newName(" } }]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "options": { "preview": true, "base": "/srv/app", "verbosity": "detailed", "format": "json" }
+}

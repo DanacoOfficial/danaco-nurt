@@ -1,0 +1,18 @@
+{
+  "nurt": "1.0",
+  "report": {
+    "nurt": "1.0",
+    "status": "failed",
+    "kind": "find",
+    "error": {
+      "code": "E_SYNTAX",
+      "message": "unclosed list",
+      "at": { "line": 1, "column": 27, "length": 1 },
+      "fix": ["find \"/srv/app\" glob: [\"*.go\"]"]
+    }
+  },
+  "rendered": {
+    "format": "markdown",
+    "text": "**error** `E_SYNTAX` at 1:27: unclosed list\n\nfix: `find \"/srv/app\" glob: [\"*.go\"]`\n"
+  }
+}

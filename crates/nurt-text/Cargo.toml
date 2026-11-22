@@ -1,0 +1,44 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+[package]
+name = "nurt-text"
+description = "Text encodings, line endings, search, differences, patches and hashes for Danaco Nurt."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+nurt-contracts = { workspace = true }
+nurt-types = { workspace = true }
+encoding_rs = { workspace = true }
+chardetng = { workspace = true }
+oem_cp = { workspace = true }
+codepage = { workspace = true }
+regex = { workspace = true }
+fancy-regex = { workspace = true }
+grep-searcher = { workspace = true }
+grep-regex = { workspace = true }
+similar = { workspace = true }
+bstr = { workspace = true }
+memchr = { workspace = true }
+aho-corasick = { workspace = true }
+sha2 = { workspace = true }
+sha1 = { workspace = true }
+md-5 = { workspace = true }
+blake3 = { workspace = true }
+crc32fast = { workspace = true }
+unicode-normalization = { workspace = true }
+unicode-width = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

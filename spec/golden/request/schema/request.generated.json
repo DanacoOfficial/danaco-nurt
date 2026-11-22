@@ -1,0 +1,1410 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Request",
+  "description": "Request envelope (`nurt-request/1`).\n\nExactly one of `program`, `ast`, `cursor` and `accept` is present;\n`variant` is allowed only with `program`. [`Request::input`] returns the\ninput and enforces the rule.",
+  "type": "object",
+  "properties": {
+    "nurt": {
+      "description": "Format version, `MAJOR.MINOR`; see [`ENVELOPE_VERSION`].",
+      "type": "string"
+    },
+    "program": {
+      "description": "Program text in any notation variant; the instance parses and\ncorrects it.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "variant": {
+      "description": "Notation variant of `program`. Default: the configured variant, with\nthe other variants accepted when tolerant parsing is enabled.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SyntaxVariant"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ast": {
+      "description": "Surface syntax tree `nurt-ast/1`, equivalent to `program`.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AstDocument"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "cursor": {
+      "description": "Cursor of a further page of an earlier result; reading a page never\nruns a changing program again.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "accept": {
+      "description": "Identifier of a candidate from an earlier `E_AMBIGUOUS` error, for\nexample `c1`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "options": {
+      "description": "Call options.",
+      "$ref": "#/$defs/RequestOptions"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "nurt"
+  ],
+  "$defs": {
+    "SyntaxVariant": {
+      "description": "Notation variant of the text form of a program.",
+      "oneOf": [
+        {
+          "description": "Variant A, the word notation.",
+          "type": "string",
+          "const": "a"
+        },
+        {
+          "description": "Variant B, the call notation.",
+          "type": "string",
+          "const": "b"
+        },
+        {
+          "description": "Variant C, the named notation.",
+          "type": "string",
+          "const": "c"
+        }
+      ]
+    },
+    "AstDocument": {
+      "description": "Root of a surface tree document.",
+      "type": "object",
+      "properties": {
+        "nurt": {
+          "description": "Format version, `MAJOR.MINOR`; see [`AST_VERSION`].",
+          "type": "string"
+        },
+        "program": {
+          "description": "The program.",
+          "$ref": "#/$defs/Program"
+        },
+        "meta": {
+          "description": "Free-form metadata; excluded from `ast_hash`.",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "nurt",
+        "program"
+      ]
+    },
+    "Program": {
+      "description": "A program: statements executed in order.",
+      "type": "object",
+      "properties": {
+        "statements": {
+          "description": "Statements in source order; at least one.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Statement"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "statements"
+      ]
+    },
+    "Statement": {
+      "description": "A statement of a program.",
+      "oneOf": [
+        {
+          "description": "`let name = pipeline`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "let"
+            }
+          },
+          "$ref": "#/$defs/Let",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "A pipeline.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "pipeline"
+            }
+          },
+          "$ref": "#/$defs/Pipeline",
+          "required": [
+            "t"
+          ]
+        }
+      ]
+    },
+    "PipelineNode": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "pipeline"
+            }
+          },
+          "$ref": "#/$defs/Pipeline",
+          "required": [
+            "t"
+          ]
+        }
+      ]
+    },
+    "Head": {
+      "description": "Head of a pipeline.",
+      "oneOf": [
+        {
+          "description": "A command.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "stage"
+            }
+          },
+          "$ref": "#/$defs/Stage",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "A named result, `@recent`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "ref"
+            }
+          },
+          "$ref": "#/$defs/Ref",
+          "required": [
+            "t"
+          ]
+        }
+      ]
+    },
+    "Arg": {
+      "description": "An argument of a stage: positional (`20`) or named (`glob: \"**/*.go\"`).",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Parameter name of a named argument; absent for a positional argument.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "Argument value.",
+          "$ref": "#/$defs/Expr"
+        },
+        "span": {
+          "description": "Source range; covers the name and the value of a named argument.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "value"
+      ]
+    },
+    "Expr": {
+      "description": "An expression node.\n\nThe parser produces `text` for every quoted string, including paths,\nglobs, instants and keys, and `ident` for every bare identifier; the\nbinder types them by their place in the command signature. The `key` node\nis a structured alternative to a key written as text, accepted from\nproducers that build trees directly.",
+      "oneOf": [
+        {
+          "description": "Reference to a named result.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "ref"
+            }
+          },
+          "$ref": "#/$defs/Ref",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Text, `\"abc\"` or `r\"abc\"`; the value after escape processing.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "text"
+            },
+            "v": {
+              "description": "Text value.",
+              "type": "string"
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Bare identifier: an enumeration value or a field name (`desc`, `size`).",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "ident"
+            },
+            "v": {
+              "description": "Identifier, `[a-z][a-z0-9_]*`.",
+              "type": "string"
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Regular expression, `/oldName\\(/i`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "regex"
+            },
+            "v": {
+              "description": "Pattern; `\\/` of the written form is stored as `/`.",
+              "type": "string"
+            },
+            "flags": {
+              "description": "Flags from `imsx` in this order, possibly empty.",
+              "type": "string"
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "v",
+            "flags"
+          ]
+        },
+        {
+          "description": "Integer, `40`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "int"
+            },
+            "v": {
+              "description": "Value.",
+              "type": "integer",
+              "format": "int64"
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Number with a fraction, `3.5`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "num"
+            },
+            "v": {
+              "description": "Value.",
+              "type": "number",
+              "format": "double"
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Size, `10mb`, in bytes.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "size"
+            },
+            "v": {
+              "description": "Bytes.",
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Duration, `30s`, in milliseconds.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "dur"
+            },
+            "v": {
+              "description": "Milliseconds.",
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "`true` or `false`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "bool"
+            },
+            "v": {
+              "description": "Value.",
+              "type": "boolean"
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "`null`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "null"
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Structured key in a document, an alternative to a key written as text.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "key"
+            },
+            "segs": {
+              "description": "Key segments; at least one.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/KeySeg"
+              }
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "segs"
+          ]
+        },
+        {
+          "description": "List, `[\"a\", \"b\"]`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "list"
+            },
+            "items": {
+              "description": "Elements in order.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Expr"
+              }
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "items"
+          ]
+        },
+        {
+          "description": "Map, `{replace: \"a\", with: \"b\"}`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "map"
+            },
+            "entries": {
+              "description": "Entries in source order.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/MapEntry"
+              }
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "entries"
+          ]
+        },
+        {
+          "description": "Spread of a list into the enclosing list, `...@recent.path`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "spread"
+            },
+            "x": {
+              "description": "Spread expression.",
+              "$ref": "#/$defs/Expr"
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "x"
+          ]
+        },
+        {
+          "description": "Field access, `file.size`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "field"
+            },
+            "name": {
+              "description": "Field name.",
+              "type": "string"
+            },
+            "of": {
+              "description": "Expression whose field is read; absent for a field of the current\nrecord.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Expr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "name"
+          ]
+        },
+        {
+          "description": "Function call, `ago(1h)`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "call"
+            },
+            "fn": {
+              "description": "Function name.",
+              "type": "string"
+            },
+            "args": {
+              "description": "Arguments in order.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Expr"
+              }
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "fn",
+            "args"
+          ]
+        },
+        {
+          "description": "Unary operation, `not hidden`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "un"
+            },
+            "op": {
+              "description": "Operator.",
+              "$ref": "#/$defs/UnOp"
+            },
+            "x": {
+              "description": "Operand.",
+              "$ref": "#/$defs/Expr"
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "op",
+            "x"
+          ]
+        },
+        {
+          "description": "Binary operation, `size > 1mb`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "bin"
+            },
+            "op": {
+              "description": "Operator.",
+              "$ref": "#/$defs/BinOp"
+            },
+            "l": {
+              "description": "Left operand.",
+              "$ref": "#/$defs/Expr"
+            },
+            "r": {
+              "description": "Right operand.",
+              "$ref": "#/$defs/Expr"
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "op",
+            "l",
+            "r"
+          ]
+        },
+        {
+          "description": "Inclusive integer range, `10..12`, `40..`, `..9`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "range"
+            },
+            "lo": {
+              "description": "Lower bound; absent when open.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            },
+            "hi": {
+              "description": "Upper bound; absent when open.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Sub-pipeline, `(run […] |> assert exit_code: 0)`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "sub"
+            },
+            "p": {
+              "description": "The pipeline.",
+              "$ref": "#/$defs/PipelineNode"
+            },
+            "span": {
+              "description": "Source range.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Span"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "p"
+          ]
+        }
+      ]
+    },
+    "Span": {
+      "description": "[line, column, end_line, end_column]; 1-based, end exclusive",
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "Ref": {
+      "description": "Reference to a named result: `@recent`, `@recent.path`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the result, without `@`.",
+          "type": "string"
+        },
+        "fields": {
+          "description": "Field path after the name; omitted when empty.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "KeySeg": {
+      "description": "Segment of a structured key.",
+      "anyOf": [
+        {
+          "description": "Member name, `scripts`.",
+          "type": "string"
+        },
+        {
+          "description": "List index, `0`; a negative index counts from the end.",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "description": "Wildcard segment.",
+          "type": "object",
+          "properties": {
+            "wild": {
+              "description": "The wildcard.",
+              "$ref": "#/$defs/Wildcard"
+            }
+          },
+          "required": [
+            "wild"
+          ]
+        },
+        {
+          "description": "Filter over list elements, `[?name == \"x\"]`.",
+          "type": "object",
+          "properties": {
+            "filter": {
+              "description": "Condition evaluated on each element.",
+              "$ref": "#/$defs/Expr"
+            }
+          },
+          "required": [
+            "filter"
+          ]
+        }
+      ]
+    },
+    "Wildcard": {
+      "description": "Wildcard of a key segment.",
+      "oneOf": [
+        {
+          "description": "`*`: every member or element of one level.",
+          "type": "string",
+          "const": "*"
+        },
+        {
+          "description": "`**`: every member or element at any depth.",
+          "type": "string",
+          "const": "**"
+        },
+        {
+          "description": "`+`: a new element appended at the end of a list.",
+          "type": "string",
+          "const": "+"
+        }
+      ]
+    },
+    "MapEntry": {
+      "description": "Entry of a map expression.",
+      "type": "object",
+      "properties": {
+        "k": {
+          "description": "Key: an identifier or text.",
+          "type": "string"
+        },
+        "v": {
+          "description": "Value.",
+          "$ref": "#/$defs/Expr"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "k",
+        "v"
+      ]
+    },
+    "UnOp": {
+      "description": "Unary operator.",
+      "oneOf": [
+        {
+          "description": "Logical negation, `not`.",
+          "type": "string",
+          "const": "not"
+        },
+        {
+          "description": "Arithmetic negation, `-`.",
+          "type": "string",
+          "const": "neg"
+        }
+      ]
+    },
+    "BinOp": {
+      "description": "Binary operator.",
+      "oneOf": [
+        {
+          "description": "Equality, `==`.",
+          "type": "string",
+          "const": "=="
+        },
+        {
+          "description": "Inequality, `!=`.",
+          "type": "string",
+          "const": "!="
+        },
+        {
+          "description": "Less than, `<`.",
+          "type": "string",
+          "const": "<"
+        },
+        {
+          "description": "Less than or equal, `<=`.",
+          "type": "string",
+          "const": "<="
+        },
+        {
+          "description": "Greater than, `>`.",
+          "type": "string",
+          "const": ">"
+        },
+        {
+          "description": "Greater than or equal, `>=`.",
+          "type": "string",
+          "const": ">="
+        },
+        {
+          "description": "Regular expression match, `~`.",
+          "type": "string",
+          "const": "~"
+        },
+        {
+          "description": "Regular expression non-match, `!~`.",
+          "type": "string",
+          "const": "!~"
+        },
+        {
+          "description": "Membership in a list or range, `in`.",
+          "type": "string",
+          "const": "in"
+        },
+        {
+          "description": "Logical conjunction, `and`.",
+          "type": "string",
+          "const": "and"
+        },
+        {
+          "description": "Logical disjunction, `or`.",
+          "type": "string",
+          "const": "or"
+        },
+        {
+          "description": "Addition or text concatenation, `+`.",
+          "type": "string",
+          "const": "+"
+        },
+        {
+          "description": "Subtraction, `-`.",
+          "type": "string",
+          "const": "-"
+        },
+        {
+          "description": "Multiplication, `*`.",
+          "type": "string",
+          "const": "*"
+        },
+        {
+          "description": "Division, `/`.",
+          "type": "string",
+          "const": "/"
+        }
+      ]
+    },
+    "Stage": {
+      "description": "A command invocation: `filter size > 1mb`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Command name as written after correction: identifiers joined by `.`\n(`find`, `git.status`).",
+          "type": "string"
+        },
+        "args": {
+          "description": "Arguments in source order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Arg"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "args"
+      ]
+    },
+    "StageNode": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "stage"
+            }
+          },
+          "$ref": "#/$defs/Stage",
+          "required": [
+            "t"
+          ]
+        }
+      ]
+    },
+    "Pipeline": {
+      "description": "A pipeline: a head followed by stages joined with `|>`.",
+      "type": "object",
+      "properties": {
+        "head": {
+          "description": "First element: a stage or a reference to a named result.",
+          "$ref": "#/$defs/Head"
+        },
+        "stages": {
+          "description": "Stages after the head, in order; possibly empty.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StageNode"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "head",
+        "stages"
+      ]
+    },
+    "Let": {
+      "description": "Named result: `let recent = find … |> filter …`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the result, `[a-z][a-z0-9_]*`; referenced as `@name`.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Pipeline whose result is bound to the name.",
+          "$ref": "#/$defs/PipelineNode"
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "RequestOptions": {
+      "description": "Call options shared by every command.\n\nAn absent option takes its value from the configuration, and without a\nconfigured value from the built-in default returned by the accessor\nmethods. Options given in the call override the configuration.",
+      "type": "object",
+      "properties": {
+        "preview": {
+          "description": "Only compute targets and effect; change nothing. Default `false`.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "base": {
+          "description": "Absolute directory against which relative paths are resolved; it is\nnot a current directory.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit": {
+          "description": "Number of records or changes per page, from 1 to [`MAX_LIMIT`].\nDefault [`DEFAULT_LIMIT`].",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 1,
+          "maximum": 5000
+        },
+        "fields": {
+          "description": "Fields of the result to keep, like a final `select`.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "format": {
+          "description": "Format of the rendered result. Default `text`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutputFormat"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verbosity": {
+          "description": "Level of detail of the report. Default `normal`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Verbosity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diff": {
+          "description": "Form of differences. Default `unified`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DiffMode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diff_context": {
+          "description": "Context lines of differences. Default [`DEFAULT_DIFF_CONTEXT`].",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "max_chars": {
+          "description": "Largest number of characters of a single text field of the result;\n`0` means no limit. Shortened fields are marked `truncated: true`.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "save_to": {
+          "description": "Absolute path of a file that receives the full result (UTF-8) instead\nof the response; the report then gives `result_file`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeout": {
+          "description": "Time limit of the whole program, for example `120s` or `1h30m`.\nDefault [`DEFAULT_TIMEOUT`].",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "session": {
+          "description": "Session identifier recorded in the journal.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "language": {
+          "description": "Language of messages and help. Default `en`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Language"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "script": {
+          "description": "Script mode: several pipelines, each its own operation. Default\n`false`.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "OutputFormat": {
+      "description": "Format of the rendered result.",
+      "oneOf": [
+        {
+          "description": "Plain text with aligned tables.",
+          "type": "string",
+          "const": "text"
+        },
+        {
+          "description": "The report as JSON only; nothing is rendered.",
+          "type": "string",
+          "const": "json"
+        },
+        {
+          "description": "Markdown with tables.",
+          "type": "string",
+          "const": "markdown"
+        },
+        {
+          "description": "One record per line, without headings.",
+          "type": "string",
+          "const": "compact"
+        }
+      ]
+    },
+    "Verbosity": {
+      "description": "Level of detail of the effect report.",
+      "oneOf": [
+        {
+          "description": "Status, operation number, targets, summary, notable and irreversible\neffects; no list of changes and no differences.",
+          "type": "string",
+          "const": "quiet"
+        },
+        {
+          "description": "Summary, changes up to the page limit, a sample of differences and the\nbulk summary of bulk operations.",
+          "type": "string",
+          "const": "normal"
+        },
+        {
+          "description": "All changes and differences, paged, and the durations of the\nprocessing steps.",
+          "type": "string",
+          "const": "detailed"
+        }
+      ]
+    },
+    "DiffMode": {
+      "description": "Form of differences in the report of a change.",
+      "oneOf": [
+        {
+          "description": "No differences.",
+          "type": "string",
+          "const": "none"
+        },
+        {
+          "description": "Numbers of added and removed lines only.",
+          "type": "string",
+          "const": "stat"
+        },
+        {
+          "description": "Unified differences.",
+          "type": "string",
+          "const": "unified"
+        }
+      ]
+    },
+    "Language": {
+      "description": "Language of messages, help and hints; codes, fields and keywords are\nalways English.",
+      "oneOf": [
+        {
+          "description": "English.",
+          "type": "string",
+          "const": "en"
+        },
+        {
+          "description": "Polish.",
+          "type": "string",
+          "const": "pl"
+        }
+      ]
+    }
+  }
+}

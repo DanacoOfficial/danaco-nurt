@@ -1,0 +1,22 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Project file .nurt.toml that tries to trust itself, to change the service
+# and to set keys reserved for the user. Only run.timeout is applied; trust and
+# service keys are reported as trust_config_ignored, the other keys as
+# project_config_ignored.
+
+[scope]
+trusted_projects = ["/home/user/project"]
+
+[service]
+mode = "system"
+
+[syntax]
+variant = "c"
+
+[state]
+dir = "/home/user/project/.state"
+
+[run]
+timeout = "5m"

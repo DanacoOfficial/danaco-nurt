@@ -1,0 +1,264 @@
+[
+  {
+    "kind": "exec",
+    "record": {
+      "command": ["go", "test", "./..."],
+      "program": "/usr/local/go/bin/go",
+      "cwd": "/home/user/project",
+      "pid": 4132,
+      "exit_code": 1,
+      "timed_out": false,
+      "stalled": false,
+      "started": "2026-11-21T10:14:07Z",
+      "elapsed": 8450,
+      "stdout": "FAIL example.com/project/app 0.12s\n",
+      "stderr": "",
+      "stdout_bytes": 36,
+      "stderr_bytes": 0,
+      "stdout_lines": 1,
+      "stderr_lines": 0,
+      "decoded_as": "utf-8",
+      "changes": [
+        {"path": "/home/user/project/coverage.out", "action": "create", "size_after": 512}
+      ],
+      "tracking": "scan",
+      "watch": ["/home/user/project"],
+      "launcher": "direct",
+      "finished": "2026-11-21T10:14:15.450Z",
+      "cpu_time": 12000,
+      "max_rss": 104857600,
+      "shown": {"stdout": {"head": 1, "tail": 0, "omitted_lines": 0, "filtered": 0}},
+      "output_sha256": "sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "summary_lines": ["FAIL example.com/project/app 0.12s"],
+      "preimage": "clone",
+      "preimage_entries": 140,
+      "preimage_bytes": 2097152,
+      "env_keys": ["GOFLAGS"]
+    }
+  },
+  {
+    "kind": "exec",
+    "record": {
+      "command": ["make", "build"],
+      "program": "/usr/bin/make",
+      "cwd": "/home/user/project",
+      "pid": 5120,
+      "exit_code": -1,
+      "timed_out": true,
+      "stalled": false,
+      "started": "2026-11-21T10:20:00Z",
+      "elapsed": 120000,
+      "stdout": "",
+      "stderr": "",
+      "stdout_bytes": 0,
+      "stderr_bytes": 0,
+      "stdout_lines": 0,
+      "stderr_lines": 0,
+      "decoded_as": "utf-8",
+      "changes": [],
+      "tracking": "none",
+      "watch": [],
+      "signal": "kill",
+      "signal_number": 9,
+      "killed_by": "timeout",
+      "limit_hit": "memory",
+      "output_file": "/home/user/.local/state/nurt/spool/j8.log",
+      "stdout_file": "/home/user/.local/state/nurt/spool/j8.out",
+      "stderr_file": "/home/user/.local/state/nurt/spool/j8.err",
+      "output_cursor": "j8:0",
+      "progress": {"percent": 40.0, "line": "[2/5] compiling"},
+      "external_effect": ["network"],
+      "batches": [{"no": 1, "args": ["build"], "exit_code": -1, "elapsed": 120000}],
+      "failed_batches": 1,
+      "job": "j8"
+    }
+  },
+  {
+    "kind": "job",
+    "record": {
+      "id": "j7",
+      "command": ["npm", "run", "build"],
+      "cwd": "/home/user/project",
+      "pid": 4133,
+      "state": "running",
+      "started": "2026-11-21T10:14:07Z",
+      "elapsed": 3000,
+      "label": "build",
+      "description": "Production build",
+      "program": "/usr/bin/npm",
+      "progress": {"line": "building"},
+      "stdout_bytes": 2048,
+      "stderr_bytes": 0,
+      "stdout_lines": 40,
+      "stderr_lines": 0,
+      "output_cursor": "j7:2048",
+      "op": 19,
+      "session": "s-1",
+      "suspended_total": 0
+    }
+  },
+  {
+    "kind": "job",
+    "record": {
+      "id": "j6",
+      "command": ["cargo", "build"],
+      "cwd": "/home/user/project",
+      "pid": 4000,
+      "state": "exited",
+      "started": "2026-11-21T09:00:00Z",
+      "elapsed": 61000,
+      "exit_code": 0,
+      "finished": "2026-11-21T09:01:01Z",
+      "stdout": "Finished",
+      "stderr": "",
+      "output_file": "/home/user/.local/state/nurt/spool/j6.log",
+      "retry_of": "j5",
+      "changes": [{"path": "/home/user/project/target/app", "action": "modify"}],
+      "signal": "terminate",
+      "killed_by": "stop"
+    }
+  },
+  {
+    "kind": "test_run",
+    "record": {
+      "id": "run-3",
+      "framework": "pytest",
+      "status": "failed",
+      "passed": 41,
+      "failed": 1,
+      "skipped": 2,
+      "errors": 0,
+      "duration": 5300,
+      "command": ["pytest", "-q"],
+      "started": "2026-11-21T10:30:00Z",
+      "cwd": "/home/user/project",
+      "framework_version": "8.3.0",
+      "todo": 0,
+      "flaky": 1,
+      "fingerprint": "sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+      "targets": ["tests"],
+      "filter": "parser",
+      "exit_code": 1,
+      "output_file": "/home/user/.local/state/nurt/tests/run-3.log",
+      "retry_of": "run-2",
+      "op": 20,
+      "coverage": {
+        "lines_pct": 87.5,
+        "branches_pct": 70.0,
+        "files": [{"path": "/home/user/project/app/parser.py", "lines_pct": 92.0, "uncovered": [{"start": 40, "end": 44}]}],
+        "report_file": "/home/user/project/coverage.xml",
+        "format": "cobertura"
+      }
+    }
+  },
+  {
+    "kind": "test_result",
+    "record": {
+      "run": "run-3",
+      "id": "tests/test_parser.py::test_empty",
+      "name": "test_empty",
+      "status": "failed",
+      "suite": "tests/test_parser.py",
+      "duration": 12,
+      "message": "assert [] == [None]",
+      "path": "/home/user/project/tests/test_parser.py",
+      "line": 18,
+      "column": 5,
+      "stack": "tests/test_parser.py:18: AssertionError",
+      "stdout": "",
+      "stderr": "",
+      "retries": 1
+    }
+  },
+  {
+    "kind": "finding",
+    "record": {
+      "path": "/home/user/project/src/app.ts",
+      "kind": "lint",
+      "severity": "warning",
+      "message": "'config' is assigned a value but never used.",
+      "line": 4,
+      "column": 7,
+      "end_line": 4,
+      "end_column": 13,
+      "tool": "eslint",
+      "id": "an-3#17",
+      "analysis": "an-3",
+      "rule": "no-unused-vars",
+      "fixable": false,
+      "sample": ["const config = load();"],
+      "related": [{"path": "/home/user/project/src/config.ts", "line": 1, "end_line": 9}]
+    }
+  },
+  {
+    "kind": "finding",
+    "record": {
+      "path": "/home/user/project/src/big.ts",
+      "kind": "complexity",
+      "severity": "info",
+      "message": "Function has a complexity of 31.",
+      "value": 31.0,
+      "threshold": 20.0,
+      "hunk": "src/big.ts#2"
+    }
+  },
+  {
+    "kind": "analysis",
+    "record": {
+      "id": "an-3",
+      "passed": false,
+      "fail_on": "error",
+      "errors": 1,
+      "warnings": 4,
+      "infos": 2,
+      "checks": [
+        {"check": "lint", "tool": "eslint", "status": "failed", "findings": 5, "duration": 2100},
+        {"check": "types", "tool": "tsc", "status": "ok", "findings": 0},
+        {"check": "format", "status": "missing"}
+      ],
+      "paths": ["/home/user/project/src"],
+      "changed_only": true,
+      "started": "2026-11-21T10:40:00Z",
+      "duration": 4200,
+      "fingerprint": "sha256:4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+      "op": 21
+    }
+  },
+  {
+    "kind": "analyze_tool",
+    "record": {
+      "tool": "ruff",
+      "language": "python",
+      "check": "lint",
+      "found": true,
+      "version": "0.8.0",
+      "config": "/home/user/project/pyproject.toml",
+      "command": ["ruff", "check", "--output-format", "json"]
+    }
+  },
+  {
+    "kind": "effect",
+    "record": {
+      "status": "ok",
+      "kind": "replace",
+      "op": 18,
+      "targets": 3,
+      "summary": {"files_modified": 3, "replacements": 7},
+      "changes": [{"path": "/home/user/project/src/a.go", "action": "modify", "replacements": 3}],
+      "notable": ["many_per_file"]
+    }
+  },
+  {
+    "kind": "effect",
+    "record": {
+      "status": "ok",
+      "kind": "restart",
+      "irreversible": [{"reason": "service_changed", "path": "service:nginx"}],
+      "target": "service:nginx",
+      "action": "restart",
+      "before": {"t": "enum", "v": "running"},
+      "after": {"t": "enum", "v": "running"},
+      "git": {"repo": "/home/user/project", "state": "up_to_date"}
+    }
+  }
+]

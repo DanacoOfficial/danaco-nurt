@@ -1,0 +1,135 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "journal"
+summary = "Management of the journal, its space, limits, state and pinned entries."
+
+[[command]]
+name = "journal.purge"
+category = "journal"
+reversibility = "irreversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Release journal entries and the space they hold."
+
+[[command.param]]
+name = "volume"
+type = "path | enum(all)"
+default = "all"
+values = ["all"]
+summary = "Volume whose journal is purged, or all volumes."
+
+[[command.param]]
+name = "up_to"
+type = "int"
+summary = "Release all entries up to and including this operation number."
+
+[[command.param]]
+name = "id"
+type = "list<int>"
+summary = "Release only these entries, keeping older ones."
+
+[[command]]
+name = "journal.space"
+category = "journal"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["volume"]
+summary = "Report free space, space reclaimable from the journal and the reserve of each volume."
+
+[[command.param]]
+name = "volume"
+type = "path"
+summary = "Only the volume that contains this path."
+
+[[command]]
+name = "journal.status"
+category = "journal"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["journal_state"]
+summary = "Report the number of entries, space used, oldest entry and active limits with their sources."
+
+[[command.param]]
+name = "volume"
+type = "path"
+summary = "Only the journal of the volume that contains this path."
+
+[[command]]
+name = "journal.pin"
+category = "journal"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Protect journal entries from expiry by steps, age and size, or release that protection."
+reversibility_note = "Pinned entries can still be released when the volume runs out of space."
+
+[[command.param]]
+name = "id"
+type = "list<int>"
+position = 1
+repeated = true
+summary = "Entries to pin or release."
+
+[[command.param]]
+name = "release"
+type = "bool"
+default = "false"
+summary = "Release the pin instead of setting it."
+
+[[command.param]]
+name = "until"
+type = "duration"
+default_note = "the configured maximum pin age"
+summary = "Duration of the pin."
+
+[[command]]
+name = "journal.limits"
+category = "journal"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["journal_state", "effect"]
+summary = "Show the active expiry limits, or change them and report how many entries will expire."
+reversibility_note = "Restoring the previous limits does not bring back entries that expired under the new limits; without parameters the command only reads."
+
+[[command.param]]
+name = "steps"
+type = "int | enum(unlimited)"
+values = ["unlimited"]
+summary = "Maximum number of entries kept."
+
+[[command.param]]
+name = "age"
+type = "duration | enum(unlimited)"
+values = ["unlimited"]
+summary = "Maximum age of entries kept."
+
+[[command.param]]
+name = "size"
+type = "size | percent | enum(unlimited)"
+values = ["unlimited"]
+summary = "Maximum journal size as a size such as 20gib, a share of the volume such as \"10%\" or a share of free space such as \"50%free\"."
+
+[[command.param]]
+name = "scope"
+type = "enum(session|user)"
+default = "session"
+values = ["session", "user"]
+summary = "Change the limits for this session or persistently for the account."
+
+[[command.param]]
+name = "volume"
+type = "path"
+summary = "Only the journal of the volume that contains this path."

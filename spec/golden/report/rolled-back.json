@@ -1,0 +1,26 @@
+{
+  "nurt": "1.0",
+  "status": "rolled_back",
+  "kind": "replace",
+  "op": 22,
+  "targets": { "count": 2, "files": 2, "listed": 2 },
+  "summary": { "files_modified": 2, "replacements": 4 },
+  "changes": [
+    { "path": "/srv/app/src/a.go", "action": "modify", "replacements": 3 },
+    { "path": "/srv/app/src/b.go", "action": "modify", "replacements": 1 }
+  ],
+  "error": {
+    "code": "E_ROLLED_BACK",
+    "message": "the change was reverted because the check after it failed",
+    "stage": "6",
+    "at": { "line": 1, "column": 58 },
+    "help": "verify",
+    "cause": {
+      "code": "E_ASSERT",
+      "message": "tests failed after the change",
+      "stage": "6",
+      "expected": 0,
+      "actual": 1
+    }
+  }
+}

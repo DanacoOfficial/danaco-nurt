@@ -1,0 +1,15 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "find",
+  "error": {
+    "code": "E_SYNTAX",
+    "message": "unclosed list",
+    "stage": "0",
+    "at": { "line": 1, "column": 27, "length": 1 },
+    "found": "end of program",
+    "problem": "the list started at column 18 is not closed",
+    "fix": ["find \"/srv/app\" glob: [\"*.go\"]"],
+    "help": "lists"
+  }
+}

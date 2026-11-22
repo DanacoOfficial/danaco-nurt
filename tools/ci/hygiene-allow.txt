@@ -1,0 +1,18 @@
+#
+# Allow list of tools/ci/repo-hygiene.sh.
+#
+# Each line is "<check> <glob>", where <check> is a check, a group or "*" for
+# all checks. In a glob, "*" also matches "/". Every entry is justified by a
+# comment.
+# Run "tools/ci/repo-hygiene.sh --list" for the names of the checks and groups.
+
+# Texts reproduced verbatim from third parties are kept without the producer
+# header and with their original wording.
+producer-header LICENSE
+producer-header CODE_OF_CONDUCT.md
+style LICENSE
+style CODE_OF_CONDUCT.md
+
+# The pull request template is copied into the description of every pull
+# request and is kept free of comments.
+producer-header .github/PULL_REQUEST_TEMPLATE.md

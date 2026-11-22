@@ -1,0 +1,12 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "undo",
+  "error": {
+    "code": "E_JOURNAL_PARTIAL",
+    "message": "part of operation 19 was released to free disk space; nothing changed",
+    "sample": ["/srv/app/build/cache/0003.o", "/srv/app/build/cache/0004.o"],
+    "details": { "released": 120 },
+    "fix": ["undo 19 on_conflict: partial"]
+  }
+}

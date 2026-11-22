@@ -1,0 +1,154 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "schedule.create",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "backup",
+                "span": [
+                  1,
+                  17,
+                  1,
+                  25
+                ]
+              },
+              "span": [
+                1,
+                17,
+                1,
+                25
+              ]
+            },
+            {
+              "name": "cron",
+              "value": {
+                "t": "text",
+                "v": "0 3 * * *",
+                "span": [
+                  1,
+                  32,
+                  1,
+                  43
+                ]
+              },
+              "span": [
+                1,
+                26,
+                1,
+                43
+              ]
+            },
+            {
+              "name": "action",
+              "value": {
+                "t": "sub",
+                "p": {
+                  "t": "pipeline",
+                  "head": {
+                    "t": "stage",
+                    "name": "run",
+                    "args": [
+                      {
+                        "value": {
+                          "t": "list",
+                          "items": [
+                            {
+                              "t": "text",
+                              "v": "backup",
+                              "span": [
+                                1,
+                                58,
+                                1,
+                                66
+                              ]
+                            }
+                          ],
+                          "span": [
+                            1,
+                            57,
+                            1,
+                            67
+                          ]
+                        },
+                        "span": [
+                          1,
+                          57,
+                          1,
+                          67
+                        ]
+                      },
+                      {
+                        "name": "cwd",
+                        "value": {
+                          "t": "text",
+                          "v": "/srv",
+                          "span": [
+                            1,
+                            73,
+                            1,
+                            79
+                          ]
+                        },
+                        "span": [
+                          1,
+                          68,
+                          1,
+                          79
+                        ]
+                      }
+                    ],
+                    "span": [
+                      1,
+                      53,
+                      1,
+                      79
+                    ]
+                  },
+                  "stages": [],
+                  "span": [
+                    1,
+                    53,
+                    1,
+                    79
+                  ]
+                },
+                "span": [
+                  1,
+                  52,
+                  1,
+                  80
+                ]
+              },
+              "span": [
+                1,
+                44,
+                1,
+                80
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            80
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          80
+        ]
+      }
+    ]
+  }
+}

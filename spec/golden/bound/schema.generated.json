@@ -1,0 +1,985 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BoundDocument",
+  "description": "Root of a bound tree document.",
+  "type": "object",
+  "properties": {
+    "nurt": {
+      "description": "Version of the surface tree format the program was bound from,\n`MAJOR.MINOR`; see [`AST_VERSION`].",
+      "type": "string"
+    },
+    "bound": {
+      "description": "Bound tree version, `MAJOR.MINOR`; see [`BOUND_VERSION`].",
+      "type": "string"
+    },
+    "catalog_rev": {
+      "description": "Revision of the command catalog used for binding.",
+      "type": "string"
+    },
+    "corr_rev": {
+      "description": "Revision of the correction tables applied before binding.",
+      "type": "string"
+    },
+    "program": {
+      "description": "The bound program.",
+      "$ref": "#/$defs/BoundProgram"
+    },
+    "meta": {
+      "description": "Free-form metadata; excluded from `ast_hash`.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "nurt",
+    "bound",
+    "catalog_rev",
+    "corr_rev",
+    "program"
+  ],
+  "$defs": {
+    "BoundProgram": {
+      "description": "A bound program: statements executed in order.",
+      "type": "object",
+      "properties": {
+        "statements": {
+          "description": "Statements in source order; at least one.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundStatement"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "statements"
+      ]
+    },
+    "BoundStatement": {
+      "description": "A statement of a bound program.",
+      "oneOf": [
+        {
+          "description": "`let name = pipeline`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "let"
+            }
+          },
+          "$ref": "#/$defs/BoundLet",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "A pipeline.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "pipeline"
+            }
+          },
+          "$ref": "#/$defs/BoundPipeline",
+          "required": [
+            "t"
+          ]
+        }
+      ]
+    },
+    "PipelineNode": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "pipeline"
+            }
+          },
+          "$ref": "#/$defs/BoundPipeline",
+          "required": [
+            "t"
+          ]
+        }
+      ]
+    },
+    "BoundHead": {
+      "description": "Head of a bound pipeline.",
+      "oneOf": [
+        {
+          "description": "A command.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "stage"
+            }
+          },
+          "$ref": "#/$defs/BoundStage",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "A named result.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "ref"
+            }
+          },
+          "$ref": "#/$defs/BoundRef",
+          "required": [
+            "t"
+          ]
+        }
+      ]
+    },
+    "EffectKind": {
+      "description": "Kind of effect a stage has on the world, recorded in the bound tree.",
+      "oneOf": [
+        {
+          "description": "Reads state only; no effect outside the process.",
+          "type": "string",
+          "const": "read"
+        },
+        {
+          "description": "Changes local files or content; recorded in the journal and reversible.",
+          "type": "string",
+          "const": "local"
+        },
+        {
+          "description": "Has an effect outside the local file system (network, services, remote\nsystems); not reversible by the journal.",
+          "type": "string",
+          "const": "external"
+        },
+        {
+          "description": "Runs a user program whose effects are detected and classified after it\nfinishes.",
+          "type": "string",
+          "const": "process"
+        }
+      ]
+    },
+    "Phase": {
+      "description": "Execution phase of a bound stage.",
+      "oneOf": [
+        {
+          "description": "The head stage that produces records.",
+          "type": "string",
+          "const": "source"
+        },
+        {
+          "description": "A transformation of records before the effect.",
+          "type": "string",
+          "const": "transform"
+        },
+        {
+          "description": "A check before the effect; failure changes nothing.",
+          "type": "string",
+          "const": "check"
+        },
+        {
+          "description": "The single change stage of the pipeline.",
+          "type": "string",
+          "const": "mutate"
+        },
+        {
+          "description": "The single program-running stage of the pipeline.",
+          "type": "string",
+          "const": "run"
+        },
+        {
+          "description": "A check or transformation of the records produced by the effect; a\nfailed check is reported without rolling the effect back.",
+          "type": "string",
+          "const": "after"
+        },
+        {
+          "description": "The `verify` stage; failure rolls the effect back.",
+          "type": "string",
+          "const": "verify"
+        }
+      ]
+    },
+    "BoundArg": {
+      "description": "A bound argument: one parameter of the signature with its value.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Parameter name.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Value cast to the parameter type; `null` when the parameter has no\nvalue.",
+          "$ref": "#/$defs/BoundExpr"
+        },
+        "default": {
+          "description": "`true` when the binder inserted the value from the catalog default;\nomitted when `false`.",
+          "type": "boolean"
+        },
+        "span": {
+          "description": "Source range of the surface argument; absent for defaults.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "BoundExpr": {
+      "description": "A typed value or expression of a bound tree.",
+      "oneOf": [
+        {
+          "description": "No value.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "null"
+            }
+          },
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Boolean.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "bool"
+            },
+            "v": {
+              "description": "Value.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Integer.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "int"
+            },
+            "v": {
+              "description": "Value.",
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Number with a fraction.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "num"
+            },
+            "v": {
+              "description": "Value.",
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Text.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "text"
+            },
+            "v": {
+              "description": "Value.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Absolute path in canonical form.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "path"
+            },
+            "v": {
+              "description": "Path.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Glob pattern.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "glob"
+            },
+            "v": {
+              "description": "Pattern.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Key in a structured document.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "key"
+            },
+            "v": {
+              "description": "Key in canonical text form.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Enumeration value.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "enum"
+            },
+            "v": {
+              "description": "Value.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Point in time, RFC 3339.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "instant"
+            },
+            "v": {
+              "description": "Instant text.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Size in bytes.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "size"
+            },
+            "v": {
+              "description": "Bytes.",
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Duration in milliseconds.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "dur"
+            },
+            "v": {
+              "description": "Milliseconds.",
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ]
+        },
+        {
+          "description": "Regular expression.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "regex"
+            },
+            "v": {
+              "description": "Pattern.",
+              "type": "string"
+            },
+            "flags": {
+              "description": "Flags from `imsx` in this order, possibly empty.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v",
+            "flags"
+          ]
+        },
+        {
+          "description": "List.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "list"
+            },
+            "items": {
+              "description": "Elements in order.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BoundExpr"
+              }
+            }
+          },
+          "required": [
+            "t",
+            "items"
+          ]
+        },
+        {
+          "description": "Map.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "map"
+            },
+            "entries": {
+              "description": "Entries in source order.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BoundMapEntry"
+              }
+            }
+          },
+          "required": [
+            "t",
+            "entries"
+          ]
+        },
+        {
+          "description": "Inclusive integer range; a single integer `n` binds to `n..n`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "range"
+            },
+            "lo": {
+              "description": "Lower bound; absent when open.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            },
+            "hi": {
+              "description": "Upper bound; absent when open.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Reference to a named result.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "ref"
+            }
+          },
+          "$ref": "#/$defs/BoundRef",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Sub-pipeline value: the `check` of `verify`, `schedule.create action:`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "sub"
+            },
+            "p": {
+              "description": "The pipeline.",
+              "$ref": "#/$defs/PipelineNode"
+            }
+          },
+          "required": [
+            "t",
+            "p"
+          ]
+        },
+        {
+          "description": "Field of the current record, or of another expression when `of` is\npresent.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "field"
+            },
+            "name": {
+              "description": "Field name.",
+              "type": "string"
+            },
+            "of": {
+              "description": "Expression whose field is read.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/BoundExpr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "t",
+            "name"
+          ]
+        },
+        {
+          "description": "Function call.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "call"
+            },
+            "fn": {
+              "description": "Function name.",
+              "type": "string"
+            },
+            "args": {
+              "description": "Arguments in order.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BoundExpr"
+              }
+            }
+          },
+          "required": [
+            "t",
+            "fn",
+            "args"
+          ]
+        },
+        {
+          "description": "Unary operation.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "un"
+            },
+            "op": {
+              "description": "Operator.",
+              "$ref": "#/$defs/UnOp"
+            },
+            "x": {
+              "description": "Operand.",
+              "$ref": "#/$defs/BoundExpr"
+            }
+          },
+          "required": [
+            "t",
+            "op",
+            "x"
+          ]
+        },
+        {
+          "description": "Binary operation.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "bin"
+            },
+            "op": {
+              "description": "Operator.",
+              "$ref": "#/$defs/BinOp"
+            },
+            "l": {
+              "description": "Left operand.",
+              "$ref": "#/$defs/BoundExpr"
+            },
+            "r": {
+              "description": "Right operand.",
+              "$ref": "#/$defs/BoundExpr"
+            }
+          },
+          "required": [
+            "t",
+            "op",
+            "l",
+            "r"
+          ]
+        },
+        {
+          "description": "Spread of a list into the enclosing list.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "spread"
+            },
+            "x": {
+              "description": "Spread expression.",
+              "$ref": "#/$defs/BoundExpr"
+            }
+          },
+          "required": [
+            "t",
+            "x"
+          ]
+        }
+      ]
+    },
+    "BoundMapEntry": {
+      "description": "Entry of a bound map.",
+      "type": "object",
+      "properties": {
+        "k": {
+          "description": "Key.",
+          "type": "string"
+        },
+        "v": {
+          "description": "Value.",
+          "$ref": "#/$defs/BoundExpr"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "k",
+        "v"
+      ]
+    },
+    "BoundRef": {
+      "description": "Reference to a named result in a bound tree.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the result, without `@`.",
+          "type": "string"
+        },
+        "fields": {
+          "description": "Field path after the name; omitted when empty.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "UnOp": {
+      "description": "Unary operator.",
+      "oneOf": [
+        {
+          "description": "Logical negation, `not`.",
+          "type": "string",
+          "const": "not"
+        },
+        {
+          "description": "Arithmetic negation, `-`.",
+          "type": "string",
+          "const": "neg"
+        }
+      ]
+    },
+    "BinOp": {
+      "description": "Binary operator.",
+      "oneOf": [
+        {
+          "description": "Equality, `==`.",
+          "type": "string",
+          "const": "=="
+        },
+        {
+          "description": "Inequality, `!=`.",
+          "type": "string",
+          "const": "!="
+        },
+        {
+          "description": "Less than, `<`.",
+          "type": "string",
+          "const": "<"
+        },
+        {
+          "description": "Less than or equal, `<=`.",
+          "type": "string",
+          "const": "<="
+        },
+        {
+          "description": "Greater than, `>`.",
+          "type": "string",
+          "const": ">"
+        },
+        {
+          "description": "Greater than or equal, `>=`.",
+          "type": "string",
+          "const": ">="
+        },
+        {
+          "description": "Regular expression match, `~`.",
+          "type": "string",
+          "const": "~"
+        },
+        {
+          "description": "Regular expression non-match, `!~`.",
+          "type": "string",
+          "const": "!~"
+        },
+        {
+          "description": "Membership in a list or range, `in`.",
+          "type": "string",
+          "const": "in"
+        },
+        {
+          "description": "Logical conjunction, `and`.",
+          "type": "string",
+          "const": "and"
+        },
+        {
+          "description": "Logical disjunction, `or`.",
+          "type": "string",
+          "const": "or"
+        },
+        {
+          "description": "Addition or text concatenation, `+`.",
+          "type": "string",
+          "const": "+"
+        },
+        {
+          "description": "Subtraction, `-`.",
+          "type": "string",
+          "const": "-"
+        },
+        {
+          "description": "Multiplication, `*`.",
+          "type": "string",
+          "const": "*"
+        },
+        {
+          "description": "Division, `/`.",
+          "type": "string",
+          "const": "/"
+        }
+      ]
+    },
+    "Span": {
+      "description": "[line, column, end_line, end_column]; 1-based, end exclusive",
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "BoundStage": {
+      "description": "Bound command invocation.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Canonical command name from the catalog, after correction: one\nidentifier or a group and an identifier joined by `.`.",
+          "type": "string"
+        },
+        "effect": {
+          "description": "Effect kind of the stage, taken from the catalog.",
+          "$ref": "#/$defs/EffectKind"
+        },
+        "phase": {
+          "description": "Execution phase of the stage.",
+          "$ref": "#/$defs/Phase"
+        },
+        "waits": {
+          "description": "`true` when the stage blocks the call by waiting (for example `sleep`\nor `run` with a long `wait`); omitted when `false`.",
+          "type": "boolean"
+        },
+        "args": {
+          "description": "Every parameter of the command signature, in signature order. The\npipeline checked by `verify` is the value of its parameter `check`.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundArg"
+          }
+        },
+        "span": {
+          "description": "Source range of the surface stage.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "effect",
+        "phase",
+        "args"
+      ]
+    },
+    "StageNode": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "stage"
+            }
+          },
+          "$ref": "#/$defs/BoundStage",
+          "required": [
+            "t"
+          ]
+        }
+      ]
+    },
+    "BoundPipeline": {
+      "description": "Bound pipeline.",
+      "type": "object",
+      "properties": {
+        "head": {
+          "description": "First element: a stage or a reference to a named result.",
+          "$ref": "#/$defs/BoundHead"
+        },
+        "stages": {
+          "description": "Stages after the head, in order; possibly empty.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StageNode"
+          }
+        },
+        "span": {
+          "description": "Source range of the surface pipeline.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "head",
+        "stages"
+      ]
+    },
+    "BoundLet": {
+      "description": "Bound named result.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the result, `[a-z][a-z0-9_]*`.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Pipeline whose result is bound to the name.",
+          "$ref": "#/$defs/PipelineNode"
+        },
+        "span": {
+          "description": "Source range of the surface statement.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    }
+  }
+}

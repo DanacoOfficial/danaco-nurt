@@ -1,0 +1,48 @@
+{
+  "nurt": "1.0",
+  "status": "planned",
+  "kind": "replace",
+  "ast_hash": "sha256:9d3c5f0e8a1b2c3d4e5f60718293a4b5c6d7e8f9012345678901234567890abc",
+  "targets": { "count": 3, "files": 3, "listed": 1 },
+  "summary": { "files_modified": 3, "replacements": 7, "lines_added": 7, "lines_removed": 7 },
+  "changes": [
+    {
+      "path": "/srv/app/src/a.go",
+      "action": "modify",
+      "replacements": 3,
+      "added": 3,
+      "removed": 3
+    }
+  ],
+  "diff": [
+    {
+      "path": "/srv/app/src/a.go",
+      "old_start": 12,
+      "old_len": 1,
+      "new_start": 12,
+      "new_len": 1,
+      "lines": ["-func oldName(x int) {", "+func newName(x int) {"]
+    }
+  ],
+  "notable": [
+    {
+      "code": "journal_oversize",
+      "severity": "warning",
+      "detail": "operation of 25gib exceeds the journal limit of 20gib"
+    },
+    {
+      "code": "trust_config_ignored",
+      "severity": "warning",
+      "path": "/srv/app/.nurt.toml",
+      "detail": "scope.trusted_projects"
+    },
+    {
+      "code": "project_config_ignored",
+      "severity": "notice",
+      "path": "/srv/app/.nurt.toml",
+      "count": 2,
+      "detail": "service.mode, output.color"
+    }
+  ],
+  "next_cursor": "c_44b0"
+}

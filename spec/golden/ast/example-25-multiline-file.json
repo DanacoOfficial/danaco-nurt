@@ -1,0 +1,84 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "write",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/Dockerfile",
+                "span": [
+                  1,
+                  7,
+                  1,
+                  28
+                ]
+              },
+              "span": [
+                1,
+                7,
+                1,
+                28
+              ]
+            },
+            {
+              "value": {
+                "t": "text",
+                "v": "FROM alpine:3.20\nRUN apk add --no-cache curl\nCMD [\"sh\"]\n",
+                "span": [
+                  1,
+                  29,
+                  4,
+                  3
+                ]
+              },
+              "span": [
+                1,
+                29,
+                4,
+                3
+              ]
+            },
+            {
+              "name": "mode",
+              "value": {
+                "t": "ident",
+                "v": "create",
+                "span": [
+                  4,
+                  10,
+                  4,
+                  16
+                ]
+              },
+              "span": [
+                4,
+                4,
+                4,
+                16
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            4,
+            16
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          4,
+          16
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "cat-1",
+  "corr_rev": "corr-1",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "lines",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "path",
+                "v": "/srv/app/main.go"
+              }
+            },
+            {
+              "name": "range",
+              "value": {
+                "t": "range"
+              },
+              "default": true
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "effect": "read",
+            "phase": "transform",
+            "args": [
+              {
+                "name": "condition",
+                "value": {
+                  "t": "bin",
+                  "op": "==",
+                  "l": {
+                    "t": "field",
+                    "name": "text"
+                  },
+                  "r": {
+                    "t": "text",
+                    "v": "package main"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "insert",
+            "effect": "local",
+            "phase": "mutate",
+            "args": [
+              {
+                "name": "text",
+                "value": {
+                  "t": "text",
+                  "v": "import \"fmt\""
+                }
+              },
+              {
+                "name": "in",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "line",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "position",
+                "value": {
+                  "t": "enum",
+                  "v": "after"
+                }
+              },
+              {
+                "name": "ensure_newline",
+                "value": {
+                  "t": "bool",
+                  "v": false
+                },
+                "default": true
+              },
+              {
+                "name": "validate",
+                "value": {
+                  "t": "enum",
+                  "v": "reject"
+                },
+                "default": true
+              },
+              {
+                "name": "if_match",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

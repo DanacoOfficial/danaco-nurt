@@ -1,0 +1,14 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "frobnicate",
+  "error": {
+    "code": "E_UNKNOWN_COMMAND",
+    "message": "unknown command frobnicate",
+    "stage": "1",
+    "at": { "line": 1, "column": 1, "length": 10 },
+    "found": "frobnicate",
+    "expected": ["find", "filter", "first", "format"],
+    "help": "commands"
+  }
+}

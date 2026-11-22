@@ -1,0 +1,38 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "run",
+  "op": 24,
+  "exec": {
+    "kind": "exec",
+    "fields": {
+      "command": { "t": "list", "v": [{ "t": "text", "v": "npm" }, { "t": "text", "v": "test" }] },
+      "program": { "t": "path", "v": "/usr/bin/npm" },
+      "cwd": { "t": "path", "v": "/srv/app" },
+      "pid": { "t": "int", "v": 4301 },
+      "exit_code": { "t": "int", "v": -1 },
+      "signal": { "t": "enum", "v": "kill" },
+      "killed_by": { "t": "enum", "v": "timeout" },
+      "timed_out": { "t": "bool", "v": true },
+      "stalled": { "t": "bool", "v": false },
+      "started": { "t": "instant", "v": "2026-11-21T12:00:00Z" },
+      "elapsed": { "t": "duration", "v": 120000 },
+      "stdout": { "t": "text", "v": "" },
+      "stderr": { "t": "text", "v": "" },
+      "stdout_bytes": { "t": "int", "v": 0 },
+      "stderr_bytes": { "t": "int", "v": 0 },
+      "stdout_lines": { "t": "int", "v": 0 },
+      "stderr_lines": { "t": "int", "v": 0 },
+      "decoded_as": { "t": "text", "v": "utf-8" },
+      "tracking": { "t": "enum", "v": "scan" },
+      "watch": { "t": "list", "v": [{ "t": "path", "v": "/srv/app" }] }
+    }
+  },
+  "error": {
+    "code": "E_TIMEOUT",
+    "message": "the program was stopped after the time limit of 120s",
+    "stage": "5",
+    "fix": ["run [\"npm\", \"test\"] timeout: 10m"],
+    "effect_applied": true
+  }
+}

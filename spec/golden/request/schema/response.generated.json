@@ -1,0 +1,3245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Response",
+  "description": "Response to a request (`nurt-response/1`).\n\nThe report is always present. The rendered text is present for the\nformats `text`, `markdown` and `compact`; for `json` the report itself is\nthe result. Whether a further page exists follows from\n`report.next_cursor` ([`Response::has_more`]).",
+  "type": "object",
+  "properties": {
+    "nurt": {
+      "description": "Format version, `MAJOR.MINOR`; see [`ENVELOPE_VERSION`].",
+      "type": "string"
+    },
+    "report": {
+      "description": "Effect report.",
+      "$ref": "#/$defs/Report"
+    },
+    "rendered": {
+      "description": "Text rendered from the report.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Rendered"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "nurt",
+    "report"
+  ],
+  "$defs": {
+    "Report": {
+      "description": "Effect report of one program (`nurt-report/1`).\n\nOptional fields are omitted from JSON when absent and lists are omitted\nwhen empty, so that the report of an ordinary effect stays short.",
+      "type": "object",
+      "properties": {
+        "nurt": {
+          "description": "Format version, `MAJOR.MINOR`; see [`REPORT_VERSION`].",
+          "type": "string"
+        },
+        "status": {
+          "description": "Outcome of the program.",
+          "$ref": "#/$defs/ReportStatus"
+        },
+        "kind": {
+          "description": "Kind of operation: the name of the changing command, or of the source\ncommand of a reading program (for example `replace`, `remove`, `run`,\n`find`).",
+          "type": "string"
+        },
+        "op": {
+          "description": "Number of the journal entry of the operation, from 1; absent for\nreading programs, previews and changing programs without targets.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "ran": {
+          "description": "Canonical text of the program that ran; present only when corrections\nwere applied.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ast_hash": {
+          "description": "Hash of the syntax tree: `sha256:` followed by 64 lowercase\nhexadecimal digits.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "result_file": {
+          "description": "Path of the file that holds the full result (UTF-8), when the result\nwas written to a file (`save_to` or `output.results_dir`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "corrections": {
+          "description": "Corrections applied to the program text.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Correction"
+          }
+        },
+        "targets": {
+          "description": "Targets enumerated by the program.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Targets"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "description": "Totals of a changing operation.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Summary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "changes": {
+          "description": "Changed targets on this page.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Change"
+          }
+        },
+        "diff": {
+          "description": "Sample of differences on this page.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Hunk"
+          }
+        },
+        "bulk": {
+          "description": "Summary of a bulk operation.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bulk"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exec": {
+          "description": "Record of kind `exec` describing a program that ran.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Record"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "job": {
+          "description": "Record of kind `job` describing a program that continues in the\nbackground; present when the status is `running`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Record"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "test": {
+          "description": "Record of kind `test_run` describing a test run.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Record"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "analysis": {
+          "description": "Record of kind `analysis` describing an analysis verdict.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Record"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "git": {
+          "description": "Record describing the effect on a repository: head before and after,\nreference updates and conflicts.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Record"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "records": {
+          "description": "Records returned by a reading program.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RecordsPage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notable": {
+          "description": "Unusual effects, in descending order of severity.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NotableEntry"
+          }
+        },
+        "irreversible": {
+          "description": "Irreversible effects; present only when an effect is irreversible.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IrreversibleEntry"
+          }
+        },
+        "error": {
+          "description": "Error that stopped the program, or a check that failed after the\neffect was applied.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Error"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "next_cursor": {
+          "description": "Cursor of the next page; absent on the last page.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timing": {
+          "description": "Durations of the processing steps (verbosity `detailed`).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Timing"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "nurt",
+        "status",
+        "kind"
+      ]
+    },
+    "ReportStatus": {
+      "description": "Outcome of a program as a whole.\n\n| Status | Meaning |\n|---|---|\n| `ok` | the program finished; a changing program applied its effect |\n| `planned` | preview: targets and effect computed, nothing changed |\n| `running` | a program started in the background is still running; the report carries the job |\n| `partial` | the effect was applied to part of the targets; the rest is listed in `irreversible` or `error` |\n| `rolled_back` | the effect was applied and then reverted because a later check failed |\n| `failed` | the program stopped with an error; see `error` |\n\n# Examples\n\n```\nuse nurt_contracts::report::ReportStatus;\n\nassert_eq!(ReportStatus::RolledBack.as_str(), \"rolled_back\");\nassert_eq!(\"planned\".parse::<ReportStatus>(), Ok(ReportStatus::Planned));\n```",
+      "oneOf": [
+        {
+          "description": "The program finished.",
+          "type": "string",
+          "const": "ok"
+        },
+        {
+          "description": "Preview: the effect was computed and nothing was changed.",
+          "type": "string",
+          "const": "planned"
+        },
+        {
+          "description": "A background program is still running.",
+          "type": "string",
+          "const": "running"
+        },
+        {
+          "description": "The effect was applied to part of the targets only.",
+          "type": "string",
+          "const": "partial"
+        },
+        {
+          "description": "The effect was applied and then reverted.",
+          "type": "string",
+          "const": "rolled_back"
+        },
+        {
+          "description": "The program stopped with an error.",
+          "type": "string",
+          "const": "failed"
+        }
+      ]
+    },
+    "Correction": {
+      "description": "A correction applied to the program text before it ran.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Identifier of the correction within the report, for example `C1`.",
+          "type": "string"
+        },
+        "rule": {
+          "description": "Identifier of the correction rule: a letter of the rule table\n(`L`, `T`, `V`, `B`, `P`) and two digits, for example `L01`.",
+          "type": "string"
+        },
+        "class": {
+          "description": "Certainty class of the correction.",
+          "$ref": "#/$defs/CorrectionClass"
+        },
+        "at": {
+          "description": "Position of the corrected text.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextPosition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from": {
+          "description": "Text as written.",
+          "type": "string"
+        },
+        "to": {
+          "description": "Text after the correction.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind of corrected element, for example `command` or `param`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "alternatives": {
+          "description": "Other candidates that were considered.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "rule",
+        "class",
+        "from",
+        "to"
+      ]
+    },
+    "CorrectionClass": {
+      "description": "Certainty class of a correction of the program text.\n\n# Examples\n\n```\nuse nurt_contracts::report::CorrectionClass;\n\nassert_eq!(CorrectionClass::Fuzzy.as_str(), \"F\");\n```",
+      "oneOf": [
+        {
+          "description": "Certain equivalence: the text differs in notation only.",
+          "type": "string",
+          "const": "C"
+        },
+        {
+          "description": "Structural: a syntax character was added or removed where the\nstructure is unambiguous.",
+          "type": "string",
+          "const": "S"
+        },
+        {
+          "description": "Fuzzy name: a name was matched by edit distance.",
+          "type": "string",
+          "const": "F"
+        },
+        {
+          "description": "Probable: touches the bounds of a literal or resolves an ambiguity.",
+          "type": "string",
+          "const": "P"
+        }
+      ]
+    },
+    "TextPosition": {
+      "description": "Position in the program text, counted from 1.",
+      "type": "object",
+      "properties": {
+        "line": {
+          "description": "Line number, from 1.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "column": {
+          "description": "Column in Unicode scalar values, from 1.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "length": {
+          "description": "Length of the corrected text in Unicode scalar values.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "line",
+        "column"
+      ]
+    },
+    "Targets": {
+      "description": "Targets enumerated by the program.",
+      "type": "object",
+      "properties": {
+        "count": {
+          "description": "Number of targets.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "files": {
+          "description": "Number of files among the targets.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "directories": {
+          "description": "Number of directories among the targets.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "bytes": {
+          "description": "Total size of the targets in bytes.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "listed": {
+          "description": "Number of entries in [`Report::changes`] on this page.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "count"
+      ]
+    },
+    "Summary": {
+      "description": "Totals of a changing operation.",
+      "type": "object",
+      "properties": {
+        "files_created": {
+          "description": "Files created.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "files_modified": {
+          "description": "Files whose content changed.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "files_deleted": {
+          "description": "Files deleted.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "files_renamed": {
+          "description": "Files renamed or moved.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "directories_created": {
+          "description": "Directories created.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "directories_deleted": {
+          "description": "Directories deleted.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "replacements": {
+          "description": "Replacements made.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "lines_added": {
+          "description": "Lines added.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "lines_removed": {
+          "description": "Lines removed.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "bytes_before": {
+          "description": "Total size of the changed targets before the change, in bytes.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "bytes_after": {
+          "description": "Total size of the changed targets after the change, in bytes.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "bytes_freed": {
+          "description": "Bytes freed by deletion.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      }
+    },
+    "Change": {
+      "description": "One changed target.\n\nFor targets outside the file system, `path` holds an identifier of the\nform `<provider>:<name>` (for example `service:nginx`), the action is\n[`ChangeAction::State`] and `before` and `after` hold the states.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "Path of the target in canonical form.",
+          "type": "string"
+        },
+        "action": {
+          "description": "Kind of change.",
+          "$ref": "#/$defs/ChangeAction"
+        },
+        "from": {
+          "description": "Previous path of a renamed target.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "size_before": {
+          "description": "Size before the change, in bytes.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "size_after": {
+          "description": "Size after the change, in bytes.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "hash_before": {
+          "description": "Content hash before the change.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hash_after": {
+          "description": "Content hash after the change.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replacements": {
+          "description": "Replacements made in the target.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "added": {
+          "description": "Lines added.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "removed": {
+          "description": "Lines removed.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "before": {
+          "description": "State of a target outside the file system before the change.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "after": {
+          "description": "State of a target outside the file system after the change.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "flags": {
+          "description": "Additional markers of the change, for example `crlf` or `keys_created`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "path",
+        "action"
+      ]
+    },
+    "ChangeAction": {
+      "description": "Kind of change applied to a target.\n\n# Examples\n\n```\nuse nurt_contracts::report::ChangeAction;\n\nassert_eq!(ChangeAction::Modify.as_str(), \"modify\");\n```",
+      "oneOf": [
+        {
+          "description": "The target was created.",
+          "type": "string",
+          "const": "create"
+        },
+        {
+          "description": "The content of the target was changed.",
+          "type": "string",
+          "const": "modify"
+        },
+        {
+          "description": "The target was deleted.",
+          "type": "string",
+          "const": "delete"
+        },
+        {
+          "description": "The target was renamed or moved; `from` holds the previous path.",
+          "type": "string",
+          "const": "rename"
+        },
+        {
+          "description": "Mode, ownership or access control of the target was changed.",
+          "type": "string",
+          "const": "attributes"
+        },
+        {
+          "description": "A link was created or changed.",
+          "type": "string",
+          "const": "link"
+        },
+        {
+          "description": "The target was truncated.",
+          "type": "string",
+          "const": "truncate"
+        },
+        {
+          "description": "The state of a target outside the file system (service, schedule,\npackage, repository reference) was changed; `before` and `after` hold\nthe states.",
+          "type": "string",
+          "const": "state"
+        }
+      ]
+    },
+    "Hunk": {
+      "description": "One hunk of a unified difference.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "Path of the changed file.",
+          "type": "string"
+        },
+        "old_start": {
+          "description": "First line of the hunk before the change, from 1.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "old_len": {
+          "description": "Number of lines of the hunk before the change.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "new_start": {
+          "description": "First line of the hunk after the change, from 1.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "new_len": {
+          "description": "Number of lines of the hunk after the change.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "lines": {
+          "description": "Lines prefixed with `+` (added), `-` (removed) or a space (context).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "header": {
+          "description": "Context heading of the hunk, for example the enclosing function.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "old_start",
+        "old_len",
+        "new_start",
+        "new_len",
+        "lines"
+      ]
+    },
+    "Bulk": {
+      "description": "Summary of a bulk operation (at least `report.mass_threshold` targets).\n\nThe full list of targets stays available through [`Report::next_cursor`].",
+      "type": "object",
+      "properties": {
+        "by_directory": {
+          "description": "Directories ordered by the number of targets, largest first.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DirectoryCount"
+          }
+        },
+        "by_extension": {
+          "description": "Extensions ordered by the number of targets, largest first.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExtensionCount"
+          }
+        },
+        "sample_head": {
+          "description": "First targets in enumeration order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sample_tail": {
+          "description": "Last targets in enumeration order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "DirectoryCount": {
+      "description": "Number of targets in one directory of a bulk operation.",
+      "type": "object",
+      "properties": {
+        "directory": {
+          "description": "Directory in canonical form.",
+          "type": "string"
+        },
+        "count": {
+          "description": "Number of targets in the directory.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "bytes": {
+          "description": "Total size of the targets in bytes.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "directory",
+        "count"
+      ]
+    },
+    "ExtensionCount": {
+      "description": "Number of targets with one file name extension in a bulk operation.",
+      "type": "object",
+      "properties": {
+        "extension": {
+          "description": "Extension with the leading dot, for example `.tmp`; empty for names\nwithout an extension.",
+          "type": "string"
+        },
+        "count": {
+          "description": "Number of targets with the extension.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "bytes": {
+          "description": "Total size of the targets in bytes.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "extension",
+        "count"
+      ]
+    },
+    "Record": {
+      "description": "Record: a kind and fields in a fixed order.\n\nThis is the dynamic form used by `filter`, `select`, `sort` and other\nstages that work on fields by name; the typed form of each kind is in\n[`crate::record`] and converts to and from this form.\n\n```\nuse nurt_contracts::value::{Record, RecordKind, Value};\n\nlet mut record = Record::new(RecordKind::Map).with(\"count\", Value::Int(3));\nrecord.set(\"label\", Value::from(\"done\"));\nassert_eq!(record.field_names().collect::<Vec<_>>(), [\"count\", \"label\"]);\nassert_eq!(record.get(\"count\"), Some(&Value::Int(3)));\n```",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "Kind of the record.",
+          "$ref": "#/$defs/RecordKind"
+        },
+        "fields": {
+          "description": "Fields in order; a field that has no value is absent.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Value"
+          },
+          "default": {}
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "RecordKind": {
+      "description": "Kind of a record.\n\nEvery kind has a stable name used in programs, in the catalog\n(`input` and `output` of commands) and in JSON.",
+      "oneOf": [
+        {
+          "description": "File system entry (`list`, `find`, `info`).",
+          "type": "string",
+          "const": "entry"
+        },
+        {
+          "description": "Text content of a file (`read`).",
+          "type": "string",
+          "const": "content"
+        },
+        {
+          "description": "One line of a file (`lines`).",
+          "type": "string",
+          "const": "line"
+        },
+        {
+          "description": "Match of a search (`search`).",
+          "type": "string",
+          "const": "match"
+        },
+        {
+          "description": "Value at a key path in a structured document (`read key:`, `query`).",
+          "type": "string",
+          "const": "item"
+        },
+        {
+          "description": "Row of a table, CSV file or SQLite query (`sql`, `split`).",
+          "type": "string",
+          "const": "row"
+        },
+        {
+          "description": "Node of a syntax tree (`search mode: syntax`).",
+          "type": "string",
+          "const": "node"
+        },
+        {
+          "description": "Symbol of source code (`code.symbols`, `code.outline`).",
+          "type": "string",
+          "const": "symbol"
+        },
+        {
+          "description": "Reference to a symbol (`code.references`).",
+          "type": "string",
+          "const": "reference"
+        },
+        {
+          "description": "Compiler or language server diagnostic (`code.diagnostics`).",
+          "type": "string",
+          "const": "diagnostic"
+        },
+        {
+          "description": "Cell of a notebook (`notebook.cells`).",
+          "type": "string",
+          "const": "cell"
+        },
+        {
+          "description": "Hunk of a difference (`diff`, `git.diff`).",
+          "type": "string",
+          "const": "hunk"
+        },
+        {
+          "description": "Change of one file within an effect.",
+          "type": "string",
+          "const": "change"
+        },
+        {
+          "description": "Result of a finished program run (`run`).",
+          "type": "string",
+          "const": "exec"
+        },
+        {
+          "description": "Background job (`jobs`).",
+          "type": "string",
+          "const": "job"
+        },
+        {
+          "description": "Operating system process (`processes`).",
+          "type": "string",
+          "const": "process"
+        },
+        {
+          "description": "Network port (`ports`).",
+          "type": "string",
+          "const": "port"
+        },
+        {
+          "description": "Mounted disk (`disks`).",
+          "type": "string",
+          "const": "disk"
+        },
+        {
+          "description": "Description of the device (`host`).",
+          "type": "string",
+          "const": "host"
+        },
+        {
+          "description": "Environment variable (`environment`).",
+          "type": "string",
+          "const": "environment_variable"
+        },
+        {
+          "description": "Operating system service (`services`).",
+          "type": "string",
+          "const": "service"
+        },
+        {
+          "description": "Installed or available package (`package.list`).",
+          "type": "string",
+          "const": "package"
+        },
+        {
+          "description": "User or group account (`accounts`).",
+          "type": "string",
+          "const": "account"
+        },
+        {
+          "description": "System log event (`logs`).",
+          "type": "string",
+          "const": "log_event"
+        },
+        {
+          "description": "Repository commit (`git.log`).",
+          "type": "string",
+          "const": "commit"
+        },
+        {
+          "description": "Status of a path in a repository (`git.status`).",
+          "type": "string",
+          "const": "git_status"
+        },
+        {
+          "description": "Repository branch (`git.branch`).",
+          "type": "string",
+          "const": "branch"
+        },
+        {
+          "description": "Scheduled task (`schedule.list`).",
+          "type": "string",
+          "const": "schedule"
+        },
+        {
+          "description": "Entry of the operation journal (`history`).",
+          "type": "string",
+          "const": "operation"
+        },
+        {
+          "description": "Response that an HTTP request received (`http.request`).",
+          "type": "string",
+          "const": "response"
+        },
+        {
+          "description": "Volume as seen by the journal (`journal.space`).",
+          "type": "string",
+          "const": "volume"
+        },
+        {
+          "description": "Description of an installed program (`program.search`).",
+          "type": "string",
+          "const": "program_card"
+        },
+        {
+          "description": "Member of an archive (`archive.list`).",
+          "type": "string",
+          "const": "archive_entry"
+        },
+        {
+          "description": "Test run (`test.run`).",
+          "type": "string",
+          "const": "test_run"
+        },
+        {
+          "description": "Result of one test (`test.show`).",
+          "type": "string",
+          "const": "test_result"
+        },
+        {
+          "description": "Finding of an analysis or review (`analyze.check`, `git.review`).",
+          "type": "string",
+          "const": "finding"
+        },
+        {
+          "description": "Effect of a changing or running stage; the fields are those of the\neffect report.",
+          "type": "string",
+          "const": "effect"
+        },
+        {
+          "description": "Value in the Windows registry (`read \"registry:/…\"`).",
+          "type": "string",
+          "const": "registry_value"
+        },
+        {
+          "description": "State and limits of the operation journal (`journal.status`,\n`journal.limits`).",
+          "type": "string",
+          "const": "journal_state"
+        },
+        {
+          "description": "Result of an expression (`evaluate`).",
+          "type": "string",
+          "const": "value"
+        },
+        {
+          "description": "Group of records (`group`).",
+          "type": "string",
+          "const": "group"
+        },
+        {
+          "description": "Statistics of a field (`summarize`).",
+          "type": "string",
+          "const": "summary"
+        },
+        {
+          "description": "Field of the records in a pipeline (`describe`).",
+          "type": "string",
+          "const": "field_info"
+        },
+        {
+          "description": "Management object of Windows (`windows.cim`).",
+          "type": "string",
+          "const": "cim_object"
+        },
+        {
+          "description": "Line annotated with its last commit (`git.blame`).",
+          "type": "string",
+          "const": "blame_line"
+        },
+        {
+          "description": "Description of a symbol at a position (`code.hover`).",
+          "type": "string",
+          "const": "hover"
+        },
+        {
+          "description": "Code action offered by a language server (`code.actions`).",
+          "type": "string",
+          "const": "code_action"
+        },
+        {
+          "description": "Supported language and its server (`code.languages`).",
+          "type": "string",
+          "const": "language"
+        },
+        {
+          "description": "Planned edit of a rename (`code.rename` preview).",
+          "type": "string",
+          "const": "rename_edit"
+        },
+        {
+          "description": "Entry of a repository profile (`code.profile`).",
+          "type": "string",
+          "const": "profile_entry"
+        },
+        {
+          "description": "Result of a reachability test (`network.ping`).",
+          "type": "string",
+          "const": "ping_result"
+        },
+        {
+          "description": "DNS resource record (`network.resolve`).",
+          "type": "string",
+          "const": "dns_record"
+        },
+        {
+          "description": "Network interface (`network.interfaces`).",
+          "type": "string",
+          "const": "network_interface"
+        },
+        {
+          "description": "Location of a program (`program.find`).",
+          "type": "string",
+          "const": "program_location"
+        },
+        {
+          "description": "Category of programs (`program.catalog`).",
+          "type": "string",
+          "const": "program_category"
+        },
+        {
+          "description": "One run of a scheduled task (`schedule.history`).",
+          "type": "string",
+          "const": "schedule_run"
+        },
+        {
+          "description": "Verdict of an analysis (`analyze.check`).",
+          "type": "string",
+          "const": "analysis"
+        },
+        {
+          "description": "Analysis tool found in a project (`analyze.tools`).",
+          "type": "string",
+          "const": "analyze_tool"
+        },
+        {
+          "description": "Repository tag (`git.tag`).",
+          "type": "string",
+          "const": "git_tag"
+        },
+        {
+          "description": "Working tree of a repository (`git.worktree`).",
+          "type": "string",
+          "const": "git_worktree"
+        },
+        {
+          "description": "Stash entry (`git.stash`).",
+          "type": "string",
+          "const": "git_stash"
+        },
+        {
+          "description": "Checkpoint of a working tree (`git.checkpoint`).",
+          "type": "string",
+          "const": "git_checkpoint"
+        },
+        {
+          "description": "Update of a reference by a transfer (`git.fetch`, `git.push`).",
+          "type": "string",
+          "const": "git_ref_update"
+        },
+        {
+          "description": "Conflict left by a merge (`git.merge`, `git.rebase`).",
+          "type": "string",
+          "const": "git_conflict"
+        },
+        {
+          "description": "Effect of an operation on a repository (part `git` of an effect).",
+          "type": "string",
+          "const": "git_effect"
+        },
+        {
+          "description": "Record of computed or source-defined fields without a fixed kind\n(`select` with computed fields, `parse`, `windows.cim`).",
+          "type": "string",
+          "const": "map"
+        }
+      ]
+    },
+    "Value": {
+      "description": "Value of the language.\n\nThe JSON form carries the type in `\"t\"` and the payload in `\"v\"` (see the\nmodule documentation).",
+      "oneOf": [
+        {
+          "description": "Absence of a value, written `null`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "null"
+            }
+          },
+          "required": [
+            "t"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Truth value, `true` or `false`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "bool"
+            },
+            "v": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Signed 64-bit integer.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "int"
+            },
+            "v": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Integer outside the 64-bit range, as decimal digits with an optional\nleading `-`; produced when reading documents.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "big_int"
+            },
+            "v": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Finite 64-bit floating point number.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "number"
+            },
+            "v": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Number kept as its exact source text because the binary form would\nchange it (for example `1.10` or `1e400` read from a document).",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "decimal"
+            },
+            "v": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Unicode text.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "text"
+            },
+            "v": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Size in bytes.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "size"
+            },
+            "v": {
+              "$ref": "#/$defs/Size"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Signed duration in milliseconds.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "duration"
+            },
+            "v": {
+              "$ref": "#/$defs/Duration"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Point in time in UTC with nanosecond precision.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "instant"
+            },
+            "v": {
+              "$ref": "#/$defs/Instant"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Date or time of day read from a document, kept in its source form.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "date"
+            },
+            "v": {
+              "$ref": "#/$defs/Date"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Path in canonical form: `/` as separator, absolute, upper-case drive\nletter, or a provider path such as `env:/PATH`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "path"
+            },
+            "v": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "File name pattern.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "glob"
+            },
+            "v": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Regular expression.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "regex"
+            },
+            "v": {
+              "$ref": "#/$defs/Regex"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Key path inside a structured document, for example `scripts.test`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "key"
+            },
+            "v": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Binary data.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "bytes"
+            },
+            "v": {
+              "$ref": "#/$defs/Bytes"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Inclusive range of integers.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "range"
+            },
+            "v": {
+              "$ref": "#/$defs/Range"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Value of an enumeration, for example `directory`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "enum"
+            },
+            "v": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Ordered list of values.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "list"
+            },
+            "v": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Value"
+              }
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Map with ordered keys.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "map"
+            },
+            "v": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/Value"
+              }
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Record of a known kind with ordered fields.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "record"
+            },
+            "v": {
+              "$ref": "#/$defs/Record"
+            }
+          },
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Size": {
+      "description": "Size in bytes.\n\nThe text form (`12.4kb`) belongs to the language implementation; the\nJSON form is the number of bytes.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "Duration": {
+      "description": "Signed duration in milliseconds.\n\nThe text form (`1h30m`) belongs to the language implementation; the JSON\nform is the number of milliseconds.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "Instant": {
+      "description": "Point in time in UTC, RFC 3339 with the suffix `Z`.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3}|\\.[0-9]{6}|\\.[0-9]{9})?Z$"
+    },
+    "Date": {
+      "description": "Date or time of day as written in a structured document (TOML, YAML,\nproperty lists), kept in its source form so that writing it back does\nnot change it.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "Form of the date.",
+          "$ref": "#/$defs/DateKind"
+        },
+        "text": {
+          "description": "Text exactly as in the document.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "text"
+      ]
+    },
+    "DateKind": {
+      "description": "Form of a date or time read from a document.",
+      "oneOf": [
+        {
+          "description": "Date and time with an offset, for example `2026-11-21T10:00:00+01:00`.",
+          "type": "string",
+          "const": "offset_date_time"
+        },
+        {
+          "description": "Date and time without an offset, for example `2026-11-21T10:00:00`.",
+          "type": "string",
+          "const": "local_date_time"
+        },
+        {
+          "description": "Date only, for example `2026-11-21`.",
+          "type": "string",
+          "const": "local_date"
+        },
+        {
+          "description": "Time of day only, for example `10:00:00`.",
+          "type": "string",
+          "const": "local_time"
+        }
+      ]
+    },
+    "Regex": {
+      "description": "Regular expression: pattern and flags.\n\nThe pattern is the source text of the expression without the enclosing\n`/` and with `\\/` already turned into `/`. The text form is\n`/pattern/flags`.\n\n```\nuse nurt_contracts::value::Regex;\n\nlet regex = Regex::new(\"a/b+\", \"i\").unwrap();\nassert_eq!(regex.to_string(), \"/a\\\\/b+/i\");\n```",
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "description": "Source text of the expression.",
+          "type": "string"
+        },
+        "flags": {
+          "description": "Flags; omitted from JSON when empty.",
+          "$ref": "#/$defs/RegexFlags"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pattern"
+      ]
+    },
+    "RegexFlags": {
+      "description": "Flag letters in the order `imsx`.",
+      "type": "string",
+      "pattern": "^i?m?s?x?$"
+    },
+    "Bytes": {
+      "description": "Binary data, standard base64 with padding.",
+      "type": "string",
+      "contentEncoding": "base64",
+      "pattern": "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+    },
+    "Range": {
+      "description": "Inclusive range of integers: `5`, `1..5`, `40..`, `..9`, or every\ninteger.\n\nBoth bounds are inclusive; a missing bound is open. The start is never\ngreater than the end.\n\n```\nuse nurt_contracts::value::Range;\n\nlet range = Range::new(Some(1), Some(5)).unwrap();\nassert!(range.contains(5));\nassert_eq!(range.to_string(), \"1..5\");\nassert_eq!(Range::from_start(40).to_string(), \"40..\");\nassert!(Range::new(Some(5), Some(1)).is_err());\n```",
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64",
+          "default": null
+        },
+        "end": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64",
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "RecordsPage": {
+      "description": "Records returned by a reading program.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "Record kind of the rows, for example `entry` or `match`.",
+          "$ref": "#/$defs/RecordKind"
+        },
+        "matched": {
+          "description": "Number of records produced by the program before paging.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "header": {
+          "description": "Header record of a stream that has one, for example a test run before\nits test results.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Record"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rows": {
+          "description": "Records on this page.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Record"
+          }
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "NotableEntry": {
+      "description": "An unusual effect.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "description": "Code of the effect.",
+          "$ref": "#/$defs/Notable"
+        },
+        "severity": {
+          "description": "Importance of the effect.",
+          "$ref": "#/$defs/Severity"
+        },
+        "path": {
+          "description": "Target concerned, when the effect concerns one target.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "count": {
+          "description": "Number of targets or occurrences concerned.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "detail": {
+          "description": "Short description of the effect.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "severity"
+      ]
+    },
+    "Notable": {
+      "description": "Code of an unusual effect reported in [`Report::notable`].\n\nA notable effect is a description only; nothing is blocked because of\nit. Thresholds are configurable under `report.notable.*`. Codes for which\n[`Notable::computed_by_report`] is true are derived by the report builder\nfrom the list of changes; all other codes are emitted by the command that\nobserved the condition.\n\n# Examples\n\n```\nuse nurt_contracts::report::{Notable, Severity};\n\nassert_eq!(Notable::MassDelete.as_str(), \"mass_delete\");\nassert_eq!(Notable::MassDelete.default_severity(), Severity::Warning);\nassert!(Notable::MassDelete.computed_by_report());\nassert!(!Notable::NothingMatched.computed_by_report());\n```",
+      "oneOf": [
+        {
+          "description": "A target lies outside every configured project root.",
+          "type": "string",
+          "const": "outside_project"
+        },
+        {
+          "description": "A target lies in a system directory.",
+          "type": "string",
+          "const": "system_path"
+        },
+        {
+          "description": "A target is a configuration file or directory in the home directory.",
+          "type": "string",
+          "const": "home_config"
+        },
+        {
+          "description": "Many files or bytes, or a large share of a directory, are deleted.",
+          "type": "string",
+          "const": "mass_delete"
+        },
+        {
+          "description": "A non-empty directory is deleted recursively.",
+          "type": "string",
+          "const": "delete_tree"
+        },
+        {
+          "description": "Existing files were replaced by a write, move or copy.",
+          "type": "string",
+          "const": "overwrote_existing"
+        },
+        {
+          "description": "A file that had content is empty after the change.",
+          "type": "string",
+          "const": "file_emptied"
+        },
+        {
+          "description": "The size of a file shrank by at least the configured ratio.",
+          "type": "string",
+          "const": "size_shrunk"
+        },
+        {
+          "description": "A single file received at least the configured number of replacements.",
+          "type": "string",
+          "const": "many_per_file"
+        },
+        {
+          "description": "The number of targets reached the configured threshold.",
+          "type": "string",
+          "const": "target_count_high"
+        },
+        {
+          "description": "A changing stage received no targets.",
+          "type": "string",
+          "const": "nothing_matched"
+        },
+        {
+          "description": "A write produced content identical to the existing content.",
+          "type": "string",
+          "const": "unchanged"
+        },
+        {
+          "description": "A file with binary content was changed.",
+          "type": "string",
+          "const": "binary_target"
+        },
+        {
+          "description": "Files with binary content were skipped; `count` gives their number.",
+          "type": "string",
+          "const": "binary_skipped"
+        },
+        {
+          "description": "A special file (device, pipe, socket, pseudo file system) was written.",
+          "type": "string",
+          "const": "special_file"
+        },
+        {
+          "description": "A change went through a symbolic link to a target outside its directory.",
+          "type": "string",
+          "const": "symlink_followed"
+        },
+        {
+          "description": "A file with several hard links was replaced, separating the links.",
+          "type": "string",
+          "const": "hardlink_broken"
+        },
+        {
+          "description": "A file with several hard links was written in place, keeping the links.",
+          "type": "string",
+          "const": "hardlink_set_preserved"
+        },
+        {
+          "description": "Mode, ownership or access control of a file changed.",
+          "type": "string",
+          "const": "attributes_changed"
+        },
+        {
+          "description": "A file was written in its original encoding other than UTF-8.",
+          "type": "string",
+          "const": "encoding_preserved"
+        },
+        {
+          "description": "A file was written with its original line endings other than `lf`.",
+          "type": "string",
+          "const": "line_ending_preserved"
+        },
+        {
+          "description": "A file has mixed line endings.",
+          "type": "string",
+          "const": "line_ending_mixed"
+        },
+        {
+          "description": "The encoding of a file was converted.",
+          "type": "string",
+          "const": "encoding_changed"
+        },
+        {
+          "description": "The line endings of a file were converted.",
+          "type": "string",
+          "const": "line_ending_changed"
+        },
+        {
+          "description": "A byte order mark was added or removed.",
+          "type": "string",
+          "const": "bom_changed"
+        },
+        {
+          "description": "Long lines were shortened in the output.",
+          "type": "string",
+          "const": "truncated_lines"
+        },
+        {
+          "description": "A regular expression hit the backtracking limit on some input.",
+          "type": "string",
+          "const": "regex_backtracking"
+        },
+        {
+          "description": "Compressed content was decompressed transparently.",
+          "type": "string",
+          "const": "decompressed"
+        },
+        {
+          "description": "A move crossed volumes and was performed as copy and delete.",
+          "type": "string",
+          "const": "cross_device"
+        },
+        {
+          "description": "The destination of a move or copy is an existing directory.",
+          "type": "string",
+          "const": "to_is_dir"
+        },
+        {
+          "description": "Names differing only in letter case collide.",
+          "type": "string",
+          "const": "case_collision"
+        },
+        {
+          "description": "A name was matched in a letter case different from the one given.",
+          "type": "string",
+          "const": "case_alias"
+        },
+        {
+          "description": "A name was matched in a Unicode normalization form different from the one given.",
+          "type": "string",
+          "const": "nfd_name"
+        },
+        {
+          "description": "A name is not portable between operating systems.",
+          "type": "string",
+          "const": "portability"
+        },
+        {
+          "description": "A target lies on a network or removable volume.",
+          "type": "string",
+          "const": "external_volume"
+        },
+        {
+          "description": "Archive entries pointing outside the destination were skipped.",
+          "type": "string",
+          "const": "archive_path_escape"
+        },
+        {
+          "description": "Files without read permission were skipped.",
+          "type": "string",
+          "const": "permission_denied_skipped"
+        },
+        {
+          "description": "Changes in paths excluded from tracking were not reported.",
+          "type": "string",
+          "const": "ignored"
+        },
+        {
+          "description": "A node referenced by aliases was changed; the change is visible through every alias.",
+          "type": "string",
+          "const": "alias_shared"
+        },
+        {
+          "description": "Intermediate keys were created.",
+          "type": "string",
+          "const": "keys_created"
+        },
+        {
+          "description": "A document has a repeated key; the last occurrence was changed.",
+          "type": "string",
+          "const": "duplicate_key"
+        },
+        {
+          "description": "A code operation fell back to syntax analysis; `detail` gives the cause.",
+          "type": "string",
+          "const": "semantic_fallback"
+        },
+        {
+          "description": "Textual references to the old name remain after a change.",
+          "type": "string",
+          "const": "references_left"
+        },
+        {
+          "description": "A rename did not reach every reference.",
+          "type": "string",
+          "const": "rename_incomplete"
+        },
+        {
+          "description": "Changes made by a program are detected only inside the watched directories.",
+          "type": "string",
+          "const": "detection_scope"
+        },
+        {
+          "description": "A program finished with an exit code other than zero.",
+          "type": "string",
+          "const": "exit_nonzero"
+        },
+        {
+          "description": "Stages after the effect were skipped because the program moved to the background.",
+          "type": "string",
+          "const": "post_stages_deferred"
+        },
+        {
+          "description": "A rollback restored only part of the changes.",
+          "type": "string",
+          "const": "rollback_partial"
+        },
+        {
+          "description": "A program wrote binary data to an output stream.",
+          "type": "string",
+          "const": "output_binary"
+        },
+        {
+          "description": "The output of a program exceeded the spool limit.",
+          "type": "string",
+          "const": "spool_limit"
+        },
+        {
+          "description": "A program closed its standard input before all input was written.",
+          "type": "string",
+          "const": "stdin_closed_early"
+        },
+        {
+          "description": "A background job lost its supervisor.",
+          "type": "string",
+          "const": "job_lost"
+        },
+        {
+          "description": "A requested analysis tool is not installed.",
+          "type": "string",
+          "const": "tool_missing"
+        },
+        {
+          "description": "No tests were found or run.",
+          "type": "string",
+          "const": "tests_none"
+        },
+        {
+          "description": "Trust settings in a project configuration file were ignored; a project\ncannot make itself trusted.",
+          "type": "string",
+          "const": "trust_config_ignored"
+        },
+        {
+          "description": "Keys of a project configuration file outside the keys allowed for\nprojects were ignored.",
+          "type": "string",
+          "const": "project_config_ignored"
+        },
+        {
+          "description": "Journal settings in an untrusted project configuration file were ignored.",
+          "type": "string",
+          "const": "journal_config_ignored"
+        },
+        {
+          "description": "The operation is larger than the journal size limit.",
+          "type": "string",
+          "const": "journal_oversize"
+        },
+        {
+          "description": "A data source of the operating system was unavailable; results are incomplete.",
+          "type": "string",
+          "const": "source_unavailable"
+        },
+        {
+          "description": "A settings change was broadcast to running programs.",
+          "type": "string",
+          "const": "settings_broadcast"
+        },
+        {
+          "description": "Repository hooks were not run.",
+          "type": "string",
+          "const": "hooks_skipped"
+        },
+        {
+          "description": "Repository history was rewritten.",
+          "type": "string",
+          "const": "history_rewritten"
+        },
+        {
+          "description": "A remote branch was overwritten by a forced push.",
+          "type": "string",
+          "const": "force_push"
+        },
+        {
+          "description": "The repository is in detached head state.",
+          "type": "string",
+          "const": "detached_head"
+        },
+        {
+          "description": "A branch that was not merged was deleted.",
+          "type": "string",
+          "const": "branch_deleted_unmerged"
+        },
+        {
+          "description": "A branch was updated by fast-forward.",
+          "type": "string",
+          "const": "fast_forward"
+        },
+        {
+          "description": "The operation stopped with conflicts; `count` gives their number.",
+          "type": "string",
+          "const": "conflicts"
+        },
+        {
+          "description": "Untracked files were removed.",
+          "type": "string",
+          "const": "untracked_removed"
+        },
+        {
+          "description": "Uncommitted changes were carried to another branch.",
+          "type": "string",
+          "const": "local_changes_carried"
+        },
+        {
+          "description": "A content filter of the repository was not applied.",
+          "type": "string",
+          "const": "filter_not_applied"
+        },
+        {
+          "description": "A configured credential helper was not run.",
+          "type": "string",
+          "const": "credential_helper_ignored"
+        },
+        {
+          "description": "A configured SSH command was not run.",
+          "type": "string",
+          "const": "ssh_command_ignored"
+        },
+        {
+          "description": "A configured file system monitor was not run.",
+          "type": "string",
+          "const": "fsmonitor_ignored"
+        },
+        {
+          "description": "Submodules were not updated.",
+          "type": "string",
+          "const": "submodules_not_updated"
+        },
+        {
+          "description": "The repository uses sparse checkout.",
+          "type": "string",
+          "const": "sparse_checkout"
+        },
+        {
+          "description": "The repository has shallow history.",
+          "type": "string",
+          "const": "shallow_repository"
+        },
+        {
+          "description": "Line endings were converted by repository settings.",
+          "type": "string",
+          "const": "line_endings_converted"
+        },
+        {
+          "description": "An upstream branch was set.",
+          "type": "string",
+          "const": "upstream_set"
+        },
+        {
+          "description": "A stash entry was kept after a conflict.",
+          "type": "string",
+          "const": "stash_kept"
+        },
+        {
+          "description": "A commit or tag was signed.",
+          "type": "string",
+          "const": "signed"
+        }
+      ]
+    },
+    "Severity": {
+      "description": "Importance of an unusual effect, in increasing order of importance.\n\n# Examples\n\n```\nuse nurt_contracts::report::Severity;\n\nassert!(Severity::Alert > Severity::Warning);\nassert_eq!(Severity::Notice.as_str(), \"notice\");\n```",
+      "oneOf": [
+        {
+          "description": "Informational; the effect is as requested, with a detail worth knowing.",
+          "type": "string",
+          "const": "info"
+        },
+        {
+          "description": "Worth noticing.",
+          "type": "string",
+          "const": "notice"
+        },
+        {
+          "description": "Differs from the usual result of the command and needs attention.",
+          "type": "string",
+          "const": "warning"
+        },
+        {
+          "description": "Touches a sensitive location or a large amount of data.",
+          "type": "string",
+          "const": "alert"
+        }
+      ]
+    },
+    "IrreversibleEntry": {
+      "description": "An irreversible effect.",
+      "type": "object",
+      "properties": {
+        "reason": {
+          "description": "Reason why the effect is irreversible.",
+          "$ref": "#/$defs/Irreversible"
+        },
+        "path": {
+          "description": "Target concerned, when the effect concerns one target.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "count": {
+          "description": "Number of targets concerned.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "detail": {
+          "description": "Short description, for example the program that caused the effect.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "reason"
+      ]
+    },
+    "Irreversible": {
+      "description": "Reason why an effect is irreversible, reported in\n[`Report::irreversible`].\n\n# Examples\n\n```\nuse nurt_contracts::report::Irreversible;\n\nassert_eq!(Irreversible::RemoteRefUpdated.as_str(), \"remote_ref_updated\");\nassert_eq!(\n    \"previous_content_not_kept\".parse::<Irreversible>(),\n    Ok(Irreversible::PreviousContentNotKept)\n);\n```",
+      "oneOf": [
+        {
+          "description": "A program with an effect outside the local file system was run.",
+          "type": "string",
+          "const": "external_effect"
+        },
+        {
+          "description": "References of a remote repository were updated or fetched.",
+          "type": "string",
+          "const": "remote_ref_updated"
+        },
+        {
+          "description": "A network request that changes remote state was sent.",
+          "type": "string",
+          "const": "network"
+        },
+        {
+          "description": "A database was changed without a preserved copy.",
+          "type": "string",
+          "const": "database"
+        },
+        {
+          "description": "A process or job was stopped.",
+          "type": "string",
+          "const": "process_stopped"
+        },
+        {
+          "description": "The state of a system service was changed.",
+          "type": "string",
+          "const": "service_changed"
+        },
+        {
+          "description": "System packages were installed, removed or upgraded.",
+          "type": "string",
+          "const": "package_changed"
+        },
+        {
+          "description": "A program changed a file whose previous content was not preserved.",
+          "type": "string",
+          "const": "previous_content_not_kept"
+        },
+        {
+          "description": "There was no space for a copy of the previous content.",
+          "type": "string",
+          "const": "no_space_for_copy"
+        },
+        {
+          "description": "The journal is disabled or its space service is not running.",
+          "type": "string",
+          "const": "journal_inactive"
+        },
+        {
+          "description": "The target lies on a network volume without a journal.",
+          "type": "string",
+          "const": "network_volume"
+        },
+        {
+          "description": "The target lies on a removable volume without a journal.",
+          "type": "string",
+          "const": "removable_volume"
+        },
+        {
+          "description": "Journal entries were purged.",
+          "type": "string",
+          "const": "purged"
+        },
+        {
+          "description": "A special file (device, pipe, socket, pseudo file system) was written.",
+          "type": "string",
+          "const": "special_file"
+        },
+        {
+          "description": "The operation is larger than the limit for a single journal entry.",
+          "type": "string",
+          "const": "too_large_for_journal"
+        },
+        {
+          "description": "Preserved content of part of a bulk operation was released to free disk space.",
+          "type": "string",
+          "const": "released_for_space"
+        },
+        {
+          "description": "The kept output of a background job was removed together with the job.",
+          "type": "string",
+          "const": "job_output_removed"
+        },
+        {
+          "description": "The state of a running process was changed: it was suspended, resumed,\nsignalled or given another priority.",
+          "type": "string",
+          "const": "process_state_changed"
+        },
+        {
+          "description": "Journal entries of earlier operations expired because of this\noperation, for example when the journal limits were lowered.",
+          "type": "string",
+          "const": "journal_entries_expired"
+        },
+        {
+          "description": "The journal failed while recording the operation; the change was made\nwithout preserved previous content.",
+          "type": "string",
+          "const": "journal_error"
+        }
+      ]
+    },
+    "Error": {
+      "$ref": "#/$defs/ErrorData"
+    },
+    "ErrorData": {
+      "description": "Content of an [`Error`].\n\n[`Error`] dereferences to this structure, so the fields are read as\n`error.code`, `error.message` and so on.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "description": "Stable code.",
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "message": {
+          "description": "Message in English, one or two sentences.",
+          "type": "string"
+        },
+        "stage": {
+          "description": "Stage in which the error occurred.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "at": {
+          "description": "Position in the program.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/At"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "location": {
+          "description": "Position in a data file.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Location"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "found": {
+          "description": "The fragment that was found.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "problem": {
+          "description": "Short name of the specific problem, for example `not_merged`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fix": {
+          "description": "Ready replacements of the program text, best first.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "help": {
+          "description": "Help topic with the rules that apply.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expected": {
+          "description": "What was expected: names, types, counts or hashes."
+        },
+        "actual": {
+          "description": "What was found instead."
+        },
+        "sample": {
+          "description": "Sample of the records or paths concerned.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidates": {
+          "description": "Ranked ready programs.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Candidate"
+          }
+        },
+        "next_steps": {
+          "description": "Further calls that complete the task, for example the parts of a\nprogram split by `E_ONE_EFFECT`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "effect_applied": {
+          "description": "Whether the effect of the program is in the world despite the error,\nas after a failed assertion in stage `5a` or a merge with conflicts.",
+          "type": "boolean"
+        },
+        "details": {
+          "description": "Data specific to the code, for example `path`, `os_error`,\n`holders` or `partial_read`.",
+          "type": "object",
+          "additionalProperties": true
+        },
+        "cause": {
+          "description": "Error that caused this one.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Error"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message"
+      ]
+    },
+    "ErrorCode": {
+      "description": "Stable error code of the language.\n\nCodes are only added within a major version of the language;\nthe text form (`E_UNKNOWN_COMMAND`) is the JSON form.",
+      "oneOf": [
+        {
+          "description": "A token is not valid: an unknown character, an unterminated text or\na malformed number, size or duration.",
+          "type": "string",
+          "const": "E_LEXICAL"
+        },
+        {
+          "description": "An escape sequence in a text is not valid; the help shows the\naccepted escapes and the raw text form.",
+          "type": "string",
+          "const": "E_ESCAPE"
+        },
+        {
+          "description": "The program does not follow the grammar.",
+          "type": "string",
+          "const": "E_SYNTAX"
+        },
+        {
+          "description": "A correction is possible but touches a target of a change;\n`candidates` lists ranked ready programs.",
+          "type": "string",
+          "const": "E_AMBIGUOUS"
+        },
+        {
+          "description": "The program cannot be corrected by the correction rules; `fix` and\n`help` show the way forward.",
+          "type": "string",
+          "const": "E_UNCORRECTABLE"
+        },
+        {
+          "description": "The correction violated an invariant; nothing is executed.",
+          "type": "string",
+          "const": "E_INTERNAL_CORRECTION"
+        },
+        {
+          "description": "`accept` names a correction candidate that expired or is unknown;\nthe program must be sent again.",
+          "type": "string",
+          "const": "E_EXPIRED_CANDIDATE"
+        },
+        {
+          "description": "The version of a syntax tree is newer than the instance supports;\nthe unknown nodes are listed.",
+          "type": "string",
+          "const": "E_AST_VERSION"
+        },
+        {
+          "description": "A syntax tree does not conform to its schema.",
+          "type": "string",
+          "const": "E_AST_SCHEMA"
+        },
+        {
+          "description": "Unknown command; `expected` lists up to eight nearest names.",
+          "type": "string",
+          "const": "E_UNKNOWN_COMMAND"
+        },
+        {
+          "description": "Unknown parameter of a command; `expected` lists up to eight nearest\nnames.",
+          "type": "string",
+          "const": "E_UNKNOWN_PARAM"
+        },
+        {
+          "description": "Unknown name `@name` of a `let` result.",
+          "type": "string",
+          "const": "E_UNKNOWN_NAME"
+        },
+        {
+          "description": "Unknown field of a record; `expected` lists the fields.",
+          "type": "string",
+          "const": "E_UNKNOWN_FIELD"
+        },
+        {
+          "description": "Unknown value of an enumeration; `expected` lists the values.",
+          "type": "string",
+          "const": "E_UNKNOWN_VALUE"
+        },
+        {
+          "description": "A required parameter is missing.",
+          "type": "string",
+          "const": "E_MISSING_PARAM"
+        },
+        {
+          "description": "A value or a record stream has a type the place does not accept;\n`expected` lists the accepted types.",
+          "type": "string",
+          "const": "E_TYPE"
+        },
+        {
+          "description": "Wrong number of arguments.",
+          "type": "string",
+          "const": "E_ARITY"
+        },
+        {
+          "description": "A value has the right type but is not valid for the place, for\nexample a cron expression, a time zone or a too short interval.",
+          "type": "string",
+          "const": "E_INVALID_VALUE"
+        },
+        {
+          "description": "The configuration is not valid: an unknown key, a value of the wrong\ntype or out of range, or a file that does not parse; `location`\npoints into the file.",
+          "type": "string",
+          "const": "E_CONFIG"
+        },
+        {
+          "description": "A relative path was given without the call parameter `base`.",
+          "type": "string",
+          "const": "E_PATH_RELATIVE"
+        },
+        {
+          "description": "A path is written in a form foreign to the system, for example a\ndrive letter on Linux or a name Windows does not allow.",
+          "type": "string",
+          "const": "E_PATH_FOREIGN"
+        },
+        {
+          "description": "More than one changing or running stage, or a stage after the\neffect that is not allowed there; `next_steps` splits the program.",
+          "type": "string",
+          "const": "E_ONE_EFFECT"
+        },
+        {
+          "description": "The command exists only on another operating system.",
+          "type": "string",
+          "const": "E_OS_ONLY"
+        },
+        {
+          "description": "A parameter or a mode is not available on this system, for example a\nmemory limit without kernel support.",
+          "type": "string",
+          "const": "E_UNSUPPORTED"
+        },
+        {
+          "description": "A regular expression or a replacement template is not valid.",
+          "type": "string",
+          "const": "E_REGEX"
+        },
+        {
+          "description": "A key path into a document is not valid.",
+          "type": "string",
+          "const": "E_KEY_SYNTAX"
+        },
+        {
+          "description": "A syntax pattern does not parse in the target language.",
+          "type": "string",
+          "const": "E_PATTERN_SYNTAX"
+        },
+        {
+          "description": "A document query does not compile or fails to run.",
+          "type": "string",
+          "const": "E_QUERY"
+        },
+        {
+          "description": "An SQL statement cannot be prepared or executed, or changes data\nwithout `write: true`.",
+          "type": "string",
+          "const": "E_SQL"
+        },
+        {
+          "description": "An argument of a call cannot be passed without changing its meaning,\nfor example a NUL character in a process argument.",
+          "type": "string",
+          "const": "E_ARG"
+        },
+        {
+          "description": "A program required by the command is not installed; `fix` shows how\nto install it.",
+          "type": "string",
+          "const": "E_EXTERNAL_MISSING"
+        },
+        {
+          "description": "An external program used by the command, such as a language server,\nfailed or broke its protocol.",
+          "type": "string",
+          "const": "E_EXTERNAL_FAILED"
+        },
+        {
+          "description": "A program to run was not found in the search path; `candidates`\nlists similar names.",
+          "type": "string",
+          "const": "E_PROGRAM_NOT_FOUND"
+        },
+        {
+          "description": "A program could not be started: no permission to execute, an unknown\nformat, a missing interpreter or working directory.",
+          "type": "string",
+          "const": "E_SPAWN"
+        },
+        {
+          "description": "An assertion does not hold. Before the effect nothing changed; after\nthe effect the effect stays and the report is complete.",
+          "type": "string",
+          "const": "E_ASSERT"
+        },
+        {
+          "description": "Binary content where text is required.",
+          "type": "string",
+          "const": "E_BINARY"
+        },
+        {
+          "description": "A file is not a valid document of its format; `location` shows where.",
+          "type": "string",
+          "const": "E_DOC_PARSE"
+        },
+        {
+          "description": "A format is damaged or not supported, for example an archive or a\nnotebook.",
+          "type": "string",
+          "const": "E_FORMAT"
+        },
+        {
+          "description": "An archive or a document is encrypted.",
+          "type": "string",
+          "const": "E_ENCRYPTED"
+        },
+        {
+          "description": "A construct of a document cannot be changed without losing its\nlayout; the construct is named in `found`; nothing changed.",
+          "type": "string",
+          "const": "E_UNSUPPORTED_CONSTRUCT"
+        },
+        {
+          "description": "A key path does not exist in the document.",
+          "type": "string",
+          "const": "E_KEY_NOT_FOUND"
+        },
+        {
+          "description": "A key path passes through a value of another kind, for example an\nindex into a map.",
+          "type": "string",
+          "const": "E_KEY_CONFLICT"
+        },
+        {
+          "description": "No grammar is available for the language of a file.",
+          "type": "string",
+          "const": "E_UNSUPPORTED_LANGUAGE"
+        },
+        {
+          "description": "A symbol has no definition.",
+          "type": "string",
+          "const": "E_SYMBOL_NOT_FOUND"
+        },
+        {
+          "description": "A symbol has several definitions; `candidates` lists ready programs.",
+          "type": "string",
+          "const": "E_SYMBOL_AMBIGUOUS"
+        },
+        {
+          "description": "A new name collides with an existing symbol in its scope.",
+          "type": "string",
+          "const": "E_RENAME_CONFLICT"
+        },
+        {
+          "description": "A replacement or an edit found no match while the call required one.",
+          "type": "string",
+          "const": "E_NO_MATCH"
+        },
+        {
+          "description": "A hunk of a patch does not apply.",
+          "type": "string",
+          "const": "E_PATCH_REJECTED"
+        },
+        {
+          "description": "A file changed after it was read; the whole operation was rolled\nback.",
+          "type": "string",
+          "const": "E_STALE"
+        },
+        {
+          "description": "A character cannot be represented in the encoding of the file.",
+          "type": "string",
+          "const": "E_ENCODING"
+        },
+        {
+          "description": "Input or output error of the file system.",
+          "type": "string",
+          "const": "E_IO"
+        },
+        {
+          "description": "Access denied by permissions.",
+          "type": "string",
+          "const": "E_PERMISSION"
+        },
+        {
+          "description": "The target already exists.",
+          "type": "string",
+          "const": "E_EXISTS"
+        },
+        {
+          "description": "The target does not exist.",
+          "type": "string",
+          "const": "E_NOT_FOUND"
+        },
+        {
+          "description": "The target is in use; the processes holding it are listed.",
+          "type": "string",
+          "const": "E_IN_USE"
+        },
+        {
+          "description": "The operation requires a privilege the account does not have.",
+          "type": "string",
+          "const": "E_PRIVILEGE"
+        },
+        {
+          "description": "Not enough space on the volume.",
+          "type": "string",
+          "const": "E_NO_SPACE"
+        },
+        {
+          "description": "A time limit was reached.",
+          "type": "string",
+          "const": "E_TIMEOUT"
+        },
+        {
+          "description": "The execution was cancelled.",
+          "type": "string",
+          "const": "E_CANCELLED"
+        },
+        {
+          "description": "A resource limit was reached.",
+          "type": "string",
+          "const": "E_LIMIT"
+        },
+        {
+          "description": "A stage failed; `partial_read` in `details` may carry what was read.",
+          "type": "string",
+          "const": "E_STAGE_FAILED"
+        },
+        {
+          "description": "The verification failed and the effect was rolled back.",
+          "type": "string",
+          "const": "E_ROLLED_BACK"
+        },
+        {
+          "description": "A rollback could not restore everything; the files are listed with\ninstructions.",
+          "type": "string",
+          "const": "E_ROLLBACK_FAILED"
+        },
+        {
+          "description": "No such operation in the journal, or nothing to undo or redo.",
+          "type": "string",
+          "const": "E_JOURNAL_NOOP"
+        },
+        {
+          "description": "An entry of the journal has expired; nothing changed.",
+          "type": "string",
+          "const": "E_JOURNAL_EXPIRED"
+        },
+        {
+          "description": "The current state differs from the state after the operation; the\ndifferences and the choices are listed; nothing changed.",
+          "type": "string",
+          "const": "E_JOURNAL_CONFLICT"
+        },
+        {
+          "description": "The entry is partial: some items were released; the call asked for\nthe whole entry; nothing changed.",
+          "type": "string",
+          "const": "E_JOURNAL_PARTIAL"
+        },
+        {
+          "description": "An entry of the journal failed its integrity check; its data is kept\nfor repair.",
+          "type": "string",
+          "const": "E_JOURNAL_CORRUPT"
+        },
+        {
+          "description": "An unknown background job.",
+          "type": "string",
+          "const": "E_UNKNOWN_JOB"
+        },
+        {
+          "description": "The action is not allowed in the current state of the job, for\nexample resuming a job that is not suspended.",
+          "type": "string",
+          "const": "E_JOB_STATE"
+        },
+        {
+          "description": "The test framework of the project was not recognised.",
+          "type": "string",
+          "const": "E_TEST_NO_FRAMEWORK"
+        },
+        {
+          "description": "An unknown test run.",
+          "type": "string",
+          "const": "E_UNKNOWN_RUN"
+        },
+        {
+          "description": "An unknown analysis.",
+          "type": "string",
+          "const": "E_UNKNOWN_ANALYSIS"
+        },
+        {
+          "description": "The output of a test framework or an analyser could not be read; the\nraw execution result is included.",
+          "type": "string",
+          "const": "E_OUTPUT_PARSE"
+        },
+        {
+          "description": "A network error: name resolution, connection, TLS, proxy, redirects\nor protocol.",
+          "type": "string",
+          "const": "E_NETWORK"
+        },
+        {
+          "description": "A downloaded file does not have the expected hash; it was not kept.",
+          "type": "string",
+          "const": "E_HASH_MISMATCH"
+        },
+        {
+          "description": "The service manager reported an error.",
+          "type": "string",
+          "const": "E_SERVICE"
+        },
+        {
+          "description": "The background service of the instance is not running.",
+          "type": "string",
+          "const": "E_SERVICE_NOT_RUNNING"
+        },
+        {
+          "description": "A program catalog configured explicitly cannot be read.",
+          "type": "string",
+          "const": "E_CATALOG"
+        },
+        {
+          "description": "The path is not inside a repository; `candidates` lists nearby\nrepositories.",
+          "type": "string",
+          "const": "E_GIT_NOT_REPOSITORY"
+        },
+        {
+          "description": "A revision is unknown, ambiguous or malformed.",
+          "type": "string",
+          "const": "E_GIT_REVISION"
+        },
+        {
+          "description": "A reference name is invalid, exists, is missing, is not merged or is\nchecked out elsewhere.",
+          "type": "string",
+          "const": "E_GIT_REF"
+        },
+        {
+          "description": "Local changes would be overwritten; nothing changed.",
+          "type": "string",
+          "const": "E_GIT_DIRTY"
+        },
+        {
+          "description": "A merge ended with conflicts; the effect is applied and the conflicts\nare listed.",
+          "type": "string",
+          "const": "E_GIT_CONFLICT"
+        },
+        {
+          "description": "A merge or rebase is in progress, or none is when one is required.",
+          "type": "string",
+          "const": "E_GIT_IN_PROGRESS"
+        },
+        {
+          "description": "A lock file of the repository exists.",
+          "type": "string",
+          "const": "E_GIT_LOCKED"
+        },
+        {
+          "description": "The histories diverged where only a fast-forward is allowed.",
+          "type": "string",
+          "const": "E_GIT_NON_FAST_FORWARD"
+        },
+        {
+          "description": "There is nothing to commit.",
+          "type": "string",
+          "const": "E_GIT_NOTHING_TO_COMMIT"
+        },
+        {
+          "description": "A hook ended with a non-zero exit code; no commit was created.",
+          "type": "string",
+          "const": "E_GIT_HOOK"
+        },
+        {
+          "description": "A commit or a tag could not be signed.",
+          "type": "string",
+          "const": "E_GIT_SIGN"
+        },
+        {
+          "description": "Authentication is required or was rejected by the remote.",
+          "type": "string",
+          "const": "E_GIT_AUTH"
+        },
+        {
+          "description": "The host key of the remote is unknown or changed.",
+          "type": "string",
+          "const": "E_GIT_HOST_KEY"
+        },
+        {
+          "description": "The remote rejected an update of at least one reference.",
+          "type": "string",
+          "const": "E_GIT_PUSH_REJECTED"
+        },
+        {
+          "description": "The remote broke the protocol or lacks a required capability.",
+          "type": "string",
+          "const": "E_GIT_PROTOCOL"
+        },
+        {
+          "description": "A feature of the repository is not supported.",
+          "type": "string",
+          "const": "E_GIT_UNSUPPORTED"
+        },
+        {
+          "description": "An internal error; the report is complete up to this point.",
+          "type": "string",
+          "const": "E_INTERNAL"
+        }
+      ]
+    },
+    "Stage": {
+      "description": "Execution stage of a program.\n\nThe JSON form is the stage number as text: `\"0\"` to `\"7\"` and `\"5a\"`.",
+      "oneOf": [
+        {
+          "description": "`0`, parse: text to surface tree with form correction; no effect.",
+          "type": "string",
+          "const": "0"
+        },
+        {
+          "description": "`1`, bind: binding to the catalog, types, defaults and the effect\nclass; no effect.",
+          "type": "string",
+          "const": "1"
+        },
+        {
+          "description": "`2`, read: sources and transformations; reads only.",
+          "type": "string",
+          "const": "2"
+        },
+        {
+          "description": "`3`, check: assertions before the effect; no effect.",
+          "type": "string",
+          "const": "3"
+        },
+        {
+          "description": "`4`, plan: targets and the planned effect; previews end here.",
+          "type": "string",
+          "const": "4"
+        },
+        {
+          "description": "`5`, apply: the effect, recorded in the journal.",
+          "type": "string",
+          "const": "5"
+        },
+        {
+          "description": "`5a`, after: stages on the records of the effect; the effect stays.",
+          "type": "string",
+          "const": "5a"
+        },
+        {
+          "description": "`6`, verify: the verification pipeline; failure rolls the effect\nback.",
+          "type": "string",
+          "const": "6"
+        },
+        {
+          "description": "`7`, report: the effect report.",
+          "type": "string",
+          "const": "7"
+        }
+      ]
+    },
+    "At": {
+      "description": "Position in the program text.\n\nLines and columns start at 1; columns and lengths count Unicode scalar\nvalues.",
+      "type": "object",
+      "properties": {
+        "line": {
+          "description": "Line.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "column": {
+          "description": "Column.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "length": {
+          "description": "Number of characters of the erroneous fragment.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "line",
+        "column"
+      ]
+    },
+    "Location": {
+      "description": "Position in a data file, as opposed to [`At`], which points into the\nprogram.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "File.",
+          "type": "string"
+        },
+        "line": {
+          "description": "Line, from 1.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "column": {
+          "description": "Column, from 1, in Unicode scalar values.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "end_line": {
+          "description": "Last line, inclusive.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "end_column": {
+          "description": "Column directly after the fragment on the last line.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "byte": {
+          "description": "Byte offset from the start of the file.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ]
+    },
+    "Candidate": {
+      "description": "Ranked ready program offered instead of an ambiguous or uncorrectable\none.",
+      "type": "object",
+      "properties": {
+        "rank": {
+          "description": "Rank, from 1 for the most likely candidate.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "ref": {
+          "description": "Identifier for `accept`, valid for a limited time.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "program": {
+          "description": "Complete program text of the candidate.",
+          "type": "string"
+        },
+        "why": {
+          "description": "Why the candidate is offered.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "rank",
+        "program"
+      ]
+    },
+    "Timing": {
+      "description": "Durations of the processing steps, in milliseconds.",
+      "type": "object",
+      "properties": {
+        "parse_ms": {
+          "description": "Parsing, correction and binding.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "read_ms": {
+          "description": "Reading sources and transforming records.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "plan_ms": {
+          "description": "Planning the effect.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "apply_ms": {
+          "description": "Applying the effect.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      }
+    },
+    "Rendered": {
+      "description": "Text rendered from the report in the requested format.",
+      "type": "object",
+      "properties": {
+        "format": {
+          "description": "Format of the text; never `json`.",
+          "$ref": "#/$defs/OutputFormat"
+        },
+        "text": {
+          "description": "The rendered text (UTF-8).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "text"
+      ]
+    },
+    "OutputFormat": {
+      "description": "Format of the rendered result.",
+      "oneOf": [
+        {
+          "description": "Plain text with aligned tables.",
+          "type": "string",
+          "const": "text"
+        },
+        {
+          "description": "The report as JSON only; nothing is rendered.",
+          "type": "string",
+          "const": "json"
+        },
+        {
+          "description": "Markdown with tables.",
+          "type": "string",
+          "const": "markdown"
+        },
+        {
+          "description": "One record per line, without headings.",
+          "type": "string",
+          "const": "compact"
+        }
+      ]
+    }
+  }
+}

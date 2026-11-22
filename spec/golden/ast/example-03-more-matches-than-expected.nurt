@@ -1,0 +1,1 @@
+search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> assert paths: 12 |> replace "newName("

@@ -1,0 +1,23 @@
+[
+  {
+    "kind": "entry",
+    "fields": {
+      "path": {"t": "path", "v": "/home/user/project/src/main.rs"},
+      "name": {"t": "text", "v": "main.rs"},
+      "type": {"t": "enum", "v": "file"},
+      "size": {"t": "size", "v": 1840},
+      "modified": {"t": "instant", "v": "2026-11-21T09:12:00Z"}
+    }
+  },
+  {
+    "kind": "map",
+    "fields": {
+      "path": {"t": "path", "v": "/home/user/project/src/main.rs"},
+      "kb": {"t": "number", "v": 1.84}
+    }
+  },
+  {
+    "kind": "cim_object",
+    "fields": {}
+  }
+]

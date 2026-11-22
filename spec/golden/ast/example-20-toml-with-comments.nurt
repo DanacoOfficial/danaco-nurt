@@ -1,0 +1,1 @@
+set "/srv/app/Cargo.toml" key: "package.version" value: "0.4.0"

@@ -1,0 +1,180 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "archive"
+summary = "Archives and compression."
+
+[[command]]
+name = "archive.list"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["archive_entry"]
+summary = "List the entries of a zip, tar, compressed tar, 7z, jar, whl or apk archive."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Archive file."
+
+[[command.param]]
+name = "glob"
+type = "glob"
+summary = "Only entries whose path matches this pattern."
+
+[[command]]
+name = "archive.extract"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Extract an archive into a directory, skipping entries that resolve outside it."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Archive file."
+
+[[command.param]]
+name = "into"
+type = "path"
+required = true
+summary = "Directory to extract into; created when missing."
+
+[[command.param]]
+name = "only"
+type = "glob"
+summary = "Only entries whose path matches this pattern."
+
+[[command.param]]
+name = "strip_components"
+type = "int"
+default = "0"
+summary = "Number of leading path components removed from entry paths."
+
+[[command.param]]
+name = "on_conflict"
+type = "enum(overwrite|skip|error)"
+default = "overwrite"
+values = ["overwrite", "skip", "error"]
+summary = "Behaviour when a target file already exists."
+
+[[command.param]]
+name = "preserve_permissions"
+type = "bool"
+default = "true"
+summary = "Apply the permissions stored in the archive."
+
+[[command.param]]
+name = "allow_outside"
+type = "bool"
+default = "false"
+summary = "Extract entries whose resolved path lies outside the target directory."
+
+[[command]]
+name = "archive.create"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["entry"]
+output = ["effect"]
+summary = "Create an archive from the input entries."
+
+[[command.param]]
+name = "to"
+type = "path"
+position = 1
+required = true
+summary = "Archive file to create."
+
+[[command.param]]
+name = "format"
+type = "enum(auto|zip|tar|tar_gz|tar_zst|tar_xz|tar_bz2|seven_zip)"
+default = "auto"
+values = ["auto", "zip", "tar", "tar_gz", "tar_zst", "tar_xz", "tar_bz2", "seven_zip"]
+summary = "Archive format; auto selects it from the file extension."
+
+[[command.param]]
+name = "base"
+type = "path"
+summary = "Directory that entry names in the archive are relative to."
+
+[[command.param]]
+name = "level"
+type = "int"
+summary = "Compression level of the format."
+
+[[command.param]]
+name = "follow_links"
+type = "bool"
+default = "false"
+summary = "Store the targets of symbolic links instead of the links."
+
+[[command]]
+name = "compress"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "entry"]
+output = ["effect"]
+summary = "Compress files individually with gzip, zstd, xz, bzip2 or lz4."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+repeated = true
+summary = "Files to compress in the source form."
+
+[[command.param]]
+name = "algorithm"
+type = "enum(gzip|zstd|xz|bzip2|lz4)"
+default = "gzip"
+values = ["gzip", "zstd", "xz", "bzip2", "lz4"]
+summary = "Compression algorithm."
+
+[[command.param]]
+name = "keep"
+type = "bool"
+default = "true"
+summary = "Keep the original files."
+
+[[command.param]]
+name = "level"
+type = "int"
+summary = "Compression level of the algorithm."
+
+[[command]]
+name = "decompress"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "entry"]
+output = ["effect"]
+summary = "Decompress individually compressed files."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+repeated = true
+summary = "Files to decompress in the source form."
+
+[[command.param]]
+name = "keep"
+type = "bool"
+default = "true"
+summary = "Keep the compressed files."

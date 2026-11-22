@@ -1,0 +1,27 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Configuration given by an embedding application when it opens the engine
+# (the same level as the file named by NURT_CONFIG): protection floors,
+# external program catalogs, network volumes and a fixed number of threads.
+
+[journal.floor]
+max_ops = 10
+max_age = "5m"
+
+[journal.volumes]
+network = true
+
+[programs]
+catalogs = [
+  "/opt/catalogs/tools.json",
+  { path = "/opt/catalogs/internal", priority = 10 },
+]
+help_timeout = "5s"
+sources_disabled = ["man"]
+
+[limits]
+threads = 8
+
+[session]
+ttl = "12h"

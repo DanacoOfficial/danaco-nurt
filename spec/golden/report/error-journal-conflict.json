@@ -1,0 +1,13 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "undo",
+  "error": {
+    "code": "E_JOURNAL_CONFLICT",
+    "message": "a file changed after operation 18; nothing changed",
+    "found": "/srv/app/src/a.go",
+    "expected": "sha256:9f8e7d6c",
+    "actual": "sha256:aa11bb22",
+    "fix": ["undo 18 on_conflict: force", "undo 18 on_conflict: include_later"]
+  }
+}

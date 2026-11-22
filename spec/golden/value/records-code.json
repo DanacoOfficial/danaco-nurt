@@ -1,0 +1,170 @@
+[
+  {
+    "kind": "item",
+    "record": {
+      "path": "/home/user/project/package.json",
+      "format": "json",
+      "key": "scripts.test",
+      "value": {"t": "text", "v": "vitest run"},
+      "value_type": "text",
+      "etag": "sha256:8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+      "line": 5,
+      "column": 13,
+      "end_line": 5,
+      "start": 61,
+      "end": 73
+    }
+  },
+  {
+    "kind": "item",
+    "record": {
+      "path": "/home/user/project/deploy.yaml",
+      "format": "yaml",
+      "key": "#1:spec.replicas",
+      "value": {"t": "int", "v": 3},
+      "value_type": "int",
+      "etag": "sha256:a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+      "comment": "scaled for the launch",
+      "document": 1,
+      "anchor": "replicas",
+      "tag": "!!int"
+    }
+  },
+  {
+    "kind": "row",
+    "record": {
+      "path": "/home/user/data/people.csv",
+      "no": 1,
+      "cells": {"name": {"t": "text", "v": "Ada"}, "age": {"t": "int", "v": 36}},
+      "table": "people"
+    }
+  },
+  {
+    "kind": "node",
+    "record": {
+      "path": "/home/user/project/src/main.rs",
+      "language": "rust",
+      "kind": "function_item",
+      "start": 310,
+      "end": 420,
+      "line": 12,
+      "column": 1,
+      "end_line": 20,
+      "text": "fn main() {\n    run();\n}",
+      "etag": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "end_column": 2,
+      "captures": {"NAME": "main"}
+    }
+  },
+  {
+    "kind": "symbol",
+    "record": {
+      "name": "run",
+      "kind": "function",
+      "path": "/home/user/project/src/lib.rs",
+      "line": 3,
+      "column": 8,
+      "end_line": 9,
+      "language": "rust",
+      "source": "lsp",
+      "etag": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "end_column": 2,
+      "container": "app",
+      "signature": "pub fn run() -> Result<()>",
+      "exported": true,
+      "references": 4
+    }
+  },
+  {
+    "kind": "reference",
+    "record": {
+      "name": "run",
+      "path": "/home/user/project/src/main.rs",
+      "line": 13,
+      "column": 5,
+      "role": "reference",
+      "source": "syntax",
+      "etag": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "end_column": 8,
+      "text": "    run();",
+      "container": "main"
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "record": {
+      "path": "/home/user/project/src/main.rs",
+      "line": 13,
+      "column": 5,
+      "severity": "warning",
+      "message": "unused result of a function that returns Result",
+      "source": "rustc",
+      "code": "unused_must_use",
+      "end_line": 13,
+      "end_column": 11,
+      "language": "rust",
+      "related": [{"path": "/home/user/project/src/lib.rs", "line": 3, "message": "function defined here"}]
+    }
+  },
+  {
+    "kind": "hover",
+    "record": {
+      "path": "/home/user/project/src/main.rs",
+      "line": 13,
+      "column": 5,
+      "source": "lsp",
+      "signature": "pub fn run() -> Result<()>",
+      "documentation": "Runs the application."
+    }
+  },
+  {
+    "kind": "code_action",
+    "record": {
+      "path": "/home/user/project/src/main.rs",
+      "line": 13,
+      "title": "Add `?` to propagate the error",
+      "source": "lsp",
+      "end_line": 13,
+      "kind": "quickfix"
+    }
+  },
+  {
+    "kind": "language",
+    "record": {
+      "language": "rust",
+      "extensions": ["rs"],
+      "server_found": true,
+      "grammar_version": "0.24.2",
+      "server": "rust-analyzer",
+      "server_running": true,
+      "server_pid": 4242,
+      "server_root": "/home/user/project"
+    }
+  },
+  {
+    "kind": "rename_edit",
+    "record": {
+      "path": "/home/user/project/src/main.rs",
+      "line": 13,
+      "column": 5,
+      "end_line": 13,
+      "end_column": 8,
+      "old_text": "run",
+      "new_text": "start",
+      "kind": "code",
+      "source": "lsp"
+    }
+  },
+  {
+    "kind": "profile_entry",
+    "record": {
+      "section": "commands",
+      "name": "test",
+      "path": "/home/user/project/Cargo.toml",
+      "command": "cargo test",
+      "origin": "manifest",
+      "changes": 12,
+      "last_change": "2026-11-20T16:30:00Z"
+    }
+  }
+]

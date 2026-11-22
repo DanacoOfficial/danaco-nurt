@@ -1,0 +1,122 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "program"
+summary = "Programs installed in the system: lookup, search, navigation and descriptions."
+
+[[command]]
+name = "program.find"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["program_location"]
+summary = "Locate programs in PATH, in the order the system resolves them."
+external = { kind = "user_program", when = "versions", note = "Runs a located program once with --version when its file metadata gives no version." }
+
+[[command.param]]
+name = "name"
+type = "list<text>"
+position = 1
+required = true
+repeated = true
+summary = "Program names."
+
+[[command.param]]
+name = "versions"
+type = "bool"
+default = "false"
+summary = "Read the version of each located program."
+
+[[command]]
+name = "program.search"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["program_card"]
+summary = "Search installed programs, package databases, system applications and configured program catalogs."
+
+[[command.param]]
+name = "query"
+type = "text | list<text>"
+position = 1
+required = true
+summary = "Task, topic or program name, or several queries with one result list each."
+
+[[command.param]]
+name = "category"
+type = "text"
+summary = "Only programs in this category."
+
+[[command.param]]
+name = "source"
+type = "list<enum(path|package|app|catalog)>"
+default = "[path, package, app, catalog]"
+values = ["path", "package", "app", "catalog"]
+summary = "Sources searched."
+
+[[command.param]]
+name = "limit"
+type = "int"
+default = "15"
+summary = "Maximum number of programs, best match first."
+
+[[command]]
+name = "program.describe"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["program_card"]
+summary = "Describe a program with its version, source, description and usage guide."
+external = { kind = "user_program", note = "Runs the program once with --help, with a time limit, when no other description is available." }
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Program name."
+
+[[command.param]]
+name = "include_guide"
+type = "bool"
+default = "true"
+summary = "Include the usage guide when one is available."
+
+[[command]]
+name = "program.catalog"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["program_category", "program_card"]
+summary = "Browse programs by category: categories, then subcategories or programs."
+
+[[command.param]]
+name = "category"
+type = "text"
+position = 1
+summary = "Category to open; without it the result lists all categories."
+
+[[command.param]]
+name = "subcategory"
+type = "text"
+summary = "Subcategory to open."
+
+[[command.param]]
+name = "query"
+type = "text"
+summary = "Keywords that narrow the listed programs."
+
+[[command.param]]
+name = "source"
+type = "text"
+summary = "Only programs from this source."

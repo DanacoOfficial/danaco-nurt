@@ -1,0 +1,315 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "network"
+summary = "HTTP requests, downloads, name resolution, ping and network interfaces."
+
+[[command]]
+name = "http.request"
+category = "change"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["response"]
+summary = "Send an HTTP request and return the response, optionally as text or Markdown."
+reversibility_note = "Methods get, head and options only read; other methods change the remote side and are irreversible; a file written by save is reversible."
+effects = [
+  { action = "post", effect = "external", reversibility = "irreversible", note = "Applies when method is post." },
+  { action = "put", effect = "external", reversibility = "irreversible", note = "Applies when method is put." },
+  { action = "patch", effect = "external", reversibility = "irreversible", note = "Applies when method is patch." },
+  { action = "delete", effect = "external", reversibility = "irreversible", note = "Applies when method is delete." },
+  { action = "save", effect = "local", reversibility = "reversible", note = "Applies to the file written when save is given." },
+]
+
+[[command.param]]
+name = "url"
+type = "text | list<text>"
+position = 1
+required = true
+summary = "Address, or several addresses with one result each."
+
+[[command.param]]
+name = "method"
+type = "enum(get|head|post|put|patch|delete|options)"
+default = "get"
+values = ["get", "head", "post", "put", "patch", "delete", "options"]
+summary = "HTTP method."
+
+[[command.param]]
+name = "headers"
+type = "map<text>"
+secret = true
+summary = "Request headers."
+
+[[command.param]]
+name = "body"
+type = "text | path"
+summary = "Request body as text or from a file."
+
+[[command.param]]
+name = "json"
+type = "any"
+summary = "Value sent as a JSON body with the matching Content-Type header."
+
+[[command.param]]
+name = "save"
+type = "path"
+summary = "Write the response body to this file."
+
+[[command.param]]
+name = "as"
+type = "enum(raw|text|markdown)"
+default = "raw"
+values = ["raw", "text", "markdown"]
+summary = "Return an HTML page unchanged, as plain text or as Markdown with an outline."
+
+[[command.param]]
+name = "extract"
+type = "enum(content|headers|links|headings|meta|tables)"
+default = "content"
+values = ["content", "headers", "links", "headings", "meta", "tables"]
+summary = "Part of the page returned: content, headers, links, headings, metadata or tables."
+
+[[command.param]]
+name = "table"
+type = "int"
+default = "0"
+summary = "Number of the table returned with extract set to tables, counted from 1; 0 returns all tables."
+
+[[command.param]]
+name = "main_only"
+type = "bool"
+default = "true"
+summary = "Keep only the main content of the page when converting to text or Markdown."
+
+[[command.param]]
+name = "links"
+type = "enum(inline|list|none)"
+default = "inline"
+values = ["inline", "list", "none"]
+summary = "Keep links inline, collect them in a list, or drop them when converting."
+
+[[command.param]]
+name = "images"
+type = "enum(drop|alt)"
+default = "alt"
+values = ["drop", "alt"]
+summary = "Drop images or keep their alternative text when converting."
+
+[[command.param]]
+name = "section"
+type = "text"
+summary = "Return only the section under the heading with this text."
+
+[[command.param]]
+name = "outline"
+type = "enum(auto|always|never)"
+default = "auto"
+values = ["auto", "always", "never"]
+summary = "Return an outline of a long page before its content."
+
+[[command.param]]
+name = "query"
+type = "text"
+summary = "Return only the paragraphs of the page most relevant to this query."
+
+[[command.param]]
+name = "query_limit"
+type = "int"
+default = "5"
+summary = "Maximum number of paragraphs returned for query, from 1 to 20."
+
+[[command.param]]
+name = "find"
+type = "regex"
+summary = "Return only the paragraphs that match this pattern."
+
+[[command.param]]
+name = "find_context"
+type = "int"
+default = "1"
+summary = "Number of paragraphs of context around each paragraph matched by find, up to 10."
+
+[[command.param]]
+name = "links_filter"
+type = "regex"
+summary = "Only links whose address matches this pattern, with extract set to links."
+
+[[command.param]]
+name = "same_host"
+type = "bool"
+default = "false"
+summary = "Only links to the same host, with extract set to links."
+
+[[command.param]]
+name = "charset"
+type = "text"
+default = "\"auto\""
+summary = "Character set used to decode the body."
+
+[[command.param]]
+name = "offset"
+type = "int"
+default = "0"
+summary = "Number of characters of the body to skip."
+
+[[command.param]]
+name = "cache"
+type = "enum(bypass|use|revalidate|only)"
+default = "bypass"
+values = ["bypass", "use", "revalidate", "only"]
+summary = "Ignore the response cache, use it, revalidate cached responses, or answer only from the cache without the network."
+
+[[command.param]]
+name = "unchanged_since"
+type = "text"
+summary = "Etag of a known version; an unchanged response returns no body."
+
+[[command.param]]
+name = "timeout"
+type = "duration"
+default = "30s"
+summary = "Time limit of the request."
+
+[[command.param]]
+name = "follow_redirects"
+type = "bool"
+default = "true"
+summary = "Follow redirects."
+
+[[command.param]]
+name = "max_redirects"
+type = "int"
+default = "10"
+summary = "Maximum number of redirects followed."
+
+[[command.param]]
+name = "verify_tls"
+type = "bool"
+default = "true"
+summary = "Verify the TLS certificate of the server."
+
+[[command.param]]
+name = "retries"
+type = "int"
+default = "0"
+summary = "Number of retries after a connection failure."
+
+[[command]]
+name = "http.download"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Download a file over HTTP, resuming a partial download when possible."
+reversibility_note = "The written file is reversible; the request itself only reads from the network."
+
+[[command.param]]
+name = "url"
+type = "text"
+position = 1
+required = true
+summary = "Address of the file."
+
+[[command.param]]
+name = "to"
+type = "path"
+position = 2
+required = true
+summary = "File to write."
+
+[[command.param]]
+name = "resume"
+type = "bool"
+default = "true"
+summary = "Continue a partial download."
+
+[[command.param]]
+name = "hash"
+type = "text"
+summary = "Expected digest of the file, for example sha256:<hex>; a mismatch keeps the target unchanged."
+
+[[command.param]]
+name = "headers"
+type = "map<text>"
+secret = true
+summary = "Request headers."
+
+[[command.param]]
+name = "timeout"
+type = "duration"
+default = "300s"
+summary = "Time limit of the download."
+
+[[command]]
+name = "network.ping"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["ping_result"]
+summary = "Send ICMP echo requests to a host and report round-trip times."
+
+[[command.param]]
+name = "host"
+type = "text"
+position = 1
+required = true
+summary = "Host name or address."
+
+[[command.param]]
+name = "count"
+type = "int"
+default = "4"
+summary = "Number of requests."
+
+[[command.param]]
+name = "timeout"
+type = "duration"
+default = "2s"
+summary = "Time to wait for each reply."
+
+[[command]]
+name = "network.resolve"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["dns_record"]
+summary = "Resolve DNS records of a name."
+
+[[command.param]]
+name = "name"
+type = "text"
+position = 1
+required = true
+summary = "Domain name."
+
+[[command.param]]
+name = "type"
+type = "enum(a|aaaa|mx|txt|ns|cname|any)"
+default = "a"
+values = ["a", "aaaa", "mx", "txt", "ns", "cname", "any"]
+summary = "Record type."
+
+[[command.param]]
+name = "server"
+type = "text"
+summary = "DNS server to ask instead of the system resolver."
+
+[[command]]
+name = "network.interfaces"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["network_interface"]
+summary = "List network interfaces with addresses, MAC address, state and MTU."

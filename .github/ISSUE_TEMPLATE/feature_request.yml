@@ -1,0 +1,46 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+name: Feature request
+description: Propose a new command, parameter, record type or another improvement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the task you want to accomplish before the solution you have
+        in mind. Changes of the language, the syntax tree, the report format
+        and the C interface follow the compatibility rules of the specification.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Use case
+      description: The task to accomplish and why the current commands are not sufficient.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: The proposed command, parameters or behaviour, with an example program.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Language and syntax
+        - Commands and catalog
+        - Reports and errors
+        - Journal and undo
+        - Integration (library, C interface, MCP server)
+        - Documentation
+        - Other
+    validations:
+      required: true

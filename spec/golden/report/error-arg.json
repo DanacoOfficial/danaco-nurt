@@ -1,0 +1,10 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "request",
+  "error": {
+    "code": "E_ARG",
+    "message": "give only one of program, ast, cursor or accept; given: program, cursor",
+    "fix": ["send the cursor alone to read the next page"]
+  }
+}

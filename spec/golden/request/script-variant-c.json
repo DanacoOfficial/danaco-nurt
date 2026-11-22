@@ -1,0 +1,6 @@
+{
+  "nurt": "1.0",
+  "program": "find(path: \"/srv/app/logs\", glob: \"*.log\") | filter(expr: size > 10mb)\nfind(path: \"/srv/app/tmp\") | remove()",
+  "variant": "c",
+  "options": { "script": true, "preview": true, "language": "pl", "timeout": "1h30m" }
+}

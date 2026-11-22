@@ -1,0 +1,671 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-ast-1.schema.json",
+  "title": "nurt-ast/1",
+  "description": "Surface syntax tree of a Nurt program. Produced by the parser from program text of any syntax variant; independent of the command catalog.",
+  "type": "object",
+  "required": [
+    "nurt",
+    "program"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "nurt": {
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$",
+      "description": "Format version MAJOR.MINOR."
+    },
+    "program": {
+      "$ref": "#/$defs/program"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Free-form metadata (session, source text, comments); excluded from ast_hash."
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "span": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "description": "[line, column, end_line, end_column]; 1-based, columns in Unicode scalar values, end exclusive; excluded from ast_hash."
+    },
+    "program": {
+      "type": "object",
+      "required": [
+        "statements"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "statements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/let"
+              },
+              {
+                "$ref": "#/$defs/pipeline"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "let": {
+      "type": "object",
+      "required": [
+        "t",
+        "name",
+        "value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "let"
+        },
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "value": {
+          "$ref": "#/$defs/pipeline"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "required": [
+        "t",
+        "head",
+        "stages"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "pipeline"
+        },
+        "head": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/stage"
+            },
+            {
+              "$ref": "#/$defs/ref"
+            }
+          ]
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stage"
+          }
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "required": [
+        "t",
+        "name",
+        "args"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "stage"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "description": "Command name as written, after correction."
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arg"
+          }
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "arg": {
+      "type": "object",
+      "required": [
+        "value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/identifier",
+          "description": "Parameter name of a named argument; absent for a positional argument."
+        },
+        "value": {
+          "$ref": "#/$defs/expr"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "ref": {
+      "type": "object",
+      "required": [
+        "t",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "ref"
+        },
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/identifier"
+          }
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "key_segment": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "object",
+          "required": [
+            "wild"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "wild": {
+              "enum": [
+                "*",
+                "**",
+                "+"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "filter"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "filter": {
+              "$ref": "#/$defs/expr"
+            }
+          }
+        }
+      ]
+    },
+    "spread": {
+      "type": "object",
+      "required": [
+        "t",
+        "x"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "spread"
+        },
+        "x": {
+          "$ref": "#/$defs/expr"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "expr": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "text"
+            },
+            "v": {
+              "type": "string"
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "ident"
+            },
+            "v": {
+              "$ref": "#/$defs/identifier"
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v",
+            "flags"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "regex"
+            },
+            "v": {
+              "type": "string"
+            },
+            "flags": {
+              "type": "string",
+              "pattern": "^i?m?s?x?$"
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "int"
+            },
+            "v": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Non-negative; a negative number is the unary operator neg applied to an int."
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "enum": [
+                "size",
+                "dur"
+              ]
+            },
+            "v": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Bytes for size, milliseconds for dur.",
+              "maximum": 9007199254740991
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "num"
+            },
+            "v": {
+              "type": "number"
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "bool"
+            },
+            "v": {
+              "type": "boolean"
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "null"
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "segs"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "key"
+            },
+            "segs": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/key_segment"
+              }
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "items"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "list"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/expr"
+                  },
+                  {
+                    "$ref": "#/$defs/spread"
+                  }
+                ]
+              }
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "entries"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "map"
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "k",
+                  "v"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "k": {
+                    "type": "string"
+                  },
+                  "v": {
+                    "$ref": "#/$defs/expr"
+                  }
+                }
+              }
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "name"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "field"
+            },
+            "name": {
+              "$ref": "#/$defs/identifier"
+            },
+            "of": {
+              "$ref": "#/$defs/expr"
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "fn",
+            "args"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "call"
+            },
+            "fn": {
+              "$ref": "#/$defs/identifier"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expr"
+              }
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "op",
+            "x"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "un"
+            },
+            "op": {
+              "enum": [
+                "not",
+                "neg"
+              ]
+            },
+            "x": {
+              "$ref": "#/$defs/expr"
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "op",
+            "l",
+            "r"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "bin"
+            },
+            "op": {
+              "enum": [
+                "==",
+                "!=",
+                "<",
+                "<=",
+                ">",
+                ">=",
+                "~",
+                "!~",
+                "in",
+                "and",
+                "or",
+                "+",
+                "-",
+                "*",
+                "/"
+              ]
+            },
+            "l": {
+              "$ref": "#/$defs/expr"
+            },
+            "r": {
+              "$ref": "#/$defs/expr"
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "range"
+            },
+            "lo": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "hi": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "p"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "sub"
+            },
+            "p": {
+              "$ref": "#/$defs/pipeline"
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

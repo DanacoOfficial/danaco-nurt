@@ -1,0 +1,110 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "lines",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/config.ini",
+                "span": [
+                  1,
+                  7,
+                  1,
+                  28
+                ]
+              },
+              "span": [
+                1,
+                7,
+                1,
+                28
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            28
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "args": [
+              {
+                "value": {
+                  "t": "bin",
+                  "op": "~",
+                  "l": {
+                    "t": "ident",
+                    "v": "text",
+                    "span": [
+                      1,
+                      39,
+                      1,
+                      43
+                    ]
+                  },
+                  "r": {
+                    "t": "regex",
+                    "v": "^\\s*debug\\s*=",
+                    "flags": "",
+                    "span": [
+                      1,
+                      46,
+                      1,
+                      61
+                    ]
+                  },
+                  "span": [
+                    1,
+                    39,
+                    1,
+                    61
+                  ]
+                },
+                "span": [
+                  1,
+                  39,
+                  1,
+                  61
+                ]
+              }
+            ],
+            "span": [
+              1,
+              32,
+              1,
+              61
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "remove",
+            "args": [],
+            "span": [
+              1,
+              65,
+              1,
+              71
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          71
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+# Build outputs.
+/target/
+/vendor/
+**/*.rs.bk
+
+# Coverage, profiling and benchmark outputs.
+*.profraw
+*.profdata
+/lcov.info
+/coverage/
+/criterion/
+perf.data
+perf.data.old
+flamegraph.svg
+
+# Fuzzing outputs.
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/coverage/
+
+# Journal directories created by the program in a working copy.
+.nurt-journal/
+.nurt-journal.noindex/
+
+# Local configuration.
+.env
+.env.*
+.envrc
+.direnv/
+
+# Editors and operating systems.
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini

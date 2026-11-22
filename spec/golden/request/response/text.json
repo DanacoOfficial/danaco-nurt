@@ -1,0 +1,18 @@
+{
+  "nurt": "1.0",
+  "report": {
+    "nurt": "1.0",
+    "status": "ok",
+    "kind": "remove",
+    "op": 21,
+    "targets": { "count": 1, "files": 1, "bytes": 3277, "listed": 1 },
+    "summary": { "files_deleted": 1, "bytes_freed": 3277 },
+    "changes": [
+      { "path": "/srv/app/build/old.log", "action": "delete", "size_before": 3277 }
+    ]
+  },
+  "rendered": {
+    "format": "text",
+    "text": "op 21  remove  ok\ntargets 1 file, 3.2kb freed\n  - /srv/app/build/old.log  3.2kb\n"
+  }
+}

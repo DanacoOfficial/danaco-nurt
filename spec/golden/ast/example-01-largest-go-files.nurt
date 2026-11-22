@@ -1,0 +1,1 @@
+find "/srv/app" glob: "**/*.go" |> filter size > 1mb and modified > ago(24h) |> sort size order: desc |> first 20

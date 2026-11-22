@@ -1,0 +1,1 @@
+ports state: listen |> filter port == 8080

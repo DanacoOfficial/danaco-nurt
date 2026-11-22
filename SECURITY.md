@@ -1,0 +1,72 @@
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+
+# Security Policy
+
+## Reporting a vulnerability
+
+Suspected vulnerabilities are reported by e-mail to support@danaco-group.pl with
+the subject line starting with `[security] nurt`, not in a public issue, pull
+request or discussion.
+
+A report contains, as far as available:
+
+- the affected version, commit or release artifact;
+- the operating system and architecture;
+- a description of the issue and its impact;
+- steps to reproduce, a proof of concept or a minimal Nurt program;
+- any known mitigations.
+
+Reports may be written in English or Polish.
+
+## Scope
+
+The following are in scope:
+
+- the `nurt` executable and the `libnurt` library built from this repository;
+- the Model Context Protocol server and the language server provided by `nurt`;
+- the journal of changes, including recovery and undo;
+- release artifacts, installers and packages published by Danaco Holding Group
+  Sp. z o.o.;
+- the continuous integration configuration of this repository.
+
+Examples of relevant issues: execution of effects that were not shown or not
+permitted by the program check, escapes from the configured working scope,
+loss or corruption of journal data, unsafe extraction of archives, command
+injection through argument quoting, memory safety defects in the C interface,
+and disclosure of credentials or environment data in reports.
+
+The following are out of scope:
+
+- vulnerabilities in third-party programs started by a Nurt program on the
+  user's request, which are reported to their maintainers;
+- issues that require an attacker to already control the user account or the
+  configuration files of the user;
+- denial of service through programs that intentionally consume resources
+  beyond configured limits.
+
+Vulnerabilities in third-party Rust crates used by Danaco Nurt are also
+reported to the maintainers of the crate and, where applicable, to the RustSec
+advisory database.
+
+## Handling process
+
+| Step | Target time |
+|---|---|
+| Acknowledgement of the report | within 3 business days |
+| Initial assessment and severity rating | within 10 business days |
+| Fix for a critical vulnerability | within 7 days of confirmation |
+| Coordinated public disclosure | within 90 days of the report, or earlier when a fix is released |
+
+The reporter is informed of the progress of the assessment and of the planned
+release date. Fixed vulnerabilities are described in a security advisory of the
+repository and in [CHANGELOG.md](CHANGELOG.md); a CVE identifier is requested
+where appropriate. Reporters are credited in the advisory unless they ask
+otherwise.
+
+## Supported versions
+
+No release has been published yet. Until the first stable release, security
+fixes are applied to the `main` branch only. The support period of stable and
+long-term support releases will be stated in this file when they are published.

@@ -1,0 +1,65 @@
+{
+  "nurt": "1.0",
+  "status": "ok",
+  "kind": "run",
+  "op": 20,
+  "targets": { "count": 2, "files": 2, "listed": 2 },
+  "summary": { "files_created": 1, "files_modified": 1 },
+  "changes": [
+    {
+      "path": "/srv/app/.cache/go-test.json",
+      "action": "create",
+      "size_before": 0,
+      "size_after": 2150
+    },
+    {
+      "path": "/srv/app/go.sum",
+      "action": "modify",
+      "size_before": 1228,
+      "size_after": 1331,
+      "hash_before": "sha256:a1a1a1a1",
+      "hash_after": "sha256:b2b2b2b2"
+    }
+  ],
+  "exec": {
+    "kind": "exec",
+    "fields": {
+      "command": {
+        "t": "list",
+        "v": [{ "t": "text", "v": "go" }, { "t": "text", "v": "test" }, { "t": "text", "v": "./..." }]
+      },
+      "program": { "t": "path", "v": "/usr/local/go/bin/go" },
+      "cwd": { "t": "path", "v": "/srv/app" },
+      "pid": { "t": "int", "v": 4121 },
+      "exit_code": { "t": "int", "v": 0 },
+      "timed_out": { "t": "bool", "v": false },
+      "stalled": { "t": "bool", "v": false },
+      "started": { "t": "instant", "v": "2026-11-21T10:14:07Z" },
+      "elapsed": { "t": "duration", "v": 12400 },
+      "stdout": { "t": "text", "v": "ok  \texample.com/app\t0.412s\n" },
+      "stderr": { "t": "text", "v": "" },
+      "stdout_bytes": { "t": "int", "v": 23654 },
+      "stderr_bytes": { "t": "int", "v": 0 },
+      "stdout_lines": { "t": "int", "v": 482 },
+      "stderr_lines": { "t": "int", "v": 0 },
+      "decoded_as": { "t": "text", "v": "utf-8" },
+      "tracking": { "t": "enum", "v": "scan" },
+      "watch": { "t": "list", "v": [{ "t": "path", "v": "/srv/app" }] },
+      "output_file": { "t": "path", "v": "/home/user/.local/state/nurt/spool/20-stdout.txt" }
+    }
+  },
+  "notable": [
+    {
+      "code": "detection_scope",
+      "severity": "info",
+      "detail": "changes outside /srv/app are not detected"
+    }
+  ],
+  "irreversible": [
+    {
+      "reason": "previous_content_not_kept",
+      "path": "/srv/app/go.sum",
+      "detail": "external program; no copy of the previous content within the time budget"
+    }
+  ]
+}

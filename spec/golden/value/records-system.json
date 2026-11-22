@@ -1,0 +1,339 @@
+[
+  {
+    "kind": "process",
+    "record": {
+      "pid": 4132,
+      "parent_pid": 1,
+      "name": "node",
+      "command": ["node", "server.js"],
+      "user": "user",
+      "memory": 83886080,
+      "started": "2026-11-21T08:00:00Z",
+      "state": "sleeping",
+      "executable": "/usr/bin/node",
+      "uid": "1000",
+      "cpu": 1.5,
+      "threads": 11,
+      "cwd": "/home/user/project",
+      "children": [4140, 4141],
+      "depth": 1,
+      "os_raw": {"nice": {"t": "int", "v": 0}}
+    }
+  },
+  {
+    "kind": "port",
+    "record": {
+      "protocol": "tcp",
+      "local": "127.0.0.1:8080",
+      "address": "127.0.0.1",
+      "port": 8080,
+      "state": "listen",
+      "pid": 4132,
+      "process": "node",
+      "family": "ipv4"
+    }
+  },
+  {
+    "kind": "port",
+    "record": {
+      "protocol": "udp",
+      "local": "[::]:5353",
+      "address": "::",
+      "port": 5353,
+      "state": "none",
+      "remote": "[2001:db8::1]:5353",
+      "remote_address": "2001:db8::1",
+      "remote_port": 5353,
+      "family": "ipv6"
+    }
+  },
+  {
+    "kind": "disk",
+    "record": {
+      "mount": "/",
+      "device": "/dev/nvme0n1p2",
+      "filesystem": "ext4",
+      "total": 500107862016,
+      "free": 210000000000,
+      "used": 265000000000,
+      "type": "fixed",
+      "case_sensitive": true,
+      "readonly": false,
+      "label": "root",
+      "inodes_total": 30000000,
+      "inodes_free": 28000000,
+      "options": ["rw", "relatime"]
+    }
+  },
+  {
+    "kind": "host",
+    "record": {
+      "os": "linux",
+      "os_version": "Ubuntu 26.04",
+      "architecture": "x86_64",
+      "cpus": 16,
+      "memory_total": 34359738368,
+      "hostname": "workstation",
+      "user": "user",
+      "home": "/home/user",
+      "temp": "/tmp",
+      "timezone": "Europe/Warsaw",
+      "path_style": "posix",
+      "nurt_version": "0.1.0",
+      "features": ["journal", "reflink"],
+      "kernel": "6.17.0",
+      "memory_free": 17179869184,
+      "uid": "1000",
+      "groups": ["user", "docker"],
+      "locale": "en_US.UTF-8",
+      "uptime": 86400000,
+      "boot_time": "2026-11-20T10:00:00Z",
+      "programs": [{"name": "git", "found": true, "path": "/usr/bin/git", "version": "2.51.0", "source": "path"}],
+      "virtualization": "none",
+      "service": "running"
+    }
+  },
+  {
+    "kind": "environment_variable",
+    "record": {"name": "PATH", "value": "/usr/local/bin:/usr/bin:/bin", "scope": "process"}
+  },
+  {
+    "kind": "service",
+    "record": {
+      "name": "nginx",
+      "state": "running",
+      "start_type": "automatic",
+      "manager": "systemd",
+      "display_name": "A high performance web server",
+      "state_raw": "active (running)",
+      "pid": 812,
+      "description": "nginx web server",
+      "scope": "system",
+      "path": "/usr/lib/systemd/system/nginx.service",
+      "account": "root"
+    }
+  },
+  {
+    "kind": "package",
+    "record": {
+      "name": "curl",
+      "version": "8.14.1",
+      "manager": "apt",
+      "installed": true,
+      "available_version": "8.15.0",
+      "description": "command line tool for transferring data with URL syntax",
+      "architecture": "amd64",
+      "size": 520192,
+      "source": "noble-updates",
+      "files_count": 12
+    }
+  },
+  {
+    "kind": "account",
+    "record": {
+      "name": "user",
+      "kind": "user",
+      "id": "1000",
+      "home": "/home/user",
+      "shell": "/bin/bash",
+      "groups": ["user", "sudo"],
+      "disabled": false,
+      "full_name": "Example User",
+      "system": false,
+      "last_login": "2026-11-21T07:58:00Z"
+    }
+  },
+  {
+    "kind": "log_event",
+    "record": {
+      "time": "2026-11-21T10:00:01.123456789Z",
+      "source": "sshd",
+      "level": "info",
+      "message": "Accepted publickey for user",
+      "id": "4624",
+      "host": "workstation",
+      "unit": "ssh.service",
+      "pid": 2311,
+      "boot_id": "0f6c2d4e",
+      "cursor": "s=0f6c2d4e;i=1a2b",
+      "fields": {"SYSLOG_FACILITY": "4"}
+    }
+  },
+  {
+    "kind": "cim_object",
+    "record": {
+      "class": "Win32_OperatingSystem",
+      "path": "\\\\WORKSTATION\\root\\cimv2:Win32_OperatingSystem=@",
+      "properties": {"Caption": {"t": "text", "v": "Microsoft Windows 11 Pro"}, "BuildNumber": {"t": "text", "v": "26100"}}
+    }
+  },
+  {
+    "kind": "ping_result",
+    "record": {
+      "host": "example.com",
+      "address": "93.184.215.14",
+      "sent": 4,
+      "received": 4,
+      "loss": 0.0,
+      "rtt_min": 11.2,
+      "rtt_avg": 12.5,
+      "rtt_max": 14.1,
+      "rtt_stddev": 1.1
+    }
+  },
+  {
+    "kind": "dns_record",
+    "record": {"name": "example.com", "type": "AAAA", "value": "2606:2800:21f:cb07:6820:80da:af6b:8b2c", "ttl": 3600000, "server": "127.0.0.53"}
+  },
+  {
+    "kind": "network_interface",
+    "record": {
+      "name": "eth0",
+      "addresses": ["192.0.2.10/24", "2001:db8::10/64"],
+      "up": true,
+      "mac": "00:11:22:33:44:55",
+      "mtu": 1500,
+      "kind": "ethernet",
+      "gateway": "192.0.2.1"
+    }
+  },
+  {
+    "kind": "response",
+    "record": {
+      "url": "https://example.com/api/items",
+      "status": 200,
+      "headers": {
+        "content-type": {"t": "text", "v": "application/json; charset=utf-8"},
+        "set-cookie": {"t": "list", "v": [{"t": "text", "v": "a=1"}, {"t": "text", "v": "b=2"}]}
+      },
+      "body": "{\"items\":[]}",
+      "bytes": 12,
+      "elapsed": 85,
+      "final_url": "https://example.com/api/items",
+      "content_type": "application/json",
+      "charset": "utf-8",
+      "truncated": false,
+      "offset": 0,
+      "total_chars": 12,
+      "redirects": [],
+      "from_cache": false,
+      "etag": "\"abc123\"",
+      "last_modified": "2026-11-20T12:00:00Z",
+      "remote_address": "93.184.215.14"
+    }
+  },
+  {
+    "kind": "response",
+    "record": {
+      "url": "https://example.com/report.pdf",
+      "status": 304,
+      "headers": {},
+      "body": "",
+      "bytes": 0,
+      "elapsed": 40,
+      "final_url": "https://example.com/files/report.pdf",
+      "saved": "/home/user/downloads/report.pdf",
+      "unchanged": true,
+      "redirects": ["https://example.com/files/report.pdf"]
+    }
+  },
+  {
+    "kind": "program_card",
+    "record": {
+      "name": "ripgrep",
+      "summary": "Searches file contents recursively with regular expressions.",
+      "source": "package",
+      "installed": true,
+      "guide_optional": true,
+      "sources": ["path", "dpkg", "man"],
+      "category": "search",
+      "subcategory": "text",
+      "path": "/usr/bin/rg",
+      "version": "14.1.1",
+      "description": "Line-oriented search tool that respects ignore files.",
+      "guide": "Use rg PATTERN PATH.",
+      "guide_shared": "search-tools",
+      "package": "ripgrep",
+      "homepage": "https://example.com/ripgrep",
+      "license": "MIT",
+      "aliases": ["rg"],
+      "verified": "2026-11-01T00:00:00Z",
+      "tags": ["search", "grep"],
+      "platforms": ["linux", "macos", "windows"],
+      "score": 0.93
+    }
+  },
+  {
+    "kind": "program_location",
+    "record": {
+      "name": "python",
+      "found": true,
+      "path": "/usr/bin/python3",
+      "version": "3.13.1",
+      "source": "path",
+      "all_paths": ["/usr/bin/python3", "/usr/local/bin/python3"]
+    }
+  },
+  {
+    "kind": "program_location",
+    "record": {"name": "terraform", "found": false}
+  },
+  {
+    "kind": "program_category",
+    "record": {
+      "name": "search",
+      "count": 14,
+      "source": "catalog:local",
+      "title": "Search",
+      "description": "Programs that search files and contents.",
+      "subcategories": ["text", "files"]
+    }
+  },
+  {
+    "kind": "schedule",
+    "record": {
+      "id": "s3",
+      "trigger": {"kind": "cron", "expression": "0 2 * * *", "timezone": "Europe/Warsaw"},
+      "next_run": "2026-11-22T01:00:00Z",
+      "active": true,
+      "action": "run [\"backup\"] cwd: \"/home/user\"",
+      "label": "nightly backup",
+      "last_run": "2026-11-21T01:00:00Z",
+      "last_result": "ok",
+      "state": "active",
+      "runs": 30,
+      "max_runs": 365,
+      "expires": "2027-11-21T00:00:00Z",
+      "on_missed": "run_once",
+      "misfire": 300000,
+      "overlap": "skip",
+      "timeout": 3600000,
+      "created": "2026-10-22T09:00:00Z",
+      "session": "s-1",
+      "action_kind": "pipeline"
+    }
+  },
+  {
+    "kind": "schedule",
+    "record": {
+      "id": "s4",
+      "trigger": {"kind": "every", "expression": "30m"},
+      "next_run": "2026-11-21T10:30:00Z",
+      "active": false,
+      "action": "http.request \"https://example.com/health\"",
+      "reason": "service_not_running"
+    }
+  },
+  {
+    "kind": "schedule_run",
+    "record": {
+      "schedule_id": "s3",
+      "started": "2026-11-21T01:00:02Z",
+      "exit_state": "ok",
+      "trigger_time": "2026-11-21T01:00:00Z",
+      "elapsed": 42000,
+      "operation": 17,
+      "message": "backup complete"
+    }
+  }
+]

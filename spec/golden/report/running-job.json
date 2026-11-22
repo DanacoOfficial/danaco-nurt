@@ -1,0 +1,27 @@
+{
+  "nurt": "1.0",
+  "status": "running",
+  "kind": "run",
+  "job": {
+    "kind": "job",
+    "fields": {
+      "id": { "t": "text", "v": "j7" },
+      "command": {
+        "t": "list",
+        "v": [{ "t": "text", "v": "npm" }, { "t": "text", "v": "run" }, { "t": "text", "v": "build" }]
+      },
+      "cwd": { "t": "path", "v": "/srv/app" },
+      "pid": { "t": "int", "v": 4132 },
+      "state": { "t": "enum", "v": "running" },
+      "started": { "t": "instant", "v": "2026-11-21T10:14:07Z" },
+      "elapsed": { "t": "duration", "v": 3000 }
+    }
+  },
+  "notable": [
+    {
+      "code": "post_stages_deferred",
+      "severity": "info",
+      "detail": "the program moved to the background after the wait of 3s"
+    }
+  ]
+}

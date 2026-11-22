@@ -1,0 +1,274 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "Apache-2.0"
+authors = ["Danaco Holding Group Sp. z o.o."]
+repository = "https://github.com/DanacoOfficial/nurt"
+homepage = "https://github.com/DanacoOfficial/nurt"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+unreachable_pub = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+todo = "warn"
+unimplemented = "warn"
+cognitive_complexity = "warn"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "warn"
+private_intra_doc_links = "warn"
+
+[workspace.dependencies]
+# Workspace crates.
+nurt-contracts = { path = "crates/nurt-contracts", version = "0.1.0" }
+nurt-types = { path = "crates/nurt-types", version = "0.1.0" }
+nurt-catalog = { path = "crates/nurt-catalog", version = "0.1.0" }
+nurt-syntax = { path = "crates/nurt-syntax", version = "0.1.0" }
+nurt-correct = { path = "crates/nurt-correct", version = "0.1.0" }
+nurt-bind = { path = "crates/nurt-bind", version = "0.1.0" }
+nurt-help = { path = "crates/nurt-help", version = "0.1.0" }
+nurt-langserver = { path = "crates/nurt-langserver", version = "0.1.0" }
+nurt-migrate = { path = "crates/nurt-migrate", version = "0.1.0" }
+nurt-fs = { path = "crates/nurt-fs", version = "0.1.0" }
+nurt-journal = { path = "crates/nurt-journal", version = "0.1.0" }
+nurt-space = { path = "crates/nurt-space", version = "0.1.0" }
+nurt-plan = { path = "crates/nurt-plan", version = "0.1.0" }
+nurt-exec = { path = "crates/nurt-exec", version = "0.1.0" }
+nurt-report = { path = "crates/nurt-report", version = "0.1.0" }
+nurt-core = { path = "crates/nurt-core", version = "0.1.0" }
+nurt-ffi = { path = "crates/nurt-ffi", version = "0.1.0" }
+nurt-cli = { path = "crates/nurt-cli", version = "0.1.0" }
+nurt-ext = { path = "crates/nurt-ext", version = "0.1.0" }
+nurt-testkit = { path = "crates/nurt-testkit", version = "0.1.0" }
+nurt-files = { path = "crates/nurt-files", version = "0.1.0" }
+nurt-text = { path = "crates/nurt-text", version = "0.1.0" }
+nurt-archive = { path = "crates/nurt-archive", version = "0.1.0" }
+nurt-notebook = { path = "crates/nurt-notebook", version = "0.1.0" }
+nurt-doc = { path = "crates/nurt-doc", version = "0.1.0" }
+nurt-code = { path = "crates/nurt-code", version = "0.1.0" }
+nurt-lspclient = { path = "crates/nurt-lspclient", version = "0.1.0" }
+nurt-git = { path = "crates/nurt-git", version = "0.1.0" }
+nurt-git-ops = { path = "crates/nurt-git-ops", version = "0.1.0" }
+nurt-git-transport = { path = "crates/nurt-git-transport", version = "0.1.0" }
+nurt-proc = { path = "crates/nurt-proc", version = "0.1.0" }
+nurt-verify = { path = "crates/nurt-verify", version = "0.1.0" }
+nurt-sys = { path = "crates/nurt-sys", version = "0.1.0" }
+nurt-syslog = { path = "crates/nurt-syslog", version = "0.1.0" }
+nurt-net = { path = "crates/nurt-net", version = "0.1.0" }
+nurt-sched = { path = "crates/nurt-sched", version = "0.1.0" }
+nurt-service = { path = "crates/nurt-service", version = "0.1.0" }
+nurt-mcp = { path = "crates/nurt-mcp", version = "0.1.0" }
+nurt-conformance = { path = "crates/nurt-conformance", version = "0.1.0" }
+nurt-bench = { path = "crates/nurt-bench", version = "0.1.0" }
+
+# Text, search and encodings.
+regex = "1.13.2"
+fancy-regex = "0.20.2"
+grep-searcher = "0.1.17"
+grep-regex = "0.1.14"
+ignore = "0.4.34"
+globset = "0.4.21"
+bstr = "1.14.0"
+encoding_rs = "0.8.44"
+chardetng = "1.0.0"
+oem_cp = "2.1.2"
+codepage = "0.1.3"
+similar = "3.2.1"
+unicode-normalization = "0.1.26"
+unicode-width = "0.2.3"
+memmap2 = "0.9.12"
+memchr = "2.8.3"
+aho-corasick = "1.1.5"
+
+# Source code analysis.
+tree-sitter = "0.27.2"
+tree-sitter-language = "0.1.9"
+ast-grep-core = "0.51.3"
+tree-sitter-go = "0.25.0"
+tree-sitter-rust = "0.24.2"
+tree-sitter-python = "0.25.0"
+tree-sitter-javascript = "0.25.0"
+tree-sitter-typescript = "0.23.2"
+tree-sitter-c = "0.24.2"
+tree-sitter-cpp = "0.23.4"
+tree-sitter-java = "0.23.5"
+tree-sitter-ruby = "0.23.1"
+tree-sitter-c-sharp = "0.24.0"
+tree-sitter-php = "0.25.2"
+tree-sitter-bash = "0.25.1"
+tree-sitter-powershell = "0.26.6"
+tree-sitter-json = "0.24.8"
+tree-sitter-yaml = "0.7.2"
+tree-sitter-toml-ng = "0.7.0"
+tree-sitter-md = "0.5.4"
+tree-sitter-html = "0.23.2"
+tree-sitter-css = "0.25.0"
+tree-sitter-kotlin-ng = "1.1.0"
+tree-sitter-swift = "0.7.4"
+tree-sitter-xml = "0.7.0"
+lsp-types = "0.97.0"
+lsp-server = "0.10.0"
+
+# Serialization, schemas and structured formats.
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+ciborium = "0.2.2"
+serde_json_canonicalizer = "0.4.1"
+schemars = "1.2.3"
+jsonschema = { version = "0.62.0", default-features = false }
+toml = "1.2.2"
+toml_edit = "0.25.20"
+yaml-edit = "0.3.6"
+saphyr = "0.4.0"
+jsonc-parser = "0.34.0"
+quick-xml = "0.42.0"
+csv = "1.4.0"
+plist = "1.10.4"
+jaq-core = "3.1.2"
+jaq-std = "3.0.4"
+jaq-json = "2.0.3"
+rusqlite = { version = "0.43.0", features = ["bundled"] }
+rust-ini = "0.21.3"
+
+# Archives and compression.
+zip = "9.8.1"
+tar = "0.4.46"
+flate2 = "1.1.11"
+bzip2 = "0.6.1"
+liblzma = "0.4.9"
+lz4_flex = "0.14.2"
+zstd = "0.14.4"
+sevenz-rust2 = "0.25.0"
+
+# Media and document metadata.
+kamadak-exif = "0.6.2"
+image = "0.25.10"
+infer = "0.22.0"
+mime_guess = "2.0.5"
+pdf-extract = "0.12.1"
+lopdf = "0.47.0"
+
+# Operating system interfaces.
+rustix = { version = "1.1.6", features = ["fs", "process", "system"] }
+nix = { version = "0.32.0", features = ["fs", "process", "signal", "user"] }
+libc = "0.2.191"
+windows-sys = "0.61.2"
+windows = "0.62.2"
+windows-service = "0.8.1"
+wmi = "0.18.4"
+core-foundation = "0.10.1"
+zbus = "6.5.0"
+reflink-copy = "0.1.33"
+fs4 = "1.1.0"
+filetime = "0.2.30"
+xattr = "1.7.0"
+file-id = "0.2.3"
+same-file = "1.0.6"
+notify = "9.0.0"
+sysinfo = "0.40.4"
+netstat2 = "0.11.2"
+which = "8.0.6"
+cap-primitives = "4.0.3"
+camino = { version = "1.2.6", features = ["serde1"] }
+dunce = "1.0.5"
+
+# Version control.
+gix = "0.90.0"
+russh = "0.65.4"
+pgp = "0.21.1"
+
+# Network.
+ureq = "3.5.2"
+rustls = "0.23.46"
+rustls-native-certs = "0.8.5"
+hickory-resolver = "0.26.3"
+url = "2.5.9"
+percent-encoding = "2.3.2"
+
+# Time and scheduling.
+jiff = "1.0.2"
+croner = "5.0.0"
+
+# Hashes, encodings and randomness.
+sha2 = "0.11.1"
+sha1 = "0.11.0"
+md-5 = "0.11.0"
+blake3 = "1.8.7"
+crc32fast = "1.5.5"
+base64 = "0.23.1"
+hex = "0.4.3"
+uuid = { version = "1.29.3", features = ["v4", "v7", "serde"] }
+rand = "0.10.4"
+getrandom = "0.4.3"
+fastrand = "2.5.0"
+
+# Extensions.
+wasmtime = "51.0.0"
+libloading = "0.9.1"
+
+# Concurrency and core utilities.
+rayon = "1.12.0"
+crossbeam-channel = "0.5.17"
+parking_lot = "0.12.5"
+indexmap = { version = "2.14.2", features = ["serde"] }
+smallvec = "1.16.6"
+bytes = "1.12.2"
+thiserror = "2.0.21"
+anyhow = "1.0.104"
+semver = "1.0.28"
+tempfile = "3.27.0"
+
+# Command line, terminal and diagnostics.
+clap = { version = "4.6.9", features = ["derive"] }
+reedline = "0.53.0"
+miette = "7.6.0"
+comfy-table = "8.0.1"
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+
+# Parsing support.
+logos = "0.16.1"
+chumsky = "0.14.2"
+winnow = "1.0.5"
+
+# Model Context Protocol server.
+rmcp = { version = "3.11.0", features = ["server", "transport-io"] }
+axum = "0.8.9"
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "io-util", "net", "sync", "time"] }
+
+# Testing.
+proptest = "1.12.0"
+insta = { version = "1.49.0", default-features = false, features = ["json", "yaml"] }
+arbitrary = { version = "1.5.0", features = ["derive"] }
+libfuzzer-sys = "0.4.13"
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.test]
+debug = "line-tables-only"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

@@ -1,0 +1,121 @@
+[
+  {
+    "kind": "operation",
+    "record": {
+      "id": 18,
+      "time": "2026-11-21T10:15:00Z",
+      "kind": "replace",
+      "summary": "3 files, 7 replacements",
+      "state": "available",
+      "files": 3,
+      "bytes": 41300,
+      "irreversible": [],
+      "bulk": true,
+      "session": "s-1",
+      "undo_of": [],
+      "ast_hash": "sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "manifest_sha256": "sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+      "chain": "sha256:4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+      "pinned": false
+    }
+  },
+  {
+    "kind": "operation",
+    "record": {
+      "id": 22,
+      "time": "2026-11-21T10:45:00Z",
+      "kind": "undo",
+      "summary": "undid operations 20 and 21",
+      "state": "partial",
+      "files": 120,
+      "bytes": 9000000,
+      "irreversible": [{"reason": "released_for_space", "count": 2}],
+      "bulk": true,
+      "action": "paths",
+      "undo_of": [20, 21],
+      "undo_scope": "paths",
+      "ast_hash": "sha256:ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+      "manifest_sha256": "sha256:e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683",
+      "chain": "sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+      "pinned": true
+    }
+  },
+  {
+    "kind": "operation",
+    "record": {
+      "id": 23,
+      "time": "2026-11-21T10:50:00Z",
+      "kind": "redo",
+      "summary": "redid operation 22",
+      "state": "undone",
+      "files": 1,
+      "bytes": 10,
+      "irreversible": [],
+      "bulk": false,
+      "undo_of": [],
+      "redo_of": 22,
+      "ast_hash": "sha256:7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451",
+      "manifest_sha256": "sha256:2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+      "pinned": false
+    }
+  },
+  {
+    "kind": "volume",
+    "record": {
+      "mount": "/home",
+      "filesystem": "btrfs",
+      "total": 1000204886016,
+      "free": 400000000000,
+      "free_without_journal": 412000000000,
+      "reclaimable": 12000000000,
+      "reserve": 20000000000,
+      "soft": 50000000000,
+      "journal_bytes": 12000000000,
+      "journal": true
+    }
+  },
+  {
+    "kind": "volume",
+    "record": {
+      "mount": "/mnt/share",
+      "filesystem": "cifs",
+      "total": 2000000000000,
+      "free": 1000000000000,
+      "free_without_journal": 1000000000000,
+      "reclaimable": 0,
+      "reserve": 0,
+      "soft": 0,
+      "journal_bytes": 0,
+      "journal": false,
+      "journal_reason": "network_volume"
+    }
+  },
+  {
+    "kind": "journal_state",
+    "record": {
+      "active": true,
+      "entries": 23,
+      "bytes": 12000000000,
+      "limits": [
+        {"name": "steps", "value": {"t": "int", "v": 10}, "source": "session", "scope": "session", "floor": {"t": "int", "v": 10}, "expires": 3},
+        {"name": "age", "value": {"t": "duration", "v": 300000}, "source": "default"},
+        {"name": "size", "value": {"t": "enum", "v": "unlimited"}, "source": "user"}
+      ],
+      "volume": "/home",
+      "oldest": "2026-11-21T08:00:00Z",
+      "oldest_id": 1,
+      "newest_id": 23,
+      "pinned": 1
+    }
+  },
+  {
+    "kind": "journal_state",
+    "record": {
+      "active": false,
+      "entries": 0,
+      "bytes": 0,
+      "limits": [],
+      "reason": "journal_inactive"
+    }
+  }
+]

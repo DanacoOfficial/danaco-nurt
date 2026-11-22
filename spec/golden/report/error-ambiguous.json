@@ -1,0 +1,27 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "remove",
+  "error": {
+    "code": "E_AMBIGUOUS",
+    "message": "the correction touches the target of a change",
+    "stage": "0",
+    "at": { "line": 1, "column": 8, "length": 14 },
+    "found": "/srv/app/bild",
+    "candidates": [
+      {
+        "rank": 1,
+        "ref": "c1",
+        "program": "remove \"/srv/app/build\"",
+        "why": "existing directory with the closest name"
+      },
+      {
+        "rank": 2,
+        "ref": "c2",
+        "program": "remove \"/srv/app/bild\"",
+        "why": "the path as written; it does not exist"
+      }
+    ],
+    "next_steps": ["send {\"accept\": \"c1\"} or the chosen program text"]
+  }
+}

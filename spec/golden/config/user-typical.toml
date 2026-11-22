@@ -1,0 +1,30 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# User configuration of a developer: another notation, Polish messages, a
+# longer journal history, an additional environment variable for programs and
+# a different Python language server.
+
+[syntax]
+variant = "b"
+
+[output]
+language = "pl"
+color = "always"
+
+[journal]
+max_ops = 100
+max_age = "24h"
+
+[run]
+timeout = "5m"
+
+[run.env_defaults]
+GOFLAGS = "-mod=mod"
+
+[code.servers.python]
+command = ["basedpyright-langserver", "--stdio"]
+
+[git.ssh]
+known_hosts = "accept_new"
+identity_files = ["/home/user/.ssh/id_ed25519"]

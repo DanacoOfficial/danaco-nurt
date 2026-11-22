@@ -1,0 +1,1159 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "git"
+summary = "Git repositories."
+
+[[command]]
+name = "git.status"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["git_status"]
+summary = "Show the state of the working tree and index of one or more repositories."
+
+[[command.param]]
+name = "repo"
+type = "list<path>"
+position = 1
+required = true
+repeated = true
+summary = "Repositories or paths inside them."
+
+[[command.param]]
+name = "untracked"
+type = "enum(normal|all|no)"
+default = "normal"
+values = ["normal", "all", "no"]
+summary = "Untracked files: directories collapsed, every file, or none."
+
+[[command.param]]
+name = "ignored"
+type = "bool"
+default = "false"
+summary = "Include ignored files."
+
+[[command.param]]
+name = "limit"
+type = "int"
+default = "200"
+summary = "Maximum number of entries per repository."
+
+[[command.param]]
+name = "stat"
+type = "bool"
+default = "false"
+summary = "Include the numbers of added and removed lines."
+
+[[command]]
+name = "git.diff"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["hunk"]
+summary = "Show differences between revisions, the index and the working tree."
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "from"
+type = "text"
+default_note = "the index or HEAD"
+summary = "Old revision."
+
+[[command.param]]
+name = "to"
+type = "text"
+default_note = "the working tree"
+summary = "New revision."
+
+[[command.param]]
+name = "staged"
+type = "bool"
+default = "false"
+summary = "Compare the index with HEAD."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+summary = "Only these files or directories."
+
+[[command.param]]
+name = "context"
+type = "int"
+default = "3"
+summary = "Lines of context around each change."
+
+[[command.param]]
+name = "stat"
+type = "bool"
+default = "false"
+summary = "Only the numbers of added and removed lines per file."
+
+[[command.param]]
+name = "function_context"
+type = "bool"
+default = "false"
+summary = "Extend each change to the whole enclosing function."
+
+[[command.param]]
+name = "symbol"
+type = "text"
+summary = "Only changes within this code element on the new side."
+
+[[command.param]]
+name = "word_diff"
+type = "bool"
+default = "false"
+summary = "Show changes word by word."
+
+[[command.param]]
+name = "ignore_whitespace"
+type = "bool"
+default = "false"
+summary = "Ignore changes in whitespace."
+
+[[command.param]]
+name = "ignore_moved"
+type = "bool"
+default = "false"
+summary = "Hide blocks of lines that were only moved."
+
+[[command]]
+name = "git.log"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["commit"]
+summary = "List commits of a revision, optionally limited to files, authors, dates or content."
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "count"
+type = "int"
+default = "20"
+summary = "Maximum number of commits."
+
+[[command.param]]
+name = "skip"
+type = "int"
+default = "0"
+summary = "Number of commits to skip."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+summary = "Only commits that change these files or directories."
+
+[[command.param]]
+name = "revision"
+type = "text"
+default = "\"HEAD\""
+summary = "Revision or range to list."
+
+[[command.param]]
+name = "author"
+type = "text"
+summary = "Only commits whose author matches this text."
+
+[[command.param]]
+name = "since"
+type = "instant"
+summary = "Only commits at or after this time."
+
+[[command.param]]
+name = "until"
+type = "instant"
+summary = "Only commits before this time."
+
+[[command.param]]
+name = "message"
+type = "regex"
+summary = "Only commits whose message matches this pattern."
+
+[[command.param]]
+name = "pickaxe"
+type = "text | regex"
+summary = "Only commits that add or remove this text or pattern."
+
+[[command.param]]
+name = "follow"
+type = "bool"
+default = "false"
+summary = "Follow a single file across renames."
+
+[[command.param]]
+name = "symbol"
+type = "text"
+summary = "Only commits that change the lines of this code element."
+
+[[command.param]]
+name = "stat"
+type = "bool"
+default = "false"
+summary = "Include changed files with added and removed lines."
+
+[[command.param]]
+name = "group_by"
+type = "enum(type|author|day)"
+values = ["type", "author", "day"]
+summary = "Group commits by conventional commit type, author or day."
+
+[[command]]
+name = "git.show"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["commit", "hunk"]
+summary = "Show commits with their changes, or the content of a file at a revision."
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "revision"
+type = "text"
+position = 2
+required = true
+summary = "Revision to show."
+
+[[command.param]]
+name = "revs"
+type = "list<text>"
+summary = "Further revisions to show."
+
+[[command.param]]
+name = "file"
+type = "path"
+summary = "Return the content of this file at the revision."
+
+[[command.param]]
+name = "paths"
+type = "list<path>"
+summary = "Only changes in these files or directories."
+
+[[command.param]]
+name = "offset"
+type = "int"
+summary = "First line of the file content returned, counted from 1."
+
+[[command.param]]
+name = "limit"
+type = "int"
+summary = "Maximum number of lines of the file content returned."
+
+[[command.param]]
+name = "stat"
+type = "bool"
+default = "false"
+summary = "Only changed files with added and removed lines."
+
+[[command.param]]
+name = "context"
+type = "int"
+default = "3"
+summary = "Lines of context around each change."
+
+[[command]]
+name = "git.blame"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["blame_line"]
+summary = "Show the commit and author that last changed each line of a file."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "File in a repository."
+
+[[command.param]]
+name = "lines"
+type = "range"
+summary = "Only these lines."
+
+[[command.param]]
+name = "revision"
+type = "text"
+default = "\"HEAD\""
+summary = "Revision to annotate."
+
+[[command]]
+name = "git.branch"
+category = "change"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["branch", "effect"]
+summary = "List branches, or create, rename, switch or delete them."
+reversibility_note = "Branch changes are reversible from the journal, which keeps the previous value of each reference."
+effects = [
+  { action = "create", effect = "local", reversibility = "reversible", note = "Applies when create is given, with or without switch." },
+  { action = "rename", effect = "local", reversibility = "reversible", note = "Applies when rename is given." },
+  { action = "delete", effect = "local", reversibility = "reversible", note = "Applies when delete is given." },
+]
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "remote"
+type = "bool"
+default = "false"
+summary = "List remote-tracking branches."
+
+[[command.param]]
+name = "create"
+type = "text"
+summary = "Name of a branch to create."
+
+[[command.param]]
+name = "from"
+type = "text"
+default = "\"HEAD\""
+summary = "Start point of the new branch."
+
+[[command.param]]
+name = "rename"
+type = "text"
+summary = "Branch to rename."
+
+[[command.param]]
+name = "new_name"
+type = "text"
+summary = "New name of the renamed branch."
+
+[[command.param]]
+name = "switch"
+type = "bool"
+default = "false"
+summary = "Switch to the branch after creating it."
+
+[[command.param]]
+name = "checkpoint"
+type = "bool"
+default = "false"
+summary = "Create a checkpoint of the working tree before switching."
+
+[[command.param]]
+name = "delete"
+type = "text | list<text>"
+summary = "Branches to delete."
+
+[[command.param]]
+name = "force"
+type = "bool"
+default = "false"
+summary = "Delete branches that are not merged."
+
+[[command]]
+name = "git.stage"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect", "hunk"]
+summary = "List, stage or unstage changes down to selected hunks and lines."
+effects = [
+  { action = "list", effect = "read", reversibility = "read" },
+]
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "action"
+type = "enum(list|add|unstage)"
+required = true
+values = ["list", "add", "unstage"]
+summary = "List changes as hunks, add them to the index, or remove them from it."
+
+[[command.param]]
+name = "paths"
+type = "list<path>"
+summary = "Files or directories to act on."
+
+[[command.param]]
+name = "hunks"
+type = "list<text>"
+summary = "Hunks by identifier, such as file#2 or file#2@3-5,8 for selected lines."
+
+[[command.param]]
+name = "staged"
+type = "bool"
+summary = "With list: show staged instead of unstaged changes."
+
+[[command]]
+name = "git.checkpoint"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["git_checkpoint", "hunk", "effect"]
+summary = "Create, list, compare, restore or delete checkpoints of the working tree and index kept outside branches."
+reversibility_note = "Restore keeps the exact previous content of every file it changes or removes."
+effects = [
+  { action = "list", effect = "read", reversibility = "read" },
+  { action = "compare", effect = "read", reversibility = "read" },
+]
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "action"
+type = "enum(create|list|compare|restore|delete)"
+required = true
+values = ["create", "list", "compare", "restore", "delete"]
+summary = "Operation on checkpoints."
+
+[[command.param]]
+name = "label"
+type = "text"
+summary = "Label of a new checkpoint."
+
+[[command.param]]
+name = "checkpoint_id"
+type = "text | list<text>"
+summary = "Checkpoint to compare or restore, or checkpoints to delete."
+
+[[command.param]]
+name = "against"
+type = "text"
+default_note = "the working tree"
+summary = "With compare: revision or checkpoint to compare with."
+
+[[command.param]]
+name = "stat"
+type = "bool"
+default = "false"
+summary = "With compare: only changed files with added and removed lines."
+
+[[command.param]]
+name = "context"
+type = "int"
+default = "3"
+summary = "With compare: lines of context around each change."
+
+[[command.param]]
+name = "function_context"
+type = "bool"
+default = "false"
+summary = "With compare: extend each change to the whole enclosing function."
+
+[[command.param]]
+name = "symbol"
+type = "text"
+summary = "With compare: only changes within this code element."
+
+[[command.param]]
+name = "word_diff"
+type = "bool"
+default = "false"
+summary = "With compare: show changes word by word."
+
+[[command.param]]
+name = "ignore_whitespace"
+type = "bool"
+default = "false"
+summary = "With compare: ignore changes in whitespace."
+
+[[command.param]]
+name = "ignore_moved"
+type = "bool"
+default = "false"
+summary = "With compare: hide blocks of lines that were only moved."
+
+[[command.param]]
+name = "paths"
+type = "list<path>"
+summary = "Only these files or directories."
+
+[[command.param]]
+name = "index"
+type = "bool"
+default = "false"
+summary = "With restore: also restore the index."
+
+[[command.param]]
+name = "keep"
+type = "int"
+summary = "With delete: keep only this many newest checkpoints."
+
+[[command]]
+name = "git.review"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["finding"]
+summary = "Check changes before a commit for conflict markers, whitespace errors, large or binary files, secrets, missing tests and subject format."
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "scope"
+type = "enum(all|staged|working)"
+default = "all"
+values = ["all", "staged", "working"]
+summary = "Staged changes, working tree changes, or both."
+
+[[command.param]]
+name = "paths"
+type = "list<path>"
+summary = "Only changes in these files or directories."
+
+[[command.param]]
+name = "base"
+type = "text"
+summary = "Base revision of a range to review instead of uncommitted changes."
+
+[[command.param]]
+name = "target"
+type = "text"
+summary = "End revision of the range."
+
+[[command.param]]
+name = "message"
+type = "text"
+summary = "Planned commit message to check."
+
+[[command.param]]
+name = "checks"
+type = "list<enum(conflict_markers|whitespace|large_files|binary|secrets|subject|tests)>"
+values = ["conflict_markers", "whitespace", "large_files", "binary", "secrets", "subject", "tests"]
+summary = "Checks to run; all when omitted."
+
+[[command]]
+name = "git.worktree"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["git_worktree", "effect"]
+summary = "Add, list or remove linked working trees."
+reversibility_note = "Remove moves the working tree directory into the journal before unregistering it."
+effects = [
+  { action = "list", effect = "read", reversibility = "read" },
+]
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "action"
+type = "enum(add|list|remove)"
+required = true
+values = ["add", "list", "remove"]
+summary = "Operation on working trees."
+
+[[command.param]]
+name = "path"
+type = "path"
+summary = "Directory of the working tree to add or remove."
+
+[[command.param]]
+name = "branch"
+type = "text"
+summary = "Branch checked out in the new working tree."
+
+[[command.param]]
+name = "start_point"
+type = "text"
+summary = "Revision the new branch starts from."
+
+[[command]]
+name = "git.commit"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect", "commit"]
+summary = "Record a commit and report its branch and files."
+reversibility_note = "Undo moves the branch reference back; the working tree is not changed and written objects remain in the repository."
+external = { kind = "user_program", when = "hooks", note = "Runs the pre-commit and commit-msg hooks of the repository as user programs." }
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "message"
+type = "text"
+required = true
+summary = "Commit message."
+
+[[command.param]]
+name = "paths"
+type = "list<path>"
+summary = "Files to stage before committing."
+
+[[command.param]]
+name = "all"
+type = "bool"
+default = "false"
+summary = "Stage all changes to tracked files before committing."
+
+[[command.param]]
+name = "staged"
+type = "bool"
+default = "false"
+summary = "Commit exactly the content of the index."
+
+[[command.param]]
+name = "amend"
+type = "bool"
+default = "false"
+summary = "Replace the last commit."
+
+[[command.param]]
+name = "trailers"
+type = "list<text>"
+default = "[]"
+summary = "Trailers appended to the message, such as Co-Authored-By lines."
+
+[[command.param]]
+name = "sign_off"
+type = "bool"
+default = "false"
+summary = "Append a Signed-off-by trailer."
+
+[[command.param]]
+name = "author"
+type = "text"
+default_note = "the repository configuration"
+summary = "Author as Name <email>."
+
+[[command.param]]
+name = "allow_empty"
+type = "bool"
+default = "false"
+summary = "Allow a commit without changes."
+
+[[command.param]]
+name = "hooks"
+type = "bool"
+default = "true"
+summary = "Run the pre-commit and commit-msg hooks of the repository as user programs."
+
+[[command]]
+name = "git.tag"
+category = "change"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["git_tag", "effect"]
+summary = "List tags, or create or delete a tag."
+reversibility_note = "Tag changes are reversible from the journal, which keeps the previous value of each reference."
+effects = [
+  { action = "create", effect = "local", reversibility = "reversible", note = "Applies when name is given." },
+  { action = "delete", effect = "local", reversibility = "reversible", note = "Applies when delete is given." },
+]
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "name"
+type = "text"
+summary = "Name of a tag to create."
+
+[[command.param]]
+name = "revision"
+type = "text"
+default = "\"HEAD\""
+summary = "Revision the new tag points to."
+
+[[command.param]]
+name = "message"
+type = "text"
+summary = "Message of an annotated tag."
+
+[[command.param]]
+name = "delete"
+type = "text"
+summary = "Tag to delete."
+
+[[command]]
+name = "git.fetch"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect", "git_ref_update"]
+summary = "Fetch objects and references from a remote over HTTPS or SSH."
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "remote"
+type = "text"
+default = "\"origin\""
+summary = "Remote to fetch from."
+
+[[command.param]]
+name = "prune"
+type = "bool"
+default = "false"
+summary = "Remove remote-tracking references that no longer exist on the remote."
+
+[[command.param]]
+name = "tags"
+type = "bool"
+default = "false"
+summary = "Fetch all tags of the remote."
+
+[[command.param]]
+name = "depth"
+type = "int"
+summary = "Limit the fetched history to this many commits."
+
+[[command]]
+name = "git.clone"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect", "git_ref_update"]
+summary = "Clone a repository over HTTPS or SSH into a new directory."
+reversibility_note = "The new directory is removed by undo; the network transfer cannot be reversed."
+
+[[command.param]]
+name = "url"
+type = "text"
+secret = true
+position = 1
+required = true
+summary = "Address of the repository."
+
+[[command.param]]
+name = "to"
+type = "path"
+position = 2
+required = true
+summary = "Directory to create."
+
+[[command.param]]
+name = "depth"
+type = "int"
+summary = "Limit the cloned history to this many commits."
+
+[[command.param]]
+name = "branch"
+type = "text"
+summary = "Branch to check out instead of the default branch."
+
+[[command.param]]
+name = "bare"
+type = "bool"
+default = "false"
+summary = "Create a repository without a working tree."
+
+[[command]]
+name = "git.switch"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Switch the working tree to a branch."
+reversibility_note = "The exact previous content of every changed file is kept in the journal."
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "branch"
+type = "text"
+required = true
+summary = "Branch to switch to."
+
+[[command.param]]
+name = "create"
+type = "bool"
+default = "false"
+summary = "Create the branch from HEAD first."
+
+[[command.param]]
+name = "checkpoint"
+type = "bool"
+default = "false"
+summary = "Create a checkpoint of the working tree before switching."
+
+[[command]]
+name = "git.restore"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Restore files or selected hunks in the working tree or index from a revision."
+reversibility_note = "The exact previous content of every changed file is kept in the journal."
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "paths"
+type = "list<path>"
+required = true
+summary = "Files or directories to restore."
+
+[[command.param]]
+name = "source"
+type = "text"
+default_note = "the index, or HEAD with staged"
+summary = "Revision to restore from."
+
+[[command.param]]
+name = "staged"
+type = "bool"
+default = "false"
+summary = "Restore the index."
+
+[[command.param]]
+name = "worktree"
+type = "bool"
+default = "true"
+summary = "Restore the working tree."
+
+[[command.param]]
+name = "hunks"
+type = "list<text>"
+summary = "Only these hunks, by identifier as in git.stage."
+
+[[command]]
+name = "git.reset"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Move the current branch to a revision, optionally resetting the index and working tree."
+reversibility_note = "The previous reference and the exact previous content of every changed file are kept in the journal."
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "revision"
+type = "text"
+required = true
+summary = "Revision to move to."
+
+[[command.param]]
+name = "mode"
+type = "enum(soft|mixed|hard)"
+default = "mixed"
+values = ["soft", "mixed", "hard"]
+summary = "Keep the index and working tree, reset the index, or reset both."
+
+[[command]]
+name = "git.merge"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect", "git_conflict"]
+summary = "Merge a branch into the current branch, or continue or abort a merge."
+reversibility_note = "The previous references and the exact previous content of every changed file are kept in the journal."
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "branch"
+type = "text"
+summary = "Branch to merge; required when action is start."
+
+[[command.param]]
+name = "action"
+type = "enum(start|continue|abort)"
+default = "start"
+values = ["start", "continue", "abort"]
+summary = "Start a merge, continue it after resolving conflicts, or abort it."
+
+[[command.param]]
+name = "fast_forward"
+type = "enum(auto|only|never)"
+default = "auto"
+values = ["auto", "only", "never"]
+summary = "Fast-forward when possible, only fast-forward, or always create a merge commit."
+
+[[command.param]]
+name = "message"
+type = "text"
+summary = "Message of the merge commit."
+
+[[command.param]]
+name = "no_commit"
+type = "bool"
+default = "false"
+summary = "Stop before creating the merge commit."
+
+[[command]]
+name = "git.rebase"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect", "git_conflict"]
+summary = "Replay the commits of the current branch onto another revision, or continue, skip or abort a rebase."
+reversibility_note = "The previous references and the exact previous content of every changed file are kept in the journal."
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "onto"
+type = "text"
+summary = "Revision to rebase onto; required when action is start."
+
+[[command.param]]
+name = "action"
+type = "enum(start|continue|skip|abort)"
+default = "start"
+values = ["start", "continue", "skip", "abort"]
+summary = "Start a rebase, continue it, skip the current commit, or abort it."
+
+[[command]]
+name = "git.stash"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect", "git_stash", "hunk"]
+summary = "Save uncommitted changes in the stash, or list, show, apply, pop, drop or clear stash entries."
+reversibility_note = "The exact previous content of changed files and the dropped stash references are kept in the journal."
+effects = [
+  { action = "list", effect = "read", reversibility = "read" },
+  { action = "show", effect = "read", reversibility = "read" },
+]
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "action"
+type = "enum(push|pop|apply|list|show|drop|clear)"
+required = true
+values = ["push", "pop", "apply", "list", "show", "drop", "clear"]
+summary = "Operation on the stash; apply keeps the entry, pop removes it."
+
+[[command.param]]
+name = "stash"
+type = "text"
+default_note = "the newest entry"
+summary = "Stash entry, such as stash@{2}."
+
+[[command.param]]
+name = "message"
+type = "text"
+summary = "With push: message of the new entry."
+
+[[command.param]]
+name = "include_untracked"
+type = "bool"
+default = "false"
+summary = "With push: also stash untracked files."
+
+[[command.param]]
+name = "paths"
+type = "list<path>"
+summary = "With push: only changes in these files or directories."
+
+[[command]]
+name = "git.pull"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect", "git_ref_update", "git_conflict"]
+summary = "Fetch from a remote and integrate the changes into the current branch."
+reversibility_note = "Local changes to the working tree are kept in the journal; the network transfer cannot be reversed."
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "remote"
+type = "text"
+default = "\"origin\""
+summary = "Remote to pull from."
+
+[[command.param]]
+name = "branch"
+type = "text"
+default_note = "the upstream of the current branch"
+summary = "Remote branch to integrate."
+
+[[command.param]]
+name = "mode"
+type = "enum(merge|rebase|fast_forward_only)"
+values = ["merge", "rebase", "fast_forward_only"]
+default_note = "the setting of the repository configuration"
+summary = "How the changes are integrated."
+
+[[command]]
+name = "git.push"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["effect", "git_ref_update"]
+summary = "Update references on a remote with local commits."
+
+[[command.param]]
+name = "repo"
+type = "path"
+position = 1
+required = true
+summary = "Repository or path inside it."
+
+[[command.param]]
+name = "remote"
+type = "text"
+default = "\"origin\""
+summary = "Remote to push to."
+
+[[command.param]]
+name = "branch"
+type = "text"
+required = true
+summary = "Branch to push."
+
+[[command.param]]
+name = "force"
+type = "bool"
+default = "false"
+summary = "Overwrite the remote branch even when it is not an ancestor."
+
+[[command.param]]
+name = "force_with_lease"
+type = "text"
+summary = "Overwrite the remote branch only while it still points to this revision."
+
+[[command.param]]
+name = "tags"
+type = "bool"
+default = "false"
+summary = "Also push tags."
+
+[[command.param]]
+name = "set_upstream"
+type = "bool"
+default = "false"
+summary = "Set the pushed branch as the upstream of the local branch."
+
+[[command.param]]
+name = "delete"
+type = "bool"
+default = "false"
+summary = "Delete the branch on the remote."

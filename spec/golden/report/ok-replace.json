@@ -1,0 +1,100 @@
+{
+  "nurt": "1.0",
+  "status": "ok",
+  "kind": "replace",
+  "op": 18,
+  "ast_hash": "sha256:9d3c5f0e8a1b2c3d4e5f60718293a4b5c6d7e8f9012345678901234567890abc",
+  "targets": { "count": 3, "files": 3, "bytes": 42291, "listed": 3 },
+  "summary": {
+    "files_modified": 3,
+    "replacements": 7,
+    "lines_added": 7,
+    "lines_removed": 7,
+    "bytes_before": 42189,
+    "bytes_after": 42291
+  },
+  "changes": [
+    {
+      "path": "/srv/app/src/a.go",
+      "action": "modify",
+      "size_before": 1127,
+      "size_after": 1131,
+      "hash_before": "sha256:1a2b3c4d",
+      "hash_after": "sha256:9f8e7d6c",
+      "replacements": 3,
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "/srv/app/src/b.go",
+      "action": "modify",
+      "size_before": 8192,
+      "size_after": 8194,
+      "hash_before": "sha256:5e5e5e5e",
+      "hash_after": "sha256:77aa77aa",
+      "replacements": 2,
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "/srv/app/src/c/d.go",
+      "action": "modify",
+      "size_before": 32870,
+      "size_after": 32966,
+      "hash_before": "sha256:0badc0de",
+      "hash_after": "sha256:c0ffee00",
+      "replacements": 2,
+      "added": 2,
+      "removed": 2,
+      "flags": ["crlf", "windows-1250"]
+    }
+  ],
+  "diff": [
+    {
+      "path": "/srv/app/src/a.go",
+      "old_start": 12,
+      "old_len": 1,
+      "new_start": 12,
+      "new_len": 1,
+      "lines": ["-func oldName(x int) {", "+func newName(x int) {"]
+    },
+    {
+      "path": "/srv/app/src/a.go",
+      "old_start": 40,
+      "old_len": 1,
+      "new_start": 40,
+      "new_len": 1,
+      "lines": ["-\treturn oldName(n - 1)", "+\treturn newName(n - 1)"],
+      "header": "func oldName(x int) {"
+    },
+    {
+      "path": "/srv/app/src/b.go",
+      "old_start": 6,
+      "old_len": 3,
+      "new_start": 6,
+      "new_len": 3,
+      "lines": [" func main() {", "-\tv := oldName(2)", "+\tv := newName(2)", " }"]
+    }
+  ],
+  "notable": [
+    {
+      "code": "many_per_file",
+      "severity": "notice",
+      "path": "/srv/app/src/c/d.go",
+      "count": 2
+    },
+    {
+      "code": "encoding_preserved",
+      "severity": "info",
+      "path": "/srv/app/src/c/d.go",
+      "detail": "windows-1250"
+    },
+    {
+      "code": "line_ending_preserved",
+      "severity": "info",
+      "path": "/srv/app/src/c/d.go",
+      "detail": "crlf"
+    }
+  ],
+  "next_cursor": "c_5d2e"
+}

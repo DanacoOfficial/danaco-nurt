@@ -1,0 +1,96 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog-index/1"
+total = 148
+
+[[file]]
+name = "core"
+file = "core.toml"
+summary = "Core commands for files, text, records, programs, the journal and help."
+commands = 33
+
+[[file]]
+name = "documents"
+file = "documents.toml"
+summary = "Structured documents by key and SQLite databases."
+commands = 3
+
+[[file]]
+name = "text"
+file = "text.toml"
+summary = "Differences, patches, hashes, encodings, expressions and record operations."
+commands = 11
+
+[[file]]
+name = "code"
+file = "code.toml"
+summary = "Source code symbols, definitions, references, diagnostics, renaming and repository profile."
+commands = 13
+
+[[file]]
+name = "notebook"
+file = "notebook.toml"
+summary = "Cells of Jupyter notebooks."
+commands = 10
+
+[[file]]
+name = "git"
+file = "git.toml"
+summary = "Git repositories."
+commands = 22
+
+[[file]]
+name = "archive"
+file = "archive.toml"
+summary = "Archives and compression."
+commands = 5
+
+[[file]]
+name = "system"
+file = "system.toml"
+summary = "Processes, ports, disks, host, environment, system logs and suspension of processes."
+commands = 11
+
+[[file]]
+name = "admin"
+file = "admin.toml"
+summary = "System services, the registry provider and CIM."
+commands = 6
+
+[[file]]
+name = "package"
+file = "package.toml"
+summary = "System package managers."
+commands = 5
+
+[[file]]
+name = "network"
+file = "network.toml"
+summary = "HTTP requests, downloads, name resolution, ping and network interfaces."
+commands = 5
+
+[[file]]
+name = "schedule"
+file = "schedule.toml"
+summary = "Schedules of pipelines."
+commands = 7
+
+[[file]]
+name = "journal"
+file = "journal.toml"
+summary = "Management of the journal, its space, limits, state and pinned entries."
+commands = 5
+
+[[file]]
+name = "program"
+file = "program.toml"
+summary = "Programs installed in the system: lookup, search, navigation and descriptions."
+commands = 4
+
+[[file]]
+name = "verify"
+file = "verify.toml"
+summary = "Tests and code analysis through typed wrappers of test frameworks and analyzers."
+commands = 8

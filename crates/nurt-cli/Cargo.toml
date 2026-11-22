@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+[package]
+name = "nurt-cli"
+description = "Command line interface of Danaco Nurt."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "nurt"
+path = "src/main.rs"
+
+[dependencies]
+nurt-contracts = { workspace = true }
+nurt-core = { workspace = true }
+nurt-mcp = { workspace = true }
+nurt-langserver = { workspace = true }
+nurt-service = { workspace = true }
+clap = { workspace = true }
+reedline = { workspace = true }
+miette = { workspace = true }
+comfy-table = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

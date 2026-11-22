@@ -1,0 +1,17 @@
+{
+  "nurt": "1.0",
+  "status": "ok",
+  "kind": "remove",
+  "op": 31,
+  "targets": { "count": 1, "listed": 1 },
+  "changes": [
+    { "path": "job:j7", "action": "delete", "before": "exited" }
+  ],
+  "irreversible": [
+    {
+      "reason": "job_output_removed",
+      "path": "job:j7",
+      "detail": "stdout and stderr of the job, 23.1kb"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# System configuration of a server: a size budget of 10 % per volume,
+# protection floors that other levels cannot go below, the system service and
+# one trusted project. The data volume keeps a longer history.
+
+[scope]
+trusted_projects = ["/srv/app"]
+
+[journal]
+max_size = "10%"
+max_size_min = "2gib"
+max_size_max = "50gib"
+oversize = "skip"
+
+[journal.floor]
+max_ops = 20
+max_age = "1h"
+
+[journal.volume."/srv/data"]
+enabled = true
+max_ops = 100
+max_age = "1d"
+reserve = "10%"
+
+[space]
+reserve = "10%"
+reserve_max = "100gib"
+
+[service]
+mode = "system"
+
+[log]
+level = "info"

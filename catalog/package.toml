@@ -1,0 +1,138 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "package"
+summary = "System package managers."
+
+[[command]]
+name = "package.list"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "package_manager"
+input = ["none"]
+output = ["package"]
+summary = "List installed packages."
+
+[[command.param]]
+name = "name"
+type = "text"
+summary = "Only packages whose name contains this text."
+
+[[command.param]]
+name = "outdated"
+type = "bool"
+default = "false"
+summary = "Only packages with a newer version available."
+
+[[command.param]]
+name = "manager"
+type = "enum(auto|apt|dnf|pacman|zypper|brew|winget|choco|scoop)"
+default = "auto"
+values = ["auto", "apt", "dnf", "pacman", "zypper", "brew", "winget", "choco", "scoop"]
+summary = "Package manager; auto selects the manager of the system."
+
+[[command]]
+name = "package.search"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "package_manager"
+input = ["none"]
+output = ["package"]
+summary = "Search the package repositories."
+
+[[command.param]]
+name = "query"
+type = "text"
+position = 1
+required = true
+summary = "Search terms."
+
+[[command.param]]
+name = "manager"
+type = "enum(auto|apt|dnf|pacman|zypper|brew|winget|choco|scoop)"
+default = "auto"
+values = ["auto", "apt", "dnf", "pacman", "zypper", "brew", "winget", "choco", "scoop"]
+summary = "Package manager; auto selects the manager of the system."
+
+[[command]]
+name = "package.install"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "package_manager"
+input = ["none"]
+output = ["effect"]
+summary = "Install packages."
+
+[[command.param]]
+name = "names"
+type = "list<text>"
+position = 1
+required = true
+repeated = true
+summary = "Packages to install."
+
+[[command.param]]
+name = "version"
+type = "text"
+summary = "Version to install."
+
+[[command.param]]
+name = "manager"
+type = "enum(auto|apt|dnf|pacman|zypper|brew|winget|choco|scoop)"
+default = "auto"
+values = ["auto", "apt", "dnf", "pacman", "zypper", "brew", "winget", "choco", "scoop"]
+summary = "Package manager; auto selects the manager of the system."
+
+[[command]]
+name = "package.remove"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "package_manager"
+input = ["none"]
+output = ["effect"]
+summary = "Remove installed packages."
+
+[[command.param]]
+name = "names"
+type = "list<text>"
+position = 1
+required = true
+repeated = true
+summary = "Packages to remove."
+
+[[command.param]]
+name = "manager"
+type = "enum(auto|apt|dnf|pacman|zypper|brew|winget|choco|scoop)"
+default = "auto"
+values = ["auto", "apt", "dnf", "pacman", "zypper", "brew", "winget", "choco", "scoop"]
+summary = "Package manager; auto selects the manager of the system."
+
+[[command]]
+name = "package.upgrade"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "package_manager"
+input = ["none"]
+output = ["effect"]
+summary = "Upgrade installed packages to their newest versions."
+
+[[command.param]]
+name = "names"
+type = "list<text>"
+position = 1
+repeated = true
+summary = "Packages to upgrade; all installed packages when omitted."
+
+[[command.param]]
+name = "manager"
+type = "enum(auto|apt|dnf|pacman|zypper|brew|winget|choco|scoop)"
+default = "auto"
+values = ["auto", "apt", "dnf", "pacman", "zypper", "brew", "winget", "choco", "scoop"]
+summary = "Package manager; auto selects the manager of the system."

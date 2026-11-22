@@ -1,0 +1,84 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "write",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/.gitignore",
+                "span": [
+                  1,
+                  7,
+                  1,
+                  28
+                ]
+              },
+              "span": [
+                1,
+                7,
+                1,
+                28
+              ]
+            },
+            {
+              "value": {
+                "t": "text",
+                "v": "dist/\n",
+                "span": [
+                  1,
+                  29,
+                  1,
+                  38
+                ]
+              },
+              "span": [
+                1,
+                29,
+                1,
+                38
+              ]
+            },
+            {
+              "name": "mode",
+              "value": {
+                "t": "ident",
+                "v": "append",
+                "span": [
+                  1,
+                  45,
+                  1,
+                  51
+                ]
+              },
+              "span": [
+                1,
+                39,
+                1,
+                51
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            51
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          51
+        ]
+      }
+    ]
+  }
+}

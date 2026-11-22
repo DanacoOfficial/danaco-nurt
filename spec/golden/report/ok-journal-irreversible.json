@@ -1,0 +1,30 @@
+{
+  "nurt": "1.0",
+  "status": "ok",
+  "kind": "write",
+  "op": 33,
+  "targets": { "count": 1, "files": 1, "listed": 1 },
+  "summary": { "files_modified": 1, "bytes_before": 410, "bytes_after": 388 },
+  "changes": [
+    {
+      "path": "/srv/app/.nurt.toml",
+      "action": "modify",
+      "size_before": 410,
+      "size_after": 388,
+      "hash_before": "sha256:4d4d4d4d",
+      "hash_after": "sha256:5e5e5e5e"
+    }
+  ],
+  "irreversible": [
+    {
+      "reason": "journal_entries_expired",
+      "count": 3,
+      "detail": "journal.max_ops lowered from 30 to 5"
+    },
+    {
+      "reason": "journal_error",
+      "path": "/srv/app/.nurt.toml",
+      "detail": "the journal directory is read-only"
+    }
+  ]
+}

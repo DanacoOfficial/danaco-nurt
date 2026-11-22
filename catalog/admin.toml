@@ -1,0 +1,128 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "admin"
+summary = "System services, the registry provider and CIM."
+
+[[command]]
+name = "services"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["service"]
+summary = "List system or user services with their state and start type."
+external = { kind = "system_program", programs = ["launchctl"], note = "On macOS the state of services is read through the launchctl component of the operating system." }
+
+[[command.param]]
+name = "name"
+type = "text | regex"
+position = 1
+summary = "Service name or pattern."
+
+[[command.param]]
+name = "state"
+type = "text"
+summary = "Only services in this state."
+
+[[command.param]]
+name = "scope"
+type = "enum(system|user)"
+default = "system"
+values = ["system", "user"]
+summary = "System services or services of the current account."
+
+[[command]]
+name = "start"
+category = "run"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["service"]
+output = ["effect"]
+summary = "Start the input services."
+external = { kind = "system_program", programs = ["launchctl"], note = "On macOS services are started through the launchctl component of the operating system." }
+
+[[command.param]]
+name = "wait"
+type = "duration"
+default = "10s"
+waits = true
+summary = "Time to wait for each service to reach the running state."
+
+[[command]]
+name = "restart"
+category = "run"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["service"]
+output = ["effect"]
+summary = "Restart the input services."
+external = { kind = "system_program", programs = ["launchctl"], note = "On macOS services are restarted through the launchctl component of the operating system." }
+
+[[command.param]]
+name = "wait"
+type = "duration"
+default = "10s"
+waits = true
+summary = "Time to wait for each service to reach the running state."
+
+[[command]]
+name = "enable"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["service"]
+output = ["effect"]
+summary = "Make the input services start automatically at boot or login."
+external = { kind = "system_program", programs = ["launchctl"], note = "On macOS services are enabled through the launchctl component of the operating system." }
+
+[[command]]
+name = "disable"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["service"]
+output = ["effect"]
+summary = "Stop the input services from starting automatically."
+external = { kind = "system_program", programs = ["launchctl"], note = "On macOS services are disabled through the launchctl component of the operating system." }
+
+[[command]]
+name = "windows.cim"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["cim_object"]
+summary = "Query CIM instances through WMI on Windows."
+os = ["windows"]
+
+[[command.param]]
+name = "class"
+type = "text"
+position = 1
+required = true
+summary = "CIM class name, for example Win32_Process."
+
+[[command.param]]
+name = "where"
+type = "text"
+summary = "WQL condition on instance properties."
+
+[[command.param]]
+name = "namespace"
+type = "text"
+default = "\"root/cimv2\""
+summary = "CIM namespace."
+
+[[command.param]]
+name = "properties"
+type = "list<text>"
+summary = "Properties to return; all when omitted."

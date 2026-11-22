@@ -1,0 +1,42 @@
+[
+  {"t": "list", "v": []},
+  {"t": "list", "v": [{"t": "int", "v": 1}, {"t": "text", "v": "a"}, {"t": "null"}, {"t": "list", "v": [{"t": "bool", "v": true}]}]},
+  {"t": "map", "v": {}},
+  {
+    "t": "map",
+    "v": {
+      "zeta": {"t": "int", "v": 1},
+      "alpha": {"t": "size", "v": 2},
+      "key with.dot": {"t": "map", "v": {"inner": {"t": "duration", "v": 30000}}}
+    }
+  },
+  {
+    "t": "record",
+    "v": {
+      "kind": "match",
+      "fields": {
+        "path": {"t": "path", "v": "/home/user/project/src/main.rs"},
+        "no": {"t": "int", "v": 12},
+        "column": {"t": "int", "v": 4},
+        "start": {"t": "int", "v": 313},
+        "end": {"t": "int", "v": 317},
+        "text": {"t": "text", "v": "main"},
+        "line": {"t": "text", "v": "fn main() {"},
+        "etag": {"t": "text", "v": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"},
+        "groups": {"t": "list", "v": [{"t": "text", "v": "main"}, {"t": "null"}]}
+      }
+    }
+  },
+  {
+    "t": "record",
+    "v": {
+      "kind": "map",
+      "fields": {
+        "path": {"t": "path", "v": "/home/user/project/a.txt"},
+        "kib": {"t": "number", "v": 1.5},
+        "nested": {"t": "record", "v": {"kind": "map", "fields": {}}}
+      }
+    }
+  },
+  {"t": "record", "v": {"kind": "effect", "fields": {"status": {"t": "enum", "v": "ok"}, "kind": {"t": "text", "v": "remove"}}}}
+]

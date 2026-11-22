@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-request-1.schema.json",
+  "title": "nurt-request/1",
+  "description": "Request envelope of Danaco Nurt. Exactly one of program, ast, cursor and accept is given; variant applies only to program. The response to a request is described by $defs/response (nurt-response/1).",
+  "type": "object",
+  "required": ["nurt"],
+  "additionalProperties": false,
+  "properties": {
+    "nurt": { "type": "string", "pattern": "^1\\.[0-9]+$", "description": "Format version MAJOR.MINOR." },
+    "program": { "type": "string", "description": "Program text in any notation variant." },
+    "variant": { "enum": ["a", "b", "c"], "description": "Notation variant of program." },
+    "ast": {
+      "type": "object",
+      "required": ["nurt", "program"],
+      "description": "Surface syntax tree nurt-ast/1, equivalent to program."
+    },
+    "cursor": { "type": "string", "minLength": 1, "description": "Cursor of a further page of an earlier result." },
+    "accept": { "type": "string", "minLength": 1, "description": "Identifier of a candidate from an earlier E_AMBIGUOUS error." },
+    "options": { "$ref": "#/$defs/options" }
+  },
+  "oneOf": [
+    { "required": ["program"] },
+    { "required": ["ast"] },
+    { "required": ["cursor"] },
+    { "required": ["accept"] }
+  ],
+  "dependentRequired": { "variant": ["program"] },
+  "$defs": {
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Call options shared by every command; an absent option takes its value from the configuration or the built-in default.",
+      "properties": {
+        "preview": { "type": "boolean", "default": false, "description": "Only compute targets and effect; change nothing." },
+        "base": { "type": "string", "description": "Absolute directory against which relative paths are resolved." },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 5000, "default": 50, "description": "Records or changes per page." },
+        "fields": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Fields of the result to keep." },
+        "format": { "$ref": "#/$defs/format" },
+        "verbosity": { "enum": ["quiet", "normal", "detailed"], "default": "normal" },
+        "diff": { "enum": ["none", "stat", "unified"], "default": "unified" },
+        "diff_context": { "type": "integer", "minimum": 0, "default": 3 },
+        "max_chars": { "type": "integer", "minimum": 0, "default": 0, "description": "Largest number of characters of a single text field; 0 means no limit." },
+        "save_to": { "type": "string", "description": "Absolute path of a file that receives the full result instead of the response." },
+        "timeout": { "type": "string", "pattern": "^([0-9]+(ms|s|m|h|d))+$", "default": "120s", "description": "Time limit of the whole program." },
+        "session": { "type": "string", "minLength": 1, "description": "Session identifier recorded in the journal." },
+        "language": { "enum": ["en", "pl"], "default": "en", "description": "Language of messages and help." },
+        "script": { "type": "boolean", "default": false, "description": "Script mode: several pipelines, each its own operation." }
+      }
+    },
+    "format": {
+      "enum": ["text", "json", "markdown", "compact"],
+      "default": "text"
+    },
+    "rendered": {
+      "type": "object",
+      "required": ["format", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "format": { "enum": ["text", "markdown", "compact"] },
+        "text": { "type": "string" }
+      }
+    },
+    "response": {
+      "title": "nurt-response/1",
+      "description": "Response to a request: the effect report nurt-report/1 and, for text formats, the rendered text.",
+      "type": "object",
+      "required": ["nurt", "report"],
+      "additionalProperties": false,
+      "properties": {
+        "nurt": { "type": "string", "pattern": "^1\\.[0-9]+$" },
+        "report": {
+          "type": "object",
+          "required": ["nurt", "status", "kind"],
+          "description": "Effect report nurt-report/1."
+        },
+        "rendered": { "$ref": "#/$defs/rendered" }
+      }
+    }
+  }
+}

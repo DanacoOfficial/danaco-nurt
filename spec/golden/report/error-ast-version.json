@@ -1,0 +1,13 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "replace",
+  "error": {
+    "code": "E_AST_VERSION",
+    "message": "the syntax tree has version 1.4; this instance reads up to 1.2",
+    "found": "1.4",
+    "expected": "1.2",
+    "sample": ["unknown node type: match_case"],
+    "help": "syntax-tree"
+  }
+}

@@ -1,0 +1,156 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "documents"
+summary = "Structured documents by key and SQLite databases."
+
+[[command]]
+name = "set"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "item"]
+output = ["effect"]
+summary = "Set values at key paths of a JSON, YAML, TOML, XML, INI, CSV, properties, env or plist document, preserving its layout."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Document to change in the source form."
+
+[[command.param]]
+name = "key"
+type = "key"
+summary = "Key path to set, such as \"scripts.test\" or \"deps[+]\" to append to a list."
+
+[[command.param]]
+name = "value"
+type = "any"
+summary = "New value at the key path."
+
+[[command.param]]
+name = "values"
+type = "map<any>"
+summary = "Several key paths and their values, set in one transaction."
+
+[[command.param]]
+name = "create"
+type = "bool"
+default = "true"
+summary = "Create missing keys and intermediate tables."
+
+[[command.param]]
+name = "format"
+type = "enum(auto|json|jsonc|yaml|toml|xml|ini|csv|tsv|properties|env|plist)"
+default = "auto"
+values = ["auto", "json", "jsonc", "yaml", "toml", "xml", "ini", "csv", "tsv", "properties", "env", "plist"]
+summary = "Document format; auto selects it from the file extension."
+
+[[command.param]]
+name = "validate"
+type = "enum(off|warn|reject)"
+default = "reject"
+values = ["off", "warn", "reject"]
+summary = "Roll back the change when it introduces a new syntax error."
+
+[[command.param]]
+name = "if_match"
+type = "text"
+summary = "Expected etag of the document; a different document is not changed."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["path"]
+required = ["path"]
+summary = "Set keys of the document given by path."
+
+[[command.form]]
+name = "stage"
+input = ["item"]
+positional = ["value"]
+required = ["value"]
+params = ["value", "create", "validate", "if_match"]
+summary = "Set the value of each item read by a preceding read with key."
+
+[[command]]
+name = "query"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none", "content", "entry", "item", "response"]
+output = ["item"]
+summary = "Select and transform document values with a jq filter."
+
+[[command.param]]
+name = "expression"
+type = "text"
+position = 1
+required = true
+summary = "Filter in jq syntax."
+
+[[command.param]]
+name = "path"
+type = "path"
+summary = "Document to query in the source form."
+
+[[command.form]]
+name = "stage"
+input = ["content", "entry", "item", "response"]
+positional = ["expression"]
+required = ["expression"]
+params = ["expression"]
+summary = "Apply the filter to documents, values or response bodies from the input."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["expression"]
+required = ["expression", "path"]
+summary = "Apply the filter to the document given by path."
+
+[[command]]
+name = "sql"
+category = "change"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["row"]
+summary = "Run SQL statements on an SQLite database file, read-only unless write is set."
+reversibility_note = "With write set to true the database file is copied before the change; without space for the copy the change is irreversible."
+effects = [
+  { action = "write", effect = "local", reversibility = "reversible_if_preserved", note = "Applies when write is true." },
+]
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "SQLite database file."
+
+[[command.param]]
+name = "query"
+type = "text"
+position = 2
+required = true
+summary = "SQL statements."
+
+[[command.param]]
+name = "params"
+type = "list<any>"
+default = "[]"
+summary = "Values bound to the placeholders of the statements."
+
+[[command.param]]
+name = "write"
+type = "bool"
+default = "false"
+summary = "Allow statements that change the database."

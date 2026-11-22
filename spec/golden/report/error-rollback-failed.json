@@ -1,0 +1,21 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "write",
+  "op": 26,
+  "targets": { "count": 2, "files": 2, "listed": 1 },
+  "changes": [
+    { "path": "/srv/app/config/b.json", "action": "modify", "size_before": 410, "size_after": 432 }
+  ],
+  "error": {
+    "code": "E_ROLLBACK_FAILED",
+    "message": "the change could not be reverted completely",
+    "sample": ["/srv/app/config/b.json"],
+    "next_steps": ["restore /srv/app/config/b.json from version control"],
+    "cause": {
+      "code": "E_IN_USE",
+      "message": "the file is held open by another process",
+      "found": "/srv/app/config/b.json"
+    }
+  }
+}

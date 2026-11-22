@@ -1,0 +1,257 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "system"
+summary = "Processes, ports, disks, host, environment, system logs and suspension of processes."
+
+[[command]]
+name = "processes"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["process"]
+summary = "List running processes."
+
+[[command.param]]
+name = "name"
+type = "text | regex"
+position = 1
+summary = "Process name or pattern."
+
+[[command.param]]
+name = "user"
+type = "text"
+summary = "Only processes of this account."
+
+[[command.param]]
+name = "pid"
+type = "int"
+summary = "Only the process with this identifier."
+
+[[command.param]]
+name = "cwd"
+type = "bool"
+default = "false"
+summary = "Include the working directory of each process."
+
+[[command.param]]
+name = "tree"
+type = "bool"
+default = "false"
+summary = "Return processes as a tree with child lists and depth."
+
+[[command]]
+name = "ports"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["port"]
+summary = "List network ports and the processes that hold them."
+
+[[command.param]]
+name = "state"
+type = "enum(listen|all)"
+default = "listen"
+values = ["listen", "all"]
+summary = "Listening ports only, or all sockets."
+
+[[command.param]]
+name = "protocol"
+type = "enum(tcp|udp|any)"
+default = "any"
+values = ["tcp", "udp", "any"]
+summary = "Transport protocol."
+
+[[command]]
+name = "disks"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["disk"]
+summary = "List mounted volumes with capacity and free space."
+
+[[command.param]]
+name = "type"
+type = "enum(all|fixed|removable|network)"
+default = "all"
+values = ["all", "fixed", "removable", "network"]
+summary = "Kind of volume."
+
+[[command]]
+name = "host"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["host"]
+summary = "Describe the operating system, hardware, current account and home and temporary directories."
+external = { kind = "user_program", when = "versions", note = "Runs each located program once with --version." }
+
+[[command.param]]
+name = "programs"
+type = "list<text>"
+default = "[]"
+summary = "Program names to locate in PATH."
+
+[[command.param]]
+name = "versions"
+type = "bool"
+default = "false"
+summary = "Run each located program with --version to read its version."
+
+[[command]]
+name = "environment"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["environment_variable"]
+summary = "List environment variables with their values."
+
+[[command.param]]
+name = "name"
+type = "text | regex"
+position = 1
+summary = "Variable name or pattern."
+
+[[command.param]]
+name = "scope"
+type = "enum(process|user|machine)"
+default = "process"
+values = ["process", "user", "machine"]
+summary = "Variables of this process, or persistent user or machine variables on Windows."
+
+[[command]]
+name = "open_files"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["process"]
+summary = "List the processes that hold a file or directory open."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "File or directory."
+
+[[command]]
+name = "accounts"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["account"]
+summary = "List user accounts and groups."
+
+[[command.param]]
+name = "kind"
+type = "enum(user|group|all)"
+default = "all"
+values = ["user", "group", "all"]
+summary = "Users, groups or both."
+
+[[command.param]]
+name = "name"
+type = "text"
+summary = "Only the account or group with this name."
+
+[[command]]
+name = "sleep"
+category = "run"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["none"]
+summary = "Wait for a duration."
+waits = true
+
+[[command.param]]
+name = "duration"
+type = "duration"
+position = 1
+required = true
+summary = "Time to wait."
+
+[[command]]
+name = "suspend"
+category = "run"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["job", "process"]
+output = ["effect"]
+summary = "Suspend the input jobs or processes until they are resumed."
+
+[[command]]
+name = "resume"
+category = "run"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["job", "process"]
+output = ["effect"]
+summary = "Resume suspended jobs or processes."
+
+[[command]]
+name = "logs"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["log_event"]
+summary = "Read events from the system log: systemd journal, Windows Event Log or macOS unified log."
+
+[[command.param]]
+name = "source"
+type = "text"
+summary = "Event source: identifier, provider or subsystem."
+
+[[command.param]]
+name = "unit"
+type = "text"
+summary = "Service unit, event channel or category."
+
+[[command.param]]
+name = "level"
+type = "enum(critical|error|warning|info|debug)"
+default = "info"
+values = ["critical", "error", "warning", "info", "debug"]
+summary = "Lowest level of events to return."
+
+[[command.param]]
+name = "since"
+type = "instant"
+summary = "Only events at or after this time."
+
+[[command.param]]
+name = "until"
+type = "instant"
+summary = "Only events before this time."
+
+[[command.param]]
+name = "message"
+type = "regex"
+summary = "Only events whose message matches this pattern."
+
+[[command.param]]
+name = "limit"
+type = "int"
+default = "100"
+summary = "Maximum number of events, newest first."

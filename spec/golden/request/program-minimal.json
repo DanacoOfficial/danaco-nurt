@@ -1,0 +1,4 @@
+{
+  "nurt": "1.0",
+  "program": "find \"/srv/app/src\" glob: \"**/*.go\""
+}

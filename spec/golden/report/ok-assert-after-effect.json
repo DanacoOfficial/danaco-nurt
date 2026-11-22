@@ -1,0 +1,41 @@
+{
+  "nurt": "1.0",
+  "status": "ok",
+  "kind": "run",
+  "op": 23,
+  "exec": {
+    "kind": "exec",
+    "fields": {
+      "command": { "t": "list", "v": [{ "t": "text", "v": "make" }, { "t": "text", "v": "test" }] },
+      "program": { "t": "path", "v": "/usr/bin/make" },
+      "cwd": { "t": "path", "v": "/srv/app" },
+      "pid": { "t": "int", "v": 4200 },
+      "exit_code": { "t": "int", "v": 2 },
+      "timed_out": { "t": "bool", "v": false },
+      "stalled": { "t": "bool", "v": false },
+      "started": { "t": "instant", "v": "2026-11-21T11:02:00Z" },
+      "elapsed": { "t": "duration", "v": 8100 },
+      "stdout": { "t": "text", "v": "" },
+      "stderr": { "t": "text", "v": "make: *** [test] Error 2\n" },
+      "stdout_bytes": { "t": "int", "v": 0 },
+      "stderr_bytes": { "t": "int", "v": 25 },
+      "stdout_lines": { "t": "int", "v": 0 },
+      "stderr_lines": { "t": "int", "v": 1 },
+      "decoded_as": { "t": "text", "v": "utf-8" },
+      "tracking": { "t": "enum", "v": "none" },
+      "watch": { "t": "list", "v": [] }
+    }
+  },
+  "notable": [
+    { "code": "exit_nonzero", "severity": "notice", "count": 2 }
+  ],
+  "error": {
+    "code": "E_ASSERT",
+    "message": "assert exit_code: 0 failed after the program ran; its effect remains",
+    "stage": "5a",
+    "at": { "line": 1, "column": 22, "length": 19 },
+    "expected": 0,
+    "actual": 2,
+    "effect_applied": true
+  }
+}

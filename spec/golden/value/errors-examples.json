@@ -1,0 +1,10 @@
+[
+  {"code": "E_UNKNOWN_COMMAND", "message": "unknown command `remvoe`", "stage": "1", "at": {"line": 1, "column": 1, "length": 6}, "found": "remvoe", "fix": ["remove \"/home/user/project/build/old.log\""], "help": "commands", "expected": ["remove", "rename", "read"]},
+  {"code": "E_ASSERT", "message": "expected 12 paths, found 14; nothing changed", "stage": "3", "expected": 12, "actual": {"files": 14, "matches": 41}, "sample": ["/home/user/project/src/a.go", "/home/user/project/src/b.go"]},
+  {"code": "E_ASSERT", "message": "exit code 1, expected 0; the effect of the run stays", "stage": "5a", "expected": 0, "actual": 1, "effect_applied": true},
+  {"code": "E_AMBIGUOUS", "message": "the correction would change the target of a removal", "stage": "0", "at": {"line": 1, "column": 8}, "candidates": [{"rank": 1, "ref": "corr-1", "program": "remove \"/home/user/project/old.log\"", "why": "existing path with the nearest spelling"}, {"rank": 2, "program": "remove \"/home/user/project/old.txt\""}]},
+  {"code": "E_ONE_EFFECT", "message": "a program has at most one changing or running stage", "stage": "1", "next_steps": ["remove \"/home/user/project/build\"", "run [\"make\"] cwd: \"/home/user/project\""]},
+  {"code": "E_JOURNAL_PARTIAL", "message": "operation 22 is partial; 2 of 120 items were released for space", "stage": "4", "problem": "whole_entry_requested", "next_steps": ["undo 22 on_conflict: partial"], "details": {"op": 22, "released": ["/home/user/project/logs/a.log", "/home/user/project/logs/b.log"]}},
+  {"code": "E_STALE", "message": "the file changed after it was read; the whole operation was rolled back", "stage": "5", "location": {"path": "/home/user/project/src/a.go"}, "expected": "sha256:1a2b3c4d", "actual": "sha256:9f8e7d6c", "cause": {"code": "E_IN_USE", "message": "the file is in use", "details": {"holders": [{"pid": 4132, "name": "editor"}]}}},
+  {"code": "E_DOC_PARSE", "message": "expected a value after the colon", "stage": "2", "location": {"path": "/home/user/project/package.json", "line": 3, "column": 14, "end_line": 3, "end_column": 15, "byte": 41}, "help": "documents"}
+]

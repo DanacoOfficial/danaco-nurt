@@ -1,0 +1,532 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CatalogFile",
+  "description": "One catalog file (`catalog/<group>.toml`): a group and its commands.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "description": "Format identifier, always `nurt-catalog/1`.",
+      "type": "string"
+    },
+    "group": {
+      "description": "Group name: `core` or the name of an optional group.",
+      "type": "string"
+    },
+    "summary": {
+      "description": "One-sentence description of the group.",
+      "type": "string"
+    },
+    "command": {
+      "description": "Commands of the group.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StageSpec"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "group",
+    "summary"
+  ],
+  "$defs": {
+    "StageSpec": {
+      "description": "Specification of one command.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Full command name (`replace`, `git.status`).",
+          "type": "string"
+        },
+        "group": {
+          "description": "Group of the command; empty in catalog files, where the group is\ngiven once per file.",
+          "type": "string"
+        },
+        "category": {
+          "description": "Category.",
+          "$ref": "#/$defs/Category"
+        },
+        "reversibility": {
+          "description": "Reversibility of the default action.",
+          "$ref": "#/$defs/Reversibility"
+        },
+        "effect": {
+          "description": "Effect of the default action.",
+          "$ref": "#/$defs/EffectKind"
+        },
+        "implementation": {
+          "description": "Implementation marker.",
+          "$ref": "#/$defs/Implementation"
+        },
+        "input": {
+          "description": "Accepted input kinds.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IoSpec"
+          }
+        },
+        "output": {
+          "description": "Produced output kinds.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IoSpec"
+          }
+        },
+        "summary": {
+          "description": "One-sentence description.",
+          "type": "string"
+        },
+        "reversibility_note": {
+          "description": "Conditions of reversibility.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "effects": {
+          "description": "Actions whose effect differs from the command default.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ActionEffect"
+          }
+        },
+        "waits": {
+          "description": "The command always blocks the call by waiting (`sleep`).",
+          "type": "boolean"
+        },
+        "os": {
+          "description": "Operating systems the command is limited to; empty means all.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Os"
+          }
+        },
+        "external": {
+          "description": "Use of an external program or system component beyond the\nimplementation marker.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExternalUse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fallback": {
+          "description": "Implementation used when the primary one is unavailable (syntax\nanalysis when no language server is installed).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Implementation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "required_groups": {
+          "description": "Exclusive groups of which exactly one parameter must be given in the\nprimary form.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "param": {
+          "description": "Parameters.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ParamSpec"
+          }
+        },
+        "form": {
+          "description": "Input-dependent forms; empty when the command has a single form.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FormSpec"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "category",
+        "reversibility",
+        "effect",
+        "implementation",
+        "input",
+        "output",
+        "summary"
+      ]
+    },
+    "Category": {
+      "description": "Category of a command in the catalog.",
+      "oneOf": [
+        {
+          "description": "Starts a pipeline by producing records.",
+          "type": "string",
+          "const": "source"
+        },
+        {
+          "description": "Transforms a record stream.",
+          "type": "string",
+          "const": "transform"
+        },
+        {
+          "description": "Checks a record stream or an effect.",
+          "type": "string",
+          "const": "check"
+        },
+        {
+          "description": "Changes files, content or other local state.",
+          "type": "string",
+          "const": "change"
+        },
+        {
+          "description": "Runs a program.",
+          "type": "string",
+          "const": "run"
+        },
+        {
+          "description": "Inspects or administers the operating system.",
+          "type": "string",
+          "const": "system"
+        },
+        {
+          "description": "Inspects or manages the operation journal.",
+          "type": "string",
+          "const": "journal"
+        },
+        {
+          "description": "Provides help and descriptions.",
+          "type": "string",
+          "const": "help"
+        }
+      ]
+    },
+    "Reversibility": {
+      "description": "Reversibility of a command.",
+      "oneOf": [
+        {
+          "description": "The command only reads; there is nothing to reverse.",
+          "type": "string",
+          "const": "read"
+        },
+        {
+          "description": "The command is always reversible from the journal.",
+          "type": "string",
+          "const": "reversible"
+        },
+        {
+          "description": "The command is reversible when the previous content was preserved;\notherwise the report marks it as irreversible.",
+          "type": "string",
+          "const": "reversible_if_preserved"
+        },
+        {
+          "description": "The command is irreversible by nature.",
+          "type": "string",
+          "const": "irreversible"
+        }
+      ]
+    },
+    "EffectKind": {
+      "description": "Kind of effect a stage has on the world, recorded in the bound tree.",
+      "oneOf": [
+        {
+          "description": "Reads state only; no effect outside the process.",
+          "type": "string",
+          "const": "read"
+        },
+        {
+          "description": "Changes local files or content; recorded in the journal and reversible.",
+          "type": "string",
+          "const": "local"
+        },
+        {
+          "description": "Has an effect outside the local file system (network, services, remote\nsystems); not reversible by the journal.",
+          "type": "string",
+          "const": "external"
+        },
+        {
+          "description": "Runs a user program whose effects are detected and classified after it\nfinishes.",
+          "type": "string",
+          "const": "process"
+        }
+      ]
+    },
+    "Implementation": {
+      "description": "How a command is implemented with respect to external programs.",
+      "oneOf": [
+        {
+          "description": "Fully built into the executable.",
+          "type": "string",
+          "const": "builtin"
+        },
+        {
+          "description": "Runs a program supplied by the user.",
+          "type": "string",
+          "const": "user_program"
+        },
+        {
+          "description": "Acts as a client of an external language server.",
+          "type": "string",
+          "const": "language_server"
+        },
+        {
+          "description": "Wraps the package manager of the operating system.",
+          "type": "string",
+          "const": "package_manager"
+        },
+        {
+          "description": "Uses a component of the operating system that has no public\nprogramming interface; explicitly marked in the catalog.",
+          "type": "string",
+          "const": "system_program"
+        }
+      ]
+    },
+    "IoSpec": {
+      "description": "Kind of stage input or output: none, any, same (output only), a scalar type keyword, or a record kind.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "ActionEffect": {
+      "description": "Effect of one action of a command that differs from the command default.",
+      "type": "object",
+      "properties": {
+        "action": {
+          "description": "Identifier of the action: a value of the `action` parameter, a value of\nanother enumeration parameter (`method: post`), the name of a parameter\nwhose use changes the effect (`save`), or the input record kind for\ncommands whose effect depends on the kind of input (`job`); `note`\nstates the condition when it is not obvious.",
+          "type": "string"
+        },
+        "effect": {
+          "description": "Effect of the action.",
+          "$ref": "#/$defs/EffectKind"
+        },
+        "reversibility": {
+          "description": "Reversibility of the action.",
+          "$ref": "#/$defs/Reversibility"
+        },
+        "note": {
+          "description": "Conditions of reversibility or other remarks.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "effect",
+        "reversibility"
+      ]
+    },
+    "Os": {
+      "description": "Operating system family a command is limited to.",
+      "oneOf": [
+        {
+          "description": "Linux.",
+          "type": "string",
+          "const": "linux"
+        },
+        {
+          "description": "Apple macOS.",
+          "type": "string",
+          "const": "macos"
+        },
+        {
+          "description": "Windows.",
+          "type": "string",
+          "const": "windows"
+        }
+      ]
+    },
+    "ExternalUse": {
+      "description": "Use of a program or a system component outside the executable.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "Kind of the external use.",
+          "$ref": "#/$defs/Implementation"
+        },
+        "programs": {
+          "description": "Names of the programs used (for example `launchctl`, `apt`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "when": {
+          "description": "Parameter whose use triggers the external use; absent when the use is\nunconditional.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "note": {
+          "description": "Remark shown in the description and in the report.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "ParamSpec": {
+      "description": "Specification of one parameter of a command.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Parameter name (identifier).",
+          "type": "string"
+        },
+        "type": {
+          "description": "Type expression.",
+          "$ref": "#/$defs/ParamType"
+        },
+        "position": {
+          "description": "Position among the positional parameters of the primary form,\ncounted from 1; absent for named-only parameters.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "required": {
+          "description": "The parameter is required in the primary form.",
+          "type": "boolean"
+        },
+        "repeated": {
+          "description": "The positional parameter collects several arguments into a list.",
+          "type": "boolean"
+        },
+        "per_record": {
+          "description": "The value may be an expression evaluated on each input record.",
+          "type": "boolean"
+        },
+        "default": {
+          "description": "Default value as a literal of the language; absent means no value.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DefaultValue"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unbounded_default": {
+          "description": "The default is \"no limit\".",
+          "type": "boolean"
+        },
+        "default_note": {
+          "description": "Description of a default that is computed rather than literal (for\nexample \"the latest operation\").",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "values": {
+          "description": "Enumeration values of the type, repeated for readability.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "description": "One-sentence description.",
+          "type": "string"
+        },
+        "exclusive_group": {
+          "description": "Name of a group of mutually exclusive parameters.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "waits": {
+          "description": "A value of this parameter above the waiting threshold makes the call\nblock; such stages are marked `waits` in the bound tree.",
+          "type": "boolean"
+        },
+        "secret": {
+          "description": "The value is confidential (credentials in an address or a header); it\nis masked in the journal, the report and the printed bound tree.",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type",
+        "summary"
+      ]
+    },
+    "ParamType": {
+      "description": "Type expression: scalars (text, int, number, bool, path, glob, regex, size, duration, percent, instant, key, bytes, range, expression, pipeline, field, named_expression, any), enum(a|b), list<T>, map<T>, stream<R> and alternatives A | B.",
+      "type": "string",
+      "minLength": 1
+    },
+    "DefaultValue": {
+      "description": "Default value of a parameter, written as a literal of the language in\nvariant A (`1`, `true`, `\"**\"`, `asc`, `120s`, `10mb`, `[]`).",
+      "type": "string"
+    },
+    "FormSpec": {
+      "description": "Input-dependent form of a polymorphic command.\n\nA command with forms binds by the kind of its input: the form whose\n`input` contains the input kind applies. The first form is the primary\nform; the `position` and `required` attributes of the parameters describe\nit.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the form (`source`, `stage`, …).",
+          "type": "string"
+        },
+        "input": {
+          "description": "Input kinds of the form.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IoSpec"
+          }
+        },
+        "output": {
+          "description": "Output kinds of the form; empty means the output of the command.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IoSpec"
+          }
+        },
+        "positional": {
+          "description": "Positional parameters of the form, in order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required": {
+          "description": "Required parameters of the form; a name of an exclusive group means\n\"exactly one parameter of the group\".",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "params": {
+          "description": "Parameters accepted by the form; empty means every parameter.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "description": "One-sentence description of the form.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "input",
+        "summary"
+      ]
+    }
+  },
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-catalog-1.schema.json"
+}

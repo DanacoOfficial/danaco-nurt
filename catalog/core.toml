@@ -1,0 +1,2080 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "core"
+summary = "Core commands for files, text, records, programs, the journal and help."
+
+# Sources of files and content.
+
+[[command]]
+name = "list"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["entry"]
+summary = "List the entries of a directory."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Directory to list."
+
+[[command.param]]
+name = "depth"
+type = "int"
+default = "1"
+summary = "Number of directory levels to list."
+
+[[command.param]]
+name = "type"
+type = "enum(file|directory|link|any)"
+default = "any"
+values = ["file", "directory", "link", "any"]
+summary = "Kind of entries to list."
+
+[[command.param]]
+name = "hidden"
+type = "bool"
+default = "true"
+summary = "Include hidden entries."
+
+[[command.param]]
+name = "sort"
+type = "enum(name|modified|size|type)"
+default = "name"
+values = ["name", "modified", "size", "type"]
+summary = "Sort key of the entries."
+
+[[command.param]]
+name = "order"
+type = "enum(asc|desc)"
+default = "asc"
+values = ["asc", "desc"]
+summary = "Sort order."
+
+[[command.param]]
+name = "view"
+type = "enum(flat|tree|sizes)"
+default = "flat"
+values = ["flat", "tree", "sizes"]
+summary = "Flat list, tree, or tree with directory size totals."
+
+[[command]]
+name = "find"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["entry"]
+summary = "Find entries under a directory by name pattern and attributes."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Directory to search."
+
+[[command.param]]
+name = "glob"
+type = "glob | list<glob>"
+position = 2
+default = '"**"'
+summary = "Name patterns relative to the directory."
+
+[[command.param]]
+name = "type"
+type = "enum(file|directory|link|any)"
+default = "file"
+values = ["file", "directory", "link", "any"]
+summary = "Kind of entries to find."
+
+[[command.param]]
+name = "depth"
+type = "int"
+unbounded_default = true
+summary = "Maximum number of directory levels to descend."
+
+[[command.param]]
+name = "hidden"
+type = "bool"
+default = "true"
+summary = "Include hidden entries."
+
+[[command.param]]
+name = "follow_links"
+type = "bool"
+default = "false"
+summary = "Descend into linked directories."
+
+[[command.param]]
+name = "gitignore"
+type = "bool"
+default = "false"
+summary = "Apply the rules of .gitignore files."
+
+[[command.param]]
+name = "exclude"
+type = "list<glob>"
+default = "[]"
+summary = "Patterns to exclude, in gitignore syntax; a leading ! restores a match."
+
+[[command.param]]
+name = "exclude_preset"
+type = "list<enum(vcs|deps|build|cache)>"
+default = "[]"
+values = ["vcs", "deps", "build", "cache"]
+summary = "Predefined exclusions: version control, dependencies, build output, caches."
+
+[[command.param]]
+name = "file_type"
+type = "list<text>"
+default = "[]"
+summary = "File types by extension, such as go or ts."
+
+[[command.param]]
+name = "fuzzy"
+type = "text"
+summary = "Rank entries by similarity of their name to this text."
+
+[[command.param]]
+name = "case_sensitive"
+type = "bool"
+default = "true"
+summary = "Match name patterns with case sensitivity."
+
+[[command.param]]
+name = "sort"
+type = "enum(path|modified|size|rank)"
+default = "path"
+values = ["path", "modified", "size", "rank"]
+summary = "Sort key; rank orders by fuzzy similarity."
+
+[[command.param]]
+name = "order"
+type = "enum(asc|desc)"
+default = "asc"
+values = ["asc", "desc"]
+summary = "Sort order."
+
+[[command.param]]
+name = "view"
+type = "enum(flat|tree|sizes)"
+default = "flat"
+values = ["flat", "tree", "sizes"]
+summary = "Flat list, tree, or tree with directory size totals."
+
+[[command]]
+name = "info"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["entry"]
+summary = "Describe paths, including paths that do not exist."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+required = true
+repeated = true
+summary = "Paths to describe; a missing path gives exists: false."
+
+[[command.param]]
+name = "hash"
+type = "enum(none|sha256|sha512|sha1|md5|blake3|crc32)"
+default = "none"
+values = ["none", "sha256", "sha512", "sha1", "md5", "blake3", "crc32"]
+summary = "Hash algorithm of the content."
+
+[[command.param]]
+name = "details"
+type = "list<enum(text|exif|pdf|media|git|symbols)>"
+default = "[]"
+values = ["text", "exif", "pdf", "media", "git", "symbols"]
+summary = "Additional groups of metadata."
+
+[[command.param]]
+name = "known"
+type = "map<text>"
+summary = "Map from path to etag; unchanged paths are reported without details."
+
+[[command]]
+name = "read"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none", "entry"]
+output = ["content", "item"]
+summary = "Read text, images, PDF pages, notebooks or document keys."
+required_groups = ["target"]
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+repeated = true
+exclusive_group = "target"
+summary = "Files to read."
+
+[[command.param]]
+name = "lines"
+type = "range | list<range>"
+summary = "Line ranges to read."
+
+[[command.param]]
+name = "last"
+type = "int"
+summary = "Number of last lines to read."
+
+[[command.param]]
+name = "around"
+type = "text | regex"
+summary = "Read the lines around matches of this pattern."
+
+[[command.param]]
+name = "context"
+type = "int"
+default = "3"
+summary = "Lines of context around matches of around."
+
+[[command.param]]
+name = "symbol"
+type = "text"
+summary = "Read the definition of this code symbol."
+
+[[command.param]]
+name = "section"
+type = "text"
+summary = "Read the Markdown section with this heading."
+
+[[command.param]]
+name = "cell"
+type = "int | text"
+summary = "Notebook cell by index or identifier."
+
+[[command.param]]
+name = "targets"
+type = "list<map<any>>"
+exclusive_group = "target"
+summary = "Selectors per target: path, lines, around, symbol, key, section, cell."
+
+[[command.param]]
+name = "key"
+type = "key"
+summary = "Key path in a structured document; the result is item records."
+
+[[command.param]]
+name = "depth"
+type = "int"
+summary = "Depth of nested values read at key."
+
+[[command.param]]
+name = "view"
+type = "enum(full|outline|outline_first|symbols|header|hex)"
+default = "full"
+values = ["full", "outline", "outline_first", "symbols", "header", "hex"]
+summary = "Full content, outline, symbols, header or hexadecimal dump."
+
+[[command.param]]
+name = "pages"
+type = "range | list<range>"
+summary = "PDF pages to read."
+
+[[command.param]]
+name = "mode"
+type = "enum(text|layout|images)"
+default = "text"
+values = ["text", "layout", "images"]
+summary = "Extraction mode of PDF pages."
+
+[[command.param]]
+name = "encoding"
+type = "text"
+default = '"auto"'
+summary = "Text encoding; auto detects it."
+
+[[command.param]]
+name = "decompress"
+type = "enum(auto|none)"
+default = "auto"
+values = ["auto", "none"]
+summary = "Read compressed files after decompressing them on the fly."
+
+[[command.param]]
+name = "unchanged_since"
+type = "text"
+summary = "Etag; an unchanged file is returned without text."
+
+[[command.param]]
+name = "since"
+type = "text"
+summary = "Etag of an earlier read; the result holds the differences since then."
+
+[[command.param]]
+name = "known"
+type = "map<text>"
+summary = "Map from path to etag; unchanged files are skipped."
+
+[[command.param]]
+name = "line_numbers"
+type = "bool"
+default = "false"
+summary = "Prefix lines with their numbers."
+
+[[command.param]]
+name = "max_line"
+type = "int"
+unbounded_default = true
+summary = "Maximum length of a returned line in characters; longer lines are cut and marked."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["path"]
+required = ["target"]
+summary = "Read the given files or targets."
+
+[[command.form]]
+name = "stage"
+input = ["entry"]
+params = ["lines", "last", "around", "context", "symbol", "section", "cell", "key", "depth", "view", "pages", "mode", "encoding", "decompress", "unchanged_since", "since", "known", "line_numbers", "max_line"]
+summary = "Read the files of the input entries."
+
+[[command]]
+name = "lines"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none", "entry", "content"]
+output = ["line"]
+summary = "Produce the lines of a file or of the input content."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "File to read in the source form."
+
+[[command.param]]
+name = "range"
+type = "range"
+position = 2
+default = "all"
+summary = "Line range."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["path", "range"]
+required = ["path"]
+summary = "Produce lines of the given file."
+
+[[command.form]]
+name = "stage"
+input = ["entry", "content"]
+positional = ["range"]
+params = ["range"]
+summary = "Produce lines of the input files or content."
+
+[[command]]
+name = "search"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none", "entry", "content", "line"]
+output = ["match", "entry"]
+summary = "Search file content for text, regular expressions or syntax patterns."
+
+[[command.param]]
+name = "pattern"
+type = "text | regex | list<text | regex>"
+position = 1
+required = true
+summary = "Pattern; with a list, counts are given per pattern."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 2
+required = true
+repeated = true
+summary = "Files or directories to search in the source form."
+
+[[command.param]]
+name = "glob"
+type = "glob | list<glob>"
+default = '"**"'
+summary = "Name patterns of the files to search."
+
+[[command.param]]
+name = "mode"
+type = "enum(auto|literal|regex|syntax)"
+default = "auto"
+values = ["auto", "literal", "regex", "syntax"]
+summary = "Pattern mode; auto treats text as literal and /…/ as a regular expression."
+
+[[command.param]]
+name = "case_sensitive"
+type = "bool"
+default = "true"
+summary = "Match with case sensitivity."
+
+[[command.param]]
+name = "whole_word"
+type = "bool"
+default = "false"
+summary = "Match whole words only."
+
+[[command.param]]
+name = "multiline"
+type = "bool"
+default = "false"
+summary = "Allow matches across lines."
+
+[[command.param]]
+name = "invert"
+type = "bool"
+default = "false"
+summary = "Produce the lines that do not match."
+
+[[command.param]]
+name = "only_matching"
+type = "bool"
+default = "false"
+summary = "Give only the matched text instead of the whole line."
+
+[[command.param]]
+name = "trim"
+type = "bool"
+default = "false"
+summary = "Trim leading and trailing whitespace of lines."
+
+[[command.param]]
+name = "dedupe"
+type = "bool"
+default = "false"
+summary = "Drop repeated identical lines."
+
+[[command.param]]
+name = "scope"
+type = "enum(any|code|comments|strings)"
+default = "any"
+values = ["any", "code", "comments", "strings"]
+summary = "Part of source code in which matches count."
+
+[[command.param]]
+name = "enclosing"
+type = "bool"
+default = "false"
+summary = "Add the enclosing code element of each match."
+
+[[command.param]]
+name = "max_line"
+type = "int"
+default = "500"
+summary = "Maximum length of a reported line in characters."
+
+[[command.param]]
+name = "exclude"
+type = "list<glob>"
+default = "[]"
+summary = "Patterns to exclude, in gitignore syntax."
+
+[[command.param]]
+name = "exclude_preset"
+type = "list<enum(vcs|deps|build|cache)>"
+default = "[]"
+values = ["vcs", "deps", "build", "cache"]
+summary = "Predefined exclusions: version control, dependencies, build output, caches."
+
+[[command.param]]
+name = "context"
+type = "int"
+default = "0"
+summary = "Lines of context before and after each match."
+
+[[command.param]]
+name = "before"
+type = "int"
+summary = "Lines of context before each match."
+
+[[command.param]]
+name = "after"
+type = "int"
+summary = "Lines of context after each match."
+
+[[command.param]]
+name = "output"
+type = "enum(matches|files|counts|unmatched)"
+default = "matches"
+values = ["matches", "files", "counts", "unmatched"]
+summary = "Matches, matching files, counts per file, or files without matches."
+
+[[command.param]]
+name = "max_per_file"
+type = "int"
+summary = "Maximum number of matches per file."
+
+[[command.param]]
+name = "binary"
+type = "enum(skip|text)"
+default = "skip"
+values = ["skip", "text"]
+summary = "Skip binary files or search them as text."
+
+[[command.param]]
+name = "whitespace"
+type = "enum(exact|trailing|indent|normalize)"
+default = "exact"
+values = ["exact", "trailing", "indent", "normalize"]
+summary = "Tolerance of whitespace differences for literal patterns."
+
+[[command.param]]
+name = "hidden"
+type = "bool"
+default = "true"
+summary = "Include hidden files."
+
+[[command.param]]
+name = "gitignore"
+type = "bool"
+default = "false"
+summary = "Apply the rules of .gitignore files."
+
+[[command.param]]
+name = "language"
+type = "text"
+summary = "Programming language of syntax patterns."
+
+[[command.param]]
+name = "file_type"
+type = "list<text>"
+default = "[]"
+summary = "File types by extension, such as go or ts; applies in every output mode."
+
+[[command.param]]
+name = "exclude_file_type"
+type = "list<text>"
+default = "[]"
+summary = "File types by extension to leave out."
+
+[[command.param]]
+name = "sort"
+type = "enum(path|modified|count|rank)"
+default = "path"
+values = ["path", "modified", "count", "rank"]
+summary = "Sort key of the results; rank orders by relevance."
+
+[[command.param]]
+name = "adaptive"
+type = "bool"
+default = "false"
+summary = "Fit the result to the limit: full matches for files with most matches, counts for the rest."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["pattern", "path"]
+required = ["pattern", "path"]
+summary = "Search the given files and directories."
+
+[[command.form]]
+name = "stage"
+input = ["entry", "content", "line"]
+positional = ["pattern"]
+required = ["pattern"]
+params = ["pattern", "glob", "mode", "case_sensitive", "whole_word", "multiline", "invert", "only_matching", "trim", "dedupe", "scope", "enclosing", "max_line", "exclude", "exclude_preset", "context", "before", "after", "output", "max_per_file", "binary", "whitespace", "hidden", "gitignore", "language", "file_type", "exclude_file_type", "sort", "adaptive"]
+summary = "Search the input files, content or lines."
+
+# Transformations and checks.
+
+[[command]]
+name = "filter"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["any"]
+output = ["same"]
+summary = "Keep the records that meet a condition."
+
+[[command.param]]
+name = "condition"
+type = "expression"
+position = 1
+required = true
+summary = "Condition evaluated on each record."
+
+[[command]]
+name = "select"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["any"]
+output = ["any"]
+summary = "Keep the given fields of each record and add computed fields."
+
+[[command.param]]
+name = "fields"
+type = "list<field | named_expression>"
+position = 1
+required = true
+repeated = true
+summary = "Fields to keep and name: expression pairs to compute."
+
+[[command]]
+name = "sort"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["any"]
+output = ["same"]
+summary = "Sort the records by fields."
+
+[[command.param]]
+name = "by"
+type = "list<field>"
+position = 1
+required = true
+repeated = true
+summary = "Fields to sort by, in order of priority."
+
+[[command.param]]
+name = "order"
+type = "enum(asc|desc)"
+default = "asc"
+values = ["asc", "desc"]
+summary = "Sort order."
+
+[[command]]
+name = "first"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["any"]
+output = ["same"]
+summary = "Keep the first records."
+
+[[command.param]]
+name = "count"
+type = "int"
+position = 1
+required = true
+summary = "Number of records to keep."
+
+[[command]]
+name = "last"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["any"]
+output = ["same"]
+summary = "Keep the last records."
+
+[[command.param]]
+name = "count"
+type = "int"
+position = 1
+required = true
+summary = "Number of records to keep."
+
+[[command]]
+name = "skip"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["any"]
+output = ["same"]
+summary = "Drop the first records."
+
+[[command.param]]
+name = "count"
+type = "int"
+position = 1
+required = true
+summary = "Number of records to drop."
+
+[[command]]
+name = "count"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["any"]
+output = ["int"]
+summary = "Count the records."
+
+[[command]]
+name = "assert"
+category = "check"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["any"]
+output = ["same"]
+summary = "Stop the program with E_ASSERT unless the records meet one condition."
+required_groups = ["condition"]
+
+[[command.param]]
+name = "count"
+type = "range"
+exclusive_group = "condition"
+summary = "Expected number of records."
+
+[[command.param]]
+name = "paths"
+type = "range"
+exclusive_group = "condition"
+summary = "Expected number of distinct paths."
+
+[[command.param]]
+name = "exit_code"
+type = "range"
+exclusive_group = "condition"
+summary = "Expected exit code of the programs run."
+
+[[command.param]]
+name = "all"
+type = "expression"
+exclusive_group = "condition"
+summary = "Condition that every record meets."
+
+[[command.param]]
+name = "any"
+type = "expression"
+exclusive_group = "condition"
+summary = "Condition that at least one record meets."
+
+[[command.param]]
+name = "empty"
+type = "bool"
+exclusive_group = "condition"
+summary = "Whether there are no records."
+
+[[command.param]]
+name = "contains"
+type = "text"
+exclusive_group = "condition"
+summary = "Text that the records contain."
+
+[[command.param]]
+name = "if_match"
+type = "text"
+exclusive_group = "condition"
+summary = "Expected etag of the input file."
+
+[[command]]
+name = "verify"
+category = "check"
+reversibility = "reversible"
+effect = "read"
+implementation = "builtin"
+input = ["effect"]
+output = ["effect"]
+summary = "Check a change with a pipeline and roll the change back when the check fails."
+reversibility_note = "A failed check rolls back the preceding change from the journal."
+
+[[command.param]]
+name = "check"
+type = "pipeline"
+position = 1
+required = true
+summary = "Pipeline that checks the result of the change."
+
+# Changes of files and content.
+
+[[command]]
+name = "write"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "any"]
+output = ["effect"]
+summary = "Write text, bytes or records to a file."
+required_groups = ["target"]
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+exclusive_group = "target"
+summary = "File to write."
+
+[[command.param]]
+name = "text"
+type = "text"
+position = 2
+exclusive_group = "content"
+summary = "Text to write."
+
+[[command.param]]
+name = "mode"
+type = "enum(create|overwrite|append|prepend)"
+required = true
+values = ["create", "overwrite", "append", "prepend"]
+summary = "Write mode; there is no default."
+
+[[command.param]]
+name = "from"
+type = "pipeline | stream<any> | path"
+exclusive_group = "content"
+summary = "Pipeline, named result or file whose content is written."
+
+[[command.param]]
+name = "encoding"
+type = "text"
+default = '"auto"'
+summary = "Text encoding; auto keeps the encoding of an existing file."
+
+[[command.param]]
+name = "line_ending"
+type = "enum(lf|crlf|cr|keep)"
+default = "keep"
+values = ["lf", "crlf", "cr", "keep"]
+summary = "Line endings of the written text."
+
+[[command.param]]
+name = "bom"
+type = "bool"
+default_note = "as in the existing file"
+summary = "Write a byte order mark."
+
+[[command.param]]
+name = "parents"
+type = "bool"
+default = "true"
+summary = "Create missing parent directories."
+
+[[command.param]]
+name = "ensure_newline"
+type = "bool"
+default = "false"
+summary = "End the file with a line ending."
+
+[[command.param]]
+name = "format"
+type = "enum(auto|json|yaml|toml|csv|tsv|text)"
+default = "auto"
+values = ["auto", "json", "yaml", "toml", "csv", "tsv", "text"]
+summary = "Serialization of written records; auto follows the file extension."
+
+[[command.param]]
+name = "files"
+type = "list<map<any>>"
+exclusive_group = "target"
+summary = "Batch of files written in one transaction, each with path, text and optional mode."
+
+[[command.param]]
+name = "value_type"
+type = "enum(string|dword|qword|multi_string|expand_string|binary)"
+values = ["string", "dword", "qword", "multi_string", "expand_string", "binary"]
+summary = "Type of a registry value; only for registry: paths."
+
+[[command.param]]
+name = "file_mode"
+type = "text"
+summary = "Permissions of a new file, such as \"0644\"."
+
+[[command.param]]
+name = "size"
+type = "size"
+exclusive_group = "content"
+summary = "Truncate or extend the file to this size."
+
+[[command.param]]
+name = "data"
+type = "bytes"
+exclusive_group = "content"
+summary = "Bytes to write."
+
+[[command.param]]
+name = "offset"
+type = "int"
+summary = "Byte offset at which data is written."
+
+[[command.param]]
+name = "validate"
+type = "enum(off|warn|reject)"
+default = "reject"
+values = ["off", "warn", "reject"]
+summary = "Roll back a write that adds a new syntax error to a known format."
+
+[[command.param]]
+name = "if_match"
+type = "text | map<text>"
+summary = "Expected etag of the file, or a map from path to etag for files."
+
+[[command]]
+name = "replace"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "match", "node", "item", "line", "content"]
+output = ["effect"]
+summary = "Replace text in files or in the found text."
+
+[[command.param]]
+name = "pattern"
+type = "text | regex"
+position = 1
+required = true
+summary = "Text or regular expression to replace."
+
+[[command.param]]
+name = "with"
+type = "text"
+position = 2
+required = true
+summary = "Replacement; $1, ${name} and $$ refer to groups unless template is false."
+
+[[command.param]]
+name = "in"
+type = "list<path>"
+required = true
+summary = "Files or directories in the source form."
+
+[[command.param]]
+name = "glob"
+type = "glob | list<glob>"
+default = '"**"'
+summary = "Name patterns of the files in directories."
+
+[[command.param]]
+name = "mode"
+type = "enum(auto|literal|regex|syntax)"
+default = "auto"
+values = ["auto", "literal", "regex", "syntax"]
+summary = "Pattern mode; auto treats text as literal and /…/ as a regular expression."
+
+[[command.param]]
+name = "occurrence"
+type = "int"
+default_note = "every occurrence"
+summary = "Replace only this occurrence, counted from 1."
+
+[[command.param]]
+name = "case_sensitive"
+type = "bool"
+default = "true"
+summary = "Match with case sensitivity."
+
+[[command.param]]
+name = "whole_word"
+type = "bool"
+default = "false"
+summary = "Match whole words only."
+
+[[command.param]]
+name = "multiline"
+type = "bool"
+default = "false"
+summary = "Allow matches across lines."
+
+[[command.param]]
+name = "whitespace"
+type = "enum(exact|trailing|indent|normalize)"
+default = "normalize"
+values = ["exact", "trailing", "indent", "normalize"]
+summary = "Tolerance of whitespace differences; normalize also adapts the replacement to the file style."
+
+[[command.param]]
+name = "scope"
+type = "enum(any|code|comments|strings)"
+default = "any"
+values = ["any", "code", "comments", "strings"]
+summary = "Part of source code in which matches are replaced."
+
+[[command.param]]
+name = "check_references"
+type = "bool"
+default = "false"
+summary = "Report references to the replaced text left after the change."
+
+[[command.param]]
+name = "template"
+type = "bool"
+default = "true"
+summary = "Treat the replacement as a template with group references."
+
+[[command.param]]
+name = "on_missing"
+type = "enum(skip|error)"
+default = "skip"
+values = ["skip", "error"]
+summary = "Behaviour when nothing matches."
+
+[[command.param]]
+name = "expect"
+type = "range"
+summary = "Expected number of replacements; otherwise nothing is changed."
+
+[[command.param]]
+name = "if_match"
+type = "text | map<text>"
+summary = "Expected etag of the file, or a map from path to etag for several files."
+
+[[command.param]]
+name = "validate"
+type = "enum(off|warn|reject)"
+default = "reject"
+values = ["off", "warn", "reject"]
+summary = "Roll back a change that adds a new syntax error to a known format."
+
+[[command.param]]
+name = "hidden"
+type = "bool"
+default = "true"
+summary = "Include hidden files."
+
+[[command.param]]
+name = "gitignore"
+type = "bool"
+default = "false"
+summary = "Apply the rules of .gitignore files."
+
+[[command.param]]
+name = "binary"
+type = "enum(skip|text)"
+default = "skip"
+values = ["skip", "text"]
+summary = "Skip binary files or treat them as text."
+
+[[command.param]]
+name = "file_type"
+type = "list<text>"
+default = "[]"
+summary = "File types by extension, such as go or ts."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["pattern", "with"]
+required = ["pattern", "with", "in"]
+summary = "Replace a pattern in the given files."
+
+[[command.form]]
+name = "matches"
+input = ["match", "node", "item"]
+positional = ["with"]
+required = ["with"]
+params = ["with", "occurrence", "template", "check_references", "on_missing", "expect", "if_match", "validate"]
+summary = "Replace the text of the input matches, syntax nodes or document items."
+
+[[command.form]]
+name = "lines"
+input = ["line", "content"]
+positional = ["pattern", "with"]
+required = ["pattern", "with"]
+params = ["pattern", "with", "mode", "occurrence", "case_sensitive", "whole_word", "multiline", "whitespace", "scope", "check_references", "template", "on_missing", "expect", "if_match", "validate"]
+summary = "Replace a pattern in the input lines or content."
+
+[[command]]
+name = "insert"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "line", "match", "node", "entry"]
+output = ["effect"]
+summary = "Insert text before or after lines, matches or nodes, or at the start or end of files."
+
+[[command.param]]
+name = "text"
+type = "text"
+position = 1
+required = true
+summary = "Text to insert."
+
+[[command.param]]
+name = "in"
+type = "path"
+required = true
+summary = "File in the source form."
+
+[[command.param]]
+name = "line"
+type = "int"
+summary = "Line number in the source form."
+
+[[command.param]]
+name = "position"
+type = "enum(before|after|start|end)"
+default = "after"
+values = ["before", "after", "start", "end"]
+summary = "Place of the text relative to the line, match or file."
+
+[[command.param]]
+name = "ensure_newline"
+type = "bool"
+default = "false"
+summary = "End the inserted text with a line ending."
+
+[[command.param]]
+name = "validate"
+type = "enum(off|warn|reject)"
+default = "reject"
+values = ["off", "warn", "reject"]
+summary = "Roll back a change that adds a new syntax error to a known format."
+
+[[command.param]]
+name = "if_match"
+type = "text"
+summary = "Expected etag of the file."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["text"]
+required = ["text", "in"]
+summary = "Insert text into the given file."
+
+[[command.form]]
+name = "stage"
+input = ["line", "match", "node", "entry"]
+positional = ["text"]
+required = ["text"]
+params = ["text", "position", "ensure_newline", "validate", "if_match"]
+summary = "Insert text at the input lines, matches, nodes or files."
+
+[[command]]
+name = "edit"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Apply a list of changes to one file, all or none."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "File to change."
+
+[[command.param]]
+name = "changes"
+type = "list<map<any>>"
+required = true
+summary = "Changes: replace and with, insert with line and position, or delete_lines."
+
+[[command.param]]
+name = "expect"
+type = "range"
+summary = "Expected number of replacements of each change."
+
+[[command.param]]
+name = "if_match"
+type = "text"
+summary = "Expected etag of the file."
+
+[[command.param]]
+name = "whitespace"
+type = "enum(exact|trailing|indent|normalize)"
+default = "normalize"
+values = ["exact", "trailing", "indent", "normalize"]
+summary = "Tolerance of whitespace differences."
+
+[[command.param]]
+name = "on_missing"
+type = "enum(skip|error)"
+default = "skip"
+values = ["skip", "error"]
+summary = "Behaviour when a change matches nothing."
+
+[[command.param]]
+name = "validate"
+type = "enum(off|warn|reject)"
+default = "reject"
+values = ["off", "warn", "reject"]
+summary = "Roll back changes that add a new syntax error to a known format."
+
+[[command]]
+name = "copy"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "entry"]
+output = ["effect"]
+summary = "Copy files and directories."
+required_groups = ["destination"]
+
+[[command.param]]
+name = "from"
+type = "list<path>"
+position = 1
+required = true
+repeated = true
+summary = "Files and directories to copy in the source form."
+
+[[command.param]]
+name = "to"
+type = "path"
+position = 2
+per_record = true
+exclusive_group = "destination"
+summary = "Target path; an existing directory receives the copy."
+
+[[command.param]]
+name = "into"
+type = "path"
+exclusive_group = "destination"
+summary = "Target directory, created when missing."
+
+[[command.param]]
+name = "on_conflict"
+type = "enum(overwrite|skip|error)"
+default = "overwrite"
+values = ["overwrite", "skip", "error"]
+summary = "Behaviour when the target file exists."
+
+[[command.param]]
+name = "preserve"
+type = "bool"
+default = "true"
+summary = "Keep times, permissions and attributes."
+
+[[command.param]]
+name = "clone"
+type = "enum(auto|always|never)"
+default = "auto"
+values = ["auto", "always", "never"]
+summary = "Use file system clones when available, always or never."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["from", "to"]
+required = ["from", "destination"]
+summary = "Copy the given paths."
+
+[[command.form]]
+name = "stage"
+input = ["entry"]
+positional = ["to"]
+required = ["destination"]
+params = ["to", "into", "on_conflict", "preserve", "clone"]
+summary = "Copy the input entries."
+
+[[command]]
+name = "move"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "entry"]
+output = ["effect"]
+summary = "Move files and directories."
+required_groups = ["destination"]
+
+[[command.param]]
+name = "from"
+type = "list<path>"
+position = 1
+required = true
+repeated = true
+summary = "Files and directories to move in the source form."
+
+[[command.param]]
+name = "to"
+type = "path"
+position = 2
+per_record = true
+exclusive_group = "destination"
+summary = "Target path; an existing directory receives the entry."
+
+[[command.param]]
+name = "into"
+type = "path"
+exclusive_group = "destination"
+summary = "Target directory, created when missing."
+
+[[command.param]]
+name = "on_conflict"
+type = "enum(overwrite|skip|error)"
+default = "overwrite"
+values = ["overwrite", "skip", "error"]
+summary = "Behaviour when the target file exists."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["from", "to"]
+required = ["from", "destination"]
+summary = "Move the given paths."
+
+[[command.form]]
+name = "stage"
+input = ["entry"]
+positional = ["to"]
+required = ["destination"]
+params = ["to", "into", "on_conflict"]
+summary = "Move the input entries."
+
+[[command]]
+name = "remove"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "entry", "line", "match", "item", "node", "job"]
+output = ["effect"]
+summary = "Remove files, directories, lines, matches, document items, syntax nodes or finished jobs."
+reversibility_note = "Removed files, directories and content are kept in the journal."
+effects = [
+  { action = "job", effect = "local", reversibility = "irreversible", note = "Removing a job deletes its record and output files without a journal copy." },
+]
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+required = true
+repeated = true
+summary = "Paths to remove in the source form; directories are removed recursively."
+
+[[command.param]]
+name = "on_missing"
+type = "enum(skip|error)"
+default = "skip"
+values = ["skip", "error"]
+summary = "Behaviour when a path does not exist."
+
+[[command.param]]
+name = "check_references"
+type = "bool"
+default = "false"
+summary = "Report references to the removed names left after the change."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["path"]
+required = ["path"]
+summary = "Remove the given paths."
+
+[[command.form]]
+name = "stage"
+input = ["entry", "line", "match", "item", "node", "job"]
+params = ["on_missing", "check_references"]
+summary = "Remove the input entries, lines, matches, items, nodes or jobs."
+
+[[command]]
+name = "rename"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "entry"]
+output = ["effect"]
+summary = "Rename entries by pattern or to a new name."
+required_groups = ["replacement"]
+
+[[command.param]]
+name = "path"
+type = "path"
+required = true
+summary = "Entry to rename in the source form."
+
+[[command.param]]
+name = "pattern"
+type = "text | regex"
+position = 1
+summary = "Part of the name to replace; used with with."
+
+[[command.param]]
+name = "with"
+type = "text"
+position = 2
+exclusive_group = "replacement"
+summary = "Replacement of the pattern in the name."
+
+[[command.param]]
+name = "to"
+type = "text"
+per_record = true
+exclusive_group = "replacement"
+summary = "New name."
+
+[[command.param]]
+name = "on_conflict"
+type = "enum(overwrite|skip|error)"
+default = "error"
+values = ["overwrite", "skip", "error"]
+summary = "Behaviour when an entry with the new name exists."
+
+[[command.param]]
+name = "check_references"
+type = "bool"
+default = "false"
+summary = "Report references to the old names left after the change."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["pattern", "with"]
+required = ["path", "replacement"]
+summary = "Rename the given entry."
+
+[[command.form]]
+name = "stage"
+input = ["entry"]
+positional = ["pattern", "with"]
+required = ["replacement"]
+params = ["pattern", "with", "to", "on_conflict", "check_references"]
+summary = "Rename the input entries."
+
+[[command]]
+name = "create"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Create files, directories, links, junctions or temporary entries."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+repeated = true
+summary = "Paths to create; with temporary, the directory of the new entry."
+
+[[command.param]]
+name = "type"
+type = "enum(file|directory|link|junction)"
+required = true
+values = ["file", "directory", "link", "junction"]
+summary = "Kind of entry; there is no default."
+
+[[command.param]]
+name = "target"
+type = "text"
+summary = "Target of a link or junction."
+
+[[command.param]]
+name = "hard"
+type = "bool"
+default = "false"
+summary = "Create a hard link instead of a symbolic link."
+
+[[command.param]]
+name = "temporary"
+type = "bool"
+default = "false"
+summary = "Create an entry with a unique name in the temporary directory."
+
+[[command.param]]
+name = "parents"
+type = "bool"
+default = "true"
+summary = "Create missing parent directories."
+
+[[command.param]]
+name = "on_exists"
+type = "enum(skip|error|touch)"
+default = "skip"
+values = ["skip", "error", "touch"]
+summary = "Behaviour when the entry exists; touch updates its modification time."
+
+[[command]]
+name = "attributes"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "entry"]
+output = ["effect"]
+summary = "Change permissions, account, times and extended attributes of entries."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+required = true
+repeated = true
+summary = "Entries to change in the source form."
+
+[[command.param]]
+name = "mode"
+type = "text"
+summary = "Permissions, such as \"0644\" or \"u+x\"."
+
+[[command.param]]
+name = "owner"
+type = "text"
+summary = "Account of the file."
+
+[[command.param]]
+name = "group"
+type = "text"
+summary = "Group of the file."
+
+[[command.param]]
+name = "acl"
+type = "list<map<any>>"
+summary = "Access control entries."
+
+[[command.param]]
+name = "readonly"
+type = "bool"
+summary = "Read-only attribute."
+
+[[command.param]]
+name = "hidden"
+type = "bool"
+summary = "Hidden attribute."
+
+[[command.param]]
+name = "modified"
+type = "instant"
+summary = "Modification time."
+
+[[command.param]]
+name = "accessed"
+type = "instant"
+summary = "Access time."
+
+[[command.param]]
+name = "created"
+type = "instant"
+summary = "Creation time."
+
+[[command.param]]
+name = "xattrs"
+type = "map<text>"
+summary = "Extended attributes to set."
+
+[[command.param]]
+name = "recursive"
+type = "bool"
+default = "false"
+summary = "Apply to the content of directories."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["path"]
+required = ["path"]
+summary = "Change the given entries."
+
+[[command.form]]
+name = "stage"
+input = ["entry"]
+params = ["mode", "owner", "group", "acl", "readonly", "hidden", "modified", "accessed", "created", "xattrs", "recursive"]
+summary = "Change the input entries."
+
+# Programs, jobs, the journal and help.
+
+[[command]]
+name = "run"
+category = "run"
+reversibility = "reversible_if_preserved"
+effect = "process"
+implementation = "user_program"
+input = ["none", "entry", "match"]
+output = ["exec", "job"]
+summary = "Run a program without a shell; after wait it continues as a background job."
+reversibility_note = "Changes of files under watch are reversible when their previous content was kept; effects outside the file system are irreversible."
+
+[[command.param]]
+name = "command"
+type = "list<text>"
+position = 1
+required = true
+per_record = true
+summary = "Program and arguments; the first element is the program."
+
+[[command.param]]
+name = "cwd"
+type = "path"
+default_note = "the call parameter base; one of them is required"
+summary = "Working directory of the program."
+
+[[command.param]]
+name = "env"
+type = "map<text>"
+summary = "Environment variables to set."
+
+[[command.param]]
+name = "inherit_env"
+type = "enum(all|none)"
+default = "all"
+values = ["all", "none"]
+summary = "Inherit the environment of the console or start with an empty one."
+
+[[command.param]]
+name = "stdin"
+type = "text | path"
+summary = "Text or file given on standard input; the input is empty otherwise."
+
+[[command.param]]
+name = "timeout"
+type = "duration"
+default = "120s"
+summary = "Time limit of the program."
+
+[[command.param]]
+name = "idle_timeout"
+type = "duration"
+default = "60s"
+summary = "Time limit without output."
+
+[[command.param]]
+name = "wait"
+type = "duration | enum(forever)"
+default = "3s"
+values = ["forever"]
+waits = true
+summary = "Time to wait for the program before it continues as a job; forever waits until timeout."
+
+[[command.param]]
+name = "background"
+type = "bool"
+default = "false"
+summary = "Start as a job at once, the same as wait: 0s."
+
+[[command.param]]
+name = "merge_stderr"
+type = "bool"
+default = "false"
+summary = "Merge standard error into standard output."
+
+[[command.param]]
+name = "show"
+type = "enum(auto|both|stdout|stderr|errors|summary|none)"
+default = "auto"
+values = ["auto", "both", "stdout", "stderr", "errors", "summary", "none"]
+summary = "Output returned in the result; the full output is always kept in a file."
+
+[[command.param]]
+name = "head"
+type = "int"
+default = "20"
+summary = "Number of first output lines returned."
+
+[[command.param]]
+name = "tail"
+type = "int"
+default = "40"
+summary = "Number of last output lines returned."
+
+[[command.param]]
+name = "filter"
+type = "regex"
+summary = "Return only output lines that match."
+
+[[command.param]]
+name = "context"
+type = "int"
+default = "0"
+summary = "Lines of context around lines matching filter."
+
+[[command.param]]
+name = "dedupe"
+type = "bool"
+default = "false"
+summary = "Collapse repeated identical output lines."
+
+[[command.param]]
+name = "quiet_on_success"
+type = "bool"
+default = "false"
+summary = "Return no output when the exit code is 0."
+
+[[command.param]]
+name = "output_encoding"
+type = "text"
+default = '"auto"'
+summary = "Encoding of the program output; auto detects it."
+
+[[command.param]]
+name = "watch"
+type = "list<path>"
+default_note = "the working directory of the program"
+summary = "Directories in which changes made by the program are detected."
+
+[[command.param]]
+name = "track_changes"
+type = "enum(auto|scan|events|none)"
+default = "auto"
+values = ["auto", "scan", "events", "none"]
+summary = "Method of detecting changes made by the program."
+
+[[command.param]]
+name = "max_cpu"
+type = "duration"
+summary = "Limit of processor time."
+
+[[command.param]]
+name = "max_memory"
+type = "size"
+summary = "Limit of memory."
+
+[[command.param]]
+name = "priority"
+type = "enum(low|normal|high)"
+default = "normal"
+values = ["low", "normal", "high"]
+summary = "Scheduling priority."
+
+[[command.param]]
+name = "label"
+type = "text"
+summary = "Short name of the job."
+
+[[command.param]]
+name = "description"
+type = "text"
+summary = "Description of the job."
+
+[[command.param]]
+name = "progress"
+type = "regex"
+summary = "Pattern of output lines that report progress."
+
+[[command.param]]
+name = "summary"
+type = "list<regex>"
+summary = "Patterns whose latest matches form the status line."
+
+[[command.param]]
+name = "batch"
+type = "int"
+summary = "Run the program once per batch of this many input arguments."
+
+[[command.param]]
+name = "parallel"
+type = "int"
+default = "1"
+summary = "Number of batches run at the same time; results keep the batch order."
+
+[[command.param]]
+name = "bail"
+type = "bool"
+default = "false"
+summary = "Stop starting batches after the first failed batch."
+
+[[command]]
+name = "jobs"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["job"]
+summary = "Read the state, output or result of background jobs."
+
+[[command.param]]
+name = "id"
+type = "text"
+position = 1
+summary = "Job identifier, such as j7."
+
+[[command.param]]
+name = "state"
+type = "enum(any|running|exited|failed|stopped|timed_out)"
+default = "any"
+values = ["any", "running", "exited", "failed", "stopped", "timed_out"]
+summary = "State of the jobs to list."
+
+[[command.param]]
+name = "head"
+type = "int"
+summary = "Number of first output lines returned."
+
+[[command.param]]
+name = "tail"
+type = "int"
+summary = "Number of last output lines returned."
+
+[[command.param]]
+name = "stream"
+type = "enum(both|stdout|stderr)"
+default = "both"
+values = ["both", "stdout", "stderr"]
+summary = "Output stream to read."
+
+[[command.param]]
+name = "since"
+type = "text"
+summary = "Cursor of an earlier read; only newer output is returned."
+
+[[command.param]]
+name = "wait"
+type = "duration"
+default = "0s"
+waits = true
+summary = "Time to wait for the job to finish."
+
+[[command.param]]
+name = "view"
+type = "enum(status|output|result)"
+default = "status"
+values = ["status", "output", "result"]
+summary = "State, output, or final result of the job."
+
+[[command.param]]
+name = "filter"
+type = "regex"
+summary = "Return only output lines that match."
+
+[[command.param]]
+name = "context"
+type = "int"
+default = "0"
+summary = "Lines of context around lines matching filter."
+
+[[command.param]]
+name = "dedupe"
+type = "bool"
+default = "false"
+summary = "Collapse repeated identical output lines."
+
+[[command]]
+name = "stop"
+category = "run"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["job", "process", "service"]
+output = ["effect"]
+summary = "Stop jobs, processes or services."
+
+[[command.param]]
+name = "signal"
+type = "enum(terminate|kill|interrupt|hangup)"
+default = "terminate"
+values = ["terminate", "kill", "interrupt", "hangup"]
+summary = "Signal sent first."
+
+[[command.param]]
+name = "grace"
+type = "duration"
+default = "5s"
+summary = "Time to wait before the process is killed."
+
+[[command]]
+name = "retry"
+category = "run"
+reversibility = "reversible_if_preserved"
+effect = "process"
+implementation = "user_program"
+input = ["job"]
+output = ["exec", "job"]
+summary = "Run the command of a job again with the same working directory and environment."
+reversibility_note = "As for run: changes of watched files are reversible when kept; other effects are irreversible."
+
+[[command.param]]
+name = "timeout"
+type = "duration"
+default_note = "the time limit of the original job"
+summary = "Time limit of the program."
+
+[[command.param]]
+name = "wait"
+type = "duration | enum(forever)"
+values = ["forever"]
+waits = true
+default_note = "the default wait of run"
+summary = "Time to wait for the program before it continues as a job."
+
+[[command]]
+name = "history"
+category = "journal"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["operation"]
+summary = "List operations of the journal."
+
+[[command.param]]
+name = "id"
+type = "int"
+position = 1
+summary = "Operation to describe."
+
+[[command.param]]
+name = "limit"
+type = "int"
+default = "20"
+summary = "Number of operations listed."
+
+[[command.param]]
+name = "state"
+type = "enum(any|available|partial|expired|undone)"
+default = "any"
+values = ["any", "available", "partial", "expired", "undone"]
+summary = "State of the operations to list."
+
+[[command.param]]
+name = "before"
+type = "int"
+summary = "List only operations older than this one."
+
+[[command.param]]
+name = "since"
+type = "int"
+summary = "List only operations newer than this one."
+
+[[command.param]]
+name = "path"
+type = "path"
+summary = "List only operations that touched this file."
+
+[[command.param]]
+name = "deleted"
+type = "bool"
+default = "false"
+summary = "List only operations that removed files."
+
+[[command.param]]
+name = "details"
+type = "bool"
+default = "false"
+summary = "Include the changes and differences of each operation."
+
+[[command]]
+name = "undo"
+category = "journal"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Undo operations from the journal."
+reversibility_note = "An undo can be reversed with redo."
+
+[[command.param]]
+name = "id"
+type = "int"
+position = 1
+exclusive_group = "selection"
+default_note = "the latest operation"
+summary = "Operation to undo."
+
+[[command.param]]
+name = "to"
+type = "int"
+exclusive_group = "selection"
+summary = "Undo every operation newer than this one, latest first, in one transaction."
+
+[[command.param]]
+name = "file"
+type = "path"
+exclusive_group = "selection"
+summary = "Undo every change of this file since the given point."
+
+[[command.param]]
+name = "since"
+type = "int | instant"
+summary = "Operation or time from which changes of file are undone."
+
+[[command.param]]
+name = "paths"
+type = "list<path>"
+summary = "Undo only the changes of these paths within the operation."
+
+[[command.param]]
+name = "all_sessions"
+type = "bool"
+default = "false"
+summary = "Include operations of other sessions; only with to."
+
+[[command.param]]
+name = "on_conflict"
+type = "enum(report|force|include_later|partial|abort)"
+default = "report"
+values = ["report", "force", "include_later", "partial", "abort"]
+summary = "Behaviour when later changes touch the same files."
+
+[[command]]
+name = "redo"
+category = "journal"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Apply an undone operation again."
+
+[[command.param]]
+name = "id"
+type = "int"
+position = 1
+default_note = "the latest undone operation"
+summary = "Undone operation to apply again."
+
+[[command]]
+name = "help"
+category = "help"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["text"]
+summary = "Describe commands, groups, errors, guides, the syntax and corrections."
+
+[[command.param]]
+name = "topic"
+type = "text"
+position = 1
+exclusive_group = "subject"
+default_note = "the list of commands, groups, guides and topics"
+summary = "Command, group, error code, syntax or corrections."
+
+[[command.param]]
+name = "kind"
+type = "enum(command|group|error|skill|syntax|corrections)"
+default = "command"
+values = ["command", "group", "error", "skill", "syntax", "corrections"]
+summary = "Kind of the topic."
+
+[[command.param]]
+name = "group"
+type = "text"
+exclusive_group = "subject"
+summary = "Group to describe, the same as kind: group."
+
+[[command.param]]
+name = "skill"
+type = "text"
+exclusive_group = "subject"
+summary = "Guide to show, the same as kind: skill."
+
+[[command.param]]
+name = "search"
+type = "text"
+exclusive_group = "subject"
+summary = "Words to look up in commands, errors and guides."
+
+[[command.param]]
+name = "examples"
+type = "int"
+default = "3"
+summary = "Number of examples shown."

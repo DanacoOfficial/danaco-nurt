@@ -1,0 +1,29 @@
+{
+  "nurt": "1.0",
+  "status": "ok",
+  "kind": "remove",
+  "op": 21,
+  "ran": "remove \"/srv/app/build/old.log\"",
+  "corrections": [
+    {
+      "id": "C1",
+      "rule": "L01",
+      "class": "F",
+      "at": { "line": 1, "column": 1, "length": 6 },
+      "from": "remvoe",
+      "to": "remove",
+      "kind": "command",
+      "alternatives": ["move"]
+    }
+  ],
+  "targets": { "count": 1, "files": 1, "bytes": 3277, "listed": 1 },
+  "summary": { "files_deleted": 1, "bytes_freed": 3277 },
+  "changes": [
+    {
+      "path": "/srv/app/build/old.log",
+      "action": "delete",
+      "size_before": 3277,
+      "hash_before": "sha256:3c3c3c3c"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "nurt": "1.0",
+  "status": "ok",
+  "kind": "search",
+  "result_file": "/home/user/.local/state/nurt/results/r-20261121-101407.json",
+  "records": { "type": "match", "matched": 12480 }
+}

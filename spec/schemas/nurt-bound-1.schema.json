@@ -1,0 +1,596 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-bound-1.schema.json",
+  "title": "nurt-bound/1",
+  "description": "Bound syntax tree of a Nurt program: the surface tree bound with a command catalog. Every parameter is present in signature order, defaults are explicit, literals are cast to the type of their place and every stage carries its effect kind.",
+  "type": "object",
+  "required": [
+    "nurt",
+    "bound",
+    "catalog_rev",
+    "corr_rev",
+    "program"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "nurt": {
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$",
+      "description": "Version of the surface tree format the program was bound from."
+    },
+    "bound": {
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$",
+      "description": "Bound tree format version MAJOR.MINOR."
+    },
+    "catalog_rev": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Revision of the command catalog used for binding."
+    },
+    "corr_rev": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Revision of the correction tables applied before binding."
+    },
+    "program": {
+      "$ref": "#/$defs/program"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Free-form metadata; excluded from ast_hash."
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "span": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "description": "Source range of the surface node; excluded from ast_hash."
+    },
+    "program": {
+      "type": "object",
+      "required": [
+        "statements"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "statements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/let"
+              },
+              {
+                "$ref": "#/$defs/pipeline"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "let": {
+      "type": "object",
+      "required": [
+        "t",
+        "name",
+        "value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "let"
+        },
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "value": {
+          "$ref": "#/$defs/pipeline"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "required": [
+        "t",
+        "head",
+        "stages"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "pipeline"
+        },
+        "head": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/stage"
+            },
+            {
+              "$ref": "#/$defs/ref"
+            }
+          ]
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stage"
+          }
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "required": [
+        "t",
+        "name",
+        "effect",
+        "phase",
+        "args"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "stage"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "description": "Canonical command name from the catalog."
+        },
+        "effect": {
+          "enum": [
+            "read",
+            "local",
+            "external",
+            "process"
+          ],
+          "description": "Effect kind taken from the catalog."
+        },
+        "phase": {
+          "enum": [
+            "source",
+            "transform",
+            "check",
+            "mutate",
+            "run",
+            "after",
+            "verify"
+          ],
+          "description": "Execution phase; after marks a stage that works on the records produced by the effect."
+        },
+        "waits": {
+          "type": "boolean",
+          "default": false,
+          "description": "The stage blocks the call by waiting."
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arg"
+          },
+          "description": "Every parameter of the signature in signature order; the pipeline checked by verify is the value of its parameter check."
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "arg": {
+      "type": "object",
+      "required": [
+        "name",
+        "value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        },
+        "default": {
+          "type": "boolean",
+          "default": false,
+          "description": "The binder inserted the value from the catalog default."
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "ref": {
+      "type": "object",
+      "required": [
+        "t",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "ref"
+        },
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/identifier"
+          }
+        }
+      }
+    },
+    "spread": {
+      "type": "object",
+      "required": [
+        "t",
+        "x"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "spread"
+        },
+        "x": {
+          "$ref": "#/$defs/value"
+        }
+      }
+    },
+    "value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "t"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "null"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "bool"
+            },
+            "v": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "int"
+            },
+            "v": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "num"
+            },
+            "v": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "enum": [
+                "text",
+                "path",
+                "glob",
+                "key",
+                "enum",
+                "instant"
+              ]
+            },
+            "v": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "enum": [
+                "size",
+                "dur"
+              ]
+            },
+            "v": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Bytes for size, milliseconds for dur.",
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "v",
+            "flags"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "regex"
+            },
+            "v": {
+              "type": "string"
+            },
+            "flags": {
+              "type": "string",
+              "pattern": "^i?m?s?x?$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "items"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "list"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/value"
+                  },
+                  {
+                    "$ref": "#/$defs/spread"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "entries"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "map"
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "k",
+                  "v"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "k": {
+                    "type": "string"
+                  },
+                  "v": {
+                    "$ref": "#/$defs/value"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "range"
+            },
+            "lo": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "hi": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "p"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "sub"
+            },
+            "p": {
+              "$ref": "#/$defs/pipeline"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "name"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "field"
+            },
+            "name": {
+              "$ref": "#/$defs/identifier"
+            },
+            "of": {
+              "$ref": "#/$defs/value"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "fn",
+            "args"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "call"
+            },
+            "fn": {
+              "$ref": "#/$defs/identifier"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/value"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "op",
+            "x"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "un"
+            },
+            "op": {
+              "enum": [
+                "not",
+                "neg"
+              ]
+            },
+            "x": {
+              "$ref": "#/$defs/value"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "t",
+            "op",
+            "l",
+            "r"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "t": {
+              "const": "bin"
+            },
+            "op": {
+              "enum": [
+                "==",
+                "!=",
+                "<",
+                "<=",
+                ">",
+                ">=",
+                "~",
+                "!~",
+                "in",
+                "and",
+                "or",
+                "+",
+                "-",
+                "*",
+                "/"
+              ]
+            },
+            "l": {
+              "$ref": "#/$defs/value"
+            },
+            "r": {
+              "$ref": "#/$defs/value"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

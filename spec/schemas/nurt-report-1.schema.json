@@ -1,0 +1,344 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-report-1.schema.json",
+  "title": "nurt-report/1",
+  "description": "Effect report of one Danaco Nurt program. The report describes the effect, never the possibility or the time window of undo; `irreversible` is present only when an effect is irreversible.",
+  "type": "object",
+  "required": ["nurt", "status", "kind"],
+  "additionalProperties": false,
+  "properties": {
+    "nurt": { "type": "string", "pattern": "^1\\.[0-9]+$", "description": "Format version MAJOR.MINOR." },
+    "status": { "$ref": "#/$defs/status" },
+    "kind": { "type": "string", "minLength": 1, "description": "Kind of operation: the changing command, or the source command of a reading program (replace, remove, write, move, run, find, ...)." },
+    "op": { "type": "integer", "minimum": 1, "x-nurt-volatile": true, "description": "Number of the journal entry; absent for reading programs, previews and changing programs without targets." },
+    "ran": { "type": "string", "description": "Canonical text of the program that ran; present only when corrections were applied." },
+    "ast_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "result_file": { "type": "string", "minLength": 1, "x-nurt-volatile": true, "description": "Path of the file holding the full result (UTF-8), when the result was written to a file (save_to or output.results_dir)." },
+    "corrections": { "type": "array", "items": { "$ref": "#/$defs/correction" } },
+    "targets": { "$ref": "#/$defs/targets" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "changes": { "type": "array", "items": { "$ref": "#/$defs/change" } },
+    "diff": { "type": "array", "items": { "$ref": "#/$defs/hunk" } },
+    "bulk": { "$ref": "#/$defs/bulk" },
+    "exec": { "$ref": "#/$defs/record", "description": "Record of type exec (nurt-value/1)." },
+    "job": { "$ref": "#/$defs/record", "description": "Record of type job (nurt-value/1); present when the status is running." },
+    "test": { "$ref": "#/$defs/record", "description": "Record of type test_run (nurt-value/1)." },
+    "analysis": { "$ref": "#/$defs/record", "description": "Record of type analysis (nurt-value/1)." },
+    "git": { "$ref": "#/$defs/record", "description": "Record of type git_effect (nurt-value/1)." },
+    "records": { "$ref": "#/$defs/records" },
+    "notable": { "type": "array", "items": { "$ref": "#/$defs/notable" }, "description": "Unusual effects in descending order of severity; absent for an ordinary effect." },
+    "irreversible": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/irreversible" },
+      "description": "Present only when an effect is irreversible; its absence carries no information about undo."
+    },
+    "error": { "$ref": "#/$defs/error" },
+    "next_cursor": { "type": "string", "minLength": 1, "x-nurt-volatile": true, "description": "Cursor of the next page; absent on the last page." },
+    "timing": { "$ref": "#/$defs/timing" }
+  },
+  "$defs": {
+    "status": {
+      "enum": ["ok", "planned", "running", "partial", "rolled_back", "failed"]
+    },
+    "severity": {
+      "enum": ["info", "notice", "warning", "alert"]
+    },
+    "position": {
+      "type": "object",
+      "required": ["line", "column"],
+      "additionalProperties": false,
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "length": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "correction": {
+      "type": "object",
+      "required": ["id", "rule", "class", "from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "rule": { "type": "string", "pattern": "^[LTVBP][0-9]{2}$" },
+        "class": { "enum": ["C", "S", "F", "P"] },
+        "at": { "$ref": "#/$defs/position" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "kind": { "type": "string" },
+        "alternatives": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "targets": {
+      "type": "object",
+      "required": ["count"],
+      "additionalProperties": false,
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "files": { "type": "integer", "minimum": 0 },
+        "directories": { "type": "integer", "minimum": 0 },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "listed": { "type": "integer", "minimum": 0, "description": "Number of entries in changes on this page." }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "files_created": { "type": "integer", "minimum": 0 },
+        "files_modified": { "type": "integer", "minimum": 0 },
+        "files_deleted": { "type": "integer", "minimum": 0 },
+        "files_renamed": { "type": "integer", "minimum": 0 },
+        "directories_created": { "type": "integer", "minimum": 0 },
+        "directories_deleted": { "type": "integer", "minimum": 0 },
+        "replacements": { "type": "integer", "minimum": 0 },
+        "lines_added": { "type": "integer", "minimum": 0 },
+        "lines_removed": { "type": "integer", "minimum": 0 },
+        "bytes_before": { "type": "integer", "minimum": 0 },
+        "bytes_after": { "type": "integer", "minimum": 0 },
+        "bytes_freed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "change": {
+      "type": "object",
+      "required": ["path", "action"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "description": "Canonical path, or <provider>:<name> for targets outside the file system." },
+        "action": { "enum": ["create", "modify", "delete", "rename", "attributes", "link", "truncate", "state"] },
+        "from": { "type": "string" },
+        "size_before": { "type": "integer", "minimum": 0 },
+        "size_after": { "type": "integer", "minimum": 0 },
+        "hash_before": { "type": "string" },
+        "hash_after": { "type": "string" },
+        "replacements": { "type": "integer", "minimum": 0 },
+        "added": { "type": "integer", "minimum": 0 },
+        "removed": { "type": "integer", "minimum": 0 },
+        "before": { "type": "string", "description": "State of a target outside the file system before the change." },
+        "after": { "type": "string", "description": "State of a target outside the file system after the change." },
+        "flags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "hunk": {
+      "type": "object",
+      "required": ["path", "old_start", "old_len", "new_start", "new_len", "lines"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "old_start": { "type": "integer", "minimum": 0 },
+        "old_len": { "type": "integer", "minimum": 0 },
+        "new_start": { "type": "integer", "minimum": 0 },
+        "new_len": { "type": "integer", "minimum": 0 },
+        "lines": { "type": "array", "items": { "type": "string", "pattern": "^[-+ ]" }, "description": "Lines prefixed with '+', '-' or ' '." },
+        "header": { "type": "string" }
+      }
+    },
+    "bulk": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "by_directory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["directory", "count"],
+            "additionalProperties": false,
+            "properties": {
+              "directory": { "type": "string" },
+              "count": { "type": "integer", "minimum": 0 },
+              "bytes": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "by_extension": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["extension", "count"],
+            "additionalProperties": false,
+            "properties": {
+              "extension": { "type": "string" },
+              "count": { "type": "integer", "minimum": 0 },
+              "bytes": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "sample_head": { "type": "array", "items": { "type": "string" } },
+        "sample_tail": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "record": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "description": "Record in the form of nurt-value/1: the record kind and the fields in order, each field a tagged value {\"t\": type, \"v\": payload}.",
+      "properties": {
+        "kind": { "type": "string" },
+        "fields": { "type": "object", "additionalProperties": { "type": "object", "required": ["t"] } }
+      }
+    },
+    "records": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "description": "Record type of the rows (entry, match, ...)." },
+        "matched": { "type": "integer", "minimum": 0 },
+        "header": { "$ref": "#/$defs/record" },
+        "rows": { "type": "array", "items": { "$ref": "#/$defs/record" } }
+      }
+    },
+    "notable": {
+      "type": "object",
+      "required": ["code", "severity"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "$ref": "#/$defs/notable_code" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "path": { "type": "string" },
+        "count": { "type": "integer", "minimum": 0 },
+        "detail": { "type": "string" }
+      }
+    },
+    "notable_code": {
+      "enum": [
+        "outside_project", "system_path", "home_config", "mass_delete", "delete_tree",
+        "overwrote_existing", "file_emptied", "size_shrunk", "many_per_file", "target_count_high",
+        "nothing_matched", "unchanged", "binary_target", "binary_skipped", "special_file",
+        "symlink_followed", "hardlink_broken", "hardlink_set_preserved", "attributes_changed",
+        "encoding_preserved", "line_ending_preserved", "line_ending_mixed", "encoding_changed",
+        "line_ending_changed", "bom_changed", "truncated_lines", "regex_backtracking", "decompressed",
+        "cross_device", "to_is_dir", "case_collision", "case_alias", "nfd_name", "portability",
+        "external_volume", "archive_path_escape", "permission_denied_skipped", "ignored",
+        "alias_shared", "keys_created", "duplicate_key", "semantic_fallback", "references_left",
+        "rename_incomplete", "detection_scope", "exit_nonzero", "post_stages_deferred",
+        "rollback_partial", "output_binary", "spool_limit", "stdin_closed_early", "job_lost",
+        "tool_missing", "tests_none", "trust_config_ignored", "project_config_ignored",
+        "journal_config_ignored",
+        "journal_oversize", "source_unavailable", "settings_broadcast", "hooks_skipped",
+        "history_rewritten", "force_push", "detached_head", "branch_deleted_unmerged",
+        "fast_forward", "conflicts", "untracked_removed", "local_changes_carried",
+        "filter_not_applied", "credential_helper_ignored", "ssh_command_ignored",
+        "fsmonitor_ignored", "submodules_not_updated", "sparse_checkout", "shallow_repository",
+        "line_endings_converted", "upstream_set", "stash_kept", "signed"
+      ]
+    },
+    "irreversible": {
+      "type": "object",
+      "required": ["reason"],
+      "additionalProperties": false,
+      "properties": {
+        "reason": { "$ref": "#/$defs/irreversible_reason" },
+        "path": { "type": "string" },
+        "count": { "type": "integer", "minimum": 0 },
+        "detail": { "type": "string" }
+      }
+    },
+    "irreversible_reason": {
+      "enum": [
+        "external_effect", "remote_ref_updated", "network", "database", "process_stopped",
+        "service_changed", "package_changed", "previous_content_not_kept", "no_space_for_copy",
+        "journal_inactive", "network_volume", "removable_volume", "purged", "special_file",
+        "too_large_for_journal", "released_for_space", "job_output_removed", "process_state_changed",
+        "journal_entries_expired", "journal_error"
+      ]
+    },
+    "error_code": {
+      "enum": [
+        "E_LEXICAL", "E_ESCAPE", "E_SYNTAX", "E_AMBIGUOUS", "E_UNCORRECTABLE",
+        "E_INTERNAL_CORRECTION", "E_EXPIRED_CANDIDATE", "E_AST_VERSION", "E_AST_SCHEMA",
+        "E_UNKNOWN_COMMAND", "E_UNKNOWN_PARAM", "E_UNKNOWN_NAME", "E_UNKNOWN_FIELD", "E_UNKNOWN_VALUE",
+        "E_MISSING_PARAM", "E_TYPE", "E_ARITY", "E_INVALID_VALUE", "E_PATH_RELATIVE", "E_PATH_FOREIGN",
+        "E_ONE_EFFECT", "E_OS_ONLY", "E_UNSUPPORTED", "E_REGEX", "E_KEY_SYNTAX", "E_PATTERN_SYNTAX",
+        "E_QUERY", "E_SQL", "E_ARG", "E_EXTERNAL_MISSING", "E_EXTERNAL_FAILED", "E_PROGRAM_NOT_FOUND",
+        "E_SPAWN", "E_ASSERT", "E_BINARY", "E_DOC_PARSE", "E_FORMAT", "E_ENCRYPTED",
+        "E_UNSUPPORTED_CONSTRUCT", "E_KEY_NOT_FOUND", "E_KEY_CONFLICT", "E_UNSUPPORTED_LANGUAGE",
+        "E_SYMBOL_NOT_FOUND", "E_SYMBOL_AMBIGUOUS", "E_RENAME_CONFLICT", "E_NO_MATCH",
+        "E_PATCH_REJECTED", "E_STALE", "E_ENCODING", "E_IO", "E_PERMISSION", "E_EXISTS",
+        "E_NOT_FOUND", "E_IN_USE", "E_PRIVILEGE", "E_NO_SPACE", "E_TIMEOUT", "E_CANCELLED", "E_LIMIT",
+        "E_STAGE_FAILED", "E_ROLLED_BACK", "E_ROLLBACK_FAILED",
+        "E_JOURNAL_NOOP", "E_JOURNAL_EXPIRED", "E_JOURNAL_CONFLICT", "E_JOURNAL_PARTIAL",
+        "E_JOURNAL_CORRUPT", "E_UNKNOWN_JOB", "E_JOB_STATE", "E_TEST_NO_FRAMEWORK", "E_UNKNOWN_RUN",
+        "E_UNKNOWN_ANALYSIS", "E_OUTPUT_PARSE", "E_NETWORK", "E_HASH_MISMATCH", "E_SERVICE",
+        "E_SERVICE_NOT_RUNNING", "E_CATALOG", "E_CONFIG", "E_GIT_NOT_REPOSITORY", "E_GIT_REVISION", "E_GIT_REF",
+        "E_GIT_DIRTY", "E_GIT_CONFLICT", "E_GIT_IN_PROGRESS", "E_GIT_LOCKED", "E_GIT_NON_FAST_FORWARD",
+        "E_GIT_NOTHING_TO_COMMIT", "E_GIT_HOOK", "E_GIT_SIGN", "E_GIT_AUTH", "E_GIT_HOST_KEY",
+        "E_GIT_PUSH_REJECTED", "E_GIT_PROTOCOL", "E_GIT_UNSUPPORTED", "E_INTERNAL"
+      ]
+    },
+    "error_stage": {
+      "enum": ["0", "1", "2", "3", "4", "5", "5a", "6", "7"],
+      "description": "Execution stage in which the error occurred."
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "additionalProperties": false,
+      "description": "Error of the language, as defined by the error contract.",
+      "properties": {
+        "code": { "$ref": "#/$defs/error_code" },
+        "message": { "type": "string" },
+        "stage": { "$ref": "#/$defs/error_stage" },
+        "at": {
+          "type": "object",
+          "required": ["line", "column"],
+          "additionalProperties": false,
+          "properties": {
+            "line": { "type": "integer", "minimum": 1 },
+            "column": { "type": "integer", "minimum": 1 },
+            "length": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "location": {
+          "type": "object",
+          "required": ["path"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string" },
+            "line": { "type": "integer", "minimum": 1 },
+            "column": { "type": "integer", "minimum": 1 },
+            "end_line": { "type": "integer", "minimum": 1 },
+            "end_column": { "type": "integer", "minimum": 1 },
+            "byte": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "found": { "type": "string" },
+        "problem": { "type": "string" },
+        "fix": { "type": "array", "items": { "type": "string" } },
+        "help": { "type": "string" },
+        "expected": {},
+        "actual": {},
+        "sample": { "type": "array", "items": { "type": "string" } },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["rank", "program"],
+            "additionalProperties": false,
+            "properties": {
+              "rank": { "type": "integer", "minimum": 1 },
+              "ref": { "type": "string" },
+              "program": { "type": "string" },
+              "why": { "type": "string" }
+            }
+          }
+        },
+        "next_steps": { "type": "array", "items": { "type": "string" } },
+        "effect_applied": { "type": "boolean", "description": "Whether the effect of the program is in the world despite the error." },
+        "details": { "type": "object", "description": "Data specific to the code." },
+        "cause": { "$ref": "#/$defs/error" }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-nurt-volatile": true,
+      "properties": {
+        "parse_ms": { "type": "integer", "minimum": 0 },
+        "read_ms": { "type": "integer", "minimum": 0 },
+        "plan_ms": { "type": "integer", "minimum": 0 },
+        "apply_ms": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

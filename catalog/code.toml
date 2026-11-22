@@ -1,0 +1,671 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "code"
+summary = "Source code symbols, definitions, references, diagnostics, renaming and repository profile."
+
+[[command]]
+name = "code.symbols"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["symbol"]
+summary = "Find symbol definitions by name across a repository."
+external = { kind = "language_server", note = "Uses a language server when one is installed and syntax analysis otherwise; source selects the analysis explicitly." }
+
+[[command.param]]
+name = "name"
+type = "text | regex | list<text>"
+position = 1
+summary = "Symbol name, pattern or names; all symbols when omitted."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+default_note = "the base directory"
+summary = "Files or directories to search."
+
+[[command.param]]
+name = "glob"
+type = "glob"
+default = "\"**\""
+summary = "Only files whose path matches this pattern."
+
+[[command.param]]
+name = "kind"
+type = "enum(function|method|class|struct|interface|enum|variable|constant|field|module|type|macro|any)"
+default = "any"
+values = ["function", "method", "class", "struct", "interface", "enum", "variable", "constant", "field", "module", "type", "macro", "any"]
+summary = "Kind of symbol."
+
+[[command.param]]
+name = "match"
+type = "enum(exact|prefix|substring|fuzzy|regex)"
+default = "fuzzy"
+values = ["exact", "prefix", "substring", "fuzzy", "regex"]
+summary = "How the name is matched."
+
+[[command.param]]
+name = "language"
+type = "text"
+default = "\"auto\""
+summary = "Programming language; auto detects it from file extensions."
+
+[[command.param]]
+name = "source"
+type = "enum(auto|lsp|syntax)"
+default = "auto"
+values = ["auto", "lsp", "syntax"]
+summary = "Language server, syntax analysis, or the server when available."
+
+[[command.param]]
+name = "with_signature"
+type = "bool"
+default = "false"
+summary = "Include the signature of each symbol."
+
+[[command.param]]
+name = "with_references"
+type = "bool"
+default = "false"
+summary = "Include the number of references to each symbol."
+
+[[command.param]]
+name = "exported_only"
+type = "bool"
+default = "false"
+summary = "Only symbols visible outside their module."
+
+[[command.param]]
+name = "exclude"
+type = "list<glob>"
+default = "[]"
+summary = "Paths to skip, in gitignore syntax."
+
+[[command.param]]
+name = "exclude_preset"
+type = "list<enum(vcs|deps|build|cache|tests)>"
+default = "[]"
+values = ["vcs", "deps", "build", "cache", "tests"]
+summary = "Predefined groups of paths to skip, such as dependencies or test files."
+
+[[command]]
+name = "code.outline"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["symbol"]
+summary = "List the symbols of a file as an outline."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Source file."
+
+[[command.param]]
+name = "depth"
+type = "int"
+unbounded_default = true
+summary = "Maximum nesting depth of symbols."
+
+[[command]]
+name = "code.definition"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "language_server"
+fallback = "builtin"
+input = ["none"]
+output = ["symbol"]
+summary = "Find the definition of the symbol at a position or with a name."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Source file."
+
+[[command.param]]
+name = "line"
+type = "int"
+summary = "Line of the symbol, counted from 1."
+
+[[command.param]]
+name = "column"
+type = "int"
+summary = "Column of the symbol, counted from 1."
+
+[[command.param]]
+name = "symbol"
+type = "text"
+summary = "Symbol name, optionally qualified as Container.name, instead of a position."
+
+[[command.param]]
+name = "language"
+type = "text"
+default = "\"auto\""
+summary = "Programming language; auto detects it from the file extension."
+
+[[command.param]]
+name = "root"
+type = "path"
+default_note = "detected from the location of the file"
+summary = "Project root for the language server."
+
+[[command]]
+name = "code.references"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "language_server"
+fallback = "builtin"
+input = ["none", "symbol"]
+output = ["reference"]
+summary = "Find references to the symbol at a position, with a name or from the input."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Source file in the source form."
+
+[[command.param]]
+name = "line"
+type = "int"
+summary = "Line of the symbol, counted from 1."
+
+[[command.param]]
+name = "column"
+type = "int"
+summary = "Column of the symbol, counted from 1."
+
+[[command.param]]
+name = "symbol"
+type = "text"
+summary = "Symbol name, optionally qualified as Container.name, instead of a position."
+
+[[command.param]]
+name = "include_definition"
+type = "bool"
+default = "true"
+summary = "Include the definition among the references."
+
+[[command.param]]
+name = "scope"
+type = "enum(project|file)"
+default = "project"
+values = ["project", "file"]
+summary = "Search the whole project or only the file."
+
+[[command.param]]
+name = "language"
+type = "text"
+default = "\"auto\""
+summary = "Programming language; auto detects it from the file extension."
+
+[[command.param]]
+name = "root"
+type = "path"
+default_note = "detected from the location of the file"
+summary = "Project root for the language server."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["path"]
+required = ["path"]
+summary = "Find references to the symbol at a position in path or with the name given by symbol."
+
+[[command.form]]
+name = "stage"
+input = ["symbol"]
+params = ["include_definition", "scope", "language", "root"]
+summary = "Find references to each input symbol."
+
+[[command]]
+name = "code.hover"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "language_server"
+fallback = "builtin"
+input = ["none"]
+output = ["hover"]
+summary = "Show the signature and documentation of the symbol at a position."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Source file."
+
+[[command.param]]
+name = "line"
+type = "int"
+summary = "Line of the symbol, counted from 1; required unless symbol is given."
+
+[[command.param]]
+name = "column"
+type = "int"
+summary = "Column of the symbol, counted from 1; required unless symbol is given."
+
+[[command.param]]
+name = "symbol"
+type = "text"
+summary = "Symbol name, optionally qualified as Container.name, instead of a position."
+
+[[command.param]]
+name = "language"
+type = "text"
+default = "\"auto\""
+summary = "Programming language; auto detects it from the file extension."
+
+[[command.param]]
+name = "root"
+type = "path"
+default_note = "detected from the location of the file"
+summary = "Project root for the language server."
+
+[[command]]
+name = "code.diagnostics"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "language_server"
+fallback = "builtin"
+input = ["none"]
+output = ["diagnostic"]
+summary = "Report errors and warnings in source files."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+repeated = true
+summary = "Files or directories to check."
+
+[[command.param]]
+name = "changed"
+type = "bool"
+default = "false"
+summary = "Only files changed in the repository."
+
+[[command.param]]
+name = "severity"
+type = "enum(error|warning|info|hint)"
+default = "hint"
+values = ["error", "warning", "info", "hint"]
+summary = "Lowest severity reported."
+
+[[command.param]]
+name = "source"
+type = "enum(auto|lsp|syntax)"
+default = "auto"
+values = ["auto", "lsp", "syntax"]
+summary = "Language server, syntax analysis, or the server when available."
+
+[[command.param]]
+name = "language"
+type = "text"
+default = "\"auto\""
+summary = "Programming language; auto detects it from file extensions."
+
+[[command.param]]
+name = "root"
+type = "path"
+default_note = "detected from the location of the file"
+summary = "Project root for the language server."
+
+[[command]]
+name = "code.rename"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "language_server"
+fallback = "builtin"
+input = ["none", "symbol"]
+output = ["effect"]
+summary = "Rename a symbol and its references across files in one operation."
+reversibility_note = "All changed files are restored together by one undo."
+
+[[command.param]]
+name = "to"
+type = "text"
+position = 1
+required = true
+summary = "New name of the symbol."
+
+[[command.param]]
+name = "path"
+type = "path"
+summary = "Source file of the symbol in the source form."
+
+[[command.param]]
+name = "line"
+type = "int"
+summary = "Line of the symbol in the source form, counted from 1."
+
+[[command.param]]
+name = "column"
+type = "int"
+summary = "Column of the symbol in the source form, counted from 1."
+
+[[command.param]]
+name = "symbol"
+type = "text"
+summary = "Symbol name, optionally qualified as Container.name, instead of a position."
+
+[[command.param]]
+name = "scope"
+type = "enum(project|file)"
+default = "project"
+values = ["project", "file"]
+summary = "Rename in the whole project or only in the file."
+
+[[command.param]]
+name = "paths"
+type = "list<path>"
+default_note = "the project"
+summary = "Files and directories to rename in."
+
+[[command.param]]
+name = "include_comments"
+type = "bool"
+default = "false"
+summary = "Also rename occurrences in comments."
+
+[[command.param]]
+name = "include_strings"
+type = "bool"
+default = "false"
+summary = "Also rename occurrences in string literals."
+
+[[command.param]]
+name = "source"
+type = "enum(auto|lsp|syntax)"
+default = "auto"
+values = ["auto", "lsp", "syntax"]
+summary = "Language server, syntax analysis with confidence, or the server when available."
+
+[[command.param]]
+name = "check_references"
+type = "bool"
+default = "true"
+summary = "Report references to the old name left after the change."
+
+[[command.param]]
+name = "language"
+type = "text"
+default = "\"auto\""
+summary = "Programming language; auto detects it from the file extension."
+
+[[command.param]]
+name = "root"
+type = "path"
+default_note = "detected from the location of the file"
+summary = "Project root for the language server."
+
+[[command.form]]
+name = "stage"
+input = ["symbol"]
+positional = ["to"]
+required = ["to"]
+params = ["to", "scope", "paths", "include_comments", "include_strings", "source", "check_references", "language", "root"]
+summary = "Rename each input symbol."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["to"]
+required = ["to", "path"]
+summary = "Rename the symbol at a position in path or with the name given by symbol."
+
+[[command]]
+name = "code.languages"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["language"]
+summary = "List supported languages with file extensions, grammar versions and language server state."
+
+[[command]]
+name = "code.implementations"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "language_server"
+fallback = "builtin"
+input = ["none"]
+output = ["symbol"]
+summary = "Find implementations of an interface or types derived from the symbol."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Source file."
+
+[[command.param]]
+name = "line"
+type = "int"
+summary = "Line of the symbol, counted from 1."
+
+[[command.param]]
+name = "column"
+type = "int"
+summary = "Column of the symbol, counted from 1."
+
+[[command.param]]
+name = "symbol"
+type = "text"
+summary = "Symbol name, optionally qualified as Container.name, instead of a position."
+
+[[command.param]]
+name = "language"
+type = "text"
+default = "\"auto\""
+summary = "Programming language; auto detects it from the file extension."
+
+[[command.param]]
+name = "root"
+type = "path"
+default_note = "detected from the location of the file"
+summary = "Project root for the language server."
+
+[[command]]
+name = "code.type_definition"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "language_server"
+fallback = "builtin"
+input = ["none"]
+output = ["symbol"]
+summary = "Find the definition of the type of the symbol."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Source file."
+
+[[command.param]]
+name = "line"
+type = "int"
+summary = "Line of the symbol, counted from 1."
+
+[[command.param]]
+name = "column"
+type = "int"
+summary = "Column of the symbol, counted from 1."
+
+[[command.param]]
+name = "symbol"
+type = "text"
+summary = "Symbol name, optionally qualified as Container.name, instead of a position."
+
+[[command.param]]
+name = "language"
+type = "text"
+default = "\"auto\""
+summary = "Programming language; auto detects it from the file extension."
+
+[[command.param]]
+name = "root"
+type = "path"
+default_note = "detected from the location of the file"
+summary = "Project root for the language server."
+
+[[command]]
+name = "code.call_hierarchy"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "language_server"
+fallback = "builtin"
+input = ["none"]
+output = ["reference"]
+summary = "List the callers and callees of a function."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Source file."
+
+[[command.param]]
+name = "line"
+type = "int"
+summary = "Line of the function, counted from 1."
+
+[[command.param]]
+name = "column"
+type = "int"
+summary = "Column of the function, counted from 1."
+
+[[command.param]]
+name = "symbol"
+type = "text"
+summary = "Function name, optionally qualified as Container.name, instead of a position."
+
+[[command.param]]
+name = "direction"
+type = "enum(incoming|outgoing|both)"
+default = "both"
+values = ["incoming", "outgoing", "both"]
+summary = "Callers, callees or both."
+
+[[command.param]]
+name = "language"
+type = "text"
+default = "\"auto\""
+summary = "Programming language; auto detects it from the file extension."
+
+[[command.param]]
+name = "root"
+type = "path"
+default_note = "detected from the location of the file"
+summary = "Project root for the language server."
+
+[[command]]
+name = "code.actions"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "language_server"
+fallback = "builtin"
+input = ["none"]
+output = ["code_action"]
+summary = "List the code actions a language server offers for a range of lines."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Source file."
+
+[[command.param]]
+name = "line"
+type = "int"
+required = true
+summary = "First line of the range, counted from 1."
+
+[[command.param]]
+name = "end_line"
+type = "int"
+default_note = "the value of line"
+summary = "Last line of the range."
+
+[[command.param]]
+name = "column"
+type = "int"
+summary = "Column within the first line, counted from 1."
+
+[[command.param]]
+name = "language"
+type = "text"
+default = "\"auto\""
+summary = "Programming language; auto detects it from the file extension."
+
+[[command.param]]
+name = "root"
+type = "path"
+default_note = "detected from the location of the file"
+summary = "Project root for the language server."
+
+[[command]]
+name = "code.profile"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["profile_entry"]
+summary = "Profile a repository: build and test commands, entry points, change hotspots from history and manifests."
+
+[[command.param]]
+name = "root"
+type = "path"
+position = 1
+required = true
+summary = "Repository root."
+
+[[command.param]]
+name = "sections"
+type = "list<enum(commands|entry_points|hotspots|manifests|languages|modules|instructions)>"
+values = ["commands", "entry_points", "hotspots", "manifests", "languages", "modules", "instructions"]
+summary = "Sections to return; all when omitted."
+
+[[command.param]]
+name = "limit"
+type = "int"
+summary = "Maximum number of entries per section."
+
+[[command.param]]
+name = "days"
+type = "int"
+default = "90"
+summary = "Days of history used for change hotspots."
+
+[[command.param]]
+name = "refresh"
+type = "bool"
+default = "false"
+summary = "Rebuild the profile instead of using the cached one."

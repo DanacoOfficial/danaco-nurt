@@ -1,0 +1,25 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+[package]
+name = "nurt-code"
+description = "Source code analysis with tree-sitter for Danaco Nurt."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+nurt-contracts = { workspace = true }
+nurt-types = { workspace = true }
+tree-sitter = { workspace = true }
+tree-sitter-language = { workspace = true }
+ast-grep-core = { workspace = true }

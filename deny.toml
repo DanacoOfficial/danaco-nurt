@@ -1,0 +1,99 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+# Dependency policy checked by cargo-deny (`cargo deny --locked check`).
+# The policy is described in docs/conventions/licensing.md. Every exception
+# below names the crate it applies to and the reason for it.
+
+[graph]
+# The dependency graph is evaluated for every supported target with all
+# features enabled, so that optional and platform-specific dependencies are
+# checked as well.
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-gnu",
+  "x86_64-unknown-linux-musl",
+  "aarch64-unknown-linux-musl",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+  "aarch64-pc-windows-msvc",
+]
+all-features = true
+
+[advisories]
+# Security advisories from the RustSec advisory database. Vulnerable, unsound
+# and unmaintained crates are reported as errors. An ignored advisory must be
+# listed with its identifier and a reason, for example:
+# { id = "RUSTSEC-0000-0000", reason = "the affected function is not used" }
+ignore = []
+yanked = "deny"
+
+[licenses]
+# Permissive licenses compatible with the Apache License 2.0. Any license that
+# is not listed here, including GPL, LGPL and AGPL in every version, is
+# rejected. An expression with alternatives (`A OR B`) is accepted when one of
+# the alternatives is allowed.
+allow = [
+  "0BSD",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "CC0-1.0",
+  "ISC",
+  "MIT",
+  "Unicode-3.0",
+  "Unlicense",
+  "Zlib",
+]
+confidence-threshold = 0.93
+
+# Licenses accepted for one crate only, after an individual review.
+exceptions = [
+  # Mozilla root certificates as data; used only as a fallback when the
+  # certificate store of the operating system is not available.
+  { allow = ["CDLA-Permissive-2.0"], crate = "webpki-roots" },
+  # Pure Rust port of bzip2 under the permissive bzip2 license.
+  { allow = ["bzip2-1.0.6"], crate = "libbz2-rs-sys" },
+  # File-level copyleft (MPL-2.0) of unmodified transitive dependencies: the
+  # object cache of the Git library (gix-pack) and the directory lookup of the
+  # WebAssembly runtime cache (dirs-sys). The source of these crates is
+  # available from crates.io and is not modified.
+  { allow = ["MPL-2.0"], crate = "uluru" },
+  { allow = ["MPL-2.0"], crate = "option-ext" },
+  # LLVM libFuzzer runtime (University of Illinois/NCSA license); linked only
+  # into fuzzing targets, never into distributed artifacts.
+  { allow = ["NCSA"], crate = "libfuzzer-sys" },
+]
+
+[licenses.private]
+# Crates of this workspace are not published and are licensed by the
+# workspace manifest.
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+highlight = "all"
+deny = [
+  { crate = "sequoia-openpgp", reason = "LGPL-2.0-or-later; OpenPGP signatures use the pgp crate" },
+  { crate = "openssl", reason = "depends on the system OpenSSL library; TLS uses rustls" },
+  { crate = "openssl-sys", reason = "depends on the system OpenSSL library; TLS uses rustls" },
+  { crate = "git2", reason = "binds libgit2 (GPL-2.0 with a linking exception); Git support uses gix" },
+  { crate = "libgit2-sys", reason = "bundles libgit2 (GPL-2.0 with a linking exception); Git support uses gix" },
+  { crate = "serde_yaml", reason = "deprecated and unmaintained; YAML support uses yaml-edit and saphyr" },
+  { crate = "ini", reason = "dual licensed with LGPL-3.0-or-later; INI support uses rust-ini and an own parser" },
+  { crate = "libsystemd-sys", reason = "binds libsystemd (LGPL-2.1); D-Bus uses zbus and journal files are read natively" },
+  { crate = "unrar", reason = "the UnRAR license forbids creating a RAR compressor" },
+  { crate = "unrar_sys", reason = "the UnRAR license forbids creating a RAR compressor" },
+]
+
+[sources]
+# Dependencies are taken from crates.io only.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

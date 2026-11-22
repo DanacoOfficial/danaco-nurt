@@ -1,0 +1,376 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "verify"
+summary = "Tests and code analysis through typed wrappers of test frameworks and analyzers."
+
+[[command]]
+name = "test.run"
+category = "run"
+reversibility = "reversible_if_preserved"
+effect = "process"
+implementation = "user_program"
+input = ["none"]
+output = ["test_run", "test_result", "job"]
+summary = "Run the tests of a project and return typed results with a fingerprint of the code state."
+reversibility_note = "Files changed by the test programs are reversible when their previous content was preserved; effects outside the file system are irreversible."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+default_note = "the base directory"
+summary = "Project directory."
+
+[[command.param]]
+name = "framework"
+type = "enum(auto|bun|vitest|jest|npm|pytest|go|cargo)"
+default = "auto"
+values = ["auto", "bun", "vitest", "jest", "npm", "pytest", "go", "cargo"]
+summary = "Test framework; auto detects it from the project."
+
+[[command.param]]
+name = "targets"
+type = "list<text>"
+summary = "Test files, packages or identifiers to run."
+
+[[command.param]]
+name = "filter"
+type = "text"
+summary = "Only tests whose name matches this filter."
+
+[[command.param]]
+name = "bail"
+type = "bool"
+default = "false"
+summary = "Stop at the first failing test."
+
+[[command.param]]
+name = "command"
+type = "list<text>"
+summary = "Test command run instead of the detected framework command."
+
+[[command.param]]
+name = "coverage"
+type = "bool"
+default = "false"
+summary = "Collect code coverage and return it with the run."
+
+[[command.param]]
+name = "coverage_file"
+type = "path"
+summary = "Coverage report in LCOV, Cobertura or Go format produced by the tests; detected from the framework when omitted."
+
+[[command.param]]
+name = "timeout"
+type = "duration"
+default = "30m"
+summary = "Time limit of the test run."
+
+[[command.param]]
+name = "wait"
+type = "duration"
+default = "3s"
+waits = true
+summary = "Time to wait before the run continues in the background as a job."
+
+[[command.param]]
+name = "slowest"
+type = "int"
+default = "0"
+summary = "Number of slowest tests reported."
+
+[[command.param]]
+name = "failures"
+type = "int"
+default = "10"
+summary = "Maximum number of failed tests reported in detail."
+
+[[command.param]]
+name = "message_lines"
+type = "int"
+default = "5"
+summary = "Maximum number of message lines per failed test."
+
+[[command]]
+name = "test.failed"
+category = "run"
+reversibility = "reversible_if_preserved"
+effect = "process"
+implementation = "user_program"
+input = ["none"]
+output = ["test_run", "test_result", "job"]
+summary = "Run again only the tests that failed in an earlier run."
+reversibility_note = "Files changed by the test programs are reversible when their previous content was preserved; effects outside the file system are irreversible."
+
+[[command.param]]
+name = "run_id"
+type = "text"
+position = 1
+default_note = "the latest run"
+summary = "Earlier test run."
+
+[[command.param]]
+name = "path"
+type = "path"
+default_note = "the base directory"
+summary = "Project directory of the earlier run."
+
+[[command.param]]
+name = "timeout"
+type = "duration"
+default = "30m"
+summary = "Time limit of the test run."
+
+[[command.param]]
+name = "wait"
+type = "duration"
+default = "3s"
+waits = true
+summary = "Time to wait before the run continues in the background as a job."
+
+[[command.param]]
+name = "failures"
+type = "int"
+default = "10"
+summary = "Maximum number of failed tests reported in detail."
+
+[[command.param]]
+name = "message_lines"
+type = "int"
+default = "5"
+summary = "Maximum number of message lines per failed test."
+
+[[command]]
+name = "test.show"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["test_result"]
+summary = "Show the results of an earlier test run."
+
+[[command.param]]
+name = "run_id"
+type = "text"
+position = 1
+default_note = "the latest run"
+summary = "Earlier test run."
+
+[[command.param]]
+name = "test"
+type = "text"
+summary = "Only the test with this identifier or name."
+
+[[command.param]]
+name = "status"
+type = "enum(failed|passed|skipped)"
+values = ["failed", "passed", "skipped"]
+summary = "Only tests with this status."
+
+[[command.param]]
+name = "failures"
+type = "int"
+default = "10"
+summary = "Maximum number of failed tests reported in detail."
+
+[[command.param]]
+name = "message_lines"
+type = "int"
+default = "5"
+summary = "Maximum number of message lines per failed test."
+
+[[command]]
+name = "test.list"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["test_run"]
+summary = "List earlier test runs."
+
+[[command.param]]
+name = "limit"
+type = "int"
+default = "20"
+summary = "Maximum number of runs, newest first."
+
+[[command]]
+name = "analyze.check"
+category = "run"
+reversibility = "reversible_if_preserved"
+effect = "process"
+implementation = "user_program"
+input = ["none"]
+output = ["analysis", "finding", "job"]
+summary = "Check code with type checkers, linters, format checks, complexity and duplication analysis, and return a verdict."
+reversibility_note = "Files changed by the analysis programs are reversible when their previous content was preserved; effects outside the file system are irreversible."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+repeated = true
+default_note = "the base directory"
+summary = "Files or directories to check."
+
+[[command.param]]
+name = "changed_only"
+type = "bool"
+default = "false"
+summary = "Only files changed in the repository."
+
+[[command.param]]
+name = "checks"
+type = "list<enum(types|lint|format|complexity|duplication)>"
+values = ["types", "lint", "format", "complexity", "duplication"]
+summary = "Checks to run; all available checks when omitted."
+
+[[command.param]]
+name = "include_tests"
+type = "bool"
+default = "true"
+summary = "Include test files."
+
+[[command.param]]
+name = "complexity_max"
+type = "int"
+default = "15"
+summary = "Highest cyclomatic complexity accepted."
+
+[[command.param]]
+name = "fail_on"
+type = "enum(error|warning)"
+default = "error"
+values = ["error", "warning"]
+summary = "Lowest severity that fails the verdict."
+
+[[command.param]]
+name = "min_severity"
+type = "enum(error|warning|info)"
+default = "info"
+values = ["error", "warning", "info"]
+summary = "Lowest severity of findings returned."
+
+[[command.param]]
+name = "max_findings"
+type = "int"
+default = "100"
+summary = "Maximum number of findings returned."
+
+[[command.param]]
+name = "sample_lines"
+type = "int"
+default = "5"
+summary = "Maximum number of source lines shown with each finding."
+
+[[command.param]]
+name = "wait"
+type = "duration"
+default = "3s"
+waits = true
+summary = "Time to wait before the analysis continues in the background as a job."
+
+[[command]]
+name = "analyze.show"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["finding"]
+summary = "Show the findings of an earlier analysis."
+
+[[command.param]]
+name = "analysis_id"
+type = "text"
+position = 1
+default_note = "the latest analysis"
+summary = "Earlier analysis."
+
+[[command.param]]
+name = "check"
+type = "text"
+summary = "Only findings of this check."
+
+[[command.param]]
+name = "file"
+type = "path"
+summary = "Only findings in this file."
+
+[[command.param]]
+name = "offset"
+type = "int"
+summary = "Number of findings to skip."
+
+[[command.param]]
+name = "min_severity"
+type = "enum(error|warning|info)"
+default = "info"
+values = ["error", "warning", "info"]
+summary = "Lowest severity of findings returned."
+
+[[command.param]]
+name = "max_findings"
+type = "int"
+default = "100"
+summary = "Maximum number of findings returned."
+
+[[command]]
+name = "analyze.format"
+category = "change"
+reversibility = "reversible"
+effect = "process"
+implementation = "user_program"
+input = ["none"]
+output = ["effect"]
+summary = "Format source files with the formatter configured for each language."
+reversibility_note = "The previous content of every file passed to the formatter is kept in the journal."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+repeated = true
+default_note = "the base directory"
+summary = "Files or directories to format."
+
+[[command.param]]
+name = "changed_only"
+type = "bool"
+default = "false"
+summary = "Only files changed in the repository."
+
+[[command.param]]
+name = "sample_lines"
+type = "int"
+default = "12"
+summary = "Maximum number of changed lines shown per file, from 1 to 200."
+
+[[command]]
+name = "analyze.tools"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["analyze_tool"]
+summary = "List the analysis tools detected for a project and whether they are installed."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+repeated = true
+default_note = "the base directory"
+summary = "Files or directories to inspect."
+
+[[command.param]]
+name = "changed_only"
+type = "bool"
+default = "false"
+summary = "Only languages of files changed in the repository."

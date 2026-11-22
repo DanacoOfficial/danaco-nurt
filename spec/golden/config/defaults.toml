@@ -1,0 +1,216 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Reference configuration: every key of nurt-config/1 with its built-in
+# default. Keys whose default is "not set" are described in comments, because
+# TOML has no null value. Reading this file gives exactly the built-in
+# configuration.
+
+[syntax]
+variant = "a"
+tolerant = true
+
+[correction]
+enabled = true
+max_read = 8
+max_effect = 4
+require_first_char = true
+candidates_ttl = "10m"
+
+[scope]
+# The key base (absolute directory of relative paths) is not set by default.
+project_roots = []
+trusted_projects = []
+
+[journal]
+enabled = true
+max_ops = 30
+max_age = "30m"
+max_size = "unlimited"
+max_size_min = "2gib"
+max_size_max = "50gib"
+max_size_total = "unlimited"
+max_op_size = "unlimited"
+oversize = "skip"
+age_clock = "wall"
+pin_max_age = "1d"
+overwrite = "exchange"
+count_undo_as_op = true
+history_keep = 1000
+dir_name = ".nurt-journal"
+
+[journal.floor]
+# The floors max_ops and max_age are not set by default; values that come
+# from a project file are still raised to at least 10 steps and 5 minutes.
+
+[journal.volumes]
+network = false
+removable = false
+
+[journal.volume]
+# Settings of single volumes are keyed by mount point; none by default.
+
+[space]
+reserve = "15%"
+reserve_min = "5gib"
+reserve_max = "50gib"
+# The keys soft and margin are computed from the reserve when not set.
+poll_ms = 250
+poll_fast_ms = 50
+heartbeat_ms = 500
+heartbeat_max_age_ms = 2000
+sync_budget_ms = 1500
+settle_ms = 1000
+quota_aware = true
+
+[run]
+timeout = "2m"
+wait = "3s"
+idle_timeout = "1m"
+kill_grace = "5s"
+track_changes = "auto"
+track_ignore = [".git"]
+preimage = "auto"
+preimage_budget = "1500ms"
+preimage_max_entries = 20000
+preimage_copy_max = "256mib"
+preimage_exclude = ["node_modules", ".git", "target", "build", "dist", ".venv", "__pycache__"]
+irreversible_patterns = []
+parallel = 1
+spool_max = "unlimited"
+supervisor = "auto"
+waits_threshold = "3s"
+
+[run.env_defaults]
+PYTHONUTF8 = "1"
+PYTHONIOENCODING = "utf-8"
+NO_COLOR = "1"
+TERM = "dumb"
+GIT_TERMINAL_PROMPT = "0"
+PAGER = "cat"
+GIT_PAGER = "cat"
+DEBIAN_FRONTEND = "noninteractive"
+
+[output]
+language = "en"
+color = "auto"
+head = 20
+tail = 40
+spool_ttl = "1h"
+# The key results_dir defaults to the directory results in the state directory.
+
+[report]
+mass_threshold = 200
+diff_max_hunks = 20
+diff_max_lines = 200
+
+[report.notable]
+mass_files = 100
+mass_bytes = "1gib"
+mass_ratio = 0.8
+shrink_ratio = 0.5
+per_file_repl = 100
+targets_high = 500
+
+[text]
+legacy_encodings = ["windows-1250", "ibm852", "iso-8859-2", "windows-1252"]
+new_file_line_ending = "lf"
+
+[limits]
+max_records = 5000000
+max_file_bytes_text = "1gib"
+# The key threads defaults to the number of processor cores.
+
+[fs]
+sharing_retry_ms = 2000
+
+[code]
+servers_allow = "all"
+server_idle = "10m"
+server_retry = "5m"
+max_servers = 4
+timeout = "20s"
+timeout_max = "2m"
+index_max_files = 20000
+file_bytes_max = "1mib"
+diagnostics_quiet = "1500ms"
+
+[code.servers.python]
+command = ["pyright-langserver", "--stdio"]
+
+[code.servers.typescript]
+command = ["typescript-language-server", "--stdio"]
+
+[code.servers.javascript]
+command = ["typescript-language-server", "--stdio"]
+
+[code.servers.go]
+command = ["gopls"]
+
+[code.servers.rust]
+command = ["rust-analyzer"]
+
+[code.servers.c]
+command = ["clangd"]
+
+[code.servers.cpp]
+command = ["clangd"]
+
+[documents]
+max_bytes = "256mib"
+yaml_version = "1.2"
+xml_external_entities = false
+
+[sql]
+busy_timeout = "5s"
+
+[programs]
+catalogs = []
+# The key index_dir defaults to the cache directory of the user.
+help_timeout = "3s"
+sources_disabled = []
+
+[http]
+# The key proxy defaults to the proxy setting of the operating system.
+
+[git]
+trash_refs = false
+
+[git.hooks]
+timeout = "10m"
+
+[git.ssh]
+known_hosts = "strict"
+identity_files = []
+
+[git.signing]
+# The key key_file is not set by default.
+
+[git.checkpoint]
+keep = 50
+
+[git.status]
+limit = 200
+
+[git.network]
+timeout = "5m"
+
+[verify]
+history_max = 50
+
+[ext]
+# The key dir defaults to the directory ext in the configuration directory.
+native = false
+
+[service]
+mode = "user"
+
+[state]
+# The key dir defaults to the state directory of the operating system.
+
+[log]
+level = "warn"
+
+[session]
+# The key id is not set by default.
+ttl = "1d"

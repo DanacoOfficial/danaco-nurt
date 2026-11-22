@@ -1,0 +1,13 @@
+{
+  "nurt": "1.0",
+  "status": "ok",
+  "kind": "suspend",
+  "op": 32,
+  "targets": { "count": 1, "listed": 1 },
+  "changes": [
+    { "path": "process:4132", "action": "state", "before": "running", "after": "stopped" }
+  ],
+  "irreversible": [
+    { "reason": "process_state_changed", "path": "process:4132", "detail": "suspended" }
+  ]
+}

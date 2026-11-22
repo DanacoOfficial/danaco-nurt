@@ -1,0 +1,310 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "text"
+summary = "Differences, patches, hashes, encodings, expressions and record operations."
+
+[[command]]
+name = "diff"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none", "entry", "content"]
+output = ["hunk"]
+summary = "Compare two files, or the input with a file or named result, and return the differences as hunks."
+
+[[command.param]]
+name = "from"
+type = "path"
+position = 1
+required = true
+summary = "Old file in the source form."
+
+[[command.param]]
+name = "to"
+type = "path"
+position = 2
+required = true
+summary = "New file in the source form."
+
+[[command.param]]
+name = "against"
+type = "path | stream<any>"
+summary = "File or named result that the input is compared with in the stage form."
+
+[[command.param]]
+name = "context"
+type = "int"
+default = "3"
+summary = "Lines of context around each change."
+
+[[command.param]]
+name = "ignore_whitespace"
+type = "bool"
+default = "false"
+summary = "Ignore changes in whitespace."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["from", "to"]
+required = ["from", "to"]
+params = ["from", "to", "context", "ignore_whitespace"]
+summary = "Compare the two files given by from and to."
+
+[[command.form]]
+name = "stage"
+input = ["entry", "content"]
+positional = ["against"]
+required = ["against"]
+params = ["against", "context", "ignore_whitespace"]
+summary = "Compare each input file or content with against."
+
+[[command]]
+name = "patch"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Apply a unified or git diff to files under a root directory."
+required_groups = ["patch_source"]
+
+[[command.param]]
+name = "diff"
+type = "text"
+position = 1
+summary = "Diff text."
+exclusive_group = "patch_source"
+
+[[command.param]]
+name = "from"
+type = "path"
+summary = "File that contains the diff."
+exclusive_group = "patch_source"
+
+[[command.param]]
+name = "root"
+type = "path"
+required = true
+summary = "Directory that the paths in the diff are relative to."
+
+[[command.param]]
+name = "reverse"
+type = "bool"
+default = "false"
+summary = "Apply the diff in reverse."
+
+[[command.param]]
+name = "fuzz"
+type = "int"
+default = "0"
+summary = "Number of context lines that may differ when a hunk is placed."
+
+[[command.param]]
+name = "strip"
+type = "int"
+default = "0"
+summary = "Number of leading path components removed from the paths in the diff."
+
+[[command.param]]
+name = "validate"
+type = "enum(off|warn|reject)"
+default = "reject"
+values = ["off", "warn", "reject"]
+summary = "Roll back the change when it introduces a new syntax error."
+
+[[command.param]]
+name = "if_match"
+type = "text | map<text>"
+summary = "Expected etag of the patched file, or a map from path to etag for several files; a different file is not changed."
+
+[[command]]
+name = "hash"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none", "entry"]
+output = ["entry"]
+summary = "Compute digests of file contents."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+repeated = true
+summary = "Files to hash in the source form."
+
+[[command.param]]
+name = "algorithm"
+type = "enum(sha256|sha512|sha1|md5|blake3|crc32)"
+default = "sha256"
+values = ["sha256", "sha512", "sha1", "md5", "blake3", "crc32"]
+summary = "Digest algorithm."
+
+[[command]]
+name = "convert"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none", "entry"]
+output = ["effect"]
+summary = "Convert the text encoding, line endings or byte order mark of files."
+
+[[command.param]]
+name = "path"
+type = "list<path>"
+position = 1
+repeated = true
+summary = "Files to convert in the source form."
+
+[[command.param]]
+name = "encoding"
+type = "text"
+summary = "Target encoding, such as utf-8 or windows-1250."
+
+[[command.param]]
+name = "line_ending"
+type = "enum(lf|crlf|cr|keep)"
+default = "keep"
+values = ["lf", "crlf", "cr", "keep"]
+summary = "Target line ending, or keep to leave line endings unchanged."
+
+[[command.param]]
+name = "bom"
+type = "bool"
+summary = "Add or remove the byte order mark."
+
+[[command]]
+name = "evaluate"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["value"]
+summary = "Evaluate an expression with arithmetic, times, sizes and built-in functions."
+
+[[command.param]]
+name = "expression"
+type = "expression"
+position = 1
+required = true
+summary = "Expression to evaluate."
+
+[[command]]
+name = "group"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["any"]
+output = ["group"]
+summary = "Group records by a field or expression and count each group."
+
+[[command.param]]
+name = "by"
+type = "field | expression"
+position = 1
+required = true
+summary = "Field or expression whose value forms the groups."
+
+[[command.param]]
+name = "keep_items"
+type = "bool"
+default = "false"
+summary = "Include the records of each group."
+
+[[command]]
+name = "summarize"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["any"]
+output = ["summary"]
+summary = "Compute count, sum, minimum, maximum and average of fields, optionally per group."
+
+[[command.param]]
+name = "fields"
+type = "list<field>"
+position = 1
+repeated = true
+summary = "Numeric fields to summarize."
+
+[[command.param]]
+name = "by"
+type = "field"
+summary = "Field whose value forms the groups."
+
+[[command]]
+name = "distinct"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["any"]
+output = ["same"]
+summary = "Keep one record of each distinct value with the number of occurrences."
+
+[[command.param]]
+name = "by"
+type = "list<field>"
+position = 1
+repeated = true
+summary = "Fields that make records distinct; all fields when omitted."
+
+[[command]]
+name = "describe"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["any"]
+output = ["field_info"]
+summary = "List the fields of the input records with their types and an example value."
+
+[[command]]
+name = "parse"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["line", "match", "content"]
+output = ["row"]
+summary = "Extract fields from text with the named groups of a regular expression."
+
+[[command.param]]
+name = "pattern"
+type = "regex"
+position = 1
+required = true
+summary = "Pattern whose named groups become fields."
+
+[[command]]
+name = "split"
+category = "transform"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["line"]
+output = ["row"]
+summary = "Split lines into columns at a delimiter."
+
+[[command.param]]
+name = "delimiter"
+type = "text | regex"
+position = 1
+required = true
+summary = "Delimiter text or pattern."
+
+[[command.param]]
+name = "names"
+type = "list<text>"
+summary = "Names of the columns."

@@ -1,0 +1,13 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "code.rename",
+  "error": {
+    "code": "E_EXTERNAL_MISSING",
+    "message": "no language server for go is installed",
+    "stage": "1",
+    "at": { "line": 1, "column": 1, "length": 11 },
+    "fix": ["go install golang.org/x/tools/gopls@latest"],
+    "help": "code"
+  }
+}

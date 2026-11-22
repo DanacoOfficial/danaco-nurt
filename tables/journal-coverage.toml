@@ -1,0 +1,994 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# This file is the source of the journal coverage table. Every command and
+# every catalog action of the categories change and run, and every journal
+# command with an effect, has a row that states how the previous content is
+# preserved or why it is not. The test suite checks the table against the
+# catalog.
+#
+# Row fields:
+#   command      Catalog command name.
+#   action       Optional action, mode or target variant; a row without an
+#                action covers the whole command.
+#   group        Catalog group of the command.
+#   changes      What the operation changes.
+#   preserve     Preservation modes of the journal entry.
+#   coverage     The value full, partial, none or no_effect.
+#   irreversible Reasons reported for this row in addition to the generic ones.
+#   exception    Description of the exception; required for partial and none.
+#   note         Optional clarification.
+#
+# The overwrite modes exchange, replace_backup and hardlink keep the old
+# content without copying; when they are not possible the journal falls back
+# to clone, then copy, then none with an irreversible marker.
+
+format = "nurt-journal-coverage/1"
+
+# These reasons may degrade any row: the journal is inactive on the volume,
+# the volume is a network or removable volume, there is no space for the
+# copy, or the operation exceeds the size limits. The operation is then
+# performed and the target is marked irreversible.
+generic_irreversible = [
+  "journal_inactive",
+  "network_volume",
+  "removable_volume",
+  "no_space_for_copy",
+  "too_large_for_journal",
+]
+
+# Core commands.
+
+[[row]]
+command = "verify"
+group = "core"
+changes = "Targets of the checked operation, restored when the check fails."
+preserve = ["moved", "exchange", "replace_backup", "hardlink", "clone", "copy", "created", "meta", "ref", "value", "append", "rename"]
+coverage = "full"
+note = "A failed check after commit undoes the operation as an undo entry; the current content of the targets is kept in that entry."
+
+[[row]]
+command = "write"
+action = "create"
+group = "core"
+changes = "A new file."
+preserve = ["created"]
+coverage = "full"
+
+[[row]]
+command = "write"
+action = "overwrite"
+group = "core"
+changes = "Content of an existing file."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+note = "A file with several hard links is written in place and its previous content is kept by clone or copy."
+
+[[row]]
+command = "write"
+action = "append"
+group = "core"
+changes = "Content appended to the end of a file."
+preserve = ["append"]
+coverage = "full"
+note = "The previous length and the hash of the prefix are recorded; undo truncates."
+
+[[row]]
+command = "write"
+action = "prepend"
+group = "core"
+changes = "Content inserted at the start of a file."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "write"
+action = "files"
+group = "core"
+changes = "Several files written in one transaction."
+preserve = ["created", "append", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+note = "One operation; every file is preserved as for its mode."
+
+[[row]]
+command = "write"
+action = "size"
+group = "core"
+changes = "Length of a file, truncated or extended."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy", "append"]
+coverage = "full"
+note = "Truncation is preserved as an overwrite; extension is recorded as an append."
+
+[[row]]
+command = "write"
+action = "data"
+group = "core"
+changes = "Bytes written at an offset of a file."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "write"
+action = "registry"
+group = "core"
+changes = "Keys and values of the registry provider."
+preserve = ["value", "created"]
+coverage = "full"
+note = "The previous type and data of a value, or the subtree of a key, are recorded; a new value is recorded as created."
+
+[[row]]
+command = "write"
+action = "special_file"
+group = "core"
+changes = "Data written to a device, FIFO, socket or kernel interface."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["special_file"]
+exception = "Writing to a special file is not a change of file content and cannot be preserved; the report also shows the notable effect special_file."
+
+[[row]]
+command = "replace"
+group = "core"
+changes = "Content of files."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "insert"
+group = "core"
+changes = "Content of files."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy", "append"]
+coverage = "full"
+note = "Insertion at the end of a file is recorded as an append."
+
+[[row]]
+command = "edit"
+group = "core"
+changes = "Content of a file, all changes or none."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "copy"
+group = "core"
+changes = "New entries and overwritten destinations."
+preserve = ["created", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+note = "New entries are recorded as created; overwritten destinations are preserved as for an overwrite."
+
+[[row]]
+command = "copy"
+action = "registry"
+group = "core"
+changes = "Keys and values of the registry provider."
+preserve = ["value", "created"]
+coverage = "full"
+
+[[row]]
+command = "move"
+group = "core"
+changes = "Name and location of entries within one volume; an existing destination may be overwritten."
+preserve = ["rename", "moved"]
+coverage = "full"
+note = "Source and destination are recorded; an overwritten destination is moved into the journal."
+
+[[row]]
+command = "move"
+action = "cross_volume"
+group = "core"
+changes = "Entries copied to another volume and removed from the source."
+preserve = ["created", "moved", "copy"]
+coverage = "full"
+note = "The destination is recorded as created and the source is moved into the journal of its own volume; a directory of a lower overlay layer is copied before removal."
+
+[[row]]
+command = "move"
+action = "registry"
+group = "core"
+changes = "Keys and values of the registry provider."
+preserve = ["value"]
+coverage = "full"
+
+[[row]]
+command = "remove"
+group = "core"
+changes = "Files and directories, recursively, as one operation."
+preserve = ["moved", "copy"]
+coverage = "full"
+note = "One rename into the journal per target, also for a directory with millions of files; a directory of a lower overlay layer is copied before removal."
+
+[[row]]
+command = "remove"
+action = "records"
+group = "core"
+changes = "Lines, matches, syntax nodes or document keys removed from files."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "remove"
+action = "registry"
+group = "core"
+changes = "Keys and values of the registry provider."
+preserve = ["value"]
+coverage = "full"
+
+[[row]]
+command = "remove"
+action = "job"
+group = "core"
+changes = "Record and output files of a finished background job."
+preserve = ["none"]
+coverage = "none"
+exception = "Job records and their output files are state of the console, not user data, and are not journaled."
+
+[[row]]
+command = "rename"
+group = "core"
+changes = "Names of entries."
+preserve = ["rename", "moved"]
+coverage = "full"
+note = "An overwritten destination is moved into the journal."
+
+[[row]]
+command = "create"
+action = "file"
+group = "core"
+changes = "A new file."
+preserve = ["created"]
+coverage = "full"
+
+[[row]]
+command = "create"
+action = "directory"
+group = "core"
+changes = "A new directory."
+preserve = ["created"]
+coverage = "full"
+
+[[row]]
+command = "create"
+action = "link"
+group = "core"
+changes = "A new symbolic or hard link."
+preserve = ["created"]
+coverage = "full"
+
+[[row]]
+command = "create"
+action = "junction"
+group = "core"
+changes = "A new junction."
+preserve = ["created"]
+coverage = "full"
+
+[[row]]
+command = "create"
+action = "temporary"
+group = "core"
+changes = "A new temporary file or directory."
+preserve = ["created"]
+coverage = "full"
+note = "Temporary directories are often on memory-backed volumes, where the journal is inactive."
+
+[[row]]
+command = "create"
+action = "touch"
+group = "core"
+changes = "Timestamps of an existing entry."
+preserve = ["meta"]
+coverage = "full"
+
+[[row]]
+command = "attributes"
+group = "core"
+changes = "Metadata: mode, account and group of the file, ACL, extended attributes, timestamps, read-only and hidden flags."
+preserve = ["meta"]
+coverage = "full"
+note = "The complete previous metadata is recorded."
+
+[[row]]
+command = "run"
+group = "core"
+changes = "Any files inside and outside the watched scope, and effects outside the file system."
+preserve = ["clone", "copy", "none", "external"]
+coverage = "partial"
+irreversible = ["previous_content_not_kept", "external_effect", "network", "database"]
+exception = "Changes are detected by scanning the watched scope; files in that scope are cloned or copied before the start within the configured limits and time budget. Files changed without a preserved copy, changes outside the watched scope and effects outside the file system are marked irreversible."
+
+[[row]]
+command = "stop"
+group = "core"
+changes = "State of processes, jobs and services."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["process_stopped", "service_changed"]
+exception = "Stopping a process, job or service has an effect outside the file system."
+
+[[row]]
+command = "retry"
+group = "core"
+changes = "As the command that is run again."
+preserve = ["clone", "copy", "none", "external"]
+coverage = "partial"
+irreversible = ["previous_content_not_kept", "external_effect"]
+exception = "Covered as run."
+
+[[row]]
+command = "undo"
+group = "core"
+changes = "Items restored from journal entries."
+preserve = ["moved", "exchange", "replace_backup", "hardlink", "clone", "copy", "created", "meta", "ref", "value", "append", "rename"]
+coverage = "full"
+note = "The current state of every restored item is kept in the undo entry, so the undo can be redone; items of partial entries released for space are reported with released_for_space."
+
+[[row]]
+command = "redo"
+group = "core"
+changes = "Items changed again from an undo entry."
+preserve = ["moved", "exchange", "replace_backup", "hardlink", "clone", "copy", "created", "meta", "ref", "value", "append", "rename"]
+coverage = "full"
+
+# Group documents.
+
+[[row]]
+command = "set"
+group = "documents"
+changes = "Values at key paths of structured documents, layout preserved."
+preserve = ["created", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "sql"
+action = "write"
+group = "documents"
+changes = "SQLite database file and its side files."
+preserve = ["clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["database"]
+exception = "The database engine writes the file itself; the database file and its side files (-wal, -shm, -journal) are cloned or copied before the change. Without space for the copy the change is performed unpreserved and marked database."
+
+# Group text.
+
+[[row]]
+command = "patch"
+group = "text"
+changes = "Content of files; files created, deleted, renamed or with a changed mode."
+preserve = ["created", "moved", "rename", "meta", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "convert"
+group = "text"
+changes = "Encoding or line endings of files."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+# Group code.
+
+[[row]]
+command = "code.rename"
+group = "code"
+changes = "Content of many files; files renamed, created or deleted by the language server edit."
+preserve = ["rename", "created", "moved", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+note = "One bulk operation, undone as a whole."
+
+# Group notebook.
+
+[[row]]
+command = "notebook.insert"
+group = "notebook"
+changes = "Cells of a notebook."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "notebook.replace"
+group = "notebook"
+changes = "Cells of a notebook."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "notebook.move"
+group = "notebook"
+changes = "Order of cells of a notebook."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "notebook.copy"
+group = "notebook"
+changes = "Cells of a notebook."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "notebook.normalize"
+group = "notebook"
+changes = "Cell identifiers and format fields of a notebook."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "notebook.ops"
+group = "notebook"
+changes = "Cells of a notebook, several operations in one write."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "notebook.remove"
+group = "notebook"
+changes = "Cells of a notebook."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "notebook.clear_outputs"
+group = "notebook"
+changes = "Outputs of notebook cells."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "notebook.export"
+group = "notebook"
+changes = "A new or overwritten exported file."
+preserve = ["created", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+# Group git. Every write of the repository goes through the transaction:
+# references are recorded with their previous value, reference logs as
+# appends, the index and other files with their exact previous content.
+# Objects are added to the object store outside the journal and stay in the
+# repository.
+
+[[row]]
+command = "git.branch"
+action = "create"
+group = "git"
+changes = "A new branch reference."
+preserve = ["ref"]
+coverage = "full"
+
+[[row]]
+command = "git.branch"
+action = "rename"
+group = "git"
+changes = "Name of a branch reference, its reference log and configuration."
+preserve = ["ref", "rename", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "git.branch"
+action = "delete"
+group = "git"
+changes = "A branch reference, its reference log and configuration."
+preserve = ["ref", "moved", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "git.branch"
+action = "switch"
+group = "git"
+changes = "A new branch and the working tree, index and HEAD switched to it."
+preserve = ["ref", "append", "exchange", "replace_backup", "hardlink", "clone", "copy", "moved", "created", "meta"]
+coverage = "full"
+
+[[row]]
+command = "git.stage"
+action = "add"
+group = "git"
+changes = "Index of the repository."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+note = "The index file is preserved as a file."
+
+[[row]]
+command = "git.stage"
+action = "unstage"
+group = "git"
+changes = "Index of the repository."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "git.checkpoint"
+action = "create"
+group = "git"
+changes = "A checkpoint reference outside the branches."
+preserve = ["ref"]
+coverage = "full"
+
+[[row]]
+command = "git.checkpoint"
+action = "restore"
+group = "git"
+changes = "Working tree and optionally the index, restored from a checkpoint."
+preserve = ["ref", "append", "exchange", "replace_backup", "hardlink", "clone", "copy", "moved", "created", "meta"]
+coverage = "full"
+note = "Every file the restore changes or removes is preserved exactly before the change."
+
+[[row]]
+command = "git.checkpoint"
+action = "delete"
+group = "git"
+changes = "A checkpoint reference."
+preserve = ["ref"]
+coverage = "full"
+
+[[row]]
+command = "git.worktree"
+action = "add"
+group = "git"
+changes = "A new worktree directory, its registration and branch."
+preserve = ["created", "ref"]
+coverage = "full"
+note = "The new directory is one target created as a tree."
+
+[[row]]
+command = "git.worktree"
+action = "remove"
+group = "git"
+changes = "A worktree directory and its registration."
+preserve = ["moved"]
+coverage = "full"
+note = "Both directories are moved into the journal of their own volumes before the registration is removed."
+
+[[row]]
+command = "git.commit"
+group = "git"
+changes = "Branch reference, reference log and index."
+preserve = ["ref", "append", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+note = "Undo moves the reference back; working tree files are not changed and objects stay in the repository."
+
+[[row]]
+command = "git.commit"
+action = "hooks"
+group = "git"
+changes = "Files changed by client hooks run before the commit."
+preserve = ["clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["previous_content_not_kept", "external_effect"]
+exception = "Client hooks are user programs and are covered as run, with the working tree as the watched scope."
+
+[[row]]
+command = "git.tag"
+action = "create"
+group = "git"
+changes = "A new tag reference."
+preserve = ["ref"]
+coverage = "full"
+
+[[row]]
+command = "git.tag"
+action = "delete"
+group = "git"
+changes = "A tag reference."
+preserve = ["ref"]
+coverage = "full"
+
+[[row]]
+command = "git.fetch"
+group = "git"
+changes = "Remote-tracking references, FETCH_HEAD and objects transferred over the network."
+preserve = ["ref", "created", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "partial"
+irreversible = ["remote_ref_updated"]
+exception = "Local references and files are preserved; the network transfer cannot be undone."
+
+[[row]]
+command = "git.clone"
+group = "git"
+changes = "A new repository directory."
+preserve = ["created"]
+coverage = "partial"
+irreversible = ["remote_ref_updated"]
+exception = "The new directory is recorded as created and undo moves it into the journal; the network transfer cannot be undone."
+
+[[row]]
+command = "git.switch"
+group = "git"
+changes = "Working tree, index, HEAD and, when created, a branch reference."
+preserve = ["ref", "append", "exchange", "replace_backup", "hardlink", "clone", "copy", "moved", "created", "meta"]
+coverage = "full"
+note = "Every file the operation changes or removes is preserved exactly; no scanning is needed."
+
+[[row]]
+command = "git.restore"
+group = "git"
+changes = "Working tree files and optionally the index."
+preserve = ["ref", "append", "exchange", "replace_backup", "hardlink", "clone", "copy", "moved", "created", "meta"]
+coverage = "full"
+
+[[row]]
+command = "git.reset"
+group = "git"
+changes = "Branch reference, reference log, index and, in hard mode, the working tree."
+preserve = ["ref", "append", "exchange", "replace_backup", "hardlink", "clone", "copy", "moved", "created", "meta"]
+coverage = "full"
+
+[[row]]
+command = "git.merge"
+group = "git"
+changes = "Working tree, index, references and merge state files."
+preserve = ["ref", "append", "exchange", "replace_backup", "hardlink", "clone", "copy", "moved", "created", "meta"]
+coverage = "full"
+note = "A merge with conflicts is committed to the journal; undo restores the state before the merge."
+
+[[row]]
+command = "git.rebase"
+group = "git"
+changes = "Working tree, index, references and rebase state files."
+preserve = ["ref", "append", "exchange", "replace_backup", "hardlink", "clone", "copy", "moved", "created", "meta"]
+coverage = "full"
+
+[[row]]
+command = "git.stash"
+action = "push"
+group = "git"
+changes = "Working tree, index, the stash reference and its log."
+preserve = ["ref", "append", "exchange", "replace_backup", "hardlink", "clone", "copy", "moved", "created", "meta"]
+coverage = "full"
+note = "The changes removed from the working tree are also kept in the journal entry."
+
+[[row]]
+command = "git.stash"
+action = "pop"
+group = "git"
+changes = "Working tree, index, the stash reference and its log."
+preserve = ["ref", "append", "exchange", "replace_backup", "hardlink", "clone", "copy", "moved", "created", "meta"]
+coverage = "full"
+
+[[row]]
+command = "git.stash"
+action = "apply"
+group = "git"
+changes = "Working tree and index."
+preserve = ["ref", "append", "exchange", "replace_backup", "hardlink", "clone", "copy", "moved", "created", "meta"]
+coverage = "full"
+
+[[row]]
+command = "git.stash"
+action = "drop"
+group = "git"
+changes = "A stash entry and the stash log."
+preserve = ["ref", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "git.stash"
+action = "clear"
+group = "git"
+changes = "All stash entries and the stash log."
+preserve = ["ref", "moved"]
+coverage = "full"
+
+[[row]]
+command = "git.pull"
+group = "git"
+changes = "Remote-tracking references, then the working tree, index and references of the merge."
+preserve = ["ref", "append", "exchange", "replace_backup", "hardlink", "clone", "copy", "moved", "created", "meta"]
+coverage = "partial"
+irreversible = ["remote_ref_updated"]
+exception = "The local part is preserved exactly as for a fetch and a merge, in one entry; the network transfer cannot be undone."
+
+[[row]]
+command = "git.push"
+group = "git"
+changes = "References and objects of a remote repository, and the local remote-tracking reference."
+preserve = ["external", "ref"]
+coverage = "none"
+irreversible = ["remote_ref_updated", "external_effect"]
+exception = "The change happens in a remote repository outside the local file system; only the local remote-tracking reference is recorded."
+
+# Group archive.
+
+[[row]]
+command = "archive.extract"
+group = "archive"
+changes = "New and overwritten files extracted from an archive."
+preserve = ["created", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "archive.create"
+group = "archive"
+changes = "A new or overwritten archive."
+preserve = ["created", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "compress"
+group = "archive"
+changes = "New compressed files; sources removed when not kept."
+preserve = ["created", "moved", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+[[row]]
+command = "decompress"
+group = "archive"
+changes = "New decompressed files; sources removed when not kept."
+preserve = ["created", "moved", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+
+# Group system.
+
+[[row]]
+command = "sleep"
+group = "system"
+changes = "Nothing; the program waits."
+preserve = []
+coverage = "no_effect"
+
+[[row]]
+command = "suspend"
+group = "system"
+changes = "State of a process or job."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["process_stopped"]
+exception = "Suspending a process changes process state outside the file system."
+
+[[row]]
+command = "resume"
+group = "system"
+changes = "State of a process or job."
+preserve = ["external"]
+coverage = "none"
+exception = "Resuming a process changes process state outside the file system."
+
+# Group admin.
+
+[[row]]
+command = "start"
+group = "admin"
+changes = "State of a service."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["service_changed"]
+exception = "Service state is outside the file system."
+
+[[row]]
+command = "restart"
+group = "admin"
+changes = "State of a service."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["service_changed"]
+exception = "Service state is outside the file system."
+
+[[row]]
+command = "enable"
+group = "admin"
+changes = "Start-up configuration of a service."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["service_changed"]
+exception = "The service manager changes its configuration itself."
+
+[[row]]
+command = "disable"
+group = "admin"
+changes = "Start-up configuration of a service."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["service_changed"]
+exception = "The service manager changes its configuration itself."
+
+# Group package.
+
+[[row]]
+command = "package.install"
+group = "package"
+changes = "Packages of the system package manager."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["package_changed"]
+exception = "The package manager changes the system itself."
+
+[[row]]
+command = "package.remove"
+group = "package"
+changes = "Packages of the system package manager."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["package_changed"]
+exception = "The package manager changes the system itself."
+
+[[row]]
+command = "package.upgrade"
+group = "package"
+changes = "Packages of the system package manager."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["package_changed"]
+exception = "The package manager changes the system itself."
+
+# Group network.
+
+[[row]]
+command = "http.request"
+action = "save"
+group = "network"
+changes = "A saved response file."
+preserve = ["created", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+note = "The file is written as by write; with a method other than get or head the request itself is covered by the row of the method."
+
+[[row]]
+command = "http.request"
+action = "post"
+group = "network"
+changes = "State of a remote service."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["network"]
+exception = "A request with side effects changes a remote system."
+
+[[row]]
+command = "http.request"
+action = "put"
+group = "network"
+changes = "State of a remote service."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["network"]
+exception = "A request with side effects changes a remote system."
+
+[[row]]
+command = "http.request"
+action = "patch"
+group = "network"
+changes = "State of a remote service."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["network"]
+exception = "A request with side effects changes a remote system."
+
+[[row]]
+command = "http.request"
+action = "delete"
+group = "network"
+changes = "State of a remote service."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["network"]
+exception = "A request with side effects changes a remote system."
+
+[[row]]
+command = "http.request"
+action = "options"
+group = "network"
+changes = "State of a remote service, when the service treats the request as a change."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["network"]
+exception = "Only get and head are treated as reads; any other method may change a remote system."
+
+[[row]]
+command = "http.download"
+group = "network"
+changes = "A downloaded file."
+preserve = ["created", "append", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+note = "The file is streamed to a staged file and switched in atomically; a resumed download is recorded as an append."
+
+# Group schedule. Schedule definitions are records of the schedule store in
+# the state directory of the user; each change records the previous record.
+
+[[row]]
+command = "schedule.create"
+group = "schedule"
+changes = "A new schedule record."
+preserve = ["value"]
+coverage = "full"
+note = "Undo removes the record; with run_now the action is covered by the rows of its commands."
+
+[[row]]
+command = "schedule.remove"
+group = "schedule"
+changes = "Schedule records."
+preserve = ["value"]
+coverage = "full"
+
+[[row]]
+command = "schedule.pause"
+group = "schedule"
+changes = "State of schedule records."
+preserve = ["value"]
+coverage = "full"
+
+[[row]]
+command = "schedule.resume"
+group = "schedule"
+changes = "State of schedule records."
+preserve = ["value"]
+coverage = "full"
+
+[[row]]
+command = "schedule.run"
+group = "schedule"
+changes = "As the commands of the schedule action."
+preserve = ["clone", "copy", "none", "external"]
+coverage = "partial"
+irreversible = ["previous_content_not_kept", "external_effect"]
+exception = "The action runs as an ordinary program; each of its commands is covered by its own row, launched programs as run."
+
+# Group journal. These commands change the state of the journal, not user
+# data.
+
+[[row]]
+command = "journal.pin"
+group = "journal"
+changes = "Pin marker of journal entries."
+preserve = ["meta"]
+coverage = "full"
+note = "The previous pin state is recorded; pinning does not protect entries from reclaim for space, and entries that expire after a release are not restored."
+
+[[row]]
+command = "journal.limits"
+group = "journal"
+changes = "Retention limits of the session or of the user configuration file."
+preserve = ["meta", "created", "exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "partial"
+exception = "A changed limit is reversed by setting it again; entries expired by lowered limits are not restored when the limits are raised. With user scope the configuration file is preserved as for an overwrite."
+
+[[row]]
+command = "journal.purge"
+group = "journal"
+changes = "Journal entries released immediately."
+preserve = ["none"]
+coverage = "none"
+irreversible = ["purged"]
+exception = "Released entries can no longer be undone; a tombstone remains for history."
+
+# Group verify.
+
+[[row]]
+command = "test.run"
+group = "verify"
+changes = "Files generated by test frameworks (reports, coverage)."
+preserve = ["clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["previous_content_not_kept", "external_effect"]
+exception = "The framework is a user program and is covered as run, with the project directory as the watched scope."
+
+[[row]]
+command = "test.failed"
+group = "verify"
+changes = "Files generated by test frameworks (reports, coverage)."
+preserve = ["clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["previous_content_not_kept", "external_effect"]
+exception = "The framework is a user program and is covered as run."
+
+[[row]]
+command = "analyze.check"
+group = "verify"
+changes = "Files generated by analyzers (reports, caches)."
+preserve = ["clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["previous_content_not_kept", "external_effect"]
+exception = "The analyzers are user programs and are covered as run."
+
+[[row]]
+command = "analyze.format"
+group = "verify"
+changes = "Source files rewritten by formatters."
+preserve = ["exchange", "replace_backup", "hardlink", "clone", "copy"]
+coverage = "full"
+note = "The formatter reads the source and writes the result to its output; the console writes each changed file through the transaction."
+
+[[row]]
+command = "analyze.format"
+action = "in_place"
+group = "verify"
+changes = "Source files rewritten in place by formatters without a stream mode."
+preserve = ["clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["previous_content_not_kept"]
+exception = "The files to format are known before the formatter runs and are cloned or copied within the configured limits; files beyond the limits are marked irreversible."

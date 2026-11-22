@@ -1,0 +1,63 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+name: Bug report
+description: Report incorrect behaviour of Danaco Nurt.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report security vulnerabilities here; follow SECURITY.md instead.
+        Search the existing issues before opening a new one.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `nurt version`, or the commit when built from source.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: Operating system version and architecture
+      placeholder: Ubuntu 24.04, x86_64
+  - type: textarea
+    id: program
+    attributes:
+      label: Program
+      description: A minimal Nurt program or command that reproduces the problem. Use example paths such as /home/user.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: The report or error returned, preferably in JSON form.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Configuration, integration (command line, library, MCP server) and other details.

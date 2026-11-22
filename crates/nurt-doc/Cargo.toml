@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+[package]
+name = "nurt-doc"
+description = "Layout-preserving structured document formats, SQLite and queries for Danaco Nurt."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+nurt-contracts = { workspace = true }
+nurt-types = { workspace = true }
+jsonc-parser = { workspace = true }
+toml_edit = { workspace = true }
+quick-xml = { workspace = true }
+saphyr = { workspace = true }
+yaml-edit = { workspace = true }
+csv = { workspace = true }
+plist = { workspace = true }
+jaq-core = { workspace = true }
+rusqlite = { workspace = true }
+rust-ini = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

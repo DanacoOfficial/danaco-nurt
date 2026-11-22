@@ -1,0 +1,13 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "set",
+  "error": {
+    "code": "E_UNSUPPORTED_CONSTRUCT",
+    "message": "the key is defined through a merge key; it cannot be changed without losing the layout",
+    "found": "<<: *defaults",
+    "problem": "/srv/app/config.yaml line 14",
+    "fix": ["set \"/srv/app/config.yaml\" key: \"defaults.port\" value: 8080"],
+    "help": "documents"
+  }
+}

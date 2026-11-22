@@ -1,0 +1,21 @@
+{
+  "nurt": "1.0",
+  "status": "partial",
+  "kind": "undo",
+  "op": 25,
+  "targets": { "count": 300, "files": 300, "listed": 2 },
+  "summary": { "files_created": 180 },
+  "changes": [
+    { "path": "/srv/app/build/cache/0001.o", "action": "create", "size_after": 20480 },
+    { "path": "/srv/app/build/cache/0002.o", "action": "create", "size_after": 18944 }
+  ],
+  "irreversible": [
+    {
+      "reason": "released_for_space",
+      "path": "/srv/app/build/cache",
+      "count": 120,
+      "detail": "preserved content of 120 files was released to free disk space"
+    }
+  ],
+  "next_cursor": "c_7c01"
+}

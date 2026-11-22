@@ -1,0 +1,14 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+cognitive-complexity-threshold = 15
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-print-in-tests = true
+allow-dbg-in-tests = true
+
+disallowed-methods = [
+  { path = "nurt_contracts::fs::TxScope::new_for_journal", reason = "Only the journal implementation creates transaction scopes." },
+]

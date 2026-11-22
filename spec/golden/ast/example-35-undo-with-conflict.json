@@ -1,0 +1,47 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "undo",
+          "args": [
+            {
+              "value": {
+                "t": "int",
+                "v": 18,
+                "span": [
+                  1,
+                  6,
+                  1,
+                  8
+                ]
+              },
+              "span": [
+                1,
+                6,
+                1,
+                8
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            8
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          8
+        ]
+      }
+    ]
+  }
+}

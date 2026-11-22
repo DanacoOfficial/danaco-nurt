@@ -1,0 +1,422 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Allowed dependencies between the crates of the workspace.
+#
+# Every crate of `crates/` has an entry. A dependency on another crate of the
+# workspace (normal, build or development, for any target) must be listed in
+# `deps` of the dependent crate; development dependencies may also be listed
+# in `dev`, and the crates of `rules.dev_anywhere` may be development
+# dependencies of any crate of the same or a higher layer. The test
+# `crates/nurt-contracts/tests/workspace_graph.rs` checks the manifests against
+# this table and checks the rules below. The rules are described in
+# `docs/architecture/crate-graph.md`.
+#
+# Rules:
+# 1. A crate depends only on crates of the same or a lower layer.
+# 2. The graph of allowed dependencies is acyclic.
+# 3. A crate depends on a crate of another area only when the dependency is
+#    `shared`, or when the dependent crate belongs to an integrating layer.
+# 4. Entries marked `reserved` name crates that do not exist yet; such a
+#    crate must not exist in `crates/` while the mark is present.
+
+format = "nurt-crate-graph/1"
+
+[rules]
+integrating_layers = ["host", "interface", "tool"]
+dev_anywhere = ["nurt-testkit"]
+
+# Layers, from the lowest to the highest.
+
+[[layer]]
+name = "contract"
+summary = "Frozen contracts: types, traits and schemas shared by every crate."
+
+[[layer]]
+name = "foundation"
+summary = "Values of the language and the command registry."
+
+[[layer]]
+name = "base"
+summary = "Platform file system layer, syntax and test support."
+
+[[layer]]
+name = "library"
+summary = "Reusable services: journal, space, text, documents, code, processes, transports."
+
+[[layer]]
+name = "component"
+summary = "Commands, binding, execution and extension points built on the services."
+
+[[layer]]
+name = "host"
+summary = "Composition of all components: the engine facade and the background service."
+
+[[layer]]
+name = "interface"
+summary = "Entry points: C ABI, command line, Model Context Protocol server."
+
+[[layer]]
+name = "tool"
+summary = "Conformance suite, benchmark and documentation generators."
+
+# Areas of responsibility.
+
+[[area]]
+name = "runtime"
+summary = "Contracts, values, catalog, planning, execution, report, engine and interfaces."
+
+[[area]]
+name = "language"
+summary = "Parser, printer, correction, binding, help, language server and script migration."
+
+[[area]]
+name = "storage"
+summary = "File system layer, journal of changes and free space."
+
+[[area]]
+name = "files"
+summary = "File commands, text processing, archives and notebooks."
+
+[[area]]
+name = "structured"
+summary = "Structured documents, source code analysis and language server client."
+
+[[area]]
+name = "process"
+summary = "Running programs, background jobs, tests and analysis."
+
+[[area]]
+name = "system"
+summary = "Operating system, network, schedules, installed programs and the service host."
+
+[[area]]
+name = "git"
+summary = "Git repositories, working tree operations and transports."
+
+[[area]]
+name = "integration"
+summary = "Model Context Protocol, tool definitions, conformance, benchmark and documentation."
+
+# Crates.
+
+[crate.nurt-contracts]
+layer = "contract"
+area = "runtime"
+shared = true
+summary = "Frozen contracts of the syntax trees, records, errors, stages, report, journal and configuration."
+deps = []
+
+[crate.nurt-types]
+layer = "foundation"
+area = "runtime"
+shared = true
+summary = "Values, records, types, ranges and units."
+deps = ["nurt-contracts"]
+
+[crate.nurt-catalog]
+layer = "foundation"
+area = "runtime"
+shared = true
+summary = "Command registry and loading of the catalog."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-fs]
+layer = "base"
+area = "storage"
+shared = false
+summary = "File system layer: paths, providers, atomic replacement, links, locks, clones, volumes."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-syntax]
+layer = "base"
+area = "language"
+summary = "Lexer, parser of the three notations, canonical printer, tree codecs, diagnostics."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-testkit]
+layer = "base"
+area = "runtime"
+shared = true
+summary = "Virtual file system, clock and host mocks, golden case runner."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-journal]
+layer = "library"
+area = "storage"
+shared = false
+summary = "Journal of changes: protocol, recovery, undo and redo, retention."
+deps = ["nurt-contracts", "nurt-types", "nurt-fs"]
+
+[crate.nurt-space]
+layer = "library"
+area = "storage"
+summary = "Free space measurement, thresholds, admission, release and heartbeat."
+deps = ["nurt-contracts", "nurt-types", "nurt-fs", "nurt-journal"]
+
+[crate.nurt-crashfs]
+layer = "library"
+area = "storage"
+reserved = true
+summary = "Crash harness: simulated file system that loses unsynchronised writes, fault injection, crash points."
+deps = ["nurt-contracts", "nurt-types", "nurt-fs", "nurt-journal"]
+
+[crate.nurt-report]
+layer = "library"
+area = "runtime"
+summary = "Report model, renderers and rules of notable and irreversible effects."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-plan]
+layer = "library"
+area = "runtime"
+summary = "Plan of a bound program."
+deps = ["nurt-contracts", "nurt-types", "nurt-catalog"]
+
+[crate.nurt-correct]
+layer = "library"
+area = "language"
+summary = "Correction of the written form of programs."
+deps = ["nurt-contracts", "nurt-types", "nurt-syntax", "nurt-catalog"]
+
+[crate.nurt-text]
+layer = "library"
+area = "files"
+summary = "Encodings, line endings, search, differences, patches and hashes."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-doc]
+layer = "library"
+area = "structured"
+summary = "Structured formats with preserved layout, SQLite and queries."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-code]
+layer = "library"
+area = "structured"
+summary = "Syntax analysis of source code: symbols, references, structural patterns."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-proc]
+layer = "library"
+area = "process"
+summary = "Running programs, jobs, limits, process groups, change detection, effect classifier."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-git-transport]
+layer = "library"
+area = "git"
+summary = "SSH transport and commit signatures."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-syslog]
+layer = "library"
+area = "system"
+summary = "Readers of system log formats."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-bind]
+layer = "component"
+area = "language"
+summary = "Binding of syntax trees to the catalog and classification of effects."
+deps = ["nurt-contracts", "nurt-types", "nurt-catalog", "nurt-syntax", "nurt-correct"]
+
+[crate.nurt-help]
+layer = "component"
+area = "language"
+summary = "Built-in help, documentation layers and command descriptions for tool integrations."
+deps = ["nurt-contracts", "nurt-types", "nurt-catalog", "nurt-syntax"]
+
+[crate.nurt-langserver]
+layer = "component"
+area = "language"
+summary = "Language server for program files."
+deps = ["nurt-contracts", "nurt-types", "nurt-syntax", "nurt-catalog", "nurt-correct", "nurt-bind", "nurt-help"]
+
+[crate.nurt-migrate]
+layer = "component"
+area = "language"
+summary = "Translation of shell scripts to programs."
+deps = ["nurt-contracts", "nurt-types", "nurt-syntax", "nurt-catalog"]
+
+[crate.nurt-exec]
+layer = "component"
+area = "runtime"
+summary = "Streaming execution of pipelines, assertions, verification and cancellation."
+deps = ["nurt-contracts", "nurt-types", "nurt-catalog", "nurt-plan", "nurt-report"]
+
+[crate.nurt-ext]
+layer = "component"
+area = "runtime"
+summary = "Extension interface: manifests, WebAssembly host, registration of extensions."
+deps = ["nurt-contracts", "nurt-types", "nurt-catalog"]
+
+[crate.nurt-archive]
+layer = "component"
+area = "files"
+summary = "Archives and compression."
+deps = ["nurt-contracts", "nurt-types", "nurt-text"]
+
+[crate.nurt-notebook]
+layer = "component"
+area = "files"
+summary = "Notebook cells and export."
+deps = ["nurt-contracts", "nurt-types", "nurt-text"]
+
+[crate.nurt-files]
+layer = "component"
+area = "files"
+summary = "File commands."
+deps = ["nurt-contracts", "nurt-types", "nurt-text", "nurt-archive"]
+
+[crate.nurt-lspclient]
+layer = "component"
+area = "structured"
+summary = "Client of language servers."
+deps = ["nurt-contracts", "nurt-types", "nurt-code"]
+
+[crate.nurt-verify]
+layer = "component"
+area = "process"
+summary = "Test frameworks, analysers, report parsers and coverage."
+deps = ["nurt-contracts", "nurt-types", "nurt-proc"]
+
+[crate.nurt-git]
+layer = "component"
+area = "git"
+summary = "Repository reading, index and revisions, clone and fetch."
+deps = ["nurt-contracts", "nurt-types", "nurt-git-transport"]
+
+[crate.nurt-git-ops]
+layer = "component"
+area = "git"
+summary = "Working tree operations: switch, restore, reset, merge, rebase, stash, pull, push."
+deps = ["nurt-contracts", "nurt-types", "nurt-git", "nurt-git-transport"]
+
+[crate.nurt-sys]
+layer = "component"
+area = "system"
+summary = "Processes, ports, disks, host, environment, accounts, services and packages."
+deps = ["nurt-contracts", "nurt-types", "nurt-syslog"]
+
+[crate.nurt-net]
+layer = "component"
+area = "system"
+summary = "HTTP, downloads, name resolution, ping and interfaces."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-sched]
+layer = "component"
+area = "system"
+summary = "Schedules: cron expressions, intervals, missed runs, overlap."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-programs]
+layer = "component"
+area = "system"
+reserved = true
+summary = "Installed programs and external program catalogs."
+deps = ["nurt-contracts", "nurt-types"]
+
+[crate.nurt-tooldef]
+layer = "component"
+area = "integration"
+reserved = true
+summary = "Tool definitions in the formats of integration platforms."
+deps = ["nurt-contracts", "nurt-catalog"]
+
+[crate.nurt-core]
+layer = "host"
+area = "runtime"
+summary = "Engine facade: configuration, sessions, cursors, envelope; composes every component."
+deps = [
+  "nurt-contracts",
+  "nurt-types",
+  "nurt-catalog",
+  "nurt-fs",
+  "nurt-syntax",
+  "nurt-journal",
+  "nurt-space",
+  "nurt-report",
+  "nurt-plan",
+  "nurt-correct",
+  "nurt-text",
+  "nurt-doc",
+  "nurt-code",
+  "nurt-proc",
+  "nurt-git-transport",
+  "nurt-syslog",
+  "nurt-bind",
+  "nurt-help",
+  "nurt-exec",
+  "nurt-ext",
+  "nurt-archive",
+  "nurt-notebook",
+  "nurt-files",
+  "nurt-lspclient",
+  "nurt-verify",
+  "nurt-git",
+  "nurt-git-ops",
+  "nurt-sys",
+  "nurt-net",
+  "nurt-sched",
+  "nurt-programs",
+]
+
+[crate.nurt-service]
+layer = "host"
+area = "system"
+summary = "Host of the background service: space and schedule modules."
+deps = ["nurt-contracts", "nurt-types", "nurt-fs", "nurt-journal", "nurt-space", "nurt-sched", "nurt-core"]
+
+[crate.nurt-ffi]
+layer = "interface"
+area = "runtime"
+summary = "C ABI of the library."
+deps = ["nurt-contracts", "nurt-core"]
+
+[crate.nurt-mcp]
+layer = "interface"
+area = "integration"
+summary = "Model Context Protocol server."
+deps = ["nurt-contracts", "nurt-core", "nurt-tooldef"]
+
+[crate.nurt-cli]
+layer = "interface"
+area = "runtime"
+summary = "Command line interface, interactive shell and subcommands."
+deps = [
+  "nurt-contracts",
+  "nurt-core",
+  "nurt-mcp",
+  "nurt-tooldef",
+  "nurt-langserver",
+  "nurt-migrate",
+  "nurt-service",
+]
+
+[crate.nurt]
+layer = "interface"
+area = "integration"
+reserved = true
+summary = "Published facade of the program and the library."
+deps = ["nurt-contracts", "nurt-core", "nurt-cli"]
+
+[crate.nurt-conformance]
+layer = "tool"
+area = "integration"
+summary = "Conformance test suite runner."
+deps = ["nurt-contracts", "nurt-testkit", "nurt-core"]
+
+[crate.nurt-bench]
+layer = "tool"
+area = "integration"
+summary = "Benchmark tasks, oracles and comparison protocol."
+deps = ["nurt-contracts", "nurt-testkit", "nurt-core"]
+
+[crate.nurt-docgen]
+layer = "tool"
+area = "integration"
+reserved = true
+summary = "Generator of the documentation site and manual pages."
+deps = ["nurt-contracts", "nurt-catalog", "nurt-help"]

@@ -1,0 +1,212 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+  schedule:
+    # Daily run for new security advisories and toolchain regressions.
+    - cron: "17 4 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_NET_RETRY: "10"
+  RUST_BACKTRACE: "1"
+  RUSTUP_MAX_RETRIES: "10"
+  # Minimum line coverage of the workspace and of the critical crates.
+  COVERAGE_MIN_WORKSPACE: "80"
+  COVERAGE_MIN_CRITICAL: "90"
+  COVERAGE_CRITICAL_CRATES: >-
+    -p nurt-contracts
+    -p nurt-syntax
+    -p nurt-correct
+    -p nurt-journal
+    -p nurt-fs
+    -p nurt-ffi
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: rustup toolchain install && rustup show active-toolchain
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+  clippy:
+    name: Clippy (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: rustup toolchain install && rustup show active-toolchain
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: clippy
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: rustup toolchain install && rustup show active-toolchain
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: test
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        continue-on-error: true
+        with:
+          tool: cargo-nextest
+      - name: Build
+        run: cargo build --workspace --all-targets --locked
+      - name: Run tests
+        run: |
+          if cargo nextest --version >/dev/null 2>&1; then
+            cargo nextest run --workspace --locked --no-fail-fast --no-tests=warn
+          else
+            cargo test --workspace --locked --no-fail-fast
+          fi
+      - name: Run documentation tests
+        run: cargo test --workspace --doc --locked
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install
+          rustup component add llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: coverage
+      - name: Install cargo-llvm-cov and cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,cargo-nextest
+      - name: Coverage of the critical crates
+        run: |
+          read -r -a crates <<< "${COVERAGE_CRITICAL_CRATES}"
+          cargo llvm-cov nextest --locked --no-tests=warn "${crates[@]}" \
+            --fail-under-lines "${COVERAGE_MIN_CRITICAL}"
+      - name: Coverage of the workspace
+        run: >-
+          cargo llvm-cov nextest --workspace --locked --no-tests=warn
+          --lcov --output-path lcov.info
+          --fail-under-lines "${COVERAGE_MIN_WORKSPACE}"
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: lcov.info
+          if-no-files-found: ignore
+          retention-days: 14
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RUSTDOCFLAGS: "-D warnings"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: rustup toolchain install && rustup show active-toolchain
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: docs
+      - name: Build documentation
+        run: cargo doc --workspace --no-deps --locked
+
+  deny:
+    name: Dependency policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: rustup toolchain install && rustup show active-toolchain
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.22
+      - name: Licenses, bans and sources
+        run: cargo deny --locked check bans licenses sources
+      - name: Security advisories
+        run: cargo deny --locked check advisories
+
+  cross-check:
+    name: Check ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-unknown-linux-gnu
+          - x86_64-pc-windows-msvc
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install
+          rustup target add "${{ matrix.target }}"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: cross-${{ matrix.target }}
+      - name: Check the contract crate
+        run: cargo check -p nurt-contracts --all-targets --locked --target "${{ matrix.target }}"

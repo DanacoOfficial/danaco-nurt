@@ -1,0 +1,166 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "git.status",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app",
+                "span": [
+                  1,
+                  12,
+                  1,
+                  22
+                ]
+              },
+              "span": [
+                1,
+                12,
+                1,
+                22
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            22
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          22
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "git.commit",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app",
+                "span": [
+                  2,
+                  12,
+                  2,
+                  22
+                ]
+              },
+              "span": [
+                2,
+                12,
+                2,
+                22
+              ]
+            },
+            {
+              "name": "message",
+              "value": {
+                "t": "text",
+                "v": "fix: parser",
+                "span": [
+                  2,
+                  32,
+                  2,
+                  45
+                ]
+              },
+              "span": [
+                2,
+                23,
+                2,
+                45
+              ]
+            },
+            {
+              "name": "paths",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "/srv/app/a.go",
+                    "span": [
+                      2,
+                      54,
+                      2,
+                      69
+                    ]
+                  }
+                ],
+                "span": [
+                  2,
+                  53,
+                  2,
+                  70
+                ]
+              },
+              "span": [
+                2,
+                46,
+                2,
+                70
+              ]
+            },
+            {
+              "name": "trailers",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "Co-Authored-By: User <user@example.com>",
+                    "span": [
+                      2,
+                      82,
+                      2,
+                      123
+                    ]
+                  }
+                ],
+                "span": [
+                  2,
+                  81,
+                  2,
+                  124
+                ]
+              },
+              "span": [
+                2,
+                71,
+                2,
+                124
+              ]
+            }
+          ],
+          "span": [
+            2,
+            1,
+            2,
+            124
+          ]
+        },
+        "stages": [],
+        "span": [
+          2,
+          1,
+          2,
+          124
+        ]
+      }
+    ]
+  }
+}

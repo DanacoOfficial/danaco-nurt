@@ -1,0 +1,27 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Project file .nurt.toml using only keys allowed in a project. The journal
+# section is applied only when the project is listed in
+# scope.trusted_projects of the system or user configuration.
+
+[scope]
+base = "/home/user/project"
+project_roots = ["/home/user/project"]
+
+[run]
+timeout = "10m"
+preimage_exclude = ["node_modules", ".git", "target", "vendor"]
+
+[run.env_defaults]
+CARGO_TERM_COLOR = "never"
+
+[report]
+mass_threshold = 500
+
+[report.notable]
+targets_high = 1000
+
+[journal]
+max_ops = 50
+max_age = "1h"

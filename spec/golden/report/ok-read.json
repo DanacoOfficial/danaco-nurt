@@ -1,0 +1,33 @@
+{
+  "nurt": "1.0",
+  "status": "ok",
+  "kind": "find",
+  "records": {
+    "type": "entry",
+    "matched": 148,
+    "rows": [
+      {
+        "kind": "entry",
+        "fields": {
+          "path": { "t": "path", "v": "/srv/app/src/a.go" },
+          "name": { "t": "text", "v": "a.go" },
+          "type": { "t": "enum", "v": "file" },
+          "size": { "t": "size", "v": 1127 },
+          "modified": { "t": "instant", "v": "2026-11-21T09:12:00Z" }
+        }
+      },
+      {
+        "kind": "entry",
+        "fields": {
+          "path": { "t": "path", "v": "/srv/app/src/b.go" },
+          "name": { "t": "text", "v": "b.go" },
+          "type": { "t": "enum", "v": "file" },
+          "size": { "t": "size", "v": 8192 },
+          "modified": { "t": "instant", "v": "2026-11-20T17:40:12Z" }
+        }
+      }
+    ]
+  },
+  "next_cursor": "c_91fe",
+  "timing": { "parse_ms": 1, "read_ms": 14 }
+}

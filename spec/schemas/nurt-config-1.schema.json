@@ -1,0 +1,1905 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-config-1.schema.json",
+  "$defs": {
+    "SyntaxConfig": {
+      "description": "Section `[syntax]`.",
+      "type": "object",
+      "properties": {
+        "variant": {
+          "description": "Key `syntax.variant`, variable `NURT_SYNTAX`: notation variant of the\ntext form (`a`, `b` or `c`). Default `a`.",
+          "$ref": "#/$defs/SyntaxVariant",
+          "default": "a"
+        },
+        "tolerant": {
+          "description": "Key `syntax.tolerant`, variable `NURT_SYNTAX_TOLERANT`: also accept the\nnotation of the other variants. Default `true`.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "SyntaxVariant": {
+      "description": "Notation variant of the text form of a program.",
+      "oneOf": [
+        {
+          "description": "Variant A, the word notation.",
+          "type": "string",
+          "const": "a"
+        },
+        {
+          "description": "Variant B, the call notation.",
+          "type": "string",
+          "const": "b"
+        },
+        {
+          "description": "Variant C, the named notation.",
+          "type": "string",
+          "const": "c"
+        }
+      ]
+    },
+    "CorrectionConfig": {
+      "description": "Section `[correction]`.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Key `correction.enabled`, variable `NURT_CORRECTION`: correct the\nwritten form of programs. Default `true`.",
+          "type": "boolean",
+          "default": true
+        },
+        "max_read": {
+          "description": "Key `correction.max_read`: correction budget of programs that only\nread. Default `8`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 8
+        },
+        "max_effect": {
+          "description": "Key `correction.max_effect`: correction budget of programs that change\nsomething. Default `4`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 4
+        },
+        "require_first_char": {
+          "description": "Key `correction.require_first_char`: fuzzy correction of names keeps\nthe first character. Default `true`.",
+          "type": "boolean",
+          "default": true
+        },
+        "candidates_ttl": {
+          "description": "Key `correction.candidates_ttl`: lifetime of candidates that can be\naccepted after an ambiguous program. Default `10m`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "10m"
+        }
+      }
+    },
+    "DurationSetting": {
+      "description": "Duration with units ms, s, m, h, d or w, for example \"30m\", \"1500ms\" or \"1h30m\".",
+      "type": "string",
+      "pattern": "^([0-9]+(ms|s|m|h|d|w))+$"
+    },
+    "ScopeConfig": {
+      "description": "Section `[scope]`.",
+      "type": "object",
+      "properties": {
+        "base": {
+          "description": "Key `scope.base`, variable `NURT_BASE`: absolute directory for\nrelative paths. Default none.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "project_roots": {
+          "description": "Key `scope.project_roots`, variable `NURT_PROJECT_ROOTS` (list\nseparated by `:`, `;` on Windows): project directories; changes outside\nthem are reported as `outside_project`. Default empty.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "trusted_projects": {
+          "description": "Key `scope.trusted_projects`, variable `NURT_TRUSTED_PROJECTS`:\nprojects whose `.nurt.toml` may change `journal.*`. Set only in the\nsystem or user file, the `NURT_CONFIG` file or the variable; never in a\nproject file or at run time. Default empty.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "JournalConfig": {
+      "description": "Section `[journal]`.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Key `journal.enabled`, variable `NURT_JOURNAL`: record changes in the\njournal. Default `true`.",
+          "type": "boolean",
+          "default": true
+        },
+        "max_ops": {
+          "description": "Key `journal.max_ops`, variable `NURT_JOURNAL_MAX_OPS`: number of\nrecent changing operations that can be undone (`1..100000` or\n`unlimited`). Default `30`.",
+          "$ref": "#/$defs/StepLimit",
+          "default": 30
+        },
+        "max_age": {
+          "description": "Key `journal.max_age`, variable `NURT_JOURNAL_MAX_AGE`: how long the\njournal keeps previous content (`10s..365d` or `unlimited`). Default\n`30m`.",
+          "$ref": "#/$defs/AgeLimit",
+          "default": "30m"
+        },
+        "max_size": {
+          "description": "Key `journal.max_size`, variable `NURT_JOURNAL_MAX_SIZE`: size budget\nper volume (size, percentage of capacity, percentage of free space or\n`unlimited`). Default `unlimited`; the space reserve always applies.",
+          "$ref": "#/$defs/SizeLimit",
+          "default": "unlimited"
+        },
+        "max_size_min": {
+          "description": "Key `journal.max_size_min`: lower clamp of percentage budgets. Default\n`2gib`.",
+          "$ref": "#/$defs/SizeSetting",
+          "default": "2gib"
+        },
+        "max_size_max": {
+          "description": "Key `journal.max_size_max`: upper clamp of percentage budgets. Default\n`50gib`.",
+          "$ref": "#/$defs/SizeSetting",
+          "default": "50gib"
+        },
+        "max_size_total": {
+          "description": "Key `journal.max_size_total`: budget summed over all volumes. Default\n`unlimited`.",
+          "$ref": "#/$defs/ByteLimit",
+          "default": "unlimited"
+        },
+        "max_op_size": {
+          "description": "Key `journal.max_op_size`, variable `NURT_JOURNAL_MAX_OP_SIZE`: limit\nof a single operation. Default `unlimited`.",
+          "$ref": "#/$defs/ByteLimit",
+          "default": "unlimited"
+        },
+        "oversize": {
+          "description": "Key `journal.oversize`, variable `NURT_JOURNAL_OVERSIZE`: operation\nlarger than the budget (`skip` or `keep`). Default `skip`.",
+          "$ref": "#/$defs/Oversize",
+          "default": "skip"
+        },
+        "age_clock": {
+          "description": "Key `journal.age_clock`: clock of entry age (`wall` or `active`).\nDefault `wall`.",
+          "$ref": "#/$defs/AgeClock",
+          "default": "wall"
+        },
+        "floor": {
+          "description": "Keys `journal.floor.*`: protection floors.",
+          "$ref": "#/$defs/JournalFloor",
+          "default": {
+            "max_ops": null,
+            "max_age": null
+          }
+        },
+        "pin_max_age": {
+          "description": "Key `journal.pin_max_age`: default duration of `journal.pin`. Default\n`24h`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "1d"
+        },
+        "overwrite": {
+          "description": "Key `journal.overwrite`, variable `NURT_JOURNAL_OVERWRITE`: keeping\noverwritten files (`exchange` or `clone_or_copy`). Default `exchange`.",
+          "$ref": "#/$defs/OverwriteStrategy",
+          "default": "exchange"
+        },
+        "count_undo_as_op": {
+          "description": "Key `journal.count_undo_as_op`: an undo counts as a step. Default\n`true`.",
+          "type": "boolean",
+          "default": true
+        },
+        "history_keep": {
+          "description": "Key `journal.history_keep`: number of expired entries whose metrics are\nkept for `history`. Default `1000`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 1000
+        },
+        "dir_name": {
+          "description": "Key `journal.dir_name`: name of the journal directory on each volume.\nDefault `.nurt-journal`.",
+          "type": "string",
+          "default": ".nurt-journal"
+        },
+        "volumes": {
+          "description": "Keys `journal.volumes.*`: journal on network and removable volumes.",
+          "$ref": "#/$defs/VolumeClasses",
+          "default": {
+            "network": false,
+            "removable": false
+          }
+        },
+        "volume": {
+          "description": "Keys `journal.volume.\"<mount point>\".*`: settings of one volume.\nDefault empty.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/VolumeOverride"
+          },
+          "default": {}
+        }
+      }
+    },
+    "StepLimit": {
+      "description": "Number of steps 1..100000, or \"unlimited\".",
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        {
+          "const": "unlimited"
+        }
+      ]
+    },
+    "AgeLimit": {
+      "description": "Duration 10s..365d (for example \"30m\"), or \"unlimited\".",
+      "type": "string",
+      "pattern": "^(unlimited|([0-9]+(ms|s|m|h|d|w))+)$"
+    },
+    "SizeLimit": {
+      "description": "Size (for example \"20gib\"), percentage of the volume capacity (\"10%\"), percentage of the free space (\"50%free\") or \"unlimited\".",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(unlimited|[0-9]+(\\.[0-9]{1,2})?%(free)?|[0-9]+(\\.[0-9]+)?(b|kb|mb|gb|tb|kib|mib|gib|tib)?)$"
+        },
+        {
+          "type": "integer",
+          "minimum": 1048576
+        }
+      ]
+    },
+    "SizeSetting": {
+      "description": "Size with a unit b, kb, mb, gb, tb (powers of 1000) or kib, mib, gib, tib (powers of 1024), for example \"2gib\"; an integer means bytes.",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(b|kb|mb|gb|tb|kib|mib|gib|tib)?$"
+        },
+        {
+          "type": "integer",
+          "minimum": 0
+        }
+      ]
+    },
+    "ByteLimit": {
+      "description": "Size (for example \"256mib\") or \"unlimited\".",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(unlimited|[0-9]+(\\.[0-9]+)?(b|kb|mb|gb|tb|kib|mib|gib|tib)?)$"
+        },
+        {
+          "type": "integer",
+          "minimum": 0
+        }
+      ]
+    },
+    "Oversize": {
+      "description": "Handling of an operation larger than the size budget of the journal.",
+      "oneOf": [
+        {
+          "description": "Perform the operation without keeping the previous content; the report\nmarks it as irreversible (`too_large_for_journal`).",
+          "type": "string",
+          "const": "skip"
+        },
+        {
+          "description": "Keep the entry above the budget; other entries expire first.",
+          "type": "string",
+          "const": "keep"
+        }
+      ]
+    },
+    "AgeClock": {
+      "description": "Clock that measures the age of journal entries.",
+      "oneOf": [
+        {
+          "description": "Wall-clock time; entries age while the computer sleeps or is off.",
+          "type": "string",
+          "const": "wall"
+        },
+        {
+          "description": "Time the computer is running; sleep and power-off do not count.",
+          "type": "string",
+          "const": "active"
+        }
+      ]
+    },
+    "JournalFloor": {
+      "description": "Section `[journal.floor]`: lowest limits that other settings cannot go\nbelow. Lower values are raised to the floor and the change is noted in\n`journal.status`. Values that come from a project file are raised at least\nto [`PROJECT_FLOOR_MAX_OPS`] and [`PROJECT_FLOOR_MAX_AGE`].",
+      "type": "object",
+      "properties": {
+        "max_ops": {
+          "description": "Key `journal.floor.max_ops`: lowest step limit. Default none.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StepLimit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "max_age": {
+          "description": "Key `journal.floor.max_age`: lowest age limit. Default none.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AgeLimit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      }
+    },
+    "OverwriteStrategy": {
+      "description": "Strategy of keeping the previous content of an overwritten file.",
+      "oneOf": [
+        {
+          "description": "Keep the old file by exchanging names (or a backup name or hard link),\nfalling back to a clone or a copy.",
+          "type": "string",
+          "const": "exchange"
+        },
+        {
+          "description": "Keep a clone when the volume supports it, otherwise a copy.",
+          "type": "string",
+          "const": "clone_or_copy"
+        }
+      ]
+    },
+    "VolumeClasses": {
+      "description": "Section `[journal.volumes]`.",
+      "type": "object",
+      "properties": {
+        "network": {
+          "description": "Key `journal.volumes.network`, variable `NURT_JOURNAL_NETWORK`: keep a\njournal on network volumes. Default `false`.",
+          "type": "boolean",
+          "default": false
+        },
+        "removable": {
+          "description": "Key `journal.volumes.removable`, variable `NURT_JOURNAL_REMOVABLE`:\nkeep a journal on removable volumes. Default `false`.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "VolumeOverride": {
+      "description": "Table `[journal.volume.\"<mount point>\"]`: settings of one volume; absent\nkeys are inherited.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Journal enabled on this volume.",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "reserve": {
+          "description": "Space reserve of this volume.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SizeOrPercent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "soft": {
+          "description": "Soft threshold of this volume.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SizeOrPercent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "max_ops": {
+          "description": "Step limit on this volume.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StepLimit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "max_age": {
+          "description": "Age limit on this volume.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AgeLimit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      }
+    },
+    "SizeOrPercent": {
+      "description": "Size (for example \"5gib\") or percentage of the volume capacity (for example \"15%\").",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^([0-9]+(\\.[0-9]{1,2})?%|[0-9]+(\\.[0-9]+)?(b|kb|mb|gb|tb|kib|mib|gib|tib)?)$"
+        },
+        {
+          "type": "integer",
+          "minimum": 0
+        }
+      ]
+    },
+    "SpaceConfig": {
+      "description": "Section `[space]`.",
+      "type": "object",
+      "properties": {
+        "reserve": {
+          "description": "Key `space.reserve`, variable `NURT_SPACE_RESERVE`: free space that\nthe journal never takes (size or percentage of capacity). Default\n`15%`.",
+          "$ref": "#/$defs/SizeOrPercent",
+          "default": "15%"
+        },
+        "reserve_min": {
+          "description": "Key `space.reserve_min`: lower clamp of a percentage reserve. Default\n`5gib`.",
+          "$ref": "#/$defs/SizeSetting",
+          "default": "5gib"
+        },
+        "reserve_max": {
+          "description": "Key `space.reserve_max`: upper clamp of a percentage reserve. Default\n`50gib`.",
+          "$ref": "#/$defs/SizeSetting",
+          "default": "50gib"
+        },
+        "soft": {
+          "description": "Key `space.soft`, variable `NURT_SPACE_SOFT`: soft threshold at which\nthe service starts releasing journal data. Default none: reserve plus\nthe larger of 5 % and 2 GiB, no more than reserve plus 20 GiB.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SizeOrPercent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "margin": {
+          "description": "Key `space.margin`: margin above the reserve. Default none: the\nsmaller of 1 % and 1 GiB.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SizeOrPercent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "poll_ms": {
+          "description": "Key `space.poll_ms`, variable `NURT_SPACE_POLL_MS`: period of free\nspace measurement in milliseconds. Default `250`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 250
+        },
+        "poll_fast_ms": {
+          "description": "Key `space.poll_fast_ms`: measurement period near a threshold, in\nmilliseconds. Default `50`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 50
+        },
+        "heartbeat_ms": {
+          "description": "Key `space.heartbeat_ms`: heartbeat period of the service, in\nmilliseconds. Default `500`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 500
+        },
+        "heartbeat_max_age_ms": {
+          "description": "Key `space.heartbeat_max_age_ms`: age after which a heartbeat is stale,\nin milliseconds. Default `2000`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 2000
+        },
+        "sync_budget_ms": {
+          "description": "Key `space.sync_budget_ms`: budget of synchronous release before a\nwrite, in milliseconds. Default `1500`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 1500
+        },
+        "settle_ms": {
+          "description": "Key `space.settle_ms`: wait for free space to grow after a release, in\nmilliseconds. Default `1000`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 1000
+        },
+        "quota_aware": {
+          "description": "Key `space.quota_aware`: take quotas of the account into account.\nDefault `true`.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "RunConfig": {
+      "description": "Section `[run]`.",
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "description": "Key `run.timeout`, variable `NURT_RUN_TIMEOUT`: time limit of a\nprogram. Default `120s`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "2m"
+        },
+        "wait": {
+          "description": "Key `run.wait`, variable `NURT_RUN_WAIT`: time to wait in the\nforeground before a program continues in the background. Default `3s`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "3s"
+        },
+        "idle_timeout": {
+          "description": "Key `run.idle_timeout`: time without output and processor activity\nafter which a program is reported as stalled. Default `60s`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "1m"
+        },
+        "kill_grace": {
+          "description": "Key `run.kill_grace`: time between the termination request and killing\nthe process group. Default `5s`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "5s"
+        },
+        "env_defaults": {
+          "description": "Table `run.env_defaults`: variables added to the environment of every\nprogram. Default `PYTHONUTF8`, `PYTHONIOENCODING`, `NO_COLOR`, `TERM`,\n`GIT_TERMINAL_PROMPT`, `PAGER`, `GIT_PAGER`, `DEBIAN_FRONTEND`.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {
+            "PYTHONUTF8": "1",
+            "PYTHONIOENCODING": "utf-8",
+            "NO_COLOR": "1",
+            "TERM": "dumb",
+            "GIT_TERMINAL_PROMPT": "0",
+            "PAGER": "cat",
+            "GIT_PAGER": "cat",
+            "DEBIAN_FRONTEND": "noninteractive"
+          }
+        },
+        "track_changes": {
+          "description": "Key `run.track_changes`: detection of file changes (`auto`, `scan`,\n`events` or `none`). Default `auto`.",
+          "$ref": "#/$defs/TrackChanges",
+          "default": "auto"
+        },
+        "track_ignore": {
+          "description": "Key `run.track_ignore`: names excluded from change detection. Default\n`[\".git\"]`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            ".git"
+          ]
+        },
+        "preimage": {
+          "description": "Key `run.preimage`: keep previous content before a program runs\n(`auto` or `off`). Default `auto`.",
+          "$ref": "#/$defs/PreimageMode",
+          "default": "auto"
+        },
+        "preimage_budget": {
+          "description": "Key `run.preimage_budget`: time budget of keeping previous content.\nDefault `1500ms`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "1500ms"
+        },
+        "preimage_max_entries": {
+          "description": "Key `run.preimage_max_entries`: largest number of files kept. Default\n`20000`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 20000
+        },
+        "preimage_copy_max": {
+          "description": "Key `run.preimage_copy_max`: largest amount copied when cloning is not\navailable. Default `256mib`.",
+          "$ref": "#/$defs/SizeSetting",
+          "default": "256mib"
+        },
+        "preimage_exclude": {
+          "description": "Key `run.preimage_exclude`: names never kept. Default `node_modules`,\n`.git`, `target`, `build`, `dist`, `.venv`, `__pycache__`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "node_modules",
+            ".git",
+            "target",
+            "build",
+            "dist",
+            ".venv",
+            "__pycache__"
+          ]
+        },
+        "irreversible_patterns": {
+          "description": "Key `run.irreversible_patterns`: argument patterns added to the\nbuilt-in table of programs with effects outside the computer, for\nexample `\"deploy-tool publish\"`; tokens are separated by spaces, `*`\nmatches any token and `a|b` matches alternatives. The built-in table\ncannot be removed. Default empty.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "parallel": {
+          "description": "Key `run.parallel`: default number of batches run at the same time.\nDefault `1`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 1
+        },
+        "spool_max": {
+          "description": "Key `run.spool_max`: largest output kept per program; more output is\nreported. Default `unlimited`.",
+          "$ref": "#/$defs/ByteLimit",
+          "default": "unlimited"
+        },
+        "supervisor": {
+          "description": "Key `run.supervisor`: supervision of background programs (`auto` or\n`none`). Default `auto`.",
+          "$ref": "#/$defs/Supervisor",
+          "default": "auto"
+        },
+        "waits_threshold": {
+          "description": "Key `run.waits_threshold`: waiting time above which a program is listed\namong the waits of a checked program. Default `3s`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "3s"
+        }
+      }
+    },
+    "TrackChanges": {
+      "description": "Detection of file changes made by a program started with `run`.",
+      "oneOf": [
+        {
+          "description": "Scan of the watched paths, accelerated by file system events.",
+          "type": "string",
+          "const": "auto"
+        },
+        {
+          "description": "Scan of the watched paths before and after the program.",
+          "type": "string",
+          "const": "scan"
+        },
+        {
+          "description": "File system events only.",
+          "type": "string",
+          "const": "events"
+        },
+        {
+          "description": "No detection.",
+          "type": "string",
+          "const": "none"
+        }
+      ]
+    },
+    "PreimageMode": {
+      "description": "Keeping the previous content of files before a program runs.",
+      "oneOf": [
+        {
+          "description": "Clone or copy the declared and watched files within the configured\nbudget and limits.",
+          "type": "string",
+          "const": "auto"
+        },
+        {
+          "description": "Do not keep previous content; changed files are reported as\nirreversible.",
+          "type": "string",
+          "const": "off"
+        }
+      ]
+    },
+    "Supervisor": {
+      "description": "Supervision of programs that continue in the background after the command\nline interface exits.",
+      "oneOf": [
+        {
+          "description": "A long-lived process supervises background programs: the embedding\nprocess, or a detached supervisor started by the command line.",
+          "type": "string",
+          "const": "auto"
+        },
+        {
+          "description": "Background programs are available only inside a long-lived process.",
+          "type": "string",
+          "const": "none"
+        }
+      ]
+    },
+    "OutputConfig": {
+      "description": "Section `[output]`.",
+      "type": "object",
+      "properties": {
+        "language": {
+          "description": "Key `output.language`, variable `NURT_LANGUAGE`: language of messages\nand help (`en` or `pl`). Default `en`.",
+          "$ref": "#/$defs/Language",
+          "default": "en"
+        },
+        "color": {
+          "description": "Key `output.color`, variable `NURT_COLOR`: colours for people (`auto`,\n`always` or `never`). Default `auto`.",
+          "$ref": "#/$defs/ColorMode",
+          "default": "auto"
+        },
+        "head": {
+          "description": "Key `output.head`: first lines of program output shown in a response.\nDefault `20`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 20
+        },
+        "tail": {
+          "description": "Key `output.tail`: last lines of program output shown in a response.\nDefault `40`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 40
+        },
+        "spool_ttl": {
+          "description": "Key `output.spool_ttl`: lifetime of files with complete program output.\nDefault `1h`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "1h"
+        },
+        "results_dir": {
+          "description": "Key `output.results_dir`, variable `NURT_RESULTS_DIR`: directory of\ncomplete results saved to files. Default none: `results` in the state\ndirectory.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      }
+    },
+    "Language": {
+      "description": "Language of messages and help.",
+      "oneOf": [
+        {
+          "description": "English.",
+          "type": "string",
+          "const": "en"
+        },
+        {
+          "description": "Polish.",
+          "type": "string",
+          "const": "pl"
+        }
+      ]
+    },
+    "ColorMode": {
+      "description": "Colour output for people.",
+      "oneOf": [
+        {
+          "description": "Colours when the output is a terminal and `NO_COLOR` is not set.",
+          "type": "string",
+          "const": "auto"
+        },
+        {
+          "description": "Always colours.",
+          "type": "string",
+          "const": "always"
+        },
+        {
+          "description": "Never colours.",
+          "type": "string",
+          "const": "never"
+        }
+      ]
+    },
+    "ReportConfig": {
+      "description": "Section `[report]`.",
+      "type": "object",
+      "properties": {
+        "mass_threshold": {
+          "description": "Key `report.mass_threshold`: number of targets from which an operation\nis reported as a bulk operation. Default `200`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 200
+        },
+        "diff_max_hunks": {
+          "description": "Key `report.diff_max_hunks`: hunks in the sample of differences.\nDefault `20`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 20
+        },
+        "diff_max_lines": {
+          "description": "Key `report.diff_max_lines`: lines in the sample of differences.\nDefault `200`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 200
+        },
+        "notable": {
+          "description": "Keys `report.notable.*`: thresholds of notable effects.",
+          "$ref": "#/$defs/NotableThresholds",
+          "default": {
+            "mass_files": 100,
+            "mass_bytes": "1gib",
+            "mass_ratio": 0.8,
+            "shrink_ratio": 0.5,
+            "per_file_repl": 100,
+            "targets_high": 500
+          }
+        }
+      }
+    },
+    "NotableThresholds": {
+      "description": "Section `[report.notable]`.",
+      "type": "object",
+      "properties": {
+        "mass_files": {
+          "description": "Key `report.notable.mass_files`: deleted files from which\n`mass_delete` is reported. Default `100`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 100
+        },
+        "mass_bytes": {
+          "description": "Key `report.notable.mass_bytes`: deleted bytes from which\n`mass_delete` is reported. Default `1gib`.",
+          "$ref": "#/$defs/SizeSetting",
+          "default": "1gib"
+        },
+        "mass_ratio": {
+          "description": "Key `report.notable.mass_ratio`: share of a directory deleted from\nwhich `mass_delete` is reported. Default `0.8`.",
+          "type": "number",
+          "format": "double",
+          "default": 0.8
+        },
+        "shrink_ratio": {
+          "description": "Key `report.notable.shrink_ratio`: size ratio below which\n`size_shrunk` is reported. Default `0.5`.",
+          "type": "number",
+          "format": "double",
+          "default": 0.5
+        },
+        "per_file_repl": {
+          "description": "Key `report.notable.per_file_repl`: replacements in one file from which\n`many_per_file` is reported. Default `100`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 100
+        },
+        "targets_high": {
+          "description": "Key `report.notable.targets_high`: targets from which\n`target_count_high` is reported. Default `500`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 500
+        }
+      }
+    },
+    "TextConfig": {
+      "description": "Section `[text]`.",
+      "type": "object",
+      "properties": {
+        "legacy_encodings": {
+          "description": "Key `text.legacy_encodings`: legacy encodings considered when a file is\nnot valid UTF-8, in order. Default `windows-1250`, `ibm852`,\n`iso-8859-2`, `windows-1252`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "windows-1250",
+            "ibm852",
+            "iso-8859-2",
+            "windows-1252"
+          ]
+        },
+        "new_file_line_ending": {
+          "description": "Key `text.new_file_line_ending`: line ending of new files (`lf` or\n`crlf`). Default `lf`.",
+          "$ref": "#/$defs/LineEnding",
+          "default": "lf"
+        }
+      }
+    },
+    "LineEnding": {
+      "description": "Line ending of newly created text files.",
+      "oneOf": [
+        {
+          "description": "`\\n`.",
+          "type": "string",
+          "const": "lf"
+        },
+        {
+          "description": "`\\r\\n`.",
+          "type": "string",
+          "const": "crlf"
+        }
+      ]
+    },
+    "LimitsConfig": {
+      "description": "Section `[limits]`.",
+      "type": "object",
+      "properties": {
+        "max_records": {
+          "description": "Key `limits.max_records`, variable `NURT_MAX_RECORDS`: largest number\nof records held in memory by one stage; more is an error, never a\nsilent cut. Default `5000000`.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "default": 5000000
+        },
+        "max_file_bytes_text": {
+          "description": "Key `limits.max_file_bytes_text`: largest file read as text. Default\n`1gib`.",
+          "$ref": "#/$defs/SizeSetting",
+          "default": "1gib"
+        },
+        "threads": {
+          "description": "Key `limits.threads`, variable `NURT_THREADS`: worker threads. Default\nnone: the number of processor cores.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0,
+          "default": null
+        }
+      }
+    },
+    "FsConfig": {
+      "description": "Section `[fs]`.",
+      "type": "object",
+      "properties": {
+        "sharing_retry_ms": {
+          "description": "Key `fs.sharing_retry_ms`: time of retries after a sharing violation\n(Windows), in milliseconds. Default `2000`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 2000
+        }
+      }
+    },
+    "CodeConfig": {
+      "description": "Section `[code]`.",
+      "type": "object",
+      "properties": {
+        "servers": {
+          "description": "Table `code.servers.\"<language>\"`: language servers. Default\n`pyright-langserver --stdio` (Python), `typescript-language-server\n--stdio` (TypeScript and JavaScript), `gopls` (Go), `rust-analyzer`\n(Rust), `clangd` (C and C++).",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/LanguageServerConfig"
+          },
+          "default": {
+            "python": {
+              "command": [
+                "pyright-langserver",
+                "--stdio"
+              ],
+              "init": null
+            },
+            "typescript": {
+              "command": [
+                "typescript-language-server",
+                "--stdio"
+              ],
+              "init": null
+            },
+            "javascript": {
+              "command": [
+                "typescript-language-server",
+                "--stdio"
+              ],
+              "init": null
+            },
+            "go": {
+              "command": [
+                "gopls"
+              ],
+              "init": null
+            },
+            "rust": {
+              "command": [
+                "rust-analyzer"
+              ],
+              "init": null
+            },
+            "c": {
+              "command": [
+                "clangd"
+              ],
+              "init": null
+            },
+            "cpp": {
+              "command": [
+                "clangd"
+              ],
+              "init": null
+            }
+          }
+        },
+        "servers_allow": {
+          "description": "Key `code.servers_allow`: servers that may be started (`all`, `off` or\na list of languages). Default `all`.",
+          "$ref": "#/$defs/ServerAllow",
+          "default": "all"
+        },
+        "server_idle": {
+          "description": "Key `code.server_idle`: time after which an unused server stops.\nDefault `10m`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "10m"
+        },
+        "server_retry": {
+          "description": "Key `code.server_retry`: time before a failed server is started again.\nDefault `5m`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "5m"
+        },
+        "max_servers": {
+          "description": "Key `code.max_servers`: servers running at the same time. Default `4`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 4
+        },
+        "timeout": {
+          "description": "Key `code.timeout`: time limit of a server request. Default `20s`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "20s"
+        },
+        "timeout_max": {
+          "description": "Key `code.timeout_max`: largest time limit a command may request.\nDefault `2m`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "2m"
+        },
+        "index_max_files": {
+          "description": "Key `code.index_max_files`: largest number of files indexed for\nsyntax analysis. Default `20000`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 20000
+        },
+        "file_bytes_max": {
+          "description": "Key `code.file_bytes_max`: largest file analysed. Default `1mib`.",
+          "$ref": "#/$defs/SizeSetting",
+          "default": "1mib"
+        },
+        "diagnostics_quiet": {
+          "description": "Key `code.diagnostics_quiet`: time without new diagnostics after which\ndiagnostics are considered complete (at least `50ms`). Default\n`1500ms`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "1500ms"
+        }
+      }
+    },
+    "LanguageServerConfig": {
+      "description": "Table `[code.servers.\"<language>\"]`: one language server.",
+      "type": "object",
+      "properties": {
+        "command": {
+          "description": "Program and arguments; the program is found in `PATH`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "init": {
+          "description": "Initialization options sent to the server. Default none.",
+          "default": null
+        }
+      }
+    },
+    "ServerAllow": {
+      "description": "Language servers that may be started: all, none, or the listed languages.",
+      "anyOf": [
+        {
+          "description": "`\"all\"` or `\"off\"`.",
+          "$ref": "#/$defs/ServerAllowMode"
+        },
+        {
+          "description": "Names of languages whose servers may be started.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "ServerAllowMode": {
+      "description": "Mode of the language server allowance.",
+      "oneOf": [
+        {
+          "description": "Every configured server may be started.",
+          "type": "string",
+          "const": "all"
+        },
+        {
+          "description": "No server is started; code commands use syntax analysis only.",
+          "type": "string",
+          "const": "off"
+        }
+      ]
+    },
+    "DocumentsConfig": {
+      "description": "Section `[documents]`.",
+      "type": "object",
+      "properties": {
+        "max_bytes": {
+          "description": "Key `documents.max_bytes`: largest structured document read. Default\n`256mib`.",
+          "$ref": "#/$defs/SizeSetting",
+          "default": "256mib"
+        },
+        "yaml_version": {
+          "description": "Key `documents.yaml_version`: YAML version of documents without a\ndirective (`1.1` or `1.2`). Default `1.2`.",
+          "$ref": "#/$defs/YamlVersion",
+          "default": "1.2"
+        },
+        "xml_external_entities": {
+          "description": "Key `documents.xml_external_entities`: resolve external entities of XML\ndocuments. Default `false`.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "YamlVersion": {
+      "description": "YAML version assumed when a document does not declare one.",
+      "oneOf": [
+        {
+          "description": "YAML 1.1 (`yes`, `no`, `on`, `off` are booleans).",
+          "type": "string",
+          "const": "1.1"
+        },
+        {
+          "description": "YAML 1.2.",
+          "type": "string",
+          "const": "1.2"
+        }
+      ]
+    },
+    "SqlConfig": {
+      "description": "Section `[sql]`.",
+      "type": "object",
+      "properties": {
+        "busy_timeout": {
+          "description": "Key `sql.busy_timeout`: wait for a locked SQLite database. Default\n`5s`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "5s"
+        }
+      }
+    },
+    "ProgramsConfig": {
+      "description": "Section `[programs]`.",
+      "type": "object",
+      "properties": {
+        "catalogs": {
+          "description": "Key `programs.catalogs`, variable `NURT_PROGRAMS_CATALOGS`: external\ncatalogs of programs in the format `nurt-program-catalog/1`; without\nthem the commands describe installed programs. Default empty.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CatalogSource"
+          },
+          "default": []
+        },
+        "index_dir": {
+          "description": "Key `programs.index_dir`: directory of the program index. Default none:\nthe cache directory of the user.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "help_timeout": {
+          "description": "Key `programs.help_timeout`: time limit of reading the help of a\nprogram on request. Default `3s`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "3s"
+        },
+        "sources_disabled": {
+          "description": "Key `programs.sources_disabled`: sources of program information that\nare not used (`path`, `package`, `app`, `man`, `catalog`). Default\nempty.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProgramSource"
+          },
+          "default": []
+        }
+      }
+    },
+    "CatalogSource": {
+      "description": "External catalog of programs: a path, or a table with options.",
+      "anyOf": [
+        {
+          "description": "Path of a catalog file or directory.",
+          "type": "string"
+        },
+        {
+          "description": "Catalog with options.",
+          "$ref": "#/$defs/CatalogEntry"
+        }
+      ]
+    },
+    "CatalogEntry": {
+      "description": "External catalog of programs with options.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "Path of the catalog file or directory.",
+          "type": "string"
+        },
+        "priority": {
+          "description": "Order among catalogs; a higher priority wins when catalogs describe\nthe same program. Default `0`.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "enabled": {
+          "description": "Whether the catalog is used. Default `true`.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "path"
+      ]
+    },
+    "ProgramSource": {
+      "description": "Source of information about installed programs.",
+      "oneOf": [
+        {
+          "description": "Programs found in `PATH`.",
+          "type": "string",
+          "const": "path"
+        },
+        {
+          "description": "Databases of package managers.",
+          "type": "string",
+          "const": "package"
+        },
+        {
+          "description": "Applications registered with the operating system.",
+          "type": "string",
+          "const": "app"
+        },
+        {
+          "description": "Manual pages and `whatis`.",
+          "type": "string",
+          "const": "man"
+        },
+        {
+          "description": "External catalogs in the format `nurt-program-catalog/1`.",
+          "type": "string",
+          "const": "catalog"
+        }
+      ]
+    },
+    "HttpConfig": {
+      "description": "Section `[http]`.",
+      "type": "object",
+      "properties": {
+        "proxy": {
+          "description": "Key `http.proxy`, variable `NURT_HTTP_PROXY` (also `HTTP_PROXY`,\n`HTTPS_PROXY`, `NO_PROXY`): proxy of HTTP requests and Git fetches.\nDefault none: the system setting.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      }
+    },
+    "GitConfig": {
+      "description": "Section `[git]`.",
+      "type": "object",
+      "properties": {
+        "trash_refs": {
+          "description": "Key `git.trash_refs`: keep deleted branches under `refs/nurt/trash/`.\nDefault `false`.",
+          "type": "boolean",
+          "default": false
+        },
+        "hooks": {
+          "description": "Keys `git.hooks.*`.",
+          "$ref": "#/$defs/GitHooksConfig",
+          "default": {
+            "timeout": "10m"
+          }
+        },
+        "ssh": {
+          "description": "Keys `git.ssh.*`.",
+          "$ref": "#/$defs/GitSshConfig",
+          "default": {
+            "known_hosts": "strict",
+            "identity_files": []
+          }
+        },
+        "signing": {
+          "description": "Keys `git.signing.*`.",
+          "$ref": "#/$defs/GitSigningConfig",
+          "default": {
+            "key_file": null
+          }
+        },
+        "checkpoint": {
+          "description": "Keys `git.checkpoint.*`.",
+          "$ref": "#/$defs/GitCheckpointConfig",
+          "default": {
+            "keep": 50
+          }
+        },
+        "status": {
+          "description": "Keys `git.status.*`.",
+          "$ref": "#/$defs/GitStatusConfig",
+          "default": {
+            "limit": 200
+          }
+        },
+        "network": {
+          "description": "Keys `git.network.*`.",
+          "$ref": "#/$defs/GitNetworkConfig",
+          "default": {
+            "timeout": "5m"
+          }
+        }
+      }
+    },
+    "GitHooksConfig": {
+      "description": "Section `[git.hooks]`.",
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "description": "Key `git.hooks.timeout`: time limit of a repository hook. Default\n`10m`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "10m"
+        }
+      }
+    },
+    "GitSshConfig": {
+      "description": "Section `[git.ssh]`.",
+      "type": "object",
+      "properties": {
+        "known_hosts": {
+          "description": "Key `git.ssh.known_hosts`: verification of host keys (`strict` or\n`accept_new`). Default `strict`.",
+          "$ref": "#/$defs/KnownHosts",
+          "default": "strict"
+        },
+        "identity_files": {
+          "description": "Key `git.ssh.identity_files`: private key files. Default empty: the\nstandard identity files of the user.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "KnownHosts": {
+      "description": "Verification of SSH host keys.",
+      "oneOf": [
+        {
+          "description": "Only hosts present in the known hosts files.",
+          "type": "string",
+          "const": "strict"
+        },
+        {
+          "description": "Unknown hosts are accepted and recorded; changed keys are refused.",
+          "type": "string",
+          "const": "accept_new"
+        }
+      ]
+    },
+    "GitSigningConfig": {
+      "description": "Section `[git.signing]`.",
+      "type": "object",
+      "properties": {
+        "key_file": {
+          "description": "Key `git.signing.key_file`: key file for signing commits when the\nrepository configuration does not name one. Default none.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      }
+    },
+    "GitCheckpointConfig": {
+      "description": "Section `[git.checkpoint]`.",
+      "type": "object",
+      "properties": {
+        "keep": {
+          "description": "Key `git.checkpoint.keep`: checkpoints kept per repository. Default\n`50`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 50
+        }
+      }
+    },
+    "GitStatusConfig": {
+      "description": "Section `[git.status]`.",
+      "type": "object",
+      "properties": {
+        "limit": {
+          "description": "Key `git.status.limit`: entries listed by `git.status` before paging.\nDefault `200`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 200
+        }
+      }
+    },
+    "GitNetworkConfig": {
+      "description": "Section `[git.network]`.",
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "description": "Key `git.network.timeout`: time limit of a network operation. Default\n`5m`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "5m"
+        }
+      }
+    },
+    "VerifyConfig": {
+      "description": "Section `[verify]`.",
+      "type": "object",
+      "properties": {
+        "history_max": {
+          "description": "Key `verify.history_max`: test runs kept for comparison. Default `50`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 50
+        }
+      }
+    },
+    "ExtConfig": {
+      "description": "Section `[ext]`.",
+      "type": "object",
+      "properties": {
+        "dir": {
+          "description": "Key `ext.dir`, variable `NURT_EXT_DIR`: directory of extensions.\nDefault none: `ext` in the configuration directory.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "native": {
+          "description": "Key `ext.native`: allow native extension libraries besides WebAssembly.\nDefault `false`.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "ServiceConfig": {
+      "description": "Section `[service]`.",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "Key `service.mode`: installation mode of the service (`user` or\n`system`). Default `user`.",
+          "$ref": "#/$defs/ServiceMode",
+          "default": "user"
+        }
+      }
+    },
+    "ServiceMode": {
+      "description": "Installation mode of the background service.",
+      "oneOf": [
+        {
+          "description": "Service of the user account (on Linux with lingering enabled, so that\nit runs without a login session).",
+          "type": "string",
+          "const": "user"
+        },
+        {
+          "description": "System service; recommended for servers.",
+          "type": "string",
+          "const": "system"
+        }
+      ]
+    },
+    "StateConfig": {
+      "description": "Section `[state]`.",
+      "type": "object",
+      "properties": {
+        "dir": {
+          "description": "Key `state.dir`, variable `NURT_STATE_DIR`: state directory. Default\nnone: the state directory of the operating system.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      }
+    },
+    "LogConfig": {
+      "description": "Section `[log]`.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "description": "Key `log.level`, variable `NURT_LOG`: level of diagnostic logs\n(`error`, `warn`, `info`, `debug`, `trace`). Default `warn`.",
+          "$ref": "#/$defs/LogLevel",
+          "default": "warn"
+        }
+      }
+    },
+    "LogLevel": {
+      "description": "Level of diagnostic logs of the program.",
+      "oneOf": [
+        {
+          "description": "Errors only.",
+          "type": "string",
+          "const": "error"
+        },
+        {
+          "description": "Errors and warnings.",
+          "type": "string",
+          "const": "warn"
+        },
+        {
+          "description": "Informational messages.",
+          "type": "string",
+          "const": "info"
+        },
+        {
+          "description": "Debugging messages.",
+          "type": "string",
+          "const": "debug"
+        },
+        {
+          "description": "All messages.",
+          "type": "string",
+          "const": "trace"
+        }
+      ]
+    },
+    "SessionConfig": {
+      "description": "Section `[session]`.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Key `session.id`, variable `NURT_SESSION`: session identifier recorded\nin the journal. Default none.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "ttl": {
+          "description": "Key `session.ttl`: time without calls after which session settings\nexpire. Default `24h`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "1d"
+        }
+      }
+    }
+  },
+  "title": "Config",
+  "description": "Complete configuration `nurt-config/1`.\n\nEvery key has a built-in default, so an empty file is a valid\nconfiguration. Keys are grouped in sections that correspond to tables of\nthe TOML file.",
+  "type": "object",
+  "properties": {
+    "syntax": {
+      "description": "Text notation of programs.",
+      "$ref": "#/$defs/SyntaxConfig",
+      "default": {
+        "variant": "a",
+        "tolerant": true
+      }
+    },
+    "correction": {
+      "description": "Correction of the written form of programs.",
+      "$ref": "#/$defs/CorrectionConfig",
+      "default": {
+        "enabled": true,
+        "max_read": 8,
+        "max_effect": 4,
+        "require_first_char": true,
+        "candidates_ttl": "10m"
+      }
+    },
+    "scope": {
+      "description": "Base directory, project directories and trusted projects.",
+      "$ref": "#/$defs/ScopeConfig",
+      "default": {
+        "base": null,
+        "project_roots": [],
+        "trusted_projects": []
+      }
+    },
+    "journal": {
+      "description": "Journal of changes: retention, floors and volumes.",
+      "$ref": "#/$defs/JournalConfig",
+      "default": {
+        "enabled": true,
+        "max_ops": 30,
+        "max_age": "30m",
+        "max_size": "unlimited",
+        "max_size_min": "2gib",
+        "max_size_max": "50gib",
+        "max_size_total": "unlimited",
+        "max_op_size": "unlimited",
+        "oversize": "skip",
+        "age_clock": "wall",
+        "floor": {
+          "max_ops": null,
+          "max_age": null
+        },
+        "pin_max_age": "1d",
+        "overwrite": "exchange",
+        "count_undo_as_op": true,
+        "history_keep": 1000,
+        "dir_name": ".nurt-journal",
+        "volumes": {
+          "network": false,
+          "removable": false
+        },
+        "volume": {}
+      }
+    },
+    "space": {
+      "description": "Free space reserve and the space service.",
+      "$ref": "#/$defs/SpaceConfig",
+      "default": {
+        "reserve": "15%",
+        "reserve_min": "5gib",
+        "reserve_max": "50gib",
+        "soft": null,
+        "margin": null,
+        "poll_ms": 250,
+        "poll_fast_ms": 50,
+        "heartbeat_ms": 500,
+        "heartbeat_max_age_ms": 2000,
+        "sync_budget_ms": 1500,
+        "settle_ms": 1000,
+        "quota_aware": true
+      }
+    },
+    "run": {
+      "description": "Programs started with `run`.",
+      "$ref": "#/$defs/RunConfig",
+      "default": {
+        "timeout": "2m",
+        "wait": "3s",
+        "idle_timeout": "1m",
+        "kill_grace": "5s",
+        "env_defaults": {
+          "PYTHONUTF8": "1",
+          "PYTHONIOENCODING": "utf-8",
+          "NO_COLOR": "1",
+          "TERM": "dumb",
+          "GIT_TERMINAL_PROMPT": "0",
+          "PAGER": "cat",
+          "GIT_PAGER": "cat",
+          "DEBIAN_FRONTEND": "noninteractive"
+        },
+        "track_changes": "auto",
+        "track_ignore": [
+          ".git"
+        ],
+        "preimage": "auto",
+        "preimage_budget": "1500ms",
+        "preimage_max_entries": 20000,
+        "preimage_copy_max": "256mib",
+        "preimage_exclude": [
+          "node_modules",
+          ".git",
+          "target",
+          "build",
+          "dist",
+          ".venv",
+          "__pycache__"
+        ],
+        "irreversible_patterns": [],
+        "parallel": 1,
+        "spool_max": "unlimited",
+        "supervisor": "auto",
+        "waits_threshold": "3s"
+      }
+    },
+    "output": {
+      "description": "Output for people and models.",
+      "$ref": "#/$defs/OutputConfig",
+      "default": {
+        "language": "en",
+        "color": "auto",
+        "head": 20,
+        "tail": 40,
+        "spool_ttl": "1h",
+        "results_dir": null
+      }
+    },
+    "report": {
+      "description": "Thresholds of the effect report.",
+      "$ref": "#/$defs/ReportConfig",
+      "default": {
+        "mass_threshold": 200,
+        "diff_max_hunks": 20,
+        "diff_max_lines": 200,
+        "notable": {
+          "mass_files": 100,
+          "mass_bytes": "1gib",
+          "mass_ratio": 0.8,
+          "shrink_ratio": 0.5,
+          "per_file_repl": 100,
+          "targets_high": 500
+        }
+      }
+    },
+    "text": {
+      "description": "Text encodings and line endings.",
+      "$ref": "#/$defs/TextConfig",
+      "default": {
+        "legacy_encodings": [
+          "windows-1250",
+          "ibm852",
+          "iso-8859-2",
+          "windows-1252"
+        ],
+        "new_file_line_ending": "lf"
+      }
+    },
+    "limits": {
+      "description": "Resource limits.",
+      "$ref": "#/$defs/LimitsConfig",
+      "default": {
+        "max_records": 5000000,
+        "max_file_bytes_text": "1gib",
+        "threads": null
+      }
+    },
+    "fs": {
+      "description": "File system behaviour.",
+      "$ref": "#/$defs/FsConfig",
+      "default": {
+        "sharing_retry_ms": 2000
+      }
+    },
+    "code": {
+      "description": "Source code analysis and language servers.",
+      "$ref": "#/$defs/CodeConfig",
+      "default": {
+        "servers": {
+          "python": {
+            "command": [
+              "pyright-langserver",
+              "--stdio"
+            ],
+            "init": null
+          },
+          "typescript": {
+            "command": [
+              "typescript-language-server",
+              "--stdio"
+            ],
+            "init": null
+          },
+          "javascript": {
+            "command": [
+              "typescript-language-server",
+              "--stdio"
+            ],
+            "init": null
+          },
+          "go": {
+            "command": [
+              "gopls"
+            ],
+            "init": null
+          },
+          "rust": {
+            "command": [
+              "rust-analyzer"
+            ],
+            "init": null
+          },
+          "c": {
+            "command": [
+              "clangd"
+            ],
+            "init": null
+          },
+          "cpp": {
+            "command": [
+              "clangd"
+            ],
+            "init": null
+          }
+        },
+        "servers_allow": "all",
+        "server_idle": "10m",
+        "server_retry": "5m",
+        "max_servers": 4,
+        "timeout": "20s",
+        "timeout_max": "2m",
+        "index_max_files": 20000,
+        "file_bytes_max": "1mib",
+        "diagnostics_quiet": "1500ms"
+      }
+    },
+    "documents": {
+      "description": "Structured documents.",
+      "$ref": "#/$defs/DocumentsConfig",
+      "default": {
+        "max_bytes": "256mib",
+        "yaml_version": "1.2",
+        "xml_external_entities": false
+      }
+    },
+    "sql": {
+      "description": "SQLite databases.",
+      "$ref": "#/$defs/SqlConfig",
+      "default": {
+        "busy_timeout": "5s"
+      }
+    },
+    "programs": {
+      "description": "Installed programs and external program catalogs.",
+      "$ref": "#/$defs/ProgramsConfig",
+      "default": {
+        "catalogs": [],
+        "index_dir": null,
+        "help_timeout": "3s",
+        "sources_disabled": []
+      }
+    },
+    "http": {
+      "description": "Proxy used by the HTTP client.",
+      "$ref": "#/$defs/HttpConfig",
+      "default": {
+        "proxy": null
+      }
+    },
+    "git": {
+      "description": "Git repositories.",
+      "$ref": "#/$defs/GitConfig",
+      "default": {
+        "trash_refs": false,
+        "hooks": {
+          "timeout": "10m"
+        },
+        "ssh": {
+          "known_hosts": "strict",
+          "identity_files": []
+        },
+        "signing": {
+          "key_file": null
+        },
+        "checkpoint": {
+          "keep": 50
+        },
+        "status": {
+          "limit": 200
+        },
+        "network": {
+          "timeout": "5m"
+        }
+      }
+    },
+    "verify": {
+      "description": "Tests and analysis.",
+      "$ref": "#/$defs/VerifyConfig",
+      "default": {
+        "history_max": 50
+      }
+    },
+    "ext": {
+      "description": "Extensions.",
+      "$ref": "#/$defs/ExtConfig",
+      "default": {
+        "dir": null,
+        "native": false
+      }
+    },
+    "service": {
+      "description": "Background service.",
+      "$ref": "#/$defs/ServiceConfig",
+      "default": {
+        "mode": "user"
+      }
+    },
+    "state": {
+      "description": "State directory.",
+      "$ref": "#/$defs/StateConfig",
+      "default": {
+        "dir": null
+      }
+    },
+    "log": {
+      "description": "Diagnostic logs.",
+      "$ref": "#/$defs/LogConfig",
+      "default": {
+        "level": "warn"
+      }
+    },
+    "session": {
+      "description": "Session recorded in the journal.",
+      "$ref": "#/$defs/SessionConfig",
+      "default": {
+        "id": null,
+        "ttl": "1d"
+      }
+    }
+  }
+}

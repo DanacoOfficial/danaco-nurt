@@ -1,0 +1,358 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+format = "nurt-catalog/1"
+group = "notebook"
+summary = "Cells of Jupyter notebooks."
+
+[[command]]
+name = "notebook.cells"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["cell"]
+summary = "List notebook cells, as an outline or with full content."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Notebook file."
+
+[[command.param]]
+name = "index"
+type = "range"
+summary = "Cells to return by index, counted from 0."
+
+[[command.param]]
+name = "id"
+type = "list<text>"
+summary = "Cells to return by identifier."
+
+[[command.param]]
+name = "cell_type"
+type = "enum(code|markdown|raw)"
+values = ["code", "markdown", "raw"]
+summary = "Only cells of this type."
+
+[[command.param]]
+name = "outputs"
+type = "enum(none|summary|text|full)"
+default = "none"
+values = ["none", "summary", "text", "full"]
+summary = "Detail of cell outputs returned."
+
+[[command.param]]
+name = "find"
+type = "text | regex"
+summary = "Only cells containing this text or pattern."
+
+[[command.param]]
+name = "scope"
+type = "enum(source|outputs)"
+default = "source"
+values = ["source", "outputs"]
+summary = "Part of the cell that find searches."
+
+[[command.param]]
+name = "view"
+type = "enum(outline|full)"
+default = "outline"
+values = ["outline", "full"]
+summary = "Outline or full content when no cells are selected."
+
+[[command]]
+name = "notebook.insert"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Insert a new cell into a notebook."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Notebook file."
+
+[[command.param]]
+name = "index"
+type = "int"
+default_note = "the end of the notebook"
+summary = "Position of the new cell, counted from 0."
+exclusive_group = "position"
+
+[[command.param]]
+name = "after_id"
+type = "text"
+summary = "Insert after the cell with this identifier."
+exclusive_group = "position"
+
+[[command.param]]
+name = "cell_type"
+type = "enum(code|markdown|raw)"
+required = true
+values = ["code", "markdown", "raw"]
+summary = "Type of the new cell."
+
+[[command.param]]
+name = "source"
+type = "text"
+required = true
+summary = "Source of the new cell."
+
+[[command]]
+name = "notebook.replace"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Replace the source or type of a cell, or text within cell sources."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Notebook file."
+
+[[command.param]]
+name = "index"
+type = "int"
+summary = "Cell to change by index, counted from 0."
+exclusive_group = "cell"
+
+[[command.param]]
+name = "id"
+type = "text"
+summary = "Cell to change by identifier."
+exclusive_group = "cell"
+
+[[command.param]]
+name = "source"
+type = "text"
+summary = "New source of the cell."
+
+[[command.param]]
+name = "cell_type"
+type = "enum(code|markdown|raw)"
+values = ["code", "markdown", "raw"]
+summary = "New type of the cell."
+
+[[command.param]]
+name = "find"
+type = "text | regex"
+summary = "Text or pattern to replace within cell sources."
+
+[[command.param]]
+name = "with"
+type = "text"
+summary = "Replacement for the text matched by find."
+
+[[command.param]]
+name = "whole_word"
+type = "bool"
+default = "false"
+summary = "Match find only as a whole word or identifier."
+
+[[command.param]]
+name = "reset_outputs"
+type = "bool"
+default = "false"
+summary = "Clear the outputs of changed cells."
+
+[[command]]
+name = "notebook.move"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Move a cell to another position."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Notebook file."
+
+[[command.param]]
+name = "from"
+type = "int"
+required = true
+summary = "Current index of the cell."
+
+[[command.param]]
+name = "to"
+type = "int"
+required = true
+summary = "New index of the cell."
+
+[[command]]
+name = "notebook.copy"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Copy a cell to another position."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Notebook file."
+
+[[command.param]]
+name = "from"
+type = "int"
+required = true
+summary = "Index of the cell to copy."
+
+[[command.param]]
+name = "to"
+type = "int"
+required = true
+summary = "Index of the copy."
+
+[[command]]
+name = "notebook.normalize"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Add missing cell identifiers and nbformat 4 fields."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Notebook file."
+
+[[command]]
+name = "notebook.ops"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Apply a list of cell operations in one write."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Notebook file."
+
+[[command.param]]
+name = "changes"
+type = "list<map<any>>"
+required = true
+summary = "Operations applied together; all succeed or none."
+
+[[command]]
+name = "notebook.remove"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Remove cells from a notebook."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Notebook file."
+
+[[command.param]]
+name = "index"
+type = "range"
+summary = "Cells to remove by index, counted from 0."
+exclusive_group = "cell"
+
+[[command.param]]
+name = "id"
+type = "text | list<text>"
+summary = "Cells to remove by identifier."
+exclusive_group = "cell"
+
+[[command]]
+name = "notebook.clear_outputs"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Clear the outputs of notebook cells."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Notebook file."
+
+[[command.param]]
+name = "index"
+type = "range"
+default = "all"
+summary = "Cells to clear by index, counted from 0."
+exclusive_group = "cell"
+
+[[command.param]]
+name = "id"
+type = "list<text>"
+summary = "Cells to clear by identifier."
+exclusive_group = "cell"
+
+[[command]]
+name = "notebook.export"
+category = "change"
+reversibility = "reversible"
+effect = "local"
+implementation = "builtin"
+input = ["none"]
+output = ["effect"]
+summary = "Export a notebook to a new script, Markdown or text file."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+required = true
+summary = "Notebook file."
+
+[[command.param]]
+name = "to"
+type = "path"
+required = true
+summary = "File to create."
+
+[[command.param]]
+name = "format"
+type = "enum(script|markdown|text)"
+required = true
+values = ["script", "markdown", "text"]
+summary = "Format of the exported file."

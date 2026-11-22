@@ -1,0 +1,15 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "replace",
+  "error": {
+    "code": "E_STALE",
+    "message": "the file changed after it was read; nothing changed",
+    "stage": "5",
+    "at": { "line": 1, "column": 60 },
+    "found": "/srv/app/src/b.go",
+    "expected": "sha256:5e5e5e5e",
+    "actual": "sha256:6f6f6f6f",
+    "next_steps": ["run the program again"]
+  }
+}

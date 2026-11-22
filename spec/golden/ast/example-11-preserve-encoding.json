@@ -1,0 +1,95 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "replace",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "Zürich",
+                "span": [
+                  1,
+                  9,
+                  1,
+                  17
+                ]
+              },
+              "span": [
+                1,
+                9,
+                1,
+                17
+              ]
+            },
+            {
+              "value": {
+                "t": "text",
+                "v": "Genève",
+                "span": [
+                  1,
+                  18,
+                  1,
+                  26
+                ]
+              },
+              "span": [
+                1,
+                18,
+                1,
+                26
+              ]
+            },
+            {
+              "name": "in",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "/srv/legacy/file.txt",
+                    "span": [
+                      1,
+                      32,
+                      1,
+                      54
+                    ]
+                  }
+                ],
+                "span": [
+                  1,
+                  31,
+                  1,
+                  55
+                ]
+              },
+              "span": [
+                1,
+                27,
+                1,
+                55
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            55
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          55
+        ]
+      }
+    ]
+  }
+}

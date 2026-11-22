@@ -1,0 +1,176 @@
+[
+  {
+    "kind": "commit",
+    "record": {
+      "id": "3f786850e387550fdab836ed7e6dc881de23001b",
+      "short_id": "3f78685",
+      "author": "Example User",
+      "time": "2026-11-21T09:30:00Z",
+      "message": "fix: handle empty input\n\nCloses #12.\n\nSigned-off-by: Example User <user@example.com>\n",
+      "subject": "fix: handle empty input",
+      "parents": ["89e6c98d92887913cadf06b2adb97f26cde4849b"],
+      "author_email": "user@example.com",
+      "committer": "Example User",
+      "committer_email": "user@example.com",
+      "commit_time": "2026-11-21T09:31:00Z",
+      "refs": ["HEAD", "refs/heads/main"],
+      "signature": {"status": "good", "format": "ssh", "key": "SHA256:abc", "signer": "user@example.com"},
+      "stats": {"files": 2, "added": 10, "removed": 3},
+      "trailers": {"Signed-off-by": "Example User <user@example.com>"},
+      "tree": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      "files": [
+        {"path": "src/parser.rs", "status": "modified", "added": 8, "removed": 3, "binary": false},
+        {"path": "src/input.rs", "status": "renamed", "old_path": "src/read.rs", "added": 2, "removed": 0}
+      ]
+    }
+  },
+  {
+    "kind": "git_status",
+    "record": {
+      "path": "src/parser.rs",
+      "index": "modified",
+      "worktree": "unmodified",
+      "kind": "tracked",
+      "repo": "/home/user/project",
+      "renamed_from": "src/parse.rs",
+      "mode_before": "100644",
+      "mode_after": "100644",
+      "added": 8,
+      "removed": 3,
+      "similarity": 92
+    }
+  },
+  {
+    "kind": "git_status",
+    "record": {
+      "path": "vendor/lib",
+      "index": "unmerged",
+      "worktree": "unmerged",
+      "kind": "conflict",
+      "repo": "/home/user/project",
+      "conflict": "both_modified",
+      "submodule": {"commit_changed": true, "modified": false, "untracked": false}
+    }
+  },
+  {
+    "kind": "branch",
+    "record": {
+      "name": "main",
+      "current": true,
+      "commit": "3f786850e387550fdab836ed7e6dc881de23001b",
+      "remote": false,
+      "upstream": "origin/main",
+      "ahead": 1,
+      "behind": 0,
+      "upstream_gone": false,
+      "worktree": "/home/user/project",
+      "subject": "fix: handle empty input",
+      "time": "2026-11-21T09:30:00Z"
+    }
+  },
+  {
+    "kind": "blame_line",
+    "record": {
+      "path": "src/parser.rs",
+      "no": 42,
+      "commit": "3f786850e387550fdab836ed7e6dc881de23001b",
+      "short_id": "3f78685",
+      "author": "Example User",
+      "time": "2026-11-21T09:30:00Z",
+      "text": "    if input.is_empty() {",
+      "author_email": "user@example.com",
+      "original_path": "src/parse.rs",
+      "original_no": 40,
+      "boundary": false
+    }
+  },
+  {
+    "kind": "git_tag",
+    "record": {
+      "name": "v1.2.0",
+      "target": "3f786850e387550fdab836ed7e6dc881de23001b",
+      "kind": "annotated",
+      "tagger": "Example User <user@example.com>",
+      "time": "2026-11-21T12:00:00Z",
+      "message": "Release 1.2.0",
+      "signature": {"status": "none"}
+    }
+  },
+  {
+    "kind": "git_worktree",
+    "record": {
+      "path": "/home/user/project-feature",
+      "head": "89e6c98d92887913cadf06b2adb97f26cde4849b",
+      "detached": false,
+      "bare": false,
+      "main": false,
+      "branch": "feature/input",
+      "locked": "on removable disk",
+      "prunable": false
+    }
+  },
+  {
+    "kind": "git_stash",
+    "record": {
+      "index": 0,
+      "id": "a3c3b5f9b2a8c7d4e1f0a9b8c7d6e5f4a3b2c1d0",
+      "message": "WIP on main: 3f78685 fix: handle empty input",
+      "time": "2026-11-21T11:00:00Z",
+      "includes_untracked": true,
+      "branch": "main"
+    }
+  },
+  {
+    "kind": "git_checkpoint",
+    "record": {
+      "id": "cp-2",
+      "commit": "b1946ac92492d2347c6235b4d2611184ab2a4c3b",
+      "time": "2026-11-21T11:05:00Z",
+      "ref": "refs/nurt/checkpoints/cp-2",
+      "index_included": true,
+      "label": "before refactor",
+      "files": 14
+    }
+  },
+  {
+    "kind": "git_ref_update",
+    "record": {
+      "ref": "refs/heads/main",
+      "status": "rejected",
+      "remote": "origin",
+      "remote_ref": "refs/heads/main",
+      "old": "89e6c98d92887913cadf06b2adb97f26cde4849b",
+      "new": "3f786850e387550fdab836ed7e6dc881de23001b",
+      "reason": "non_fast_forward"
+    }
+  },
+  {
+    "kind": "git_effect",
+    "record": {
+      "repo": "/home/user/project",
+      "state": "conflicts",
+      "head_before": "89e6c98d92887913cadf06b2adb97f26cde4849b",
+      "head_after": "89e6c98d92887913cadf06b2adb97f26cde4849b",
+      "branch": "main",
+      "ref_updates": [{"ref": "refs/remotes/origin/main", "status": "updated", "remote": "origin", "old": "89e6c98d92887913cadf06b2adb97f26cde4849b", "new": "3f786850e387550fdab836ed7e6dc881de23001b"}],
+      "conflicts": [{"path": "src/parser.rs", "kind": "both_modified", "markers": true}],
+      "in_progress": "merge",
+      "step": {"done": 1, "total": 3},
+      "objects_written": 4,
+      "objects_received": 12,
+      "bytes_received": 20480,
+      "bytes_sent": 0
+    }
+  },
+  {
+    "kind": "git_conflict",
+    "record": {
+      "path": "src/parser.rs",
+      "kind": "both_modified",
+      "markers": true,
+      "base": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "ours": "3f786850e387550fdab836ed7e6dc881de23001b",
+      "theirs": "89e6c98d92887913cadf06b2adb97f26cde4849b"
+    }
+  }
+]

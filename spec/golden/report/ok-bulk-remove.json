@@ -1,0 +1,48 @@
+{
+  "nurt": "1.0",
+  "status": "ok",
+  "kind": "remove",
+  "op": 19,
+  "targets": { "count": 19609, "files": 18402, "directories": 1207, "bytes": 3650722201 },
+  "summary": {
+    "files_deleted": 18402,
+    "directories_deleted": 1207,
+    "bytes_freed": 3650722201
+  },
+  "bulk": {
+    "by_directory": [
+      { "directory": "/srv/app/build/cache", "count": 15880, "bytes": 3113851289 },
+      { "directory": "/srv/app/build/obj", "count": 2100, "bytes": 402653184 },
+      { "directory": "/srv/app/build/tmp", "count": 422, "bytes": 134217728 }
+    ],
+    "by_extension": [
+      { "extension": ".o", "count": 9114 },
+      { "extension": ".tmp", "count": 6001 },
+      { "extension": ".d", "count": 2100 },
+      { "extension": "", "count": 1187 }
+    ],
+    "sample_head": [
+      "/srv/app/build/a.tmp",
+      "/srv/app/build/b.tmp",
+      "/srv/app/build/cache/0001.o",
+      "/srv/app/build/cache/0002.o",
+      "/srv/app/build/cache/0003.o"
+    ],
+    "sample_tail": ["/srv/app/build/tmp/y.tmp", "/srv/app/build/z.tmp"]
+  },
+  "notable": [
+    {
+      "code": "mass_delete",
+      "severity": "warning",
+      "path": "/srv/app/build",
+      "count": 18402,
+      "detail": "18402 files, 3.4gib, 100% of /srv/app/build"
+    },
+    {
+      "code": "delete_tree",
+      "severity": "notice",
+      "path": "/srv/app/build"
+    }
+  ],
+  "next_cursor": "c_19aa"
+}

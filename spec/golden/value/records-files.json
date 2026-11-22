@@ -1,0 +1,276 @@
+[
+  {
+    "kind": "entry",
+    "record": {
+      "path": "/home/user/project/src/main.rs",
+      "name": "main.rs",
+      "stem": "main",
+      "extension": "rs",
+      "parent": "/home/user/project/src",
+      "type": "file",
+      "size": 1840,
+      "modified": "2026-11-21T09:12:00Z",
+      "created": "2026-11-01T08:00:00Z",
+      "mode": "0644",
+      "owner": "user 1000",
+      "group": "user 1000",
+      "readonly": false,
+      "hidden": false,
+      "links": 1,
+      "language": "rust",
+      "mime": "text/x-rust",
+      "binary": false,
+      "encoding": "utf-8",
+      "line_ending": "lf",
+      "bom": false,
+      "lines": 64,
+      "hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "etag": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "depth": 1,
+      "relative": "src/main.rs",
+      "xattrs": {"user.origin": "editor"},
+      "details": {"symbols": {"t": "int", "v": 7}}
+    }
+  },
+  {
+    "kind": "entry",
+    "record": {
+      "path": "C:/Users/user/project/link",
+      "name": "link",
+      "type": "link",
+      "exists": true,
+      "size": 0,
+      "modified": "2026-11-21T09:12:00.250Z",
+      "link_target": "C:/Users/user/project/target",
+      "link_type": "junction",
+      "raw_name": "bGluaw==",
+      "real_path": "C:/Users/user/project/target",
+      "case_alias": "Link",
+      "portability": ["windows_reserved_name"],
+      "total_size": 4096,
+      "file_count": 3,
+      "rank": 0.75,
+      "match_count": 2,
+      "streams": ["Zone.Identifier"],
+      "flags": ["immutable"],
+      "error": "permission denied for one attribute"
+    }
+  },
+  {
+    "kind": "content",
+    "record": {
+      "path": "/home/user/project/README.md",
+      "text": "# Project\nBuild with cargo.\n",
+      "lines": 2,
+      "size": 28,
+      "etag": "sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+      "encoding": "utf-8",
+      "bom": false,
+      "line_ending": "lf",
+      "range": {"start": 1, "end": 2},
+      "ranges": [{"start": 1, "end": 2}, {"start": 40}],
+      "total_lines": 2,
+      "unchanged": false,
+      "truncated": false,
+      "binary": false,
+      "view": "full"
+    }
+  },
+  {
+    "kind": "content",
+    "record": {
+      "path": "/home/user/project/docs/guide.pdf",
+      "text": "Chapter 1",
+      "lines": 1,
+      "size": 52000,
+      "etag": "sha256:fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9",
+      "encoding": "utf-8",
+      "bom": false,
+      "line_ending": "none",
+      "image": {"mime": "image/png", "width": 2, "height": 1, "data": "iVBORw0KGgo="},
+      "page": 1,
+      "pages_total": 12,
+      "since_missing": true,
+      "decompressed_from": "/home/user/project/docs/guide.pdf.gz",
+      "symbols": [
+        {
+          "name": "Chapter 1",
+          "kind": "module",
+          "path": "/home/user/project/docs/guide.pdf",
+          "line": 1,
+          "column": 1,
+          "end_line": 1,
+          "language": "pdf",
+          "source": "syntax",
+          "etag": "sha256:fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "line",
+    "record": {
+      "path": "/home/user/project/src/main.rs",
+      "no": 12,
+      "text": "fn main() {",
+      "line_ending": "crlf",
+      "etag": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "start": 310,
+      "end": 321,
+      "range_index": 0,
+      "encoding": "windows-1250"
+    }
+  },
+  {
+    "kind": "match",
+    "record": {
+      "path": "/home/user/project/src/main.rs",
+      "no": 12,
+      "column": 4,
+      "start": 313,
+      "end": 317,
+      "text": "main",
+      "line": "fn main() {",
+      "etag": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "groups": ["main", null],
+      "named": {"name": "main", "args": null},
+      "before": ["use std::io;"],
+      "after": ["    run();"],
+      "pattern": 0,
+      "container": {"name": "main", "kind": "function", "line": 12, "end_line": 20},
+      "regex_engine": "linear",
+      "end_line": 12,
+      "end_column": 8
+    }
+  },
+  {
+    "kind": "match",
+    "record": {
+      "path": "/home/user/project/src/lib.rs",
+      "no": 1,
+      "column": 1,
+      "start": 0,
+      "end": 0,
+      "text": "",
+      "line": "",
+      "etag": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "count": 17,
+      "summarized": true
+    }
+  },
+  {
+    "kind": "hunk",
+    "record": {
+      "path": "/home/user/project/src/a.go",
+      "old_start": 12,
+      "old_len": 1,
+      "new_start": 12,
+      "new_len": 1,
+      "lines": ["-func oldName(x int) {", "+func newName(x int) {"],
+      "id": "src/a.go#1",
+      "header": "func oldName(x int) {",
+      "old_path": "/home/user/project/src/old.go",
+      "status": "renamed",
+      "binary": false,
+      "old_mode": "100644",
+      "new_mode": "100755",
+      "ignore_whitespace": false
+    }
+  },
+  {
+    "kind": "change",
+    "record": {
+      "path": "/home/user/project/src/c/d.go",
+      "action": "modify",
+      "size_before": 32100,
+      "size_after": 32200,
+      "hash_before": "sha256:0badc0de",
+      "hash_after": "sha256:c0ffee00",
+      "added": 2,
+      "removed": 2,
+      "replacements": 2,
+      "flags": ["crlf_preserved"],
+      "encoding_before": "windows-1250",
+      "encoding_after": "windows-1250",
+      "line_ending_before": "crlf",
+      "line_ending_after": "crlf",
+      "bom_before": false,
+      "bom_after": false,
+      "store": "exchange",
+      "diff": [
+        {
+          "path": "/home/user/project/src/c/d.go",
+          "old_start": 7,
+          "old_len": 1,
+          "new_start": 7,
+          "new_len": 1,
+          "lines": ["-\tv := oldName(2)", "+\tv := newName(2)"]
+        }
+      ]
+    }
+  },
+  {
+    "kind": "change",
+    "record": {
+      "path": "/home/user/project/new/name.txt",
+      "action": "rename",
+      "from": "/home/user/project/old/name.txt",
+      "to": "/home/user/project/new/name.txt",
+      "link_target": "/home/user/project/shared",
+      "irreversible": "no_space_for_copy"
+    }
+  },
+  {
+    "kind": "change",
+    "record": {
+      "path": "service:nginx",
+      "action": "state",
+      "irreversible": "service_changed",
+      "before": {"t": "enum", "v": "stopped"},
+      "after": {"t": "enum", "v": "running"}
+    }
+  },
+  {
+    "kind": "archive_entry",
+    "record": {
+      "archive": "/home/user/downloads/release.zip",
+      "name": "README.txt",
+      "size": 2048,
+      "type": "file",
+      "path": "release/README.txt",
+      "packed": 900,
+      "modified": "2026-10-01T12:00:00Z",
+      "mode": "0644",
+      "compression": "deflate",
+      "encrypted": false,
+      "crc32": "3610a686",
+      "format": "zip"
+    }
+  },
+  {
+    "kind": "cell",
+    "record": {
+      "path": "/home/user/notebooks/analysis.ipynb",
+      "index": 0,
+      "cell_type": "code",
+      "source": "print(1 + 1)",
+      "etag": "sha256:4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+      "id": "a1b2c3",
+      "outputs": [{"t": "map", "v": {"output_type": {"t": "text", "v": "stream"}, "text": {"t": "text", "v": "2\n"}}}],
+      "outputs_summary": "1 output: stream",
+      "execution_count": 3,
+      "metadata": {"tags": {"t": "list", "v": [{"t": "text", "v": "setup"}]}}
+    }
+  },
+  {
+    "kind": "registry_value",
+    "record": {
+      "path": "registry:/HKCU/Software/Example",
+      "name": "Mode",
+      "type": "dword",
+      "value": {"t": "int", "v": 2},
+      "size": 4,
+      "view": "64"
+    }
+  }
+]

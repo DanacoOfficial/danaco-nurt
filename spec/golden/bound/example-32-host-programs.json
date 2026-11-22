@@ -1,0 +1,49 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "cat-1",
+  "corr_rev": "corr-1",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "host",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "programs",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "git"
+                  },
+                  {
+                    "t": "text",
+                    "v": "python3"
+                  },
+                  {
+                    "t": "text",
+                    "v": "node"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "versions",
+              "value": {
+                "t": "bool",
+                "v": true
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

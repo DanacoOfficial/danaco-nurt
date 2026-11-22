@@ -1,0 +1,21 @@
+{
+  "nurt": "1.0",
+  "program": "search /oldName\\(/ \"/srv/app/src\" glob: \"**/*.go\" |> assert paths: 12 |> replace \"newName(\"",
+  "variant": "a",
+  "options": {
+    "preview": false,
+    "base": "/srv/app",
+    "limit": 50,
+    "fields": ["path", "replacements"],
+    "format": "text",
+    "verbosity": "normal",
+    "diff": "unified",
+    "diff_context": 3,
+    "max_chars": 0,
+    "save_to": "/home/user/results/replace.txt",
+    "timeout": "120s",
+    "session": "s-0001",
+    "language": "en",
+    "script": false
+  }
+}
