@@ -39,6 +39,14 @@ ignore = [
   # that pgp does not accept yet. Secret-key arithmetic runs on the local
   # machine only, for signing commits and tags.
   { id = "RUSTSEC-2026-0387", reason = "crypto-bigint 0.5 is required by pgp; secret-key arithmetic runs locally for signing only" },
+  # Unmaintained crates without a reported vulnerability and without a safe
+  # upgrade. Each is a transitive dependency: chrono of the cron expression
+  # parser croner, the paste macro of the netlink packet crates used for the
+  # list of ports, and ttf-parser of the PDF text extraction. They are replaced
+  # when the crates that depend on them move to a maintained alternative.
+  { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained, has no reported vulnerability and is required by the cron expression parser" },
+  { id = "RUSTSEC-2024-0436", reason = "paste is a procedural macro that runs at build time only and is required by the netlink packet crates" },
+  { id = "RUSTSEC-2026-0192", reason = "ttf-parser is unmaintained, has no reported vulnerability and is required by the PDF text extraction" },
 ]
 yanked = "deny"
 
