@@ -18,13 +18,15 @@ use std::sync::Arc;
 
 use nurt_catalog::Registry;
 use nurt_contracts::error::{ErrorCode, Result};
-use nurt_contracts::stage::{ArgValue, BoundArgs, StageData, StageImpl, StageInput};
+use nurt_contracts::stage::{
+    ArgValue, BoundArgs, Event, LogLevel, StageData, StageImpl, StageInput,
+};
 use nurt_contracts::value::{Record, RecordKind, Value};
 use nurt_ext::locations::ExtLocations;
 use nurt_ext::manifest::{MANIFEST_FILE, Permissions};
 use nurt_ext::policy::{PathPolicy, PlaceholderRoots};
 use nurt_ext::register::{core_names, register};
-use nurt_ext::stage::{ExtRuntime, GuestCall};
+use nurt_ext::stage::{ExtRuntime, GuestCall, PlannedWrite};
 use nurt_ext::store::ExtStore;
 use nurt_ext::wasm::WasmHost;
 use nurt_testkit::ctx::TestContext;
@@ -260,4 +262,158 @@ fn unusable_components_are_rejected() {
     let missing = empty.run(call, &context.ctx()).unwrap_err();
     assert_eq!(missing.code(), ErrorCode::Catalog);
     assert!(missing.message.contains("nurt:ext/stage@1.0.0"));
+}
+
+/// Component text of a command that logs, plans the write of
+/// `/project/out.txt` with the content `abc`, lists `/project` and returns
+/// one record; when the write is refused it returns the message of the
+/// refusal.
+fn worker_component() -> String {
+    let record = RECORD.replace('"', "\\\"");
+    format!(
+        r#"(component
+  (import "nurt:ext/host@1.0.0" (instance $host
+    (type $failure (record (field "code" string) (field "message" string)))
+    (export "failure" (type $failure-type (eq $failure)))
+    (type $level (enum "error" "warn" "info" "debug" "trace"))
+    (export "log-level" (type $level-type (eq $level)))
+    (export "write-file" (func (param "path" string) (param "content" (list u8)) (result (result (error $failure-type)))))
+    (export "list-dir" (func (param "path" string) (result (result (list string) (error $failure-type)))))
+    (export "log" (func (param "level" $level-type) (param "message" string)))))
+  (core module $libc-module
+    (memory (export "memory") 1)
+    (data (i32.const 100) "hello")
+    (data (i32.const 112) "/project/out.txt")
+    (data (i32.const 160) "abc")
+    (data (i32.const 176) "/project")
+    (data (i32.const 200) "{record}")
+    (global $heap (mut i32) (i32.const 1024))
+    (func (export "realloc") (param $old i32) (param $old-size i32) (param $align i32) (param $size i32) (result i32)
+      (local $ptr i32)
+      (local.set $ptr
+        (i32.and
+          (i32.add (global.get $heap) (i32.sub (local.get $align) (i32.const 1)))
+          (i32.sub (i32.const 0) (local.get $align))))
+      (global.set $heap (i32.add (local.get $ptr) (local.get $size)))
+      (block $enough
+        (br_if $enough (i32.le_u (global.get $heap) (i32.shl (memory.size) (i32.const 16))))
+        (br_if $enough
+          (i32.ne
+            (memory.grow
+              (i32.sub
+                (i32.add (i32.shr_u (global.get $heap) (i32.const 16)) (i32.const 1))
+                (memory.size)))
+            (i32.const -1)))
+        (unreachable))
+      (local.get $ptr)))
+  (core instance $libc (instantiate $libc-module))
+  (alias core export $libc "memory" (core memory $memory))
+  (alias core export $libc "realloc" (core func $realloc))
+  (core func $write-file (canon lower (func $host "write-file") (memory $memory) (realloc $realloc)))
+  (core func $list-dir (canon lower (func $host "list-dir") (memory $memory) (realloc $realloc)))
+  (core func $log (canon lower (func $host "log") (memory $memory) (realloc $realloc)))
+  (core instance $imports
+    (export "write-file" (func $write-file))
+    (export "list-dir" (func $list-dir))
+    (export "log" (func $log)))
+  (core module $main-module
+    (import "libc" "memory" (memory 1))
+    (import "host" "write-file" (func $write-file (param i32 i32 i32 i32 i32)))
+    (import "host" "list-dir" (func $list-dir (param i32 i32 i32)))
+    (import "host" "log" (func $log (param i32 i32 i32)))
+    (func (export "run")
+      (param $command i32) (param $command-len i32)
+      (param $args i32) (param $args-len i32)
+      (param $input i32) (param $input-len i32)
+      (result i32)
+      (call $log (i32.const 2) (i32.const 100) (i32.const 5))
+      (call $write-file (i32.const 112) (i32.const 16) (i32.const 160) (i32.const 3) (i32.const 16))
+      (if (i32.load8_u (i32.const 16))
+        (then
+          (i32.store8 (i32.const 80) (i32.const 1))
+          (i32.store (i32.const 84) (i32.load (i32.const 28)))
+          (i32.store (i32.const 88) (i32.load (i32.const 32)))
+          (return (i32.const 80))))
+      (call $list-dir (i32.const 176) (i32.const 8) (i32.const 32))
+      (i32.store (i32.const 256) (i32.const 200))
+      (i32.store (i32.const 260) (i32.const {length}))
+      (i32.store8 (i32.const 80) (i32.const 0))
+      (i32.store (i32.const 84) (i32.const 256))
+      (i32.store (i32.const 88) (i32.const 1))
+      (i32.const 80)))
+  (core instance $main (instantiate $main-module
+    (with "libc" (instance $libc))
+    (with "host" (instance $imports))))
+  (func $run
+    (param "command" string) (param "args" string) (param "input" (list string))
+    (result (result (list string) (error string)))
+    (canon lift (core func $main "run") (memory $memory) (realloc $realloc)))
+  (instance $stage (export "run" (func $run)))
+  (export "nurt:ext/stage@1.0.0" (instance $stage)))
+"#,
+        length = RECORD.len()
+    )
+}
+
+fn worker_policy(write: bool) -> PathPolicy {
+    let permissions = Permissions {
+        read: vec!["/project".to_owned()],
+        write: if write {
+            vec!["/project".to_owned()]
+        } else {
+            Vec::new()
+        },
+        ..Permissions::default()
+    };
+    PathPolicy::new("acme", &permissions, &PlaceholderRoots::default())
+}
+
+fn run_worker(writes: bool, granted: bool) -> (Result<nurt_ext::stage::GuestOutput>, TestContext) {
+    let host = WasmHost::new().unwrap();
+    let worker = host.compile("acme", worker_component().as_bytes()).unwrap();
+    let context = context();
+    let policy = worker_policy(granted);
+    let call = GuestCall {
+        command: "acme.put",
+        args: "{}".to_owned(),
+        input: Vec::new(),
+        policy: &policy,
+        writes,
+    };
+    let output = worker.run(call, &context.ctx());
+    (output, context)
+}
+
+#[test]
+fn write_requests_are_planned_and_messages_reach_the_event_stream() {
+    let (output, context) = run_worker(true, true);
+    let output = output.unwrap();
+    assert_eq!(output.records, [RECORD]);
+    assert_eq!(output.writes.len(), 1);
+    let PlannedWrite { path, content } = &output.writes[0];
+    assert_eq!(path, &test_path("/project/out.txt").unwrap());
+    assert_eq!(content, b"abc");
+    assert!(
+        !context.fs().exists(&test_path("/project/out.txt").unwrap()),
+        "the host plans the write; it does not perform it"
+    );
+    let logged = context.events().events().into_iter().any(|event| {
+        matches!(
+            event,
+            Event::Log(log) if log.message == "hello"
+                && log.level == LogLevel::Info
+                && log.source.as_deref() == Some("acme.put")
+        )
+    });
+    assert!(logged);
+}
+
+#[test]
+fn writes_are_refused_without_the_declaration_or_the_grant() {
+    let (undeclared, _) = run_worker(false, true);
+    let error = undeclared.unwrap_err();
+    assert_eq!(error.code(), ErrorCode::Permission);
+    assert!(error.message.contains("writes = true"), "{}", error.message);
+    let (ungranted, _) = run_worker(true, false);
+    assert_eq!(ungranted.unwrap_err().code(), ErrorCode::Permission);
 }
