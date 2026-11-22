@@ -12,3 +12,13 @@
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+pub mod merge;
+pub mod pull;
+pub mod push;
+pub mod rebase;
+pub mod reset;
+pub mod restore;
+pub mod stash;
+pub mod state;
+pub mod switch;

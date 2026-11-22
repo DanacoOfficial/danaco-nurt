@@ -4,7 +4,7 @@
 
 [package]
 name = "nurt-git-transport"
-description = "SSH transport and commit signatures for the Git operations of Danaco Nurt."
+description = "Transports, credentials and signatures for the Git operations of Danaco Nurt."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -19,4 +19,44 @@ workspace = true
 
 [dependencies]
 nurt-contracts = { workspace = true }
-gix = { workspace = true }
+nurt-types = { workspace = true }
+gix = { workspace = true, features = ["blocking-network-client", "sha256"] }
+gix-credentials = "0.42.1"
+gix-hash = "0.28.1"
+gix-object = "0.66.1"
+gix-pack = { version = "0.77.0", features = ["generate", "streaming-input"] }
+gix-packetline = { version = "0.24.1", features = ["blocking-io"] }
+gix-protocol = { version = "0.68.0", features = ["blocking-client"] }
+gix-quote = "0.10.1"
+gix-sec = "0.16.1"
+gix-transport = { version = "0.62.0", features = ["blocking-client", "http-client"] }
+gix-url = "0.40.1"
+gix-utils = "0.5.2"
+russh = { workspace = true }
+pgp = { workspace = true }
+tokio = { workspace = true }
+ureq = { workspace = true }
+rustls = { workspace = true }
+rustls-native-certs = { workspace = true }
+url = { workspace = true }
+percent-encoding = { workspace = true }
+base64 = { workspace = true }
+bstr = { workspace = true }
+sha1 = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+jiff = { workspace = true }
+rand = { workspace = true }
+thiserror = { workspace = true }
+rusqlite = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security_Credentials"] }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+zbus = { workspace = true }
+
+[dev-dependencies]
+nurt-testkit = { workspace = true }
+tempfile = { workspace = true }
+proptest = { workspace = true }

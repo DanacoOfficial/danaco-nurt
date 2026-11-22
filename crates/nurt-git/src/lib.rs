@@ -10,3 +10,28 @@
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+pub mod apply;
+pub mod blame;
+pub mod branch;
+pub mod checkpoint;
+pub mod clone;
+pub mod commit;
+pub mod diff;
+pub mod fetch;
+pub mod hooks;
+pub mod hunk_select;
+pub mod log;
+pub mod message;
+pub mod query;
+pub mod refs_tx;
+pub mod repo;
+pub mod review;
+pub mod revwalk;
+pub mod show;
+pub mod stage;
+pub mod status;
+pub mod tag;
+#[cfg(any(test, feature = "testutil"))]
+pub mod testutil;
+pub mod worktree;

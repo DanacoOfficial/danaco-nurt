@@ -22,8 +22,27 @@ nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
 nurt-git = { workspace = true }
 nurt-git-transport = { workspace = true }
-gix = { workspace = true }
+gix = { workspace = true, features = ["blocking-network-client", "sha256"] }
+gix-diff = "0.70.0"
+gix-dir = "0.32.0"
+gix-filter = "0.36.1"
+gix-hash = "0.28.1"
+gix-imara-diff = "0.3.3"
+gix-index = "0.58.0"
+gix-merge = "0.23.0"
+gix-object = "0.66.1"
+gix-ref = "0.69.1"
+gix-revision = "0.52.0"
+gix-status = "0.37.0"
+gix-worktree = "0.59.0"
+bstr = { workspace = true }
+sha1 = { workspace = true }
+hex = { workspace = true }
+jiff = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
+nurt-git = { workspace = true, features = ["testutil"] }
 nurt-testkit = { workspace = true }
 tempfile = { workspace = true }
+proptest = { workspace = true }
