@@ -47,7 +47,7 @@ use nurt_contracts::value::Value;
 pub use handle::{JsonFormat, JsonHandle};
 
 use crate::model::{doc_parse, key_conflict, key_not_found};
-use crate::registry::DocFormat;
+use crate::registry::{DocFormat, matches_file};
 use editor::{Change, Editor};
 use layout::Layout;
 use syntax::{NodeId, NodeKind, Span, Tree};
@@ -83,17 +83,16 @@ pub enum Dialect {
 /// Names of `.json` files that tools read as JSONC, in the pattern form of
 /// [`DocFormat::file_names`]: a final `*` matches every name with the
 /// prefix.
-const JSONC_FILE_NAMES: [&str; 6] = [
+const JSONC_FILE_NAMES: [&str; 8] = [
     "tsconfig.*",
     "jsconfig.*",
     "devcontainer.json",
     ".devcontainer.json",
     ".eslintrc.json",
     ".babelrc.json",
+    ".vscode/*.json",
+    ".devcontainer/*.json",
 ];
-
-/// Directory whose `.json` files are JSONC (editor settings).
-const JSONC_DIRECTORY: &str = ".vscode";
 
 impl Dialect {
     /// Format identifier: `json` or `jsonc`.
@@ -117,7 +116,7 @@ impl Dialect {
     /// Dialect of a file from its path: `.jsonc` files, and `.json` files
     /// that tools read with comments (`tsconfig.json`, `tsconfig.*.json`,
     /// `jsconfig.json`, `devcontainer.json`, `.eslintrc.json`,
-    /// `.babelrc.json`, files in `.vscode`), are JSONC; other `.json` files
+    /// `.babelrc.json`, `.json` files in `.vscode` and `.devcontainer`), are JSONC; other `.json` files
     /// are JSON. Other names, `.json5` included, have no dialect.
     ///
     /// # Examples
@@ -132,7 +131,6 @@ impl Dialect {
     /// ```
     #[must_use]
     pub fn detect(path: &Path) -> Option<Self> {
-        let name = path.file_name()?.to_str()?.to_ascii_lowercase();
         let extension = path.extension()?.to_str()?;
         if extension.eq_ignore_ascii_case("jsonc") {
             return Some(Self::Jsonc);
@@ -140,17 +138,7 @@ impl Dialect {
         if !extension.eq_ignore_ascii_case("json") {
             return None;
         }
-        let in_editor_settings = path
-            .parent()
-            .and_then(Path::file_name)
-            .is_some_and(|parent| parent == JSONC_DIRECTORY);
-        let tool_config = JSONC_FILE_NAMES
-            .iter()
-            .any(|pattern| match pattern.strip_suffix('*') {
-                Some(prefix) => name.starts_with(prefix),
-                None => name == *pattern,
-            });
-        Some(if in_editor_settings || tool_config {
+        Some(if matches_file(&JsonFormat::new(Self::Jsonc), path) {
             Self::Jsonc
         } else {
             Self::Json
