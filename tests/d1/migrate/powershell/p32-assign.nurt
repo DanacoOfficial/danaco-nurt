@@ -1,0 +1,11 @@
+# Source: p32-assign.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 3; with assumptions: 0; impossible: 0; errors: 0.
+
+# P32: pipelines bound to variables and used later.
+# translated: P32, P02, L19
+let logs = find "C:/logs" glob: "*.log" depth: 1 type: any hidden: false
+# translated: P32, P15
+let big = @logs |> filter size > 10mib
+# translated: P32, P08
+@big |> remove

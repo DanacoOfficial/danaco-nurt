@@ -291,13 +291,56 @@ fn patterns_archives_and_git_programs_are_translated() {
 }
 
 #[test]
-fn text_without_a_file_or_with_unsupported_formats_is_uncorrectable() {
+fn text_without_a_file_is_evaluated_and_unsupported_formats_are_uncorrectable() {
     assert_reactions(&[
-        ("echo -n hello", "E_UNCORRECTABLE"),
+        ("echo -n hello", "evaluate \"hello\""),
         ("printf > /srv/a.txt", "E_UNCORRECTABLE"),
         ("printf '%d' 5 > /srv/a.txt", "E_UNCORRECTABLE"),
         ("printf 'a' b > /srv/a.txt", "E_UNCORRECTABLE"),
     ]);
+}
+
+#[test]
+fn command_substitutions_assigned_to_a_name_become_results() {
+    let text = |input: &str| {
+        translate_with(input, &SCRIPT)
+            .expect("a bash habit")
+            .expect("a translation")
+            .text()
+    };
+    assert_eq!(
+        text("FILES=$(find /srv/app -name \"*.go\")"),
+        "let files = find \"/srv/app\" glob: \"**/*.go\" type: any"
+    );
+    assert_eq!(text("NOW=$(date)"), "let now = evaluate now()");
+    assert_eq!(
+        text("FILES=$(find /srv/app -name \"*.go\")\nwc -l $FILES"),
+        "let files = find \"/srv/app\" glob: \"**/*.go\" type: any\nlines @files\n|> count"
+    );
+    for input in [
+        "X=$(rm /a)",
+        "X=$(date) Y=$(date)",
+        "Bad-Name=$(date)",
+        "X=$(date)\nX=$(date)",
+    ] {
+        assert!(
+            matches!(translate_with(input, &SCRIPT), Some(Err(_))),
+            "{input}"
+        );
+    }
+}
+
+#[test]
+fn text_without_a_file_is_the_value_of_evaluate() {
+    let text = |input: &str| {
+        translate_with(input, &SCRIPT)
+            .expect("a bash habit")
+            .expect("a translation")
+            .text()
+    };
+    assert_eq!(text("echo \"hello\""), "evaluate \"hello\"");
+    assert_eq!(text("printf \"%s\\n\" \"hello\""), "evaluate \"hello\"");
+    assert_eq!(text("echo -n abc"), "evaluate \"abc\"");
 }
 
 #[test]

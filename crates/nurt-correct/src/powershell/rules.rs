@@ -21,6 +21,7 @@ use nurt_contracts::report::TextPosition;
 use nurt_syntax::parse::Variant as SyntaxVariant;
 use nurt_syntax::print::{print, print_expr};
 
+use super::LetBinding;
 use super::convert::{self, PathProblem};
 use super::lex::{Positions, StrPart};
 use super::script_block;
@@ -42,6 +43,12 @@ const RECURSIVE_GLOB: &str = "**/";
 
 /// Nurt stage that runs a program.
 const RUN_COMMAND: &str = "run";
+
+/// Nurt stage that reads a file as a whole.
+const READ_COMMAND: &str = "read";
+
+/// Nurt stage that reads a file as lines.
+const LINES_COMMAND: &str = "lines";
 
 /// Nurt stage that filters records, for `-Include` and `-Exclude`.
 const FILTER_COMMAND: &str = "filter";
@@ -278,7 +285,7 @@ impl StageArgs {
 /// Stages a variant builds, before they are pushed to the chain.
 struct Built {
     stages: Vec<StageArgs>,
-    emitted: Vec<StageArgs>,
+    emitted: Vec<(usize, StageArgs)>,
     extra: Vec<NurtStage>,
     run_list: Vec<Expr>,
     alternative: Option<Vec<Expr>>,
@@ -492,6 +499,34 @@ impl<'a> Session<'a> {
             .rev()
             .find(|(known, _)| known == name)
             .map(|(_, record)| record.clone())
+    }
+
+    /// Adds `let` names whose record type is known from earlier calls; a
+    /// later binding of a name replaces an earlier one.
+    pub(crate) fn know_lets(&mut self, known: &[LetBinding]) {
+        self.lets.extend(
+            known
+                .iter()
+                .map(|binding| (binding.name.clone(), binding.record.clone())),
+        );
+    }
+
+    /// Number of `let` names known so far.
+    pub(crate) fn let_count(&self) -> usize {
+        self.lets.len()
+    }
+
+    /// The `let` names bound after the first `start` known names.
+    pub(crate) fn lets_since(&self, start: usize) -> Vec<LetBinding> {
+        self.lets
+            .get(start..)
+            .unwrap_or_default()
+            .iter()
+            .map(|(name, record)| LetBinding {
+                name: name.clone(),
+                record: record.clone(),
+            })
+            .collect()
     }
 
     fn known_let(&self, written: &str) -> Option<String> {
@@ -1356,8 +1391,9 @@ impl<'a> Session<'a> {
         error
     }
 
-    /// Fills `{Param}` placeholders with the Nurt path of bound values;
-    /// `None` when a placeholder has no path value.
+    /// Fills `{Param}` placeholders with the Nurt path of bound values and
+    /// `{Param:text}` placeholders with the value as written; `None` when a
+    /// placeholder has no usable value.
     fn fill_template(&self, template: &str, bound: &Bound<'_>) -> Option<String> {
         let mut out = String::new();
         let mut rest = template;
@@ -1365,10 +1401,20 @@ impl<'a> Session<'a> {
             out.push_str(rest.get(..open)?);
             let after = rest.get(open + 1..)?;
             let close = after.find('}')?;
-            let value = bound.text_of(after.get(..close)?)?;
-            let path = convert::path(&value, &self.table.registry, self.context.base).ok()?;
+            let (name, verbatim) = match after.get(..close)?.strip_suffix(":text") {
+                Some(name) => (name, true),
+                None => (after.get(..close)?, false),
+            };
+            let value = bound.text_of(name)?;
+            let text = if verbatim {
+                value
+            } else {
+                convert::path(&value, &self.table.registry, self.context.base)
+                    .ok()?
+                    .text
+            };
             out.push_str(&expr_text(&Expr::Text {
-                v: path.text,
+                v: text,
                 span: None,
             }));
             rest = after.get(close + 1..)?;
@@ -1485,7 +1531,8 @@ impl<'a> Session<'a> {
         for stage in built.extra {
             chain.push(stage);
         }
-        for stage in built.emitted {
+        built.emitted.sort_by_key(|(order, _)| *order);
+        for (_, stage) in built.emitted {
             chain.push(stage.into_stage(span));
         }
         Ok(built.class)
@@ -1584,10 +1631,18 @@ impl<'a> Session<'a> {
             stage.named.extend(args);
             return Ok(());
         }
-        if param.ty.is_none() && param.set.is_none() {
+        if param.ty.is_none() && param.set.is_none() && param.emit.is_none() {
             return Ok(());
         }
-        let values = self.param_values(item, bound, variant, chain, &mut built.class)?;
+        let values = match &param.emit_with {
+            Some(name) => match bound.get(name) {
+                Some(source) => {
+                    self.param_values(source, bound, variant, chain, &mut built.class)?
+                }
+                None => Vec::new(),
+            },
+            None => self.param_values(item, bound, variant, chain, &mut built.class)?,
+        };
         let arg_name = variant
             .args
             .iter()
@@ -1596,8 +1651,16 @@ impl<'a> Session<'a> {
             .or(param.arg.as_deref());
         if let Some(emit) = &param.emit {
             let mut stage = StageArgs::new(emit);
-            stage.place(arg_name, values);
-            built.emitted.push(stage);
+            stage.place(
+                arg_name.filter(|_| param.ty != Some(ValueType::IntEquals)),
+                values,
+            );
+            let order = cmdlet
+                .params
+                .iter()
+                .position(|candidate| std::ptr::eq(candidate, param))
+                .unwrap_or(usize::MAX);
+            built.emitted.push((order, stage));
             return Ok(());
         }
         if !param.positional && arg_name.is_none() {
@@ -1621,7 +1684,14 @@ impl<'a> Session<'a> {
                 HELP_CORRECTIONS,
             )
         })?;
-        target.place(if param.positional { None } else { arg_name }, values);
+        target.place(
+            if param.positional && !renamed_by(variant, param) {
+                None
+            } else {
+                arg_name
+            },
+            values,
+        );
         Ok(())
     }
 
@@ -1686,6 +1756,13 @@ impl<'a> Session<'a> {
         if variant.merge_next {
             chain.merge_next = Some(args);
             return Ok(());
+        }
+        if chain.stages.is_empty()
+            && let Some(Head::Stage(head)) = &mut chain.head
+            && head.name == LINES_COMMAND
+            && merge == READ_COMMAND
+        {
+            READ_COMMAND.clone_into(&mut head.name);
         }
         match chain.last_mut() {
             Some(stage) if stage.name == merge => {
@@ -1856,6 +1933,25 @@ impl<'a> Session<'a> {
                     .collect::<Result<_, _>>()?,
                 span: Some(span),
             },
+            ValueType::CimEquals => {
+                let written = self.plain(value)?;
+                if convert::has_wildcard(&written) || written.contains(['\'', '\\']) {
+                    return Err(self.value_error(
+                        item,
+                        "a name with wildcards, quotation marks or backslashes has no filter form; write the filter with windows.cim where:",
+                    ));
+                }
+                text(format!("{} = '{written}'", param.name), span)
+            }
+            ValueType::IntEquals => Expr::Bin {
+                op: BinOp::Eq,
+                l: Box::new(ident(param.arg.as_deref().unwrap_or_default(), span)),
+                r: Box::new(Expr::Int {
+                    v: self.int(value)?,
+                    span: Some(span),
+                }),
+                span: Some(span),
+            },
             ValueType::LineText => {
                 let lines: Vec<String> = list_items(value)
                     .into_iter()
@@ -1958,6 +2054,19 @@ impl<'a> Session<'a> {
             }
             ValueType::Map => self.map(value)?,
             ValueType::Value => match &value.kind {
+                ValueKind::Variable(var)
+                    if var.scope.is_none()
+                        && (var.name.eq_ignore_ascii_case("true") || is_false(value))
+                        && renamed_by(variant, param) =>
+                {
+                    Expr::Bool {
+                        v: !is_false(value),
+                        span: Some(span),
+                    }
+                }
+                _ if renamed_by(variant, param) => {
+                    return Err(self.value_error(item, "write $true or $false"));
+                }
                 ValueKind::Number(number)
                     if number.exponent == 0 && number.int.is_some_and(|int| int >= 0) =>
                 {
@@ -2011,13 +2120,24 @@ impl<'a> Session<'a> {
     fn plain(&self, value: &Value) -> Result<String, Error> {
         match &value.kind {
             ValueKind::Number(_) => Ok(self.source(value.start, value.end).to_owned()),
-            ValueKind::Variable(var) if var.is_environment() => Err(self.uncorrectable(
-                "environment_variable",
-                format!("environment variables are not expanded; read the value with environment name: \"{}\"", var.name),
-                value.start,
-                value.end,
-                "help environment",
-            )),
+            ValueKind::Variable(var) if var.is_environment() => {
+                let syntax = &self.table.syntax;
+                Err(self
+                    .uncorrectable(
+                        "environment_variable",
+                        format!(
+                            "environment variables are not expanded; read the value with {} {}: \"{}\"",
+                            syntax.environment_command, syntax.environment_param, var.name
+                        ),
+                        value.start,
+                        value.end,
+                        "help environment",
+                    )
+                    .with_fix(format!(
+                        "{} {}: \"{}\"",
+                        syntax.environment_command, syntax.environment_param, var.name
+                    )))
+            }
             ValueKind::Variable(var) => Err(self.unknown_variable(&var.name, value.start, value.end)),
             _ => value.plain_text().ok_or_else(|| {
                 let environment = matches!(&value.kind, ValueKind::Expandable(parts)
@@ -2801,6 +2921,14 @@ fn single_command_of(script: &super::syntax::Script) -> Option<&Command> {
         },
         _ => None,
     }
+}
+
+/// Whether the variant gives its own Nurt argument to the parameter.
+fn renamed_by(variant: &Variant, param: &Param) -> bool {
+    variant
+        .args
+        .iter()
+        .any(|(name, _)| param.name.eq_ignore_ascii_case(name))
 }
 
 fn is_false(value: &Value) -> bool {

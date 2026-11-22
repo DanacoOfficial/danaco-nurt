@@ -1,0 +1,28 @@
+# Source: b37-file-tools.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 8; translated: 7; with assumptions: 1; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B37: diff, counting, sizes, hashes and conversions.
+# translated: B37, L21
+diff "/srv/a.conf" "/srv/b.conf"
+# translated: B37, L21, B24
+lines "/srv/words.txt"
+|> sort text
+|> group by: text
+# translated: B37, L21
+find "/srv/app"
+|> summarize size
+# translated: B37, L21
+info "/srv/app/data.db"
+# translated: B37, L21
+info "/srv/app/bin/run" details: [text]
+# translated: B37, L21
+hash "/srv/app.tgz"
+# translated: B37, L21
+convert "/srv/a.txt" line_ending: lf
+# translated: B37, L21
+# assumption: the file is converted in place; iconv writes the result to standard output
+convert "/srv/a.txt" encoding: "utf-8"

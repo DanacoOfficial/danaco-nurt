@@ -1,0 +1,9 @@
+# Source: p34-confirm.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P34: -Confirm.
+# translated: P08, L19, P34
+remove "C:/tmp/a.txt"
+# translated: P08, L19, P34
+remove "C:/tmp/b.txt"

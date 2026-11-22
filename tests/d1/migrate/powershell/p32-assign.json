@@ -1,0 +1,54 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p32-assign.ps1",
+  "summary": {
+    "statements": 3,
+    "translated": 3,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "$logs = Get-ChildItem C:\\logs -Filter *.log",
+      "status": "translated",
+      "rules": [
+        "P32",
+        "P02",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "let logs = find \"C:/logs\" glob: \"*.log\" depth: 1 type: any hidden: false"
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "$big = $logs | Where-Object { $_.Length -gt 10MB }",
+      "status": "translated",
+      "rules": [
+        "P32",
+        "P15"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "let big = @logs |> filter size > 10mib"
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "$big | Remove-Item",
+      "status": "translated",
+      "rules": [
+        "P32",
+        "P08"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "@big |> remove"
+    }
+  ]
+}

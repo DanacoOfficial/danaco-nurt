@@ -1,0 +1,67 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p04-write.ps1",
+  "summary": {
+    "statements": 4,
+    "translated": 4,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Set-Content C:\\out\\status.txt -Value \"ready\"",
+      "status": "translated",
+      "rules": [
+        "P04",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "write \"C:/out/status.txt\" \"ready\\n\" mode: overwrite"
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Add-Content -Path C:\\out\\log.txt -Value \"line\"",
+      "status": "translated",
+      "rules": [
+        "P04",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "write \"C:/out/log.txt\" \"line\\n\" mode: append"
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "\"done\" | Out-File C:\\out\\done.txt",
+      "status": "translated",
+      "rules": [
+        "P04",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "write \"C:/out/done.txt\" \"done\\n\" mode: overwrite"
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "source": "Get-Date | Out-File C:\\out\\log.txt -Append",
+      "status": "translated",
+      "rules": [
+        "P26",
+        "P04",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "evaluate now()\n|> write \"C:/out/log.txt\" mode: append"
+    }
+  ]
+}

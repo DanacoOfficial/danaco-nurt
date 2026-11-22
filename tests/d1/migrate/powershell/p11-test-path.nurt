@@ -1,0 +1,10 @@
+# Source: p11-test-path.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P11: Test-Path with and without a path type.
+# translated: P11, L19
+info "C:/out/a.txt"
+# translated: P11, L19
+info "C:/out/a.txt"
+|> assert all: type == file

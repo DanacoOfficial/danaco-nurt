@@ -1,0 +1,64 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p42-invoke.ps1",
+  "summary": {
+    "statements": 4,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 2,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "& git status",
+      "status": "translated",
+      "rules": [
+        "P42"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "run [\"git\", \"status\"]"
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "& \"C:\\Program Files\\Git\\bin\\git.exe\" log -5",
+      "status": "translated",
+      "rules": [
+        "P42",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "run [\"C:/Program Files/Git/bin/git.exe\", \"log\", \"-5\"]"
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "Invoke-Expression \"Get-Date\"",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "eval",
+      "problem": "evaluation of text as code has no equivalent",
+      "fix": []
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "source": "Invoke-Command -ComputerName srv01 -ScriptBlock { Get-Process }",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "remote execution belongs to the host that sends the program to the other device; write the program itself (remote_execution)",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"pwsh\", \"p42-invoke.ps1\"]"
+}

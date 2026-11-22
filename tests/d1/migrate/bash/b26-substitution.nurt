@@ -1,0 +1,18 @@
+# Source: b26-substitution.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 3; with assumptions: 0; impossible: 1; errors: 0.
+# Untranslated statements run unchanged with: run ["bash", "b26-substitution.sh"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B26: command substitution bound to a variable and used later.
+# translated: B26
+let logs = find "/var/log/app" glob: "**/*.log" type: any
+# translated: B01, B25
+remove @logs on_missing: error
+# translated: B26
+let count = lines "/srv/a.txt"
+|> count
+# untranslated: E_UNCORRECTABLE: echo $COUNT
+#   problem: `$$COUNT` is not substituted inside text; paths are quoted absolute text: write the path, or use a field of a named result such as `@x.path` (variable_in_text)

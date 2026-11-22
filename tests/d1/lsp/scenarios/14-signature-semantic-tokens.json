@@ -1,0 +1,23 @@
+{
+  "capabilities": {"capabilities": {
+    "signatureHelpProvider": {"triggerCharacters": [" ", "(", ",", ":", "="]},
+    "semanticTokensProvider": {"legend": {
+      "tokenTypes": ["function", "parameter", "variable", "keyword", "string", "regexp", "number", "operator", "comment"],
+      "tokenModifiers": ["declaration"]
+    }, "full": true},
+    "codeActionProvider": {"codeActionKinds": ["quickfix"]}
+  }},
+  "steps": [
+    {"open": {"uri": "file:///work/sig.nurt", "text": "find \"/srv\" glob: \"*.go\"\n|> first \n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"uri": "file:///work/sig.nurt"}},
+    {"request": "textDocument/signatureHelp", "params": {"textDocument": {"uri": "file:///work/sig.nurt"}, "position": {"line": 0, "character": 12}},
+     "result": {"activeSignature": 0, "activeParameter": 1, "signatures": [{"label": {"$includes": "find <path>"}}]}},
+    {"request": "textDocument/signatureHelp", "params": {"textDocument": {"uri": "file:///work/sig.nurt"}, "position": {"line": 0, "character": 18}},
+     "result": {"signatures": [{"label": {"$includes": "glob"}}]}},
+    {"request": "textDocument/signatureHelp", "params": {"textDocument": {"uri": "file:///work/sig.nurt"}, "position": {"line": 0, "character": 2}},
+     "result": null},
+    {"request": "textDocument/semanticTokens/full", "params": {"textDocument": {"uri": "file:///work/sig.nurt"}},
+     "result": {"data": [0, 0, 4, 0, 0, 0, 5, 6, 4, 0, 0, 7, 4, 1, 0, 0, 6, 6, 4, 0, 1, 0, 2, 7, 0, 0, 3, 5, 0, 0]}},
+    {"request": "textDocument/semanticTokens/full", "params": {"textDocument": {"uri": "file:///work/closed.nurt"}}, "result": null}
+  ]
+}

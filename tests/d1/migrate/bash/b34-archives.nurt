@@ -1,0 +1,22 @@
+# Source: b34-archives.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 6; translated: 6; with assumptions: 0; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B34: tar, zip and gzip.
+# translated: B34, L21
+archive.extract "/tmp/app.tgz" into: "/srv/app"
+# translated: B34, L21
+find "/srv/app" type: any
+|> archive.create "/srv/backup/app.tgz" format: tar_gz base: "/"
+# translated: B34, L21
+archive.extract "/tmp/data.zip" into: "/srv/data"
+# translated: B34, L21
+find "/srv/out" type: any
+|> archive.create "/srv/out.zip" format: zip base: "/"
+# translated: B34, L21
+compress "/var/log/app.log" keep: false
+# translated: B34, L21
+decompress "/srv/data.csv.gz" keep: false

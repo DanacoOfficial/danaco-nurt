@@ -1,0 +1,70 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p28-data.ps1",
+  "summary": {
+    "statements": 4,
+    "translated": 0,
+    "assumption": 2,
+    "impossible": 2,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Get-Content C:\\data.json | ConvertFrom-Json",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "the conversion applies to the output of read; read the file first (conversion_input)",
+      "fix": []
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Import-Csv C:\\data.csv",
+      "status": "assumption",
+      "rules": [
+        "P28",
+        "L19"
+      ],
+      "assumptions": [
+        "every row of the file is returned as an item keyed by the header"
+      ],
+      "fix": [],
+      "output": "read \"C:/data.csv\" key: \"[*]\""
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "Get-Process | Export-Csv C:\\out\\processes.csv",
+      "status": "assumption",
+      "rules": [
+        "P22",
+        "P28",
+        "L19"
+      ],
+      "assumptions": [
+        "the fields of the records become the columns of the file"
+      ],
+      "fix": [],
+      "output": "processes |> write \"C:/out/processes.csv\" format: csv mode: overwrite"
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "source": "Get-Service | ConvertTo-Json",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "ConvertTo-Json only shows text unless a file is written; write the records with write format: json (conversion_without_write)",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"pwsh\", \"p28-data.ps1\"]"
+}

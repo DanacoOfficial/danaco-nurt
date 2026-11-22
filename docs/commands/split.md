@@ -33,8 +33,8 @@ of the stream.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `delimiter` | `text \| regex` | required | Delimiter text or pattern; a text is not empty. |
-| `names` | `list<text>` | none | Names of the columns. |
+| `delimiter` | `text \| regex` | required | Delimiter text or pattern. |
+| `names` | `list<text>` | - | Names of the columns. |
 
 ## Input and output
 

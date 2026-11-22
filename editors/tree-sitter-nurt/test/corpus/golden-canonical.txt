@@ -16,7 +16,7 @@ find "/srv/app" glob: "**/*.go"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
@@ -37,7 +37,7 @@ find "/srv/app" glob: "**/*.go"
         (identifier))
       (identifier)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))
     (pipe)
     (stage
@@ -64,14 +64,14 @@ search /oldName\(/ "/srv/app/src" glob: "**/*.go"
         (regex_pattern))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))
     (pipe)
     (stage
@@ -95,7 +95,7 @@ find "/srv/app/build" glob: "**/*.tmp"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
@@ -117,10 +117,10 @@ set "/srv/app/package.json" key: "scripts.test" value: "vitest"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ============================================================
@@ -140,11 +140,11 @@ code.symbols "oldName" path: ["/srv/app/src"] kind: function
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))
     (pipe)
     (stage
@@ -172,7 +172,7 @@ let recent = find "/srv/app/src" glob: "**/*.ts"
           (identifier))
         (string)
         (named_argument
-          (argument_name)
+          (argument_name (identifier))
           (string)))
       (pipe)
       (stage
@@ -209,14 +209,14 @@ run ["go", "test", "./..."] cwd: "/srv/app"
         (string)
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))))
 
 ===========================================================
@@ -235,7 +235,7 @@ write "/srv/app/.gitignore" "node_modules/\n" mode: append
       (string)
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 ===================================================================
@@ -267,7 +267,7 @@ lines "/srv/app/main.go"
         (identifier))
       (raw_string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 ==========================================================
@@ -287,10 +287,10 @@ find "/var/log/app" glob: "*.log" depth: 1
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))
     (pipe)
     (stage
@@ -306,7 +306,7 @@ find "/var/log/app" glob: "*.log" depth: 1
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ============================================================
@@ -325,7 +325,7 @@ archive.extract "/srv/dl/data.tar.gz" into: "/srv/data"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ====================================================================
@@ -347,7 +347,7 @@ search /oldName\(/ "/srv/app/src" glob: "**/*.go"
         (regex_pattern))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
@@ -368,14 +368,14 @@ search /oldName\(/ "/srv/app/src" glob: "**/*.go"
               (string)
               (string))
             (named_argument
-              (argument_name)
+              (argument_name (identifier))
               (string)))
           (pipe)
           (stage
             (command_name
               (identifier))
             (named_argument
-              (argument_name)
+              (argument_name (identifier))
               (integer))))))))
 
 ================================================================
@@ -397,31 +397,31 @@ edit "/srv/app/main.go" changes: [
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (integer)))
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (integer))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (identifier)))
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (range
                 (integer)
                 (integer)))))))))
@@ -444,8 +444,8 @@ run ["npm", "run", "build"] cwd: "/srv/app" background: true
         (string)
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (boolean)))))

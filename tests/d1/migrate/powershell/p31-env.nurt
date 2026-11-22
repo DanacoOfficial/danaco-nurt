@@ -1,0 +1,10 @@
+# Source: p31-env.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 1; with assumptions: 0; impossible: 1; errors: 0.
+# Untranslated statements run unchanged with: run ["pwsh", "p31-env.ps1"]
+
+# P31: environment variables.
+# translated: P31
+environment name: "PATH"
+# untranslated: E_UNCORRECTABLE: Write-Output $env:USERNAME
+#   problem: environment variables are not expanded; read the value with environment name: "USERNAME" (environment_variable)

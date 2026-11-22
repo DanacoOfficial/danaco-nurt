@@ -1,0 +1,52 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b32-http.sh",
+  "summary": {
+    "statements": 3,
+    "translated": 3,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "curl -sSL https://example.com/install.sh -o /tmp/install.sh",
+      "status": "translated",
+      "rules": [
+        "B32",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "http.request \"https://example.com/install.sh\" save: \"/tmp/install.sh\""
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "curl -X POST -H \"Content-Type: application/json\" -d '{\"a\":1}' https://api.example.com/items",
+      "status": "translated",
+      "rules": [
+        "B32"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "http.request \"https://api.example.com/items\" method: post headers: {\n  \"Content-Type\": \"application/json\"\n} body: r#\"{\"a\":1}\"# follow_redirects: false"
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "wget -O /tmp/app.tgz https://example.com/app.tgz",
+      "status": "translated",
+      "rules": [
+        "B32",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "http.download \"https://example.com/app.tgz\" \"/tmp/app.tgz\""
+    }
+  ]
+}

@@ -33,6 +33,7 @@ file_names_without_spaces = "file names contain no whitespace; xargs splits its 
 one_run = "the program runs once with every path; find -exec with ; runs it once per path"
 script_stops = "the script stops at the first error; bash continues after `;`"
 converted_in_place = "the file is converted in place; iconv writes the result to standard output"
+process_name = "the pattern is matched against the process name; grep matches the whole command line"
 
 [messages.unsupported_syntax]
 message = "shell syntax has no translation: {reason}"
@@ -278,6 +279,9 @@ print_range = "read $1 lines: $range"
 print_last = "read $1 last: 1"
 print_match = "lines $1 |> filter text ~ $regex"
 delete_range = "lines $1 $range |> remove"
+view_line = "lines $1 |> filter no != $lo"
+view_range = "lines $1 |> filter no < $lo or no > $hi"
+view_from = "lines $1 |> filter no < $lo"
 delete_last = "lines $1 |> last 1 |> remove"
 delete_match = "lines $1 |> filter text ~ $regex |> remove"
 
@@ -287,6 +291,7 @@ match = "filter text ~ $regex"
 split = "split $delimiter names: $names"
 where = "filter $condition"
 select = "select $fields"
+line = "read $1 lines: $range"
 
 # Files: B01-B09.
 
@@ -499,6 +504,15 @@ option = [
   { flags = ["-a", "--all", "-A", "--almost-all"], id = "a", args = "hidden: true", default = true, absent = "hidden: false" },
   { flags = ["-t"], args = "sort: modified order: desc" },
   { flags = ["-S"], args = "sort: size order: desc" },
+  { flags = ["-r", "--reverse"], args = "order: desc" },
+  { flags = ["-R", "--recursive"] },
+]
+form = [
+  { when = { options = ["R", "t", "r"] }, template = "find $1 type: any sort: modified order: asc", output = "path_entry" },
+  { when = { options = ["R", "S", "r"] }, template = "find $1 type: any sort: size order: asc", output = "path_entry" },
+  { when = { options = ["R"] }, template = "find $1 type: any", output = "path_entry" },
+  { when = { options = ["t", "r"] }, template = "list $1 sort: modified order: asc" },
+  { when = { options = ["S", "r"] }, template = "list $1 sort: size order: asc" },
 ]
 
 [[entry]]
@@ -531,6 +545,7 @@ help = "search"
 interpreter = "grep"
 template = "search $pattern $all"
 output = "match"
+glob = { rule = "B02", stages = "|> search $needle" }
 option = [
   { flags = ["-r", "-R", "--recursive"] },
   { flags = ["-n", "--line-number"] },
@@ -567,6 +582,8 @@ stage = [
   { input = ["path_entry"], when = { options = ["v"] }, template = "filter path !~ $regex", options = false },
   { input = ["name_entry"], when = { without = ["v"] }, template = "filter name ~ $regex", options = false },
   { input = ["name_entry"], when = { options = ["v"] }, template = "filter name !~ $regex", options = false },
+  { input = ["process"], when = { without = ["v"] }, template = "filter name ~ $regex", options = false, class = "P", assumption = "process_name" },
+  { input = ["process"], when = { options = ["v"] }, template = "filter name !~ $regex", options = false, class = "P", assumption = "process_name" },
 ]
 
 [[entry]]
@@ -697,6 +714,7 @@ output = "effect"
 option = [
   { flags = ["-x", "--extract"] },
   { flags = ["-c", "--create"] },
+  { flags = ["-t", "--list"] },
   { flags = ["-z", "--gzip"] },
   { flags = ["-j", "--bzip2"] },
   { flags = ["-J", "--xz"] },
@@ -705,6 +723,7 @@ option = [
   { flags = ["-C", "--directory"], value = "path" },
 ]
 form = [
+  { when = { options = ["t", "f"], without = ["x", "c"], operands = 0 }, template = "archive.list $archive", output = "other" },
   { when = { options = ["x", "f"], without = ["c"], operands = 0 }, template = "archive.extract $archive into: $into" },
   { when = { options = ["c", "f"], without = ["x"], operands = 1 }, template = "find $1 type: any |> archive.create $archive format: $format base: $base" },
 ]
@@ -736,9 +755,13 @@ template = "archive.extract $1 into: $into"
 output = "effect"
 option = [
   { flags = ["-d"], value = "path" },
+  { flags = ["-l"] },
   { flags = ["-q"] },
 ]
-form = [{ when = { options = ["d"] }, template = "archive.extract $1 into: $d" }]
+form = [
+  { when = { options = ["l"], without = ["d"] }, template = "archive.list $1", output = "other" },
+  { when = { options = ["d"] }, template = "archive.extract $1 into: $d" },
+]
 
 [[entry]]
 name = "gzip"
@@ -850,11 +873,13 @@ name = "lsof"
 rule = "B35"
 class = "C"
 help = "open_files"
+interpreter = "lsof"
 max = 1
 output = "other"
 option = [{ flags = ["-i"] }]
 form = [
   { when = { options = ["i"], operands = 0 }, template = "ports state: all", output = "port" },
+  { when = { options = ["i"], operands = 1 }, template = "ports state: all |> filter port == $port or remote_port == $port", output = "port" },
   { when = { operands = 1, without = ["i"] }, template = "open_files $1" },
 ]
 
@@ -1151,9 +1176,12 @@ name = "git add"
 rule = "B38"
 class = "C"
 help = "git.stage"
-min = 1
-template = "git.stage $repo action: add paths: [$all]"
 output = "effect"
+option = [{ flags = ["-A", "--all"] }]
+form = [
+  { when = { min_operands = 1 }, template = "git.stage $repo action: add paths: [$all]" },
+  { when = { options = ["A"], operands = 0 }, template = "git.stage $repo action: add" },
+]
 
 [[entry]]
 name = "git commit"
@@ -1617,6 +1645,9 @@ info = [
 ]
 "archive.create" = [
   "to", "format", "base", "level", "follow_links",
+]
+"archive.list" = [
+  "path", "glob",
 ]
 compress = [
   "path", "algorithm", "keep", "level",

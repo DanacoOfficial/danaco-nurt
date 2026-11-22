@@ -1,0 +1,11 @@
+# Source: p08-remove.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 3; with assumptions: 0; impossible: 0; errors: 0.
+
+# P08: Remove-Item and its aliases.
+# translated: P08, L19
+remove "C:/proj/build"
+# translated: P08, L19
+remove "C:/tmp/a.txt"
+# translated: P08, L19
+remove "C:/tmp/cache"

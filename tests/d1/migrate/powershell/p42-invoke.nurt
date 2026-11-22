@@ -1,0 +1,14 @@
+# Source: p42-invoke.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 2; with assumptions: 0; impossible: 2; errors: 0.
+# Untranslated statements run unchanged with: run ["pwsh", "p42-invoke.ps1"]
+
+# P42: call operator, Invoke-Expression and Invoke-Command.
+# translated: P42
+run ["git", "status"]
+# translated: P42, L19
+run ["C:/Program Files/Git/bin/git.exe", "log", "-5"]
+# untranslated: E_UNCORRECTABLE: Invoke-Expression "Get-Date"
+#   problem: evaluation of text as code has no equivalent
+# untranslated: E_UNCORRECTABLE: Invoke-Command -ComputerName srv01 -ScriptBlock { Get-Process }
+#   problem: remote execution belongs to the host that sends the program to the other device; write the program itself (remote_execution)

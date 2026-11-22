@@ -1,0 +1,13 @@
+# Source: p09-new-item.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 4; with assumptions: 0; impossible: 0; errors: 0.
+
+# P09: New-Item for directories, files and links.
+# translated: P09, L19
+create "C:/out/reports" type: directory
+# translated: P09, L19
+create "C:/out/a.txt" type: file
+# translated: P09, L19
+write "C:/out/b.txt" "x" mode: create
+# translated: P09, L19
+create "C:/current" type: link target: r"C:\releases\1.4"

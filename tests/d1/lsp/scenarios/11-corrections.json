@@ -1,0 +1,54 @@
+{
+  "catalog": true,
+  "steps": [
+    {"open": {"uri": "file:///work/fix.nurt", "text": "Find \"/srv/app\" | count\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {
+      "uri": "file:///work/fix.nurt",
+      "version": 1,
+      "diagnostics": {"$contains": [
+        {"code": "L03", "source": "nurt", "message": {"$includes": "Find → find"},
+         "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 4}},
+         "data": {"from": "Find", "to": "find"}},
+        {"code": "L13", "source": "nurt"}
+      ]}
+    }},
+    {"request": "textDocument/codeAction", "params": {
+      "textDocument": {"uri": "file:///work/fix.nurt"},
+      "range": {"start": {"line": 0, "character": 1}, "end": {"line": 0, "character": 1}},
+      "context": {"diagnostics": []}
+     },
+     "result": {"$contains": [
+       {"title": "Replace `Find` with `find`", "kind": "quickfix", "isPreferred": false,
+        "edit": {"changes": {"file:///work/fix.nurt": [{"newText": "find",
+          "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 4}}}]}}},
+       {"title": "Write the corrected program", "isPreferred": true,
+        "edit": {"changes": {"file:///work/fix.nurt": [{"newText": "find \"/srv/app\"\n|> count\n"}]}}}
+     ]}},
+    {"change": {"uri": "file:///work/fix.nurt", "version": 2, "text": "find \"/srv/app\"\n|> count\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"version": 2, "diagnostics": []}},
+    {"request": "textDocument/codeAction", "params": {
+      "textDocument": {"uri": "file:///work/fix.nurt"},
+      "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+      "context": {"diagnostics": []}
+     }, "result": []},
+    {"change": {"uri": "file:///work/fix.nurt", "version": 3, "text": "find \"/srv/app\" |> sort size order: decs\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"version": 3, "diagnostics": {"$contains": [
+      {"code": "V01", "message": {"$includes": "decs → desc"}}
+    ]}}},
+    {"change": {"uri": "file:///work/fix.nurt", "version": 4, "text": "find \"/srv/app\" |> qwzxv\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"version": 4, "diagnostics": [
+      {"code": "E_UNKNOWN_COMMAND", "severity": 1, "source": "nurt"}
+    ]}},
+    {"open": {"uri": "file:///work/other.nurt", "text": "find(\"/srv\", glob: \"*.go\")\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"uri": "file:///work/other.nurt", "diagnostics": {"$contains": [
+      {"code": "L20"}
+    ]}}},
+    {"close": "file:///work/other.nurt"},
+    {"notification": "textDocument/publishDiagnostics", "params": {"uri": "file:///work/other.nurt", "diagnostics": []}},
+    {"request": "textDocument/codeAction", "params": {
+      "textDocument": {"uri": "file:///work/other.nurt"},
+      "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 0}},
+      "context": {"diagnostics": []}
+     }, "result": null}
+  ]
+}

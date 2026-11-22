@@ -1132,6 +1132,16 @@ set = [{ arg = "mode", ident = "overwrite" }]
 
 [[entry.variant]]
 rule = "P13"
+class = "C"
+registry = false
+when = ["Value"]
+unless = ["Type"]
+when_value = { Name = "IsReadOnly" }
+stages = ["attributes"]
+args = { Value = "readonly" }
+
+[[entry.variant]]
+rule = "P13"
 error = "E_UNCORRECTABLE"
 problem = "not_registry"
 message = "properties of files are changed with attributes"
@@ -1232,6 +1242,11 @@ name = "Last"
 type = "int"
 emit = "last"
 
+[[entry.param]]
+name = "ExpandProperty"
+type = "fields"
+emit = "select"
+
 [[entry.variant]]
 rule = "P16"
 error = "E_UNCORRECTABLE"
@@ -1265,6 +1280,21 @@ name = "Descending"
 switch = true
 arg = "order"
 set = "desc"
+
+[[entry.param]]
+name = "Unique"
+switch = true
+emit = "distinct"
+emit_with = "Property"
+
+[[entry.variant]]
+rule = "P17"
+class = "P"
+when = ["Unique"]
+piped = true
+stages = ["sort"]
+absent = [{ params = ["Property"], self_field = true }]
+assumption = "distinct compares text values as written, while -Unique ignores case"
 
 [[entry.variant]]
 rule = "P17"
@@ -2234,6 +2264,24 @@ type = "enum"
 arg = "state"
 values = { Listen = "listen" }
 
+[[entry.param]]
+name = "LocalPort"
+type = "int_equals"
+arg = "port"
+emit = "filter"
+
+[[entry.param]]
+name = "RemotePort"
+type = "int_equals"
+arg = "remote_port"
+emit = "filter"
+
+[[entry.param]]
+name = "OwningProcess"
+type = "int_equals"
+arg = "pid"
+emit = "filter"
+
 [[entry.variant]]
 rule = "P38"
 class = "C"
@@ -2361,6 +2409,43 @@ error = "E_UNCORRECTABLE"
 problem = "system_task"
 message = "tasks of the system scheduler are not created; schedule a console program with schedule.create"
 help = "help schedule.create"
+
+[[entry]]
+rule = "P41"
+class = "C"
+kind = "cmdlet"
+from = ["Get-ScheduledTask"]
+
+[[entry.param]]
+name = "TaskName"
+position = 0
+type = "cim_equals"
+arg = "where"
+
+[[entry.variant]]
+rule = "P41"
+class = "C"
+stages = ["windows.cim"]
+set = [{ stage = "windows.cim", text = "MSFT_ScheduledTask" }, { arg = "namespace", text = "Root/Microsoft/Windows/TaskScheduler" }]
+
+[[entry]]
+rule = "P41"
+error = "E_UNCORRECTABLE"
+kind = "cmdlet"
+from = ["Start-ScheduledTask"]
+
+[[entry.param]]
+name = "TaskName"
+position = 0
+type = "text"
+
+[[entry.variant]]
+rule = "P41"
+error = "E_UNCORRECTABLE"
+problem = "system_task"
+message = "tasks of the system scheduler are started by the schtasks program; run it with run"
+fix = ["run [\"schtasks.exe\", \"/run\", \"/tn\", {TaskName:text}]"]
+help = "help run"
 
 [[entry]]
 rule = "P42"

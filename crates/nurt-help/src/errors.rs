@@ -269,6 +269,11 @@ pub const NOTES: &[ErrorNote] = &[
         "regenerate the patch against the current content",
     ),
     note(
+        ErrorCode::OutOfRange,
+        "a line number, a page or a position lies outside the content",
+        "use a position inside the content; read the file to see its length",
+    ),
+    note(
         ErrorCode::Stale,
         "a file changed after it was read; the whole operation was rolled back",
         "read the files again and repeat the call",
@@ -517,6 +522,11 @@ pub const NOTES: &[ErrorNote] = &[
         ErrorCode::GitWorktree,
         "the worktree is unknown, is the main worktree, is locked or contains the working directory",
         "list the worktrees with git.worktree",
+    ),
+    note(
+        ErrorCode::GitConfig,
+        "the configuration of the repository is not valid: a value cannot be parsed or a required key is missing",
+        "correct the value or set the missing key in the repository configuration",
     ),
     note(
         ErrorCode::Internal,

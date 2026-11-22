@@ -1,0 +1,9 @@
+# Source: p26-date-sleep.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P26: Get-Date and Start-Sleep.
+# translated: P26
+evaluate now()
+# translated: P26
+sleep 5s

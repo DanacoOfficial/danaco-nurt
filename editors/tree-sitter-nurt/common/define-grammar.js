@@ -17,14 +17,22 @@
  * Inside brackets a newline may follow the opening bracket, each element
  * and each comma.
  *
- * Lexical rules:
+ * Lexical rules, with the token boundaries of the lexer in `nurt-syntax`:
  * - A label is a name directly followed by `:` (variant C arguments: `=`).
+ *   The name and the separator are separate leaves.
  * - A call is a name directly followed by `(`.
- * - `-` and `/` directly after an operand are binary operators (`a-1`,
- *   `a/b`). A `-` after white space and directly before a digit belongs to
- *   the literal, so `first 20 -1` has two arguments in variant A.
- * - `/` starts a regular expression where an operand is expected and the
- *   next character is not white space.
+ * - A numeric literal has no sign. `-` is the unary negation or the binary
+ *   subtraction, so `-1` is a `-` leaf and an `integer` leaf.
+ * - In variant A a `-` that follows white space and precedes a
+ *   non-blank character starts a new argument (`first 20 -1` has two
+ *   arguments); the external scanner reports it. Elsewhere `-` after an
+ *   operand is the subtraction (`a-1`, `a - 1`).
+ * - `/` directly after an operand is the division (`a/b`). It starts a
+ *   regular expression where an operand is expected and the next character
+ *   is not white space.
+ * - A keyword directly followed by the label separator is a name, as in
+ *   `in: [path]`; the external scanner reads it.
+ * - `|>` is a leaf of its own; the line breaks before it are separate.
  */
 
 const PREC = {
@@ -34,12 +42,13 @@ const PREC = {
   compare: 4,
   additive: 5,
   multiplicative: 6,
-  range: 7,
-  field: 8,
+  unary: 7,
+  range: 8,
+  field: 9,
 };
 
 // Lexical precedence of tokens that must win over a longer token starting
-// at the same character, such as `-` in `a-1` over the literal `-1`.
+// at the same character, such as `/` in `a/b` over a regular expression.
 const GLUED = 1;
 
 const IDENTIFIER = /[a-z][a-z0-9_]*/;
@@ -87,7 +96,7 @@ function stageRules(variant) {
 
       named_argument: ($) =>
         seq(
-          field('name', alias($._label, $.argument_name)),
+          field('name', $.argument_name),
           field('value', $._argument_value),
         ),
 
@@ -130,10 +139,7 @@ function stageRules(variant) {
 
     named_argument: ($) =>
       seq(
-        field(
-          'name',
-          alias(variant === 'c' ? $._assignment_label : $._label, $.argument_name),
-        ),
+        field('name', $.argument_name),
         field('value', $._expression),
       ),
 
@@ -159,6 +165,7 @@ function expressionChoices($, variant) {
   const choices = [
     $.binary_expression,
     $.not_expression,
+    $.unary_expression,
     $.field_expression,
     $.call_expression,
     $.parenthesized_expression,
@@ -178,7 +185,7 @@ function expressionChoices($, variant) {
     $.identifier,
   ];
   if (variant !== 'b') {
-    choices.splice(4, 0, $.subpipeline);
+    choices.splice(5, 0, $.subpipeline);
   }
   return choices;
 }
@@ -188,9 +195,12 @@ function conflictsOf(variant) {
     return ($) => [
       [$.command_name, $._expression],
       [$.command_name, $.call_expression],
+      [$.pipeline],
+      [$._stage_pipeline],
+      [$._argument_pipeline],
     ];
   }
-  return ($) => [[$.command_name, $._expression]];
+  return ($) => [[$.command_name, $._expression], [$.pipeline], [$._stage_pipeline]];
 }
 
 module.exports = function defineGrammar(variant) {
@@ -199,14 +209,14 @@ module.exports = function defineGrammar(variant) {
   }
 
   const variantRules = stageRules(variant);
-  if (variant === 'c') {
-    variantRules._assignment_label = (_) => token(seq(IDENTIFIER, '='));
-  }
+  const labelSeparator = variant === 'c' ? '=' : ':';
 
   return grammar({
     name: variant === 'a' ? 'nurt' : `nurt_${variant}`,
 
     extras: ($) => [/[ \t]+/, /\uFEFF/, $.comment],
+
+    externals: ($) => (variant === 'a' ? [$._keyword_name, $._argument_minus] : [$._keyword_name]),
 
     conflicts: conflictsOf(variant),
 
@@ -246,9 +256,10 @@ module.exports = function defineGrammar(variant) {
       _reference_head: ($) =>
         seq($.reference, repeat(seq(token.immediate('.'), $._field_name))),
 
-      _continuation: ($) => seq($.pipe, optional($._newlines), $.stage),
+      _continuation: ($) =>
+        seq(optional($._newlines), $.pipe, optional($._newlines), $.stage),
 
-      pipe: (_) => token(/(?:\r?\n[ \t]*(?:#[^\r\n]*)?)*\|>/),
+      pipe: (_) => '|>',
 
       ...variantRules,
 
@@ -262,7 +273,7 @@ module.exports = function defineGrammar(variant) {
           [PREC.or, 'or'],
           [PREC.and, 'and'],
           [PREC.compare, choice('==', '!=', '<=', '>=', '<', '>', '!~', '~', 'in')],
-          [PREC.additive, choice('+', '-', alias($._glued_minus, '-'))],
+          [PREC.additive, choice('+', '-')],
           [PREC.multiplicative, choice('*', '/', alias($._glued_slash, '/'))],
         ];
         return choice(
@@ -279,11 +290,21 @@ module.exports = function defineGrammar(variant) {
         );
       },
 
-      _glued_minus: (_) => token.immediate(prec(GLUED, '-')),
-
       _glued_slash: (_) => token.immediate(prec(GLUED, '/')),
 
       not_expression: ($) => prec(PREC.not, seq('not', $._expression)),
+
+      unary_expression: ($) =>
+        prec(
+          PREC.unary,
+          seq(
+            field(
+              'operator',
+              variant === 'a' ? choice('-', alias($._argument_minus, '-')) : '-',
+            ),
+            field('operand', $._expression),
+          ),
+        ),
 
       field_expression: ($) =>
         prec.left(
@@ -311,12 +332,11 @@ module.exports = function defineGrammar(variant) {
 
       map: ($) => delimited($, '{', $.map_entry, '}'),
 
+      map_key: ($) => seq($.identifier, token.immediate(':')),
+
       map_entry: ($) =>
         choice(
-          seq(
-            field('key', alias($._label, $.map_key)),
-            field('value', $._expression),
-          ),
+          seq(field('key', $.map_key), field('value', $._expression)),
           seq(field('key', $.string), ':', field('value', $._expression)),
         ),
 
@@ -344,9 +364,9 @@ module.exports = function defineGrammar(variant) {
 
       regex_flags: (_) => token.immediate(prec(GLUED, /[imsx]+/)),
 
-      integer: (_) => token(/-?(?:0x[0-9A-Fa-f_]+|[0-9][0-9_]*)/),
+      integer: (_) => token(/(?:0x[0-9A-Fa-f_]+|[0-9][0-9_]*)/),
 
-      number: (_) => token(/-?[0-9][0-9_]*\.[0-9][0-9_]*/),
+      number: (_) => token(/[0-9][0-9_]*\.[0-9][0-9_]*/),
 
       size: (_) =>
         token(/[0-9][0-9_]*(?:\.[0-9][0-9_]*)?(?:kib|mib|gib|tib|kb|mb|gb|tb|b)/),
@@ -365,7 +385,11 @@ module.exports = function defineGrammar(variant) {
 
       _immediate_identifier: (_) => token.immediate(IDENTIFIER),
 
-      _label: (_) => token(seq(IDENTIFIER, ':')),
+      argument_name: ($) =>
+        seq(
+          choice($.identifier, alias($._keyword_name, $.identifier)),
+          token.immediate(labelSeparator),
+        ),
     },
   });
 };

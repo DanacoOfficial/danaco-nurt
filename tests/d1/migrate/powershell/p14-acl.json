@@ -1,0 +1,66 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p14-acl.ps1",
+  "summary": {
+    "statements": 4,
+    "translated": 3,
+    "assumption": 0,
+    "impossible": 1,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Get-Acl C:\\data",
+      "status": "translated",
+      "rules": [
+        "P14",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "info \"C:/data\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "icacls C:\\data",
+      "status": "translated",
+      "rules": [
+        "P14",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "info \"C:/data\""
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "attrib +r C:\\data\\a.txt",
+      "status": "translated",
+      "rules": [
+        "P14",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "attributes \"C:/data/a.txt\" readonly: true"
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "source": "Get-Acl C:\\a | Set-Acl C:\\b",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "an access control object has no Nurt form; change the entries with attributes acl: (acl_object)",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"pwsh\", \"p14-acl.ps1\"]"
+}

@@ -36,7 +36,7 @@ fields that are no longer present. An empty input gives an empty output.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `fields` | `list<field \| named_expression>` | required | Fields to keep and `name: expression` pairs to compute, in output order. |
+| `fields` | `list<field \| named_expression>` | required | Fields to keep and name: expression pairs to compute. |
 
 ## Input and output
 

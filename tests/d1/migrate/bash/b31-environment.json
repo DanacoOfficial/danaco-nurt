@@ -1,0 +1,55 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b31-environment.sh",
+  "summary": {
+    "statements": 3,
+    "translated": 0,
+    "assumption": 0,
+    "impossible": 3,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "DEBUG=1 /srv/app/bin/run",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)",
+      "fix": [
+        "run [\"/srv/app/bin/run\"] cwd: \"/srv/app/bin\""
+      ]
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "env LANG=C sort /srv/a.txt",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "environment, time limit and output options apply only to a program run with `run` (options_without_program)",
+      "fix": []
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "export GOFLAGS=-mod=vendor; go build -C /srv/app",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)",
+      "fix": [
+        "run [\"go\", \"build\", \"-C\", \"/srv/app\"] cwd: \"/srv\""
+      ]
+    }
+  ],
+  "fallback": "run [\"bash\", \"b31-environment.sh\"]"
+}

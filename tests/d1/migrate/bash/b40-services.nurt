@@ -1,0 +1,28 @@
+# Source: b40-services.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 8; translated: 7; with assumptions: 0; impossible: 1; errors: 0.
+# Untranslated statements run unchanged with: run ["bash", "b40-services.sh"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B40: schedules, services, packages, dates and pauses.
+# untranslated: E_UNCORRECTABLE: crontab -e
+#   problem: `crontab -e` opens an interactive editor; create the schedule with `schedule.create` (interactive_edit)
+# translated: B40
+services name: "nginx"
+|> restart
+# translated: B40
+services name: "app"
+|> enable
+# translated: B40
+services name: "cron"
+|> restart
+# translated: B40
+package.install ["jq"] manager: apt
+# translated: B40
+package.install ["jq"] manager: brew
+# translated: B40
+evaluate now()
+# translated: B40
+sleep 5s

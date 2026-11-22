@@ -1,0 +1,121 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b37-file-tools.sh",
+  "summary": {
+    "statements": 8,
+    "translated": 7,
+    "assumption": 1,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "diff /srv/a.conf /srv/b.conf",
+      "status": "translated",
+      "rules": [
+        "B37",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "diff \"/srv/a.conf\" \"/srv/b.conf\""
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "sort /srv/words.txt | uniq -c",
+      "status": "translated",
+      "rules": [
+        "B37",
+        "L21",
+        "B24"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "lines \"/srv/words.txt\"\n|> sort text\n|> group by: text"
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "du -sh /srv/app",
+      "status": "translated",
+      "rules": [
+        "B37",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "find \"/srv/app\"\n|> summarize size"
+    },
+    {
+      "line": 8,
+      "column": 1,
+      "source": "stat /srv/app/data.db",
+      "status": "translated",
+      "rules": [
+        "B37",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "info \"/srv/app/data.db\""
+    },
+    {
+      "line": 9,
+      "column": 1,
+      "source": "file /srv/app/bin/run",
+      "status": "translated",
+      "rules": [
+        "B37",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "info \"/srv/app/bin/run\" details: [text]"
+    },
+    {
+      "line": 10,
+      "column": 1,
+      "source": "sha256sum /srv/app.tgz",
+      "status": "translated",
+      "rules": [
+        "B37",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "hash \"/srv/app.tgz\""
+    },
+    {
+      "line": 11,
+      "column": 1,
+      "source": "dos2unix /srv/a.txt",
+      "status": "translated",
+      "rules": [
+        "B37",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "convert \"/srv/a.txt\" line_ending: lf"
+    },
+    {
+      "line": 12,
+      "column": 1,
+      "source": "iconv -f latin1 -t utf-8 /srv/a.txt",
+      "status": "assumption",
+      "rules": [
+        "B37",
+        "L21"
+      ],
+      "assumptions": [
+        "the file is converted in place; iconv writes the result to standard output"
+      ],
+      "fix": [],
+      "output": "convert \"/srv/a.txt\" encoding: \"utf-8\""
+    }
+  ]
+}

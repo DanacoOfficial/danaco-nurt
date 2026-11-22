@@ -1,0 +1,38 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p37-events.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Get-EventLog -LogName System -Newest 20",
+      "status": "translated",
+      "rules": [
+        "P37"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "logs source: \"System\" limit: 20"
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Get-WinEvent -LogName Application -MaxEvents 50",
+      "status": "translated",
+      "rules": [
+        "P37"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "logs source: \"Application\" limit: 50"
+    }
+  ]
+}

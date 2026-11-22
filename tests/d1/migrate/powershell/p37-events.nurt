@@ -1,0 +1,9 @@
+# Source: p37-events.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P37: event logs.
+# translated: P37
+logs source: "System" limit: 20
+# translated: P37
+logs source: "Application" limit: 50

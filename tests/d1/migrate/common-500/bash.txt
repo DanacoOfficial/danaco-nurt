@@ -1,0 +1,250 @@
+rm /tmp/build.log
+rm -f /var/tmp/app.pid
+rm -rf /srv/app/build
+rm -r /home/dev/old-project
+rm -rf /srv/app/node_modules
+rm /srv/app/logs/*.log
+rm -f /tmp/*.tmp
+rm -rf /var/cache/app/*
+rm /data/export/report.csv
+mv /srv/app/a.txt /srv/app/b.txt
+mv /tmp/report.pdf /home/dev/Documents/
+mv /srv/app/dist /srv/app/dist-old
+mv -f /tmp/config.yaml /etc/app/config.yaml
+mv /home/dev/Downloads/*.zip /home/dev/archive/
+mv -v /srv/app/build.log /srv/app/logs/
+mv /var/log/app.log /var/log/app.log.1
+cp /etc/hosts /tmp/hosts.bak
+cp -r /srv/app/static /srv/app/public
+cp -a /home/dev/project /backup/project
+cp /srv/app/config.example.yaml /srv/app/config.yaml
+cp -R /etc/nginx /backup/nginx
+cp /home/dev/.bashrc /home/dev/.bashrc.bak
+cp -f /opt/app/bin/app /usr/local/bin/app
+cp -p /etc/ssh/sshd_config /root/sshd_config.orig
+cp -rv /srv/site/assets /srv/site/dist/assets
+mkdir /srv/app/logs
+mkdir -p /srv/app/out/reports
+mkdir -p /home/dev/projects/new-app
+mkdir -p /var/lib/app/cache
+mkdir -p /data/backup/2026/11
+mkdir -p /opt/tools/bin
+mkdir -m 700 /home/dev/.secrets
+touch /tmp/marker
+touch /srv/app/.gitkeep
+touch /var/log/app.log
+touch /home/dev/notes.txt
+chmod +x /usr/local/bin/deploy.sh
+chmod 755 /srv/app/bin/run
+chmod 644 /etc/app/config.yaml
+chmod 600 /home/dev/.ssh/id_ed25519
+chmod -R 755 /srv/site/public
+chmod u+x /home/dev/bin/backup.sh
+chown www-data /srv/site/index.html
+chown -R www-data:www-data /srv/site
+chown dev:dev /home/dev/project
+chown root:root /etc/app/config.yaml
+ln -s /opt/app/releases/1.4.2 /opt/app/current
+ln -sf /etc/nginx/sites-available/app /etc/nginx/sites-enabled/app
+ln -s /usr/local/bin/python3 /usr/local/bin/python
+ln /data/file.txt /data/link.txt
+cat /etc/hosts
+cat /var/log/syslog
+cat /srv/app/config.yaml
+cat /etc/os-release
+cat /proc/cpuinfo
+cat /home/dev/.ssh/id_ed25519.pub
+cat /srv/app/a.txt /srv/app/b.txt
+cat /var/log/nginx/error.log
+head /var/log/syslog
+head -n 20 /srv/app/data.csv
+head -5 /etc/passwd
+tail /var/log/syslog
+tail -n 100 /var/log/nginx/access.log
+tail -f /var/log/app.log
+tail -n 50 /srv/app/logs/error.log
+head -n 1 /srv/app/data.csv
+tail -n +2 /srv/app/data.csv
+head -c 100 /srv/app/blob.bin
+wc -l /srv/app/data.csv
+wc /etc/passwd
+wc -w /home/dev/essay.txt
+wc -c /srv/app/blob.bin
+cat /var/log/syslog | wc -l
+ls /srv/app
+ls -l /srv/app
+ls -la /home/dev
+ls -lh /var/log
+ls -a /etc
+ls -lt /srv/app/logs
+ls -R /srv/app/src
+ls /srv/app/*.log
+ls -lS /data/export
+ls -ltr /var/log
+ls -alh /tmp
+ls /etc/nginx/sites-enabled
+find /srv/app -name "*.log"
+find /srv/app -name '*.go'
+find /home/dev -type f -name "*.pdf"
+find /srv/app -type d -name node_modules
+find /tmp -mtime +7
+find /var/log -name "*.gz" -delete
+find /srv/app -size +100M
+find /home/dev/projects -maxdepth 2 -name package.json
+find /data -empty
+find /srv/app -iname "*.jpg"
+find /srv/app -type f -mtime -1
+find /srv/app/src -name "*.rs" | wc -l
+find /tmp -name "*.tmp" -exec rm {} \;
+find /srv/app -type f -name "*.bak" -delete
+grep error /var/log/syslog
+grep -i "connection refused" /var/log/app.log
+grep -r deprecated /srv/app/src
+grep -rn "func main" /srv/app
+grep -v "^#" /etc/ssh/sshd_config
+grep -c ERROR /var/log/app.log
+grep -l "oldName" /srv/app/src/*.go
+grep -rl "api_key" /srv/app/config
+grep -E "warn|error" /var/log/app.log
+grep -n "listen" /etc/nginx/nginx.conf
+grep -ri "password" /etc/app
+grep -A 3 "Exception" /var/log/app.log
+grep -B 2 "panic" /var/log/app.log
+grep -F "a.b" /srv/app/notes.txt
+cat /var/log/syslog | grep sshd
+ps aux | grep nginx
+sed -i 's/foo/bar/g' /srv/app/config.yaml
+sed 's/http:/https:/' /srv/app/links.txt
+sed -n '1,10p' /srv/app/data.csv
+sed -i '/^#/d' /etc/app/app.conf
+sed -i 's/version: 1.4.1/version: 1.4.2/' /srv/app/chart.yaml
+sed '5d' /srv/app/list.txt
+sed -i 's/\r$//' /srv/app/script.sh
+sed -i.bak 's/old/new/g' /srv/app/readme.md
+awk '{print $1}' /var/log/nginx/access.log
+awk -F: '{print $1}' /etc/passwd
+awk -F, '{print $3}' /srv/app/data.csv
+awk 'NR==5' /srv/app/list.txt
+awk '{sum += $1} END {print sum}' /srv/app/numbers.txt
+awk '/error/ {print}' /var/log/app.log
+echo "hello"
+echo "done" > /tmp/status.txt
+echo "line" >> /var/log/custom.log
+printf "%s\n" "hello"
+echo -n "abc" > /tmp/abc.txt
+echo "127.0.0.1 app.local" >> /etc/hosts
+printf "name,age\n" > /srv/app/people.csv
+echo "build finished"
+cd /srv/app && make
+cd /srv/app && git pull
+cd /srv/app && npm install
+cd /home/dev/project && cargo build
+cd /srv/app && go test ./...
+test -f /etc/app/config.yaml
+[ -d /srv/app ]
+test -d /var/lib/app
+[ -f /srv/app/.env ]
+test -e /tmp/lock
+mkdir -p /srv/out && cp /srv/a.txt /srv/out/
+rm -rf /srv/app/build && mkdir /srv/app/build
+cp /etc/hosts /tmp/hosts && chmod 644 /tmp/hosts
+ls /srv/app/out || echo "missing"
+echo $USER
+ls $HOME
+FILES=$(find /srv/app -name "*.go")
+NOW=$(date)
+sudo systemctl restart nginx
+sudo rm -rf /var/cache/app
+tar -czf /backup/app.tgz /srv/app &
+export NODE_ENV=production
+curl https://example.com
+curl -O https://example.com/file.tar.gz
+curl -s https://api.example.com/status
+curl -o /tmp/page.html https://example.com
+wget https://example.com/file.zip
+wget -O /tmp/file.zip https://example.com/file.zip
+curl -L https://example.com/install.sh
+curl -X POST -d '{"a":1}' https://api.example.com/items
+cat config.yaml
+tar -czf /backup/app.tar.gz /srv/app
+tar -xzf /tmp/release.tar.gz -C /opt/app
+tar -xf /tmp/archive.tar -C /tmp/out
+tar -tzf /backup/app.tar.gz
+zip -r /backup/site.zip /srv/site
+unzip /tmp/file.zip -d /tmp/file
+gzip /var/log/app.log.1
+gunzip /tmp/data.csv.gz
+unzip -l /tmp/file.zip
+ps aux
+ps -ef
+df -h
+df -h /srv
+uname -a
+whoami
+hostname
+uptime
+which python3
+command -v git
+env
+printenv PATH
+ss -tlnp
+netstat -tulpn
+lsof -i :8080
+lsof /var/log/syslog
+kill 1234
+kill -9 4321
+kill -TERM 2048
+diff /srv/app/a.txt /srv/app/b.txt
+diff -u /etc/app/old.conf /etc/app/new.conf
+sort /srv/app/names.txt
+sort -u /srv/app/emails.txt
+sort -n /srv/app/numbers.txt
+sort -r /srv/app/names.txt
+uniq /srv/app/sorted.txt
+uniq -c /srv/app/sorted.txt
+du -sh /srv/app
+du -h /var/log
+stat /etc/hosts
+file /usr/bin/ls
+sha256sum /tmp/release.tar.gz
+md5sum /tmp/file.zip
+sha1sum /srv/app/bin/app
+basename /srv/app/file.txt
+dirname /srv/app/file.txt
+iconv -f latin1 -t utf-8 /srv/app/old.txt
+dos2unix /srv/app/script.sh
+sort /srv/app/names.txt | uniq
+cat /var/log/app.log | sort | uniq -c
+git -C /srv/app status
+git -C /srv/app diff
+git -C /srv/app log --oneline
+git -C /srv/app add -A
+git -C /srv/app commit -m "fix build"
+git -C /srv/app push
+git -C /srv/app pull
+git -C /srv/app fetch
+git -C /srv/app switch main
+git -C /srv/app checkout -b feature/login
+git -C /srv/app branch
+git -C /srv/app stash
+git -C /srv/app reset --hard HEAD
+git -C /srv/app tag v1.4.2
+git clone https://github.com/example/app.git /srv/app
+git status
+systemctl restart nginx
+systemctl status nginx
+systemctl start docker
+systemctl stop app
+systemctl enable nginx
+service nginx restart
+apt install curl
+apt-get install -y git
+brew install jq
+date
+sleep 5
+date +%Y-%m-%d
+find /srv/app -name "*.tmp" | xargs rm
+echo "x" | tee /tmp/x.txt
+nohup /srv/app/bin/server &
+timeout 10 curl https://example.com
+for f in /srv/app/*.log; do gzip "$f"; done

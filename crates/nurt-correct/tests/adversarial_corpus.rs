@@ -36,6 +36,10 @@ use serde_json::{Map, Value, json};
 use toml_edit::DocumentMut;
 
 const CORPUS: &str = "tests/d1/correction/adversarial/generated.jsonl";
+const MANUAL: &str = "tests/d1/correction/adversarial/manual.jsonl";
+
+/// Least number of adversarial cases over all corpus files.
+const MIN_ADVERSARIAL: usize = 400;
 const CORPORA: &str = "tests/d1/correction";
 const REGENERATE: &str = "NURT_REGENERATE_CORPUS";
 const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
@@ -1556,4 +1560,41 @@ fn naive_rules_follow_the_documented_examples() {
     assert_eq!(swap("git.push", 2), None);
     assert!(is_id("adversarial-tie-0001"));
     assert!(!is_id("Adversarial--1"));
+}
+
+#[test]
+fn manual_cases_are_never_corrected() {
+    let world = World::new();
+    let stored = std::fs::read_to_string(root().join(MANUAL)).unwrap();
+    let mut problems = Vec::new();
+    let mut count = 0;
+    for line in stored.lines() {
+        let case: Value = serde_json::from_str(line).unwrap();
+        let id = text(&case, "id").to_owned();
+        let expects_ambiguity = case["expect"]["error"] == "E_AMBIGUOUS";
+        count += 1;
+        match check_case(&world, &case) {
+            Verdict::Kept if !expects_ambiguity => {}
+            Verdict::Ambiguous if expects_ambiguity => {}
+            other => problems.push(format!("{id}: {other:?} against {}", case["expect"])),
+        }
+        if case["source"] != "manual" || case["probe"].is_null() {
+            problems.push(format!("{id}: a manual case without a probe"));
+        }
+    }
+    assert!(count > 0);
+    assert!(problems.is_empty(), "{problems:#?}");
+}
+
+#[test]
+fn adversarial_corpus_has_at_least_the_required_cases() {
+    let adversarial = all_cases()
+        .iter()
+        .filter_map(|(_, _, line)| serde_json::from_str::<Value>(line).ok())
+        .filter(|case| case["corpus"] == "adversarial")
+        .count();
+    assert!(
+        adversarial >= MIN_ADVERSARIAL,
+        "{adversarial} adversarial cases"
+    );
 }

@@ -1,0 +1,40 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b03-move.sh",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "mv /srv/app/report.txt /srv/app/archive/",
+      "status": "translated",
+      "rules": [
+        "B03",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "move \"/srv/app/report.txt\" into: \"/srv/app/archive\""
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "mv /srv/old /srv/new",
+      "status": "translated",
+      "rules": [
+        "B03",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "move \"/srv/old\" to: \"/srv/new\""
+    }
+  ]
+}

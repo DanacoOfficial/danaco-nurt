@@ -1,0 +1,62 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p38-network.ps1",
+  "summary": {
+    "statements": 4,
+    "translated": 4,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Get-NetTCPConnection",
+      "status": "translated",
+      "rules": [
+        "P38"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "ports protocol: tcp state: all"
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Test-Connection example.com",
+      "status": "translated",
+      "rules": [
+        "P38"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "network.ping \"example.com\""
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "Resolve-DnsName example.com",
+      "status": "translated",
+      "rules": [
+        "P38"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "network.resolve \"example.com\""
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "source": "Get-NetIPAddress",
+      "status": "translated",
+      "rules": [
+        "P38"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "network.interfaces"
+    }
+  ]
+}

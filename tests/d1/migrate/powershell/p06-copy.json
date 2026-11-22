@@ -1,0 +1,57 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p06-copy.ps1",
+  "summary": {
+    "statements": 3,
+    "translated": 1,
+    "assumption": 2,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Copy-Item -Path C:\\proj\\a.txt -Destination C:\\backup",
+      "status": "assumption",
+      "rules": [
+        "P06",
+        "L19"
+      ],
+      "assumptions": [
+        "the source is a file; without -Recurse PowerShell copies a directory without its content"
+      ],
+      "fix": [],
+      "output": "copy \"C:/proj/a.txt\" to: \"C:/backup\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Copy-Item C:\\proj\\static C:\\www -Recurse -Force",
+      "status": "translated",
+      "rules": [
+        "P06",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "copy \"C:/proj/static\" to: \"C:/www\""
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "cp C:\\a.txt C:\\b.txt",
+      "status": "assumption",
+      "rules": [
+        "P06",
+        "L19"
+      ],
+      "assumptions": [
+        "the source is a file; without -Recurse PowerShell copies a directory without its content"
+      ],
+      "fix": [],
+      "output": "copy \"C:/a.txt\" to: \"C:/b.txt\""
+    }
+  ]
+}

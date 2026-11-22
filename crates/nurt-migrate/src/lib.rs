@@ -4,7 +4,7 @@
 //! Translation of shell scripts into Danaco Nurt programs.
 //!
 //! [`migrate`] reads a bash or PowerShell script with its tree-sitter
-//! grammar, submits each statement to a [`Translator`] that applies the
+//! grammar, submits each statement to a [`TableTranslator`] that applies the
 //! bash and PowerShell habit tables, and returns a `.nurt` file with the
 //! translated statements and a [`MigrationReport`]. Each translated
 //! statement is preceded by the comment `# translated:` with the rules
@@ -25,6 +25,6 @@ mod segment;
 mod translate;
 
 pub use language::ScriptLanguage;
-pub use migrate::{MigrateOptions, Migration, migrate};
+pub use migrate::{MigrateOptions, Migration, migrate, migrate_with};
 pub use report::{Item, MigrationReport, REPORT_FORMAT, Reason, Status, Summary};
-pub use translate::{LetBinding, TranslateRequest, Translation, Translator};
+pub use translate::{LetBinding, TableTranslator, TranslateRequest, Translation, Translator};

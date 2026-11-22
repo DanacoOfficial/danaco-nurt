@@ -1,0 +1,16 @@
+# Source: b28-sudo.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 0; with assumptions: 0; impossible: 2; errors: 0.
+# Untranslated statements run unchanged with: run ["bash", "b28-sudo.sh"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B28: commands with privilege elevation.
+# untranslated: E_UNCORRECTABLE: sudo rm /etc/app.conf
+#   problem: `sudo` is not translated; privileges are not raised, and the program runs with the privileges of the console (privilege_elevation)
+#   fix: remove "/etc/app.conf" on_missing: error
+# untranslated: E_UNCORRECTABLE: sudo systemctl restart nginx
+#   problem: `sudo` is not translated; privileges are not raised, and the program runs with the privileges of the console (privilege_elevation)
+#   fix: services name: "nginx"
+#         |> restart

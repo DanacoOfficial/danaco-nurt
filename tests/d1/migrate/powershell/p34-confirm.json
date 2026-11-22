@@ -1,0 +1,42 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p34-confirm.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Remove-Item C:\\tmp\\a.txt -Confirm:$false",
+      "status": "translated",
+      "rules": [
+        "P08",
+        "L19",
+        "P34"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "remove \"C:/tmp/a.txt\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Remove-Item C:\\tmp\\b.txt -Confirm",
+      "status": "translated",
+      "rules": [
+        "P08",
+        "L19",
+        "P34"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "remove \"C:/tmp/b.txt\""
+    }
+  ]
+}

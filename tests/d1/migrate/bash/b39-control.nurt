@@ -1,0 +1,21 @@
+# Source: b39-control.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 6; translated: 1; with assumptions: 0; impossible: 5; errors: 0.
+# Untranslated statements run unchanged with: run ["bash", "b39-control.sh"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B39: loops, conditions, functions, case and here-documents.
+# untranslated: E_UNCORRECTABLE: for f in /srv/logs/*.log; do gzip "$f"; done
+#   problem: loops have no equivalent; a pattern or a pipeline over records replaces a loop
+# untranslated: E_UNCORRECTABLE: while true; do sleep 5; done
+#   problem: loops have no equivalent; a pattern or a pipeline over records replaces a loop
+# untranslated: E_UNCORRECTABLE: if [ -f /srv/app/.ready ]; then echo ready; fi
+#   problem: conditional statements have no equivalent; assert checks a precondition
+# untranslated: E_UNCORRECTABLE: case "$1" in start) echo start;; stop) echo stop;; esac
+#   problem: conditional statements have no equivalent; assert checks a precondition
+# untranslated: E_UNCORRECTABLE: deploy() { rsync -a /srv/app/ /srv/www/; }
+#   problem: definitions of functions and types have no equivalent
+# translated: B39, L21
+write "/srv/app/motd" "Maintenance at 22:00.\n" mode: overwrite

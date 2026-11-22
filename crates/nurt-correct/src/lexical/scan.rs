@@ -35,6 +35,17 @@ const REGEX_FLAGS: &str = "imsx";
 /// Characters after which `/` starts a regular expression.
 const REGEX_PRECEDERS: &str = "([{,:=~!<>+-*|&";
 
+/// Pieces after which a word stands where a command name does; `>` is the
+/// second half of a pipe written `| >`.
+const HEAD_PRECEDERS: [&str; 8] = ["|>", "|", "->", "|->", ";", "(", "{", ">"];
+
+/// Closing brackets, which end an operand.
+const CLOSING_BRACKETS: [&str; 3] = [")", "]", "}"];
+
+/// Spaces that make a slash after an operand a division; other Unicode
+/// spaces keep a following regular expression whole.
+const ASCII_SPACES: [char; 4] = [' ', '\t', '\n', '\r'];
+
 /// Multi-character operators, longest first.
 const OPERATORS: [&str; 15] = [
     "|->", "...", "|>", "->", "==", "!=", "<=", ">=", "!~", "..", "&&", "||", ">>", "<<", "::",
@@ -283,24 +294,64 @@ impl Scanner<'_> {
         self.push(kind, len);
     }
 
+    /// A slash is division only after an operand, either glued to it or
+    /// with spaces on both sides; the parser reads a regular expression
+    /// after a command name even with a space after the slash. Where the
+    /// two readings are close, the slash starts a literal, so that no rule
+    /// changes the bytes of a regular expression.
     fn slash(&mut self) {
         let rest = self.rest();
-        let starts_value = self.previous_char().is_none_or(|before| {
-            before.is_whitespace() || before == '\n' || REGEX_PRECEDERS.contains(before)
-        });
-        let followed_by_space = rest
+        let spaced_after = rest
             .get(1..)
             .and_then(|tail| tail.chars().next())
-            .is_none_or(char::is_whitespace);
-        if !starts_value || followed_by_space {
+            .is_none_or(|next| ASCII_SPACES.contains(&next));
+        let glued = self
+            .previous_char()
+            .is_some_and(|before| !before.is_whitespace() && !REGEX_PRECEDERS.contains(before));
+        if self.after_operand() && (glued || spaced_after) {
             self.push(PieceKind::Punct, 1);
             return;
         }
-        if let Some(len) = regex_len(rest) {
-            self.push(PieceKind::Regex, len);
-        } else {
-            self.push(PieceKind::BarePath, bare_path_len(rest));
+        match regex_len(rest) {
+            Some(len) => self.push(PieceKind::Regex, len),
+            None if spaced_after => self.push(PieceKind::Punct, 1),
+            None => self.push(PieceKind::BarePath, bare_path_len(rest)),
         }
+    }
+
+    /// Significant pieces before the current offset, the nearest first.
+    fn significant_before(&self) -> impl Iterator<Item = &Piece> {
+        self.pieces
+            .iter()
+            .rev()
+            .filter(|piece| !piece.kind.is_trivia())
+    }
+
+    /// Whether the nearest significant piece is a complete operand other
+    /// than a command name.
+    fn after_operand(&self) -> bool {
+        let Some(previous) = self.significant_before().next() else {
+            return false;
+        };
+        let closing = previous.kind == PieceKind::Punct
+            && CLOSING_BRACKETS.contains(&previous.text(self.text));
+        (previous.kind.ends_operand() || closing) && !self.after_head()
+    }
+
+    /// Whether the nearest significant piece is a word at the start of a
+    /// statement or a stage, where a command name stands.
+    fn after_head(&self) -> bool {
+        let mut before = self.significant_before();
+        let is_word = before
+            .next()
+            .is_some_and(|piece| matches!(piece.kind, PieceKind::Word | PieceKind::ForeignWord));
+        is_word
+            && before.next().is_none_or(|piece| {
+                piece.kind == PieceKind::Newline
+                    || piece.kind == PieceKind::LineSeparator
+                    || (piece.kind == PieceKind::Punct
+                        && HEAD_PRECEDERS.contains(&piece.text(self.text)))
+            })
     }
 
     fn at_value_start(&self) -> bool {
@@ -500,11 +551,66 @@ mod tests {
     #[test]
     fn slash_after_operand_without_space_is_division() {
         assert_eq!(
-            significant("a/b"),
+            significant("filter a/b (c)/d"),
             vec![
+                (PieceKind::Word, "filter"),
                 (PieceKind::Word, "a"),
                 (PieceKind::Punct, "/"),
-                (PieceKind::Word, "b")
+                (PieceKind::Word, "b"),
+                (PieceKind::Punct, "("),
+                (PieceKind::Word, "c"),
+                (PieceKind::Punct, ")"),
+                (PieceKind::Punct, "/"),
+                (PieceKind::Word, "d"),
+            ]
+        );
+    }
+
+    #[test]
+    fn slash_between_spaced_operands_is_division() {
+        assert_eq!(
+            significant("filter a / b/"),
+            vec![
+                (PieceKind::Word, "filter"),
+                (PieceKind::Word, "a"),
+                (PieceKind::Punct, "/"),
+                (PieceKind::Word, "b"),
+                (PieceKind::Punct, "/"),
+            ]
+        );
+    }
+
+    #[test]
+    fn slash_after_command_name_starts_a_regex() {
+        for (text, regex) in [
+            ("search/ oldName/ \"/srv\"", "/ oldName/"),
+            ("search/ Pending/i \"/srv\"", "/ Pending/i"),
+            ("find \"/a\" | > search / x/", "/ x/"),
+            ("find \"/a\" |> search /\u{a0}x/", "/\u{a0}x/"),
+        ] {
+            let pieces = significant(text);
+            assert!(
+                pieces.contains(&(PieceKind::Regex, regex)),
+                "{text}: {pieces:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn unicode_space_after_slash_keeps_the_regex_whole() {
+        assert!(
+            significant("find \"/a\" /\u{2003}x/").contains(&(PieceKind::Regex, "/\u{2003}x/"))
+        );
+    }
+
+    #[test]
+    fn spaced_slash_without_closing_is_punctuation() {
+        assert_eq!(
+            significant("search / x"),
+            vec![
+                (PieceKind::Word, "search"),
+                (PieceKind::Punct, "/"),
+                (PieceKind::Word, "x"),
             ]
         );
     }

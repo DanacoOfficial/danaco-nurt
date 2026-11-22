@@ -63,6 +63,21 @@ const MAX_ALTERNATIVES: usize = 3;
 /// Help topic of corrections.
 const HELP_CORRECTIONS: &str = "help corrections";
 
+/// A `let` name with the record type of its value.
+///
+/// The record type tells which PowerShell properties a later statement may
+/// read from `$name`; a caller that translates a script statement by
+/// statement passes the bindings of earlier statements to
+/// [`translate_with_lets`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LetBinding {
+    /// Name of the result, without `$` or `@`.
+    pub name: String,
+    /// Record type of the value (`entry`, `line`, `process`, `service`, …);
+    /// `None` when it is not known.
+    pub record: Option<String>,
+}
+
 /// Result of a translation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Translation {
@@ -80,6 +95,9 @@ pub struct Translation {
     /// Call parameters set by the translation, such as `preview` for
     /// `-WhatIf`.
     pub options: RequestOptions,
+    /// `let` names bound by the translated text, in source order, with the
+    /// record type of their values.
+    pub bindings: Vec<LetBinding>,
 }
 
 impl Translation {
@@ -191,6 +209,46 @@ pub fn translate_with_table(
     context: &TranslateContext<'_>,
     table: &PowerShellTable,
 ) -> Option<Result<Translation, Error>> {
+    translate_with_lets(input, context, &[], table)
+}
+
+/// Translates a PowerShell command with the given table and with `let`
+/// names whose record types are known.
+///
+/// The names of `known` are added to the names of `context.lets`; a
+/// statement such as `$logs | Where-Object { $_.Length -gt 1MB }` reads the
+/// properties of the record type bound to `$logs`. Returns `None` when the
+/// text is not a PowerShell habit.
+///
+/// # Errors
+///
+/// As [`translate_with`].
+///
+/// # Examples
+///
+/// ```
+/// use nurt_correct::powershell::{
+///     LetBinding, Mode, PowerShellTable, TranslateContext, translate_with_lets,
+/// };
+///
+/// let table = PowerShellTable::embedded().expect("the embedded table");
+/// let context = TranslateContext { mode: Mode::Script, ..TranslateContext::default() };
+/// let first = translate_with_lets("$logs = gci C:\\logs", &context, &[], table)
+///     .expect("a PowerShell habit")
+///     .expect("a translation");
+/// assert_eq!(first.bindings, vec![LetBinding { name: "logs".to_owned(), record: Some("entry".to_owned()) }]);
+/// let second = translate_with_lets("$logs | Where-Object { $_.Length -gt 1MB }", &context, &first.bindings, table)
+///     .expect("a PowerShell habit")
+///     .expect("a translation");
+/// assert_eq!(second.text(), "@logs |> filter size > 1mib");
+/// ```
+#[must_use]
+pub fn translate_with_lets(
+    input: &str,
+    context: &TranslateContext<'_>,
+    known: &[LetBinding],
+    table: &PowerShellTable,
+) -> Option<Result<Translation, Error>> {
     let script_mode = context.mode == Mode::Script;
     let tokens = match lex(input) {
         Ok(tokens) => tokens,
@@ -219,7 +277,7 @@ pub fn translate_with_table(
     if script.statements.is_empty() || (!script_mode && !detect::is_habit(table, &script)) {
         return None;
     }
-    Some(translate_script(input, context, table, &script))
+    Some(translate_script(input, context, table, &script, known))
 }
 
 fn syntax_error(input: &str, start: usize, end: usize, message: &str) -> Error {
@@ -241,9 +299,12 @@ fn translate_script(
     context: &TranslateContext<'_>,
     table: &PowerShellTable,
     script: &syntax::Script,
+    known: &[LetBinding],
 ) -> Result<Translation, Error> {
     let live = context.mode != Mode::Script;
     let mut session = Session::new(table, context, input);
+    session.know_lets(known);
+    let known_count = session.let_count();
     let mut statements = Vec::new();
     let mut errors = Vec::new();
     for (index, statement) in script.statements.iter().enumerate() {
@@ -287,6 +348,7 @@ fn translate_script(
         alternatives,
         notes: std::mem::take(&mut session.notes),
         options: std::mem::take(&mut session.options),
+        bindings: session.lets_since(known_count),
     })
 }
 

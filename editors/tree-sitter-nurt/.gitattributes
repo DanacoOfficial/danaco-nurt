@@ -1,6 +1,9 @@
 src/** linguist-generated
+src/scanner.c -linguist-generated
 variant-b/src/** linguist-generated
+variant-b/src/scanner.c -linguist-generated
 variant-c/src/** linguist-generated
+variant-c/src/scanner.c -linguist-generated
 test/corpus/golden-*.txt linguist-generated
 variant-b/test/corpus/golden-*.txt linguist-generated
 variant-c/test/corpus/golden-*.txt linguist-generated

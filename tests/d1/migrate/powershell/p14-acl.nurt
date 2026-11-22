@@ -1,0 +1,14 @@
+# Source: p14-acl.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 3; with assumptions: 0; impossible: 1; errors: 0.
+# Untranslated statements run unchanged with: run ["pwsh", "p14-acl.ps1"]
+
+# P14: access lists and attributes.
+# translated: P14, L19
+info "C:/data"
+# translated: P14, L19
+info "C:/data"
+# translated: P14, L19
+attributes "C:/data/a.txt" readonly: true
+# untranslated: E_UNCORRECTABLE: Get-Acl C:\a | Set-Acl C:\b
+#   problem: an access control object has no Nurt form; change the entries with attributes acl: (acl_object)

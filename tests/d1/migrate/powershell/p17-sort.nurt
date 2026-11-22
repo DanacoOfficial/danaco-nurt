@@ -1,0 +1,11 @@
+# Source: p17-sort.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 1; with assumptions: 0; impossible: 1; errors: 0.
+# Untranslated statements run unchanged with: run ["pwsh", "p17-sort.ps1"]
+
+# P17: Sort-Object ascending and descending.
+# translated: P01, L19, P17
+list "C:/logs" hidden: false
+|> sort size order: desc
+# untranslated: E_UNCORRECTABLE: Get-Process | Sort-Object CPU
+#   problem: property CPU has no field in process records; properties: Id, Name, ProcessName, WorkingSet, WorkingSet64, WS, StartTime, Path, UserName (unknown_property)

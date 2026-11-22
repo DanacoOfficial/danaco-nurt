@@ -1,0 +1,40 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p10-rename.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Rename-Item -Path C:\\out\\a.txt -NewName b.txt",
+      "status": "translated",
+      "rules": [
+        "P10",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "rename path: \"C:/out/a.txt\" to: \"b.txt\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "ren C:\\out\\c.txt d.txt",
+      "status": "translated",
+      "rules": [
+        "P10",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "rename path: \"C:/out/c.txt\" to: \"d.txt\""
+    }
+  ]
+}

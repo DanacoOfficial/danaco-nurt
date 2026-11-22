@@ -34,7 +34,7 @@ read the records of the effect.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `check` | `pipeline` | required | Pipeline that checks the result of the change, in parentheses. |
+| `check` | `pipeline` | required | Pipeline that checks the result of the change. |
 
 ## Input and output
 

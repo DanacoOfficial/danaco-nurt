@@ -1,0 +1,10 @@
+# Source: p41-scheduled-task.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 0; with assumptions: 0; impossible: 2; errors: 0.
+# Untranslated statements run unchanged with: run ["pwsh", "p41-scheduled-task.ps1"]
+
+# P41: scheduled tasks.
+# untranslated: E_UNCORRECTABLE: Register-ScheduledTask -TaskName Backup -Action $action -Trigger $trigger
+#   problem: tasks of the system scheduler are not created; schedule a console program with schedule.create (system_task)
+# untranslated: E_UNCORRECTABLE: schtasks /create /tn Backup /tr C:\bin\backup.cmd /sc daily
+#   problem: tasks of the system scheduler are not created; schedule a console program with schedule.create (system_task)

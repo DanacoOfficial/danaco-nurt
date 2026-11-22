@@ -111,7 +111,7 @@ pub struct GuideSection {
 /// Guide: a short document on one area of work.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Guide {
-    /// Name used in `help skill:`.
+    /// Name of the guide as given to the guide topic of `help`.
     pub name: String,
     /// One-sentence description.
     pub description: String,

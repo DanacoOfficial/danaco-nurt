@@ -1,0 +1,13 @@
+# Source: p06-copy.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 1; with assumptions: 2; impossible: 0; errors: 0.
+
+# P06: Copy-Item and its aliases.
+# translated: P06, L19
+# assumption: the source is a file; without -Recurse PowerShell copies a directory without its content
+copy "C:/proj/a.txt" to: "C:/backup"
+# translated: P06, L19
+copy "C:/proj/static" to: "C:/www"
+# translated: P06, L19
+# assumption: the source is a file; without -Recurse PowerShell copies a directory without its content
+copy "C:/a.txt" to: "C:/b.txt"

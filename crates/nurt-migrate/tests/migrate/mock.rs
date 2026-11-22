@@ -213,6 +213,7 @@ impl Translator for MockTranslator {
                         })
                         .collect(),
                     assumptions: assumptions.clone(),
+                    records: Vec::new(),
                 })
             }
         }

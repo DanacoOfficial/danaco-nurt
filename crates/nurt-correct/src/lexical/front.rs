@@ -597,7 +597,7 @@ mod tests {
 
     impl CatalogView for Commands {
         fn is_command(&self, name: &str) -> bool {
-            COMMANDS.contains(&name)
+            self.command_names().contains(&name)
         }
         fn command_names(&self) -> &[&str] {
             &COMMANDS
@@ -773,6 +773,99 @@ mod tests {
                 "find \"/c\" |>\n  count"
             ]
         );
+    }
+
+    /// Regular expressions of the top-level stages of a tree.
+    fn patterns(document: &AstDocument) -> Vec<String> {
+        document
+            .program
+            .statements
+            .iter()
+            .filter_map(|statement| match statement {
+                Statement::Pipeline(pipeline) => Some(pipeline),
+                _ => None,
+            })
+            .flat_map(|pipeline| {
+                let head = match &pipeline.head {
+                    Head::Stage(stage) => Some(stage),
+                    _ => None,
+                };
+                head.into_iter().chain(pipeline.stages.iter())
+            })
+            .flat_map(|stage| stage.args.iter())
+            .filter_map(|arg| match &arg.value {
+                Expr::Regex { v, .. } => Some(v.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn keeps_the_bytes_of_a_regex_after_a_command_name() {
+        for text in [
+            "search/ oldName/ \"/srv/app\" -> count",
+            "search/ Pending/i \"/srv\"",
+            "find \"/a\" | > search /\u{a0}x/",
+        ] {
+            for variant in VARIANTS {
+                let Ok(result) =
+                    run_with(text, &syntax(variant, true), &CorrectionConfig::default())
+                else {
+                    continue;
+                };
+                for pattern in patterns(&result.document) {
+                    assert!(
+                        text.contains(&pattern),
+                        "{text:?} in {variant:?}: {pattern:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn translates_a_bash_habit_and_keeps_its_rules() {
+        let result = run("cd /srv/app && touch .ready");
+        let rules = rules(&result);
+        assert!(rules.iter().any(|rule| rule.starts_with('B')), "{rules:?}");
+        assert!(canonical(&result).starts_with("create \"/srv/app/.ready\""));
+    }
+
+    #[test]
+    fn returns_the_error_of_a_powershell_translation() {
+        let error = run_with(
+            "Get-ChildItem src -Recurse",
+            &syntax(Variant::A, true),
+            &CorrectionConfig::default(),
+        );
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn statement_of_two_variant_readings_is_ambiguous_with_candidates() {
+        let text = "x\nfind(\"/a\")";
+        let work = Work::new(text, normalize(text));
+        let readings = [
+            (Variant::B, "find \"/a\"".to_owned()),
+            (Variant::C, "find \"/b\"".to_owned()),
+        ];
+        let error = work.ambiguous_variant(&(2..text.len()), &readings, &work.locator());
+        assert_eq!(error.code, ErrorCode::Ambiguous);
+        let at = error.at.expect("position");
+        assert_eq!((at.line, at.column), (Some(2), Some(1)));
+        let programs: Vec<&str> = error
+            .candidates
+            .iter()
+            .map(|candidate| candidate.program.as_str())
+            .collect();
+        assert_eq!(programs, ["x\nfind \"/a\"", "x\nfind \"/b\""]);
+        let why: Vec<Option<&str>> = error
+            .candidates
+            .iter()
+            .map(|candidate| candidate.why.as_deref())
+            .collect();
+        assert_eq!(why, [Some("read in variant b"), Some("read in variant c")]);
+        assert_eq!(variant_name(Variant::A), "a");
     }
 
     #[test]

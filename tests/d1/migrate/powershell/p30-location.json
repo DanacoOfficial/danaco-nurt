@@ -1,0 +1,75 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p30-location.ps1",
+  "summary": {
+    "statements": 5,
+    "translated": 0,
+    "assumption": 0,
+    "impossible": 5,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Get-Location",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "no current directory; paths are absolute or relative to the call parameter base (no_current_directory)",
+      "fix": []
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Set-Location C:\\proj",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "current_directory",
+      "problem": "no current directory; paths are absolute or relative to the call parameter base (no_current_directory)",
+      "fix": []
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "cd C:\\proj",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "current_directory",
+      "problem": "no current directory; paths are absolute or relative to the call parameter base (no_current_directory)",
+      "fix": []
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "source": "Push-Location C:\\temp",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "current_directory",
+      "problem": "no current directory; paths are absolute or relative to the call parameter base (no_current_directory)",
+      "fix": []
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "Pop-Location",
+      "status": "impossible",
+      "rules": [],
+      "assumptions": [],
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "no current directory; paths are absolute or relative to the call parameter base (no_current_directory)",
+      "fix": []
+    }
+  ],
+  "fallback": "run [\"pwsh\", \"p30-location.ps1\"]"
+}

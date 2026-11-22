@@ -1,0 +1,16 @@
+# Source: b20-cd.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 1; with assumptions: 1; impossible: 1; errors: 0.
+# Untranslated statements run unchanged with: run ["bash", "b20-cd.sh"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B20: cd followed by a command on the same line.
+# translated: B20, B38
+run ["go", "test", "./..."] cwd: "/srv/app"
+# translated: B20, B38
+# assumption: the script stops at the first error; bash continues after `;`
+run ["make", "build"] cwd: "/srv/app"
+# untranslated: E_UNCORRECTABLE: cd build && make
+#   problem: there is no current directory; paths are absolute or relative to the call parameter `base`, and `cd` applies only to the command after it in the same line (current_directory)

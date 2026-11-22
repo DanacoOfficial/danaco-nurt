@@ -1,0 +1,9 @@
+# Source: p07-move.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P07: Move-Item and its aliases.
+# translated: P07, L19
+move "C:/proj/report.txt" to: "C:/archive" on_conflict: error
+# translated: P07, L19
+move "C:/old" to: "C:/new" on_conflict: error

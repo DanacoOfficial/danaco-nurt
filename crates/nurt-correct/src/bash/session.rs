@@ -93,6 +93,7 @@ struct Log {
     corrections: Vec<Pending>,
     assumptions: Vec<Assumption>,
     lets: Vec<Let>,
+    named: Vec<String>,
 }
 
 /// Options of a program run collected from prefixes and redirections.
@@ -246,6 +247,11 @@ impl<'a> Session<'a> {
             let step = steps[index];
             let last = index + 1 == steps.len();
             if let Some(simple) = single_simple(step.pipe) {
+                if let Some(found) = produce::assignment_of(simple) {
+                    produce::assignment(self, simple, found)?;
+                    index += 1;
+                    continue;
+                }
                 match self.word(simple, 0).as_deref() {
                     Some("cd") => {
                         self.change_directory(simple, last)?;
@@ -360,6 +366,9 @@ impl<'a> Session<'a> {
                 pipe.span,
                 &[("reason", "negated pipeline")],
             ));
+        }
+        if let Some(result) = produce::echo_into_tee(self, pipe) {
+            return result;
         }
         let last = pipe.commands.len() - 1;
         let mut result: Option<Variants> = None;
@@ -611,12 +620,20 @@ impl<'a> Session<'a> {
         if options.is_empty() {
             return Ok(variants);
         }
-        let is_run = variants
-            .primary()
-            .stages
-            .last()
-            .is_some_and(|stage| stage.name == "run");
-        if !is_run {
+        let last_stage = variants.primary().stages.last();
+        let is_run = last_stage.is_some_and(|stage| stage.name == "run");
+        let only_timeout = options.timeout.is_some()
+            && options.env.is_empty()
+            && !options.background
+            && !options.merge_stderr
+            && !options.quiet;
+        let accepts_timeout = last_stage.is_some_and(|stage| {
+            self.table
+                .params
+                .get(&stage.name)
+                .is_some_and(|params| params.iter().any(|param| param == "timeout"))
+        });
+        if !is_run && !(only_timeout && accepts_timeout) {
             let problem = if options.background {
                 "background_change"
             } else {
@@ -873,7 +890,7 @@ impl<'a> Session<'a> {
 
     fn variable(&self, name: &str, word: &Located<Word>) -> Result<Bound, Error> {
         let lower = name.to_ascii_lowercase();
-        if self.context.lets.contains(&lower) {
+        if self.is_named(&lower) {
             let reference = Ref {
                 name: lower.clone(),
                 fields: Vec::new(),
@@ -1018,6 +1035,26 @@ impl<'a> Session<'a> {
             span: None,
         });
         name
+    }
+
+    /// Records the named result of `NAME=$(CMD)` and returns its text.
+    pub(crate) fn bind_named_let(&self, name: &str, pipeline: Pipeline) -> String {
+        let value = Let {
+            name: name.to_owned(),
+            value: pipeline,
+            span: None,
+        };
+        let text = print_program(vec![Statement::Let(value.clone())]);
+        let mut log = self.log.borrow_mut();
+        log.lets.push(value);
+        log.named.push(name.to_owned());
+        text
+    }
+
+    /// Whether `name` is a result of the call or of an assignment before.
+    pub(crate) fn is_named(&self, name: &str) -> bool {
+        self.context.lets.iter().any(|known| known == name)
+            || self.log.borrow().named.iter().any(|known| known == name)
     }
 
     pub(crate) fn record(
@@ -1201,12 +1238,7 @@ impl<'a> Session<'a> {
             return Err(self.several_programs(&statements));
         }
         let Some((variants, _)) = statements.into_iter().next() else {
-            return Err(self.error(
-                ErrorCode::Uncorrectable,
-                "current_directory",
-                first_span(&self.lines),
-                &[],
-            ));
+            return self.results_only();
         };
         let effect = self.has_effect(variants.primary());
         let probable = self
@@ -1223,12 +1255,7 @@ impl<'a> Session<'a> {
 
     fn finish_script(&self, statements: Vec<(Variants, Span)>) -> Result<Translation, Error> {
         if statements.is_empty() {
-            return Err(self.error(
-                ErrorCode::Uncorrectable,
-                "current_directory",
-                first_span(&self.lines),
-                &[],
-            ));
+            return self.results_only();
         }
         Ok(self.translation(
             statements
@@ -1236,6 +1263,20 @@ impl<'a> Session<'a> {
                 .map(|(variants, _)| variants)
                 .collect(),
         ))
+    }
+
+    /// Translation of a line that only names results; without them the line
+    /// has no program.
+    fn results_only(&self) -> Result<Translation, Error> {
+        if self.log.borrow().lets.is_empty() {
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "current_directory",
+                first_span(&self.lines),
+                &[],
+            ));
+        }
+        Ok(self.translation(Vec::new()))
     }
 
     fn several_programs(&self, statements: &[(Variants, Span)]) -> Error {

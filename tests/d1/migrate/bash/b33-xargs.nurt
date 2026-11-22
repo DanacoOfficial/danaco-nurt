@@ -1,0 +1,18 @@
+# Source: b33-xargs.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 1; with assumptions: 1; impossible: 1; errors: 0.
+# Untranslated statements run unchanged with: run ["bash", "b33-xargs.sh"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B33: xargs and find -exec.
+# translated: B14, L21, B01, B33
+# assumption: file names contain no whitespace; xargs splits its input at whitespace
+find "/srv" glob: "**/*.bak" type: any
+|> remove on_missing: error
+# translated: B14, B07, L21, B33
+find "/srv/app" glob: "**/*.sh" type: any
+|> attributes mode: "755"
+# untranslated: E_UNCORRECTABLE: find /srv/app -name "*.go" | xargs gofmt -l
+#   problem: the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)

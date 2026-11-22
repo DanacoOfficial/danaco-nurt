@@ -1,0 +1,15 @@
+# Source: p15-where.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 3; translated: 2; with assumptions: 1; impossible: 0; errors: 0.
+
+# P15: Where-Object with field comparisons.
+# translated: P01, L19, P15
+list "C:/logs" hidden: false
+|> filter size > 1mib
+# translated: P01, L19, P15
+list "C:/logs" hidden: false
+|> filter modified < ago(7d)
+# translated: P01, L19, P15
+# assumption: the Nurt field has no leading period
+list "C:/cache" hidden: false
+|> filter lower(extension) == "tmp" and name ~ /^cache/i

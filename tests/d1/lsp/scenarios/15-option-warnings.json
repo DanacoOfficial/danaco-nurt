@@ -1,0 +1,7 @@
+{
+  "initialize": {"capabilities": {}, "initializationOptions": {"syntax": {"variant": "z", "tolerant": "no"}}},
+  "steps": [
+    {"notification": "window/showMessage", "params": {"type": 2, "message": "unknown syntax variant z; use \"a\", \"b\" or \"c\"; variant \"a\" is used"}},
+    {"notification": "window/showMessage", "params": {"type": 2, "message": {"$includes": "syntax.tolerant"}}}
+  ]
+}

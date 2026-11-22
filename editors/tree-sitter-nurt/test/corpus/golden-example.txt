@@ -13,7 +13,7 @@ find "/srv/app" glob: "**/*.go" |> filter size > 1mb and modified > ago(24h) |> 
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
@@ -34,7 +34,7 @@ find "/srv/app" glob: "**/*.go" |> filter size > 1mb and modified > ago(24h) |> 
         (identifier))
       (identifier)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))
     (pipe)
     (stage
@@ -59,14 +59,14 @@ search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> assert paths: 12 |> replace
         (regex_pattern))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))
     (pipe)
     (stage
@@ -91,14 +91,14 @@ search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> assert paths: 12 |> replace
         (regex_pattern))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))
     (pipe)
     (stage
@@ -121,10 +121,10 @@ find "/srv/app/build" glob: "*" depth: 1 |> remove
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))
     (pipe)
     (stage
@@ -148,7 +148,7 @@ run ["make", "clean"] cwd: "/srv/app/new"
         (string)
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ================================================
@@ -182,7 +182,7 @@ write "/srv/app/.gitignore" "dist/\n" mode: append
       (string)
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 ===================================================
@@ -210,7 +210,7 @@ lines "/srv/data/data.txt" |> sort text |> write "/srv/data/data.txt" mode: over
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 =====================================================
@@ -253,17 +253,17 @@ find "/srv/in" glob: "*.log" depth: 1 |> move into: "/srv/arch"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))
     (pipe)
     (stage
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 =================================================
@@ -282,7 +282,7 @@ replace "Zürich" "Genève" in: ["/srv/legacy/file.txt"]
       (string)
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string))))))
 
@@ -325,7 +325,7 @@ run ["apt-get", "install", "foo"] cwd: "/srv"
         (string)
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ============================================
@@ -345,16 +345,16 @@ run ["npm", "test"] cwd: "/srv/app" show: errors head: 5 tail: 10
         (string)
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))))
 
 ==============================================
@@ -372,7 +372,7 @@ find "C:/proj" glob: "*.go"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 =======================================================
@@ -394,7 +394,7 @@ run ["cmd.exe", "/c", "dir", "C:\\proj"] cwd: "C:/proj"
         (string)
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ===============================================
@@ -412,10 +412,10 @@ set "/srv/app/package.json" key: "scripts.test" value: "vitest"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ======================================================
@@ -434,11 +434,11 @@ code.symbols "oldName" path: ["/srv/app/src"] kind: function |> code.rename "new
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))
     (pipe)
     (stage
@@ -463,10 +463,10 @@ code.references "/srv/app/src/a.go" line: 12 column: 6
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))))
 
 ==================================================
@@ -484,10 +484,10 @@ set "/srv/app/Cargo.toml" key: "package.version" value: "0.4.0"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ======================================================
@@ -517,7 +517,7 @@ lines "/srv/app/main.go" |> filter text == "package main" |> insert r#"import "f
         (identifier))
       (raw_string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 =====================================================
@@ -562,36 +562,36 @@ edit "/srv/app/main.go" changes: [{replace: "oldName(", with: "newName(", occurr
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (integer)))
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (string))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (integer))
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (identifier)))
           (map
             (map_entry
-              (map_key)
+              (map_key (identifier))
               (range
                 (integer)
                 (integer))))))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))))
 
 ========================================================
@@ -610,14 +610,14 @@ read "/srv/app/main.go" unchanged_since: "1a2b3c4d"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (regex
           (regex_pattern)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (boolean))))
   (pipeline
     (stage
@@ -625,7 +625,7 @@ read "/srv/app/main.go" unchanged_since: "1a2b3c4d"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ==============================================
@@ -647,7 +647,7 @@ CMD ["sh"]
       (string)
       (raw_string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 =======================================================
@@ -667,7 +667,7 @@ search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> replace "newName(" |> verif
         (regex_pattern))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
@@ -688,14 +688,14 @@ search /oldName\(/ "/srv/app/src" glob: "**/*.go" |> replace "newName(" |> verif
               (string)
               (string))
             (named_argument
-              (argument_name)
+              (argument_name (identifier))
               (string)))
           (pipe)
           (stage
             (command_name
               (identifier))
             (named_argument
-              (argument_name)
+              (argument_name (identifier))
               (integer))))))))
 
 ============================================
@@ -713,10 +713,10 @@ find "/var/log/app" glob: "*.log" depth: 1 |> filter modified < ago(7d) |> move 
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))
     (pipe)
     (stage
@@ -732,7 +732,7 @@ find "/var/log/app" glob: "*.log" depth: 1 |> filter modified < ago(7d) |> move 
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ===============================================
@@ -750,13 +750,13 @@ copy "/srv/app" into: "/srv/backup" preserve: true clone: auto
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (boolean))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 =================================================
@@ -777,10 +777,10 @@ run ["gofmt", "-w", "."] cwd: "/srv/app" watch: ["/srv/app"]
         (string)
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string))))))
 
@@ -803,10 +803,10 @@ jobs "j1" tail: 20
         (string)
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (boolean))))
   (pipeline
     (stage
@@ -814,7 +814,7 @@ jobs "j1" tail: 20
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))))
 
 ==============================================
@@ -831,7 +831,7 @@ ports state: listen |> filter port == 8080
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))
     (pipe)
     (stage
@@ -855,13 +855,13 @@ host programs: ["git", "python3", "node"] versions: true
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string)
           (string)
           (string)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (boolean)))))
 
 ========================================
@@ -881,7 +881,7 @@ find "/srv/app/dist" |> archive.create "/srv/out/dist.zip" base: "/srv/app"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))))
   (pipeline
     (stage
@@ -895,7 +895,7 @@ find "/srv/app/dist" |> archive.create "/srv/out/dist.zip" base: "/srv/app"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ============================================
@@ -914,7 +914,7 @@ sql "/srv/app/app.db" "select id, name from users where active = ? limit 5" para
       (string)
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (integer))))))
 
@@ -947,7 +947,7 @@ history limit: 5
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))))
 
 =============================================
@@ -981,7 +981,7 @@ write "C:/proj/aux.txt" "x" mode: create
       (string)
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))))
 
 =====================================================
@@ -999,10 +999,10 @@ create "C:/proj/link" type: link target: "C:/proj/src"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ===================================================
@@ -1037,10 +1037,10 @@ read "registry:/HKCU/Software/Example/Mode"
       (string)
       (integer)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier))))
   (pipeline
     (stage
@@ -1062,7 +1062,7 @@ services name: "nginx" |> restart
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
@@ -1092,14 +1092,14 @@ git.commit "/srv/app" message: "fix: parser" paths: ["/srv/app/a.go"] trailers: 
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string)))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (list
           (string))))))
 
@@ -1119,10 +1119,10 @@ schedule.create "backup" cron: "0 3 * * *" action: (run ["backup"] cwd: "/srv")
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (subpipeline
           (pipeline
             (stage
@@ -1131,7 +1131,7 @@ schedule.create "backup" cron: "0 3 * * *" action: (run ["backup"] cwd: "/srv")
               (list
                 (string))
               (named_argument
-                (argument_name)
+                (argument_name (identifier))
                 (string)))))))))
 
 =============================================
@@ -1150,10 +1150,10 @@ notebook.replace "/srv/a.ipynb" index: 3 source: "print(1)"
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 =========================================================
@@ -1177,7 +1177,7 @@ http.download "https://example.com/a.tar.gz" "/srv/dl/a.tar.gz" hash: "sha256:50
       (command_name
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer))))
   (pipeline
     (stage
@@ -1187,7 +1187,7 @@ http.download "https://example.com/a.tar.gz" "/srv/dl/a.tar.gz" hash: "sha256:50
       (string)
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))))
 
 ===============================================
@@ -1217,7 +1217,7 @@ processes |> describe
         (identifier))
       (identifier)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier)))
     (pipe)
     (stage
@@ -1251,7 +1251,7 @@ program.search "ocr pdf" kind: programs limit: 3
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (string)))
     (pipe)
     (stage
@@ -1264,8 +1264,8 @@ program.search "ocr pdf" kind: programs limit: 3
         (identifier))
       (string)
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (identifier))
       (named_argument
-        (argument_name)
+        (argument_name (identifier))
         (integer)))))

@@ -1,0 +1,53 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b13-ls.sh",
+  "summary": {
+    "statements": 3,
+    "translated": 3,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "ls -la /srv/app",
+      "status": "translated",
+      "rules": [
+        "B13",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "list \"/srv/app\""
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "ls /srv/app/src/*.go",
+      "status": "translated",
+      "rules": [
+        "B13",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "find \"/srv/app/src\" glob: \"*.go\" depth: 1 hidden: false"
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "ls /etc",
+      "status": "translated",
+      "rules": [
+        "B13",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "list \"/etc\" hidden: false"
+    }
+  ]
+}

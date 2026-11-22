@@ -1,0 +1,92 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b34-archives.sh",
+  "summary": {
+    "statements": 6,
+    "translated": 6,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "tar -xzf /tmp/app.tgz -C /srv/app",
+      "status": "translated",
+      "rules": [
+        "B34",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "archive.extract \"/tmp/app.tgz\" into: \"/srv/app\""
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "tar -czf /srv/backup/app.tgz /srv/app",
+      "status": "translated",
+      "rules": [
+        "B34",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "find \"/srv/app\" type: any\n|> archive.create \"/srv/backup/app.tgz\" format: tar_gz base: \"/\""
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "unzip /tmp/data.zip -d /srv/data",
+      "status": "translated",
+      "rules": [
+        "B34",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "archive.extract \"/tmp/data.zip\" into: \"/srv/data\""
+    },
+    {
+      "line": 8,
+      "column": 1,
+      "source": "zip -r /srv/out.zip /srv/out",
+      "status": "translated",
+      "rules": [
+        "B34",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "find \"/srv/out\" type: any\n|> archive.create \"/srv/out.zip\" format: zip base: \"/\""
+    },
+    {
+      "line": 9,
+      "column": 1,
+      "source": "gzip /var/log/app.log",
+      "status": "translated",
+      "rules": [
+        "B34",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "compress \"/var/log/app.log\" keep: false"
+    },
+    {
+      "line": 10,
+      "column": 1,
+      "source": "gunzip /srv/data.csv.gz",
+      "status": "translated",
+      "rules": [
+        "B34",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "decompress \"/srv/data.csv.gz\" keep: false"
+    }
+  ]
+}

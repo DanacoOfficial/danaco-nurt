@@ -9,7 +9,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use nurt_migrate::{MigrateOptions, Reason, ScriptLanguage, migrate};
+use nurt_migrate::{MigrateOptions, Reason, ScriptLanguage, migrate_with};
 
 use crate::golden::data_directory;
 use crate::mock::MockTranslator;
@@ -95,7 +95,7 @@ fn table_scripts_have_no_syntax_errors() {
             };
             let translator = MockTranslator::new();
             let options = MigrateOptions::new().with_script(name.as_str());
-            let migration = match migrate(&source, suite.language, &options, &translator) {
+            let migration = match migrate_with(&source, suite.language, &options, &translator) {
                 Ok(migration) => migration,
                 Err(error) => panic!("migration of {name} failed: {error:?}"),
             };

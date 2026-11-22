@@ -1,0 +1,40 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b02-remove-glob.sh",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "rm /srv/app/build/*.tmp",
+      "status": "translated",
+      "rules": [
+        "B02",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "find \"/srv/app/build\" glob: \"*.tmp\" depth: 1 hidden: false\n|> remove on_missing: error"
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "rm -f /var/log/app/*.gz",
+      "status": "translated",
+      "rules": [
+        "B02",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "find \"/var/log/app\" glob: \"*.gz\" depth: 1 hidden: false\n|> remove"
+    }
+  ]
+}

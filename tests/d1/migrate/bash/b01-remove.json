@@ -1,0 +1,53 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b01-remove.sh",
+  "summary": {
+    "statements": 3,
+    "translated": 3,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 6,
+      "column": 1,
+      "source": "rm -rf /srv/app/build",
+      "status": "translated",
+      "rules": [
+        "B01",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "remove \"/srv/app/build\""
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "rm /srv/app/old.log /srv/app/older.log",
+      "status": "translated",
+      "rules": [
+        "B01",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "remove \"/srv/app/old.log\" \"/srv/app/older.log\" on_missing: error"
+    },
+    {
+      "line": 8,
+      "column": 1,
+      "source": "rm -f /srv/app/missing.txt",
+      "status": "translated",
+      "rules": [
+        "B01",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "remove \"/srv/app/missing.txt\""
+    }
+  ]
+}

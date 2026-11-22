@@ -1,0 +1,66 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p05-select-string.ps1",
+  "summary": {
+    "statements": 4,
+    "translated": 4,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Select-String -Pattern \"error\" -Path C:\\logs\\app.log",
+      "status": "translated",
+      "rules": [
+        "P05",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "search /error/ \"C:/logs/app.log\" case_sensitive: false"
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "sls -Pattern 'oldName\\(' -Path C:\\src\\*.go -CaseSensitive",
+      "status": "translated",
+      "rules": [
+        "P05",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "search /oldName\\(/ \"C:/src\" glob: \"*.go\" case_sensitive: true"
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "Select-String -Pattern \"GET /\" -Path C:\\logs\\access.log -SimpleMatch -Context 2,3",
+      "status": "translated",
+      "rules": [
+        "P05",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "search \"GET /\" \"C:/logs/access.log\" mode: literal before: 2 after: 3 case_sensitive: false"
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "source": "Select-String -Pattern \"deprecated\" -Path C:\\src\\*.cs -NotMatch -List",
+      "status": "translated",
+      "rules": [
+        "P05",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "search /deprecated/ \"C:/src\" glob: \"*.cs\" invert: true output: files case_sensitive: false"
+    }
+  ]
+}

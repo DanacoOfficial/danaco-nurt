@@ -85,6 +85,19 @@ fn descend(node: Node<'_>) -> bool {
 }
 
 fn flatten(builder: &Builder<'_>, node: Node<'_>, statement: &mut Statement) {
+    // The grammar attaches a redirection written after a list to the whole
+    // list; the shell applies it to the last command of the list.
+    if node.kind() == "redirected_statement"
+        && let Some(body) = node.child_by_field_name("body")
+        && body.kind() == "list"
+    {
+        flatten(builder, body, statement);
+        if let Some(last) = statement.parts.last_mut() {
+            last.range.end = node.end_byte();
+            last.here_document |= contains_kind(node, "heredoc_redirect");
+        }
+        return;
+    }
     if node.kind() != "list" {
         statement.parts.push(part(builder, node));
         return;

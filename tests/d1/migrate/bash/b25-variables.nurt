@@ -1,0 +1,17 @@
+# Source: b25-variables.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 0; with assumptions: 0; impossible: 4; errors: 0.
+# Untranslated statements run unchanged with: run ["bash", "b25-variables.sh"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B25: variables as whole arguments and inside text.
+# untranslated: E_UNCORRECTABLE: rm $FILE
+#   problem: `$FILE` is not substituted; Nurt has no variables: write the value, or name a result with `let file = …` and use `@file` (unknown_variable)
+# untranslated: E_UNCORRECTABLE: cat "$HOME/notes.txt"
+#   problem: `$HOME` is not substituted; the home directory is the field `home` of `host` (host_variable)
+# untranslated: E_UNCORRECTABLE: ls ${DIR}
+#   problem: `$DIR` is not substituted; Nurt has no variables: write the value, or name a result with `let dir = …` and use `@dir` (unknown_variable)
+# untranslated: E_UNCORRECTABLE: echo $PWD
+#   problem: `$PWD` is not substituted; there is no current directory; relative paths use the call parameter `base` (host_variable)

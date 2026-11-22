@@ -1,0 +1,40 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b16-sed-replace.sh",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "sed -i 's/oldName/newName/g' /srv/app/main.go",
+      "status": "translated",
+      "rules": [
+        "B16",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "replace /oldName/ \"newName\" in: [\"/srv/app/main.go\"]"
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "sed -i 's|/usr/local|/opt|' /etc/app.conf",
+      "status": "translated",
+      "rules": [
+        "B16",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "replace /\\/usr\\/local/ \"/opt\" in: [\"/etc/app.conf\"] occurrence: 1"
+    }
+  ]
+}

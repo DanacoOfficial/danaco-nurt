@@ -1,0 +1,27 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p13-set-itemproperty.ps1",
+  "summary": {
+    "statements": 1,
+    "translated": 1,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Set-ItemProperty -Path HKCU:\\Software\\App -Name Theme -Value dark -Type String",
+      "status": "translated",
+      "rules": [
+        "P13",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "write \"registry:/HKCU/Software/App/Theme\" \"dark\" value_type: string mode: overwrite"
+    }
+  ]
+}

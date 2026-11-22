@@ -1,0 +1,41 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p23-start-process.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 1,
+    "assumption": 1,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Start-Process -FilePath git -ArgumentList \"status\",\"--short\" -WorkingDirectory C:\\proj -Wait -NoNewWindow",
+      "status": "translated",
+      "rules": [
+        "P23",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "run [\"git\", \"status\", \"--short\"] cwd: \"C:/proj\" wait: forever"
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Start-Process -FilePath git -ArgumentList \"status --short\" -Wait",
+      "status": "assumption",
+      "rules": [
+        "P23"
+      ],
+      "assumptions": [
+        "the argument text is split at white space; PowerShell passes it to the program as one command line"
+      ],
+      "fix": [],
+      "output": "run [\"git\", \"status\", \"--short\"] wait: forever"
+    }
+  ]
+}

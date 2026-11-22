@@ -373,3 +373,6 @@ pub(crate) fn contains_kind(node: Node<'_>, kind: &str) -> bool {
     node.children(&mut cursor)
         .any(|child| contains_kind(child, kind))
 }
+
+#[cfg(test)]
+mod differential;

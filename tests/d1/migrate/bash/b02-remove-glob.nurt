@@ -1,0 +1,14 @@
+# Source: b02-remove-glob.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B02: rm with a glob expanded by the shell.
+# translated: B02, L21
+find "/srv/app/build" glob: "*.tmp" depth: 1 hidden: false
+|> remove on_missing: error
+# translated: B02, L21
+find "/var/log/app" glob: "*.gz" depth: 1 hidden: false
+|> remove

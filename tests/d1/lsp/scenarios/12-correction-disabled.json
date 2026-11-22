@@ -1,0 +1,12 @@
+{
+  "catalog": true,
+  "initialize": {"capabilities": {}, "initializationOptions": {"correction": {"enabled": false}}},
+  "steps": [
+    {"open": {"uri": "file:///work/strict.nurt", "text": "Find \"/srv/app\"\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"diagnostics": [
+      {"code": "E_LEXICAL", "severity": 1, "source": "nurt"}
+    ]}},
+    {"change": {"uri": "file:///work/strict.nurt", "version": 2, "text": "find \"/srv/app\" |> count\n"}},
+    {"notification": "textDocument/publishDiagnostics", "params": {"version": 2, "diagnostics": []}}
+  ]
+}

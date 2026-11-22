@@ -1,0 +1,7 @@
+# Source: p13-set-itemproperty.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 1; translated: 1; with assumptions: 0; impossible: 0; errors: 0.
+
+# P13: Set-ItemProperty in the registry.
+# translated: P13, L19
+write "registry:/HKCU/Software/App/Theme" "dark" value_type: string mode: overwrite

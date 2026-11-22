@@ -1,0 +1,14 @@
+# Source: p04-write.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 4; translated: 4; with assumptions: 0; impossible: 0; errors: 0.
+
+# P04: Set-Content, Add-Content and Out-File.
+# translated: P04, L19
+write "C:/out/status.txt" "ready\n" mode: overwrite
+# translated: P04, L19
+write "C:/out/log.txt" "line\n" mode: append
+# translated: P04, L19
+write "C:/out/done.txt" "done\n" mode: overwrite
+# translated: P26, P04, L19
+evaluate now()
+|> write "C:/out/log.txt" mode: append

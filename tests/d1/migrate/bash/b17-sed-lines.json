@@ -1,0 +1,53 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b17-sed-lines.sh",
+  "summary": {
+    "statements": 3,
+    "translated": 3,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "sed -n '10,20p' /var/log/app.log",
+      "status": "translated",
+      "rules": [
+        "B17",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "read \"/var/log/app.log\" lines: 10..20"
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "sed -i '/^#/d' /etc/app.conf",
+      "status": "translated",
+      "rules": [
+        "B17",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "lines \"/etc/app.conf\"\n|> filter text ~ /^#/\n|> remove"
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "source": "sed -i '3d' /srv/list.txt",
+      "status": "translated",
+      "rules": [
+        "B17",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "lines \"/srv/list.txt\" 3\n|> remove"
+    }
+  ]
+}

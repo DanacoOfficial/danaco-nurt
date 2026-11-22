@@ -1,0 +1,10 @@
+# Source: p29-archives.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# P29: Expand-Archive and Compress-Archive.
+# translated: P29, L19
+archive.extract "C:/tmp/app.zip" into: "C:/app" on_conflict: error
+# translated: P29, L19
+find "C:/out"
+|> archive.create "C:/backup/out.zip"

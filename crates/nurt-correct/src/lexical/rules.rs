@@ -350,6 +350,35 @@ mod tests {
     use super::*;
 
     #[test]
+    fn table_entries_are_built_from_their_fields() {
+        for info in &RULES {
+            let built = rule(
+                info.id,
+                info.class,
+                info.summary,
+                info.example_from,
+                info.example_to,
+            );
+            assert_eq!(
+                (
+                    built.id,
+                    built.class,
+                    built.summary,
+                    built.example_from,
+                    built.example_to
+                ),
+                (
+                    info.id,
+                    info.class,
+                    info.summary,
+                    info.example_from,
+                    info.example_to
+                )
+            );
+        }
+    }
+
+    #[test]
     fn rules_are_listed_in_identifier_order() {
         for (index, rule) in Rule::ALL.iter().enumerate() {
             assert_eq!(rule.id(), format!("L{:02}", index + 1));

@@ -1,0 +1,16 @@
+# Source: b21-test.sh (bash)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 2; with assumptions: 0; impossible: 0; errors: 0.
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# B21: test and brackets guarding a command.
+# translated: B21, L21, B01
+info "/srv/app/.ready"
+|> assert all: type == file
+|> remove on_missing: error
+# translated: B21, L21, B01
+info "/srv/app/out"
+|> assert all: type == directory
+|> remove

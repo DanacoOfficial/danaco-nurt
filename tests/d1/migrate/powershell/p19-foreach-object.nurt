@@ -1,0 +1,11 @@
+# Source: p19-foreach-object.ps1 (powershell)
+# Statements run in order; the first error stops the script.
+# Statements: 2; translated: 1; with assumptions: 0; impossible: 1; errors: 0.
+# Untranslated statements run unchanged with: run ["pwsh", "p19-foreach-object.ps1"]
+
+# P19: ForEach-Object with a property and with a script block.
+# translated: P01, L19, P19
+list "C:/logs" hidden: false
+|> select name
+# untranslated: E_UNCORRECTABLE: Get-ChildItem C:\logs | % { Remove-Item $_.FullName }
+#   problem: no loops; one pattern per step (no_loops)

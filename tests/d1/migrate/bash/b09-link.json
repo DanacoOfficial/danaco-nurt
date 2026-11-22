@@ -1,0 +1,40 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "bash",
+  "script": "b09-link.sh",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 5,
+      "column": 1,
+      "source": "ln -s /srv/app/releases/1.4 /srv/app/current",
+      "status": "translated",
+      "rules": [
+        "B09",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "create \"/srv/app/current\" type: link target: \"/srv/app/releases/1.4\""
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "ln /srv/data/a.db /srv/data/a-link.db",
+      "status": "translated",
+      "rules": [
+        "B09",
+        "L21"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "create \"/srv/data/a-link.db\" type: link target: \"/srv/data/a.db\" hard: true"
+    }
+  ]
+}

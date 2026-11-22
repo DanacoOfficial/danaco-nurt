@@ -1,0 +1,50 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p36-output.ps1",
+  "summary": {
+    "statements": 3,
+    "translated": 3,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Write-Output \"done\"",
+      "status": "translated",
+      "rules": [
+        "P36"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "evaluate \"done\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Write-Host \"Build finished\"",
+      "status": "translated",
+      "rules": [
+        "P36"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "evaluate \"Build finished\""
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "\"plain text\"",
+      "status": "translated",
+      "rules": [
+        "P36"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "evaluate \"plain text\""
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p24-services.ps1",
+  "summary": {
+    "statements": 5,
+    "translated": 5,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Get-Service -Name Spooler",
+      "status": "translated",
+      "rules": [
+        "P24"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "services name: \"Spooler\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Start-Service -Name Spooler",
+      "status": "translated",
+      "rules": [
+        "P24"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "services name: \"Spooler\"\n|> start"
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "source": "Stop-Service Spooler",
+      "status": "translated",
+      "rules": [
+        "P24"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "services name: \"Spooler\"\n|> stop"
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "source": "Restart-Service -Name W3SVC",
+      "status": "translated",
+      "rules": [
+        "P24"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "services name: \"W3SVC\"\n|> restart"
+    },
+    {
+      "line": 6,
+      "column": 1,
+      "source": "Set-Service -Name W3SVC -StartupType Automatic",
+      "status": "translated",
+      "rules": [
+        "P24"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "services name: \"W3SVC\"\n|> enable"
+    }
+  ]
+}

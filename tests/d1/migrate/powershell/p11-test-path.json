@@ -1,0 +1,40 @@
+{
+  "format": "nurt-migrate-report/1",
+  "language": "powershell",
+  "script": "p11-test-path.ps1",
+  "summary": {
+    "statements": 2,
+    "translated": 2,
+    "assumption": 0,
+    "impossible": 0,
+    "error": 0
+  },
+  "items": [
+    {
+      "line": 2,
+      "column": 1,
+      "source": "Test-Path C:\\out\\a.txt",
+      "status": "translated",
+      "rules": [
+        "P11",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "info \"C:/out/a.txt\""
+    },
+    {
+      "line": 3,
+      "column": 1,
+      "source": "Test-Path C:\\out\\a.txt -PathType Leaf",
+      "status": "translated",
+      "rules": [
+        "P11",
+        "L19"
+      ],
+      "assumptions": [],
+      "fix": [],
+      "output": "info \"C:/out/a.txt\"\n|> assert all: type == file"
+    }
+  ]
+}
