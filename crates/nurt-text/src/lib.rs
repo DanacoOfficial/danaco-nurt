@@ -12,6 +12,7 @@
 #![forbid(unsafe_code)]
 
 pub mod codec;
+pub mod codec_service;
 pub mod detect;
 pub mod diff;
 pub mod edit_plan;
@@ -21,3 +22,5 @@ pub mod hash;
 pub mod patch;
 pub mod search;
 pub mod template;
+
+pub use codec_service::TextCodec;
