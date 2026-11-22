@@ -293,3 +293,53 @@ fn summary_schema_names_every_member() {
         assert!(properties.contains_key(member), "{member}");
     }
 }
+
+/// Stand-in for `assert` that reports the parameters whose value reached
+/// the static check as a range.
+struct RangeReader;
+
+const RANGE_PARAMS: [&str; 3] = ["count", "paths", "exit_code"];
+
+impl StageImpl for RangeReader {
+    fn descriptor(&self) -> StageDescriptor {
+        StageDescriptor {
+            command: "assert".to_owned(),
+            source: false,
+            input: InputKinds::Any,
+        }
+    }
+
+    fn check(&self, args: &BoundArgs, _ctx: &CheckCtx<'_>) -> Result<StaticInfo> {
+        let mut info = StaticInfo::default();
+        for name in RANGE_PARAMS {
+            if let Some(value @ Value::Range(_)) = args.value(name) {
+                info.details.insert(name.to_owned(), value.clone());
+            }
+        }
+        Ok(info)
+    }
+}
+
+#[test]
+fn golden_programs_with_assert_pass_range_literals_to_the_static_check() {
+    let mut registry = common::registry();
+    registry.register_impl(Arc::new(RangeReader)).unwrap();
+    for name in [
+        "task-02-replace-identifier-expected-count",
+        "task-07-tests-exit-code",
+        "task-12-replace-verify-rollback",
+    ] {
+        let summary = summarize_with(&common::golden(name), &registry, &PlanOptions::new())
+            .unwrap_or_else(|error| panic!("{name}: {error:?}"));
+        let reported: Vec<_> = summary
+            .details
+            .iter()
+            .filter(|found| found.command == "assert")
+            .collect();
+        assert!(!reported.is_empty(), "{name}");
+        assert!(
+            reported.iter().all(|found| !found.details.is_empty()),
+            "{name}"
+        );
+    }
+}

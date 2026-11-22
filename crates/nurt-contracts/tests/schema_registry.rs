@@ -31,9 +31,9 @@ fn parse(content: &str) -> Value {
     serde_json::from_str(content).unwrap()
 }
 
-/// Validator for the published schema `name`, with every published schema
-/// registered under its `$id`.
-fn validator(name: &str) -> jsonschema::Validator {
+/// Validator for `document`, with every published schema registered under
+/// its `$id`.
+fn validator_for(document: &Value) -> jsonschema::Validator {
     let registry = schema::ALL
         .iter()
         .fold(jsonschema::Registry::new(), |builder, (other, content)| {
@@ -45,8 +45,13 @@ fn validator(name: &str) -> jsonschema::Validator {
         .unwrap();
     jsonschema::options()
         .with_registry(&registry)
-        .build(&parse(schema::by_name(name).unwrap()))
-        .unwrap_or_else(|error| panic!("schema {name} does not compile: {error}"))
+        .build(document)
+        .unwrap_or_else(|error| panic!("schema {document} does not compile: {error}"))
+}
+
+/// Validator for the published schema `name`.
+fn validator(name: &str) -> jsonschema::Validator {
+    validator_for(&parse(schema::by_name(name).unwrap()))
 }
 
 #[test]
@@ -379,6 +384,45 @@ fn rpc_schema_rejects_invalid_messages() {
         json!({ "jsonrpc": "2.0", "id": 1, "method": "schema", "params": { "name": "unknown" } }),
     ];
     for document in &documents {
+        assert!(!validator.is_valid(document), "accepted {document}");
+    }
+}
+
+#[test]
+fn rpc_check_result_is_a_check_summary_with_diagnostics() {
+    let validator = validator_for(&json!({
+        "$ref": format!("{ID_BASE}{}#/$defs/results/properties/check", file_name("rpc"))
+    }));
+    let mut result = check_summary();
+    result["diagnostics"] = json!([]);
+    assert!(validator.is_valid(&result), "rejected {result}");
+    let only_diagnostics = json!({ "diagnostics": [] });
+    for document in [check_summary(), only_diagnostics] {
+        assert!(!validator.is_valid(&document), "accepted {document}");
+    }
+}
+
+#[test]
+fn rpc_selector_params_accept_published_shapes() {
+    let validator = validator("rpc");
+    let accepted = [
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "describe", "params": { "layer": "group", "name": "documents", "language": "en" } }),
+        json!({ "jsonrpc": "2.0", "id": 2, "method": "describe", "params": { "subject": "core" } }),
+        json!({ "jsonrpc": "2.0", "id": 3, "method": "catalog", "params": { "what": { "group": "documents" } } }),
+        json!({ "jsonrpc": "2.0", "id": 4, "method": "catalog" }),
+        json!({ "jsonrpc": "2.0", "id": 5, "method": "history", "params": { "query": { "count": 5 } } }),
+        json!({ "jsonrpc": "2.0", "id": 9, "method": "testkit.clock.advance", "params": { "seconds": 5 } }),
+    ];
+    for document in &accepted {
+        assert!(validator.is_valid(document), "rejected {document}");
+    }
+    let rejected = [
+        json!({ "jsonrpc": "2.0", "id": 6, "method": "catalog", "params": { "what": 3 } }),
+        json!({ "jsonrpc": "2.0", "id": 7, "method": "history", "params": { "query": 4 } }),
+        json!({ "jsonrpc": "2.0", "id": 10, "method": "testkit", "params": {} }),
+        json!({ "jsonrpc": "2.0", "id": 8, "method": "describe", "params": { "name": 3 } }),
+    ];
+    for document in &rejected {
         assert!(!validator.is_valid(document), "accepted {document}");
     }
 }

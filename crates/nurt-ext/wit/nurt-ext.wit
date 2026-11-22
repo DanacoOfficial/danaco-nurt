@@ -1,0 +1,65 @@
+/// Interface between Danaco Nurt and its WebAssembly extensions.
+///
+/// Records cross the interface as JSON documents of the form
+/// `{"kind": "<record kind>", "fields": {<field>: <value>}}`, with field
+/// values in plain JSON. Arguments are one JSON object, parameter name to
+/// value.
+package nurt:ext@1.0.0;
+
+/// Calls of the extension into the host.
+///
+/// Every path is absolute. The host grants access only below the
+/// directories listed in `permissions.read` and `permissions.write` of the
+/// manifest; any other path fails with the code `E_PERMISSION`.
+interface host {
+    /// Error of a host call.
+    record failure {
+        /// Error code, for example `E_PERMISSION` or `E_NOT_FOUND`.
+        code: string,
+        /// Description of the problem.
+        message: string,
+    }
+
+    /// Severity of a diagnostic message.
+    enum log-level {
+        error,
+        warn,
+        info,
+        debug,
+        trace,
+    }
+
+    /// Reads the whole content of a file below `permissions.read` or
+    /// `permissions.write`.
+    read-file: func(path: string) -> result<list<u8>, failure>;
+
+    /// Lists the names of the entries of a directory below
+    /// `permissions.read` or `permissions.write`, in byte order.
+    list-dir: func(path: string) -> result<list<string>, failure>;
+
+    /// Plans new content for a file below `permissions.write`.
+    ///
+    /// Available to commands declared with `writes = true`. The file is not
+    /// changed during the call: the host shows the planned change in a
+    /// preview and applies it through the journal after the command
+    /// returns, so the change can be undone.
+    write-file: func(path: string, content: list<u8>) -> result<_, failure>;
+
+    /// Writes a diagnostic message to the event stream of the execution.
+    log: func(level: log-level, message: string);
+}
+
+/// Commands of the extension.
+interface stage {
+    /// Runs the command `command` (full name, `<extension>.<name>`) with the
+    /// arguments `args` (JSON object) on the input records `input` (one
+    /// JSON document per record) and returns the output records, or a
+    /// message describing why the command failed.
+    run: func(command: string, args: string, input: list<string>) -> result<list<string>, string>;
+}
+
+/// World implemented by every WebAssembly extension.
+world extension {
+    import host;
+    export stage;
+}

@@ -517,7 +517,12 @@ fn events_arrive_in_seq_order_and_end_with_exec_finished() {
         .map(|event| event["seq"].as_u64().unwrap())
         .collect();
     assert_eq!(seq, [1, 2, 3, 4, 5]);
-    assert_eq!(events[4]["status"], 0);
+    assert_eq!(events[4]["status"], "ok");
+    assert!(
+        events
+            .iter()
+            .all(|event| event["request_id"] == events[0]["request_id"])
+    );
     assert_eq!(out.json()["report"]["status"], "ok");
 }
 
@@ -553,7 +558,7 @@ fn zero_timeout_polls_and_cancellation_gives_the_cancelled_response() {
     assert_eq!(response.report.error.unwrap().code.as_str(), "E_CANCELLED");
     let events = events.into_inner().unwrap();
     assert_eq!(types(&events).last(), Some(&"exec.finished"));
-    assert_eq!(events.last().unwrap()["status"], 2);
+    assert_eq!(events.last().unwrap()["status"], "failed");
 }
 
 #[test]

@@ -8,9 +8,9 @@
 //! it. The engine owns the configuration assembled from seven levels
 //! ([`config`]), the sessions of callers ([`session`]), kept pages of results
 //! ([`cursor`]), correction candidates ([`candidates`]), the read cache
-//! ([`readcache`]) and the state directory ([`state`]). It reaches the
-//! language through [`Frontend`] and delivers execution events through
-//! [`EventListener`].
+//! ([`readcache`]) and the state directory ([`state`]). It plans programs
+//! against the command registry ([`registry`]), reaches the language through
+//! [`Frontend`] and delivers execution events through [`EventListener`].
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
@@ -26,6 +26,7 @@ pub mod fixtures;
 pub mod frontend;
 pub mod paths;
 pub mod readcache;
+pub mod registry;
 pub mod session;
 pub mod state;
 
@@ -33,3 +34,5 @@ pub use engine::{CheckReport, Engine, EngineConfig, EngineInfo, ExecHandle, Form
 pub use error::EngineError;
 pub use events::{DeliveredEvent, EventBody, EventListener, Lifecycle};
 pub use frontend::{Compiled, Corrected, Frontend, UnavailableFrontend};
+pub use nurt_catalog::CatalogQuery;
+pub use nurt_plan::CheckSummary;

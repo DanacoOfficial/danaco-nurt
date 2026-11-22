@@ -13,7 +13,7 @@
 //!
 //! [[stage]]
 //! name = "lint"
-//! input = ["file"]
+//! input = ["entry"]
 //! writes = false
 //!
 //! [[format]]
@@ -40,8 +40,14 @@
 use std::collections::BTreeSet;
 use std::fmt;
 use std::path::{Component, Path};
+use std::str::FromStr;
 
+use nurt_contracts::spec::{ParamSpec, is_identifier};
+use nurt_contracts::value::RecordKind;
 use serde::{Deserialize, Serialize};
+
+/// Name of the input or output kind that stands for every record kind.
+const ANY_KIND: &str = "any";
 
 /// File name of the manifest in an extension directory.
 pub const MANIFEST_FILE: &str = "nurt-ext.toml";
@@ -170,9 +176,16 @@ pub struct StageEntry {
     /// One-line description.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
-    /// Record kinds accepted as input; empty for a source only.
+    /// Record kinds accepted as input (`any` for every kind); empty for a
+    /// source only.
     #[serde(default)]
     pub input: Vec<String>,
+    /// Record kinds produced; empty for any kind.
+    #[serde(default)]
+    pub output: Vec<String>,
+    /// Parameters, with the keys of a parameter of the command catalog.
+    #[serde(rename = "param", default, skip_serializing_if = "Vec::is_empty")]
+    pub params: Vec<ParamSpec>,
     /// The command can start a pipeline.
     #[serde(default)]
     pub source: bool,
@@ -350,6 +363,34 @@ fn check_name(field: &'static str, name: &str) -> Result<(), ManifestError> {
     }
 }
 
+fn check_identifier(field: &'static str, name: &str) -> Result<(), ManifestError> {
+    if name.len() <= MAX_NAME_LEN && is_identifier(name) {
+        Ok(())
+    } else {
+        Err(ManifestError::InvalidField {
+            field,
+            message: format!(
+                "`{name}` must start with a lowercase letter and hold only lowercase letters, digits or `_`"
+            ),
+        })
+    }
+}
+
+fn check_kinds(field: &'static str, kinds: &[String]) -> Result<(), ManifestError> {
+    match kinds
+        .iter()
+        .find(|kind| *kind != ANY_KIND && RecordKind::from_str(kind).is_err())
+    {
+        None => Ok(()),
+        Some(kind) => Err(ManifestError::InvalidField {
+            field,
+            message: format!(
+                "`{kind}` is not a record kind; use a kind of the catalog or `{ANY_KIND}`"
+            ),
+        }),
+    }
+}
+
 fn check_file(field: &'static str, file: &str) -> Result<(), ManifestError> {
     let path = Path::new(file);
     let inside = !file.is_empty()
@@ -436,7 +477,7 @@ impl Manifest {
         if !host.accepts(required) {
             return Err(ManifestError::ApiMismatch { required, host });
         }
-        check_name("ext.name", &self.ext.name)?;
+        check_identifier("ext.name", &self.ext.name)?;
         if core_names.contains(&self.ext.name) {
             return Err(ManifestError::CoreName {
                 name: self.ext.name.clone(),
@@ -466,7 +507,9 @@ impl Manifest {
     fn check_entries(&self) -> Result<(), ManifestError> {
         let mut seen = BTreeSet::new();
         for stage in &self.stage {
-            check_name("stage.name", &stage.name)?;
+            check_identifier("stage.name", &stage.name)?;
+            check_kinds("stage.input", &stage.input)?;
+            check_kinds("stage.output", &stage.output)?;
             if !seen.insert(format!("stage:{}", stage.name)) {
                 return Err(ManifestError::Duplicate {
                     name: format!("{}.{}", self.ext.name, stage.name),
@@ -547,11 +590,11 @@ wasm = "acme.wasm"
 
 [[stage]]
 name = "lint"
-input = ["file"]
+input = ["entry"]
 
 [[stage]]
 name = "fix"
-input = ["file"]
+input = ["entry"]
 writes = true
 
 [[format]]
@@ -658,7 +701,7 @@ write = ["${project}/out", "/var/acme"]
             VALID.replace("read = [\"${project}\"]", "read = [\"relative/dir\"]"),
             VALID.replace("read = [\"${project}\"]", "read = [\"${project}/../up\"]"),
             VALID.replace("tags = \"grammar/tags.scm\"", "tags = \"/abs/tags.scm\""),
-            VALID.replace("input = [\"file\"]\n\n[[stage]]", "\n[[stage]]"),
+            VALID.replace("input = [\"entry\"]\n\n[[stage]]", "\n[[stage]]"),
         ];
         for text in &cases {
             assert!(

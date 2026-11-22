@@ -10,7 +10,7 @@
 //! assembled with the engine rather than compiled into it.
 //! [`UnavailableFrontend`] is used when no front end is given.
 
-use nurt_contracts::ast::AstDocument;
+use nurt_contracts::ast::{AstDocument, strip_for_hash};
 use nurt_contracts::bound::BoundDocument;
 use nurt_contracts::config::Config;
 use nurt_contracts::envelope::Language;
@@ -21,6 +21,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::error::unavailable;
+use crate::state::sha256_hex;
 
 /// Program text after correction.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -48,6 +49,21 @@ pub struct Compiled {
     /// corrections were applied.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ran: Option<String>,
+    /// Hash of the syntax tree the program was bound from, as
+    /// `sha256:<hex>`; absent when the tree is not known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ast_hash: Option<String>,
+}
+
+/// Hash of a syntax tree: `sha256:` and the hex digest of the canonical
+/// JSON of the tree without positions and metadata.
+///
+/// The hash identifies the program independently of its layout in the text.
+#[must_use]
+pub fn ast_hash(ast: &AstDocument) -> Option<String> {
+    let tree = serde_json::to_value(ast).ok()?;
+    let canonical = serde_json_canonicalizer::to_vec(&strip_for_hash(&tree)).ok()?;
+    Some(format!("sha256:{}", sha256_hex(&canonical)))
 }
 
 /// Language front end: parsing, correction, binding, printing and help.
@@ -124,6 +140,7 @@ pub trait Frontend: Send + Sync {
         let bound = self.bind(&corrected.ast, config)?;
         Ok(Compiled {
             bound,
+            ast_hash: ast_hash(&corrected.ast),
             corrections: corrected.corrections,
             ran: corrected.ran,
         })
@@ -197,5 +214,57 @@ mod tests {
             frontend.help("find", Language::En).unwrap_err().code,
         ];
         assert!(codes.iter().all(|code| *code == ErrorCode::Unsupported));
+    }
+
+    fn tree(spans: bool) -> AstDocument {
+        let span = if spans {
+            "[1, 1, 1, 6]"
+        } else {
+            "[2, 3, 2, 9]"
+        };
+        serde_json::from_str(&format!(
+            r#"{{"nurt": "1.0", "program": {{"statements": [{{"t": "pipeline",
+            "head": {{"t": "stage", "name": "count", "args": [], "span": {span}}},
+            "stages": [], "span": {span}}}]}}}}"#
+        ))
+        .unwrap()
+    }
+
+    #[test]
+    fn tree_hash_is_well_formed_stable_and_independent_of_positions() {
+        let hash = ast_hash(&tree(true)).unwrap();
+        assert!(nurt_contracts::report::is_ast_hash(&hash));
+        assert_eq!(ast_hash(&tree(true)).unwrap(), hash);
+        assert_eq!(ast_hash(&tree(false)).unwrap(), hash);
+        let other: AstDocument = serde_json::from_value(serde_json::json!({
+            "nurt": "1.0", "program": {"statements": []}
+        }))
+        .unwrap();
+        assert_ne!(ast_hash(&other).unwrap(), hash);
+    }
+
+    #[test]
+    fn tree_hash_matches_the_golden_files() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/ast");
+        let mut checked = 0;
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().and_then(|e| e.to_str()) != Some("hash") {
+                continue;
+            }
+            let ast: AstDocument = serde_json::from_str(
+                &std::fs::read_to_string(path.with_extension("json")).unwrap(),
+            )
+            .unwrap();
+            let expected = std::fs::read_to_string(&path).unwrap();
+            assert_eq!(
+                ast_hash(&ast).unwrap(),
+                expected.trim(),
+                "{}",
+                path.display()
+            );
+            checked += 1;
+        }
+        assert!(checked >= 3);
     }
 }

@@ -18,7 +18,10 @@
     "request": {
       "required": ["method"],
       "properties": {
-        "method": {"enum": ["initialize", "run", "check", "parse", "print", "correct", "page", "describe", "help", "schema", "catalog", "history", "space", "info", "cancel", "shutdown"]},
+        "method": {"anyOf": [
+          {"enum": ["initialize", "run", "check", "parse", "print", "correct", "page", "describe", "help", "schema", "catalog", "history", "space", "info", "cancel", "shutdown"]},
+          {"type": "string", "pattern": "^testkit\\.[a-z_]+(\\.[a-z_]+)*$", "description": "Control methods of the testkit feature; a server without that feature answers with the unknown method error."}
+        ]},
         "params": {"type": ["object", "array", "null"]}
       },
       "allOf": [
@@ -29,6 +32,8 @@
         {"if": {"properties": {"method": {"const": "page"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/page_params"}}, "required": ["params"]}},
         {"if": {"properties": {"method": {"const": "describe"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/describe_params"}}}},
         {"if": {"properties": {"method": {"const": "help"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/help_params"}}}},
+        {"if": {"properties": {"method": {"const": "catalog"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/catalog_params"}}}},
+        {"if": {"properties": {"method": {"const": "history"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/history_params"}}}},
         {"if": {"properties": {"method": {"const": "schema"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/schema_params"}}, "required": ["params"]}},
         {"if": {"properties": {"method": {"const": "space"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/space_params"}}}},
         {"if": {"properties": {"method": {"const": "cancel"}}}, "then": {"properties": {"params": {"$ref": "#/$defs/cancel_params"}}, "required": ["params"]}}
@@ -108,7 +113,20 @@
     "describe_params": {
       "type": ["object", "null"],
       "additionalProperties": false,
-      "properties": {"subject": {"type": "string", "default": "core"}, "language": {"type": "string"}}
+      "properties": {
+        "layer": {"type": "string", "description": "Layer of the description, as in the selection of nurt_describe."},
+        "name": {"type": "string", "description": "Group or command within the layer."},
+        "subject": {"type": "string", "default": "core", "description": "Name of a command, group or layer; accepted as an alternative to name."},
+        "language": {"type": "string"}
+      }
+    },
+    "catalog_params": {
+      "type": ["object", "null"],
+      "properties": {"what": {"type": ["object", "null"], "description": "Selection of a group or a command, as in the argument of nurt_catalog."}}
+    },
+    "history_params": {
+      "type": ["object", "null"],
+      "properties": {"query": {"type": ["object", "string", "null"], "description": "Parameters of the command history, as in the argument of nurt_history."}}
     },
     "help_params": {
       "type": ["object", "null"],
@@ -147,7 +165,7 @@
         "initialize": {"$ref": "#/$defs/initialize_result"},
         "run": {"$ref": "nurt-response-1.schema.json"},
         "page": {"$ref": "nurt-response-1.schema.json"},
-        "check": {"type": "object", "required": ["diagnostics"], "properties": {"diagnostics": {"type": "array"}}},
+        "check": {"description": "The check result nurt-check/1 with the diagnostics of binding.", "allOf": [{"$ref": "nurt-check-1.schema.json"}], "type": "object", "required": ["diagnostics"], "properties": {"diagnostics": {"type": "array"}}},
         "parse": {"type": "object", "required": ["ast", "diagnostics"], "properties": {"ast": {"$ref": "nurt-ast-1.schema.json"}, "diagnostics": {"type": "array"}}},
         "print": {"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}}},
         "correct": {"type": "object"},
