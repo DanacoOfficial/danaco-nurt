@@ -9,7 +9,7 @@ use ignore::Match;
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use nurt_contracts::fs::{AbsPath, FileKind, Follow, Fs, FsError, FsErrorKind};
 
-use super::filter::GIT_DIR;
+use super::filter::{GIT_DIR, nfc_path, nfc_text};
 
 /// Ignore file read in every directory.
 pub(super) const IGNORE_FILE: &str = ".ignore";
@@ -152,7 +152,12 @@ fn probe_markers(fs: &dyn Fs, dir: &AbsPath) -> Markers {
 impl Frame {
     /// Whether the rules exclude `path`, which lies below the directory of
     /// this frame.
+    ///
+    /// Names are compared in Unicode normalization form C, as the patterns
+    /// are stored.
     pub(super) fn is_ignored(&self, path: &Path, is_dir: bool, global: Option<&Gitignore>) -> bool {
+        let composed = nfc_path(path);
+        let path = &*composed;
         for frame in self.chain() {
             if let Some(ignored) = frame
                 .ignore
@@ -184,7 +189,8 @@ impl Frame {
         {
             return ignored;
         }
-        let relative = path.strip_prefix(repo.dir.as_path()).unwrap_or(path);
+        let repo_dir = nfc_path(repo.dir.as_path());
+        let relative = path.strip_prefix(&*repo_dir).unwrap_or(path);
         global.is_some_and(|matcher| matcher.matched(relative, is_dir).is_ignore())
     }
 
@@ -230,11 +236,11 @@ fn read_rules(
 }
 
 fn build_rules(root: &Path, source: &AbsPath, bytes: &[u8]) -> Option<Gitignore> {
-    let mut builder = GitignoreBuilder::new(root);
+    let mut builder = GitignoreBuilder::new(nfc_path(root));
     for line in String::from_utf8_lossy(bytes).lines() {
         // Git skips a pattern it cannot parse and applies the remaining
         // ones, so the error of a single line is dropped here as well.
-        let _ = builder.add_line(Some(source.as_path().to_path_buf()), line);
+        let _ = builder.add_line(Some(source.as_path().to_path_buf()), &nfc_text(line));
     }
     builder.build().ok().filter(|rules| !rules.is_empty())
 }
@@ -254,4 +260,70 @@ fn child_path(dir: &AbsPath, names: &[&str]) -> Option<AbsPath> {
     names
         .iter()
         .try_fold(dir.clone(), |path, name| path.join_name(name).ok())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const COMPOSED: &str = "caf\u{e9}.txt";
+    const DECOMPOSED: &str = "cafe\u{301}.txt";
+
+    fn frame(root: &str, source: &str, rules: &str) -> Frame {
+        let source = AbsPath::new(source).expect("absolute source");
+        Frame {
+            parent: None,
+            ignore: build_rules(Path::new(root), &source, rules.as_bytes()),
+            gitignore: None,
+            repo: None,
+            repo_root: false,
+        }
+    }
+
+    #[test]
+    fn composed_rule_ignores_decomposed_name() {
+        let frame = frame("/work", "/work/.ignore", &format!("{COMPOSED}\n"));
+        let path = Path::new("/work").join(DECOMPOSED);
+        assert!(frame.is_ignored(&path, false, None));
+    }
+
+    #[test]
+    fn decomposed_rule_ignores_composed_name() {
+        let frame = frame("/work", "/work/.ignore", &format!("{DECOMPOSED}\n"));
+        let path = Path::new("/work").join(COMPOSED);
+        assert!(frame.is_ignored(&path, false, None));
+    }
+
+    #[test]
+    fn decomposed_root_directory_matches_relative_rule() {
+        let root = format!("/{DECOMPOSED}");
+        let frame = frame(&root, &format!("{root}/.ignore"), "*.log\n");
+        let path = Path::new(&root).join("a.log");
+        assert!(frame.is_ignored(&path, false, None));
+    }
+
+    #[test]
+    fn unrelated_name_stays_visible() {
+        let frame = frame("/work", "/work/.ignore", &format!("{COMPOSED}\n"));
+        assert!(!frame.is_ignored(Path::new("/work/cafe.txt"), false, None));
+    }
+
+    #[test]
+    fn global_rules_match_names_in_either_form() {
+        let source = AbsPath::new("/config/ignore").expect("absolute source");
+        let global = build_rules(Path::new(""), &source, format!("{COMPOSED}\n").as_bytes());
+        let repo = Arc::new(Repo {
+            dir: AbsPath::new("/work").expect("absolute repository"),
+            exclude: None,
+        });
+        let frame = Frame {
+            parent: None,
+            ignore: None,
+            gitignore: None,
+            repo: Some(repo),
+            repo_root: true,
+        };
+        let path = Path::new("/work").join(DECOMPOSED);
+        assert!(frame.is_ignored(&path, false, global.as_ref()));
+    }
 }

@@ -5851,15 +5851,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nurt"
-version = "0.1.0"
-dependencies = [
- "nurt-contracts",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
 name = "nurt-archive"
 version = "0.1.0"
 dependencies = [
@@ -5881,18 +5872,9 @@ dependencies = [
 name = "nurt-bench"
 version = "0.1.0"
 dependencies = [
- "base64 0.23.1",
- "clap",
- "hex",
- "jiff 1.0.2",
  "nurt-contracts",
  "serde",
  "serde_json",
- "sha2 0.11.1",
- "tempfile",
- "thiserror 2.0.21",
- "toml",
- "ureq",
 ]
 
 [[package]]
@@ -5910,14 +5892,9 @@ dependencies = [
 name = "nurt-catalog"
 version = "0.1.0"
 dependencies = [
- "hex",
  "nurt-contracts",
  "nurt-types",
  "serde",
- "serde_json",
- "serde_json_canonicalizer",
- "sha2 0.11.1",
- "tempfile",
  "toml",
 ]
 
@@ -5953,19 +5930,10 @@ dependencies = [
 name = "nurt-conformance"
 version = "0.1.0"
 dependencies = [
- "base64 0.23.1",
- "clap",
- "hex",
- "jiff 1.0.2",
- "jsonschema",
  "nurt-contracts",
+ "nurt-testkit",
  "serde",
  "serde_json",
- "serde_json_canonicalizer",
- "sha2 0.11.1",
- "tempfile",
- "thiserror 2.0.21",
- "toml",
 ]
 
 [[package]]
@@ -5988,14 +5956,41 @@ dependencies = [
 name = "nurt-core"
 version = "0.1.0"
 dependencies = [
+ "nurt-archive",
+ "nurt-bind",
+ "nurt-catalog",
+ "nurt-code",
  "nurt-contracts",
+ "nurt-correct",
+ "nurt-doc",
+ "nurt-exec",
+ "nurt-ext",
+ "nurt-files",
+ "nurt-fs",
+ "nurt-git",
+ "nurt-git-ops",
+ "nurt-help",
+ "nurt-journal",
+ "nurt-lspclient",
+ "nurt-net",
+ "nurt-notebook",
+ "nurt-plan",
+ "nurt-proc",
+ "nurt-report",
+ "nurt-sched",
+ "nurt-space",
+ "nurt-syntax",
+ "nurt-sys",
+ "nurt-syslog",
  "nurt-testkit",
- "schemars",
+ "nurt-text",
+ "nurt-types",
+ "nurt-verify",
  "serde",
  "serde_json",
- "sha2 0.11.1",
  "tempfile",
  "toml",
+ "tracing",
 ]
 
 [[package]]
@@ -6027,30 +6022,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "nurt-docgen"
-version = "0.1.0"
-dependencies = [
- "nurt-contracts",
- "pulldown-cmark",
- "serde",
- "serde_json",
- "tempfile",
- "toml",
-]
-
-[[package]]
 name = "nurt-exec"
 version = "0.1.0"
 dependencies = [
  "crossbeam-channel",
- "nurt-catalog",
  "nurt-contracts",
  "nurt-plan",
- "nurt-testkit",
  "nurt-types",
  "rayon",
- "regex",
- "serde_json",
 ]
 
 [[package]]
@@ -6059,9 +6038,6 @@ version = "0.1.0"
 dependencies = [
  "libloading 0.9.1",
  "nurt-contracts",
- "semver",
- "serde",
- "toml",
  "wasmtime",
 ]
 
@@ -6071,11 +6047,7 @@ version = "0.1.0"
 dependencies = [
  "nurt-contracts",
  "nurt-core",
- "serde",
  "serde_json",
- "serde_json_canonicalizer",
- "sha2 0.11.1",
- "tempfile",
 ]
 
 [[package]]
@@ -6312,12 +6284,11 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "nurt-contracts",
- "nurt-tooldef",
+ "nurt-core",
  "rmcp",
  "serde",
  "serde_json",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -6332,37 +6303,15 @@ dependencies = [
 name = "nurt-net"
 version = "0.1.0"
 dependencies = [
- "base64 0.23.1",
- "blake3",
- "chardetng",
- "ciborium",
- "encoding_rs",
- "flate2",
- "hex",
  "hickory-resolver",
- "indexmap",
- "jiff 1.0.2",
- "libc",
  "nurt-contracts",
- "nurt-testkit",
  "nurt-types",
  "percent-encoding",
- "proptest",
- "regex",
- "rustix",
  "rustls",
  "rustls-native-certs",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "tempfile",
- "thiserror 2.0.21",
- "toml",
- "tree-sitter",
- "tree-sitter-html",
+ "socket2",
  "ureq",
  "url",
- "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6379,13 +6328,9 @@ dependencies = [
 name = "nurt-plan"
 version = "0.1.0"
 dependencies = [
- "indexmap",
- "jsonschema",
  "nurt-catalog",
  "nurt-contracts",
- "schemars",
- "serde",
- "serde_json",
+ "nurt-types",
 ]
 
 [[package]]
@@ -6407,47 +6352,19 @@ dependencies = [
 name = "nurt-programs"
 version = "0.1.0"
 dependencies = [
- "bzip2",
- "chardetng",
- "ciborium",
- "encoding_rs",
- "flate2",
- "hex",
- "jsonschema",
- "liblzma",
- "lz4_flex",
- "memchr",
  "nurt-contracts",
  "nurt-types",
- "plist",
- "proptest",
- "quick-xml",
- "rayon",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "tempfile",
- "thiserror 2.0.21",
- "toml",
- "unicode-normalization",
- "windows-sys 0.61.2",
- "zstd",
 ]
 
 [[package]]
 name = "nurt-report"
 version = "0.1.0"
 dependencies = [
- "ciborium",
- "jsonschema",
  "nurt-contracts",
- "nurt-testkit",
  "nurt-types",
  "schemars",
  "serde",
  "serde_json",
- "unicode-width 0.2.3",
 ]
 
 [[package]]
@@ -6455,36 +6372,19 @@ name = "nurt-sched"
 version = "0.1.0"
 dependencies = [
  "croner",
- "hex",
- "indexmap",
  "jiff 1.0.2",
  "nurt-contracts",
  "nurt-types",
- "serde",
- "serde_json",
- "serde_json_canonicalizer",
- "sha2 0.11.1",
- "tempfile",
 ]
 
 [[package]]
 name = "nurt-service"
 version = "0.1.0"
 dependencies = [
- "fs4",
- "jiff 1.0.2",
- "libc",
- "nix 0.32.0",
  "nurt-contracts",
  "nurt-sched",
- "plist",
- "serde",
- "serde_json",
- "tempfile",
- "windows",
+ "nurt-space",
  "windows-service",
- "windows-sys 0.61.2",
- "zbus",
 ]
 
 [[package]]
@@ -6517,39 +6417,16 @@ dependencies = [
 name = "nurt-sys"
 version = "0.1.0"
 dependencies = [
- "bzip2",
  "core-foundation 0.10.1",
- "flate2",
- "globset",
- "indexmap",
- "jiff 1.0.2",
- "libc",
- "liblzma",
- "lz4_flex",
  "netstat2",
- "nix 0.32.0",
  "nurt-contracts",
  "nurt-syslog",
  "nurt-types",
- "plist",
- "proptest",
- "quick-xml",
- "regex",
- "rusqlite",
- "rustix",
- "serde",
- "serde_json",
  "sysinfo",
- "tar",
- "tempfile",
- "thiserror 2.0.21",
- "toml",
- "which",
  "windows",
  "windows-sys 0.61.2",
  "wmi",
  "zbus",
- "zstd",
 ]
 
 [[package]]
@@ -6557,11 +6434,6 @@ name = "nurt-syslog"
 version = "0.1.0"
 dependencies = [
  "block2",
- "globset",
- "indexmap",
- "jiff 1.0.2",
- "libc",
- "lz4_flex",
  "lzma-rust2",
  "macos-unifiedlogs",
  "nurt-contracts",
@@ -6569,30 +6441,17 @@ dependencies = [
  "objc2",
  "objc2-foundation",
  "objc2-os-log",
- "proptest",
- "quick-xml",
- "regex",
- "serde",
- "serde_json",
  "siphasher",
- "tempfile",
- "thiserror 2.0.21",
- "windows",
- "zstd",
 ]
 
 [[package]]
 name = "nurt-testkit"
 version = "0.1.0"
 dependencies = [
- "base64 0.23.1",
- "jiff 1.0.2",
  "nurt-contracts",
  "serde",
  "serde_json",
  "tempfile",
- "toml",
- "unicode-normalization",
 ]
 
 [[package]]
@@ -6624,29 +6483,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "nurt-tooldef"
-version = "0.1.0"
-dependencies = [
- "jsonschema",
- "nurt-contracts",
- "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "nurt-types"
 version = "0.1.0"
 dependencies = [
  "camino",
- "fastrand",
  "jiff 1.0.2",
  "nurt-contracts",
  "proptest",
- "regex",
  "serde",
- "serde_json",
- "url",
- "uuid",
 ]
 
 [[package]]
@@ -7508,24 +7352,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pulldown-cmark"
-version = "0.13.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3db2be46835f013dd3f4fa7f5f7402c537787b54ebb6fe2b94bbdd7e2669bb7b"
-dependencies = [
- "bitflags 2.13.2",
- "memchr",
- "pulldown-cmark-escape",
- "unicase",
-]
-
-[[package]]
-name = "pulldown-cmark-escape"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "007d8adb5ddab6f8e3f491ac63566a7d5002cc7ed73901f72057943fa71ae1ae"
-
-[[package]]
 name = "pulley-interpreter"
 version = "51.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7582,7 +7408,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41b1177fdf999d2321d3fb46ff47159d9c1fb9ad66a4879f8c50a0b504615e9b"
 dependencies = [
  "memchr",
- "serde",
 ]
 
 [[package]]
@@ -9592,16 +9417,6 @@ dependencies = [
  "regex",
  "serde_json",
  "streaming-iterator",
- "tree-sitter-language",
-]
-
-[[package]]
-name = "tree-sitter-html"
-version = "0.23.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "261b708e5d92061ede329babaaa427b819329a9d427a1d710abb0f67bbef63ee"
-dependencies = [
- "cc",
  "tree-sitter-language",
 ]
 

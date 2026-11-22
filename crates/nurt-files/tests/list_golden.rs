@@ -8,6 +8,7 @@
 #![allow(clippy::expect_used)]
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use nurt_contracts::record::{Entry, EntryType};
 use nurt_contracts::stage::{ArgValue, BoundArgs, RenderHint, StageImpl, StageInput};
@@ -150,4 +151,30 @@ fn example_shows_directory_totals_largest_first() {
     assert_eq!(entries[1].total_size, Some(Size::from_bytes(13 + 13)));
     assert_eq!(entries[1].file_count, Some(2));
     assert_eq!(entries[2].total_size, None);
+}
+
+#[test]
+fn example_lists_files_most_recently_modified_first() {
+    let test = application();
+    test.clock().advance(Duration::from_secs(5));
+    test.fs()
+        .write_file(
+            &test_path("/home/user/app/src/version.go").expect("test paths are absolute"),
+            b"package main\n",
+        )
+        .expect("the virtual file system accepts the file");
+    let (entries, render) = run(
+        &test,
+        &list(
+            "/home/user/app/src",
+            &[
+                ("type", choice("file")),
+                ("sort", choice("modified")),
+                ("order", choice("desc")),
+            ],
+        ),
+    );
+    assert_eq!(render, None);
+    assert_eq!(relatives(&entries), ["version.go", "main.go"]);
+    assert!(entries.iter().all(|entry| entry.kind == EntryType::File));
 }

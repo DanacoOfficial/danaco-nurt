@@ -173,6 +173,17 @@ fn missing_pattern_with_on_missing_error_lists_nearest_fragments() {
 }
 
 #[test]
+fn missing_occurrence_is_out_of_range() {
+    let change = ReplaceChange {
+        occurrence: NonZeroUsize::new(3),
+        on_missing: Some(OnMissing::Error),
+        ..literal("a", "b")
+    };
+    let error = error_of(replace("a a", change));
+    assert_eq!(error.code(), ErrorCode::OutOfRange);
+}
+
+#[test]
 fn on_missing_of_the_edit_applies_to_changes_without_own_value() {
     let options = EditOptions {
         on_missing: OnMissing::Error,
@@ -569,7 +580,7 @@ fn insertion_outside_the_text_is_rejected() {
                 lines: 2
             }
         );
-        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert_eq!(error.code(), ErrorCode::OutOfRange);
     }
 }
 

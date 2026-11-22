@@ -277,14 +277,16 @@ pub enum MatchError {
 
 impl MatchError {
     /// Error code: `E_INVALID_VALUE` for an empty pattern, `E_LIMIT` for a
-    /// pattern too large, `E_NO_MATCH` for a missing match or occurrence and
+    /// pattern too large, `E_NO_MATCH` for a missing match,
+    /// `E_OUT_OF_RANGE` for an occurrence above the number of matches and
     /// `E_ASSERT` for a number of matches outside `expect`.
     #[must_use]
     pub fn code(&self) -> ErrorCode {
         match self {
             Self::EmptyPattern => ErrorCode::InvalidValue,
             Self::PatternTooLarge => ErrorCode::Limit,
-            Self::NoMatch { .. } | Self::OccurrenceMissing { .. } => ErrorCode::NoMatch,
+            Self::NoMatch { .. } => ErrorCode::NoMatch,
+            Self::OccurrenceMissing { .. } => ErrorCode::OutOfRange,
             Self::CountMismatch { .. } => ErrorCode::Assert,
         }
     }
@@ -1384,7 +1386,7 @@ mod tests {
             ..Selection::default()
         };
         let error = select(text, "x", matches, &selection).unwrap_err();
-        assert_eq!(error.code(), ErrorCode::NoMatch);
+        assert_eq!(error.code(), ErrorCode::OutOfRange);
         let MatchError::OccurrenceMissing {
             found, candidates, ..
         } = &error

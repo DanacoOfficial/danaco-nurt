@@ -49,8 +49,7 @@ Before comparison both results are converted to the same form: UTF-8 text, line 
 | Ignore files | not applied by default (`gitignore: false`) | applied by default |
 | Name form | Unicode normalization form C | bytes as stored |
 | Binary files | skipped with a count | searched or reported as binary |
-
-| Patch that empties a file, new side stamped with the epoch | file kept, empty | file removed by `patch` |
+| Diff without git headers that empties a file, new side stamped with the epoch | the `patch` command removes the file; the library `nurt_text::patch` plans the file as kept and empty | file removed by `patch` |
 | Hunk at the start of a file when the target gained leading lines | hunk placed by offset search | `patch` may report a rejected hunk |
 
 ## Test files
@@ -68,4 +67,4 @@ Before comparison both results are converted to the same form: UTF-8 text, line 
 
 Ignored tests run with `--ignored`; the corpus directory is set with `NURT_PERF_DIR`.
 
-A test that depends on an intended difference asserts the difference itself, not only the equal part.
+A test that depends on an intended difference asserts the difference itself, not only the equal part. `differential_patch.rs` compares the library `nurt_text::patch`, so it asserts the empty file; the `patch` command removes such a file when it turns the plan into file operations, as the reference does.

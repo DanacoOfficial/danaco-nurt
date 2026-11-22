@@ -1,14 +1,16 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+use std::borrow::Cow;
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use globset::{Candidate, GlobBuilder, GlobSet, GlobSetBuilder};
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{FileKind, FileMeta};
 use nurt_contracts::services::ExcludePreset;
+use unicode_normalization::{UnicodeNormalization, is_nfc};
 
 use super::KindFilter;
 
@@ -98,13 +100,22 @@ pub(super) fn kind_matches(filter: KindFilter, kind: FileKind, target: Option<Fi
     }
 }
 
-pub(super) fn compile_globs(patterns: &[String], case_sensitive: bool) -> Result<Option<GlobSet>> {
+/// Compiles glob patterns into one set: `*` and `?` do not match `/`, `\`
+/// escapes, letter case as `case_sensitive`. Patterns are compiled in NFC,
+/// the form [`glob_matches`] gives the paths.
+///
+/// # Errors
+///
+/// Fails with `E_INVALID_VALUE` for a pattern that is not valid; `found`
+/// holds the pattern as given.
+pub(crate) fn compile_globs(patterns: &[String], case_sensitive: bool) -> Result<Option<GlobSet>> {
     if patterns.is_empty() {
         return Ok(None);
     }
     let mut builder = GlobSetBuilder::new();
     for pattern in patterns {
-        let glob = GlobBuilder::new(pattern)
+        let composed = nfc_text(pattern);
+        let glob = GlobBuilder::new(&composed)
             .literal_separator(true)
             .backslash_escape(true)
             .case_insensitive(!case_sensitive)
@@ -119,7 +130,8 @@ pub(super) fn compile_globs(patterns: &[String], case_sensitive: bool) -> Result
 }
 
 /// Compiles exclusion patterns into one matcher rooted at the empty path, so
-/// that it matches paths relative to any root.
+/// that it matches paths relative to any root. Patterns are compiled in NFC,
+/// the form [`excluded_by_patterns`] gives the paths.
 pub(super) fn compile_exclude(
     patterns: &[String],
     case_sensitive: bool,
@@ -133,7 +145,7 @@ pub(super) fn compile_exclude(
         .map_err(|error| invalid_pattern("exclude pattern", "", &error.to_string()))?;
     for pattern in patterns {
         builder
-            .add_line(None, pattern)
+            .add_line(None, &nfc_text(pattern))
             .map_err(|error| invalid_pattern("exclude pattern", pattern, &error.to_string()))?;
     }
     builder.build().map(Some).map_err(|error| {
@@ -141,16 +153,41 @@ pub(super) fn compile_exclude(
     })
 }
 
+/// Whether an exclusion pattern excludes the relative path, compared in NFC.
 pub(super) fn excluded_by_patterns(
     exclude: Option<&Gitignore>,
     relative: &Path,
     is_dir: bool,
 ) -> bool {
-    exclude.is_some_and(|matcher| matcher.matched(relative, is_dir).is_ignore())
+    exclude.is_some_and(|matcher| matcher.matched(&*nfc_path(relative), is_dir).is_ignore())
 }
 
-pub(super) fn glob_matches(globs: Option<&GlobSet>, relative: &Path) -> bool {
-    globs.is_none_or(|set| set.is_match_candidate(&Candidate::new(relative)))
+/// Whether the relative path matches one of the globs, compared in NFC;
+/// `None` matches every path.
+pub(crate) fn glob_matches(globs: Option<&GlobSet>, relative: &Path) -> bool {
+    globs.is_none_or(|set| {
+        let composed = nfc_path(relative);
+        set.is_match_candidate(&Candidate::new(&*composed))
+    })
+}
+
+/// Text in Unicode normalization form C; borrowed when already composed.
+pub(super) fn nfc_text(text: &str) -> Cow<'_, str> {
+    if is_nfc(text) {
+        Cow::Borrowed(text)
+    } else {
+        Cow::Owned(text.nfc().collect())
+    }
+}
+
+/// Path in Unicode normalization form C, so that names stored decomposed,
+/// as on macOS volumes, match patterns written composed. A path that is not
+/// valid Unicode is returned unchanged.
+pub(super) fn nfc_path(path: &Path) -> Cow<'_, Path> {
+    match path.to_str() {
+        Some(text) if !is_nfc(text) => Cow::Owned(PathBuf::from(text.nfc().collect::<String>())),
+        _ => Cow::Borrowed(path),
+    }
 }
 
 fn invalid_pattern(what: &str, pattern: &str, reason: &str) -> Error {
@@ -212,6 +249,59 @@ mod tests {
         let error = compile_globs(&["[a-".to_owned()], true).expect_err("pattern is invalid");
         assert_eq!(error.code(), ErrorCode::InvalidValue);
         assert_eq!(error.found.as_deref(), Some("[a-"));
+    }
+
+    #[test]
+    fn invalid_decomposed_glob_reports_pattern_as_given() {
+        let given = "e\u{301}[a-";
+        let error = compile_globs(&[given.to_owned()], true).expect_err("pattern is invalid");
+        assert_eq!(error.found.as_deref(), Some(given));
+    }
+
+    #[test]
+    fn decomposed_names_match_composed_globs() {
+        let set = globs(&["caf\u{e9}.txt", "r\u{e9}sum\u{e9}/*"], true);
+        assert!(glob_matches(Some(&set), Path::new("cafe\u{301}.txt")));
+        assert!(glob_matches(
+            Some(&set),
+            &Path::new("re\u{301}sume\u{301}").join("cv.txt")
+        ));
+        assert!(glob_matches(Some(&set), Path::new("caf\u{e9}.txt")));
+        assert!(!glob_matches(Some(&set), Path::new("cafe.txt")));
+    }
+
+    #[test]
+    fn composed_names_match_decomposed_globs() {
+        let set = globs(&["cafe\u{301}.*"], true);
+        assert!(glob_matches(Some(&set), Path::new("caf\u{e9}.md")));
+        assert!(glob_matches(Some(&set), Path::new("cafe\u{301}.md")));
+    }
+
+    #[test]
+    fn decomposed_names_match_composed_exclusions() {
+        let patterns = vec!["caf\u{e9}/".to_owned(), "*.\u{e9}t\u{e9}".to_owned()];
+        let matcher = compile_exclude(&patterns, true).expect("compiles");
+        assert!(excluded_by_patterns(
+            matcher.as_ref(),
+            Path::new("cafe\u{301}"),
+            true
+        ));
+        assert!(excluded_by_patterns(
+            matcher.as_ref(),
+            Path::new("notes.e\u{301}te\u{301}"),
+            false
+        ));
+        assert!(!excluded_by_patterns(
+            matcher.as_ref(),
+            Path::new("cafe"),
+            true
+        ));
+        let decomposed = compile_exclude(&["cafe\u{301}.log".to_owned()], true).expect("compiles");
+        assert!(excluded_by_patterns(
+            decomposed.as_ref(),
+            Path::new("caf\u{e9}.log"),
+            false
+        ));
     }
 
     #[test]

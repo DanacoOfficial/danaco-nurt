@@ -101,7 +101,7 @@ impl PdfError {
         match self {
             Self::Encrypted => ErrorCode::Encrypted,
             Self::Malformed { .. } => ErrorCode::Format,
-            Self::PageOutOfRange { .. } => ErrorCode::InvalidValue,
+            Self::PageOutOfRange { .. } => ErrorCode::OutOfRange,
         }
     }
 
@@ -788,7 +788,7 @@ mod tests {
             error.to_string(),
             "page 4 is outside the document; use pages 1 to 3"
         );
-        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert_eq!(error.code(), ErrorCode::OutOfRange);
         assert!(document.page_range(0..=1).is_err());
         assert!(document.page_text(9, PdfTextMode::Text).is_err());
     }

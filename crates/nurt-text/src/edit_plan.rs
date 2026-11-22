@@ -278,8 +278,8 @@ pub enum EditError {
 impl EditError {
     /// Error code: the code of the source for [`EditError::Match`],
     /// `E_REGEX` for a template, `E_LIMIT` for the backtracking limit,
-    /// `E_INVALID_VALUE` for a line outside the text and for overlapping
-    /// changes, `E_MISSING_PARAM` for a missing line and `E_ASSERT` for a
+    /// `E_OUT_OF_RANGE` for a line outside the text, `E_INVALID_VALUE` for
+    /// overlapping changes, `E_MISSING_PARAM` for a missing line and `E_ASSERT` for a
     /// total outside `expect`.
     #[must_use]
     pub fn code(&self) -> ErrorCode {
@@ -287,7 +287,8 @@ impl EditError {
             Self::Match { source, .. } => source.code(),
             Self::Template { source, .. } => source.code(),
             Self::BacktrackLimit { .. } => ErrorCode::Limit,
-            Self::LineOutOfRange { .. } | Self::Conflict { .. } => ErrorCode::InvalidValue,
+            Self::LineOutOfRange { .. } => ErrorCode::OutOfRange,
+            Self::Conflict { .. } => ErrorCode::InvalidValue,
             Self::MissingLine { .. } => ErrorCode::MissingParam,
             Self::TotalMismatch { .. } => ErrorCode::Assert,
         }

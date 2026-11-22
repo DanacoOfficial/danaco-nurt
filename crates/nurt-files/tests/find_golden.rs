@@ -163,3 +163,33 @@ fn example_yields_one_entry_for_one_path() {
     );
     assert_eq!(missing.err(), Some(ErrorCode::NotFound));
 }
+
+#[test]
+fn example_matches_a_decomposed_name_by_its_composed_form() {
+    let test = TestContext::new();
+    for path in [
+        "/home/user/notes/2026/cafe\u{301}.md",
+        "/home/user/notes/2026/cafe.md",
+    ] {
+        test.fs()
+            .write_file(&test_path(path).expect("test paths are absolute"), b"\n")
+            .expect("the virtual file system accepts the file");
+    }
+    let entries = run(
+        &test,
+        &find(
+            "/home/user/notes",
+            &[("glob", Value::Glob("**/caf\u{e9}.md".to_owned()))],
+        ),
+    )
+    .expect("the example runs");
+    assert_eq!(relatives(&entries), ["2026/caf\u{e9}.md"]);
+    assert_eq!(entries[0].name, "caf\u{e9}.md");
+    assert_eq!(
+        entries[0]
+            .raw_name
+            .as_ref()
+            .map(|raw| raw.as_slice().to_vec()),
+        Some("cafe\u{301}.md".as_bytes().to_vec())
+    );
+}

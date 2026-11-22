@@ -25,7 +25,7 @@ use std::ops::ControlFlow;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
-use globset::{Candidate, GlobSet};
+use globset::GlobSet;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{AbsPath, FileId, FileKind, FileMeta, Follow, Fs, FsError, FsErrorKind};
 use nurt_contracts::record::{Entry, EntryType};
@@ -37,6 +37,7 @@ use nurt_contracts::stage::{
 use nurt_contracts::value::{Record, Size, Value};
 use unicode_normalization::UnicodeNormalization;
 
+use super::file_types::TypeFilter;
 use crate::common::entry::{entry_record, link_type};
 use crate::common::params::{WalkFilters, walk_filters};
 use crate::common::path::{path_arg, path_field};
@@ -255,30 +256,6 @@ impl SortSpec {
     }
 }
 
-/// File names selected by `file_type`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct NameFilter {
-    extensions: Vec<&'static str>,
-    names: Vec<&'static str>,
-}
-
-impl NameFilter {
-    /// Files with one of the extensions, compared without regard to ASCII
-    /// case, or with one of the names.
-    pub(crate) fn new(extensions: Vec<&'static str>, names: Vec<&'static str>) -> Self {
-        Self { extensions, names }
-    }
-
-    fn matches(&self, record: &Entry) -> bool {
-        self.names.contains(&record.name.as_str())
-            || record.extension.as_deref().is_some_and(|extension| {
-                self.extensions
-                    .iter()
-                    .any(|wanted| wanted.eq_ignore_ascii_case(extension))
-            })
-    }
-}
-
 /// Which walked entries become records.
 ///
 /// The walker applies the depth range, the kind and the globs itself except
@@ -294,30 +271,28 @@ pub(crate) struct Selection {
     pub(crate) kind: KindFilter,
     /// Globs of `view: sizes`; `None` matches every entry.
     pub(crate) globs: Option<GlobSet>,
-    /// File names of `file_type`.
-    pub(crate) names: Option<NameFilter>,
+    /// File types of `file_type`, matched against the NFC name.
+    pub(crate) names: Option<TypeFilter>,
     /// Query of `fuzzy`.
     pub(crate) fuzzy: Option<FuzzyQuery>,
 }
 
 impl Selection {
     fn walked(&self, entry: &walk::Entry) -> bool {
+        let target = if entry.depth == 0 {
+            Path::new(&entry.name)
+        } else {
+            entry.relative.as_path()
+        };
         entry.depth >= self.min_depth
             && self.max_depth.is_none_or(|max| entry.depth <= max)
             && kind_matches(self.kind, entry)
-            && self.globs.as_ref().is_none_or(|set| {
-                let target = if entry.depth == 0 {
-                    Path::new(&entry.name)
-                } else {
-                    entry.relative.as_path()
-                };
-                set.is_match_candidate(&Candidate::new(target))
-            })
+            && walk::glob_matches(self.globs.as_ref(), target)
     }
 
     fn ranked(&self, mut record: Entry) -> Option<Entry> {
         if let Some(names) = &self.names
-            && (record.kind != EntryType::File || !names.matches(&record))
+            && (record.kind != EntryType::File || !names.accepts(&record.name))
         {
             return None;
         }
@@ -1401,6 +1376,27 @@ mod tests {
         assert_eq!(listed.notes.len(), 1);
         assert_eq!(listed.notes[0].code, Notable::NfdName);
         assert_eq!(listed.notes[0].count, Some(1));
+    }
+
+    #[test]
+    fn exclusions_match_decomposed_names_in_composed_form() {
+        let test = TestContext::new();
+        test.fs()
+            .write_file(&abs("/data/cafe\u{301}.txt"), b"")
+            .unwrap();
+        test.fs().write_file(&abs("/data/tea.txt"), b"").unwrap();
+        let listed = run(
+            &test,
+            &args(
+                "/data",
+                &[(
+                    "exclude",
+                    Value::List(vec![Value::Glob("caf\u{e9}.txt".to_owned())]),
+                )],
+            ),
+        )
+        .unwrap();
+        assert_eq!(relatives(&listed), ["tea.txt"]);
     }
 
     #[test]
