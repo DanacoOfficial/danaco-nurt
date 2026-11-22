@@ -39,11 +39,6 @@ pub const SUITE_SCHEMAS: &[(&str, &str)] = &[
     ("conformance-report", CONFORMANCE_REPORT),
 ];
 
-/// Member of a snapshot that only the suite knows: whether the snapshot
-/// describes the whole tree. It is removed before validation against the
-/// published schema.
-const EXHAUSTIVE: &str = "exhaustive";
-
 /// Compiled validators of the published schemas.
 pub struct SchemaSet {
     documents: BTreeMap<&'static str, Value>,
@@ -204,7 +199,6 @@ impl SchemaSet {
     pub fn validate_snapshot(&self, snapshot: &Value) -> Result<(), Vec<String>> {
         let mut document = snapshot.clone();
         if let Some(members) = document.as_object_mut() {
-            members.remove(EXHAUSTIVE);
             members
                 .entry("format")
                 .or_insert_with(|| json!(snapshot::FORMAT));
