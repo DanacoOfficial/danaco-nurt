@@ -275,6 +275,21 @@ mod tests {
     }
 
     #[test]
+    fn copies_file_consisting_of_one_hole() {
+        let dir = tempfile::tempdir().expect("directory");
+        let source = dir.path().join("hole");
+        let length = 3 * FALLBACK_BUFFER;
+        File::create(&source)
+            .expect("source")
+            .set_len(length as u64)
+            .expect("length");
+        let target = dir.path().join("target");
+        let copied = copy_file(&source, &target).expect("copy");
+        assert_eq!(copied, length as u64);
+        assert_eq!(fs::read(&target).expect("target"), vec![0; length]);
+    }
+
+    #[test]
     fn failed_copy_reports_missing_source_and_leaves_no_destination() {
         let dir = tempfile::tempdir().expect("directory");
         let target = dir.path().join("target");

@@ -1414,6 +1414,61 @@ fn reports_enforced_user_quota() {
 }
 
 #[test]
+fn lists_sockets_as_special_entries() {
+    let fixture = Fixture::new();
+    let socket = fixture.path("socket");
+    let _listener = std::os::unix::net::UnixListener::bind(&socket).expect("socket");
+    let entries: Vec<_> = fixture
+        .fs
+        .read_dir(&fixture.root)
+        .expect("listing")
+        .map(|entry| entry.expect("entry"))
+        .map(|entry| (entry.name.to_string_lossy().into_owned(), entry.kind))
+        .collect();
+    assert_eq!(entries, [("socket".to_owned(), Some(FileKind::Special))]);
+}
+
+#[test]
+fn restore_meta_and_lock_report_missing_entries() {
+    let fixture = Fixture::new();
+    let meta = fixture
+        .fs
+        .extended_metadata(&fixture.root, Follow::NoFollow)
+        .expect("metadata");
+    let error = fixture
+        .fs
+        .restore_meta(&fixture.scope, &fixture.path("missing"), &meta)
+        .expect_err("missing entry");
+    assert_eq!(error.kind, FsErrorKind::NotFound);
+    let lock = fixture.path("missing").join_name("lock").expect("name");
+    let error = fixture
+        .fs
+        .lock_exclusive(&lock, Duration::ZERO)
+        .err()
+        .expect("missing directory");
+    assert_eq!(error.kind, FsErrorKind::NotFound);
+}
+
+#[test]
+fn remove_tree_stops_at_unreadable_subdirectory() {
+    if privileged() {
+        return;
+    }
+    let fixture = Fixture::new();
+    let tree = fixture.dir("tree");
+    let locked = tree.join_name("locked").expect("name");
+    fs::create_dir(&locked).expect("locked directory");
+    fs::write(locked.join_name("kept").expect("name"), b"x").expect("file");
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).expect("mode");
+    let result = fixture.fs.remove_tree(&fixture.scope, &tree, 1);
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o700)).expect("mode");
+    let error = result.expect_err("unreadable directory");
+    assert_eq!(error.kind, FsErrorKind::PermissionDenied);
+    assert_eq!(error.path.as_deref(), Some(locked.as_path()));
+    assert!(locked.as_path().join("kept").exists());
+}
+
+#[test]
 fn path_keys_are_raw_bytes_on_case_sensitive_volumes() {
     let fixture = Fixture::new();
     let upper = fixture.path("Name");

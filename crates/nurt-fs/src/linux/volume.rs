@@ -475,16 +475,47 @@ mod tests {
     #[test]
     fn reads_no_subvolume_without_descriptor_or_btrfs() {
         let dir = tempfile::tempdir().expect("directory");
-        let (_, stat) = nearest_existing(dir.path()).expect("directory");
+        let (_, mut stat) = nearest_existing(dir.path()).expect("directory");
+        stat.stx_mask &= !STATX_SUBVOL.bits();
         let fd = open_any(dir.path(), FileKind::Directory).expect("open");
-        let fs_type = mount_entry(dir.path()).map(|entry| entry.fs_type);
-        if fs_type.as_deref().is_ok_and(|fs_type| fs_type != "xfs") {
-            assert!(!xfs_reflink(fd.as_fd()));
-        }
-        if !StatxFlags::from_bits_retain(stat.stx_mask).contains(STATX_SUBVOL) {
-            assert_eq!(btrfs_subvolume(&stat, None), 0);
-            assert_eq!(btrfs_subvolume(&stat, Some(fd.as_fd())), 0);
-        }
+        let fs_type = mount_entry(dir.path())
+            .map(|entry| entry.fs_type)
+            .unwrap_or_default();
+        assert!(fs_type == "xfs" || !xfs_reflink(fd.as_fd()), "{fs_type}");
+        assert_eq!(btrfs_subvolume(&stat, None), 0);
+        let subvolume = btrfs_subvolume(&stat, Some(fd.as_fd()));
+        assert!(fs_type == "btrfs" || subvolume == 0, "{fs_type}");
         assert!(open_any(Path::new("/dev/null"), FileKind::Special).is_none());
+    }
+
+    #[test]
+    fn nearest_existing_reports_paths_without_ancestor_and_overlong_names() {
+        let error = nearest_existing(Path::new("nurt-missing-relative/child"))
+            .expect_err("no existing ancestor");
+        assert_eq!(error.kind, FsErrorKind::NotFound);
+        let dir = tempfile::tempdir().expect("directory");
+        let error = nearest_existing(&dir.path().join("n".repeat(300))).expect_err("overlong name");
+        assert_eq!(error.kind, FsErrorKind::NameTooLong);
+    }
+
+    #[test]
+    fn finds_mount_by_device_without_mount_identifier() {
+        let dir = tempfile::tempdir().expect("directory");
+        let (existing, mut stat) = nearest_existing(dir.path()).expect("directory");
+        let table = read_mount_table().expect("mount table");
+        stat.stx_mask &= !StatxFlags::MNT_ID.bits();
+        let entry = find_mount(&table, &existing, &stat).expect("mount by device");
+        let mount = Path::new(OsStr::from_bytes(&entry.mount_point));
+        let real = fs::canonicalize(dir.path()).expect("real path");
+        assert!(real.starts_with(mount), "{}", real.display());
+    }
+
+    #[test]
+    fn reports_subvolume_from_statx_when_the_kernel_provides_it() {
+        let dir = tempfile::tempdir().expect("directory");
+        let (_, mut stat) = nearest_existing(dir.path()).expect("directory");
+        stat.stx_mask |= STATX_SUBVOL.bits();
+        stat.stx_subvol = 42;
+        assert_eq!(btrfs_subvolume(&stat, None), 42);
     }
 }

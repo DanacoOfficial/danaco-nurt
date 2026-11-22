@@ -574,7 +574,143 @@ fn flags_from_u64(flags: u64) -> IFlags {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::os::unix::fs::{MetadataExt, symlink};
+    use std::path::PathBuf;
+
+    use nurt_contracts::fs::MetaChange;
+    use tempfile::TempDir;
+
     use super::*;
+
+    /// Temporary directory with the file `file` holding `content`.
+    fn temp_file() -> (TempDir, PathBuf) {
+        let dir = tempfile::tempdir().expect("directory");
+        let path = dir.path().join("file");
+        fs::write(&path, b"content").expect("file");
+        (dir, path)
+    }
+
+    #[test]
+    fn stat_fallback_describes_entries_like_statx() {
+        let (_dir, path) = temp_file();
+        let mut expected = stat_at(CWD, &path, Follow::NoFollow, "metadata", &path).expect("statx");
+        expected.created_ns = None;
+        let stat = rustix::fs::lstat(&path).expect("stat");
+        assert_eq!(meta_from_stat(&stat), expected);
+    }
+
+    #[test]
+    fn followed_path_target_changes_the_entry_behind_a_link() {
+        let (dir, path) = temp_file();
+        let link = dir.path().join("link");
+        symlink(&path, &link).expect("link");
+        let target = Target::Path {
+            path: &link,
+            follow: true,
+        };
+        let stat = target.statx().expect("statx");
+        assert_eq!(kind_from_mode(u32::from(stat.stx_mode)), FileKind::File);
+        let own = fs::metadata(&path).expect("metadata");
+        assert_eq!(target.chown(Some(own.uid()), Some(own.gid())), Ok(()));
+        assert_eq!(target.set_times(None, Some(1_000_000_000)), Ok(()));
+        assert_eq!(fs::metadata(&path).expect("metadata").mtime(), 1);
+        assert_ne!(fs::symlink_metadata(&link).expect("link").mtime(), 1);
+
+        let name = OsStr::new("user.nurt-test");
+        match target.set_xattr(name, b"1") {
+            Err(Errno::NOTSUP) => return,
+            result => assert_eq!(result, Ok(())),
+        }
+        assert_eq!(target.get_xattr(name), Ok(b"1".to_vec()));
+        let names = target.list_xattr_names().expect("names");
+        assert!(
+            names
+                .split(|byte| *byte == 0)
+                .any(|listed| listed == name.as_bytes())
+        );
+        assert_eq!(target.remove_xattr(name), Ok(()));
+        let own_entry = Target::Path {
+            path: &path,
+            follow: false,
+        };
+        assert_eq!(own_entry.get_xattr(name), Err(Errno::NODATA));
+    }
+
+    #[test]
+    fn reports_missing_entries_and_unusable_descriptors() {
+        let dir = tempfile::tempdir().expect("directory");
+        let missing = dir.path().join("missing");
+        let target = Target::Path {
+            path: &missing,
+            follow: false,
+        };
+        let error = read_xattrs(target, "extended_metadata", &missing).expect_err("missing");
+        assert_eq!(error.kind, FsErrorKind::NotFound);
+        let change = MetaChange {
+            modified_ns: Some(1),
+            ..MetaChange::default()
+        };
+        let error = set_meta(target, &change, &missing).expect_err("missing");
+        assert_eq!(error.kind, FsErrorKind::NotFound);
+
+        let location = rustix::fs::open(dir.path(), OFlags::PATH | OFlags::CLOEXEC, Mode::empty())
+            .expect("path descriptor");
+        let error = read_flags(location.as_fd(), "extended_metadata", dir.path())
+            .expect_err("descriptor without file access");
+        assert_eq!(error.os_code, Some(Errno::BADF.raw_os_error()));
+        let status = Path::new("/proc/self/status");
+        let pseudo = rustix::fs::open(status, OFlags::RDONLY | OFlags::CLOEXEC, Mode::empty())
+            .expect("procfs file");
+        let flags = read_flags(pseudo.as_fd(), "extended_metadata", status).expect("no flags");
+        assert_eq!(flags, None);
+        assert!(open_for_flags(Path::new("/dev/null"), FileKind::Special, true).is_none());
+    }
+
+    #[test]
+    fn transfer_without_flag_descriptor_reports_requested_flags() {
+        let (_dir, path) = temp_file();
+        let mut wanted = extended_metadata(&path, Follow::NoFollow).expect("metadata");
+        wanted.flags = Some(0);
+        let report = Transfer {
+            target: Target::Path {
+                path: &path,
+                follow: false,
+            },
+            flags_fd: None,
+            symlink: false,
+            report: &path,
+        }
+        .apply(&wanted)
+        .expect("transfer");
+        assert_eq!(report.not_transferred, ["flags"]);
+    }
+
+    #[test]
+    fn transfer_to_entry_of_another_account_reports_mode_and_times() {
+        let null = Path::new("/dev/null");
+        let Ok(device) = fs::metadata(null) else {
+            return;
+        };
+        let account = rustix::process::geteuid();
+        if account.is_root() || device.uid() == account.as_raw() {
+            return;
+        }
+        let mut wanted = extended_metadata(null, Follow::Follow).expect("metadata");
+        wanted.basic.mode ^= 0o001;
+        let report = Transfer {
+            target: Target::Path {
+                path: null,
+                follow: true,
+            },
+            flags_fd: None,
+            symlink: false,
+            report: null,
+        }
+        .apply(&wanted)
+        .expect("transfer");
+        assert_eq!(report.not_transferred, ["mode", "times"]);
+    }
 
     #[test]
     fn names_transfer_elements_of_attributes() {
