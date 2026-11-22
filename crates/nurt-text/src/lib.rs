@@ -12,9 +12,11 @@
 #![forbid(unsafe_code)]
 
 pub mod codec;
+pub mod diff;
 pub mod edit_plan;
 pub mod eol;
 pub mod fuzzy_match;
 pub mod hash;
+pub mod patch;
 pub mod search;
 pub mod template;

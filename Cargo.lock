@@ -5344,6 +5344,7 @@ dependencies = [
  "sha1",
  "sha2 0.11.1",
  "similar",
+ "tempfile",
  "unicode-normalization",
  "unicode-width 0.2.3",
 ]
