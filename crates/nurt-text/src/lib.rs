@@ -16,4 +16,5 @@ pub mod edit_plan;
 pub mod eol;
 pub mod fuzzy_match;
 pub mod hash;
+pub mod search;
 pub mod template;
