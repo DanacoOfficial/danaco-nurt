@@ -12,7 +12,7 @@ use nurt_contracts::fs::{
     ReadHandle, WriteHandle,
 };
 
-use super::meta::{Transfer, Target, stat_fd};
+use super::meta::{Target, Transfer, stat_fd};
 use super::sys::{retry, sys_error};
 
 /// File opened for reading.

@@ -369,21 +369,20 @@ impl Iterator for DirEntries {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let data = match self.pending.take() {
-                Some(data) => data,
-                None => {
-                    let handle = self.handle.as_ref()?;
-                    let mut data = Box::new(WIN32_FIND_DATAW::default());
-                    // SAFETY: the search handle is open and `data` is a
-                    // writable `WIN32_FIND_DATAW`.
-                    let ok = unsafe { FindNextFileW(handle.0, &raw mut *data) };
-                    if ok == 0 {
-                        let code = last_error();
-                        self.handle = None;
-                        return (code != ERROR_NO_MORE_FILES).then_some(Err(code));
-                    }
-                    data
+            let data = if let Some(data) = self.pending.take() {
+                data
+            } else {
+                let handle = self.handle.as_ref()?;
+                let mut data = Box::new(WIN32_FIND_DATAW::default());
+                // SAFETY: the search handle is open and `data` is a
+                // writable `WIN32_FIND_DATAW`.
+                let ok = unsafe { FindNextFileW(handle.0, &raw mut *data) };
+                if ok == 0 {
+                    let code = last_error();
+                    self.handle = None;
+                    return (code != ERROR_NO_MORE_FILES).then_some(Err(code));
                 }
+                data
             };
             let name = until_nul(&data.cFileName);
             if name == [DOT] || name == [DOT, DOT] {

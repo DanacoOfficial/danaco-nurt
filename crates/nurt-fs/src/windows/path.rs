@@ -34,6 +34,7 @@ fn wide(text: &str) -> Vec<u16> {
 }
 
 /// Encodes text as UTF-16 followed by a terminating zero.
+#[must_use]
 pub fn nul_terminated(text: &str) -> Vec<u16> {
     let mut out = wide(text);
     out.push(ZERO);
@@ -41,6 +42,7 @@ pub fn nul_terminated(text: &str) -> Vec<u16> {
 }
 
 /// Returns the code units before the first zero, or the whole slice.
+#[must_use]
 pub fn until_nul(units: &[u16]) -> &[u16] {
     let end = units
         .iter()
@@ -100,6 +102,7 @@ fn push_components(out: &mut Vec<u16>, rest: &[u16]) -> Option<()> {
 /// let verbatim = verbatim_wide(&input).unwrap();
 /// assert_eq!(String::from_utf16_lossy(&verbatim), r"\\?\UNC\server\share\dir");
 /// ```
+#[must_use]
 pub fn verbatim_wide(path: &[u16]) -> Option<Vec<u16>> {
     if path.contains(&ZERO) {
         return None;
@@ -144,6 +147,7 @@ pub fn verbatim_wide(path: &[u16]) -> Option<Vec<u16>> {
 /// `\\?\UNC\server\share` becomes `\\server\share`. Paths without the prefix
 /// and volume paths (`\\?\Volume{…}\`), which have no other form, are
 /// returned unchanged.
+#[must_use]
 pub fn strip_verbatim(path: &[u16]) -> Vec<u16> {
     let unc = wide(VERBATIM_UNC_PREFIX);
     if let Some(rest) = path.strip_prefix(unc.as_slice()) {
@@ -164,6 +168,7 @@ pub fn strip_verbatim(path: &[u16]) -> Vec<u16> {
 /// Tells whether `name` is a valid name of an alternate data stream.
 ///
 /// A valid name is not empty and contains no `:`, `\`, `/` or zero.
+#[must_use]
 pub fn is_valid_stream_name(name: &str) -> bool {
     !name.is_empty() && !name.contains([':', '\\', '/', '\0'])
 }
@@ -185,6 +190,7 @@ pub fn is_valid_stream_name(name: &str) -> bool {
 ///     r"\\?\C:\data\report.txt:Summary:$DATA"
 /// );
 /// ```
+#[must_use]
 pub fn stream_path(file: &[u16], name: &str) -> Option<Vec<u16>> {
     if !is_valid_stream_name(name) {
         return None;
@@ -236,6 +242,7 @@ pub fn decode_stream_name(raw: &[u16]) -> Result<Option<String>, FromUtf16Error>
 ///
 /// assert_eq!(temp_file_name("a:b", 7, 2, 0xff), ".a_b.7.2.ff.tmp");
 /// ```
+#[must_use]
 pub fn temp_file_name(hint: &str, pid: u32, sequence: u64, nonce: u64) -> String {
     let hint: String = hint
         .chars()

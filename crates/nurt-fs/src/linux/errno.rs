@@ -15,8 +15,8 @@ use nurt_contracts::fs::{FsError, FsErrorKind};
 #[cfg(target_os = "linux")]
 mod code {
     pub(super) use libc::{
-        EACCES, EBUSY, EDQUOT, EEXIST, EINTR, EISDIR, ELOOP, ENAMETOOLONG, ENOENT, ENOSPC,
-        ENOSYS, ENOTDIR, ENOTEMPTY, ENOTTY, EOPNOTSUPP, EPERM, EROFS, ESTALE, ETXTBSY, EXDEV,
+        EACCES, EBUSY, EDQUOT, EEXIST, EINTR, EISDIR, ELOOP, ENAMETOOLONG, ENOENT, ENOSPC, ENOSYS,
+        ENOTDIR, ENOTEMPTY, ENOTTY, EOPNOTSUPP, EPERM, EROFS, ESTALE, ETXTBSY, EXDEV,
     };
 }
 
@@ -155,7 +155,11 @@ mod tests {
             (code::ESTALE, FsErrorKind::Stale),
         ];
         for (errno, kind) in table {
-            assert_eq!(error_kind(errno, ErrnoContext::Plain), kind, "errno {errno}");
+            assert_eq!(
+                error_kind(errno, ErrnoContext::Plain),
+                kind,
+                "errno {errno}"
+            );
         }
     }
 
@@ -175,7 +179,7 @@ mod tests {
     fn classifies_unknown_errno_as_io() {
         let eio = 5;
         assert_eq!(error_kind(eio, ErrnoContext::Plain), FsErrorKind::Io);
-        assert_eq!(error_kind(0,ErrnoContext::Plain), FsErrorKind::Io);
+        assert_eq!(error_kind(0, ErrnoContext::Plain), FsErrorKind::Io);
         assert_eq!(error_kind(-1, ErrnoContext::Plain), FsErrorKind::Io);
         assert_eq!(error_kind(4095, ErrnoContext::Plain), FsErrorKind::Io);
     }

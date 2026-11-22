@@ -61,6 +61,10 @@ pub mod access {
     pub const ACCESS_SYSTEM_SECURITY: u32 = 0x0100_0000;
 }
 
+#[allow(
+    clippy::wildcard_imports,
+    reason = "the control bits keep their Win32 names without the module prefix"
+)]
 use control::*;
 
 const HEADER_LEN: usize = 20;
@@ -119,6 +123,7 @@ impl SecurityElement {
     pub const ALL: [SecurityElement; 4] = [Self::Account, Self::Group, Self::Dacl, Self::Sacl];
 
     /// Name used in [`MetaTransferReport::not_transferred`](nurt_contracts::fs::MetaTransferReport).
+    #[must_use]
     pub fn name(self) -> &'static str {
         match self {
             Self::Account => "account",
@@ -129,6 +134,7 @@ impl SecurityElement {
     }
 
     /// `SECURITY_INFORMATION` bit of the element.
+    #[must_use]
     pub fn information(self) -> u32 {
         match self {
             Self::Account => information::OWNER,
@@ -139,6 +145,7 @@ impl SecurityElement {
     }
 
     /// Access right needed to change the element.
+    #[must_use]
     pub fn access(self) -> u32 {
         match self {
             Self::Account | Self::Group => access::WRITE_OWNER,
@@ -187,6 +194,10 @@ fn acl_at(bytes: &[u8], at: usize) -> Option<&[u8]> {
     bytes.get(at..at + len)
 }
 
+#[allow(
+    clippy::option_option,
+    reason = "the outer `None` marks a malformed descriptor and the inner `None` an absent identifier"
+)]
 fn optional_sid(bytes: &[u8], field: usize) -> Option<Option<&[u8]>> {
     match offset(bytes, field)? {
         0 => Some(None),
@@ -233,31 +244,37 @@ impl<'a> SecurityDescriptor<'a> {
     }
 
     /// Control bits.
+    #[must_use]
     pub fn control(&self) -> u16 {
         self.control
     }
 
     /// Account SID bytes.
+    #[must_use]
     pub fn owner(&self) -> Option<&'a [u8]> {
         self.owner
     }
 
     /// Primary group SID bytes.
+    #[must_use]
     pub fn group(&self) -> Option<&'a [u8]> {
         self.group
     }
 
     /// Discretionary access control list.
+    #[must_use]
     pub fn dacl(&self) -> AclPart<'a> {
         self.dacl
     }
 
     /// System access control list.
+    #[must_use]
     pub fn sacl(&self) -> AclPart<'a> {
         self.sacl
     }
 
     /// Whether the SACL was captured (see the module documentation).
+    #[must_use]
     pub fn sacl_captured(&self) -> bool {
         self.control & SE_SACL_PRESENT != 0
     }
@@ -268,6 +285,7 @@ impl<'a> SecurityDescriptor<'a> {
     }
 
     /// Whether the descriptor carries the element.
+    #[must_use]
     pub fn has(&self, element: SecurityElement) -> bool {
         match element {
             SecurityElement::Account => self.owner.is_some(),
@@ -279,6 +297,7 @@ impl<'a> SecurityDescriptor<'a> {
 
     /// Whether the element is equal in both descriptors, including the
     /// inheritance control bits of the lists.
+    #[must_use]
     pub fn same(&self, other: &SecurityDescriptor<'_>, element: SecurityElement) -> bool {
         match element {
             SecurityElement::Account => self.owner == other.owner,
@@ -308,6 +327,7 @@ impl<'a> SecurityDescriptor<'a> {
 /// let local_system = [1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0];
 /// assert_eq!(sid_to_string(&local_system).as_deref(), Some("S-1-5-18"));
 /// ```
+#[must_use]
 pub fn sid_to_string(sid: &[u8]) -> Option<String> {
     let sid = sid_at(sid, 0)?;
     let authority = sid[2..SID_HEADER_LEN]
@@ -394,6 +414,7 @@ pub struct RestorePlan {
 /// needs no privilege. When `current` is unknown every element of `desired`
 /// is written. A SACL that was not captured is listed in
 /// [`RestorePlan::not_captured`].
+#[must_use]
 pub fn restore_plan(
     desired: &SecurityDescriptor<'_>,
     current: Option<&SecurityDescriptor<'_>>,

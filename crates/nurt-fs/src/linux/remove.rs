@@ -32,7 +32,8 @@ pub(super) fn remove_tree(path: &Path, parallelism: usize) -> FsResult<RemoveSta
     let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
         return Err(FsError::new(FsErrorKind::InvalidPath, OP, Some(path)));
     };
-    let parent_fd = open_directory(CWD, parent, false).map_err(|errno| sys_error(errno, OP, parent))?;
+    let parent_fd =
+        open_directory(CWD, parent, false).map_err(|errno| sys_error(errno, OP, parent))?;
     let state = State {
         files: AtomicU64::new(0),
         directories: AtomicU64::new(0),
@@ -41,7 +42,8 @@ pub(super) fn remove_tree(path: &Path, parallelism: usize) -> FsResult<RemoveSta
         failed: AtomicBool::new(false),
         error: Mutex::new(None),
     };
-    let kind = entry_type(parent_fd.as_fd(), name, None).map_err(|errno| sys_error(errno, OP, path))?;
+    let kind =
+        entry_type(parent_fd.as_fd(), name, None).map_err(|errno| sys_error(errno, OP, path))?;
     if kind == FileType::Directory {
         state.remove_directory(parent_fd.as_fd(), name, path);
     } else {
@@ -50,7 +52,11 @@ pub(super) fn remove_tree(path: &Path, parallelism: usize) -> FsResult<RemoveSta
     state.finish()
 }
 
-fn open_directory(dir: BorrowedFd<'_>, name: &Path, no_follow: bool) -> rustix::io::Result<OwnedFd> {
+fn open_directory(
+    dir: BorrowedFd<'_>,
+    name: &Path,
+    no_follow: bool,
+) -> rustix::io::Result<OwnedFd> {
     let mut flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC;
     if no_follow {
         flags |= OFlags::NOFOLLOW;
@@ -60,7 +66,11 @@ fn open_directory(dir: BorrowedFd<'_>, name: &Path, no_follow: bool) -> rustix::
 
 /// Type of an entry without following a symbolic link; `known` is the type
 /// reported by `getdents64`, which some file systems leave unknown.
-fn entry_type(dir: BorrowedFd<'_>, name: &OsStr, known: Option<FileType>) -> rustix::io::Result<FileType> {
+fn entry_type(
+    dir: BorrowedFd<'_>,
+    name: &OsStr,
+    known: Option<FileType>,
+) -> rustix::io::Result<FileType> {
     match known {
         Some(kind) if kind != FileType::Unknown => Ok(kind),
         _ => retry(|| rustix::fs::statx(dir, name, AtFlags::SYMLINK_NOFOLLOW, StatxFlags::TYPE))
@@ -93,7 +103,9 @@ impl State {
 
     fn take_worker(&self) -> bool {
         self.spare_workers
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |spare| spare.checked_sub(1))
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |spare| {
+                spare.checked_sub(1)
+            })
             .is_ok()
     }
 
@@ -102,7 +114,10 @@ impl State {
     }
 
     fn finish(self) -> FsResult<RemoveStats> {
-        let error = self.error.into_inner().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let error = self
+            .error
+            .into_inner()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         match error {
             Some(error) => Err(error),
             None => Ok(RemoveStats {
@@ -116,8 +131,9 @@ impl State {
     /// Removes a non-directory entry; an entry removed concurrently by
     /// another process is not an error.
     fn remove_entry(&self, dir: BorrowedFd<'_>, name: &OsStr, path: &Path) {
-        let size = retry(|| rustix::fs::statx(dir, name, AtFlags::SYMLINK_NOFOLLOW, StatxFlags::SIZE))
-            .map_or(0, |stat| stat.stx_size);
+        let size =
+            retry(|| rustix::fs::statx(dir, name, AtFlags::SYMLINK_NOFOLLOW, StatxFlags::SIZE))
+                .map_or(0, |stat| stat.stx_size);
         match retry(|| rustix::fs::unlinkat(dir, name, AtFlags::empty())) {
             Ok(()) => {
                 self.files.fetch_add(1, Ordering::Relaxed);

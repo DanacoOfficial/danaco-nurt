@@ -29,11 +29,13 @@ pub struct RetryPolicy {
 impl RetryPolicy {
     /// Policy that waits no longer than `budget` in total; a zero budget makes
     /// exactly one attempt.
+    #[must_use]
     pub const fn new(budget: Duration) -> Self {
         Self { budget }
     }
 
     /// Total waiting time.
+    #[must_use]
     pub const fn budget(&self) -> Duration {
         self.budget
     }
@@ -54,6 +56,7 @@ impl RetryPolicy {
     ///     [10, 20, 20].map(Duration::from_millis)
     /// );
     /// ```
+    #[must_use]
     pub fn delays(&self) -> Delays {
         Delays {
             remaining: self.budget,

@@ -29,3 +29,31 @@ pub mod macos;
 pub mod mem;
 pub mod path;
 pub mod windows;
+
+/// File system back end of the running operating system.
+///
+/// The journal, the space service and the commands share one back end, so it
+/// is returned as a shared trait object; commands that only read use it
+/// through [`Fs`](nurt_contracts::fs::Fs) by trait upcasting.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_contracts::fs::{AbsPath, Fs, FsError};
+///
+/// let fs = nurt_fs::system_fs();
+/// let dir = AbsPath::new(std::env::temp_dir())?;
+/// assert!(fs.can_write_dir(&dir)?);
+/// assert_eq!(fs.volume(&dir)?.id, fs.volume(&dir)?.id);
+/// # Ok::<(), FsError>(())
+/// ```
+#[must_use]
+pub fn system_fs() -> std::sync::Arc<dyn nurt_contracts::fs::FsWrite> {
+    #[cfg(target_os = "linux")]
+    let backend = std::sync::Arc::new(linux::LinuxFs::new());
+    #[cfg(target_os = "macos")]
+    let backend = std::sync::Arc::new(macos::MacosFs::new());
+    #[cfg(windows)]
+    let backend = std::sync::Arc::new(windows::WindowsFs::new());
+    backend
+}

@@ -93,6 +93,10 @@ pub mod codes {
     pub const ERROR_NOT_A_REPARSE_POINT: u32 = 4390;
 }
 
+#[allow(
+    clippy::wildcard_imports,
+    reason = "the classification table uses every code of the module by its Win32 name"
+)]
 use codes::*;
 
 /// Classifies a Win32 error code.
@@ -103,6 +107,7 @@ use codes::*;
 /// closes. Sharing and lock violations are classified as
 /// [`FsErrorKind::InUse`]; the back end returns them only after the retry
 /// period. Codes without a specific kind map to [`FsErrorKind::Io`].
+#[must_use]
 pub fn error_kind(code: u32) -> FsErrorKind {
     match code {
         ERROR_FILE_NOT_FOUND | ERROR_PATH_NOT_FOUND | ERROR_INVALID_DRIVE | ERROR_BAD_NETPATH
@@ -132,6 +137,7 @@ pub fn error_kind(code: u32) -> FsErrorKind {
 
 /// Whether the code reports a conflict with another open handle that may
 /// disappear when the other program closes the file.
+#[must_use]
 pub fn is_sharing_conflict(code: u32) -> bool {
     matches!(code, ERROR_SHARING_VIOLATION | ERROR_LOCK_VIOLATION)
 }
@@ -139,6 +145,7 @@ pub fn is_sharing_conflict(code: u32) -> bool {
 /// Whether the code reports that the system or the file system does not know
 /// an information class, flag or control code; callers then use an older
 /// mechanism.
+#[must_use]
 pub fn is_unsupported_request(code: u32) -> bool {
     matches!(
         code,
@@ -161,6 +168,7 @@ pub fn is_unsupported_request(code: u32) -> bool {
 /// assert_eq!(error.kind, FsErrorKind::InUse);
 /// assert_eq!(error.os_code, Some(32));
 /// ```
+#[must_use]
 pub fn os_error(code: u32, op: &str, path: Option<&Path>) -> FsError {
     let mut error = FsError::new(error_kind(code), op, path);
     error.os_code = Some(code.cast_signed());
@@ -171,6 +179,7 @@ pub fn os_error(code: u32, op: &str, path: Option<&Path>) -> FsError {
 ///
 /// The raw code decides when present; otherwise the [`io::ErrorKind`] is
 /// mapped to the nearest [`FsErrorKind`].
+#[must_use]
 pub fn from_io(error: &io::Error, op: &str, path: Option<&Path>) -> FsError {
     if let Some(code) = error.raw_os_error() {
         return os_error(code.cast_unsigned(), op, path);

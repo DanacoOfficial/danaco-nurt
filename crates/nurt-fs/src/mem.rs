@@ -1312,9 +1312,9 @@ impl Blob {
     }
 
     fn digest(&self) -> ContentHash {
+        static ZEROS: [u8; HASH_CHUNK] = [0; HASH_CHUNK];
         let mut hasher = Sha256::new();
         hasher.update(&self.data);
-        static ZEROS: [u8; HASH_CHUNK] = [0; HASH_CHUNK];
         let zeros = &ZEROS;
         let mut tail = self.len.saturating_sub(self.allocated());
         while tail > 0 {

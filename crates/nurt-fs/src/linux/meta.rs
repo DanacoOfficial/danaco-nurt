@@ -19,8 +19,8 @@ use nurt_contracts::fs::{
     MetaTransferReport, Xattr,
 };
 use rustix::fs::{
-    AtFlags, CWD, FileType, Gid, IFlags, Mode, OFlags, Statx, StatxFlags, Timestamps, Uid,
-    UTIME_OMIT, XattrFlags,
+    AtFlags, CWD, FileType, Gid, IFlags, Mode, OFlags, Statx, StatxFlags, Timestamps, UTIME_OMIT,
+    Uid, XattrFlags,
 };
 use rustix::io::Errno;
 
@@ -215,7 +215,11 @@ impl Target<'_> {
         })
     }
 
-    fn set_times(self, accessed_ns: Option<i64>, modified_ns: Option<i64>) -> rustix::io::Result<()> {
+    fn set_times(
+        self,
+        accessed_ns: Option<i64>,
+        modified_ns: Option<i64>,
+    ) -> rustix::io::Result<()> {
         let stamp = |value: Option<i64>| {
             value.map_or(
                 rustix::fs::Timespec {
@@ -241,7 +245,9 @@ impl Target<'_> {
         let mask = StatxFlags::TYPE | StatxFlags::MODE | StatxFlags::UID | StatxFlags::GID;
         retry(|| match self {
             Self::Fd(fd) => rustix::fs::statx(fd, "", AtFlags::EMPTY_PATH, mask),
-            Self::Path { path, follow } => rustix::fs::statx(CWD, path, nofollow_flag(follow), mask),
+            Self::Path { path, follow } => {
+                rustix::fs::statx(CWD, path, nofollow_flag(follow), mask)
+            }
         })
     }
 }
@@ -285,7 +291,10 @@ pub(super) fn read_xattrs(target: Target<'_>, op: &str, report: &Path) -> FsResu
         Err(errno) => return Err(sys_error(errno, op, report)),
     };
     let mut xattrs = Vec::new();
-    for name in names.split(|&byte| byte == 0).filter(|name| !name.is_empty()) {
+    for name in names
+        .split(|&byte| byte == 0)
+        .filter(|name| !name.is_empty())
+    {
         let name = OsStr::from_bytes(name);
         match target.get_xattr(name) {
             Ok(value) => xattrs.push(Xattr {
@@ -462,7 +471,12 @@ impl Transfer<'_> {
         }
     }
 
-    fn transfer_xattrs(&self, wanted: &[Xattr], missing: &mut Vec<String>, op: &str) -> FsResult<()> {
+    fn transfer_xattrs(
+        &self,
+        wanted: &[Xattr],
+        missing: &mut Vec<String>,
+        op: &str,
+    ) -> FsResult<()> {
         let current = read_xattrs(self.target, op, self.report)?;
         for xattr in wanted {
             let unchanged = current
@@ -584,7 +598,12 @@ mod tests {
     #[test]
     fn classifies_refused_privileged_attributes_as_privilege() {
         let path = Path::new("/a");
-        let error = xattr_error(Errno::PERM, OsStr::new("security.capability"), "set_meta", path);
+        let error = xattr_error(
+            Errno::PERM,
+            OsStr::new("security.capability"),
+            "set_meta",
+            path,
+        );
         assert_eq!(error.kind, FsErrorKind::Privilege);
         let error = xattr_error(Errno::PERM, OsStr::new("trusted.overlay"), "set_meta", path);
         assert_eq!(error.kind, FsErrorKind::Privilege);

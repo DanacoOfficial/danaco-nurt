@@ -142,7 +142,8 @@ pub(super) fn volume(cache: &VolumeCache, path: &Path) -> FsResult<VolumeInfo> {
         Some(entry) => Described::from_entry(entry),
         None => Described::from_statfs(&existing, dev)?,
     };
-    let statvfs = retry(|| rustix::fs::statvfs(&existing)).map_err(|errno| sys_error(errno, "volume", path))?;
+    let statvfs = retry(|| rustix::fs::statvfs(&existing))
+        .map_err(|errno| sys_error(errno, "volume", path))?;
     let block = block_device(stat.stx_dev_major, stat.stx_dev_minor, &described.source);
     let removable = block.is_some_and(|device| sysfs_flag(device, "removable"));
     let kind = volume_kind(&described.fs_type, &described.source, removable);
@@ -209,9 +210,11 @@ impl Described {
 
     /// Mount point found by walking up while the device stays the same.
     fn from_statfs(existing: &Path, dev: u64) -> FsResult<Self> {
-        let statfs = retry(|| rustix::fs::statfs(existing)).map_err(|errno| sys_error(errno, "volume", existing))?;
+        let statfs = retry(|| rustix::fs::statfs(existing))
+            .map_err(|errno| sys_error(errno, "volume", existing))?;
         let magic = u64::try_from(i128::from(statfs.f_type) & i128::from(MAGIC_MASK)).unwrap_or(0);
-        let real = fs::canonicalize(existing).map_err(|error| io_error(&error, "volume", existing))?;
+        let real =
+            fs::canonicalize(existing).map_err(|error| io_error(&error, "volume", existing))?;
         let mut mount = real.clone();
         for ancestor in real.ancestors().skip(1) {
             match fs::metadata(ancestor) {
@@ -273,7 +276,12 @@ fn open_any(path: &Path, kind: FileKind) -> Option<OwnedFd> {
         FileKind::File => OFlags::empty(),
         _ => return None,
     };
-    let flags = flags | OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NONBLOCK | OFlags::NOCTTY | OFlags::NOFOLLOW;
+    let flags = flags
+        | OFlags::RDONLY
+        | OFlags::CLOEXEC
+        | OFlags::NONBLOCK
+        | OFlags::NOCTTY
+        | OFlags::NOFOLLOW;
     retry(|| rustix::fs::openat(CWD, path, flags, Mode::empty())).ok()
 }
 
@@ -291,7 +299,8 @@ struct XfsGeometryV1 {
 const _: () = assert!(size_of::<XfsGeometryV1>() == 112);
 
 /// `XFS_IOC_FSGEOMETRY_V1`.
-const XFS_IOC_FSGEOMETRY_V1: rustix::ioctl::Opcode = rustix::ioctl::opcode::read::<XfsGeometryV1>(b'X', 100);
+const XFS_IOC_FSGEOMETRY_V1: rustix::ioctl::Opcode =
+    rustix::ioctl::opcode::read::<XfsGeometryV1>(b'X', 100);
 
 /// Whether an XFS volume was formatted with `reflink=1`, read from its
 /// geometry without writing to the volume.
@@ -374,8 +383,8 @@ pub(super) fn space(cache: &VolumeCache, id: &VolumeId) -> FsResult<SpaceInfo> {
     let Some(known) = known else {
         return Err(FsError::new(FsErrorKind::NotFound, "space", None));
     };
-    let statvfs =
-        retry(|| rustix::fs::statvfs(&known.mount)).map_err(|errno| sys_error(errno, "space", &known.mount))?;
+    let statvfs = retry(|| rustix::fs::statvfs(&known.mount))
+        .map_err(|errno| sys_error(errno, "space", &known.mount))?;
     let total = statvfs.f_blocks.saturating_mul(statvfs.f_frsize);
     let available = statvfs.f_bavail.saturating_mul(statvfs.f_frsize);
     let quota = account_quota(&known.source);

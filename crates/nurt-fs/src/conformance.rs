@@ -11,45 +11,6 @@
 //! declaration fails the check. Symbolic link checks are also skipped when
 //! the account lacks the privilege to create links
 //! ([`FsErrorKind::Privilege`]).
-//!
-//! | Identifier | Verifies |
-//! |---|---|
-//! | `fs-conf-create-temp-in` | unique names derived from the hint, `NotFound` for a missing directory |
-//! | `fs-conf-create-new` | creation and `Exists` |
-//! | `fs-conf-rename-replace` | replacement keeps the identity of the source |
-//! | `fs-conf-rename-noreplace` | `Exists` and unchanged entries |
-//! | `fs-conf-exchange` | names exchanged |
-//! | `fs-conf-replace-with-backup` | new content under the target, old content under the backup |
-//! | `fs-conf-hard-link` | link count and shared identity |
-//! | `fs-conf-open-in-place` | same identity, every name sees the new content |
-//! | `fs-conf-handle-follows-inode` | open handles keep referring to the renamed file |
-//! | `fs-conf-clone-file` | independent copy with equal content |
-//! | `fs-conf-copy-file` | content, copied byte count, `Exists` |
-//! | `fs-conf-remove-file` | removal, `NotFound`, `IsADirectory` |
-//! | `fs-conf-remove-dir` | `NotEmpty`, `NotADirectory` |
-//! | `fs-conf-remove-tree` | statistics; a link to a directory outside the tree is not followed |
-//! | `fs-conf-create-dir` | permission bits, `Exists`, `NotFound` |
-//! | `fs-conf-create-link` | file and directory links |
-//! | `fs-conf-read-link` | stored target, `InvalidPath` for a non-link |
-//! | `fs-conf-metadata-follow` | `Follow` and `NoFollow`, dangling links |
-//! | `fs-conf-extended-metadata` | basic part and link target |
-//! | `fs-conf-meta-round-trip` | `set_meta`, then `restore_meta` restores the previous state |
-//! | `fs-conf-apply-meta` | metadata applied through a write handle |
-//! | `fs-conf-truncate` | shrinking and zero-filled growth |
-//! | `fs-conf-sync` | file and directory flushes |
-//! | `fs-conf-lock-exclusive` | second lock waits and fails with `InUse` |
-//! | `fs-conf-mark-hidden` | marking and `NotFound` |
-//! | `fs-conf-read-dir` | names and kinds |
-//! | `fs-conf-content-hash` | SHA-256 test vectors |
-//! | `fs-conf-volume` | mount point and nearest existing ancestor |
-//! | `fs-conf-space` | consistent figures |
-//! | `fs-conf-path-key` | case variants share a key exactly on case-insensitive volumes |
-//! | `fs-conf-holders` | query and `NotFound` |
-//! | `fs-conf-can-write-dir` | own directory writable, error kinds |
-//! | `fs-conf-error-kinds` | `NotFound`, `NotADirectory`, `IsADirectory` |
-//! | `fs-conf-cross-device` | `CrossDevice` towards the second volume of [`Options`] |
-//! | `fs-conf-streams` | alternate data streams, also through `copy_file` |
-//! | `fs-conf-real-path` | links resolved |
 
 use std::fmt;
 use std::io::{self, Read, Write};
@@ -150,14 +111,9 @@ impl fmt::Display for Report {
 /// Runs every check with default [`Options`].
 ///
 /// `root` must be an empty, writable directory; `scope` is used for every
-/// mutation.
-///
-/// # Examples
-///
-/// ```ignore
-/// let report = nurt_fs::conformance::run(&fs, &root, &scope);
-/// assert!(report.passed(), "{report}");
-/// ```
+/// mutation. A back end test calls the function with a new temporary
+/// directory and asserts `report.passed()`, formatting the report as the
+/// failure message.
 #[must_use]
 pub fn run(fs: &dyn FsWrite, root: &AbsPath, scope: &TxScope) -> Report {
     run_with(fs, root, scope, &Options::default())
@@ -167,6 +123,47 @@ pub fn run(fs: &dyn FsWrite, root: &AbsPath, scope: &TxScope) -> Report {
 ///
 /// `root` must be an empty, writable directory; `scope` is used for every
 /// mutation.
+///
+/// The checks and their identifiers:
+///
+/// | Identifier | Verifies |
+/// |---|---|
+/// | `fs-conf-create-temp-in` | unique names derived from the hint, `NotFound` for a missing directory |
+/// | `fs-conf-create-new` | creation and `Exists` |
+/// | `fs-conf-rename-replace` | replacement keeps the identity of the source |
+/// | `fs-conf-rename-noreplace` | `Exists` and unchanged entries |
+/// | `fs-conf-exchange` | names exchanged |
+/// | `fs-conf-replace-with-backup` | new content under the target, old content under the backup |
+/// | `fs-conf-hard-link` | link count and shared identity |
+/// | `fs-conf-open-in-place` | same identity, every name sees the new content |
+/// | `fs-conf-handle-follows-inode` | open handles keep referring to the renamed file |
+/// | `fs-conf-clone-file` | independent copy with equal content |
+/// | `fs-conf-copy-file` | content, copied byte count, `Exists` |
+/// | `fs-conf-remove-file` | removal, `NotFound`, `IsADirectory` |
+/// | `fs-conf-remove-dir` | `NotEmpty`, `NotADirectory` |
+/// | `fs-conf-remove-tree` | statistics; a link to a directory outside the tree is not followed |
+/// | `fs-conf-create-dir` | permission bits, `Exists`, `NotFound` |
+/// | `fs-conf-create-link` | file and directory links |
+/// | `fs-conf-read-link` | stored target, `InvalidPath` for a non-link |
+/// | `fs-conf-metadata-follow` | `Follow` and `NoFollow`, dangling links |
+/// | `fs-conf-extended-metadata` | basic part and link target |
+/// | `fs-conf-meta-round-trip` | `set_meta`, then `restore_meta` restores the previous state |
+/// | `fs-conf-apply-meta` | metadata applied through a write handle |
+/// | `fs-conf-truncate` | shrinking and zero-filled growth |
+/// | `fs-conf-sync` | file and directory flushes |
+/// | `fs-conf-lock-exclusive` | second lock waits and fails with `InUse` |
+/// | `fs-conf-mark-hidden` | marking and `NotFound` |
+/// | `fs-conf-read-dir` | names and kinds |
+/// | `fs-conf-content-hash` | SHA-256 test vectors |
+/// | `fs-conf-volume` | mount point and nearest existing ancestor |
+/// | `fs-conf-space` | consistent figures |
+/// | `fs-conf-path-key` | case variants share a key exactly on case-insensitive volumes |
+/// | `fs-conf-holders` | query and `NotFound` |
+/// | `fs-conf-can-write-dir` | own directory writable, error kinds |
+/// | `fs-conf-error-kinds` | `NotFound`, `NotADirectory`, `IsADirectory` |
+/// | `fs-conf-cross-device` | `CrossDevice` towards the second volume of [`Options`] |
+/// | `fs-conf-streams` | alternate data streams, also through `copy_file` |
+/// | `fs-conf-real-path` | links resolved |
 #[must_use]
 pub fn run_with(fs: &dyn FsWrite, root: &AbsPath, scope: &TxScope, options: &Options) -> Report {
     let features = match fs.volume(root) {

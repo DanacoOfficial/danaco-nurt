@@ -112,6 +112,7 @@ impl FailPoint {
     ///
     /// assert_eq!(FailPoint::PreserveBefore.as_str(), "preserve_before");
     /// ```
+    #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
             Self::SeqBefore => "seq_before",
@@ -144,6 +145,7 @@ impl FailPoint {
 
     /// Whether the point is hit once per target or item and receives its
     /// index.
+    #[must_use]
     pub fn takes_index(self) -> bool {
         matches!(
             self,
@@ -216,7 +218,7 @@ mod seeded {
     /// Probabilities are expressed per million hits.
     const PER_MILLION: u64 = 1_000_000;
 
-    /// Deterministic pseudo-random generator (SplitMix64).
+    /// Deterministic pseudo-random generator (`SplitMix64`).
     ///
     /// Used where results must depend only on a seed and must not change with
     /// the version of an external generator.
@@ -241,6 +243,7 @@ mod seeded {
         const MIX_2: u64 = 0x94D0_49BB_1331_11EB;
 
         /// Creates a generator from a seed.
+        #[must_use]
         pub fn new(seed: u64) -> Self {
             Self { state: seed }
         }
@@ -308,6 +311,7 @@ mod seeded {
     impl FailPlan {
         /// Plan that continues at every hit; used to enumerate the hits of a
         /// scenario.
+        #[must_use]
         pub fn observe(seed: u64) -> Self {
             Self {
                 seed,
@@ -316,6 +320,7 @@ mod seeded {
         }
 
         /// Plan with a single rule.
+        #[must_use]
         pub fn at(seed: u64, rule: FailRule) -> Self {
             Self {
                 seed,
@@ -351,6 +356,7 @@ mod seeded {
 
     impl RunRecord {
         /// First hit that injected a fault, if any.
+        #[must_use]
         pub fn first_fault(&self) -> Option<&HitRecord> {
             self.hits
                 .iter()
@@ -358,6 +364,7 @@ mod seeded {
         }
 
         /// Whether the run ended in a crash.
+        #[must_use]
         pub fn crashed(&self) -> bool {
             self.hits.iter().any(|hit| hit.action == FailAction::Crash)
         }
@@ -404,6 +411,7 @@ mod seeded {
 
     impl SeededFailpoints {
         /// Creates a registry following `plan`.
+        #[must_use]
         pub fn new(plan: FailPlan) -> Self {
             let rng = SplitMix64::new(plan.seed);
             Self {
@@ -423,6 +431,7 @@ mod seeded {
         ///
         /// The replay uses the recorded plan; with the same sequence of hits
         /// it yields the same decisions.
+        #[must_use]
         pub fn replay(record: &RunRecord) -> Self {
             Self::new(record.plan.clone())
         }

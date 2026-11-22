@@ -116,12 +116,14 @@ pub struct WindowsFs {
 
 impl WindowsFs {
     /// Back end that retries sharing violations for 2000 ms.
+    #[must_use]
     pub fn new() -> Self {
         Self::with_sharing_retry(DEFAULT_SHARING_RETRY)
     }
 
     /// Back end that retries sharing violations for `period`
     /// (`fs.sharing_retry_ms`); a zero period disables retries.
+    #[must_use]
     pub fn with_sharing_retry(period: Duration) -> Self {
         Self {
             retry: RetryPolicy::new(period),
@@ -141,7 +143,7 @@ impl WindowsFs {
         })
     }
 
-    fn holders_of(&self, path: &AbsPath, also: &[&AbsPath]) -> Vec<Holder> {
+    fn holders_of(path: &AbsPath, also: &[&AbsPath]) -> Vec<Holder> {
         let wides: Vec<WidePath> = std::iter::once(path)
             .chain(also.iter().copied())
             .filter_map(|path| WidePath::of(path).ok())
@@ -153,13 +155,13 @@ impl WindowsFs {
     /// Classified error of a failed call on `path`; a missing path below a
     /// file becomes [`FsErrorKind::NotADirectory`], and an entry in use
     /// carries the processes holding `path` and `also`.
-    fn error(&self, code: u32, op: &str, path: &AbsPath, also: &[&AbsPath]) -> FsError {
+    fn error(code: u32, op: &str, path: &AbsPath, also: &[&AbsPath]) -> FsError {
         let mut error = os_error(code, op, Some(path.as_path()));
         if code == ERROR_PATH_NOT_FOUND && has_file_ancestor(path.as_path()) {
             error.kind = FsErrorKind::NotADirectory;
         }
         if error.kind == FsErrorKind::InUse {
-            error.holders = self.holders_of(path, also);
+            error.holders = Self::holders_of(path, also);
         }
         error
     }
@@ -172,7 +174,7 @@ impl WindowsFs {
         (access, disposition, flags): (u32, u32, u32),
     ) -> FsResult<File> {
         self.retrying(|| create_file(wide, access, disposition, flags))
-            .map_err(|code| self.error(code, op, path, &[]))
+            .map_err(|code| Self::error(code, op, path, &[]))
     }
 
     fn open(
@@ -186,10 +188,10 @@ impl WindowsFs {
         self.open_wide(&WidePath::of(path)?, path, op, (access, disposition, flags))
     }
 
-    fn file_meta(&self, file: &File, op: &str, path: &AbsPath) -> FsResult<FileMeta> {
+    fn file_meta(file: &File, op: &str, path: &AbsPath) -> FsResult<FileMeta> {
         raw_info(file)
             .map(|raw| raw.to_meta())
-            .map_err(|code| self.error(code, op, path, &[]))
+            .map_err(|code| Self::error(code, op, path, &[]))
     }
 
     fn create_writable(
@@ -211,7 +213,7 @@ impl WindowsFs {
     fn delete(&self, path: &AbsPath, op: &str) -> FsResult<()> {
         let wide = WidePath::of(path)?;
         self.retrying(|| ops::delete_entry(&wide))
-            .map_err(|code| self.error(code, op, path, &[]))
+            .map_err(|code| Self::error(code, op, path, &[]))
     }
 
     /// Error for a stream request: [`FsErrorKind::Unsupported`] on volumes
@@ -227,7 +229,7 @@ impl WindowsFs {
         }
     }
 
-    fn stream_wide(&self, path: &AbsPath, stream: &str, op: &str) -> FsResult<WidePath> {
+    fn stream_wide(path: &AbsPath, stream: &str, op: &str) -> FsResult<WidePath> {
         let file = WidePath::of(path)?;
         stream_path(file.units(), stream)
             .map(|units| WidePath::from_units(&units))
@@ -243,17 +245,17 @@ impl WindowsFs {
             OPEN_EXISTING,
             FILE_FLAG_BACKUP_SEMANTICS,
         )?;
-        if self.file_meta(&source, op, src)?.kind == FileKind::Directory {
+        if Self::file_meta(&source, op, src)?.kind == FileKind::Directory {
             return Err(failure(FsErrorKind::IsADirectory, op, src.as_path()));
         }
         let io_error = |error: std::io::Error| from_io(&error, op, Some(dst.as_path()));
         let mut bytes = std::io::copy(&mut source, target).map_err(io_error)?;
         target.sync_all().map_err(io_error)?;
         let streams =
-            list_streams(&WidePath::of(src)?).map_err(|code| self.error(code, op, src, &[]))?;
+            list_streams(&WidePath::of(src)?).map_err(|code| Self::error(code, op, src, &[]))?;
         for stream in streams {
-            let from = self.stream_wide(src, &stream.name, op)?;
-            let to = self.stream_wide(dst, &stream.name, op)?;
+            let from = Self::stream_wide(src, &stream.name, op)?;
+            let to = Self::stream_wide(dst, &stream.name, op)?;
             let mut reader = self.open_wide(&from, src, op, (GENERIC_READ, OPEN_EXISTING, 0))?;
             let mut writer = self.open_wide(&to, dst, op, (GENERIC_WRITE, CREATE_NEW, 0))?;
             bytes += std::io::copy(&mut reader, &mut writer).map_err(io_error)?;
@@ -271,7 +273,7 @@ impl WindowsFs {
             OPEN_EXISTING,
             FILE_FLAG_BACKUP_SEMANTICS,
         )?;
-        let current = basic_info(&file).map_err(|code| self.error(code, op, path, &[]))?;
+        let current = basic_info(&file).map_err(|code| Self::error(code, op, path, &[]))?;
         let mut attributes = current.FileAttributes;
         if let Some(mode) = change.mode {
             attributes = attributes_for_mode(attributes, mode);
@@ -285,10 +287,10 @@ impl WindowsFs {
             ChangeTime: 0,
             FileAttributes: basic_info_attributes(attributes),
         };
-        set_basic_info(&file, &info).map_err(|code| self.error(code, op, path, &[]))
+        set_basic_info(&file, &info).map_err(|code| Self::error(code, op, path, &[]))
     }
 
-    fn final_path(&self, file: &File, path: &AbsPath) -> FsResult<AbsPath> {
+    fn final_path(file: &File, path: &AbsPath) -> FsResult<AbsPath> {
         let mut buffer = vec![0_u16; MAX_PATH as usize + 1];
         loop {
             let capacity = u32::try_from(buffer.len()).map_err(|_| {
@@ -305,7 +307,7 @@ impl WindowsFs {
                 )
             };
             if len == 0 {
-                return Err(self.error(last_error(), "real_path", path, &[]));
+                return Err(Self::error(last_error(), "real_path", path, &[]));
             }
             let len = usize::try_from(len).unwrap_or(usize::MAX);
             if len < buffer.len() {
@@ -339,7 +341,7 @@ impl Fs for WindowsFs {
             OPEN_EXISTING,
             follow_flags(follow),
         )?;
-        self.file_meta(&file, "metadata", path)
+        Self::file_meta(&file, "metadata", path)
     }
 
     fn extended_metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<ExtendedMeta> {
@@ -347,7 +349,7 @@ impl Fs for WindowsFs {
         let basic = self.metadata(path, follow)?;
         let wide = WidePath::of(path)?;
         let acl = security::read_descriptor(&wide, follow_flags(follow))
-            .map_err(|code| self.error(code, op, path, &[]))?;
+            .map_err(|code| Self::error(code, op, path, &[]))?;
         let account_sid = acl
             .as_deref()
             .and_then(|bytes| SecurityDescriptor::parse(bytes).ok())
@@ -356,7 +358,7 @@ impl Fs for WindowsFs {
         let streams = if is_link {
             Vec::new()
         } else {
-            list_streams(&wide).map_err(|code| self.error(code, op, path, &[]))?
+            list_streams(&wide).map_err(|code| Self::error(code, op, path, &[]))?
         };
         let link_target = if is_link {
             Some(self.read_link(path)?)
@@ -382,7 +384,7 @@ impl Fs for WindowsFs {
             OPEN_EXISTING,
             FILE_FLAG_BACKUP_SEMANTICS,
         )?;
-        if self.file_meta(&file, "open_read", path)?.kind == FileKind::Directory {
+        if Self::file_meta(&file, "open_read", path)?.kind == FileKind::Directory {
             return Err(failure(
                 FsErrorKind::IsADirectory,
                 "open_read",
@@ -394,7 +396,7 @@ impl Fs for WindowsFs {
 
     fn open_stream_read(&self, path: &AbsPath, stream: &str) -> FsResult<Box<dyn ReadHandle>> {
         let op = "open_stream_read";
-        let wide = self.stream_wide(path, stream, op)?;
+        let wide = Self::stream_wide(path, stream, op)?;
         self.open_wide(&wide, path, op, (GENERIC_READ, OPEN_EXISTING, 0))
             .map(|file| Box::new(WinRead::new(file)) as Box<dyn ReadHandle>)
             .map_err(|error| self.stream_error(error, path))
@@ -412,7 +414,7 @@ impl Fs for WindowsFs {
             ));
         }
         let entries = list_dir(&WidePath::of(path)?)
-            .map_err(|code| self.error(code, "read_dir", path, &[]))?;
+            .map_err(|code| Self::error(code, "read_dir", path, &[]))?;
         let dir = path.as_path().to_path_buf();
         Ok(Box::new(entries.map(move |entry| {
             entry
@@ -426,7 +428,7 @@ impl Fs for WindowsFs {
 
     fn read_link(&self, path: &AbsPath) -> FsResult<PathBuf> {
         let data = ops::read_reparse(&WidePath::of(path)?)
-            .map_err(|code| self.error(code, "read_link", path, &[]))?;
+            .map_err(|code| Self::error(code, "read_link", path, &[]))?;
         let link = parse_link(&data)
             .ok_or_else(|| failure(FsErrorKind::InvalidPath, "read_link", path.as_path()))?;
         Ok(PathBuf::from(OsString::from_wide(&link.target)))
@@ -440,7 +442,7 @@ impl Fs for WindowsFs {
             OPEN_EXISTING,
             FILE_FLAG_BACKUP_SEMANTICS,
         )?;
-        self.final_path(&file, path)
+        Self::final_path(&file, path)
     }
 
     fn content_hash(&self, path: &AbsPath) -> FsResult<ContentHash> {
@@ -522,7 +524,7 @@ impl Fs for WindowsFs {
 
     fn holders(&self, path: &AbsPath) -> FsResult<Vec<Holder>> {
         self.metadata(path, Follow::NoFollow)?;
-        Ok(self.holders_of(path, &[]))
+        Ok(Self::holders_of(path, &[]))
     }
 
     fn can_write_dir(&self, dir: &AbsPath) -> FsResult<bool> {
@@ -541,7 +543,7 @@ impl Fs for WindowsFs {
         ) {
             Ok(_) => Ok(true),
             Err(ERROR_ACCESS_DENIED | ERROR_WRITE_PROTECT) => Ok(false),
-            Err(code) => Err(self.error(code, "can_write_dir", dir, &[])),
+            Err(code) => Err(Self::error(code, "can_write_dir", dir, &[])),
         }
     }
 }
@@ -592,7 +594,7 @@ impl FsWrite for WindowsFs {
     ) -> FsResult<Box<dyn WriteHandle>> {
         let op = "open_stream_write";
         self.metadata(path, Follow::Follow)?;
-        let wide = self.stream_wide(path, stream, op)?;
+        let wide = Self::stream_wide(path, stream, op)?;
         let file = self
             .open_wide(
                 &wide,
@@ -623,7 +625,7 @@ impl FsWrite for WindowsFs {
             }
             RenameMode::NoReplace => self.retrying(|| ops::move_file(&source, &destination, false)),
         };
-        result.map_err(|code| self.error(code, "rename", from, &[to]))
+        result.map_err(|code| Self::error(code, "rename", from, &[to]))
     }
 
     fn exchange(&self, _scope: &TxScope, a: &AbsPath, _b: &AbsPath) -> FsResult<()> {
@@ -651,7 +653,7 @@ impl FsWrite for WindowsFs {
         .map_err(|code| {
             let mut error = replace_error(code, Some(target.as_path()));
             if error.kind == FsErrorKind::InUse {
-                error.holders = self.holders_of(target, &[replacement]);
+                error.holders = Self::holders_of(target, &[replacement]);
             }
             error
         })
@@ -660,10 +662,10 @@ impl FsWrite for WindowsFs {
     fn hard_link(&self, _scope: &TxScope, existing: &AbsPath, new: &AbsPath) -> FsResult<()> {
         let (source, link) = (WidePath::of(existing)?, WidePath::of(new)?);
         self.retrying(|| ops::hard_link(&source, &link))
-            .map_err(|code| self.error(code, "hard_link", new, &[existing]))
+            .map_err(|code| Self::error(code, "hard_link", new, &[existing]))
     }
 
-    /// Block cloning with `FSCTL_DUPLICATE_EXTENTS_TO_FILE` on ReFS; other
+    /// Block cloning with `FSCTL_DUPLICATE_EXTENTS_TO_FILE` on `ReFS`; other
     /// volumes fail with [`FsErrorKind::Unsupported`] and nothing is copied.
     fn clone_file(&self, _scope: &TxScope, src: &AbsPath, dst: &AbsPath) -> FsResult<()> {
         if !self.volume(src)?.features.reflink {
@@ -736,7 +738,7 @@ impl FsWrite for WindowsFs {
     fn create_dir(&self, _scope: &TxScope, path: &AbsPath, _mode: u32) -> FsResult<()> {
         let wide = WidePath::of(path)?;
         self.retrying(|| ops::create_directory(&wide))
-            .map_err(|code| self.error(code, "create_dir", path, &[]))
+            .map_err(|code| Self::error(code, "create_dir", path, &[]))
     }
 
     fn create_link(
@@ -757,16 +759,16 @@ impl FsWrite for WindowsFs {
                 let data = junction_data(&units)
                     .ok_or_else(|| failure(FsErrorKind::InvalidPath, op, target))?;
                 ops::create_directory(&link_wide)
-                    .map_err(|code| self.error(code, op, link, &[]))?;
+                    .map_err(|code| Self::error(code, op, link, &[]))?;
                 return ops::write_reparse(&link_wide, &data).map_err(|code| {
                     // The directory was created by this call; the reparse error is reported.
                     let _ = ops::delete_entry(&link_wide);
-                    self.error(code, op, link, &[])
+                    Self::error(code, op, link, &[])
                 });
             }
         };
         ops::symlink(&link_wide, &WidePath::from_units(&units), directory)
-            .map_err(|code| self.error(code, op, link, &[]))
+            .map_err(|code| Self::error(code, op, link, &[]))
     }
 
     fn set_meta(&self, _scope: &TxScope, path: &AbsPath, change: &MetaChange) -> FsResult<()> {
@@ -784,9 +786,9 @@ impl FsWrite for WindowsFs {
         if let Some(acl) = &change.acl {
             let (refused, _) =
                 security::apply_descriptor(&WidePath::of(path)?, FILE_FLAG_BACKUP_SEMANTICS, acl)
-                    .map_err(|code| self.error(code, op, path, &[]))?;
+                    .map_err(|code| Self::error(code, op, path, &[]))?;
             if let Some((_, code)) = refused.first() {
-                return Err(self.error(*code, op, path, &[]));
+                return Err(Self::error(*code, op, path, &[]));
             }
         }
         let basic_change = change.mode.is_some()
@@ -835,7 +837,7 @@ impl FsWrite for WindowsFs {
                 _ => Ok(()),
             },
             Err(code) if tolerated(code) => self.metadata(dir, Follow::Follow).map(|_| ()),
-            Err(code) => Err(self.error(code, "sync_dir", dir, &[])),
+            Err(code) => Err(Self::error(code, "sync_dir", dir, &[])),
         }
     }
 
@@ -858,7 +860,7 @@ impl FsWrite for WindowsFs {
             Ok(()) => Ok(Box::new(WinLock::new(file, path.clone()))),
             Err(TryLockError::WouldBlock) => {
                 let mut error = failure(FsErrorKind::InUse, op, path.as_path());
-                error.holders = self.holders_of(path, &[]);
+                error.holders = Self::holders_of(path, &[]);
                 Err(error)
             }
             Err(TryLockError::Error(error)) => Err(from_io(&error, op, Some(path.as_path()))),
@@ -868,12 +870,12 @@ impl FsWrite for WindowsFs {
     fn mark_hidden(&self, _scope: &TxScope, path: &AbsPath) -> FsResult<()> {
         let wide = WidePath::of(path)?;
         let current = attributes_of(&wide)
-            .ok_or_else(|| self.error(last_error(), "mark_hidden", path, &[]))?;
+            .ok_or_else(|| Self::error(last_error(), "mark_hidden", path, &[]))?;
         ops::set_attributes(
             &wide,
             basic_info_attributes(current | JOURNAL_DIRECTORY_ATTRIBUTES),
         )
-        .map_err(|code| self.error(code, "mark_hidden", path, &[]))
+        .map_err(|code| Self::error(code, "mark_hidden", path, &[]))
     }
 }
 

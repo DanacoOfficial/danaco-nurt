@@ -42,6 +42,10 @@ pub mod volume_flags {
     pub const SUPPORTS_BLOCK_REFCOUNTING: u32 = 0x0800_0000;
 }
 
+#[allow(
+    clippy::wildcard_imports,
+    reason = "the volume flags keep their Win32 names without the module prefix"
+)]
 use volume_flags::*;
 
 /// File system type names, as reported in [`nurt_contracts::fs::VolumeInfo`].
@@ -68,6 +72,7 @@ const VOLUME_GUID_SUFFIX: &str = r"}\";
 ///
 /// Optical drives are removable media; unknown types and invalid roots are
 /// [`VolumeKind::Other`].
+#[must_use]
 pub fn volume_kind(drive_type: u32) -> VolumeKind {
     match drive_type {
         drive_types::FIXED => VolumeKind::Fixed,
@@ -80,6 +85,7 @@ pub fn volume_kind(drive_type: u32) -> VolumeKind {
 
 /// File system type name in the portable lower-case form (`NTFS` becomes
 /// `ntfs`, `ReFS` becomes `refs`).
+#[must_use]
 pub fn fs_type_name(raw: &str) -> String {
     raw.trim().to_ascii_lowercase()
 }
@@ -92,6 +98,7 @@ pub fn fs_type_name(raw: &str) -> String {
 /// sensitivity is not reflected in volume capabilities. Exchange of names is
 /// unavailable on Windows; replacement keeps the old file under a backup name
 /// instead.
+#[must_use]
 pub fn features(fs_type: &str, flags: u32, kind: VolumeKind) -> FsFeatures {
     let replace_capable = fs_type == fs_types::NTFS || fs_type == fs_types::REFS;
     FsFeatures {
@@ -110,11 +117,13 @@ pub fn features(fs_type: &str, flags: u32, kind: VolumeKind) -> FsFeatures {
 }
 
 /// Whether the flags mark a read-only volume.
+#[must_use]
 pub fn is_read_only(flags: u32) -> bool {
     flags & READ_ONLY_VOLUME != 0
 }
 
 /// Whether rename and delete with POSIX semantics are available.
+#[must_use]
 pub fn supports_posix_semantics(flags: u32) -> bool {
     flags & SUPPORTS_POSIX_UNLINK_RENAME != 0
 }
@@ -136,6 +145,7 @@ pub fn supports_posix_semantics(flags: u32) -> bool {
 ///     r"\\?\Volume{3f2504e0-4f89-11d3-9a0c-0305e82c3301}\"
 /// );
 /// ```
+#[must_use]
 pub fn parse_volume_guid_path(path: &str) -> Option<String> {
     let guid = path
         .strip_prefix(VOLUME_GUID_PREFIX)?
@@ -153,6 +163,7 @@ pub fn parse_volume_guid_path(path: &str) -> Option<String> {
 
 /// Volume GUID path (`\\?\Volume{GUID}\`) for a GUID kept in
 /// [`nurt_contracts::fs::VolumeId::uuid`].
+#[must_use]
 pub fn volume_guid_path(guid: &str) -> String {
     format!("{VOLUME_GUID_PREFIX}{guid}{VOLUME_GUID_SUFFIX}")
 }
@@ -164,6 +175,7 @@ pub fn volume_guid_path(guid: &str) -> String {
 /// caller are fewer than the free bytes of the volume, which happens only when
 /// a per-account limit applies; a limit whose remainder equals the free space
 /// has no effect and is not distinguishable.
+#[must_use]
 pub fn space_info(free_to_caller: u64, total_to_caller: u64, total_free: u64) -> SpaceInfo {
     SpaceInfo {
         total: total_to_caller,

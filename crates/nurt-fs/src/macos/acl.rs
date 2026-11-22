@@ -99,6 +99,9 @@ pub fn acl_from_system_text(text: &[u8]) -> Option<Vec<u8>> {
 /// ```
 pub fn acl_text_for_system(stored: &[u8]) -> Result<CString, AclTextError> {
     let text = std::str::from_utf8(stored).map_err(|_| AclTextError::NotUtf8)?;
+    if stored.contains(&0) {
+        return Err(AclTextError::InteriorNul);
+    }
     let mut lines = text.lines();
     if lines.next().map(str::trim_end) != Some(ACL_TEXT_HEADER) {
         return Err(AclTextError::MissingHeader);

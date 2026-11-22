@@ -49,6 +49,7 @@ pub enum ReplaceState {
 
 impl ReplaceState {
     /// State left by a failure with the Win32 code `code`.
+    #[must_use]
     pub fn from_code(code: u32) -> Self {
         if code == ERROR_UNABLE_TO_MOVE_REPLACEMENT_2 {
             Self::OldAtBackup
@@ -58,6 +59,7 @@ impl ReplaceState {
     }
 
     /// Operation name reported in [`FsError::op`].
+    #[must_use]
     pub fn op(self) -> &'static str {
         match self {
             Self::Unchanged => OP_REPLACE,
@@ -81,6 +83,7 @@ impl ReplaceState {
     /// let error = os_error(1177, state.op(), None);
     /// assert_eq!(ReplaceState::of(&error), Some(ReplaceState::OldAtBackup));
     /// ```
+    #[must_use]
     pub fn of(error: &FsError) -> Option<Self> {
         match error.op.as_str() {
             OP_REPLACE => Some(Self::Unchanged),
@@ -96,6 +99,7 @@ impl ReplaceState {
 /// Besides sharing and lock violations this covers a target that could not be
 /// removed and a replacement that could not be renamed: their usual cause is a
 /// handle opened without `FILE_SHARE_DELETE`.
+#[must_use]
 pub fn is_retryable(code: u32) -> bool {
     is_sharing_conflict(code)
         || code == ERROR_UNABLE_TO_REMOVE_REPLACED
@@ -106,6 +110,7 @@ pub fn is_retryable(code: u32) -> bool {
 /// period: [`FsErrorKind::InUse`] for retryable codes, the classification of
 /// the code otherwise, and the operation name of the resulting
 /// [`ReplaceState`].
+#[must_use]
 pub fn replace_error(code: u32, target: Option<&Path>) -> FsError {
     let mut error = os_error(code, ReplaceState::from_code(code).op(), target);
     if is_retryable(code) {

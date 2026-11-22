@@ -90,8 +90,7 @@ const FAT_TYPES: &[&str] = &["vfat", "exfat", "msdos", "fat"];
 
 /// File systems whose `rename` accepts `RENAME_EXCHANGE`.
 const EXCHANGE_TYPES: &[&str] = &[
-    "ext3", "ext4", "xfs", "btrfs", "tmpfs", "f2fs", "overlay", "bcachefs", "ubifs", "shmem",
-    "zfs",
+    "ext3", "ext4", "xfs", "btrfs", "tmpfs", "f2fs", "overlay", "bcachefs", "ubifs", "shmem", "zfs",
 ];
 
 /// File systems whose `rename` accepts `RENAME_NOREPLACE`.
@@ -102,7 +101,7 @@ const NOREPLACE_TYPES: &[&str] = &[
 ];
 
 /// File systems that share blocks through `FICLONE`; ZFS shares blocks
-/// from OpenZFS 2.2 with the `block_cloning` pool feature. XFS shares
+/// from `OpenZFS` 2.2 with the `block_cloning` pool feature. XFS shares
 /// blocks only when formatted with `reflink=1` and is decided by the caller.
 const REFLINK_TYPES: &[&str] = &["btrfs", "bcachefs", "ocfs2", "zfs"];
 
@@ -295,7 +294,10 @@ mod tests {
     #[test]
     fn classifies_fuse_mounts_by_subtype_and_source() {
         assert_eq!(volume_kind("fuse.sshfs", b"x", false), VolumeKind::Network);
-        assert_eq!(volume_kind("fuse.rclone", b"drive:", false), VolumeKind::Network);
+        assert_eq!(
+            volume_kind("fuse.rclone", b"drive:", false),
+            VolumeKind::Network
+        );
         assert_eq!(
             volume_kind("fuse.unknownfs", b"user@host:dir", false),
             VolumeKind::Network
@@ -308,10 +310,22 @@ mod tests {
             volume_kind("fuse.unknownfs", b"/dev/sdc1", false),
             VolumeKind::Fixed
         );
-        assert_eq!(volume_kind("fuse.unknownfs", b"local", false), VolumeKind::Fixed);
-        assert_eq!(volume_kind("fuse.unknownfs", b":x", false), VolumeKind::Fixed);
-        assert_eq!(volume_kind("fuseblk", b"/dev/sdc1", true), VolumeKind::Removable);
-        assert_eq!(volume_kind("fuse.lxcfs", b"lxcfs", false), VolumeKind::Other);
+        assert_eq!(
+            volume_kind("fuse.unknownfs", b"local", false),
+            VolumeKind::Fixed
+        );
+        assert_eq!(
+            volume_kind("fuse.unknownfs", b":x", false),
+            VolumeKind::Fixed
+        );
+        assert_eq!(
+            volume_kind("fuseblk", b"/dev/sdc1", true),
+            VolumeKind::Removable
+        );
+        assert_eq!(
+            volume_kind("fuse.lxcfs", b"lxcfs", false),
+            VolumeKind::Other
+        );
     }
 
     #[test]
@@ -319,7 +333,10 @@ mod tests {
         for fs_type in ["tmpfs", "ramfs", "devtmpfs"] {
             assert_eq!(volume_kind(fs_type, b"none", false), VolumeKind::Memory);
         }
-        assert_eq!(volume_kind("overlay", b"overlay", false), VolumeKind::Overlay);
+        assert_eq!(
+            volume_kind("overlay", b"overlay", false),
+            VolumeKind::Overlay
+        );
         assert_eq!(
             volume_kind("fuse.fuse-overlayfs", b"fuse-overlayfs", false),
             VolumeKind::Overlay
@@ -333,8 +350,14 @@ mod tests {
     fn classifies_disks_by_removable_flag() {
         assert_eq!(volume_kind("ext4", b"/dev/sda1", false), VolumeKind::Fixed);
         assert_eq!(volume_kind("xfs", b"/dev/sda2", false), VolumeKind::Fixed);
-        assert_eq!(volume_kind("btrfs", b"/dev/nvme0n1p2", false), VolumeKind::Fixed);
-        assert_eq!(volume_kind("vfat", b"/dev/sdb1", true), VolumeKind::Removable);
+        assert_eq!(
+            volume_kind("btrfs", b"/dev/nvme0n1p2", false),
+            VolumeKind::Fixed
+        );
+        assert_eq!(
+            volume_kind("vfat", b"/dev/sdb1", true),
+            VolumeKind::Removable
+        );
         assert_eq!(volume_kind("tmpfs", b"tmpfs", true), VolumeKind::Memory);
     }
 
@@ -378,9 +401,15 @@ mod tests {
             &options(&["xattr", "posixacl", "casesensitive"]),
         );
         assert!(zfs.acl && zfs.xattr && zfs.case_sensitive);
-        let mixed = features_for("zfs", VolumeKind::Fixed, &options(&["noxattr", "casemixed"]));
+        let mixed = features_for(
+            "zfs",
+            VolumeKind::Fixed,
+            &options(&["noxattr", "casemixed"]),
+        );
         assert!(!mixed.xattr && !mixed.case_sensitive);
-        assert!(!features_for("zfs", VolumeKind::Fixed, &options(&["caseinsensitive"])).case_sensitive);
+        assert!(
+            !features_for("zfs", VolumeKind::Fixed, &options(&["caseinsensitive"])).case_sensitive
+        );
         assert!(features_for("ntfs3", VolumeKind::Fixed, &options(&["acl"])).acl);
     }
 

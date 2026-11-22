@@ -59,6 +59,10 @@ pub mod reparse_tags {
     pub const LX_BLK: u32 = 0x8000_0026;
 }
 
+#[allow(
+    clippy::wildcard_imports,
+    reason = "the attribute bits keep their Win32 names without the module prefix"
+)]
 use attributes::*;
 
 /// Attributes that [`FileMeta::windows_attributes`] restores through
@@ -95,6 +99,7 @@ pub const MODE_WRITE_BITS: u32 = 0o222;
 /// assert_eq!(filetime_to_unix_ns(UNIX_EPOCH_TICKS), 0);
 /// assert_eq!(filetime_to_unix_ns(UNIX_EPOCH_TICKS + 1), 100);
 /// ```
+#[must_use]
 pub fn filetime_to_unix_ns(ticks: i64) -> i64 {
     let nanos = (i128::from(ticks) - i128::from(UNIX_EPOCH_TICKS)) * i128::from(NANOS_PER_TICK);
     i64::try_from(nanos).unwrap_or(if nanos < 0 { i64::MIN } else { i64::MAX })
@@ -102,6 +107,7 @@ pub fn filetime_to_unix_ns(ticks: i64) -> i64 {
 
 /// Converts `FILETIME` ticks to nanoseconds since the Unix epoch, treating
 /// zero as a time the file system does not record.
+#[must_use]
 pub fn optional_filetime(ticks: i64) -> Option<i64> {
     (ticks != 0).then(|| filetime_to_unix_ns(ticks))
 }
@@ -112,6 +118,7 @@ pub fn optional_filetime(ticks: i64) -> Option<i64> {
 /// The range of `i64` nanoseconds (years 1677 to 2262) maps to positive tick
 /// values, so the result never takes the special meanings of zero (leave
 /// unchanged) and minus one (stop updating) in `FILE_BASIC_INFO`.
+#[must_use]
 pub fn unix_ns_to_filetime(nanos: i64) -> i64 {
     nanos.div_euclid(NANOS_PER_TICK) + UNIX_EPOCH_TICKS
 }
@@ -121,6 +128,7 @@ pub fn unix_ns_to_filetime(nanos: i64) -> i64 {
 /// Files are `0o666` and directories `0o777`; the read-only attribute removes
 /// the write bits (`0o444`, `0o555`). Execute bits of files are not
 /// synthesised.
+#[must_use]
 pub fn synthesize_mode(attributes: u32) -> u32 {
     let base = if attributes & DIRECTORY != 0 {
         MODE_DIRECTORY
@@ -136,6 +144,7 @@ pub fn synthesize_mode(attributes: u32) -> u32 {
 
 /// Attributes after applying permission bits: the read-only attribute is set
 /// when `mode` has no write bit and cleared otherwise; other bits are kept.
+#[must_use]
 pub fn attributes_for_mode(current: u32, mode: u32) -> u32 {
     if mode & MODE_WRITE_BITS == 0 {
         current | READONLY
@@ -149,6 +158,7 @@ pub fn attributes_for_mode(current: u32, mode: u32) -> u32 {
 ///
 /// Zero means "unchanged" in that structure, so an empty set is expressed as
 /// `FILE_ATTRIBUTE_NORMAL`.
+#[must_use]
 pub fn basic_info_attributes(desired: u32) -> u32 {
     let settable = desired & RESTORABLE_ATTRIBUTES;
     if settable == 0 { NORMAL } else { settable }
@@ -156,6 +166,7 @@ pub fn basic_info_attributes(desired: u32) -> u32 {
 
 /// Requested attribute bits that cannot be set through `FILE_BASIC_INFO`
 /// (directory, compression, encryption, sparse and reparse state).
+#[must_use]
 pub fn unsettable_attributes(bits: u32) -> u32 {
     bits & !RESTORABLE_ATTRIBUTES
 }
@@ -166,6 +177,7 @@ pub fn unsettable_attributes(bits: u32) -> u32 {
 /// Compression and encryption are reported (`attribute:compressed`,
 /// `attribute:encrypted`); an unencrypted copy of an encrypted file must not
 /// pass unnoticed.
+#[must_use]
 pub fn untransferable_attributes(source: u32, target: u32) -> Vec<String> {
     [(COMPRESSED, "compressed"), (ENCRYPTED, "encrypted")]
         .into_iter()
@@ -180,6 +192,7 @@ pub fn untransferable_attributes(source: u32, target: u32) -> Vec<String> {
 /// reparse points as [`FileKind::Special`]. Other reparse points (cloud
 /// placeholders, deduplicated files) are not links and are reported by their
 /// directory bit.
+#[must_use]
 pub fn classify_kind(attributes: u32, reparse_tag: u32) -> FileKind {
     if attributes & REPARSE_POINT != 0 {
         match reparse_tag {
@@ -203,12 +216,14 @@ pub fn classify_kind(attributes: u32, reparse_tag: u32) -> FileKind {
 
 /// Whether recursive operations must treat the entry as a leaf: every reparse
 /// point is removed itself and never entered.
+#[must_use]
 pub fn is_leaf_for_recursion(attributes: u32) -> bool {
     attributes & DIRECTORY == 0 || attributes & REPARSE_POINT != 0
 }
 
 /// File identity from the volume serial number and the 128-bit file id of
 /// `FILE_ID_INFO` (little-endian halves).
+#[must_use]
 pub fn file_id(volume_serial: u64, identifier: [u8; 16]) -> FileId {
     let (low, high) = identifier.split_at(8);
     let half = |bytes: &[u8]| {
@@ -252,6 +267,7 @@ pub struct RawFileInfo {
 impl RawFileInfo {
     /// Portable metadata of the file. `uid` and `gid` are `None`; the account
     /// of the file is reported by extended metadata as a security identifier.
+    #[must_use]
     pub fn to_meta(&self) -> FileMeta {
         let kind = classify_kind(self.attributes, self.reparse_tag);
         let size = if kind == FileKind::Directory {

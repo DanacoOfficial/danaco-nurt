@@ -39,8 +39,15 @@ struct Pair {
 }
 
 fn open_pair(src: &Path, dst: &Path, op: &str) -> FsResult<Pair> {
-    let source = retry(|| rustix::fs::openat(CWD, src, OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOCTTY, Mode::empty()))
-        .map_err(|errno| sys_error(errno, op, src))?;
+    let source = retry(|| {
+        rustix::fs::openat(
+            CWD,
+            src,
+            OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOCTTY,
+            Mode::empty(),
+        )
+    })
+    .map_err(|errno| sys_error(errno, op, src))?;
     let meta = stat_fd(source.as_fd(), op, src)?;
     if meta.kind != FileKind::File {
         let kind = if meta.kind == FileKind::Directory {
@@ -165,7 +172,9 @@ impl Copier<'_> {
     fn copy_range(&mut self, start: u64, end: u64) -> rustix::io::Result<bool> {
         let mut position = start;
         while position < end {
-            let remaining = usize::try_from(end - position).unwrap_or(usize::MAX).min(COPY_CHUNK);
+            let remaining = usize::try_from(end - position)
+                .unwrap_or(usize::MAX)
+                .min(COPY_CHUNK);
             let copied = if self.in_kernel {
                 let mut from = position;
                 let mut to = position;
@@ -202,7 +211,8 @@ impl Copier<'_> {
         let mut written = 0;
         while written < read {
             let offset = position + written as u64;
-            written += retry(|| rustix::io::pwrite(self.destination, &buffer[written..read], offset))?;
+            written +=
+                retry(|| rustix::io::pwrite(self.destination, &buffer[written..read], offset))?;
         }
         Ok(read)
     }

@@ -258,8 +258,9 @@ fn apply_acl(fd: BorrowedFd<'_>, wanted: Option<&[u8]>, report: &mut Report) {
         return;
     }
     let applied = match wanted {
-        Some(text) => acl_text_for_system(text)
-            .is_ok_and(|text| ffi::write_fd_acl(fd, Some(&text)).is_ok()),
+        Some(text) => {
+            acl_text_for_system(text).is_ok_and(|text| ffi::write_fd_acl(fd, Some(&text)).is_ok())
+        }
         None => ffi::write_fd_acl(fd, None).is_ok(),
     };
     report.check(ACL, applied);

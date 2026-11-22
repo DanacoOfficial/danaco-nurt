@@ -231,7 +231,9 @@ impl MountTable {
 }
 
 /// Entry with the longest mount point; the later entry wins a tie.
-fn longest_mount_point<'a>(entries: impl Iterator<Item = &'a MountEntry>) -> Option<&'a MountEntry> {
+fn longest_mount_point<'a>(
+    entries: impl Iterator<Item = &'a MountEntry>,
+) -> Option<&'a MountEntry> {
     entries.fold(None, |best, entry| match best {
         Some(best) if best.mount_point.len() > entry.mount_point.len() => Some(best),
         _ => Some(entry),
@@ -414,7 +416,10 @@ mod tests {
             .expect("overlay layers");
         assert_eq!(layers.upper.as_deref(), Some(&b"/var/lib/u/diff"[..]));
         assert_eq!(layers.work.as_deref(), Some(&b"/var/lib/u/work"[..]));
-        assert_eq!(layers.lower, [b"/var/lib/l/1".to_vec(), b"/var/lib/l/2".to_vec()]);
+        assert_eq!(
+            layers.lower,
+            [b"/var/lib/l/1".to_vec(), b"/var/lib/l/2".to_vec()]
+        );
     }
 
     #[test]
@@ -510,7 +515,10 @@ mod tests {
         assert_eq!(find(b"/data"), Some(b"/data".to_vec()));
         assert_eq!(find(b"/data/file"), Some(b"/data".to_vec()));
         assert_eq!(find(b"/datafile"), Some(b"/".to_vec()));
-        assert_eq!(find(b"/data/my photos/x"), Some(b"/data/my photos".to_vec()));
+        assert_eq!(
+            find(b"/data/my photos/x"),
+            Some(b"/data/my photos".to_vec())
+        );
         assert_eq!(find(b"/dev/shm/a"), Some(b"/dev/shm".to_vec()));
         assert_eq!(find(b"relative"), None);
     }
@@ -578,8 +586,17 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn device_encoding_matches_system_makedev() {
-        for (major, minor) in [(0, 0), (8, 1), (259, 3), (0x1234, 0x5_6789), (u32::MAX, u32::MAX)] {
-            assert_eq!(device_number(major, minor), rustix::fs::makedev(major, minor));
+        for (major, minor) in [
+            (0, 0),
+            (8, 1),
+            (259, 3),
+            (0x1234, 0x5_6789),
+            (u32::MAX, u32::MAX),
+        ] {
+            assert_eq!(
+                device_number(major, minor),
+                rustix::fs::makedev(major, minor)
+            );
         }
     }
 }

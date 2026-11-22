@@ -8,7 +8,7 @@
 //! with Win32 calls on verbatim paths: replacement with a backup name through
 //! `ReplaceFileW`, renames with `MoveFileExW(MOVEFILE_WRITE_THROUGH)` or with
 //! POSIX semantics, NTFS alternate data streams, security descriptors, the
-//! Restart Manager for processes holding files, block cloning on ReFS and
+//! Restart Manager for processes holding files, block cloning on `ReFS` and
 //! bounded retries after sharing violations.
 //!
 //! The submodules other than the system layer contain the platform-independent

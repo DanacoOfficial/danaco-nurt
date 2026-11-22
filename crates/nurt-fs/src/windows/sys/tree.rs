@@ -43,10 +43,10 @@ impl WindowsFs {
     /// Removes the leaves of `dir` and returns its subdirectories.
     fn clear_leaves(&self, dir: &AbsPath, stats: &mut RemoveStats) -> FsResult<Vec<AbsPath>> {
         let wide = WidePath::of(dir)?;
-        let entries = list_dir(&wide).map_err(|code| self.error(code, OP, dir, &[]))?;
+        let entries = list_dir(&wide).map_err(|code| Self::error(code, OP, dir, &[]))?;
         let mut subdirectories = Vec::new();
         for entry in entries {
-            let entry = entry.map_err(|code| self.error(code, OP, dir, &[]))?;
+            let entry = entry.map_err(|code| Self::error(code, OP, dir, &[]))?;
             let path = child(dir, &entry)?;
             if is_leaf_for_recursion(entry.attributes) {
                 self.delete(&path, OP)?;

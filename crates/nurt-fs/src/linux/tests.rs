@@ -4,10 +4,11 @@
 //! Tests of the Linux back end on the file systems of the test host.
 //!
 //! The temporary directory decides the file system under test. Tests that
-//! need a capability the host lacks (block clones, user quotas, privileges)
-//! print the reason and return; the environment variables
-//! `NURT_TEST_REFLINK_DIR` and `NURT_TEST_QUOTA_DIR` name directories on
-//! volumes with block clones and with user quotas for the current account.
+//! need a privilege the account lacks, or a second volume, return early. Tests that
+//! need a volume with block clones or with user quotas for the current
+//! account are ignored by default; they run with `--ignored` on the volumes
+//! named by the environment variables `NURT_TEST_REFLINK_DIR` and
+//! `NURT_TEST_QUOTA_DIR`.
 
 use std::ffi::OsStr;
 use std::fs::{self, File, OpenOptions};
@@ -112,10 +113,6 @@ fn inode_of(path: &AbsPath) -> u64 {
     fs::symlink_metadata(path).expect("metadata").ino()
 }
 
-fn skip(reason: &str) {
-    println!("skipped: {reason}");
-}
-
 fn privileged() -> bool {
     rustix::process::geteuid().is_root()
 }
@@ -163,8 +160,13 @@ fn transferable(meta: &ExtendedMeta) -> impl PartialEq + std::fmt::Debug {
 /// fixed times.
 fn decorate(fixture: &Fixture, path: &AbsPath) -> bool {
     let features = fixture.fs.volume(path).expect("volume").features;
-    rustix::fs::setxattr(path.as_path(), "user.origin", b"test", rustix::fs::XattrFlags::empty())
-        .expect("user attribute");
+    rustix::fs::setxattr(
+        path.as_path(),
+        "user.origin",
+        b"test",
+        rustix::fs::XattrFlags::empty(),
+    )
+    .expect("user attribute");
     fs::set_permissions(path, fs::Permissions::from_mode(0o6750)).expect("mode");
     if features.acl {
         rustix::fs::setxattr(
@@ -201,7 +203,6 @@ fn passes_conformance_suite_on_temporary_directory() {
             .map(|dir| AbsPath::new(dir.path()).expect("absolute directory")),
     };
     let report = conformance::run_with(&fixture.fs, &fixture.root, &fixture.scope, &options);
-    println!("{report}");
     assert!(report.passed(), "{report}");
 }
 
@@ -209,15 +210,13 @@ fn passes_conformance_suite_on_temporary_directory() {
 fn passes_conformance_suite_on_other_host_file_systems() {
     for parent in ["/tmp", DEV_SHM] {
         let Ok(dir) = TempDir::new_in(parent) else {
-            skip(&format!("{parent} is not writable"));
             continue;
         };
         let fs = LinuxFs::new();
         let root = AbsPath::new(dir.path()).expect("absolute directory");
         let volume = fs.volume(&root).expect("volume");
         let report = conformance::run(&fs, &root, &scope());
-        println!("{parent} ({}):\n{report}", volume.fs_type);
-        assert!(report.passed(), "{parent}: {report}");
+        assert!(report.passed(), "{parent} ({}): {report}", volume.fs_type);
     }
 }
 
@@ -227,8 +226,14 @@ fn exchange_swaps_files_and_keeps_inodes() {
     let a = fixture.file("a", b"first");
     let b = fixture.file("b", b"second");
     let (inode_a, inode_b) = (inode_of(&a), inode_of(&b));
-    fixture.fs.exchange(&fixture.scope, &a, &b).expect("exchange");
-    assert_eq!((read(&a), read(&b)), (b"second".to_vec(), b"first".to_vec()));
+    fixture
+        .fs
+        .exchange(&fixture.scope, &a, &b)
+        .expect("exchange");
+    assert_eq!(
+        (read(&a), read(&b)),
+        (b"second".to_vec(), b"first".to_vec())
+    );
     assert_eq!((inode_of(&a), inode_of(&b)), (inode_b, inode_a));
 }
 
@@ -238,7 +243,10 @@ fn exchange_swaps_directory_and_file() {
     let dir = fixture.dir("dir");
     fs::write(dir.join_name("inner").expect("name"), b"x").expect("inner file");
     let file = fixture.file("file", b"y");
-    fixture.fs.exchange(&fixture.scope, &dir, &file).expect("exchange");
+    fixture
+        .fs
+        .exchange(&fixture.scope, &dir, &file)
+        .expect("exchange");
     assert!(fs::symlink_metadata(&file).expect("metadata").is_dir());
     assert_eq!(read(&dir), b"y");
     assert_eq!(
@@ -321,12 +329,12 @@ fn rename_reports_missing_source_and_cross_device_moves() {
         .expect_err("missing source");
     assert_eq!(error.kind, FsErrorKind::NotFound);
     let Ok(other) = TempDir::new_in(DEV_SHM) else {
-        return skip("no second volume for the cross-device rename");
+        return;
     };
     let source = fixture.file("a", b"a");
     let target = AbsPath::new(other.path().join("a")).expect("absolute path");
     if fixture.fs.same_volume(&source, &target).expect("volumes") {
-        return skip("the shared memory directory is on the same volume");
+        return;
     }
     for mode in [RenameMode::Replace, RenameMode::NoReplace] {
         let error = fixture
@@ -345,13 +353,19 @@ fn clone_shares_blocks_or_reports_unsupported_without_leftover() {
     let reflink = fixture.fs.volume(&source).expect("volume").features.reflink;
     match fixture.fs.clone_file(&fixture.scope, &source, &target) {
         Ok(()) => {
-            assert!(reflink, "clone succeeded on a volume declared without clones");
+            assert!(
+                reflink,
+                "clone succeeded on a volume declared without clones"
+            );
             assert_eq!(read(&target), b"content");
         }
         Err(error) => {
             assert_eq!(error.kind, FsErrorKind::Unsupported, "{error}");
             assert!(error.os_code.is_some());
-            assert!(!target.as_path().exists(), "failed clone left its destination");
+            assert!(
+                !target.as_path().exists(),
+                "failed clone left its destination"
+            );
         }
     }
     let error = fixture
@@ -362,12 +376,20 @@ fn clone_shares_blocks_or_reports_unsupported_without_leftover() {
 }
 
 #[test]
+#[ignore = "needs a volume with block clones named by NURT_TEST_REFLINK_DIR"]
 fn clones_on_reflink_volume() {
     let Some(dir) = std::env::var_os("NURT_TEST_REFLINK_DIR") else {
-        return skip("NURT_TEST_REFLINK_DIR is not set; the test needs a volume with block clones");
+        return;
     };
     let fixture = Fixture::within(Some(Path::new(&dir)));
-    assert!(fixture.fs.volume(&fixture.root).expect("volume").features.reflink);
+    assert!(
+        fixture
+            .fs
+            .volume(&fixture.root)
+            .expect("volume")
+            .features
+            .reflink
+    );
     let source = fixture.file("source", &vec![7; 65_536]);
     let target = fixture.path("clone");
     fixture
@@ -389,7 +411,11 @@ fn clone_and_copy_refuse_directories_and_special_files() {
     assert_eq!(error.kind, FsErrorKind::IsADirectory);
     let error = fixture
         .fs
-        .copy_file(&fixture.scope, &AbsPath::new("/dev/null").expect("path"), &target)
+        .copy_file(
+            &fixture.scope,
+            &AbsPath::new("/dev/null").expect("path"),
+            &target,
+        )
         .expect_err("device source");
     assert_eq!(error.kind, FsErrorKind::Unsupported);
     assert!(!target.as_path().exists());
@@ -408,7 +434,10 @@ fn copies_empty_and_single_byte_files() {
             .expect("copy");
         assert_eq!(copied, content.len() as u64);
         assert_eq!(read(&target), content);
-        assert_eq!(fs::metadata(&target).expect("metadata").mode() & 0o777, 0o640);
+        assert_eq!(
+            fs::metadata(&target).expect("metadata").mode() & 0o777,
+            0o640
+        );
         let error = fixture
             .fs
             .copy_file(&fixture.scope, &source, &target)
@@ -424,7 +453,11 @@ fn copies_sparse_file_larger_than_two_gibibytes() {
     let source = fixture.path("sparse");
     let mut file = File::create(&source).expect("create sparse file");
     file.set_len(SPARSE_LENGTH).expect("length");
-    for (offset, data) in [(0, &[1_u8; 4096][..]), (1 << 30, &[2; 4096]), (SPARSE_LENGTH - 1, &[3])] {
+    for (offset, data) in [
+        (0, &[1_u8; 4096][..]),
+        (1 << 30, &[2; 4096]),
+        (SPARSE_LENGTH - 1, &[3]),
+    ] {
         file.seek(SeekFrom::Start(offset)).expect("seek");
         file.write_all(data).expect("data");
     }
@@ -477,7 +510,14 @@ fn writes_in_place_through_every_hard_link() {
         .hard_link(&fixture.scope, &first, &second)
         .expect("hard link");
     let inode = inode_of(&first);
-    assert_eq!(fixture.fs.metadata(&first, Follow::NoFollow).expect("metadata").links, 2);
+    assert_eq!(
+        fixture
+            .fs
+            .metadata(&first, Follow::NoFollow)
+            .expect("metadata")
+            .links,
+        2
+    );
     let mut handle = fixture
         .fs
         .open_in_place(&fixture.scope, &second)
@@ -486,7 +526,10 @@ fn writes_in_place_through_every_hard_link() {
     handle.set_length(4).expect("length");
     handle.sync(Durability::Data).expect("sync");
     drop(handle);
-    assert_eq!((read(&first), read(&second)), (b"next".to_vec(), b"next".to_vec()));
+    assert_eq!(
+        (read(&first), read(&second)),
+        (b"next".to_vec(), b"next".to_vec())
+    );
     assert_eq!((inode_of(&first), inode_of(&second)), (inode, inode));
     let error = fixture
         .fs
@@ -589,7 +632,11 @@ fn remove_tree_removes_single_entries_and_reports_errors() {
     assert_eq!(error.kind, FsErrorKind::InvalidPath);
     let error = fixture
         .fs
-        .remove_tree(&fixture.scope, &AbsPath::new("/proc/self/fd").expect("path"), 1)
+        .remove_tree(
+            &fixture.scope,
+            &AbsPath::new("/proc/self/fd").expect("path"),
+            1,
+        )
         .expect_err("pseudo file system");
     assert_ne!(error.kind, FsErrorKind::NotFound);
 }
@@ -598,16 +645,23 @@ fn remove_tree_removes_single_entries_and_reports_errors() {
 fn round_trips_complete_metadata_through_restore_meta() {
     let fixture = Fixture::new();
     let source = fixture.file("source", b"content");
-    if !decorate(&fixture, &source) {
-        skip("the temporary volume lacks ACL or inode flags; only attributes, mode and times are checked");
-    }
+    // Without ACL or inode flags on the volume only attributes, mode and times are checked.
+    decorate(&fixture, &source);
     let before = fixture
         .fs
         .extended_metadata(&source, Follow::NoFollow)
         .expect("metadata before");
-    assert!(before.xattrs.iter().any(|xattr| xattr.name == "user.origin"));
+    assert!(
+        before
+            .xattrs
+            .iter()
+            .any(|xattr| xattr.name == "user.origin")
+    );
     assert_eq!(before.basic.mode, 0o6750);
-    assert_eq!((before.acl.as_ref(), before.account_sid.as_ref()), (None, None));
+    assert_eq!(
+        (before.acl.as_ref(), before.account_sid.as_ref()),
+        (None, None)
+    );
     assert!(before.streams.is_empty());
 
     let target = fixture.file("target", b"other content");
@@ -726,7 +780,7 @@ fn round_trips_default_acl_of_directory_and_times_of_symbolic_link() {
 #[test]
 fn reports_metadata_that_requires_missing_privileges() {
     if privileged() {
-        return skip("the account is privileged, so every element can be transferred");
+        return;
     }
     let fixture = Fixture::new();
     let path = fixture.file("file", b"x");
@@ -748,7 +802,10 @@ fn reports_metadata_that_requires_missing_privileges() {
         .fs
         .restore_meta(&fixture.scope, &path, &wanted)
         .expect("restore");
-    assert!(report.not_transferred.contains(&"owner".to_owned()), "{report:?}");
+    assert!(
+        report.not_transferred.contains(&"owner".to_owned()),
+        "{report:?}"
+    );
     assert!(
         report
             .not_transferred
@@ -756,10 +813,19 @@ fn reports_metadata_that_requires_missing_privileges() {
         "{report:?}"
     );
     if wanted.flags.is_some() {
-        assert!(report.not_transferred.contains(&"flags".to_owned()), "{report:?}");
+        assert!(
+            report.not_transferred.contains(&"flags".to_owned()),
+            "{report:?}"
+        );
     }
-    assert!(!report.not_transferred.contains(&"mode".to_owned()), "{report:?}");
-    assert_eq!(fs::metadata(&path).expect("metadata").mode() & 0o7777, 0o640);
+    assert!(
+        !report.not_transferred.contains(&"mode".to_owned()),
+        "{report:?}"
+    );
+    assert_eq!(
+        fs::metadata(&path).expect("metadata").mode() & 0o7777,
+        0o640
+    );
 
     let error = fixture
         .fs
@@ -861,7 +927,12 @@ fn takes_exclusive_lock_and_times_out_while_it_is_held() {
         .expect("second lock");
     assert_eq!(error.kind, FsErrorKind::InUse);
     assert!(started.elapsed() >= Duration::from_millis(100));
-    assert!(error.holders.iter().any(|holder| holder.pid == std::process::id()));
+    assert!(
+        error
+            .holders
+            .iter()
+            .any(|holder| holder.pid == std::process::id())
+    );
     drop(lock);
     fixture
         .fs
@@ -907,7 +978,10 @@ fn creates_unique_private_temporary_files() {
     assert_ne!(first.path(), second.path());
     let name = first.path().file_name().expect("name").to_string_lossy();
     assert!(name.starts_with("blob."), "{name}");
-    assert_eq!(fs::metadata(first.path()).expect("metadata").mode() & 0o777, 0o600);
+    assert_eq!(
+        fs::metadata(first.path()).expect("metadata").mode() & 0o777,
+        0o600
+    );
     for hint in ["", "a/b", ".."] {
         let error = fixture
             .fs
@@ -966,10 +1040,16 @@ fn reads_files_directories_and_links() {
     let error = fixture.fs.read_dir(&file).err().expect("file");
     assert_eq!(error.kind, FsErrorKind::NotADirectory);
 
-    assert_eq!(fixture.fs.read_link(&link).expect("link"), Path::new("file"));
+    assert_eq!(
+        fixture.fs.read_link(&link).expect("link"),
+        Path::new("file")
+    );
     let error = fixture.fs.read_link(&file).expect_err("not a link");
     assert_eq!(error.kind, FsErrorKind::InvalidPath);
-    assert_eq!(fixture.fs.real_path(&link).expect("real path"), fixture.fs.real_path(&file).expect("file"));
+    assert_eq!(
+        fixture.fs.real_path(&link).expect("real path"),
+        fixture.fs.real_path(&file).expect("file")
+    );
     let error = fixture
         .fs
         .real_path(&fixture.path("missing"))
@@ -979,21 +1059,34 @@ fn reads_files_directories_and_links() {
         .fs
         .extended_metadata(&link, Follow::Follow)
         .expect("followed link");
-    assert_eq!((extended.basic.kind, extended.link_target), (FileKind::File, None));
+    assert_eq!(
+        (extended.basic.kind, extended.link_target),
+        (FileKind::File, None)
+    );
 }
 
 #[test]
 fn reports_metadata_kinds_and_error_classes() {
     let fixture = Fixture::new();
     let file = fixture.file("file", b"abc");
-    let meta = fixture.fs.metadata(&file, Follow::NoFollow).expect("metadata");
+    let meta = fixture
+        .fs
+        .metadata(&file, Follow::NoFollow)
+        .expect("metadata");
     assert_eq!((meta.kind, meta.size, meta.links), (FileKind::File, 3, 1));
     assert_eq!(meta.uid, Some(rustix::process::getuid().as_raw()));
     assert!(meta.changed_ns.is_some() && meta.accessed_ns.is_some());
     assert_eq!(meta.file_id.low, inode_of(&file));
     assert_eq!(meta.file_id.volume, fs::metadata(&file).expect("std").dev());
     let null = AbsPath::new("/dev/null").expect("path");
-    assert_eq!(fixture.fs.metadata(&null, Follow::Follow).expect("device").kind, FileKind::Special);
+    assert_eq!(
+        fixture
+            .fs
+            .metadata(&null, Follow::Follow)
+            .expect("device")
+            .kind,
+        FileKind::Special
+    );
     let under_file = file.join_name("child").expect("name");
     let error = fixture
         .fs
@@ -1008,7 +1101,10 @@ fn reports_metadata_kinds_and_error_classes() {
         .expect_err("loop");
     assert_eq!(error.kind, FsErrorKind::Loop);
     let long = fixture.path(&"n".repeat(300));
-    let error = fixture.fs.metadata(&long, Follow::Follow).expect_err("long name");
+    let error = fixture
+        .fs
+        .metadata(&long, Follow::Follow)
+        .expect_err("long name");
     assert_eq!(error.kind, FsErrorKind::NameTooLong);
 }
 
@@ -1043,28 +1139,51 @@ fn creates_and_removes_entries() {
         .remove_file(&fixture.scope, &dir)
         .expect_err("directory");
     assert_eq!(error.kind, FsErrorKind::IsADirectory);
-    fixture.fs.remove_file(&fixture.scope, &inner).expect("remove file");
-    fixture.fs.remove_dir(&fixture.scope, &dir).expect("remove directory");
+    fixture
+        .fs
+        .remove_file(&fixture.scope, &inner)
+        .expect("remove file");
+    fixture
+        .fs
+        .remove_dir(&fixture.scope, &dir)
+        .expect("remove directory");
 
     let link = fixture.path("link");
     fixture
         .fs
-        .create_link(&fixture.scope, Path::new("dangling"), &link, LinkKind::SymlinkFile)
+        .create_link(
+            &fixture.scope,
+            Path::new("dangling"),
+            &link,
+            LinkKind::SymlinkFile,
+        )
         .expect("symbolic link");
     assert_eq!(fs::read_link(&link).expect("target"), Path::new("dangling"));
     let error = fixture
         .fs
-        .create_link(&fixture.scope, Path::new("dir"), &fixture.path("junction"), LinkKind::Junction)
+        .create_link(
+            &fixture.scope,
+            Path::new("dir"),
+            &fixture.path("junction"),
+            LinkKind::Junction,
+        )
         .expect_err("junction");
     assert_eq!(error.kind, FsErrorKind::Unsupported);
-    fixture.fs.remove_file(&fixture.scope, &link).expect("remove link");
+    fixture
+        .fs
+        .remove_file(&fixture.scope, &link)
+        .expect("remove link");
 }
 
 #[test]
 fn refuses_windows_only_operations() {
     let fixture = Fixture::new();
     let file = fixture.file("file", b"x");
-    let error = fixture.fs.open_stream_read(&file, "s").err().expect("stream read");
+    let error = fixture
+        .fs
+        .open_stream_read(&file, "s")
+        .err()
+        .expect("stream read");
     assert_eq!(error.kind, FsErrorKind::Unsupported);
     let error = fixture
         .fs
@@ -1077,7 +1196,10 @@ fn refuses_windows_only_operations() {
         .replace_with_backup(&fixture.scope, &file, &file, &file)
         .expect_err("replace with backup");
     assert_eq!(error.kind, FsErrorKind::Unsupported);
-    fixture.fs.mark_hidden(&fixture.scope, &file).expect("hidden by name");
+    fixture
+        .fs
+        .mark_hidden(&fixture.scope, &file)
+        .expect("hidden by name");
     let error = fixture
         .fs
         .mark_hidden(&fixture.scope, &fixture.path("missing"))
@@ -1098,14 +1220,24 @@ fn hashes_content() {
 #[test]
 fn reports_writable_directories() {
     let fixture = Fixture::new();
-    assert!(fixture.fs.can_write_dir(&fixture.root).expect("own directory"));
+    assert!(
+        fixture
+            .fs
+            .can_write_dir(&fixture.root)
+            .expect("own directory")
+    );
     let file = fixture.file("file", b"x");
     let error = fixture.fs.can_write_dir(&file).expect_err("file");
     assert_eq!(error.kind, FsErrorKind::NotADirectory);
     if !privileged() {
         let locked = fixture.dir("locked");
         fs::set_permissions(&locked, fs::Permissions::from_mode(0o500)).expect("mode");
-        assert!(!fixture.fs.can_write_dir(&locked).expect("read-only directory"));
+        assert!(
+            !fixture
+                .fs
+                .can_write_dir(&locked)
+                .expect("read-only directory")
+        );
         let proc = AbsPath::new("/proc").expect("path");
         assert!(!fixture.fs.can_write_dir(&proc).expect("procfs"));
     }
@@ -1123,7 +1255,10 @@ fn lists_own_process_among_holders() {
         .find(|holder| holder.pid == std::process::id())
         .expect("own process");
     assert!(!own.name.is_empty());
-    let free = fixture.fs.holders(&other).expect("holders of a closed file");
+    let free = fixture
+        .fs
+        .holders(&other)
+        .expect("holders of a closed file");
     assert!(free.iter().all(|holder| holder.pid != std::process::id()));
     drop(held);
     let error = fixture
@@ -1136,17 +1271,6 @@ fn lists_own_process_among_holders() {
 fn describe(fs: &LinuxFs, path: &Path) -> Option<nurt_contracts::fs::VolumeInfo> {
     let path = AbsPath::new(path).ok()?;
     let volume = fs.volume(&path).ok()?;
-    println!(
-        "{}: {} {:?} mount {} rotational {} read-only {} id {:?} {:?}",
-        path,
-        volume.fs_type,
-        volume.kind,
-        volume.mount,
-        volume.rotational,
-        volume.read_only,
-        volume.id,
-        volume.features
-    );
     Some(volume)
 }
 
@@ -1158,18 +1282,25 @@ fn classifies_volumes_of_the_host() {
     assert_eq!(volume.fs_type, entry.fs_type);
     assert!(fixture.root.starts_with(&volume.mount));
     let removable = volume.kind == VolumeKind::Removable;
-    assert_eq!(volume.kind, volume_kind(&entry.fs_type, &entry.source, removable));
+    assert_eq!(
+        volume.kind,
+        volume_kind(&entry.fs_type, &entry.source, removable)
+    );
     let mut expected = features_for(&entry.fs_type, volume.kind, &entry.super_options);
     expected.reflink = volume.features.reflink;
     assert_eq!(volume.features, expected);
     let missing = fixture.path("missing").join_name("deeper").expect("name");
-    assert_eq!(fixture.fs.volume(&missing).expect("missing path").id, volume.id);
+    assert_eq!(
+        fixture.fs.volume(&missing).expect("missing path").id,
+        volume.id
+    );
 
     if let Some(shm) = describe(&fixture.fs, Path::new(DEV_SHM)) {
-        assert_eq!((shm.fs_type.as_str(), shm.kind), ("tmpfs", VolumeKind::Memory));
+        assert_eq!(
+            (shm.fs_type.as_str(), shm.kind),
+            ("tmpfs", VolumeKind::Memory)
+        );
         assert!(!shm.rotational);
-    } else {
-        skip("no shared memory file system");
     }
     let proc = describe(&fixture.fs, Path::new("/proc")).expect("procfs");
     assert_eq!(proc.kind, VolumeKind::Other);
@@ -1183,10 +1314,6 @@ fn classifies_volumes_of_the_host() {
             .expect("root mount");
         let layers = entry.overlay_layers().expect("overlay layers");
         assert!(!layers.lower.is_empty());
-        println!(
-            "overlay upper layer {:?}",
-            layers.upper.map(|upper| String::from_utf8_lossy(&upper).into_owned())
-        );
     }
     let error = fixture
         .fs
@@ -1199,8 +1326,18 @@ fn classifies_volumes_of_the_host() {
 fn reads_own_mount_table() {
     let text = fs::read("/proc/self/mountinfo").expect("mount table");
     let table = MountTable::parse(&text).expect("parse");
-    assert!(table.entries().iter().any(|entry| entry.mount_point == b"/"));
-    assert!(table.entries().iter().all(|entry| !entry.fs_type.is_empty()));
+    assert!(
+        table
+            .entries()
+            .iter()
+            .any(|entry| entry.mount_point == b"/")
+    );
+    assert!(
+        table
+            .entries()
+            .iter()
+            .all(|entry| !entry.fs_type.is_empty())
+    );
 }
 
 #[test]
@@ -1214,7 +1351,8 @@ fn free_space_shrinks_after_written_and_flushed_data() {
         assert!(before.total > 0);
         let path = fixture.path(&format!("probe{attempt}"));
         let mut file = File::create(&path).expect("probe file");
-        file.write_all(&vec![0x5a; SPACE_PROBE]).expect("probe data");
+        file.write_all(&vec![0x5a; SPACE_PROBE])
+            .expect("probe data");
         file.sync_all().expect("probe flush");
         let after = fixture.fs.space(&volume.id).expect("space after");
         let decrease = before.available.saturating_sub(after.available);
@@ -1234,10 +1372,15 @@ fn space_of_unknown_volume_fails_with_not_found() {
         uuid: None,
         subvolume: 0,
     };
-    assert_eq!(fs.space(&id).expect_err("unknown").kind, FsErrorKind::NotFound);
+    assert_eq!(
+        fs.space(&id).expect_err("unknown").kind,
+        FsErrorKind::NotFound
+    );
     let root = AbsPath::new("/").expect("root");
     let volume = LinuxFs::new().volume(&root).expect("volume");
-    let space = fs.space(&volume.id).expect("volume found through the mount table");
+    let space = fs
+        .space(&volume.id)
+        .expect("volume found through the mount table");
     assert!(space.available <= space.total);
 }
 
@@ -1248,17 +1391,19 @@ fn reports_no_quota_on_volumes_without_quotas() {
     let space = fixture.fs.space(&volume.id).expect("space");
     match space.quota_remaining {
         None => assert_eq!(space.purgeable_system, None),
-        Some(remaining) => {
-            println!("the temporary volume enforces a quota: {remaining} bytes remain");
-            assert!(space.available <= remaining);
-        }
+        Some(remaining) => assert!(
+            space.available <= remaining,
+            "available {} exceeds the remaining quota {remaining}",
+            space.available
+        ),
     }
 }
 
 #[test]
+#[ignore = "needs a volume with user quotas named by NURT_TEST_QUOTA_DIR"]
 fn reports_enforced_user_quota() {
     let Some(dir) = std::env::var_os("NURT_TEST_QUOTA_DIR") else {
-        return skip("NURT_TEST_QUOTA_DIR is not set; the test needs a volume with user quotas");
+        return;
     };
     let fs = LinuxFs::new();
     let path = AbsPath::new(PathBuf::from(dir)).expect("absolute directory");

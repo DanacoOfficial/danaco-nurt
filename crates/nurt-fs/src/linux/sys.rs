@@ -38,7 +38,12 @@ pub(super) fn sys_error(errno: Errno, op: &str, path: &Path) -> FsError {
 
 /// Error of a call that needs a privilege beyond file permissions.
 pub(super) fn privileged_error(errno: Errno, op: &str, path: &Path) -> FsError {
-    errno_error(errno.raw_os_error(), ErrnoContext::Privileged, op, Some(path))
+    errno_error(
+        errno.raw_os_error(),
+        ErrnoContext::Privileged,
+        op,
+        Some(path),
+    )
 }
 
 /// Error of a call made through the standard library.
@@ -88,7 +93,11 @@ mod tests {
         let mut calls = 0;
         let result = retry(|| {
             calls += 1;
-            if calls < 3 { Err(Errno::INTR) } else { Ok(calls) }
+            if calls < 3 {
+                Err(Errno::INTR)
+            } else {
+                Ok(calls)
+            }
         });
         assert_eq!(result, Ok(3));
     }
@@ -102,8 +111,15 @@ mod tests {
     #[test]
     fn converts_standard_library_errors() {
         let error = io_error(&io::Error::from_raw_os_error(2), "open", Path::new("/a"));
-        assert_eq!((error.kind, error.os_code), (FsErrorKind::NotFound, Some(2)));
-        let error = io_error(&io::Error::from(io::ErrorKind::WriteZero), "write", Path::new("/a"));
+        assert_eq!(
+            (error.kind, error.os_code),
+            (FsErrorKind::NotFound, Some(2))
+        );
+        let error = io_error(
+            &io::Error::from(io::ErrorKind::WriteZero),
+            "write",
+            Path::new("/a"),
+        );
         assert_eq!((error.kind, error.os_code), (FsErrorKind::Io, None));
     }
 
@@ -111,7 +127,12 @@ mod tests {
     fn classifies_privileged_eperm() {
         let error = privileged_error(Errno::PERM, "fchown", Path::new("/a"));
         assert_eq!(error.kind, FsErrorKind::Privilege);
-        let error = kind_error(FsErrorKind::Unsupported, Errno::INVAL, "exchange", Path::new("/a"));
+        let error = kind_error(
+            FsErrorKind::Unsupported,
+            Errno::INVAL,
+            "exchange",
+            Path::new("/a"),
+        );
         assert_eq!(error.os_code, Some(Errno::INVAL.raw_os_error()));
     }
 

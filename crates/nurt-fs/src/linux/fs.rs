@@ -14,15 +14,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use nurt_contracts::env::Os;
 use nurt_contracts::fs::{
-    AbsPath, ContentHash, DirEntry, ExtendedMeta, FileKind, FileLock, FileMeta, Follow,
-    Fs, FsError, FsErrorKind, FsResult, FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport,
+    AbsPath, ContentHash, DirEntry, ExtendedMeta, FileKind, FileLock, FileMeta, Follow, Fs,
+    FsError, FsErrorKind, FsResult, FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport,
     PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, TxScope, VolumeId, VolumeInfo,
     WriteHandle,
 };
 use rustix::fs::{Access, AtFlags, CWD, Dir, FileType, FlockOperation, Mode, OFlags, RenameFlags};
 use rustix::io::Errno;
-use nurt_contracts::env::Os;
 use sha2::{Digest, Sha256};
 
 use crate::key;
@@ -115,7 +115,12 @@ fn open(path: &Path, flags: OFlags, mode: u32, op: &str) -> FsResult<OwnedFd> {
         .map_err(|errno| sys_error(errno, op, path))
 }
 
-fn write_handle(path: &AbsPath, flags: OFlags, mode: u32, op: &str) -> FsResult<Box<dyn WriteHandle>> {
+fn write_handle(
+    path: &AbsPath,
+    flags: OFlags,
+    mode: u32,
+    op: &str,
+) -> FsResult<Box<dyn WriteHandle>> {
     let fd = open(path.as_path(), flags | OFlags::WRONLY, mode, op)?;
     Ok(Box::new(LinuxWriteHandle::new(fd, path.clone())))
 }
@@ -129,10 +134,12 @@ pub(super) fn emulate_noreplace(from: &Path, to: &Path, refused: Errno) -> FsRes
     if meta.kind == FileKind::Directory {
         return Err(kind_error(FsErrorKind::Unsupported, refused, OP, from));
     }
-    retry(|| rustix::fs::linkat(CWD, from, CWD, to, AtFlags::empty())).map_err(|errno| match errno {
-        Errno::PERM | Errno::OPNOTSUPP => kind_error(FsErrorKind::Unsupported, errno, OP, to),
-        errno => sys_error(errno, OP, to),
-    })?;
+    retry(|| rustix::fs::linkat(CWD, from, CWD, to, AtFlags::empty())).map_err(
+        |errno| match errno {
+            Errno::PERM | Errno::OPNOTSUPP => kind_error(FsErrorKind::Unsupported, errno, OP, to),
+            errno => sys_error(errno, OP, to),
+        },
+    )?;
     if let Err(errno) = retry(|| rustix::fs::unlinkat(CWD, from, AtFlags::empty())) {
         let _ = retry(|| rustix::fs::unlinkat(CWD, to, AtFlags::empty()));
         return Err(sys_error(errno, OP, from));
@@ -166,13 +173,22 @@ impl Fs for LinuxFs {
         let fd = open(path.as_path(), OFlags::RDONLY, 0, OP)?;
         let meta = meta::stat_fd(fd.as_fd(), OP, path.as_path())?;
         if meta.kind == FileKind::Directory {
-            return Err(kind_error(FsErrorKind::IsADirectory, Errno::ISDIR, OP, path.as_path()));
+            return Err(kind_error(
+                FsErrorKind::IsADirectory,
+                Errno::ISDIR,
+                OP,
+                path.as_path(),
+            ));
         }
         Ok(Box::new(LinuxReadHandle::new(fd, path.clone())))
     }
 
     fn open_stream_read(&self, path: &AbsPath, _stream: &str) -> FsResult<Box<dyn ReadHandle>> {
-        Err(FsError::new(FsErrorKind::Unsupported, "open_stream_read", Some(path.as_path())))
+        Err(FsError::new(
+            FsErrorKind::Unsupported,
+            "open_stream_read",
+            Some(path.as_path()),
+        ))
     }
 
     fn read_dir<'a>(
@@ -209,13 +225,19 @@ impl Fs for LinuxFs {
         const OP: &str = "read_link";
         match retry(|| rustix::fs::readlinkat(CWD, path.as_path(), Vec::new())) {
             Ok(target) => Ok(os_path(target.into_bytes())),
-            Err(Errno::INVAL) => Err(kind_error(FsErrorKind::InvalidPath, Errno::INVAL, OP, path.as_path())),
+            Err(Errno::INVAL) => Err(kind_error(
+                FsErrorKind::InvalidPath,
+                Errno::INVAL,
+                OP,
+                path.as_path(),
+            )),
             Err(errno) => Err(sys_error(errno, OP, path.as_path())),
         }
     }
 
     fn real_path(&self, path: &AbsPath) -> FsResult<AbsPath> {
-        let real = std::fs::canonicalize(path.as_path()).map_err(|error| io_error(&error, "real_path", path.as_path()))?;
+        let real = std::fs::canonicalize(path.as_path())
+            .map_err(|error| io_error(&error, "real_path", path.as_path()))?;
         AbsPath::new(real)
     }
 
@@ -255,7 +277,12 @@ impl Fs for LinuxFs {
         const OP: &str = "can_write_dir";
         let meta = meta::stat_at(CWD, dir.as_path(), Follow::Follow, OP, dir.as_path())?;
         if meta.kind != FileKind::Directory {
-            return Err(kind_error(FsErrorKind::NotADirectory, Errno::NOTDIR, OP, dir.as_path()));
+            return Err(kind_error(
+                FsErrorKind::NotADirectory,
+                Errno::NOTDIR,
+                OP,
+                dir.as_path(),
+            ));
         }
         let access = Access::WRITE_OK | Access::EXEC_OK;
         match retry(|| rustix::fs::accessat(CWD, dir.as_path(), access, AtFlags::EACCESS)) {
@@ -267,7 +294,12 @@ impl Fs for LinuxFs {
 }
 
 impl FsWrite for LinuxFs {
-    fn create_temp_in(&self, _scope: &TxScope, dir: &AbsPath, name_hint: &str) -> FsResult<Box<dyn WriteHandle>> {
+    fn create_temp_in(
+        &self,
+        _scope: &TxScope,
+        dir: &AbsPath,
+        name_hint: &str,
+    ) -> FsResult<Box<dyn WriteHandle>> {
         const OP: &str = "create_temp_in";
         dir.join_name(name_hint)?;
         let flags = OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL;
@@ -284,26 +316,47 @@ impl FsWrite for LinuxFs {
     }
 
     fn create_new(&self, _scope: &TxScope, path: &AbsPath) -> FsResult<Box<dyn WriteHandle>> {
-        write_handle(path, OFlags::CREATE | OFlags::EXCL, NEW_FILE_MODE, "create_new")
+        write_handle(
+            path,
+            OFlags::CREATE | OFlags::EXCL,
+            NEW_FILE_MODE,
+            "create_new",
+        )
     }
 
     fn open_in_place(&self, _scope: &TxScope, path: &AbsPath) -> FsResult<Box<dyn WriteHandle>> {
         write_handle(path, OFlags::NOFOLLOW, 0, "open_in_place")
     }
 
-    fn open_stream_write(&self, _scope: &TxScope, path: &AbsPath, _stream: &str) -> FsResult<Box<dyn WriteHandle>> {
-        Err(FsError::new(FsErrorKind::Unsupported, "open_stream_write", Some(path.as_path())))
+    fn open_stream_write(
+        &self,
+        _scope: &TxScope,
+        path: &AbsPath,
+        _stream: &str,
+    ) -> FsResult<Box<dyn WriteHandle>> {
+        Err(FsError::new(
+            FsErrorKind::Unsupported,
+            "open_stream_write",
+            Some(path.as_path()),
+        ))
     }
 
-    fn rename(&self, _scope: &TxScope, from: &AbsPath, to: &AbsPath, mode: RenameMode) -> FsResult<()> {
+    fn rename(
+        &self,
+        _scope: &TxScope,
+        from: &AbsPath,
+        to: &AbsPath,
+        mode: RenameMode,
+    ) -> FsResult<()> {
         const OP: &str = "rename";
         let (from, to) = (from.as_path(), to.as_path());
         match mode {
-            RenameMode::Replace => {
-                retry(|| rustix::fs::renameat(CWD, from, CWD, to)).map_err(|errno| sys_error(errno, OP, from))
-            }
+            RenameMode::Replace => retry(|| rustix::fs::renameat(CWD, from, CWD, to))
+                .map_err(|errno| sys_error(errno, OP, from)),
             RenameMode::NoReplace => {
-                match retry(|| rustix::fs::renameat_with(CWD, from, CWD, to, RenameFlags::NOREPLACE)) {
+                match retry(|| {
+                    rustix::fs::renameat_with(CWD, from, CWD, to, RenameFlags::NOREPLACE)
+                }) {
                     Ok(()) => Ok(()),
                     Err(errno @ (Errno::INVAL | Errno::NOSYS | Errno::OPNOTSUPP)) => {
                         emulate_noreplace(from, to, errno)
@@ -317,14 +370,15 @@ impl FsWrite for LinuxFs {
 
     fn exchange(&self, _scope: &TxScope, a: &AbsPath, b: &AbsPath) -> FsResult<()> {
         const OP: &str = "exchange";
-        retry(|| rustix::fs::renameat_with(CWD, a.as_path(), CWD, b.as_path(), RenameFlags::EXCHANGE)).map_err(
-            |errno| match errno {
-                Errno::INVAL | Errno::NOSYS | Errno::OPNOTSUPP => {
-                    kind_error(FsErrorKind::Unsupported, errno, OP, a.as_path())
-                }
-                errno => sys_error(errno, OP, a.as_path()),
-            },
-        )
+        retry(|| {
+            rustix::fs::renameat_with(CWD, a.as_path(), CWD, b.as_path(), RenameFlags::EXCHANGE)
+        })
+        .map_err(|errno| match errno {
+            Errno::INVAL | Errno::NOSYS | Errno::OPNOTSUPP => {
+                kind_error(FsErrorKind::Unsupported, errno, OP, a.as_path())
+            }
+            errno => sys_error(errno, OP, a.as_path()),
+        })
     }
 
     fn replace_with_backup(
@@ -334,12 +388,24 @@ impl FsWrite for LinuxFs {
         _replacement: &AbsPath,
         _backup: &AbsPath,
     ) -> FsResult<()> {
-        Err(FsError::new(FsErrorKind::Unsupported, "replace_with_backup", Some(target.as_path())))
+        Err(FsError::new(
+            FsErrorKind::Unsupported,
+            "replace_with_backup",
+            Some(target.as_path()),
+        ))
     }
 
     fn hard_link(&self, _scope: &TxScope, existing: &AbsPath, new: &AbsPath) -> FsResult<()> {
-        retry(|| rustix::fs::linkat(CWD, existing.as_path(), CWD, new.as_path(), AtFlags::empty()))
-            .map_err(|errno| sys_error(errno, "hard_link", new.as_path()))
+        retry(|| {
+            rustix::fs::linkat(
+                CWD,
+                existing.as_path(),
+                CWD,
+                new.as_path(),
+                AtFlags::empty(),
+            )
+        })
+        .map_err(|errno| sys_error(errno, "hard_link", new.as_path()))
     }
 
     fn clone_file(&self, _scope: &TxScope, src: &AbsPath, dst: &AbsPath) -> FsResult<()> {
@@ -357,13 +423,20 @@ impl FsWrite for LinuxFs {
 
     fn remove_dir(&self, _scope: &TxScope, path: &AbsPath) -> FsResult<()> {
         const OP: &str = "remove_dir";
-        retry(|| rustix::fs::unlinkat(CWD, path.as_path(), AtFlags::REMOVEDIR)).map_err(|errno| match errno {
-            Errno::EXIST => kind_error(FsErrorKind::NotEmpty, errno, OP, path.as_path()),
-            errno => sys_error(errno, OP, path.as_path()),
+        retry(|| rustix::fs::unlinkat(CWD, path.as_path(), AtFlags::REMOVEDIR)).map_err(|errno| {
+            match errno {
+                Errno::EXIST => kind_error(FsErrorKind::NotEmpty, errno, OP, path.as_path()),
+                errno => sys_error(errno, OP, path.as_path()),
+            }
         })
     }
 
-    fn remove_tree(&self, _scope: &TxScope, path: &AbsPath, parallelism: usize) -> FsResult<RemoveStats> {
+    fn remove_tree(
+        &self,
+        _scope: &TxScope,
+        path: &AbsPath,
+        parallelism: usize,
+    ) -> FsResult<RemoveStats> {
         remove::remove_tree(path.as_path(), parallelism)
     }
 
@@ -372,19 +445,34 @@ impl FsWrite for LinuxFs {
             .map_err(|errno| sys_error(errno, "create_dir", path.as_path()))
     }
 
-    fn create_link(&self, _scope: &TxScope, target: &Path, link: &AbsPath, kind: LinkKind) -> FsResult<()> {
+    fn create_link(
+        &self,
+        _scope: &TxScope,
+        target: &Path,
+        link: &AbsPath,
+        kind: LinkKind,
+    ) -> FsResult<()> {
         const OP: &str = "create_link";
         if kind == LinkKind::Junction {
-            return Err(FsError::new(FsErrorKind::Unsupported, OP, Some(link.as_path())));
+            return Err(FsError::new(
+                FsErrorKind::Unsupported,
+                OP,
+                Some(link.as_path()),
+            ));
         }
-        retry(|| rustix::fs::symlinkat(target, CWD, link.as_path())).map_err(|errno| sys_error(errno, OP, link.as_path()))
+        retry(|| rustix::fs::symlinkat(target, CWD, link.as_path()))
+            .map_err(|errno| sys_error(errno, OP, link.as_path()))
     }
 
     fn set_meta(&self, _scope: &TxScope, path: &AbsPath, change: &MetaChange) -> FsResult<()> {
         const OP: &str = "set_meta";
         let current = meta::stat_at(CWD, path.as_path(), Follow::NoFollow, OP, path.as_path())?;
         if current.kind == FileKind::Symlink && change.mode.is_some() {
-            return Err(FsError::new(FsErrorKind::Unsupported, OP, Some(path.as_path())));
+            return Err(FsError::new(
+                FsErrorKind::Unsupported,
+                OP,
+                Some(path.as_path()),
+            ));
         }
         let target = Target::Path {
             path: path.as_path(),
@@ -393,8 +481,19 @@ impl FsWrite for LinuxFs {
         meta::set_meta(target, change, path.as_path())
     }
 
-    fn restore_meta(&self, _scope: &TxScope, path: &AbsPath, meta: &ExtendedMeta) -> FsResult<MetaTransferReport> {
-        let current = meta::stat_at(CWD, path.as_path(), Follow::NoFollow, "restore_meta", path.as_path())?;
+    fn restore_meta(
+        &self,
+        _scope: &TxScope,
+        path: &AbsPath,
+        meta: &ExtendedMeta,
+    ) -> FsResult<MetaTransferReport> {
+        let current = meta::stat_at(
+            CWD,
+            path.as_path(),
+            Follow::NoFollow,
+            "restore_meta",
+            path.as_path(),
+        )?;
         let opened = meta::open_for_flags(path.as_path(), current.kind, false);
         let target = match &opened {
             Some(fd) => Target::Fd(fd.as_fd()),
@@ -415,7 +514,8 @@ impl FsWrite for LinuxFs {
     fn truncate(&self, _scope: &TxScope, path: &AbsPath, length: u64) -> FsResult<()> {
         const OP: &str = "truncate";
         let fd = open(path.as_path(), OFlags::WRONLY | OFlags::NOFOLLOW, 0, OP)?;
-        retry(|| rustix::fs::ftruncate(&fd, length)).map_err(|errno| sys_error(errno, OP, path.as_path()))
+        retry(|| rustix::fs::ftruncate(&fd, length))
+            .map_err(|errno| sys_error(errno, OP, path.as_path()))
     }
 
     fn sync_dir(&self, _scope: &TxScope, dir: &AbsPath) -> FsResult<()> {
@@ -426,7 +526,12 @@ impl FsWrite for LinuxFs {
 
     fn lock_exclusive(&self, path: &AbsPath, timeout: Duration) -> FsResult<Box<dyn FileLock>> {
         const OP: &str = "lock_exclusive";
-        let fd = open(path.as_path(), OFlags::RDONLY | OFlags::CREATE, NEW_FILE_MODE, OP)?;
+        let fd = open(
+            path.as_path(),
+            OFlags::RDONLY | OFlags::CREATE,
+            NEW_FILE_MODE,
+            OP,
+        )?;
         let deadline = Instant::now() + timeout;
         let mut pause = LOCK_FIRST_PAUSE;
         loop {
@@ -435,7 +540,8 @@ impl FsWrite for LinuxFs {
                 Err(Errno::WOULDBLOCK) => {
                     let now = Instant::now();
                     if now >= deadline {
-                        let mut error = kind_error(FsErrorKind::InUse, Errno::WOULDBLOCK, OP, path.as_path());
+                        let mut error =
+                            kind_error(FsErrorKind::InUse, Errno::WOULDBLOCK, OP, path.as_path());
                         error.holders = self.holders(path).unwrap_or_default();
                         return Err(error);
                     }
@@ -448,6 +554,13 @@ impl FsWrite for LinuxFs {
     }
 
     fn mark_hidden(&self, _scope: &TxScope, path: &AbsPath) -> FsResult<()> {
-        meta::stat_at(CWD, path.as_path(), Follow::NoFollow, "mark_hidden", path.as_path()).map(|_| ())
+        meta::stat_at(
+            CWD,
+            path.as_path(),
+            Follow::NoFollow,
+            "mark_hidden",
+            path.as_path(),
+        )
+        .map(|_| ())
     }
 }

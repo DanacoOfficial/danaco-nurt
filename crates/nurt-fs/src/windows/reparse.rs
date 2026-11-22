@@ -106,6 +106,7 @@ fn win32_from_substitute(name: &[u16]) -> Vec<u16> {
 ///
 /// Returns `None` for other targets and when the data exceeds
 /// [`MAXIMUM_REPARSE_DATA_BUFFER_SIZE`].
+#[must_use]
 pub fn junction_data(target: &[u16]) -> Option<Vec<u8>> {
     let target = until_nul(target);
     let verbatim = wide(VERBATIM_PREFIX);
@@ -147,6 +148,7 @@ pub fn junction_data(target: &[u16]) -> Option<Vec<u8>> {
 /// The print name is returned when present; otherwise the substitute name is
 /// converted to Win32 form. Returns `None` for other reparse tags and for
 /// malformed data.
+#[must_use]
 pub fn parse_link(data: &[u8]) -> Option<LinkTarget> {
     let tag = read_u32(data, 0)?;
     let (kind, buffer, relative) = match tag {
