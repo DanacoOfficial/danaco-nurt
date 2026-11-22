@@ -26,6 +26,14 @@
 //! 6. Content whose decoded sample consists of more than one control
 //!    character in twenty is binary.
 //!
+//! The chosen legacy encoding is always one that [`codec`](crate::codec)
+//! decodes: `windows-1250`, `ibm852`, `iso-8859-2` or `windows-1252`.
+//! Configured encodings outside this set are ignored. A proposal of
+//! `chardetng` outside it, which short samples often receive, is replaced by
+//! the Polish reading when one exists, and otherwise by the reading with the
+//! fewest control characters and symbols inside words among the configured
+//! encodings, or among all four when none of them is configured.
+//!
 //! UTF-16 without a byte order mark is recognised only for text in which at
 //! least one character in ten lies in the range U+0000 to U+00FF, such as
 //! text in Latin script. Samples shorter than 200 bytes contain few letters
@@ -36,9 +44,11 @@ use std::borrow::Cow;
 use std::cmp::Reverse;
 use std::num::NonZeroUsize;
 
-use encoding_rs::{Encoding, UTF_8, UTF_16BE, UTF_16LE};
+use encoding_rs::{Encoding, ISO_8859_2, UTF_8, UTF_16BE, UTF_16LE, WINDOWS_1250, WINDOWS_1252};
 use nurt_contracts::services::TextEncoding;
 use oem_cp::code_table::DECODING_TABLE_CP852;
+
+use crate::codec::Codec;
 
 /// Number of bytes examined when the options do not set another size.
 pub const DEFAULT_SAMPLE_SIZE: usize = 64 * 1024;
@@ -142,6 +152,12 @@ impl LegacyEncoding {
         }
     }
 
+    /// Returns `true` when [`codec`](crate::codec) decodes and encodes the
+    /// encoding.
+    fn is_supported(self) -> bool {
+        Codec::from_label(&self.label()).is_ok()
+    }
+
     fn decode(self, bytes: &[u8]) -> Cow<'_, str> {
         match self.0 {
             LegacyKind::Ibm852 => Cow::Owned(oem_cp::decode_string_complete_table(
@@ -178,7 +194,8 @@ impl DetectOptions {
     /// Replaces the preferred legacy encodings, in order of preference.
     ///
     /// An empty list leaves the choice of a legacy encoding to `chardetng`
-    /// alone.
+    /// alone, within the encodings that [`codec`](crate::codec) decodes.
+    /// Encodings that it does not decode are never chosen.
     #[must_use]
     pub fn with_legacy_encodings(
         mut self,
@@ -355,31 +372,79 @@ fn detect_legacy(sample: Sample<'_>, preferred: &[LegacyEncoding]) -> Detection 
     let guess = LegacyEncoding(LegacyKind::Whatwg(
         detector.guess(None, chardetng::Utf8Detection::Deny),
     ));
-    let guess_stats = LetterStats::of(&guess.decode(sample.bytes));
-    let chosen = if guess_stats.is_plausible() && !guess_stats.is_polish() {
-        guess
-    } else {
-        let minimum = if guess_stats.is_polish() {
-            guess_stats.polish
-        } else {
-            1
-        };
-        preferred
-            .iter()
-            .enumerate()
-            .filter_map(|(index, &candidate)| {
-                let stats = LetterStats::of(&candidate.decode(sample.bytes));
-                (stats.is_polish() && stats.polish >= minimum).then_some((
-                    Reverse(stats.polish),
-                    index,
-                    candidate,
-                ))
-            })
-            .min_by_key(|&(polish, index, _)| (polish, index))
-            .map_or(guess, |(_, _, candidate)| candidate)
+    let supported: Vec<LegacyEncoding> = preferred
+        .iter()
+        .copied()
+        .filter(|encoding| encoding.is_supported())
+        .collect();
+    let guess_stats = guess
+        .is_supported()
+        .then(|| LetterStats::of(&guess.decode(sample.bytes)));
+    let chosen = match guess_stats {
+        Some(stats) if stats.is_plausible() && !stats.is_polish() => guess,
+        Some(stats) => {
+            let minimum = if stats.is_polish() { stats.polish } else { 1 };
+            polish_reading(sample, &supported, minimum).unwrap_or(guess)
+        }
+        None => polish_reading(sample, &supported, 1)
+            .unwrap_or_else(|| most_plausible_reading(sample, &supported)),
     };
     let textual = is_textual(&chosen.decode(sample.bytes));
     text_or_binary(textual, chosen.label(), false)
+}
+
+/// Candidate that decodes the sample to Polish text with at least `minimum`
+/// Polish letters; the most Polish letters win, then the earlier candidate.
+fn polish_reading(
+    sample: Sample<'_>,
+    candidates: &[LegacyEncoding],
+    minimum: usize,
+) -> Option<LegacyEncoding> {
+    candidates
+        .iter()
+        .enumerate()
+        .filter_map(|(index, &candidate)| {
+            let stats = LetterStats::of(&candidate.decode(sample.bytes));
+            (stats.is_polish() && stats.polish >= minimum).then_some((
+                Reverse(stats.polish),
+                index,
+                candidate,
+            ))
+        })
+        .min_by_key(|&(polish, index, _)| (polish, index))
+        .map(|(_, _, candidate)| candidate)
+}
+
+/// Candidate whose reading of the sample has the fewest control characters
+/// and symbols inside words, then the most Polish letters, then the earliest
+/// position; without candidates, the supported encodings in the order of
+/// [`DEFAULT_LEGACY_ENCODINGS`] are compared.
+fn most_plausible_reading(sample: Sample<'_>, candidates: &[LegacyEncoding]) -> LegacyEncoding {
+    let defaults = [
+        LegacyEncoding(LegacyKind::Whatwg(WINDOWS_1250)),
+        LegacyEncoding(LegacyKind::Ibm852),
+        LegacyEncoding(LegacyKind::Whatwg(ISO_8859_2)),
+        LegacyEncoding(LegacyKind::Whatwg(WINDOWS_1252)),
+    ];
+    let candidates = if candidates.is_empty() {
+        &defaults[..]
+    } else {
+        candidates
+    };
+    candidates
+        .iter()
+        .enumerate()
+        .map(|(index, &candidate)| {
+            let stats = LetterStats::of(&candidate.decode(sample.bytes));
+            (
+                stats.disallowed + stats.symbols_in_words,
+                Reverse(stats.polish),
+                index,
+                candidate,
+            )
+        })
+        .min_by_key(|&(defects, polish, index, _)| (defects, polish, index))
+        .map_or(defaults[0], |(_, _, _, candidate)| candidate)
 }
 
 fn text_or_binary(textual: bool, label: String, bom: bool) -> Detection {
@@ -741,6 +806,89 @@ mod tests {
         let stats = LetterStats::of("g\u{b6}sto \u{b1} 2, ma\u{bf}e");
         assert_eq!(stats.symbols_in_words, 2);
         assert!(!stats.is_plausible());
+    }
+
+    /// Short samples: single bytes from 0x80 on, alone, between ASCII letters
+    /// and next to frequent Latin letters outside ASCII, and short words in
+    /// Baltic, Cyrillic and Greek code pages that the codec does not decode.
+    fn short_samples() -> Vec<Vec<u8>> {
+        let mut samples = Vec::new();
+        for high in 0x80u8..=0xff {
+            samples.push(vec![high]);
+            samples.push(vec![b'a', high, b'b']);
+            for other in [0xa0u8, 0xb9, 0xe6, 0xf3, 0xfc] {
+                samples.push(vec![high, other]);
+                samples.push(vec![b'x', high, other, b' ', b'y']);
+            }
+        }
+        let words = [
+            (
+                encoding_rs::WINDOWS_1257,
+                "\u{161}\u{10d}i\u{173} \u{17e}\u{101}",
+            ),
+            (
+                encoding_rs::ISO_8859_4,
+                "\u{101}\u{113}\u{12b}\u{14d} k\u{16b}",
+            ),
+            (
+                encoding_rs::WINDOWS_1251,
+                "\u{43f}\u{440}\u{438}\u{432}\u{435}\u{442}",
+            ),
+            (encoding_rs::WINDOWS_1253, "\u{3b3}\u{3b5}\u{3b9}\u{3ac}"),
+        ];
+        for (encoding, word) in words {
+            samples.push(encoding.encode(word).0.into_owned());
+        }
+        samples
+    }
+
+    #[test]
+    fn short_samples_get_only_encodings_of_the_codec() {
+        let options = DetectOptions::default();
+        let mut unsupported_guesses = 0;
+        for sample in short_samples() {
+            let mut detector =
+                chardetng::EncodingDetector::new(chardetng::Iso2022JpDetection::Deny);
+            detector.feed(&sample, true);
+            let guess = detector.guess(None, chardetng::Utf8Detection::Deny);
+            if Codec::from_label(guess.name()).is_err() {
+                unsupported_guesses += 1;
+            }
+            if let Detection::Text(encoding) = detect(&sample, &options) {
+                assert!(
+                    Codec::from_label(&encoding.label).is_ok(),
+                    "{sample:x?}: {}",
+                    encoding.label
+                );
+                assert!(
+                    crate::codec::decode(&sample, &encoding).is_ok(),
+                    "{sample:x?}: {}",
+                    encoding.label
+                );
+            }
+        }
+        assert!(unsupported_guesses > 0);
+    }
+
+    #[test]
+    fn configured_encodings_outside_the_codec_are_never_chosen() {
+        let options = DetectOptions::default().with_legacy_encodings(
+            ["koi8-r", "iso-8859-4"]
+                .into_iter()
+                .filter_map(LegacyEncoding::from_label),
+        );
+        for sample in short_samples() {
+            if let Some(encoding) = detect(&sample, &options).into_encoding() {
+                assert!(Codec::from_label(&encoding.label).is_ok(), "{sample:x?}");
+            }
+        }
+        let (cyrillic, _, _) = encoding_rs::WINDOWS_1251.encode(
+            "\u{43f}\u{440}\u{438}\u{432}\u{435}\u{442}, \u{43c}\u{438}\u{440} \u{438} \u{434}\u{440}\u{443}\u{437}\u{44c}\u{44f}",
+        );
+        let label = detect(&cyrillic, &DetectOptions::default())
+            .into_encoding()
+            .map(|encoding| encoding.label);
+        assert!(label.is_none_or(|label| Codec::from_label(&label).is_ok()));
     }
 
     #[test]

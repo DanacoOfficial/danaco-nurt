@@ -80,6 +80,88 @@ of the result.
 `[N characters omitted]`; the record then has `truncated: true` and the
 notable effect `truncated_lines` gives the number of lines cut.
 
+### PDF documents
+
+A PDF document gives one `content` record per page, with the page number in
+`page` and the number of pages of the document in `pages_total`. `pages`
+selects pages as one or more ranges, read in the order given; the end of a
+range beyond the last page is reduced to the last page, and a range that
+starts beyond it fails with `E_OUT_OF_RANGE`. `mode: text` extracts words and
+lines in reading order; `mode: layout` places every word at its horizontal
+position on a character grid, which keeps columns and tables aligned.
+`mode: images` requires the PDFium library and fails with
+`E_EXTERNAL_MISSING` in builds without it. `view: header` gives one record
+with `pages_total` and no text. A document that requires a password fails
+with `E_ENCRYPTED`; a document encrypted only to restrict printing or copying
+is read. Text comes from the fonts of the document, so pages that carry text
+only as images give empty text. Selectors of lines do not apply to documents
+and fail with `E_UNSUPPORTED`.
+
+### Images
+
+An image gives one record with `binary: true`, empty `text` and `image`: the
+media type in `mime`, the width and height in pixels, read from the image
+header without decoding the pixels, and the bytes of the file in `data`.
+`view: header` reads only the header and leaves out `data`. Types recognised
+without a decoder, such as HEIF, have no dimensions.
+
+### Hexadecimal dump
+
+`view: hex` dumps the bytes of any file in the layout of `xxd`: the offset of
+the row as eight or more hexadecimal digits, a colon, 16 bytes in groups of
+two and the same bytes as ASCII, with `.` for bytes outside the printable
+range. Each row is one line of `text`; `lines`, `last` and `pages` select
+rows, counted from 1, and `total_lines` is the number of rows. Rows of a file
+are read by position, so a range of a large file reads only that range. The
+text of one dump is limited to the text limit and fails with `E_LIMIT` above
+it.
+
+### Compressed files
+
+With `decompress: auto` a file whose name ends with `.gz`, `.zst`, `.xz` or
+`.bz2`, or with `.tgz`, `.tzst`, `.txz` or `.tbz2`, and whose content starts
+with the signature of the same format is decompressed while it is read. The
+decompressed content is read as text, as a PDF document or as an image, and
+`view: hex` dumps the decompressed bytes. The records keep the `path` and
+the `etag` of the compressed file and name it in `decompressed_from`; the
+notable effect `decompressed` is reported. Decompressed content larger than
+the text limit fails with `E_LIMIT`, so a small file that expands without
+bound is stopped. `decompress: none` reads the compressed bytes. With
+`since`, the earlier text of a compressed file is found only in the read
+cache shared by the session.
+
+Records of PDF documents, images and dumps have `encoding: binary`,
+`bom: false` and `line_ending: none`. Their `etag` carries the content hash
+when the whole file was read, which is not the case for dumps and image
+headers. `unchanged_since` and `known` apply to them; `since` returns the
+content with `since_missing: true`.
+
+### Encoding detection
+
+With `encoding: auto` the first 64 KiB of a file decide its encoding, in this
+order: a byte order mark selects UTF-8, UTF-16 LE or UTF-16 BE; valid UTF-8
+without NUL characters is UTF-8; content in which one code unit in ten or
+more has a zero high byte is UTF-16 without a byte order mark; a NUL byte
+makes the content binary; otherwise a statistical detector proposes a legacy
+encoding, and the encodings of the configuration key `text.legacy_encodings`
+(`windows-1250`, `ibm852`, `iso-8859-2` and `windows-1252` by default)
+replace the proposal when one of them reads the content as Polish text.
+Content with more than one control character in twenty characters is binary.
+
+- The legacy encodings detected are `windows-1250`, `ibm852`, `iso-8859-2`
+  and `windows-1252`. Content in another code page, such as `windows-1251`,
+  is read in the most plausible of them.
+- Samples shorter than 200 bytes contain few letters outside ASCII, so the
+  choice between legacy encodings is less certain for them; give `encoding`
+  for such files.
+- UTF-16 without a byte order mark is recognised only for text in which at
+  least one character in ten lies in the range U+0000 to U+00FF, such as
+  text in Latin script; other UTF-16 text without a byte order mark is
+  binary.
+- PDF documents, images and compressed files are recognised among content
+  that is not text; a PDF document that consists of ASCII characters only is
+  read as text.
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
@@ -183,6 +265,51 @@ request 2
 stop
 ```
 
+Read pages 2 and 3 of a PDF document.
+
+```nurt example
+read "/srv/docs/report.pdf" pages: 2..3
+```
+
+```text expected
+page: 2, pages_total: 3
+Revenue grew in the third quarter.
+page: 3, pages_total: 3
+Costs fell by four percent.
+```
+
+Dump the first two rows of the bytes of an executable.
+
+```nurt example
+read "/srv/app/bin/app" view: hex lines: 1..2
+```
+
+```text expected
+00000000: 7f45 4c46 0201 0100 0000 0000 0000 0000  .ELF............
+00000010: 0300 3e00 0100 0000 4010 0000 0000 0000  ..>.....@.......
+```
+
+Read the last line of a compressed log.
+
+```nurt example
+read "/var/log/app.log.gz" last: 1
+```
+
+```text expected
+stop
+decompressed_from: /var/log/app.log.gz
+```
+
+Read the type and dimensions of an image without its data.
+
+```nurt example
+read "/srv/site/logo.png" view: header
+```
+
+```text expected
+image: {mime: image/png, width: 64, height: 32}
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |
@@ -203,6 +330,19 @@ stop
 | `E_UNSUPPORTED_LANGUAGE` | No grammar recognises the file given with `symbol`. | Read lines or a section instead. |
 | `E_UNSUPPORTED` | The file given with `key` is not a structured document of a known format. | Read lines instead. |
 | `E_FORMAT` | A notebook is not valid JSON of the notebook format. | Read its text with `lines`, which does not parse the notebook. |
+
+### Errors of PDF documents, images, dumps and compressed files
+
+| Code | Meaning | Typical fix |
+|---|---|---|
+| `E_OUT_OF_RANGE` | A range of `pages` starts after the last page of the document. | Use pages from 1 to `pages_total`. |
+| `E_INVALID_VALUE` | A page or row number of `pages` is below 1. | Count pages and rows from 1. |
+| `E_ENCRYPTED` | The PDF document requires a password. | Read a copy without a password. |
+| `E_FORMAT` | The PDF document, the image header or the compressed data is damaged. | Check that the file is complete, or read it with `decompress: none` or `view: hex`. |
+| `E_EXTERNAL_MISSING` | `mode: images` was given in a build without the PDFium library. | Use `mode: text` or `mode: layout`. |
+| `E_UNSUPPORTED` | A selector of lines or a view of text was given for a PDF document or an image, or a selector other than `lines` and `last` with `view: hex`. | Select pages with `pages`, or rows with `lines`, `last` or `pages`. |
+| `E_PARAM_CONFLICT` | `view: hex` with more than one of `lines`, `last` and `pages`. | Select the rows once. |
+| `E_LIMIT` | The document, the image, the decompressed content or the dump is larger than the text limit. | Dump selected rows with `view: hex` and `lines`, or read with `decompress: none`. |
 
 ## Related
 

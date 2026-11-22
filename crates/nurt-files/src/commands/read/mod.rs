@@ -8,9 +8,10 @@
 //! `targets`, each map with its own selector; in the stage form they are the
 //! files of the input `entry` records, and directories among them are
 //! skipped. Each target is loaded and recognised as text or binary content;
-//! text goes to [`text::read_source`]. Binary content and `view: hex` belong
-//! to the binary reader of the command.
+//! text goes to [`text::read_source`], and content that is not text and
+//! `view: hex` go to [`binary::read_binary`].
 
+pub(crate) mod binary;
 mod cache;
 mod select;
 mod text;
@@ -118,7 +119,7 @@ impl ReadStage for Read {
             .get::<dyn ReadCache>()
             .map_or(CacheRef::Stage(&self.cache), CacheRef::Shared);
         let stream = targets.flat_map(move |target| {
-            match target.and_then(|target| read_target(ctx, cache.get(), &target, &options)) {
+            match target.and_then(|target| read_target(ctx, cache.get(), &target, args, &options)) {
                 Ok(records) => records.into_iter().map(Ok).collect::<Vec<_>>(),
                 Err(error) => vec![Err(error)],
             }
@@ -127,42 +128,22 @@ impl ReadStage for Read {
     }
 }
 
-/// Records of one target.
-///
-/// Content that is not text and `view: hex` fail with `E_BINARY` and
-/// `E_UNSUPPORTED` respectively until the binary reader takes them over.
+/// Records of one target: text through [`text::read_source`], content that
+/// is not text and `view: hex` through [`binary::read_binary`].
 fn read_target(
     ctx: &ExecCtx,
     cache: &dyn ReadCache,
     target: &Target,
+    args: &BoundArgs,
     options: &ReadOptions,
 ) -> Result<Vec<Record>> {
     if options.view == View::Hex {
-        return Err(hex_unavailable(&target.path));
+        return binary::read_binary(ctx, args, &target.path, &target.selector, options);
     }
     match text::load(ctx, &target.path, options.encoding)? {
         Loaded::Text(source) => text::read_source(ctx, cache, &source, &target.selector, options),
-        Loaded::Binary => Err(binary_error(&target.path)),
+        Loaded::Binary => binary::read_binary(ctx, args, &target.path, &target.selector, options),
     }
-}
-
-fn binary_error(path: &AbsPath) -> Error {
-    let shown = path.to_language_string();
-    Error::new(
-        ErrorCode::Binary,
-        format!("`{shown}` has binary content, not text: read it with `view: hex`"),
-    )
-    .with_fix(format!("{COMMAND} {shown:?} view: hex"))
-    .with_detail("path", serde_json::Value::from(shown))
-}
-
-fn hex_unavailable(path: &AbsPath) -> Error {
-    let shown = path.to_language_string();
-    Error::new(
-        ErrorCode::Unsupported,
-        format!("`view: hex` is not available for `{shown}`: read text with `view: full`"),
-    )
-    .with_found(View::Hex.as_str())
 }
 
 fn read_options(args: &BoundArgs, ctx: &ExecCtx) -> Result<ReadOptions> {
@@ -612,24 +593,27 @@ mod tests {
     }
 
     #[test]
-    fn missing_files_binary_content_and_hex_fail() {
+    fn missing_files_and_unknown_binary_content_fail_and_hex_dumps_them() {
         let (test, path) = with_file("/p/a.bin", b"\x00\x01\x02\x03\x00\x00");
         let ctx = test.ctx();
         let read = |path: &AbsPath, extra: Vec<(&str, Value)>| {
             let mut pairs = vec![(PATH, path_value(path))];
             pairs.extend(extra);
-            run(&ctx, &value_args(pairs)).unwrap_err()
+            run(&ctx, &value_args(pairs))
         };
         assert_eq!(
-            read(&abs("/p/none.txt"), Vec::new()).code(),
+            read(&abs("/p/none.txt"), Vec::new()).unwrap_err().code(),
             ErrorCode::NotFound
         );
-        let binary = read(&path, Vec::new());
+        let binary = read(&path, Vec::new()).unwrap_err();
         assert_eq!(binary.code(), ErrorCode::Binary);
         assert_eq!(binary.fix.len(), 1);
         assert!(binary.fix[0].ends_with("view: hex"));
-        let hex = read(&path, vec![(VIEW, Value::Enum("hex".to_owned()))]);
-        assert_eq!(hex.code(), ErrorCode::Unsupported);
+        let hex = contents(read(&path, vec![(VIEW, Value::Enum("hex".to_owned()))]).unwrap());
+        assert_eq!(
+            hex[0].text,
+            format!("00000000: 0001 0203 0000{}......\n", " ".repeat(27))
+        );
     }
 
     #[test]
