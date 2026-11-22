@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>nurt</id>
+    <version>@CHOCO_VERSION@</version>
+    <title>Danaco Nurt</title>
+    <authors>Danaco Holding Group Sp. z o.o.</authors>
+    <owners>Danaco Holding Group Sp. z o.o.</owners>
+    <projectUrl>https://nurt.danaco-group.pl</projectUrl>
+    <packageSourceUrl>https://github.com/DanacoOfficial/nurt/tree/main/packaging/chocolatey</packageSourceUrl>
+    <projectSourceUrl>https://github.com/DanacoOfficial/nurt</projectSourceUrl>
+    <docsUrl>https://nurt.danaco-group.pl</docsUrl>
+    <bugTrackerUrl>https://github.com/DanacoOfficial/nurt/issues</bugTrackerUrl>
+    <licenseUrl>https://github.com/DanacoOfficial/nurt/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <copyright>Copyright (c) 2026 Danaco Holding Group Sp. z o.o.</copyright>
+    <tags>nurt console shell command-line cli</tags>
+    <summary>Command console with typed pipelines and per-operation undo</summary>
+    <description>Danaco Nurt is a command console with its own command language. The package installs the nurt executable.</description>
+    <releaseNotes>https://github.com/DanacoOfficial/nurt/releases/tag/v@VERSION@</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

@@ -1,0 +1,34 @@
+{
+    "version": "@VERSION@",
+    "description": "Command console with typed pipelines and per-operation undo",
+    "homepage": "https://nurt.danaco-group.pl",
+    "license": "Apache-2.0",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@/nurt-@VERSION@-x86_64-pc-windows-msvc.zip",
+            "hash": "@SHA256:x86_64-pc-windows-msvc@"
+        },
+        "arm64": {
+            "url": "https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@/nurt-@VERSION@-aarch64-pc-windows-msvc.zip",
+            "hash": "@SHA256:aarch64-pc-windows-msvc@"
+        }
+    },
+    "bin": "nurt.exe",
+    "checkver": {
+        "github": "https://github.com/DanacoOfficial/nurt"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/DanacoOfficial/nurt/releases/download/v$version/nurt-$version-x86_64-pc-windows-msvc.zip"
+            },
+            "arm64": {
+                "url": "https://github.com/DanacoOfficial/nurt/releases/download/v$version/nurt-$version-aarch64-pc-windows-msvc.zip"
+            }
+        },
+        "hash": {
+            "url": "https://github.com/DanacoOfficial/nurt/releases/download/v$version/checksums.txt",
+            "regex": "$sha256\\s+$basename"
+        }
+    }
+}

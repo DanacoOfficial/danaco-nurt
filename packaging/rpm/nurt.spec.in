@@ -1,0 +1,100 @@
+%global debug_package %{nil}
+%global __strip /bin/true
+%global target_triple %{_arch}-unknown-linux-gnu
+%global release_url https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@
+
+Name:           nurt
+Version:        @RPM_VERSION@
+Release:        @RPM_RELEASE@%{?dist}
+Summary:        Command console with typed pipelines and per-operation undo
+License:        Apache-2.0
+URL:            https://nurt.danaco-group.pl
+Source0:        %{release_url}/nurt-@VERSION@-%{target_triple}.tar.gz
+ExclusiveArch:  x86_64 aarch64
+AutoReqProv:    no
+
+%description
+Danaco Nurt is a command console with its own command language. The program is
+a single executable.
+
+%package -n libnurt
+Summary:        C interface library of Danaco Nurt
+Provides:       libnurt.so.1()(64bit)
+
+%description -n libnurt
+The shared library libnurt provides the C interface of the Danaco Nurt command
+console, declared in nurt.h.
+
+%package -n libnurt-devel
+Summary:        C interface of Danaco Nurt, development files
+Requires:       libnurt%{?_isa} = %{version}-%{release}
+Requires:       pkgconfig
+
+%description -n libnurt-devel
+The package provides the header nurt.h, the linker symlink and the pkg-config
+file of the libnurt C interface.
+
+%prep
+%setup -q -n nurt-@VERSION@-%{target_triple}
+
+%build
+
+%install
+install -D -m 0755 nurt %{buildroot}%{_bindir}/nurt
+: > nurt.files
+echo %{_bindir}/nurt >> nurt.files
+if [ -d man ]; then
+    mkdir -p %{buildroot}%{_mandir}
+    cp -R man/. %{buildroot}%{_mandir}/
+    echo '%{_mandir}/man*/*' >> nurt.files
+fi
+if [ -f completions/nurt.bash ]; then
+    install -D -m 0644 completions/nurt.bash \
+        %{buildroot}%{_datadir}/bash-completion/completions/nurt
+    echo %{_datadir}/bash-completion/completions/nurt >> nurt.files
+fi
+if [ -f completions/_nurt ]; then
+    install -D -m 0644 completions/_nurt \
+        %{buildroot}%{_datadir}/zsh/site-functions/_nurt
+    echo %{_datadir}/zsh/site-functions/_nurt >> nurt.files
+fi
+if [ -f completions/nurt.fish ]; then
+    install -D -m 0644 completions/nurt.fish \
+        %{buildroot}%{_datadir}/fish/vendor_completions.d/nurt.fish
+    echo %{_datadir}/fish/vendor_completions.d/nurt.fish >> nurt.files
+fi
+if [ -d service ]; then
+    mkdir -p %{buildroot}%{_datadir}/nurt/service
+    cp -R service/. %{buildroot}%{_datadir}/nurt/service/
+    echo %{_datadir}/nurt >> nurt.files
+fi
+install -D -m 0755 libnurt.so.1 %{buildroot}%{_libdir}/libnurt.so.1
+ln -s libnurt.so.1 %{buildroot}%{_libdir}/libnurt.so
+install -D -m 0644 nurt.h %{buildroot}%{_includedir}/nurt.h
+install -d %{buildroot}%{_libdir}/pkgconfig
+sed -e 's|^prefix=.*|prefix=%{_prefix}|' \
+    -e 's|^libdir=.*|libdir=%{_libdir}|' \
+    -e 's|^includedir=.*|includedir=%{_includedir}|' \
+    nurt.pc > %{buildroot}%{_libdir}/pkgconfig/nurt.pc
+
+%check
+./nurt version | head -n 1 | grep -q '^Danaco Nurt'
+
+%ldconfig_scriptlets -n libnurt
+
+%files -f nurt.files
+%license LICENSE
+%doc NOTICE
+
+%files -n libnurt
+%license LICENSE
+%{_libdir}/libnurt.so.1
+
+%files -n libnurt-devel
+%{_includedir}/nurt.h
+%{_libdir}/libnurt.so
+%{_libdir}/pkgconfig/nurt.pc
+
+%changelog
+* @RPM_DATE@ Danaco Official <support@danaco-group.pl> - @RPM_VERSION@-@RPM_RELEASE@
+- Release @VERSION@.
