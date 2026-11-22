@@ -106,34 +106,47 @@ class Summary(_SummaryOptional):
     """Object ``/$defs/summary`` of ``nurt-report/1``."""
 
 
-_ChangeRequired = TypedDict(
-    "_ChangeRequired",
+LineEnding = Literal["lf", "crlf", "cr", "mixed", "none"]
+
+
+IrreversibleReason = Literal[
+    "external_effect",
+    "remote_ref_updated",
+    "network",
+    "database",
+    "process_stopped",
+    "service_changed",
+    "package_changed",
+    "previous_content_not_kept",
+    "no_space_for_copy",
+    "journal_inactive",
+    "network_volume",
+    "removable_volume",
+    "purged",
+    "special_file",
+    "too_large_for_journal",
+    "released_for_space",
+    "job_output_removed",
+    "process_state_changed",
+    "journal_entries_expired",
+    "journal_error",
+]
+
+
+_HunkMovedItemRequired = TypedDict(
+    "_HunkMovedItemRequired",
     {
-        "path": str,
-        "action": Literal["create", "modify", "delete", "rename", "attributes", "link", "truncate", "state"],
+        "from_path": str,
+        "from_line": int,
+        "to_path": str,
+        "to_line": int,
+        "lines": int,
     },
-)
-_ChangeOptional = TypedDict(
-    "_ChangeOptional",
-    {
-        "from": str,
-        "size_before": int,
-        "size_after": int,
-        "hash_before": str,
-        "hash_after": str,
-        "replacements": int,
-        "added": int,
-        "removed": int,
-        "before": str,
-        "after": str,
-        "flags": List[str],
-    },
-    total=False,
 )
 
 
-class Change(_ChangeRequired, _ChangeOptional):
-    """Object ``/$defs/change`` of ``nurt-report/1``."""
+class HunkMovedItem(_HunkMovedItemRequired):
+    """Object ``/$defs/hunk/properties/moved/items`` of ``nurt-report/1``."""
 
 
 _HunkRequired = TypedDict(
@@ -150,7 +163,19 @@ _HunkRequired = TypedDict(
 _HunkOptional = TypedDict(
     "_HunkOptional",
     {
+        "id": str,
         "header": str,
+        "old_path": str,
+        "status": Literal["modified", "added", "deleted", "renamed", "binary"],
+        "binary": bool,
+        "old_mode": str,
+        "new_mode": str,
+        "ignore_whitespace": bool,
+        "fingerprint": str,
+        "staged": bool,
+        "untracked": bool,
+        "unit": Literal["lines", "words"],
+        "moved": List[HunkMovedItem],
     },
     total=False,
 )
@@ -158,6 +183,47 @@ _HunkOptional = TypedDict(
 
 class Hunk(_HunkRequired, _HunkOptional):
     """Object ``/$defs/hunk`` of ``nurt-report/1``."""
+
+
+_ChangeRequired = TypedDict(
+    "_ChangeRequired",
+    {
+        "path": str,
+        "action": Literal["create", "modify", "delete", "rename", "attributes", "link", "truncate", "state"],
+    },
+)
+_ChangeOptional = TypedDict(
+    "_ChangeOptional",
+    {
+        "from": str,
+        "to": str,
+        "size_before": int,
+        "size_after": int,
+        "hash_before": str,
+        "hash_after": str,
+        "added": int,
+        "removed": int,
+        "replacements": int,
+        "flags": List[str],
+        "encoding_before": str,
+        "encoding_after": str,
+        "line_ending_before": LineEnding,
+        "line_ending_after": LineEnding,
+        "bom_before": bool,
+        "bom_after": bool,
+        "link_target": str,
+        "store": str,
+        "irreversible": IrreversibleReason,
+        "diff": List[Hunk],
+        "before": str,
+        "after": str,
+    },
+    total=False,
+)
+
+
+class Change(_ChangeRequired, _ChangeOptional):
+    """Object ``/$defs/change`` of ``nurt-report/1``."""
 
 
 _BulkByDirectoryItemRequired = TypedDict(
@@ -339,6 +405,12 @@ NotableCode = Literal[
     "upstream_set",
     "stash_kept",
     "signed",
+    "amend_published",
+    "commit_detached_head",
+    "operation_in_progress",
+    "excluded",
+    "review_skipped",
+    "checkpoint_without_index",
 ]
 
 
@@ -365,30 +437,6 @@ _NotableOptional = TypedDict(
 
 class Notable(_NotableRequired, _NotableOptional):
     """Object ``/$defs/notable`` of ``nurt-report/1``."""
-
-
-IrreversibleReason = Literal[
-    "external_effect",
-    "remote_ref_updated",
-    "network",
-    "database",
-    "process_stopped",
-    "service_changed",
-    "package_changed",
-    "previous_content_not_kept",
-    "no_space_for_copy",
-    "journal_inactive",
-    "network_volume",
-    "removable_volume",
-    "purged",
-    "special_file",
-    "too_large_for_journal",
-    "released_for_space",
-    "job_output_removed",
-    "process_state_changed",
-    "journal_entries_expired",
-    "journal_error",
-]
 
 
 _IrreversibleRequired = TypedDict(
@@ -428,6 +476,7 @@ ErrorCode = Literal[
     "E_UNKNOWN_FIELD",
     "E_UNKNOWN_VALUE",
     "E_MISSING_PARAM",
+    "E_PARAM_CONFLICT",
     "E_TYPE",
     "E_ARITY",
     "E_INVALID_VALUE",
@@ -508,6 +557,9 @@ ErrorCode = Literal[
     "E_GIT_PUSH_REJECTED",
     "E_GIT_PROTOCOL",
     "E_GIT_UNSUPPORTED",
+    "E_GIT_HUNK",
+    "E_GIT_CHECKPOINT",
+    "E_GIT_WORKTREE",
     "E_INTERNAL",
 ]
 
@@ -516,24 +568,20 @@ ErrorStage = Literal["0", "1", "2", "3", "4", "5", "5a", "6", "7"]
 """Execution stage in which the error occurred."""
 
 
-_ErrorAtRequired = TypedDict(
-    "_ErrorAtRequired",
-    {
-        "line": int,
-        "column": int,
-    },
-)
 _ErrorAtOptional = TypedDict(
     "_ErrorAtOptional",
     {
+        "line": int,
+        "column": int,
         "length": int,
+        "stage": ErrorStage,
     },
     total=False,
 )
 
 
-class ErrorAt(_ErrorAtRequired, _ErrorAtOptional):
-    """Object ``/$defs/error/properties/at`` of ``nurt-report/1``."""
+class ErrorAt(_ErrorAtOptional):
+    """Position of the error: the execution stage and the place in the program text."""
 
 
 _ErrorLocationRequired = TypedDict(
@@ -590,7 +638,6 @@ _ErrorRequired = TypedDict(
 _ErrorOptional = TypedDict(
     "_ErrorOptional",
     {
-        "stage": ErrorStage,
         "at": ErrorAt,
         "location": ErrorLocation,
         "found": str,

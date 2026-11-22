@@ -4,7 +4,8 @@
 """Mock of ``nurt serve --stdio`` for the tests of the Python binding.
 
 Speaks ``nurt-rpc/1`` over NDJSON with the same program behaviour as
-``mock_libnurt.c``; in addition ``crash`` makes the process exit with code 3.
+``mock_libnurt.c``; in addition ``crash`` makes the process exit with code 3
+and ``session`` returns the ``session`` and ``language`` of ``initialize``.
 ``NURT_MOCK_PROTOCOL`` overrides the protocol reported by ``initialize``.
 Invoked as ``mock_server.py serve --stdio`` or ``mock_server.py --version``.
 """
@@ -64,6 +65,7 @@ class Server:
         self.state_lock = threading.Lock()
         self.cancelled: Dict[Any, bool] = {}
         self.events = False
+        self.defaults: Dict[str, Any] = {}
 
     def send(self, message: Dict[str, Any]) -> None:
         line = json.dumps(message, separators=(",", ":")) + "\n"
@@ -120,6 +122,7 @@ class Server:
 
     def on_initialize(self, _identifier: Any, params: Dict[str, Any]) -> Dict[str, Any]:
         self.events = bool(params.get("capabilities", {}).get("events"))
+        self.defaults = {key: params[key] for key in ("session", "language") if key in params}
         return {
             "protocol": os.environ.get("NURT_MOCK_PROTOCOL", "nurt-rpc/1"),
             "version": VERSION,
@@ -165,6 +168,8 @@ class Server:
             return response("ok", "mock", "page 1", next_cursor="page-2")
         if program == "options":
             return response("ok", "mock", json.dumps(request.get("options", {}), separators=(",", ":")))
+        if program == "session":
+            return response("ok", "mock", json.dumps(self.defaults, separators=(",", ":")))
         return response("ok", "mock", program)
 
     def on_cancel(self, _identifier: Any, params: Dict[str, Any]) -> Dict[str, Any]:

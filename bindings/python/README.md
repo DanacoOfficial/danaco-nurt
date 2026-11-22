@@ -47,7 +47,8 @@ with Nurt() as nurt:
 Language errors are returned in the response (`response.ok` is `False`);
 `raise_on_error=True` raises `NurtLanguageError` instead. Failures of the call
 itself raise `NurtError`, whose `status` is the name of the `nurt_status` code.
-`Nurt.start` returns an `Execution` with events, timeout and cancellation;
+`Nurt.start` returns an `Execution` with events, timeout and cancellation; a
+cancelled execution returns its response with the error `E_CANCELLED`.
 `AsyncNurt` provides the same methods as coroutines.
 
 ## Documentation

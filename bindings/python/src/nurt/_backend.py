@@ -9,7 +9,7 @@ Every method takes and returns decoded JSON. Backends are thread-safe.
 from __future__ import annotations
 
 import abc
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 EventSink = Callable[[Optional[Dict[str, Any]]], None]
 """Receiver of the events of one execution.
@@ -57,12 +57,16 @@ class Backend(abc.ABC):
         """Start a request envelope; events go to ``sink``."""
 
     @abc.abstractmethod
-    def check(self, request: Mapping[str, Any]) -> Tuple[Json, Diagnostics]:
-        """Bind and classify a request envelope without running it."""
+    def check(self, request: Mapping[str, Any]) -> Json:
+        """Bind and classify a request envelope without running it.
+
+        The result holds the members of ``nurt-check/1``, ``diagnostics`` and,
+        after a language error, ``error``.
+        """
 
     @abc.abstractmethod
-    def parse(self, program: str, variant: str) -> Tuple[Optional[Json], Diagnostics]:
-        """Parse a program into a syntax tree."""
+    def parse(self, program: str, variant: str) -> Json:
+        """Parse a program; the result holds ``ast``, ``diagnostics`` and, after a language error, ``error``."""
 
     @abc.abstractmethod
     def print(self, ast: Mapping[str, Any], variant: str) -> str:
@@ -93,8 +97,8 @@ class Backend(abc.ABC):
         """Return a published JSON schema by name."""
 
     @abc.abstractmethod
-    def history(self, query: Optional[Mapping[str, Any]]) -> Json:
-        """Return journal history."""
+    def history(self, query: Any) -> Json:
+        """Return journal history; ``query`` is ``None``, an object or a query text."""
 
     @abc.abstractmethod
     def space(self, volume: Optional[str]) -> Json:

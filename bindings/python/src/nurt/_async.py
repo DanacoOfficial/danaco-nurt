@@ -13,7 +13,7 @@ import asyncio
 import functools
 from typing import Any, AsyncIterator, Callable, Dict, Mapping, Optional, TypeVar
 
-from ._client import Config, EventCallback, Execution, Nurt
+from ._client import Config, EventCallback, Execution, HistoryQuery, Nurt
 from ._errors import NurtError
 from ._locate import StrPath
 from ._response import CheckResult, CorrectResult, ParseResult, Response
@@ -184,7 +184,7 @@ class AsyncNurt:
         """Return a published JSON schema; see :meth:`nurt.Nurt.schema`."""
         return await _in_executor(self._nurt.schema, which)
 
-    async def history(self, query: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    async def history(self, query: HistoryQuery = None) -> Dict[str, Any]:
         """Return journal history; see :meth:`nurt.Nurt.history`."""
         return await _in_executor(self._nurt.history, query)
 

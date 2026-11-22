@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import threading
 import time
 import unittest
@@ -17,7 +18,6 @@ import support
 
 from nurt import (
     Nurt,
-    NurtCancelledError,
     NurtError,
     NurtLanguageError,
     NurtTimeoutError,
@@ -89,14 +89,6 @@ class BackendContract:
             self.nurt.run("panic")
         self.assertEqual(caught.exception.status, "NURT_E_INTERNAL")
 
-    def test_options_carry_session_and_language_defaults(self) -> None:
-        with self.make(session="s-0001", language="pl") as nurt:
-            response = nurt.run("options", limit=5, preview=True, format=None)
-        self.assertEqual(
-            json.loads(response.text),
-            {"limit": 5, "preview": True, "session": "s-0001", "language": "pl"},
-        )
-
     def test_explicit_option_overrides_default(self) -> None:
         response = self.nurt.run("options", language="pl")
         self.assertEqual(json.loads(response.text)["language"], "pl")
@@ -147,24 +139,27 @@ class BackendContract:
 
     def test_check_returns_bound_tree(self) -> None:
         result = self.nurt.check("list here")
+        self.assertTrue(result.ok)
         assert result.bound is not None
         self.assertEqual(result.bound["program"], "list here")
         self.assertEqual(result.raw["effects"], [])
         self.assertEqual(result.diagnostics, [])
+        self.assertIsNone(result.error)
 
     def test_check_failure_has_diagnostics(self) -> None:
         result = self.nurt.check("fail")
+        self.assertFalse(result.ok)
         self.assertIsNone(result.bound)
         self.assertEqual(len(result.diagnostics), 1)
 
     def test_text_queries(self) -> None:
         self.assertEqual(self.nurt.help("journal"), "help journal")
         self.assertEqual(self.nurt.help(), "help index")
-        description = self.nurt.describe("group", name="documents")
+        description = self.nurt.describe("group", name="documents", language="pl")
         self.assertTrue(description.startswith("description "))
         self.assertEqual(
             json.loads(description[len("description ") :]),
-            {"layer": "group", "language": "en", "name": "documents"},
+            {"layer": "group", "language": "pl", "name": "documents"},
         )
 
     def test_json_queries(self) -> None:
@@ -172,6 +167,7 @@ class BackendContract:
         self.assertEqual(self.nurt.catalog({"name": "find"})["catalog_rev"], "mock")
         self.assertEqual(self.nurt.schema("report"), {"title": "nurt-report/1"})
         self.assertEqual(self.nurt.history({"limit": 1}), {"entries": []})
+        self.assertEqual(self.nurt.history("last 5"), {"entries": []})
         self.assertEqual(self.nurt.space("/home/user"), {"volumes": []})
         self.assertEqual(self.nurt.info()["implementation"], "mock")
 
@@ -220,12 +216,19 @@ class BackendContract:
             started = time.monotonic()
             execution.cancel()
             execution.cancel()
-            with self.assertRaises(NurtCancelledError) as cancelled:
-                execution.wait()
+            response = execution.wait()
             self.assertLess(time.monotonic() - started, 4)
-        response = cancelled.exception.response
         self.assertIsInstance(response, Response)
         self.assertFalse(response.ok)
+        assert response.error is not None
+        self.assertEqual(response.error["code"], "E_CANCELLED")
+
+    def test_cancelled_execution_raises_with_raise_on_error(self) -> None:
+        with self.nurt.start(LONG_SLEEP, raise_on_error=True) as execution:
+            execution.cancel()
+            with self.assertRaises(NurtLanguageError) as caught:
+                execution.wait()
+        self.assertEqual(caught.exception.code, "E_CANCELLED")
 
     def test_cancel_after_completion_has_no_effect(self) -> None:
         with self.nurt.start("done") as execution:
@@ -278,8 +281,7 @@ class BackendContract:
                 code = 0 if self.nurt.run("child").text == "child" else 1
             finally:
                 os._exit(code)
-        _, status = os.waitpid(pid, 0)
-        self.assertEqual(os.waitstatus_to_exitcode(status), 0)
+        self.assertEqual(support.wait_child(pid), 0)
         self.assertEqual(self.nurt.run("parent again").text, "parent again")
 
 
@@ -288,6 +290,13 @@ class ProcessBackendTest(BackendContract, unittest.TestCase):
 
     def make(self, **arguments: Any) -> Nurt:
         return Nurt(backend="process", executable=support.mock_executable(), **arguments)
+
+    def test_session_and_language_are_sent_in_initialize(self) -> None:
+        with self.make(session="s-0001", language="pl") as nurt:
+            options = nurt.run("options", limit=5, preview=True, format=None)
+            defaults = nurt.run("session")
+        self.assertEqual(json.loads(options.text), {"limit": 5, "preview": True})
+        self.assertEqual(json.loads(defaults.text), {"session": "s-0001", "language": "pl"})
 
     def test_child_exit_fails_call_and_next_call_restarts(self) -> None:
         with self.assertRaises(NurtError) as caught:
@@ -330,6 +339,16 @@ class LibraryBackendTest(BackendContract, unittest.TestCase):
 
     def make(self, **arguments: Any) -> Nurt:
         return Nurt(backend="library", library=support.mock_library(), **arguments)
+
+    def test_session_and_language_are_request_options(self) -> None:
+        with self.make(session="s-0001", language="pl") as nurt:
+            response = nurt.run("options", limit=5, preview=True, format=None)
+            description = nurt.describe()
+        self.assertEqual(
+            json.loads(response.text),
+            {"limit": 5, "preview": True, "session": "s-0001", "language": "pl"},
+        )
+        self.assertEqual(json.loads(description[len("description ") :])["language"], "pl")
 
     def test_buffers_are_released_after_every_call(self) -> None:
         controls = support.mock_controls(support.mock_library())
@@ -375,7 +394,7 @@ class LibraryBackendTest(BackendContract, unittest.TestCase):
     def test_incompatible_interface_version_is_abi_error(self) -> None:
         copy = support.scratch() / "abi" / support.library_file_name()
         copy.parent.mkdir(parents=True, exist_ok=True)
-        copy.write_bytes(open(support.mock_library(), "rb").read())
+        shutil.copyfile(support.mock_library(), copy)
         support.mock_controls(support.mock_library())
         os.environ["NURT_MOCK_ABI"] = "2.0"
         try:

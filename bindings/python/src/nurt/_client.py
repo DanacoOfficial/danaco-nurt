@@ -31,6 +31,7 @@ _END = object()
 
 EventCallback = Callable[[Dict[str, Any]], None]
 Config = Union[None, str, Mapping[str, Any]]
+HistoryQuery = Union[None, str, Mapping[str, Any]]
 
 
 class Execution:
@@ -82,19 +83,20 @@ class Execution:
     def wait(self, timeout: Optional[float] = None) -> Response:
         """Wait for the response; ``None`` waits without limit.
 
-        Raises :class:`nurt.NurtTimeoutError` when the execution is still
-        running after ``timeout`` seconds, :class:`nurt.NurtCancelledError`
-        (with ``response``) after :meth:`cancel`, and the first exception
-        raised by ``on_event``. Events are delivered to ``on_event`` before
-        the response is returned.
+        A cancelled execution returns its response, whose ``error`` has the
+        code ``E_CANCELLED``. Raises :class:`nurt.NurtTimeoutError` when the
+        execution is still running after ``timeout`` seconds,
+        :class:`nurt.NurtCancelledError` when it was cancelled without a
+        response, and the first exception raised by ``on_event``. Events are
+        delivered to ``on_event`` before the response is returned.
         """
         try:
             raw = self._live().wait(timeout)
         except NurtCancelledError as exc:
             self._ended.wait(EVENT_DRAIN_TIMEOUT)
-            if isinstance(exc.response, Mapping):
-                exc.response = Response(exc.response)
-            raise
+            if not isinstance(exc.response, Mapping):
+                raise
+            raw = dict(exc.response)
         self._ended.wait(EVENT_DRAIN_TIMEOUT)
         if self._callback_error is not None:
             raise self._callback_error
@@ -137,8 +139,8 @@ class Nurt:
     (the library when it is available and compatible, otherwise the
     process). ``executable`` and ``library`` override the search for the
     artifacts; ``config`` is a ``nurt-config/1`` object or its JSON text;
-    ``session`` and ``language`` are the defaults of the options of every
-    request. The client is thread-safe.
+    ``session`` and ``language`` apply to every request that does not set
+    them. The client is thread-safe.
 
     Language errors are returned in :class:`Response` (``ok`` is ``False``);
     failures of the call raise :class:`NurtError`.
@@ -155,8 +157,6 @@ class Nurt:
     ) -> None:
         if backend not in BACKENDS:
             raise ValueError(f"unknown backend {backend!r}; use auto, library or process")
-        self._session = session
-        self._language = language
         config_object = _config_object(config)
         self._backend = _open_backend(backend, executable, library, config_object, session, language)
 
@@ -164,26 +164,6 @@ class Nurt:
     def backend(self) -> str:
         """The backend in use: ``"library"`` or ``"process"``."""
         return self._backend.name
-
-    def _envelope(self, program: Optional[str], ast: Any, options: Dict[str, Any]) -> Dict[str, Any]:
-        unknown = sorted(set(options) - _ACCEPTED_OPTIONS)
-        if unknown:
-            raise TypeError(f"unknown option {unknown[0]!r}")
-        request: Dict[str, Any] = {"nurt": ENVELOPE_VERSION}
-        if program is not None:
-            request["program"] = program
-        if ast is not None:
-            request["ast"] = json.loads(ast) if isinstance(ast, str) else dict(ast)
-        for field in _ENVELOPE_FIELDS:
-            value = options.pop(field, None)
-            if value is not None:
-                request[field] = value
-        call_options = {key: value for key, value in options.items() if value is not None}
-        if self._session is not None:
-            call_options.setdefault("session", self._session)
-        call_options.setdefault("language", self._language)
-        request["options"] = call_options
-        return request
 
     def run(
         self,
@@ -201,7 +181,7 @@ class Nurt:
         ``raise_on_error=True`` a language error raises
         :class:`NurtLanguageError`.
         """
-        response = Response(self._backend.run(self._envelope(program, ast, options)))
+        response = Response(self._backend.run(_envelope(program, ast, options)))
         if raise_on_error and not response.ok:
             raise NurtLanguageError(response)
         return response
@@ -227,20 +207,18 @@ class Nurt:
         on_end: Optional[Callable[[], None]],
         options: Dict[str, Any],
     ) -> Execution:
-        request = self._envelope(program, ast, options)
+        request = _envelope(program, ast, options)
         execution = Execution(on_event, raise_on_error, on_end)
         execution._attach(self._backend.start(request, execution._sink))
         return execution
 
     def check(self, program: Optional[str] = None, *, ast: Any = None, **options: Any) -> CheckResult:
         """Bind a program and classify its effect without running it."""
-        result, diagnostics = self._backend.check(self._envelope(program, ast, options))
-        return CheckResult(result, diagnostics)
+        return CheckResult(self._backend.check(_envelope(program, ast, options)))
 
     def parse(self, program: str, variant: str = "a") -> ParseResult:
         """Parse a program into a syntax tree ``nurt-ast/1``."""
-        ast, diagnostics = self._backend.parse(program, _variant(variant))
-        return ParseResult(ast, diagnostics)
+        return ParseResult(self._backend.parse(program, _variant(variant)))
 
     def print(self, ast: Any, variant: str = "a") -> str:
         """Print a syntax tree in the canonical text of a notation variant."""
@@ -259,10 +237,15 @@ class Nurt:
         return response
 
     def describe(self, layer: str = "core", name: Optional[str] = None, language: Optional[str] = None) -> str:
-        """Return the description of the language for tool integrations."""
-        what: Dict[str, Any] = {"layer": layer, "language": language or self._language}
+        """Return the description of the language for tool integrations.
+
+        ``language`` defaults to the language of the client.
+        """
+        what: Dict[str, Any] = {"layer": layer}
         if name is not None:
             what["name"] = name
+        if language is not None:
+            what["language"] = language
         return self._backend.describe(what)
 
     def help(self, topic: Optional[str] = None) -> str:
@@ -277,9 +260,9 @@ class Nurt:
         """Return a published JSON schema: ``ast``, ``bound``, ``report``, ``request``, ..."""
         return self._backend.schema(which)
 
-    def history(self, query: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
-        """Return journal history; ``query`` holds the parameters of ``history``."""
-        return self._backend.history(query)
+    def history(self, query: HistoryQuery = None) -> Dict[str, Any]:
+        """Return journal history; ``query`` is an object with the parameters of ``history`` or a query text."""
+        return self._backend.history(query if query is None or isinstance(query, str) else dict(query))
 
     def space(self, volume: Optional[str] = None) -> Dict[str, Any]:
         """Return free space and journal usage of a volume, or of all volumes."""
@@ -301,6 +284,30 @@ class Nurt:
 
     def __repr__(self) -> str:
         return f"Nurt(backend={self.backend!r})"
+
+
+def _envelope(program: Optional[str], ast: Any, options: Dict[str, Any]) -> Dict[str, Any]:
+    """Request envelope ``nurt-request/1`` with the options given by the caller only.
+
+    The defaults of the client (``session``, ``language``) are applied by the
+    backend: ``nurt serve`` receives them in ``initialize``.
+    """
+    unknown = sorted(set(options) - _ACCEPTED_OPTIONS)
+    if unknown:
+        raise TypeError(f"unknown option {unknown[0]!r}")
+    request: Dict[str, Any] = {"nurt": ENVELOPE_VERSION}
+    if program is not None:
+        request["program"] = program
+    if ast is not None:
+        request["ast"] = json.loads(ast) if isinstance(ast, str) else dict(ast)
+    for field in _ENVELOPE_FIELDS:
+        value = options.pop(field, None)
+        if value is not None:
+            request[field] = value
+    call_options = {key: value for key, value in options.items() if value is not None}
+    if call_options:
+        request["options"] = call_options
+    return request
 
 
 def _variant(variant: str) -> str:
@@ -327,11 +334,11 @@ def _open_backend(
     language: str,
 ) -> Backend:
     if backend == "library":
-        return _library_backend(library, config)
+        return _library_backend(library, config, session, language)
     if backend == "process":
         return _process_backend(executable, config, session, language)
     try:
-        return _library_backend(library, config)
+        return _library_backend(library, config, session, language)
     except NurtError as library_error:
         try:
             return _process_backend(executable, config, session, language)
@@ -343,7 +350,12 @@ def _open_backend(
             ) from process_error
 
 
-def _library_backend(library: Optional[StrPath], config: Optional[Dict[str, Any]]) -> Backend:
+def _library_backend(
+    library: Optional[StrPath],
+    config: Optional[Dict[str, Any]],
+    session: Optional[str],
+    language: str,
+) -> Backend:
     # The ctypes module is imported only for the library backend, so the
     # process backend works on interpreters built without it.
     try:
@@ -352,7 +364,8 @@ def _library_backend(library: Optional[StrPath], config: Optional[Dict[str, Any]
         raise NurtError("NURT_E_IO", f"the library backend needs ctypes: {exc}") from exc
 
     path = find_library(library)
-    return LibraryBackend(path, None if config is None else json.dumps(config, ensure_ascii=False))
+    text = None if config is None else json.dumps(config, ensure_ascii=False)
+    return LibraryBackend(path, text, session=session, language=language)
 
 
 def _process_backend(

@@ -12,7 +12,7 @@ from typing import Any, Dict, List
 
 import support
 
-from nurt import AsyncNurt, NurtCancelledError, NurtError, NurtTimeoutError
+from nurt import AsyncNurt, NurtError, NurtTimeoutError
 
 CONCURRENT_CALLS = 20
 
@@ -22,7 +22,9 @@ class AsyncContract:
         raise NotImplementedError
 
     async def asyncSetUp(self) -> None:
-        self.nurt = self.make()
+        # The first client compiles or starts a mock, which would block the
+        # loop longer than its slow-callback threshold in debug mode.
+        self.nurt = await asyncio.get_running_loop().run_in_executor(None, self.make)
 
     async def asyncTearDown(self) -> None:
         await self.nurt.close()
@@ -68,9 +70,10 @@ class AsyncContract:
         with self.assertRaises(NurtTimeoutError):
             await execution.wait(0.05)
         await execution.cancel()
-        with self.assertRaises(NurtCancelledError):
-            await execution.wait()
+        response = await execution.wait()
         await execution.close()
+        assert response.error is not None
+        self.assertEqual(response.error["code"], "E_CANCELLED")
 
     async def test_call_failure_raises(self) -> None:
         with self.assertRaises(NurtError) as caught:

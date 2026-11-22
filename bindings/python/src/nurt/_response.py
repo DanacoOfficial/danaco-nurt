@@ -11,6 +11,16 @@ from typing import Any, Dict, List, Mapping, Optional, cast
 from .types import Error, Report
 
 
+def _diagnostics(raw: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    value = raw.get("diagnostics")
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def _error(raw: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
+    error = raw.get("error")
+    return dict(error) if isinstance(error, Mapping) else None
+
+
 class Response:
     """Response to a request (``nurt-response/1``).
 
@@ -60,13 +70,11 @@ class Response:
 class CheckResult:
     """Result of :meth:`nurt.Nurt.check`: binding and effect classification."""
 
-    __slots__ = ("raw", "diagnostics")
+    __slots__ = ("raw",)
 
-    def __init__(self, raw: Mapping[str, Any], diagnostics: List[Dict[str, Any]]) -> None:
+    def __init__(self, raw: Mapping[str, Any]) -> None:
         self.raw: Dict[str, Any] = dict(raw)
         """The complete result (``nurt-check/1``) as decoded JSON."""
-        self.diagnostics = diagnostics
-        """Diagnostics of the binding stage."""
 
     @property
     def bound(self) -> Optional[Dict[str, Any]]:
@@ -74,25 +82,54 @@ class CheckResult:
         bound = self.raw.get("bound")
         return dict(bound) if isinstance(bound, Mapping) else None
 
+    @property
+    def diagnostics(self) -> List[Dict[str, Any]]:
+        """Diagnostics of the binding stage."""
+        return _diagnostics(self.raw)
+
+    @property
+    def error(self) -> Optional[Dict[str, Any]]:
+        """Language error that stopped the binding, or ``None``."""
+        return _error(self.raw)
+
+    @property
+    def ok(self) -> bool:
+        """``True`` when the program was bound without a language error."""
+        return self.error is None and self.bound is not None
+
     def __repr__(self) -> str:
-        return f"CheckResult(bound={self.bound is not None!r}, diagnostics={len(self.diagnostics)})"
+        return f"CheckResult(ok={self.ok!r}, diagnostics={len(self.diagnostics)})"
 
 
 class ParseResult:
     """Result of :meth:`nurt.Nurt.parse`."""
 
-    __slots__ = ("ast", "diagnostics")
+    __slots__ = ("raw",)
 
-    def __init__(self, ast: Optional[Dict[str, Any]], diagnostics: List[Dict[str, Any]]) -> None:
-        self.ast = ast
+    def __init__(self, raw: Mapping[str, Any]) -> None:
+        self.raw: Dict[str, Any] = dict(raw)
+        """The complete result as decoded JSON."""
+
+    @property
+    def ast(self) -> Optional[Dict[str, Any]]:
         """Syntax tree (``nurt-ast/1``), or ``None`` when the program does not parse."""
-        self.diagnostics = diagnostics
+        ast = self.raw.get("ast")
+        return dict(ast) if isinstance(ast, Mapping) else None
+
+    @property
+    def diagnostics(self) -> List[Dict[str, Any]]:
         """Diagnostics with positions and messages."""
+        return _diagnostics(self.raw)
+
+    @property
+    def error(self) -> Optional[Dict[str, Any]]:
+        """Language error that stopped the parse, or ``None``."""
+        return _error(self.raw)
 
     @property
     def ok(self) -> bool:
         """``True`` when the program parsed into a syntax tree."""
-        return self.ast is not None
+        return self.error is None and self.ast is not None
 
     def __repr__(self) -> str:
         return f"ParseResult(ok={self.ok!r}, diagnostics={len(self.diagnostics)})"

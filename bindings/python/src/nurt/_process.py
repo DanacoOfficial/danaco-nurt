@@ -20,9 +20,9 @@ import os
 import queue
 import subprocess
 import threading
-from typing import IO, Any, Deque, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import IO, Any, Deque, Dict, Mapping, Optional, Sequence, Tuple, Union
 
-from ._backend import Backend, Diagnostics, EventSink, ExecutionHandle, Json
+from ._backend import Backend, EventSink, ExecutionHandle, Json
 from ._errors import NurtError, NurtTimeoutError, error_for_status
 from ._version import __version__
 
@@ -132,7 +132,8 @@ class _Connection:
             target=self._read_stderr, name="nurt-serve-stderr", daemon=True
         )
         self._stderr_reader.start()
-        threading.Thread(target=self._read_stdout, name="nurt-serve-reader", daemon=True).start()
+        self._stdout_reader = threading.Thread(target=self._read_stdout, name="nurt-serve-reader", daemon=True)
+        self._stdout_reader.start()
         try:
             self._accept(self.call("initialize", initialize))
         except NurtError:
@@ -256,6 +257,19 @@ class _Connection:
             identifiers = list(self._pending)
         for identifier in identifiers:
             self._complete(identifier, error)
+        self._close_streams()
+
+    def _close_streams(self) -> None:
+        with self._write_lock:
+            streams = [self._stdin, self.process.stdout]
+            if not self._stderr_reader.is_alive():
+                streams.append(self.process.stderr)
+            for stream in streams:
+                if stream is not None:
+                    try:
+                        stream.close()
+                    except (OSError, ValueError):
+                        pass
 
     def terminate(self) -> None:
         """Stop the process: ``shutdown``, end of input, then kill."""
@@ -265,24 +279,34 @@ class _Connection:
                 pending.done.wait(SHUTDOWN_TIMEOUT)
             except NurtError:
                 pass
-        try:
-            self._stdin.close()
-        except OSError:
-            pass
+        with self._write_lock:
+            try:
+                self._stdin.close()
+            except (OSError, ValueError):
+                pass
         try:
             self.process.wait(SHUTDOWN_TIMEOUT)
         except subprocess.TimeoutExpired:
             self.process.kill()
             self.process.wait()
+        self._stdout_reader.join(SHUTDOWN_TIMEOUT)
 
     def abandon(self) -> None:
-        """Drop a connection inherited through ``fork()`` without stopping its process."""
+        """Drop a connection inherited through ``fork()`` without stopping its process.
+
+        The reader threads of the parent do not exist in the child, but the
+        locks of the buffered streams they were reading may still be held.
+        Closing the unbuffered raw streams releases the descriptors without
+        taking those locks, and a buffered stream whose raw stream is closed
+        is not flushed or closed again when it is collected.
+        """
         self.dead = True
         for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
-            if stream is not None:
+            raw = getattr(stream, "raw", stream)
+            if raw is not None:
                 try:
-                    stream.close()
-                except OSError:
+                    raw.close()
+                except (OSError, ValueError):
                     pass
 
 
@@ -424,15 +448,11 @@ class ProcessBackend(Backend):
         execution.attach(connection, identifier, pending)
         return execution
 
-    def check(self, request: Mapping[str, Any]) -> Tuple[Json, Diagnostics]:
-        result = self._object("check", request)
-        diagnostics = result.pop("diagnostics", [])
-        return result, _diagnostics(diagnostics)
+    def check(self, request: Mapping[str, Any]) -> Json:
+        return self._object("check", request)
 
-    def parse(self, program: str, variant: str) -> Tuple[Optional[Json], Diagnostics]:
-        result = self._object("parse", {"program": program, "variant": variant})
-        ast = result.get("ast")
-        return (ast if isinstance(ast, dict) else None), _diagnostics(result.get("diagnostics"))
+    def parse(self, program: str, variant: str) -> Json:
+        return self._object("parse", {"program": program, "variant": variant})
 
     def print(self, ast: Mapping[str, Any], variant: str) -> str:
         return self._text("print", {"ast": dict(ast), "variant": variant})
@@ -458,8 +478,8 @@ class ProcessBackend(Backend):
     def schema(self, which: str) -> Json:
         return self._object("schema", {"which": which})
 
-    def history(self, query: Optional[Mapping[str, Any]]) -> Json:
-        return self._object("history", {} if query is None else {"query": dict(query)})
+    def history(self, query: Any) -> Json:
+        return self._object("history", {} if query is None else {"query": query})
 
     def space(self, volume: Optional[str]) -> Json:
         return self._object("space", {} if volume is None else {"volume": volume})
@@ -479,8 +499,3 @@ class ProcessBackend(Backend):
             connection.abandon()
         else:
             connection.terminate()
-
-
-def _diagnostics(value: Any) -> Diagnostics:
-    items: List[Any] = value if isinstance(value, list) else []
-    return [item for item in items if isinstance(item, dict)]

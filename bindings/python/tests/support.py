@@ -6,19 +6,24 @@
 ``NURT_TEST_EXECUTABLE`` and ``NURT_TEST_LIBRARY`` replace the mocks with
 other implementations, for example the stub build of ``libnurt`` or the
 conformance server. Tests that need the controls of the mock library are
-skipped for other libraries.
+skipped for other libraries. ``NURT_TEST_CONFORMANCE_SERVER`` names the
+``nurt-conformance`` executable used by the binding cases; by default it is
+looked up in the Cargo target directory.
 """
 
 from __future__ import annotations
 
 import atexit
 import ctypes
+import faulthandler
 import os
 import shutil
+import signal
 import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from typing import Callable, Optional
@@ -31,6 +36,13 @@ HEADER = REPOSITORY_DIR / "crates" / "nurt-ffi" / "include" / "nurt.h"
 SPEC_DIR = REPOSITORY_DIR / "spec"
 
 sys.path.insert(0, str(PACKAGE_DIR / "src"))
+
+SUITE_TIMEOUT = 600
+"""Seconds after which a hanging test process prints the stacks of its threads and exits."""
+
+faulthandler.dump_traceback_later(SUITE_TIMEOUT, exit=True)
+
+CONFORMANCE_SERVER = "nurt-conformance.exe" if os.name == "nt" else "nurt-conformance"
 
 _scratch: Optional[Path] = None
 _executable: Optional[str] = None
@@ -127,6 +139,29 @@ def mock_library() -> str:
     return _library
 
 
+def implementation_library() -> str:
+    """Path of a ``libnurt`` build named by ``NURT_TEST_LIBRARY``; skips without one."""
+    explicit = os.environ.get("NURT_TEST_LIBRARY")
+    if not explicit:
+        raise unittest.SkipTest("NURT_TEST_LIBRARY does not name a build of libnurt")
+    return explicit
+
+
+def conformance_server() -> str:
+    """Path of the ``nurt-conformance`` executable; skips when it is not built."""
+    explicit = os.environ.get("NURT_TEST_CONFORMANCE_SERVER")
+    if explicit:
+        candidates = [Path(explicit)]
+    else:
+        targets = [Path(os.environ["CARGO_TARGET_DIR"])] if os.environ.get("CARGO_TARGET_DIR") else []
+        targets.append(REPOSITORY_DIR / "target")
+        candidates = [target / "debug" / CONFORMANCE_SERVER for target in targets]
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    raise unittest.SkipTest("nurt-conformance is not built; run cargo build -p nurt-conformance")
+
+
 class MockControls:
     """Counters and failure injection of ``mock_libnurt.c``."""
 
@@ -164,3 +199,23 @@ def mock_controls(path: str) -> MockControls:
 def requires_fork(test: Callable[..., None]) -> Callable[..., None]:
     """Skip ``test`` on systems without ``os.fork``."""
     return unittest.skipUnless(hasattr(os, "fork"), "os.fork is not available")(test)
+
+
+CHILD_TIMEOUT = 30.0
+"""Seconds a forked test process may run before it is killed."""
+
+CHILD_POLL_INTERVAL = 0.01
+
+
+def wait_child(pid: int, timeout: float = CHILD_TIMEOUT) -> int:
+    """Return the exit code of the forked process ``pid``; kill it and fail after ``timeout``."""
+    deadline = time.monotonic() + timeout
+    while True:
+        finished, status = os.waitpid(pid, os.WNOHANG)
+        if finished == pid:
+            return os.waitstatus_to_exitcode(status)
+        if time.monotonic() >= deadline:
+            os.kill(pid, signal.SIGKILL)
+            os.waitpid(pid, 0)
+            raise AssertionError(f"forked process did not exit within {timeout} s")
+        time.sleep(CHILD_POLL_INTERVAL)

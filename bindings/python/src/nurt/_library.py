@@ -153,7 +153,7 @@ class Library:
                 f"this package requires {ABI_MAJOR}.{ABI_MINOR} or a later minor version",
             )
         self.dll.nurt_set_log_callback(_LOG_RECEIVER, None)
-        atexit.register(self.dll.nurt_set_log_callback, None, None)
+        atexit.register(self.dll.nurt_set_log_callback, LOG_CALLBACK(), None)
 
     def call(self, name: str, args: Sequence[Any], outputs: int, engine: Optional[int]) -> List[bytes]:
         """Call ``name`` with ``args`` and ``outputs`` trailing output buffers.
@@ -327,13 +327,25 @@ class LibraryExecution(ExecutionHandle):
 
 
 class LibraryBackend(Backend):
-    """Engine of ``libnurt`` in the calling process."""
+    """Engine of ``libnurt`` in the calling process.
+
+    ``session`` and ``language`` are written into the options of every
+    request that does not set them, and ``language`` into every description
+    query without a language.
+    """
 
     name = "library"
 
-    def __init__(self, path: str, config: Optional[str]) -> None:
+    def __init__(
+        self, path: str, config: Optional[str], *, session: Optional[str] = None, language: Optional[str] = None
+    ) -> None:
         self.library = load(path)
         self._config = _text(config)
+        self._defaults: Dict[str, str] = {}
+        if session is not None:
+            self._defaults["session"] = session
+        if language is not None:
+            self._defaults["language"] = language
         self._lock = threading.Lock()
         self._executions: Set[LibraryExecution] = set()
         self._closed = False
@@ -367,8 +379,17 @@ class LibraryBackend(Backend):
         with self._lock:
             self._executions.discard(execution)
 
+    def _request(self, request: Mapping[str, Any]) -> bytes:
+        envelope = dict(request)
+        options = dict(envelope.get("options") or {})
+        for name, value in self._defaults.items():
+            options.setdefault(name, value)
+        if options:
+            envelope["options"] = options
+        return _encode(envelope)
+
     def run(self, request: Mapping[str, Any]) -> Json:
-        (data,) = self._call("nurt_run_json", (_encode(request),), 1)
+        (data,) = self._call("nurt_run_json", (self._request(request),), 1)
         return _object(data, "nurt_run_json")
 
     def start(self, request: Mapping[str, Any], sink: EventSink) -> ExecutionHandle:
@@ -376,7 +397,7 @@ class LibraryBackend(Backend):
         execution = LibraryExecution(self, sink)
         handle = ctypes.c_void_p()
         status = self.library.dll.nurt_exec_start(
-            engine, _encode(request), execution.callback, None, ctypes.byref(handle)
+            engine, self._request(request), execution.callback, None, ctypes.byref(handle)
         )
         if status != STATUS_OK:
             raise self.library.failure("nurt_exec_start", status, engine)
@@ -385,14 +406,16 @@ class LibraryBackend(Backend):
             self._executions.add(execution)
         return execution
 
-    def check(self, request: Mapping[str, Any]) -> Tuple[Json, Diagnostics]:
-        bound, diagnostics = self._call("nurt_check", (_encode(request),), 2)
-        return _object(bound, "nurt_check"), _diagnostics(diagnostics, "nurt_check")
+    def check(self, request: Mapping[str, Any]) -> Json:
+        bound, diagnostics = self._call("nurt_check", (self._request(request),), 2)
+        result = _object(bound, "nurt_check")
+        result["diagnostics"] = _diagnostics(diagnostics, "nurt_check")
+        return result
 
-    def parse(self, program: str, variant: str) -> Tuple[Optional[Json], Diagnostics]:
+    def parse(self, program: str, variant: str) -> Json:
         ast, diagnostics = self._call("nurt_parse", (_text(program), VARIANTS[variant]), 2)
         tree = _object(ast, "nurt_parse") if ast else None
-        return tree, _diagnostics(diagnostics, "nurt_parse")
+        return {"ast": tree, "diagnostics": _diagnostics(diagnostics, "nurt_parse")}
 
     def print(self, ast: Mapping[str, Any], variant: str) -> str:
         (text,) = self._call("nurt_print", (_encode(ast), VARIANTS[variant]), 1)
@@ -407,7 +430,10 @@ class LibraryBackend(Backend):
         return _object(data, "nurt_page")
 
     def describe(self, what: Mapping[str, Any]) -> str:
-        (text,) = self._call("nurt_describe", (_encode(what),), 1)
+        query = dict(what)
+        if "language" in self._defaults:
+            query.setdefault("language", self._defaults["language"])
+        (text,) = self._call("nurt_describe", (_encode(query),), 1)
         return text.decode("utf-8")
 
     def help(self, topic: Optional[str]) -> str:
@@ -423,7 +449,7 @@ class LibraryBackend(Backend):
         (data,) = self.library.call("nurt_schema", (_text(which),), 1, None)
         return _object(data, "nurt_schema")
 
-    def history(self, query: Optional[Mapping[str, Any]]) -> Json:
+    def history(self, query: Any) -> Json:
         selector = None if query is None else _encode(query)
         (data,) = self._call("nurt_history", (selector,), 1)
         return _object(data, "nurt_history")
