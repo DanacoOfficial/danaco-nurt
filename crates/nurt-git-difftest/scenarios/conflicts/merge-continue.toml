@@ -1,0 +1,17 @@
+id = "conflicts/merge-continue"
+description = "Continue the merge after resolving shared.txt: the merge commit takes MERGE_MSG and the state files go. COMMIT_EDITMSG is not compared: git writes its editor template there, git.merge leaves the file unchanged."
+corpus = "merge-in-progress"
+setup = [
+  ["@write", "shared.txt", "line 1\nresolved\nline 3\n"],
+  ["add", "shared.txt"],
+]
+
+[git]
+args = ["merge", "--continue"]
+
+[nurt]
+command = "git.merge"
+params = { action = "continue" }
+
+[compare]
+ignore = ["state_files COMMIT_EDITMSG"]

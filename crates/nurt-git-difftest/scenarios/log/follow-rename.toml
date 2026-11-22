@@ -1,0 +1,29 @@
+id = "log/follow-rename"
+description = "follow continues the history of a file before its rename."
+corpus = "empty"
+setup = [
+  ["@clock", "2026-01-01T10:00:00Z"],
+  { write = "a.txt", content = "one\ntwo\nthree\n" }, ["add", "a.txt"], ["commit", "-q", "-m", "feat: add a"],
+  ["@clock", "2026-01-02T10:00:00Z"],
+  { write = "b.txt", content = "b\n" }, ["add", "b.txt"], ["commit", "-q", "-m", "fix(core): add b"],
+  ["@clock", "2026-01-03T10:00:00Z"],
+  { write = "a.txt", content = "one\nTWO\nthree\n" }, ["commit", "-q", "-a", "-m", "docs: change a"],
+  ["@clock", "2026-01-04T10:00:00Z"],
+  ["mv", "a.txt", "z.txt"], ["commit", "-q", "-m", "rename a to z"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["log", "--follow", "--", "z.txt"]
+expect_exit = 0
+
+[nurt]
+command = "git.log"
+params = { path = ["z.txt"], follow = true }
+expect = "ok"
+record_count = 3
+records = [{ kind = "commit", subject = "rename a to z" }, { kind = "commit", subject = "docs: change a" }, { kind = "commit", subject = "feat: add a" }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

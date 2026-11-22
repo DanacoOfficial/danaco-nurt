@@ -1,0 +1,26 @@
+id = "conflicts/matrix-rebase-content"
+description = "Rebase of main onto side stops with a content-both-sides conflict: both sides change the same line of src/lib.txt."
+corpus = "linear-small"
+setup = [
+  { write = "binary.bin", hex = "00010203" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "add binary.bin"],
+  ["switch", "-q", "-c", "side"],
+  { write = "src/lib.txt", content = "one\nside\nthree\nfour\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side change"],
+  ["switch", "-q", "main"],
+  { write = "src/lib.txt", content = "one\nmain\nthree\nfour\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main change"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "side"]
+expect_exit = 1
+
+[nurt]
+command = "git.rebase"
+params = { onto = "side" }
+expect = "error:E_GIT_CONFLICT"

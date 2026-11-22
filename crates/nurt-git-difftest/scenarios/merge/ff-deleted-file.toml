@@ -1,0 +1,30 @@
+id = "merge/ff-deleted-file"
+description = "A file deleted on the merged branch is removed by a fast-forward."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n4\n5\n" },
+  { write = "u.txt", content = "u\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  ["rm", "-q", "u.txt"],
+  ["add", "-A"],
+  ["commit", "-q", "-m", "topic"],
+  ["switch", "-q", "main"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["merge", "--no-edit", "topic"]
+expect_exit = 0
+
+[nurt]
+command = "git.merge"
+params = { branch = "topic" }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

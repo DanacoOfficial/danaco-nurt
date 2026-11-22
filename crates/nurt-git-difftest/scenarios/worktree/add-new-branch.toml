@@ -1,0 +1,23 @@
+id = "worktree/add-new-branch"
+description = "Add creates a branch and registers the working tree like git."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+]
+
+[git]
+args = ["worktree", "add", "-q", "-b", "feat", "../wt"]
+
+[nurt]
+command = "git.worktree"
+params = { "action" = "add", "path" = "../wt", "branch" = "feat" }
+
+[compare]
+state = ["refs", "reflog", "state_files"]
+undo = true
+ignore = []

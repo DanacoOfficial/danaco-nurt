@@ -1,0 +1,28 @@
+id = "ssh/push-delete-branch"
+description = "Deletion of a remote branch over SSH removes the branch and its remote-tracking reference."
+corpus = "empty"
+transport = "ssh"
+setup = [
+  { git = ["init", "-q", "--bare", "-b", "main", "upstream"], cwd = ".." },
+  ["remote", "add", "origin", "$SERVER/upstream"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["branch", "topic"],
+  ["push", "-q", "origin", "main", "topic"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "origin", "--delete", "topic"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "topic", delete = true }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@../upstream", "objects@../upstream", "fsck@../upstream"]
+undo = false
+ignore = []

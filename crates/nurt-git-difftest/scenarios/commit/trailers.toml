@@ -1,0 +1,27 @@
+id = "commit/trailers"
+description = "trailers are appended after a blank line."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "a.txt", content = "a2\n" },
+  ["add", "a.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "-m", "subject\n\nbody text\n\nReviewed-by: R <r@example.com>\nHelped-by: H <h@example.com>\n"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "subject\n\nbody text", staged = true, trailers = ["Reviewed-by: R <r@example.com>", "Helped-by: H <h@example.com>"] }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []
+strict = true

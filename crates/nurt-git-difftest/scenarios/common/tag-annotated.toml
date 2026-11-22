@@ -1,0 +1,10 @@
+id = "common/tag-annotated"
+description = "Create the annotated tag v2 at HEAD; the tag object is compared without the date of the tagger."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "-a", "v2", "-m", "second release"]
+
+[nurt]
+command = "git.tag"
+params = { name = "v2", message = "second release" }

@@ -1,0 +1,26 @@
+id = "status/ignored"
+description = "Ignored files and directories are listed with ignored."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "run.log", content = "l\n" }, { write = "build/out.bin", content = "o\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["status", "--porcelain=v2", "--ignored"]
+expect_exit = 0
+
+[nurt]
+command = "git.status"
+params = { ignored = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

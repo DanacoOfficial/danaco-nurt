@@ -1,0 +1,13 @@
+id = "common/status-dirty-output"
+description = "The records of git.status equal the porcelain status of a dirty tree."
+corpus = "dirty-worktree"
+
+[git]
+args = ["status", "--porcelain=v2", "--untracked-files=all"]
+
+[nurt]
+command = "git.status"
+params = { untracked = "all" }
+
+[compare]
+output = "status"

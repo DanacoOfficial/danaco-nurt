@@ -1,0 +1,37 @@
+id = "rebase/untracked-file-kept"
+description = "an untracked file outside the replayed changes stays."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t1"],
+  { write = "c.txt", content = "c\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t2"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "a main\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "m1"],
+  ["switch", "-q", "topic"],
+]
+files = { "notes.txt" = "notes\n" }
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.rebase"
+params = { onto = "main" }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

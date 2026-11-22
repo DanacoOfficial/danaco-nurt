@@ -1,0 +1,11 @@
+id = "tag/lightweight-at-annotated-tag"
+description = "A lightweight tag at the annotated tag v1.0 points to the tag object, not to the commit."
+corpus = "branchy-small"
+
+[git]
+args = ["tag", "copy", "v1.0"]
+
+[nurt]
+command = "git.tag"
+params = { name = "copy", revision = "v1.0" }
+

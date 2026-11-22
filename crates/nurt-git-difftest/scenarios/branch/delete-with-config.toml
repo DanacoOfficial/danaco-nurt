@@ -1,0 +1,18 @@
+id = "branch/delete-with-config"
+description = "Deleting a branch removes its branch section from the configuration."
+corpus = "linear-small"
+setup = [
+  ["branch", "old", "HEAD~1"],
+  ["config", "branch.old.remote", "origin"],
+  ["config", "branch.old.merge", "refs/heads/old"],
+]
+
+[git]
+args = ["branch", "-D", "old"]
+
+[nurt]
+command = "git.branch"
+params = { delete = "old", force = true }
+
+[compare]
+state = ["refs", "reflog", "config"]

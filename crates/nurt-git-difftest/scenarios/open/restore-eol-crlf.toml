@@ -1,0 +1,29 @@
+id = "open/restore-eol-crlf"
+description = "The attribute text eol=crlf writes CRLF line endings on checkout."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\nb\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "content"],
+  { write = ".gitattributes", content = "*.txt text eol=crlf\n" },
+
+  ["add", ".gitattributes"],
+  ["commit", "-q", "-m", "attributes"],
+  ["rm", "-q", "a.txt"],
+  ["reset", "-q"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["restore", "a.txt"]
+expect_exit = 0
+
+[nurt]
+command = "git.restore"
+params = { paths = ["a.txt"] }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "objects:HEAD"]
+undo = true
+ignore = []

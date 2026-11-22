@@ -1,0 +1,26 @@
+id = "push/push-head"
+description = "Push of HEAD pushes the current branch."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "origin", "HEAD"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "HEAD" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = true
+ignore = []

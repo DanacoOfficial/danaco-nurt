@@ -1,0 +1,10 @@
+id = "common/stash-pop"
+description = "Pop the newest stash entry with its untracked file and drop it from the stash reflog."
+corpus = "stash-present"
+
+[git]
+args = ["stash", "pop", "-q"]
+
+[nurt]
+command = "git.stash"
+params = { action = "pop" }

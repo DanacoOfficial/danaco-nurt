@@ -1,0 +1,11 @@
+id = "common/stage-add-directory"
+description = "Stage a directory with a new and a modified file."
+corpus = "linear-small"
+files = { "docs/guide.md" = "Guide\n", "docs/extra.md" = "Extra\n" }
+
+[git]
+args = ["add", "docs"]
+
+[nurt]
+command = "git.stage"
+params = { action = "add", paths = ["docs"] }

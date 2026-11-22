@@ -1,0 +1,26 @@
+id = "conflicts/matrix-rebase-symlink-file"
+description = "Rebase of main onto side stops with a symlink-file conflict: the side adds the link ref, main adds the file ref."
+corpus = "linear-small"
+setup = [
+  { write = "binary.bin", hex = "00010203" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "add binary.bin"],
+  ["switch", "-q", "-c", "side"],
+  { write = "ref", symlink = "README.md" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side change"],
+  ["switch", "-q", "main"],
+  { write = "ref", content = "a regular file\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main change"],
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["rebase", "side"]
+expect_exit = 1
+
+[nurt]
+command = "git.rebase"
+params = { onto = "side" }
+expect = "error:E_GIT_CONFLICT"

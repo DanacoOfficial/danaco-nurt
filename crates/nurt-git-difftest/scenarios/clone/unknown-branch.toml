@@ -1,0 +1,28 @@
+id = "clone/unknown-branch"
+description = "A branch the remote does not have is refused and nothing is created."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["clone", "-q", "-b", "nothing", "$SERVER/upstream", "../cloned"]
+expect_exit = 128
+
+[nurt]
+command = "git.clone"
+params = { url = "$SERVER/upstream", to = "../cloned", branch = "nothing" }
+expect = "error:E_GIT_REF"
+
+[compare]
+state = ["refs"]
+undo = false
+ignore = []

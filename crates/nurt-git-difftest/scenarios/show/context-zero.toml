@@ -1,0 +1,28 @@
+id = "show/context-zero"
+description = "context 0 shows only the changed lines."
+corpus = "empty"
+setup = [
+  ["@clock", "2026-01-01T10:00:00Z"],
+  { write = "a.txt", content = "one\ntwo\nthree\n" }, ["add", "a.txt"], ["commit", "-q", "-m", "feat: add a"],
+  ["@clock", "2026-01-02T10:00:00Z"],
+  { write = "b.txt", content = "b\n" }, ["add", "b.txt"], ["commit", "-q", "-m", "fix(core): add b"],
+  ["@clock", "2026-01-03T10:00:00Z"],
+  { write = "a.txt", content = "one\nTWO\nthree\n" }, ["commit", "-q", "-a", "-m", "docs: change a"],
+
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["show", "-U0", "HEAD"]
+expect_exit = 0
+
+[nurt]
+command = "git.show"
+params = { revision = "HEAD", context = 0 }
+expect = "ok"
+record_count = 2
+records = [{ kind = "hunk", path = "a.txt", old_start = 2, old_len = 1, new_start = 2, new_len = 1, lines = ["-two", "+TWO"] }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

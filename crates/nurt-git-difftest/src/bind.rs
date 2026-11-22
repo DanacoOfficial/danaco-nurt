@@ -15,7 +15,7 @@ use nurt_contracts::spec::{CatalogFile, DefaultKind, ParamSpec, ParamType, Scala
 use nurt_contracts::stage::{ArgValue, BoundArgs};
 use nurt_contracts::value::{Instant, Range, Regex, Value};
 
-use crate::error::{HarnessError, Result};
+use crate::error::{DifftestError, Result};
 use crate::git::GitEnv;
 use crate::time::ScenarioClock;
 
@@ -42,11 +42,11 @@ pub struct Binding {
 }
 
 impl Catalog {
-    /// Reads the catalog of the `git` group built into the harness.
+    /// Reads the catalog of the `git` group built into the test runner.
     ///
     /// # Errors
     ///
-    /// Fails with [`HarnessError::Catalog`] when the catalog is invalid.
+    /// Fails with [`DifftestError::Catalog`] when the catalog is invalid.
     pub fn git() -> Result<Self> {
         Self::parse(GIT_CATALOG)
     }
@@ -55,11 +55,11 @@ impl Catalog {
     ///
     /// # Errors
     ///
-    /// Fails with [`HarnessError::Catalog`] when the text is not a catalog
+    /// Fails with [`DifftestError::Catalog`] when the text is not a catalog
     /// file.
     pub fn parse(text: &str) -> Result<Self> {
         let mut file: CatalogFile =
-            toml::from_str(text).map_err(|error| HarnessError::Catalog(error.to_string()))?;
+            toml::from_str(text).map_err(|error| DifftestError::Catalog(error.to_string()))?;
         file.resolve_groups();
         let commands = file
             .commands
@@ -84,7 +84,12 @@ impl Catalog {
     ///
     /// Returns a message when the command is unknown or a value does not
     /// have the type of its parameter.
-    pub fn bind(&self, command: &str, params: &toml::Table, repo_root: &Path) -> Result<Binding, String> {
+    pub fn bind(
+        &self,
+        command: &str,
+        params: &toml::Table,
+        repo_root: &Path,
+    ) -> Result<Binding, String> {
         let spec = self
             .command(command)
             .ok_or_else(|| format!("command `{command}` is not in catalog/git.toml"))?;
@@ -96,7 +101,7 @@ impl Catalog {
         let mut unknown = Vec::new();
         for (name, value) in params {
             if spec.param(name).is_none() {
-                args.insert(name.clone(), ArgValue::Value(infer(value, repo_root)), false);
+                args.insert(name.clone(), ArgValue::Value(infer(value)), false);
                 unknown.push(name.clone());
             }
         }
@@ -104,7 +109,11 @@ impl Catalog {
     }
 }
 
-fn bind_param(param: &ParamSpec, given: Option<&toml::Value>, repo_root: &Path) -> Result<(ArgValue, bool), String> {
+fn bind_param(
+    param: &ParamSpec,
+    given: Option<&toml::Value>,
+    repo_root: &Path,
+) -> Result<(ArgValue, bool), String> {
     let context = |message: String| format!("parameter `{}`: {message}", param.name);
     if let Some(value) = given {
         let converted = convert(&param.ty, value, repo_root).map_err(context)?;
@@ -121,7 +130,8 @@ fn bind_param(param: &ParamSpec, given: Option<&toml::Value>, repo_root: &Path) 
     }
     match &param.default {
         Some(default) if !default.is_blank() => {
-            let value = default_value(&param.ty, default.as_str(), default.kind()).map_err(context)?;
+            let value =
+                default_value(&param.ty, default.as_str(), default.kind()).map_err(context)?;
             Ok((ArgValue::Value(value), true))
         }
         _ => Ok((ArgValue::Absent, false)),
@@ -160,10 +170,16 @@ fn convert(ty: &ParamType, value: &toml::Value, repo_root: &Path) -> Result<Valu
     }
 }
 
-fn convert_scalar(scalar: ScalarType, value: &toml::Value, repo_root: &Path) -> Result<Value, String> {
+fn convert_scalar(
+    scalar: ScalarType,
+    value: &toml::Value,
+    repo_root: &Path,
+) -> Result<Value, String> {
     let mismatch = || format!("{value} is not a value of type {scalar}");
     match (scalar, value) {
-        (ScalarType::Text | ScalarType::Any, toml::Value::String(text)) => Ok(Value::Text(text.clone())),
+        (ScalarType::Text | ScalarType::Any, toml::Value::String(text)) => {
+            Ok(Value::Text(text.clone()))
+        }
         (ScalarType::Int, toml::Value::Integer(number)) => Ok(Value::Int(*number)),
         (ScalarType::Number, toml::Value::Integer(number)) => Ok(Value::Number(*number as f64)),
         (ScalarType::Number, toml::Value::Float(number)) => Ok(Value::Number(*number)),
@@ -173,34 +189,39 @@ fn convert_scalar(scalar: ScalarType, value: &toml::Value, repo_root: &Path) -> 
         (ScalarType::Key, toml::Value::String(text)) => Ok(Value::Key(text.clone())),
         (ScalarType::Regex, toml::Value::String(text)) => regex(text),
         (ScalarType::Instant, toml::Value::String(text)) => instant(text),
-        (ScalarType::Range, toml::Value::Integer(number)) => Ok(Value::Range(Range::single(*number))),
+        (ScalarType::Range, toml::Value::Integer(number)) => {
+            Ok(Value::Range(Range::single(*number)))
+        }
         (ScalarType::Range, toml::Value::String(text)) => range(text),
-        (ScalarType::Any, other) => Ok(infer(other, repo_root)),
+        (ScalarType::Any, other) => Ok(infer(other)),
         _ => Err(mismatch()),
     }
 }
 
 /// Value of a parameter that the catalog does not describe, typed by its
 /// TOML form.
-fn infer(value: &toml::Value, repo_root: &Path) -> Value {
+fn infer(value: &toml::Value) -> Value {
     match value {
         toml::Value::String(text) => Value::Text(text.clone()),
         toml::Value::Integer(number) => Value::Int(*number),
         toml::Value::Float(number) => Value::Number(*number),
         toml::Value::Boolean(flag) => Value::Bool(*flag),
         toml::Value::Datetime(date) => Value::Text(date.to_string()),
-        toml::Value::Array(items) => Value::List(items.iter().map(|item| infer(item, repo_root)).collect()),
+        toml::Value::Array(items) => Value::List(items.iter().map(infer).collect()),
         toml::Value::Table(table) => Value::Map(
             table
                 .iter()
-                .map(|(key, item)| (key.clone(), infer(item, repo_root)))
+                .map(|(key, item)| (key.clone(), infer(item)))
                 .collect(),
         ),
     }
 }
 
 fn regex(text: &str) -> Result<Value, String> {
-    let (pattern, flags) = match text.strip_prefix('/').and_then(|rest| rest.rsplit_once('/')) {
+    let (pattern, flags) = match text
+        .strip_prefix('/')
+        .and_then(|rest| rest.rsplit_once('/'))
+    {
         Some((pattern, flags)) => (pattern, flags),
         None => (text, ""),
     };
@@ -245,10 +266,14 @@ fn default_value(ty: &ParamType, literal: &str, kind: DefaultKind) -> Result<Val
             .map(Value::Int)
             .map_err(|_| format!("default `{literal}` is not an integer")),
         DefaultKind::Text => Ok(Value::Text(unquote(literal))),
-        DefaultKind::Word if matches!(ty, ParamType::Enum(_)) => Ok(Value::Enum(literal.to_owned())),
+        DefaultKind::Word if matches!(ty, ParamType::Enum(_)) => {
+            Ok(Value::Enum(literal.to_owned()))
+        }
         DefaultKind::Word => Ok(Value::Text(literal.to_owned())),
         DefaultKind::List if literal == "[]" => Ok(Value::List(Vec::new())),
-        _ => Err(format!("default `{literal}` cannot be bound by the harness")),
+        _ => Err(format!(
+            "default `{literal}` cannot be bound by the test runner"
+        )),
     }
 }
 
@@ -368,7 +393,13 @@ mod tests {
     #[test]
     fn the_built_in_catalog_lists_every_git_command() {
         let catalog = Catalog::git().unwrap();
-        for name in ["git.status", "git.merge", "git.push", "git.stash", "git.worktree"] {
+        for name in [
+            "git.status",
+            "git.merge",
+            "git.push",
+            "git.stash",
+            "git.worktree",
+        ] {
             assert!(catalog.command(name).is_some(), "{name}");
         }
     }
@@ -376,7 +407,9 @@ mod tests {
     #[test]
     fn adds_the_repository_and_explicit_defaults() {
         let catalog = Catalog::git().unwrap();
-        let binding = catalog.bind("git.merge", &table("branch = \"topic\""), &root()).unwrap();
+        let binding = catalog
+            .bind("git.merge", &table("branch = \"topic\""), &root())
+            .unwrap();
         let args = &binding.args;
         assert!(binding.unknown.is_empty());
         assert_eq!(args.value("branch"), Some(&Value::Text("topic".into())));
@@ -386,14 +419,18 @@ mod tests {
         assert_eq!(args.get("message"), Some(&ArgValue::Absent));
         assert_eq!(
             args.value("repo"),
-            Some(&Value::Path(AbsPath::new(root()).unwrap().to_language_string()))
+            Some(&Value::Path(
+                AbsPath::new(root()).unwrap().to_language_string()
+            ))
         );
     }
 
     #[test]
     fn wraps_the_repository_in_a_list_when_the_parameter_is_a_list() {
         let catalog = Catalog::git().unwrap();
-        let binding = catalog.bind("git.status", &toml::Table::new(), &root()).unwrap();
+        let binding = catalog
+            .bind("git.status", &toml::Table::new(), &root())
+            .unwrap();
         assert!(matches!(binding.args.value("repo"), Some(Value::List(items)) if items.len() == 1));
         assert_eq!(binding.args.value("limit"), Some(&Value::Int(200)));
     }
@@ -402,7 +439,11 @@ mod tests {
     fn resolves_relative_paths_against_the_repository() {
         let catalog = Catalog::git().unwrap();
         let binding = catalog
-            .bind("git.stash", &table("action = \"push\"\npaths = [\"a.txt\", \"dir/b\"]"), &root())
+            .bind(
+                "git.stash",
+                &table("action = \"push\"\npaths = [\"a.txt\", \"dir/b\"]"),
+                &root(),
+            )
             .unwrap();
         let Some(Value::List(paths)) = binding.args.value("paths") else {
             panic!("paths are not a list");
@@ -413,18 +454,26 @@ mod tests {
     #[test]
     fn rejects_values_of_the_wrong_type() {
         let catalog = Catalog::git().unwrap();
-        let error = catalog.bind("git.merge", &table("action = \"rewind\""), &root()).unwrap_err();
+        let error = catalog
+            .bind("git.merge", &table("action = \"rewind\""), &root())
+            .unwrap_err();
         assert!(error.contains("parameter `action`"), "{error}");
-        let error = catalog.bind("git.merge", &table("no_commit = 1"), &root()).unwrap_err();
+        let error = catalog
+            .bind("git.merge", &table("no_commit = 1"), &root())
+            .unwrap_err();
         assert!(error.contains("bool"), "{error}");
-        assert!(catalog.bind("git.frobnicate", &toml::Table::new(), &root()).is_err());
+        assert!(
+            catalog
+                .bind("git.frobnicate", &toml::Table::new(), &root())
+                .is_err()
+        );
     }
 
     #[test]
     fn binds_parameters_missing_from_the_catalog_by_their_toml_type() {
         let catalog = Catalog::git().unwrap();
         let binding = catalog
-            .bind("git.push", &table("force_with_lease = true\nextra = [1, \"x\"]"), &root())
+            .bind("git.push", &table("extra = [1, \"x\"]"), &root())
             .unwrap();
         assert!(binding.unknown.contains(&"extra".to_owned()));
         assert_eq!(
@@ -438,16 +487,29 @@ mod tests {
         let path = root();
         let regex_type: ParamType = "regex".parse().unwrap();
         let converted = convert(&regex_type, &toml::Value::String("/a+/i".into()), &path).unwrap();
-        assert!(matches!(converted, Value::Regex(regex) if regex.pattern == "a+" && regex.flags.case_insensitive));
+        assert!(
+            matches!(converted, Value::Regex(regex) if regex.pattern == "a+" && regex.flags.case_insensitive)
+        );
         let range_type: ParamType = "range".parse().unwrap();
         assert!(convert(&range_type, &toml::Value::String("2..5".into()), &path).is_ok());
         assert!(convert(&range_type, &toml::Value::String("x".into()), &path).is_err());
         let instant_type: ParamType = "instant".parse().unwrap();
-        let converted = convert(&instant_type, &toml::Value::String("2026-01-01T00:00:00Z".into()), &path).unwrap();
-        assert_eq!(converted, Value::Instant(Instant::from_unix_seconds(1_767_225_600).unwrap()));
+        let converted = convert(
+            &instant_type,
+            &toml::Value::String("2026-01-01T00:00:00Z".into()),
+            &path,
+        )
+        .unwrap();
+        assert_eq!(
+            converted,
+            Value::Instant(Instant::from_unix_seconds(1_767_225_600).unwrap())
+        );
         let union: ParamType = "text | list<text>".parse().unwrap();
         let list = toml::Value::Array(vec![toml::Value::String("a".into())]);
-        assert!(matches!(convert(&union, &list, &path).unwrap(), Value::List(_)));
+        assert!(matches!(
+            convert(&union, &list, &path).unwrap(),
+            Value::List(_)
+        ));
     }
 
     #[test]
@@ -461,10 +523,21 @@ mod tests {
     #[test]
     fn host_exposes_the_scenario_environment() {
         let home = root();
-        let env = GitEnv::new(&home, ScenarioClock::parse("2026-01-01T12:00:00+02:00").unwrap());
-        let host = ScenarioHost::new(&env, &home, &home, ScenarioClock::parse("2026-01-01T12:00:00+02:00").unwrap());
+        let env = GitEnv::new(
+            &home,
+            ScenarioClock::parse("2026-01-01T12:00:00+02:00").unwrap(),
+        );
+        let host = ScenarioHost::new(
+            &env,
+            &home,
+            &home,
+            ScenarioClock::parse("2026-01-01T12:00:00+02:00").unwrap(),
+        );
         assert_eq!(host.info().timezone, "Etc/GMT-2");
-        assert_eq!(host.env_var("GIT_AUTHOR_NAME"), Some(OsString::from(crate::git::IDENTITY_NAME)));
+        assert_eq!(
+            host.env_var("GIT_AUTHOR_NAME"),
+            Some(OsString::from(crate::git::IDENTITY_NAME))
+        );
         assert_eq!(host.env_vars().len(), env.vars().len());
     }
 }

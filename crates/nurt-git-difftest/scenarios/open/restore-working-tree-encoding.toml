@@ -1,0 +1,29 @@
+id = "open/restore-working-tree-encoding"
+description = "The attribute working-tree-encoding=UTF-16LE writes UTF-16 on checkout."
+corpus = "empty"
+setup = [
+  { write = "a.u16", content = "hi\n" },
+  ["add", "a.u16"],
+  ["commit", "-q", "-m", "content"],
+  { write = ".gitattributes", content = "*.u16 working-tree-encoding=UTF-16LE\n" },
+
+  ["add", ".gitattributes"],
+  ["commit", "-q", "-m", "attributes"],
+  ["rm", "-q", "a.u16"],
+  ["reset", "-q"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["restore", "a.u16"]
+expect_exit = 0
+
+[nurt]
+command = "git.restore"
+params = { paths = ["a.u16"] }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "objects:HEAD"]
+undo = true
+ignore = []

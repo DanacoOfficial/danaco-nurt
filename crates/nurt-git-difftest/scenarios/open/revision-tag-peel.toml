@@ -1,0 +1,36 @@
+id = "open/revision-tag-peel"
+description = "Revision v1^{} peels the annotated tag to its commit."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "1\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "one"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "t.txt", content = "t\n" },
+  ["add", "t.txt"],
+  ["commit", "-q", "-m", "topic work"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "2\n" },
+  ["commit", "-q", "-a", "-m", "two"],
+  ["merge", "-q", "--no-edit", "topic"],
+  { write = "a.txt", content = "3\n" },
+  ["commit", "-q", "-a", "-m", "three"],
+  ["tag", "-a", "-m", "release", "v1"],
+  { write = "a.txt", content = "4\n" },
+  ["commit", "-q", "-a", "-m", "four"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["log", "-1", "--format=%H", "v1^{}"]
+expect_exit = 0
+
+[nurt]
+command = "git.log"
+params = { revision = "v1^{}", count = 1 }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog"]
+undo = false
+ignore = []

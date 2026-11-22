@@ -1,0 +1,31 @@
+id = "diff/exclude"
+description = "Excluded paths are left out of the difference."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "a.txt", content = "one\nTWO\nthree\n" },
+  { write = "dir/b.txt", content = "B\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = { exclude = ["a.txt"] }
+expect = "ok"
+record_count = 1
+[[nurt.records]]
+kind = "hunk"
+path = "dir/b.txt"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

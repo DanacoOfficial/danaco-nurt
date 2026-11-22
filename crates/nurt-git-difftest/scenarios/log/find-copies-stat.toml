@@ -1,0 +1,27 @@
+id = "log/find-copies-stat"
+description = "With find_copies, stat reports a file copied from a file changed by the same commit as copied."
+corpus = "empty"
+setup = [
+  ["@clock", "2026-01-01T10:00:00Z"],
+  { write = "src.txt", content = "alpha line of the original file\nbeta line of the original file\ngamma line of the original file\ndelta line of the original file\n" }, ["add", "src.txt"], ["commit", "-q", "-m", "feat: add src"],
+  ["@clock", "2026-01-02T10:00:00Z"],
+  { write = "src.txt", content = "alpha line of the original file\nbeta line of the original file\ngamma line of the original file\ndelta line of the original file\nextra\n" },
+  { write = "dst.txt", content = "alpha line of the original file\nbeta line of the original file\ngamma line of the original file\ndelta line of the original file\n" },
+  ["add", "dst.txt"], ["commit", "-q", "-a", "-m", "feat: copy lines into dst"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["log", "-n", "1", "-C", "--numstat"]
+expect_exit = 0
+
+[nurt]
+command = "git.log"
+params = { count = 1, stat = true, find_copies = true }
+expect = "ok"
+record_count = 1
+records = [{ kind = "commit", subject = "feat: copy lines into dst", stats = { files = 2, added = 1, removed = 0 } }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

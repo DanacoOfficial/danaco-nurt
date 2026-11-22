@@ -1,0 +1,10 @@
+id = "common/branch-delete-forced"
+description = "Force deletion of the unmerged branch topic removes the reference and its reflog."
+corpus = "branchy-small"
+
+[git]
+args = ["branch", "-D", "topic"]
+
+[nurt]
+command = "git.branch"
+params = { delete = "topic", force = true }

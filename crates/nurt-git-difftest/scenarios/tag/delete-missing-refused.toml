@@ -1,0 +1,12 @@
+id = "tag/delete-missing-refused"
+description = "Deleting a tag that does not exist fails and changes nothing."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "-d", "none"]
+expect_exit = 1
+
+[nurt]
+command = "git.tag"
+params = { delete = "none" }
+expect = "error:E_GIT_REF"

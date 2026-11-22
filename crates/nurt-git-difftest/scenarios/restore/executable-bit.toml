@@ -1,0 +1,27 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "restore/executable-bit"
+description = "A changed executable bit is restored from the index."
+corpus = "empty"
+setup = [
+  { write = "tool", content = "echo\n" },
+  { write = "top.txt", content = "t\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  { write = "top.txt", content = "t2\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+]
+files = { "tool" = { content = "echo\n", executable = true } }
+platforms = ["linux", "macos"]
+
+[git]
+args = ["restore", "tool"]
+
+[nurt]
+command = "git.restore"
+params = { paths = ["tool"] }

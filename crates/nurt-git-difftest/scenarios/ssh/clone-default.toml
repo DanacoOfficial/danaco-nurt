@@ -1,0 +1,31 @@
+id = "ssh/clone-default"
+description = "Clone over SSH creates the repository, checks out the default branch and records the remote-tracking branches."
+corpus = "empty"
+transport = "ssh"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { write = "../upstream/dir/b.txt", content = "b\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "a.txt", "dir/b.txt"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { git = ["switch", "-q", "-c", "topic"], cwd = "../upstream" },
+  { write = "../upstream/t.txt", content = "t\n" },
+  { git = ["add", "t.txt"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "topic"], cwd = "../upstream" },
+  { git = ["switch", "-q", "main"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["clone", "-q", "$SERVER/upstream", "../clone"]
+expect_exit = 0
+
+[nurt]
+command = "git.clone"
+params = { url = "$SERVER/upstream", to = "../clone" }
+expect = "ok"
+
+[compare]
+state = ["refs@../clone", "reflog@../clone", "config@../clone", "index@../clone", "worktree@../clone", "fsck@../clone"]
+undo = true
+ignore = []

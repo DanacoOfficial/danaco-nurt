@@ -1,0 +1,11 @@
+id = "common/stage-add-modified"
+description = "Stage a modified tracked file."
+corpus = "linear-small"
+files = { "README.md" = "# Sample\n\nEdited.\n" }
+
+[git]
+args = ["add", "README.md"]
+
+[nurt]
+command = "git.stage"
+params = { action = "add", paths = ["README.md"] }

@@ -1,0 +1,10 @@
+id = "common/commit-amend-message"
+description = "Amend the last commit with a new message."
+corpus = "linear-small"
+
+[git]
+args = ["commit", "-q", "--amend", "-m", "reworded"]
+
+[nurt]
+command = "git.commit"
+params = { message = "reworded", amend = true }

@@ -1,0 +1,24 @@
+id = "show/binary-change"
+description = "A changed binary file is one hunk without lines."
+corpus = "empty"
+setup = [
+  { write = "bin", hex = "00010203" }, ["add", "bin"], ["commit", "-q", "-m", "binary"],
+  { write = "bin", hex = "00010204" }, ["commit", "-q", "-a", "-m", "change binary"],
+
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["show", "HEAD"]
+expect_exit = 0
+
+[nurt]
+command = "git.show"
+params = { revision = "HEAD" }
+expect = "ok"
+record_count = 2
+records = [{ kind = "hunk", path = "bin", binary = true, status = "binary", lines = [] }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

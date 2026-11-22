@@ -1,0 +1,43 @@
+id = "status/conflict-rename-rename"
+description = "Both sides rename one file to different names."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "base"],
+  ["checkout", "-q", "-b", "theirs"],
+  ["mv", "a.txt", "c.txt"],
+  ["commit", "-q", "-m", "theirs"],
+  ["checkout", "-q", "-"],
+  ["mv", "a.txt", "b.txt"],
+  ["commit", "-q", "-m", "ours"],
+  ["-c", "alias.merge-stop=!git merge --no-edit theirs || :", "merge-stop"],
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["status", "--porcelain=v2"]
+expect_exit = 0
+
+[nurt]
+command = "git.status"
+params = {  }
+expect = "ok"
+record_count = 3
+[[nurt.records]]
+kind = "git_status"
+path = "a.txt"
+conflict = "both_deleted"
+[[nurt.records]]
+kind = "git_status"
+path = "b.txt"
+conflict = "added_by_us"
+[[nurt.records]]
+kind = "git_status"
+path = "c.txt"
+conflict = "added_by_them"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

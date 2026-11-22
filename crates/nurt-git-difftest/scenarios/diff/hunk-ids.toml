@@ -1,0 +1,34 @@
+id = "diff/hunk-ids"
+description = "Hunks of one file are numbered in order of appearance."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "row 1\nrow 2\nrow 3\nrow 4\nrow 5\nrow 6\nrow 7\nrow 8\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\nrow 15\nrow 16\nrow 17\nrow 18\nrow 19\nrow 20\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  { write = "a.txt", content = "row 1\nROW two\nrow 3\nrow 4\nrow 5\nrow 6\nrow 7\nrow 8\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\nrow 15\nrow 16\nrow 17\nROW eighteen\nrow 19\nrow 20\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = {  }
+expect = "ok"
+record_count = 2
+[[nurt.records]]
+kind = "hunk"
+id = "a.txt#1"
+path = "a.txt"
+[[nurt.records]]
+kind = "hunk"
+id = "a.txt#2"
+path = "a.txt"
+header = "row 14"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

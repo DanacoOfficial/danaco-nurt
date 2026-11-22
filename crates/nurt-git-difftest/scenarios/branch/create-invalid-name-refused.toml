@@ -1,0 +1,12 @@
+id = "branch/create-invalid-name-refused"
+description = "A name with two consecutive dots is rejected by the reference name rules."
+corpus = "linear-small"
+
+[git]
+args = ["branch", "a..b"]
+expect_exit = 128
+
+[nurt]
+command = "git.branch"
+params = { create = "a..b" }
+expect = "error:E_GIT_REF"

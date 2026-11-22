@@ -1,0 +1,12 @@
+id = "branch/create-existing-refused"
+description = "Creating the existing branch main fails and changes nothing."
+corpus = "linear-small"
+
+[git]
+args = ["branch", "main"]
+expect_exit = 128
+
+[nurt]
+command = "git.branch"
+params = { create = "main" }
+expect = "error:E_GIT_REF"

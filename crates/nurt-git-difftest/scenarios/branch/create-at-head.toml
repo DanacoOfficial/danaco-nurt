@@ -1,0 +1,10 @@
+id = "branch/create-at-head"
+description = "Create branch topic at HEAD; the branch log records the start point HEAD."
+corpus = "linear-small"
+
+[git]
+args = ["branch", "topic"]
+
+[nurt]
+command = "git.branch"
+params = { create = "topic" }

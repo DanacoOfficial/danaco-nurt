@@ -1,0 +1,16 @@
+id = "stage/hunk-single"
+description = "Stage the second of two hunks; equal to git apply --cached with the patch of that hunk."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "l1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\nl11\nl12\nl13\nl14\nl15\nl16\nl17\nl18\nl19\nl20\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+]
+files = { "a.txt" = "l1\nL2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\nl11\nl12\nl13\nl14\nl15\nl16\nl17\nL18\nl19\nl20\n", "sel.patch" = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -15,6 +15,6 @@\n l15\n l16\n l17\n-l18\n+L18\n l19\n l20\n" }
+
+[git]
+args = ["apply", "--cached", "sel.patch"]
+
+[nurt]
+command = "git.stage"
+params = { action = "add", hunks = ["a.txt#2"] }

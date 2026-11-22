@@ -1,0 +1,12 @@
+id = "common/tag-list-output"
+description = "The tags listed by git.tag equal the ones of git tag."
+corpus = "tag-kinds"
+
+[git]
+args = ["tag", "--list"]
+
+[nurt]
+command = "git.tag"
+
+[compare]
+output = { format = "lines", git = ["tag", "--list"], record = "{name}", kind = "git_tag", sort = true }

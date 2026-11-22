@@ -1,0 +1,10 @@
+id = "branch/create-and-switch"
+description = "Create topic at HEAD and check it out; HEAD logs checkout: moving from main to topic."
+corpus = "linear-small"
+
+[git]
+args = ["switch", "-c", "topic"]
+
+[nurt]
+command = "git.branch"
+params = { create = "topic", switch = true }

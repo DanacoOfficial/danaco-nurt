@@ -1,0 +1,31 @@
+id = "merge/ff-detached-head"
+description = "A detached HEAD is fast-forwarded."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n4\n5\n" },
+  { write = "u.txt", content = "u\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "topic"],
+  ["switch", "-q", "main"],
+  ["switch", "-q", "--detach", "main"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["merge", "--no-edit", "topic"]
+expect_exit = 0
+
+[nurt]
+command = "git.merge"
+params = { branch = "topic" }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

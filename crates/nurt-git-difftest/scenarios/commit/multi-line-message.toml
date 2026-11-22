@@ -1,0 +1,27 @@
+id = "commit/multi-line-message"
+description = "A message with a body keeps its paragraphs and ends with one line feed."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "a.txt", content = "a2\n" },
+  ["add", "a.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "-m", "subject", "-m", "first paragraph", "-m", "second paragraph"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "subject\n\nfirst paragraph\n\nsecond paragraph", staged = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []
+strict = true

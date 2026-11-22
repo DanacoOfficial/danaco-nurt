@@ -1,0 +1,23 @@
+id = "stash/pop-conflict"
+description = "Pop with a conflict leaves stages and markers and keeps the entry."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "a.txt", content = "local\n" },
+  ["stash", "push", "-q"],
+  { write = "a.txt", content = "other\n" },
+  ["add", "a.txt"],
+]
+
+[git]
+args = ["stash", "pop", "-q"]
+expect_exit = 1
+[nurt]
+command = "git.stash"
+params = { action = "pop" }
+expect = "error:E_GIT_CONFLICT"
+

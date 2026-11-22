@@ -1,0 +1,22 @@
+id = "commit/first-commit"
+description = "The first commit of an unborn branch records the index."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "-m", "first"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "first", staged = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []

@@ -1,0 +1,13 @@
+id = "common/switch-dirty-refused"
+description = "Switch to topic is refused when a local change of b.txt would be overwritten; nothing changes."
+corpus = "branchy-small"
+files = { "b.txt" = "local change\n" }
+
+[git]
+args = ["switch", "-q", "topic"]
+expect_exit = 1
+
+[nurt]
+command = "git.switch"
+params = { branch = "topic" }
+expect = "error:E_GIT_DIRTY"

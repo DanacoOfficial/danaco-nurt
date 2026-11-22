@@ -1,0 +1,37 @@
+id = "checkpoint/delete-by-id"
+description = "Delete removes the named checkpoint reference."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "cptmp"],
+  { write = "a.txt", content = "x1\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "nurt checkpoint cp-1: saved"],
+  ["update-ref", "refs/nurt/checkpoints/cp-1", "cptmp"],
+  ["switch", "-q", "main"],
+  ["branch", "-q", "-D", "cptmp"],
+  ["switch", "-q", "-c", "cptmp"],
+  { write = "a.txt", content = "x2\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "nurt checkpoint cp-2: saved"],
+  ["update-ref", "refs/nurt/checkpoints/cp-2", "cptmp"],
+  ["switch", "-q", "main"],
+  ["branch", "-q", "-D", "cptmp"],
+]
+
+[git]
+args = ["update-ref", "-d", "refs/nurt/checkpoints/cp-1"]
+
+[nurt]
+command = "git.checkpoint"
+params = { "action" = "delete", "checkpoint_id" = "cp-1" }
+
+[compare]
+state = ["index", "worktree", "refs", "reflog"]
+undo = true
+ignore = []

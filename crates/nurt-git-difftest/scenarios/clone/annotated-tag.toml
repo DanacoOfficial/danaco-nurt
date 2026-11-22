@@ -1,0 +1,29 @@
+id = "clone/annotated-tag"
+description = "Annotated tag is stored in packed-refs with its peeled line."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+  { git = ["tag", "-a", "-m", "release", "v1", "HEAD~1"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["clone", "-q", "$SERVER/upstream", "../cloned"]
+expect_exit = 0
+
+[nurt]
+command = "git.clone"
+params = { url = "$SERVER/upstream", to = "../cloned" }
+expect = "ok"
+
+[compare]
+state = ["refs@../cloned", "reflog@../cloned", "config@../cloned", "state_files@../cloned", "fsck@../cloned", "worktree@../cloned", "index@../cloned"]
+undo = false
+ignore = []

@@ -1,0 +1,29 @@
+id = "log/merge-all"
+description = "Without paths a merge and both of its sides are listed."
+corpus = "empty"
+setup = [
+  ["@clock", "2026-01-01T10:00:00Z"],
+  { write = "f", content = "a\nb\nc\n" }, { write = "other", content = "o\n" }, ["add", "."], ["commit", "-q", "-m", "base"],
+  ["@clock", "2026-01-02T10:00:00Z"],
+  ["checkout", "-q", "-b", "topic"], { write = "f", content = "a\nT\nc\n" }, ["commit", "-q", "-a", "-m", "topic f"],
+  ["@clock", "2026-01-03T10:00:00Z"],
+  ["checkout", "-q", "main"], { write = "other", content = "o\nm\n" }, ["commit", "-q", "-a", "-m", "main other"],
+  ["@clock", "2026-01-04T10:00:00Z"],
+  ["merge", "-q", "--no-ff", "-m", "merge topic", "topic"],
+
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["log"]
+expect_exit = 0
+
+[nurt]
+command = "git.log"
+expect = "ok"
+record_count = 4
+records = [{ kind = "commit", subject = "merge topic" }, { kind = "commit", subject = "main other" }, { kind = "commit", subject = "topic f" }, { kind = "commit", subject = "base" }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

@@ -1,0 +1,18 @@
+id = "conflicts/merge-content"
+description = "Merge of topic conflicts in the first line of a.txt: stage entries, markers, MERGE_HEAD and MERGE_MSG."
+corpus = "branchy-small"
+setup = [
+  ["switch", "-q", "topic"],
+  ["@write", "a.txt", "alpha (topic)\nbeta\ngamma\ndelta\nepsilon\n"],
+  ["commit", "-q", "-a", "-m", "topic: edit first line"],
+  ["switch", "-q", "main"],
+]
+
+[git]
+args = ["merge", "--no-edit", "topic"]
+expect_exit = 1
+
+[nurt]
+command = "git.merge"
+params = { branch = "topic" }
+expect = "error:E_GIT_CONFLICT"

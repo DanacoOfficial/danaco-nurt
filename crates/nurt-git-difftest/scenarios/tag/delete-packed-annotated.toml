@@ -1,0 +1,11 @@
+id = "tag/delete-packed-annotated"
+description = "Delete the annotated tag v0.1 stored in packed-refs; its line and its peeled line are removed."
+corpus = "packed-refs"
+
+[git]
+args = ["tag", "-d", "v0.1"]
+
+[nurt]
+command = "git.tag"
+params = { delete = "v0.1" }
+

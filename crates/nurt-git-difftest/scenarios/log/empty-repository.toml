@@ -1,0 +1,17 @@
+id = "log/empty-repository"
+description = "A repository without commits has an empty history."
+corpus = "empty"
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["log"]
+expect_exit = 128
+
+[nurt]
+command = "git.log"
+expect = "ok"
+record_count = 0
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

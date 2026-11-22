@@ -1,0 +1,29 @@
+id = "push/force-with-lease-mismatch"
+description = "An explicit lease that does not match the remote branch rejects the push."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["push", "-q", "origin", "main"],
+  { write = "a.txt", content = "a\nb\n" },
+  ["commit", "-q", "-a", "-m", "second"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "--force-with-lease=main:HEAD", "origin", "main"]
+expect_exit = 1
+
+[nurt]
+command = "git.push"
+params = { branch = "main", force_with_lease = "HEAD" }
+expect = "error:E_GIT_PUSH_REJECTED"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = false
+ignore = []

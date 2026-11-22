@@ -1,0 +1,11 @@
+id = "tag/lightweight-nested-name"
+description = "Create a lightweight tag whose name has a directory component."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "release/2026.1"]
+
+[nurt]
+command = "git.tag"
+params = { name = "release/2026.1" }
+

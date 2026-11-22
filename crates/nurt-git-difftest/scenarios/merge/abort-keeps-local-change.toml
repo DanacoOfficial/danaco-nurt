@@ -1,0 +1,35 @@
+id = "merge/abort-keeps-local-change"
+description = "action abort keeps a local change of a path the merge did not touch."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n4\n5\n" },
+  { write = "u.txt", content = "u\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "topic"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "a main\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "main"],
+  ["merge", "-q", "--no-edit", "--no-commit", "topic"],
+]
+files = { "u.txt" = "local\n" }
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["merge", "--abort"]
+expect_exit = 0
+
+[nurt]
+command = "git.merge"
+params = { action = "abort" }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

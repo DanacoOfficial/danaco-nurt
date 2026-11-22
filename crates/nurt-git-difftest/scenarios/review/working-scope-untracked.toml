@@ -1,0 +1,29 @@
+id = "review/working-scope-untracked"
+description = "The working scope includes untracked files."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "u.txt", content = "x\n<<<<<<< HEAD\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["status", "--short"]
+expect_exit = 0
+
+[nurt]
+command = "git.review"
+params = { scope = "working", checks = ["conflict_markers"] }
+expect = "ok"
+records = [
+  { kind = "finding", path = "u.txt", line = 2 },
+]
+record_count = 1
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

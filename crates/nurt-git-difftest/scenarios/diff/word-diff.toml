@@ -1,0 +1,26 @@
+id = "diff/word-diff"
+description = "Word difference in porcelain form."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "a.txt", content = "one\ntwo words\nthree\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "--word-diff=porcelain"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = { word_diff = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

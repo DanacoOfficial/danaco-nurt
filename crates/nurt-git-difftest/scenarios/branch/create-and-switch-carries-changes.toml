@@ -1,0 +1,20 @@
+id = "branch/create-and-switch-carries-changes"
+description = "A local change of a file equal in both commits is carried to the new branch."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\n" },
+  { write = "keep.txt", content = "k\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "a.txt", content = "two\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "second"],
+]
+files = { "keep.txt" = "k\nlocal\n" }
+
+[git]
+args = ["switch", "-c", "old", "HEAD~1"]
+
+[nurt]
+command = "git.branch"
+params = { create = "old", from = "HEAD~1", switch = true }

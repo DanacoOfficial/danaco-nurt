@@ -1,0 +1,23 @@
+id = "reset/unknown-revision"
+description = "A reset to a revision that does not exist changes nothing."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "a.txt", content = "a2\n" },
+  ["rm", "-q", "b.txt"],
+  { write = "new.txt", content = "n2\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "second"],
+]
+
+[git]
+args = ["reset", "-q", "--hard", "no-such-branch"]
+expect_exit = 128
+[nurt]
+command = "git.reset"
+params = { revision = "no-such-branch", mode = "hard" }
+expect = "error:E_GIT_REVISION"

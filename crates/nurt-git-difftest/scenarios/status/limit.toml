@@ -1,0 +1,30 @@
+id = "status/limit"
+description = "The limit truncates the list of records."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "a.txt", content = "one\nTWO\nthree\n" },
+  { write = "n1.txt", content = "1\n" },
+  { write = "n2.txt", content = "2\n" },
+  { write = "n3.txt", content = "3\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["status", "--porcelain=v2"]
+expect_exit = 0
+
+[nurt]
+command = "git.status"
+params = { limit = 2 }
+expect = "ok"
+record_count = 2
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

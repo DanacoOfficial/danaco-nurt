@@ -1,0 +1,22 @@
+id = "conflicts/merge-add-add"
+description = "Both branches add new.txt with different content: add/add conflict with stages 2 and 3."
+corpus = "linear-small"
+setup = [
+  ["switch", "-q", "-c", "side"],
+  ["@write", "new.txt", "side\n"],
+  ["add", "new.txt"],
+  ["commit", "-q", "-m", "side: add new"],
+  ["switch", "-q", "main"],
+  ["@write", "new.txt", "main\n"],
+  ["add", "new.txt"],
+  ["commit", "-q", "-m", "main: add new"],
+]
+
+[git]
+args = ["merge", "--no-edit", "side"]
+expect_exit = 1
+
+[nurt]
+command = "git.merge"
+params = { branch = "side" }
+expect = "error:E_GIT_CONFLICT"

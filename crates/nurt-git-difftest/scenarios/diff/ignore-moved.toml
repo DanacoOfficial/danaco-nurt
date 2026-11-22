@@ -1,0 +1,33 @@
+id = "diff/ignore-moved"
+description = "Blocks moved within a file are left out."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "moved block line one\nmoved block line two\nmoved block line three\nmoved block line four\nfiller 1\nfiller 2\nfiller 3\nfiller 4\nfiller 5\nfiller 6\nfiller 7\nfiller 8\nfiller 9\nfiller 10\nfiller 11\nfiller 12\nfiller 13\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  { write = "a.txt", content = "filler 1\nfiller 2\nfiller 3\nfiller 4\nfiller 5\nfiller 6\nfiller 7\nfiller 8\nfiller 9\nfiller ten\nfiller 11\nfiller 12\nfiller 13\nmoved block line one\nmoved block line two\nmoved block line three\nmoved block line four\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "--color-moved=zebra", "--no-color"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = { ignore_moved = true }
+expect = "ok"
+record_count = 1
+[[nurt.records]]
+kind = "hunk"
+path = "a.txt"
+old_start = 11
+old_len = 7
+new_start = 7
+new_len = 11
+header = "filler 6"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

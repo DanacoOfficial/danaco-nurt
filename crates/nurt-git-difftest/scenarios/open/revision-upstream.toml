@@ -1,0 +1,31 @@
+id = "open/revision-upstream"
+description = "Revision @{upstream} resolves the remote-tracking branch configured for the current branch."
+corpus = "empty"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "a.txt"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  ["remote", "add", "origin", "../upstream"],
+  ["fetch", "-q", "origin"],
+  ["reset", "-q", "--hard", "origin/main"],
+  ["branch", "-q", "--set-upstream-to=origin/main", "main"],
+  { write = "l.txt", content = "l\n" },
+  ["add", "l.txt"],
+  ["commit", "-q", "-m", "local"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["log", "-1", "--format=%H", "@{upstream}"]
+expect_exit = 0
+
+[nurt]
+command = "git.log"
+params = { revision = "@{upstream}", count = 1 }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog"]
+undo = false
+ignore = []

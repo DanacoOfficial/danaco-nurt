@@ -192,7 +192,10 @@ mod tests {
 
     #[test]
     fn renders_values_of_both_sides_with_a_line_limit() {
-        let long = (0..20).map(|n| n.to_string()).collect::<Vec<_>>().join("\n");
+        let long = (0..20)
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
         let differences = [Difference {
             selector: "state_files".parse().unwrap(),
             key: "MERGE_MSG".into(),

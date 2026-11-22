@@ -1,0 +1,10 @@
+id = "common/tag-lightweight"
+description = "Create the lightweight tag v2 at HEAD."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "v2"]
+
+[nurt]
+command = "git.tag"
+params = { name = "v2" }

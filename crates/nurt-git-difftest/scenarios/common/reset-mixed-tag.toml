@@ -1,0 +1,10 @@
+id = "common/reset-mixed-tag"
+description = "Mixed reset to the tag v1."
+corpus = "linear-small"
+
+[git]
+args = ["reset", "-q", "--mixed", "v1"]
+
+[nurt]
+command = "git.reset"
+params = { revision = "v1", mode = "mixed" }

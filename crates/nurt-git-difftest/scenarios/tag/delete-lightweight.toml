@@ -1,0 +1,11 @@
+id = "tag/delete-lightweight"
+description = "Delete the loose lightweight tag v1."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "-d", "v1"]
+
+[nurt]
+command = "git.tag"
+params = { delete = "v1" }
+

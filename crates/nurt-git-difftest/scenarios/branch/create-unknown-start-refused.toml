@@ -1,0 +1,12 @@
+id = "branch/create-unknown-start-refused"
+description = "A start point that names no object is rejected before any reference is written."
+corpus = "linear-small"
+
+[git]
+args = ["branch", "x", "nope"]
+expect_exit = 128
+
+[nurt]
+command = "git.branch"
+params = { create = "x", from = "nope" }
+expect = "error:E_GIT_REVISION"

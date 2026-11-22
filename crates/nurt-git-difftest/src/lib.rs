@@ -21,6 +21,10 @@
 //! | [`bind`] | parameter binding against `catalog/git.toml` and the test host |
 //! | [`stage`] | execution of a stage implementation |
 //! | [`runner`] | the whole scenario and the summary of a run |
+//! | [`output`] | comparison of output records with the output of `git` |
+//! | [`process`] | process service of the Nurt side for repository hooks |
+//! | [`server`] | test server of the smart HTTP transport |
+//! | [`ssh`] | test server of the SSH transport |
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
@@ -33,7 +37,11 @@ pub mod fsutil;
 pub mod git;
 pub mod journal;
 pub mod normalize;
+pub mod output;
+pub mod process;
 pub mod runner;
 pub mod scenario;
+pub mod server;
+pub mod ssh;
 pub mod stage;
 pub mod time;

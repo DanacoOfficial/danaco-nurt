@@ -1,0 +1,45 @@
+id = "rebase/linear-five-commits"
+description = "five commits keep their order."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "n1.txt", content = "1\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t1"],
+  { write = "n2.txt", content = "2\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t2"],
+  { write = "n3.txt", content = "3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t3"],
+  { write = "n4.txt", content = "4\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t4"],
+  { write = "n5.txt", content = "5\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t5"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "a main\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "m1"],
+  ["switch", "-q", "topic"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.rebase"
+params = { onto = "main" }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

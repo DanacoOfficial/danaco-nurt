@@ -1,0 +1,11 @@
+id = "common/restore-file"
+description = "Restore README.md from the index, discarding its local change."
+corpus = "linear-small"
+files = { "README.md" = "local change\n" }
+
+[git]
+args = ["restore", "README.md"]
+
+[nurt]
+command = "git.restore"
+params = { paths = ["README.md"] }

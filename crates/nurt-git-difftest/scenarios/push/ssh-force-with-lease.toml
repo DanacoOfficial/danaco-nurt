@@ -1,0 +1,28 @@
+id = "push/ssh-force-with-lease"
+description = "Push over SSH with a lease equal to the remote-tracking reference replaces the rewritten branch."
+corpus = "empty"
+transport = "ssh"
+setup = [
+  { git = ["init", "-q", "--bare", "-b", "main", "upstream"], cwd = ".." },
+  ["remote", "add", "origin", "$SERVER/upstream"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["push", "-q", "origin", "main"],
+  ["commit", "-q", "--amend", "-m", "rewritten"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "--force-with-lease", "origin", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main", force = "lease" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@../upstream", "objects@../upstream", "fsck@../upstream"]
+undo = false
+ignore = []

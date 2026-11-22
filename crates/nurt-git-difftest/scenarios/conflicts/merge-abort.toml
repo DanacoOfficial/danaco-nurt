@@ -1,0 +1,10 @@
+id = "conflicts/merge-abort"
+description = "Abort the merge in progress: index, working tree and HEAD return to the state before the merge."
+corpus = "merge-in-progress"
+
+[git]
+args = ["merge", "--abort"]
+
+[nurt]
+command = "git.merge"
+params = { action = "abort" }

@@ -1,0 +1,26 @@
+id = "worktree/remove-clean"
+description = "Remove deletes a clean linked working tree and its registration."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["worktree", "add", "-q", "-b", "feat", "../wt"],
+]
+
+[git]
+args = ["worktree", "remove", "../wt"]
+expect_exit = 0
+
+[nurt]
+command = "git.worktree"
+params = { "action" = "remove", "path" = "../wt" }
+expect = "ok"
+
+[compare]
+state = ["refs", "state_files"]
+undo = true
+ignore = []

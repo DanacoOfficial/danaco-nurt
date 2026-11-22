@@ -1,0 +1,28 @@
+id = "show/root-commit"
+description = "A root commit adds every line of its files."
+corpus = "empty"
+setup = [
+  ["@clock", "2026-01-01T10:00:00Z"],
+  { write = "a.txt", content = "one\ntwo\nthree\n" }, ["add", "a.txt"], ["commit", "-q", "-m", "feat: add a"],
+  ["@clock", "2026-01-02T10:00:00Z"],
+  { write = "b.txt", content = "b\n" }, ["add", "b.txt"], ["commit", "-q", "-m", "fix(core): add b"],
+  ["@clock", "2026-01-03T10:00:00Z"],
+  { write = "a.txt", content = "one\nTWO\nthree\n" }, ["commit", "-q", "-a", "-m", "docs: change a"],
+
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["show", "HEAD~2"]
+expect_exit = 0
+
+[nurt]
+command = "git.show"
+params = { revision = "HEAD~2" }
+expect = "ok"
+record_count = 2
+records = [{ kind = "hunk", path = "a.txt", old_start = 0, old_len = 0, new_start = 1, new_len = 3, lines = ["+one", "+two", "+three"], status = "added", new_mode = "100644" }]
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false

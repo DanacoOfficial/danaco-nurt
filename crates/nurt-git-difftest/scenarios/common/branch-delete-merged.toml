@@ -1,0 +1,13 @@
+id = "common/branch-delete-merged"
+description = "Delete the merged branch old with the safe delete."
+corpus = "linear-small"
+setup = [
+  ["branch", "-q", "old"],
+]
+
+[git]
+args = ["branch", "-q", "-d", "old"]
+
+[nurt]
+command = "git.branch"
+params = { delete = "old" }

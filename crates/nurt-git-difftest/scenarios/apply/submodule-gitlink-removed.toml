@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "apply/submodule-gitlink-removed"
+description = "An empty submodule directory is removed with its gitlink."
+corpus = "empty"
+setup = [
+  { write = "top.txt", content = "t\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  { write = "top.txt", content = "t2\n" },
+  ["add", "-A"],
+  ["update-index", "--add", "--cacheinfo", "160000,1111111111111111111111111111111111111111,sub"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+  ["switch", "-q", "side"],
+]
+
+[git]
+args = ["switch", "main"]
+
+[nurt]
+command = "git.switch"
+params = { branch = "main" }

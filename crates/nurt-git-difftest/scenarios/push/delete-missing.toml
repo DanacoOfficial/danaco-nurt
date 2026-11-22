@@ -1,0 +1,27 @@
+id = "push/delete-missing"
+description = "Deleting a branch the remote does not have fails."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["push", "-q", "origin", "main"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "origin", "--delete", "nope"]
+expect_exit = 1
+
+[nurt]
+command = "git.push"
+params = { branch = "nope", delete = true }
+expect = "error:E_GIT_PUSH_REJECTED"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = false
+ignore = []

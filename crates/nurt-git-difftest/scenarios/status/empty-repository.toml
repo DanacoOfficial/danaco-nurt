@@ -1,0 +1,22 @@
+id = "status/empty-repository"
+description = "A repository without files reports nothing."
+corpus = "empty"
+setup = [
+  ["status", "--porcelain"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["status", "--porcelain=v2"]
+expect_exit = 0
+
+[nurt]
+command = "git.status"
+params = {  }
+expect = "ok"
+record_count = 0
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

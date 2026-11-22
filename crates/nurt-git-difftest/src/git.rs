@@ -8,7 +8,7 @@ use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use crate::error::{HarnessError, Result};
+use crate::error::{DifftestError, Result};
 use crate::time::ScenarioClock;
 
 /// Oldest supported version of the `git` program.
@@ -26,7 +26,15 @@ pub const IDENTITY_EMAIL: &str = "test@nurt.invalid";
 
 /// Variables passed through from the environment of the test process.
 #[cfg(windows)]
-const INHERITED: &[&str] = &["PATH", "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "TEMP", "TMP"];
+const INHERITED: &[&str] = &[
+    "PATH",
+    "SYSTEMROOT",
+    "WINDIR",
+    "COMSPEC",
+    "PATHEXT",
+    "TEMP",
+    "TMP",
+];
 #[cfg(not(windows))]
 const INHERITED: &[&str] = &["PATH"];
 
@@ -136,12 +144,18 @@ impl GitProgram {
         self.version
     }
 
+    /// Program name or path used to start `git`.
+    #[must_use]
+    pub fn program(&self) -> &Path {
+        &self.program
+    }
+
     /// Runs `git` with `args` in `dir` and returns its result whatever the
     /// exit code.
     ///
     /// # Errors
     ///
-    /// Returns [`HarnessError::GitSpawn`] when the program cannot be started.
+    /// Returns [`DifftestError::GitSpawn`] when the program cannot be started.
     pub fn run<S: AsRef<OsStr>>(&self, env: &GitEnv, dir: &Path, args: &[S]) -> Result<GitOutput> {
         self.run_with_input(env, dir, args, None)
     }
@@ -150,7 +164,7 @@ impl GitProgram {
     ///
     /// # Errors
     ///
-    /// Returns [`HarnessError::GitSpawn`] when the program cannot be started
+    /// Returns [`DifftestError::GitSpawn`] when the program cannot be started
     /// or the input cannot be written.
     pub fn run_with_input<S: AsRef<OsStr>>(
         &self,
@@ -172,11 +186,28 @@ impl GitProgram {
             })
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        let mut child = command.spawn().map_err(HarnessError::GitSpawn)?;
-        if let (Some(bytes), Some(mut stdin)) = (input, child.stdin.take()) {
-            stdin.write_all(bytes).map_err(HarnessError::GitSpawn)?;
+        let mut child = command.spawn().map_err(DifftestError::GitSpawn)?;
+        let stdin = child.stdin.take();
+        // The input is written on a second thread: a program that answers
+        // while it reads (`cat-file --batch`) blocks once both pipes are full.
+        let (output, written) = std::thread::scope(|scope| {
+            let writer = scope.spawn(move || match (input, stdin) {
+                (Some(bytes), Some(mut stdin)) => stdin.write_all(bytes),
+                _ => Ok(()),
+            });
+            let output = child.wait_with_output();
+            let written = writer
+                .join()
+                .unwrap_or_else(|_| Err(std::io::Error::other("the input writer stopped")));
+            (output, written)
+        });
+        let output = output.map_err(DifftestError::GitSpawn)?;
+        match written {
+            Err(error) if error.kind() != std::io::ErrorKind::BrokenPipe => {
+                return Err(DifftestError::GitSpawn(error));
+            }
+            _ => {}
         }
-        let output = child.wait_with_output().map_err(HarnessError::GitSpawn)?;
         Ok(GitOutput {
             code: output.status.code().unwrap_or(-1),
             stdout: output.stdout,
@@ -188,8 +219,8 @@ impl GitProgram {
     ///
     /// # Errors
     ///
-    /// Returns [`HarnessError::GitFailed`] for another exit code and
-    /// [`HarnessError::GitSpawn`] when the program cannot be started.
+    /// Returns [`DifftestError::GitFailed`] for another exit code and
+    /// [`DifftestError::GitSpawn`] when the program cannot be started.
     pub fn run_ok<S: AsRef<OsStr>>(&self, env: &GitEnv, dir: &Path, args: &[S]) -> Result<Vec<u8>> {
         let output = self.run(env, dir, args)?;
         expect_exit(&output, 0, dir, args)?;
@@ -201,7 +232,7 @@ impl GitProgram {
 ///
 /// # Errors
 ///
-/// Returns [`HarnessError::GitFailed`] when the code differs from `expected`.
+/// Returns [`DifftestError::GitFailed`] when the code differs from `expected`.
 pub fn expect_exit<S: AsRef<OsStr>>(
     output: &GitOutput,
     expected: i32,
@@ -211,7 +242,7 @@ pub fn expect_exit<S: AsRef<OsStr>>(
     if output.code == expected {
         return Ok(());
     }
-    Err(HarnessError::GitFailed {
+    Err(DifftestError::GitFailed {
         args: join_args(args),
         dir: dir.to_path_buf(),
         code: output.code,
@@ -270,7 +301,11 @@ impl GitEnv {
             ("GIT_MERGE_AUTOEDIT", "no".into()),
             ("GIT_ADVICE", "0".into()),
         ];
-        vars.extend(fixed.into_iter().map(|(name, value)| (name.to_owned(), value)));
+        vars.extend(
+            fixed
+                .into_iter()
+                .map(|(name, value)| (name.to_owned(), value)),
+        );
         Self { vars }
     }
 
@@ -331,11 +366,17 @@ mod tests {
     fn environment_fixes_identity_dates_and_configuration() {
         let home = Path::new("/h");
         let env = GitEnv::new(home, ScenarioClock::default());
-        assert_eq!(env.get("GIT_AUTHOR_DATE"), Some(OsStr::new("@1767268800 +0000")));
+        assert_eq!(
+            env.get("GIT_AUTHOR_DATE"),
+            Some(OsStr::new("@1767268800 +0000"))
+        );
         assert_eq!(env.get("GIT_CONFIG_NOSYSTEM"), Some(OsStr::new("1")));
         assert_eq!(env.get("HOME"), Some(home.as_os_str()));
         let later = env.with_clock(ScenarioClock::default().advanced(60));
-        assert_eq!(later.get("GIT_COMMITTER_DATE"), Some(OsStr::new("@1767268860 +0000")));
+        assert_eq!(
+            later.get("GIT_COMMITTER_DATE"),
+            Some(OsStr::new("@1767268860 +0000"))
+        );
         assert_eq!(later.vars().len(), env.vars().len());
         let extended = env.with_var("GIT_OPTIONAL_LOCKS", "0");
         assert_eq!(extended.vars().len(), env.vars().len() + 1);

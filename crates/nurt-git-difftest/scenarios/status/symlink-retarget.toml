@@ -1,0 +1,31 @@
+id = "status/symlink-retarget"
+description = "A symbolic link pointing to a new target is a worktree modification."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = "link", symlink = "a.txt" },
+  ["add", "a.txt", "dir/b.txt", "link"],
+  ["commit", "-q", "-m", "init"],
+  { write = "link", symlink = "dir/b.txt" },
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["status", "--porcelain=v2"]
+expect_exit = 0
+
+[nurt]
+command = "git.status"
+params = {  }
+expect = "ok"
+record_count = 1
+[[nurt.records]]
+kind = "git_status"
+path = "link"
+worktree = "modified"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

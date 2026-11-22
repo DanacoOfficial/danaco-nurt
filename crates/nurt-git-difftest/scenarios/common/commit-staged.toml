@@ -1,0 +1,10 @@
+id = "common/commit-staged"
+description = "Commit the staged changes only; unstaged and untracked changes stay."
+corpus = "dirty-worktree"
+
+[git]
+args = ["commit", "-q", "-m", "record staged changes"]
+
+[nurt]
+command = "git.commit"
+params = { message = "record staged changes", staged = true }

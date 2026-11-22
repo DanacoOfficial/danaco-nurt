@@ -1,0 +1,18 @@
+id = "branch/create-from-remote-tracking"
+description = "Create branch feature from the remote-tracking branch origin/feature; the configuration receives branch.feature.remote and branch.feature.merge."
+corpus = "linear-small"
+setup = [
+  ["config", "remote.origin.url", "../upstream"],
+  ["config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"],
+  ["update-ref", "refs/remotes/origin/feature", "HEAD~1"],
+]
+
+[git]
+args = ["branch", "feature", "origin/feature"]
+
+[nurt]
+command = "git.branch"
+params = { create = "feature", from = "origin/feature" }
+
+[compare]
+state = ["refs", "reflog", "config", "index", "worktree"]

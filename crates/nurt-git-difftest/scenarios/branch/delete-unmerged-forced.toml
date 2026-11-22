@@ -1,0 +1,10 @@
+id = "branch/delete-unmerged-forced"
+description = "Delete the unmerged branch topic with force."
+corpus = "branchy-small"
+
+[git]
+args = ["branch", "-D", "topic"]
+
+[nurt]
+command = "git.branch"
+params = { delete = "topic", force = true }

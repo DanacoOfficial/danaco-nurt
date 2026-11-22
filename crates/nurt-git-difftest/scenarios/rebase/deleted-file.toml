@@ -1,0 +1,32 @@
+id = "rebase/deleted-file"
+description = "a deletion on the branch is replayed."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  ["rm", "-q", "a.txt"],
+  ["commit", "-q", "-m", "delete"],
+  ["switch", "-q", "main"],
+  { write = "f.txt", content = "1\nmain\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "m1"],
+  ["switch", "-q", "topic"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.rebase"
+params = { onto = "main" }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

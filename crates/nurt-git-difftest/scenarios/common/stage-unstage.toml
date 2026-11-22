@@ -1,0 +1,10 @@
+id = "common/stage-unstage"
+description = "Unstage staged.txt; the index entry returns to the HEAD version, the working tree keeps the change."
+corpus = "dirty-worktree"
+
+[git]
+args = ["restore", "--staged", "staged.txt"]
+
+[nurt]
+command = "git.stage"
+params = { action = "unstage", paths = ["staged.txt"] }

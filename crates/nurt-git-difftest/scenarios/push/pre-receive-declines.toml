@@ -1,0 +1,27 @@
+id = "push/pre-receive-declines"
+description = "A pre-receive hook of the remote that exits with an error rejects every update."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  { write = ".git/remote.git/hooks/pre-receive", content = "#!/bin/sh\necho declined >&2\nexit 1\n", executable = true },
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["push", "origin", "main"]
+expect_exit = 1
+
+[nurt]
+command = "git.push"
+params = { branch = "main" }
+expect = "error:E_GIT_PUSH_REJECTED"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = false
+ignore = []

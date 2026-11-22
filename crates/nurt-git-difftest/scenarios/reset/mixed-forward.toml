@@ -1,0 +1,25 @@
+id = "reset/mixed-forward"
+description = "A mixed reset to a later commit stages nothing of the working tree."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "a.txt", content = "a2\n" },
+  ["rm", "-q", "b.txt"],
+  { write = "new.txt", content = "n2\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "second"],
+  ["tag", "later"],
+  ["reset", "-q", "--hard", "HEAD~1"],
+]
+
+[git]
+args = ["reset", "-q", "later"]
+
+[nurt]
+command = "git.reset"
+params = { revision = "later" }
+

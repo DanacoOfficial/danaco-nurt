@@ -1,0 +1,26 @@
+id = "ssh/push-set-upstream"
+description = "Push over SSH with set_upstream creates the remote branch and records it as the upstream of the local branch."
+corpus = "empty"
+transport = "ssh"
+setup = [
+  { git = ["init", "-q", "--bare", "-b", "main", "upstream"], cwd = ".." },
+  ["remote", "add", "origin", "$SERVER/upstream"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "--set-upstream", "origin", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main", set_upstream = true }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@../upstream", "objects@../upstream", "fsck@../upstream"]
+undo = false
+ignore = []

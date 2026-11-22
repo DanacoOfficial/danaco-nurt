@@ -25,7 +25,7 @@ use nurt_contracts::fs::{
     LinkKind, MetaTransferReport, WriteHandle,
 };
 use nurt_contracts::journal::{
-    AfterState, Applied, BeforeState, ExemptWrite, ExternalChange, Expect, Mutation, MutationTx,
+    AfterState, Applied, BeforeState, ExemptWrite, Expect, ExternalChange, Mutation, MutationTx,
     OpHandle, OpId, OpKind, PreserveMode, Preserved, RollbackReason, RollbackReport, TargetAction,
     TargetIndex, TargetOutcome, TargetPath, TargetSpec,
 };
@@ -122,7 +122,9 @@ impl RecordingJournal {
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, JournalState> {
-        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// Opens a transaction for an operation of `kind`.
@@ -150,7 +152,11 @@ impl RecordingJournal {
     /// Number of committed operations that were not undone.
     #[must_use]
     pub fn committed(&self) -> usize {
-        self.lock().entries.iter().filter(|entry| !entry.undone).count()
+        self.lock()
+            .entries
+            .iter()
+            .filter(|entry| !entry.undone)
+            .count()
     }
 
     /// Protocol violations recorded so far.
@@ -166,7 +172,10 @@ impl RecordingJournal {
     }
 
     fn violation(&self, message: String) -> Error {
-        let error = Error::new(ErrorCode::StageFailed, format!("journal protocol: {message}"));
+        let error = Error::new(
+            ErrorCode::StageFailed,
+            format!("journal protocol: {message}"),
+        );
         self.lock().violations.push(message);
         error
     }
@@ -232,8 +241,12 @@ impl RecordingTx<'_> {
         for path in std::mem::take(&mut self.staged).into_values() {
             let _ = fs::remove_file(path);
         }
-        let changed: Vec<TargetRecord> =
-            self.targets.iter().filter(|target| target.changed).cloned().collect();
+        let changed: Vec<TargetRecord> = self
+            .targets
+            .iter()
+            .filter(|target| target.changed)
+            .cloned()
+            .collect();
         restore_all(&changed, &self.created_dirs)?;
         for target in &mut self.targets {
             target.changed = false;
@@ -252,7 +265,10 @@ impl RecordingTx<'_> {
         if exists && matches!(spec.action, TargetAction::Create | TargetAction::CreateTree) {
             return Err(Error::new(
                 ErrorCode::Exists,
-                format!("`{}` exists, remove it or choose another name", path.display()),
+                format!(
+                    "`{}` exists, remove it or choose another name",
+                    path.display()
+                ),
             ));
         }
         let store = self.store_dir().join(index.to_string());
@@ -271,7 +287,11 @@ impl RecordingTx<'_> {
             (_, false) => PreserveMode::Created,
             (_, true) => PreserveMode::Copy,
         };
-        self.declare(spec, &path, destination.as_ref().map(|(to, _)| to.as_path()));
+        self.declare(
+            spec,
+            &path,
+            destination.as_ref().map(|(to, _)| to.as_path()),
+        );
         self.targets.push(TargetRecord {
             spec: spec.clone(),
             path,
@@ -348,8 +368,14 @@ impl RecordingTx<'_> {
             .as_ref()
             .map(|(to, _)| to.clone());
         let mode = self.targets[position].before.mode;
-        perform_mutation(&path, mutation, staged.as_deref(), destination.as_deref(), mode)
-            .map_err(io_to_error(&path))
+        perform_mutation(
+            &path,
+            mutation,
+            staged.as_deref(),
+            destination.as_deref(),
+            mode,
+        )
+        .map_err(io_to_error(&path))
     }
 
     fn create_parents(&mut self, dir: &Path) -> io::Result<()> {
@@ -416,7 +442,9 @@ impl MutationTx for RecordingTx<'_> {
         self.ensure_open()?;
         let position = self.target(target)?;
         if let Err(message) = check_mutation(&self.targets[position].spec.action, &mutation) {
-            let error = self.journal.violation(format!("target {}: {message}", target.0));
+            let error = self
+                .journal
+                .violation(format!("target {}: {message}", target.0));
             return Err(self.fail_and_restore(error));
         }
         self.check_expect(position)?;
@@ -465,8 +493,7 @@ impl MutationTx for RecordingTx<'_> {
     }
 
     fn record_exempt(&mut self, write: ExemptWrite) {
-        let ExemptWrite::ObjectStore { repo } = &write;
-        {
+        if let ExemptWrite::ObjectStore { repo } = &write {
             let mut state = self.journal.lock();
             let root = repo.as_path();
             state.declared.trees.push(root.join("objects"));
@@ -480,8 +507,12 @@ impl MutationTx for RecordingTx<'_> {
         for path in std::mem::take(&mut self.staged).into_values() {
             let _ = fs::remove_file(path);
         }
-        let changed: Vec<TargetRecord> =
-            self.targets.iter().filter(|target| target.changed).cloned().collect();
+        let changed: Vec<TargetRecord> = self
+            .targets
+            .iter()
+            .filter(|target| target.changed)
+            .cloned()
+            .collect();
         let has_entry = !changed.is_empty() || !self.irreversible.is_empty();
         let outcomes = changed
             .iter()
@@ -549,7 +580,10 @@ fn outcome(position: usize, target: &TargetRecord) -> TargetOutcome {
 
 /// Restores `targets` in reverse order, then removes directories created
 /// for them when they are empty.
-fn restore_all(targets: &[TargetRecord], created_dirs: &[PathBuf]) -> Result<(), (PathBuf, io::Error)> {
+fn restore_all(
+    targets: &[TargetRecord],
+    created_dirs: &[PathBuf],
+) -> Result<(), (PathBuf, io::Error)> {
     for target in targets.iter().rev() {
         if let Some((to, saved)) = &target.destination {
             restore(to, saved).map_err(|error| (to.clone(), error))?;
@@ -565,7 +599,12 @@ fn restore_all(targets: &[TargetRecord], created_dirs: &[PathBuf]) -> Result<(),
 fn save(path: &Path, store: &Path) -> io::Result<(Saved, BeforeState, u64)> {
     let meta = match fs::symlink_metadata(path) {
         Ok(meta) => meta,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+        Err(error)
+            if matches!(
+                error.kind(),
+                io::ErrorKind::NotFound | io::ErrorKind::NotADirectory
+            ) =>
+        {
             return Ok((Saved::Absent, BeforeState::default(), 0));
         }
         Err(error) => return Err(error),
@@ -590,7 +629,13 @@ fn save(path: &Path, store: &Path) -> io::Result<(Saved, BeforeState, u64)> {
     if kind.is_dir() {
         before.kind = Some(FileKind::Directory);
         fsutil::copy_tree(path, store).map_err(|error| io::Error::other(error.to_string()))?;
-        return Ok((Saved::Tree { copy: store.to_path_buf() }, before, meta.len()));
+        return Ok((
+            Saved::Tree {
+                copy: store.to_path_buf(),
+            },
+            before,
+            meta.len(),
+        ));
     }
     before.kind = Some(FileKind::File);
     let bytes = fs::read(path)?;
@@ -604,7 +649,7 @@ fn save(path: &Path, store: &Path) -> io::Result<(Saved, BeforeState, u64)> {
 }
 
 fn restore(path: &Path, saved: &Saved) -> io::Result<()> {
-    let as_io = |error: crate::error::HarnessError| io::Error::other(error.to_string());
+    let as_io = |error: crate::error::DifftestError| io::Error::other(error.to_string());
     fsutil::remove_entry(path).map_err(as_io)?;
     match saved {
         Saved::Absent => Ok(()),
@@ -655,7 +700,13 @@ fn matches_expect(path: &Path, expect: &Expect) -> Result<(), String> {
                 return Err("its size or modification time differs".to_owned());
             }
             match &etag.hash {
-                Some(hash) if fs::read(path).map(|bytes| content_hash(&bytes)).ok().as_ref() != Some(hash) => {
+                Some(hash)
+                    if fs::read(path)
+                        .map(|bytes| content_hash(&bytes))
+                        .ok()
+                        .as_ref()
+                        != Some(hash) =>
+                {
                     Err("its content differs".to_owned())
                 }
                 _ => Ok(()),
@@ -676,7 +727,10 @@ fn check_mutation(action: &TargetAction, mutation: &Mutation) -> Result<(), Stri
             | Mutation::CopyFrom { .. }
     );
     let allowed = match action {
-        TargetAction::Create | TargetAction::Modify | TargetAction::Truncate | TargetAction::Append => {
+        TargetAction::Create
+        | TargetAction::Modify
+        | TargetAction::Truncate
+        | TargetAction::Append => {
             content
                 || matches!(
                     mutation,
@@ -689,7 +743,10 @@ fn check_mutation(action: &TargetAction, mutation: &Mutation) -> Result<(), Stri
         TargetAction::Rename { .. } => matches!(mutation, Mutation::Rename),
         TargetAction::Attributes => matches!(mutation, Mutation::SetMeta(_)),
         TargetAction::Link => {
-            matches!(mutation, Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. })
+            matches!(
+                mutation,
+                Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. }
+            )
         }
         TargetAction::ExternalWrite => false,
         _ => true,
@@ -697,7 +754,9 @@ fn check_mutation(action: &TargetAction, mutation: &Mutation) -> Result<(), Stri
     if allowed {
         Ok(())
     } else {
-        Err(format!("mutation {mutation:?} does not match the declared action {action:?}"))
+        Err(format!(
+            "mutation {mutation:?} does not match the declared action {action:?}"
+        ))
     }
 }
 
@@ -714,18 +773,26 @@ fn perform_mutation(
             replace_with(path, staged, mode)
         }
         Mutation::WriteBytes(bytes) => write_atomically(path, &bytes, mode),
-        Mutation::AppendBytes(bytes) => fs::OpenOptions::new().append(true).open(path)?.write_all(&bytes),
+        Mutation::AppendBytes(bytes) => fs::OpenOptions::new()
+            .append(true)
+            .open(path)?
+            .write_all(&bytes),
         Mutation::WriteAt { offset, bytes } => {
             let mut file = fs::OpenOptions::new().write(true).open(path)?;
             file.seek(SeekFrom::Start(offset))?;
             file.write_all(&bytes)
         }
-        Mutation::SetLength(length) => fs::OpenOptions::new().write(true).open(path)?.set_len(length),
+        Mutation::SetLength(length) => fs::OpenOptions::new()
+            .write(true)
+            .open(path)?
+            .set_len(length),
         Mutation::CopyFrom { source, .. } => {
             let bytes = fs::read(source.as_path())?;
             write_atomically(path, &bytes, mode)
         }
-        Mutation::Remove => fsutil::remove_entry(path).map_err(|error| io::Error::other(error.to_string())),
+        Mutation::Remove => {
+            fsutil::remove_entry(path).map_err(|error| io::Error::other(error.to_string()))
+        }
         Mutation::Rename => {
             let to = destination.ok_or_else(|| io::Error::other("rename without a destination"))?;
             fs::rename(path, to)
@@ -734,27 +801,38 @@ fn perform_mutation(
             fs::create_dir(path)?;
             set_mode(path, mode)
         }
-        Mutation::CreateLink { target, kind } => fsutil::make_symlink(&target, path, kind != LinkKind::SymlinkFile)
-            .map_err(|error| io::Error::other(error.to_string())),
+        Mutation::CreateLink { target, kind } => {
+            fsutil::make_symlink(&target, path, kind != LinkKind::SymlinkFile)
+                .map_err(|error| io::Error::other(error.to_string()))
+        }
         Mutation::CreateHardLink { existing } => fs::hard_link(existing.as_path(), path),
         Mutation::SetMeta(meta) => {
             if let Some(mode) = meta.mode {
                 set_mode(path, mode)?;
             }
             if let Some(nanos) = meta.modified_ns {
-                let time = UNIX_EPOCH + std::time::Duration::from_nanos(u64::try_from(nanos).unwrap_or(0));
-                fs::File::options().write(true).open(path)?.set_modified(time)?;
+                let time =
+                    UNIX_EPOCH + std::time::Duration::from_nanos(u64::try_from(nanos).unwrap_or(0));
+                fs::File::options()
+                    .write(true)
+                    .open(path)?
+                    .set_modified(time)?;
             }
             Ok(())
         }
-        other => Err(io::Error::other(format!("mutation {other:?} is not supported for repository files"))),
+        other => Err(io::Error::other(format!(
+            "mutation {other:?} is not supported for repository files"
+        ))),
     }
 }
 
 /// Writes `bytes` to a temporary file beside `path` and renames it over
 /// `path`, keeping the permission bits of the previous file.
 fn write_atomically(path: &Path, bytes: &[u8], mode: Option<u32>) -> io::Result<()> {
-    let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
     let temporary = path.with_file_name(format!(".{name}.nurt-write"));
     fs::write(&temporary, bytes)?;
     replace_with(path, &temporary, mode)
@@ -803,6 +881,7 @@ fn after_state(path: &Path) -> AfterState {
         size: Some(meta.len()),
         hash,
         mode: Some(fsutil::mode_bits(&meta)),
+        meta: None,
     }
 }
 
@@ -852,7 +931,9 @@ impl WriteHandle for StagedFile {
     }
 
     fn set_length(&mut self, length: u64) -> FsResult<()> {
-        self.file.set_len(length).map_err(|_| self.fs_error("set_length"))
+        self.file
+            .set_len(length)
+            .map_err(|_| self.fs_error("set_length"))
     }
 
     fn apply_meta(&mut self, meta: &ExtendedMeta) -> FsResult<MetaTransferReport> {
@@ -891,13 +972,15 @@ pub type Snapshot = BTreeMap<PathBuf, Fingerprint>;
 ///
 /// # Errors
 ///
-/// Fails with [`crate::error::HarnessError`] when an entry cannot be read.
+/// Fails with [`crate::error::DifftestError`] when an entry cannot be read.
 pub fn snapshot(root: &Path) -> crate::error::Result<Snapshot> {
     let mut snapshot = Snapshot::new();
     let mut pending = vec![root.to_path_buf()];
     while let Some(dir) = pending.pop() {
         for item in fs::read_dir(&dir).map_err(crate::error::io_error("read directory", &dir))? {
-            let path = item.map_err(crate::error::io_error("read directory", &dir))?.path();
+            let path = item
+                .map_err(crate::error::io_error("read directory", &dir))?
+                .path();
             let fingerprint = match fsutil::read_entry(&path)? {
                 Entry::File { executable, bytes } => Fingerprint {
                     kind: "file",
@@ -907,10 +990,25 @@ pub fn snapshot(root: &Path) -> crate::error::Result<Snapshot> {
                 },
                 Entry::Dir => {
                     pending.push(path.clone());
-                    Fingerprint { kind: "dir", executable: false, digest: None, link: None }
+                    Fingerprint {
+                        kind: "dir",
+                        executable: false,
+                        digest: None,
+                        link: None,
+                    }
                 }
-                Entry::Link { target } => Fingerprint { kind: "link", executable: false, digest: None, link: Some(target) },
-                Entry::Other => Fingerprint { kind: "special", executable: false, digest: None, link: None },
+                Entry::Link { target } => Fingerprint {
+                    kind: "link",
+                    executable: false,
+                    digest: None,
+                    link: Some(target),
+                },
+                Entry::Other => Fingerprint {
+                    kind: "special",
+                    executable: false,
+                    digest: None,
+                    link: None,
+                },
             };
             snapshot.insert(path, fingerprint);
         }
@@ -921,7 +1019,11 @@ pub fn snapshot(root: &Path) -> crate::error::Result<Snapshot> {
 /// Paths that differ between two snapshots and are not covered by
 /// `declared`, in path order.
 #[must_use]
-pub fn undeclared_changes(before: &Snapshot, after: &Snapshot, declared: &Declared) -> Vec<PathBuf> {
+pub fn undeclared_changes(
+    before: &Snapshot,
+    after: &Snapshot,
+    declared: &Declared,
+) -> Vec<PathBuf> {
     let changed = before
         .iter()
         .filter(|(path, fingerprint)| after.get(*path) != Some(fingerprint))
@@ -941,10 +1043,19 @@ pub fn undeclared_changes(before: &Snapshot, after: &Snapshot, declared: &Declar
 /// created or removed do not count as changes; a directory fingerprint has
 /// no content, so this applies only to created or removed directories that
 /// contain declared entries.
-fn is_parent_of_declared(path: &Path, before: &Snapshot, after: &Snapshot, declared: &Declared) -> bool {
+fn is_parent_of_declared(
+    path: &Path,
+    before: &Snapshot,
+    after: &Snapshot,
+    declared: &Declared,
+) -> bool {
     let is_dir = |snapshot: &Snapshot| snapshot.get(path).is_some_and(|f| f.kind == "dir");
     (is_dir(before) || is_dir(after))
-        && declared.exact.iter().chain(&declared.trees).any(|item| item.starts_with(path))
+        && declared
+            .exact
+            .iter()
+            .chain(&declared.trees)
+            .any(|item| item.starts_with(path))
 }
 
 #[cfg(test)]
@@ -985,8 +1096,10 @@ mod tests {
             .unwrap();
         assert_eq!(preserved[0].mode, PreserveMode::Copy);
         assert_eq!(preserved[1].mode, PreserveMode::Created);
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"new".to_vec())).unwrap();
-        tx.apply(TargetIndex(1), Mutation::WriteBytes(b"b".to_vec())).unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"new".to_vec()))
+            .unwrap();
+        tx.apply(TargetIndex(1), Mutation::WriteBytes(b"b".to_vec()))
+            .unwrap();
         tx.apply(TargetIndex(2), Mutation::Remove).unwrap();
         let handle = tx.commit().unwrap();
         assert!(handle.op.is_some());
@@ -995,7 +1108,10 @@ mod tests {
         assert!(undeclared_changes(&before, &after, &journal.declared()).is_empty());
         assert_eq!(fs::read(work.join("a")).unwrap(), b"new");
         assert_eq!(journal.committed(), 1);
-        assert!(matches!(journal.undo_last().unwrap(), UndoResult::Undone(_)));
+        assert!(matches!(
+            journal.undo_last().unwrap(),
+            UndoResult::Undone(_)
+        ));
         assert_eq!(snapshot(&work).unwrap(), before);
         assert_eq!(journal.undo_last().unwrap(), UndoResult::Nothing);
     }
@@ -1011,7 +1127,8 @@ mod tests {
             to: AbsPath::new(work.join("index")).unwrap(),
             replace: true,
         };
-        tx.preserve(&[spec(&lock, TargetAction::Create), spec(&lock, rename)]).unwrap();
+        tx.preserve(&[spec(&lock, TargetAction::Create), spec(&lock, rename)])
+            .unwrap();
         let mut staged = tx.stage(TargetIndex(0)).unwrap();
         staged.write_all(b"v2").unwrap();
         drop(staged);
@@ -1020,7 +1137,9 @@ mod tests {
         tx.commit().unwrap();
         assert_eq!(fs::read(work.join("index")).unwrap(), b"v2");
         assert!(!lock.exists());
-        assert!(undeclared_changes(&before, &snapshot(&work).unwrap(), &journal.declared()).is_empty());
+        assert!(
+            undeclared_changes(&before, &snapshot(&work).unwrap(), &journal.declared()).is_empty()
+        );
         journal.undo_last().unwrap();
         assert_eq!(snapshot(&work).unwrap(), before);
     }
@@ -1030,10 +1149,14 @@ mod tests {
         let (_dir, work, journal) = setup();
         fs::write(work.join("index.lock"), b"").unwrap();
         let mut tx = Box::new(journal.begin(OpKind::command("git.stage")));
-        let error = tx.preserve(&[spec(&work.join("index.lock"), TargetAction::Create)]).unwrap_err();
+        let error = tx
+            .preserve(&[spec(&work.join("index.lock"), TargetAction::Create)])
+            .unwrap_err();
         assert_eq!(error.code(), ErrorCode::Exists);
         assert_eq!(
-            tx.apply(TargetIndex(0), Mutation::Remove).unwrap_err().code(),
+            tx.apply(TargetIndex(0), Mutation::Remove)
+                .unwrap_err()
+                .code(),
             ErrorCode::RolledBack
         );
     }
@@ -1047,9 +1170,13 @@ mod tests {
         let mut tx = Box::new(journal.begin(OpKind::command("git.test")));
         let mut stale = spec(&work.join("b"), TargetAction::Modify);
         stale.expect = Expect::Hash(content_hash(b"other"));
-        tx.preserve(&[spec(&work.join("a"), TargetAction::Modify), stale]).unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"x".to_vec())).unwrap();
-        let error = tx.apply(TargetIndex(1), Mutation::WriteBytes(b"y".to_vec())).unwrap_err();
+        tx.preserve(&[spec(&work.join("a"), TargetAction::Modify), stale])
+            .unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"x".to_vec()))
+            .unwrap();
+        let error = tx
+            .apply(TargetIndex(1), Mutation::WriteBytes(b"y".to_vec()))
+            .unwrap_err();
         assert_eq!(error.code(), ErrorCode::Stale);
         assert_eq!(snapshot(&work).unwrap(), before);
         tx.rollback(RollbackReason::TargetFailed).unwrap();
@@ -1060,15 +1187,21 @@ mod tests {
     fn records_protocol_violations() {
         let (_dir, work, journal) = setup();
         let mut tx = Box::new(journal.begin(OpKind::command("git.test")));
-        tx.preserve(&[spec(&work.join("a"), TargetAction::Create)]).unwrap();
+        tx.preserve(&[spec(&work.join("a"), TargetAction::Create)])
+            .unwrap();
         let error = tx.apply(TargetIndex(0), Mutation::Rename).unwrap_err();
         assert_eq!(error.code(), ErrorCode::StageFailed);
         let mut tx = Box::new(journal.begin(OpKind::command("git.test")));
         assert!(tx.apply(TargetIndex(3), Mutation::Remove).is_err());
         let mut tx = Box::new(journal.begin(OpKind::command("git.test")));
-        tx.preserve(&[spec(&work.join("c"), TargetAction::Create)]).unwrap();
-        tx.apply(TargetIndex(0), Mutation::WriteBytes(Vec::new())).unwrap();
-        assert!(tx.preserve(&[spec(&work.join("d"), TargetAction::Create)]).is_err());
+        tx.preserve(&[spec(&work.join("c"), TargetAction::Create)])
+            .unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(Vec::new()))
+            .unwrap();
+        assert!(
+            tx.preserve(&[spec(&work.join("d"), TargetAction::Create)])
+                .is_err()
+        );
         assert_eq!(journal.violations().len(), 3);
     }
 
@@ -1084,7 +1217,8 @@ mod tests {
         tx.commit().unwrap();
         fs::write(work.join(".git/objects/ab/cdef"), b"object").unwrap();
         fs::write(work.join("stray"), b"x").unwrap();
-        let undeclared = undeclared_changes(&before, &snapshot(&work).unwrap(), &journal.declared());
+        let undeclared =
+            undeclared_changes(&before, &snapshot(&work).unwrap(), &journal.declared());
         assert_eq!(undeclared, vec![work.join("stray")]);
     }
 
@@ -1092,7 +1226,8 @@ mod tests {
     fn transaction_without_changes_has_no_entry() {
         let (_dir, work, journal) = setup();
         let mut tx = Box::new(journal.begin(OpKind::command("git.test")));
-        tx.preserve(&[spec(&work.join("a"), TargetAction::Create)]).unwrap();
+        tx.preserve(&[spec(&work.join("a"), TargetAction::Create)])
+            .unwrap();
         let handle = tx.commit().unwrap();
         assert_eq!(handle.op, None);
         assert_eq!(journal.committed(), 0);
@@ -1112,7 +1247,8 @@ mod tests {
         }
         tx.preserve(&targets).unwrap();
         for index in 0..targets.len() {
-            tx.apply(TargetIndex(index as u32), Mutation::Remove).unwrap();
+            tx.apply(TargetIndex(index as u32), Mutation::Remove)
+                .unwrap();
         }
         tx.commit().unwrap();
         assert!(!work.join("tree").exists());
@@ -1125,7 +1261,8 @@ mod tests {
         let (_dir, work, journal) = setup();
         fs::write(work.join("index"), b"before").unwrap();
         let mut tx = Box::new(journal.begin(OpKind::command("git.test")));
-        tx.preserve(&[spec(&work.join("index"), TargetAction::ExternalWrite)]).unwrap();
+        tx.preserve(&[spec(&work.join("index"), TargetAction::ExternalWrite)])
+            .unwrap();
         fs::write(work.join("index"), b"after").unwrap();
         let change = ExternalChange {
             path: AbsPath::new(work.join("index")).unwrap(),

@@ -1,0 +1,30 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "apply/staged-new-file-carried"
+description = "A staged new file absent from both commits is carried over."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "same.txt", content = "s\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  ["rm", "-q", "-r", "--", "b.txt"],
+  { write = "a.txt", content = "side\n" },
+  { write = "new.txt", content = "n\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+  { write = "extra.txt", content = "x\n" },
+  ["add", "extra.txt"],
+]
+
+[git]
+args = ["switch", "side"]
+
+[nurt]
+command = "git.switch"
+params = { branch = "side" }

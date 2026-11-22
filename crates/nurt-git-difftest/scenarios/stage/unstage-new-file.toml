@@ -1,0 +1,18 @@
+id = "stage/unstage-new-file"
+description = "Unstaging a staged new file removes its index entry and keeps the file."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "n.txt", content = "new\n" },
+  ["add", "n.txt"],
+]
+files = {}
+
+[git]
+args = ["restore", "--staged", "n.txt"]
+
+[nurt]
+command = "git.stage"
+params = { action = "unstage", paths = ["n.txt"] }

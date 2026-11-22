@@ -1,0 +1,31 @@
+id = "checkpoint/restore-directory-replaced-by-file"
+description = "Restore replaces a directory by the file of the checkpoint and gives it the mode of a plain file."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "cptmp"],
+  { write = "item", content = "file\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "nurt checkpoint cp-1: saved"],
+  ["update-ref", "refs/nurt/checkpoints/cp-1", "cptmp"],
+  ["switch", "-q", "main"],
+  ["branch", "-q", "-D", "cptmp"],
+]
+files = { "item/inner.txt" = "inner\n" }
+
+[git]
+steps = [["clean", "-fdq"], ["restore", "--source=refs/nurt/checkpoints/cp-1", "--worktree", "--", "."]]
+
+[nurt]
+command = "git.checkpoint"
+params = { "action" = "restore", "checkpoint_id" = "cp-1", "save_current" = false }
+
+[compare]
+state = ["index", "worktree", "refs", "reflog"]
+undo = true
+ignore = []

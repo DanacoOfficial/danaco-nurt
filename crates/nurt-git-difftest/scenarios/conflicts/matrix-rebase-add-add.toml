@@ -1,0 +1,26 @@
+id = "conflicts/matrix-rebase-add-add"
+description = "Rebase of main onto side stops with a add-add conflict: both sides add new.txt with different content."
+corpus = "linear-small"
+setup = [
+  { write = "binary.bin", hex = "00010203" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "add binary.bin"],
+  ["switch", "-q", "-c", "side"],
+  { write = "new.txt", content = "side\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side change"],
+  ["switch", "-q", "main"],
+  { write = "new.txt", content = "main\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main change"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "side"]
+expect_exit = 1
+
+[nurt]
+command = "git.rebase"
+params = { onto = "side" }
+expect = "error:E_GIT_CONFLICT"

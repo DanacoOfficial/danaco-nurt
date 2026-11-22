@@ -1,0 +1,27 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "apply/symlink-to-file"
+description = "A symbolic link replaced by a regular file in the target."
+corpus = "empty"
+setup = [
+  { write = "target.txt", content = "t\n" },
+  { write = "link", symlink = "target.txt" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  ["rm", "-q", "-r", "--", "link"],
+  { write = "link", content = "regular\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["switch", "side"]
+
+[nurt]
+command = "git.switch"
+params = { branch = "side" }

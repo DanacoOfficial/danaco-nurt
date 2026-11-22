@@ -1,0 +1,31 @@
+id = "merge/continue-no-ff-stop"
+description = "action continue concludes a merge stopped with MERGE_MODE no-ff."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n4\n5\n" },
+  { write = "u.txt", content = "u\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "topic"],
+  ["switch", "-q", "main"],
+  ["merge", "-q", "--no-edit", "--no-commit", "--no-ff", "topic"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["merge", "--continue"]
+expect_exit = 0
+
+[nurt]
+command = "git.merge"
+params = { action = "continue" }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = ["state_files COMMIT_EDITMSG"]

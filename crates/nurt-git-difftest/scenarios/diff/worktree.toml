@@ -1,0 +1,26 @@
+id = "diff/worktree"
+description = "Difference of the working tree against the index."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "a.txt", content = "one\n2\nthree\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = {  }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

@@ -1,0 +1,36 @@
+id = "sign/commit-ssh-locked-key"
+description = "A passphrase-protected key without a passphrase file is refused; nothing is written. `git` leaves COMMIT_EDITMSG behind after refusing, which Nurt does not write."
+corpus = "empty"
+platforms = ["linux"]
+setup = [
+  { write = "../locked-key", content = '''
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABAf8nHLiQ
+QUHEimpQA7efSpAAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAII3Ng25z5+5HtyTG
+Mw8+9X79ch5rTbkKDokx/Q50oxg1AAAAoNpS4SgTRrBQBtuyh28p9e4ahQ6hMD96NTyMYY
+iaYU8cvWJPRvJPQCmUNCcAOQKiIB5Wv3oArIw8QiilkeZipDXSw583QVmGRQU7R+mxwJIr
+6se3S25KFD3RGscGNUgrNQG/oo6BYA5gXurMBVaVhRJgHlhdvLHZImYLNqO7d+jY/dpNO2
+KqRqB7fV+WYsU3Gzqu1ifszhrxq7UKNAvuXRA=
+-----END OPENSSH PRIVATE KEY-----
+''' },
+  ["-c", 'alias.install-key=!mkdir -p "$HOME/.ssh" && cp ../locked-key "$HOME/.ssh/id_ed25519" && chmod 600 "$HOME/.ssh/id_ed25519"', "install-key"],
+  ["config", "gpg.format", "ssh"],
+  ["config", "user.signingKey", "~/.ssh/id_ed25519"],
+  ["config", "gpg.ssh.program", "false"],
+  { write = "a.txt", content = '''
+signed content
+''' },
+  ["add", "-A"],
+]
+
+[git]
+args = ["commit", "-q", "-S", "-m", "x"]
+expect_exit = 128
+
+[nurt]
+command = "git.commit"
+params = { staged = true, message = "x", sign = true }
+expect = "error:E_GIT_SIGN"
+
+[compare]
+ignore = ["state_files COMMIT_EDITMSG"]

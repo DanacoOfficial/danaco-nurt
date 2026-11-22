@@ -1,0 +1,31 @@
+id = "checkpoint/restore-unchanged-state"
+description = "Restore into a tree equal to the checkpoint changes nothing."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "cptmp"],
+  { write = "z.txt", content = "z\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "nurt checkpoint cp-1: saved"],
+  ["update-ref", "refs/nurt/checkpoints/cp-1", "cptmp"],
+  ["switch", "-q", "main"],
+  ["branch", "-q", "-D", "cptmp"],
+]
+files = { "z.txt" = "z\n" }
+
+[git]
+args = ["rev-parse", "--git-dir"]
+
+[nurt]
+command = "git.checkpoint"
+params = { "action" = "restore", "checkpoint_id" = "cp-1", "save_current" = false }
+
+[compare]
+state = ["index", "worktree", "refs", "reflog"]
+undo = true
+ignore = []

@@ -1,0 +1,25 @@
+id = "conflicts/matrix-stash-pop-typechange"
+description = "Pop of a stash that conflicts with a later commit, typechange: the side replaces src/lib.txt by a link, main edits it."
+corpus = "linear-small"
+setup = [
+  { write = "binary.bin", hex = "00010203" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "add binary.bin"],
+  ["rm", "-q", "src/lib.txt"],
+  { write = "src/lib.txt", symlink = "../README.md" },
+  ["add", "-A"],
+  ["stash", "push", "-q"],
+  { write = "src/lib.txt", content = "one\ntwo\nthree\nfour\nfive\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main change"],
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["stash", "pop"]
+expect_exit = 1
+
+[nurt]
+command = "git.stash"
+params = { action = "pop" }
+expect = "error:E_GIT_CONFLICT"

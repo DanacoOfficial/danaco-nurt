@@ -1,0 +1,26 @@
+id = "open/status-crlf-clean"
+description = "A CRLF file equal to the index after conversion is clean and status changes nothing."
+corpus = "empty"
+setup = [
+  { write = "src/deep/a.txt", content = "a\n" },
+  ["add", "src/deep/a.txt"],
+  ["config", "core.autocrlf", "true"],
+  ["commit", "-q", "-m", "one"],
+]
+files = { "src/deep/a.txt" = "a\r\n", "src/new.txt" = "n\n" }
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["status", "--porcelain=v2"]
+expect_exit = 0
+
+
+[nurt]
+command = "git.status"
+params = {  }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog"]
+undo = false
+ignore = []

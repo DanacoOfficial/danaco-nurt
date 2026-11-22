@@ -1,0 +1,10 @@
+id = "common/branch-create-from-tag"
+description = "Create branch old at the lightweight tag v1; the reflog names the start point."
+corpus = "linear-small"
+
+[git]
+args = ["branch", "old", "v1"]
+
+[nurt]
+command = "git.branch"
+params = { create = "old", from = "v1" }

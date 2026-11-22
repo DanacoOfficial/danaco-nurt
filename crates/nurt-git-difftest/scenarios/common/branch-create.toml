@@ -1,0 +1,10 @@
+id = "common/branch-create"
+description = "Create branch topic at HEAD with the reflog entry of git branch."
+corpus = "linear-small"
+
+[git]
+args = ["branch", "topic"]
+
+[nurt]
+command = "git.branch"
+params = { create = "topic" }

@@ -1,0 +1,16 @@
+id = "stage/add-new-file"
+description = "Stage a new file; an index entry is created."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+]
+files = { "n.txt" = "new\n" }
+
+[git]
+args = ["add", "n.txt"]
+
+[nurt]
+command = "git.stage"
+params = { action = "add", paths = ["n.txt"] }

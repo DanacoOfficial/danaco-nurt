@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Failures of the harness itself, as opposed to differences found by a
+//! Failures of the test runner itself, as opposed to differences found by a
 //! scenario.
 
 use std::io;
@@ -9,11 +9,11 @@ use std::path::{Path, PathBuf};
 
 use thiserror::Error;
 
-/// Failure of the harness: an invalid scenario, a failed preparation step or
+/// Failure of the test runner: an invalid scenario, a failed preparation step or
 /// output of the `git` program that cannot be read.
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum HarnessError {
+pub enum DifftestError {
     /// A file system operation failed.
     #[error("cannot {action} `{}`: {source}", path.display())]
     Io {
@@ -71,13 +71,16 @@ pub enum HarnessError {
     },
 }
 
-/// Result of harness operations.
-pub type Result<T, E = HarnessError> = std::result::Result<T, E>;
+/// Result of the operations of the test runner.
+pub type Result<T, E = DifftestError> = std::result::Result<T, E>;
 
 /// Builds a closure that wraps an I/O error with the operation and the path.
-pub(crate) fn io_error(action: &'static str, path: &Path) -> impl FnOnce(io::Error) -> HarnessError {
+pub(crate) fn io_error(
+    action: &'static str,
+    path: &Path,
+) -> impl FnOnce(io::Error) -> DifftestError {
     let path = path.to_path_buf();
-    move |source| HarnessError::Io {
+    move |source| DifftestError::Io {
         action,
         path,
         source,
@@ -85,8 +88,8 @@ pub(crate) fn io_error(action: &'static str, path: &Path) -> impl FnOnce(io::Err
 }
 
 /// Builds a scenario error for `path`.
-pub(crate) fn scenario_error(path: &Path, message: impl Into<String>) -> HarnessError {
-    HarnessError::Scenario {
+pub(crate) fn scenario_error(path: &Path, message: impl Into<String>) -> DifftestError {
+    DifftestError::Scenario {
         path: path.to_path_buf(),
         message: message.into(),
     }

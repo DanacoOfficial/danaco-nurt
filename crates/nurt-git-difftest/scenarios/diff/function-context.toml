@@ -1,0 +1,26 @@
+id = "diff/function-context"
+description = "Hunks extended to the whole function."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "a.txt", content = "one\ntwo\nTHREE\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "-W"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = { function_context = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

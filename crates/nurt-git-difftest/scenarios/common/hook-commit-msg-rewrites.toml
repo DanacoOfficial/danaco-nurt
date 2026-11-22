@@ -1,0 +1,18 @@
+id = "common/hook-commit-msg-rewrites"
+description = "A commit-msg hook appends a line to the message file; the commit takes the changed message."
+corpus = "linear-small"
+setup = [
+  { write = "new.txt", content = "new\n" },
+  ["add", "new.txt"],
+  { write = ".git/hooks/commit-msg", content = "#!/bin/sh\necho 'Checked-by: hook' >> \"$1\"\n", executable = true },
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["commit", "-q", "-m", "hooked commit"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "hooked commit", staged = true, hooks = true }
+expect = "ok"

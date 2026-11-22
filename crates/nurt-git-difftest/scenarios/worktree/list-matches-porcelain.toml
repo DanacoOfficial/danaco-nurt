@@ -1,0 +1,37 @@
+id = "worktree/list-matches-porcelain"
+description = "List reports the main and the linked working tree as git worktree list --porcelain does."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["worktree", "add", "-q", "-b", "feat", "../wt"],
+]
+
+[git]
+args = ["worktree", "list", "--porcelain"]
+expect_exit = 0
+
+[nurt]
+command = "git.worktree"
+params = { "action" = "list" }
+expect = "ok"
+record_count = 2
+[[nurt.records]]
+kind = "git_worktree"
+path = "$ROOT/repo"
+main = true
+branch = "main"
+[[nurt.records]]
+kind = "git_worktree"
+path = "$ROOT/wt"
+main = false
+branch = "feat"
+
+[compare]
+state = ["refs", "state_files"]
+undo = false
+ignore = []

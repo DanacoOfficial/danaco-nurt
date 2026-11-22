@@ -1,0 +1,11 @@
+id = "common/commit-paths"
+description = "Commit only README.md while src/lib.txt has a local change too."
+corpus = "linear-small"
+files = { "README.md" = "# Sample\n\nEdited.\n", "src/lib.txt" = "one\ntwo\nthree\nfour\nfive\n" }
+
+[git]
+args = ["commit", "-q", "-m", "readme only", "--", "README.md"]
+
+[nurt]
+command = "git.commit"
+params = { message = "readme only", paths = ["README.md"] }

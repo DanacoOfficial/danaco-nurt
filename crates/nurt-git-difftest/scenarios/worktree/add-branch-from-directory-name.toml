@@ -1,0 +1,23 @@
+id = "worktree/add-branch-from-directory-name"
+description = "Add without branch creates a branch named after the directory."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+]
+
+[git]
+args = ["worktree", "add", "-q", "../wt"]
+
+[nurt]
+command = "git.worktree"
+params = { "action" = "add", "path" = "../wt" }
+
+[compare]
+state = ["refs", "reflog", "state_files"]
+undo = true
+ignore = []

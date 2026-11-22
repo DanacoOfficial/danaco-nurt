@@ -1,0 +1,26 @@
+id = "diff/from-revision"
+description = "Difference of HEAD against the working tree."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "a.txt", content = "zero\none\ntwo\nthree\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "HEAD"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = { from = "HEAD" }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

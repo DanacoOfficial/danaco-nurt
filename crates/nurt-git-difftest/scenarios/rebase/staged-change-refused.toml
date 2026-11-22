@@ -1,0 +1,38 @@
+id = "rebase/staged-change-refused"
+description = "staged changes refuse the rebase."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t1"],
+  { write = "c.txt", content = "c\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t2"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "a main\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "m1"],
+  ["switch", "-q", "topic"],
+  { write = "b.txt", content = "staged\n" },
+  ["add", "b.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "main"]
+expect_exit = 1
+
+[nurt]
+command = "git.rebase"
+params = { onto = "main" }
+expect = "error:E_GIT_DIRTY"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

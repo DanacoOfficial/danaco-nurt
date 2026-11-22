@@ -1,0 +1,24 @@
+id = "conflicts/matrix-stash-pop-content"
+description = "Pop of a stash that conflicts with a later commit, content-both-sides: both sides change the same line of src/lib.txt."
+corpus = "linear-small"
+setup = [
+  { write = "binary.bin", hex = "00010203" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "add binary.bin"],
+  { write = "src/lib.txt", content = "one\nside\nthree\nfour\n" },
+  ["add", "-A"],
+  ["stash", "push", "-q"],
+  { write = "src/lib.txt", content = "one\nmain\nthree\nfour\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main change"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["stash", "pop"]
+expect_exit = 1
+
+[nurt]
+command = "git.stash"
+params = { action = "pop" }
+expect = "error:E_GIT_CONFLICT"

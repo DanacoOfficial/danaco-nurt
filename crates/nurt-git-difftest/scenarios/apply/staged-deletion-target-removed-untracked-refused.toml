@@ -1,0 +1,31 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "apply/staged-deletion-target-removed-untracked-refused"
+description = "A staged deletion of a path that the target removes leaves an untracked file that would be removed, which refuses the update."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "same.txt", content = "s\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  ["rm", "-q", "-r", "--", "b.txt"],
+  { write = "a.txt", content = "side\n" },
+  { write = "new.txt", content = "n\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+  ["rm", "-q", "--cached", "b.txt"],
+]
+
+[git]
+args = ["switch", "side"]
+expect_exit = 1
+
+[nurt]
+command = "git.switch"
+params = { branch = "side" }
+expect = "error:E_GIT_DIRTY"

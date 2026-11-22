@@ -1,0 +1,32 @@
+id = "push/checked-out-branch-ignore"
+description = "receive.denyCurrentBranch=ignore allows the push and leaves the remote working tree unchanged."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "-b", "main", "../target"],
+  { write = "../target/t.txt", content = "t\n" },
+  { git = ["add", "t.txt"], cwd = "../target" },
+  { git = ["commit", "-q", "-m", "target"], cwd = "../target" },
+  ["remote", "add", "origin", "../target"],
+  ["fetch", "-q", "origin"],
+  ["reset", "-q", "--hard", "origin/main"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "local"],
+  { git = ["config", "receive.denyCurrentBranch", "ignore"], cwd = "../target" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "origin", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@../target", "objects@../target", "fsck@../target", "reflog@../target", "worktree@../target"]
+undo = true
+ignore = []

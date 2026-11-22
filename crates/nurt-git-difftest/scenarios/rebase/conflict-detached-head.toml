@@ -1,0 +1,41 @@
+id = "rebase/conflict-detached-head"
+description = "a conflict on a detached HEAD records detached HEAD as head-name."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t1"],
+  { write = "f.txt", content = "1\ntopic\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t2"],
+  { write = "c.txt", content = "c\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t3"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "a main\n" },
+  { write = "f.txt", content = "1\nmain\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "m1"],
+  ["switch", "-q", "topic"],
+  ["switch", "-q", "--detach", "topic"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "main"]
+expect_exit = 1
+
+[nurt]
+command = "git.rebase"
+params = { onto = "main" }
+expect = "error:E_GIT_CONFLICT"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

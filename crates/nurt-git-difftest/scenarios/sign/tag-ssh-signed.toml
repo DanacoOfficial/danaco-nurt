@@ -1,0 +1,47 @@
+id = "sign/tag-ssh-signed"
+description = "Annotated tag signed with an SSH key file; the object equals the one signed by ssh-keygen. The configured signing program is ignored by Nurt, which signs with the key file; the program of the `git` side replays a signature made by ssh-keygen."
+corpus = "empty"
+platforms = ["linux"]
+setup = [
+  { write = "../signing-key", content = '''
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACBkZCbXfpcKJUqV1mJVZxrqEI5WER5tnv5njprmkDsaJQAAAJgURvgTFEb4
+EwAAAAtzc2gtZWQyNTUxOQAAACBkZCbXfpcKJUqV1mJVZxrqEI5WER5tnv5njprmkDsaJQ
+AAAEB02Y7717nVCALFs4L+jWhyuUj/Tg2fqs+CbxZeIS931WRkJtd+lwolSpXWYlVnGuoQ
+jlYRHm2e/meOmuaQOxolAAAAEW51cnQtc2lnbmluZy10ZXN0AQIDBA==
+-----END OPENSSH PRIVATE KEY-----
+''' },
+  { write = "../ssh-keygen-replay", content = '''
+#!/bin/sh
+[ "$1" = "-Y" ] && [ "$2" = "sign" ] && [ "$3" = "-n" ] && [ "$4" = "git" ] || exit 1
+for last; do :; done
+cat > "$last.sig" <<'SIG'
+-----BEGIN SSH SIGNATURE-----
+U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgZGQm136XCiVKldZiVWca6hCOVh
+EebZ7+Z46a5pA7GiUAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5
+AAAAQI9zZ0BSjA2ytWWJcUVIce7aB8DHnIpFayZ86RI4KxYDdSbJ4jYgRAXNOspMls2fXP
+jGM7XEJiulFFDc2WhgjwI=
+-----END SSH SIGNATURE-----
+SIG
+''', executable = true },
+  ["-c", 'alias.install-key=!mkdir -p "$HOME/.ssh" && cp ../signing-key "$HOME/.ssh/id_ed25519" && chmod 600 "$HOME/.ssh/id_ed25519"', "install-key"],
+  ["config", "gpg.format", "ssh"],
+  ["config", "user.signingKey", "~/.ssh/id_ed25519"],
+  ["config", "gpg.ssh.program", "../ssh-keygen-replay"],
+  { write = "a.txt", content = '''
+one
+''' },
+  ["add", "-A"],
+  ["-c", "commit.gpgSign=false", "commit", "-q", "-m", "first"],
+]
+
+[git]
+args = ["tag", "-s", "v1", "-m", "signed release", "HEAD"]
+
+[nurt]
+command = "git.tag"
+params = { name = "v1", message = "signed release", sign = true }
+
+[compare]
+strict = true

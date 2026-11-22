@@ -1,0 +1,28 @@
+id = "push/tags-up-to-date"
+description = "A second push with tags reports the branch and the tags as up to date."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["tag", "v1"],
+  ["push", "-q", "--tags", "origin", "main"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "--tags", "origin", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main", tags = true }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = true
+ignore = []

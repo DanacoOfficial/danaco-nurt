@@ -1,0 +1,30 @@
+id = "review/whitespace-blank-at-eof"
+description = "Blank lines at the end of a file are reported at the first of them."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "e.txt", content = "ok\n\n\n" },
+  ["add", "--", "e.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "--cached", "--check"]
+expect_exit = 2
+
+[nurt]
+command = "git.review"
+params = { scope = "staged", checks = ["whitespace"] }
+expect = "ok"
+records = [
+  { kind = "finding", rule = "blank_at_eof", path = "e.txt", line = 2 },
+]
+record_count = 1
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

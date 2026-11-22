@@ -1,0 +1,11 @@
+id = "common/commit-trailer"
+description = "Commit all tracked changes with a trailer."
+corpus = "linear-small"
+files = { "README.md" = "# Sample\n\nEdited.\n" }
+
+[git]
+args = ["commit", "-q", "-a", "-m", "change readme", "--trailer", "Reviewed-by: Rita <rita@example.com>"]
+
+[nurt]
+command = "git.commit"
+params = { message = "change readme", all = true, trailers = ["Reviewed-by: Rita <rita@example.com>"] }

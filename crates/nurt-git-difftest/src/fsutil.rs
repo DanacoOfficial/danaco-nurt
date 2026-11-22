@@ -37,7 +37,7 @@ pub enum Entry {
 ///
 /// # Errors
 ///
-/// Returns [`crate::error::HarnessError::Io`] for the first entry that cannot
+/// Returns [`crate::error::DifftestError::Io`] for the first entry that cannot
 /// be read or written.
 pub fn copy_tree(from: &Path, to: &Path) -> Result<()> {
     fs::create_dir_all(to).map_err(io_error("create directory", to))?;
@@ -64,7 +64,7 @@ pub fn copy_tree(from: &Path, to: &Path) -> Result<()> {
 ///
 /// # Errors
 ///
-/// Returns [`crate::error::HarnessError::Io`] when the entry cannot be
+/// Returns [`crate::error::DifftestError::Io`] when the entry cannot be
 /// written or removed.
 pub fn apply_write(root: &Path, write: &FileWrite) -> Result<()> {
     let path = root.join(&write.path);
@@ -89,7 +89,7 @@ pub fn apply_write(root: &Path, write: &FileWrite) -> Result<()> {
 ///
 /// # Errors
 ///
-/// Returns [`crate::error::HarnessError::Io`] when the entry exists and
+/// Returns [`crate::error::DifftestError::Io`] when the entry exists and
 /// cannot be removed.
 pub fn remove_entry(path: &Path) -> Result<()> {
     let Ok(meta) = fs::symlink_metadata(path) else {
@@ -106,7 +106,7 @@ pub fn remove_entry(path: &Path) -> Result<()> {
 ///
 /// # Errors
 ///
-/// Returns [`crate::error::HarnessError::Io`] when the link cannot be created
+/// Returns [`crate::error::DifftestError::Io`] when the link cannot be created
 /// (on Windows also when the account may not create links).
 pub fn make_symlink(target: &Path, link: &Path, directory: bool) -> Result<()> {
     #[cfg(unix)]
@@ -129,7 +129,7 @@ pub fn make_symlink(target: &Path, link: &Path, directory: bool) -> Result<()> {
 ///
 /// # Errors
 ///
-/// Returns [`crate::error::HarnessError::Io`] when the permissions cannot be
+/// Returns [`crate::error::DifftestError::Io`] when the permissions cannot be
 /// changed.
 pub fn set_executable(path: &Path, executable: bool) -> Result<()> {
     #[cfg(unix)]
@@ -200,7 +200,7 @@ pub fn relative_key(root: &Path, path: &Path) -> String {
 ///
 /// # Errors
 ///
-/// Returns [`crate::error::HarnessError::Io`] when the entry cannot be read.
+/// Returns [`crate::error::DifftestError::Io`] when the entry cannot be read.
 pub fn read_entry(path: &Path) -> Result<Entry> {
     let meta = fs::symlink_metadata(path).map_err(io_error("inspect", path))?;
     let kind = meta.file_type();
@@ -227,7 +227,7 @@ pub fn read_entry(path: &Path) -> Result<Entry> {
 ///
 /// # Errors
 ///
-/// Returns [`crate::error::HarnessError::Io`] when an entry cannot be read.
+/// Returns [`crate::error::DifftestError::Io`] when an entry cannot be read.
 pub fn walk(root: &Path, skip: &dyn Fn(&Path) -> bool) -> Result<BTreeMap<String, Entry>> {
     let mut entries = BTreeMap::new();
     let mut pending: Vec<PathBuf> = vec![root.to_path_buf()];
@@ -275,7 +275,13 @@ mod tests {
             );
         }
         if cfg!(unix) {
-            assert!(matches!(listed.get("run.sh"), Some(Entry::File { executable: true, .. })));
+            assert!(matches!(
+                listed.get("run.sh"),
+                Some(Entry::File {
+                    executable: true,
+                    ..
+                })
+            ));
         }
     }
 
@@ -296,9 +302,17 @@ mod tests {
             content,
             executable,
         };
-        apply_write(dir.path(), &write("d/x", FileContent::Bytes(b"1".to_vec()), true)).unwrap();
+        apply_write(
+            dir.path(),
+            &write("d/x", FileContent::Bytes(b"1".to_vec()), true),
+        )
+        .unwrap();
         assert_eq!(fs::read(dir.path().join("d/x")).unwrap(), b"1");
-        apply_write(dir.path(), &write("d", FileContent::Bytes(b"2".to_vec()), false)).unwrap();
+        apply_write(
+            dir.path(),
+            &write("d", FileContent::Bytes(b"2".to_vec()), false),
+        )
+        .unwrap();
         assert_eq!(fs::read(dir.path().join("d")).unwrap(), b"2");
         apply_write(dir.path(), &write("d", FileContent::Delete, false)).unwrap();
         assert!(!dir.path().join("d").exists());

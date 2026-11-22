@@ -1,0 +1,34 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "restore/worktree-takes-staged-content"
+description = "The working tree is restored from a staged change, not from HEAD."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "same.txt", content = "s\n" },
+  { write = "d/x.txt", content = "x\n" },
+  { write = "d/y.txt", content = "y\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  { write = "a.txt", content = "side\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "main\n" },
+  { write = "b2.txt", content = "b2\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "second"],
+  { write = "a.txt", content = "staged\n" },
+  ["add", "a.txt"],
+]
+files = { "a.txt" = "unstaged\n" }
+
+[git]
+args = ["restore", "a.txt"]
+
+[nurt]
+command = "git.restore"
+params = { paths = ["a.txt"] }

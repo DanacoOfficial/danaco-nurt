@@ -1,0 +1,20 @@
+id = "branch/create-and-switch-at-commit"
+description = "Create old at the parent commit and check it out; the working tree and the index follow the older tree."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\n" },
+  { write = "keep.txt", content = "k\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "a.txt", content = "two\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "second"],
+]
+
+[git]
+args = ["switch", "-c", "old", "HEAD~1"]
+
+[nurt]
+command = "git.branch"
+params = { create = "old", from = "HEAD~1", switch = true }

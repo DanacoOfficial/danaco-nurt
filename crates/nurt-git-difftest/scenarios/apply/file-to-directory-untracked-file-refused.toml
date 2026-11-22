@@ -1,0 +1,27 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "apply/file-to-directory-untracked-file-refused"
+description = "An untracked file where the target needs a directory refuses the update."
+corpus = "empty"
+setup = [
+  { write = "top.txt", content = "t\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  { write = "p/x.txt", content = "x\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+]
+files = { "p" = "mine\n" }
+
+[git]
+args = ["switch", "side"]
+expect_exit = 1
+
+[nurt]
+command = "git.switch"
+params = { branch = "side" }
+expect = "error:E_GIT_DIRTY"

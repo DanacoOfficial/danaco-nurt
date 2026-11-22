@@ -1,0 +1,27 @@
+id = "commit/sign-off"
+description = "sign_off appends the Signed-off-by line of the committer."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "a.txt", content = "a2\n" },
+  ["add", "a.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "-s", "-m", "signed"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "signed", staged = true, sign_off = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []
+strict = true

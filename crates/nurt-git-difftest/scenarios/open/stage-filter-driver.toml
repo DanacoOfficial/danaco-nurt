@@ -1,0 +1,25 @@
+id = "open/stage-filter-driver"
+description = "A filter driver that does not change content gives the same index whether or not it runs."
+corpus = "empty"
+setup = [
+  { write = ".gitattributes", content = "*.dat filter=copy\n" },
+  ["config", "filter.copy.clean", "cat"],
+  ["add", ".gitattributes"],
+  ["commit", "-q", "-m", "attributes"],
+]
+files = { "a.dat" = "payload\n" }
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["add", "a.dat"]
+expect_exit = 0
+
+[nurt]
+command = "git.stage"
+params = { action = "add", paths = ["a.dat"] }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "refs", "objects:HEAD"]
+undo = true
+ignore = []

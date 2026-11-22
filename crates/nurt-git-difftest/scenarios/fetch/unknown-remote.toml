@@ -1,0 +1,28 @@
+id = "fetch/unknown-remote"
+description = "A remote that is not configured is refused."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["fetch", "nowhere"]
+expect_exit = 128
+
+[nurt]
+command = "git.fetch"
+params = { remote = "nowhere" }
+expect = "error:E_GIT_REF"
+
+[compare]
+state = ["refs", "config"]
+undo = true
+ignore = []

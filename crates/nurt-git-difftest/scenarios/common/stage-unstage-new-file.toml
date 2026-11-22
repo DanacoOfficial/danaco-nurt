@@ -1,0 +1,14 @@
+id = "common/stage-unstage-new-file"
+description = "Unstage a new file; it becomes untracked again."
+corpus = "linear-small"
+setup = [
+  { write = "new.txt", content = "new\n" },
+  ["add", "new.txt"],
+]
+
+[git]
+args = ["restore", "--staged", "new.txt"]
+
+[nurt]
+command = "git.stage"
+params = { action = "unstage", paths = ["new.txt"] }

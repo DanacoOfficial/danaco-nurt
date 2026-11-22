@@ -1,0 +1,31 @@
+id = "push/checked-out-branch"
+description = "Push to the checked out branch of a repository with a working tree is refused."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "-b", "main", "../target"],
+  { write = "../target/t.txt", content = "t\n" },
+  { git = ["add", "t.txt"], cwd = "../target" },
+  { git = ["commit", "-q", "-m", "target"], cwd = "../target" },
+  ["remote", "add", "origin", "../target"],
+  ["fetch", "-q", "origin"],
+  ["reset", "-q", "--hard", "origin/main"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "local"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "origin", "main"]
+expect_exit = 1
+
+[nurt]
+command = "git.push"
+params = { branch = "main" }
+expect = "error:E_GIT_PUSH_REJECTED"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@../target", "objects@../target", "fsck@../target", "reflog@../target", "worktree@../target"]
+undo = false
+ignore = []

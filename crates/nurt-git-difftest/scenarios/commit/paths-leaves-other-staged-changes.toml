@@ -1,0 +1,27 @@
+id = "commit/paths-leaves-other-staged-changes"
+description = "paths keeps staged changes of other files out of the commit."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "a.txt", content = "a2\n" },
+  { write = "b.txt", content = "b2\n" },
+  ["add", "b.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "-m", "only a", "--only", "--", "a.txt"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "only a", paths = ["a.txt"] }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []

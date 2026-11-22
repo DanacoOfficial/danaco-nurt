@@ -1,0 +1,13 @@
+id = "common/log-output"
+description = "The commit ids listed by git.log equal the ones of git log."
+corpus = "branchy-small"
+
+[git]
+args = ["log", "--format=%H"]
+
+[nurt]
+command = "git.log"
+params = { count = 100 }
+
+[compare]
+output = { format = "lines", git = ["log", "--format=%H"], record = "{id}", kind = "commit", sort = true }

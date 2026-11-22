@@ -1,0 +1,37 @@
+id = "diff/rename-edit-staged"
+description = "A renamed and edited file is one renamed record with the old path."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["mv", "a.txt", "moved.txt"],
+  { write = "moved.txt", content = "line 1\nline 2\nline 3\nline 4\nLINE 5\nline 6\nline 7\nline 8\nline 9\n" },
+  ["add", "moved.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "--cached", "-M"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = { staged = true }
+expect = "ok"
+record_count = 1
+[[nurt.records]]
+kind = "hunk"
+path = "moved.txt"
+old_path = "a.txt"
+status = "renamed"
+old_start = 2
+old_len = 7
+new_start = 2
+new_len = 7
+header = "line 1"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

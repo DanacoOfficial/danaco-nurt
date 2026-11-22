@@ -1,0 +1,25 @@
+id = "checkpoint/create-exclude"
+description = "Create leaves out files that match an exclude pattern."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+]
+files = { "x.tmp" = "t\n", "dir/c.txt" = "c-work\n" }
+
+[git]
+args = ["rev-parse", "--git-dir"]
+
+[nurt]
+command = "git.checkpoint"
+params = { "action" = "create", "exclude" = ["dir/*", "*.tmp"] }
+record_count = 1
+
+[compare]
+state = ["index", "worktree"]
+undo = true
+ignore = []

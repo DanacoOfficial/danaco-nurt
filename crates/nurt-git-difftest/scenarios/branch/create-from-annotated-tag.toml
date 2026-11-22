@@ -1,0 +1,10 @@
+id = "branch/create-from-annotated-tag"
+description = "Create branch rel at the annotated tag v1.0; the branch points to the tagged commit, not to the tag object."
+corpus = "branchy-small"
+
+[git]
+args = ["branch", "rel", "v1.0"]
+
+[nurt]
+command = "git.branch"
+params = { create = "rel", from = "v1.0" }

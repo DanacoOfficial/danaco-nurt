@@ -1,0 +1,27 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "restore/symlink"
+description = "A deleted symbolic link is restored as a link."
+corpus = "empty"
+setup = [
+  { write = "target.txt", content = "t\n" },
+  { write = "link", symlink = "target.txt" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  { write = "target.txt", content = "t2\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+]
+files = { "link" = { delete = true } }
+platforms = ["linux", "macos"]
+
+[git]
+args = ["restore", "link"]
+
+[nurt]
+command = "git.restore"
+params = { paths = ["link"] }

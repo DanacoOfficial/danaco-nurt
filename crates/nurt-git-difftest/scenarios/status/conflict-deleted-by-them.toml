@@ -1,0 +1,35 @@
+id = "status/conflict-deleted-by-them"
+description = "Their side deletes a file that this side modifies."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "base"],
+  ["checkout", "-q", "-b", "theirs"],
+  ["rm", "-q", "a.txt"],
+  ["commit", "-q", "-m", "theirs"],
+  ["checkout", "-q", "-"],
+  { write = "a.txt", content = "one\nours\nthree\n" }, ["add", "a.txt"],
+  ["commit", "-q", "-m", "ours"],
+  ["-c", "alias.merge-stop=!git merge --no-edit theirs || :", "merge-stop"],
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["status", "--porcelain=v2"]
+expect_exit = 0
+
+[nurt]
+command = "git.status"
+params = {  }
+expect = "ok"
+record_count = 1
+[[nurt.records]]
+kind = "git_status"
+path = "a.txt"
+conflict = "deleted_by_them"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

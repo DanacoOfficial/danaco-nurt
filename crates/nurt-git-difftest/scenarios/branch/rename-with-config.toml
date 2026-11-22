@@ -1,0 +1,18 @@
+id = "branch/rename-with-config"
+description = "Renaming a branch with an upstream renames its branch section in the configuration."
+corpus = "linear-small"
+setup = [
+  ["branch", "topic", "HEAD~1"],
+  ["config", "branch.topic.remote", "origin"],
+  ["config", "branch.topic.merge", "refs/heads/topic"],
+]
+
+[git]
+args = ["branch", "-m", "topic", "renamed"]
+
+[nurt]
+command = "git.branch"
+params = { rename = "topic", new_name = "renamed" }
+
+[compare]
+state = ["refs", "reflog", "config"]

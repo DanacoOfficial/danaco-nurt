@@ -1,0 +1,26 @@
+id = "clone/symlink"
+description = "Symbolic links are restored by the checkout."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/target.txt", content = "t\n" },
+  { write = "../upstream/link", symlink = "target.txt" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "link"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["clone", "-q", "$SERVER/upstream", "../cloned"]
+expect_exit = 0
+
+[nurt]
+command = "git.clone"
+params = { url = "$SERVER/upstream", to = "../cloned" }
+expect = "ok"
+
+[compare]
+state = ["refs@../cloned", "reflog@../cloned", "config@../cloned", "state_files@../cloned", "fsck@../cloned", "worktree@../cloned", "index@../cloned"]
+undo = false
+ignore = []

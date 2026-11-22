@@ -1,0 +1,18 @@
+id = "stage/unstage-rows"
+description = "Unstage the appended row of a staged hunk; the staged replacement stays."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\nb\nc\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "a.txt", content = "a\nB\nc\nd\n" },
+  ["add", "a.txt"],
+]
+files = { "sel.patch" = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1,3 +1,4 @@\n a\n B\n c\n+d\n" }
+
+[git]
+args = ["apply", "--cached", "-R", "sel.patch"]
+
+[nurt]
+command = "git.stage"
+params = { action = "unstage", hunks = ["a.txt#1@5"] }

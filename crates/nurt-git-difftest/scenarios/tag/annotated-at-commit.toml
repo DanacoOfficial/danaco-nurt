@@ -1,0 +1,11 @@
+id = "tag/annotated-at-commit"
+description = "Create the annotated tag old at HEAD~2; the tag object is compared without the date of the tagger."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "-a", "old", "-m", "old release", "HEAD~2"]
+
+[nurt]
+command = "git.tag"
+params = { name = "old", revision = "HEAD~2", message = "old release" }
+

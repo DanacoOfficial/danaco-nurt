@@ -1,0 +1,24 @@
+id = "conflicts/matrix-stash-pop-delete-modify"
+description = "Pop of a stash that conflicts with a later commit, delete-modify: the side modifies docs/guide.md that main deletes."
+corpus = "linear-small"
+setup = [
+  { write = "binary.bin", hex = "00010203" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "add binary.bin"],
+  { write = "docs/guide.md", content = "Guide\n=====\n\nrewritten on side\n" },
+  ["add", "-A"],
+  ["stash", "push", "-q"],
+  ["rm", "-q", "docs/guide.md"],
+  ["add", "-A"],
+  ["commit", "-q", "-m", "main change"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["stash", "pop"]
+expect_exit = 1
+
+[nurt]
+command = "git.stash"
+params = { action = "pop" }
+expect = "error:E_GIT_CONFLICT"

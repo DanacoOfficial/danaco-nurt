@@ -1,0 +1,30 @@
+id = "review/whitespace-trailing"
+description = "Trailing white space is reported once per file."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "b.txt", content = "b\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  { write = "w.txt", content = "ok\ntrail  \nmore  \n" },
+  ["add", "--", "w.txt"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "--cached", "--check"]
+expect_exit = 2
+
+[nurt]
+command = "git.review"
+params = { scope = "staged", checks = ["whitespace"] }
+expect = "ok"
+records = [
+  { kind = "finding", rule = "whitespace", path = "w.txt", severity = "warning" },
+]
+record_count = 1
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

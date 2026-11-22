@@ -1,0 +1,31 @@
+id = "push/new-branch-history"
+description = "Push of a history with a subdirectory sends every commit, tree and blob."
+corpus = "empty"
+transport = "file"
+setup = [
+  ["init", "-q", "--bare", "-b", "main", ".git/remote.git"],
+  ["remote", "add", "origin", ".git/remote.git"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  { write = "dir/b.txt", content = "b\n" },
+  ["add", "dir/b.txt"],
+  ["commit", "-q", "-m", "second"],
+  { write = "dir/b.txt", content = "b\nc\n" },
+  ["commit", "-q", "-a", "-m", "third"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "origin", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@.git/remote.git", "objects@.git/remote.git", "fsck@.git/remote.git"]
+undo = true
+ignore = []

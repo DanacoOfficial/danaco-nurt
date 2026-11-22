@@ -1,0 +1,33 @@
+id = "fetch/prune-and-new-branch"
+description = "Prune and a new branch in one fetch."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+  { git = ["branch", "gone"], cwd = "../upstream" },
+  ["remote", "add", "origin", "../upstream"],
+  ["fetch", "-q", "origin"],
+  { git = ["branch", "-q", "-D", "gone"], cwd = "../upstream" },
+  { git = ["branch", "fresh"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["fetch", "--prune", "origin"]
+expect_exit = 0
+
+[nurt]
+command = "git.fetch"
+params = { prune = true, remote = "origin" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "state_files", "config", "fsck"]
+undo = true
+ignore = []

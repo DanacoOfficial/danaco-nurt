@@ -1,0 +1,16 @@
+id = "stage/add-modified-file"
+description = "Stage the whole content of a modified file."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+]
+files = { "a.txt" = "one\n2\n" }
+
+[git]
+args = ["add", "a.txt"]
+
+[nurt]
+command = "git.stage"
+params = { action = "add", paths = ["a.txt"] }

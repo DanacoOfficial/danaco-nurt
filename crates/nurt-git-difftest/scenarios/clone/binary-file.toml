@@ -1,0 +1,26 @@
+id = "clone/binary-file"
+description = "Binary content is checked out unchanged."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/b.bin", hex = "00ff10fe20fd" },
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "bin"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["clone", "-q", "$SERVER/upstream", "../cloned"]
+expect_exit = 0
+
+[nurt]
+command = "git.clone"
+params = { url = "$SERVER/upstream", to = "../cloned" }
+expect = "ok"
+
+[compare]
+state = ["refs@../cloned", "reflog@../cloned", "config@../cloned", "state_files@../cloned", "fsck@../cloned", "worktree@../cloned", "index@../cloned"]
+undo = false
+ignore = []

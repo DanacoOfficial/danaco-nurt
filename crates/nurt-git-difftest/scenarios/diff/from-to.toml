@@ -1,0 +1,33 @@
+id = "diff/from-to"
+description = "A difference between two revisions."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "a.txt", content = "one\nTWO\nthree\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "edit"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["diff", "HEAD~1", "HEAD"]
+expect_exit = 0
+
+[nurt]
+command = "git.diff"
+params = { from = "HEAD~1", to = "HEAD" }
+expect = "ok"
+record_count = 1
+[[nurt.records]]
+kind = "hunk"
+path = "a.txt"
+status = "modified"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

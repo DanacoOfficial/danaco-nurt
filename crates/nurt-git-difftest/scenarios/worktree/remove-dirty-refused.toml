@@ -1,0 +1,27 @@
+id = "worktree/remove-dirty-refused"
+description = "Remove refuses a working tree with untracked files."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  { write = ".gitignore", content = "*.log\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["worktree", "add", "-q", "-b", "feat", "../wt"],
+  { write = "../wt/dirty.txt", content = "x\n" },
+]
+
+[git]
+args = ["worktree", "remove", "../wt"]
+expect_exit = 128
+
+[nurt]
+command = "git.worktree"
+params = { "action" = "remove", "path" = "../wt" }
+expect = "error:E_GIT_DIRTY"
+
+[compare]
+state = ["refs", "state_files"]
+undo = true
+ignore = []

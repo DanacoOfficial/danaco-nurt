@@ -1,0 +1,10 @@
+id = "common/switch-branch"
+description = "Switch from main to topic: HEAD, index, working tree and the checkout reflog entry."
+corpus = "branchy-small"
+
+[git]
+args = ["switch", "-q", "topic"]
+
+[nurt]
+command = "git.switch"
+params = { branch = "topic" }

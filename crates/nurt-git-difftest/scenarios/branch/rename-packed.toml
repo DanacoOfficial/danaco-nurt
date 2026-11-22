@@ -1,0 +1,14 @@
+id = "branch/rename-packed"
+description = "Rename a branch stored only in packed-refs; the new name is written as a loose reference."
+corpus = "linear-small"
+setup = [
+  ["branch", "topic", "HEAD~1"],
+  ["pack-refs", "--all"],
+]
+
+[git]
+args = ["branch", "-m", "topic", "renamed"]
+
+[nurt]
+command = "git.branch"
+params = { rename = "topic", new_name = "renamed" }

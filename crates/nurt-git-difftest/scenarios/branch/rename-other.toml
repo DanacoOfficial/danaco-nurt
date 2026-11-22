@@ -1,0 +1,11 @@
+id = "branch/rename-other"
+description = "Rename a branch that is not checked out; its log moves with it."
+corpus = "linear-small"
+setup = [["branch", "topic", "HEAD~1"]]
+
+[git]
+args = ["branch", "-m", "topic", "renamed"]
+
+[nurt]
+command = "git.branch"
+params = { rename = "topic", new_name = "renamed" }

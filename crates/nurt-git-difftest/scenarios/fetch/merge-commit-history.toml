@@ -1,0 +1,39 @@
+id = "fetch/merge-commit-history"
+description = "Fetch of a history with merge commits."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+  ["remote", "add", "origin", "../upstream"],
+  ["fetch", "-q", "origin"],
+  { git = ["switch", "-q", "-c", "side"], cwd = "../upstream" },
+  { write = "../upstream/s.txt", content = "s\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "side"], cwd = "../upstream" },
+  { git = ["switch", "-q", "main"], cwd = "../upstream" },
+  { write = "../upstream/m.txt", content = "m\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "main"], cwd = "../upstream" },
+  { git = ["merge", "-q", "--no-ff", "-m", "merge", "side"], cwd = "../upstream" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["fetch", "origin"]
+expect_exit = 0
+
+[nurt]
+command = "git.fetch"
+params = { remote = "origin" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "state_files", "config", "fsck"]
+undo = true
+ignore = []

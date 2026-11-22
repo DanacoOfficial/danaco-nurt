@@ -1,0 +1,13 @@
+id = "branch/rename-to-existing-refused"
+description = "Renaming onto the existing branch main fails and changes nothing."
+corpus = "linear-small"
+setup = [["branch", "topic"]]
+
+[git]
+args = ["branch", "-m", "topic", "main"]
+expect_exit = 128
+
+[nurt]
+command = "git.branch"
+params = { rename = "topic", new_name = "main" }
+expect = "error:E_GIT_REF"

@@ -1,0 +1,10 @@
+id = "common/restore-source-revision"
+description = "Restore README.md from HEAD~1 into the working tree."
+corpus = "linear-small"
+
+[git]
+args = ["restore", "--source=HEAD~1", "README.md"]
+
+[nurt]
+command = "git.restore"
+params = { paths = ["README.md"], source = "HEAD~1" }

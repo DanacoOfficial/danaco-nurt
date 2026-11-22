@@ -1,0 +1,10 @@
+id = "common/tag-at-revision"
+description = "Create the lightweight tag old at HEAD~2."
+corpus = "linear-small"
+
+[git]
+args = ["tag", "old", "HEAD~2"]
+
+[nurt]
+command = "git.tag"
+params = { name = "old", revision = "HEAD~2" }

@@ -1,0 +1,33 @@
+id = "rebase/conflict-add-add"
+description = "both sides add the same path with different content."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "f.txt", content = "1\n2\n3\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["switch", "-q", "-c", "topic"],
+  { write = "n.txt", content = "topic\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "t1"],
+  ["switch", "-q", "main"],
+  { write = "n.txt", content = "main\n" },
+  ["add", "-A"],
+  ["commit", "-q", "--allow-empty", "-m", "m1"],
+  ["switch", "-q", "topic"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["rebase", "main"]
+expect_exit = 1
+
+[nurt]
+command = "git.rebase"
+params = { onto = "main" }
+expect = "error:E_GIT_CONFLICT"
+
+[compare]
+state = ["index", "worktree", "refs", "reflog", "state_files", "objects:HEAD"]
+undo = true
+ignore = []

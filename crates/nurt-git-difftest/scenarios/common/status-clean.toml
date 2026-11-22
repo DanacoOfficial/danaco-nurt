@@ -1,0 +1,9 @@
+id = "common/status-clean"
+description = "Status of a clean repository changes nothing."
+corpus = "linear-small"
+
+[git]
+args = ["status", "--porcelain=v2"]
+
+[nurt]
+command = "git.status"

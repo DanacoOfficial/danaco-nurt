@@ -1,0 +1,21 @@
+id = "stash/apply-clean"
+description = "Apply restores the changes and keeps the entry."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "a.txt", content = "a-work\n" },
+  ["stash", "push", "-q"],
+]
+
+[git]
+args = ["stash", "apply", "-q"]
+
+[nurt]
+command = "git.stash"
+params = { action = "apply" }
+
+

@@ -1,0 +1,16 @@
+id = "stage/new-file-partial"
+description = "Stage the first and the third line of a new file."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+]
+files = { "n.txt" = "one\ntwo\nthree\n", "sel.patch" = "diff --git a/n.txt b/n.txt\nnew file mode 100644\n--- /dev/null\n+++ b/n.txt\n@@ -0,0 +1,2 @@\n+one\n+three\n" }
+
+[git]
+args = ["apply", "--cached", "sel.patch"]
+
+[nurt]
+command = "git.stage"
+params = { action = "add", hunks = ["n.txt#1@1,3"] }

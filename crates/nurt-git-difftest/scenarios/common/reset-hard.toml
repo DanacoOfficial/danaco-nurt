@@ -1,0 +1,10 @@
+id = "common/reset-hard"
+description = "Hard reset to HEAD~1 moves main, rewrites index and working tree and sets ORIG_HEAD."
+corpus = "linear-small"
+
+[git]
+args = ["reset", "-q", "--hard", "HEAD~1"]
+
+[nurt]
+command = "git.reset"
+params = { revision = "HEAD~1", mode = "hard" }

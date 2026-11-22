@@ -1,0 +1,23 @@
+id = "commit/amend-initial-commit"
+description = "amend rewrites the root commit."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "root"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["commit", "-q", "--amend", "--only", "-m", "root reworded"]
+expect_exit = 0
+
+[nurt]
+command = "git.commit"
+params = { message = "root reworded", amend = true }
+expect = "ok"
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config", "objects:HEAD"]
+undo = true
+ignore = []

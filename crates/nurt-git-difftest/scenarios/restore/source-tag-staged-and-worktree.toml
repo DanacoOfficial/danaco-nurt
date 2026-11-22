@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "restore/source-tag-staged-and-worktree"
+description = "A directory is restored from a tag into the index and the working tree."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a\n" },
+  { write = "same.txt", content = "s\n" },
+  { write = "d/x.txt", content = "x\n" },
+  { write = "d/y.txt", content = "y\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  { write = "a.txt", content = "side\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+  { write = "a.txt", content = "main\n" },
+  { write = "b2.txt", content = "b2\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "second"],
+  { write = "d/x.txt", content = "changed\n" },
+  { write = "d/z.txt", content = "new\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "third"],
+]
+
+[git]
+args = ["restore", "--source=base", "--staged", "--worktree", "d"]
+
+[nurt]
+command = "git.restore"
+params = { paths = ["d"], source = "base", staged = true, worktree = true }

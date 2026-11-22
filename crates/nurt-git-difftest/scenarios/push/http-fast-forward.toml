@@ -1,0 +1,30 @@
+id = "push/http-fast-forward"
+description = "Push over smart HTTP of a commit that descends from the remote branch fast-forwards it."
+corpus = "empty"
+transport = "http"
+setup = [
+  { git = ["init", "-q", "--bare", "-b", "main", "upstream"], cwd = ".." },
+  ["remote", "add", "origin", "$SERVER/upstream"],
+  { write = "a.txt", content = "a\n" },
+  ["add", "a.txt"],
+  ["commit", "-q", "-m", "init"],
+  ["push", "-q", "origin", "main"],
+  { write = "b.txt", content = "b\n" },
+  ["add", "b.txt"],
+  ["commit", "-q", "-m", "second"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["push", "origin", "main"]
+expect_exit = 0
+
+[nurt]
+command = "git.push"
+params = { branch = "main" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "config", "refs@../upstream", "objects@../upstream", "fsck@../upstream"]
+undo = false
+ignore = []

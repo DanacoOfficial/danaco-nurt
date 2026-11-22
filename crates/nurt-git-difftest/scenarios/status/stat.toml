@@ -1,0 +1,32 @@
+id = "status/stat"
+description = "The line counts of a modified file are reported with stat."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "one\ntwo\nthree\n" },
+  { write = "dir/b.txt", content = "b\n" },
+  { write = ".gitignore", content = "*.log\nbuild/\n" },
+  ["add", "a.txt", "dir/b.txt", ".gitignore"],
+  ["commit", "-q", "-m", "init"],
+  { write = "a.txt", content = "one\nTWO\nthree\nfour\nfive\n" },
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["status", "--porcelain=v2"]
+expect_exit = 0
+
+[nurt]
+command = "git.status"
+params = { stat = true }
+expect = "ok"
+record_count = 1
+[[nurt.records]]
+kind = "git_status"
+path = "a.txt"
+added = 3
+removed = 1
+
+[compare]
+state = ["index", "worktree", "status", "refs", "reflog", "state_files", "config"]
+undo = false
+ignore = []

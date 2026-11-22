@@ -1,0 +1,10 @@
+id = "branch/create-from-commit"
+description = "Create branch old at the grandparent of HEAD given as a revision expression."
+corpus = "linear-small"
+
+[git]
+args = ["branch", "old", "HEAD~2"]
+
+[nurt]
+command = "git.branch"
+params = { create = "old", from = "HEAD~2" }

@@ -1,0 +1,22 @@
+id = "stash/apply-new-file"
+description = "Apply keeps a stashed new file added to the index."
+corpus = "empty"
+setup = [
+  { write = "a.txt", content = "a1\n" },
+  { write = "b.txt", content = "b1\n" },
+  { write = "dir/c.txt", content = "c1\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "first"],
+  { write = "added.txt", content = "new\n" },
+  ["add", "added.txt"],
+  ["stash", "push", "-q"],
+]
+
+[git]
+args = ["stash", "apply", "-q"]
+
+[nurt]
+command = "git.stash"
+params = { action = "apply" }
+
+

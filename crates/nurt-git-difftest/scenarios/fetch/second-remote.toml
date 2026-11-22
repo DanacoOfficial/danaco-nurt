@@ -1,0 +1,31 @@
+id = "fetch/second-remote"
+description = "Fetch from a named remote other than origin."
+corpus = "empty"
+transport = "file"
+setup = [
+  { write = "../upstream/a.txt", content = "a\n" },
+  { git = ["init", "-q", "-b", "main"], cwd = "../upstream" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "init"], cwd = "../upstream" },
+  { write = "../upstream/a.txt", content = "a\nx\n" },
+  { git = ["add", "-A"], cwd = "../upstream" },
+  { git = ["commit", "-q", "-m", "c2"], cwd = "../upstream" },
+  { git = ["branch", "topic"], cwd = "../upstream" },
+  ["remote", "add", "origin", "../upstream"],
+  ["remote", "add", "mirror", "../upstream"],
+]
+platforms = ["linux", "macos", "windows"]
+
+[git]
+args = ["fetch", "mirror"]
+expect_exit = 0
+
+[nurt]
+command = "git.fetch"
+params = { remote = "mirror" }
+expect = "ok"
+
+[compare]
+state = ["refs", "reflog", "state_files", "config", "fsck"]
+undo = true
+ignore = []

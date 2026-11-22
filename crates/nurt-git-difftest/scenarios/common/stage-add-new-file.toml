@@ -1,0 +1,11 @@
+id = "common/stage-add-new-file"
+description = "Stage a new file; only its index entry changes."
+corpus = "linear-small"
+files = { "new.txt" = "new file\n" }
+
+[git]
+args = ["add", "new.txt"]
+
+[nurt]
+command = "git.stage"
+params = { action = "add", paths = ["new.txt"] }

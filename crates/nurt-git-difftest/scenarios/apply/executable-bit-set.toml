@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+id = "apply/executable-bit-set"
+description = "Only the executable bit changes between the commits; the file content stays."
+corpus = "empty"
+setup = [
+  { write = "tool", content = "echo\n" },
+  { write = "top.txt", content = "t\n" },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "base"],
+  ["tag", "base"],
+  ["switch", "-q", "-c", "side"],
+  { write = "tool", content = "echo\n", executable = true },
+  ["add", "-A"],
+  ["commit", "-q", "-m", "side"],
+  ["switch", "-q", "main"],
+]
+platforms = ["linux", "macos"]
+
+[git]
+args = ["switch", "side"]
+
+[nurt]
+command = "git.switch"
+params = { branch = "side" }
