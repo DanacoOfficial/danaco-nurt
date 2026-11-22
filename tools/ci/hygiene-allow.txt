@@ -29,6 +29,6 @@ style */LICENSE
 # accounts as input.
 user-path crates/nurt-report/tests/rules_paths.rs
 
-# The proptest strategy Just(...) produces a constant value; the word is a
-# function name.
+# The proptest constant strategy is a function whose name is a promotional
+# word; the test uses it as an identifier.
 promotional-word crates/nurt-types/tests/order.rs
