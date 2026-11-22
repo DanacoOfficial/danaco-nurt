@@ -32,5 +32,4 @@ redefined:
   use2: *v
 keys:
   &k key9 : value
-aliased_keys:
   *k : other

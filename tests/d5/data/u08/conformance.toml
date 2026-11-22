@@ -297,7 +297,7 @@ xml = '''<a><?t a?b ? c?></a>'''
 id = "wf-cdata-section"
 wf = true
 section = "2.7 [18]"
-xml = '''<a><![CDATA[<b> & ]] ]]></a>'''
+xml = '''<a><![CDATA[<b> & ]] ]></a>'''
 
 [[case]]
 id = "wf-empty-cdata-section"
@@ -405,7 +405,7 @@ xml = '''<!DOCTYPE a PUBLIC "-//Example//DTD A 1.0//EN" "http://example.com/a.dt
 id = "wf-doctype-public-single-quotes"
 wf = true
 section = "4.2.2 [75]"
-xml = '''<!DOCTYPE a PUBLIC '-//Example//DTD A//EN' 'a.dtd'><a/>'''
+xml = '''<!DOCTYPE a PUBLIC '-//Example//DTD "A"//EN' 'a.dtd'><a/>'''
 
 [[case]]
 id = "wf-doctype-empty-internal-subset"
@@ -1234,7 +1234,7 @@ section = "4.3.3"
 xml = '''<?xml version="1.0" encoding="UTF-16"?><a/>'''
 
 [[case]]
-id = "not-wf-declaration-us-ascii-with-non-ascii-content"
+id = "not-wf-declaration-encoding-utf8-with-latin1-bytes"
 wf = false
 section = "4.3.3"
 xml = "<?xml version=\"1.0\" encoding=\"US-ASCII\"?><a>é</a>"

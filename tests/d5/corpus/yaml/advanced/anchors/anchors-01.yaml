@@ -27,5 +27,4 @@ jobs:
   deploy-copy: *deploy
 keys:
   &k key1 : value
-aliased_keys:
   *k : other
